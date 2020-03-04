@@ -15,9 +15,9 @@
 package analysis
 
 import (
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/scope"
+	"istio.io/istio/pkg/config/schema/collection"
 )
 
 // Analyzer is an interface for analyzing configuration.
@@ -28,40 +28,30 @@ type Analyzer interface {
 
 // CombinedAnalyzer is a special Analyzer that combines multiple analyzers into one
 type CombinedAnalyzer struct {
-	metadata  Metadata
+	name      string
 	analyzers []Analyzer
-	disabled  map[collection.Name]struct{}
 }
 
 // Combine multiple analyzers into a single one.
 // For input metadata, use the union of the component analyzers
 func Combine(name string, analyzers ...Analyzer) *CombinedAnalyzer {
 	return &CombinedAnalyzer{
-		metadata: Metadata{
-			Name:   name,
-			Inputs: combineInputs(analyzers),
-		},
+		name:      name,
 		analyzers: analyzers,
 	}
 }
 
 // Metadata implements Analyzer
 func (c *CombinedAnalyzer) Metadata() Metadata {
-	return c.metadata
+	return Metadata{
+		Name:   c.name,
+		Inputs: combineInputs(c.analyzers),
+	}
 }
 
 // Analyze implements Analyzer
 func (c *CombinedAnalyzer) Analyze(ctx Context) {
-mainloop:
 	for _, a := range c.analyzers {
-		// Skip over any analyzers that require disabled input
-		for _, in := range a.Metadata().Inputs {
-			if _, ok := c.disabled[in]; ok {
-				scope.Analysis.Debugf("Skipping analyzer %q because collection %s is disabled.", a.Metadata().Name, in)
-				continue mainloop
-			}
-		}
-
 		scope.Analysis.Debugf("Started analyzer %q...", a.Metadata().Name)
 		if ctx.Canceled() {
 			scope.Analysis.Debugf("Analyzer %q has been cancelled...", c.Metadata().Name)
@@ -72,6 +62,55 @@ mainloop:
 	}
 }
 
+// RemoveSkipped removes analyzers that should be skipped, meaning they meet one of the following criteria:
+// 1. The analyzer requires disabled input collections. The names of removed analyzers are returned.
+// Transformer information is used to determine, based on the disabled input collections, which output collections
+// should be disabled. Any analyzers that require those output collections will be removed.
+// 2. The analyzer requires a collection not available in the current snapshot(s)
+func (c *CombinedAnalyzer) RemoveSkipped(colsInSnapshots, disabledInputs collection.Names, xformProviders transformer.Providers) []string {
+	disabledOutputs := getDisabledOutputs(disabledInputs, xformProviders)
+	var enabled []Analyzer
+	var removedNames []string
+
+	snapshotCols := make(map[collection.Name]bool)
+	for _, col := range colsInSnapshots {
+		snapshotCols[col] = true
+	}
+
+mainloop:
+	for _, a := range c.analyzers {
+		for _, in := range a.Metadata().Inputs {
+			// Skip over any analyzers that require disabled input
+			if _, ok := disabledOutputs[in]; ok {
+				scope.Analysis.Infof("Skipping analyzer %q because collection %s is disabled.", a.Metadata().Name, in)
+				removedNames = append(removedNames, a.Metadata().Name)
+				continue mainloop
+			}
+
+			// Skip over any analyzers needing collections not in the snapshot(s)
+			if _, ok := snapshotCols[in]; !ok {
+				scope.Analysis.Infof("Skipping analyzer %q because collection %s is not in the snapshot(s).", a.Metadata().Name, in)
+				removedNames = append(removedNames, a.Metadata().Name)
+				continue mainloop
+			}
+		}
+
+		enabled = append(enabled, a)
+	}
+
+	c.analyzers = enabled
+	return removedNames
+}
+
+// AnalyzerNames returns the names of analyzers in this combined analyzer
+func (c *CombinedAnalyzer) AnalyzerNames() []string {
+	var result []string
+	for _, a := range c.analyzers {
+		result = append(result, a.Metadata().Name)
+	}
+	return result
+}
+
 func combineInputs(analyzers []Analyzer) collection.Names {
 	result := make([]collection.Name, 0)
 	for _, a := range analyzers {
@@ -79,17 +118,6 @@ func combineInputs(analyzers []Analyzer) collection.Names {
 	}
 
 	return result
-}
-
-// WithDisabled returns a new CombinedAnalyzer that marks the specified input collections as disabled.
-// Transformer information is used to determine, based on the disabled input collections, which output collections
-// should be disabled. Any analyzers that require those output collections will be skipped.
-func (c *CombinedAnalyzer) WithDisabled(disabledInputs collection.Names, xformProviders transformer.Providers) *CombinedAnalyzer {
-	return &CombinedAnalyzer{
-		metadata:  c.metadata,
-		analyzers: c.analyzers,
-		disabled:  getDisabledOutputs(disabledInputs, xformProviders),
-	}
 }
 
 func getDisabledOutputs(disabledInputs collection.Names, xformProviders transformer.Providers) map[collection.Name]struct{} {
@@ -103,24 +131,27 @@ func getDisabledOutputs(disabledInputs collection.Names, xformProviders transfor
 	// 1. Count, for each output, how many xforms feed it
 	outputXformCount := make(map[collection.Name]int)
 	for _, p := range xformProviders {
-		for _, out := range p.Outputs() {
-			outputXformCount[out]++
-		}
+		p.Outputs().ForEach(func(out collection.Schema) (done bool) {
+			outputXformCount[out.Name()]++
+			return
+		})
 	}
 
 	// 2. For each xform, if inputs are disabled decrement each output counter for that xform
 	for _, p := range xformProviders {
 		hasDisabledInput := false
-		for _, in := range p.Inputs() {
-			if _, ok := disabledInputSet[in]; ok {
+		p.Inputs().ForEach(func(in collection.Schema) (done bool) {
+			if _, ok := disabledInputSet[in.Name()]; ok {
 				hasDisabledInput = true
-				break
+				return true
 			}
-		}
+			return
+		})
 		if hasDisabledInput {
-			for _, out := range p.Outputs() {
-				outputXformCount[out]--
-			}
+			p.Outputs().ForEach(func(out collection.Schema) (done bool) {
+				outputXformCount[out.Name()]--
+				return
+			})
 		}
 	}
 

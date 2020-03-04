@@ -88,12 +88,12 @@ type Proxy interface {
 	// Run command for a config, epoch, and abort channel
 	Run(interface{}, int, <-chan error) error
 
+	// Drains the current epoch.
+	Drain() error
+
 	// Cleanup command for an epoch
 	Cleanup(int)
 }
-
-// DrainConfig is used to signal to the Proxy that it should start draining connections
-type DrainConfig struct{}
 
 type agent struct {
 	// proxy commands
@@ -244,7 +244,10 @@ func (a *agent) Run(ctx context.Context) error {
 
 func (a *agent) terminate() {
 	log.Infof("Agent draining Proxy")
-	a.Restart(DrainConfig{})
+	e := a.proxy.Drain()
+	if e != nil {
+		log.Warnf("Error in invoking drain listeners endpoint %v", e)
+	}
 	log.Infof("Graceful termination period is %v, starting...", a.terminationDrainDuration)
 	time.Sleep(a.terminationDrainDuration)
 	log.Infof("Graceful termination period complete, terminating remaining proxies.")

@@ -26,9 +26,11 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/resource"
+
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
+	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 func TestFsSource_NoInitialFile(t *testing.T) {
@@ -50,20 +52,21 @@ func TestFsSource_NoInitialFile(t *testing.T) {
 	expected := []event.Event{
 		{
 			Kind:   event.Added,
-			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
-					Name: resource.NewName("istio-system", "meshconfig"),
+					FullName: resource.NewFullName("istio-system", "meshconfig"),
+					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
-				Item: Default(),
+				Message: Default(),
 			},
 		},
 		{
 			Kind:   event.FullSync,
-			Source: IstioMeshconfig,
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	g.Eventually(acc.Events).Should(Equal(expected))
+	fixtures.ExpectEventsEventually(t, acc, expected...)
 }
 
 func TestFsSource_NoInitialFile_UpdateAfterStart(t *testing.T) {
@@ -85,20 +88,21 @@ func TestFsSource_NoInitialFile_UpdateAfterStart(t *testing.T) {
 	expected := []event.Event{
 		{
 			Kind:   event.Added,
-			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
-					Name: resource.NewName("istio-system", "meshconfig"),
+					FullName: resource.NewFullName("istio-system", "meshconfig"),
+					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
-				Item: Default(),
+				Message: Default(),
 			},
 		},
 		{
 			Kind:   event.FullSync,
-			Source: IstioMeshconfig,
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	g.Eventually(acc.Events).Should(Equal(expected))
+	fixtures.ExpectEventsEventually(t, acc, expected...)
 
 	acc.Clear()
 	mcfg := Default()
@@ -108,10 +112,10 @@ func TestFsSource_NoInitialFile_UpdateAfterStart(t *testing.T) {
 	expected = []event.Event{
 		{
 			Kind:   event.Reset,
-			Source: IstioMeshconfig,
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	g.Eventually(acc.Events).Should(ContainElement(expected[0]))
+	fixtures.ExpectEventsEventually(t, acc, expected[0])
 }
 
 func TestFsSource_InitialFile_UpdateAfterStart(t *testing.T) {
@@ -135,20 +139,21 @@ func TestFsSource_InitialFile_UpdateAfterStart(t *testing.T) {
 	expected := []event.Event{
 		{
 			Kind:   event.Added,
-			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
-					Name: resource.NewName("istio-system", "meshconfig"),
+					FullName: resource.NewFullName("istio-system", "meshconfig"),
+					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
-				Item: mcfg,
+				Message: mcfg,
 			},
 		},
 		{
 			Kind:   event.FullSync,
-			Source: IstioMeshconfig,
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	g.Eventually(acc.Events).Should(Equal(expected))
+	fixtures.ExpectEventsEventually(t, acc, expected...)
 
 	acc.Clear()
 	mcfg2 := Default()
@@ -158,10 +163,10 @@ func TestFsSource_InitialFile_UpdateAfterStart(t *testing.T) {
 	expected = []event.Event{
 		{
 			Kind:   event.Reset,
-			Source: IstioMeshconfig,
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	g.Eventually(acc.Events).Should(ContainElement(expected[0]))
+	fixtures.ExpectEventsEventually(t, acc, expected[0])
 }
 
 func TestFsSource_InitialFile(t *testing.T) {
@@ -185,20 +190,21 @@ func TestFsSource_InitialFile(t *testing.T) {
 	expected := []event.Event{
 		{
 			Kind:   event.Added,
-			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
-					Name: resource.NewName("istio-system", "meshconfig"),
+					FullName: resource.NewFullName("istio-system", "meshconfig"),
+					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
-				Item: mcfg,
+				Message: mcfg,
 			},
 		},
 		{
 			Kind:   event.FullSync,
-			Source: IstioMeshconfig,
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	g.Eventually(acc.Events).Should(Equal(expected))
+	fixtures.ExpectEventsEventually(t, acc, expected...)
 }
 
 func TestFsSource_StartStopStart(t *testing.T) {
@@ -221,27 +227,28 @@ func TestFsSource_StartStopStart(t *testing.T) {
 	expected := []event.Event{
 		{
 			Kind:   event.Added,
-			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
-					Name: resource.NewName("istio-system", "meshconfig"),
+					FullName: resource.NewFullName("istio-system", "meshconfig"),
+					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
-				Item: mcfg,
+				Message: mcfg,
 			},
 		},
 		{
 			Kind:   event.FullSync,
-			Source: IstioMeshconfig,
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	g.Eventually(acc.Events).Should(Equal(expected))
+	fixtures.ExpectEventsEventually(t, acc, expected...)
 
 	acc.Clear()
 	fs.Stop()
 	g.Consistently(acc.Events()).Should(HaveLen(0))
 
 	fs.Start()
-	g.Eventually(acc.Events).Should(Equal(expected))
+	fixtures.ExpectEventsEventually(t, acc, expected...)
 }
 
 func TestFsSource_FileRemoved_NoChange(t *testing.T) {
@@ -264,20 +271,21 @@ func TestFsSource_FileRemoved_NoChange(t *testing.T) {
 	expected := []event.Event{
 		{
 			Kind:   event.Added,
-			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
-					Name: resource.NewName("istio-system", "meshconfig"),
+					FullName: resource.NewFullName("istio-system", "meshconfig"),
+					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
-				Item: mcfg,
+				Message: mcfg,
 			},
 		},
 		{
 			Kind:   event.FullSync,
-			Source: IstioMeshconfig,
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	g.Eventually(acc.Events).Should(Equal(expected))
+	fixtures.ExpectEventsEventually(t, acc, expected...)
 	acc.Clear()
 
 	err = os.Remove(file)
@@ -307,20 +315,21 @@ func TestFsSource_BogusFile_NoChange(t *testing.T) {
 	expected := []event.Event{
 		{
 			Kind:   event.Added,
-			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
-					Name: resource.NewName("istio-system", "meshconfig"),
+					FullName: resource.NewFullName("istio-system", "meshconfig"),
+					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
-				Item: mcfg,
+				Message: mcfg,
 			},
 		},
 		{
 			Kind:   event.FullSync,
-			Source: IstioMeshconfig,
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	g.Eventually(acc.Events).Should(Equal(expected))
+	fixtures.ExpectEventsEventually(t, acc, expected...)
 	acc.Clear()
 
 	err = ioutil.WriteFile(file, []byte(":@#Hallo!"), os.ModePerm)
@@ -387,18 +396,19 @@ func TestFsSource_YamlToJSONError(t *testing.T) {
 	expected := []event.Event{
 		{
 			Kind:   event.Added,
-			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
-					Name: resource.NewName("istio-system", "meshconfig"),
+					FullName: resource.NewFullName("istio-system", "meshconfig"),
+					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
-				Item: Default(),
+				Message: Default(),
 			},
 		},
 		{
 			Kind:   event.FullSync,
-			Source: IstioMeshconfig,
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	g.Eventually(acc.Events).Should(Equal(expected))
+	fixtures.ExpectEventsEventually(t, acc, expected...)
 }

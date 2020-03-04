@@ -16,7 +16,6 @@ package security
 
 import (
 	"fmt"
-	"strconv"
 	"testing"
 	"time"
 
@@ -37,7 +36,7 @@ func TestMtlsHealthCheck(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			ns := namespace.ClaimOrFail(t, ctx, "healthcheck")
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{Prefix: "healthcheck", Inject: true})
 			for _, testCase := range []struct {
 				name    string
 				rewrite bool
@@ -82,14 +81,15 @@ spec:
 			ServicePort:  8080,
 			InstancePort: 8080,
 		}},
+		Subsets: []echo.SubsetConfig{
+			{
+				Annotations: echo.NewAnnotations().SetBool(echo.SidecarRewriteAppHTTPProbers, rewrite),
+			},
+		},
 	}
 	// Negative test, we expect the health check fails, so set a timeout duration.
 	if !rewrite {
 		cfg.ReadinessTimeout = time.Second * 40
-	}
-	cfg.Annotations = map[echo.Annotation]*echo.AnnotationValue{
-		echo.SidecarRewriteAppHTTPProbers: {
-			Value: strconv.FormatBool(rewrite)},
 	}
 	err := echoboot.NewBuilderOrFail(t, ctx).
 		With(&healthcheck, cfg).

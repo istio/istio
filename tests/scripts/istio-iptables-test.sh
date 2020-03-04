@@ -16,7 +16,7 @@
 #
 ################################################################################
 
-set -euf
+set -uf
 
 function show_difference() {
     local ACTUAL=$1
@@ -29,10 +29,11 @@ function show_difference() {
 }
 
 function refresh_reference() {
-    local NAME=$1
-    local ACTUAL=$2
+    local TESTMODE=$1
+    local NAME=$2
+    local ACTUAL=$3
 
-    echo "${ACTUAL}" > "${SCRIPT_DIR}/testdata/${NAME}_golden.txt"
+    echo "${ACTUAL}" > "${SCRIPT_DIR}/testdata/${TESTMODE}/${NAME}_golden.txt"
     echo "golden file for test ${NAME} updated"
 }
 
@@ -56,17 +57,11 @@ function compareWithGolden() {
   local FILE_UNDER_TEST
 
   case "${TEST_MODE}" in
-   "script")
-    FILE_UNDER_TEST="${SCRIPT_DIR}/../../tools/packaging/common/istio-iptables.sh"
-   ;;
    "golang")
-    FILE_UNDER_TEST="${ISTIO_OUT}/istio-iptables --dry-run"
-   ;;
-   "script_clean")
-    FILE_UNDER_TEST="${SCRIPT_DIR}/../../tools/packaging/common/istio-clean-iptables.sh"
+    FILE_UNDER_TEST="${BINARY_PATH}/istio-iptables --dry-run --restore-format=false"
    ;;
    "golang_clean")
-    FILE_UNDER_TEST="${ISTIO_OUT}/istio-clean-iptables --dryRun"
+    FILE_UNDER_TEST="${BINARY_PATH}/istio-clean-iptables --dry-run"
    ;;
   esac
 
@@ -78,9 +73,9 @@ function compareWithGolden() {
   ACTUAL_OUTPUT="$(${FILE_UNDER_TEST} ${PARAMS} 2>/dev/null)"
 
   if [[ "x${REFRESH_GOLDEN:-false}x" = "xtruex" ]] ; then
-    refresh_reference "${TEST_NAME}" "${ACTUAL_OUTPUT}"
+    refresh_reference "${TEST_MODE}" "${TEST_NAME}" "${ACTUAL_OUTPUT}"
   else
-    EXPECTED_OUTPUT=$(cat "${SCRIPT_DIR}/testdata/${TEST_NAME}_golden.txt")
+    EXPECTED_OUTPUT=$(cat "${SCRIPT_DIR}/testdata/${TEST_MODE}/${TEST_NAME}_golden.txt")
     if assert_equals "${TEST_NAME}" "${ACTUAL_OUTPUT}" "${EXPECTED_OUTPUT}"; then
       echo -e "ok\tistio.io/$0/${TEST_NAME} (${TEST_MODE})\t0.000s"
     else
@@ -98,13 +93,13 @@ TEST_MODES=( "$@" )
 SCRIPT_NAME=$0
 SCRIPT_DIR=$(dirname "$SCRIPT_NAME")
 if [[ ${#TEST_MODES[@]} -eq 0 ]] ; then
-    TEST_MODES+=("script")
     if [[ "x${REFRESH_GOLDEN:-false}x" != "xtruex" ]] ; then
         TEST_MODES+=("golang")
     fi
 fi
 export PATH="${SCRIPT_DIR}/stubs:${PATH}"
 
+export BINARY_PATH="${LOCAL_OUT:-$ISTIO_OUT}"
 FAILED=()
 
 for TEST_MODE in "${TEST_MODES[@]}"; do
@@ -113,9 +108,7 @@ for TEST_MODE in "${TEST_MODES[@]}"; do
     compareWithGolden clean "${TEST_MODE}_clean"
     compareWithGolden mode_tproxy "${TEST_MODE}" "-p 12345 -u 4321 -g 4444 -m TPROXY -b 5555,6666 -d 7777,8888 -i 1.1.0.0/16 -x 9.9.0.0/16 -k eth1,eth2"
     compareWithGolden clean "${TEST_MODE}_clean"
-    export STUB_IP="2001:db8:1::1"
-    compareWithGolden mode_tproxy_and_ipv6 "${TEST_MODE}" "-p 12345 -u 4321 -g 4444 -m TPROXY -b * -d 7777,8888 -i 2001:db8::/32 -x 2019:db8::/32 -k eth1,eth2"
-    unset STUB_IP
+    # compareWithGolden mode_tproxy_and_ipv6 "${TEST_MODE}" "-p 12345 -u 4321 -g 4444 -m TPROXY -b * -d 7777,8888 -i 2001:db8::/32 -x 2019:db8::/32 -k eth1,eth2"
     compareWithGolden clean "${TEST_MODE}_clean"
     compareWithGolden mode_tproxy_and_wildcard_port "${TEST_MODE}" "-p 12345 -u 4321 -g 4444 -m TPROXY -b * -d 7777,8888 -i 1.1.0.0/16 -x 9.9.0.0/16 -k eth1,eth2"
     compareWithGolden clean "${TEST_MODE}_clean"

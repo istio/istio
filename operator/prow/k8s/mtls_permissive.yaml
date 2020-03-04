@@ -1,0 +1,10 @@
+# Per namespace mtls permissive mode
+# Authentication policy to enable permissive mode
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: default
+spec:
+  peers:
+  - mtls:
+      mode: PERMISSIVE

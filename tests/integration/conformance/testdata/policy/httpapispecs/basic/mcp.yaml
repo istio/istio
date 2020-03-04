@@ -4,7 +4,7 @@ constraints:
       - exactlyOne:
           - equals: {
             "Body": {
-              "api_keys": [
+              "apiKeys": [
               {
                 "query": "key"
               }

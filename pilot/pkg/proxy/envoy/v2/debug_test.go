@@ -28,14 +28,13 @@ import (
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/tests/util"
 )
 
 func TestSyncz(t *testing.T) {
 	t.Run("return the sent and ack status of adsClient connections", func(t *testing.T) {
-		_, tearDown := initLocalPilotTestEnv(t)
+		s, tearDown := initLocalPilotTestEnv(t)
 		defer tearDown()
 
 		adsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
@@ -81,10 +80,10 @@ func TestSyncz(t *testing.T) {
 		}
 
 		node, _ := model.ParseServiceNodeWithMetadata(sidecarID(app3Ip, "syncApp"), &model.NodeMetadata{})
-		verifySyncStatus(t, node.ID, true, true)
+		verifySyncStatus(t, s.EnvoyXdsServer, node.ID, true, true)
 	})
 	t.Run("sync status not set when Nackd", func(t *testing.T) {
-		_, tearDown := initLocalPilotTestEnv(t)
+		s, tearDown := initLocalPilotTestEnv(t)
 		defer tearDown()
 
 		adsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
@@ -128,17 +127,17 @@ func TestSyncz(t *testing.T) {
 			t.Fatal(err)
 		}
 		node, _ := model.ParseServiceNodeWithMetadata(sidecarID(app3Ip, "syncApp2"), &model.NodeMetadata{})
-		verifySyncStatus(t, node.ID, true, false)
+		verifySyncStatus(t, s.EnvoyXdsServer, node.ID, true, false)
 	})
 }
 
-func getSyncStatus(t *testing.T) []v2.SyncStatus {
+func getSyncStatus(t *testing.T, server *v2.DiscoveryServer) []v2.SyncStatus {
 	req, err := http.NewRequest("GET", "/debug", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	rr := httptest.NewRecorder()
-	syncz := http.HandlerFunc(v2.Syncz)
+	syncz := http.HandlerFunc(server.Syncz)
 	syncz.ServeHTTP(rr, req)
 	got := []v2.SyncStatus{}
 	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
@@ -147,12 +146,12 @@ func getSyncStatus(t *testing.T) []v2.SyncStatus {
 	return got
 }
 
-func verifySyncStatus(t *testing.T, nodeID string, wantSent, wantAcked bool) {
+func verifySyncStatus(t *testing.T, s *v2.DiscoveryServer, nodeID string, wantSent, wantAcked bool) {
 	// This is a mostly horrible hack because the single pilot instance is shared across multiple tests
 	// This makes this test contaminated by others and gives it horrible timing windows
 	attempts := 5
 	for i := 0; i < attempts; i++ {
-		gotStatus := getSyncStatus(t)
+		gotStatus := getSyncStatus(t, s)
 		var errorHandler func(string, ...interface{})
 		if i == attempts-1 {
 			errorHandler = t.Errorf
@@ -225,35 +224,35 @@ func TestConfigDump(t *testing.T) {
 			s, tearDown := initLocalPilotTestEnv(t)
 			defer tearDown()
 
-			for i := 0; i < 2; i++ {
-				envoy, cancel, err := connectADS(util.MockPilotGrpcAddr)
-				if err != nil {
-					t.Fatal(err)
-				}
-				defer cancel()
-				if err := sendCDSReq(sidecarID(app3Ip, "dumpApp"), envoy); err != nil {
-					t.Fatal(err)
-				}
-				if err := sendLDSReq(sidecarID(app3Ip, "dumpApp"), envoy); err != nil {
-					t.Fatal(err)
-				}
-				// Only most recent proxy will have routes
-				if i == 1 {
-					if err := sendRDSReq(sidecarID(app3Ip, "dumpApp"), []string{"80", "8080"}, "", envoy); err != nil {
-						t.Fatal(err)
-					}
-					_, err := adsReceive(envoy, 5*time.Second)
-					if err != nil {
-						t.Fatal("Recv failed", err)
-					}
-				}
-				for j := 0; j < 2; j++ {
-					_, err := adsReceive(envoy, 5*time.Second)
-					if err != nil {
-						t.Fatal("Recv failed", err)
-					}
-				}
+			envoy, cancel, err := connectADS(util.MockPilotGrpcAddr)
+			if err != nil {
+				t.Fatal(err)
 			}
+			defer cancel()
+			if err := sendCDSReq(sidecarID(app3Ip, "dumpApp"), envoy); err != nil {
+				t.Fatal(err)
+			}
+			if err := sendLDSReq(sidecarID(app3Ip, "dumpApp"), envoy); err != nil {
+				t.Fatal(err)
+			}
+			// Only most recent proxy will have routes
+			if err := sendRDSReq(sidecarID(app3Ip, "dumpApp"), []string{"80", "8080"}, "", envoy); err != nil {
+				t.Fatal(err)
+			}
+			// Expect CDS, LDS, then RDS
+			_, err = adsReceive(envoy, 5*time.Second)
+			if err != nil {
+				t.Fatal("Recv cds failed", err)
+			}
+			_, err = adsReceive(envoy, 5*time.Second)
+			if err != nil {
+				t.Fatal("Recv lds failed", err)
+			}
+			_, err = adsReceive(envoy, 5*time.Second)
+			if err != nil {
+				t.Fatal("Recv rds failed", err)
+			}
+
 			wrapper := getConfigDump(t, s.EnvoyXdsServer, tt.proxyID, tt.wantCode)
 			if wrapper != nil {
 				if rs, err := wrapper.GetDynamicRouteDump(false); err != nil || len(rs.DynamicRouteConfigs) == 0 {
@@ -316,7 +315,7 @@ func TestAuthenticationZ(t *testing.T) {
 			name:           "dumps most recent proxy with 200",
 			proxyID:        "dumpApp-644fc65469-96dza.testns",
 			wantCode:       200,
-			expectedLength: 25,
+			expectedLength: 24,
 		},
 	}
 
@@ -372,18 +371,33 @@ func getAuthenticationZ(t *testing.T, s *v2.DiscoveryServer, proxyID string, wan
 	if err != nil {
 		t.Fatal(err)
 	}
-	rr := httptest.NewRecorder()
-	authenticationz := http.HandlerFunc(s.Authenticationz)
-	authenticationz.ServeHTTP(rr, req)
-	if rr.Code != wantCode {
-		t.Errorf("wanted response code %v, got %v", wantCode, rr.Code)
-	}
 
 	got := []v2.AuthenticationDebug{}
-	if rr.Code != 200 {
+	var returnCode int
+
+	// Retry 20 times, with 500 ms interval, so up to 10s.
+	for numTries := 0; numTries < 20; numTries++ {
+		rr := httptest.NewRecorder()
+		authenticationz := http.HandlerFunc(s.Authenticationz)
+		authenticationz.ServeHTTP(rr, req)
+		returnCode = rr.Code
+		if rr.Code == wantCode {
+			if rr.Code == 200 {
+				if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
+					t.Fatal(err)
+				}
+			}
+			break
+		}
+
+		// It could be delay in ADS propagation, hence cause different return code for the
+		// authenticationz. Wait 0.5s then retry.
 		t.Logf("/authenticationz returns with error code %v:\n%v", rr.Code, rr.Body)
-	} else if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
-		t.Fatal(err)
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	if returnCode != wantCode {
+		t.Errorf("wanted response code %v, got %v", wantCode, returnCode)
 	}
 
 	return got
@@ -393,28 +407,28 @@ func TestEvaluateTLSState(t *testing.T) {
 	testCases := []struct {
 		name                        string
 		client                      *networking.TLSSettings
-		server                      authn_model.MutualTLSMode
+		server                      model.MutualTLSMode
 		expected                    string
 		expectedWithAutoMTLSEnabled string
 	}{
 		{
 			name:                        "Auto with mTLS disable",
 			client:                      nil,
-			server:                      authn_model.MTLSDisable,
+			server:                      model.MTLSDisable,
 			expected:                    "OK",
-			expectedWithAutoMTLSEnabled: "CONFLICT",
+			expectedWithAutoMTLSEnabled: "AUTO",
 		},
 		{
 			name:                        "Auto with mTLS permissive",
 			client:                      nil,
-			server:                      authn_model.MTLSPermissive,
+			server:                      model.MTLSPermissive,
 			expected:                    "OK",
 			expectedWithAutoMTLSEnabled: "AUTO",
 		},
 		{
 			name:                        "Auto with mTLS STRICT",
 			client:                      nil,
-			server:                      authn_model.MTLSStrict,
+			server:                      model.MTLSStrict,
 			expected:                    "OK",
 			expectedWithAutoMTLSEnabled: "AUTO",
 		},
@@ -423,7 +437,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_ISTIO_MUTUAL,
 			},
-			server:                      authn_model.MTLSStrict,
+			server:                      model.MTLSStrict,
 			expected:                    "OK",
 			expectedWithAutoMTLSEnabled: "OK",
 		},
@@ -432,7 +446,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_DISABLE,
 			},
-			server:                      authn_model.MTLSDisable,
+			server:                      model.MTLSDisable,
 			expected:                    "OK",
 			expectedWithAutoMTLSEnabled: "OK",
 		},
@@ -441,7 +455,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_DISABLE,
 			},
-			server:                      authn_model.MTLSPermissive,
+			server:                      model.MTLSPermissive,
 			expected:                    "OK",
 			expectedWithAutoMTLSEnabled: "OK",
 		},
@@ -450,7 +464,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_ISTIO_MUTUAL,
 			},
-			server:                      authn_model.MTLSPermissive,
+			server:                      model.MTLSPermissive,
 			expected:                    "OK",
 			expectedWithAutoMTLSEnabled: "OK",
 		},
@@ -459,7 +473,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_DISABLE,
 			},
-			server:                      authn_model.MTLSStrict,
+			server:                      model.MTLSStrict,
 			expected:                    "CONFLICT",
 			expectedWithAutoMTLSEnabled: "CONFLICT",
 		},
@@ -468,7 +482,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_MUTUAL,
 			},
-			server:                      authn_model.MTLSStrict,
+			server:                      model.MTLSStrict,
 			expected:                    "CONFLICT",
 			expectedWithAutoMTLSEnabled: "CONFLICT",
 		},
@@ -477,7 +491,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_SIMPLE,
 			},
-			server:                      authn_model.MTLSStrict,
+			server:                      model.MTLSStrict,
 			expected:                    "CONFLICT",
 			expectedWithAutoMTLSEnabled: "CONFLICT",
 		},
@@ -486,7 +500,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_SIMPLE,
 			},
-			server:                      authn_model.MTLSPermissive,
+			server:                      model.MTLSPermissive,
 			expected:                    "CONFLICT",
 			expectedWithAutoMTLSEnabled: "CONFLICT",
 		},
@@ -495,7 +509,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_SIMPLE,
 			},
-			server:                      authn_model.MTLSPermissive,
+			server:                      model.MTLSPermissive,
 			expected:                    "CONFLICT",
 			expectedWithAutoMTLSEnabled: "CONFLICT",
 		},
@@ -536,10 +550,10 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "-",
-					DestinationRuleName:      "-",
+					AuthenticationPolicyName: "None",
+					DestinationRuleName:      "None",
 					ServerProtocol:           "DISABLE",
-					ClientProtocol:           "-",
+					ClientProtocol:           "None",
 					TLSConflictStatus:        "OK",
 				},
 			},
@@ -554,11 +568,11 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "-",
+					AuthenticationPolicyName: "None",
 					DestinationRuleName:      "-",
 					ServerProtocol:           "DISABLE",
 					ClientProtocol:           "-",
-					TLSConflictStatus:        "CONFLICT",
+					TLSConflictStatus:        "AUTO",
 				},
 			},
 		},
@@ -583,9 +597,9 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 					Host:                     "foo.default",
 					Port:                     8080,
 					AuthenticationPolicyName: "bar/foo",
-					DestinationRuleName:      "-",
+					DestinationRuleName:      "None",
 					ServerProtocol:           "STRICT",
-					ClientProtocol:           "-",
+					ClientProtocol:           "None",
 					TLSConflictStatus:        "OK",
 				},
 			},
@@ -621,7 +635,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 					AuthenticationPolicyName: "bar/foo",
 					DestinationRuleName:      "default/some-rule",
 					ServerProtocol:           "STRICT",
-					ClientProtocol:           "-",
+					ClientProtocol:           "None",
 					TLSConflictStatus:        "OK",
 				},
 			},
@@ -805,5 +819,21 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				t.Errorf("EvaluateTLSState expected to be %+v, got %+v", tc.expected, got)
 			}
 		})
+	}
+}
+
+func TestDebugHandlers(t *testing.T) {
+	server, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+
+	req, err := http.NewRequest("GET", "/debug", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	debug := http.HandlerFunc(server.EnvoyXdsServer.Debug)
+	debug.ServeHTTP(rr, req)
+	if rr.Code != 200 {
+		t.Errorf("Error in generatating debug endpoint list")
 	}
 }

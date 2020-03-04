@@ -1,0 +1,13 @@
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  values:
+    grafana:
+      enabled: true
+
+    tracing:
+      enabled: true
+
+    kiali:
+      enabled: true
+      createDemoSecret: true

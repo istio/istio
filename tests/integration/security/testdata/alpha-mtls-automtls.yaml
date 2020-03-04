@@ -1,0 +1,34 @@
+# Verify auto mTLS (still) works with alpha policy.
+apiVersion: authentication.istio.io/v1alpha1
+kind: MeshPolicy
+metadata:
+  name: "default"
+  annotations:
+    test-suite: "alpha-mtls-automtls"
+spec:
+  peers:
+  - mtls: {}
+---
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: "b-mtls-off"
+  annotations:
+    test-suite: "alpha-mtls-automtls"
+spec:
+  targets:
+  - name: "b"
+---
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: "b-80-mtls-on"
+  annotations:
+    test-suite: "alpha-mtls-automtls"
+spec:
+  targets:
+  - name: "b"
+    ports:
+    - name: http
+  peers:
+  - mtls: {}

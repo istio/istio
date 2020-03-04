@@ -29,7 +29,7 @@ import (
 )
 
 var (
-	vaultClientLog = log.RegisterScope("vaultClientLog", "Vault client debugging", 0)
+	vaultClientLog = log.RegisterScope("vault", "Vault client debugging", 0)
 )
 
 type vaultClient struct {
@@ -73,7 +73,7 @@ func NewVaultClient(tls bool, tlsRootCert []byte,
 }
 
 // CSR Sign calls Vault to sign a CSR.
-func (c *vaultClient) CSRSign(ctx context.Context, csrPEM []byte, saToken string,
+func (c *vaultClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, saToken string,
 	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
 	token, err := loginVaultK8sAuthMethod(c.client, c.vaultLoginPath, c.vaultLoginRole, saToken)
 	if err != nil {
@@ -175,7 +175,7 @@ func loginVaultK8sAuthMethod(client *api.Client, loginPath, role, sa string) (st
 	return resp.Auth.ClientToken, nil
 }
 
-// signCsrByVault signs the CSR and return the signed certifcate and the CA certificate chain
+// signCsrByVault signs the CSR and return the signed certificate and the CA certificate chain
 // Return the signed certificate chain when succeed.
 // client: the Vault client
 // csrSigningPath: the path for signing a CSR

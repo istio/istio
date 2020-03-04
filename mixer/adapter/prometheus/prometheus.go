@@ -210,7 +210,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		ErrorLog:      &promLogger{logger: env.Logger()},
 	}
 
-	if err := b.srv.Start(env, promhttp.HandlerFor(b.registry, opts)); err != nil {
+	if err = b.srv.Start(env, promhttp.HandlerFor(b.registry, opts)); err != nil {
 		return nil, err
 	}
 

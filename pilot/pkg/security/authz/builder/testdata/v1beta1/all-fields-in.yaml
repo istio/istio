@@ -1,0 +1,68 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-1
+  namespace: foo
+spec:
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  rules:
+    - from:
+        - source:
+            principals: ["principal", "principal-prefix-*", "*-suffix-principal", "*"]
+            requestPrincipals: ["requestPrincipals", "requestPrincipals-prefix-*", "*-suffix-requestPrincipals", "*"]
+            namespaces: ["ns", "ns-prefix-*", "*-ns-suffix", "*"]
+            ipBlocks: ["1.2.3.4", "5.6.0.0/16"]
+            notPrincipals: ["not-principal", "not-principal-prefix-*", "*-not-suffix-principal", "*"]
+            notRequestPrincipals: ["not-requestPrincipals", "not-requestPrincipals-prefix-*", "*-not-suffix-requestPrincipals", "*"]
+            notNamespaces: ["not-ns", "not-ns-prefix-*", "*-not-ns-suffix", "*"]
+            notIpBlocks: ["9.0.0.1", "9.2.0.0/16"]
+      to:
+        - operation:
+            methods: ["method", "method-prefix-*", "*-suffix-method", "*"]
+            hosts: ["exact.com", "*.suffix.com", "prefix.*", "*"]
+            ports: ["80", "90"]
+            paths: ["/exact", "/prefix/*", "*/suffix", "*"]
+            notMethods: ["not-method", "not-method-prefix-*", "*-not-suffix-method", "*"]
+            notHosts: ["not-exact.com", "*.not-suffix.com", "not-prefix.*", "*"]
+            notPorts: ["8000", "9000"]
+            notPaths: ["/not-exact", "/not-prefix/*", "*/not-suffix", "*"]
+      when:
+        - key: "request.headers[X-header]"
+          values: ["header", "header-prefix-*", "*-suffix-header", "*"]
+          notValues: ["not-header", "not-header-prefix-*", "*-not-suffix-header", "*"]
+        - key: "source.ip"
+          values: ["10.10.10.10", "192.168.10.0/24"]
+          notValues: ["90.10.10.10", "90.168.10.0/24"]
+        - key: "source.namespace"
+          values: ["ns", "ns-prefix-*", "*-ns-suffix", "*"]
+          notValues: ["not-ns", "not-ns-prefix-*", "*-not-ns-suffix", "*"]
+        - key: "source.principal"
+          values: ["principal", "principal-prefix-*", "*-suffix-principal", "*"]
+          notValues: ["not-principal", "not-principal-prefix-*", "*-not-suffix-principal", "*"]
+        - key: "request.auth.principal"
+          values: ["requestPrincipals", "requestPrincipals-prefix-*", "*-suffix-requestPrincipals", "*"]
+          notValues: ["not-requestPrincipals", "not-requestPrincipals-prefix-*", "*-not-suffix-requestPrincipals", "*"]
+        - key: "request.auth.audiences"
+          values: ["audiences", "audiences-prefix-*", "*-suffix-audiences", "*"]
+          notValues: ["not-audiences", "not-audiences-prefix-*", "*-not-suffix-audiences", "*"]
+        - key: "request.auth.presenter"
+          values: ["presenter", "presenter-prefix-*", "*-suffix-presenter", "*"]
+          notValues: ["not-presenter", "not-presenter-prefix-*", "*-not-suffix-presenter", "*"]
+        - key: "request.auth.claims[iss]"
+          values: ["iss", "iss-prefix-*", "*-suffix-iss", "*"]
+          notValues: ["not-iss", "not-iss-prefix-*", "*-not-suffix-iss", "*"]
+        - key: "destination.ip"
+          values: ["10.10.10.10", "192.168.10.0/24"]
+          notValues: ["90.10.10.10", "90.168.10.0/24"]
+        - key: "destination.port"
+          values: ["91", "92"]
+          notValues: ["9001", "9002"]
+        - key: "connection.sni"
+          values: ["exact.com", "*.suffix.com", "prefix.*", "*"]
+          notValues: ["not-exact.com", "*.not-suffix.com", "not-prefix.*", "*"]
+        - key: "experimental.envoy.filters.a.b[c]"
+          values: ["exact", "prefix-*", "*-suffix", "*"]
+          notValues: ["not-exact", "not-prefix-*", "*-not-suffix", "*"]

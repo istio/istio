@@ -15,19 +15,27 @@
 package factory
 
 import (
+	"istio.io/api/authentication/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/security/authn"
-	"istio.io/istio/pilot/pkg/security/authn/v1alpha1"
+	"istio.io/istio/pilot/pkg/security/authn/v1beta1"
+	"istio.io/istio/pkg/config/labels"
 )
 
 // NewPolicyApplier returns the appropriate (policy) applier, depends on the versions of the policy exists
 // for the given service instance.
 func NewPolicyApplier(push *model.PushContext,
-	serviceInstance *model.ServiceInstance) authn.PolicyApplier {
-	// TODO: check v1alpha2 policy and returns alpha2 applier, if exists.
-	service := serviceInstance.Service
-	// TODO GregHanson add support for authn policy label matching
-	port := serviceInstance.Endpoint.ServicePort
-	authnPolicy, _ := push.AuthenticationPolicyForWorkload(service, port)
-	return v1alpha1.NewPolicyApplier(authnPolicy)
+	serviceInstance *model.ServiceInstance, namespace string, labels labels.Collection) authn.PolicyApplier {
+	var authnPolicy *v1alpha1.Policy
+	if serviceInstance != nil {
+		service := serviceInstance.Service
+		port := serviceInstance.ServicePort
+		authnPolicy, _ = push.AuthenticationPolicyForWorkload(service, port)
+	}
+	return v1beta1.NewPolicyApplier(
+		push.AuthnBetaPolicies.GetRootNamespace(),
+		push.AuthnBetaPolicies.GetJwtPoliciesForWorkload(namespace, labels),
+		push.AuthnBetaPolicies.GetPeerAuthenticationsForWorkload(namespace, labels),
+		authnPolicy)
 }

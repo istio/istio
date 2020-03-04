@@ -1,0 +1,36 @@
+# Generated from ClusterRbacConfig with mode ON_WITH_INCLUSION on namespace "default". This policy will deny all requests to namespace "default" by default.
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-namespace-deny-all
+  namespace: default
+spec:
+  {}
+---
+# Generated for service "productpage.default.svc.cluster.local" found in ServiceRole "role" at rule 0
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-role-rule0-svc0-target0
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        principals:
+        - '*'
+  selector:
+    matchLabels:
+      app: productpage
+      version: v1
+---
+# Generated for service "*" found in ServiceRole "role-2" at rule 0
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-role-2-rule0-svc0-target0
+  namespace: default
+spec:
+  rules:
+  - {}
+---

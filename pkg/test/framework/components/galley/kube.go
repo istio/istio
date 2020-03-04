@@ -64,6 +64,10 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 	ns := c.ConfigNamespace
 
+	if !cfg.CreateClient {
+		return n, nil
+	}
+
 	fetchFn := n.environment.NewSinglePodFetch(ns, "istio=galley")
 	pods, err := n.environment.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {

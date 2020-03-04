@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/core"
+	"istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -56,6 +57,7 @@ type TestContext interface {
 	RequireOrSkip(envName environment.Name)
 
 	// WhenDone runs the given function when the test context completes.
+	// This function may not (safely) access the test context.
 	WhenDone(fn func() error)
 
 	// Done should be called when this context is no longer needed. It triggers the asynchronous cleanup of any
@@ -229,6 +231,11 @@ func (c *testContext) Done() {
 	scopes.Framework.Debugf("Begin cleaning up testContext: %q", c.id)
 	if err := c.scope.done(c.suite.settings.NoCleanup); err != nil {
 		c.Logf("error scope cleanup: %v", err)
+		if c.Settings().FailOnDeprecation {
+			if errors.IsOrContainsDeprecatedError(err) {
+				c.Error("Using deprecated Envoy features. Failing due to -istio.test.deprecation_failure flag.")
+			}
+		}
 	}
 	scopes.Framework.Debugf("Completed cleaning up testContext: %q", c.id)
 }

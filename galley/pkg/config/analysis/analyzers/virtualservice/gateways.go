@@ -18,10 +18,11 @@ import (
 	"istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
-	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 // GatewayAnalyzer checks the gateways associated with each virtual service
@@ -29,39 +30,38 @@ type GatewayAnalyzer struct{}
 
 var _ analysis.Analyzer = &GatewayAnalyzer{}
 
-const meshGateway = "mesh"
-
 // Metadata implements Analyzer
 func (s *GatewayAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "virtualservice.GatewayAnalyzer",
+		Name:        "virtualservice.GatewayAnalyzer",
+		Description: "Checks the gateways associated with each virtual service",
 		Inputs: collection.Names{
-			metadata.IstioNetworkingV1Alpha3Gateways,
-			metadata.IstioNetworkingV1Alpha3Virtualservices,
+			collections.IstioNetworkingV1Alpha3Gateways.Name(),
+			collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
 		},
 	}
 }
 
 // Analyze implements Analyzer
 func (s *GatewayAnalyzer) Analyze(c analysis.Context) {
-	c.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Entry) bool {
+	c.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
 		s.analyzeVirtualService(r, c)
 		return true
 	})
 }
 
-func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Entry, c analysis.Context) {
-	vs := r.Item.(*v1alpha3.VirtualService)
+func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis.Context) {
+	vs := r.Message.(*v1alpha3.VirtualService)
 
-	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+	vsNs := r.Metadata.FullName.Namespace
 	for _, gwName := range vs.Gateways {
 		// This is a special-case accepted value
-		if gwName == meshGateway {
+		if gwName == util.MeshGateway {
 			continue
 		}
 
-		if !c.Exists(metadata.IstioNetworkingV1Alpha3Gateways, resource.NewName(ns, gwName)) {
-			c.Report(metadata.IstioNetworkingV1Alpha3Virtualservices, msg.NewReferencedResourceNotFound(r, "gateway", gwName))
+		if !c.Exists(collections.IstioNetworkingV1Alpha3Gateways.Name(), resource.NewShortOrFullName(vsNs, gwName)) {
+			c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), msg.NewReferencedResourceNotFound(r, "gateway", gwName))
 		}
 	}
 }

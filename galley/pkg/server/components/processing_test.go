@@ -16,109 +16,126 @@ package components
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
+	"path"
 	"testing"
-	"time"
 
-	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
-	"google.golang.org/grpc/metadata"
+	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic/fake"
 
-	"istio.io/istio/galley/pkg/meshconfig"
-	"istio.io/istio/galley/pkg/runtime"
+	"istio.io/istio/galley/pkg/config/meshcfg"
+	"istio.io/istio/galley/pkg/config/processing"
+	"istio.io/istio/galley/pkg/config/processor"
+	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/server/settings"
-	"istio.io/istio/galley/pkg/source/kube/client"
-	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
-	"istio.io/istio/galley/pkg/source/kube/schema"
-	sourceSchema "istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/galley/pkg/testing/mock"
+	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/mcp/monitoring"
 	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
+	"istio.io/istio/pkg/mcp/testing/testcerts"
 )
 
 func TestProcessing_StartErrors(t *testing.T) {
 	g := NewGomegaWithT(t)
 	defer resetPatchTable()
+
+	fakeCACertFile, err := ioutil.TempFile("", "")
+	g.Expect(err).To(BeNil())
+	fakeCertFile, err := ioutil.TempFile("", "")
+	g.Expect(err).To(BeNil())
+	fakeKeyFile, err := ioutil.TempFile("", "")
+	g.Expect(err).To(BeNil())
+
+	g.Expect(ioutil.WriteFile(fakeCACertFile.Name(), testcerts.CACert, 0)).To(BeNil())
+	g.Expect(ioutil.WriteFile(fakeCertFile.Name(), testcerts.ServerCert, 0)).To(BeNil())
+	g.Expect(ioutil.WriteFile(fakeKeyFile.Name(), testcerts.ServerKey, 0)).To(BeNil())
+
+	defer func() {
+		_ = os.Remove(fakeCACertFile.Name())
+		_ = os.Remove(fakeCertFile.Name())
+		_ = os.Remove(fakeKeyFile.Name())
+	}()
 loop:
 	for i := 0; ; i++ {
 		resetPatchTable()
 		mk := mock.NewKube()
-		newKubeFromConfigFile = func(string) (client.Interfaces, error) { return mk, nil }
-		newSource = func(client.Interfaces, time.Duration, *schema.Instance, *converter.Config) (runtime.Source, error) {
-			return runtime.NewInMemorySource(), nil
-		}
-		newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return meshconfig.NewInMemory(), nil }
-		fsNew = func(string, *schema.Instance, *converter.Config) (runtime.Source, error) {
-			return runtime.NewInMemorySource(), nil
-		}
-		mcpMetricReporter = func(string) monitoring.Reporter {
-			return nil
-		}
-		verifyResourceTypesPresence = func(k client.Interfaces, specs []sourceSchema.ResourceSpec) ([]sourceSchema.ResourceSpec, error) {
-			return specs, nil
-		}
+		newInterfaces = func(string) (kube.Interfaces, error) { return mk, nil }
 
 		e := fmt.Errorf("err%d", i)
+
+		tmpDir, err := ioutil.TempDir(os.TempDir(), t.Name())
+		g.Expect(err).To(BeNil())
+
+		meshCfgDir := path.Join(tmpDir, "meshcfg")
+		err = os.Mkdir(meshCfgDir, os.ModePerm)
+		g.Expect(err).To(BeNil())
+
+		meshCfgFile := path.Join(tmpDir, "meshcfg.yaml")
+		_, err = os.Create(meshCfgFile)
+		g.Expect(err).To(BeNil())
 
 		args := settings.DefaultArgs()
 		args.APIAddress = "tcp://0.0.0.0:0"
 		args.Insecure = true
+		args.MeshConfigFile = meshCfgFile
+		args.CredentialOptions.CACertificateFile = fakeCACertFile.Name()
+		args.CredentialOptions.CertificateFile = fakeCertFile.Name()
+		args.CredentialOptions.KeyFile = fakeKeyFile.Name()
 
 		switch i {
 		case 0:
-			newKubeFromConfigFile = func(string) (client.Interfaces, error) { return nil, e }
+			newInterfaces = func(string) (kube.Interfaces, error) { return nil, e }
 		case 1:
-			newSource = func(client.Interfaces, time.Duration, *schema.Instance, *converter.Config) (runtime.Source, error) {
-				return nil, e
-			}
+			meshcfgNewFS = func(path string) (event.Source, error) { return nil, e }
 		case 2:
-			netListen = func(network, address string) (net.Listener, error) { return nil, e }
-		case 3:
-			newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return nil, e }
-		case 4:
-			args.ConfigPath = "aaa"
-			fsNew = func(string, *schema.Instance, *converter.Config) (runtime.Source, error) { return nil, e }
-		case 5:
-			args.DisableResourceReadyCheck = true
-			findSupportedResources = func(k client.Interfaces, specs []sourceSchema.ResourceSpec) ([]sourceSchema.ResourceSpec, error) {
+			processorInitialize = func(processor.Settings) (*processing.Runtime, error) {
 				return nil, e
 			}
-		case 6:
+		case 3:
 			args.Insecure = false
 			args.AccessListFile = os.TempDir()
-		case 7:
+		case 4:
 			args.Insecure = false
-			args.AccessListFile = "invalid file"
+			args.CredentialOptions.CACertificateFile = ""
+		case 5:
+			args.SinkAddress = "localhost:8080"
+			args.SinkAuthMode = "foo"
+		case 6:
+			netListen = func(network, address string) (net.Listener, error) { return nil, e }
+		case 7:
+			args.ConfigPath = "aaa"
+			fsNew = func(_ string, _ collection.Schemas, _ bool) (event.Source, error) { return nil, e }
 		default:
 			break loop
+
 		}
 
 		p := NewProcessing(args)
-		err := p.Start()
+		err = p.Start()
 		g.Expect(err).NotTo(BeNil())
 		t.Logf("%d) err: %v", i, err)
 		p.Stop()
 	}
 }
 
-func TestServer_Basic(t *testing.T) {
+func TestProcessing_Basic(t *testing.T) {
 	g := NewGomegaWithT(t)
 	resetPatchTable()
 	defer resetPatchTable()
 
 	mk := mock.NewKube()
-	newKubeFromConfigFile = func(string) (client.Interfaces, error) { return mk, nil }
-	newSource = func(client.Interfaces, time.Duration, *schema.Instance, *converter.Config) (runtime.Source, error) {
-		return runtime.NewInMemorySource(), nil
-	}
+	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
+
+	mk.AddResponse(cl, nil)
+	newInterfaces = func(string) (kube.Interfaces, error) { return mk, nil }
 	mcpMetricReporter = func(s string) monitoring.Reporter {
 		return mcptestmon.NewInMemoryStatsContext()
 	}
-	newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return meshconfig.NewInMemory(), nil }
-	verifyResourceTypesPresence = func(_ client.Interfaces, specs []schema.ResourceSpec) ([]schema.ResourceSpec, error) {
-		return specs, nil
-	}
+	meshcfgNewFS = func(path string) (event.Source, error) { return meshcfg.NewInmemory(), nil }
 
 	args := settings.DefaultArgs()
 	args.APIAddress = "tcp://0.0.0.0:0"
@@ -133,72 +150,4 @@ func TestServer_Basic(t *testing.T) {
 	p.Stop()
 
 	g.Expect(p.Address()).To(BeNil())
-}
-
-func TestParseSinkMeta(t *testing.T) {
-	tests := []struct {
-		name    string
-		arg     []string
-		want    metadata.MD
-		wantErr bool
-	}{
-		{
-			name: "Simple",
-			arg:  []string{"foo=bar"},
-			want: metadata.MD{
-				"foo": []string{"bar"},
-			},
-		},
-		{
-			name: "MultipleValues",
-			arg:  []string{"foo=bar1", "foo=bar2"},
-			want: metadata.MD{
-				"foo": []string{"bar1", "bar2"},
-			},
-		},
-		{
-			name: "MultipleKeys",
-			arg:  []string{"foo1=bar", "foo2=bar"},
-			want: metadata.MD{
-				"foo1": []string{"bar"},
-				"foo2": []string{"bar"},
-			},
-		},
-		{
-			name:    "NoSeparator",
-			arg:     []string{"foo"},
-			wantErr: true,
-		},
-		{
-			name:    "NoValue",
-			arg:     []string{"foo="},
-			wantErr: true,
-		},
-		{
-			name:    "NoKey",
-			arg:     []string{"=foo"},
-			wantErr: true,
-		},
-		{
-			name:    "JustSeparator",
-			arg:     []string{"="},
-			wantErr: true,
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			md := make(metadata.MD)
-			err := parseSinkMeta(test.arg, md)
-			if test.wantErr {
-				if err == nil {
-					t.Fatalf("Expected to fail but succeeded with: %v", md)
-				}
-				t.Logf("Failed as expected: %v", err)
-				return
-			}
-			if got := md; !cmp.Equal(got, test.want) {
-				t.Errorf("Wrong final metadata (-want, +got):\n%s", cmp.Diff(test.want, got))
-			}
-		})
-	}
 }

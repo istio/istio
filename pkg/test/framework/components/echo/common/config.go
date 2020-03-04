@@ -75,6 +75,18 @@ func FillInDefaults(ctx resource.Context, defaultDomain string, c *echo.Config) 
 			portGen.Instance.SetUsed(p.InstancePort)
 		}
 	}
+	for _, p := range c.WorkloadOnlyPorts {
+		if p > 0 {
+			if portGen.Instance.IsUsed(p) {
+				return fmt.Errorf("failed configuring workload only port %d: port already used", p)
+			}
+			portGen.Instance.SetUsed(p)
+			if portGen.Service.IsUsed(p) {
+				return fmt.Errorf("failed configuring workload only port %d: port already used", p)
+			}
+			portGen.Service.SetUsed(p)
+		}
+	}
 
 	// Second pass: try to make unassigned instance ports match service port.
 	for i, p := range c.Ports {
@@ -94,9 +106,10 @@ func FillInDefaults(ctx resource.Context, defaultDomain string, c *echo.Config) 
 		}
 	}
 
-	// If readiness probe is specified by a test, we wait almost forever.
+	// If readiness probe is not specified by a test, wait a long time
+	// Waiting forever would cause the test to timeout and lose logs
 	if c.ReadinessTimeout == 0 {
-		c.ReadinessTimeout = time.Second * 36000
+		c.ReadinessTimeout = time.Minute * 10
 	}
 
 	return nil

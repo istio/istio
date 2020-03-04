@@ -1,0 +1,233 @@
+rules:
+  policies:
+    httpbin-viewer:
+      permissions:
+      - andRules:
+          rules:
+          - orRules:
+              rules:
+              - header:
+                  exactMatch: method
+                  name: :method
+              - header:
+                  name: :method
+                  prefixMatch: method-prefix-
+              - header:
+                  name: :method
+                  suffixMatch: -suffix-method
+              - header:
+                  name: :method
+                  presentMatch: true
+          - orRules:
+              rules:
+              - urlPath:
+                  path:
+                    exact: /exact
+              - urlPath:
+                  path:
+                    prefix: /prefix/
+              - urlPath:
+                  path:
+                    suffix: /suffix
+              - urlPath:
+                  path:
+                    safeRegex:
+                      googleRe2: {}
+                      regex: .+
+          - orRules:
+              rules:
+              - destinationIp:
+                  addressPrefix: 10.10.10.10
+                  prefixLen: 32
+              - destinationIp:
+                  addressPrefix: 192.168.10.0
+                  prefixLen: 24
+          - orRules:
+              rules:
+              - destinationPort: 91
+              - destinationPort: 92
+          - orRules:
+              rules:
+              - metadata:
+                  filter: envoy.filters.network.mysql_proxy
+                  path:
+                  - key: db.table
+                  value:
+                    stringMatch:
+                      exact: experimental
+              - metadata:
+                  filter: envoy.filters.network.mysql_proxy
+                  path:
+                  - key: db.table
+                  value:
+                    stringMatch:
+                      prefix: experimental-prefix-
+              - metadata:
+                  filter: envoy.filters.network.mysql_proxy
+                  path:
+                  - key: db.table
+                  value:
+                    stringMatch:
+                      suffix: -suffix-experimental
+              - metadata:
+                  filter: envoy.filters.network.mysql_proxy
+                  path:
+                  - key: db.table
+                  value:
+                    stringMatch:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*
+          - orRules:
+              rules:
+              - header:
+                  exactMatch: header
+                  name: X-header
+              - header:
+                  name: X-header
+                  prefixMatch: header-prefix-
+              - header:
+                  name: X-header
+                  suffixMatch: -suffix-header
+              - header:
+                  name: X-header
+                  presentMatch: true
+      principals:
+      - andIds:
+          ids:
+          - orIds:
+              ids:
+              - metadata:
+                  filter: istio_authn
+                  path:
+                  - key: source.principal
+                  value:
+                    stringMatch:
+                      exact: user
+          - orIds:
+              ids:
+              - metadata:
+                  filter: istio_authn
+                  path:
+                  - key: request.auth.audiences
+                  value:
+                    stringMatch:
+                      exact: request-audiences
+          - orIds:
+              ids:
+              - metadata:
+                  filter: istio_authn
+                  path:
+                  - key: request.auth.claims
+                  - key: iss
+                  value:
+                    listMatch:
+                      oneOf:
+                        stringMatch:
+                          exact: request-claims
+          - orIds:
+              ids:
+              - metadata:
+                  filter: istio_authn
+                  path:
+                  - key: request.auth.presenter
+                  value:
+                    stringMatch:
+                      exact: request-presenter
+          - orIds:
+              ids:
+              - metadata:
+                  filter: istio_authn
+                  path:
+                  - key: request.auth.principal
+                  value:
+                    stringMatch:
+                      exact: request-principal
+          - orIds:
+              ids:
+              - sourceIp:
+                  addressPrefix: 1.2.3.4
+                  prefixLen: 32
+          - orIds:
+              ids:
+              - metadata:
+                  filter: istio_authn
+                  path:
+                  - key: source.principal
+                  value:
+                    stringMatch:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/source-ns/.*
+          - orIds:
+              ids:
+              - metadata:
+                  filter: istio_authn
+                  path:
+                  - key: source.principal
+                  value:
+                    stringMatch:
+                      exact: source-principal
+      - andIds:
+          ids:
+          - orIds:
+              ids:
+              - metadata:
+                  filter: istio_authn
+                  path:
+                  - key: request.auth.audiences
+                  value:
+                    stringMatch:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*
+          - orIds:
+              ids:
+              - metadata:
+                  filter: istio_authn
+                  path:
+                  - key: request.auth.claims
+                  - key: iss
+                  value:
+                    listMatch:
+                      oneOf:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*
+          - orIds:
+              ids:
+              - metadata:
+                  filter: istio_authn
+                  path:
+                  - key: request.auth.presenter
+                  value:
+                    stringMatch:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*
+          - orIds:
+              ids:
+              - metadata:
+                  filter: istio_authn
+                  path:
+                  - key: request.auth.principal
+                  value:
+                    stringMatch:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*
+          - orIds:
+              ids:
+              - metadata:
+                  filter: istio_authn
+                  path:
+                  - key: source.principal
+                  value:
+                    stringMatch:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/.*/.*
+          - orIds:
+              ids:
+              - any: true

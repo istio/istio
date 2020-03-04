@@ -20,96 +20,105 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/testing/basicmeta"
+	"istio.io/istio/pkg/config/resource"
 )
 
 var (
-	// EntryN1I1V1 is a test resource.Entry
-	EntryN1I1V1 = &resource.Entry{
+	// EntryN1I1V1 is a test resource.Instance
+	EntryN1I1V1 = &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("n1", "i1"),
-			Version: "v1",
+			FullName: resource.NewFullName("n1", "i1"),
+			Version:  "v1",
+			Schema:   basicmeta.K8SCollection1.Resource(),
 		},
-		Item: parseStruct(`
+		Message: parseStruct(`
 {
 	"n1_i1": "v1"
 }`),
 	}
 
-	// EntryN1I1V1ClusterScoped is a test resource.Entry that is cluster scoped.
-	EntryN1I1V1ClusterScoped = &resource.Entry{
+	// EntryN1I1V1ClusterScoped is a test resource.Instance that is cluster scoped.
+	EntryN1I1V1ClusterScoped = &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("", "i1"),
-			Version: "v1",
+			FullName: resource.NewFullName("", "i1"),
+			Version:  "v1",
+			Schema:   K8SCollection2.Resource(),
 		},
-		Item: parseStruct(`
+		Message: parseStruct(`
 {
 	"n1_i1": "v1"
 }`),
 	}
 
-	// EntryN1I1V1Broken is a test resource.Entry
-	EntryN1I1V1Broken = &resource.Entry{
+	// EntryN1I1V1Broken is a test resource.Instance
+	EntryN1I1V1Broken = &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("n1", "i1"),
-			Version: "v1",
+			FullName: resource.NewFullName("n1", "i1"),
+			Version:  "v1",
+			Schema:   basicmeta.K8SCollection1.Resource(),
 		},
-		Item: nil,
+		Message: nil,
 	}
 
-	// EntryN1I1V2 is a test resource.Entry
-	EntryN1I1V2 = &resource.Entry{
+	// EntryN1I1V2 is a test resource.Instance
+	EntryN1I1V2 = &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("n1", "i1"),
-			Version: "v2",
+			FullName: resource.NewFullName("n1", "i1"),
+			Version:  "v2",
+			Schema:   basicmeta.K8SCollection1.Resource(),
 		},
-		Item: parseStruct(`
+		Message: parseStruct(`
 {
 	"n1_i1": "v2"
 }`),
 	}
 
-	// EntryN2I2V1 is a test resource.Entry
-	EntryN2I2V1 = &resource.Entry{
+	// EntryN2I2V1 is a test resource.Instance
+	EntryN2I2V1 = &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("n2", "i2"),
-			Version: "v1",
+			FullName: resource.NewFullName("n2", "i2"),
+			Version:  "v1",
+			Schema:   basicmeta.K8SCollection1.Resource(),
 		},
-		Item: parseStruct(`
+		Message: parseStruct(`
 {
 	"n2_i2": "v1"
 }`),
 	}
 
-	// EntryN2I2V2 is a test resource.Entry
-	EntryN2I2V2 = &resource.Entry{
+	// EntryN2I2V2 is a test resource.Instance
+	EntryN2I2V2 = &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("n2", "i2"),
-			Version: "v2",
+			FullName: resource.NewFullName("n2", "i2"),
+			Version:  "v2",
+			Schema:   basicmeta.K8SCollection1.Resource(),
 		},
-		Item: parseStruct(`{
+		Message: parseStruct(`{
 	"n2_i2": "v2"
 }`),
 	}
 
-	// EntryN3I3V1 is a test resource.Entry
-	EntryN3I3V1 = &resource.Entry{
+	// EntryN3I3V1 is a test resource.Instance
+	EntryN3I3V1 = &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("n3", "i3"),
-			Version: "v1",
+			FullName: resource.NewFullName("n3", "i3"),
+			Version:  "v1",
+			Schema:   basicmeta.K8SCollection1.Resource(),
 		},
-		Item: parseStruct(`{
+		Message: parseStruct(`{
 	"n3_i3": "v1"
 }`),
 	}
 
-	// EntryI1V1NoNamespace is a test resource.Entry
-	EntryI1V1NoNamespace = &resource.Entry{
+	// EntryI1V1NoNamespace is a test resource.Instance
+	EntryI1V1NoNamespace = &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("", "i1"),
-			Version: "v1",
+			FullName: resource.NewFullName("", "i1"),
+			Version:  "v1",
+			Schema:   basicmeta.K8SCollection1.Resource(),
 		},
-		Item: parseStruct(`{
+		Message: parseStruct(`{
 		"n1_i1": "v1"
 	}`),
 	}

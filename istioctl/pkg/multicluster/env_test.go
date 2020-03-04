@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -65,7 +66,14 @@ func createFakeKubeconfigFileOrDie(t *testing.T) (string, *api.Config) {
 		t.Fatalf("could not write fake kubeconfig data to %v: %v", kubeconfigPath, err)
 	}
 
-	out, _, err := latest.Codec.Decode([]byte(fakeKubeconfigData), nil, nil)
+	// Temporary workaround until https://github.com/kubernetes/kubernetes/pull/86414 merges
+	into := &api.Config{
+		Clusters:   map[string]*api.Cluster{},
+		AuthInfos:  map[string]*api.AuthInfo{},
+		Contexts:   map[string]*api.Context{},
+		Extensions: map[string]runtime.Object{},
+	}
+	out, _, err := latest.Codec.Decode([]byte(fakeKubeconfigData), nil, into)
 	if err != nil {
 		t.Fatalf("could not decode fake kubeconfig: %v", err)
 	}
@@ -122,8 +130,14 @@ func (f *fakeEnvironment) CreateClientSet(context string) (kubernetes.Interface,
 	return f.client, nil
 }
 
+func (f *fakeEnvironment) Poll(interval, timeout time.Duration, condition ConditionFunc) error {
+	// TODO - add hooks to inject fake timeouts
+	condition()
+	return nil
+}
+
 func TestNewEnvironment(t *testing.T) {
-	context := "" // empty, use current-context
+	context := "" // empty, use current-Context
 	kubeconfig, wantConfig := createFakeKubeconfigFileOrDie(t)
 
 	var wOut, wErr bytes.Buffer

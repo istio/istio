@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 
 	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
@@ -50,8 +51,9 @@ var (
 	certChain       = []byte("fake cert chain")
 	rootCert        = []byte("fake root cert")
 	signedCert      = []byte("fake signed cert")
-	istioTestSecret = k8ssecret.BuildSecret("test", "istio.test", "test-ns", certChain, caKey, rootCert, nil, nil, IstioSecretType)
-	cert1Pem        = `
+	istioTestSecret = k8ssecret.BuildSecret("test", "istio.test", "test-ns",
+		certChain, caKey, rootCert, nil, nil, IstioSecretType)
+	cert1Pem = `
 -----BEGIN CERTIFICATE-----
 MIIC3jCCAcagAwIBAgIJAMwyWk0iqlOoMA0GCSqGSIb3DQEBCwUAMBwxGjAYBgNV
 BAoMEWs4cy5jbHVzdGVyLmxvY2FsMB4XDTE4MDkyMTAyMjAzNFoXDTI4MDkxODAy
@@ -113,8 +115,8 @@ func TestSecretController(t *testing.T) {
 	}
 	testCases := map[string]struct {
 		existingSecret   *v1.Secret
-		saToAdd          *v1.ServiceAccount
-		saToDelete       *v1.ServiceAccount
+		saToAdd          interface{}
+		saToDelete       interface{}
 		expectedActions  []ktesting.Action
 		gracePeriodRatio float32
 		injectFailure    bool
@@ -127,6 +129,12 @@ func TestSecretController(t *testing.T) {
 			},
 			gracePeriodRatio: 1.4,
 			shouldFail:       true,
+		},
+		"missed delete of serviceAccount": {
+			saToDelete:       createMissedServiceAccount("test", "test-ns"),
+			expectedActions:  []ktesting.Action{},
+			gracePeriodRatio: defaultGracePeriodRatio,
+			shouldFail:       false,
 		},
 		"adding service account creates new secret": {
 			saToAdd: createServiceAccount("test", "test-ns"),
@@ -206,7 +214,7 @@ func TestSecretController(t *testing.T) {
 		controller, err := NewSecretController(createFakeCA(), enableNamespacesByDefault,
 			defaultTTL, tc.gracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(),
 			false, false, []string{metav1.NamespaceAll}, webhooks,
-			"test-ns", "")
+			"test-ns", "", false)
 		if tc.shouldFail {
 			if err == nil {
 				t.Errorf("should have failed to create secret controller")
@@ -242,10 +250,10 @@ func TestSecretContent(t *testing.T) {
 	saName := "test-serviceaccount"
 	saNamespace := "test-namespace"
 	client := fake.NewSimpleClientset()
-	controller, err := NewSecretController(createFakeCA(), enableNamespacesByDefault, defaultTTL,
-		defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false,
-		false, []string{metav1.NamespaceAll}, map[string]*DNSNameEntry{},
-		"test-namespace", "")
+	controller, err := NewSecretController(createFakeCA(), enableNamespacesByDefault,
+		defaultTTL, defaultGracePeriodRatio, defaultMinGracePeriod, false,
+		client.CoreV1(), false, false, []string{metav1.NamespaceAll}, map[string]*DNSNameEntry{},
+		"test-namespace", "", false)
 	if err != nil {
 		t.Errorf("Failed to create secret controller: %v", err)
 	}
@@ -270,7 +278,7 @@ func TestDeletedIstioSecret(t *testing.T) {
 	controller, err := NewSecretController(createFakeCA(), enableNamespacesByDefault,
 		defaultTTL, defaultGracePeriodRatio, defaultMinGracePeriod, false,
 		client.CoreV1(), false, false, []string{metav1.NamespaceAll}, nil,
-		"test-ns", "")
+		"test-ns", "", false)
 	if err != nil {
 		t.Errorf("failed to create secret controller: %v", err)
 	}
@@ -455,7 +463,8 @@ func TestUpdateSecret(t *testing.T) {
 		ca := createFakeCA()
 		controller, err := NewSecretController(ca, enableNamespacesByDefault, time.Hour,
 			tc.gracePeriodRatio, tc.minGracePeriod, false, client.CoreV1(), false,
-			false, []string{metav1.NamespaceAll}, nil, "", "")
+			false, []string{metav1.NamespaceAll}, nil, "", "",
+			true)
 		if err != nil {
 			t.Errorf("failed to create secret controller: %v", err)
 		}
@@ -554,7 +563,7 @@ func TestManagedNamespaceRules(t *testing.T) {
 			controller, err := NewSecretController(createFakeCA(), tc.enableNamespacesByDefault,
 				defaultTTL, defaultGracePeriodRatio, defaultMinGracePeriod, false,
 				client.CoreV1(), false, false, []string{metav1.NamespaceAll},
-				nil, tc.istioCaStorageNamespace, "")
+				nil, tc.istioCaStorageNamespace, "", false)
 			if err != nil {
 				t.Errorf("failed to create secret controller: %v", err)
 			}
@@ -629,7 +638,7 @@ func TestRetroactiveNamespaceActivation(t *testing.T) {
 			controller, err := NewSecretController(createFakeCA(), tc.enableNamespacesByDefault,
 				defaultTTL, defaultGracePeriodRatio, defaultMinGracePeriod, false,
 				client.CoreV1(), false, false, []string{metav1.NamespaceAll},
-				nil, tc.istioCaStorageNamespace, "")
+				nil, tc.istioCaStorageNamespace, "", false)
 			if err != nil {
 				t.Errorf("failed to create secret controller: %v", err)
 			}
@@ -686,6 +695,17 @@ func createServiceAccount(name, namespace string) *v1.ServiceAccount {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+		},
+	}
+}
+
+func createMissedServiceAccount(name, namespace string) *cache.DeletedFinalStateUnknown {
+	return &cache.DeletedFinalStateUnknown{
+		Obj: &v1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: namespace,
+			},
 		},
 	}
 }

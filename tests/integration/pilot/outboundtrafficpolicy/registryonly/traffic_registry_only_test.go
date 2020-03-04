@@ -38,13 +38,22 @@ func setupConfig(cfg *istio.Config) {
 		return
 	}
 	cfg.Values["global.outboundTrafficPolicy.mode"] = "REGISTRY_ONLY"
-	cfg.Values["pilot.env.PILOT_ENABLE_FALLTHROUGH_ROUTE"] = "true"
+	cfg.ControlPlaneValues = `
+components:
+  egressGateways:
+  - enabled: true
+values:
+  global:
+    outboundTrafficPolicy:
+      mode: REGISTRY_ONLY
+`
 }
 
 func TestOutboundTrafficPolicyRegistryOnly(t *testing.T) {
 	expected := map[string][]string{
-		"http":  {"502"}, // HTTP will return an error code
-		"https": {},      // HTTPS will direct to blackhole cluster, giving no response
+		"http":        {"502"}, // HTTP will return an error code
+		"http_egress": {"200"}, // We define the virtual service in the namespace, so we should be able to reach it
+		"https":       {},      // HTTPS will direct to blackhole cluster, giving no response
 	}
 	outboundtrafficpolicy.RunExternalRequestTest(expected, t)
 }

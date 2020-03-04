@@ -62,9 +62,11 @@ func (p *Provider) initKnownAdapters() {
 				}
 				return out, nil
 			},
-			getStatus: noStatus,
-			isEqual:   resourceVersionsMatch,
-			isBuiltIn: true,
+			getStatus:                     noStatus,
+			isEqual:                       resourceVersionsMatch,
+			isBuiltIn:                     true,
+			isDefaultExcluded:             true,
+			isRequiredForServiceDiscovery: true,
 		},
 
 		asTypesKey("", "Namespace"): {
@@ -90,9 +92,11 @@ func (p *Provider) initKnownAdapters() {
 				}
 				return out, nil
 			},
-			getStatus: noStatus,
-			isEqual:   resourceVersionsMatch,
-			isBuiltIn: true,
+			getStatus:                     noStatus,
+			isEqual:                       resourceVersionsMatch,
+			isBuiltIn:                     true,
+			isDefaultExcluded:             true,
+			isRequiredForServiceDiscovery: true,
 		},
 
 		asTypesKey("", "Node"): {
@@ -118,9 +122,11 @@ func (p *Provider) initKnownAdapters() {
 				}
 				return out, nil
 			},
-			getStatus: noStatus,
-			isEqual:   resourceVersionsMatch,
-			isBuiltIn: true,
+			getStatus:                     noStatus,
+			isEqual:                       resourceVersionsMatch,
+			isBuiltIn:                     true,
+			isDefaultExcluded:             true,
+			isRequiredForServiceDiscovery: true,
 		},
 
 		asTypesKey("", "Pod"): {
@@ -141,6 +147,36 @@ func (p *Provider) initKnownAdapters() {
 			},
 			parseJSON: func(input []byte) (interface{}, error) {
 				out := &v1.Pod{}
+				if _, _, err := deserializer.Decode(input, nil, out); err != nil {
+					return nil, err
+				}
+				return out, nil
+			},
+			getStatus:                     noStatus,
+			isEqual:                       resourceVersionsMatch,
+			isBuiltIn:                     true,
+			isDefaultExcluded:             true,
+			isRequiredForServiceDiscovery: true,
+		},
+
+		asTypesKey("", "Secret"): {
+			extractObject: defaultExtractObject,
+			extractResource: func(o interface{}) (proto.Message, error) {
+				if obj, ok := o.(*v1.Secret); ok {
+					return obj, nil
+				}
+				return nil, fmt.Errorf("unable to convert to v1.Secret: %T", o)
+			},
+			newInformer: func() (cache.SharedIndexInformer, error) {
+				informer, err := p.sharedInformerFactory()
+				if err != nil {
+					return nil, err
+				}
+
+				return informer.Core().V1().Secrets().Informer(), nil
+			},
+			parseJSON: func(input []byte) (interface{}, error) {
+				out := &v1.Secret{}
 				if _, _, err := deserializer.Decode(input, nil, out); err != nil {
 					return nil, err
 				}
@@ -188,8 +224,10 @@ func (p *Provider) initKnownAdapters() {
 				// Endpoint updates can be noisy. Make sure that the subsets have actually changed.
 				return reflect.DeepEqual(r1.Subsets, r2.Subsets)
 			},
-			getStatus: noStatus,
-			isBuiltIn: true,
+			getStatus:                     noStatus,
+			isBuiltIn:                     true,
+			isDefaultExcluded:             true,
+			isRequiredForServiceDiscovery: true,
 		},
 		asTypesKey("extensions", "Ingress"): {
 			extractObject: defaultExtractObject,
@@ -277,6 +315,34 @@ func (p *Provider) initKnownAdapters() {
 			},
 			parseJSON: func(input []byte) (interface{}, error) {
 				out := &appsv1.Deployment{}
+				if _, _, err := deserializer.Decode(input, nil, out); err != nil {
+					return nil, err
+				}
+				return out, nil
+			},
+			getStatus: noStatus,
+			isEqual:   resourceVersionsMatch,
+			isBuiltIn: true,
+		},
+
+		asTypesKey("", "ConfigMap"): {
+			extractObject: defaultExtractObject,
+			extractResource: func(o interface{}) (proto.Message, error) {
+				if obj, ok := o.(*v1.ConfigMap); ok {
+					return obj, nil
+				}
+				return nil, fmt.Errorf("unable to convert to v1.ConfigMap: %T", o)
+			},
+			newInformer: func() (cache.SharedIndexInformer, error) {
+				informer, err := p.sharedInformerFactory()
+				if err != nil {
+					return nil, err
+				}
+
+				return informer.Core().V1().ConfigMaps().Informer(), nil
+			},
+			parseJSON: func(input []byte) (interface{}, error) {
+				out := &v1.ConfigMap{}
 				if _, _, err := deserializer.Decode(input, nil, out); err != nil {
 					return nil, err
 				}

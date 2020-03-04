@@ -59,14 +59,14 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter genericclioptio
 	c, err := clientExecFactory(restClientGetter)
 	if err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("failed to initialize the Kubernetes client: %v", err))
-		fmt.Fprintf(writer, fmt.Sprintf("Failed to initialize the Kubernetes client: %v.\n", err))
+		fmt.Fprintf(writer, "Failed to initialize the Kubernetes client: %v.\n", err)
 	} else {
 		fmt.Fprintf(writer, "Can initialize the Kubernetes client.\n")
 	}
 	v, err := c.serverVersion()
 	if err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("failed to query the Kubernetes API Server: %v", err))
-		fmt.Fprintf(writer, fmt.Sprintf("Failed to query the Kubernetes API Server: %v.\n", err))
+		fmt.Fprintf(writer, "Failed to query the Kubernetes API Server: %v.\n", err)
 		fmt.Fprintf(writer, "Istio install NOT verified because the cluster is unreachable.\n")
 		return errs
 	}

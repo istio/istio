@@ -97,19 +97,19 @@ func TestConvertInstance(t *testing.T) {
 
 	out := convertInstance(&consulServiceInst)
 
-	if out.Endpoint.ServicePort.Protocol != protocol.UDP {
-		t.Errorf("convertInstance() => %v, want %v", out.Endpoint.ServicePort.Protocol, protocol.UDP)
+	if out.ServicePort.Protocol != protocol.UDP {
+		t.Errorf("convertInstance() => %v, want %v", out.ServicePort.Protocol, protocol.UDP)
 	}
 
-	if out.Endpoint.ServicePort.Name != p {
-		t.Errorf("convertInstance() => %v, want %v", out.Endpoint.ServicePort.Name, p)
+	if out.ServicePort.Name != p {
+		t.Errorf("convertInstance() => %v, want %v", out.ServicePort.Name, p)
 	}
 
-	if out.Endpoint.ServicePort.Port != port {
-		t.Errorf("convertInstance() => %v, want %v", out.Endpoint.ServicePort.Port, port)
+	if out.ServicePort.Port != port {
+		t.Errorf("convertInstance() => %v, want %v", out.ServicePort.Port, port)
 	}
 
-	if out.Endpoint.Locality != dc {
+	if out.Endpoint.Locality.Label != dc {
 		t.Errorf("convertInstance() => %v, want %v", out.Endpoint.Locality, dc)
 	}
 
@@ -117,12 +117,12 @@ func TestConvertInstance(t *testing.T) {
 		t.Errorf("convertInstance() => %v, want %v", out.Endpoint.Address, ip)
 	}
 
-	if len(out.Labels) != 2 {
-		t.Errorf("convertInstance() len(Labels) => %v, want %v", len(out.Labels), 2)
+	if len(out.Endpoint.Labels) != 2 {
+		t.Errorf("convertInstance() len(Labels) => %v, want %v", len(out.Endpoint.Labels), 2)
 	}
 
-	if out.Labels[tagKey1] != tagVal1 || out.Labels[tagKey2] != tagVal2 {
-		t.Errorf("convertInstance() => missing or incorrect tag in %q", out.Labels)
+	if out.Endpoint.Labels[tagKey1] != tagVal1 || out.Endpoint.Labels[tagKey2] != tagVal2 {
+		t.Errorf("convertInstance() => missing or incorrect tag in %q", out.Endpoint.Labels)
 	}
 
 	if out.Service.Hostname != serviceHostname(name) {

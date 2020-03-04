@@ -1,0 +1,21 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  profile: empty
+  components:
+    ingressGateways:
+      - namespace: istio-ingress-1-ns
+        name: istio-ingress-1
+        enabled: true
+        k8s:
+          resources:
+            requests:
+              cpu: 111m
+              memory: 222Mi
+      - namespace: istio-ingress-2-ns
+        name: istio-ingress-2
+        enabled: true
+  unvalidatedValues:
+    gateways:
+      istio-ingress-1:
+        type: NodePort

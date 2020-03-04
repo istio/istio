@@ -17,6 +17,8 @@ package envoy
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
 
 	"istio.io/istio/pkg/test/deps"
 	"istio.io/istio/pkg/test/util"
@@ -25,13 +27,24 @@ import (
 var (
 	LatestStableSHA string
 	LinuxReleaseURL string
+	AuthHeader      *http.Header
 )
 
 func init() {
+	envoyBaseURL := "https://storage.googleapis.com/istio-build/proxy"
+	if override, f := os.LookupEnv("ISTIO_ENVOY_BASE_URL"); f {
+		envoyBaseURL = override
+	}
+
+	if authHeader, f := os.LookupEnv("AUTH_HEADER"); f {
+		kv := strings.Split(authHeader, ": ")
+		AuthHeader = &http.Header{kv[0]: kv[1:]}
+	}
+
 	for _, dep := range deps.Istio {
 		if dep.Name == "PROXY_REPO_SHA" {
 			LatestStableSHA = dep.LastStableSHA
-			LinuxReleaseURL = fmt.Sprintf("https://storage.googleapis.com/istio-build/proxy/envoy-alpha-%s.tar.gz", LatestStableSHA)
+			LinuxReleaseURL = fmt.Sprintf("%s/envoy-alpha-%s.tar.gz", envoyBaseURL, LatestStableSHA)
 			return
 		}
 	}
@@ -41,7 +54,14 @@ func init() {
 
 // DownloadLinuxRelease downloads the release linux binary to the given directory.
 func DownloadLinuxRelease(dir string) error {
-	resp, err := http.Get(LinuxReleaseURL)
+	req, err := http.NewRequest("GET", LinuxReleaseURL, nil)
+	if err != nil {
+		return err
+	}
+	if AuthHeader != nil {
+		req.Header = *AuthHeader
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}

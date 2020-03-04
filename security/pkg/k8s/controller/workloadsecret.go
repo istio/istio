@@ -82,7 +82,7 @@ const (
 	caPrivateKeyID = "ca-key.pem"
 )
 
-var k8sControllerLog = log.RegisterScope("k8sController", "Citadel kubernetes controller log", 0)
+var k8sControllerLog = log.RegisterScope("secretcontroller", "Citadel kubernetes controller log", 0)
 
 // DNSNameEntry stores the service name and namespace to construct the DNS id.
 // Service accounts matching the ServiceName and Namespace will have additional DNS SANs:
@@ -163,13 +163,18 @@ type SecretController struct {
 	// The most recent time when root cert in keycertbundle is synced with root
 	// cert in istio-ca-secret.
 	lastKCBSyncTime time.Time
+
+	// If true, periodically sync with istio-ca-secret to load latest root certificate.
+	// Only used in self signed CA mode.
+	syncWithSelfSignedCaSecret bool
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
 func NewSecretController(ca certificateAuthority, enableNamespacesByDefault bool,
 	certTTL time.Duration, gracePeriodRatio float32, minGracePeriod time.Duration,
 	dualUse bool, core corev1.CoreV1Interface, forCA bool, pkcs8Key bool, namespaces []string,
-	dnsNames map[string]*DNSNameEntry, istioCaStorageNamespace, rootCertFile string) (*SecretController, error) {
+	dnsNames map[string]*DNSNameEntry, istioCaStorageNamespace, rootCertFile string,
+	selfSignedCa bool) (*SecretController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
@@ -180,23 +185,24 @@ func NewSecretController(ca certificateAuthority, enableNamespacesByDefault bool
 	}
 
 	c := &SecretController{
-		ca:                        ca,
-		certTTL:                   certTTL,
-		istioCaStorageNamespace:   istioCaStorageNamespace,
-		gracePeriodRatio:          gracePeriodRatio,
-		certUtil:                  certutil.NewCertUtil(int(gracePeriodRatio * 100)),
-		caSecretController:        NewCaSecretController(core),
-		rootCertFile:              rootCertFile,
-		enableNamespacesByDefault: enableNamespacesByDefault,
-		minGracePeriod:            minGracePeriod,
-		dualUse:                   dualUse,
-		core:                      core,
-		forCA:                     forCA,
-		pkcs8Key:                  pkcs8Key,
-		namespaces:                make(map[string]struct{}),
-		dnsNames:                  dnsNames,
-		monitoring:                newMonitoringMetrics(),
-		lastKCBSyncTime:           time.Time{},
+		ca:                         ca,
+		certTTL:                    certTTL,
+		istioCaStorageNamespace:    istioCaStorageNamespace,
+		gracePeriodRatio:           gracePeriodRatio,
+		certUtil:                   certutil.NewCertUtil(int(gracePeriodRatio * 100)),
+		caSecretController:         NewCaSecretController(core),
+		rootCertFile:               rootCertFile,
+		enableNamespacesByDefault:  enableNamespacesByDefault,
+		minGracePeriod:             minGracePeriod,
+		dualUse:                    dualUse,
+		core:                       core,
+		forCA:                      forCA,
+		pkcs8Key:                   pkcs8Key,
+		namespaces:                 make(map[string]struct{}),
+		dnsNames:                   dnsNames,
+		monitoring:                 newMonitoringMetrics(),
+		lastKCBSyncTime:            time.Time{},
+		syncWithSelfSignedCaSecret: selfSignedCa,
 	}
 
 	for _, ns := range namespaces {
@@ -303,7 +309,13 @@ func (sc *SecretController) saAdded(obj interface{}) {
 
 // Handles the event where a service account is deleted.
 func (sc *SecretController) saDeleted(obj interface{}) {
-	acct := obj.(*v1.ServiceAccount)
+	acct, ok := obj.(*v1.ServiceAccount)
+	if !ok {
+		// OnDelete can get an object of type DeletedFinalStateUnknown if it misses the delete event.
+		// Citadel should not proceed in that case
+		k8sControllerLog.Warnf("Failed to convert to serviceaccount object: %v", obj)
+		return
+	}
 	sc.deleteSecret(acct.GetName(), acct.GetNamespace())
 	sc.monitoring.ServiceAccountDeletion.Increment()
 }
@@ -345,6 +357,10 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 		}
 		if errors.IsAlreadyExists(err) {
 			k8sControllerLog.Infof("Secret %s/%s already exists, skip", saNamespace, GetSecretName(saName))
+			return
+		}
+		if errors.IsForbidden(err) { // kube-apiserver returns Forbidden while destination namespace is Terminating
+			k8sControllerLog.Errorf("Failed to create secret %s/%s, it's forbidden, (error: %s)", saNamespace, GetSecretName(saName), err)
 			return
 		}
 		k8sControllerLog.Errorf("Failed to create secret %s/%s in attempt %v/%v, (error: %s)",
@@ -494,7 +510,7 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	_, waitErr := sc.certUtil.GetWaitTime(scrt.Data[CertChainID], time.Now(), sc.minGracePeriod)
 
 	caCert, _, _, rootCertificate := sc.ca.GetCAKeyCertBundle().GetAllPem()
-	if !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
+	if sc.syncWithSelfSignedCaSecret && !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
 		var err error
 		rootCertificate, err = sc.tryToSyncKeyCertBundle(rootCertificate, caCert)
 		if err != nil {
@@ -568,12 +584,11 @@ func (sc *SecretController) tryToSyncKeyCertBundle(rootCertInMem, caCertInMem []
 			return rootCertInMem, fmt.Errorf("failed to reload root cert into KeyCertBundle (%v)", err)
 		}
 		k8sControllerLog.Info("Successfully reloaded root cert into KeyCertBundle.")
-		sc.lastKCBSyncTime = time.Now()
 	} else {
 		k8sControllerLog.Info("CA cert in KeyCertBundle matches CA cert in " +
 			"istio-ca-secret. Skip reloading root cert into KeyCertBundle")
 	}
-
+	sc.lastKCBSyncTime = time.Now()
 	return rootCertInMem, nil
 }
 

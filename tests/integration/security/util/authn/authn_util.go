@@ -16,45 +16,76 @@ package authn
 
 import (
 	"fmt"
+	"net/http"
+	"strings"
 
+	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 
 type TestCase struct {
-	Request             connection.Checker
-	ExpectAuthenticated bool
+	Name               string
+	Request            connection.Checker
+	ExpectResponseCode string
+	// Use empty value to express the header with such key must not exist.
+	ExpectHeaders map[string]string
 }
 
-func getErrorMessage(req connection.Checker, expect, actual string) error {
-	return fmt.Errorf("%s to %s:%s using %s: expected %s, got %s",
-		req.From.Config().Service, req.Options.Target.Config().Service, req.Options.PortName, req.Options.Scheme, expect, actual)
+func (c *TestCase) String() string {
+	return fmt.Sprintf("%s to %s%s expected code %s, headers %v",
+		c.Request.From.Config().Service,
+		c.Request.Options.Target.Config().Service,
+		c.Request.Options.Path,
+		c.ExpectResponseCode,
+		c.ExpectHeaders)
 }
 
-// CheckAuthn checks a request based on ExpectAuthenticated (true: resp code 200; false: resp code 401 ).
+// CheckAuthn checks a request based on ExpectResponseCode.
 func (c *TestCase) CheckAuthn() error {
 	results, err := c.Request.From.Call(c.Request.Options)
-	if c.ExpectAuthenticated {
-		if err == nil {
-			err = results.CheckOK()
+	if len(results) == 0 {
+		return fmt.Errorf("%s: no response", c)
+	}
+	if results[0].Code != c.ExpectResponseCode {
+		return fmt.Errorf("%s: got response code %s, err %v", c, results[0].Code, err)
+	}
+	// Checking if echo backend see header with the given value by finding them in response body
+	// (given the current behavior of echo convert all headers into key=value in the response body)
+	for k, v := range c.ExpectHeaders {
+		matcher := fmt.Sprintf("%s=%s", k, v)
+		if len(v) == 0 {
+			if strings.Contains(results[0].Body, matcher) {
+				return fmt.Errorf("%s: expect header %s does not exist, got response\n%s", c, k, results[0].Body)
+			}
+		} else {
+			if !strings.Contains(results[0].Body, matcher) {
+				return fmt.Errorf("%s: expect header %s=%s in body, got response\n%s", c, k, v, results[0].Body)
+			}
 		}
-		if err != nil {
-			return getErrorMessage(c.Request, "authenticated (code 200)", err.Error())
+	}
+	return nil
+}
+
+// CheckIngress checks a request for the ingress gateway.
+func CheckIngress(ingr ingress.Instance, host string, path string, token string, expectResponseCode int) error {
+	endpointAddress := ingr.HTTPAddress()
+	opts := ingress.CallOptions{
+		Host:     host,
+		Path:     path,
+		CallType: ingress.PlainText,
+		Address:  endpointAddress,
+	}
+	if len(token) != 0 {
+		opts.Headers = http.Header{
+			"Authorization": []string{
+				fmt.Sprintf("Bearer %s", token),
+			},
 		}
-	} else {
-		// Expect 401
-		if err != nil {
-			return getErrorMessage(c.Request, "unauthenticated (code 401)", err.Error())
-		}
-		errMsg := ""
-		if len(results) == 0 {
-			errMsg = "no response"
-		}
-		if results[0].Code != "401" {
-			errMsg = fmt.Sprintf("code %s", results[0].Code)
-		}
-		if errMsg != "" {
-			return getErrorMessage(c.Request, "unauthenticated (code 401)", errMsg)
-		}
+	}
+	response, err := ingr.Call(opts)
+
+	if response.Code != expectResponseCode {
+		return fmt.Errorf("got response code %d, err %s", response.Code, err)
 	}
 	return nil
 }

@@ -21,10 +21,10 @@ syntax = "proto3";
 // model.
 //
 // This adapter supports the following templates:
-// [metric](https://istio.io/docs/reference/config/template/metric/).
-// [checknothing](https://istio.io/docs/reference/config/template/checknothing/).
-// [reportnothing](https://istio.io/docs/reference/config/template/reportnothing/).
-// [quota](https://istio.io/docs/reference/config/template/quota/).
+// [metric](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/).
+// [checknothing](https://istio.io/docs/reference/config/policy-and-telemetry/templates/checknothing/).
+// [reportnothing](https://istio.io/docs/reference/config/policy-and-telemetry/templates/reportnothing/).
+// [quota](https://istio.io/docs/reference/config/policy-and-telemetry/templates/quota/).
 //
 // Example configuration:
 // ```

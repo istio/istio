@@ -44,6 +44,12 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 	}
 	s.Selector = f
 
+	if s.FailOnDeprecation && s.NoCleanup {
+		return nil,
+			fmt.Errorf("checking for deprecation occurs at cleanup level, thus flags -istio.test.nocleanup and" +
+				" -istio.test.deprecation_failure must not be used at the same time")
+	}
+
 	return s, nil
 }
 
@@ -63,4 +69,10 @@ func init() {
 
 	flag.StringVar(&settingsFromCommandLine.SelectorString, "istio.test.select", settingsFromCommandLine.SelectorString,
 		"Comma separated list of labels for selecting tests to run (e.g. 'foo,+bar-baz').")
+
+	flag.IntVar(&settingsFromCommandLine.Retries, "istio.test.retries", settingsFromCommandLine.Retries,
+		"Number of times to retry tests")
+
+	flag.BoolVar(&settingsFromCommandLine.FailOnDeprecation, "istio.test.deprecation_failure", settingsFromCommandLine.FailOnDeprecation,
+		"Make tests fail if any usage of deprecated stuff (e.g. Envoy flags) is detected.")
 }

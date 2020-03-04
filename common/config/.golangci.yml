@@ -7,7 +7,7 @@
 
 service:
   # When updating this, also update the version stored in docker/build-tools/Dockerfile in the istio/tools repo.
-  golangci-lint-version: 1.18.x # use the fixed version to not introduce new linters unexpectedly
+  golangci-lint-version: 1.21.x # use the fixed version to not introduce new linters unexpectedly
 run:
   # timeout for analysis, e.g. 30s, 5m, default is 1m
   deadline: 20m
@@ -30,20 +30,27 @@ run:
     - ".*\\.gen\\.go"
 
 linters:
-  enable-all: true
-  disable:
-    - depguard
-    - dupl
-    - gochecknoglobals
-    - gochecknoinits
-    - goconst
-    - gocyclo
-    - gosec
-    - nakedret
-    - prealloc
-    - scopelint
-    - funlen
-    - bodyclose
+  disable-all: true
+  enable:
+  - deadcode
+  - errcheck
+  - gocritic
+  - gofmt
+  - goimports
+  - golint
+  - gosimple
+  - govet
+  - ineffassign
+  - interfacer
+  - lll
+  - misspell
+  - staticcheck
+  - structcheck
+  - stylecheck
+  - typecheck
+  - unconvert
+  - unparam
+  - varcheck
   fast: false
 
 linters-settings:

@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: prefix-httpbin1-suffix
+  namespace: default
+spec:
+  selector:
+    app: prefix-httpbin1-suffix
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prefix-httpbin2-suffix
+  namespace: default
+spec:
+  selector:
+    app: prefix-httpbin2-suffix
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpbin
+  namespace: default
+spec:
+  selector:
+    app: httpbin
+---

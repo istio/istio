@@ -68,6 +68,7 @@ option (istio.mixer.adapter.model.v1beta1.template_name) = "authorization";
 option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
+option (gogoproto.stable_marshaler_all) = true;
 
 // HandleAuthorizationService is implemented by backends that wants to handle request-time 'authorization' instances.
 service HandleAuthorizationService {

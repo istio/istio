@@ -65,7 +65,9 @@ func (c *kubeComponent) Invoke(args []string) (string, error) {
 func (c *kubeComponent) InvokeOrFail(t *testing.T, args []string) string {
 	output, err := c.Invoke(args)
 	if err != nil {
-		t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(args, " "), err)
+		t.Logf("Unwanted exception for 'istioctl %s': %v", strings.Join(args, " "), err)
+		t.Logf("Output:\n%v", output)
+		t.FailNow()
 	}
 	return output
 }

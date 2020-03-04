@@ -22,7 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/onsi/gomega"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -30,14 +29,14 @@ import (
 
 	mixerEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
-	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
-	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/pilot/pkg/serviceregistry/mock"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/mcp/source"
 	"istio.io/istio/pkg/mcp/testing/groups"
 	"istio.io/istio/tests/util"
 
 	// Import the resource package to pull in all proto types.
-	_ "istio.io/istio/galley/pkg/config/meta/metadata"
+	_ "istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/mcp/snapshot"
 	mcptesting "istio.io/istio/pkg/mcp/testing"
 	"istio.io/istio/pkg/test/env"
@@ -50,17 +49,12 @@ const (
 	ingressGatewaySvc = "mcp-ingress.istio-system.svc.cluster.local"
 )
 
-var gatewaySvc = srmemory.MakeService(ingressGatewaySvc, "11.0.0.1")
-var gatewayInstance = srmemory.MakeIP(gatewaySvc, 0)
-var fakeCreateTime *types.Timestamp
+var gatewaySvc = mock.MakeService(ingressGatewaySvc, "11.0.0.1")
+var gatewayInstance = mock.MakeIP(gatewaySvc, 0)
 var fakeCreateTime2 = time.Date(2018, time.January, 1, 2, 3, 4, 5, time.UTC)
 
 func TestPilotMCPClient(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-
-	var err error
-	fakeCreateTime, err = types.TimestampProto(time.Date(2018, time.January, 1, 12, 15, 30, 5e8, time.UTC))
-	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	t.Log("building & starting mock mcp server...")
 	mcpServer, err := runMcpServer()
@@ -68,12 +62,14 @@ func TestPilotMCPClient(t *testing.T) {
 	defer mcpServer.Close()
 
 	sn := snapshot.NewInMemoryBuilder()
-	for _, m := range schemas.Istio {
-		sn.SetVersion(m.Collection, "v0")
+	for _, m := range collections.Pilot.All() {
+		sn.SetVersion(m.Name().String(), "v0")
 	}
 
-	sn.SetEntry(schemas.Gateway.Collection, "some-name", "v1", fakeCreateTime2, nil, nil, firstGateway)
-	sn.SetEntry(schemas.Gateway.Collection, "some-other name", "v1", fakeCreateTime2, nil, nil, secondGateway)
+	_ = sn.SetEntry(collections.IstioNetworkingV1Alpha3Gateways.Name().String(),
+		"some-name", "v1", fakeCreateTime2, nil, nil, firstGateway)
+	_ = sn.SetEntry(collections.IstioNetworkingV1Alpha3Gateways.Name().String(),
+		"some-other name", "v1", fakeCreateTime2, nil, nil, secondGateway)
 
 	mcpServer.Cache.SetSnapshot(groups.Default, sn.Build())
 
@@ -82,7 +78,7 @@ func TestPilotMCPClient(t *testing.T) {
 
 	g.Eventually(func() (string, error) {
 		return curlPilot(fmt.Sprintf("http://127.0.0.1:%d/debug/configz", pilotDebugPort))
-	}, "30s", "1s").Should(gomega.ContainSubstring("gateway"))
+	}, "30s", "1s").Should(gomega.ContainSubstring(collections.IstioNetworkingV1Alpha3Gateways.Resource().Kind()))
 
 	t.Log("run edge router envoy...")
 	gateway := runEnvoy(t, "router~"+gatewayInstance+"~x~x", pilotGrpcPort, pilotDebugPort)
@@ -97,16 +93,17 @@ func TestPilotMCPClient(t *testing.T) {
 }
 
 func runMcpServer() (*mcptesting.Server, error) {
-	collections := make([]string, len(schemas.Istio))
-	for i, m := range schemas.Istio {
-		collections[i] = m.Collection
+	all := collections.Pilot.All()
+	names := make([]string, 0, len(all))
+	for _, s := range all {
+		names = append(names, s.Name().String())
 	}
-	return mcptesting.NewServer(0, source.CollectionOptionsFromSlice(collections))
+	return mcptesting.NewServer(0, source.CollectionOptionsFromSlice(names))
 }
 
 func runEnvoy(t *testing.T, nodeID string, grpcPort, debugPort uint16) *mixerEnv.TestSetup {
 	t.Log("create a new envoy test environment")
-	tmpl, err := ioutil.ReadFile(env.IstioSrc + "/tests/testdata/cf_bootstrap_tmpl.json")
+	tmpl, err := ioutil.ReadFile(env.IstioSrc + "/tests/testdata/mcp_bootstrap_tmpl.json")
 	if err != nil {
 		t.Fatal("Can't read bootstrap template", err)
 	}

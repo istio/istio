@@ -33,6 +33,7 @@ tracing:
     name: envoy.zipkin
     config:
       collector_cluster: zipkin
+      collector_endpoint_version: HTTP_JSON
       collector_endpoint: /
       trace_id_128bit: true
       shared_span_context: false
@@ -120,7 +121,7 @@ const reportAttributesOkGet = `
   "context.reporter.uid": "",
   "destination.ip": "[127 0 0 1]",
   "destination.namespace": "",
-  "destination.port": "20271",
+  "destination.port": "20309",
   "destination.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",

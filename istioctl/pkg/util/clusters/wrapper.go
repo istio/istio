@@ -17,7 +17,7 @@ package clusters
 import (
 	"bytes"
 
-	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/golang/protobuf/jsonpb"
 )
 

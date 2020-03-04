@@ -30,8 +30,8 @@ import (
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/kubernetes/scheme"
 
-	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config/schema"
 )
 
 var (
@@ -196,9 +196,6 @@ func NewVerifyCommand() *cobra.Command {
 		# Verify that Istio can be freshly installed
 		istioctl verify-install
 		
-		# Verify that the deployment matches the istio-demo profile
-		istioctl verify-install -f istio-demo.yaml
-		
 		# Verify the deployment matches a custom Istio deployment configuration
 		istioctl verify-install -f $HOME/istio.yaml
 `,
@@ -265,9 +262,9 @@ func getDeploymentCondition(status appsv1.DeploymentStatus, condType appsv1.Depl
 }
 
 func findResourceInSpec(kind string) string {
-	for _, r := range metadata.MustGet().KubeSource().Resources() {
-		if r.Kind == kind {
-			return r.Plural
+	for _, c := range schema.MustGet().KubeCollections().All() {
+		if c.Resource().Kind() == kind {
+			return c.Resource().Plural()
 		}
 	}
 	return ""

@@ -31,8 +31,37 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	rand "k8s.io/apimachinery/pkg/util/rand"
 	certclient "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 )
+
+const (
+	maxNameLength       = 63
+	maxDomainNameLength = 6
+	maxNamespaceLength  = 8
+	maxSecretNameLength = 8
+	randomLength        = 18
+)
+
+// getRandomCsrName returns a random name for CSR.
+func getRandomCsrName(secretName, namespace string) string {
+	domain := spiffe.GetTrustDomain()
+	if len(domain) > maxDomainNameLength {
+		domain = domain[:maxDomainNameLength]
+	}
+	if len(namespace) > maxNamespaceLength {
+		namespace = namespace[:maxNamespaceLength]
+	}
+	if len(secretName) > maxSecretNameLength {
+		secretName = secretName[:maxSecretNameLength]
+	}
+	name := fmt.Sprintf("csr-%s-%s-%s-%s",
+		domain, namespace, secretName, rand.String(randomLength))
+	if len(name) > maxNameLength {
+		name = name[:maxNameLength]
+	}
+	return name
+}
 
 // GenKeyCertK8sCA generates a certificate and key from k8s CA
 // Working flow:
@@ -57,7 +86,7 @@ func GenKeyCertK8sCA(certClient certclient.CertificateSigningRequestInterface, d
 	}
 
 	// 2. Submit the CSR
-	csrName := fmt.Sprintf("domain-%s-ns-%s-secret-%s", spiffe.GetTrustDomain(), secretNamespace, secretName)
+	csrName := getRandomCsrName(secretName, secretNamespace)
 	numRetries := 3
 	r, err := submitCSR(certClient, csrName, csrPEM, numRetries)
 	if err != nil {

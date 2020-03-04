@@ -34,7 +34,8 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 
-	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schema/snapshots"
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
@@ -42,12 +43,12 @@ import (
 var (
 	serverAddr             = flag.String("server", "localhost:9901", "The server address")
 	collectionList         = flag.String("collections", "", "Comma separated list of collections to watch")
-	useWellKnownTypes      = flag.Bool("use-wkt", false, "use well known collections types")
-	useWellKnownPilotTypes = flag.Bool("use-wkt-pilot", false, "use well known collections for pilot")
-	useWellKnownMixerTypes = flag.Bool("use-wkt-mixer", false, "use well known collections for mixer")
+	useWellKnownTypes      = flag.Bool("use-wkt", false, "Use well known collections types")
+	useWellKnownPilotTypes = flag.Bool("use-wkt-pilot", false, "Use well known collections for pilot")
+	useWellKnownMixerTypes = flag.Bool("use-wkt-mixer", false, "Use well known collections for mixer")
 	id                     = flag.String("id", "", "The node id for the client")
-	output                 = flag.String("output", "short", "output format. One of: long|short|stats|jsonpath=<template>")
-	labels                 = flag.String("labels", "", "comma separated key/value pairs, e.g. -labels=k1=v1,k2,v2")
+	output                 = flag.String("output", "short", "Output format. One of: long|short|stats|jsonpath=<template>")
+	labels                 = flag.String("labels", "", "Comma separated key/value pairs, e.g. -labels=k1=v1,k2=v2")
 )
 
 var (
@@ -273,7 +274,8 @@ func (u *updater) printStats(ch *sink.Change) {
 
 // Apply implements Update
 func (u *updater) Apply(ch *sink.Change) error {
-	switch *output {
+	parts := strings.Split(*output, "=")
+	switch parts[0] {
 	case "long":
 		u.printLongChange(ch)
 	case "short":
@@ -292,22 +294,15 @@ func main() {
 	flag.Parse()
 
 	var jp *jsonpath.JSONPath
-	if *output == "jsonpath" {
-		parts := strings.Split(*output, "=")
+	parts := strings.Split(*output, "=")
+	if parts[0] == "jsonpath" {
 		if len(parts) != 2 {
-			fmt.Printf("unknown output option %q:\n", *output)
-			os.Exit(-1)
-		}
-
-		if parts[0] != "jsonpath" {
-			fmt.Printf("unknown output %q:\n", *output)
-			os.Exit(-1)
+			panic(fmt.Sprintf("Unknown output option %q:\n", *output))
 		}
 
 		jp = jsonpath.New("default")
 		if err := jp.Parse(parts[1]); err != nil {
-			fmt.Printf("Error parsing jsonpath: %v\n", err)
-			os.Exit(-1)
+			panic(fmt.Sprintf("Error parsing jsonpath: %v\n", err))
 		}
 	}
 
@@ -317,8 +312,7 @@ func main() {
 		for _, pair := range pairs {
 			s := strings.SplitN(pair, "=", 2)
 			if len(s) != 2 {
-				fmt.Printf("invalid labels: %v %v\n", pair, s)
-				os.Exit(-1)
+				panic(fmt.Sprintf("invalid labels: %v %v\n", pair, s))
 			}
 			key, value := s[0], s[1]
 			sinkMetadata[key] = value
@@ -333,7 +327,7 @@ func main() {
 		}
 	}
 
-	for _, collection := range metadata.MustGet().AllCollectionsInSnapshots() {
+	for _, collection := range schema.MustGet().AllCollectionsInSnapshots(snapshots.SnapshotNames()) {
 
 		switch {
 		// pilot sortedCollections
@@ -372,8 +366,7 @@ func main() {
 
 	conn, err := grpc.Dial(*serverAddr, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
-		fmt.Printf("Error connecting to server: %v\n", err)
-		os.Exit(-1)
+		panic(fmt.Sprintf("Error connecting to server: %v\n", err))
 	}
 
 	u := &updater{

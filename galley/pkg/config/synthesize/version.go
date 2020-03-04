@@ -18,15 +18,16 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 
-	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/pkg/pool"
+
+	"istio.io/istio/pkg/config/resource"
 )
 
 // Version synthesizes a new resource version from existing resource versions. There needs to be at least one version
 // in versions, otherwise function panics.
 func Version(prefix string, versions ...resource.Version) resource.Version {
 	i := 0
-	return VersionIter(prefix, func() (n resource.Name, v resource.Version, ok bool) {
+	return VersionIter(prefix, func() (n resource.FullName, v resource.Version, ok bool) {
 		if i < len(versions) {
 			v = versions[i]
 			i++
@@ -37,7 +38,7 @@ func Version(prefix string, versions ...resource.Version) resource.Version {
 }
 
 // VersionIter synthesizes a new resource version from existing resource versions.
-func VersionIter(prefix string, iter func() (resource.Name, resource.Version, bool)) resource.Version {
+func VersionIter(prefix string, iter func() (resource.FullName, resource.Version, bool)) resource.Version {
 	b := pool.GetBuffer()
 
 	for {

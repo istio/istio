@@ -30,6 +30,8 @@ import (
 	"strings"
 	"text/template"
 
+	"istio.io/istio/pkg/config/mesh"
+
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -75,11 +77,11 @@ var (
 		annotation.SidecarStatsInclusionRegexps.Name:              alwaysValidFunc,
 		annotation.SidecarUserVolume.Name:                         alwaysValidFunc,
 		annotation.SidecarUserVolumeMount.Name:                    alwaysValidFunc,
+		annotation.SidecarEnableCoreDump.Name:                     validateBool,
 		annotation.SidecarStatusPort.Name:                         validateStatusPort,
 		annotation.SidecarStatusReadinessInitialDelaySeconds.Name: validateUInt32,
 		annotation.SidecarStatusReadinessPeriodSeconds.Name:       validateUInt32,
 		annotation.SidecarStatusReadinessFailureThreshold.Name:    validateUInt32,
-		annotation.SidecarStatusReadinessApplicationPorts.Name:    validateReadinessApplicationPorts,
 		annotation.SidecarTrafficIncludeOutboundIPRanges.Name:     ValidateIncludeIPRanges,
 		annotation.SidecarTrafficExcludeOutboundIPRanges.Name:     ValidateExcludeIPRanges,
 		annotation.SidecarTrafficIncludeInboundPorts.Name:         ValidateIncludeInboundPorts,
@@ -122,20 +124,6 @@ const (
 	InjectionPolicyEnabled InjectionPolicy = "enabled"
 )
 
-// Defaults values for injecting istio proxy into kubernetes
-// resources.
-const (
-	DefaultSidecarProxyUID              = uint64(1337)
-	DefaultVerbosity                    = 2
-	DefaultStatusPort                   = 15020
-	DefaultReadinessInitialDelaySeconds = 1
-	DefaultReadinessPeriodSeconds       = 2
-	DefaultReadinessFailureThreshold    = 30
-	DefaultIncludeIPRanges              = "*"
-	DefaultIncludeInboundPorts          = "*"
-	DefaultkubevirtInterfaces           = ""
-)
-
 const (
 	// ProxyContainerName is used by e2e integration tests for fetching logs
 	ProxyContainerName = "istio-proxy"
@@ -165,94 +153,6 @@ type SidecarTemplateData struct {
 	ProxyConfig    *meshconfig.ProxyConfig
 	MeshConfig     *meshconfig.MeshConfig
 	Values         map[string]interface{}
-}
-
-// Params describes configurable parameters for injecting istio proxy
-// into a kubernetes resource.
-type Params struct {
-	InitImage       string `json:"initImage"`
-	ProxyImage      string `json:"proxyImage"`
-	Version         string `json:"version"`
-	ImagePullPolicy string `json:"imagePullPolicy"`
-	Tracer          string `json:"tracer"`
-	// Comma separated list of IP ranges in CIDR form. If set, only redirect outbound traffic to Envoy for these IP
-	// ranges. All outbound traffic can be redirected with the wildcard character "*". Defaults to "*".
-	IncludeIPRanges string `json:"includeIPRanges"`
-	// Comma separated list of IP ranges in CIDR form. If set, outbound traffic will not be redirected for
-	// these IP ranges. Exclusions are only applied if configured to redirect all outbound traffic. By default,
-	// no IP ranges are excluded.
-	ExcludeIPRanges string `json:"excludeIPRanges"`
-	// Comma separated list of inbound ports for which traffic is to be redirected to Envoy. All ports can be
-	// redirected with the wildcard character "*". Defaults to "*".
-	IncludeInboundPorts string `json:"includeInboundPorts"`
-	// Comma separated list of inbound ports. If set, inbound traffic will not be redirected for those ports.
-	// Exclusions are only applied if configured to redirect all inbound traffic. By default, no ports are excluded.
-	ExcludeInboundPorts string `json:"excludeInboundPorts"`
-	// Comma separated list of outbound ports. If set, outbound traffic will not be redirected for those ports.
-	// By default, no ports are excluded.
-	ExcludeOutboundPorts string `json:"excludeOutboundPorts"`
-	// Comma separated list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound
-	// By default, no interfaces are configured.
-	KubevirtInterfaces           string                 `json:"kubevirtInterfaces"`
-	Verbosity                    int                    `json:"verbosity"`
-	SidecarProxyUID              uint64                 `json:"sidecarProxyUID"`
-	Mesh                         *meshconfig.MeshConfig `json:"-"`
-	StatusPort                   int                    `json:"statusPort"`
-	ReadinessInitialDelaySeconds uint32                 `json:"readinessInitialDelaySeconds"`
-	ReadinessPeriodSeconds       uint32                 `json:"readinessPeriodSeconds"`
-	ReadinessFailureThreshold    uint32                 `json:"readinessFailureThreshold"`
-	RewriteAppHTTPProbe          bool                   `json:"rewriteAppHTTPProbe"`
-	EnableCoreDump               bool                   `json:"enableCoreDump"`
-	DebugMode                    bool                   `json:"debugMode"`
-	Privileged                   bool                   `json:"privileged"`
-	SDSEnabled                   bool                   `json:"sdsEnabled"`
-	PodDNSSearchNamespaces       []string               `json:"podDNSSearchNamespaces"`
-}
-
-// Validate validates the parameters and returns an error if there is configuration issue.
-func (p *Params) Validate() error {
-	if err := ValidateIncludeIPRanges(p.IncludeIPRanges); err != nil {
-		return err
-	}
-	if err := ValidateExcludeIPRanges(p.ExcludeIPRanges); err != nil {
-		return err
-	}
-	if err := ValidateIncludeInboundPorts(p.IncludeInboundPorts); err != nil {
-		return err
-	}
-	return ValidateExcludeInboundPorts(p.ExcludeInboundPorts)
-}
-
-// intoHelmValues returns a map of the traversed path in helm values YAML to the param value.
-func (p *Params) intoHelmValues() map[string]string {
-	vals := map[string]string{
-		"global.proxy_init.image":                    p.InitImage,
-		"global.proxy.image":                         p.ProxyImage,
-		"global.proxy.enableCoreDump":                strconv.FormatBool(p.EnableCoreDump),
-		"global.proxy.privileged":                    strconv.FormatBool(p.Privileged),
-		"global.imagePullPolicy":                     p.ImagePullPolicy,
-		"global.proxy.statusPort":                    strconv.Itoa(p.StatusPort),
-		"global.proxy.tracer":                        p.Tracer,
-		"global.proxy.readinessInitialDelaySeconds":  strconv.Itoa(int(p.ReadinessInitialDelaySeconds)),
-		"global.proxy.readinessPeriodSeconds":        strconv.Itoa(int(p.ReadinessPeriodSeconds)),
-		"global.proxy.readinessFailureThreshold":     strconv.Itoa(int(p.ReadinessFailureThreshold)),
-		"global.sds.enabled":                         strconv.FormatBool(p.SDSEnabled),
-		"global.proxy.includeIPRanges":               p.IncludeIPRanges,
-		"global.proxy.excludeIPRanges":               p.ExcludeIPRanges,
-		"global.proxy.includeInboundPorts":           p.IncludeInboundPorts,
-		"global.proxy.excludeInboundPorts":           p.ExcludeInboundPorts,
-		"sidecarInjectorWebhook.rewriteAppHTTPProbe": strconv.FormatBool(p.RewriteAppHTTPProbe),
-		"global.podDNSSearchNamespaces":              getHelmValue(p.PodDNSSearchNamespaces),
-	}
-	return vals
-}
-
-func getHelmValue(namespace []string) string {
-	if len(namespace) == 0 {
-		return ""
-	}
-
-	return "{" + strings.Join(namespace, ",") + "}"
 }
 
 // Config specifies the sidecar injection configuration This includes
@@ -356,13 +256,6 @@ func ValidateExcludeIPRanges(ipRanges string) error {
 	return nil
 }
 
-func validateReadinessApplicationPorts(ports string) error {
-	if ports != "*" {
-		return validatePortList("readinessApplicationPorts", ports)
-	}
-	return nil
-}
-
 // ValidateIncludeInboundPorts validates the includeInboundPorts parameter
 func ValidateIncludeInboundPorts(ports string) error {
 	if ports != "*" {
@@ -392,6 +285,12 @@ func validateStatusPort(port string) error {
 // validateUInt32 validates that the given annotation value is a positive integer.
 func validateUInt32(value string) error {
 	_, err := strconv.ParseUint(value, 10, 32)
+	return err
+}
+
+// validateBool validates that the given annotation value is a boolean.
+func validateBool(value string) error {
+	_, err := strconv.ParseBool(value)
 	return err
 }
 
@@ -580,6 +479,17 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 		"toLower":             strings.ToLower,
 	}
 
+	// Allows the template to use env variables from istiod.
+	// Istiod will use a custom template, without 'values.yaml', and the pod will have
+	// an optional 'vendor' configmap where additional settings can be defined.
+	funcMap["env"] = func(key string, def string) string {
+		val := os.Getenv(key)
+		if val == "" {
+			return def
+		}
+		return val
+	}
+
 	// Need to use FuncMap and SidecarTemplateData context
 	funcMap["render"] = func(template string) string {
 		bbuf, err := parseTemplate(template, funcMap, data)
@@ -599,7 +509,7 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 	if err := yaml.Unmarshal(bbuf.Bytes(), &sic); err != nil {
 		// This usually means an invalid injector template; we can't check
 		// the template itself because it is merely a string.
-		log.Warnf("Failed to unmarshal template %v %s", err, bbuf.String())
+		log.Warnf("Failed to unmarshal template %v\n %s", err, bbuf.String())
 		return nil, "", multierror.Prefix(err, "failed parsing generated injected YAML (check Istio sidecar injector configuration):")
 	}
 
@@ -835,8 +745,12 @@ func IntoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
 	if meshconfig.SdsUdsPath != "" {
 		var grp = int64(1337)
-		podSpec.SecurityContext = &corev1.PodSecurityContext{
-			FSGroup: &grp,
+		if podSpec.SecurityContext == nil {
+			podSpec.SecurityContext = &corev1.PodSecurityContext{
+				FSGroup: &grp,
+			}
+		} else {
+			podSpec.SecurityContext.FSGroup = &grp
 		}
 	}
 
@@ -849,11 +763,11 @@ func IntoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	}
 
 	metadata.Annotations[annotation.SidecarStatus.Name] = status
-	if status != "" && metadata.Labels[model.MTLSReadyLabelName] == "" {
+	if status != "" && metadata.Labels[model.TLSModeLabelName] == "" {
 		if metadata.Labels == nil {
 			metadata.Labels = make(map[string]string)
 		}
-		metadata.Labels[model.MTLSReadyLabelName] = "true"
+		metadata.Labels[model.TLSModeLabelName] = model.IstioMutualTLSModeLabel
 	}
 
 	return out, nil
@@ -881,6 +795,7 @@ func getContainerPorts(containers []corev1.Container, shouldIncludePorts func(co
 	return strings.Join(parts, ",")
 }
 
+// this function is no longer used by the template but kept around for backwards compatibility
 func applicationPorts(containers []corev1.Container) string {
 	return getContainerPorts(containers, func(c corev1.Container) bool {
 		return c.Name != ProxyContainerName
@@ -911,6 +826,7 @@ func structToJSON(v interface{}) string {
 }
 
 func protoToJSON(v proto.Message) string {
+	v = cleanMeshConfig(v)
 	if v == nil {
 		return "{}"
 	}
@@ -923,6 +839,133 @@ func protoToJSON(v proto.Message) string {
 	}
 
 	return ba
+}
+
+func cleanProxyConfig(pc meshconfig.ProxyConfig) *meshconfig.ProxyConfig {
+	defaults := mesh.DefaultProxyConfig()
+	if pc.ConfigPath == defaults.ConfigPath {
+		pc.ConfigPath = ""
+	}
+	if pc.BinaryPath == defaults.BinaryPath {
+		pc.BinaryPath = ""
+	}
+	if pc.ServiceCluster == defaults.ServiceCluster {
+		pc.ServiceCluster = ""
+	}
+	if reflect.DeepEqual(pc.DrainDuration, defaults.DrainDuration) {
+		pc.DrainDuration = nil
+	}
+	if reflect.DeepEqual(pc.ParentShutdownDuration, defaults.ParentShutdownDuration) {
+		pc.ParentShutdownDuration = nil
+	}
+	if pc.DiscoveryAddress == defaults.DiscoveryAddress {
+		pc.DiscoveryAddress = ""
+	}
+	if reflect.DeepEqual(pc.ConnectTimeout, defaults.ConnectTimeout) {
+		pc.ConnectTimeout = nil
+	}
+	if reflect.DeepEqual(pc.EnvoyMetricsService, defaults.EnvoyMetricsService) {
+		pc.EnvoyMetricsService = nil
+	}
+	if reflect.DeepEqual(pc.EnvoyAccessLogService, defaults.EnvoyAccessLogService) {
+		pc.EnvoyAccessLogService = nil
+	}
+	if pc.ProxyAdminPort == defaults.ProxyAdminPort {
+		pc.ProxyAdminPort = 0
+	}
+	if pc.StatNameLength == defaults.StatNameLength {
+		pc.StatNameLength = 0
+	}
+	return &pc
+}
+
+// Rather than dump the entire proxy config, we remove fields that are default
+// This makes the pod spec much smaller
+// This is not comprehensive code, but nothing will break if this misses some fields
+func cleanMeshConfig(v proto.Message) proto.Message {
+	mc, ok := v.(*meshconfig.MeshConfig)
+	if !ok || mc == nil {
+		return v
+	}
+
+	cpy := *mc
+
+	defaults := mesh.DefaultMeshConfig()
+	if reflect.DeepEqual(cpy.DefaultConfig, defaults.DefaultConfig) {
+		cpy.DefaultConfig = nil
+	} else if cpy.DefaultConfig != nil {
+		cpy.DefaultConfig = cleanProxyConfig(*cpy.DefaultConfig)
+	}
+	if cpy.DisablePolicyChecks == defaults.DisablePolicyChecks {
+		cpy.DisablePolicyChecks = false
+	}
+	if cpy.DisableMixerHttpReports == defaults.DisableMixerHttpReports {
+		cpy.DisableMixerHttpReports = false
+	}
+	if cpy.EnableTracing == defaults.EnableTracing {
+		cpy.EnableTracing = false
+	}
+	if cpy.ProxyListenPort == defaults.ProxyListenPort {
+		cpy.ProxyListenPort = 0
+	}
+	if cpy.ReportBatchMaxEntries == defaults.ReportBatchMaxEntries {
+		cpy.ReportBatchMaxEntries = 0
+	}
+	if reflect.DeepEqual(cpy.ConnectTimeout, defaults.ConnectTimeout) {
+		cpy.ConnectTimeout = nil
+	}
+	if reflect.DeepEqual(cpy.DnsRefreshRate, defaults.DnsRefreshRate) {
+		cpy.DnsRefreshRate = nil
+	}
+	if reflect.DeepEqual(cpy.ProtocolDetectionTimeout, defaults.ProtocolDetectionTimeout) {
+		cpy.ProtocolDetectionTimeout = nil
+	}
+	if reflect.DeepEqual(cpy.DefaultServiceExportTo, defaults.DefaultServiceExportTo) {
+		cpy.DefaultServiceExportTo = nil
+	}
+	if reflect.DeepEqual(cpy.DefaultVirtualServiceExportTo, defaults.DefaultVirtualServiceExportTo) {
+		cpy.DefaultVirtualServiceExportTo = nil
+	}
+	if reflect.DeepEqual(cpy.DefaultDestinationRuleExportTo, defaults.DefaultDestinationRuleExportTo) {
+		cpy.DefaultDestinationRuleExportTo = nil
+	}
+	if reflect.DeepEqual(cpy.EnableAutoMtls, defaults.EnableAutoMtls) {
+		cpy.EnableAutoMtls = nil
+	}
+	if reflect.DeepEqual(cpy.TrustDomainAliases, defaults.TrustDomainAliases) {
+		cpy.TrustDomainAliases = nil
+	}
+	if reflect.DeepEqual(cpy.OutboundTrafficPolicy, defaults.OutboundTrafficPolicy) {
+		cpy.OutboundTrafficPolicy = nil
+	}
+	if reflect.DeepEqual(cpy.Certificates, defaults.Certificates) {
+		cpy.Certificates = nil
+	}
+	if reflect.DeepEqual(cpy.LocalityLbSetting, defaults.LocalityLbSetting) {
+		cpy.LocalityLbSetting = nil
+	}
+	if reflect.DeepEqual(cpy.ReportBatchMaxTime, defaults.ReportBatchMaxTime) {
+		cpy.ReportBatchMaxTime = nil
+	}
+	if reflect.DeepEqual(cpy.ThriftConfig, defaults.ThriftConfig) {
+		cpy.ThriftConfig = nil
+	}
+	if cpy.IngressService == defaults.IngressService {
+		cpy.IngressService = ""
+	}
+	if cpy.IngressClass == defaults.IngressClass {
+		cpy.IngressClass = ""
+	}
+	if cpy.AccessLogFile == defaults.AccessLogFile {
+		cpy.AccessLogFile = ""
+	}
+	if cpy.RootNamespace == defaults.RootNamespace {
+		cpy.RootNamespace = ""
+	}
+	if cpy.TrustDomain == defaults.TrustDomain {
+		cpy.TrustDomain = ""
+	}
+	return &cpy
 }
 
 func toJSON(m map[string]string) string {

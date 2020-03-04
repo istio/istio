@@ -27,6 +27,7 @@ var (
 		Hub:        env.HUB.Value(),
 		Tag:        env.TAG.Value(),
 		PullPolicy: env.PULL_POLICY.Value(),
+		BitnamiHub: env.BITNAMIHUB.ValueOrDefault("docker.io/bitnami"),
 	}
 )
 
@@ -57,4 +58,6 @@ func init() {
 		"Common Container tag to use when deploying container images")
 	flag.StringVar(&settingsFromCommandLine.PullPolicy, "istio.test.pullpolicy", settingsFromCommandLine.PullPolicy,
 		"Common image pull policy to use when deploying container images")
+	flag.StringVar(&settingsFromCommandLine.BitnamiHub, "istio.test.bitnamihub", settingsFromCommandLine.BitnamiHub,
+		"Container registry to use to download binami images for the redis tests")
 }

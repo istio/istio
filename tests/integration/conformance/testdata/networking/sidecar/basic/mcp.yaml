@@ -34,7 +34,7 @@ constraints:
           ],
           "ingress": [
           {
-            "default_endpoint": "127.0.0.1:17071",
+            "defaultEndpoint": "127.0.0.1:17071",
             "port": {
               "name": "httplocal",
               "number": 7071,
@@ -42,7 +42,7 @@ constraints:
             }
           },
           {
-            "default_endpoint": "127.0.0.1:17070",
+            "defaultEndpoint": "127.0.0.1:17070",
             "port": {
               "name": "tcplocal",
               "number": 7070,
@@ -50,7 +50,7 @@ constraints:
             }
           },
           {
-            "default_endpoint": "127.0.0.1:28080",
+            "defaultEndpoint": "127.0.0.1:28080",
             "port": {
               "name": "http-echo",
               "number": 18080,
@@ -58,7 +58,7 @@ constraints:
             }
           },
           {
-            "default_endpoint": "127.0.0.1:28079",
+            "defaultEndpoint": "127.0.0.1:28079",
             "port": {
               "name": "grpc-ping",
               "number": 18079,

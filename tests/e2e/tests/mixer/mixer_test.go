@@ -1402,7 +1402,7 @@ func visitWithApp(url string, pod string, container string, num int) error {
 	log.Infof("Visit %s for %d times with the following command: %v", url, num, cmd)
 	_, err := util.ShellMuteOutput(cmd)
 	if err != nil {
-		return fmt.Errorf("error excuting command: %s error: %v", cmd, err)
+		return fmt.Errorf("error executing command: %s error: %v", cmd, err)
 	}
 	return nil
 }

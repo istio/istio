@@ -1,0 +1,2 @@
+# list path needs to be skip for codecov check
+# E.g. istio.io/operator/pkg/tests

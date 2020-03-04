@@ -1,0 +1,23 @@
+# Generated from ClusterRbacConfig with mode ON_WITH_EXCLUSION on service "productpage.default.svc.cluster.local". This policy will allow all requests to service "productpage.default.svc.cluster.local" by default.
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-service-productpage-allow-all
+  namespace: default
+spec:
+  rules:
+  - {}
+  selector:
+    matchLabels:
+      app: productpage
+      version: v1
+---
+# Generated from ClusterRbacConfig with mode ON_WITH_EXCLUSION. This policy is in root namespace and will deny all requests in the mesh by default.
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-global-deny-all
+  namespace: my-root-namespace
+spec:
+  {}
+---

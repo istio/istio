@@ -22,6 +22,7 @@ import (
 	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
 	meshConfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
@@ -61,6 +62,8 @@ type Config struct {
 	// The MeshConfig to be used for Pilot in native environment. In Kube environment this can be
 	// configured with Helm.
 	MeshConfig *meshConfig.MeshConfig
+
+	ServiceArgs bootstrap.ServiceArgs
 }
 
 // New returns a new instance of echo.

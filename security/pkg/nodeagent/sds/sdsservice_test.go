@@ -52,22 +52,10 @@ var (
 	fakePushCertificateChain = []byte{03}
 	fakePushPrivateKey       = []byte{04}
 
-	fakeCredentialToken = "faketoken"
-	testResourceName    = "default"
-	extraResourceName   = "extra resource name"
-
-	fakeSecret = &model.SecretItem{
-		CertificateChain: fakeCertificateChain,
-		PrivateKey:       fakePrivateKey,
-		ResourceName:     testResourceName,
-		Version:          time.Now().String(),
-	}
-
-	fakeSecretRootCert = &model.SecretItem{
-		RootCert:     fakeRootCert,
-		ResourceName: cache.RootCertReqResourceName,
-		Version:      time.Now().String(),
-	}
+	fakeToken1        = "faketoken1"
+	fakeToken2        = "faketoken2"
+	testResourceName  = "default"
+	extraResourceName = "extra-resource-name"
 )
 
 func TestStreamSecretsForWorkloadSds(t *testing.T) {
@@ -245,7 +233,7 @@ func sendRequestAndVerifyResponse(t *testing.T, cb secretCallback, socket, proxy
 }
 
 func verifyResponseForInvalidResourceNames(err error) bool {
-	s := fmt.Sprintf("has invalid resourceNames [%s %s]", testResourceName, extraResourceName)
+	s := fmt.Sprintf("has more than one resourceNames [%s %s]", testResourceName, extraResourceName)
 	return strings.Contains(err.Error(), s)
 }
 
@@ -253,7 +241,7 @@ func createSDSServer(t *testing.T, socket string) (*Server, *mockSecretStore) {
 	arg := Options{
 		EnableIngressGatewaySDS: false,
 		EnableWorkloadSDS:       true,
-		RecycleInterval:         2 * time.Second,
+		RecycleInterval:         100 * time.Millisecond,
 		WorkloadUDSPath:         socket,
 	}
 	st := &mockSecretStore{
@@ -266,14 +254,14 @@ func createSDSServer(t *testing.T, socket string) (*Server, *mockSecretStore) {
 	return server, st
 }
 
-func createSDSStream(t *testing.T, socket string) (*grpc.ClientConn, sds.SecretDiscoveryService_StreamSecretsClient) {
+func createSDSStream(t *testing.T, socket, token string) (*grpc.ClientConn, sds.SecretDiscoveryService_StreamSecretsClient) {
 	// Try to call the server
 	conn, err := setupConnection(socket)
 	if err != nil {
 		t.Errorf("failed to setup connection to socket %q", socket)
 	}
 	sdsClient := sds.NewSecretDiscoveryServiceClient(conn)
-	header := metadata.Pairs(credentialTokenHeaderKey, "")
+	header := metadata.Pairs(credentialTokenHeaderKey, token)
 	ctx := metadata.NewOutgoingContext(context.Background(), header)
 	stream, err := sdsClient.StreamSecrets(ctx)
 	if err != nil {
@@ -282,6 +270,11 @@ func createSDSStream(t *testing.T, socket string) (*grpc.ClientConn, sds.SecretD
 	return conn, stream
 }
 
+// Flow for testSDSStreamTwo:
+// Client         Server       TestStreamSecretsPush
+//   REQ    -->
+// (verify) <--    RESP
+// "close stream" -----------> (close stream)
 func testSDSStreamTwo(stream sds.SecretDiscoveryService_StreamSecretsClient, proxyID string,
 	notifyChan chan notifyMsg) {
 	req := &api.DiscoveryRequest{
@@ -309,6 +302,19 @@ func testSDSStreamTwo(stream sds.SecretDiscoveryService_StreamSecretsClient, pro
 	notifyChan <- notifyMsg{Err: nil, Message: "close stream"}
 }
 
+// Flow for testSDSStreamOne:
+// Client         Server       TestStreamSecretsPush
+//   REQ    -->
+// (verify) <--    RESP
+//   ACK    -->
+// "notify push secret 1"----> (Check stats, push new secret)
+// (verify) <--    RESP
+//      <--------------------- "receive secret"
+//   ACK    -->
+// "notify push secret 2"----> (Check stats, push nil secret)
+//          <--    ERROR
+//      <--------------------- "receive nil secret"
+// "close stream" -----------> (close stream)
 func testSDSStreamOne(stream sds.SecretDiscoveryService_StreamSecretsClient, proxyID string,
 	notifyChan chan notifyMsg) {
 	req := &api.DiscoveryRequest{
@@ -321,7 +327,7 @@ func testSDSStreamOne(stream sds.SecretDiscoveryService_StreamSecretsClient, pro
 		VersionInfo: "initial_version",
 	}
 
-	// Send first request and
+	// Send first request and verify response
 	if err := stream.Send(req); err != nil {
 		notifyChan <- notifyMsg{Err: err, Message: fmt.Sprintf("stream one: stream.Send failed: %v", err)}
 	}
@@ -335,13 +341,15 @@ func testSDSStreamOne(stream sds.SecretDiscoveryService_StreamSecretsClient, pro
 	}
 
 	// Send second request as an ACK and wait for notifyPush
+	// The second and following requests can carry an empty node identifier.
+	req.Node.Id = ""
 	req.VersionInfo = resp.VersionInfo
 	req.ResponseNonce = resp.Nonce
 	if err = stream.Send(req); err != nil {
 		notifyChan <- notifyMsg{Err: err, Message: fmt.Sprintf("stream one: stream.Send failed: %v", err)}
 	}
 
-	notifyChan <- notifyMsg{Err: nil, Message: "notify push secret"}
+	notifyChan <- notifyMsg{Err: nil, Message: "notify push secret 1"}
 	if notify := <-notifyChan; notify.Message == "receive secret" {
 		resp, err = stream.Recv()
 		if err != nil {
@@ -359,7 +367,7 @@ func testSDSStreamOne(stream sds.SecretDiscoveryService_StreamSecretsClient, pro
 	if err = stream.Send(req); err != nil {
 		notifyChan <- notifyMsg{Err: err, Message: fmt.Sprintf("stream one: stream.Send failed: %v", err)}
 	}
-	notifyChan <- notifyMsg{Err: nil, Message: "notify push secret"}
+	notifyChan <- notifyMsg{Err: nil, Message: "notify push secret 2"}
 	if notify := <-notifyChan; notify.Message == "receive nil secret" {
 		_, err = stream.Recv()
 		if err == nil {
@@ -377,10 +385,10 @@ type notifyMsg struct {
 func waitForNotificationToProceed(t *testing.T, notifyChan chan notifyMsg, proceedNotice string) {
 	for {
 		if notify := <-notifyChan; notify.Err != nil {
-			t.Errorf("get error from stream: %v", notify.Message)
+			t.Fatalf("get error from stream: %v", notify.Message)
 		} else {
 			if notify.Message != proceedNotice {
-				t.Errorf("push signal does not match, expected %s but got %s", proceedNotice,
+				t.Fatalf("push signal does not match, expected %s but got %s", proceedNotice,
 					notify.Message)
 			}
 			return
@@ -412,7 +420,7 @@ func waitForSecretCacheCheck(t *testing.T, mss *mockSecretStore, expectCacheHit 
 			}
 		}
 		if time.Since(start) > waitTimeout {
-			t.Errorf("%s does not meet expected value in %s, expected %d but got %d",
+			t.Fatalf("%s does not meet expected value in %s, expected %d but got %d",
 				checkMetric, waitTimeout.String(), expectValue, realVal)
 			return
 		}
@@ -446,36 +454,37 @@ func TestStreamSecretsPush(t *testing.T) {
 	server, st := createSDSServer(t, socket)
 	defer server.Stop()
 
-	connOne, streamOne := createSDSStream(t, socket)
+	connOne, streamOne := createSDSStream(t, socket, fakeToken1)
 	proxyID := "sidecar~127.0.0.1~SecretsPushStreamOne~local"
 	notifyChanOne := make(chan notifyMsg)
 	go testSDSStreamOne(streamOne, proxyID, notifyChanOne)
 	expectedTotalPush += 2
 
-	connTwo, streamTwo := createSDSStream(t, socket)
+	connTwo, streamTwo := createSDSStream(t, socket, fakeToken2)
 	proxyIDTwo := "sidecar~127.0.0.1~SecretsPushStreamTwo~local"
 	notifyChanTwo := make(chan notifyMsg)
 	go testSDSStreamTwo(streamTwo, proxyIDTwo, notifyChanTwo)
 	expectedTotalPush++
 
-	waitForNotificationToProceed(t, notifyChanOne, "notify push secret")
 	// verify that the first SDS request sent by two streams do not hit cache.
 	waitForSecretCacheCheck(t, st, false, 2)
+	waitForNotificationToProceed(t, notifyChanOne, "notify push secret 1")
 	// verify that the second SDS request hits cache.
 	waitForSecretCacheCheck(t, st, true, 1)
 
 	// simulate logic in constructConnectionID() function.
 	conID := getClientConID(proxyID)
+	// Test push new secret to proxy. This SecretItem is for StreamOne.
 	pushSecret := &model.SecretItem{
 		CertificateChain: fakePushCertificateChain,
 		PrivateKey:       fakePushPrivateKey,
 		ResourceName:     testResourceName,
-		Version:          time.Now().String(),
+		Version:          time.Now().Format("01-02 15:04:05.000"),
+		Token:            fakeToken1,
 	}
-	// Test push new secret to proxy.
 	if err := NotifyProxy(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName},
 		pushSecret); err != nil {
-		t.Fatalf("failed to send push notificiation to proxy %q: %v", conID, err)
+		t.Fatalf("failed to send push notification to proxy %q: %v", conID, err)
 	}
 	// load pushed secret into cache, this is needed to detect an ACK request.
 	st.secrets.Store(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName}, pushSecret)
@@ -490,13 +499,13 @@ func TestStreamSecretsPush(t *testing.T) {
 		t.Fatalf("Failed to find cached secret")
 	}
 
-	waitForNotificationToProceed(t, notifyChanOne, "notify push secret")
+	waitForNotificationToProceed(t, notifyChanOne, "notify push secret 2")
 	// verify that the third SDS request hits cache.
 	waitForSecretCacheCheck(t, st, true, 2)
 
 	// Test push nil secret(indicates close the streaming connection) to proxy.
 	if err := NotifyProxy(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName}, nil); err != nil {
-		t.Fatalf("failed to send push notificiation to proxy %q", conID)
+		t.Fatalf("failed to send push notification to proxy %q", conID)
 	}
 	notifyChanOne <- notifyMsg{Err: nil, Message: "receive nil secret"}
 
@@ -510,14 +519,14 @@ func TestStreamSecretsPush(t *testing.T) {
 	}
 	// Wait the recycle job run to clear all staled client connections.
 	// TODO(JimmyCYJ): replace this sleep with measuring metrics totalStaleConnCounts.
-	time.Sleep(10 * time.Second)
+	time.Sleep(1 * time.Second)
 
 	// Add RLock to avoid racetest fail.
 	sdsClientsMutex.RLock()
-	defer sdsClientsMutex.RUnlock()
 	if len(sdsClients) != 0 {
 		t.Fatalf("sdsClients, got %d, expected 0", len(sdsClients))
 	}
+	sdsClientsMutex.RUnlock()
 
 	totalPushVal, err := util.GetMetricsCounterValue("total_pushes")
 	if err != nil {
@@ -585,7 +594,7 @@ func TestStreamSecretsMultiplePush(t *testing.T) {
 	server, st := createSDSServer(t, socket)
 	defer server.Stop()
 
-	conn, stream := createSDSStream(t, socket)
+	conn, stream := createSDSStream(t, socket, fakeToken1)
 	proxyID := "sidecar~127.0.0.1~StreamMultiplePush~local"
 	notifyChan := make(chan notifyMsg)
 	go testSDSStreamMultiplePush(stream, proxyID, notifyChan)
@@ -600,12 +609,12 @@ func TestStreamSecretsMultiplePush(t *testing.T) {
 		CertificateChain: fakePushCertificateChain,
 		PrivateKey:       fakePushPrivateKey,
 		ResourceName:     testResourceName,
-		Version:          time.Now().String(),
+		Version:          time.Now().Format("01-02 15:04:05.000"),
 	}
 	// Test push new secret to proxy.
 	if err := NotifyProxy(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName},
 		pushSecret); err != nil {
-		t.Fatalf("failed to send push notificiation to proxy %q", conID)
+		t.Fatalf("failed to send push notification to proxy %q", conID)
 	}
 
 	notifyChan <- notifyMsg{Err: nil, Message: "receive secret"}
@@ -634,7 +643,7 @@ func testSDSStreamUpdateFailures(stream sds.SecretDiscoveryService_StreamSecrets
 		VersionInfo: "initial_version",
 	}
 
-	// Send first request and
+	// Send first request and verify the response
 	if err := stream.Send(req); err != nil {
 		notifyChan <- notifyMsg{Err: err, Message: fmt.Sprintf("stream.Send failed: %v", err)}
 	}
@@ -647,12 +656,20 @@ func testSDSStreamUpdateFailures(stream sds.SecretDiscoveryService_StreamSecrets
 			"first SDS response verification failed: %v", err)}
 	}
 
-	// Send second request as an ACK and wait for notifyPush
-	req.VersionInfo = resp.VersionInfo
-	req.ResponseNonce = resp.Nonce
+	// Send second request as a NACK. The server side will be blocked.
+	req.ErrorDetail = &status.Status{
+		Code:    int32(rpc.INTERNAL),
+		Message: "fake error",
+	}
 	if err = stream.Send(req); err != nil {
 		notifyChan <- notifyMsg{Err: err, Message: fmt.Sprintf("stream.Send failed: %v", err)}
 	}
+
+	// Wait for the server to block.
+	time.Sleep(500 * time.Millisecond)
+
+	// Notify the testing thread to update the secret on the server, which triggers a response with
+	// the new secret will be sent.
 	notifyChan <- notifyMsg{Err: nil, Message: "notify push secret"}
 	if notify := <-notifyChan; notify.Message == "receive secret" {
 		resp, err = stream.Recv()
@@ -665,29 +682,20 @@ func testSDSStreamUpdateFailures(stream sds.SecretDiscoveryService_StreamSecrets
 		}
 	}
 
-	// Send third request and simulate the scenario that the second push causes secret update failure.
-	// The version info and response nonce in the third request should match the second request.
-	req.ErrorDetail = &status.Status{
-		Code:    int32(rpc.INTERNAL),
-		Message: "fake error",
-	}
-	if err = stream.Send(req); err != nil {
-		notifyChan <- notifyMsg{Err: err, Message: fmt.Sprintf("stream.Send failed: %v", err)}
-	}
-	// The third request does not hit cache, so it is not on hold but replied with key/cert immediately.
-	resp, err = stream.Recv()
-	if err != nil {
-		notifyChan <- notifyMsg{Err: err, Message: fmt.Sprintf("stream.Recv failed: %v", err)}
-	}
-	if err := verifySDSSResponse(resp, fakePrivateKey, fakeCertificateChain); err != nil {
-		notifyChan <- notifyMsg{Err: err, Message: fmt.Sprintf(
-			"third SDS response verification failed: %v", err)}
-	}
 	notifyChan <- notifyMsg{Err: nil, Message: "close stream"}
 }
 
-// TestStreamSecretsUpdateFailures verifies that update failures reported by Envoy proxy is correctly
-// recorded by metrics.
+// TestStreamSecretsUpdateFailures verifies that NACK returned by Envoy will be blocked until next
+// secret update push.
+// Flow:
+// Client         Server       TestStreamSecretsUpdateFailures
+//   REQ    -->
+// (verify) <--    RESP
+//   NACK   -->  (blocked)
+// "notify push secret"  ----> (Check stats, push new secret)
+//      <--------------------- "receive secret"
+// (verify) <--    RESP
+// "close stream" -----------> (close stream)
 func TestStreamSecretsUpdateFailures(t *testing.T) {
 	// reset connectionNumber since since its value is kept in memory for all unit test cases lifetime,
 	// reset since it may be updated in other test case.
@@ -706,7 +714,7 @@ func TestStreamSecretsUpdateFailures(t *testing.T) {
 		t.Errorf("Fail to get initial value from metric totalSecretUpdateFailureCounts: %v", err)
 	}
 
-	conn, stream := createSDSStream(t, socket)
+	conn, stream := createSDSStream(t, socket, fakeToken1)
 	proxyID := "sidecar~127.0.0.1~SecretsUpdateFailure~local"
 	notifyChan := make(chan notifyMsg)
 	go testSDSStreamUpdateFailures(stream, proxyID, notifyChan)
@@ -714,7 +722,7 @@ func TestStreamSecretsUpdateFailures(t *testing.T) {
 	waitForNotificationToProceed(t, notifyChan, "notify push secret")
 	// verify that the first SDS request does not hit cache, and that the second SDS request hits cache.
 	waitForSecretCacheCheck(t, st, false, 1)
-	waitForSecretCacheCheck(t, st, true, 1)
+	waitForSecretCacheCheck(t, st, true, 0)
 
 	// simulate logic in constructConnectionID() function.
 	conID := proxyID + "-1"
@@ -722,20 +730,16 @@ func TestStreamSecretsUpdateFailures(t *testing.T) {
 		CertificateChain: fakePushCertificateChain,
 		PrivateKey:       fakePushPrivateKey,
 		ResourceName:     testResourceName,
-		Version:          time.Now().String(),
+		Version:          time.Now().Format("01-02 15:04:05.000"),
 	}
 	// Test push new secret to proxy.
 	if err := NotifyProxy(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName},
 		pushSecret); err != nil {
-		t.Fatalf("failed to send push notificiation to proxy %q: %v", conID, err)
+		t.Fatalf("failed to send push notification to proxy %q: %v", conID, err)
 	}
 	// load pushed secret into cache, this is needed to detect an ACK request.
 	st.secrets.Store(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName}, pushSecret)
 	notifyChan <- notifyMsg{Err: nil, Message: "receive secret"}
-
-	// verify that Envoy rejects previous push and send another SDS request with error info. This SDS
-	// request has original version info that does not match pushed secret in cache.
-	waitForSecretCacheCheck(t, st, false, 2)
 
 	waitForNotificationToProceed(t, notifyChan, "close stream")
 	conn.Close()
@@ -754,13 +758,16 @@ func TestStreamSecretsUpdateFailures(t *testing.T) {
 		t.Errorf("Fail to get value from metric totalPush: %v", err)
 	}
 	totalPushVal -= initialTotalPush
-	if totalPushVal != float64(3) {
+	if totalPushVal != float64(2) {
 		t.Errorf("unexpected metric totalPush: expected 3 but got %v", totalPushVal)
 	}
 }
 
 func verifySDSSResponse(resp *api.DiscoveryResponse, expectedPrivateKey []byte, expectedCertChain []byte) error {
 	var pb authapi.Secret
+	if resp == nil {
+		return fmt.Errorf("response is nil")
+	}
 	if err := ptypes.UnmarshalAny(resp.Resources[0], &pb); err != nil {
 		return fmt.Errorf("unmarshalAny SDS response failed: %v", err)
 	}
@@ -820,7 +827,7 @@ func sdsRequestStream(socket string, req *api.DiscoveryRequest) (*api.DiscoveryR
 	defer conn.Close()
 
 	sdsClient := sds.NewSecretDiscoveryServiceClient(conn)
-	header := metadata.Pairs(credentialTokenHeaderKey, fakeCredentialToken)
+	header := metadata.Pairs(credentialTokenHeaderKey, fakeToken1)
 	ctx := metadata.NewOutgoingContext(context.Background(), header)
 	stream, err := sdsClient.StreamSecrets(ctx)
 	if err != nil {
@@ -845,7 +852,7 @@ func sdsRequestFetch(socket string, req *api.DiscoveryRequest) (*api.DiscoveryRe
 	defer conn.Close()
 
 	sdsClient := sds.NewSecretDiscoveryServiceClient(conn)
-	header := metadata.Pairs(credentialTokenHeaderKey, fakeCredentialToken)
+	header := metadata.Pairs(credentialTokenHeaderKey, fakeToken1)
 	ctx := metadata.NewOutgoingContext(context.Background(), header)
 	resp, err := sdsClient.FetchSecrets(ctx, req)
 	if err != nil {
@@ -892,7 +899,7 @@ func (ms *mockSecretStore) SecretCacheMiss() int {
 }
 
 func (ms *mockSecretStore) GenerateSecret(ctx context.Context, conID, resourceName, token string) (*model.SecretItem, error) {
-	if ms.checkToken && token != fakeCredentialToken {
+	if ms.checkToken && token != fakeToken1 && token != fakeToken2 {
 		return nil, fmt.Errorf("unexpected token %q", token)
 	}
 
@@ -901,13 +908,28 @@ func (ms *mockSecretStore) GenerateSecret(ctx context.Context, conID, resourceNa
 		ResourceName: resourceName,
 	}
 	if resourceName == testResourceName {
-		ms.secrets.Store(key, fakeSecret)
-		return fakeSecret, nil
+		s := &model.SecretItem{
+			CertificateChain: fakeCertificateChain,
+			PrivateKey:       fakePrivateKey,
+			ResourceName:     testResourceName,
+			Version:          time.Now().Format("01-02 15:04:05.000"),
+			Token:            token,
+		}
+		fmt.Println("Store secret for key: ", key, ". token: ", token)
+		ms.secrets.Store(key, s)
+		return s, nil
 	}
 
 	if resourceName == cache.RootCertReqResourceName {
-		ms.secrets.Store(key, fakeSecretRootCert)
-		return fakeSecretRootCert, nil
+		s := &model.SecretItem{
+			RootCert:     fakeRootCert,
+			ResourceName: cache.RootCertReqResourceName,
+			Version:      time.Now().Format("01-02 15:04:05.000"),
+			Token:        token,
+		}
+		fmt.Println("Store root cert for key: ", key, ". token: ", token)
+		ms.secrets.Store(key, s)
+		return s, nil
 	}
 
 	return nil, fmt.Errorf("unexpected resourceName %q", resourceName)
@@ -922,11 +944,12 @@ func (ms *mockSecretStore) SecretExist(conID, spiffeID, token, version string) b
 	}
 	val, found := ms.secrets.Load(key)
 	if !found {
-		fmt.Printf("cannot find secret in cache\n")
+		fmt.Printf("cannot find secret %v in cache\n", key)
 		ms.secretCacheMiss++
 		return false
 	}
 	cs := val.(*model.SecretItem)
+	fmt.Println("key is: ", key, ". Token: ", cs.Token)
 	if spiffeID != cs.ResourceName {
 		fmt.Printf("resource name not match: %s vs %s\n", spiffeID, cs.ResourceName)
 		ms.secretCacheMiss++

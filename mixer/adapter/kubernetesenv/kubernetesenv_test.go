@@ -144,7 +144,8 @@ func TestHandler_Close(t *testing.T) {
 	}
 
 	b.Lock()
-	if got, want := len(b.controllers), 0; got != want {
+	// should always have the local controller
+	if got, want := len(b.controllers), 1; got != want {
 		t.Errorf("Got %d controllers, want %d", got, want)
 	}
 	b.Unlock()
@@ -418,6 +419,27 @@ func TestKubegen_Generate(t *testing.T) {
 	ipToDeploymentConfigOut.SetDestinationWorkloadNamespace("testns")
 	ipToDeploymentConfigOut.SetDestinationWorkloadUid("istio://testns/workloads/test-deploymentconfig")
 
+	podNameWithDotIn := &kubernetes_apa_tmpl.Instance{
+		SourceUid:      "pod-with-dot.in-name.testns",
+		DestinationUid: "alt-pod-with-dot.in-name.testns",
+	}
+
+	podNameWithDotOut := kubernetes_apa_tmpl.NewOutput()
+	podNameWithDotOut.SetSourcePodName("pod-with-dot.in-name")
+	podNameWithDotOut.SetSourceNamespace("testns")
+	podNameWithDotOut.SetSourcePodUid("kubernetes://pod-with-dot.in-name.testns")
+	podNameWithDotOut.SetSourceLabels(map[string]string{"app": "some-app"})
+	podNameWithDotOut.SetSourceWorkloadName("pod-with-dot.in-name")
+	podNameWithDotOut.SetSourceWorkloadNamespace("testns")
+	podNameWithDotOut.SetSourceWorkloadUid("istio://testns/workloads/pod-with-dot.in-name")
+	podNameWithDotOut.SetDestinationPodName("alt-pod-with-dot.in-name")
+	podNameWithDotOut.SetDestinationNamespace("testns")
+	podNameWithDotOut.SetDestinationPodUid("kubernetes://alt-pod-with-dot.in-name.testns")
+	podNameWithDotOut.SetDestinationLabels(map[string]string{"app": "some-app"})
+	podNameWithDotOut.SetDestinationWorkloadName("alt-pod-with-dot.in-name")
+	podNameWithDotOut.SetDestinationWorkloadNamespace("testns")
+	podNameWithDotOut.SetDestinationWorkloadUid("istio://testns/workloads/alt-pod-with-dot.in-name")
+
 	tests := []struct {
 		name   string
 		inputs *kubernetes_apa_tmpl.Instance
@@ -434,6 +456,7 @@ func TestKubegen_Generate(t *testing.T) {
 		{"not-k8s", notKubernetesIn, kubernetes_apa_tmpl.NewOutput(), conf},
 		{"ip-svc-pod to pod-with-container", containerNameIn, containerNameOut, conf},
 		{"ip-svc-pod to deploymentconfig", ipToDeploymentConfigIn, ipToDeploymentConfigOut, conf},
+		{"pod-with-dot.in-name to alt-pod-with-dot.in-name", podNameWithDotIn, podNameWithDotOut, conf},
 	}
 
 	for _, v := range tests {
@@ -502,47 +525,6 @@ func mockValidateClientConfig(_ clientcmdapi.Config) error {
 
 func mockCreateInterfaceFromClusterConfig(_ *clientcmdapi.Config) (kubernetes.Interface, error) {
 	return fake.NewSimpleClientset(), nil
-}
-
-func Test_KubeSecretController(t *testing.T) {
-	if len(os.Getenv("RACE_TEST")) > 0 {
-		t.Skip("https://github.com/istio/istio/issues/15610")
-	}
-
-	secretcontroller.LoadKubeConfig = mockLoadKubeConfig
-	secretcontroller.ValidateClientConfig = mockValidateClientConfig
-	secretcontroller.CreateInterfaceFromClusterConfig = mockCreateInterfaceFromClusterConfig
-
-	clientset := fake.NewSimpleClientset()
-	b := newBuilder(func(string, adapter.Env) (kubernetes.Interface, error) {
-		return clientset, nil
-	})
-
-	// Call kube Build function which will start the secret controller.
-	// Sleep to allow secret process to start.
-	_, err := b.Build(context.Background(), test.NewEnv(t))
-	if err != nil {
-		t.Fatalf("error building adapter: %v", err)
-	}
-	time.Sleep(10 * time.Millisecond)
-
-	// Create the multicluster secret.
-	err = createMultiClusterSecret(clientset)
-	if err != nil {
-		t.Fatalf("Unexpected error on secret create: %v", err)
-	}
-
-	// Test - Verify that the remote controller has been added.
-	verifyControllers(t, b, 2, "create remote controller")
-
-	// Delete the mulicluster secret.
-	err = deleteMultiClusterSecret(clientset)
-	if err != nil {
-		t.Fatalf("Unexpected error on secret delete: %v", err)
-	}
-
-	// Test - Verify that the remote controller has been removed.
-	verifyControllers(t, b, 1, "delete remote controller")
 }
 
 // Kubernetes Runtime Object for Tests
@@ -739,6 +721,20 @@ var k8sobjs = []runtime.Object{
 	&v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "no-controller-pod",
+			Namespace: "testns",
+			Labels:    map[string]string{"app": "some-app"},
+		},
+	},
+	&v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod-with-dot.in-name",
+			Namespace: "testns",
+			Labels:    map[string]string{"app": "some-app"},
+		},
+	},
+	&v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "alt-pod-with-dot.in-name",
 			Namespace: "testns",
 			Labels:    map[string]string{"app": "some-app"},
 		},

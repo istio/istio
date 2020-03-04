@@ -22,52 +22,41 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
-	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
-// IngressGatewayPortAnalyzer checks a Gateway's ports against the gateway's K8s Service ports.
+// IngressGatewayPortAnalyzer checks a gateway's ports against the gateway's Kubernetes service ports.
 type IngressGatewayPortAnalyzer struct{}
 
-var (
-	// The ports from install/kubernetes/istio.yaml's istio-ingressgateway service.
-	// Use this only if we validate a Gateway that selects the system gateway and
-	// the user doesn't supply it.
-	defaultIngressGatewayPorts = map[uint32]bool{
-		80:    true,
-		443:   true,
-		31400: true,
-		15443: true,
-	}
-
-	// (compile-time check that we implement the interface)
-	_ analysis.Analyzer = &IngressGatewayPortAnalyzer{}
-)
+// (compile-time check that we implement the interface)
+var _ analysis.Analyzer = &IngressGatewayPortAnalyzer{}
 
 // Metadata implements analysis.Analyzer
 func (*IngressGatewayPortAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "gateway.IngressGatewayPortAnalyzer",
+		Name:        "gateway.IngressGatewayPortAnalyzer",
+		Description: "Checks a gateway's ports against the gateway's Kubernetes service ports",
 		Inputs: collection.Names{
-			metadata.IstioNetworkingV1Alpha3Gateways,
-			metadata.K8SCoreV1Pods,
-			metadata.K8SCoreV1Services,
+			collections.IstioNetworkingV1Alpha3Gateways.Name(),
+			collections.K8SCoreV1Pods.Name(),
+			collections.K8SCoreV1Services.Name(),
 		},
 	}
 }
 
 // Analyze implements analysis.Analyzer
 func (s *IngressGatewayPortAnalyzer) Analyze(c analysis.Context) {
-	c.ForEach(metadata.IstioNetworkingV1Alpha3Gateways, func(r *resource.Entry) bool {
+	c.ForEach(collections.IstioNetworkingV1Alpha3Gateways.Name(), func(r *resource.Instance) bool {
 		s.analyzeGateway(r, c)
 		return true
 	})
 }
 
-func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Entry, c analysis.Context) {
+func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analysis.Context) {
 
-	gw := r.Item.(*v1alpha3.Gateway)
+	gw := r.Message.(*v1alpha3.Gateway)
 
 	// Typically there will be a single istio-ingressgateway service, which will select
 	// the same ingress gateway pod workload as the Gateway resource.  If there are multiple
@@ -78,18 +67,18 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Entry, c analysis.
 
 	// For pods selected by gw.Selector, find Services that select them and remember those ports
 	gwSelector := k8s_labels.SelectorFromSet(gw.Selector)
-	c.ForEach(metadata.K8SCoreV1Pods, func(rPod *resource.Entry) bool {
-		pod := rPod.Item.(*v1.Pod)
+	c.ForEach(collections.K8SCoreV1Pods.Name(), func(rPod *resource.Instance) bool {
+		pod := rPod.Message.(*v1.Pod)
 		podLabels := k8s_labels.Set(pod.ObjectMeta.Labels)
 		if gwSelector.Matches(podLabels) {
 			gwSelectorMatches++
-			c.ForEach(metadata.K8SCoreV1Services, func(rSvc *resource.Entry) bool {
-				nsSvc, _ := rSvc.Metadata.Name.InterpretAsNamespaceAndName()
+			c.ForEach(collections.K8SCoreV1Services.Name(), func(rSvc *resource.Instance) bool {
+				nsSvc := string(rSvc.Metadata.FullName.Namespace)
 				if nsSvc != pod.ObjectMeta.Namespace {
 					return true // Services only select pods in their namespace
 				}
 
-				service := rSvc.Item.(*v1.ServiceSpec)
+				service := rSvc.Message.(*v1.ServiceSpec)
 				// TODO I want to match service.Namespace to pod.ObjectMeta.Namespace
 				svcSelector := k8s_labels.SelectorFromSet(service.Selector)
 				if svcSelector.Matches(podLabels) {
@@ -105,17 +94,10 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Entry, c analysis.
 		return true
 	})
 
+	// Report if we found no pods matching this gateway's selector
 	if gwSelectorMatches == 0 {
-		// We found no service for the Gateway's workload selector.  If the Gateway doesn't select
-		// the Istio system ingress gateway complain about a missing referenced resource.  (We
-		// don't want to complain about missing system resources, because a user may want to analyze
-		// only his own application files.)
-		if len(gw.Selector) != 1 || gw.Selector["istio"] != "ingressgateway" {
-			c.Report(metadata.IstioNetworkingV1Alpha3Gateways, msg.NewReferencedResourceNotFound(r, "selector", gwSelector.String()))
-			return
-		}
-		// The unreferenced Ingress is the System ingress, pretend we have found it.
-		servicePorts = defaultIngressGatewayPorts
+		c.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), msg.NewReferencedResourceNotFound(r, "selector", gwSelector.String()))
+		return
 	}
 
 	// Check each Gateway port against what the workload ingress service offers
@@ -123,7 +105,7 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Entry, c analysis.
 		if server.Port != nil {
 			_, ok := servicePorts[server.Port.Number]
 			if !ok {
-				c.Report(metadata.IstioNetworkingV1Alpha3Gateways, msg.NewGatewayPortNotOnWorkload(r, gwSelector.String(), int(server.Port.Number)))
+				c.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), msg.NewGatewayPortNotOnWorkload(r, gwSelector.String(), int(server.Port.Number)))
 			}
 		}
 	}

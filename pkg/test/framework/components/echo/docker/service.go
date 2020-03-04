@@ -19,7 +19,7 @@ import (
 	"text/template"
 	"time"
 
-	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -65,7 +65,7 @@ spec:
 var (
 	serviceEntryTemplate *template.Template
 
-	serviceEntryCollection = metadata.IstioNetworkingV1Alpha3Serviceentries.String()
+	serviceEntryCollection = collections.IstioNetworkingV1Alpha3Serviceentries.Name().String()
 )
 
 func init() {

@@ -17,6 +17,7 @@ package locality
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -90,13 +91,13 @@ func TestPrioritized(t *testing.T) {
 						ServiceBLocality: "region/zone/subzone",
 						ServiceCAddress:  "c",
 						ServiceCLocality: "notregion/notzone/notsubzone",
-					}, a)
+					}, a, failoverTemplate)
 
 					// Send traffic to service B via a service entry.
 					log.Infof("Sending traffic to local service (CDS) via %v", fakeHostname)
 					if err := retry.UntilSuccess(func() error {
-						return sendTraffic(a, fakeHostname)
-					}); err != nil {
+						return sendTraffic(a, fakeHostname, expectAllTrafficToB)
+					}, retry.Delay(time.Second*5)); err != nil {
 						ctx.Fatal(err)
 					}
 				})
@@ -118,22 +119,23 @@ func TestPrioritized(t *testing.T) {
 						BuildOrFail(ctx)
 
 					fakeHostname := fmt.Sprintf("fake-eds-external-service-%v.com", r.Int())
+
 					deploy(ctx, ns, serviceConfig{
 						Name:             "prioritized-eds",
 						Host:             fakeHostname,
 						Namespace:        ns.Name(),
 						Resolution:       "STATIC",
-						ServiceBAddress:  b.WorkloadsOrFail(ctx)[0].Address(),
+						ServiceBAddress:  b.Address(),
 						ServiceBLocality: "region/zone/subzone",
-						ServiceCAddress:  c.WorkloadsOrFail(ctx)[0].Address(),
+						ServiceCAddress:  c.Address(),
 						ServiceCLocality: "notregion/notzone/notsubzone",
-					}, a)
+					}, a, failoverTemplate)
 
 					// Send traffic to service B via a service entry.
 					log.Infof("Sending traffic to local service (EDS) via %v", fakeHostname)
 					if err := retry.UntilSuccess(func() error {
-						return sendTraffic(a, fakeHostname)
-					}); err != nil {
+						return sendTraffic(a, fakeHostname, expectAllTrafficToB)
+					}, retry.Delay(time.Second*5)); err != nil {
 						ctx.Fatal(err)
 					}
 				})

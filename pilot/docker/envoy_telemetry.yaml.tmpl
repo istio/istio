@@ -2,7 +2,7 @@ admin:
   access_log_path: /dev/null
   address:
     socket_address:
-      address: 127.0.0.1
+      address: "{{ .localhost }}"
       port_value: 15000
 stats_config:
   use_all_default_tags: false
@@ -30,7 +30,7 @@ static_resources:
     hosts:
     - socket_address:
         protocol: TCP
-        address: 127.0.0.1
+        address: "{{ .localhost }}"
         port_value: 15000
   - circuit_breakers:
       thresholds:
@@ -48,7 +48,7 @@ static_resources:
   - address:
       socket_address:
         protocol: TCP
-        address: 0.0.0.0
+        address: "{{ .wildcard }}"
         port_value: 15090
     filter_chains:
     - filters:
@@ -70,7 +70,7 @@ static_resources:
           - name: envoy.router
   - address:
       socket_address:
-        address: 0.0.0.0
+        address: "{{ .wildcard }}"
         port_value: 15004
     filter_chains:
     - filters:
@@ -198,7 +198,7 @@ static_resources:
     name: "15004"
   - address:
       socket_address:
-        address: 0.0.0.0
+        address: "{{ .wildcard }}"
         port_value: 9091
     filter_chains:
     - filters:

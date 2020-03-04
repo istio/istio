@@ -15,16 +15,16 @@
 package fixtures
 
 import (
-	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/schema/collection"
 )
 
 // Transformer implements event.Transformer for testing purposes.
 type Transformer struct {
-	Handlers          map[collection.Name]event.Handler
+	Handlers          map[collection.Name]*sourceAndHandler
 	Started           bool
-	InputCollections  collection.Names
-	OutputCollections collection.Names
+	InputCollections  collection.Schemas
+	OutputCollections collection.Schemas
 
 	fn func(tr *Transformer, e event.Event)
 }
@@ -32,11 +32,11 @@ type Transformer struct {
 var _ event.Transformer = &Transformer{}
 
 // NewTransformer returns a new fixture.Transformer.
-func NewTransformer(inputs, outputs collection.Names, handlerFn func(tr *Transformer, e event.Event)) *Transformer {
+func NewTransformer(inputs, outputs collection.Schemas, handlerFn func(tr *Transformer, e event.Event)) *Transformer {
 	return &Transformer{
 		InputCollections:  inputs,
 		OutputCollections: outputs,
-		Handlers:          make(map[collection.Name]event.Handler),
+		Handlers:          make(map[collection.Name]*sourceAndHandler),
 		fn:                handlerFn,
 	}
 }
@@ -57,19 +57,26 @@ func (t *Transformer) Handle(e event.Event) {
 }
 
 // DispatchFor implements event.Transformer
-func (t *Transformer) DispatchFor(c collection.Name, h event.Handler) {
-	handlers := t.Handlers[c]
-	handlers = event.CombineHandlers(handlers, h)
-	t.Handlers[c] = handlers
+func (t *Transformer) DispatchFor(c collection.Schema, h event.Handler) {
+	entry := t.Handlers[c.Name()]
+	if entry == nil {
+		t.Handlers[c.Name()] = &sourceAndHandler{
+			source:  c,
+			handler: h,
+		}
+		return
+	}
+
+	entry.handler = event.CombineHandlers(entry.handler, h)
 }
 
 // Inputs implements event.Transformer
-func (t *Transformer) Inputs() collection.Names {
+func (t *Transformer) Inputs() collection.Schemas {
 	return t.InputCollections
 }
 
 // Outputs implements event.Transformer
-func (t *Transformer) Outputs() collection.Names {
+func (t *Transformer) Outputs() collection.Schemas {
 	return t.OutputCollections
 }
 
@@ -77,6 +84,11 @@ func (t *Transformer) Outputs() collection.Names {
 func (t *Transformer) Publish(c collection.Name, e event.Event) {
 	h := t.Handlers[c]
 	if h != nil {
-		h.Handle(e)
+		h.handler.Handle(e)
 	}
+}
+
+type sourceAndHandler struct {
+	source  collection.Schema
+	handler event.Handler
 }

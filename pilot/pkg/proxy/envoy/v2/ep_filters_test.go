@@ -15,6 +15,7 @@
 package v2
 
 import (
+	"reflect"
 	"sort"
 	"testing"
 
@@ -26,7 +27,10 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh"
 )
 
 type LbEpInfo struct {
@@ -39,6 +43,12 @@ type LbEpInfo struct {
 type LocLbEpInfo struct {
 	lbEps  []LbEpInfo
 	weight uint32
+}
+
+var expectedMetadata = &structpb.Struct{
+	Fields: map[string]*structpb.Value{
+		model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: "istio"}},
+	},
 }
 
 func TestEndpointsByNetworkFilter(t *testing.T) {
@@ -80,8 +90,10 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
 						{address: "2.2.2.2", weight: 1},
 						{address: "2.2.2.20", weight: 1},
+						// network4 has no gateway, which means it can be accessed from network1
+						{address: "40.0.0.1", weight: 2},
 					},
-					weight: 6,
+					weight: 8,
 				},
 			},
 		},
@@ -97,8 +109,9 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 						{address: "20.0.0.1", weight: 2},
 						// 1 endpoint to gateway of network1 with weight 4 because it has 2 endpoints
 						{address: "1.1.1.1", weight: 4},
+						{address: "40.0.0.1", weight: 2},
 					},
-					weight: 6,
+					weight: 8,
 				},
 			},
 		},
@@ -115,8 +128,9 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 						// 1 endpoint to gateway of network2 with weight 2 because it has 1 endpoint
 						{address: "2.2.2.2", weight: 1},
 						{address: "2.2.2.20", weight: 1},
+						{address: "40.0.0.1", weight: 2},
 					},
-					weight: 6,
+					weight: 8,
 				},
 			},
 		},
@@ -143,7 +157,9 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			filtered := EndpointsByNetworkFilter(tt.endpoints, tt.conn, tt.env)
+			push := model.NewPushContext()
+			_ = push.InitContext(tt.env, nil, nil)
+			filtered := EndpointsByNetworkFilter(push, tt.conn.node.Metadata.Network, tt.endpoints)
 			if len(filtered) != len(tt.want) {
 				t.Errorf("Unexpected number of filtered endpoints: got %v, want %v", len(filtered), len(tt.want))
 				return
@@ -165,6 +181,15 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 				}
 
 				for _, lbEp := range ep.LbEndpoints {
+					if lbEp.Metadata == nil {
+						t.Errorf("Expected endpoint metadata")
+					} else {
+						// ensure that all endpoints (direct ones and remote gateway endpoints have the tls mode label.
+						m := lbEp.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey]
+						if !reflect.DeepEqual(m, expectedMetadata) {
+							t.Errorf("Did not find the expected tlsMode metadata. got %v, want %v", m, expectedMetadata)
+						}
+					}
 					addr := lbEp.GetEndpoint().Address.GetSocketAddress().Address
 					found := false
 					for _, wantLbEp := range tt.want[i].lbEps {
@@ -183,13 +208,12 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 }
 
 func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
-
 	//  - 1 gateway for network1
 	//  - 1 gateway for network2
 	//  - 1 gateway for network3
 	//  - 0 gateways for network4
 	env := environment()
-	env.MeshNetworks.Networks["network2"] = &meshconfig.Network{
+	env.Networks().Networks["network2"] = &meshconfig.Network{
 		Endpoints: []*meshconfig.Network_NetworkEndpoints{
 			{
 				Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{
@@ -250,8 +274,9 @@ func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
 						{address: "10.0.0.2", weight: 1},
 						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
 						{address: "2.2.2.2", weight: 1},
+						{address: "40.0.0.1", weight: 1},
 					},
-					weight: 3,
+					weight: 4,
 				},
 			},
 		},
@@ -267,8 +292,9 @@ func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
 						{address: "20.0.0.1", weight: 1},
 						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
 						{address: "1.1.1.1", weight: 2},
+						{address: "40.0.0.1", weight: 1},
 					},
-					weight: 3,
+					weight: 4,
 				},
 			},
 		},
@@ -284,8 +310,9 @@ func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
 						{address: "1.1.1.1", weight: 2},
 						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
 						{address: "2.2.2.2", weight: 1},
+						{address: "40.0.0.1", weight: 1},
 					},
-					weight: 3,
+					weight: 4,
 				},
 			},
 		},
@@ -311,7 +338,9 @@ func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			filtered := EndpointsByNetworkFilter(tt.endpoints, tt.conn, tt.env)
+			push := model.NewPushContext()
+			_ = push.InitContext(tt.env, nil, nil)
+			filtered := EndpointsByNetworkFilter(push, tt.conn.node.Metadata.Network, tt.endpoints)
 			if len(filtered) != len(tt.want) {
 				t.Errorf("Unexpected number of filtered endpoints: got %v, want %v", len(filtered), len(tt.want))
 				return
@@ -333,6 +362,15 @@ func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
 				}
 
 				for _, lbEp := range ep.LbEndpoints {
+					if lbEp.Metadata == nil {
+						t.Errorf("Expected endpoint metadata")
+					} else {
+						// ensure that all endpoints (direct ones and remote gateway endpoints have the tls mode label.
+						m := lbEp.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey]
+						if !reflect.DeepEqual(m, expectedMetadata) {
+							t.Errorf("Did not find the expected tlsMode metadata. got %v, want %v", m, expectedMetadata)
+						}
+					}
 					addr := lbEp.GetEndpoint().Address.GetSocketAddress().Address
 					found := false
 					for _, wantLbEp := range tt.want[i].lbEps {
@@ -366,7 +404,9 @@ func xdsConnection(network string) *XdsConnection {
 func environment() *model.Environment {
 	return &model.Environment{
 		ServiceDiscovery: NewMemServiceDiscovery(nil, 0),
-		MeshNetworks: &meshconfig.MeshNetworks{
+		IstioConfigStore: &fakes.IstioConfigStore{},
+		Watcher:          mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
+		NetworksWatcher: mesh.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
 			Networks: map[string]*meshconfig.Network{
 				"network1": {
 					Gateways: []*meshconfig.Network_IstioNetworkGateway{
@@ -408,7 +448,7 @@ func environment() *model.Environment {
 					Gateways: []*meshconfig.Network_IstioNetworkGateway{},
 				},
 			},
-		},
+		}),
 	}
 }
 
@@ -463,6 +503,11 @@ func createLbEndpoints(lbEpsInfo []*LbEpInfo) []*endpoint.LbEndpoint {
 									StringValue: "kubernetes://dummy",
 								},
 							},
+						},
+					},
+					util.EnvoyTransportSocketMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: "istio"}},
 						},
 					},
 				},

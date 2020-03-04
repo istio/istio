@@ -17,10 +17,12 @@ package istioctl
 import (
 	"testing"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
+// Instance represents "istioctl"
 type Instance interface {
 	// Invoke invokes an istioctl command and returns the output and exception.
 	// Cobra commands don't make it easy to separate stdout and stderr and the string parameter
@@ -31,7 +33,7 @@ type Instance interface {
 	InvokeOrFail(t *testing.T, args []string) string
 }
 
-// Structured config for the istioctl component
+// Config is structured config for the istioctl component
 type Config struct {
 	// currently nothing, we might add stuff like OS env settings later
 }
@@ -52,10 +54,16 @@ func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 }
 
 // NewOrFail returns a new instance of "istioctl".
-func NewOrFail(t *testing.T, c resource.Context, config Config) Instance {
+func NewOrFail(_ *testing.T, c resource.Context, config Config) Instance {
+	failer, ok := c.(test.Failer)
+	if !ok {
+		panic("context must be a Failer (typically a framework.TestContext)")
+	}
+
 	i, err := New(c, config)
 	if err != nil {
-		t.Fatalf("istioctl.NewOrFail:: %v", err)
+		failer.Fatalf("istioctl.NewOrFail:: %v", err)
 	}
+
 	return i
 }

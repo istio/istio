@@ -18,10 +18,14 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/annotations"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/auth"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/deployment"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/policy"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/schema"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/service"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/sidecar"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
 )
 
@@ -30,11 +34,21 @@ func All() []analysis.Analyzer {
 	analyzers := []analysis.Analyzer{
 		// Please keep this list sorted alphabetically by pkg.name for convenience
 		&annotations.K8sAnalyzer{},
+		&auth.JwtAnalyzer{},
+		&auth.MTLSAnalyzer{},
 		&auth.ServiceRoleBindingAnalyzer{},
+		&auth.ServiceRoleServicesAnalyzer{},
+		&deployment.ServiceAssociationAnalyzer{},
 		&deprecation.FieldAnalyzer{},
 		&gateway.IngressGatewayPortAnalyzer{},
+		&gateway.SecretAnalyzer{},
 		&injection.Analyzer{},
-		&injection.VersionAnalyzer{},
+		&injection.ImageAnalyzer{},
+		&policy.DeprecatedAnalyzer{},
+		&service.PortNameAnalyzer{},
+		&sidecar.DefaultSelectorAnalyzer{},
+		&sidecar.SelectorAnalyzer{},
+		&virtualservice.ConflictingMeshGatewayHostsAnalyzer{},
 		&virtualservice.DestinationHostAnalyzer{},
 		&virtualservice.DestinationRuleAnalyzer{},
 		&virtualservice.GatewayAnalyzer{},

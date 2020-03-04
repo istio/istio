@@ -9,12 +9,11 @@ FROM docker.io/istio/base:${BASE_VERSION} as default
 
 # Copy Envoy bootstrap templates used by pilot-agent
 COPY envoy_bootstrap_v2.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
-COPY envoy_bootstrap_drain.json /var/lib/istio/envoy/envoy_bootstrap_drain.json
 COPY gcp_envoy_bootstrap.json /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json
 
 RUN chown -R istio-proxy /var/lib/istio
 
-COPY istio-iptables.sh /usr/local/bin/istio-iptables
+COPY istio-iptables /usr/local/bin/istio-iptables
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
 # hadolint ignore=DL3007
@@ -29,9 +28,10 @@ COPY --from=default /etc/iproute2 /etc/iproute2
 COPY istio-iptables /usr/local/bin/istio-iptables
 
 # Copy Envoy bootstrap templates used by pilot-agent
-COPY envoy_bootstrap_v2.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
-COPY envoy_bootstrap_drain.json /var/lib/istio/envoy/envoy_bootstrap_drain.json
-COPY gcp_envoy_bootstrap.json /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json
+COPY --chown=nonroot:nonroot envoy_bootstrap_v2.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
+COPY --chown=nonroot:nonroot gcp_envoy_bootstrap.json /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json
+
+WORKDIR /
 
 # This will build the final image based on either default or distroless from above
 # hadolint ignore=DL3006
@@ -53,6 +53,9 @@ COPY pilot-agent /usr/local/bin/pilot-agent
 COPY envoy_pilot.yaml.tmpl /etc/istio/proxy/envoy_pilot.yaml.tmpl
 COPY envoy_policy.yaml.tmpl /etc/istio/proxy/envoy_policy.yaml.tmpl
 COPY envoy_telemetry.yaml.tmpl /etc/istio/proxy/envoy_telemetry.yaml.tmpl
+
+COPY stats-filter.wasm /etc/istio/extensions/stats-filter.wasm
+COPY metadata-exchange-filter.wasm /etc/istio/extensions/metadata-exchange-filter.wasm
 
 # The pilot-agent will bootstrap Envoy.
 ENTRYPOINT ["/usr/local/bin/pilot-agent"]

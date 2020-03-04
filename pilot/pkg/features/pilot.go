@@ -17,6 +17,8 @@ package features
 import (
 	"time"
 
+	"istio.io/istio/pkg/jwt"
+
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
@@ -48,10 +50,20 @@ var (
 		"Limits the number of concurrent pushes allowed. On larger machines this can be increased for faster pushes",
 	).Get()
 
+	// MaxRecvMsgSize The max receive buffer size of gRPC received channel of Pilot in bytes.
+	MaxRecvMsgSize = env.RegisterIntVar(
+		"ISTIO_GPRC_MAXRECVMSGSIZE",
+		4*1024*1024,
+		"Sets the max receive buffer size of gRPC stream in bytes.",
+	).Get()
+
 	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
 	// Defaults to false, can be enabled with PILOT_DEBUG_ADSZ_CONFIG=1
 	// For larger clusters it can increase memory use and GC - useful for small tests.
 	DebugConfigs = env.RegisterBoolVar("PILOT_DEBUG_ADSZ_CONFIG", false, "").Get()
+
+	// FilterGatewayClusterConfig controls if a subset of clusters(only those required) should be pushed to gateways
+	FilterGatewayClusterConfig = env.RegisterBoolVar("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", false, "").Get()
 
 	DebounceAfter = env.RegisterDurationVar(
 		"PILOT_DEBOUNCE_AFTER",
@@ -117,21 +129,6 @@ var (
 		return time.Second * time.Duration(terminationDrainDurationVar.Get())
 	}
 
-	EnableFallthroughRoute = env.RegisterBoolVar(
-		"PILOT_ENABLE_FALLTHROUGH_ROUTE",
-		true,
-		"EnableFallthroughRoute provides an option to add a final wildcard match for routes. "+
-			"When ALLOW_ANY traffic policy is used, a Passthrough cluster is used. "+
-			"When REGISTRY_ONLY traffic policy is used, a 502 error is returned.",
-	)
-
-	// DisableXDSMarshalingToAny provides an option to disable the "xDS marshaling to Any" feature ("on" by default).
-	DisableXDSMarshalingToAny = env.RegisterBoolVar(
-		"PILOT_DISABLE_XDS_MARSHALING_TO_ANY",
-		false,
-		"",
-	).Get()
-
 	// EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.
 	// Pilot injects this outbound filter if the service port name is `mysql`.
 	EnableMysqlFilter = env.RegisterBoolVar(
@@ -164,6 +161,14 @@ var (
 		false,
 		"Use the Istio JWT filter for JWT token verification.")
 
+	// EnableThriftFilter enables injection of `envoy.filters.network.thrift_proxy` in the filter chain.
+	// Pilot injects this outbound filter if the service port name is `thrift`.
+	EnableThriftFilter = env.RegisterBoolVar(
+		"PILOT_ENABLE_THRIFT_FILTER",
+		false,
+		"EnableThriftFilter enables injection of `envoy.filters.network.thrift_proxy` in the filter chain.",
+	)
+
 	// SkipValidateTrustDomain tells the server proxy to not to check the peer's trust domain when
 	// mTLS is enabled in authentication policy.
 	SkipValidateTrustDomain = env.RegisterBoolVar(
@@ -187,15 +192,14 @@ var (
 
 	EnableProtocolSniffingForInbound = env.RegisterBoolVar(
 		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND",
-		false,
+		true,
 		"If enabled, protocol sniffing will be used for inbound listeners whose port protocol is not specified or unsupported",
 	)
 
-	ScopePushes = env.RegisterBoolVar(
-		"PILOT_SCOPE_PUSHES",
+	EnableTCPMetadataExchange = env.RegisterBoolVar(
+		"PILOT_ENABLE_TCP_METADATA_EXCHANGE",
 		true,
-		"If enabled, pilot will attempt to limit unnecessary pushes by determining what proxies "+
-			"a config or endpoint update will impact.",
+		"If enabled, metadata exchange will be enabled for TCP using ALPN and Network Metadata Exchange filters in Envoy",
 	)
 
 	ScopeGatewayToNamespace = env.RegisterBoolVar(
@@ -203,13 +207,6 @@ var (
 		false,
 		"If enabled, a gateway workload can only select gateway resources in the same namespace. "+
 			"Gateways with same selectors in different namespaces will not be applicable.",
-	)
-
-	RespectDNSTTL = env.RegisterBoolVar(
-		"PILOT_RESPECT_DNS_TTL",
-		true,
-		"If enabled, DNS based clusters will respect the TTL of the DNS, rather than polling at a fixed rate. "+
-			"This option is only provided for backward compatibility purposes and will be removed in the near future.",
 	)
 
 	InboundProtocolDetectionTimeout = env.RegisterDurationVar(
@@ -224,6 +221,14 @@ var (
 		"If enabled, for a headless service/stateful set in Kubernetes, pilot will generate an "+
 			"outbound listener for each pod in a headless service. This feature should be disabled "+
 			"if headless services have a large number of pods.",
+	)
+
+	EnableEDSForHeadless = env.RegisterBoolVar(
+		"PILOT_ENABLE_EDS_FOR_HEADLESS_SERVICES",
+		false,
+		"If enabled, for headless service in Kubernetes, pilot will send endpoints over EDS, "+
+			"allowing the sidecar to load balance among pods in the headless service. This feature "+
+			"should be enabled if applications access all services explicitly via a HTTP proxy port in the sidecar.",
 	)
 
 	BlockHTTPonHTTPSPort = env.RegisterBoolVar(
@@ -246,18 +251,49 @@ var (
 		"If enabled, Pilot will keep track of old versions of distributed config for this duration.",
 	).Get()
 
-	EnableUnsafeRegex = env.RegisterBoolVar(
-		"PILOT_ENABLE_UNSAFE_REGEX",
+	EnableEndpointSliceController = env.RegisterBoolVar(
+		"PILOT_USE_ENDPOINT_SLICE",
 		false,
-		"If enabled, pilot will generate Envoy configuration that does not use safe_regex "+
-			"but the older, deprecated regex field. This should only be enabled to support "+
-			"legacy deployments that have not yet been migrated to the new safe regular expressions.",
+		"If enabled, Pilot will use EndpointSlices as the source of endpoints for Kubernetes services. "+
+			"By default, this is false, and Endpoints will be used. This requires the Kubernetes EndpointSlice controller to be enabled. "+
+			"Currently this is mutual exclusive - either Endpoints or EndpointSlices will be used",
+	).Get()
+
+	EnableCRDValidation = env.RegisterBoolVar(
+		"PILOT_ENABLE_CRD_VALIDATION",
+		false,
+		"If enabled, pilot will validate CRDs while retrieving CRDs from kubernetes cache."+
+			"Use this flag to enable validation of CRDs in Pilot, especially in deployments "+
+			"that do not have galley installed.",
 	)
-)
 
-var (
-	// TODO: define all other default ports here, add docs
+	// IstiodService controls the istiod address - used for injection and as default value injected into pods
+	// if istiod is used. The name must be part of the DNS certificate served by pilot/istiod. The '.svc' is
+	// imposed by K8S - that's how the names for webhooks are defined, based on webhook service (which will be
+	// istio-pilot or istiod) plus namespace and .svc.
+	// The 15010 port is used with plain text, 15011 with Spiffee certs - we need a different port for DNS cert.
+	IstiodService = env.RegisterStringVar("ISTIOD_ADDR", "",
+		"Service name of istiod. If empty the istiod listener, certs will be disabled.")
 
-	// DefaultPortHTTPProxy is used as for HTTP PROXY mode. Can be overridden by ProxyHttpPort in mesh config.
-	DefaultPortHTTPProxy = 15002
+	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
+		"the provider of Pilot DNS certificate.")
+
+	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
+		"The JWT validation policy.")
+
+	// Default request timeout for virtual services if a timeout is not configured in virtual service. It defaults to zero
+	// which disables timeout when it is not configured, to preserve the current behavior.
+	defaultRequestTimeoutVar = env.RegisterDurationVar(
+		"ISTIO_DEFAULT_REQUEST_TIMEOUT",
+		0*time.Millisecond,
+		"Default Http and gRPC Request timeout",
+	)
+
+	DefaultRequestTimeout = func() *duration.Duration {
+		return ptypes.DurationProto(defaultRequestTimeoutVar.Get())
+	}
+
+	EnableServiceApis = env.RegisterBoolVar("PILOT_ENABLED_SERVICE_APIS", false,
+		"If this is set to true, support for Kubernetes service-apis (github.com/kubernetes-sigs/service-apis) will "+
+			" be enabled. This feature is currently experimental, and is off by default.").Get()
 )

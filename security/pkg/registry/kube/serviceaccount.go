@@ -92,7 +92,13 @@ func (c *ServiceAccountController) serviceAccountAdded(obj interface{}) {
 }
 
 func (c *ServiceAccountController) serviceAccountDeleted(obj interface{}) {
-	sa := obj.(*v1.ServiceAccount)
+	sa, ok := obj.(*v1.ServiceAccount)
+	if !ok {
+		// OnDelete can get an object of type DeletedFinalStateUnknown if it misses the delete event.
+		// Citadel should not proceed in that case
+		log.Warnf("Failed to convert to serviceaccount object: %v", obj)
+		return
+	}
 	id := getSpiffeID(sa)
 	err := c.reg.DeleteMapping(id, id)
 	if err != nil {

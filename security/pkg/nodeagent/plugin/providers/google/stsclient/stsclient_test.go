@@ -17,28 +17,31 @@ package stsclient
 import (
 	"context"
 	"testing"
+
+	"istio.io/istio/security/pkg/stsservice/tokenmanager/google/mock"
 )
 
 func TestGetFederatedToken(t *testing.T) {
+	GKEClusterURL = mock.FakeGKEClusterURL
 	r := NewPlugin()
 
-	ms, err := StartNewServer(t)
+	ms, err := mock.StartNewServer(t, mock.Config{Port: 0})
 	if err != nil {
 		t.Fatalf("failed to start a mock server: %v", err)
 	}
-	secureTokenEndpoint = ms.URL + "/v1/identitybindingtoken"
+	SecureTokenEndpoint = ms.URL + "/v1/identitybindingtoken"
 	defer func() {
 		if err := ms.Stop(); err != nil {
 			t.Logf("failed to stop mock server: %v", err)
 		}
-		secureTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
+		SecureTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
 	}()
 
-	token, _, _, err := r.ExchangeToken(context.Background(), fakeTrustDomain, fakeSubjectToken)
+	token, _, _, err := r.ExchangeToken(context.Background(), mock.FakeTrustDomain, mock.FakeSubjectToken)
 	if err != nil {
 		t.Fatalf("failed to call exchange token %v", err)
 	}
-	if token != fakeAccessToken {
-		t.Errorf("Access token got %q, expected %q", token, fakeAccessToken)
+	if token != mock.FakeFederatedToken {
+		t.Errorf("Access token got %q, expected %q", token, mock.FakeFederatedToken)
 	}
 }

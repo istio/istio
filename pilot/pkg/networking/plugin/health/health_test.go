@@ -23,7 +23,7 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/proto"
 )
@@ -31,8 +31,8 @@ import (
 func TestBuildHealthCheckFilters(t *testing.T) {
 	cases := []struct {
 		probes   model.ProbeList
-		endpoint *model.NetworkEndpoint
-		expected plugin.FilterChain
+		endpoint *model.IstioEndpoint
+		expected networking.FilterChain
 	}{
 		{
 			probes: model.ProbeList{
@@ -43,10 +43,10 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 					Path: "/health",
 				},
 			},
-			endpoint: &model.NetworkEndpoint{
-				Port: 8080,
+			endpoint: &model.IstioEndpoint{
+				EndpointPort: 8080,
 			},
-			expected: plugin.FilterChain{
+			expected: networking.FilterChain{
 				HTTP: []*http_conn.HttpFilter{
 					{
 						Name: "envoy.health_check",
@@ -72,10 +72,10 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 					Path: "/health",
 				},
 			},
-			endpoint: &model.NetworkEndpoint{
-				Port: 8080,
+			endpoint: &model.IstioEndpoint{
+				EndpointPort: 8080,
 			},
-			expected: plugin.FilterChain{
+			expected: networking.FilterChain{
 				HTTP: []*http_conn.HttpFilter{
 					{
 						Name: "envoy.health_check",
@@ -109,10 +109,10 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 					Path: "/live",
 				},
 			},
-			endpoint: &model.NetworkEndpoint{
-				Port: 8080,
+			endpoint: &model.IstioEndpoint{
+				EndpointPort: 8080,
 			},
-			expected: plugin.FilterChain{
+			expected: networking.FilterChain{
 				HTTP: []*http_conn.HttpFilter{
 					{
 						Name: "envoy.health_check",
@@ -161,10 +161,10 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 					Path: "/health",
 				},
 			},
-			endpoint: &model.NetworkEndpoint{
-				Port: 8080,
+			endpoint: &model.IstioEndpoint{
+				EndpointPort: 8080,
 			},
-			expected: plugin.FilterChain{
+			expected: networking.FilterChain{
 				HTTP: []*http_conn.HttpFilter{
 					{
 						Name: "envoy.health_check",
@@ -193,16 +193,16 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 					Path: "/health",
 				},
 			},
-			endpoint: &model.NetworkEndpoint{
-				Port: 8080,
+			endpoint: &model.IstioEndpoint{
+				EndpointPort: 8080,
 			},
-			expected: plugin.FilterChain{},
+			expected: networking.FilterChain{},
 		},
 	}
 
 	for _, c := range cases {
-		var filterChain plugin.FilterChain
-		buildHealthCheckFilters(&filterChain, c.probes, c.endpoint, true)
+		var filterChain networking.FilterChain
+		buildHealthCheckFilters(&filterChain, c.probes, c.endpoint)
 		if !reflect.DeepEqual(c.expected, filterChain) {
 			t.Errorf("buildHealthCheckFilters(%#v on endpoint %#v), got:\n%#v\nwanted:\n%#v\n", c.probes, c.endpoint, filterChain, c.expected)
 		}

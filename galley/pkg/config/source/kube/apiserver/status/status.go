@@ -18,8 +18,8 @@ import (
 	"reflect"
 	"sync"
 
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
-	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema/collection"
 )
 
 // Status state for a given resource. This contains both desired and last known status of the resource. It also acts
@@ -42,7 +42,7 @@ type status struct {
 
 type key struct {
 	col collection.Name
-	res resource.Name
+	res resource.FullName
 }
 
 var statusPool = sync.Pool{
@@ -72,6 +72,7 @@ func (r *status) setObserved(v resource.Version, status interface{}) bool {
 	return r.needsChange()
 }
 
+// nolint: unparam
 func (r *status) setDesired(v resource.Version, status interface{}) bool {
 	r.desiredStatus = status
 	r.desiredStatusVersion = v

@@ -1,0 +1,10 @@
+# A global mesh policy with no DRs should cause an error
+# Require mTLS for our service
+apiVersion: authentication.istio.io/v1alpha1
+kind: MeshPolicy
+metadata:
+  name: default
+spec:
+  peers:
+  - mtls: {}
+---

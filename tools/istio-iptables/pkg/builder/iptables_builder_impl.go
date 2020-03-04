@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"strings"
 
-	"istio.io/istio/tools/istio-iptables/pkg/dependencies"
+	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
 // Rule represents iptables rule - chain, table and options
@@ -85,32 +85,80 @@ func (rb *IptablesBuilderImpl) AppendRuleV6(chain string, table string, params .
 	return rb
 }
 
-func (rb *IptablesBuilderImpl) BuildV4() []string {
-	rules := []string{}
-	for _, r := range rb.rules.rulesv4 {
-		cmd := fmt.Sprint(strings.Join([]string{dependencies.IPTABLES, "-t", r.table}, " "), " ",
-			strings.Join(r.params, " "))
-		rules = append(rules, cmd)
+func (rb *IptablesBuilderImpl) buildRules(command string, rules []*Rule) [][]string {
+	output := [][]string{}
+	chainTableLookupMap := make(map[string]struct{})
+	for _, r := range rules {
+		chainTable := fmt.Sprintf("%s:%s", r.chain, r.table)
+		// Create new chain if key: `chainTable` isn't present in map
+		if _, present := chainTableLookupMap[chainTable]; !present {
+			// Ignore chain creation for built-in chains for iptables
+			if _, present := constants.BuiltInChainsMap[r.chain]; !present {
+				cmd := []string{command, "-t", r.table, "-N", r.chain}
+				output = append(output, cmd)
+				chainTableLookupMap[chainTable] = struct{}{}
+			}
+		}
 	}
-	return rules
+	for _, r := range rules {
+		cmd := append([]string{command, "-t", r.table}, r.params...)
+		output = append(output, cmd)
+	}
+	return output
 }
 
-func (rb *IptablesBuilderImpl) BuildV6() []string {
-	rules := []string{}
-	for _, r := range rb.rules.rulesv6 {
-		cmd := fmt.Sprint(strings.Join([]string{dependencies.IP6TABLES, "-t", r.table}, " "), " ",
-			strings.Join(r.params, " "))
-		rules = append(rules, cmd)
-	}
-	return rules
+func (rb *IptablesBuilderImpl) BuildV4() [][]string {
+	return rb.buildRules(constants.IPTABLES, rb.rules.rulesv4)
 }
 
+func (rb *IptablesBuilderImpl) BuildV6() [][]string {
+	return rb.buildRules(constants.IP6TABLES, rb.rules.rulesv6)
+}
+
+func (rb *IptablesBuilderImpl) constructIptablesRestoreContents(tableRulesMap map[string][]string) string {
+	var b strings.Builder
+	for table, rules := range tableRulesMap {
+		if len(rules) > 0 {
+			fmt.Fprintln(&b, "*", table)
+			for _, r := range rules {
+				fmt.Fprintln(&b, r)
+			}
+			fmt.Fprintln(&b, "COMMIT")
+		}
+	}
+	return b.String()
+}
+
+func (rb *IptablesBuilderImpl) buildRestore(rules []*Rule) string {
+	tableRulesMap := map[string][]string{
+		constants.FILTER: {},
+		constants.NAT:    {},
+		constants.MANGLE: {},
+	}
+
+	chainTableLookupMap := make(map[string]struct{})
+	for _, r := range rules {
+		chainTable := fmt.Sprintf("%s:%s", r.chain, r.table)
+		// Create new chain if key: `chainTable` isn't present in map
+		if _, present := chainTableLookupMap[chainTable]; !present {
+			// Ignore chain creation for built-in chains for iptables
+			if _, present := constants.BuiltInChainsMap[r.chain]; !present {
+				tableRulesMap[r.table] = append(tableRulesMap[r.table], fmt.Sprintf("-N %s", r.chain))
+				chainTableLookupMap[chainTable] = struct{}{}
+			}
+		}
+	}
+
+	for _, r := range rules {
+		tableRulesMap[r.table] = append(tableRulesMap[r.table], strings.Join(r.params, " "))
+	}
+	return rb.constructIptablesRestoreContents(tableRulesMap)
+
+}
 func (rb *IptablesBuilderImpl) BuildV4Restore() string {
-	//TODO (abhide): implement this
-	return ""
+	return rb.buildRestore(rb.rules.rulesv4)
 }
 
 func (rb *IptablesBuilderImpl) BuildV6Restore() string {
-	//TODO (abhide): implement this
-	return ""
+	return rb.buildRestore(rb.rules.rulesv6)
 }

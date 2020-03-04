@@ -17,7 +17,7 @@ package basicmeta
 import (
 	"fmt"
 
-	"istio.io/istio/galley/pkg/config/meta/schema"
+	"istio.io/istio/pkg/config/schema"
 )
 
 // Get returns the contained baiscmeta.yaml file, in parsed form.

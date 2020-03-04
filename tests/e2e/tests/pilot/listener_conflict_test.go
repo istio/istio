@@ -132,7 +132,7 @@ func TestListenerConflicts(t *testing.T) {
 
 			for _, info := range infos {
 				pushStatus := info.pushStatus
-				conflict, ok := pushStatus.ProxyStatus[metricName]
+				conflict, ok := pushStatus[metricName]
 				if !ok {
 					err = multierror.Prefix(err, fmt.Sprintf("unable to find push status metric %s", metricName))
 					// See if another pod has the status we're looking for.
@@ -211,7 +211,7 @@ func (i pilotInfos) String() string {
 type pilotInfo struct {
 	pod            string
 	pushStatusJSON string
-	pushStatus     *model.PushContext
+	pushStatus     map[string]map[string]model.ProxyPushStatus
 }
 
 func (i *pilotInfo) String() string {
@@ -260,8 +260,8 @@ func getPilotInfo(podIP string, pod string) (*pilotInfo, error) {
 	pushStatusJSON := result[pushStatusStartIndex : pushStatusEndIndex+1]
 
 	// Parse the push status.
-	pushStatus := &model.PushContext{}
-	if err := json.Unmarshal([]byte(pushStatusJSON), pushStatus); err != nil {
+	var pushStatus map[string]map[string]model.ProxyPushStatus
+	if err := json.Unmarshal([]byte(pushStatusJSON), &pushStatus); err != nil {
 		return nil, err
 	}
 

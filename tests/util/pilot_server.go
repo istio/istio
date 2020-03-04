@@ -22,13 +22,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gogo/protobuf/types"
-
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/proxy/envoy"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/test/env"
@@ -80,44 +76,36 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 	httpAddr := ":" + pilotHTTP
 
 	meshConfig := mesh.DefaultMeshConfig()
-	// Create a test pilot discovery service configured to watch the tempDir.
-	args := bootstrap.PilotArgs{
-		Namespace: "testing",
-		DiscoveryOptions: envoy.DiscoveryServiceOptions{
-			HTTPAddr:        httpAddr,
-			GrpcAddr:        ":0",
-			SecureGrpcAddr:  ":0",
-			EnableCaching:   true,
-			EnableProfiling: true,
-		},
-		//TODO: start mixer first, get its address
-		Mesh: bootstrap.MeshArgs{
-			MixerAddress:    "istio-mixer.istio-system:9091",
-			RdsRefreshDelay: types.DurationProto(10 * time.Millisecond),
-		},
-		Config: bootstrap.ConfigArgs{
-			KubeConfig: env.IstioSrc + "/tests/util/kubeconfig",
-		},
-		Service: bootstrap.ServiceArgs{
-			// Using the Mock service registry, which provides the hello and world services.
-			Registries: []string{
-				string(serviceregistry.MockRegistry)},
-		},
-		MeshConfig:        &meshConfig,
-		MCPMaxMessageSize: bootstrap.DefaultMCPMaxMsgSize,
-		KeepaliveOptions:  keepalive.DefaultOption(),
-		ForceStop:         true,
-		// TODO: add the plugins, so local tests are closer to reality and test full generation
-		// Plugins:           bootstrap.DefaultPlugins,
-	}
-	// Static testdata, should include all configs we want to test.
-	args.Config.FileDir = env.IstioSrc + "/tests/testdata/config"
 
 	bootstrap.PilotCertDir = env.IstioSrc + "/tests/testdata/certs/pilot"
 
-	for _, apply := range additionalArgs {
-		apply(&args)
-	}
+	additionalArgs = append([]func(p *bootstrap.PilotArgs){func(p *bootstrap.PilotArgs) {
+		p.Namespace = "testing"
+		p.DiscoveryOptions = bootstrap.DiscoveryServiceOptions{
+			HTTPAddr:        httpAddr,
+			GrpcAddr:        ":0",
+			SecureGrpcAddr:  ":0",
+			EnableProfiling: true,
+		}
+		//TODO: start mixer first, get its address
+		p.Mesh = bootstrap.MeshArgs{
+			MixerAddress: "istio-mixer.istio-system:9091",
+		}
+		p.Config = bootstrap.ConfigArgs{
+			KubeConfig: env.IstioSrc + "/tests/util/kubeconfig",
+			// Static testdata, should include all configs we want to test.
+			FileDir: env.IstioSrc + "/tests/testdata/config",
+		}
+		p.MeshConfig = &meshConfig
+		p.MCPOptions.MaxMessageSize = 1024 * 1024 * 4
+		p.KeepaliveOptions = keepalive.DefaultOption()
+		p.ForceStop = true
+
+		// TODO: add the plugins, so local tests are closer to reality and test full generation
+		// Plugins:           bootstrap.DefaultPlugins,
+	}}, additionalArgs...)
+	// Create a test pilot discovery service configured to watch the tempDir.
+	args := bootstrap.NewPilotArgs(additionalArgs...)
 
 	// Create and setup the controller.
 	s, err := bootstrap.NewServer(args)
@@ -132,14 +120,14 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 	}
 
 	// Extract the port from the network address.
-	_, port, err := net.SplitHostPort(s.HTTPListeningAddr.String())
+	_, port, err := net.SplitHostPort(s.HTTPListener.Addr().String())
 	if err != nil {
 		return nil, nil, err
 	}
 	httpURL := "http://localhost:" + port
 	MockPilotHTTPPort, _ = strconv.Atoi(port)
 
-	_, port, err = net.SplitHostPort(s.GRPCListeningAddr.String())
+	_, port, err = net.SplitHostPort(s.GRPCListener.Addr().String())
 	if err != nil {
 		return nil, nil, err
 	}

@@ -84,12 +84,15 @@ func TestIngress(t *testing.T) {
 				With(&instance, echo.Config{
 					Service:   "server",
 					Namespace: ns,
+					Subsets:   []echo.SubsetConfig{{}},
 					Pilot:     p,
 					Galley:    g,
 					Ports: []echo.Port{
 						{
 							Name:     "http",
 							Protocol: protocol.HTTP,
+							// We use a port > 1024 to not require root
+							InstancePort: 8090,
 						},
 					},
 				}).

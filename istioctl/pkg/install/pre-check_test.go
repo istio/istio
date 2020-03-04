@@ -92,7 +92,7 @@ func TestPreCheck(t *testing.T) {
 			expectedException: false,
 		},
 		{
-			description: "Inalid Kubernetes Version against GKE",
+			description: "Invalid Kubernetes Version against GKE",
 			config: &mockClientExecPreCheckConfig{
 				version:   version1_8GKE,
 				namespace: "test",

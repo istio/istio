@@ -19,37 +19,37 @@ import (
 
 	authn "istio.io/api/authentication/v1alpha1"
 
-	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/scope"
+	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 // GetProviders returns transformer providers for auth policy transformers
 func GetProviders() transformer.Providers {
 	return []transformer.Provider{
 		transformer.NewSimpleTransformerProvider(
-			metadata.K8SAuthenticationIstioIoV1Alpha1Policies,
-			metadata.IstioAuthenticationV1Alpha1Policies,
-			handler(metadata.IstioAuthenticationV1Alpha1Policies),
+			collections.K8SAuthenticationIstioIoV1Alpha1Policies,
+			collections.IstioAuthenticationV1Alpha1Policies,
+			handler(collections.IstioAuthenticationV1Alpha1Policies),
 		),
 		transformer.NewSimpleTransformerProvider(
-			metadata.K8SAuthenticationIstioIoV1Alpha1Meshpolicies,
-			metadata.IstioAuthenticationV1Alpha1Meshpolicies,
-			handler(metadata.IstioAuthenticationV1Alpha1Meshpolicies),
+			collections.K8SAuthenticationIstioIoV1Alpha1Meshpolicies,
+			collections.IstioAuthenticationV1Alpha1Meshpolicies,
+			handler(collections.IstioAuthenticationV1Alpha1Meshpolicies),
 		),
 	}
 }
 
-func handler(destination collection.Name) func(e event.Event, h event.Handler) {
+func handler(destination collection.Schema) func(e event.Event, h event.Handler) {
 	return func(e event.Event, h event.Handler) {
 		e = e.WithSource(destination)
 
-		if e.Entry != nil && e.Entry.Item != nil {
-			policy, ok := e.Entry.Item.(*authn.Policy)
+		if e.Resource != nil && e.Resource.Message != nil {
+			policy, ok := e.Resource.Message.(*authn.Policy)
 			if !ok {
-				scope.Processing.Errorf("unexpected proto found when converting authn.Policy: %v", reflect.TypeOf(e.Entry.Item))
+				scope.Processing.Errorf("unexpected proto found when converting authn.Policy: %v", reflect.TypeOf(e.Resource.Message))
 				return
 			}
 

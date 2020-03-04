@@ -47,7 +47,7 @@ func (m PortMap) toNatPortMap() nat.PortMap {
 // ContainerConfig for a Container.
 type ContainerConfig struct {
 	Name       string
-	Image      Image
+	Image      string
 	Aliases    []string
 	PortMap    PortMap
 	EntryPoint []string
@@ -89,7 +89,7 @@ func NewContainer(dockerClient *client.Client, config ContainerConfig) (*Contain
 	resp, err := dockerClient.ContainerCreate(context.Background(),
 		&dockerContainer.Config{
 			Hostname:     config.Hostname,
-			Image:        config.Image.String(),
+			Image:        config.Image,
 			AttachStderr: true,
 			AttachStdout: true,
 			ExposedPorts: exposedPorts,
@@ -160,7 +160,7 @@ func (c *Container) Exec(ctx context.Context, cmd ...string) (ExecResult, error)
 	execID := cresp.ID
 
 	// run it, with stdout/stderr attached
-	aresp, err := c.dockerClient.ContainerExecAttach(ctx, execID, types.ExecConfig{})
+	aresp, err := c.dockerClient.ContainerExecAttach(ctx, execID, types.ExecStartCheck{})
 	if err != nil {
 		return ExecResult{}, err
 	}

@@ -197,6 +197,7 @@ func (r *JwksResolver) SetAuthenticationPolicyJwksURIs(policy *authn.Policy) err
 	for _, method := range policy.Peers {
 		switch method.GetParams().(type) {
 		case *authn.PeerAuthenticationMethod_Jwt:
+			// nolint: staticcheck
 			policyJwt := method.GetJwt()
 			if policyJwt.JwksUri == "" && policyJwt.Jwks == "" {
 				uri, err := r.resolveJwksURIUsingOpenID(policyJwt.Issuer)

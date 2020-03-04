@@ -40,6 +40,9 @@ const (
 
 // Options provides all of the configuration parameters for secret discovery service.
 type Options struct {
+	// PluginNames is plugins' name for certain authentication provider.
+	PluginNames []string
+
 	// WorkloadUDSPath is the unix domain socket through which SDS server communicates with workload proxies.
 	WorkloadUDSPath string
 
@@ -63,9 +66,6 @@ type Options struct {
 	// https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
 	TrustDomain string
 
-	// PluginNames is plugins' name for certain authentication provider.
-	PluginNames []string
-
 	// The Vault CA address.
 	VaultAddress string
 
@@ -81,19 +81,39 @@ type Options struct {
 	// The Vault TLS root certificate.
 	VaultTLSRootCert string
 
-	// EnableWorkloadSDS indicates whether node agent works as SDS server for workload proxies.
-	EnableWorkloadSDS bool
-
-	// EnableIngressGatewaySDS indicates whether node agent works as ingress gateway agent.
-	EnableIngressGatewaySDS bool
-	// AlwaysValidTokenFlag is set to true for if token used is always valid(ex, normal k8s JWT)
-	AlwaysValidTokenFlag bool
+	// GrpcServer is an already configured (shared) grpc server. If set, the agent will just register on the server.
+	GrpcServer *grpc.Server
 
 	// Recycle job running interval (to clean up staled sds client connections).
 	RecycleInterval time.Duration
 
 	// Debug server port from which node_agent serves SDS configuration dumps
 	DebugPort int
+
+	// EnableWorkloadSDS indicates whether node agent works as SDS server for workload proxies.
+	EnableWorkloadSDS bool
+
+	// EnableIngressGatewaySDS indicates whether node agent works as ingress gateway agent.
+	EnableIngressGatewaySDS bool
+
+	// AlwaysValidTokenFlag is set to true for if token used is always valid(ex, normal k8s JWT)
+	AlwaysValidTokenFlag bool
+
+	// UseLocalJWT is set when the sds server should use its own local JWT, and not expect one
+	// from the UDS caller. Used when it runs in the same container with Envoy.
+	UseLocalJWT bool
+
+	// Whether to generate PKCS#8 private keys.
+	Pkcs8Keys bool
+
+	// PilotCertProvider is the provider of the Pilot certificate.
+	PilotCertProvider string
+
+	// JWTPath is the path for the JWT token
+	JWTPath string
+
+	// OutputKeyCertToDir is the directory for output the key and certificate
+	OutputKeyCertToDir string
 }
 
 // Server is the gPRC server that exposes SDS through UDS.
@@ -112,8 +132,10 @@ type Server struct {
 // NewServer creates and starts the Grpc server for SDS.
 func NewServer(options Options, workloadSecretCache, gatewaySecretCache cache.SecretManager) (*Server, error) {
 	s := &Server{
-		workloadSds: newSDSService(workloadSecretCache, false, options.RecycleInterval),
-		gatewaySds:  newSDSService(gatewaySecretCache, true, options.RecycleInterval),
+		workloadSds: newSDSService(workloadSecretCache, false, options.UseLocalJWT,
+			options.RecycleInterval, options.JWTPath, options.OutputKeyCertToDir),
+		gatewaySds: newSDSService(gatewaySecretCache, true, options.UseLocalJWT,
+			options.RecycleInterval, options.JWTPath, options.OutputKeyCertToDir),
 	}
 	if options.EnableWorkloadSDS {
 		if err := s.initWorkloadSdsService(&options); err != nil {
@@ -133,7 +155,9 @@ func NewServer(options Options, workloadSecretCache, gatewaySecretCache cache.Se
 	}
 	version.Info.RecordComponentBuildTag("citadel_agent")
 
-	s.initDebugServer(options.DebugPort)
+	if options.DebugPort > 0 {
+		s.initDebugServer(options.DebugPort)
+	}
 	return s, nil
 }
 
@@ -213,13 +237,18 @@ func (s *sdsservice) debugHTTPHandler(w http.ResponseWriter, req *http.Request) 
 }
 
 func (s *Server) initWorkloadSdsService(options *Options) error { //nolint: unparam
+	if options.GrpcServer != nil {
+		s.grpcWorkloadServer = options.GrpcServer
+		s.workloadSds.register(s.grpcWorkloadServer)
+		return nil
+	}
 	s.grpcWorkloadServer = grpc.NewServer(s.grpcServerOptions(options)...)
 	s.workloadSds.register(s.grpcWorkloadServer)
 
 	var err error
 	s.grpcWorkloadListener, err = setUpUds(options.WorkloadUDSPath)
 	if err != nil {
-		sdsServiceLog.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
+		sdsServiceLog.Errorf("Failed to set up UDS path: %v", err)
 	}
 
 	go func() {

@@ -17,7 +17,10 @@
 
 # Separate downloader for istioctl
 #
-# This file will be fetched as: curl -sL https://git.io/getLatestIstioCtl | sh -
+# You can fetch the the istioctl file using:
+# curl -sL https://raw.githubusercontent.com/istio/istio/${BRANCH}/release/downloadIstioCtl.sh | sh -
+#
+# where ${BRANCH} is either your branch name (e.g. release-1.4) or master.
 #
 
 # Determines the operating system.
@@ -32,7 +35,7 @@ fi
 if [ "x${ISTIO_VERSION}" = "x" ] ; then
   ISTIO_VERSION=$(curl -L -s https://api.github.com/repos/istio/istio/releases | \
                   grep tag_name | sed "s/ *\"tag_name\": *\"\\(.*\\)\",*/\\1/" | \
-                  sort -t"." -k 1,1 -k 2,2 -k 3,3 -k 4,4 | tail -n 1)
+                  grep -v -E "(alpha|beta|rc)\.[0-9]$" | sort -t"." -k 1,1 -k 2,2 -k 3,3 -k 4,4 | tail -n 1)
 fi
 
 if [ "x${ISTIO_VERSION}" = "x" ] ; then
@@ -40,13 +43,18 @@ if [ "x${ISTIO_VERSION}" = "x" ] ; then
   exit;
 fi
 
+download_failed () {
+  printf "Download failed, please make sure your ISTIO_VERSION is correct and verify the download URL exists!"
+  exit 1
+}
+
 # Downloads the istioctl binary archive.
 tmp=$(mktemp -d /tmp/istioctl.XXXXXX)
 filename="istioctl-${ISTIO_VERSION}-${OSEXT}.tar.gz"
 cd "$tmp" || exit
 URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istioctl-${ISTIO_VERSION}-${OSEXT}.tar.gz"
 printf "Downloading %s from %s ... \n" "${filename}" "${URL}"
-curl -sLO "${URL}"
+curl -sLO "${URL}" || download_failed
 printf "%s download complete!\n" "${filename}"
 
 # setup istioctl

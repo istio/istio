@@ -18,24 +18,31 @@ import (
 	"fmt"
 	"sync"
 
-	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/schema/collection"
 )
 
 // precedenceSource is a processor.Source implementation that combines multiple sources in precedence order
 // Such that events from sources later in the input list take precedence over events affecting
 // the same resource from sources earlier in the list
 // Only events from the highest precedence source so far are allowed through.
+// Each source input also needs to include the collections it provides,
+// so we know how many to wait for before sending a full sync
 type precedenceSource struct {
 	mu      sync.Mutex
 	started bool
 
-	inputs  []event.Source
+	inputs  []precedenceSourceInput
 	handler event.Handler
 
 	eventStateMu     sync.Mutex
 	resourcePriority map[string]int
-	fullSyncCounts   map[collection.Name]int
+	expectedCounts   map[collection.Name]int
+}
+
+type precedenceSourceInput struct {
+	src  event.Source
+	cols collection.Names
 }
 
 type precedenceHandler struct {
@@ -45,11 +52,10 @@ type precedenceHandler struct {
 
 var _ event.Source = &precedenceSource{}
 
-func newPrecedenceSource(sources []event.Source) *precedenceSource {
+func newPrecedenceSource(inputs []precedenceSourceInput) *precedenceSource {
 	return &precedenceSource{
-		inputs:           sources,
+		inputs:           inputs,
 		resourcePriority: make(map[string]int),
-		fullSyncCounts:   make(map[collection.Name]int),
 	}
 }
 
@@ -71,8 +77,9 @@ func (ph *precedenceHandler) Handle(e event.Event) {
 // handleFullSync handles FullSync events, which are a special case.
 // For each collection, we want to only send this once, after all upstream sources have sent theirs.
 func (ph *precedenceHandler) handleFullSync(e event.Event) {
-	ph.src.fullSyncCounts[e.Source]++
-	if ph.src.fullSyncCounts[e.Source] != len(ph.src.inputs) {
+	col := e.Source.Name()
+	ph.src.expectedCounts[col]--
+	if ph.src.expectedCounts[col] > 0 {
 		return
 	}
 	ph.src.handler.Handle(e)
@@ -82,7 +89,7 @@ func (ph *precedenceHandler) handleFullSync(e event.Event) {
 // For each event, only pass it along to the downstream handler if the source it came from
 // had equal or higher precedence on the current resource
 func (ph *precedenceHandler) handleEvent(e event.Event) {
-	key := fmt.Sprintf("%s/%s", e.Source, e.Entry.Metadata.Name)
+	key := fmt.Sprintf("%s/%s", e.Source.Name(), e.Resource.Metadata.FullName)
 	curPrecedence, ok := ph.src.resourcePriority[key]
 	if ok && ph.precedence < curPrecedence {
 		return
@@ -105,7 +112,7 @@ func (s *precedenceSource) Dispatch(h event.Handler) {
 			precedence: i,
 			src:        s,
 		}
-		input.Dispatch(ph)
+		input.src.Dispatch(ph)
 	}
 }
 
@@ -118,8 +125,16 @@ func (s *precedenceSource) Start() {
 		return
 	}
 
+	// Init expected counts map
+	s.expectedCounts = make(map[collection.Name]int)
 	for _, i := range s.inputs {
-		i.Start()
+		for _, c := range i.cols {
+			s.expectedCounts[c]++
+		}
+	}
+
+	for _, i := range s.inputs {
+		i.src.Start()
 	}
 
 	s.started = true
@@ -137,6 +152,6 @@ func (s *precedenceSource) Stop() {
 	s.started = false
 
 	for _, i := range s.inputs {
-		i.Stop()
+		i.src.Stop()
 	}
 }

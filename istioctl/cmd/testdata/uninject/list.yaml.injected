@@ -117,7 +117,14 @@ items:
               cpu: 100m
               memory: 128Mi
           securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
             readOnlyRootFilesystem: true
+            runAsGroup: 1337
+            runAsNonRoot: true
             runAsUser: 1337
           volumeMounts:
           - mountPath: /etc/istio/proxy
@@ -144,7 +151,7 @@ items:
           - -b
           - "80"
           - -d
-          - "15020"
+          - "15090,15020"
           image: docker.io/istio/proxy_init:unittest
           imagePullPolicy: IfNotPresent
           name: istio-init
@@ -156,9 +163,16 @@ items:
               cpu: 10m
               memory: 10Mi
           securityContext:
+            allowPrivilegeEscalation: false
             capabilities:
               add:
               - NET_ADMIN
+              - NET_RAW
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: false
+            runAsGroup: 0
             runAsNonRoot: false
             runAsUser: 0
         volumes:
@@ -291,7 +305,14 @@ items:
               cpu: 100m
               memory: 128Mi
           securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
             readOnlyRootFilesystem: true
+            runAsGroup: 1337
+            runAsNonRoot: true
             runAsUser: 1337
           volumeMounts:
           - mountPath: /etc/istio/proxy
@@ -314,7 +335,7 @@ items:
           - -b
           - "81"
           - -d
-          - "15020"
+          - "15090,15020"
           image: docker.io/istio/proxy_init:unittest
           imagePullPolicy: IfNotPresent
           name: istio-init
@@ -326,9 +347,15 @@ items:
               cpu: 10m
               memory: 10Mi
           securityContext:
+            allowPrivilegeEscalation: false
             capabilities:
               add:
               - NET_ADMIN
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: false
+            runAsGroup: 0
             runAsNonRoot: false
             runAsUser: 0
         volumes:

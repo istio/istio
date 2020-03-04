@@ -29,7 +29,7 @@
       "env": [
         {
           "name": "ISTIO_KUBE_APP_PROBERS",
-          "value": "{\"/app-health/hello/livez\":{\"path\":\"/live\",\"port\":80},\"/app-health/hello/readyz\":{\"path\":\"/ready\",\"port\":3333,\"scheme\":\"HTTPS\"},\"/app-health/second/livez\":{\"port\":9000}}"
+          "value": "{\"/app-health/hello/livez\":{\"httpGet\":{\"path\":\"/live\",\"port\":80}},\"/app-health/hello/readyz\":{\"httpGet\":{\"path\":\"/ready\",\"port\":3333,\"scheme\":\"HTTPS\"}},\"/app-health/second/livez\":{\"httpGet\":{\"port\":9000}}}"
         }
       ],
       "resources": {}
@@ -75,32 +75,48 @@
     "op": "add",
     "path": "/metadata/labels",
     "value": {
-      "security.istio.io/mtlsReady": "true"
+      "security.istio.io/tlsMode": "istio"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/metadata/labels/service.istio.io~1canonical-name",
+    "value": ""
+  },
+  {
+    "op": "add",
+    "path": "/metadata/labels/service.istio.io~1canonical-revision",
+    "value": "latest"
+  },
+  {
+    "op": "replace",
+    "path": "/spec/containers/1/readinessProbe",
+    "value": {
+      "httpGet": {
+        "path": "/app-health/hello/readyz",
+        "port": 15020,
+        "scheme": "HTTP"
+      }
     }
   },
   {
     "op": "replace",
-    "path": "/spec/containers/1/readinessProbe/httpGet",
+    "path": "/spec/containers/1/livenessProbe",
     "value": {
-      "path": "/app-health/hello/readyz",
-      "port": 15020,
-      "scheme": "HTTP"
+      "httpGet": {
+        "path": "/app-health/hello/livez",
+        "port": 15020
+      }
     }
   },
   {
     "op": "replace",
-    "path": "/spec/containers/1/livenessProbe/httpGet",
+    "path": "/spec/containers/2/livenessProbe",
     "value": {
-      "path": "/app-health/hello/livez",
-      "port": 15020
-    }
-  },
-  {
-    "op": "replace",
-    "path": "/spec/containers/2/livenessProbe/httpGet",
-    "value": {
-      "path": "/app-health/second/livez",
-      "port": 15020
+      "httpGet": {
+        "path": "/app-health/second/livez",
+        "port": 15020
+      }
     }
   }
 ]

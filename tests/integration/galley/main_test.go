@@ -19,12 +19,31 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/resource"
+)
+
+var (
+	env *kube.Environment
 )
 
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("galley_test", m).
-		SetupOnEnv(environment.Kube, istio.Setup(nil, nil)).
+		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
+			cfg.ControlPlaneValues = `
+values:
+  prometheus:
+    enabled: true
+components:
+  galley:
+    enabled: true
+`
+		})).
+		SetupOnEnv(environment.Kube, func(ctx resource.Context) error {
+			env = ctx.Environment().(*kube.Environment)
+			return nil
+		}).
 		Run()
 }

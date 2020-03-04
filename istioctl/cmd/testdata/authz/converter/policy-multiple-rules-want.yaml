@@ -1,0 +1,99 @@
+# Generated from ClusterRbacConfig with mode ON_WITH_INCLUSION on namespace "default". This policy will deny all requests to namespace "default" by default.
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-namespace-deny-all
+  namespace: default
+spec:
+  {}
+---
+# Generated for service "productpage.default.svc.cluster.local" found in ServiceRole "productpage" at rule 0
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-productpage-rule0-svc0-target0
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        principals:
+        - user
+    to:
+    - operation:
+        methods:
+        - GET
+        paths:
+        - /one
+    when:
+    - key: request.headers[env]
+      values:
+      - prod
+    - key: request.headers[x-id]
+      values:
+      - id-1
+  selector:
+    matchLabels:
+      app: productpage
+      version: v1
+---
+# Generated for service "productpage.default.svc.cluster.local" found in ServiceRole "productpage" at rule 1
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-productpage-rule1-svc0-target0
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        principals:
+        - user
+    to:
+    - operation:
+        methods:
+        - POST
+        paths:
+        - /two
+    when:
+    - key: request.headers[env]
+      values:
+      - prod
+    - key: request.headers[x-lang]
+      values:
+      - en
+  selector:
+    matchLabels:
+      app: productpage
+      version: v1
+---
+# Generated for service "reviews.default.svc.cluster.local" found in ServiceRole "productpage" at rule 2
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-productpage-rule2-svc0-target0
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        principals:
+        - user
+    to:
+    - operation:
+        methods:
+        - PUT
+        paths:
+        - /three
+    when:
+    - key: request.headers[env]
+      values:
+      - prod
+    - key: request.headers[x-lang]
+      values:
+      - jp
+  selector:
+    matchLabels:
+      app: reviews
+      version: v1
+---

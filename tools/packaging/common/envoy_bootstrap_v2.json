@@ -115,12 +115,20 @@
           "tag_name": "destination_service_namespace"
       },
       {
+        "regex": "(destination_port=\\.=(.+?);\\.;)",
+        "tag_name": "destination_port"
+      },
+      {
           "regex": "(request_protocol=\\.=(.+?);\\.;)",
           "tag_name": "request_protocol"
       },
       {
           "regex": "(response_flags=\\.=(.+?);\\.;)",
           "tag_name": "response_flags"
+      },
+      {
+          "regex": "(grpc_response_status=\\.=(.*?);\\.;)",
+          "tag_name": "grpc_response_status"
       },
       {
           "regex": "(connection_security_policy=\\.=(.+?);\\.;)",
@@ -143,8 +151,30 @@
           "tag_name": "component"
       },
       {
-          "regex": "(tag\\.(.+?)\\.)",
+          "regex": "(tag\\.(.+?);\\.)",
           "tag_name": "tag"
+      },
+      {{- range $a, $tag := .extraStatTags }}
+      {
+          "regex": "({{ $tag }}=\\.=(.*?);\\.;)",
+          "tag_name": "{{ $tag }}"
+      },
+      {{- end }}
+      {
+          "regex": "(source_canonical_service=\\.=(.+?);\\.;)",
+          "tag_name": "source_canonical_service"
+      },
+      {
+          "regex": "(destination_canonical_service=\\.=(.+?);\\.;)",
+          "tag_name": "destination_canonical_service"
+      },
+      {
+          "regex": "(source_canonical_revision=\\.=(.+?);\\.;)",
+          "tag_name": "source_canonical_revision"
+      },
+      {
+          "regex": "(destination_canonical_revision=\\.=(.+?);\\.;)",
+          "tag_name": "destination_canonical_revision"
       }
     ],
     "stats_matcher": {
@@ -219,10 +249,24 @@
           }
         ]
       },
+      {{- if eq .sds_uds_path "unix:/etc/istio/proxy/SDS" }}
+      {
+        "name": "sds-grpc",
+        "type": "STATIC",
+        "http2_protocol_options": {},
+        "connect_timeout": "{{ .connect_timeout }}",
+        "lb_policy": "ROUND_ROBIN",
+        "hosts": [{
+          "pipe": {
+            "path": "/etc/istio/proxy/SDS"
+           }
+        }]
+      },
+      {{- end }}
       {
         "name": "xds-grpc",
         "type": "STRICT_DNS",
-        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "{{ .connect_timeout }}",
         "lb_policy": "ROUND_ROBIN",
@@ -233,6 +277,35 @@
             "alpn_protocols": [
               "h2"
             ],
+            {{ if eq .sds_uds_path "unix:/etc/istio/proxy/SDS" }}
+             "tls_certificate_sds_secret_configs":[
+              {
+                "name":"default",
+                "sds_config":{
+                  "api_config_source":{
+                    "api_type":"GRPC",
+                    "grpc_services":[
+                      {
+                        "envoy_grpc":{
+                          "cluster_name": "sds-grpc"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
+            "validation_context": {
+              "trusted_ca": {
+                {{ if eq .pilot_cert_provider "kubernetes" }}
+                "filename": "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+                {{ else if eq .pilot_cert_provider "istiod" }}
+                "filename": "./var/run/secrets/istio/root-cert.pem"
+                {{ end }}
+              },
+              "verify_subject_alt_name": {{ toJSON .pilot_SAN }}
+            }
+            {{ else }}
             "tls_certificate_sds_secret_configs":[
               {
                 "name":"default",
@@ -271,11 +344,7 @@
             ],
             "combined_validation_context":{
               "default_validation_context":{
-                "verify_subject_alt_name":[
-                  {{- range $a, $s := .pilot_SAN }}
-                  "{{$s}}"
-                  {{- end}}
-                ]
+                "verify_subject_alt_name": {{ toJSON .pilot_SAN }}
               },
               "validation_context_sds_secret_config":{
                 "name":"ROOTCA",
@@ -312,6 +381,7 @@
                 }
               }
             }
+            {{ end }}
           },
         },
         {{ else }}
@@ -334,11 +404,7 @@
               "trusted_ca": {
                 "filename": "/etc/certs/root-cert.pem"
               },
-              "verify_subject_alt_name": [
-                {{- range $a, $s := .pilot_SAN }}
-                "{{$s}}"
-                {{- end}}
-              ]
+              "verify_subject_alt_name": {{ toJSON .pilot_SAN }}
             }
           }
         },
@@ -370,6 +436,7 @@
             "keepalive_time": 300
           }
         },
+        "max_requests_per_connection": 1,
         "http2_protocol_options": { }
       }
       {{ if .zipkin }}
@@ -377,7 +444,7 @@
       {
         "name": "zipkin",
         "type": "STRICT_DNS",
-        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
@@ -407,7 +474,7 @@
         },
         {{ end }}
         "type": "STRICT_DNS",
-        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
@@ -423,7 +490,7 @@
         "name": "datadog_agent",
         "connect_timeout": "1s",
         "type": "STRICT_DNS",
-        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "lb_policy": "ROUND_ROBIN",
         "hosts": [
@@ -444,7 +511,7 @@
       {{ if .envoy_metrics_service_tcp_keepalive }}
         "upstream_connection_options": {{ .envoy_metrics_service_tcp_keepalive }},
       {{ end }}
-        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
@@ -467,7 +534,7 @@
       {{ if .envoy_accesslog_service_tcp_keepalive }}
         "upstream_connection_options": {{ .envoy_accesslog_service_tcp_keepalive }},
       {{ end }}
-        "dns_refresh_rate": "{{ .dns_refresh_rate }}",
+        "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
@@ -535,7 +602,8 @@
       "name": "envoy.zipkin",
       "config": {
         "collector_cluster": "zipkin",
-        "collector_endpoint": "/api/v1/spans",
+        "collector_endpoint": "/api/v2/spans",
+        "collector_endpoint_version": "HTTP_JSON",
         "trace_id_128bit": "true",
         "shared_span_context": "false"
       }
@@ -571,9 +639,31 @@
       "config": {
       "stackdriver_exporter_enabled": true,
       "stackdriver_project_id": "{{ .stackdriverProjectID }}",
+      {{ if .sts_port }}
+      "stackdriver_grpc_service": {
+        "google_grpc": {
+          "stat_prefix": "oc_stackdriver_tracer",
+          "channel_credentials": {
+            "ssl_credentials": {
+              "root_certs": {
+                "filename": "/etc/ssl/certs/ca-certificates.crt"
+              }
+            }
+          },
+          "call_credentials": {
+            "sts_service": {
+              "token_exchange_service_uri": "http://localhost:{{ .stsPort }}/token",
+              "subject_token_path": "/var/run/secrets/tokens/istio-token",
+              "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+              "scope": "https://www.googleapis.com/auth/cloud-platform",
+            }
+          }
+        }
+      }
+      {{ end }}
       "stdout_exporter_enabled": {{ .stackdriverDebug }},
-      "incoming_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN"],
-      "outgoing_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN"],
+      "incoming_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],
+      "outgoing_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],
       "trace_config":{
         "constant_sampler":{
           "decision": "ALWAYS_PARENT"
@@ -612,5 +702,13 @@
     },
     {{ end }}
   ]
+  {{ end }}
+  {{ if .outlier_log_path }}
+  ,
+  "cluster_manager": {
+    "outlier_detection": {
+      "event_log_path": {{ .outlier_log_path }}
+    }
+  }
   {{ end }}
 }

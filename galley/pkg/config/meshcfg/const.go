@@ -15,13 +15,8 @@
 package meshcfg
 
 import (
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
-	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/pkg/config/resource"
 )
 
-// IstioMeshconfig is the name of collection istio/meshconfig
-// It is captured here explicitly, as some of the core pieces of code need to reference this.
-var IstioMeshconfig = collection.NewName("istio/mesh/v1alpha1/MeshConfig")
-
 // ResourceName for the Istio Mesh Config resource
-var ResourceName = resource.NewName("istio-system", "meshconfig")
+var ResourceName = resource.NewFullName("istio-system", "meshconfig")

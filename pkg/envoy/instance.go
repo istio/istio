@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 
 	"istio.io/pkg/log"
 )
@@ -129,6 +129,10 @@ type Instance interface {
 
 	// ShutdownAndWait is a helper that calls Shutdown and waits for the process to terminate.
 	ShutdownAndWait() Waitable
+
+	// DrainListeners drains inbound listeners of Envoy so that inflight requests
+	// can gracefully finish and even continue making outbound calls as needed.
+	DrainListeners() error
 }
 
 // FactoryFunc is a function that manufactures Envoy Instances.
@@ -155,7 +159,7 @@ func New(cfg Config) (Instance, error) {
 
 	// Extract the admin port from the configuration.
 	adminPort := cfg.AdminPort
-	if adminPort <= 0 {
+	if adminPort == 0 {
 		var err error
 		adminPort, err = ctx.getAdminPort()
 		if err != nil {
@@ -369,6 +373,10 @@ func (i *instance) ShutdownAndWait() Waitable {
 		instance:    i,
 		creationErr: i.Shutdown(),
 	}
+}
+
+func (i *instance) DrainListeners() error {
+	return DrainListeners(i.adminPort)
 }
 
 func (i *instance) close() {

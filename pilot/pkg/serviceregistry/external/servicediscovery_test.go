@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 func createServiceEntries(configs []*model.Config, store model.IstioConfigStore, t *testing.T) {
@@ -42,15 +42,33 @@ func createServiceEntries(configs []*model.Config, store model.IstioConfigStore,
 type channelTerminal struct {
 }
 
+// FakeXdsUpdater is used to test the event handlers.
+type FakeXdsUpdater struct {
+}
+
+func (fx *FakeXdsUpdater) EDSUpdate(_, _, _ string, _ []*model.IstioEndpoint) error {
+	return nil
+}
+
+func (fx *FakeXdsUpdater) ConfigUpdate(*model.PushRequest) {
+}
+
+func (fx *FakeXdsUpdater) ProxyUpdate(_, _ string) {
+}
+
+func (fx *FakeXdsUpdater) SvcUpdate(_, _ string, _ string, _ model.Event) {
+}
+
 func initServiceDiscovery() (model.IstioConfigStore, *ServiceEntryStore, func()) {
-	store := memory.Make(schemas.Istio)
+	store := memory.Make(collections.Pilot)
 	configController := memory.NewController(store)
 
 	stop := make(chan struct{})
 	go configController.Run(stop)
 
 	istioStore := model.MakeIstioStore(configController)
-	serviceController := NewServiceDiscovery(configController, istioStore)
+	xdsUpdater := &FakeXdsUpdater{}
+	serviceController := NewServiceDiscovery(configController, istioStore, xdsUpdater)
 	return istioStore, serviceController, func() {
 		stop <- channelTerminal{}
 	}
@@ -190,7 +208,9 @@ func TestNonServiceConfig(t *testing.T) {
 	// Create a non-service configuration element. This should not affect the service registry at all.
 	cfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              schemas.DestinationRule.Type,
+			Type:              collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
+			Group:             collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Group(),
+			Version:           collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
 			Name:              "fakeDestinationRule",
 			Namespace:         "default",
 			Domain:            "cluster.local",
@@ -224,6 +244,172 @@ func TestNonServiceConfig(t *testing.T) {
 	}
 }
 
+func TestServicesChanged(t *testing.T) {
+
+	var updatedHTTPDNS = &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:              collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
+			Name:              "httpDNS",
+			Namespace:         "httpDNS",
+			CreationTimestamp: GlobalTime,
+			Labels:            map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+		},
+		Spec: &networking.ServiceEntry{
+			Hosts: []string{"*.google.com", "*.mail.com"},
+			Ports: []*networking.Port{
+				{Number: 80, Name: "http-port", Protocol: "http"},
+				{Number: 8080, Name: "http-alt-port", Protocol: "http"},
+			},
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{
+					Address: "us.google.com",
+					Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
+					Labels:  map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+				},
+				{
+					Address: "uk.google.com",
+					Ports:   map[string]uint32{"http-port": 1080},
+					Labels:  map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+				},
+				{
+					Address: "de.google.com",
+					Labels:  map[string]string{"foo": "bar", model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+				},
+			},
+			Location:   networking.ServiceEntry_MESH_EXTERNAL,
+			Resolution: networking.ServiceEntry_DNS,
+		},
+	}
+
+	var updatedHTTPDNSPort = &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:              collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
+			Name:              "httpDNS",
+			Namespace:         "httpDNS",
+			CreationTimestamp: GlobalTime,
+			Labels:            map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+		},
+		Spec: &networking.ServiceEntry{
+			Hosts: []string{"*.google.com", "*.mail.com"},
+			Ports: []*networking.Port{
+				{Number: 80, Name: "http-port", Protocol: "http"},
+				{Number: 8080, Name: "http-alt-port", Protocol: "http"},
+				{Number: 9090, Name: "http-new-port", Protocol: "http"},
+			},
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{
+					Address: "us.google.com",
+					Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
+					Labels:  map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+				},
+				{
+					Address: "uk.google.com",
+					Ports:   map[string]uint32{"http-port": 1080},
+					Labels:  map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+				},
+				{
+					Address: "de.google.com",
+					Labels:  map[string]string{"foo": "bar", model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+				},
+			},
+			Location:   networking.ServiceEntry_MESH_EXTERNAL,
+			Resolution: networking.ServiceEntry_DNS,
+		},
+	}
+
+	var updatedEndpoint = &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:              collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
+			Name:              "httpDNS",
+			Namespace:         "httpDNS",
+			CreationTimestamp: GlobalTime,
+			Labels:            map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+		},
+		Spec: &networking.ServiceEntry{
+			Hosts: []string{"*.google.com", "*.mail.com"},
+			Ports: []*networking.Port{
+				{Number: 80, Name: "http-port", Protocol: "http"},
+				{Number: 8080, Name: "http-alt-port", Protocol: "http"},
+			},
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{
+					Address: "us.google.com",
+					Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
+					Labels:  map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+				},
+				{
+					Address: "uk.google.com",
+					Ports:   map[string]uint32{"http-port": 1080},
+					Labels:  map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+				},
+				{
+					Address: "de.google.com",
+					Labels:  map[string]string{"foo": "bar", model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+				},
+				{
+					Address: "in.google.com",
+					Labels:  map[string]string{"foo": "bar", model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+				},
+			},
+			Location:   networking.ServiceEntry_MESH_EXTERNAL,
+			Resolution: networking.ServiceEntry_DNS,
+		},
+	}
+	cases := []struct {
+		name string
+		a    *model.Config
+		b    *model.Config
+		want bool
+	}{
+		{
+			"same config",
+			httpDNS,
+			httpDNS,
+			false,
+		},
+		{
+			"different config",
+			httpDNS,
+			httpNoneInternal,
+			true,
+		},
+		{
+			"different resolution",
+			tcpDNS,
+			tcpStatic,
+			true,
+		},
+		{
+			"config modified with additional host",
+			httpDNS,
+			updatedHTTPDNS,
+			true,
+		},
+		{
+			"config modified with additional port",
+			updatedHTTPDNS,
+			updatedHTTPDNSPort,
+			true,
+		},
+		{
+			"same config with additional endpoint",
+			updatedHTTPDNS,
+			updatedEndpoint,
+			false,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			as := convertServices(*tt.a)
+			bs := convertServices(*tt.b)
+			got := servicesChanged(as, bs)
+			if got != tt.want {
+				t.Errorf("ServicesChanged got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func sortServices(services []*model.Service) {
 	sort.Slice(services, func(i, j int) bool { return services[i].Hostname < services[j].Hostname })
 	for _, service := range services {
@@ -243,22 +429,22 @@ func sortServiceInstances(instances []*model.ServiceInstance) {
 
 	sort.Slice(instances, func(i, j int) bool {
 		if instances[i].Service.Hostname == instances[j].Service.Hostname {
-			if instances[i].Endpoint.Port == instances[j].Endpoint.Port {
+			if instances[i].Endpoint.EndpointPort == instances[j].Endpoint.EndpointPort {
 				if instances[i].Endpoint.Address == instances[j].Endpoint.Address {
-					if len(instances[i].Labels) == len(instances[j].Labels) {
-						iLabels := labelsToSlice(instances[i].Labels)
-						jLabels := labelsToSlice(instances[j].Labels)
+					if len(instances[i].Endpoint.Labels) == len(instances[j].Endpoint.Labels) {
+						iLabels := labelsToSlice(instances[i].Endpoint.Labels)
+						jLabels := labelsToSlice(instances[j].Endpoint.Labels)
 						for k := range iLabels {
 							if iLabels[k] < jLabels[k] {
 								return true
 							}
 						}
 					}
-					return len(instances[i].Labels) < len(instances[j].Labels)
+					return len(instances[i].Endpoint.Labels) < len(instances[j].Endpoint.Labels)
 				}
 				return instances[i].Endpoint.Address < instances[j].Endpoint.Address
 			}
-			return instances[i].Endpoint.Port < instances[j].Endpoint.Port
+			return instances[i].Endpoint.EndpointPort < instances[j].Endpoint.EndpointPort
 		}
 		return instances[i].Service.Hostname < instances[j].Service.Hostname
 	})

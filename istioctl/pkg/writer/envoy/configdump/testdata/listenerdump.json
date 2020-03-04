@@ -58,6 +58,7 @@
                             "deprecated_v1": true,
                             "value": {
                                 "route_config": {
+                                    "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
                                     "routes": [
                                         {
                                             "cluster": "outbound|443||istio-galley.istio-system.svc.cluster.local",
@@ -167,6 +168,7 @@
                                 }
                             ],
                             "route_config": {
+                                "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
                                 "name": "8080",
                                 "validate_clusters": false,
                                 "virtual_hosts": [
@@ -213,5 +215,51 @@
         "deprecatedV1": {
             "bindToPort": false
         }
+    },
+    {
+        "name": "0.0.0.0_8081",
+        "address": {
+            "socketAddress": {
+                "address": "0.0.0.0",
+                "portValue": 8081
+            }
+        },
+        "filterChains": [
+            {
+                "filters": [
+                    {
+                        "name": "envoy.tcp_proxy",
+                        "typedConfig": {
+                            "@type": "type.googleapis.com/envoy.config.filter.network.tcp_proxy.v2.TcpProxy",
+                            "cluster": "BlackHoleCluster"
+                        }
+                    },
+                    {
+                        "name": "envoy.http_connection_manager"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "name": "0.0.0.0_8082",
+        "address": {
+            "socketAddress": {
+                "address": "0.0.0.0",
+                "portValue": 8082
+            }
+        },
+        "filterChains": [
+            {
+                "filters": [
+                    {
+                        "name": "envoy.http_connection_manager"
+                    },
+                    {
+                        "name": "envoy.tcp_proxy"
+                    }
+                ]
+            }
+        ]
     }
 ]

@@ -20,40 +20,19 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/mock"
-	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/pkg/config/schema/collections"
 )
-
-var (
-	camelKebabs = []struct{ in, out string }{
-		{"ExampleNameX", "example-name-x"},
-		{"Example1", "example1"},
-		{"ExampleXY", "example-x-y"},
-	}
-)
-
-func TestCamelKebab(t *testing.T) {
-	for _, tt := range camelKebabs {
-		s := CamelCaseToKebabCase(tt.in)
-		if s != tt.out {
-			t.Errorf("CamelCaseToKebabCase(%q) => %q, want %q", tt.in, s, tt.out)
-		}
-		u := KebabCaseToCamelCase(tt.out)
-		if u != tt.in {
-			t.Errorf("kebabToCamel(%q) => %q, want %q", tt.out, u, tt.in)
-		}
-	}
-}
 
 func TestConvert(t *testing.T) {
-	if _, err := ConvertConfig(schemas.VirtualService, model.Config{}); err == nil {
+	if _, err := ConvertConfig(collections.IstioNetworkingV1Alpha3Virtualservices, model.Config{}); err == nil {
 		t.Errorf("expected error for converting empty config")
 	}
-	if _, err := ConvertObject(schemas.VirtualService, &IstioKind{Spec: map[string]interface{}{"x": 1}}, "local"); err != nil {
+	if _, err := ConvertObject(collections.IstioNetworkingV1Alpha3Virtualservices, &IstioKind{Spec: map[string]interface{}{"x": 1}}, "local"); err != nil {
 		t.Errorf("error for converting object: %s", err)
 	}
 	config := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:            schemas.VirtualService.Type,
+			Type:            collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
 			Group:           "networking.istio.io",
 			Version:         "v1alpha3",
 			Name:            "test",
@@ -66,11 +45,11 @@ func TestConvert(t *testing.T) {
 		Spec: mock.ExampleVirtualService,
 	}
 
-	obj, err := ConvertConfig(schemas.VirtualService, config)
+	obj, err := ConvertConfig(collections.IstioNetworkingV1Alpha3Virtualservices, config)
 	if err != nil {
 		t.Errorf("ConvertConfig() => unexpected error %v", err)
 	}
-	got, err := ConvertObject(schemas.VirtualService, obj, "cluster")
+	got, err := ConvertObject(collections.IstioNetworkingV1Alpha3Virtualservices, obj, "cluster")
 	if err != nil {
 		t.Errorf("ConvertObject() => unexpected error %v", err)
 	}
@@ -86,20 +65,21 @@ func TestParseInputs(t *testing.T) {
 	if _, _, err := ParseInputs("a"); err == nil {
 		t.Error(`ParseInput("a") => got no error`)
 	}
-	if _, others, err := ParseInputs("kind: Pod"); err != nil || len(others) != 1 {
+	if _, others, err := ParseInputs("apiVersion: v1\nkind: Pod"); err != nil || len(others) != 1 {
 		t.Errorf(`ParseInput("kind: Pod") => got %v, %v`, others, err)
 	}
 	if varr, others, err := ParseInputs("---\n"); err != nil || len(varr) != 0 || len(others) != 0 {
 		t.Errorf(`ParseInput("---") => got %v, %v, %v`, varr, others, err)
 	}
-	if _, _, err := ParseInputs("kind: VirtualService\nspec:\n  destination: x"); err == nil {
+	if _, _, err := ParseInputs("apiVersion: networking.istio.io/v1alpha3\nkind: VirtualService\nspec:\n  destination: x"); err == nil {
 		t.Error("ParseInput(bad spec) => got no error")
 	}
-	if _, _, err := ParseInputs("kind: VirtualService\nspec:\n  destination:\n    service:"); err == nil {
+	if _, _, err := ParseInputs("apiVersion: networking.istio.io/v1alpha3\nkind: VirtualService\nspec:\n  destination:\n    service:"); err == nil {
 		t.Error("ParseInput(invalid spec) => got no error")
 	}
 
-	validInput := `{"kind":"VirtualService", "spec":{"hosts":["foo"],"http":[{"route":[{"destination":{"host":"bar"},"weight":100}]}]}}`
+	// nolint: lll
+	validInput := `{"apiVersion": "networking.istio.io/v1alpha3", "kind":"VirtualService", "spec":{"hosts":["foo"],"http":[{"route":[{"destination":{"host":"bar"},"weight":100}]}]}}`
 	varr, _, err := ParseInputs(validInput)
 	if err != nil || len(varr) == 0 {
 		t.Errorf("ParseInputs(correct input) => got %v, %v", varr, err)

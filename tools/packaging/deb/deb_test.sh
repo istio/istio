@@ -19,9 +19,6 @@
 # Test for istio debian. Will run in a docker image where the .deb has been installed.
 
 function startIstio() {
-    /usr/local/bin/hyperistio --envoy=false &
-    sleep 1
-
     bash -x /usr/local/bin/istio-start.sh &
     sleep 1
 }

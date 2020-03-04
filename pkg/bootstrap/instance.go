@@ -15,12 +15,15 @@
 package bootstrap
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path"
 	"text/template"
+
+	"istio.io/pkg/log"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/env"
@@ -74,6 +77,20 @@ func (i *instance) WriteTo(w io.Writer) error {
 	return t.Execute(w, templateParams)
 }
 
+func toJSON(i interface{}) string {
+	if i == nil {
+		return "{}"
+	}
+
+	ba, err := json.Marshal(i)
+	if err != nil {
+		log.Warnf("Unable to marshal %v: %v", i, err)
+		return "{}"
+	}
+
+	return string(ba)
+}
+
 func (i *instance) CreateFileForEpoch(epoch int) (string, error) {
 	// Create the output file.
 	if err := os.MkdirAll(i.Proxy.ConfigPath, 0700); err != nil {
@@ -119,5 +136,8 @@ func newTemplate(config *meshAPI.ProxyConfig) (*template.Template, error) {
 		return nil, err
 	}
 
-	return template.New("bootstrap").Parse(string(cfgTmpl))
+	funcMap := template.FuncMap{
+		"toJSON": toJSON,
+	}
+	return template.New("bootstrap").Funcs(funcMap).Parse(string(cfgTmpl))
 }

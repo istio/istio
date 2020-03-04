@@ -29,9 +29,9 @@ type MeshDesc struct {
 	// Mesh Identifier.
 	MeshID string `json:"mesh_id,omitempty"`
 
-	// Collection of clustersByContext in the multi-cluster mesh. Clusters are indexed by Context name and
-	// reference clustersByContext defined in the Kubeconfig following kubectl precedence rules.
-	Clusters map[string]ClusterDesc `json:"clusters,omitempty"`
+	// Collection of clusters in the multi-cluster mesh. Clusters are indexed by context name and
+	// reference clusters defined in the Kubeconfig following kubectl precedence rules.
+	Clusters map[string]ClusterDesc `json:"contexts,omitempty"`
 }
 
 // ClusterDesc describes attributes of a cluster and the desired state of joining the mesh.
@@ -40,19 +40,45 @@ type ClusterDesc struct {
 	Network string `json:"network,omitempty"`
 
 	// Optional Namespace override of the Istio control plane. `istio-system` if not set.
-	Namespace string `json:"Namespace,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
 
 	// Optional service account to use for cross-cluster authentication. `istio-multi` if not set.
 	ServiceAccountReader string `json:"serviceAccountReader"`
 
 	// When true, disables linking the service registry of this cluster with other clustersByContext in the mesh.
-	DisableServiceDiscovery bool `json:"joinServiceDiscovery,omitempty"`
+	DisableRegistryJoin bool `json:"disableRegistryJoin,omitempty"`
+}
+
+func (m *Mesh) addCluster(c *Cluster) {
+	m.clustersByContext[c.Context] = c
+	m.clustersByClusterName[c.clusterName] = c
+}
+
+func (m *Mesh) ClusterByClusterName(name string) (*Cluster, bool) {
+	c, ok := m.clustersByClusterName[name]
+	return c, ok
+}
+
+func (m *Mesh) ClusterByContext(context string) (*Cluster, bool) {
+	c, ok := m.clustersByContext[context]
+	return c, ok
+}
+
+func (m *Mesh) SortedClusters() []*Cluster {
+	sortedClusters := make([]*Cluster, 0, len(m.clustersByContext))
+	for _, other := range m.clustersByContext {
+		sortedClusters = append(sortedClusters, other)
+	}
+	sort.Slice(sortedClusters, func(i, j int) bool {
+		return strings.Compare(sortedClusters[i].clusterName, sortedClusters[j].clusterName) < 0
+	})
+	return sortedClusters
 }
 
 type Mesh struct {
-	meshID            string
-	clustersByContext map[string]*Cluster // by context
-	sortedClusters    []*Cluster
+	meshID                string
+	clustersByContext     map[string]*Cluster // by Context
+	clustersByClusterName map[string]*Cluster
 }
 
 func LoadMeshDesc(filename string, env Environment) (*MeshDesc, error) {
@@ -67,41 +93,34 @@ func LoadMeshDesc(filename string, env Environment) (*MeshDesc, error) {
 	return md, nil
 }
 
-func NewMesh(kubeconfig string, md *MeshDesc, env Environment) (*Mesh, error) {
-	clusters := make(map[string]*Cluster)
+func NewMesh(md *MeshDesc, clusters ...*Cluster) *Mesh {
+	mesh := &Mesh{
+		meshID:                md.MeshID,
+		clustersByContext:     make(map[string]*Cluster),
+		clustersByClusterName: make(map[string]*Cluster),
+	}
+	for _, cluster := range clusters {
+		mesh.addCluster(cluster)
+	}
+	return mesh
+}
+
+func meshFromFileDesc(filename string, env Environment) (*Mesh, error) {
+	md, err := LoadMeshDesc(filename, env)
+	if err != nil {
+		return nil, err
+	}
+
+	clusters := make([]*Cluster, 0, len(md.Clusters))
 	for context, clusterDesc := range md.Clusters {
 		cluster, err := NewCluster(context, clusterDesc, env)
 		if err != nil {
 			return nil, fmt.Errorf("error discovering %v: %v", context, err)
 		}
-		clusters[context] = cluster
+		clusters = append(clusters, cluster)
 	}
 
-	sortedClusters := make([]*Cluster, 0, len(clusters))
-	for _, other := range clusters {
-		sortedClusters = append(sortedClusters, other)
-	}
-	sort.Slice(sortedClusters, func(i, j int) bool {
-		return strings.Compare(string(sortedClusters[i].uid), string(sortedClusters[j].uid)) < 0
-	})
-
-	return &Mesh{
-		meshID:            md.MeshID,
-		clustersByContext: clusters,
-		sortedClusters:    sortedClusters,
-	}, nil
-}
-
-func meshFromFileDesc(filename, kubeconfig string, env Environment) (*Mesh, error) {
-	md, err := LoadMeshDesc(filename, env)
-	if err != nil {
-		return nil, err
-	}
-	mesh, err := NewMesh(kubeconfig, md, env)
-	if err != nil {
-		return nil, err
-	}
-	return mesh, err
+	return NewMesh(md, clusters...), nil
 }
 
 func NewMulticlusterCommand() *cobra.Command {
@@ -113,7 +132,7 @@ func NewMulticlusterCommand() *cobra.Command {
 
 	c.AddCommand(
 		NewGenerateCommand(),
-		NewJoinCommand(),
+		NewApplyCommand(),
 		NewDescribeCommand(),
 	)
 

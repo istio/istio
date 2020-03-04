@@ -17,28 +17,34 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"net"
+	"time"
 
 	"istio.io/pkg/log"
 )
 
 // Command line options
+// nolint: maligned
 type Config struct {
-	DryRun                  bool   `json:"DRY_RUN"`
-	ProxyPort               string `json:"PROXY_PORT"`
-	InboundCapturePort      string `json:"INBOUND_CAPTURE_PORT"`
-	ProxyUID                string `json:"PROXY_UID"`
-	ProxyGID                string `json:"PROXY_GID"`
-	InboundInterceptionMode string `json:"INBOUND_INTERCEPTION_MODE"`
-	InboundTProxyMark       string `json:"INBOUND_TPROXY_MARK"`
-	InboundTProxyRouteTable string `json:"INBOUND_TPROXY_ROUTE_TABLE"`
-	InboundPortsInclude     string `json:"INBOUND_PORTS_INCLUDE"`
-	InboundPortsExclude     string `json:"INBOUND_PORTS_EXCLUDE"`
-	OutboundPortsExclude    string `json:"OUTBOUND_PORTS_EXCLUDE"`
-	OutboundIPRangesInclude string `json:"OUTBOUND_IPRANGES_INCLUDE"`
-	OutboundIPRangesExclude string `json:"OUTBOUND_IPRANGES_EXCLUDE"`
-	KubevirtInterfaces      string `json:"KUBEVIRT_INTERFACES"`
-	EnableInboundIPv6s      net.IP `json:"ENABLE_INBOUND_IPV6"`
+	ProxyPort               string        `json:"PROXY_PORT"`
+	InboundCapturePort      string        `json:"INBOUND_CAPTURE_PORT"`
+	ProxyUID                string        `json:"PROXY_UID"`
+	ProxyGID                string        `json:"PROXY_GID"`
+	InboundInterceptionMode string        `json:"INBOUND_INTERCEPTION_MODE"`
+	InboundTProxyMark       string        `json:"INBOUND_TPROXY_MARK"`
+	InboundTProxyRouteTable string        `json:"INBOUND_TPROXY_ROUTE_TABLE"`
+	InboundPortsInclude     string        `json:"INBOUND_PORTS_INCLUDE"`
+	InboundPortsExclude     string        `json:"INBOUND_PORTS_EXCLUDE"`
+	OutboundPortsExclude    string        `json:"OUTBOUND_PORTS_EXCLUDE"`
+	OutboundIPRangesInclude string        `json:"OUTBOUND_IPRANGES_INCLUDE"`
+	OutboundIPRangesExclude string        `json:"OUTBOUND_IPRANGES_EXCLUDE"`
+	KubevirtInterfaces      string        `json:"KUBEVIRT_INTERFACES"`
+	IptablesProbePort       uint16        `json:"IPTABLES_PROBE_PORT"`
+	ProbeTimeout            time.Duration `json:"PROBE_TIMEOUT"`
+	DryRun                  bool          `json:"DRY_RUN"`
+	RestoreFormat           bool          `json:"RESTORE_FORMAT"`
+	SkipRuleApply           bool          `json:"SKIP_RULE_APPLY"`
+	RunValidation           bool          `json:"RUN_VALIDATION"`
+	EnableInboundIPv6       bool          `json:"ENABLE_INBOUND_IPV6"`
 }
 
 func (c *Config) String() string {
@@ -55,6 +61,7 @@ func (c *Config) Print() {
 	fmt.Println(fmt.Sprintf("PROXY_PORT=%s", c.ProxyPort))
 	fmt.Println(fmt.Sprintf("PROXY_INBOUND_CAPTURE_PORT=%s", c.InboundCapturePort))
 	fmt.Println(fmt.Sprintf("PROXY_UID=%s", c.ProxyUID))
+	fmt.Println(fmt.Sprintf("PROXY_GID=%s", c.ProxyGID))
 	fmt.Println(fmt.Sprintf("INBOUND_INTERCEPTION_MODE=%s", c.InboundInterceptionMode))
 	fmt.Println(fmt.Sprintf("INBOUND_TPROXY_MARK=%s", c.InboundTProxyMark))
 	fmt.Println(fmt.Sprintf("INBOUND_TPROXY_ROUTE_TABLE=%s", c.InboundTProxyRouteTable))
@@ -64,11 +71,6 @@ func (c *Config) Print() {
 	fmt.Println(fmt.Sprintf("OUTBOUND_IP_RANGES_EXCLUDE=%s", c.OutboundIPRangesExclude))
 	fmt.Println(fmt.Sprintf("OUTBOUND_PORTS_EXCLUDE=%s", c.OutboundPortsExclude))
 	fmt.Println(fmt.Sprintf("KUBEVIRT_INTERFACES=%s", c.KubevirtInterfaces))
-	// Print "" instead of <nil> to produce same output as script and satisfy golden tests
-	if c.EnableInboundIPv6s == nil {
-		fmt.Println(fmt.Sprintf("ENABLE_INBOUND_IPV6=%s", ""))
-	} else {
-		fmt.Println(fmt.Sprintf("ENABLE_INBOUND_IPV6=%s", c.EnableInboundIPv6s))
-	}
+	fmt.Println(fmt.Sprintf("ENABLE_INBOUND_IPV6=%t", c.EnableInboundIPv6))
 	fmt.Println("")
 }

@@ -1,0 +1,29 @@
+# Generated from ClusterRbacConfig with mode ON_WITH_INCLUSION on service "productpage.default.svc.cluster.local". This policy will deny all requests to service "productpage.default.svc.cluster.local" by default.
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-service-productpage-deny-all
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: productpage
+      version: v1
+---
+# Generated for service "productpage.default.svc.cluster.local" found in ServiceRole "productpage" at rule 0
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-productpage-rule0-svc0-target0
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        principals:
+        - user
+  selector:
+    matchLabels:
+      app: productpage
+      version: v1
+---

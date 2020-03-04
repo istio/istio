@@ -1,0 +1,11 @@
+apiVersion: "security.istio.io/v1beta1"
+kind: "RequestAuthentication"
+metadata:
+  name: valid-request-authentication
+spec:
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  jwtRules:
+  - issuer: example.com 

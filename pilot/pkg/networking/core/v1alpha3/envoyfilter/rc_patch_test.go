@@ -364,8 +364,7 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 				},
 			},
 			{
-				Name:    "new-vhost",
-				Domains: []string{"domain:80"},
+				Name: "new-vhost",
 			},
 		},
 		RequestHeadersToRemove: []string{"h1", "h2", "h3", "h4"},
@@ -374,8 +373,7 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 		Name: "inbound|http|80",
 		VirtualHosts: []*route.VirtualHost{
 			{
-				Name:    "vhost2",
-				Domains: []string{"domain"},
+				Name: "vhost2",
 			},
 		},
 	}
@@ -383,8 +381,7 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 		Name: "inbound|http|80",
 		VirtualHosts: []*route.VirtualHost{
 			{
-				Name:    "new-vhost",
-				Domains: []string{"domain:80"},
+				Name: "new-vhost",
 			},
 		},
 	}
@@ -410,8 +407,7 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 				Domains: []string{"gateway", "domain:80"},
 			},
 			{
-				Name:    "new-vhost",
-				Domains: []string{"domain:80"},
+				Name: "new-vhost",
 			},
 		},
 	}

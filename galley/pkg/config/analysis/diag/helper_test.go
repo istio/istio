@@ -14,12 +14,18 @@
 
 package diag
 
+import (
+	"istio.io/istio/pkg/config/resource"
+)
+
+var _ resource.Origin = testOrigin("")
+
 type testOrigin string
 
 func (o testOrigin) FriendlyName() string {
 	return string(o)
 }
 
-func (o testOrigin) Namespace() string {
+func (o testOrigin) Namespace() resource.Namespace {
 	return ""
 }

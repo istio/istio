@@ -14,13 +14,15 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"unit-test-fake-version","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"unit-test-fake-version","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy"],"imagePullSecrets":null}'
         sidecar.istio.io/userVolume: '{"user-volume-1":{"persistentVolumeClaim":{"claimName":"pvc-claim"}},"user-volume-2":{"configMap":{"name":"configmap-volume","items":[{"key":"some-key","path":"/some-path"}]}}}'
         sidecar.istio.io/userVolumeMount: '{"user-volume-1":{"mountPath":"/mnt/volume-1","readOnly":true},"user-volume-2":{"mountPath":"/mnt/volume-2"}}'
       creationTimestamp: null
       labels:
         app: user-volume
-        security.istio.io/mtlsReady: "true"
+        security.istio.io/tlsMode: istio
+        service.istio.io/canonical-name: user-volume
+        service.istio.io/canonical-revision: latest
         tier: backend
         track: stable
     spec:
@@ -36,46 +38,27 @@ spec:
         - sidecar
         - --domain
         - $(POD_NAMESPACE).svc.cluster.local
-        - --configPath
-        - /etc/istio/proxy
-        - --binaryPath
-        - /usr/local/bin/envoy
         - --serviceCluster
         - user-volume.$(POD_NAMESPACE)
-        - --drainDuration
-        - 45s
-        - --parentShutdownDuration
-        - 1m0s
-        - --discoveryAddress
-        - istio-pilot:15010
-        - --zipkinAddress
-        - ""
-        - --dnsRefreshRate
-        - 300s
-        - --connectTimeout
-        - 1s
-        - --proxyAdminPort
-        - "15000"
-        - --controlPlaneAuthPolicy
-        - NONE
+        - --proxyLogLevel=warning
+        - --proxyComponentLogLevel=misc:error
         - --statusPort
         - "15020"
-        - --applicationPorts
-        - "80"
+        - --trust-domain=cluster.local
+        - --controlPlaneBootstrap=false
         - --concurrency
         - "2"
         env:
+        - name: JWT_POLICY
+          value: third-party-jwt
+        - name: PILOT_CERT_PROVIDER
+          value: istiod
+        - name: CA_ADDR
+          value: istiod.istio-system.svc:15012
         - name: POD_NAME
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        - name: ISTIO_META_POD_PORTS
-          value: |-
-            [
-                {"name":"http","containerPort":80}
-            ]
-        - name: ISTIO_META_CLUSTER_ID
-          value: Kubernetes
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
@@ -88,6 +71,20 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
+        - name: HOST_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: MESH_CONFIG
+          value: |
+            {}
+        - name: ISTIO_META_POD_PORTS
+          value: |-
+            [
+                {"name":"http","containerPort":80}
+            ]
+        - name: ISTIO_META_CLUSTER_ID
+          value: Kubernetes
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -96,14 +93,12 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        - name: SDS_ENABLED
-          value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
-          value: "80"
+        - name: ISTIO_META_MESH_ID
+          value: cluster.local
         image: gcr.io/istio-release/proxyv2:master-latest-daily
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: istio-proxy
         ports:
         - containerPort: 15090
@@ -124,14 +119,24 @@ spec:
             cpu: 100m
             memory: 128Mi
         securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
           readOnlyRootFilesystem: true
+          runAsGroup: 1337
+          runAsNonRoot: true
           runAsUser: 1337
         volumeMounts:
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
         - mountPath: /etc/istio/proxy
           name: istio-envoy
-        - mountPath: /etc/certs/
-          name: istio-certs
-          readOnly: true
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
+        - mountPath: /etc/istio/pod
+          name: podinfo
         - mountPath: /mnt/volume-1
           name: user-volume-1
           readOnly: true
@@ -155,9 +160,9 @@ spec:
         - -b
         - '*'
         - -d
-        - "15020"
+        - 15090,15020
         image: gcr.io/istio-release/proxy_init:master-latest-daily
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: istio-init
         resources:
           limits:
@@ -167,19 +172,41 @@ spec:
             cpu: 10m
             memory: 10Mi
         securityContext:
+          allowPrivilegeEscalation: false
           capabilities:
             add:
             - NET_ADMIN
+            - NET_RAW
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: false
+          runAsGroup: 0
           runAsNonRoot: false
           runAsUser: 0
       volumes:
       - emptyDir:
           medium: Memory
         name: istio-envoy
-      - name: istio-certs
-        secret:
-          optional: true
-          secretName: istio.default
+      - downwardAPI:
+          items:
+          - fieldRef:
+              fieldPath: metadata.labels
+            path: labels
+          - fieldRef:
+              fieldPath: metadata.annotations
+            path: annotations
+        name: podinfo
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: istio-ca
+              expirationSeconds: 43200
+              path: istio-token
+      - configMap:
+          name: istio-ca-root-cert
+        name: istiod-ca-cert
       - name: user-volume-1
         persistentVolumeClaim:
           claimName: pvc-claim

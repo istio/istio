@@ -38,9 +38,9 @@ type ExecClientSDS interface {
 
 // GetPodNodeAgentSecrets, given a pod name, finds each of a pod's corresponding node agents, hits the debug endpoint,
 // and then returns a map with key => node agent pod name, value => sds.Debug from that node
-func (c *Client) GetPodNodeAgentSecrets(podName, ns, istioNamespace string) (map[string]sds.Debug, error) {
+func (client *Client) GetPodNodeAgentSecrets(podName, ns, istioNamespace string) (map[string]sds.Debug, error) {
 	debugResponses := make(map[string]sds.Debug)
-	nodeAgents, err := c.nodeAgentsForPod(podName, ns, istioNamespace)
+	nodeAgents, err := client.nodeAgentsForPod(podName, ns, istioNamespace)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func (c *Client) GetPodNodeAgentSecrets(podName, ns, istioNamespace string) (map
 			container = "istio-proxy"
 		}
 
-		debugOutput, err := c.NodeAgentDebugEndpointOutput(
+		debugOutput, err := client.NodeAgentDebugEndpointOutput(
 			agent.Name, agent.Namespace, secretType, container)
 		if err != nil {
 			return nil, err
@@ -69,12 +69,12 @@ func (c *Client) GetPodNodeAgentSecrets(podName, ns, istioNamespace string) (map
 }
 
 // NodeAgentDebugEndpointOutput makes a request to the target nodeagent's debug endpoint and returns the raw response
-func (c *Client) NodeAgentDebugEndpointOutput(podName, ns, secretType, container string) (sds.Debug, error) {
+func (client *Client) NodeAgentDebugEndpointOutput(podName, ns, secretType, container string) (sds.Debug, error) {
 	request := []string{
 		"curl",
 		fmt.Sprintf("%s/%s", debugEndpointPath, secretType),
 	}
-	rawResult, err := c.ExtractExecResult(podName, ns, container, request)
+	rawResult, err := client.ExtractExecResult(podName, ns, container, request)
 	if err != nil {
 		return sds.Debug{}, err
 	}
@@ -91,11 +91,11 @@ func (c *Client) NodeAgentDebugEndpointOutput(podName, ns, secretType, container
 // nodeAgentsForPod returns all node agents which are serving secrets to the supplied pod
 // in the case of an ingress-gateway, it is possible for there to be are two corresponding nodeagents: the one on the node
 // running as a daemon set serving workload secrets, and the embedded nodeagent running in the same pod
-func (c *Client) nodeAgentsForPod(name, ns, istioNamespace string) ([]*v1.Pod, error) {
+func (client *Client) nodeAgentsForPod(name, ns, istioNamespace string) ([]*v1.Pod, error) {
 	agentPods := make([]*v1.Pod, 0)
 
 	// need to retrieve more information on target pod, such as node and labels
-	podGet := c.Get().Resource("pods").Namespace(ns).Name(name)
+	podGet := client.Get().Resource("pods").Namespace(ns).Name(name)
 	obj, err := podGet.Do().Get()
 	if err != nil {
 		log.Debugf("failed to retrieve pod information for %s.%s: %v", ns, name, err)
@@ -115,7 +115,7 @@ func (c *Client) nodeAgentsForPod(name, ns, istioNamespace string) ([]*v1.Pod, e
 		"labelSelector": "app=nodeagent",
 		"fieldSelector": "spec.nodeName=" + pod.Spec.NodeName,
 	}
-	nodeAgentPodReq := c.Get().
+	nodeAgentPodReq := client.Get().
 		Resource("pods").
 		Namespace(istioNamespace)
 	for k, v := range nodeAgentFilters {

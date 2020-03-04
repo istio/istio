@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -36,7 +37,7 @@ const (
 )
 
 var (
-	citadelClientLog = log.RegisterScope("citadelClientLog", "citadel client debugging", 0)
+	citadelClientLog = log.RegisterScope("citadelclient", "citadel client debugging", 0)
 )
 
 type citadelClient struct {
@@ -78,7 +79,7 @@ func NewCitadelClient(endpoint string, tls bool, rootCert []byte) (caClientInter
 }
 
 // CSR Sign calls Citadel to sign a CSR.
-func (c *citadelClient) CSRSign(ctx context.Context, csrPEM []byte, token string,
+func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, token string,
 	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
 	req := &pb.IstioCertificateRequest{
 		Csr:              string(csrPEM),
@@ -105,15 +106,36 @@ func (c *citadelClient) CSRSign(ctx context.Context, csrPEM []byte, token string
 func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 	// Load the TLS root certificate from the specified file.
 	// Create a certificate pool
-	certPool := x509.NewCertPool()
-	ok := certPool.AppendCertsFromPEM(c.caTLSRootCert)
-	if !ok {
-		return nil, fmt.Errorf("failed to append certificates")
+	var certPool *x509.CertPool
+	var err error
+	if c.caTLSRootCert == nil {
+		// No explicit certificate - assume the citadel-compatible server uses a public cert
+		certPool, err = x509.SystemCertPool()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		certPool = x509.NewCertPool()
+		ok := certPool.AppendCertsFromPEM(c.caTLSRootCert)
+		if !ok {
+			return nil, fmt.Errorf("failed to append certificates")
+		}
 	}
 
 	config := tls.Config{}
 	config.RootCAs = certPool
-	config.ServerName = caServerName
+
+	// Initial implementation of citadel hardcoded the SAN to 'istio-citadel'. For backward compat, keep it.
+	// TODO: remove this once istiod replaces citadel.
+	// External CAs will use their normal server names.
+	if strings.Contains(c.caEndpoint, "citadel") {
+		config.ServerName = caServerName
+	}
+	// For debugging on localhost (with port forward)
+	// TODO: remove once istiod is stable and we have a way to validate JWTs locally
+	if strings.Contains(c.caEndpoint, "localhost") {
+		config.ServerName = "istiod.istio-system"
+	}
 
 	transportCreds := credentials.NewTLS(&config)
 	return grpc.WithTransportCredentials(transportCreds), nil

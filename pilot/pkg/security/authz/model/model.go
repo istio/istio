@@ -18,12 +18,13 @@ import (
 	"fmt"
 
 	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
+	"github.com/hashicorp/go-multierror"
 
 	istio_rbac "istio.io/api/rbac/v1alpha1"
 	security "istio.io/api/security/v1beta1"
-	istiolog "istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/security/trustdomain"
+	istiolog "istio.io/pkg/log"
 )
 
 const (
@@ -63,9 +64,9 @@ const (
 	attrDestUser      = "destination.user"      // service account, e.g. "bookinfo-productpage".
 	attrConnSNI       = "connection.sni"        // server name indication, e.g. "www.example.com".
 
-	// Envoy config attributes for ServiceRole rules.
+	// Internal names used to generate corresponding Envoy matcher.
 	methodHeader = ":method"
-	pathHeader   = ":path"
+	pathMatcher  = "path-matcher"
 	hostHeader   = ":authority"
 )
 
@@ -87,11 +88,11 @@ func NewServiceMetadata(name string, namespace string, service *model.ServiceIns
 
 	return &ServiceMetadata{
 		Name:   string(service.Service.Hostname),
-		Labels: service.Labels,
+		Labels: service.Endpoint.Labels,
 		Attributes: map[string]string{
 			attrDestName:      name,
 			attrDestNamespace: namespace,
-			attrDestUser:      extractActualServiceAccount(service.ServiceAccount),
+			attrDestUser:      extractActualServiceAccount(service.Endpoint.ServiceAccount),
 		},
 	}, nil
 }
@@ -108,11 +109,16 @@ type Model struct {
 	Principals  []Principal
 }
 
-type KeyValues map[string][]string
+type Values struct {
+	Values    []string
+	NotValues []string
+}
+
+type KeyValues map[string]Values
 
 // NewModelV1alpha1 constructs a Model from a single ServiceRole and a list of ServiceRoleBinding. The ServiceRole
 // is converted to the permission and the ServiceRoleBinding is converted to the principal.
-func NewModelV1alpha1(trustDomain string, trustDomainAliases []string, role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBinding) *Model {
+func NewModelV1alpha1(trustDomainBundle trustdomain.Bundle, role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBinding) *Model {
 	m := &Model{}
 	for _, accessRule := range role.Rules {
 		var permission Permission
@@ -128,7 +134,7 @@ func NewModelV1alpha1(trustDomain string, trustDomainAliases []string, role *ist
 
 		constraints := KeyValues{}
 		for _, constraint := range accessRule.Constraints {
-			constraints[constraint.Key] = constraint.Values
+			constraints[constraint.Key] = Values{Values: constraint.Values}
 		}
 		permission.Constraints = []KeyValues{constraints}
 
@@ -139,7 +145,7 @@ func NewModelV1alpha1(trustDomain string, trustDomainAliases []string, role *ist
 		for _, subject := range binding.Subjects {
 			users := []string{}
 			if subject.User != "" {
-				users = replaceTrustDomainAliases(trustDomain, trustDomainAliases, []string{subject.User})
+				users = trustDomainBundle.ReplaceTrustDomainAliases([]string{subject.User})
 			}
 			principal := Principal{
 				Users:         users,
@@ -156,7 +162,13 @@ func NewModelV1alpha1(trustDomain string, trustDomainAliases []string, role *ist
 
 			property := KeyValues{}
 			for k, v := range subject.Properties {
-				property[k] = []string{v}
+				values := Values{Values: []string{v}}
+				if k == attrSrcPrincipal {
+					// TODO(pitlv2109): Refactor this by creating a method for Principal
+					// that searches and replaces all trust domains in both v1alpha1 and v1beta1.
+					values = Values{Values: trustDomainBundle.ReplaceTrustDomainAliases([]string{v})}
+				}
+				property[k] = values
 			}
 			principal.Properties = []KeyValues{property}
 
@@ -168,16 +180,36 @@ func NewModelV1alpha1(trustDomain string, trustDomainAliases []string, role *ist
 }
 
 // NewModelV1beta1 constructs a Model from v1beta1 Rule.
-func NewModelV1beta1(trustDomain string, trustDomainAliases []string, rule *security.Rule) *Model {
+func NewModelV1beta1(trustDomainBundle trustdomain.Bundle, rule *security.Rule) *Model {
 	m := &Model{}
 
 	conditionsForPrincipal := make([]KeyValues, 0)
 	conditionsForPermission := make([]KeyValues, 0)
 	for _, when := range rule.When {
 		if isSupportedPrincipal(when.Key) {
-			conditionsForPrincipal = append(conditionsForPrincipal, KeyValues{when.Key: when.Values})
+			values := when.Values
+			notValues := when.NotValues
+			if when.Key == attrSrcPrincipal {
+				if len(values) > 0 {
+					values = trustDomainBundle.ReplaceTrustDomainAliases(when.Values)
+				}
+				if len(notValues) > 0 {
+					notValues = trustDomainBundle.ReplaceTrustDomainAliases(when.NotValues)
+				}
+			}
+			conditionsForPrincipal = append(conditionsForPrincipal, KeyValues{
+				when.Key: Values{
+					Values:    values,
+					NotValues: notValues,
+				},
+			})
 		} else if isSupportedPermission(when.Key) {
-			conditionsForPermission = append(conditionsForPermission, KeyValues{when.Key: when.Values})
+			conditionsForPermission = append(conditionsForPermission, KeyValues{
+				when.Key: Values{
+					Values:    when.Values,
+					NotValues: when.NotValues,
+				},
+			})
 		} else {
 			rbacLog.Errorf("ignored unsupported condition: %v", when)
 		}
@@ -185,13 +217,25 @@ func NewModelV1beta1(trustDomain string, trustDomainAliases []string, rule *secu
 
 	for _, from := range rule.From {
 		if source := from.Source; source != nil {
-			names := replaceTrustDomainAliases(trustDomain, trustDomainAliases, source.Principals)
+			names := source.Principals
+			if len(names) > 0 {
+				names = trustDomainBundle.ReplaceTrustDomainAliases(names)
+			}
+			notNames := source.NotPrincipals
+			if len(notNames) > 0 {
+				notNames = trustDomainBundle.ReplaceTrustDomainAliases(notNames)
+			}
 			principal := Principal{
-				IPs:               source.IpBlocks,
-				Names:             names,
-				Namespaces:        source.Namespaces,
-				RequestPrincipals: source.RequestPrincipals,
-				Properties:        conditionsForPrincipal,
+				IPs:                  source.IpBlocks,
+				NotIPs:               source.NotIpBlocks,
+				Names:                names,
+				NotNames:             notNames,
+				Namespaces:           source.Namespaces,
+				NotNamespaces:        source.NotNamespaces,
+				RequestPrincipals:    source.RequestPrincipals,
+				NotRequestPrincipals: source.NotRequestPrincipals,
+				Properties:           conditionsForPrincipal,
+				v1beta1:              true,
 			}
 			m.Principals = append(m.Principals, principal)
 		}
@@ -200,10 +244,12 @@ func NewModelV1beta1(trustDomain string, trustDomainAliases []string, rule *secu
 		if len(conditionsForPrincipal) != 0 {
 			m.Principals = []Principal{{
 				Properties: conditionsForPrincipal,
+				v1beta1:    true,
 			}}
 		} else {
 			m.Principals = []Principal{{
 				AllowAll: true,
+				v1beta1:  true,
 			}}
 		}
 	}
@@ -212,10 +258,15 @@ func NewModelV1beta1(trustDomain string, trustDomainAliases []string, rule *secu
 		if operation := to.Operation; operation != nil {
 			permission := Permission{
 				Methods:     operation.Methods,
+				NotMethods:  operation.NotMethods,
 				Hosts:       operation.Hosts,
+				NotHosts:    operation.NotHosts,
 				Ports:       operation.Ports,
+				NotPorts:    operation.NotPorts,
 				Paths:       operation.Paths,
+				NotPaths:    operation.NotPaths,
 				Constraints: conditionsForPermission,
+				v1beta1:     true,
 			}
 			m.Permissions = append(m.Permissions, permission)
 		}
@@ -224,10 +275,12 @@ func NewModelV1beta1(trustDomain string, trustDomainAliases []string, rule *secu
 		if len(conditionsForPermission) != 0 {
 			m.Permissions = []Permission{{
 				Constraints: conditionsForPermission,
+				v1beta1:     true,
 			}}
 		} else {
 			m.Permissions = []Permission{{
 				AllowAll: true,
+				v1beta1:  true,
 			}}
 		}
 	}
@@ -239,11 +292,15 @@ func NewModelV1beta1(trustDomain string, trustDomainAliases []string, rule *secu
 // in the model for the given service. This function only generates the policy if the constraints
 // and properties specified in the model is matched with the given service. It also validates if the
 // model is valid for TCP filter.
-func (m *Model) Generate(service *ServiceMetadata, forTCPFilter bool) *envoy_rbac.Policy {
+// When the policy uses HTTP fields for TCP filter (forTCPFilter is true):
+// - If it's allow policy (forDenyPolicy is false), returns nil so that the allow policy is ignored to avoid granting more permissions in this case.
+// - If it's deny policy (forDenyPolicy is true), returns a config that only includes the TCP fields (e.g. port) from the policy. This makes sure
+//   the generated deny policy is more restrictive so that it never grants extra permission in this case.
+func (m *Model) Generate(service *ServiceMetadata, forTCPFilter, forDenyPolicy bool) *envoy_rbac.Policy {
 	policy := &envoy_rbac.Policy{}
 	for _, permission := range m.Permissions {
 		if service == nil || permission.Match(service) {
-			p, err := permission.Generate(forTCPFilter)
+			p, err := permission.Generate(forTCPFilter, forDenyPolicy)
 			if err != nil {
 				rbacLog.Debugf("ignored HTTP permission for TCP service: %v", err)
 				continue
@@ -258,7 +315,7 @@ func (m *Model) Generate(service *ServiceMetadata, forTCPFilter bool) *envoy_rba
 	}
 
 	for _, principal := range m.Principals {
-		p, err := principal.Generate(forTCPFilter)
+		p, err := principal.Generate(forTCPFilter, forDenyPolicy)
 		if err != nil {
 			rbacLog.Debugf("ignored HTTP principal for TCP service: %v", err)
 			continue
@@ -273,42 +330,18 @@ func (m *Model) Generate(service *ServiceMetadata, forTCPFilter bool) *envoy_rba
 	return policy
 }
 
-// replaceTrustDomainAliases checks the existing principals and returns a list of new principals
-// with the current trust domain and its aliases.
-// For example, for a user "bar" in namespace "foo".
-// If the local trust domain is "td2" and its alias is "td1" (migrating from td1 to td2),
-// replaceTrustDomainAliases returns ["td2/ns/foo/sa/bar", "td1/ns/foo/sa/bar]].
-// TODO(pitv2109): Put |trustDomain| and |trustDomainAliases| together. Do this and for other functions.
-func replaceTrustDomainAliases(trustDomain string, trustDomainAliases []string, principals []string) []string {
-	// If trust domain aliases are empty, return the existing principals.
-	if len(trustDomainAliases) == 0 {
-		return principals
-	}
-	principalsIncludingAliases := []string{}
-	for _, principal := range principals {
-		trustDomainFromPrincipal := getTrustDomain(principal)
-		//TODO(pitlv2109): Handle * and prefix/suffix.
-		if trustDomainFromPrincipal == "" {
-			return principals
-		}
-		// Only generate configuration if the extracted trust domain from the policy is part of the trust domain aliases,
-		// or if the extracted/existing trust domain is "cluster.local", which is a pointer to the local trust domain
-		// and its aliases.
-		if found(trustDomainFromPrincipal, trustDomainAliases) || trustDomainFromPrincipal == "cluster.local" {
-			// Generate configuration for trust domain and trust domain aliases.
-			principalsIncludingAliases = append(principalsIncludingAliases, replaceTrustDomainInPrincipal(trustDomain, principal))
-			principalsIncludingAliases = append(principalsIncludingAliases, getPrincipalsForAliases(trustDomainAliases, principal)...)
+// ValidateForTCPFilter validates that the model is valid for building a RBAC TCP filter.
+func (m *Model) ValidateForTCPFilter() error {
+	var errs *multierror.Error
+	for _, permission := range m.Permissions {
+		if err := permission.ValidateForTCP(true); err != nil {
+			errs = multierror.Append(errs, err)
 		}
 	}
-	return principalsIncludingAliases
-}
-
-// getPrincipalsForAliases takes a principal and returns a list of new principals with new trust domain
-// from trust domain aliases.
-func getPrincipalsForAliases(trustDomainAliases []string, principal string) []string {
-	principalsForAliases := []string{}
-	for _, tdAlias := range trustDomainAliases {
-		principalsForAliases = append(principalsForAliases, replaceTrustDomainInPrincipal(tdAlias, principal))
+	for _, principal := range m.Principals {
+		if err := principal.ValidateForTCP(true); err != nil {
+			errs = multierror.Append(errs, err)
+		}
 	}
-	return principalsForAliases
+	return errs.ErrorOrNil()
 }

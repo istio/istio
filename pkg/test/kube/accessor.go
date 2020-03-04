@@ -49,7 +49,7 @@ const (
 
 var (
 	defaultRetryTimeout = retry.Timeout(time.Minute * 10)
-	defaultRetryDelay   = retry.Delay(time.Second * 10)
+	defaultRetryDelay   = retry.Delay(time.Second * 1)
 )
 
 // Accessor is a helper for accessing Kubernetes programmatically. It bundles some of the high-level
@@ -328,6 +328,11 @@ func (a *Accessor) WaitUntilServiceEndpointsAreReady(ns string, name string, opt
 	return service, endpoints, nil
 }
 
+// DeleteMutatingWebhook deletes the mutating webhook with the given name.
+func (a *Accessor) DeleteMutatingWebhook(name string) error {
+	return a.set.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Delete(name, deleteOptionsForeground())
+}
+
 // DeleteValidatingWebhook deletes the validating webhook with the given name.
 func (a *Accessor) DeleteValidatingWebhook(name string) error {
 	return a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(name, deleteOptionsForeground())
@@ -353,13 +358,21 @@ func (a *Accessor) ValidatingWebhookConfigurationExists(name string) bool {
 	return err == nil
 }
 
-// GetValidatingWebhookConfigurationreturns the specified ValidatingWebhookConfiguration.
+// GetValidatingWebhookConfiguration returns the specified ValidatingWebhookConfiguration.
 func (a *Accessor) GetValidatingWebhookConfiguration(name string) (*kubeApiAdmissions.ValidatingWebhookConfiguration, error) {
 	whc, err := a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(name, kubeApiMeta.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not get validating webhook config: %s", name)
 	}
 	return whc, nil
+}
+
+// UpdateValidatingWebhookConfiguration updates the specified ValidatingWebhookConfiguration.
+func (a *Accessor) UpdateValidatingWebhookConfiguration(config *kubeApiAdmissions.ValidatingWebhookConfiguration) error {
+	if _, err := a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Update(config); err != nil {
+		return fmt.Errorf("could not update validating webhook config: %s", config.Name)
+	}
+	return nil
 }
 
 // GetCustomResourceDefinitions gets the CRDs
@@ -384,6 +397,11 @@ func (a *Accessor) GetService(ns string, name string) (*kubeApiCore.Service, err
 // GetSecret returns secret resource with the given namespace.
 func (a *Accessor) GetSecret(ns string) kubeClientCore.SecretInterface {
 	return a.set.CoreV1().Secrets(ns)
+}
+
+// GetConfigMap returns the config resource with the given name and namespace.
+func (a *Accessor) GetConfigMap(name, ns string) (*kubeApiCore.ConfigMap, error) {
+	return a.set.CoreV1().ConfigMaps(ns).Get(name, kubeApiMeta.GetOptions{})
 }
 
 // CreateSecret takes the representation of a secret and creates it in the given namespace.
@@ -499,6 +517,12 @@ func (a *Accessor) GetNamespace(ns string) (*kubeApiCore.Namespace, error) {
 	return n, nil
 }
 
+// DeleteClusterRole deletes a ClusterRole with the given name
+func (a *Accessor) DeleteClusterRole(role string) error {
+	scopes.Framework.Debugf("Deleting ClusterRole: %s", role)
+	return a.set.RbacV1().ClusterRoles().Delete(role, deleteOptionsForeground())
+}
+
 // GetUnstructured returns an unstructured k8s resource object based on the provided schema, namespace, and name.
 func (a *Accessor) GetUnstructured(gvr schema.GroupVersionResource, namespace, name string) (*unstructured.Unstructured, error) {
 	u, err := a.dynClient.Resource(gvr).Namespace(namespace).Get(name, kubeApiMeta.GetOptions{})
@@ -511,12 +535,22 @@ func (a *Accessor) GetUnstructured(gvr schema.GroupVersionResource, namespace, n
 
 // ApplyContents applies the given config contents using kubectl.
 func (a *Accessor) ApplyContents(namespace string, contents string) ([]string, error) {
-	return a.ctl.applyContents(namespace, contents)
+	return a.ctl.applyContents(namespace, contents, false)
 }
 
-// Apply the config in the given filename using kubectl.
+// ApplyContentsDryRun applies the given config contents using kubectl with DryRun mode.
+func (a *Accessor) ApplyContentsDryRun(namespace string, contents string) ([]string, error) {
+	return a.ctl.applyContents(namespace, contents, true)
+}
+
+// Apply applies the config in the given filename using kubectl.
 func (a *Accessor) Apply(namespace string, filename string) error {
-	return a.ctl.apply(namespace, filename)
+	return a.ctl.apply(namespace, filename, false)
+}
+
+// ApplyDryRun applies the config in the given filename using kubectl with DryRun mode.
+func (a *Accessor) ApplyDryRun(namespace string, filename string) error {
+	return a.ctl.apply(namespace, filename, true)
 }
 
 // DeleteContents deletes the given config contents using kubectl.

@@ -29,12 +29,33 @@ var (
 	// AuthzFailureLogFreq is used to limit logging rate of authz failures. This controls how
 	// frequently bursts of authz failures are logged.
 	AuthzFailureLogFreq = env.RegisterDurationVar("AUTHZ_FAILURE_LOG_FREQ", time.Minute, "")
+
+	// SourceServerStreamBurstSize is the burst size to be used for rate limiting in the source server
+	// to control how many streams can be estabilished per SOURCE_SERVER_STREAM_FREQ
+	SourceServerStreamBurstSize = env.RegisterIntVar("SOURCE_SERVER_STREAM_BURST_SIZE", 100, "")
+
+	// SourceServerStreamFreq is the frequency that is used by the rate limiter in Source Server Stream
+	SourceServerStreamFreq = env.RegisterDurationVar("SOURCE_SERVER_STREAM_FREQ", time.Second, "")
+
+	// MCPSourceReqBurstSize is the burst size to be used for rate limiting in the MCP sources to control number of
+	// requests processed per stream every MCP_SOURCE_REQ_FREQ
+	MCPSourceReqBurstSize = env.RegisterIntVar("MCP_SOURCE_REQ_BURST_SIZE", 100, "")
+
+	// MCPSourceReqFreq is the frequency that is used by the rate limiter in MCP Sources
+	MCPSourceReqFreq = env.RegisterDurationVar("MCP_SOURCE_REQ_FREQ", time.Second, "")
 )
 
 // RegisteredEnvVarNames returns the names of registered environment variables.
 func RegisteredEnvVarNames() []string {
 	return []string{
+		// AuthFailure RateLimiter
 		AuthzFailureLogFreq.Name,
 		AuthzFailureLogBurstSize.Name,
+		// SourceServer RateLimiter
+		SourceServerStreamBurstSize.Name,
+		SourceServerStreamFreq.Name,
+		// MCP Source RateLimiter
+		MCPSourceReqBurstSize.Name,
+		MCPSourceReqFreq.Name,
 	}
 }

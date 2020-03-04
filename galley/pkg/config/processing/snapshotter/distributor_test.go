@@ -18,13 +18,14 @@ import (
 	"testing"
 
 	"istio.io/istio/galley/pkg/config/collection"
+	collection2 "istio.io/istio/pkg/config/schema/collection"
 )
 
 func TestDistributor_Distribute(t *testing.T) {
 	d := NewInMemoryDistributor()
 
 	s := &Snapshot{
-		set: collection.NewSet(nil),
+		set: collection.NewSet(collection2.NewSchemasBuilder().Build()),
 	}
 	d.Distribute("foo", s)
 	if _, ok := d.snapshots["foo"]; !ok {
@@ -36,7 +37,7 @@ func TestDistributor_GetSnapshot(t *testing.T) {
 	d := NewInMemoryDistributor()
 
 	s := &Snapshot{
-		set: collection.NewSet(nil),
+		set: collection.NewSet(collection2.NewSchemasBuilder().Build()),
 	}
 	d.Distribute("foo", s)
 
@@ -50,7 +51,7 @@ func TestDistributor_GetSnapshot_Unknown(t *testing.T) {
 	d := NewInMemoryDistributor()
 
 	s := &Snapshot{
-		set: collection.NewSet(nil),
+		set: collection.NewSet(collection2.NewSchemasBuilder().Build()),
 	}
 	d.Distribute("foo", s)
 
@@ -64,7 +65,7 @@ func TestDistributor_NumSnapshots(t *testing.T) {
 	d := NewInMemoryDistributor()
 
 	s := &Snapshot{
-		set: collection.NewSet(nil),
+		set: collection.NewSet(collection2.NewSchemasBuilder().Build()),
 	}
 	d.Distribute("foo", s)
 

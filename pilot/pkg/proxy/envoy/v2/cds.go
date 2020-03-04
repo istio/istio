@@ -70,7 +70,7 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, v
 }
 
 func (s *DiscoveryServer) generateRawClusters(node *model.Proxy, push *model.PushContext) []*xdsapi.Cluster {
-	rawClusters := s.ConfigGenerator.BuildClusters(s.Env, node, push)
+	rawClusters := s.ConfigGenerator.BuildClusters(node, push)
 
 	for _, c := range rawClusters {
 		if err := c.Validate(); err != nil {

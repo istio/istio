@@ -15,18 +15,20 @@
 package builder
 
 import (
-	tcp_filter "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	tcp_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
+	tcpFilterPb "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	envoyRbacHttpPb "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
+	httpFilterPb "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	envoyRbacTcpPb "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
 
 	istiolog "istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
+	authzModel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/authz/policy"
 	"istio.io/istio/pilot/pkg/security/authz/policy/v1alpha1"
 	"istio.io/istio/pilot/pkg/security/authz/policy/v1beta1"
+	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -36,35 +38,36 @@ var (
 
 // Builder wraps all needed information for building the RBAC filter for a service.
 type Builder struct {
-	isXDSMarshalingToAnyEnabled bool
-	generator                   policy.Generator
+	generator policy.Generator
 }
 
 // NewBuilder creates a builder instance that can be used to build corresponding RBAC filter config.
-func NewBuilder(trustDomain string, trustDomainAliases []string, serviceInstance *model.ServiceInstance,
-	workloadLabels labels.Collection, configNamespace string,
-	policies *model.AuthorizationPolicies, isXDSMarshalingToAnyEnabled bool) *Builder {
+func NewBuilder(trustDomainBundle trustdomain.Bundle, serviceInstance *model.ServiceInstance,
+	workloadLabels labels.Collection, configNamespace string, policies *model.AuthorizationPolicies) *Builder {
 	var generator policy.Generator
 
-	if p := policies.ListAuthorizationPolicies(configNamespace, workloadLabels); len(p) > 0 {
-		generator = v1beta1.NewGenerator(trustDomain, trustDomainAliases, p)
-		rbacLog.Debugf("v1beta1 authorization enabled for workload %v in %s", workloadLabels, configNamespace)
+	denyPolicies, allowPolicies := policies.ListAuthorizationPolicies(configNamespace, workloadLabels)
+	if len(denyPolicies) > 0 || len(allowPolicies) > 0 {
+		generator = v1beta1.NewGenerator(trustDomainBundle, denyPolicies, allowPolicies)
+		rbacLog.Debugf("found authorization allow policies for workload %v in %s", workloadLabels, configNamespace)
 	} else {
+		if serviceInstance == nil {
+			return nil
+		}
 		if serviceInstance.Service == nil {
 			rbacLog.Errorf("no service for serviceInstance: %v", serviceInstance)
 			return nil
 		}
-		serviceName := serviceInstance.Service.Attributes.Name
 		serviceNamespace := serviceInstance.Service.Attributes.Namespace
-		serviceMetadata, err := authz_model.NewServiceMetadata(serviceName, serviceNamespace, serviceInstance)
-		if err != nil {
-			rbacLog.Errorf("failed to create ServiceMetadata for %s: %s", serviceName, err)
-			return nil
-		}
-
 		serviceHostname := string(serviceInstance.Service.Hostname)
 		if policies.IsRBACEnabled(serviceHostname, serviceNamespace) {
-			generator = v1alpha1.NewGenerator(trustDomain, trustDomainAliases, serviceMetadata, policies, policies.IsGlobalPermissiveEnabled())
+			serviceName := serviceInstance.Service.Attributes.Name
+			serviceMetadata, err := authzModel.NewServiceMetadata(serviceName, serviceNamespace, serviceInstance)
+			if err != nil {
+				rbacLog.Errorf("failed to create ServiceMetadata for %s: %s", serviceName, err)
+				return nil
+			}
+			generator = v1alpha1.NewGenerator(trustDomainBundle, serviceMetadata, policies, policies.IsGlobalPermissiveEnabled())
 			rbacLog.Debugf("v1alpha1 RBAC enabled for service %s", serviceHostname)
 		}
 	}
@@ -74,61 +77,73 @@ func NewBuilder(trustDomain string, trustDomainAliases []string, serviceInstance
 	}
 
 	return &Builder{
-		isXDSMarshalingToAnyEnabled: isXDSMarshalingToAnyEnabled,
-		generator:                   generator,
+		generator: generator,
 	}
 }
 
-// BuildHTTPFilter builds the RBAC HTTP filter.
-func (b *Builder) BuildHTTPFilter() *http_filter.HttpFilter {
+// BuildHTTPFilters build RBAC HTTP filters.
+func (b *Builder) BuildHTTPFilters() []*httpFilterPb.HttpFilter {
 	if b == nil {
 		return nil
 	}
 
-	rbacConfig := b.generator.Generate(false /* forTCPFilter */)
-	if rbacConfig == nil {
+	var filters []*httpFilterPb.HttpFilter
+	denyConfig, allowConfig := b.generator.Generate(false /* forTCPFilter */)
+	if denyFilter := createHTTPFilter(denyConfig); denyFilter != nil {
+		filters = append(filters, denyFilter)
+	}
+	if allowFilter := createHTTPFilter(allowConfig); allowFilter != nil {
+		filters = append(filters, allowFilter)
+	}
+	return filters
+}
+
+// nolint: interfacer
+func createHTTPFilter(config *envoyRbacHttpPb.RBAC) *httpFilterPb.HttpFilter {
+	if config == nil {
 		return nil
 	}
-	httpConfig := http_filter.HttpFilter{
-		Name: authz_model.RBACHTTPFilterName,
-	}
-	if b.isXDSMarshalingToAnyEnabled {
-		httpConfig.ConfigType = &http_filter.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbacConfig)}
-	} else {
-		httpConfig.ConfigType = &http_filter.HttpFilter_Config{Config: util.MessageToStruct(rbacConfig)}
-	}
 
-	rbacLog.Debugf("built http filter config: %v", httpConfig)
+	httpConfig := httpFilterPb.HttpFilter{
+		Name:       authzModel.RBACHTTPFilterName,
+		ConfigType: &httpFilterPb.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(config)},
+	}
 	return &httpConfig
 }
 
-// BuildTCPFilter builds the RBAC TCP filter.
-func (b *Builder) BuildTCPFilter() *tcp_filter.Filter {
+// BuildTCPFilters build RBAC TCP filters.
+func (b *Builder) BuildTCPFilters() []*tcpFilterPb.Filter {
 	if b == nil {
+		return nil
+	}
+
+	var filters []*tcpFilterPb.Filter
+	denyConfig, allowConfig := b.generator.Generate(true /* forTCPFilter */)
+	if denyFilter := createTCPFilter(denyConfig); denyFilter != nil {
+		filters = append(filters, denyFilter)
+	}
+	if allowFilter := createTCPFilter(allowConfig); allowFilter != nil {
+		filters = append(filters, allowFilter)
+	}
+	return filters
+}
+
+func createTCPFilter(config *envoyRbacHttpPb.RBAC) *tcpFilterPb.Filter {
+	if config == nil {
 		return nil
 	}
 
 	// The build function always return the config for HTTP filter, we need to extract the
 	// generated rules and set it in the config for TCP filter.
-	config := b.generator.Generate(true /* forTCPFilter */)
-	if config == nil {
-		return nil
-	}
-	rbacConfig := &tcp_config.RBAC{
+	rbacConfig := &envoyRbacTcpPb.RBAC{
 		Rules:       config.Rules,
 		ShadowRules: config.ShadowRules,
-		StatPrefix:  authz_model.RBACTCPFilterStatPrefix,
+		StatPrefix:  authzModel.RBACTCPFilterStatPrefix,
 	}
 
-	tcpConfig := tcp_filter.Filter{
-		Name: authz_model.RBACTCPFilterName,
+	tcpConfig := tcpFilterPb.Filter{
+		Name:       authzModel.RBACTCPFilterName,
+		ConfigType: &tcpFilterPb.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbacConfig)},
 	}
-	if b.isXDSMarshalingToAnyEnabled {
-		tcpConfig.ConfigType = &tcp_filter.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbacConfig)}
-	} else {
-		tcpConfig.ConfigType = &tcp_filter.Filter_Config{Config: util.MessageToStruct(rbacConfig)}
-	}
-
-	rbacLog.Debugf("built tcp filter config: %v", tcpConfig)
 	return &tcpConfig
 }

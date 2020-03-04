@@ -31,7 +31,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 // execAndK8sConfigTestCase lets a test case hold some Envoy, Istio, and Kubernetes configuration
@@ -108,9 +108,9 @@ var (
 			ConfigMeta: model.ConfigMeta{
 				Name:      "ratings",
 				Namespace: "bookinfo",
-				Type:      schemas.DestinationRule.Type,
-				Group:     schemas.DestinationRule.Group,
-				Version:   schemas.DestinationRule.Version,
+				Type:      collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
+				Group:     collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Group(),
+				Version:   collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
 			},
 			Spec: &networking.DestinationRule{
 				Host: "ratings",
@@ -133,9 +133,9 @@ var (
 			ConfigMeta: model.ConfigMeta{
 				Name:      "bookinfo",
 				Namespace: "default",
-				Type:      schemas.VirtualService.Type,
-				Group:     schemas.VirtualService.Group,
-				Version:   schemas.VirtualService.Version,
+				Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
+				Group:     collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Group(),
+				Version:   collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
 			},
 			Spec: &networking.VirtualService{
 				Hosts:    []string{"*"},
@@ -282,10 +282,55 @@ var (
 				},
 				Status: coreV1.PodStatus{
 					Phase: coreV1.PodRunning,
+					ContainerStatuses: []coreV1.ContainerStatus{
+						{
+							Name:  "istio-proxy",
+							Ready: true,
+						},
+					},
 				},
 			},
 			cannedIngressGatewayPod,
-		}},
+			{
+				ObjectMeta: metaV1.ObjectMeta{
+					Name:      "productpage-v1-c7765c886-v99jb",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app":     "productpage",
+						"version": "v1",
+					},
+				},
+				Spec: coreV1.PodSpec{
+					NodeName: "foo_node",
+					Containers: []coreV1.Container{
+						{
+							Name: "productpage",
+							// No container port, but the Envoy data will show 1.4 Istio
+						},
+						{
+							Name: "istio-proxy",
+							Ports: []coreV1.ContainerPort{
+								{
+									Name:          "http-envoy-prom",
+									ContainerPort: 15090,
+									Protocol:      "TCP",
+								},
+							},
+						},
+					},
+				},
+				Status: coreV1.PodStatus{
+					Phase: coreV1.PodRunning,
+					ContainerStatuses: []coreV1.ContainerStatus{
+						{
+							Name:  "istio-proxy",
+							Ready: true,
+						},
+					},
+				},
+			},
+		},
+		},
 		&coreV1.ServiceList{Items: []coreV1.Service{
 			{
 				ObjectMeta: metaV1.ObjectMeta{
@@ -405,7 +450,8 @@ var (
 	}
 )
 
-func TestDescribe(t *testing.T) {
+// Tests Pilot returning 1.3 style /debug
+func TestDescribe13(t *testing.T) {
 	cannedConfig := map[string][]byte{
 		"details-v1-5b7f94f9bc-wp5tb":     util.ReadFile("../pkg/writer/compare/testdata/envoyconfigdump.json", t),
 		"ratings-v1-f745cf57b-vfwcv":      util.ReadFile("testdata/describe/ratings-v1-f745cf57b-vfwcv.json", t),
@@ -462,7 +508,7 @@ func TestDescribe(t *testing.T) {
 Suggestion: add 'version' label to pod for Istio telemetry.
 --------------------
 Service: details
-Pilot reports that pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak HTTP
+Pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak HTTP
 `,
 		},
 		{ // case 5 has recent data including RBAC
@@ -474,11 +520,11 @@ Pilot reports that pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak HTTP
    Pod Ports: 9080 (ratings), 15090 (istio-proxy)
 --------------------
 Service: ratings
-   Port: http 9080/HTTP
+   Port: http 9080/HTTP targets pod port 9080
 DestinationRule: ratings for "ratings"
    Matching subsets: v1
    Traffic Policy TLS Mode: ISTIO_MUTUAL
-Pilot reports that pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak mTLS
+Pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak mTLS
 RBAC policies: ratings-reader
 `,
 		},
@@ -491,7 +537,7 @@ RBAC policies: ratings-reader
    Pod Ports: 15090 (istio-proxy)
 --------------------
 Service: productpage
-   Port:  9080/UnsupportedProtocol
+   Port:  9080/UnsupportedProtocol targets pod port 9080
    9080 is unnamed which does not follow Istio conventions
 Authn: None
 
@@ -511,10 +557,10 @@ VirtualService: bookinfo
    Pod Ports: 15090 (istio-proxy)
 --------------------
 Service: ratings
-   Port:  9080/UnsupportedProtocol
+   Port:  9080/UnsupportedProtocol targets pod port 9080
    Warning: Pod ratings-v1-f745cf57b-vfwcv port 9080 not exposed by Container
    9080 is unnamed which does not follow Istio conventions
-Pilot reports that pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak mTLS
+Pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak mTLS
 RBAC policies: ratings-reader
 `,
 		},
@@ -529,11 +575,11 @@ RBAC policies: ratings-reader
 			k8sConfigs:       cannedK8sEnv,
 			args:             strings.Split("x describe svc ratings.bookinfo", " "),
 			expectedOutput: `Service: ratings.bookinfo
-   Port: http 9080/HTTP
+   Port: http 9080/HTTP targets pod port 9080
 DestinationRule: ratings.bookinfo for "ratings"
    Matching subsets: v1
    Traffic Policy TLS Mode: ISTIO_MUTUAL
-Pilot reports that pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak mTLS
+Pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak mTLS
 RBAC policies: ratings-reader
 `,
 		},
@@ -565,8 +611,6 @@ func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTe
 		namespace = c.namespace
 	}
 
-	file = "" // Clear, because we re-use
-
 	fErr := rootCmd.Execute()
 	output := out.String()
 
@@ -591,6 +635,71 @@ func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTe
 		if fErr != nil {
 			t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(c.args, " "), fErr)
 		}
+	}
+}
+
+func TestDescribeAutoMTLS(t *testing.T) {
+	canned14Config := map[string][]byte{
+		"productpage-v1-c7765c886-v99jb": util.ReadFile("testdata/describe/productpage-v1-c7765c886-v99jb.json", t),
+		// Use same 1.4 config for both pod names
+		"productpage-v1-7bbd79f8fd-k6j79": util.ReadFile("testdata/describe/productpage-v1-c7765c886-v99jb.json", t),
+		"istio-pilot-7f9796fc98-99bp7": []byte(`[
+    {
+      "host": "productpage.default.svc.cluster.local",
+      "port": 9080,
+      "authentication_policy_name": "/default",
+      "destination_rule_name": "default/productpage",
+      "server_protocol": "STRICT",
+      "client_protocol": "-",
+      "TLS_conflict_status": "AUTO"
+    }
+]`),
+		"istio-ingressgateway-5bf6c9887-vvvmj": util.ReadFile("testdata/describe/istio-ingressgateway-5bf6c9887-vvvmj.json", t),
+	}
+	cases := []execAndK8sConfigTestCase{
+		{ // case 0 has data
+			execClientConfig: canned14Config,
+			configs:          cannedIstioConfig,
+			k8sConfigs:       cannedK8sEnv,
+			namespace:        "default",
+			args:             strings.Split("x describe pod productpage-v1-c7765c886-v99jb", " "),
+			expectedOutput: `Pod: productpage-v1-c7765c886-v99jb
+   Pod Ports: 15090 (istio-proxy)
+--------------------
+Service: productpage
+   Port:  9080/auto-detect targets pod port 9080
+Pod is STRICT, clients configured automatically
+
+
+Exposed on Ingress Gateway http://10.1.2.3:0
+
+VirtualService: bookinfo
+   /productpage, /login, /logout, /api/v1/products*
+`,
+		},
+		{ // case 1 for a service
+			execClientConfig: canned14Config,
+			configs:          cannedIstioConfig,
+			k8sConfigs:       cannedK8sEnv,
+			namespace:        "default",
+			args:             strings.Split("x describe svc productpage", " "),
+			expectedOutput: `Service: productpage
+   Port:  9080/auto-detect targets pod port 9080
+Pod is STRICT, clients configured automatically
+
+
+Exposed on Ingress Gateway http://10.1.2.3:0
+
+VirtualService: bookinfo
+   /productpage, /login, /logout, /api/v1/products*
+`,
+		},
+	}
+
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
+			verifyExecAndK8sConfigTestCaseTestOutput(t, c)
+		})
 	}
 }
 

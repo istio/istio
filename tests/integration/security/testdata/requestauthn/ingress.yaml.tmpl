@@ -1,0 +1,32 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: test-ingress
+  namespace: {{ .Namespace }}
+spec:
+  selector:
+    istio: ingressgateway # use istio default ingress gateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: test-vs
+  namespace: {{ .Namespace }}
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - test-ingress
+  http:
+  - route:
+    - destination:
+        host: b
+        port:
+          number: 80

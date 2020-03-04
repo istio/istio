@@ -53,9 +53,20 @@ No
 No
 </td>
 </tr>
+<tr id="Params-mesh_uid">
+<td><code>meshUid</code></td>
+<td><code>string</code></td>
+<td>
+<p>Unique identifier for a Mesh</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="Params-push_interval">
 <td><code>pushInterval</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">Duration</a></code></td>
 <td>
 <p>This adapter batches the data it sends to Stackdriver; we will push to stackdriver every push_interval.
 If no value is provided we default to once per minute.</p>
@@ -105,7 +116,7 @@ Yes
 </tr>
 <tr id="Params-metric_info">
 <td><code>metricInfo</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#Params-MetricInfo">Params.MetricInfo</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Params-MetricInfo">MetricInfo</a>&gt;</code></td>
 <td>
 <p>A map of Istio metric name to Stackdriver metric info.</p>
 
@@ -116,7 +127,7 @@ No
 </tr>
 <tr id="Params-log_info">
 <td><code>logInfo</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#Params-LogInfo">Params.LogInfo</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Params-LogInfo">LogInfo</a>&gt;</code></td>
 <td>
 <p>A map of Istio LogEntry name to Stackdriver log info.</p>
 
@@ -127,7 +138,7 @@ No
 </tr>
 <tr id="Params-trace">
 <td><code>trace</code></td>
-<td><code><a href="#Params-Trace">Params.Trace</a></code></td>
+<td><code><a href="#Params-Trace">Trace</a></code></td>
 <td>
 <p>Stackdriver Trace configuration.</p>
 
@@ -179,7 +190,7 @@ No
 </tr>
 <tr id="Params-LogInfo-http_mapping">
 <td><code>httpMapping</code></td>
-<td><code><a href="#Params-LogInfo-HttpRequestMapping">Params.LogInfo.HttpRequestMapping</a></code></td>
+<td><code><a href="#Params-LogInfo-HttpRequestMapping">HttpRequestMapping</a></code></td>
 <td>
 <p>If an HttpRequestMapping is provided, a HttpRequest object will be filled out for this log entry using the
 variables named in the mapping to populate the fields of the request struct from the instance&rsquo;s variables.</p>
@@ -191,7 +202,7 @@ No
 </tr>
 <tr id="Params-LogInfo-sink_info">
 <td><code>sinkInfo</code></td>
-<td><code><a href="#Params-LogInfo-SinkInfo">Params.LogInfo.SinkInfo</a></code></td>
+<td><code><a href="#Params-LogInfo-SinkInfo">SinkInfo</a></code></td>
 <td>
 <p>If SinkInfo is provided, Stackriver logs would be exported to that sink.</p>
 
@@ -413,7 +424,7 @@ No
 <td>
 <p>These fields apply only to UpdateSinkOpt calls. The corresponding sink field
 is updated if and only if the Update field is true.
-Upate sink destination.</p>
+Update sink destination.</p>
 
 </td>
 <td>
@@ -462,7 +473,7 @@ See https://github.com/googleapis/googleapis/blob/master/google/api/metric.proto
 <tbody>
 <tr id="Params-MetricInfo-kind">
 <td><code>kind</code></td>
-<td><code><a href="#google-api-MetricDescriptor-MetricKind">google.api.MetricDescriptor.MetricKind</a></code></td>
+<td><code><a href="#google-api-MetricDescriptor-MetricKind">MetricKind</a></code></td>
 <td>
 <p>The kind of measurement for a metric, which describes how the data is reported. Ex: Gauge.</p>
 
@@ -473,7 +484,7 @@ No
 </tr>
 <tr id="Params-MetricInfo-value">
 <td><code>value</code></td>
-<td><code><a href="#google-api-MetricDescriptor-ValueType">google.api.MetricDescriptor.ValueType</a></code></td>
+<td><code><a href="#google-api-MetricDescriptor-ValueType">ValueType</a></code></td>
 <td>
 <p>The type of the metric&rsquo;s value. Ex: Distribution.</p>
 
@@ -484,7 +495,7 @@ No
 </tr>
 <tr id="Params-MetricInfo-buckets">
 <td><code>buckets</code></td>
-<td><code><a href="#Params-MetricInfo-BucketsDefinition">Params.MetricInfo.BucketsDefinition</a></code></td>
+<td><code><a href="#Params-MetricInfo-BucketsDefinition">BucketsDefinition</a></code></td>
 <td>
 <p>For metrics with a metric value of DISTRIBUTION, this provides a mechanism
 for configuring the buckets that will be used to store the aggregated values.
@@ -531,7 +542,7 @@ dependencies it doesn&rsquo;t actually use.</p>
 <tbody>
 <tr id="Params-MetricInfo-BucketsDefinition-linear_buckets" class="oneof oneof-start">
 <td><code>linearBuckets</code></td>
-<td><code><a href="#Params-MetricInfo-BucketsDefinition-Linear">Params.MetricInfo.BucketsDefinition.Linear (oneof)</a></code></td>
+<td><code><a href="#Params-MetricInfo-BucketsDefinition-Linear">Linear (oneof)</a></code></td>
 <td>
 <p>The linear buckets.</p>
 
@@ -542,7 +553,7 @@ Yes
 </tr>
 <tr id="Params-MetricInfo-BucketsDefinition-exponential_buckets" class="oneof">
 <td><code>exponentialBuckets</code></td>
-<td><code><a href="#Params-MetricInfo-BucketsDefinition-Exponential">Params.MetricInfo.BucketsDefinition.Exponential (oneof)</a></code></td>
+<td><code><a href="#Params-MetricInfo-BucketsDefinition-Exponential">Exponential (oneof)</a></code></td>
 <td>
 <p>The exponential buckets.</p>
 
@@ -553,7 +564,7 @@ Yes
 </tr>
 <tr id="Params-MetricInfo-BucketsDefinition-explicit_buckets" class="oneof">
 <td><code>explicitBuckets</code></td>
-<td><code><a href="#Params-MetricInfo-BucketsDefinition-Explicit">Params.MetricInfo.BucketsDefinition.Explicit (oneof)</a></code></td>
+<td><code><a href="#Params-MetricInfo-BucketsDefinition-Explicit">Explicit (oneof)</a></code></td>
 <td>
 <p>The explicit buckets.</p>
 

@@ -17,8 +17,9 @@ package ingress
 import (
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/galley/pkg/config/resource"
+
 	"istio.io/istio/galley/pkg/config/scope"
+	"istio.io/istio/pkg/config/resource"
 )
 
 const (
@@ -55,7 +56,7 @@ var (
 // shouldProcessIngress determines whether the given ingress resource should be processed
 // by the controller, based on its ingress class annotation.
 // See https://github.com/kubernetes/ingress/blob/master/examples/PREREQUISITES.md#ingress-class
-func shouldProcessIngress(m *meshconfig.MeshConfig, r *resource.Entry) bool {
+func shouldProcessIngress(m *meshconfig.MeshConfig, r *resource.Instance) bool {
 	class, exists := "", false
 	if r.Metadata.Annotations != nil {
 		class, exists = r.Metadata.Annotations[annotation.IoKubernetesIngressClass.Name]
@@ -63,15 +64,15 @@ func shouldProcessIngress(m *meshconfig.MeshConfig, r *resource.Entry) bool {
 
 	switch m.IngressControllerMode {
 	case meshconfig.MeshConfig_OFF:
-		scope.Processing.Debugf("Skipping ingress due to Ingress Controller Mode OFF (%s)", r.Metadata.Name)
+		scope.Processing.Debugf("Skipping ingress due to Ingress Controller Mode OFF (%s)", r.Metadata.FullName)
 		return false
 	case meshconfig.MeshConfig_STRICT:
 		result := exists && class == m.IngressClass
-		scope.Processing.Debugf("Checking ingress class w/ Strict (%s): %v", r.Metadata.Name, result)
+		scope.Processing.Debugf("Checking ingress class w/ Strict (%s): %v", r.Metadata.FullName, result)
 		return result
 	case meshconfig.MeshConfig_DEFAULT:
 		result := !exists || class == m.IngressClass
-		scope.Processing.Debugf("Checking ingress class w/ Default (%s): %v", r.Metadata.Name, result)
+		scope.Processing.Debugf("Checking ingress class w/ Default (%s): %v", r.Metadata.FullName, result)
 		return result
 	default:
 		scope.Processing.Warnf("invalid ingress controller mode: %v", m.IngressControllerMode)

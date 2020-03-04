@@ -1,0 +1,88 @@
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ClusterRbacConfig
+metadata:
+  name: default
+spec:
+  mode: 'ON_WITH_INCLUSION'
+  inclusion:
+    namespaces: ["default"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: role
+  namespace: default
+spec:
+  rules:
+  - services: ["productpage.default.svc.cluster.local"]
+    methods: ["GET"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: binding-1
+  namespace: default
+spec:
+  subjects:
+  - user: "user-1"
+    group: "group-1"
+    properties:
+      source.ip: "10.0.0.1"
+      source.namespace: "source.namespace-1"
+      source.principal: "source.principal-1"
+      request.headers[User-Agent]: "request.headers[User-Agent]-1"
+      request.auth.principal: "request.auth.principal-1"
+      request.auth.audiences: "request.auth.audiences-1"
+      request.auth.presenter: "request.auth.presenter-1"
+      request.auth.claims[issuer]: "request.auth.claims[issuer]-1"
+      request.auth.claims[subject]: "request.auth.claims[subject]-1"
+  roleRef:
+    kind: ServiceRole
+    name: "role"
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: binding-2
+  namespace: default
+spec:
+  subjects:
+  - user: "user-2"
+    group: "group-2"
+    properties:
+      source.ip: "10.0.0.2"
+      source.namespace: "source.namespace-2"
+      source.principal: "source.principal-2"
+      request.headers[User-Agent]: "request.headers[User-Agent]-2"
+      request.auth.principal: "request.auth.principal-2"
+      request.auth.audiences: "request.auth.audiences-2"
+      request.auth.presenter: "request.auth.presenter-2"
+      request.auth.claims[issuer]: "request.auth.claims[issuer]-2"
+      request.auth.claims[subject]: "request.auth.claims[subject]-2"
+  roleRef:
+    kind: ServiceRole
+    name: "role"
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: binding-3
+  namespace: default
+spec:
+  subjects:
+  - user: "user-3"
+    group: "group-3"
+    properties:
+      source.ip: "10.0.0.3"
+      source.namespace: "source.namespace-3"
+      source.principal: "source.principal-3"
+      request.headers[User-Agent]: "request.headers[User-Agent]-3"
+      request.auth.principal: "request.auth.principal-3"
+      request.auth.audiences: "request.auth.audiences-3"
+      request.auth.presenter: "request.auth.presenter-3"
+      request.auth.claims[issuer]: "request.auth.claims[issuer]-3"
+      request.auth.claims[subject]: "request.auth.claims[subject]-3"
+  roleRef:
+    kind: ServiceRole
+    name: "role"
+---

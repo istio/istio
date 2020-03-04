@@ -6,25 +6,25 @@ constraints:
             "Body": {
               "attributes": {
                 "attr.bool": {
-                  "value_type": 4
+                  "valueType": "BOOL"
                 },
                 "attr.double": {
-                  "value_type": 3
+                  "valueType": "DOUBLE"
                 },
                 "attr.int64": {
-                  "value_type": 2
+                  "valueType": "INT64"
                 },
                 "attr.string": {
-                  "value_type": 1
+                  "valueType": "STRING"
                 },
                 "destination.name": {
-                  "value_type": 1
+                  "valueType": "STRING"
                 },
                 "response.count": {
-                  "value_type": 2
+                  "valueType": "INT64"
                 },
                 "source.name": {
-                  "value_type": 1
+                  "valueType": "STRING"
                 }
               }
             },

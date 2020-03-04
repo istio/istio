@@ -1,0 +1,17 @@
+rules:
+  policies:
+    httpbin:
+      permissions:
+      - andRules:
+          rules:
+          - orRules:
+              rules:
+              - urlPath:
+                  path:
+                    exact: /v1alpha1
+      principals:
+      - andIds:
+          ids:
+          - orIds:
+              ids:
+              - any: true

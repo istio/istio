@@ -15,6 +15,7 @@
 package security
 
 import (
+	"strconv"
 	"testing"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -199,53 +200,55 @@ func TestV1_GRPC(t *testing.T) {
 				With(&d, util.EchoConfig("d", ns, false, nil, g, p)).
 				BuildOrFail(t)
 
-			cases := []rbacUtil.TestCase{
-				{
-					Request: connection.Checker{
-						From: b,
-						Options: echo.CallOptions{
-							Target:   a,
-							PortName: "grpc",
-							Scheme:   scheme.GRPC,
+			for _, mtls := range []bool{true, false} {
+				cases := []rbacUtil.TestCase{
+					{
+						Request: connection.Checker{
+							From: b,
+							Options: echo.CallOptions{
+								Target:   a,
+								PortName: "grpc",
+								Scheme:   scheme.GRPC,
+							},
 						},
+						ExpectAllowed: mtls,
 					},
-					ExpectAllowed: isMtlsEnabled,
-				},
-				{
-					Request: connection.Checker{
-						From: c,
-						Options: echo.CallOptions{
-							Target:   a,
-							PortName: "grpc",
-							Scheme:   scheme.GRPC,
+					{
+						Request: connection.Checker{
+							From: c,
+							Options: echo.CallOptions{
+								Target:   a,
+								PortName: "grpc",
+								Scheme:   scheme.GRPC,
+							},
 						},
+						ExpectAllowed: false,
 					},
-					ExpectAllowed: false,
-				},
-				{
-					Request: connection.Checker{
-						From: d,
-						Options: echo.CallOptions{
-							Target:   a,
-							PortName: "grpc",
-							Scheme:   scheme.GRPC,
+					{
+						Request: connection.Checker{
+							From: d,
+							Options: echo.CallOptions{
+								Target:   a,
+								PortName: "grpc",
+								Scheme:   scheme.GRPC,
+							},
 						},
+						ExpectAllowed: mtls,
 					},
-					ExpectAllowed: isMtlsEnabled,
-				},
+				}
+				namespaceTmpl := map[string]string{
+					"Namespace": ns.Name(),
+					"mtls":      strconv.FormatBool(mtls),
+				}
+				policies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
+					file.AsStringOrFail(t, rbacClusterConfigTmpl),
+					file.AsStringOrFail(t, "testdata/rbac/v1-policy-grpc.yaml.tmpl"),
+					file.AsStringOrFail(t, "testdata/rbac/mtls-for-a.yaml.tmpl"))
+				g.ApplyConfigOrFail(t, ns, policies...)
+				defer g.DeleteConfigOrFail(t, ns, policies...)
+
+				rbacUtil.RunRBACTest(t, cases)
 			}
-
-			namespaceTmpl := map[string]string{
-				"Namespace": ns.Name(),
-			}
-
-			policies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
-				file.AsStringOrFail(t, rbacClusterConfigTmpl),
-				file.AsStringOrFail(t, "testdata/rbac/v1-policy-grpc.yaml.tmpl"))
-			g.ApplyConfigOrFail(t, ns, policies...)
-			defer g.DeleteConfigOrFail(t, ns, policies...)
-
-			rbacUtil.RunRBACTest(t, cases)
 		})
 }
 
@@ -264,6 +267,8 @@ func TestV1_Path(t *testing.T) {
 					Name:        "http",
 					Protocol:    protocol.HTTP,
 					ServicePort: 80,
+					// We use a port > 1024 to not require root
+					InstancePort: 8090,
 				},
 			}
 
@@ -272,6 +277,7 @@ func TestV1_Path(t *testing.T) {
 				With(&a, echo.Config{
 					Service:   "a",
 					Namespace: ns,
+					Subsets:   []echo.SubsetConfig{{}},
 					Ports:     ports,
 					Galley:    g,
 					Pilot:     p,
@@ -279,6 +285,7 @@ func TestV1_Path(t *testing.T) {
 				With(&b, echo.Config{
 					Service:   "b",
 					Namespace: ns,
+					Subsets:   []echo.SubsetConfig{{}},
 					Ports:     ports,
 					Galley:    g,
 					Pilot:     p,

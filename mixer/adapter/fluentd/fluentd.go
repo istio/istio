@@ -126,7 +126,7 @@ func (b *builder) build(_ context.Context, env adapter.Env, newFluentd func(flue
 		pushInterval:  interval,
 		pushTimeout:   timeout,
 	}
-	han.logger, err = newFluentd(fluent.Config{FluentPort: p, FluentHost: h, BufferLimit: int(batchBytes), WriteTimeout: timeout})
+	han.logger, err = newFluentd(fluent.Config{FluentPort: p, FluentHost: h, BufferLimit: int(batchBytes), WriteTimeout: timeout, SubSecondPrecision: true})
 	if err != nil {
 		return nil, err
 	}
@@ -227,8 +227,12 @@ func (h *handler) HandleLogEntry(ctx context.Context, insts []*logentry.Instance
 				}
 			}
 			if h.types[i.Name].Variables[k] == descriptor.IP_ADDRESS {
-				ip := v.(net.IP)
-				i.Variables[k] = ip.String()
+				switch ip := v.(type) {
+				case net.IP:
+					i.Variables[k] = ip.String()
+				case []byte:
+					i.Variables[k] = net.IP(ip).String()
+				}
 			}
 		}
 

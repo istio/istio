@@ -1,0 +1,11 @@
+#!/bin/sh -e
+
+SOURCE_DIR=$(dirname "${BASH_SOURCE}")
+pushd ${SOURCE_DIR}/.. > /dev/null
+
+go build -o ./build/out/bin/operator-sdk ./vendor/github.com/operator-framework/operator-sdk/cmd/operator-sdk
+
+./build/out/bin/operator-sdk $@
+
+popd > /dev/null
+

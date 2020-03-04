@@ -19,11 +19,13 @@
 
 # Docker target will build the go binaries and package the docker for local testing.
 # It does not upload to a registry.
-docker: build-linux docker.all
+docker: docker.all
 
 # Add new docker targets to the end of the DOCKER_TARGETS list.
-DOCKER_TARGETS:=docker.pilot docker.proxytproxy docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
-	docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s
+
+DOCKER_TARGETS ?= docker.pilot docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
+	docker.mixer docker.mixer_codegen docker.citadel docker.galley \
+	docker.istioctl docker.operator
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
@@ -48,8 +50,8 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 # $(ISTIO_DOCKER)/pilot-agent: $(ISTIO_OUT_LINUX)/pilot-agent | $(ISTIO_DOCKER)
 # 	cp $(ISTIO_OUT_LINUX)/$FILE $(ISTIO_DOCKER)/($FILE)
 DOCKER_FILES_FROM_ISTIO_OUT_LINUX:=client server \
-                             pilot-discovery pilot-agent sidecar-injector mixs mixgen \
-                             istio_ca node_agent node_agent_k8s galley istio-iptables istio-clean-iptables
+                             pilot-discovery pilot-agent mixs mixgen \
+                             istio_ca node_agent node_agent_k8s galley istio-iptables istio-clean-iptables istioctl manager
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT_LINUX), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT_LINUX)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_OUT_LINUX)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
 
@@ -60,30 +62,9 @@ $(ISTIO_DOCKER)/certs:
 
 # tell make which files are copied from the source tree and generate rules to copy them to the proper location:
 # TODO(sdake)                      $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES)
-DOCKER_FILES_FROM_SOURCE:=tools/packaging/common/istio-iptables.sh tools/packaging/common/istio-clean-iptables.sh \
-                          tests/testdata/certs/cert.crt tests/testdata/certs/cert.key tests/testdata/certs/cacert.pem
-# generates rules like the following:
-# $(ISTIO_DOCKER)/tools/packaging/common/istio-iptables.sh: $(ISTIO_OUT)/tools/packaging/common/istio-iptables.sh | $(ISTIO_DOCKER)
-# 	cp $FILE $$(@D))
+DOCKER_FILES_FROM_SOURCE:=tests/testdata/certs/cert.crt tests/testdata/certs/cert.key tests/testdata/certs/cacert.pem
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
-
-
-# tell make which files are copied from ISTIO_BIN and generate rules to copy them to the proper location:
-# generates rules like the following:
-# $(ISTIO_DOCKER)/kubectl: $(ISTIO_BIN)/kubectl | $(ISTIO_DOCKER)
-# 	cp $(ISTIO_BIN)/kubectl $(ISTIO_DOCKER)/kubectl
-DOCKER_FILES_FROM_ISTIO_BIN:=kubectl
-$(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_BIN), \
-        $(eval $(ISTIO_BIN)/$(FILE): ; bin/testEnvLocalK8S.sh getDeps))
-$(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_BIN), \
-        $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_BIN)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_BIN)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
-
-docker.sidecar_injector: BUILD_PRE=chmod 755 sidecar-injector &&
-docker.sidecar_injector: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.sidecar_injector: sidecar-injector/docker/Dockerfile.sidecar_injector
-docker.sidecar_injector:$(ISTIO_DOCKER)/sidecar-injector
-	$(DOCKER_RULE)
 
 # BUILD_PRE tells $(DOCKER_RULE) to run the command specified before executing a docker build
 # BUILD_ARGS tells  $(DOCKER_RULE) to execute a docker build with the specified commands
@@ -97,37 +78,27 @@ else
 	cp ${ISTIO_ENVOY_LINUX_RELEASE_PATH} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/envoy
 endif
 
+# rule for wasm extensions.
+$(ISTIO_ENVOY_LINUX_RELEASE_DIR)/stats-filter.wasm: init
+$(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.wasm: init
+
 # Default proxy image.
-docker.proxyv2: BUILD_PRE=chmod 755 envoy pilot-agent &&
+docker.proxyv2: BUILD_PRE=&& chmod 755 envoy pilot-agent istio-iptables
 docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION}
 docker.proxyv2: tools/packaging/common/envoy_bootstrap_v2.json
-docker.proxyv2: tools/packaging/common/envoy_bootstrap_drain.json
 docker.proxyv2: install/gcp/bootstrap/gcp_envoy_bootstrap.json
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
 docker.proxyv2: $(ISTIO_OUT_LINUX)/pilot-agent
 docker.proxyv2: pilot/docker/Dockerfile.proxyv2
 docker.proxyv2: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
-docker.proxyv2: tools/packaging/common/istio-iptables.sh
 docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
 docker.proxyv2: $(ISTIO_DOCKER)/istio-iptables
+docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/stats-filter.wasm
+docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.wasm
 	$(DOCKER_RULE)
 
-# Proxy using TPROXY interception - but no core dumps
-docker.proxytproxy: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION}
-docker.proxytproxy: tools/packaging/common/envoy_bootstrap_v2.json
-docker.proxytproxy: tools/packaging/common/envoy_bootstrap_drain.json
-docker.proxytproxy: install/gcp/bootstrap/gcp_envoy_bootstrap.json
-docker.proxytproxy: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
-docker.proxytproxy: $(ISTIO_OUT_LINUX)/pilot-agent
-docker.proxytproxy: pilot/docker/Dockerfile.proxytproxy
-docker.proxytproxy: pilot/docker/envoy_pilot.yaml.tmpl
-docker.proxytproxy: pilot/docker/envoy_policy.yaml.tmpl
-docker.proxytproxy: tools/packaging/common/istio-iptables.sh
-docker.proxytproxy: pilot/docker/envoy_telemetry.yaml.tmpl
-	$(DOCKER_RULE)
-
-docker.pilot: BUILD_PRE=chmod 755 pilot-discovery cacert.pem &&
+docker.pilot: BUILD_PRE=&& chmod 755 pilot-discovery cacert.pem
 docker.pilot: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.pilot: $(ISTIO_OUT_LINUX)/pilot-discovery
 docker.pilot: tests/testdata/certs/cacert.pem
@@ -135,34 +106,24 @@ docker.pilot: pilot/docker/Dockerfile.pilot
 	$(DOCKER_RULE)
 
 # Test application
+docker.app: BUILD_PRE=&& chmod 755 server client
+docker.app: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.app: pkg/test/echo/docker/Dockerfile.app
 docker.app: $(ISTIO_OUT_LINUX)/client
 docker.app: $(ISTIO_OUT_LINUX)/server
 docker.app: $(ISTIO_DOCKER)/certs
-	mkdir -p $(ISTIO_DOCKER)/testapp
-	cp -r $^ $(ISTIO_DOCKER)/testapp
-	time (cd $(ISTIO_DOCKER)/testapp && docker build -t $(HUB)/app:$(TAG) -f Dockerfile.app .)
+	$(DOCKER_RULE)
 
 
 # Test application bundled with the sidecar (for non-k8s).
+docker.app_sidecar: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.app_sidecar: tools/packaging/common/envoy_bootstrap_v2.json
-docker.app_sidecar: tools/packaging/common/envoy_bootstrap_drain.json
-docker.app_sidecar: tools/packaging/common/istio-iptables.sh
-docker.app_sidecar: tools/packaging/common/istio-clean-iptables.sh
-docker.app_sidecar: tools/packaging/common/istio-start.sh
-docker.app_sidecar: tools/packaging/common/istio-node-agent-start.sh
-docker.app_sidecar: tools/packaging/deb/postinst.sh
-docker.app_sidecar: pkg/test/echo/docker/echo-start.sh
+docker.app_sidecar: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar: $(ISTIO_DOCKER)/certs
-docker.app_sidecar: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
-docker.app_sidecar: $(ISTIO_OUT_LINUX)/pilot-agent
-docker.app_sidecar: $(ISTIO_OUT_LINUX)/node_agent
+docker.app_sidecar: pkg/test/echo/docker/echo-start.sh
 docker.app_sidecar: $(ISTIO_OUT_LINUX)/client
 docker.app_sidecar: $(ISTIO_OUT_LINUX)/server
 docker.app_sidecar: pkg/test/echo/docker/Dockerfile.app_sidecar
-docker.app_sidecar: pilot/docker/envoy_pilot.yaml.tmpl
-docker.app_sidecar: pilot/docker/envoy_policy.yaml.tmpl
-docker.app_sidecar: pilot/docker/envoy_telemetry.yaml.tmpl
 	$(DOCKER_RULE)
 
 # Test policy backend for mixer integration
@@ -171,13 +132,19 @@ docker.test_policybackend: mixer/docker/Dockerfile.test_policybackend
 docker.test_policybackend: $(ISTIO_OUT_LINUX)/policybackend
 	$(DOCKER_RULE)
 
-docker.kubectl: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.kubectl: docker/Dockerfile$$(suffix $$@)
+docker.istioctl: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.istioctl: istioctl/docker/Dockerfile.istioctl
+docker.istioctl: $(ISTIO_OUT_LINUX)/istioctl
+	$(DOCKER_RULE)
+
+docker.operator: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.operator: operator/docker/Dockerfile.operator
+docker.operator: $(ISTIO_OUT_LINUX)/operator
 	$(DOCKER_RULE)
 
 # mixer docker images
 
-docker.mixer: BUILD_PRE=chmod 755 mixs &&
+docker.mixer: BUILD_PRE=&& chmod 755 mixs
 docker.mixer: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.mixer: mixer/docker/Dockerfile.mixer
 docker.mixer: $(ISTIO_DOCKER)/mixs
@@ -189,9 +156,37 @@ docker.mixer_codegen: mixer/docker/Dockerfile.mixer_codegen
 docker.mixer_codegen: $(ISTIO_DOCKER)/mixgen
 	$(DOCKER_RULE)
 
-# galley docker images
+.PHONY: dockerx dockerx.save
 
-docker.galley: BUILD_PRE=chmod 755 galley &&
+# Docker has an experimental new build engine, https://github.com/docker/buildx
+# This brings substantial (10x) performance improvements when building Istio
+# However, its only built into docker since v19.03. Because its so new that devs are likely to not have
+# this version, and because its experimental, this is not the default build method. As this matures we should migrate over.
+# For performance, in CI this method is used.
+# This target works by reusing the existing docker methods. Each docker target declares it's dependencies.
+# We then override the docker rule and "build" all of these, where building just copies the dependencies
+# We then generate a "bake" file, which defines all of the docker files in the repo
+# Finally, we call `docker buildx bake` to generate the images.
+dockerx: DOCKER_RULE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp -r $^ $(DOCKERX_BUILD_TOP)/$@ && cd $(DOCKERX_BUILD_TOP)/$@ $(BUILD_PRE)
+dockerx: docker | $(ISTIO_DOCKER_TAR)
+dockerx:
+	HUB=$(HUB) \
+		TAG=$(TAG) \
+		PROXY_REPO_SHA=$(PROXY_REPO_SHA) \
+		VERSION=$(VERSION) \
+		DOCKER_ALL_VARIANTS="$(DOCKER_ALL_VARIANTS)" \
+		ISTIO_DOCKER_TAR=$(ISTIO_DOCKER_TAR) \
+		BASE_VERSION=$(BASE_VERSION) \
+		DOCKERX_PUSH=$(DOCKERX_PUSH) \
+		./tools/buildx-gen.sh $(DOCKERX_BUILD_TOP) $(DOCKER_TARGETS)
+	DOCKER_CLI_EXPERIMENTAL=enabled docker buildx bake -f $(DOCKERX_BUILD_TOP)/docker-bake.hcl $(DOCKER_BUILD_VARIANTS)
+
+# Support individual images like `dockerx.pilot`
+dockerx.%:
+	@DOCKER_TARGETS=docker.$* BUILD_ALL=false $(MAKE) --no-print-directory -f Makefile.core.mk dockerx
+
+# galley docker images
+docker.galley: BUILD_PRE=&& chmod 755 galley
 docker.galley: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.galley: galley/docker/Dockerfile.galley
 docker.galley: $(ISTIO_DOCKER)/galley
@@ -199,7 +194,7 @@ docker.galley: $(ISTIO_DOCKER)/galley
 
 # security docker images
 
-docker.citadel: BUILD_PRE=chmod 755 istio_ca &&
+docker.citadel: BUILD_PRE=&& chmod 755 istio_ca
 docker.citadel: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.citadel: security/docker/Dockerfile.citadel
 docker.citadel: $(ISTIO_DOCKER)/istio_ca
@@ -215,11 +210,6 @@ docker.citadel-test: $(ISTIO_DOCKER)/istio_ca.key
 docker.node-agent: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.node-agent: security/docker/Dockerfile.node-agent
 docker.node-agent: $(ISTIO_DOCKER)/node_agent
-	$(DOCKER_RULE)
-
-docker.node-agent-k8s: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.node-agent-k8s: security/docker/Dockerfile.node-agent-k8s
-docker.node-agent-k8s: $(ISTIO_DOCKER)/node_agent_k8s
 	$(DOCKER_RULE)
 
 docker.node-agent-test: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
@@ -244,9 +234,10 @@ docker.base: docker/Dockerfile.base
 # 5. This rule finally runs docker build passing $(BUILD_ARGS) to docker if they are specified as a dependency variable
 
 # DOCKER_BUILD_VARIANTS ?=default distroless
-DOCKER_BUILD_VARIANTS ?=default
+DOCKER_BUILD_VARIANTS ?= default
+DOCKER_ALL_VARIANTS ?= default distroless
 DEFAULT_DISTRIBUTION=default
-DOCKER_RULE=$(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && cp -r $^ $(DOCKER_BUILD_TOP)/$@ && cd $(DOCKER_BUILD_TOP)/$@ && $(BUILD_PRE) docker build $(BUILD_ARGS) --build-arg BASE_DISTRIBUTION=$(VARIANT) -t $(HUB)/$(subst docker.,,$@):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) -f Dockerfile$(suffix $@) . ); )
+DOCKER_RULE ?= $(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && cp -r $^ $(DOCKER_BUILD_TOP)/$@ && cd $(DOCKER_BUILD_TOP)/$@ $(BUILD_PRE) && docker build $(BUILD_ARGS) --build-arg BASE_DISTRIBUTION=$(VARIANT) -t $(HUB)/$(subst docker.,,$@):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) -f Dockerfile$(suffix $@) . ); )
 
 # This target will package all docker images used in test and release, without re-building
 # go binaries. It is intended for CI/CD systems where the build is done in separate job.
@@ -258,31 +249,33 @@ docker.all: $(DOCKER_TARGETS)
 
 # create a DOCKER_TAR_TARGETS that's each of DOCKER_TARGETS with a tar. prefix
 DOCKER_TAR_TARGETS:=
-$(foreach TGT,$(filter-out docker.app,$(DOCKER_TARGETS)),$(eval tar.$(TGT): $(TGT) | $(ISTIO_DOCKER_TAR) ; \
+$(foreach TGT,$(DOCKER_TARGETS),$(eval tar.$(TGT): $(TGT) | $(ISTIO_DOCKER_TAR) ; \
          $(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time ( \
 		     docker save -o ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(subst -$(DEFAULT_DISTRIBUTION),,-$(VARIANT)).tar $(HUB)/$(subst docker.,,$(TGT)):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) && \
              gzip ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(subst -$(DEFAULT_DISTRIBUTION),,-$(VARIANT)).tar \
 			   ); \
 		  )))
 
-tar.docker.app: docker.app | $(ISTIO_DOCKER_TAR)
-	time ( docker save -o ${ISTIO_DOCKER_TAR}/app.tar $(HUB)/app:$(TAG) && \
-             gzip ${ISTIO_DOCKER_TAR}/app.tar )
-
 # create a DOCKER_TAR_TARGETS that's each of DOCKER_TARGETS with a tar. prefix DOCKER_TAR_TARGETS:=
 $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
 
 # this target saves a tar.gz of each docker image to ${ISTIO_OUT_LINUX}/docker/
-docker.save: $(DOCKER_TAR_TARGETS)
+dockerx.save: dockerx $(ISTIO_DOCKER_TAR)
+	$(foreach TGT,$(DOCKER_TARGETS), \
+	$(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time ( \
+		 docker save -o ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(subst -$(DEFAULT_DISTRIBUTION),,-$(VARIANT)).tar $(HUB)/$(subst docker.,,$(TGT)):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) && \
+		 gzip -f ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(subst -$(DEFAULT_DISTRIBUTION),,-$(VARIANT)).tar \
+		   ); \
+	 ))
+
+#docker.save: $(DOCKER_TAR_TARGETS) # Legacy target when used with old docker versions
+docker.save: dockerx.save
 
 # for each docker.XXX target create a push.docker.XXX target that pushes
 # the local docker image to another hub
 # a possible optimization is to use tag.$(TGT) as a dependency to do the tag for us
-$(foreach TGT,$(filter-out docker.app,$(DOCKER_TARGETS)),$(eval push.$(TGT): | $(TGT) ; \
+$(foreach TGT,$(DOCKER_TARGETS),$(eval push.$(TGT): | $(TGT) ; \
 	time (set -e && for distro in $(DOCKER_BUILD_VARIANTS); do tag=$(TAG)-$$$${distro}; docker push $(HUB)/$(subst docker.,,$(TGT)):$$$${tag%-$(DEFAULT_DISTRIBUTION)}; done)))
-
-push.docker.app: docker.app
-	time (docker push $(HUB)/app:$(TAG))
 
 define run_vulnerability_scanning
         $(eval RESULTS_DIR := vulnerability_scan_results)
@@ -297,27 +290,19 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
 # Will build and push docker images.
 docker.push: $(DOCKER_PUSH_TARGETS)
 
+# Build and push docker images using dockerx
+dockerx.push: dockerx
+	$(foreach TGT,$(DOCKER_TARGETS), time ( \
+		set -e && for distro in $(DOCKER_BUILD_VARIANTS); do tag=$(TAG)-$${distro}; docker push $(HUB)/$(subst docker.,,$(TGT)):$${tag%-$(DEFAULT_DISTRIBUTION)}; done); \
+	)
+
+# Build and push docker images using dockerx. Pushing is done inline as an optimization
+# This is not done in the dockerx.push target because it requires using the docker-container driver.
+# See https://github.com/docker/buildx#working-with-builder-instances for info to set this up
+dockerx.pushx: DOCKERX_PUSH=true
+dockerx.pushx: dockerx
+	@:
+
 # Scan images for security vulnerabilities using the ImageScanner tool
 docker.scan_images: $(DOCKER_PUSH_TARGETS)
 	$(foreach TGT,$(DOCKER_TARGETS),$(call run_vulnerability_scanning,$(subst docker.,,$(TGT)),$(HUB)/$(subst docker.,,$(TGT)):$(TAG)))
-
-# Base image for 'debug' containers.
-# You can run it first to use local changes (or guarantee it is built from scratch)
-docker.basedebug:
-	docker build -t istionightly/base_debug -f docker/Dockerfile.xenial_debug docker/
-
-# Run this target to generate images based on Bionic Ubuntu
-# This must be run as a first step, before the 'docker' step.
-docker.basedebug_bionic:
-	docker build -t istionightly/base_debug_bionic -f docker/Dockerfile.bionic_debug docker/
-	docker tag istionightly/base_debug_bionic istionightly/base_debug
-
-# Run this target to generate images based on Debian Slim
-# This must be run as a first step, before the 'docker' step.
-docker.basedebug_deb:
-	docker build -t istionightly/base_debug_deb -f docker/Dockerfile.deb_debug docker/
-	docker tag istionightly/base_debug_deb istionightly/base_debug
-
-# Job run from the nightly cron to publish an up-to-date xenial with the debug tools.
-docker.push.basedebug: docker.basedebug
-	docker push istionightly/base_debug:latest

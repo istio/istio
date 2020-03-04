@@ -61,7 +61,6 @@ const (
 	istioIngressLabel              = "ingress"
 	istioIngressGatewayServiceName = "istio-ingressgateway"
 	istioIngressGatewayLabel       = "ingressgateway"
-	istioEgressGatewayServiceName  = "istio-egressgateway"
 	defaultSidecarInjectorFile     = "istio-sidecar-injector.yaml"
 	ingressCertsName               = "istio-ingress-certs"
 	maxDeploymentRolloutTime       = 960 * time.Second
@@ -79,10 +78,8 @@ const (
 	// CRD files that should be installed during testing
 	// NB: these files come from the directory install/kubernetes/helm/istio-init/files/*crd*
 	//     and contain all CRDs used by Istio during runtime
-	zeroCRDInstallFile        = "crd-10.yaml"
-	oneCRDInstallFile         = "crd-11.yaml"
-	fourCRDInstallFile        = "crd-14.yaml"
-	certManagerCRDInstallFile = "crd-certmanager-10.yaml"
+	allCRDInstallFile   = "crd-all.gen.yaml"
+	mixerCRDInstallFile = "crd-mixer.yaml"
 	// PrimaryCluster identifies the primary cluster
 	PrimaryCluster = "primary"
 	// RemoteCluster identifies the remote cluster
@@ -91,6 +88,8 @@ const (
 	kubernetesReadinessTimeout        = time.Second * 180
 	kubernetesReadinessInterval       = 200 * time.Millisecond
 	validationWebhookReadinessTimeout = time.Minute
+	istioOperatorTimeout              = time.Second * 300
+	istioOperatorFreq                 = time.Second * 10
 	validationWebhookReadinessFreq    = 100 * time.Millisecond
 )
 
@@ -365,19 +364,9 @@ func (k *KubeInfo) IstioSystemNamespace() string {
 	return k.Namespace
 }
 
-// IstioIngressService returns the service name for the ingress service
-func (k *KubeInfo) IstioIngressService() string {
-	return istioIngressServiceName
-}
-
 // IstioIngressGatewayService returns the service name for the ingress gateway service
 func (k *KubeInfo) IstioIngressGatewayService() string {
 	return istioIngressGatewayServiceName
-}
-
-// IstioEgressGatewayService returns the service name for the egress gateway service
-func (k *KubeInfo) IstioEgressGatewayService() string {
-	return istioEgressGatewayServiceName
 }
 
 // Setup Kubernetes pre-requisites for tests
@@ -429,16 +418,6 @@ func (k *KubeInfo) Setup() error {
 	return nil
 }
 
-// PilotHub exposes the Docker hub used for the pilot image.
-func (k *KubeInfo) PilotHub() string {
-	return *pilotHub
-}
-
-// PilotTag exposes the Docker tag used for the pilot image.
-func (k *KubeInfo) PilotTag() string {
-	return *pilotTag
-}
-
 // AppHub exposes the Docker hub used for the test application image.
 func (k *KubeInfo) AppHub() string {
 	return *appHub
@@ -447,16 +426,6 @@ func (k *KubeInfo) AppHub() string {
 // AppTag exposes the Docker tag used for the test application image.
 func (k *KubeInfo) AppTag() string {
 	return *appTag
-}
-
-// ProxyHub exposes the Docker hub used for the proxy image.
-func (k *KubeInfo) ProxyHub() string {
-	return *proxyHub
-}
-
-// ProxyTag exposes the Docker tag used for the proxy image.
-func (k *KubeInfo) ProxyTag() string {
-	return *proxyTag
 }
 
 // ImagePullPolicy exposes the pull policy override used for Docker images. May be "".
@@ -568,8 +537,13 @@ func (k *KubeInfo) Teardown() error {
 			}
 		}
 		if *useOperator {
+			//save operator logs
+			log.Info("Saving istio-operator logs")
+			if err := util.FetchAndSaveClusterLogs("istio-operator", k.TmpDir, k.KubeConfig); err != nil {
+				log.Errorf("Failed to save operator logs: %v", err)
+			}
 			// Need an operator unique delete procedure
-			if _, err := util.Shell("kubectl -n istio-operator delete IstioControlPlane example-istiocontrolplane"); err != nil {
+			if _, err := util.Shell("kubectl -n istio-operator delete IstioOperator example-istiocontrolplane"); err != nil {
 				log.Errorf("Failed to delete the Istio CR.")
 				return err
 			}
@@ -626,12 +600,7 @@ func (k *KubeInfo) Teardown() error {
 	log.Infof("Deleting namespace %v", k.Namespace)
 	for attempts := 1; attempts <= maxAttempts; attempts++ {
 		if *useOperator {
-			if _, err := util.Shell("kubectl delete ns istio-operator --kubeconfig=%s)",
-				k.KubeConfig); err != nil {
-				log.Errorf("Failed to delete istio-operator namespace.")
-				return err
-			}
-			namespaceDeleted = true
+			namespaceDeleted, _ = util.NamespaceDeleted("istio-operator", k.KubeConfig)
 		} else {
 			namespaceDeleted, _ = util.NamespaceDeleted(k.Namespace, k.KubeConfig)
 		}
@@ -825,6 +794,10 @@ func (k *KubeInfo) deployIstio() error {
 			log.Errorf("Istio operator %s deployment failed", testIstioYaml)
 			return err
 		}
+		if err := k.waitForIstioOperator(); err != nil {
+			log.Errorf("istio operator fails to deploy Istio: %v", err)
+			return err
+		}
 	} else {
 		// Create istio-system namespace
 		if err := util.CreateNamespace(k.Namespace, k.KubeConfig); err != nil {
@@ -945,18 +918,6 @@ func (k *KubeInfo) deployIstio() error {
 	return nil
 }
 
-// DeployTiller deploys tiller in Istio mesh or returns error
-func (k *KubeInfo) DeployTiller() error {
-	// no need to deploy tiller when Istio is deployed using helm as Tiller is already deployed as part of it.
-	if *installer == helmInstallerName {
-		return nil
-	}
-
-	yamlDir := filepath.Join(istioInstallDir+"/"+helmInstallerName, helmServiceAccountFile)
-	baseHelmServiceAccountYaml := filepath.Join(k.ReleaseDir, yamlDir)
-	return k.deployTiller(baseHelmServiceAccountYaml)
-}
-
 func (k *KubeInfo) deployTiller(yamlFileName string) error {
 	// apply helm service account
 	if err := util.KubeApply("kube-system", yamlFileName, k.KubeConfig); err != nil {
@@ -1031,6 +992,27 @@ EOF`, k.KubeConfig, dummyValidationRule)
 	return nil
 }
 
+func (k *KubeInfo) waitForIstioOperator() error {
+
+	get := fmt.Sprintf(`kubectl --kubeconfig=%s get iop example-istiocontrolplane -n istio-operator -o yaml`, k.KubeConfig)
+	timeout := time.Now().Add(istioOperatorTimeout)
+	for {
+		if time.Now().After(timeout) {
+			return errors.New("timeout waiting for istio operator to deploy Istio")
+		}
+		out, err := util.ShellSilent(get)
+		if err == nil && strings.Contains(out, "HEALTHY") {
+			break
+		}
+
+		log.Warnf("istio-operator is still deploying Istio: %v", err)
+		time.Sleep(istioOperatorFreq)
+
+	}
+	log.Info("istio operator succeeds to deploy Istio")
+	return nil
+}
+
 func (k *KubeInfo) deployCRDs(kubernetesCRD string) error {
 	yamlFileName := filepath.Join(istioInstallDir, helmInstallerName, "istio-init", "files", kubernetesCRD)
 	yamlFileName = filepath.Join(k.ReleaseDir, yamlFileName)
@@ -1045,7 +1027,7 @@ func (k *KubeInfo) deployCRDs(kubernetesCRD string) error {
 func (k *KubeInfo) deployIstioWithHelm() error {
 	// Note: When adding a CRD to the install, a new CRDFile* constant is needed
 	// This slice contains the list of CRD files installed during testing
-	istioCRDFileNames := []string{zeroCRDInstallFile, oneCRDInstallFile, fourCRDInstallFile, certManagerCRDInstallFile}
+	istioCRDFileNames := []string{allCRDInstallFile, mixerCRDInstallFile}
 	// deploy all CRDs in Istio first
 	for _, yamlFileName := range istioCRDFileNames {
 		if err := k.deployCRDs(yamlFileName); err != nil {
@@ -1208,7 +1190,7 @@ func replacePattern(content []byte, src, dest string) []byte {
 
 // This code is in need of a reimplementation and some rethinking. An in-place
 // modification on the raw manifest is the wrong approach. This model is also
-// not portable to our future around IstioControlPlane where we don't necessarily
+// not portable to our future around IstioOperator where we don't necessarily
 // have a manifest to in place modify...
 func (k *KubeInfo) generateIstio(src, dst string) error {
 	content, err := ioutil.ReadFile(src)

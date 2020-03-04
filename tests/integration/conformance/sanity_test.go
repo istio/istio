@@ -17,7 +17,8 @@ package conformance
 import (
 	"testing"
 
-	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schema/snapshots"
 	"istio.io/istio/pkg/test/framework"
 )
 
@@ -30,39 +31,6 @@ var ignoredCollections = []string{
 	"k8s/core/v1/namespaces",
 	"k8s/core/v1/endpoints",
 	"k8s/extensions/v1beta1/ingresses",
-
-	// The legacy Mixer types are no longer supported. We should remove them after deprecation cycle.
-	"istio/config/v1alpha2/legacy/cloudwatches",
-	"istio/config/v1alpha2/legacy/statsds",
-	"istio/config/v1alpha2/legacy/stdios",
-	"istio/config/v1alpha2/legacy/listentries",
-	"istio/config/v1alpha2/legacy/metrics",
-	"istio/config/v1alpha2/legacy/stackdrivers",
-	"istio/config/v1alpha2/legacy/kuberneteses",
-	"istio/config/v1alpha2/legacy/quotas",
-	"istio/config/v1alpha2/legacy/zipkins",
-	"istio/config/v1alpha2/legacy/prometheuses",
-	"istio/config/v1alpha2/legacy/redisquotas",
-	"istio/config/v1alpha2/legacy/reportnothings",
-	"istio/config/v1alpha2/legacy/edges",
-	"istio/config/v1alpha2/legacy/noops",
-	"istio/config/v1alpha2/legacy/signalfxs",
-	"istio/config/v1alpha2/legacy/solarwindses",
-	"istio/config/v1alpha2/legacy/apikeys",
-	"istio/config/v1alpha2/legacy/bypasses",
-	"istio/config/v1alpha2/legacy/dogstatsds",
-	"istio/config/v1alpha2/legacy/kubernetesenvs",
-	"istio/config/v1alpha2/legacy/listcheckers",
-	"istio/config/v1alpha2/legacy/tracespans",
-	"istio/config/v1alpha2/legacy/authorizations",
-	"istio/config/v1alpha2/legacy/fluentds",
-	"istio/config/v1alpha2/legacy/memquotas",
-	"istio/config/v1alpha2/legacy/opas",
-	"istio/config/v1alpha2/legacy/checknothings",
-	"istio/config/v1alpha2/legacy/circonuses",
-	"istio/config/v1alpha2/legacy/deniers",
-	"istio/config/v1alpha2/legacy/logentries",
-	"istio/config/v1alpha2/legacy/rbacs",
 }
 
 func TestMissingMCPTests(t *testing.T) {
@@ -70,7 +38,7 @@ func TestMissingMCPTests(t *testing.T) {
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
 			collections := make(map[string]struct{})
-			for _, col := range metadata.MustGet().AllCollectionsInSnapshots() {
+			for _, col := range schema.MustGet().AllCollectionsInSnapshots(snapshots.SnapshotNames()) {
 				collections[col] = struct{}{}
 			}
 

@@ -35,7 +35,7 @@ and the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/tem
 <tbody>
 <tr id="Params-log_stream">
 <td><code>logStream</code></td>
-<td><code><a href="#Params-Stream">Params.Stream</a></code></td>
+<td><code><a href="#Params-Stream">Stream</a></code></td>
 <td>
 <p>Selects which standard stream to write to for log entries.
 STDERR is the default Stream.</p>
@@ -47,7 +47,7 @@ No
 </tr>
 <tr id="Params-severity_levels">
 <td><code>severityLevels</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#Params-Level">Params.Level</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Params-Level">Level</a>&gt;</code></td>
 <td>
 <p>Maps from severity strings as specified in LogEntry instances to
 the set of levels supported by this adapter. This defaults to a map of</p>
@@ -75,7 +75,7 @@ No
 </tr>
 <tr id="Params-metric_level">
 <td><code>metricLevel</code></td>
-<td><code><a href="#Params-Level">Params.Level</a></code></td>
+<td><code><a href="#Params-Level">Level</a></code></td>
 <td>
 <p>The level to assign to metrics being output. Defaults to INFO.</p>
 
@@ -97,7 +97,7 @@ No
 </tr>
 <tr id="Params-output_level">
 <td><code>outputLevel</code></td>
-<td><code><a href="#Params-Level">Params.Level</a></code></td>
+<td><code><a href="#Params-Level">Level</a></code></td>
 <td>
 <p>The minimum level to output, anything less than this level is ignored. Defaults to INFO (everything).</p>
 
@@ -186,7 +186,7 @@ No
 <tr id="Params-Level-WARNING">
 <td><code>WARNING</code></td>
 <td>
-<p>warning and error log messges are included</p>
+<p>warning and error log messages are included</p>
 
 </td>
 </tr>

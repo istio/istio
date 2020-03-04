@@ -17,6 +17,7 @@ package ingress
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"strings"
 
 	"istio.io/istio/pkg/test"
@@ -44,6 +45,9 @@ type CallOptions struct {
 
 	// Path specifies the URL path for the request.
 	Path string
+
+	// Headers indicates headers that should be sent in the request. Ignored for WebSocket calls.
+	Headers http.Header
 
 	// Timeout used for each individual request. Must be > 0, otherwise 1 minute is used.
 	Timeout time.Duration
@@ -87,6 +91,9 @@ type Instance interface {
 	// HTTPSAddress returns the external HTTPS address of the ingress gateway (or the
 	// NodePort address, when running under Minikube).
 	HTTPSAddress() net.TCPAddr
+	// TCPAddress returns the external TCP address of the ingress gateway (or the NodePort address,
+	// when running under Minikube).
+	TCPAddress() net.TCPAddr
 
 	//  Call makes a call through ingress.
 	Call(options CallOptions) (CallResponse, error)

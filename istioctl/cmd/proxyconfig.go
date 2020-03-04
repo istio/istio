@@ -17,6 +17,8 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
+	"os"
 	"regexp"
 	"strings"
 
@@ -76,13 +78,13 @@ const (
 // existing sorted active loggers
 var activeLoggers = []string{
 	"admin",
-	"all",
 	"aws",
 	"assert",
 	"backtrace",
 	"client",
 	"config",
 	"connection",
+	"conn_handler", // Added through https://github.com/envoyproxy/envoy/pull/8263
 	"dubbo",
 	"file",
 	"filter",
@@ -143,7 +145,7 @@ var (
 	reset             = false
 )
 
-func setupConfigdumpEnvoyConfigWriter(podName, podNamespace string, out io.Writer) (*configdump.ConfigWriter, error) {
+func setupPodConfigdumpWriter(podName, podNamespace string, out io.Writer) (*configdump.ConfigWriter, error) {
 	kubeClient, err := clientExecFactory(kubeconfig, configContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create k8s client: %v", err)
@@ -151,10 +153,31 @@ func setupConfigdumpEnvoyConfigWriter(podName, podNamespace string, out io.Write
 	path := "config_dump"
 	debug, err := kubeClient.EnvoyDo(podName, podNamespace, "GET", path, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute command on envoy: %v", err)
+		return nil, fmt.Errorf("failed to execute command on %s.%s sidecar: %v", podName, podNamespace, err)
 	}
+	return setupConfigdumpEnvoyConfigWriter(debug, out)
+}
+
+func setupFileConfigdumpWriter(filename string, out io.Writer) (*configdump.ConfigWriter, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Errorf("failed to close %s: %s", filename, err)
+		}
+	}()
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+	return setupConfigdumpEnvoyConfigWriter(data, out)
+}
+
+func setupConfigdumpEnvoyConfigWriter(debug []byte, out io.Writer) (*configdump.ConfigWriter, error) {
 	cw := &configdump.ConfigWriter{Stdout: out}
-	err = cw.Prime(debug)
+	err := cw.Prime(debug)
 	if err != nil {
 		return nil, err
 	}
@@ -197,9 +220,7 @@ func getLogLevelFromConfigMap() (string, error) {
 	return values.SidecarInjectorWebhook.Global.Proxy.LogLevel, nil
 }
 
-// TODO(fisherxu): migrate this to config dump when implemented in Envoy
-// Issue to track -> https://github.com/envoyproxy/envoy/issues/3362
-func setupClustersEnvoyConfigWriter(podName, podNamespace string, out io.Writer) (*clusters.ConfigWriter, error) {
+func setupPodClustersWriter(podName, podNamespace string, out io.Writer) (*clusters.ConfigWriter, error) {
 	kubeClient, err := clientExecFactory(kubeconfig, configContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create k8s client: %v", err)
@@ -207,10 +228,33 @@ func setupClustersEnvoyConfigWriter(podName, podNamespace string, out io.Writer)
 	path := "clusters?format=json"
 	debug, err := kubeClient.EnvoyDo(podName, podNamespace, "GET", path, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute command on envoy: %v", err)
+		return nil, fmt.Errorf("failed to execute command on Envoy: %v", err)
 	}
+	return setupClustersEnvoyConfigWriter(debug, out)
+}
+
+func setupFileClustersWriter(filename string, out io.Writer) (*clusters.ConfigWriter, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Errorf("failed to close %s: %s", filename, err)
+		}
+	}()
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+	return setupClustersEnvoyConfigWriter(data, out)
+}
+
+// TODO(fisherxu): migrate this to config dump when implemented in Envoy
+// Issue to track -> https://github.com/envoyproxy/envoy/issues/3362
+func setupClustersEnvoyConfigWriter(debug []byte, out io.Writer) (*clusters.ConfigWriter, error) {
 	cw := &clusters.ConfigWriter{Stdout: out}
-	err = cw.Prime(debug)
+	err := cw.Prime(debug)
 	if err != nil {
 		return nil, err
 	}
@@ -218,6 +262,9 @@ func setupClustersEnvoyConfigWriter(podName, podNamespace string, out io.Writer)
 }
 
 func proxyConfig() *cobra.Command {
+	// output format (yaml or short)
+	var outputFormat string
+
 	configCmd := &cobra.Command{
 		Use:   "proxy-config",
 		Short: "Retrieve information about proxy configuration from Envoy [kube only]",
@@ -230,7 +277,7 @@ func proxyConfig() *cobra.Command {
 	configCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|short")
 
 	clusterConfigCmd := &cobra.Command{
-		Use:   "cluster <pod-name[.namespace]>",
+		Use:   "cluster [<pod-name[.namespace]>]",
 		Short: "Retrieves cluster configuration for the Envoy in the specified pod",
 		Long:  `Retrieve information about cluster configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve summary about cluster configuration for a given pod from Envoy.
@@ -241,18 +288,28 @@ func proxyConfig() *cobra.Command {
 
   # Retrieve full cluster dump for clusters that are inbound with a FQDN of details.default.svc.cluster.local.
   istioctl proxy-config clusters <pod-name[.namespace]> --fqdn details.default.svc.cluster.local --direction inbound -o json
+
+  # Retrieve cluster summary without using Kubernetes API
+  ssh <user@hostname> 'curl localhost:15000/config_dump' > envoy-config.json
+  istioctl proxy-config clusters --file envoy-config.json
 `,
 		Aliases: []string{"clusters", "c"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 1 {
+			if (len(args) == 1) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
-				return fmt.Errorf("cluster requires pod name")
+				return fmt.Errorf("cluster requires pod name or --file parameter")
 			}
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
-			configWriter, err := setupConfigdumpEnvoyConfigWriter(podName, ns, c.OutOrStdout())
+			var configWriter *configdump.ConfigWriter
+			var err error
+			if len(args) == 1 {
+				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+				configWriter, err = setupPodConfigdumpWriter(podName, ns, c.OutOrStdout())
+			} else {
+				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
+			}
 			if err != nil {
 				return err
 			}
@@ -277,9 +334,11 @@ func proxyConfig() *cobra.Command {
 	clusterConfigCmd.PersistentFlags().StringVar(&direction, "direction", "", "Filter clusters by Direction field")
 	clusterConfigCmd.PersistentFlags().StringVar(&subset, "subset", "", "Filter clusters by substring of Subset field")
 	clusterConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter clusters by Port field")
+	clusterConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+		"Envoy config dump JSON file")
 
 	listenerConfigCmd := &cobra.Command{
-		Use:   "listener <pod-name[.namespace]>",
+		Use:   "listener [<pod-name[.namespace]>]",
 		Short: "Retrieves listener configuration for the Envoy in the specified pod",
 		Long:  `Retrieve information about listener configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve summary about listener configuration for a given pod from Envoy.
@@ -290,18 +349,28 @@ func proxyConfig() *cobra.Command {
 
   # Retrieve full listener dump for HTTP listeners with a wildcard address (0.0.0.0).
   istioctl proxy-config listeners <pod-name[.namespace]> --type HTTP --address 0.0.0.0 -o json
+
+  # Retrieve listener summary without using Kubernetes API
+  ssh <user@hostname> 'curl localhost:15000/config_dump' > envoy-config.json
+  istioctl proxy-config listeners --file envoy-config.json
 `,
 		Aliases: []string{"listeners", "l"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 1 {
+			if (len(args) == 1) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
-				return fmt.Errorf("listener requires pod name")
+				return fmt.Errorf("listener requires pod name or --file parameter")
 			}
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
-			configWriter, err := setupConfigdumpEnvoyConfigWriter(podName, ns, c.OutOrStdout())
+			var configWriter *configdump.ConfigWriter
+			var err error
+			if len(args) == 1 {
+				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+				configWriter, err = setupPodConfigdumpWriter(podName, ns, c.OutOrStdout())
+			} else {
+				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
+			}
 			if err != nil {
 				return err
 			}
@@ -325,6 +394,8 @@ func proxyConfig() *cobra.Command {
 	listenerConfigCmd.PersistentFlags().StringVar(&address, "address", "", "Filter listeners by address field")
 	listenerConfigCmd.PersistentFlags().StringVar(&listenerType, "type", "", "Filter listeners by type field")
 	listenerConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter listeners by Port field")
+	listenerConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+		"Envoy config dump JSON file")
 
 	logCmd := &cobra.Command{
 		Use:   "log <pod-name[.namespace]>",
@@ -333,10 +404,13 @@ func proxyConfig() *cobra.Command {
 		Example: `  # Retrieve information about logging levels for a given pod from Envoy.
   istioctl proxy-config log <pod-name[.namespace]>
 
-  # Update levels of the specified loggers and retrieve all the information about logging levels.
-  istioctl proxy-config log <pod-name[.namespace]> --level all:warning,http:debug,redis:debug
+  # Update levels of the all loggers
+  istioctl proxy-config log <pod-name[.namespace]> --level none
 
-  # Reset levels of all the loggers to default value (warning) and retrieve all the information about logging levels.
+  # Update levels of the specified loggers.
+  istioctl proxy-config log <pod-name[.namespace]> --level http:debug,redis:debug
+
+  # Reset levels of all the loggers to default value (warning).
   istioctl proxy-config log <pod-name[.namespace]> -r
 `,
 		Aliases: []string{"o"},
@@ -344,6 +418,10 @@ func proxyConfig() *cobra.Command {
 			if len(args) < 1 {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("log requires pod name")
+			}
+			if reset && loggerLevelString != "" {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("--level cannot be combined with --reset")
 			}
 			return nil
 		},
@@ -422,14 +500,14 @@ func proxyConfig() *cobra.Command {
 		levelToString[CriticalLevel],
 		levelToString[OffLevel])
 	s := strings.Join(activeLoggers, ", ")
-	logCmd.PersistentFlags().BoolVarP(&reset, "reset", "r", reset, "Specify if the reset log level to default value (warning).")
+	logCmd.PersistentFlags().BoolVarP(&reset, "reset", "r", reset, "Reset levels to default value (warning).")
 	logCmd.PersistentFlags().StringVar(&loggerLevelString, "level", loggerLevelString,
 		fmt.Sprintf("Comma-separated minimum per-logger level of messages to output, in the form of"+
-			" <logger>:<level>,<logger>:<level>,... where logger can be one of %s and level can be one of %s",
+			" [<logger>:]<level>,[<logger>:]<level>,... where logger can be one of %s and level can be one of %s",
 			s, levelListString))
 
 	routeConfigCmd := &cobra.Command{
-		Use:   "route <pod-name[.namespace]>",
+		Use:   "route [<pod-name[.namespace]>]",
 		Short: "Retrieves route configuration for the Envoy in the specified pod",
 		Long:  `Retrieve information about route configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve summary about route configuration for a given pod from Envoy.
@@ -440,18 +518,28 @@ func proxyConfig() *cobra.Command {
 
   # Retrieve full route dump for route 9080
   istioctl proxy-config route <pod-name[.namespace]> --name 9080 -o json
+
+  # Retrieve route summary without using Kubernetes API
+  ssh <user@hostname> 'curl localhost:15000/config_dump' > envoy-config.json
+  istioctl proxy-config routes --file envoy-config.json
 `,
 		Aliases: []string{"routes", "r"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 1 {
+			if (len(args) == 1) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
-				return fmt.Errorf("route requires pod name")
+				return fmt.Errorf("route requires pod name or --file parameter")
 			}
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
-			configWriter, err := setupConfigdumpEnvoyConfigWriter(podName, ns, c.OutOrStdout())
+			var configWriter *configdump.ConfigWriter
+			var err error
+			if len(args) == 1 {
+				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+				configWriter, err = setupPodConfigdumpWriter(podName, ns, c.OutOrStdout())
+			} else {
+				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
+			}
 			if err != nil {
 				return err
 			}
@@ -470,9 +558,11 @@ func proxyConfig() *cobra.Command {
 	}
 
 	routeConfigCmd.PersistentFlags().StringVar(&routeName, "name", "", "Filter listeners by route name field")
+	routeConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+		"Envoy config dump JSON file")
 
 	endpointConfigCmd := &cobra.Command{
-		Use:   "endpoint <pod-name[.namespace]>",
+		Use:   "endpoint [<pod-name[.namespace]>]",
 		Short: "Retrieves endpoint configuration for the Envoy in the specified pod",
 		Long:  `Retrieve information about endpoint configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve full endpoint configuration for a given pod from Envoy.
@@ -488,18 +578,28 @@ func proxyConfig() *cobra.Command {
   istioctl proxy-config endpoint <pod-name[.namespace]> --cluster "outbound|9411||zipkin.istio-system.svc.cluster.local" -o json
   # Retrieve full endpoint with the status (healthy).
   istioctl proxy-config endpoint <pod-name[.namespace]> --status healthy -ojson
+
+  # Retrieve endpoint summary without using Kubernetes API
+  ssh <user@hostname> 'curl localhost:15000/clusters?format=json' > envoy-clusters.json
+  istioctl proxy-config endpoints --file envoy-clusters.json
 `,
 		Aliases: []string{"endpoints", "ep"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 1 {
+			if (len(args) == 1) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
-				return fmt.Errorf("endpoint requires pod name")
+				return fmt.Errorf("endpoints requires pod name or --file parameter")
 			}
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
-			configWriter, err := setupClustersEnvoyConfigWriter(podName, ns, c.OutOrStdout())
+			var configWriter *clusters.ConfigWriter
+			var err error
+			if len(args) == 1 {
+				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+				configWriter, err = setupPodClustersWriter(podName, ns, c.OutOrStdout())
+			} else {
+				configWriter, err = setupFileClustersWriter(configDumpFile, c.OutOrStdout())
+			}
 			if err != nil {
 				return err
 			}
@@ -526,25 +626,37 @@ func proxyConfig() *cobra.Command {
 	endpointConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter endpoints by Port field")
 	endpointConfigCmd.PersistentFlags().StringVar(&clusterName, "cluster", "", "Filter endpoints by cluster name field")
 	endpointConfigCmd.PersistentFlags().StringVar(&status, "status", "", "Filter endpoints by status field")
+	endpointConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+		"Envoy config dump JSON file")
 
 	bootstrapConfigCmd := &cobra.Command{
-		Use:   "bootstrap <pod-name[.namespace]>",
+		Use:   "bootstrap [<pod-name[.namespace]>]",
 		Short: "Retrieves bootstrap configuration for the Envoy in the specified pod",
 		Long:  `Retrieve information about bootstrap configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve full bootstrap configuration for a given pod from Envoy.
   istioctl proxy-config bootstrap <pod-name[.namespace]>
+
+  # Retrieve full bootstrap without using Kubernetes API
+  ssh <user@hostname> 'curl localhost:15000/config_dump' > envoy-config.json
+  istioctl proxy-config bootstrap --file envoy-config.json
 `,
 		Aliases: []string{"b"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 1 {
+			if (len(args) == 1) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
-				return fmt.Errorf("bootstrap requires pod name")
+				return fmt.Errorf("bootstrap requires pod name or --file parameter")
 			}
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
-			configWriter, err := setupConfigdumpEnvoyConfigWriter(podName, ns, c.OutOrStdout())
+			var configWriter *configdump.ConfigWriter
+			var err error
+			if len(args) == 1 {
+				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+				configWriter, err = setupPodConfigdumpWriter(podName, ns, c.OutOrStdout())
+			} else {
+				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
+			}
 			if err != nil {
 				return err
 			}
@@ -552,26 +664,39 @@ func proxyConfig() *cobra.Command {
 		},
 	}
 
+	bootstrapConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+		"Envoy config dump JSON file")
+
 	secretConfigCmd := &cobra.Command{
-		Use:   "secret <pod-name[.namespace]>",
+		Use:   "secret [<pod-name[.namespace]>]",
 		Short: "(experimental) Retrieves secret configuration for the Envoy in the specified pod",
 		Long:  `(experimental) Retrieve information about secret configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve full secret configuration for a given pod from Envoy.
   istioctl proxy-config secret <pod-name[.namespace]>
 
+  # Retrieve full bootstrap without using Kubernetes API
+  ssh <user@hostname> 'curl localhost:15000/config_dump' > envoy-config.json
+  istioctl proxy-config secret --file envoy-config.json
+
 THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
 		Aliases: []string{"s"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 1 {
+			if (len(args) == 1) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
-				return fmt.Errorf("secret requires pod name")
+				return fmt.Errorf("secret requires pod name or --file parameter")
 			}
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
-			configWriter, err := setupConfigdumpEnvoyConfigWriter(podName, ns, c.OutOrStdout())
+			var configWriter *configdump.ConfigWriter
+			var err error
+			if len(args) == 1 {
+				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+				configWriter, err = setupPodConfigdumpWriter(podName, ns, c.OutOrStdout())
+			} else {
+				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
+			}
 			if err != nil {
 				return err
 			}
@@ -585,6 +710,9 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			}
 		},
 	}
+
+	secretConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+		"Envoy config dump JSON file")
 
 	configCmd.AddCommand(
 		clusterConfigCmd, listenerConfigCmd, logCmd, routeConfigCmd, bootstrapConfigCmd, endpointConfigCmd, secretConfigCmd)

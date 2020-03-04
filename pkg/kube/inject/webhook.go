@@ -32,9 +32,10 @@ import (
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/mesh"
+
 	"istio.io/pkg/log"
 
 	"k8s.io/api/admission/v1beta1"
@@ -62,7 +63,7 @@ const (
 // Webhook implements a mutating webhook for automatic proxy injection.
 type Webhook struct {
 	mu                     sync.RWMutex
-	sidecarConfig          *Config
+	Config                 *Config
 	sidecarTemplateVersion string
 	meshConfig             *meshconfig.MeshConfig
 	valuesConfig           string
@@ -79,9 +80,13 @@ type Webhook struct {
 	keyFile    string
 	cert       *tls.Certificate
 	mon        *monitor
+	env        *model.Environment
 }
 
-func loadConfig(injectFile, meshFile, valuesFile string) (*Config, *meshconfig.MeshConfig, string, error) {
+// env will be used for other things besides meshConfig - when webhook is running in Istiod it can take advantage
+// of the config and endpoint cache.
+//nolint directives: interfacer
+func loadConfig(injectFile, meshFile, valuesFile string, env *model.Environment) (*Config, *meshconfig.MeshConfig, string, error) {
 	data, err := ioutil.ReadFile(injectFile)
 	if err != nil {
 		return nil, nil, "", err
@@ -97,16 +102,21 @@ func loadConfig(injectFile, meshFile, valuesFile string) (*Config, *meshconfig.M
 		return nil, nil, "", err
 	}
 
-	meshConfig, err := cmd.ReadMeshConfig(meshFile)
-	if err != nil {
-		return nil, nil, "", err
+	var meshConfig *meshconfig.MeshConfig
+	if env != nil {
+		meshConfig = env.Mesh()
+	} else {
+		meshConfig, err = mesh.ReadMeshConfig(meshFile)
+		if err != nil {
+			return nil, nil, "", err
+		}
 	}
 
-	log.Infof("New configuration: sha256sum %x", sha256.Sum256(data))
-	log.Infof("Policy: %v", c.Policy)
-	log.Infof("AlwaysInjectSelector: %v", c.AlwaysInjectSelector)
-	log.Infof("NeverInjectSelector: %v", c.NeverInjectSelector)
-	log.Infof("Template: |\n  %v", strings.Replace(c.Template, "\n", "\n  ", -1))
+	log.Debugf("New inject configuration: sha256sum %x", sha256.Sum256(data))
+	log.Debugf("Policy: %v", c.Policy)
+	log.Debugf("AlwaysInjectSelector: %v", c.AlwaysInjectSelector)
+	log.Debugf("NeverInjectSelector: %v", c.NeverInjectSelector)
+	log.Debugf("Template: |\n  %v", strings.Replace(c.Template, "\n", "\n  ", -1))
 
 	return &c, meshConfig, string(valuesConfig), nil
 }
@@ -132,6 +142,7 @@ type WebhookParameters struct {
 	Port int
 
 	// MonitoringPort is the webhook port, e.g. typically 15014.
+	// Set to -1 to disable monitoring
 	MonitoringPort int
 
 	// HealthCheckInterval configures how frequently the health check
@@ -142,11 +153,18 @@ type WebhookParameters struct {
 	// HealthCheckFile specifies the path to the health check file
 	// that is periodically updated.
 	HealthCheckFile string
+
+	Env *model.Environment
+
+	// Use an existing mux instead of creating our own.
+	Mux *http.ServeMux
 }
 
 // NewWebhook creates a new instance of a mutating webhook for automatic sidecar injection.
 func NewWebhook(p WebhookParameters) (*Webhook, error) {
-	sidecarConfig, meshConfig, valuesConfig, err := loadConfig(p.ConfigFile, p.MeshFile, p.ValuesFile)
+	// TODO: pass a pointer to mesh config from Pilot bootstrap, no need to watch and load 2 times
+	// This is needed before we implement advanced merging / patching of mesh config
+	sidecarConfig, meshConfig, valuesConfig, err := loadConfig(p.ConfigFile, p.MeshFile, p.ValuesFile, p.Env)
 	if err != nil {
 		return nil, err
 	}
@@ -162,6 +180,9 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	// watch the parent directory of the target files so we can catch
 	// symlink updates of k8s ConfigMaps volumes.
 	for _, file := range []string{p.ConfigFile, p.MeshFile, p.CertFile, p.KeyFile} {
+		if file == p.MeshFile && p.Env != nil {
+			continue
+		}
 		watchDir, _ := filepath.Split(file)
 		if err := watcher.Watch(watchDir); err != nil {
 			return nil, fmt.Errorf("could not watch %v: %v", file, err)
@@ -169,10 +190,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	}
 
 	wh := &Webhook{
-		server: &http.Server{
-			Addr: fmt.Sprintf(":%v", p.Port),
-		},
-		sidecarConfig:          sidecarConfig,
+		Config:                 sidecarConfig,
 		sidecarTemplateVersion: sidecarTemplateVersionHash(sidecarConfig.Template),
 		meshConfig:             meshConfig,
 		configFile:             p.ConfigFile,
@@ -185,34 +203,58 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		certFile:               p.CertFile,
 		keyFile:                p.KeyFile,
 		cert:                   &pair,
-	}
-	// mtls disabled because apiserver webhook cert usage is still TBD.
-	wh.server.TLSConfig = &tls.Config{GetCertificate: wh.getCert}
-	h := http.NewServeMux()
-	h.HandleFunc("/inject", wh.serveInject)
-
-	mon, err := startMonitor(h, p.MonitoringPort)
-
-	if err != nil {
-		return nil, fmt.Errorf("could not start monitoring server %v", err)
+		env:                    p.Env,
 	}
 
-	wh.mon = mon
-	wh.server.Handler = h
+	var mux *http.ServeMux
+	if p.Mux != nil {
+		p.Mux.HandleFunc("/inject", wh.serveInject)
+		mux = p.Mux
+	} else {
+		wh.server = &http.Server{
+			Addr: fmt.Sprintf(":%v", p.Port),
+			// mtls disabled because apiserver webhook cert usage is still TBD.
+			TLSConfig: &tls.Config{GetCertificate: wh.getCert},
+		}
+		mux = http.NewServeMux()
+		mux.HandleFunc("/inject", wh.serveInject)
+		wh.server.Handler = mux
+	}
+
+	if p.Env != nil {
+		p.Env.Watcher.AddMeshHandler(func() {
+			wh.mu.Lock()
+			wh.meshConfig = p.Env.Mesh()
+			wh.mu.Unlock()
+		})
+	}
+
+	if p.MonitoringPort >= 0 {
+		mon, err := startMonitor(mux, p.MonitoringPort)
+		if err != nil {
+			return nil, fmt.Errorf("could not start monitoring server %v", err)
+		}
+		wh.mon = mon
+	}
 
 	return wh, nil
 }
 
 // Run implements the webhook server
 func (wh *Webhook) Run(stop <-chan struct{}) {
-	go func() {
-		if err := wh.server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("admission webhook ListenAndServeTLS failed: %v", err)
-		}
-	}()
+	if wh.server != nil {
+		go func() {
+			if err := wh.server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+				log.Fatalf("admission webhook ListenAndServeTLS failed: %v", err)
+			}
+		}()
+		defer wh.server.Close()
+	}
 	defer wh.watcher.Close()
-	defer wh.server.Close()
-	defer wh.mon.monitoringServer.Close()
+
+	if wh.mon != nil {
+		defer wh.mon.monitoringServer.Close()
+	}
 
 	var healthC <-chan time.Time
 	if wh.healthCheckInterval != 0 && wh.healthCheckFile != "" {
@@ -226,7 +268,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 		select {
 		case <-timerC:
 			timerC = nil
-			sidecarConfig, meshConfig, valuesConfig, err := loadConfig(wh.configFile, wh.meshFile, wh.valuesFile)
+			sidecarConfig, meshConfig, valuesConfig, err := loadConfig(wh.configFile, wh.meshFile, wh.valuesFile, wh.env)
 			if err != nil {
 				log.Errorf("update error: %v", err)
 				break
@@ -239,13 +281,14 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 				break
 			}
 			wh.mu.Lock()
-			wh.sidecarConfig = sidecarConfig
+			wh.Config = sidecarConfig
 			wh.valuesConfig = valuesConfig
 			wh.sidecarTemplateVersion = version
 			wh.meshConfig = meshConfig
 			wh.cert = &pair
 			wh.mu.Unlock()
 		case event := <-wh.watcher.Event:
+			log.Debugf("Injector watch update: %+v", event)
 			// use a timer to debounce configuration updates
 			if (event.IsModify() || event.IsCreate()) && timerC == nil {
 				timerC = time.After(watchDebounceDelay)
@@ -356,6 +399,8 @@ func addContainer(target, added []corev1.Container, basePath string) (patch []rf
 		if first {
 			first = false
 			value = []corev1.Container{add}
+		} else if add.Name == "istio-validation" {
+			path += "/0"
 		} else {
 			path += "/-"
 		}
@@ -437,7 +482,15 @@ func escapeJSONPointerValue(in string) string {
 // adds labels to the target spec, will not overwrite label's value if it already exists
 func addLabels(target map[string]string, added map[string]string) []rfc6902PatchOperation {
 	patches := []rfc6902PatchOperation{}
-	for key, value := range added {
+
+	addedKeys := make([]string, 0, len(added))
+	for key := range added {
+		addedKeys = append(addedKeys, key)
+	}
+	sort.Strings(addedKeys)
+
+	for _, key := range addedKeys {
+		value := added[key]
 		patch := rfc6902PatchOperation{
 			Op:    "add",
 			Path:  "/metadata/labels/" + escapeJSONPointerValue(key),
@@ -494,7 +547,9 @@ func updateAnnotation(target map[string]string, added map[string]string) (patch 
 	return patch
 }
 
-func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotations map[string]string, sic *SidecarInjectionSpec) ([]byte, error) {
+func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotations map[string]string, sic *SidecarInjectionSpec,
+	workloadName string) ([]byte, error) {
+
 	var patch []rfc6902PatchOperation
 
 	// Remove any containers previously injected by kube-inject using
@@ -536,13 +591,53 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 
 	patch = append(patch, updateAnnotation(pod.Annotations, annotations)...)
 
-	patch = append(patch, addLabels(pod.Labels, map[string]string{model.MTLSReadyLabelName: "true"})...)
+	canonicalSvc, canonicalRev := extractCanonicalServiceLabels(pod.Labels, workloadName)
+	patch = append(patch, addLabels(pod.Labels, map[string]string{
+		model.TLSModeLabelName:                       model.IstioMutualTLSModeLabel,
+		model.IstioCanonicalServiceLabelName:         canonicalSvc,
+		model.IstioCanonicalServiceRevisionLabelName: canonicalRev})...)
 
 	if rewrite {
 		patch = append(patch, createProbeRewritePatch(pod.Annotations, &pod.Spec, sic)...)
 	}
 
 	return json.Marshal(patch)
+}
+
+func extractCanonicalServiceLabels(podLabels map[string]string, workloadName string) (string, string) {
+	return extractCanonicalServiceLabel(podLabels, workloadName), extractCanonicalServiceRevision(podLabels)
+}
+
+func extractCanonicalServiceRevision(podLabels map[string]string) string {
+	if rev, ok := podLabels[model.IstioCanonicalServiceRevisionLabelName]; ok {
+		return rev
+	}
+
+	if rev, ok := podLabels["app.kubernetes.io/version"]; ok {
+		return rev
+	}
+
+	if rev, ok := podLabels["version"]; ok {
+		return rev
+	}
+
+	return "latest"
+}
+
+func extractCanonicalServiceLabel(podLabels map[string]string, workloadName string) string {
+	if svc, ok := podLabels[model.IstioCanonicalServiceLabelName]; ok {
+		return svc
+	}
+
+	if svc, ok := podLabels["app.kubernetes.io/name"]; ok {
+		return svc
+	}
+
+	if svc, ok := podLabels["app"]; ok {
+		return svc
+	}
+
+	return workloadName
 }
 
 // Retain deprecated hardcoded container and volumes names to aid in
@@ -608,7 +703,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	log.Debugf("Object: %v", string(req.Object.Raw))
 	log.Debugf("OldObject: %v", string(req.OldObject.Raw))
 
-	if !injectRequired(ignoredNamespaces, wh.sidecarConfig, &pod.Spec, &pod.ObjectMeta) {
+	if !injectRequired(ignoredNamespaces, wh.Config, &pod.Spec, &pod.ObjectMeta) {
 		log.Infof("Skipping %s/%s due to policy check", pod.ObjectMeta.Namespace, podName)
 		totalSkippedInjections.Increment()
 		return &v1beta1.AdmissionResponse{
@@ -621,8 +716,12 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
 	if wh.meshConfig.SdsUdsPath != "" {
 		var grp = int64(1337)
-		pod.Spec.SecurityContext = &corev1.PodSecurityContext{
-			FSGroup: &grp,
+		if pod.Spec.SecurityContext == nil {
+			pod.Spec.SecurityContext = &corev1.PodSecurityContext{
+				FSGroup: &grp,
+			}
+		} else {
+			pod.Spec.SecurityContext.FSGroup = &grp
 		}
 	}
 
@@ -667,7 +766,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		deployMeta.Name = pod.Name
 	}
 
-	spec, iStatus, err := InjectionData(wh.sidecarConfig.Template, wh.valuesConfig, wh.sidecarTemplateVersion, typeMetadata, deployMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
+	spec, iStatus, err := InjectionData(wh.Config.Template, wh.valuesConfig, wh.sidecarTemplateVersion, typeMetadata, deployMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
 	if err != nil {
 		handleError(fmt.Sprintf("Injection data: err=%v spec=%v\n", err, iStatus))
 		return toAdmissionResponse(err)
@@ -676,17 +775,17 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	annotations := map[string]string{annotation.SidecarStatus.Name: iStatus}
 
 	// Add all additional injected annotations
-	for k, v := range wh.sidecarConfig.InjectedAnnotations {
+	for k, v := range wh.Config.InjectedAnnotations {
 		annotations[k] = v
 	}
 
-	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec)
+	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec, deployMeta.Name)
 	if err != nil {
 		handleError(fmt.Sprintf("AdmissionResponse: err=%v spec=%v\n", err, spec))
 		return toAdmissionResponse(err)
 	}
 
-	log.Infof("AdmissionResponse: patch=%v\n", string(patchBytes))
+	log.Debugf("AdmissionResponse: patch=%v\n", string(patchBytes))
 
 	reviewResponse := v1beta1.AdmissionResponse{
 		Allowed: true,

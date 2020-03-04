@@ -1,0 +1,155 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: productpage
+  namespace: foo
+spec:
+  hosts:
+  - productpage # should generate an error as this conflicts with VirtualService foo/bogus
+  http:
+  - route:
+    - destination:
+        host: productpage
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: bogus-productpage
+  namespace: foo
+spec:
+  hosts:
+  - productpage # should generate an error as this conflicts with VirtualService foo/productpage
+  http:
+  - route:
+    - destination:
+        host: reviews
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews
+  namespace: foo
+spec:
+  hosts:
+  - reviews # shouldn't generate an error as there's no conflicting VirtualService
+  http:
+  - route:
+    - destination:
+        host: reviews
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews
+  namespace: bar
+spec:
+  hosts:
+  - reviews.foo.svc.cluster.local # shouldn't generate an error as the gateway is different even though host is the same
+  gateways:
+  - istio-ingressgateway
+  http:
+  - route:
+    - destination:
+        host: reviews
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: ratings
+  namespace: foo
+spec:
+  hosts:
+  - ratings # should generate an error as this conflicts with VirtualService bar/ratings
+  gateways:
+  - mesh
+  http:
+  - route:
+    - destination:
+        host: ratings
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: ratings
+  namespace: bar
+spec:
+  hosts:
+  - ratings.foo.svc.cluster.local # should generate an error as mesh gateway is specified and hosts conflict with VirtualService foo/ratings
+  - google.com
+  gateways:
+  - istio-ingressgateway
+  - mesh
+  http:
+  - route:
+    - destination:
+        host: ratings
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: ratings
+  namespace: team1
+spec:
+  hosts:
+  - ratings # shouldn't generate an error as this doesn't conflict with VirtualService ratings.team2 due to exportTo setting
+  gateways:
+  - mesh
+  exportTo:
+  - "."
+  http:
+  - route:
+    - destination:
+        host: ratings
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: ratings
+  namespace: team2
+spec:
+  hosts:
+  - ratings.team1.svc.cluster.local # shouldn't generate an error as this VirtualService doesn't conflict with VirtualService ratings.team1 due to exportTo setting
+  - google.com
+  exportTo:
+  - "."
+  gateways:
+  - istio-ingressgateway
+  - mesh
+  http:
+  - route:
+    - destination:
+        host: ratings
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: ratings
+  namespace: team3
+spec:
+  hosts:
+  - ratings # should generate an error as this conflicts with VirtualService ratings.team4
+  gateways:
+  - mesh
+  exportTo:
+  - "*"
+  http:
+  - route:
+    - destination:
+        host: ratings
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: ratings
+  namespace: team4
+spec:
+  hosts:
+  - ratings.team3.svc.cluster.local # should generate an error as this conflicts with VirtualService ratings.team3
+  gateways:
+  - istio-ingressgateway
+  - mesh
+  http:
+  - route:
+    - destination:
+        host: ratings
+---

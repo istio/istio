@@ -18,6 +18,7 @@ import (
 	"net"
 
 	"istio.io/pkg/ctrlz/fw"
+	"istio.io/pkg/probe"
 
 	"istio.io/istio/galley/pkg/server/components"
 	"istio.io/istio/galley/pkg/server/process"
@@ -28,8 +29,7 @@ import (
 type Server struct {
 	host process.Host
 
-	p  *components.Processing
-	p2 *components.Processing2
+	p *components.Processing
 }
 
 // New returns a new instance of a Server.
@@ -44,23 +44,30 @@ func New(a *settings.Args) *Server {
 	readiness := components.NewProbe(&a.Readiness)
 	s.host.Add(readiness)
 
-	if a.ValidationArgs != nil && (a.ValidationArgs.EnableValidation || a.ValidationArgs.EnableReconcileWebhookConfiguration) {
-		validation := components.NewValidation(a.KubeConfig, a.ValidationArgs, liveness.Controller(), readiness.Controller())
-		s.host.Add(validation)
+	if a.EnableValidationServer {
+		live, ready := liveness.Controller(), readiness.Controller()
+		server := components.NewValidationServer(a.ValidationWebhookServerArgs, live, ready)
+		s.host.Add(server)
+	} else {
+		// Only the validation server controls the probes currently, so if its disable we need to set them as available.
+		livenessProbe := probe.NewProbe()
+		livenessProbe.SetAvailable(nil)
+		livenessProbe.RegisterProbe(liveness.Controller(), "liveness")
+		readinessProbe := probe.NewProbe()
+		readinessProbe.SetAvailable(nil)
+		readinessProbe.RegisterProbe(readiness.Controller(), "readiness")
+	}
+	if a.EnableValidationController ||
+		(a.EnableValidationServer && a.ValidationWebhookControllerArgs.UnregisterValidationWebhook) {
+		controller := components.NewValidationController(a.ValidationWebhookControllerArgs, a.KubeConfig)
+		s.host.Add(controller)
 	}
 
 	if a.EnableServer {
-		if a.UseOldProcessor {
-			s.p = components.NewProcessing(a)
-			s.host.Add(s.p)
-			t := s.p.ConfigZTopic()
-			topics = append(topics, t)
-		} else {
-			s.p2 = components.NewProcessing2(a)
-			s.host.Add(s.p2)
-			t := s.p2.ConfigZTopic()
-			topics = append(topics, t)
-		}
+		s.p = components.NewProcessing(a)
+		s.host.Add(s.p)
+		t := s.p.ConfigZTopic()
+		topics = append(topics, t)
 	}
 
 	mon := components.NewMonitoring(a.MonitoringPort)
@@ -79,10 +86,7 @@ func New(a *settings.Args) *Server {
 
 // Address returns the address of the config processing server.
 func (s *Server) Address() net.Addr {
-	if s.p != nil {
-		return s.p.Address()
-	}
-	return s.p2.Address()
+	return s.p.Address()
 
 }
 

@@ -15,14 +15,19 @@
 package snapshotter
 
 import (
+	"strings"
 	"sync"
+
+	"istio.io/api/annotation"
+
+	"github.com/ryanuber/go-glob"
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	coll "istio.io/istio/galley/pkg/config/collection"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
-	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema/collection"
 )
 
 // CollectionReporterFn is a hook function called whenever a collection is accessed through the AnalyzingDistributor's context
@@ -65,7 +70,24 @@ type AnalyzingDistributorSettings struct {
 	CollectionReporter CollectionReporterFn
 
 	// Namespaces that should be analyzed
-	AnalysisNamespaces []string
+	AnalysisNamespaces []resource.Namespace
+
+	// Suppressions that suppress a set of matching messages.
+	Suppressions []AnalysisSuppression
+}
+
+// AnalysisSuppression describes a resource and analysis code to be suppressed
+// (e.g. ignored) during analysis. Used when a particular message code is to be
+// ignored for a specific resource.
+type AnalysisSuppression struct {
+	// Code is the analysis code to suppress (e.g. "IST0104").
+	Code string
+
+	// ResourceName is the name of the resource to suppress the message for. For
+	// K8s resources it has the same form as used by istioctl (e.g.
+	// "DestinationRule default.istio-system"). Note that globbing wildcards are
+	// supported (e.g. "DestinationRule *.istio-system").
+	ResourceName string
 }
 
 // NewAnalyzingDistributor returns a new instance of AnalyzingDistributor.
@@ -84,7 +106,7 @@ func NewAnalyzingDistributor(s AnalyzingDistributorSettings) *AnalyzingDistribut
 // Distribute implements snapshotter.Distributor
 func (d *AnalyzingDistributor) Distribute(name string, s *Snapshot) {
 	// Keep the most recent snapshot for each snapshot group we care about for analysis so we can combine them
-	// For analysis, we want default and synthetic, and we can safely combine them since they are disjoint.
+	// For analysis, we want default, and we can safely combine them since they are disjoint.
 	if d.isAnalysisSnapshot(name) {
 		d.snapshotsMu.Lock()
 		d.lastSnapshots[name] = s
@@ -107,7 +129,7 @@ func (d *AnalyzingDistributor) Distribute(name string, s *Snapshot) {
 		d.cancelAnalysis = nil
 	}
 
-	namespaces := make(map[string]struct{})
+	namespaces := make(map[resource.Namespace]struct{})
 	for _, ns := range d.s.AnalysisNamespaces {
 		namespaces[ns] = struct{}{}
 	}
@@ -128,7 +150,7 @@ func (d *AnalyzingDistributor) isAnalysisSnapshot(s string) bool {
 	return false
 }
 
-func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, name string, s *Snapshot, namespaces map[string]struct{}) {
+func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, name string, s *Snapshot, namespaces map[resource.Namespace]struct{}) {
 	// For analysis, we use a combined snapshot
 	ctx := &context{
 		sn:                 d.getCombinedSnapshot(),
@@ -140,25 +162,9 @@ func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, name
 	d.s.Analyzer.Analyze(ctx)
 	scope.Analysis.Debugf("Finished analyzing the current snapshot, found messages: %v", ctx.messages)
 
-	// Only keep messages for resources in namespaces we want to analyze
-	// If the message doesn't have an origin (meaning we can't determine the namespace) fail open and keep it
-	// If no such limit is specified, keep them all.
-	var msgs diag.Messages
-	if len(namespaces) == 0 {
-		msgs = ctx.messages
-	} else {
-		for _, m := range ctx.messages {
-			if m.Origin != nil {
-				if _, ok := namespaces[m.Origin.Namespace()]; !ok {
-					continue
-				}
-			}
-			msgs = append(msgs, m)
-		}
-	}
-
+	msgs := filterMessages(ctx.messages, namespaces, d.s.Suppressions)
 	if !ctx.Canceled() {
-		d.s.StatusUpdater.Update(msgs.SortedCopy())
+		d.s.StatusUpdater.Update(msgs.SortedDedupedCopy())
 	}
 
 	// Execution only reaches this point for trigger snapshot group
@@ -184,6 +190,53 @@ func (d *AnalyzingDistributor) getCombinedSnapshot() *Snapshot {
 	return &Snapshot{set: coll.NewSetFromCollections(collections)}
 }
 
+func filterMessages(messages diag.Messages, namespaces map[resource.Namespace]struct{}, suppressions []AnalysisSuppression) diag.Messages {
+	nsNames := make(map[string]struct{})
+	for k := range namespaces {
+		nsNames[k.String()] = struct{}{}
+	}
+
+	var msgs diag.Messages
+FilterMessages:
+	for _, m := range messages {
+		// Only keep messages for resources in namespaces we want to analyze if the
+		// message doesn't have an origin (meaning we can't determine the
+		// namespace). Also kept are cluster-level resources where the namespace is
+		// the empty string. If no such limit is specified, keep them all.
+		if len(namespaces) > 0 && m.Resource != nil && m.Resource.Origin.Namespace() != "" {
+			if _, ok := nsNames[m.Resource.Origin.Namespace().String()]; !ok {
+				continue FilterMessages
+			}
+		}
+
+		// Filter out any messages on resources with suppression annotations.
+		if m.Resource != nil && m.Resource.Metadata.Annotations[annotation.GalleyAnalyzeSuppress.Name] != "" {
+			for _, code := range strings.Split(m.Resource.Metadata.Annotations[annotation.GalleyAnalyzeSuppress.Name], ",") {
+				if code == "*" || m.Type.Code() == code {
+					scope.Analysis.Debugf("Suppressing code %s on resource %s due to resource annotation", m.Type.Code(), m.Resource.Origin.FriendlyName())
+					continue FilterMessages
+				}
+			}
+		}
+
+		// Filter out any messages that match our suppressions.
+		for _, s := range suppressions {
+			if m.Resource == nil || s.Code != m.Type.Code() {
+				continue
+			}
+
+			if !glob.Glob(s.ResourceName, m.Resource.Origin.FriendlyName()) {
+				continue
+			}
+			scope.Analysis.Debugf("Suppressing code %s on resource %s due to suppressions list", m.Type.Code(), m.Resource.Origin.FriendlyName())
+			continue FilterMessages
+		}
+
+		msgs = append(msgs, m)
+	}
+	return msgs
+}
+
 type context struct {
 	sn                 *Snapshot
 	cancelCh           chan struct{}
@@ -194,18 +247,18 @@ type context struct {
 var _ analysis.Context = &context{}
 
 // Report implements analysis.Context
-func (c *context) Report(col collection.Name, m diag.Message) {
+func (c *context) Report(_ collection.Name, m diag.Message) {
 	c.messages.Add(m)
 }
 
 // Find implements analysis.Context
-func (c *context) Find(col collection.Name, name resource.Name) *resource.Entry {
+func (c *context) Find(col collection.Name, name resource.FullName) *resource.Instance {
 	c.collectionReporter(col)
 	return c.sn.Find(col, name)
 }
 
 // Exists implements analysis.Context
-func (c *context) Exists(col collection.Name, name resource.Name) bool {
+func (c *context) Exists(col collection.Name, name resource.FullName) bool {
 	c.collectionReporter(col)
 	return c.Find(col, name) != nil
 }

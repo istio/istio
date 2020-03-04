@@ -52,7 +52,7 @@ No
 </tr>
 <tr id="Params-flush_duration">
 <td><code>flushDuration</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">Duration</a></code></td>
 <td>
 <p>FlushDuration controls the maximum amount of time between sending metrics to the statsd collection server.
 Metrics are reported when either flush<em>bytes is full or flush</em>duration time has elapsed since the last report.</p>
@@ -87,7 +87,7 @@ No
 </tr>
 <tr id="Params-metrics">
 <td><code>metrics</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#Params-MetricInfo">Params.MetricInfo</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Params-MetricInfo">MetricInfo</a>&gt;</code></td>
 <td>
 <p>Map of metric name -&gt; info. If a metric&rsquo;s name is not in the map then the metric will not be exported to statsd.</p>
 
@@ -115,7 +115,7 @@ No
 <tbody>
 <tr id="Params-MetricInfo-type">
 <td><code>type</code></td>
-<td><code><a href="#Params-MetricInfo-Type">Params.MetricInfo.Type</a></code></td>
+<td><code><a href="#Params-MetricInfo-Type">Type</a></code></td>
 <td>
 </td>
 <td>
@@ -130,7 +130,7 @@ No
 the statsd metric name. This allows easier creation of statsd metrics like <code>action_name-response_code</code>.
 The template strings must conform to go&rsquo;s text/template syntax. For the example of <code>action_name-response_code</code>,
 we use the template:
-   <code>&lbrace;&lbrace;.apiMethod}}-&lbrace;&lbrace;.responseCode}}</code></p>
+   <code>{{.apiMethod}}-{{.responseCode}}</code></p>
 
 <p>If name_template is the empty string the Istio metric name will be used for statsd metric&rsquo;s name.</p>
 

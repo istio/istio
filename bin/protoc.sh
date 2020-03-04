@@ -19,6 +19,15 @@ if [[ $# -le 0 ]]; then
     exit 1
 fi
 
+RETRY_COUNT=3
+
 api=$(go list -m -f "{{.Dir}}" istio.io/api)
 
-protoc -I"${REPO_ROOT}"/common-protos -I"${api}" "$@"
+# This occasionally flakes out, so have a simple retry loop
+for (( i=1; i <= RETRY_COUNT; i++ )); do
+  protoc -I"${REPO_ROOT}"/common-protos -I"${api}" "$@" && break
+
+  ret=$?
+  echo "Attempt ${i}/${RETRY_COUNT} to run protoc failed with exit code ${ret}" >&2
+  (( i == RETRY_COUNT )) && exit $ret
+done

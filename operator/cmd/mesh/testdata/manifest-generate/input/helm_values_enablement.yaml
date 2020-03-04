@@ -1,0 +1,11 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  values:
+    prometheus:
+      enabled: false
+    kiali:
+      enabled: true
+    gateways:
+      istio-egressgateway:
+        enabled: true

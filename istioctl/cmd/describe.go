@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 
+	envoy_api "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	envoy_api_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	envoy_api_route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
@@ -39,6 +40,7 @@ import (
 
 	mixerclient "istio.io/api/mixer/v1/config/client"
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
 
 	istioctl_kubernetes "istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/configdump"
@@ -51,7 +53,7 @@ import (
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube/inject"
 )
 
@@ -196,8 +198,7 @@ func containerPortOptional(istioVersion *model.IstioVersion) bool {
 }
 
 func supportsProtocolDetection(istioVersion *model.IstioVersion) bool {
-	// No version of Istio currently detects inbound protocol
-	return false
+	return util.IsIstioVersionGE14(&model.Proxy{IstioVersion: istioVersion})
 }
 
 func validatePort(port v1.ServicePort, pod *v1.Pod, istioVersion *model.IstioVersion) []string {
@@ -564,7 +565,7 @@ func printService(writer io.Writer, svc v1.Service, pod *v1.Pod, istioVersion *m
 				protocol = string(servicePortProtocol(port.Name))
 			}
 
-			fmt.Fprintf(writer, "   Port: %s %d/%s\n", port.Name, nport, protocol)
+			fmt.Fprintf(writer, "   Port: %s %d/%s targets pod port %d\n", port.Name, port.Port, protocol, nport)
 		}
 		msgs := validatePort(port, pod, istioVersion)
 		for _, msg := range msgs {
@@ -611,8 +612,9 @@ func authnMatchSvc(debug envoy_v2.AuthenticationDebug, svc v1.Service, port v1.S
 }
 
 func printAuthn(writer io.Writer, pod *v1.Pod, debug envoy_v2.AuthenticationDebug) {
-	if debug.TLSConflictStatus != "OK" {
-		fmt.Fprintf(writer, "WARNING Pilot predicts TLS Conflict on %s port %d (pod enforces %s, clients speak %s)\n",
+	log.Debugf("AuthenticationDebug is %#v\n", debug)
+	if debug.TLSConflictStatus != "OK" && debug.TLSConflictStatus != "AUTO" {
+		fmt.Fprintf(writer, "WARNING TLS Conflict on %s port %d (pod enforces %s, clients speak %s)\n",
 			kname(pod.ObjectMeta),
 			debug.Port, debug.ServerProtocol, debug.ClientProtocol)
 		if debug.DestinationRuleName != "-" {
@@ -623,7 +625,13 @@ func printAuthn(writer io.Writer, pod *v1.Pod, debug envoy_v2.AuthenticationDebu
 		return
 	}
 
-	mTLSType := map[string]string{
+	if debug.TLSConflictStatus == "AUTO" {
+		fmt.Fprintf(writer, "Pod is %s, clients configured automatically\n",
+			debug.ServerProtocol)
+		return
+	}
+
+	mTLSType13 := map[string]string{
 		"HTTP":        "HTTP",
 		"mTLS":        "STRICT",
 		"HTTP/mTLS":   "PERMISSIVE",
@@ -631,13 +639,23 @@ func printAuthn(writer io.Writer, pod *v1.Pod, debug envoy_v2.AuthenticationDebu
 		"custom mTLS": "custom mTLS",
 		"UNKNOWN":     "Unknown",
 	}
-	tlsType, ok := mTLSType[debug.ServerProtocol]
-	if !ok {
-		tlsType = debug.ServerProtocol
+	tlsType, ok := mTLSType13[debug.ServerProtocol]
+	if ok {
+		// If we survive the lookup, we are on a pre-1.4 Pilot.
+		fmt.Fprintf(writer, "Pod is %s (enforces %s) and clients speak %s\n",
+			tlsType, debug.ServerProtocol, debug.ClientProtocol)
+		return
 	}
 
-	fmt.Fprintf(writer, "Pilot reports that pod is %s (enforces %s) and clients speak %s\n",
-		tlsType, debug.ServerProtocol, debug.ClientProtocol)
+	// If we couldn't find the type in the 1.3 known types, we must be on Istio 1.4+
+	if debug.ClientProtocol != "-" {
+		fmt.Fprintf(writer, "Pod is %s and clients are %s\n",
+			debug.ServerProtocol, debug.ClientProtocol)
+		return
+	}
+
+	fmt.Fprintf(writer, "Pod is %s, client protocol unspecified\n",
+		debug.ServerProtocol)
 }
 
 func isMeshed(pod *v1.Pod) bool {
@@ -709,9 +727,17 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_
 		return nil, err
 	}
 
-	for _, listener := range listeners.DynamicActiveListeners {
-		if filter.Verify(listener.Listener) {
-			sockAddr := listener.Listener.Address.GetSocketAddress()
+	for _, listener := range listeners.DynamicListeners {
+		if listener.ActiveState == nil {
+			continue
+		}
+		listenerTyped := &envoy_api.Listener{}
+		err = ptypes.UnmarshalAny(listener.ActiveState.Listener, listenerTyped)
+		if err != nil {
+			return nil, err
+		}
+		if filter.Verify(listenerTyped) {
+			sockAddr := listenerTyped.Address.GetSocketAddress()
 			if sockAddr != nil {
 				// Skip outbound listeners
 				if sockAddr.Address == "0.0.0.0" {
@@ -719,7 +745,7 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_
 				}
 			}
 
-			for _, filterChain := range listener.Listener.FilterChains {
+			for _, filterChain := range listenerTyped.FilterChains {
 				for _, filter := range filterChain.Filters {
 					hcm := &http_conn.HttpConnectionManager{}
 					if err := ptypes.UnmarshalAny(filter.GetTypedConfig(), hcm); err == nil {
@@ -747,12 +773,14 @@ func getIstioVirtualServiceNameForSvc(cd *configdump.Wrapper, svc v1.Service, po
 		}
 	}
 
-	re := regexp.MustCompile("/apis/networking/v1alpha3/namespaces/(?P<namespace>[^/]+)/virtual-service/(?P<name>[^/]+)")
+	// Starting with recent 1.5.0 builds, the path will include .istio.io.  Handle both.
+	// nolint: gosimple
+	re := regexp.MustCompile("/apis/networking(\\.istio\\.io)?/v1alpha3/namespaces/(?P<namespace>[^/]+)/virtual-service/(?P<name>[^/]+)")
 	ss := re.FindStringSubmatch(path)
 	if ss == nil {
 		return "", "", fmt.Errorf("not a VS path: %s", path)
 	}
-	return ss[2], ss[1], nil
+	return ss[3], ss[2], nil
 }
 
 // getIstioVirtualServicePathForSvcFromRoute returns something like "/apis/networking/v1alpha3/namespaces/default/virtual-service/reviews"
@@ -765,11 +793,16 @@ func getIstioVirtualServicePathForSvcFromRoute(cd *configdump.Wrapper, svc v1.Se
 		return "", err
 	}
 	for _, rcd := range rcd.DynamicRouteConfigs {
-		if rcd.RouteConfig.Name != sPort && !strings.HasPrefix(rcd.RouteConfig.Name, "http.") {
+		routeTyped := &envoy_api.RouteConfiguration{}
+		err = ptypes.UnmarshalAny(rcd.RouteConfig, routeTyped)
+		if err != nil {
+			return "", err
+		}
+		if routeTyped.Name != sPort && !strings.HasPrefix(routeTyped.Name, "http.") {
 			continue
 		}
 
-		for _, vh := range rcd.RouteConfig.VirtualHosts {
+		for _, vh := range routeTyped.VirtualHosts {
 			for _, route := range vh.Routes {
 				if routeDestinationMatchesSvc(route, svc, vh, port) {
 					return getIstioConfig(route.Metadata)
@@ -806,6 +839,7 @@ func routeDestinationMatchesSvc(route *envoy_api_route.Route, svc v1.Service, vh
 
 	// If Istio was deployed with telemetry or policy we'll have the K8s Service
 	// nicely connected to the Envoy Route.
+	// nolint: staticcheck
 	if mixerConfigMatches(svc.ObjectMeta.Namespace, svc.ObjectMeta.Name,
 		route.GetPerFilterConfig()["mixer"], route.GetTypedPerFilterConfig()["mixer"]) {
 		return true
@@ -814,6 +848,7 @@ func routeDestinationMatchesSvc(route *envoy_api_route.Route, svc v1.Service, vh
 	if rte := route.GetRoute(); rte != nil {
 		if weightedClusters := rte.GetWeightedClusters(); weightedClusters != nil {
 			for _, weightedCluster := range weightedClusters.Clusters {
+				// nolint: staticcheck
 				if mixerConfigMatches(svc.ObjectMeta.Namespace, svc.ObjectMeta.Name,
 					weightedCluster.GetPerFilterConfig()["mixer"], weightedCluster.GetTypedPerFilterConfig()["mixer"]) {
 					return true
@@ -892,12 +927,14 @@ func getIstioDestinationRuleNameForSvc(cd *configdump.Wrapper, svc v1.Service, p
 		return "", "", err
 	}
 
-	re := regexp.MustCompile("/apis/networking/v1alpha3/namespaces/(?P<namespace>[^/]+)/destination-rule/(?P<name>[^/]+)")
+	// Starting with recent 1.5.0 builds, the path will include .istio.io.  Handle both.
+	// nolint: gosimple
+	re := regexp.MustCompile("/apis/networking(\\.istio\\.io)?/v1alpha3/namespaces/(?P<namespace>[^/]+)/destination-rule/(?P<name>[^/]+)")
 	ss := re.FindStringSubmatch(path)
 	if ss == nil {
 		return "", "", fmt.Errorf("not a DR path: %s", path)
 	}
-	return ss[2], ss[1], nil
+	return ss[3], ss[2], nil
 }
 
 // getIstioDestinationRulePathForSvc returns something like "/apis/networking/v1alpha3/namespaces/default/destination-rule/reviews"
@@ -918,9 +955,13 @@ func getIstioDestinationRulePathForSvc(cd *configdump.Wrapper, svc v1.Service, p
 	}
 
 	for _, dac := range dump.DynamicActiveClusters {
-		cluster := dac.Cluster
-		if filter.Verify(cluster) {
-			metadata := cluster.Metadata
+		clusterTyped := &envoy_api.Cluster{}
+		err = ptypes.UnmarshalAny(dac.Cluster, clusterTyped)
+		if err != nil {
+			return "", err
+		}
+		if filter.Verify(clusterTyped) {
+			metadata := clusterTyped.Metadata
 			if metadata != nil {
 				istioConfig := asMyProtoValue(metadata.FilterMetadata["istio"]).
 					keyAsString("config")
@@ -1052,11 +1093,20 @@ func getIstioVirtualServicePathForSvcFromListener(cd *configdump.Wrapper, svc v1
 	}
 
 	// VirtualServices for TCP may appear in the listeners
-	for _, listener := range listeners.DynamicActiveListeners {
-		if filter.Verify(listener.Listener) {
-			for _, filterChain := range listener.Listener.FilterChains {
+	for _, listener := range listeners.DynamicListeners {
+		if listener.ActiveState == nil {
+			continue
+		}
+		listenerTyped := &envoy_api.Listener{}
+		err = ptypes.UnmarshalAny(listener.ActiveState.Listener, listenerTyped)
+		if err != nil {
+			return "", err
+		}
+		if filter.Verify(listenerTyped) {
+			for _, filterChain := range listenerTyped.FilterChains {
 				for _, filter := range filterChain.Filters {
 					if filter.Name == "mixer" {
+						// nolint: staticcheck
 						svcName, svcNamespace, err := getMixerDestinationSvc(filter.GetConfig())
 						if err == nil && svcName == svc.ObjectMeta.Name && svcNamespace == svc.ObjectMeta.Namespace {
 							return getIstioConfig(filterChain.Metadata)
@@ -1115,7 +1165,7 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabel
 			drName, drNamespace, err := getIstioDestinationRuleNameForSvc(&cd, svc, port.Port)
 			var dr *model.Config
 			if err == nil && drName != "" && drNamespace != "" {
-				dr = configClient.Get(schemas.DestinationRule.Type, drName, drNamespace)
+				dr = configClient.Get(collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(), drName, drNamespace)
 				if dr != nil {
 					matchingSubsets, nonmatchingSubsets = getDestRuleSubsets(*dr, podsLabels)
 				}
@@ -1123,7 +1173,7 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabel
 
 			vsName, vsNamespace, err := getIstioVirtualServiceNameForSvc(&cd, svc, port.Port)
 			if err == nil && vsName != "" && vsNamespace != "" {
-				vs := configClient.Get(schemas.VirtualService.Type, vsName, vsNamespace)
+				vs := configClient.Get(collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(), vsName, vsNamespace)
 				if vs != nil {
 					if row == 0 {
 						fmt.Fprintf(writer, "\n")
@@ -1314,7 +1364,7 @@ func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecCl
 		authnDebug, err = getAuthenticationz(kubeClient, pod.ObjectMeta.Name, pod.ObjectMeta.Namespace)
 		if err != nil {
 			// Keep going on error
-			fmt.Fprintf(writer, "%s", err)
+			fmt.Fprintf(writer, "%s\n", err)
 		}
 	}
 
@@ -1330,7 +1380,7 @@ func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecCl
 	cd := configdump.Wrapper{}
 	err = cd.UnmarshalJSON(byConfigDump)
 	if err != nil {
-		return fmt.Errorf("can't parse sidecar config_dump: %v", err)
+		return fmt.Errorf("can't parse sidecar config_dump for %v: %v", err, pod.ObjectMeta.Name)
 	}
 
 	// If the sidecar is on Envoy 1.3 or higher, don't complain about empty K8s Svc Port name
@@ -1348,7 +1398,7 @@ func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecCl
 			drName, drNamespace, err := getIstioDestinationRuleNameForSvc(&cd, svc, port.Port)
 			var dr *model.Config
 			if err == nil && drName != "" && drNamespace != "" {
-				dr = configClient.Get(schemas.DestinationRule.Type, drName, drNamespace)
+				dr = configClient.Get(collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(), drName, drNamespace)
 				if dr != nil {
 					if len(svc.Spec.Ports) > 1 {
 						// If there is more than one port, prefix each DR by the port it applies to
@@ -1367,7 +1417,7 @@ func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecCl
 
 			vsName, vsNamespace, err := getIstioVirtualServiceNameForSvc(&cd, svc, port.Port)
 			if err == nil && vsName != "" && vsNamespace != "" {
-				vs := configClient.Get(schemas.VirtualService.Type, vsName, vsNamespace)
+				vs := configClient.Get(collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(), vsName, vsNamespace)
 				if vs != nil {
 					if len(svc.Spec.Ports) > 1 {
 						// If there is more than one port, prefix each DR by the port it applies to

@@ -60,7 +60,9 @@ func TestConfigWriter_PrintClusterSummary(t *testing.T) {
 			cw := &ConfigWriter{Stdout: gotOut}
 			cd, _ := ioutil.ReadFile("testdata/configdump.json")
 			if tt.callPrime {
-				cw.Prime(cd)
+				if err := cw.Prime(cd); err != nil {
+					t.Fatal(err)
+				}
 			}
 			err := cw.PrintClusterSummary(tt.filter)
 			if tt.wantOutputFile != "" {

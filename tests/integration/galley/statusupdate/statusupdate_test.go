@@ -42,6 +42,16 @@ func setupConfig(cfg *istio.Config) {
 		return
 	}
 	cfg.Values["galley.enableAnalysis"] = "true"
+	cfg.ControlPlaneValues = `
+components:
+  galley:
+    enabled: true
+  citadel:
+    enabled: true
+values:
+  galley:
+    enableAnalysis: true
+`
 }
 
 const (
@@ -96,7 +106,7 @@ func TestStatusUpdate(t *testing.T) {
 			getStatusFn := func() string {
 				u, err := env.GetUnstructured(gvr, ns.Name(), name)
 				if err != nil {
-					t.Errorf("Couldn't get status for resource %v", name)
+					t.Fatalf("Couldn't get status for resource %v", name)
 				}
 				return fmt.Sprintf("%v", u.Object["status"])
 			}

@@ -25,15 +25,14 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	kubeSchema "k8s.io/apimachinery/pkg/runtime/schema"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/pkg/log"
 	"istio.io/pkg/probe"
 
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	schema2 "istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/pkg/config/schema"
 	configz "istio.io/istio/pkg/mcp/configz/client"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/monitoring"
@@ -54,7 +53,7 @@ const (
 // Do not use 'init()' for automatic registration; linker will drop
 // the whole module because it looks unused.
 func Register(builders map[string]store.Builder) {
-	var builder store.Builder = func(u *url.URL, _ *schema.GroupVersion, credOptions *creds.Options, _ []string) (
+	var builder store.Builder = func(u *url.URL, _ *kubeSchema.GroupVersion, credOptions *creds.Options, _ []string) (
 		store.Backend, error) {
 		return newStore(u, credOptions, nil)
 	}
@@ -88,7 +87,7 @@ type updateHookFn func()
 // backend is StoreBackend implementation using MCP.
 type backend struct {
 	// mapping of CRD <> collections.
-	mapping *schema2.Mapping
+	mapping *schema.Mapping
 
 	// Use insecure communication for gRPC.
 	insecure bool
@@ -135,7 +134,7 @@ type state struct {
 
 // Init implements store.Backend.Init.
 func (b *backend) Init(kinds []string) error {
-	m, err := schema2.ConstructKindMapping(kinds, metadata.MustGet())
+	m, err := schema.ConstructKindMapping(kinds, schema.MustGet())
 	if err != nil {
 		return err
 	}

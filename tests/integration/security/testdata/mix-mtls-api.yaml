@@ -1,0 +1,31 @@
+# Global Alpha API enable mTLS strict, namespace beta API disable mTLS. Alpha API should be
+# ignored, so this should behave same as beta-mtls-off.
+apiVersion: authentication.istio.io/v1alpha1
+kind: MeshPolicy
+metadata:
+  name: "default"
+  annotations:
+    test-suite: "mix-mtls-api"
+spec: {}
+---
+apiVersion: "security.istio.io/v1beta1"
+kind: "PeerAuthentication"
+metadata:
+  name: "default"
+  annotations:
+    test-suite: "mix-mtls-api"
+spec:
+  mtls:
+    mode: DISABLE
+---
+apiVersion: "networking.istio.io/v1alpha3"
+kind: "DestinationRule"
+metadata:
+  name: "default"
+  annotations:
+    test-suite: "mix-mtls-api"
+spec:
+  host: "*.local"
+  trafficPolicy:
+    tls:
+      mode: DISABLE

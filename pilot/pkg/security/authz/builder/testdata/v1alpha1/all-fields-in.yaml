@@ -1,0 +1,57 @@
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ClusterRbacConfig
+metadata:
+  name: default
+spec:
+  mode: 'ON_WITH_INCLUSION'
+  inclusion:
+    namespaces: ["foo"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: httpbin-viewer
+  namespace: foo
+spec:
+  rules:
+    - services: ["httpbin.foo.svc.cluster.local"]
+      methods: ["method", "method-prefix-*", "*-suffix-method", "*"]
+      paths: ["/exact", "/prefix/*", "*/suffix", "*"]
+      constraints:
+      - key: "destination.ip"
+        values: ["10.10.10.10", "192.168.10.0/24"]
+      - key: "destination.port"
+        values: ["91", "92"]
+      - key: "destination.user"
+        values: ["destination-user", "destination-user-prefix-*", "*-suffix-destination-user", "*"]
+      - key: "experimental.envoy.filters.network.mysql_proxy[db.table]"
+        values: ["experimental", "experimental-prefix-*", "*-suffix-experimental", "*"]
+      - key: "request.headers[X-header]"
+        values: ["header", "header-prefix-*", "*-suffix-header", "*"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: bind-httpbin-viewer
+  namespace: foo
+spec:
+  subjects:
+    - user: "user"
+      properties:
+        source.ip: "1.2.3.4"
+        source.namespace: "source-ns"
+        source.principal: "source-principal"
+        request.auth.principal: "request-principal"
+        request.auth.audiences: "request-audiences"
+        request.auth.presenter: "request-presenter"
+        request.auth.claims[iss]: "request-claims"
+    - properties:
+        source.namespace: "*"
+        source.principal: "*"
+        request.auth.principal: "*"
+        request.auth.audiences: "*"
+        request.auth.presenter: "*"
+        request.auth.claims[iss]: "*"
+  roleRef:
+    kind: ServiceRole
+    name: httpbin-viewer

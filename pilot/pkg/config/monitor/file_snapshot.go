@@ -20,12 +20,13 @@ import (
 	"path/filepath"
 	"sort"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schema"
-	"istio.io/istio/pkg/config/schemas"
-
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 var (
@@ -39,25 +40,25 @@ var (
 // config and filter criteria for which of those configs will be parsed.
 type FileSnapshot struct {
 	root             string
-	configTypeFilter map[string]bool
+	configTypeFilter map[resource.GroupVersionKind]bool
 }
 
 // NewFileSnapshot returns a snapshotter.
 // If no types are provided in the descriptor, all Istio types will be allowed.
-func NewFileSnapshot(root string, descriptor schema.Set) *FileSnapshot {
+func NewFileSnapshot(root string, schemas collection.Schemas) *FileSnapshot {
 	snapshot := &FileSnapshot{
 		root:             root,
-		configTypeFilter: make(map[string]bool),
+		configTypeFilter: make(map[resource.GroupVersionKind]bool),
 	}
 
-	types := descriptor.Types()
-	if len(types) == 0 {
-		types = schemas.Istio.Types()
+	ss := schemas.All()
+	if len(ss) == 0 {
+		ss = collections.Pilot.All()
 	}
 
-	for _, k := range types {
-		if s, ok := schemas.Istio.GetByType(k); ok {
-			snapshot.configTypeFilter[s.Type] = true
+	for _, k := range ss {
+		if _, ok := collections.Pilot.FindByGroupVersionKind(k.Resource().GroupVersionKind()); ok {
+			snapshot.configTypeFilter[k.Resource().GroupVersionKind()] = true
 		}
 	}
 
@@ -88,7 +89,7 @@ func (f *FileSnapshot) ReadConfigFiles() ([]*model.Config, error) {
 
 		// Filter any unsupported types before appending to the result.
 		for _, cfg := range configs {
-			if !f.configTypeFilter[cfg.Type] {
+			if !f.configTypeFilter[cfg.GroupVersionKind()] {
 				continue
 			}
 			result = append(result, cfg)

@@ -1,0 +1,27 @@
+# Generated from ClusterRbacConfig with mode ON_WITH_INCLUSION on namespace "ns1". This policy will deny all requests to namespace "ns1" by default.
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-namespace-deny-all
+  namespace: ns1
+spec:
+  {}
+---
+# Generated from ClusterRbacConfig with mode ON_WITH_INCLUSION on namespace "ns2". This policy will deny all requests to namespace "ns2" by default.
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-namespace-deny-all
+  namespace: ns2
+spec:
+  {}
+---
+# Generated from ClusterRbacConfig with mode ON_WITH_INCLUSION on namespace "ns3". This policy will deny all requests to namespace "ns3" by default.
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-namespace-deny-all
+  namespace: ns3
+spec:
+  {}
+---

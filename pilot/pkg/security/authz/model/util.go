@@ -34,7 +34,7 @@ func stringMatch(a string, list []string) bool {
 	return false
 }
 
-// prefixMatch checks if string "a" prefix matches "pattern".
+// prefixMatch checks if pattern is a prefix match and if string a has the given prefix.
 func prefixMatch(a string, pattern string) bool {
 	if !strings.HasSuffix(pattern, "*") {
 		return false
@@ -43,7 +43,7 @@ func prefixMatch(a string, pattern string) bool {
 	return strings.HasPrefix(a, pattern)
 }
 
-// suffixMatch checks if string "a" prefix matches "pattern".
+// suffixMatch checks if pattern is a suffix match and if string a has the given suffix.
 func suffixMatch(a string, pattern string) bool {
 	if !strings.HasPrefix(pattern, "*") {
 		return false
@@ -108,38 +108,4 @@ func found(key string, list []string) bool {
 		}
 	}
 	return false
-}
-
-// replaceTrustDomainInPrincipal returns a new SPIFFE identity with the new trust domain.
-// The trust domain corresponds to the trust root of a system.
-// Refer to
-// [SPIFFE-ID](https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain)
-// In Istio authorization, an identity is presented in the format:
-// <trust-domain>/ns/<some-namespace>/sa/<some-service-account>
-func replaceTrustDomainInPrincipal(trustDomain, spiffeIdentity string) string {
-	identityParts := strings.Split(spiffeIdentity, "/")
-	// A valid SPIFFE identity in authorization has no SPIFFE:// prefix.
-	// It is presented as <trust-domain>/ns/<some-namespace>/sa/<some-service-account>
-	if len(identityParts) != 5 {
-		rbacLog.Errorf("Wrong SPIFFE format found: %s", spiffeIdentity)
-		return ""
-	}
-	return fmt.Sprintf("%s/%s", trustDomain, strings.Join(identityParts[1:], "/"))
-}
-
-// The trust domain corresponds to the trust root of a system.
-// Refer to
-// [SPIFFE-ID](https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain)
-// In Istio authorization, an identity is presented in the format:
-// <trust-domain>/ns/<some-namespace>/sa/<some-service-account>
-// Therefore, for example, "cluster.local/ns/default/sa/bookinfo-ratings-v2" will return "cluster.local"
-func getTrustDomain(principal string) string {
-	identityParts := strings.Split(principal, "/")
-	// A valid SPIFFE identity in authorization has no SPIFFE:// prefix.
-	// It is presented as <trust-domain>/ns/<some-namespace>/sa/<some-service-account>
-	if len(identityParts) != 5 {
-		rbacLog.Errorf("Wrong SPIFFE format found: %s", principal)
-		return ""
-	}
-	return identityParts[0]
 }

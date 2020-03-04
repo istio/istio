@@ -1,0 +1,20 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  profile: empty
+  components:
+    telemetry:
+      enabled: true
+      k8s:
+        overlays:
+          - kind: handler
+            name: prometheus
+            patches:
+              - path: spec.params.metrics.[name:requests_total].label_names.[reporter]
+                value: new_metric # OVERRIDDEN
+          - kind: Deployment
+            name: istio-telemetry
+            patches:
+              - path: spec.template.spec.containers.[name:mixer].args.[--trace_zipkin_url]
+                value: --trace_zipkin_url=http://zipkin.istio-telemetry:1234/api/v1/spans # OVERRIDDEN
+

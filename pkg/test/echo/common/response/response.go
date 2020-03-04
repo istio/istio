@@ -21,6 +21,7 @@ import (
 
 var (
 	StatusCodeOK          = strconv.Itoa(http.StatusOK)
+	StatusUnauthorized    = strconv.Itoa(http.StatusUnauthorized)
 	StatusCodeForbidden   = strconv.Itoa(http.StatusForbidden)
 	StatusCodeUnavailable = strconv.Itoa(http.StatusServiceUnavailable)
 )
@@ -33,6 +34,7 @@ const (
 	ServiceVersionField Field = "ServiceVersion"
 	ServicePortField    Field = "ServicePort"
 	StatusCodeField     Field = "StatusCode"
+	URLField            Field = "URL"
 	HostField           Field = "Host"
 	HostnameField       Field = "Hostname"
 )

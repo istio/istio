@@ -18,7 +18,7 @@ import (
 	"sort"
 	"strings"
 
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/pkg/config/schema/collection"
 )
 
 // Set of collections
@@ -26,12 +26,13 @@ type Set struct {
 	collections map[collection.Name]*Instance
 }
 
-// NewSet returns a new set of collections
-func NewSet(names []collection.Name) *Set {
+// NewSet returns a new set of collections for the given schemas.
+func NewSet(schemas collection.Schemas) *Set {
 	c := make(map[collection.Name]*Instance)
-	for _, n := range names {
-		c[n] = New(n)
-	}
+	schemas.ForEach(func(s collection.Schema) (done bool) {
+		c[s.Name()] = New(s)
+		return
+	})
 
 	return &Set{
 		collections: c,
@@ -42,7 +43,7 @@ func NewSet(names []collection.Name) *Set {
 func NewSetFromCollections(collections []*Instance) *Set {
 	c := make(map[collection.Name]*Instance, len(collections))
 	for _, col := range collections {
-		c[col.collection] = col
+		c[col.schema.Name()] = col
 	}
 
 	return &Set{

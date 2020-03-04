@@ -70,7 +70,7 @@ func Deploy(ctx resource.Context, cfg *Config) (Instance, error) {
 	}
 
 	var err error
-	scopes.CI.Info("=== BEGIN: Deploy Istio (via Helm Template) ===")
+	scopes.CI.Info("=== BEGIN: Deploy Istio ===")
 	defer func() {
 		if err != nil {
 			scopes.CI.Infof("=== FAILED: Deploy Istio ===")

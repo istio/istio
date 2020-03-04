@@ -407,8 +407,8 @@ func getStatefulSet(service string, port int, injectProxy bool) framework.App {
 	return framework.App{
 		AppYamlTemplate: "testdata/statefulset.yaml.tmpl",
 		Template: map[string]string{
-			"Hub":             tc.Kube.PilotHub(),
-			"Tag":             tc.Kube.PilotTag(),
+			"Hub":             tc.Kube.AppHub(),
+			"Tag":             tc.Kube.AppTag(),
 			"service":         service,
 			"port":            strconv.Itoa(port),
 			"istioNamespace":  tc.Kube.Namespace,

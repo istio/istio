@@ -18,6 +18,8 @@ import (
 	envoy_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 )
 
+// MetadataStringMatcher creates a metadata string matcher for the given filter, key and the
+// string matcher.
 func MetadataStringMatcher(filter, key string, m *envoy_matcher.StringMatcher) *envoy_matcher.MetadataMatcher {
 	return &envoy_matcher.MetadataMatcher{
 		Filter: filter,
@@ -36,13 +38,14 @@ func MetadataStringMatcher(filter, key string, m *envoy_matcher.StringMatcher) *
 	}
 }
 
-// MetadataListMatcher generates a metadata list matcher for the given path keys and value.
-func MetadataListMatcher(filter string, keys []string, value string) *envoy_matcher.MetadataMatcher {
+// MetadataListMatcher creates a metadata list matcher for the given path keys and value.
+// If treatWildcardAsRequired is true, the wildcard "*" will be generated as ".+" instead of ".*".
+func MetadataListMatcher(filter string, keys []string, value string, treatWildcardAsRequired bool) *envoy_matcher.MetadataMatcher {
 	listMatcher := &envoy_matcher.ListMatcher{
 		MatchPattern: &envoy_matcher.ListMatcher_OneOf{
 			OneOf: &envoy_matcher.ValueMatcher{
 				MatchPattern: &envoy_matcher.ValueMatcher_StringMatch{
-					StringMatch: StringMatcher(value),
+					StringMatch: StringMatcher(value, treatWildcardAsRequired),
 				},
 			},
 		},

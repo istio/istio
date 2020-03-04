@@ -60,7 +60,7 @@ const (
 	caKeySize = 2048
 )
 
-var pkiCaLog = log.RegisterScope("pkiCaLog", "Citadel CA log", 0)
+var pkiCaLog = log.RegisterScope("pkica", "Citadel CA log", 0)
 
 // caTypes is the enum for the CA type.
 type caTypes int
@@ -90,7 +90,7 @@ type IstioCAOptions struct {
 }
 
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
-func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
+func NewSelfSignedIstioCAOptions(ctx context.Context,
 	rootCertGracePeriodPercentile int, caCertTTL, rootCertCheckInverval, certTTL,
 	maxCertTTL time.Duration, org string, dualUse bool, namespace string,
 	readCertRetryInterval time.Duration, client corev1.CoreV1Interface,
@@ -120,17 +120,16 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
 		CertTTL:    certTTL,
 		MaxCertTTL: maxCertTTL,
 		RotatorConfig: &SelfSignedCARootCertRotatorConfig{
-			CheckInterval:       rootCertCheckInverval,
-			caCertTTL:           caCertTTL,
-			retryInterval:       cmd.ReadSigningCertRetryInterval,
-			certInspector:       certutil.NewCertUtil(rootCertGracePeriodPercentile),
-			caStorageNamespace:  namespace,
-			dualUse:             dualUse,
-			readSigningCertOnly: readSigningCertOnly,
-			org:                 org,
-			rootCertFile:        rootCertFile,
-			enableJitter:        enableJitter,
-			client:              client,
+			CheckInterval:      rootCertCheckInverval,
+			caCertTTL:          caCertTTL,
+			retryInterval:      cmd.ReadSigningCertRetryInterval,
+			certInspector:      certutil.NewCertUtil(rootCertGracePeriodPercentile),
+			caStorageNamespace: namespace,
+			dualUse:            dualUse,
+			org:                org,
+			rootCertFile:       rootCertFile,
+			enableJitter:       enableJitter,
+			client:             client,
 		},
 	}
 	if scrtErr != nil {
@@ -325,4 +324,24 @@ func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, cert
 	certEncoded := base64.StdEncoding.EncodeToString(cert)
 	cmc := configmap.NewController(namespace, client)
 	return cmc.InsertCATLSRootCert(certEncoded)
+}
+
+// GenKeyCert() generates a certificate signed by the CA and
+// returns the certificate chain and the private key.
+func (ca *IstioCA) GenKeyCert(hostnames []string, certTTL time.Duration) ([]byte, []byte, error) {
+	opts := util.CertOptions{
+		RSAKeySize: 2048,
+	}
+
+	csrPEM, privPEM, err := util.GenCSR(opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	certPEM, err := ca.SignWithCertChain(csrPEM, hostnames, certTTL, false)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return certPEM, privPEM, nil
 }

@@ -18,8 +18,10 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
+	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/schema/collection"
 )
 
 func TestBasicSingleSource(t *testing.T) {
@@ -27,7 +29,8 @@ func TestBasicSingleSource(t *testing.T) {
 
 	s1 := &fixtures.Source{}
 
-	ps := newPrecedenceSource([]event.Source{s1})
+	psi := precedenceSourceInput{src: s1, cols: collection.Names{basicmeta.K8SCollection1.Name()}}
+	ps := newPrecedenceSource([]precedenceSourceInput{psi})
 
 	h := &fixtures.Accumulator{}
 	ps.Dispatch(h)
@@ -35,8 +38,8 @@ func TestBasicSingleSource(t *testing.T) {
 	ps.Start()
 	defer ps.Stop()
 
-	e1 := createTestEvent(event.Added, createTestResource("ns", "resource1", "v1"))
-	e2 := createTestEvent(event.FullSync, nil)
+	e1 := createTestEvent(t, event.Added, createTestResource(t, "ns", "resource1", "v1"))
+	e2 := createTestEvent(t, event.FullSync, nil)
 
 	s1.Handle(e1)
 	s1.Handle(e2)
@@ -49,7 +52,10 @@ func TestWaitAndCombineFullSync(t *testing.T) {
 	s1 := &fixtures.Source{}
 	s2 := &fixtures.Source{}
 
-	ps := newPrecedenceSource([]event.Source{s1, s2})
+	psi1 := precedenceSourceInput{src: s1, cols: collection.Names{basicmeta.K8SCollection1.Name(), basicmeta.Collection2.Name()}}
+	psi2 := precedenceSourceInput{src: s2, cols: collection.Names{basicmeta.K8SCollection1.Name()}}
+
+	ps := newPrecedenceSource([]precedenceSourceInput{psi1, psi2})
 
 	h := &fixtures.Accumulator{}
 	ps.Dispatch(h)
@@ -57,13 +63,21 @@ func TestWaitAndCombineFullSync(t *testing.T) {
 	ps.Start()
 	defer ps.Stop()
 
-	e := createTestEvent(event.FullSync, nil)
+	// For collections in more than one source, wait for all sources before publishing fullsync
+	e1 := createTestEvent(t, event.FullSync, nil)
 
-	s1.Handle(e)
+	s1.Handle(e1)
 	g.Expect(h.Events()).To(BeEmpty())
 
-	s2.Handle(e)
-	g.Expect(h.Events()).To(Equal([]event.Event{e}))
+	s2.Handle(e1)
+	g.Expect(h.Events()).To(Equal([]event.Event{e1}))
+
+	// Collection2 is only in one source, so we shouldn't wait for an event from both sources
+	e2 := createTestEvent(t, event.FullSync, nil)
+	e2.Source = basicmeta.Collection2
+
+	s1.Handle(e2)
+	g.Expect(h.Events()).To(Equal([]event.Event{e1, e2}))
 }
 
 func TestPrecedence(t *testing.T) {
@@ -73,7 +87,11 @@ func TestPrecedence(t *testing.T) {
 	s2 := &fixtures.Source{}
 	s3 := &fixtures.Source{}
 
-	ps := newPrecedenceSource([]event.Source{s1, s2, s3})
+	psi1 := precedenceSourceInput{src: s1, cols: collection.Names{basicmeta.K8SCollection1.Name()}}
+	psi2 := precedenceSourceInput{src: s2, cols: collection.Names{basicmeta.K8SCollection1.Name()}}
+	psi3 := precedenceSourceInput{src: s3, cols: collection.Names{basicmeta.K8SCollection1.Name()}}
+
+	ps := newPrecedenceSource([]precedenceSourceInput{psi1, psi2, psi3})
 
 	h := &fixtures.Accumulator{}
 	ps.Dispatch(h)
@@ -81,8 +99,8 @@ func TestPrecedence(t *testing.T) {
 	ps.Start()
 	defer ps.Stop()
 
-	e1 := createTestEvent(event.Added, createTestResource("ns", "resource1", "v1"))
-	e2 := createTestEvent(event.Added, createTestResource("ns", "resource1", "v2"))
+	e1 := createTestEvent(t, event.Added, createTestResource(t, "ns", "resource1", "v1"))
+	e2 := createTestEvent(t, event.Added, createTestResource(t, "ns", "resource1", "v2"))
 
 	s2.Handle(e1)
 	g.Expect(h.Events()).To(Equal([]event.Event{e1}))

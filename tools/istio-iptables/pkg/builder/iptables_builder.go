@@ -29,9 +29,9 @@ type IptablesProducer interface {
 // IptablesConsumer is an interface for constructing iptables-rules command string or iptables-restore formatted rules
 type IptablesConsumer interface {
 	// BuildV4 creates iptables commands
-	BuildV4() []string
+	BuildV4() [][]string
 	// BuildV6 creates ip6tables commands
-	BuildV6() []string
+	BuildV6() [][]string
 	// BuildV4Restore creates iptables-restore input format
 	BuildV4Restore() string
 	// BuildV6Restore creates ip6tables-restore input format

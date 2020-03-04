@@ -21,14 +21,24 @@ import (
 	"net/http"
 	"strings"
 
-	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+
+	"istio.io/pkg/log"
 )
 
 // Shutdown initiates a graceful shutdown of Envoy.
 func Shutdown(adminPort uint32) error {
 	_, err := doEnvoyPost("quitquitquit", "", "", adminPort)
+	return err
+}
+
+// DrainListeners drains inbound listeners of Envoy so that inflight requests
+// can gracefully finish and even continue making outbound calls as needed.
+func DrainListeners(adminPort uint32) error {
+	res, err := doEnvoyPost("drain_listeners?inboundonly", "", "", adminPort)
+	log.Debugf("Drain listener endpoint response : %s", res.String())
 	return err
 }
 

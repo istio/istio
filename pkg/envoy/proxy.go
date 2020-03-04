@@ -23,7 +23,7 @@ import (
 	"path"
 	"time"
 
-	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -36,9 +36,6 @@ import (
 const (
 	// epochFileTemplate is a template for the root config JSON
 	epochFileTemplate = "envoy-rev%d.json"
-
-	// drainFile is the location of the bootstrap config used for draining on istio-proxy termination
-	drainFile = "/var/lib/istio/envoy/envoy_bootstrap_drain.json"
 )
 
 type envoy struct {
@@ -54,14 +51,16 @@ type ProxyConfig struct {
 	PilotSubjectAltName []string
 	MixerSubjectAltName []string
 	NodeIPs             []string
-	DNSRefreshRate      string
 	PodName             string
 	PodNamespace        string
 	PodIP               net.IP
 	SDSUDSPath          string
 	SDSTokenPath        string
+	STSPort             int
 	ControlPlaneAuth    bool
 	DisableReportCalls  bool
+	OutlierLogPath      string
+	PilotCertProvider   string
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -96,6 +95,15 @@ func (e *envoy) IsLive() bool {
 
 	log.Infof("envoy server not yet live, state: %s", info.State.String())
 	return false
+}
+
+func (e *envoy) Drain() error {
+	adminPort := uint32(e.Config.ProxyAdminPort)
+	err := DrainListeners(adminPort)
+	if err != nil {
+		log.Infof("failed draining listeners for Envoy on port %d: %v", adminPort, err)
+	}
+	return err
 }
 
 func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
@@ -139,16 +147,12 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	// Note: the cert checking still works, the generated file is updated if certs are changed.
 	// We just don't save the generated file, but use a custom one instead. Pilot will keep
 	// monitoring the certs and restart if the content of the certs changes.
-	if _, ok := config.(DrainConfig); ok {
-		// We are doing a graceful termination, apply an empty config to drain all connections
-		fname = drainFile
-	} else if len(e.Config.CustomConfigFile) > 0 {
+	if len(e.Config.CustomConfigFile) > 0 {
 		// there is a custom configuration. Don't write our own config - but keep watching the certs.
 		fname = e.Config.CustomConfigFile
 	} else {
 		out, err := bootstrap.New(bootstrap.Config{
 			Node:                e.Node,
-			DNSRefreshRate:      e.DNSRefreshRate,
 			Proxy:               &e.Config,
 			PilotSubjectAltName: e.PilotSubjectAltName,
 			MixerSubjectAltName: e.MixerSubjectAltName,
@@ -159,13 +163,15 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 			PodIP:               e.PodIP,
 			SDSUDSPath:          e.SDSUDSPath,
 			SDSTokenPath:        e.SDSTokenPath,
+			STSPort:             e.STSPort,
 			ControlPlaneAuth:    e.ControlPlaneAuth,
 			DisableReportCalls:  e.DisableReportCalls,
+			OutlierLogPath:      e.OutlierLogPath,
+			PilotCertProvider:   e.PilotCertProvider,
 		}).CreateFileForEpoch(epoch)
 		if err != nil {
 			log.Errora("Failed to generate bootstrap config: ", err)
 			os.Exit(1) // Prevent infinite loop attempting to write the file, let k8s/systemd report
-			return err
 		}
 		fname = out
 	}

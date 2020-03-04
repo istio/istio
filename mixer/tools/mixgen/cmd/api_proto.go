@@ -44,6 +44,7 @@ option (istio.mixer.adapter.model.v1beta1.template_name) = "{{.TemplateName}}";
 option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
+option (gogoproto.stable_marshaler_all) = true;
 
 // Handle{{.InterfaceName}}Service is implemented by backends that wants to handle request-time '{{.TemplateName}}' instances.
 service Handle{{.InterfaceName}}Service {

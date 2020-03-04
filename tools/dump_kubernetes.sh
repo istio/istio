@@ -284,7 +284,7 @@ dump_pilot_url(){
   local dname=$3
   local outfile
 
-  outfile="${dname}/$(basename "${url}")"
+  outfile="${dname}/$(basename "${url}")-${pilot_pod}"
 
   log "Fetching ${url} from pilot"
   kubectl -n istio-system exec -i -t "${pilot_pod}" -c istio-proxy -- \
@@ -292,19 +292,21 @@ dump_pilot_url(){
 }
 
 dump_pilot() {
-  local pilot_pod
-  pilot_pod=$(kubectl -n istio-system get pods -l istio=pilot \
+  local pilot_pods
+  pilot_pods=$(kubectl -n istio-system get pods -l istio=pilot \
       -o jsonpath='{.items[*].metadata.name}')
 
-  if [ -n "${pilot_pod}" ]; then
+  if [ -n "${pilot_pods}" ]; then
     local pilot_dir="${OUT_DIR}/pilot"
     mkdir -p "${pilot_dir}"
-
-    dump_pilot_url "${pilot_pod}" debug/configz "${pilot_dir}"
-    dump_pilot_url "${pilot_pod}" debug/endpointz "${pilot_dir}"
-    dump_pilot_url "${pilot_pod}" debug/adsz "${pilot_dir}"
-    dump_pilot_url "${pilot_pod}" debug/authenticationz "${pilot_dir}"
-    dump_pilot_url "${pilot_pod}" metrics "${pilot_dir}"
+    for pilot_pod in ${pilot_pods}
+    do
+      dump_pilot_url "${pilot_pod}" debug/configz "${pilot_dir}"
+      dump_pilot_url "${pilot_pod}" debug/endpointz "${pilot_dir}"
+      dump_pilot_url "${pilot_pod}" debug/adsz "${pilot_dir}"
+      dump_pilot_url "${pilot_pod}" debug/authenticationz "${pilot_dir}"
+      dump_pilot_url "${pilot_pod}" metrics "${pilot_dir}"
+    done
   fi
 }
 

@@ -22,10 +22,9 @@ import (
 )
 
 var (
-	endpoint1 = NetworkEndpoint{
-		Address:     "192.168.1.1",
-		Port:        10001,
-		ServicePort: &Port{Name: "http", Port: 81, Protocol: protocol.HTTP},
+	endpoint1 = IstioEndpoint{
+		Address:      "192.168.1.1",
+		EndpointPort: 10001,
 	}
 
 	service1 = &Service{
@@ -39,6 +38,12 @@ var (
 )
 
 func TestServiceInstanceValidate(t *testing.T) {
+	endpointWithLabels := func(lbls labels.Instance) *IstioEndpoint {
+		cpy := endpoint1
+		cpy.Labels = lbls
+		return &cpy
+	}
+
 	cases := []struct {
 		name     string
 		instance *ServiceInstance
@@ -47,31 +52,30 @@ func TestServiceInstanceValidate(t *testing.T) {
 		{
 			name: "nil service",
 			instance: &ServiceInstance{
-				Labels:   labels.Instance{},
-				Endpoint: endpoint1,
+				Endpoint: endpointWithLabels(labels.Instance{}),
 			},
 		},
 		{
 			name: "bad label",
 			instance: &ServiceInstance{
 				Service:  service1,
-				Labels:   labels.Instance{"*": "-"},
-				Endpoint: endpoint1,
+				Endpoint: endpointWithLabels(labels.Instance{"*": "-"}),
 			},
 		},
 		{
 			name: "invalid service",
 			instance: &ServiceInstance{
-				Service: &Service{},
+				Service:  &Service{},
+				Endpoint: &IstioEndpoint{},
 			},
 		},
 		{
 			name: "invalid endpoint port and service port",
 			instance: &ServiceInstance{
 				Service: service1,
-				Endpoint: NetworkEndpoint{
-					Address: "192.168.1.2",
-					Port:    -80,
+				Endpoint: &IstioEndpoint{
+					Address:      "192.168.1.2",
+					EndpointPort: 1000000,
 				},
 			},
 		},
@@ -79,14 +83,14 @@ func TestServiceInstanceValidate(t *testing.T) {
 			name: "endpoint missing service port",
 			instance: &ServiceInstance{
 				Service: service1,
-				Endpoint: NetworkEndpoint{
-					Address: "192.168.1.2",
-					Port:    service1.Ports[1].Port,
-					ServicePort: &Port{
-						Name:     service1.Ports[1].Name + "-extra",
-						Port:     service1.Ports[1].Port,
-						Protocol: service1.Ports[1].Protocol,
-					},
+				ServicePort: &Port{
+					Name:     service1.Ports[1].Name + "-extra",
+					Port:     service1.Ports[1].Port,
+					Protocol: service1.Ports[1].Protocol,
+				},
+				Endpoint: &IstioEndpoint{
+					Address:      "192.168.1.2",
+					EndpointPort: uint32(service1.Ports[1].Port),
 				},
 			},
 		},
@@ -94,23 +98,24 @@ func TestServiceInstanceValidate(t *testing.T) {
 			name: "endpoint port and protocol mismatch",
 			instance: &ServiceInstance{
 				Service: service1,
-				Endpoint: NetworkEndpoint{
-					Address: "192.168.1.2",
-					Port:    service1.Ports[1].Port,
-					ServicePort: &Port{
-						Name:     "http",
-						Port:     service1.Ports[1].Port + 1,
-						Protocol: protocol.GRPC,
-					},
+				ServicePort: &Port{
+					Name:     "http",
+					Port:     service1.Ports[1].Port + 1,
+					Protocol: protocol.GRPC,
+				},
+				Endpoint: &IstioEndpoint{
+					Address:      "192.168.1.2",
+					EndpointPort: uint32(service1.Ports[1].Port),
 				},
 			},
 		},
 	}
 	for _, c := range cases {
-		t.Log("running case " + c.name)
-		if got := c.instance.Validate(); (got == nil) != c.valid {
-			t.Errorf("%s failed: got valid=%v but wanted valid=%v: %v", c.name, got == nil, c.valid, got)
-		}
+		t.Run(c.name, func(t *testing.T) {
+			if got := c.instance.Validate(); (got == nil) != c.valid {
+				t.Fatalf("%s failed: got valid=%v but wanted valid=%v: %v", c.name, got == nil, c.valid, got)
+			}
+		})
 	}
 }
 
@@ -153,44 +158,5 @@ func TestServiceValidate(t *testing.T) {
 		if got := c.service.Validate(); (got == nil) != c.valid {
 			t.Errorf("%s failed: got valid=%v but wanted valid=%v: %v", c.name, got == nil, c.valid, got)
 		}
-	}
-}
-
-func TestValidateNetworkEndpointAddress(t *testing.T) {
-	testCases := []struct {
-		name  string
-		ne    *NetworkEndpoint
-		valid bool
-	}{
-		{
-			"Unix OK",
-			&NetworkEndpoint{Family: AddressFamilyUnix, Address: "/absolute/path"},
-			true,
-		},
-		{
-			"IP OK",
-			&NetworkEndpoint{Address: "12.3.4.5", Port: 76},
-			true,
-		},
-		{
-			"Unix not absolute",
-			&NetworkEndpoint{Family: AddressFamilyUnix, Address: "./socket"},
-			false,
-		},
-		{
-			"IP invalid",
-			&NetworkEndpoint{Address: "260.3.4.5", Port: 76},
-			false,
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			err := ValidateNetworkEndpointAddress(tc.ne)
-			if tc.valid && err != nil {
-				t.Fatalf("ValidateAddress() => want error nil got %v", err)
-			} else if !tc.valid && err == nil {
-				t.Fatalf("ValidateAddress() => want error got nil")
-			}
-		})
 	}
 }

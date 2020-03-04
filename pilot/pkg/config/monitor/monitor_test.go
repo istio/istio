@@ -26,17 +26,21 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schema"
-	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 const checkInterval = 100 * time.Millisecond
 
+var gatewayGvk = collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind()
+
 var createConfigSet = []*model.Config{
 	{
 		ConfigMeta: model.ConfigMeta{
-			Name: "magic",
-			Type: "gateway",
+			Name:    "magic",
+			Type:    gatewayGvk.Kind,
+			Version: gatewayGvk.Version,
+			Group:   gatewayGvk.Group,
 		},
 		Spec: &networking.Gateway{
 			Servers: []*networking.Server{
@@ -56,8 +60,10 @@ var createConfigSet = []*model.Config{
 var updateConfigSet = []*model.Config{
 	{
 		ConfigMeta: model.ConfigMeta{
-			Name: "magic",
-			Type: "gateway",
+			Name:    "magic",
+			Type:    gatewayGvk.Kind,
+			Version: gatewayGvk.Version,
+			Group:   gatewayGvk.Group,
 		},
 		Spec: &networking.Gateway{
 			Servers: []*networking.Server{
@@ -77,9 +83,7 @@ var updateConfigSet = []*model.Config{
 func TestMonitorForChange(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	configDescriptor := schema.Set{schemas.Gateway}
-
-	store := memory.Make(configDescriptor)
+	store := memory.Make(collection.SchemasFor(collections.IstioNetworkingV1Alpha3Gateways))
 
 	var (
 		callCount int
@@ -107,7 +111,7 @@ func TestMonitorForChange(t *testing.T) {
 	mon.Start(stop)
 
 	g.Eventually(func() error {
-		c, err := store.List("gateway", "")
+		c, err := store.List(gatewayGvk, "")
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		if len(c) != 1 {
@@ -122,7 +126,7 @@ func TestMonitorForChange(t *testing.T) {
 	}).Should(gomega.Succeed())
 
 	g.Eventually(func() error {
-		c, err := store.List("gateway", "")
+		c, err := store.List(gatewayGvk, "")
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		gateway := c[0].Spec.(*networking.Gateway)
@@ -134,7 +138,7 @@ func TestMonitorForChange(t *testing.T) {
 	}).Should(gomega.Succeed())
 
 	g.Eventually(func() ([]model.Config, error) {
-		return store.List("gateway", "")
+		return store.List(gatewayGvk, "")
 	}).Should(gomega.HaveLen(0))
 
 }
@@ -142,9 +146,7 @@ func TestMonitorForChange(t *testing.T) {
 func TestMonitorForError(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	configDescriptor := schema.Set{schemas.Gateway}
-
-	store := memory.Make(configDescriptor)
+	store := memory.Make(collection.SchemasFor(collections.IstioNetworkingV1Alpha3Gateways))
 
 	var (
 		callCount int
@@ -177,7 +179,7 @@ func TestMonitorForError(t *testing.T) {
 	//nil data return and error return keeps the existing data aka createConfigSet
 	<-delay
 	g.Eventually(func() error {
-		c, err := store.List("gateway", "")
+		c, err := store.List(gatewayGvk, "")
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		if len(c) != 1 {

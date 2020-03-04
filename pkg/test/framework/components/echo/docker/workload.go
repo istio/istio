@@ -23,12 +23,12 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/test"
-
-	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-multierror"
+
+	"istio.io/istio/pkg/test"
 
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/test/docker"
@@ -78,7 +78,7 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 	}
 
 	// Get the Docker images for the Echo application.
-	imgs, err := images.Get(e)
+	imgs, err := images.Get()
 	if err != nil {
 		return nil, err
 	}
@@ -108,12 +108,12 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 		"--version", cfg.Version,
 	}, w.portMap.toEchoArgs()...)
 
-	var image docker.Image
+	var image string
 	var cmd []string
 	var env []string
 	var extraHosts []string
 	var capabilities []string
-	if cfg.Annotations.GetBool(echo.SidecarInject) {
+	if cfg.Subsets[0].Annotations.GetBool(echo.SidecarInject) {
 		w.readinessProbe = sidecarReadinessProbe(w.portMap.hostAgentPort)
 
 		image = imgs.Sidecar
@@ -121,7 +121,6 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 		// Need NET_ADMIN for iptables.
 		capabilities = []string{"NET_ADMIN"}
 
-		applicationPorts := w.portMap.applicationPorts()
 		pilotHost := fmt.Sprintf("istio-pilot.%s", e.SystemNamespace)
 
 		pilotAddress := fmt.Sprintf("%s:%d", pilotHost, discoveryPort(cfg.Pilot))
@@ -135,8 +134,8 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 			fmt.Sprintf("%s:%s", pilotHost, ip.String()),
 		}
 
-		agentArgs := fmt.Sprintf("--proxyLogLevel debug --statusPort %d --domain %s --trust-domain %s --applicationPorts %s",
-			agentStatusPort, e.Domain, e.Domain, applicationPorts)
+		agentArgs := fmt.Sprintf("--proxyLogLevel debug --statusPort %d --domain %s --trust-domain %s",
+			agentStatusPort, e.Domain, e.Domain)
 
 		metaJSONLabels := fmt.Sprintf("{\"app\":\"%s\"}", cfg.Service)
 		interceptionMode := "REDIRECT"
@@ -154,7 +153,6 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 			"ENVOY_USER=istio-proxy",
 			"ISTIO_AGENT_FLAGS="+agentArgs,
 			"ISTIO_INBOUND_INTERCEPTION_MODE="+interceptionMode,
-			"ISTIO_INBOUND_PORTS="+applicationPorts,
 			"ISTIO_SERVICE_CIDR=*",
 			"ISTIO_CP_AUTH="+authPolicy.String(),
 			"ISTIO_META_ISTIO_PROXY_SHA="+envoy.LatestStableSHA,
@@ -162,7 +160,6 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 			"ISTIO_META_CONFIG_NAMESPACE="+cfg.Namespace.Name(),
 			"ISTIO_METAJSON_LABELS="+metaJSONLabels,
 			"ISTIO_META_INTERCEPTION_MODE="+interceptionMode,
-			"ISTIO_META_INCLUDE_INBOUND_PORTS"+applicationPorts,
 		)
 	} else {
 		w.readinessProbe = noSidecarReadinessProbe(w.portMap.http().hostPort)
@@ -200,7 +197,7 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 			err, containerCfg)
 	}
 
-	if cfg.Annotations.GetBool(echo.SidecarInject) {
+	if cfg.Subsets[0].Annotations.GetBool(echo.SidecarInject) {
 		if w.sidecar, err = newSidecar(w.container); err != nil {
 			return nil, fmt.Errorf("failed creating sidecar for Echo Container %s: %v",
 				w.container.Name, err)

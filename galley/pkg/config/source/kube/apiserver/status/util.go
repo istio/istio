@@ -18,6 +18,9 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 )
 
+// DocRef is the doc ref value used by the status controller
+const DocRef = "status-controller"
+
 // toStatusValue converts a set of diag.Messages to a status value.
 func toStatusValue(msgs diag.Messages) interface{} {
 	if len(msgs) == 0 {
@@ -26,6 +29,7 @@ func toStatusValue(msgs diag.Messages) interface{} {
 
 	result := make([]interface{}, 0)
 	for _, m := range msgs {
+		m.DocRef = DocRef
 		// For the purposes of status update, the origin field is redundant
 		// since we're attaching the message to the origin resource.
 		result = append(result, m.Unstructured(false))

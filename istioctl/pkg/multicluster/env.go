@@ -18,13 +18,17 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"time"
 
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/pkg/kube"
 )
+
+type ConditionFunc func() (done bool, err error)
 
 type Environment interface {
 	GetConfig() *api.Config
@@ -34,6 +38,7 @@ type Environment interface {
 	ReadFile(filename string) ([]byte, error)
 	Printf(format string, a ...interface{})
 	Errorf(format string, a ...interface{})
+	Poll(interval, timeout time.Duration, condition ConditionFunc) error
 }
 
 type KubeEnvironment struct {
@@ -58,6 +63,11 @@ func (e *KubeEnvironment) GetConfig() *api.Config                   { return e.c
 func (e *KubeEnvironment) Stdout() io.Writer                        { return e.stdout }
 func (e *KubeEnvironment) Stderr() io.Writer                        { return e.stderr }
 func (e *KubeEnvironment) ReadFile(filename string) ([]byte, error) { return ioutil.ReadFile(filename) }
+func (e *KubeEnvironment) Poll(interval, timeout time.Duration, condition ConditionFunc) error {
+	return wait.Poll(interval, timeout, func() (bool, error) {
+		return condition()
+	})
+}
 
 var _ Environment = (*KubeEnvironment)(nil)
 

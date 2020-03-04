@@ -2981,7 +2981,7 @@ Attributes:
 		Name: "add static instance - missing template",
 		Events1: []*store.Event{
 			updateEvent("i1.instance.default", &descriptorpb.Instance{
-				CompiledTemplate: "checkk",
+				CompiledTemplate: "check",
 				Params: &types.Struct{
 					Fields: map[string]*types.Value{
 						"extra_field": {},

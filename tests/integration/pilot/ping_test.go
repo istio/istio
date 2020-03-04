@@ -55,10 +55,14 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 		{
 			Name:     "foo",
 			Protocol: protocol.HTTP,
+			// We use a port > 1024 to not require root
+			InstancePort: 8091,
 		},
 		{
 			Name:     "http",
 			Protocol: protocol.HTTP,
+			// We use a port > 1024 to not require root
+			InstancePort: 8090,
 		},
 		{
 			Name:     "tcp",
@@ -72,6 +76,7 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 			Service:             "inoutsplitapp0",
 			Namespace:           ns,
 			Ports:               ports,
+			Subsets:             []echo.SubsetConfig{{}},
 			Galley:              g,
 			Pilot:               p,
 			IncludeInboundPorts: "*",
@@ -79,6 +84,7 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 		With(&inoutSplitApp1, echo.Config{
 			Service:             "inoutsplitapp1",
 			Namespace:           ns,
+			Subsets:             []echo.SubsetConfig{{}},
 			Ports:               ports,
 			Galley:              g,
 			Pilot:               p,
@@ -88,6 +94,7 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 			&inoutUnitedApp0, echo.Config{
 				Service:   "inoutunitedapp0",
 				Namespace: ns,
+				Subsets:   []echo.SubsetConfig{{}},
 				Ports:     ports,
 				Galley:    g,
 				Pilot:     p,
@@ -95,6 +102,7 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 		With(&inoutUnitedApp1, echo.Config{
 			Service:   "inoutunitedapp1",
 			Namespace: ns,
+			Subsets:   []echo.SubsetConfig{{}},
 			Ports:     ports,
 			Galley:    g,
 			Pilot:     p,

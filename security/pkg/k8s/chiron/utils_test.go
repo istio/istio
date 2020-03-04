@@ -88,6 +88,16 @@ func defaultReactionFunc(obj runtime.Object) kt.ReactionFunc {
 	}
 }
 
+func TestGetRandomCsrName(t *testing.T) {
+	secretName := "very-long-secret-name-that-will-be-truncated"
+	namespaceName := "very-long-namespace-name-that-will-be-truncated"
+
+	csrName := getRandomCsrName(secretName, namespaceName)
+	if len(csrName) > maxNameLength {
+		t.Errorf("the csr name returned %v is longer than %v", csrName, maxNameLength)
+	}
+}
+
 func TestGenKeyCertK8sCA(t *testing.T) {
 	testCases := map[string]struct {
 		gracePeriodRatio  float32

@@ -83,7 +83,7 @@ func convertServices(cfg model.Config) []*model.Service {
 						Ports:        svcPorts,
 						Resolution:   resolution,
 						Attributes: model.ServiceAttributes{
-							ServiceRegistry: string(serviceregistry.MCPRegistry),
+							ServiceRegistry: string(serviceregistry.External),
 							Name:            hostname,
 							Namespace:       cfg.Namespace,
 							ExportTo:        exportTo,
@@ -98,7 +98,7 @@ func convertServices(cfg model.Config) []*model.Service {
 						Ports:        svcPorts,
 						Resolution:   resolution,
 						Attributes: model.ServiceAttributes{
-							ServiceRegistry: string(serviceregistry.MCPRegistry),
+							ServiceRegistry: string(serviceregistry.External),
 							Name:            hostname,
 							Namespace:       cfg.Namespace,
 							ExportTo:        exportTo,
@@ -115,7 +115,7 @@ func convertServices(cfg model.Config) []*model.Service {
 				Ports:        svcPorts,
 				Resolution:   resolution,
 				Attributes: model.ServiceAttributes{
-					ServiceRegistry: string(serviceregistry.MCPRegistry),
+					ServiceRegistry: string(serviceregistry.External),
 					Name:            hostname,
 					Namespace:       cfg.Namespace,
 					ExportTo:        exportTo,
@@ -127,53 +127,51 @@ func convertServices(cfg model.Config) []*model.Service {
 	return out
 }
 
-func endpointMTLSReady(labels map[string]string) bool {
-	if labels != nil && labels[model.MTLSReadyLabelName] == "true" {
-		return true
-	}
-	return false
-}
-
 func convertEndpoint(service *model.Service, servicePort *networking.Port,
 	endpoint *networking.ServiceEntry_Endpoint) *model.ServiceInstance {
 	var instancePort uint32
-	var family model.AddressFamily
 	addr := endpoint.GetAddress()
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
 		instancePort = 0
-		family = model.AddressFamilyUnix
 		addr = strings.TrimPrefix(addr, model.UnixAddressPrefix)
 	} else {
 		instancePort = endpoint.Ports[servicePort.Name]
 		if instancePort == 0 {
 			instancePort = servicePort.Number
 		}
-		family = model.AddressFamilyTCP
 	}
 
-	mtlsReady := endpointMTLSReady(endpoint.Labels)
+	tlsMode := model.GetTLSModeFromEndpointLabels(endpoint.Labels)
 
 	return &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address:     addr,
-			Family:      family,
-			Port:        int(instancePort),
-			ServicePort: convertPort(servicePort),
-			Network:     endpoint.Network,
-			Locality:    endpoint.Locality,
-			LbWeight:    endpoint.Weight,
+		Endpoint: &model.IstioEndpoint{
+			Address:         addr,
+			EndpointPort:    instancePort,
+			ServicePortName: servicePort.Name,
+			Network:         endpoint.Network,
+			Locality: model.Locality{
+				Label: endpoint.Locality,
+			},
+			LbWeight: endpoint.Weight,
+			Labels:   endpoint.Labels,
+			TLSMode:  tlsMode,
+			Attributes: model.ServiceAttributes{
+				Name:      service.Attributes.Name,
+				Namespace: service.Attributes.Namespace,
+			},
 		},
-		// TODO ServiceAccount
-		Service:   service,
-		Labels:    endpoint.Labels,
-		MTLSReady: mtlsReady,
+		Service:     service,
+		ServicePort: convertPort(servicePort),
 	}
 }
 
-func convertInstances(cfg model.Config) []*model.ServiceInstance {
+func convertInstances(cfg model.Config, services []*model.Service) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
-	for _, service := range convertServices(cfg) {
+	if services == nil {
+		services = convertServices(cfg)
+	}
+	for _, service := range services {
 		for _, serviceEntryPort := range serviceEntry.Ports {
 			if len(serviceEntry.Endpoints) == 0 &&
 				serviceEntry.Resolution == networking.ServiceEntry_DNS {
@@ -182,14 +180,19 @@ func convertInstances(cfg model.Config) []*model.ServiceInstance {
 				// Do not use serviceentry.hosts as a service entry is converted into
 				// multiple services (one for each host)
 				out = append(out, &model.ServiceInstance{
-					Endpoint: model.NetworkEndpoint{
-						Address:     string(service.Hostname),
-						Port:        int(serviceEntryPort.Number),
-						ServicePort: convertPort(serviceEntryPort),
+					Endpoint: &model.IstioEndpoint{
+						Address:         string(service.Hostname),
+						EndpointPort:    serviceEntryPort.Number,
+						ServicePortName: serviceEntryPort.Name,
+						Labels:          nil,
+						TLSMode:         model.DisabledTLSModeLabel,
+						Attributes: model.ServiceAttributes{
+							Name:      service.Attributes.Name,
+							Namespace: service.Attributes.Namespace,
+						},
 					},
-					// TODO ServiceAccount
-					Service: service,
-					Labels:  nil,
+					Service:     service,
+					ServicePort: convertPort(serviceEntryPort),
 				})
 			} else {
 				for _, endpoint := range serviceEntry.Endpoints {

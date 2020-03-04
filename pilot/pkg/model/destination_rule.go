@@ -42,7 +42,7 @@ func (ps *PushContext) combineSingleDestinationRule(
 				mdr.subsets[subset.Name] = struct{}{}
 				combinedRule.Subsets = append(combinedRule.Subsets, subset)
 			} else {
-				ps.Add(DuplicatedSubsets, string(resolvedHost), nil,
+				ps.AddMetric(DuplicatedSubsets, string(resolvedHost), nil,
 					fmt.Sprintf("Duplicate subset %s found while merging destination rules for %s",
 						subset.Name, string(resolvedHost)))
 			}

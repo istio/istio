@@ -61,7 +61,9 @@ func TestComparator_ClusterDiff(t *testing.T) {
 				c.envoy.Configs = nil
 				c.pilot.Configs = nil
 			}
-			c.ClusterDiff()
+			if err := c.ClusterDiff(); err != nil {
+				t.Fatal(err)
+			}
 			if tt.wantDiff != "" {
 				want, _ := ioutil.ReadFile(tt.wantDiff)
 				if err := util.Compare(got.Bytes(), want); err != nil {

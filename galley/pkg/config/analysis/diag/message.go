@@ -15,10 +15,14 @@
 package diag
 
 import (
+	"encoding/json"
 	"fmt"
 
-	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/pkg/config/resource"
 )
+
+// DocPrefix is the root URL for validation message docs
+const DocPrefix = "https://istio.io/docs/reference/config/analysis"
 
 // MessageType is a type of diagnostic message
 type MessageType struct {
@@ -48,8 +52,12 @@ type Message struct {
 	// The Parameters to the message
 	Parameters []interface{}
 
-	// Origin of the message
-	Origin resource.Origin
+	// Resource is the underlying resource instance associated with the
+	// message, or nil if no resource is associated with it.
+	Resource *resource.Instance
+
+	// DocRef is an optional reference tracker for the documentation URL
+	DocRef string
 }
 
 // Unstructured returns this message as a JSON-style unstructured map
@@ -58,10 +66,16 @@ func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
 
 	result["code"] = m.Type.Code()
 	result["level"] = m.Type.Level().String()
-	if includeOrigin && m.Origin != nil {
-		result["origin"] = m.Origin.FriendlyName()
+	if includeOrigin && m.Resource != nil {
+		result["origin"] = m.Resource.Origin.FriendlyName()
 	}
 	result["message"] = fmt.Sprintf(m.Type.Template(), m.Parameters...)
+
+	docQueryString := ""
+	if m.DocRef != "" {
+		docQueryString = fmt.Sprintf("?ref=%s", m.DocRef)
+	}
+	result["documentation_url"] = fmt.Sprintf("%s/%s%s", DocPrefix, m.Type.Code(), docQueryString)
 
 	return result
 }
@@ -69,11 +83,16 @@ func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
 // String implements io.Stringer
 func (m *Message) String() string {
 	origin := ""
-	if m.Origin != nil {
-		origin = "(" + m.Origin.FriendlyName() + ")"
+	if m.Resource != nil {
+		origin = "(" + m.Resource.Origin.FriendlyName() + ")"
 	}
 	return fmt.Sprintf(
 		"%v [%v]%s %s", m.Type.Level(), m.Type.Code(), origin, fmt.Sprintf(m.Type.Template(), m.Parameters...))
+}
+
+// MarshalJSON satisfies the Marshaler interface
+func (m *Message) MarshalJSON() ([]byte, error) {
+	return json.Marshal(m.Unstructured(true))
 }
 
 // NewMessageType returns a new MessageType instance.
@@ -86,10 +105,10 @@ func NewMessageType(level Level, code, template string) *MessageType {
 }
 
 // NewMessage returns a new Message instance from an existing type.
-func NewMessage(mt *MessageType, o resource.Origin, p ...interface{}) Message {
+func NewMessage(mt *MessageType, r *resource.Instance, p ...interface{}) Message {
 	return Message{
 		Type:       mt,
-		Origin:     o,
+		Resource:   r,
 		Parameters: p,
 	}
 }

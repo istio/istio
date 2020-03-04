@@ -21,19 +21,18 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
-	"istio.io/istio/galley/pkg/config/meta/schema"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
-	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema/collection"
 )
 
 // Controller is the interface for a status controller. It is mainly used to separate implementation from
 // interface, so that code can be tested separately.
 type Controller interface {
-	Start(p *rt.Provider, resources []schema.KubeResource)
+	Start(p *rt.Provider, resources []collection.Schema)
 	Stop()
-	UpdateResourceStatus(col collection.Name, name resource.Name, version resource.Version, status interface{})
+	UpdateResourceStatus(col collection.Name, name resource.FullName, version resource.Version, status interface{})
 	Report(messages diag.Messages)
 }
 
@@ -62,7 +61,7 @@ func NewController(subfield string) *ControllerImpl {
 }
 
 // Start the controller. This will reset the internal state.
-func (c *ControllerImpl) Start(p *rt.Provider, resources []schema.KubeResource) {
+func (c *ControllerImpl) Start(p *rt.Provider, resources []collection.Schema) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -73,15 +72,15 @@ func (c *ControllerImpl) Start(p *rt.Provider, resources []schema.KubeResource) 
 
 	ifaces := make(map[collection.Name]dynamic.NamespaceableResourceInterface)
 	for _, r := range resources {
-		if r.Disabled {
+		if r.IsDisabled() {
 			continue
 		}
 
-		iface, err := p.GetDynamicResourceInterface(r)
+		iface, err := p.GetDynamicResourceInterface(r.Resource())
 		if err != nil {
-			scope.Source.Errorf("Unable to create a dynamic resource interface for resource %v", r.CanonicalResourceName())
+			scope.Source.Errorf("Unable to create a dynamic resource interface for resource %v", r.Resource().GroupVersionKind())
 		}
-		ifaces[r.Collection.Name] = iface
+		ifaces[r.Name()] = iface
 	}
 
 	c.wg.Add(1)
@@ -101,7 +100,7 @@ func (c *ControllerImpl) Stop() {
 
 // UpdateResourceStatus is called by the source to relay the currently observed status of a resource.
 func (c *ControllerImpl) UpdateResourceStatus(
-	col collection.Name, name resource.Name, version resource.Version, status interface{}) {
+	col collection.Name, name resource.FullName, version resource.Version, status interface{}) {
 
 	// Extract the subfield this controller manages
 	// If the status field was something other than a map, treat it like it was an empty map
@@ -119,13 +118,19 @@ func (c *ControllerImpl) Report(messages diag.Messages) {
 
 	for _, m := range messages {
 
-		if m.Origin == nil {
+		if m.Resource == nil {
+			// This should not happen. All messages should be reported against at least one resource.
+			scope.Source.Errorf("Encountered a diagnostic message without a resource: %v", m)
+			continue
+		}
+
+		if m.Resource.Origin == nil {
 			// This should not happen. All messages should be reported against at least one origin.
 			scope.Source.Errorf("Encountered a diagnostic message without an origin: %v", m)
 			continue
 		}
 
-		origin, ok := m.Origin.(*rt.Origin)
+		origin, ok := m.Resource.Origin.(*rt.Origin)
 		if !ok {
 			// This should not happen. All messages should be routed back to the appropriate source.
 			scope.Source.Errorf("Encountered a diagnostic message with unrecognized origin: %v", m)
@@ -152,7 +157,8 @@ mainloop:
 			continue
 		}
 
-		ns, n := st.key.res.InterpretAsNamespaceAndName()
+		ns := string(st.key.res.Namespace)
+		n := string(st.key.res.Name)
 		u, err := iface.Namespace(ns).Get(n, metav1.GetOptions{ResourceVersion: string(st.observedVersion)})
 		if err != nil {
 			scope.Source.Errorf("Unable to read the resource while trying to update status: %v(%v): %v",

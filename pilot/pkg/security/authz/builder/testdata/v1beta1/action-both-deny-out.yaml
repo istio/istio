@@ -1,0 +1,20 @@
+rules:
+  action: DENY
+  policies:
+    ns[foo]-policy[httpbin-deny]-rule[0]:
+      permissions:
+      - andRules:
+          rules:
+          - any: true
+      principals:
+      - andIds:
+          ids:
+          - orIds:
+              ids:
+              - metadata:
+                  filter: istio_authn
+                  path:
+                  - key: source.principal
+                  value:
+                    stringMatch:
+                      exact: deny

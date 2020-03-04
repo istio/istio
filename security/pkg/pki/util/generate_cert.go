@@ -154,6 +154,33 @@ func GenRootCertFromExistingKey(options CertOptions) (pemCert []byte, pemKey []b
 	return pemCert, options.SignerPrivPem, nil
 }
 
+// GetCertOptionsFromExistingCert parses cert and generates a CertOptions
+// that contains information about the cert. This is the reverse operation of
+// genCertTemplateFromOptions(), and only called by a self-signed Citadel.
+func GetCertOptionsFromExistingCert(certBytes []byte) (opts CertOptions, err error) {
+	cert, certErr := ParsePemEncodedCertificate(certBytes)
+	if certErr != nil {
+		return opts, certErr
+	}
+
+	orgs := cert.Subject.Organization
+	if len(orgs) > 0 {
+		opts.Org = orgs[0]
+	}
+	// TODO(JimmyCYJ): parse other fields from certificate, e.g. CommonName.
+	return opts, nil
+}
+
+// MergeCertOptions merges deltaOpts into defaultOpts and returns the merged
+// CertOptions. Only called by a self-signed Citadel.
+func MergeCertOptions(defaultOpts, deltaOpts CertOptions) CertOptions {
+	if len(deltaOpts.Org) > 0 {
+		defaultOpts.Org = deltaOpts.Org
+	}
+	// TODO(JimmyCYJ): merge other fields, e.g. Host, IsDualUse, etc.
+	return defaultOpts
+}
+
 // GenCertFromCSR generates a X.509 certificate with the given CSR.
 func GenCertFromCSR(csr *x509.CertificateRequest, signingCert *x509.Certificate, publicKey interface{},
 	signingKey crypto.PrivateKey, subjectIDs []string, ttl time.Duration, isCA bool) (cert []byte, err error) {

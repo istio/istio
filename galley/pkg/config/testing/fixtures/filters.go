@@ -19,7 +19,7 @@ import (
 	"sort"
 	"strings"
 
-	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/pkg/config/event"
 )
 
 // FilterFn is a function for filtering events
@@ -31,8 +31,8 @@ func NoVersions(events []event.Event) []event.Event {
 	copy(result, events)
 
 	for i := range result {
-		result[i].Entry = result[i].Entry.Clone()
-		result[i].Entry.Metadata.Version = ""
+		result[i].Resource = result[i].Resource.Clone()
+		result[i].Resource.Metadata.Version = ""
 	}
 
 	return result
@@ -63,19 +63,19 @@ func Sort(events []event.Event) []event.Event {
 			return c < 0
 		}
 
-		if result[i].Entry == nil && result[j].Entry == nil {
+		if result[i].Resource == nil && result[j].Resource == nil {
 			return false
 		}
 
-		if result[i].Entry == nil {
+		if result[i].Resource == nil {
 			return false
 		}
 
-		if result[j].Entry == nil {
+		if result[j].Resource == nil {
 			return true
 		}
 
-		return strings.Compare(fmt.Sprintf("%+v", result[i].Entry), fmt.Sprintf("%+v", result[j].Entry)) < 0
+		return strings.Compare(fmt.Sprintf("%+v", result[i].Resource), fmt.Sprintf("%+v", result[j].Resource)) < 0
 	})
 
 	return result

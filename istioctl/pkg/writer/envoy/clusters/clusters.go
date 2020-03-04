@@ -23,8 +23,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
 	"istio.io/istio/istioctl/pkg/util/clusters"
 	protio "istio.io/istio/istioctl/pkg/util/proto"

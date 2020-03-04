@@ -21,6 +21,8 @@ import (
 	"reflect"
 	"time"
 
+	"istio.io/pkg/ledger"
+
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/client-go/informers/extensions/v1beta1"
 	"k8s.io/client-go/kubernetes"
@@ -34,8 +36,10 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/schema"
-	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/queue"
 )
 
 // In 1.0, the Gateway is defined in the namespace where the actual controller runs, and needs to be managed by
@@ -62,16 +66,25 @@ import (
 //   If we need more flexibility - we can add it (but likely we'll deprecate ingress support first)
 // -
 
+var (
+	schemas = collection.SchemasFor(
+		collections.IstioNetworkingV1Alpha3Virtualservices,
+		collections.IstioNetworkingV1Alpha3Gateways)
+
+	virtualServiceGvk = collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind()
+	gatewayGvk        = collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind()
+)
+
 // Control needs RBAC permissions to write to Pods.
 
 type controller struct {
 	mesh         *meshconfig.MeshConfig
 	domainSuffix string
 
-	client   kubernetes.Interface
-	queue    kube.Queue
-	informer cache.SharedIndexInformer
-	handler  *kube.ChainHandler
+	client                 kubernetes.Interface
+	queue                  queue.Instance
+	informer               cache.SharedIndexInformer
+	virtualServiceHandlers []func(model.Config, model.Config, model.Event)
 }
 
 var (
@@ -86,10 +99,9 @@ var (
 // NewController creates a new Kubernetes controller
 func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
 	options kubecontroller.Options) model.ConfigStoreCache {
-	handler := &kube.ChainHandler{}
 
 	// queue requires a time duration for a retry delay after a handler error
-	queue := kube.NewQueue(1 * time.Second)
+	q := queue.NewQueue(1 * time.Second)
 
 	if ingressNamespace == "" {
 		ingressNamespace = constants.IstioIngressNamespace
@@ -97,73 +109,93 @@ func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
 
 	log.Infof("Ingress controller watching namespaces %q", options.WatchedNamespace)
 	informer := v1beta1.NewFilteredIngressInformer(client, options.WatchedNamespace, options.ResyncPeriod, cache.Indexers{}, nil)
-	informer.AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				queue.Push(kube.NewTask(handler.Apply, obj, model.EventAdd))
-			},
-			UpdateFunc: func(old, cur interface{}) {
-				if !reflect.DeepEqual(old, cur) {
-					queue.Push(kube.NewTask(handler.Apply, cur, model.EventUpdate))
-				}
-			},
-			DeleteFunc: func(obj interface{}) {
-				queue.Push(kube.NewTask(handler.Apply, obj, model.EventDelete))
-			},
-		})
 
-	// first handler in the chain blocks until the cache is fully synchronized
-	// it does this by returning an error to the chain handler
-	handler.Append(func(obj interface{}, event model.Event) error {
-		if !informer.HasSynced() {
-			return errors.New("waiting till full synchronization")
-		}
-		if ingress, ok := obj.(*extensionsv1beta1.Ingress); ok {
-			log.Infof("ingress event %s for %s/%s", event, ingress.Namespace, ingress.Name)
-		}
-		return nil
-	})
-
-	return &controller{
+	c := &controller{
 		mesh:         mesh,
 		domainSuffix: options.DomainSuffix,
 		client:       client,
-		queue:        queue,
+		queue:        q,
 		informer:     informer,
-		handler:      handler,
 	}
+
+	informer.AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				q.Push(func() error {
+					return c.onEvent(obj, model.EventAdd)
+				})
+			},
+			UpdateFunc: func(old, cur interface{}) {
+				if !reflect.DeepEqual(old, cur) {
+					q.Push(func() error {
+						return c.onEvent(cur, model.EventUpdate)
+					})
+				}
+			},
+			DeleteFunc: func(obj interface{}) {
+				q.Push(func() error {
+					return c.onEvent(obj, model.EventDelete)
+				})
+			},
+		})
+
+	return c
 }
 
-func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Event)) {
-	c.handler.Append(func(obj interface{}, event model.Event) error {
-		ingress, ok := obj.(*extensionsv1beta1.Ingress)
-		if !ok || !shouldProcessIngress(c.mesh, ingress) {
-			return nil
-		}
+func (c *controller) onEvent(obj interface{}, event model.Event) error {
+	if !c.informer.HasSynced() {
+		return errors.New("waiting till full synchronization")
+	}
 
-		// In 1.0, Pilot has a single function, clearCache, which ignores
-		// the inputs.
-		// In future we may do smarter processing - but first we'll do
-		// major refactoring. No need to recompute everything and generate
-		// multiple events.
-
-		// TODO: This works well for Add and Delete events, but not so for Update:
-		// An updated ingress may also trigger an Add or Delete for one of its constituent sub-rules.
-		switch typ {
-		case schemas.VirtualService.Type:
-			f(model.Config{}, event)
-		}
-
+	ingress, ok := obj.(*extensionsv1beta1.Ingress)
+	if !ok || !shouldProcessIngress(c.mesh, ingress) {
 		return nil
-	})
+	}
+	log.Infof("ingress event %s for %s/%s", event, ingress.Namespace, ingress.Name)
+
+	// In 1.0, Pilot has a single function, clearCache, which ignores
+	// the inputs.
+	// In future we may do smarter processing - but first we'll do
+	// major refactoring. No need to recompute everything and generate
+	// multiple events.
+
+	// TODO: This works well for Add and Delete events, but not so for Update:
+	// An updated ingress may also trigger an Add or Delete for one of its constituent sub-rules.
+	for _, f := range c.virtualServiceHandlers {
+		f(model.Config{}, model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:    virtualServiceGvk.Kind,
+				Version: virtualServiceGvk.Version,
+				Group:   virtualServiceGvk.Group,
+			},
+		}, event)
+	}
+
+	return nil
+}
+
+func (c *controller) RegisterEventHandler(kind resource.GroupVersionKind, f func(model.Config, model.Config, model.Event)) {
+	switch kind {
+	case virtualServiceGvk:
+		c.virtualServiceHandlers = append(c.virtualServiceHandlers, f)
+	}
 }
 
 func (c *controller) Version() string {
 	panic("implement me")
 }
 
-func (c *controller) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+func (c *controller) GetResourceAtVersion(string, string) (resourceVersion string, err error) {
 	panic("implement me")
+}
+
+func (c *controller) GetLedger() ledger.Ledger {
+	log.Warnf("GetLedger: %s", errors.New("this operation is not supported by kube ingress controller"))
+	return nil
+}
+
+func (c *controller) SetLedger(ledger.Ledger) error {
+	return errors.New("this SetLedger operation is not supported by kube ingress controller")
 }
 
 func (c *controller) HasSynced() bool {
@@ -179,14 +211,15 @@ func (c *controller) Run(stop <-chan struct{}) {
 	<-stop
 }
 
-func (c *controller) ConfigDescriptor() schema.Set {
+func (c *controller) Schemas() collection.Schemas {
 	//TODO: are these two config descriptors right?
-	return schema.Set{schemas.Gateway, schemas.VirtualService}
+	return schemas
 }
 
 //TODO: we don't return out of this function now
-func (c *controller) Get(typ, name, namespace string) *model.Config {
-	if typ != schemas.Gateway.Type && typ != schemas.VirtualService.Type {
+func (c *controller) Get(typ resource.GroupVersionKind, name, namespace string) *model.Config {
+	if typ != collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind() &&
+		typ != collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind() {
 		return nil
 	}
 
@@ -209,8 +242,9 @@ func (c *controller) Get(typ, name, namespace string) *model.Config {
 	return nil
 }
 
-func (c *controller) List(typ, namespace string) ([]model.Config, error) {
-	if typ != schemas.Gateway.Type && typ != schemas.VirtualService.Type {
+func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]model.Config, error) {
+	if typ != collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind() &&
+		typ != collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind() {
 		return nil, errUnsupportedOp
 	}
 
@@ -229,15 +263,15 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 		}
 
 		switch typ {
-		case schemas.VirtualService.Type:
+		case virtualServiceGvk:
 			ConvertIngressVirtualService(*ingress, c.domainSuffix, ingressByHost)
-		case schemas.Gateway.Type:
+		case gatewayGvk:
 			gateways := ConvertIngressV1alpha3(*ingress, c.domainSuffix)
 			out = append(out, gateways)
 		}
 	}
 
-	if typ == schemas.VirtualService.Type {
+	if typ == virtualServiceGvk {
 		for _, obj := range ingressByHost {
 			out = append(out, *obj)
 		}
@@ -254,6 +288,6 @@ func (c *controller) Update(_ model.Config) (string, error) {
 	return "", errUnsupportedOp
 }
 
-func (c *controller) Delete(_, _, _ string) error {
+func (c *controller) Delete(_ resource.GroupVersionKind, _, _ string) error {
 	return errUnsupportedOp
 }

@@ -30,14 +30,8 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/mixer"
-)
-
-const (
-	statsFilterConfig            = "testdata/stats_filter.yaml"
-	metadataExchangeFilterConfig = "testdata/metadata_exchange_filter.yaml"
 )
 
 var (
@@ -64,49 +58,6 @@ func getPromInstance() prometheus.Instance {
 	return promInst
 }
 
-func queryPrometheus(t *testing.T, query string) error {
-	promInst := getPromInstance()
-	t.Logf("query prometheus with: %v", query)
-	val, err := promInst.WaitForQuiesce(query)
-	if err != nil {
-		return err
-	}
-	got, err := promInst.Sum(val, nil)
-	if err != nil {
-		t.Logf("value: %s", val.String())
-		return fmt.Errorf("could not find metric value: %v", err)
-	}
-	t.Logf("get value %v", got)
-	return nil
-}
-
-func buildQuery() (sourceQuery, destinationQuery string) {
-	bookinfoNsInst := getBookinfoNamespaceInstance()
-	sourceQuery = `istio_requests_total{reporter="source",`
-	destinationQuery = `istio_requests_total{reporter="destination",`
-	labels := map[string]string{
-		"request_protocol":               "http",
-		"response_code":                  "200",
-		"destination_app":                "reviews",
-		"destination_version":            "v1",
-		"destination_service":            "reviews." + bookinfoNsInst.Name() + ".svc.cluster.local",
-		"destination_service_name":       "reviews",
-		"destination_workload_namespace": bookinfoNsInst.Name(),
-		"destination_service_namespace":  bookinfoNsInst.Name(),
-		"source_app":                     "productpage",
-		"source_version":                 "v1",
-		"source_workload":                "productpage-v1",
-		"source_workload_namespace":      bookinfoNsInst.Name(),
-	}
-	for k, v := range labels {
-		sourceQuery += fmt.Sprintf(`%s=%q,`, k, v)
-		destinationQuery += fmt.Sprintf(`%s=%q,`, k, v)
-	}
-	sourceQuery += "}"
-	destinationQuery += "}"
-	return
-}
-
 // TestStatsFilter verifies the stats filter could emit expected client and server side metrics.
 // This test focuses on stats filter and metadata exchange filter could work coherently with
 // proxy bootstrap config. To avoid flake, it does not verify correctness of metrics, which
@@ -122,11 +73,11 @@ func TestStatsFilter(t *testing.T) {
 			retry.UntilSuccessOrFail(t, func() error {
 				util.SendTraffic(ingress, t, "Sending traffic", url, "", 200)
 				// Query client side metrics
-				if err := queryPrometheus(t, sourceQuery); err != nil {
+				if err := QueryPrometheus(t, sourceQuery, getPromInstance()); err != nil {
 					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
 					return err
 				}
-				if err := queryPrometheus(t, destinationQuery); err != nil {
+				if err := QueryPrometheus(t, destinationQuery, getPromInstance()); err != nil {
 					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
 					return err
 				}
@@ -148,11 +99,12 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	// disable telemetry and mixer filter
-	cfg.Values["global.disablePolicyChecks"] = "true"
-	cfg.Values["global.MixerCheckServer"] = ""
-	cfg.Values["global.MixerReportServer"] = ""
-	cfg.Values["mixer.telemetry.enabled"] = "false"
+	// disable mixer telemetry and enable telemetry v2
+	cfg.Values["telemetry.enabled"] = "true"
+	cfg.Values["telemetry.v1.enabled"] = "false"
+	cfg.Values["telemetry.v2.enabled"] = "true"
+	cfg.Values["telemetry.v2.prometheus.enabled"] = "true"
+	cfg.Values["prometheus.enabled"] = "true"
 }
 
 func testSetup(ctx resource.Context) (err error) {
@@ -182,23 +134,39 @@ func testSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	// Apply metadata exchange filter and stats filter.
-	statsFilterFile, err := file.AsString(statsFilterConfig)
-	if err != nil {
-		return
-	}
-	exchangeFilterFile, err := file.AsString(metadataExchangeFilterConfig)
-	if err != nil {
-		return
-	}
 	err = galInst.ApplyConfig(
 		bookinfoNsInst,
 		bookingfoGatewayFile,
-		statsFilterFile,
-		exchangeFilterFile,
 	)
 	if err != nil {
 		return
 	}
 	return nil
+}
+
+func buildQuery() (sourceQuery, destinationQuery string) {
+	bookinfoNsInst := getBookinfoNamespaceInstance()
+	sourceQuery = `istio_requests_total{reporter="source",`
+	destinationQuery = `istio_requests_total{reporter="destination",`
+	labels := map[string]string{
+		"request_protocol":               "http",
+		"response_code":                  "200",
+		"destination_app":                "reviews",
+		"destination_version":            "v1",
+		"destination_service":            "reviews." + bookinfoNsInst.Name() + ".svc.cluster.local",
+		"destination_service_name":       "reviews",
+		"destination_workload_namespace": bookinfoNsInst.Name(),
+		"destination_service_namespace":  bookinfoNsInst.Name(),
+		"source_app":                     "productpage",
+		"source_version":                 "v1",
+		"source_workload":                "productpage-v1",
+		"source_workload_namespace":      bookinfoNsInst.Name(),
+	}
+	for k, v := range labels {
+		sourceQuery += fmt.Sprintf(`%s=%q,`, k, v)
+		destinationQuery += fmt.Sprintf(`%s=%q,`, k, v)
+	}
+	sourceQuery += "}"
+	destinationQuery += "}"
+	return
 }

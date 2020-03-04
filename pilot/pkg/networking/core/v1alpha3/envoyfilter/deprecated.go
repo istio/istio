@@ -31,8 +31,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config/labels"
-
 	"istio.io/pkg/log"
 )
 
@@ -46,7 +44,7 @@ import (
 // filter chain (which is the http connection manager) with the updated object.
 func DeprecatedInsertUserFilters(in *plugin.InputParams, listener *xdsapi.Listener,
 	httpConnectionManagers []*http_conn.HttpConnectionManager) error { //nolint: unparam
-	filterCRD := getUserFiltersForWorkload(in.Env, in.Node.WorkloadLabels)
+	filterCRD := in.Push.EnvoyFilters(in.Node)
 	if filterCRD == nil {
 		return nil
 	}
@@ -56,7 +54,7 @@ func DeprecatedInsertUserFilters(in *plugin.InputParams, listener *xdsapi.Listen
 		log.Warnf("Failed to parse IP Address from plugin listener")
 	}
 
-	for _, f := range filterCRD.Filters {
+	for _, f := range filterCRD.DeprecatedFilters {
 		if !deprecatedListenerMatch(in, listenerIPAddress, f.ListenerMatch) {
 			continue
 		}
@@ -84,7 +82,7 @@ func DeprecatedInsertUserFilters(in *plugin.InputParams, listener *xdsapi.Listen
 				// http listener, http filter case
 				if f.FilterType == networking.EnvoyFilter_Filter_HTTP {
 					// Insert into http connection manager
-					deprecatedInsertHTTPFilter(listener.Name, listener.FilterChains[cnum], httpConnectionManagers[cnum], f, util.IsXDSMarshalingToAnyEnabled(in.Node))
+					deprecatedInsertHTTPFilter(listener.Name, listener.FilterChains[cnum], httpConnectionManagers[cnum], f)
 				} else {
 					// http listener, tcp filter
 					deprecatedInsertNetworkFilter(listener.Name, listener.FilterChains[cnum], f)
@@ -113,16 +111,6 @@ func DeprecatedInsertUserFilters(in *plugin.InputParams, listener *xdsapi.Listen
 				deprecatedInsertNetworkFilter(listener.Name, listener.FilterChains[cnum], f)
 			}
 		}
-	}
-	return nil
-}
-
-// NOTE: There can be only one filter for a workload. If multiple filters are defined, the behavior
-// is undefined.
-func getUserFiltersForWorkload(env *model.Environment, labels labels.Collection) *networking.EnvoyFilter {
-	f := env.EnvoyFilter(labels)
-	if f != nil {
-		return f.Spec.(*networking.EnvoyFilter)
 	}
 	return nil
 }
@@ -211,7 +199,7 @@ func deprecatedListenerMatch(in *plugin.InputParams, listenerIP net.IP,
 }
 
 func deprecatedInsertHTTPFilter(listenerName string, filterChain *xdslistener.FilterChain, hcm *http_conn.HttpConnectionManager,
-	envoyFilter *networking.EnvoyFilter_Filter, isXDSMarshalingToAnyEnabled bool) {
+	envoyFilter *networking.EnvoyFilter_Filter) {
 	filter := &http_conn.HttpFilter{
 		Name:       envoyFilter.FilterName,
 		ConfigType: &http_conn.HttpFilter_Config{Config: gogo.StructToProtoStruct(envoyFilter.FilterConfig)},
@@ -253,12 +241,8 @@ func deprecatedInsertHTTPFilter(listenerName string, filterChain *xdslistener.Fi
 	// Rebuild the HTTP connection manager in the network filter chain
 	// Its the last filter in the filter chain
 	filterStruct := xdslistener.Filter{
-		Name: xdsutil.HTTPConnectionManager,
-	}
-	if isXDSMarshalingToAnyEnabled {
-		filterStruct.ConfigType = &xdslistener.Filter_TypedConfig{TypedConfig: util.MessageToAny(hcm)}
-	} else {
-		filterStruct.ConfigType = &xdslistener.Filter_Config{Config: util.MessageToStruct(hcm)}
+		Name:       xdsutil.HTTPConnectionManager,
+		ConfigType: &xdslistener.Filter_TypedConfig{TypedConfig: util.MessageToAny(hcm)},
 	}
 	filterChain.Filters[len(filterChain.Filters)-1] = &filterStruct
 	log.Debugf("EnvoyFilters: Rebuilt HTTP Connection Manager %s (from %d filters to %d filters)",

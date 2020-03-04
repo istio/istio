@@ -26,8 +26,8 @@ import (
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/mixer"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	util "istio.io/istio/tests/integration/mixer"
 )
@@ -72,7 +72,23 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("mixer_telemetry_logs", m).
 		RequireEnvironment(environment.Kube).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
+		Label(label.CustomSetup).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
+			cfg.ControlPlaneValues = `
+values:
+  global:
+    disablePolicyChecks: false
+  telemetry:
+    v1:
+      enabled: true
+    v2:
+      enabled: false
+components:
+  policy:
+    enabled: true
+  telemetry:
+    enabled: true`
+		})).
 		Setup(testsetup).
 		Run()
 }
@@ -94,9 +110,6 @@ func testsetup(ctx resource.Context) error {
 		return err
 	}
 	galInst = &g
-	if _, err = mixer.New(ctx, mixer.Config{Galley: g}); err != nil {
-		return err
-	}
 	ing, err := ingress.New(ctx, ingress.Config{Istio: ist})
 	if err != nil {
 		return err
@@ -133,23 +146,23 @@ func setupComponentsOrFail(t *testing.T) (bookinfoNs namespace.Instance, g galle
 
 func validateLog(content string) error {
 	if !strings.Contains(content, "newlog") {
-		return fmt.Errorf("accesslog doesnt contain newlog instance. Log %v", content)
+		return fmt.Errorf("accesslog doesn't contain newlog instance. Log %v", content)
 	}
 	if !strings.Contains(content, "\"level\":\"warn\"") {
-		return fmt.Errorf("accesslog doesnt contain warning level. Log %v", content)
+		return fmt.Errorf("accesslog does'nt contain warning level. Log %v", content)
 	}
 	for _, expected := range []string{"details", "reviews", "productpage"} {
 		if !strings.Contains(content, fmt.Sprintf("\"destination\":\"%s\"", expected)) {
-			return fmt.Errorf("accesslog doesnt contain %s destination. Log %v", expected, content)
+			return fmt.Errorf("accesslog doesn't contain %s destination. Log %v", expected, content)
 		}
 	}
 	if !strings.Contains(content, "\"responseCode\":") {
-		return fmt.Errorf("accesslog doesnt contain response code. Log %v", content)
+		return fmt.Errorf("accesslog doesn't contain response code. Log %v", content)
 	}
 	if !strings.Contains(content, "\"source\":\"productpage\"") || !strings.Contains(content,
 		"\"source\":\"istio-ingressgateway\"") {
 		return fmt.Errorf(
-			"accesslog doesnt contain either productpage or istio-ingressgateway source. Log %v", content)
+			"accesslog doesn't contain either productpage or istio-ingressgateway source. Log %v", content)
 	}
 
 	return nil

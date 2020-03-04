@@ -88,6 +88,7 @@ func nextStrVersion(version *int64) string {
 
 }
 
+// nolint: unparam
 func createTestWatch(c source.Watcher, collection, version string, responseC chan *source.WatchResponse, wantResponse, wantCancel bool) (*source.WatchResponse, source.CancelWatchFunc, error) { // nolint: lll
 	req := &source.Request{
 		Collection:  collection,

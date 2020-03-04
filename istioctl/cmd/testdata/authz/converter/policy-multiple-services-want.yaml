@@ -1,0 +1,189 @@
+# Generated from ClusterRbacConfig with mode ON_WITH_INCLUSION on namespace "default". This policy will deny all requests to namespace "default" by default.
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-namespace-deny-all
+  namespace: default
+spec:
+  {}
+---
+# Generated for service "prefix-*" found in ServiceRole "httpbin" at rule 0
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-httpbin-rule0-svc0-target0
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        principals:
+        - user
+    to:
+    - operation:
+        methods:
+        - GET
+  selector:
+    matchLabels:
+      app: prefix-httpbin1-suffix
+---
+# Generated for service "prefix-*" found in ServiceRole "httpbin" at rule 0
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-httpbin-rule0-svc0-target1
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        principals:
+        - user
+    to:
+    - operation:
+        methods:
+        - GET
+  selector:
+    matchLabels:
+      app: prefix-httpbin2-suffix
+---
+# Generated for service "*-suffix" found in ServiceRole "httpbin" at rule 0
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-httpbin-rule0-svc1-target0
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        principals:
+        - user
+    to:
+    - operation:
+        methods:
+        - GET
+  selector:
+    matchLabels:
+      app: prefix-httpbin1-suffix
+---
+# Generated for service "*-suffix" found in ServiceRole "httpbin" at rule 0
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-httpbin-rule0-svc1-target1
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        principals:
+        - user
+    to:
+    - operation:
+        methods:
+        - GET
+  selector:
+    matchLabels:
+      app: prefix-httpbin2-suffix
+---
+# Generated for service "prefix-*" found in ServiceRole "httpbin" at rule 1
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-httpbin-rule1-svc0-target0
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        principals:
+        - user
+    to:
+    - operation:
+        paths:
+        - /prefix
+  selector:
+    matchLabels:
+      app: prefix-httpbin1-suffix
+---
+# Generated for service "prefix-*" found in ServiceRole "httpbin" at rule 1
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-httpbin-rule1-svc0-target1
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        principals:
+        - user
+    to:
+    - operation:
+        paths:
+        - /prefix
+  selector:
+    matchLabels:
+      app: prefix-httpbin2-suffix
+---
+# Generated for service "*-suffix" found in ServiceRole "httpbin" at rule 2
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-httpbin-rule2-svc0-target0
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        principals:
+        - user
+    to:
+    - operation:
+        paths:
+        - /suffix
+  selector:
+    matchLabels:
+      app: prefix-httpbin1-suffix
+---
+# Generated for service "*-suffix" found in ServiceRole "httpbin" at rule 2
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-httpbin-rule2-svc0-target1
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        principals:
+        - user
+    to:
+    - operation:
+        paths:
+        - /suffix
+  selector:
+    matchLabels:
+      app: prefix-httpbin2-suffix
+---
+# Generated for service "httpbin" found in ServiceRole "httpbin" at rule 3
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-httpbin-rule3-svc0-target0
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        principals:
+        - user
+    to:
+    - operation:
+        paths:
+        - /exact
+  selector:
+    matchLabels:
+      app: httpbin
+---

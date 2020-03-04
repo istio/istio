@@ -166,7 +166,6 @@ func init() {
 	proto.RegisterType((*FakeType0)(nil), FakeType0MessageName)
 	proto.RegisterType((*FakeType1)(nil), FakeType1MessageName)
 	proto.RegisterType((*FakeType2)(nil), FakeType2MessageName)
-	proto.RegisterType((*FakeType2)(nil), FakeType2MessageName)
 	proto.RegisterType((*UnmarshalErrorType)(nil), UnmarshalErrorMessageName)
 
 	Type0A = []*Fake{

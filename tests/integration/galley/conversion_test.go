@@ -19,15 +19,13 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/galley/testdata/conversion"
+	"istio.io/istio/galley/testdatasets/conversion"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 
-	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/galley"
-	"istio.io/istio/pkg/test/util/structpath"
 )
 
 func TestConversion(t *testing.T) {
@@ -112,95 +110,9 @@ func runTest(t *testing.T, ctx resource.Context, fset *conversion.FileSet, gal g
 	}
 
 	for collection, e := range expected {
-		var validator galley.SnapshotValidatorFunc
-
-		switch collection {
-		case metadata.IstioNetworkingV1Alpha3SyntheticServiceentries.String():
-			// The synthetic service entry includes the resource versions for service and
-			// endpoints as annotations, which are volatile. This prevents us from using
-			// golden files for validation. Instead, we use the structpath library to
-			// validate the fields manually.
-			validator = syntheticServiceEntryValidator(ns.Name())
-		default:
-			// All other collections use golden files.
-			validator = galley.NewGoldenSnapshotValidator(ns.Name(), e)
-		}
-
+		validator := galley.NewGoldenSnapshotValidator(ns.Name(), e)
 		if err = gal.WaitForSnapshot(collection, validator); err != nil {
 			t.Fatalf("failed waiting for %s:\n%v\n", collection, err)
 		}
 	}
-}
-
-func syntheticServiceEntryValidator(ns string) galley.SnapshotValidatorFunc {
-	return galley.NewSingleObjectSnapshotValidator(ns, func(ns string, actual *galley.SnapshotObject) error {
-		v := structpath.ForProto(actual)
-		sp := metadata.MustGet().AllCollections().Get(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries.String())
-		typeURL := "type.googleapis.com/" + sp.MessageName
-		if err := v.Equals(typeURL, "{.TypeURL}").
-			Equals(fmt.Sprintf("%s/kube-dns", ns), "{.Metadata.name}").
-			Check(); err != nil {
-			return err
-		}
-
-		if err := v.Select("{.Metadata.annotations}").
-			Exists("{.['networking.alpha.istio.io/serviceVersion']}").
-			Exists("{.['networking.alpha.istio.io/endpointsVersion']}").
-			Check(); err != nil {
-			return err
-		}
-
-		// Compare the body
-		if err := v.Select("{.Body}").
-			Equals("10.43.240.10", "{.addresses[0]}").
-			Equals(fmt.Sprintf("kube-dns.%s.svc.cluster.local", ns), "{.hosts[0]}").
-			Equals(1, "{.location}").
-			Equals(1, "{.resolution}").
-			Equals(fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/kube-dns", ns), "{.subject_alt_names[0]}").
-			Check(); err != nil {
-			return err
-		}
-
-		// Compare Ports
-		if err := v.Select("{.Body.ports[0]}").
-			Equals("dns", "{.name}").
-			Equals(53, "{.number}").
-			Equals("UDP", "{.protocol}").
-			Check(); err != nil {
-			return err
-		}
-
-		if err := v.Select("{.Body.ports[1]}").
-			Equals("dns-tcp", "{.name}").
-			Equals(53, "{.number}").
-			Equals("TCP", "{.protocol}").
-			Check(); err != nil {
-			return err
-		}
-
-		// Compare Endpoints
-		if err := v.Select("{.Body.endpoints[0]}").
-			Equals("10.40.0.5", "{.address}").
-			Equals("us-central1/us-central1-a", "{.locality}").
-			Equals(53, "{.ports['dns']}").
-			Equals(53, "{.ports['dns-tcp']}").
-			Equals("kube-dns", "{.labels['k8s-app']}").
-			Equals("123", "{.labels['pod-template-hash']}").
-			Check(); err != nil {
-			return err
-		}
-
-		if err := v.Select("{.Body.endpoints[1]}").
-			Equals("10.40.1.4", "{.address}").
-			Equals("us-central1/us-central1-a", "{.locality}").
-			Equals(53, "{.ports['dns']}").
-			Equals(53, "{.ports['dns-tcp']}").
-			Equals("kube-dns", "{.labels['k8s-app']}").
-			Equals("456", "{.labels['pod-template-hash']}").
-			Check(); err != nil {
-			return err
-		}
-
-		return nil
-	})
 }

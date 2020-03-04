@@ -25,7 +25,7 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 
-	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/pkg/config/resource"
 )
 
 // Ensure that Object can behave as a proto message.
@@ -59,12 +59,11 @@ func NewSingleObjectSnapshotValidator(ns string, fn func(ns string, actual *Snap
 
 func getForNamespace(ns string, actuals []*SnapshotObject) (result []*SnapshotObject) {
 	for _, a := range actuals {
-		fullName, err := resource.NewFullName(a.Metadata.Name)
+		fullName, err := resource.ParseFullName(a.Metadata.Name)
 		if err != nil {
 			continue
 		}
-		namespace, _ := fullName.InterpretAsNamespaceAndName()
-		if ns == namespace {
+		if ns == fullName.Namespace.String() {
 			result = append(result, a)
 		}
 	}

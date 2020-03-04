@@ -7,11 +7,11 @@ spec:
   jobTemplate:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
-        security.istio.io/mtlsReady: "true"
+        security.istio.io/tlsMode: istio
     spec:
       template:
         metadata:
@@ -83,9 +83,6 @@ spec:
             volumeMounts:
             - mountPath: /etc/istio/proxy
               name: istio-envoy
-            - mountPath: /etc/certs/
-              name: istio-certs
-              readOnly: true
           initContainers:
           - args:
             - -p
@@ -107,18 +104,23 @@ spec:
             name: istio-init
             resources: {}
             securityContext:
+              allowPrivilegeEscalation: false
               capabilities:
                 add:
                 - NET_ADMIN
+                - NET_RAW
+                drop:
+                - ALL
+              privileged: false
+              readOnlyRootFilesystem: false
+              runAsGroup: 0
+              runAsNonRoot: false
+              runAsUser: 0
           restartPolicy: OnFailure
           volumes:
           - emptyDir:
               medium: Memory
             name: istio-envoy
-          - name: istio-certs
-            secret:
-              optional: true
-              secretName: istio.default
   schedule: '*/1 * * * *'
 status: {}
 ---

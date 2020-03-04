@@ -86,10 +86,6 @@ func DiscoveryAddress(value string) Instance {
 	return newOption("discovery_address", value)
 }
 
-func DNSRefreshRate(value string) Instance {
-	return newOption("dns_refresh_rate", value)
-}
-
 func Localhost(value LocalhostValue) Instance {
 	return newOption("localhost", value)
 }
@@ -128,6 +124,10 @@ func DisableReportCalls(value bool) Instance {
 		strVal = "true"
 	}
 	return newOptionOrSkipIfZero("DisableReportCalls", strVal)
+}
+
+func OutlierLogPath(value string) Instance {
+	return newOptionOrSkipIfZero("outlier_log_path", value)
 }
 
 func LightstepAddress(value string) Instance {
@@ -212,6 +212,10 @@ func EnvoyAccessLogServiceTCPKeepalive(value *networkingAPI.ConnectionPoolSettin
 	return newTCPKeepaliveOption("envoy_accesslog_service_tcp_keepalive", value)
 }
 
+func EnvoyExtraStatTags(value []string) Instance {
+	return newStringArrayOptionOrSkipIfEmpty("extraStatTags", value)
+}
+
 func EnvoyStatsMatcherInclusionPrefix(value []string) Instance {
 	return newStringArrayOptionOrSkipIfEmpty("inclusionPrefix", value)
 }
@@ -230,4 +234,16 @@ func SDSUDSPath(value string) Instance {
 
 func SDSTokenPath(value string) Instance {
 	return newOption("sds_token_path", value)
+}
+
+func PilotCertProvider(value string) Instance {
+	return newOption("pilot_cert_provider", value)
+}
+
+func STSPort(value int) Instance {
+	return newOption("sts_port", value)
+}
+
+func STSEnabled(value bool) Instance {
+	return newOption("sts", value)
 }

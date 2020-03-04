@@ -16,25 +16,32 @@ package cmd
 
 import (
 	"bytes"
-	"fmt"
 	"regexp"
 	"sort"
 	"strings"
 	"testing"
 
-	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/ledger"
 
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/config/schema"
-	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 // sortedConfigStore lets us facade any ConfigStore (such as memory.Make()'s) providing
 // a stable List() which helps with testing `istioctl get` output.
 type sortedConfigStore struct {
 	store model.ConfigStore
+}
+
+func (cs sortedConfigStore) GetLedger() ledger.Ledger {
+	return cs.store.GetLedger()
+}
+
+func (cs sortedConfigStore) SetLedger(l ledger.Ledger) error {
+	return cs.store.SetLedger(l)
 }
 
 type testCase struct {
@@ -49,232 +56,38 @@ type testCase struct {
 	wantException bool
 }
 
-var (
-	testGateways = []model.Config{
-		{
-			ConfigMeta: model.ConfigMeta{
-				Name:      "bookinfo-gateway",
-				Namespace: "default",
-				Type:      schemas.Gateway.Type,
-				Group:     schemas.Gateway.Group,
-				Version:   schemas.Gateway.Version,
-			},
-			Spec: &networking.Gateway{
-				Selector: map[string]string{"istio": "ingressgateway"},
-				Servers: []*networking.Server{
-					{
-						Port: &networking.Port{
-							Number:   80,
-							Name:     "http",
-							Protocol: "HTTP",
-						},
-						Hosts: []string{"*"},
-					},
-				},
-			},
-		},
+func TestBadParse(t *testing.T) {
+	// unknown flags should be a command parse
+	rootCmd := GetRootCmd([]string{"--unknown-flag"})
+	fErr := rootCmd.Execute()
+
+	switch fErr.(type) {
+	case CommandParseError:
+		// do nothing
+	default:
+		t.Errorf("Expected a CommandParseError, but got %q.", fErr)
 	}
 
-	testVirtualServices = []model.Config{
-		{
-			ConfigMeta: model.ConfigMeta{
-				Name:      "bookinfo",
-				Namespace: "default",
-				Type:      schemas.VirtualService.Type,
-				Group:     schemas.VirtualService.Group,
-				Version:   schemas.VirtualService.Version,
-			},
-			Spec: &networking.VirtualService{
-				Hosts:    []string{"*"},
-				Gateways: []string{"bookinfo-gateway"},
-				Http: []*networking.HTTPRoute{
-					{
-						Match: []*networking.HTTPMatchRequest{
-							{
-								Uri: &networking.StringMatch{
-									MatchType: &networking.StringMatch_Exact{Exact: "/productpage"},
-								},
-							},
-							{
-								Uri: &networking.StringMatch{
-									MatchType: &networking.StringMatch_Exact{Exact: "/login"},
-								},
-							},
-							{
-								Uri: &networking.StringMatch{
-									MatchType: &networking.StringMatch_Exact{Exact: "/logout"},
-								},
-							},
-							{
-								Uri: &networking.StringMatch{
-									MatchType: &networking.StringMatch_Prefix{Prefix: "/api/v1/products"},
-								},
-							},
-						},
-						Route: []*networking.HTTPRouteDestination{
-							{
-								Destination: &networking.Destination{
-									Host: "productpage",
-									Port: &networking.PortSelector{
-										Number: 80,
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
+	// we should propagate to subcommands
+	rootCmd = GetRootCmd([]string{"x", "analyze", "--unknown-flag"})
+	fErr = rootCmd.Execute()
+
+	switch fErr.(type) {
+	case CommandParseError:
+		// do nothing
+	default:
+		t.Errorf("Expected a CommandParseError, but got %q.", fErr)
 	}
 
-	testDestinationRules = []model.Config{
-		{
-			ConfigMeta: model.ConfigMeta{
-				Name:      "googleapis",
-				Namespace: "default",
-				Type:      schemas.DestinationRule.Type,
-				Group:     schemas.DestinationRule.Group,
-				Version:   schemas.DestinationRule.Version,
-			},
-			Spec: &networking.DestinationRule{
-				Host: "*.googleapis.com",
-				TrafficPolicy: &networking.TrafficPolicy{
-					Tls: &networking.TLSSettings{
-						Mode: networking.TLSSettings_SIMPLE,
-					},
-				},
-			},
-		},
-	}
+	// all of the subcommands
+	rootCmd = GetRootCmd([]string{"authn", "tls-check", "--unknown-flag"})
+	fErr = rootCmd.Execute()
 
-	testServiceEntries = []model.Config{
-		{
-			ConfigMeta: model.ConfigMeta{
-				Name:      "googleapis",
-				Namespace: "default",
-				Type:      schemas.ServiceEntry.Type,
-				Group:     schemas.ServiceEntry.Group,
-				Version:   schemas.ServiceEntry.Version,
-			},
-			Spec: &networking.ServiceEntry{
-				Hosts: []string{"*.googleapis.com"},
-				Ports: []*networking.Port{
-					{
-						Name:     "https",
-						Number:   443,
-						Protocol: "HTTP",
-					},
-				},
-			},
-		},
-	}
-)
-
-func TestGet(t *testing.T) {
-	cases := []testCase{
-		{
-			configs: []model.Config{},
-			args:    strings.Split("get destinationrules", " "),
-			expectedOutput: `Command "get" is deprecated, Use ` + "`kubectl get`" + ` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)
-No resources found.
-`,
-		},
-		{
-			configs: testGateways,
-			args:    strings.Split("get gateways -n default", " "),
-			expectedOutput: `Command "get" is deprecated, Use ` + "`kubectl get`" + ` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)
-GATEWAY NAME       HOSTS     NAMESPACE   AGE
-bookinfo-gateway   *         default     0s
-`,
-		},
-		{
-			configs: testVirtualServices,
-			args:    strings.Split("get virtualservices -n default", " "),
-			expectedOutput: `Command "get" is deprecated, Use ` + "`kubectl get`" + ` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)
-VIRTUAL-SERVICE NAME   GATEWAYS           HOSTS     #HTTP     #TCP      NAMESPACE   AGE
-bookinfo               bookinfo-gateway   *             1        0      default     0s
-`,
-		},
-		{
-			configs: []model.Config{},
-			args:    strings.Split("get all", " "),
-			expectedOutput: `Command "get" is deprecated, Use ` + "`kubectl get`" + ` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)
-No resources found.
-`,
-		},
-		{
-			configs: testDestinationRules,
-			args:    strings.Split("get destinationrules -n default", " "),
-			expectedOutput: `Command "get" is deprecated, Use ` + "`kubectl get`" + ` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)
-DESTINATION-RULE NAME   HOST               SUBSETS   NAMESPACE   AGE
-googleapis              *.googleapis.com             default     0s
-`,
-		},
-		{
-			configs: testServiceEntries,
-			args:    strings.Split("get serviceentries -n default", " "),
-			expectedOutput: `Command "get" is deprecated, Use ` + "`kubectl get`" + ` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)
-SERVICE-ENTRY NAME   HOSTS              PORTS      NAMESPACE   AGE
-googleapis           *.googleapis.com   HTTP/443   default     0s
-`,
-		},
-	}
-
-	for i, c := range cases {
-		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
-			verifyOutput(t, c)
-		})
-	}
-}
-
-func TestCreate(t *testing.T) {
-	cases := []testCase{
-		{ // invalid doesn't provide -f filename
-			configs:        []model.Config{},
-			args:           strings.Split("create virtualservice", " "),
-			expectedRegexp: regexp.MustCompile("^Command \"create\" is deprecated, Use `kubectl create` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)*"), // nolint: lll
-			wantException:  true,
-		},
-	}
-
-	for i, c := range cases {
-		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
-			verifyOutput(t, c)
-		})
-	}
-}
-
-func TestReplace(t *testing.T) {
-	cases := []testCase{
-		{ // invalid doesn't provide -f
-			configs:        []model.Config{},
-			args:           strings.Split("replace virtualservice", " "),
-			expectedRegexp: regexp.MustCompile("^Command \"replace\" is deprecated, Use `kubectl apply` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)*"), // nolint: lll
-			wantException:  true,
-		},
-	}
-
-	for i, c := range cases {
-		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
-			verifyOutput(t, c)
-		})
-	}
-}
-
-func TestDelete(t *testing.T) {
-	cases := []testCase{
-		{
-			configs:        []model.Config{},
-			args:           strings.Split("delete all foo", " "),
-			expectedRegexp: regexp.MustCompile("^Command \"delete\" is deprecated, Use `kubectl delete` instead (see https://kubernetes.io/docs/tasks/tools/install-kubectl)*"), // nolint: lll
-			wantException:  true,
-		},
-	}
-
-	for i, c := range cases {
-		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
-			verifyOutput(t, c)
-		})
+	switch fErr.(type) {
+	case CommandParseError:
+		// do nothing
+	default:
+		t.Errorf("Expected a CommandParseError, but got %q.", fErr)
 	}
 }
 
@@ -288,7 +101,7 @@ func mockClientFactoryGenerator(configs []model.Config) func() (model.ConfigStor
 		}
 
 		// Initialize memory based model.ConfigStore with configs
-		outConfig := memory.Make(realClient.ConfigDescriptor())
+		outConfig := memory.Make(realClient.Schemas())
 		for _, config := range configs {
 			if _, err := outConfig.Create(config); err != nil {
 				return nil, err
@@ -306,19 +119,19 @@ func (cs sortedConfigStore) Create(config model.Config) (string, error) {
 	return cs.store.Create(config)
 }
 
-func (cs sortedConfigStore) Get(typ, name, namespace string) *model.Config {
+func (cs sortedConfigStore) Get(typ resource.GroupVersionKind, name, namespace string) *model.Config {
 	return cs.store.Get(typ, name, namespace)
 }
 
 func (cs sortedConfigStore) Update(config model.Config) (string, error) {
 	return cs.store.Update(config)
 }
-func (cs sortedConfigStore) Delete(typ, name, namespace string) error {
+func (cs sortedConfigStore) Delete(typ resource.GroupVersionKind, name, namespace string) error {
 	return cs.store.Delete(typ, name, namespace)
 }
 
-func (cs sortedConfigStore) ConfigDescriptor() schema.Set {
-	return cs.store.ConfigDescriptor()
+func (cs sortedConfigStore) Schemas() collection.Schemas {
+	return cs.store.Schemas()
 }
 
 func (cs sortedConfigStore) Version() string {
@@ -329,7 +142,7 @@ func (cs sortedConfigStore) GetResourceAtVersion(version string, key string) (re
 }
 
 // List() is a facade that always returns cs.store items sorted by name/namespace
-func (cs sortedConfigStore) List(typ, namespace string) ([]model.Config, error) {
+func (cs sortedConfigStore) List(typ resource.GroupVersionKind, namespace string) ([]model.Config, error) {
 	out, err := cs.store.List(typ, namespace)
 	if err != nil {
 		return out, err
@@ -357,8 +170,6 @@ func verifyOutput(t *testing.T, c testCase) {
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)
 	rootCmd.SetOutput(&out)
-
-	file = "" // Clear, because we re-use
 
 	fErr := rootCmd.Execute()
 	output := out.String()

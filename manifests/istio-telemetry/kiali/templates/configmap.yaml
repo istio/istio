@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kiali
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: kiali
+    release: {{ .Release.Name }}
+data:
+  config.yaml: |
+    istio_component_namespaces:
+      grafana: {{ .Values.global.telemetryNamespace }}
+      tracing: {{ .Values.global.telemetryNamespace }}
+      pilot: {{ .Values.global.configNamespace }}
+      prometheus: {{ .Values.global.prometheusNamespace }}
+    istio_namespace: {{ .Values.global.istioNamespace }}
+    auth:
+      strategy: {{ .Values.kiali.dashboard.auth.strategy }}
+{{- if eq .Values.kiali.dashboard.auth.strategy "ldap" }}
+      ldap:
+{{- with .Values.kiali.dashboard.auth.strategy.ldap }}
+{{ toYaml . | indent 8 }}
+{{- end }}
+{{- end }}
+    deployment:
+      accessible_namespaces: ['**']
+    server:
+      port: 20001
+{{- if .Values.kiali.contextPath }}
+      web_root: {{ .Values.kiali.contextPath }}
+{{- end }}
+    external_services:
+      istio:
+        url_service_version: http://istio-pilot.{{ .Values.global.configNamespace }}:8080/version
+      tracing:
+        url: {{ .Values.kiali.dashboard.jaegerURL }}
+        in_cluster_url: {{ .Values.kiali.dashboard.jaegerInClusterURL }}
+      grafana:
+        url: {{ .Values.kiali.dashboard.grafanaURL }}
+        in_cluster_url: {{ .Values.kiali.dashboard.grafanaInClusterURL }}
+      prometheus:
+{{- if .Values.global.prometheusNamespace }}
+        url: http://prometheus.{{ .Values.global.prometheusNamespace }}:9090
+{{ else }}
+        url: http://prometheus:9090
+{{- end }}
+{{- if .Values.kiali.security.enabled }}
+    identity:
+      cert_file: {{ .Values.kiali.security.cert_file }}
+      private_key_file: {{ .Values.kiali.security.private_key_file }}
+{{- end}}

@@ -17,8 +17,6 @@
 # Init script downloads or updates envoy and the go dependencies. Called from Makefile, which sets
 # the needed environment variables.
 
-ROOTDIR=$(cd "$(dirname "$0")"/..; pwd)
-
 set -o errexit
 set -o nounset
 set -o pipefail
@@ -33,26 +31,12 @@ export ISTIO_BIN=${ISTIO_BIN:-${GOPATH}/bin}
 # Set the architecture. Matches logic in the Makefile.
 export GOARCH=${GOARCH:-'amd64'}
 
-# Determine the OS. Matches logic in the Makefile.
-LOCAL_OS=${LOCAL_OS:-"$(uname)"}
-case ${LOCAL_OS} in
-  'Linux')
-    export GOOS=${GOOS:-"linux"}
-    ;;
-  'Darwin')
-    export GOOS=${GOOS:-"darwin"}
-    ;;
-  *)
-    echo "This system's OS ${LOCAL_OS} isn't recognized/supported"
-    exit 1
-    ;;
-esac
-
 # test scripts seem to like to run this script directly rather than use make
 export ISTIO_OUT=${ISTIO_OUT:-${ISTIO_BIN}}
+export ISTIO_OUT_LINUX=${ISTIO_OUT_LINUX:-${ISTIO_BIN}}
 
 # Download Envoy debug and release binaries for Linux x86_64. They will be included in the
-# docker images created by Dockerfile.proxyv2 and Dockerfile.proxytproxy.
+# docker images created by Dockerfile.proxyv2.
 
 # Gets the download command supported by the system (currently either curl or wget)
 DOWNLOAD_COMMAND=""
@@ -92,7 +76,7 @@ function download_envoy_if_necessary () {
 
     # Download and extract the binary to the output directory.
     echo "Downloading Envoy: ${DOWNLOAD_COMMAND} $1 to $2"
-    time ${DOWNLOAD_COMMAND} "$1" | tar xz
+    time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" | tar xz
 
     # Copy the extracted binary to the output location
     cp usr/local/bin/envoy "$2"
@@ -107,6 +91,33 @@ function download_envoy_if_necessary () {
   fi
 }
 
+# Downloads WebAssembly based plugin if it doesn't already exist.
+# Params:
+#   $1: The URL of the WebAssembly file to be downloaded.
+#   $2: The full path of the output file.
+function download_wasm_if_necessary () {
+  download_file_dir="$(dirname "$2")"
+  download_file_name="$(basename "$1")"
+  download_file_path="${download_file_dir}/${download_file_name}"
+  if [[ ! -f "${download_file_path}" ]] ; then
+    # Enter the output directory.
+    mkdir -p "${download_file_dir}"
+    pushd "${download_file_dir}"
+
+    # Download the WebAssembly plugin files to the output directory.
+    echo "Downloading WebAssembly file: ${DOWNLOAD_COMMAND} $1 to ${download_file_path}"
+    if [[ ${DOWNLOAD_COMMAND} == curl* ]]; then
+      time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" -o "${download_file_name}"
+    elif [[ ${DOWNLOAD_COMMAND} == wget* ]]; then
+      time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" -O "${download_file_name}"
+    fi
+
+    # Copy the webassembly file to the output location
+    cp "${download_file_path}" "$2"
+    popd
+  fi
+}
+
 # Included for support on macOS.
 function realpath () {
   python -c "import os; print(os.path.realpath('$1'))"
@@ -117,11 +128,14 @@ if [[ -z "${PROXY_REPO_SHA:-}" ]] ; then
   export PROXY_REPO_SHA
 fi
 
+# Defines the base URL to download envoy from
+ISTIO_ENVOY_BASE_URL=${ISTIO_ENVOY_BASE_URL:-https://storage.googleapis.com/istio-build/proxy}
+
 # These variables are normally set by the Makefile.
 # OS-neutral vars. These currently only work for linux.
 ISTIO_ENVOY_VERSION=${ISTIO_ENVOY_VERSION:-${PROXY_REPO_SHA}}
-ISTIO_ENVOY_DEBUG_URL=${ISTIO_ENVOY_DEBUG_URL:-https://storage.googleapis.com/istio-build/proxy/envoy-debug-${ISTIO_ENVOY_LINUX_VERSION}.tar.gz}
-ISTIO_ENVOY_RELEASE_URL=${ISTIO_ENVOY_RELEASE_URL:-https://storage.googleapis.com/istio-build/proxy/envoy-alpha-${ISTIO_ENVOY_LINUX_VERSION}.tar.gz}
+ISTIO_ENVOY_DEBUG_URL=${ISTIO_ENVOY_DEBUG_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-debug-${ISTIO_ENVOY_LINUX_VERSION}.tar.gz}
+ISTIO_ENVOY_RELEASE_URL=${ISTIO_ENVOY_RELEASE_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-alpha-${ISTIO_ENVOY_LINUX_VERSION}.tar.gz}
 
 # Envoy Linux vars. Normally set by the Makefile.
 ISTIO_ENVOY_LINUX_VERSION=${ISTIO_ENVOY_LINUX_VERSION:-${ISTIO_ENVOY_VERSION}}
@@ -155,7 +169,7 @@ if [[ ${USE_LOCAL_PROXY} == 1 ]] ; then
   fi
 
   # Point the native paths to the local envoy build.
-  if [[ "$LOCAL_OS" == "Darwin" ]]; then
+  if [[ "$GOOS_LOCAL" == "darwin" ]]; then
     ISTIO_ENVOY_MACOS_RELEASE_PATH=${ISTIO_ENVOY_LOCAL_PATH}
 
     ISTIO_ENVOY_LINUX_LOCAL_PATH=${ISTIO_ENVOY_LINUX_LOCAL_PATH:-}
@@ -172,33 +186,42 @@ if [[ ${USE_LOCAL_PROXY} == 1 ]] ; then
 fi
 
 mkdir -p "${ISTIO_OUT}"
-mkdir -p "${ISTIO_BIN}"
 
 # Set the value of DOWNLOAD_COMMAND (either curl or wget)
 set_download_command
 
-# Download and extract the Envoy linux debug binary.
-download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_DEBUG_URL}" "$ISTIO_ENVOY_LINUX_DEBUG_PATH"
+if [[ -n "${DEBUG_IMAGE:-}" ]]; then
+  # Download and extract the Envoy linux debug binary.
+  download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_DEBUG_URL}" "$ISTIO_ENVOY_LINUX_DEBUG_PATH"
+else
+  echo "Skipping envoy debug. Set DEBUG_IMAGE to download."
+fi
 
 # Download and extract the Envoy linux release binary.
 download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_RELEASE_URL}" "$ISTIO_ENVOY_LINUX_RELEASE_PATH"
 
-if [[ "$LOCAL_OS" == "Darwin" ]]; then
+if [[ "$GOOS_LOCAL" == "darwin" ]]; then
   # Download and extract the Envoy macOS release binary
   download_envoy_if_necessary "${ISTIO_ENVOY_MACOS_RELEASE_URL}" "$ISTIO_ENVOY_MACOS_RELEASE_PATH"
   ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_MACOS_RELEASE_PATH}
 else
-  ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_LINUX_DEBUG_PATH}
+  ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_LINUX_RELEASE_PATH}
 fi
+
+# Donwload WebAssembly plugin files
+WASM_RELEASE_DIR=${ISTIO_ENVOY_LINUX_RELEASE_DIR}
+for plugin in stats metadata_exchange
+do
+  FILTER_WASM_URL="${ISTIO_ENVOY_BASE_URL}/${plugin}-${ISTIO_ENVOY_VERSION}.wasm"
+  download_wasm_if_necessary "${FILTER_WASM_URL}" "${WASM_RELEASE_DIR}"/"${plugin//_/-}"-filter.wasm
+done
 
 # Copy native envoy binary to ISTIO_OUT
 echo "Copying ${ISTIO_ENVOY_NATIVE_PATH} to ${ISTIO_OUT}/envoy"
 cp -f "${ISTIO_ENVOY_NATIVE_PATH}" "${ISTIO_OUT}/envoy"
 
-# TODO(nmittler): Remove once tests no longer use the envoy binary directly.
-# circleCI expects this in the bin directory
-# Make sure the envoy binary exists. This is only used for tests, so use the debug binary.
-echo "Copying ${ISTIO_OUT}/envoy to ${ISTIO_BIN}/envoy"
-cp -f "${ISTIO_OUT}/envoy" "${ISTIO_BIN}/envoy"
-
-"${ROOTDIR}/bin/init_helm.sh"
+# Copy the envoy binary to ISTIO_OUT_LINUX if the local OS is not Linux
+if [[ "$GOOS_LOCAL" != "linux" ]]; then
+   echo "Copying ${ISTIO_ENVOY_LINUX_RELEASE_PATH} to ${ISTIO_OUT_LINUX}/envoy"
+  cp -f "${ISTIO_ENVOY_LINUX_RELEASE_PATH}" "${ISTIO_OUT_LINUX}/envoy"
+fi

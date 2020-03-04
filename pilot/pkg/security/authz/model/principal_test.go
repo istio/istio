@@ -42,11 +42,37 @@ func TestPrincipal_ValidateForTCP(t *testing.T) {
 			},
 		},
 		{
+			name: "principal with requestPrincipal",
+			principal: &Principal{
+				RequestPrincipals: []string{"request-principal"},
+			},
+		},
+		{
+			name: "principal with notRequestPrincipal",
+			principal: &Principal{
+				NotRequestPrincipals: []string{"not-request-principal"},
+			},
+		},
+		{
 			name: "principal with unsupported property",
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrRequestPresenter: []string{"ns"},
+						attrRequestPresenter: Values{
+							Values: []string{"ns"},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "principal with request header",
+			principal: &Principal{
+				Properties: []KeyValues{
+					{
+						"request.headers[id]": Values{
+							Values: []string{"123"},
+						},
 					},
 				},
 			},
@@ -57,10 +83,14 @@ func TestPrincipal_ValidateForTCP(t *testing.T) {
 				Users: []string{"user"},
 				Properties: []KeyValues{
 					{
-						attrSrcNamespace: []string{"ns"},
+						attrSrcNamespace: Values{
+							Values: []string{"ns"},
+						},
 					},
 					{
-						attrSrcPrincipal: []string{"p"},
+						attrSrcPrincipal: Values{
+							Values: []string{"p"},
+						},
 					},
 				},
 			},
@@ -81,6 +111,7 @@ func TestPrincipal_Generate(t *testing.T) {
 		name         string
 		principal    *Principal
 		forTCPFilter bool
+		forDeny      bool
 		wantYAML     string
 		wantError    string
 	}{
@@ -202,6 +233,32 @@ func TestPrincipal_Generate(t *testing.T) {
                       exact: id-2`,
 		},
 		{
+			name: "principal with notRequestPrincipal",
+			principal: &Principal{
+				NotRequestPrincipals: []string{"id-1", "id-2"},
+			},
+			wantYAML: `
+        andIds:
+          ids:
+          - notId:
+              orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.principal
+                    value:
+                      stringMatch:
+                        exact: id-1
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.principal
+                    value:
+                      stringMatch:
+                        exact: id-2`,
+		},
+		{
 			name: "principal with group",
 			principal: &Principal{
 				Group: "group-1",
@@ -257,24 +314,58 @@ func TestPrincipal_Generate(t *testing.T) {
 				Namespaces: []string{"ns-1", "ns-2"},
 			},
 			wantYAML: `
-        andIds:
-          ids:
-          - orIds:
+            andIds:
               ids:
-              - metadata:
-                  filter: istio_authn
-                  path:
-                  - key: source.principal
-                  value:
-                    stringMatch:
-                      regex: .*/ns/ns-1/.*
-              - metadata:
-                  filter: istio_authn
-                  path:
-                  - key: source.principal
-                  value:
-                    stringMatch:
-                      regex: .*/ns/ns-2/.*`,
+              - orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*/ns/ns-1/.*
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*/ns/ns-2/.*`,
+		},
+		{
+			name: "principal with notNamespaces",
+			principal: &Principal{
+				NotNamespaces: []string{"ns-1", "ns-2"},
+			},
+			wantYAML: `
+            andIds:
+              ids:
+              - notId:
+                  orIds:
+                    ids:
+                    - metadata:
+                        filter: istio_authn
+                        path:
+                        - key: source.principal
+                        value:
+                          stringMatch:
+                            safeRegex:
+                              googleRe2: {}
+                              regex: .*/ns/ns-1/.*
+                    - metadata:
+                        filter: istio_authn
+                        path:
+                        - key: source.principal
+                        value:
+                          stringMatch:
+                            safeRegex:
+                              googleRe2: {}
+                              regex: .*/ns/ns-2/.*`,
 		},
 		{
 			name: "principal with ips",
@@ -316,7 +407,9 @@ func TestPrincipal_Generate(t *testing.T) {
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrSrcIP: []string{"1.2.3.4", "5.6.7.8"},
+						attrSrcIP: Values{
+							Values: []string{"1.2.3.4", "5.6.7.8"},
+						},
 					},
 				},
 			},
@@ -337,113 +430,216 @@ func TestPrincipal_Generate(t *testing.T) {
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrSrcNamespace: []string{"ns-1", "ns-2"},
+						attrSrcNamespace: Values{
+							Values: []string{"ns-1", "ns-2"},
+						},
 					},
 				},
 			},
 			wantYAML: `
-        andIds:
-          ids:
-          - orIds:
+            andIds:
               ids:
-              - metadata:
-                  filter: istio_authn
-                  path:
-                  - key: source.principal
-                  value:
-                    stringMatch:
-                      regex: .*/ns/ns-1/.*
-              - metadata:
-                  filter: istio_authn
-                  path:
-                  - key: source.principal
-                  value:
-                    stringMatch:
-                      regex: .*/ns/ns-2/.*`,
+              - orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*/ns/ns-1/.*
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*/ns/ns-2/.*`,
 		},
 		{
 			name: "principal with property attrSrcNamespace for TCP filter",
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrSrcNamespace: []string{"ns-1", "ns-2"},
+						attrSrcNamespace: Values{
+							Values: []string{"ns-1", "ns-2"},
+						},
 					},
 				},
 			},
 			forTCPFilter: true,
 			wantYAML: `
-        andIds:
-          ids:
-          - orIds:
+            andIds:
               ids:
-              - authenticated:
-                  principalName:
-                    regex: .*/ns/ns-1/.*
-              - authenticated:
-                  principalName:
-                    regex: .*/ns/ns-2/.*`,
+              - orIds:
+                  ids:
+                  - authenticated:
+                      principalName:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/ns-1/.*
+                  - authenticated:
+                      principalName:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/ns-2/.*`,
 		},
 		{
-			name: "principal with property attrSrcPrincipal",
+			name: "principal with property attrSrcPrincipal v1alpha1",
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrSrcPrincipal: []string{"id-1", "*", allAuthenticatedUsers, allUsers},
+						attrSrcPrincipal: Values{
+							Values: []string{"id-1", "*", allAuthenticatedUsers, allUsers},
+						},
 					},
 				},
 			},
 			wantYAML: `
-        andIds:
-          ids:
-          - orIds:
+            andIds:
               ids:
-              - metadata:
-                  filter: istio_authn
-                  path:
-                  - key: source.principal
-                  value:
-                    stringMatch:
-                      exact: id-1
-              - any: true
-              - metadata:
-                  filter: istio_authn
-                  path:
-                  - key: source.principal
-                  value:
-                    stringMatch:
-                      regex: .*
-              - any: true`,
+              - orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          exact: id-1
+                  - any: true
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*
+                  - any: true`,
 		},
 		{
-			name: "principal with property attrSrcPrincipal for TCP filter",
+			name: "principal with property attrSrcPrincipal v1beta1",
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrSrcPrincipal: []string{"id-1", "*", allAuthenticatedUsers, allUsers},
+						attrSrcPrincipal: Values{
+							Values: []string{"id-1", "*", allAuthenticatedUsers, allUsers},
+						},
+					},
+				},
+				v1beta1: true,
+			},
+			wantYAML: `
+            andIds:
+              ids:
+              - orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          exact: id-1
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .+
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          exact: allAuthenticatedUsers
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          exact: allUsers`,
+		},
+		{
+			name: "principal with property attrSrcPrincipal for TCP filter v1alpha1",
+			principal: &Principal{
+				Properties: []KeyValues{
+					{
+						attrSrcPrincipal: Values{
+							Values: []string{"id-1", "*", allAuthenticatedUsers, allUsers},
+						},
 					},
 				},
 			},
 			forTCPFilter: true,
 			wantYAML: `
-        andIds:
-          ids:
-          - orIds:
+            andIds:
               ids:
-              - authenticated:
-                  principalName:
-                    exact: spiffe://id-1
-              - any: true
-              - authenticated:
-                  principalName:
-                    regex: .*
-              - any: true`,
+              - orIds:
+                  ids:
+                  - authenticated:
+                      principalName:
+                        exact: spiffe://id-1
+                  - any: true
+                  - authenticated:
+                      principalName:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*
+                  - any: true`,
+		},
+		{
+			name: "principal with property attrSrcPrincipal for TCP filter v1beta1",
+			principal: &Principal{
+				Properties: []KeyValues{
+					{
+						attrSrcPrincipal: Values{
+							Values: []string{"id-1", "*", allAuthenticatedUsers, allUsers},
+						},
+					},
+				},
+				v1beta1: true,
+			},
+			forTCPFilter: true,
+			wantYAML: `
+            andIds:
+              ids:
+              - orIds:
+                  ids:
+                  - authenticated:
+                      principalName:
+                        exact: spiffe://id-1
+                  - authenticated:
+                      principalName:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .+
+                  - authenticated:
+                      principalName:
+                        exact: spiffe://allAuthenticatedUsers
+                  - authenticated:
+                      principalName:
+                        exact: spiffe://allUsers`,
 		},
 		{
 			name: "principal with property attrRequestPrincipal",
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrRequestPrincipal: []string{"id-1", "id-2"},
+						attrRequestPrincipal: Values{
+							Values: []string{"id-1", "id-2"},
+						},
 					},
 				},
 			},
@@ -472,7 +668,9 @@ func TestPrincipal_Generate(t *testing.T) {
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrRequestAudiences: []string{"aud-1", "aud-2"},
+						attrRequestAudiences: Values{
+							Values: []string{"aud-1", "aud-2"},
+						},
 					},
 				},
 			},
@@ -501,7 +699,9 @@ func TestPrincipal_Generate(t *testing.T) {
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrRequestPresenter: []string{"pre-1", "pre-2"},
+						attrRequestPresenter: Values{
+							Values: []string{"pre-1", "pre-2"},
+						},
 					},
 				},
 			},
@@ -530,7 +730,9 @@ func TestPrincipal_Generate(t *testing.T) {
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrSrcUser: []string{"user-1", "user-2"},
+						attrSrcUser: Values{
+							Values: []string{"user-1", "user-2"},
+						},
 					},
 				},
 			},
@@ -559,8 +761,12 @@ func TestPrincipal_Generate(t *testing.T) {
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						fmt.Sprintf("%s[%s]", attrRequestHeader, "X-id"):  []string{"id-1", "id-2"},
-						fmt.Sprintf("%s[%s]", attrRequestHeader, "X-tag"): []string{"tag-1", "tag-2"},
+						fmt.Sprintf("%s[%s]", attrRequestHeader, "X-id"): Values{
+							Values: []string{"id-1", "id-2"},
+						},
+						fmt.Sprintf("%s[%s]", attrRequestHeader, "X-tag"): Values{
+							Values: []string{"tag-1", "tag-2"},
+						},
 					},
 				},
 			},
@@ -589,8 +795,12 @@ func TestPrincipal_Generate(t *testing.T) {
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						fmt.Sprintf("%s[%s]", attrRequestClaims, "claim-1"): []string{"v-1", "v-2"},
-						fmt.Sprintf("%s[%s]", attrRequestClaims, "claim-2"): []string{"v-3", "v-4"},
+						fmt.Sprintf("%s[%s]", attrRequestClaims, "claim-1"): Values{
+							Values: []string{"v-1", "v-2"},
+						},
+						fmt.Sprintf("%s[%s]", attrRequestClaims, "claim-2"): Values{
+							Values: []string{"v-3", "v-4"},
+						},
 					},
 				},
 			},
@@ -647,7 +857,9 @@ func TestPrincipal_Generate(t *testing.T) {
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						"custom": []string{"v1", "v2"},
+						"custom": Values{
+							Values: []string{"v1", "v2"},
+						},
 					},
 				},
 			},
@@ -676,7 +888,9 @@ func TestPrincipal_Generate(t *testing.T) {
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						"custom": []string{"v1", "v2"},
+						"custom": Values{
+							Values: []string{"v1", "v2"},
+						},
 					},
 				},
 			},
@@ -702,37 +916,38 @@ func TestPrincipal_Generate(t *testing.T) {
                       exact: v2`,
 		},
 		{
-			name: "principal with invalid property",
+			name: "principal with notValues",
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrSrcIP:        []string{"x.y.z"},
-						attrSrcNamespace: []string{"ns"},
+						attrSrcIP: Values{
+							NotValues: []string{"10.0.0.1", "10.0.0.2"},
+						},
 					},
 				},
 			},
 			wantYAML: `
         andIds:
           ids:
-          - metadata:
-              filter: istio_authn
-              path:
-              - key: source.principal
-              value:
-                stringMatch:
-                  regex: .*/ns/ns/.*`,
+          - notId:
+              orIds:
+                ids:
+                - sourceIp:
+                    addressPrefix: 10.0.0.1
+                    prefixLen: 32
+                - sourceIp:
+                    addressPrefix: 10.0.0.2
+                    prefixLen: 32`,
 		},
 		{
-			name: "principal with multiple properties",
+			name: "principal with values and notValues",
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
-						attrSrcIP:        []string{"1.2.3.4", "5.6.7.8"},
-						attrSrcNamespace: []string{"ns-1", "ns-2"},
-					},
-					{
-						attrSrcPrincipal:     []string{"id-1", "id-2"},
-						attrRequestAudiences: []string{"aud-1", "aud-2"},
+						attrSrcIP: Values{
+							Values:    []string{"1.2.3.4", "5.6.7.8"},
+							NotValues: []string{"10.0.0.1", "10.0.0.2"},
+						},
 					},
 				},
 			},
@@ -747,86 +962,245 @@ func TestPrincipal_Generate(t *testing.T) {
               - sourceIp:
                   addressPrefix: 5.6.7.8
                   prefixLen: 32
-          - orIds:
+          - notId:
+              orIds:
+                ids:
+                - sourceIp:
+                    addressPrefix: 10.0.0.1
+                    prefixLen: 32
+                - sourceIp:
+                    addressPrefix: 10.0.0.2
+                    prefixLen: 32`,
+		},
+		{
+			name: "principal with invalid property",
+			principal: &Principal{
+				Properties: []KeyValues{
+					{
+						attrSrcIP: Values{
+							Values: []string{"x.y.z"},
+						},
+						attrSrcNamespace: Values{
+							Values: []string{"ns"},
+						},
+					},
+				},
+			},
+			wantYAML: `
+            andIds:
               ids:
-              - metadata:
-                  filter: istio_authn
-                  path:
-                  - key: source.principal
-                  value:
-                    stringMatch:
-                      regex: .*/ns/ns-1/.*
-              - metadata:
-                  filter: istio_authn
-                  path:
-                  - key: source.principal
-                  value:
-                    stringMatch:
-                      regex: .*/ns/ns-2/.*
-          - orIds:
+              - orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*/ns/ns/.*`,
+		},
+		{
+			name: "principal with multiple properties",
+			principal: &Principal{
+				Properties: []KeyValues{
+					{
+						attrSrcIP: Values{
+							Values: []string{"1.2.3.4", "5.6.7.8"},
+						},
+						attrSrcNamespace: Values{
+							Values: []string{"ns-1", "ns-2"},
+						},
+					},
+					{
+						attrSrcPrincipal: Values{
+							Values: []string{"id-1", "id-2"},
+						},
+						attrRequestAudiences: Values{
+							Values: []string{"aud-1", "aud-2"},
+						},
+					},
+				},
+			},
+			wantYAML: `
+            andIds:
               ids:
-              - metadata:
-                  filter: istio_authn
-                  path:
-                  - key: request.auth.audiences
-                  value:
-                    stringMatch:
-                      exact: aud-1
-              - metadata:
-                  filter: istio_authn
-                  path:
-                  - key: request.auth.audiences
-                  value:
-                    stringMatch:
-                      exact: aud-2
-          - orIds:
+              - orIds:
+                  ids:
+                  - sourceIp:
+                      addressPrefix: 1.2.3.4
+                      prefixLen: 32
+                  - sourceIp:
+                      addressPrefix: 5.6.7.8
+                      prefixLen: 32
+              - orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*/ns/ns-1/.*
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .*/ns/ns-2/.*
+              - orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.audiences
+                      value:
+                        stringMatch:
+                          exact: aud-1
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.audiences
+                      value:
+                        stringMatch:
+                          exact: aud-2
+              - orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          exact: id-1
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          exact: id-2`,
+		},
+		{
+			name:    "principal with forDeny",
+			forDeny: true,
+			principal: &Principal{
+				Names:             []string{"principal"},
+				RequestPrincipals: []string{"request"},
+				Properties: []KeyValues{
+					{
+						"request.headers[:method]": Values{
+							Values: []string{"GET"},
+						},
+					},
+				},
+			},
+			wantYAML: `
+            andIds:
               ids:
-              - metadata:
-                  filter: istio_authn
-                  path:
-                  - key: source.principal
-                  value:
-                    stringMatch:
-                      exact: id-1
-              - metadata:
-                  filter: istio_authn
-                  path:
-                  - key: source.principal
-                  value:
-                    stringMatch:
-                      exact: id-2`,
+              - orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          exact: principal
+              - orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.principal
+                      value:
+                        stringMatch:
+                          exact: request
+              - orIds:
+                  ids:
+                  - header:
+                      exactMatch: GET
+                      name: :method
+`,
+		},
+		{
+			name:         "principal with forTCP and forDeny",
+			forTCPFilter: true,
+			forDeny:      true,
+			principal: &Principal{
+				Names:             []string{"principal"},
+				RequestPrincipals: []string{"request"},
+				Namespaces:        []string{"namespace"},
+				IPs:               []string{"1.2.3.4"},
+				Properties: []KeyValues{
+					{
+						"request.headers[:method]": Values{
+							Values: []string{"GET"},
+						},
+					},
+				},
+			},
+			wantYAML: `
+            andIds:
+              ids:
+              - orIds:
+                  ids:
+                  - authenticated:
+                      principalName:
+                        exact: spiffe://principal
+              - orIds:
+                  ids:
+                  - authenticated:
+                      principalName:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/namespace/.*
+              - orIds:
+                  ids:
+                  - sourceIp:
+                      addressPrefix: 1.2.3.4
+                      prefixLen: 32
+`,
 		},
 	}
 
 	for _, tc := range testCases {
-		got, err := tc.principal.Generate(tc.forTCPFilter)
-		if tc.wantError != "" {
-			if err == nil || !strings.Contains(err.Error(), tc.wantError) {
-				t.Errorf("%s: got error %q but want error %q", tc.name, err, tc.wantError)
-			}
-		} else if err != nil {
-			t.Errorf("%s: failed to generate principal: %s", tc.name, err)
-		} else {
-			var gotYaml string
-			if got != nil {
-				if gotYaml, err = protomarshal.ToYAML(got); err != nil {
-					t.Fatalf("%s: failed to parse yaml: %s", tc.name, err)
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := tc.principal.Generate(tc.forTCPFilter, tc.forDeny)
+			if tc.wantError != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantError) {
+					t.Errorf("%s: got error %q but want error %q", tc.name, err, tc.wantError)
 				}
-			}
-			if tc.wantYAML == "" {
-				if got != nil {
-					t.Errorf("%s: got:\n%s but want nil", tc.name, gotYaml)
-				}
+			} else if err != nil {
+				t.Errorf("%s: failed to generate principal: %s", tc.name, err)
 			} else {
-				want := &envoy_rbac.Principal{}
-				if err := protomarshal.ApplyYAML(tc.wantYAML, want); err != nil {
-					t.Fatalf("%s: failed to parse yaml: %s", tc.name, err)
+				var gotYaml string
+				if got != nil {
+					if gotYaml, err = protomarshal.ToYAML(got); err != nil {
+						t.Fatalf("%s: failed to parse yaml: %s", tc.name, err)
+					}
 				}
+				if tc.wantYAML == "" {
+					if got != nil {
+						t.Errorf("%s: got:\n%s but want nil", tc.name, gotYaml)
+					}
+				} else {
+					want := &envoy_rbac.Principal{}
+					if err := protomarshal.ApplyYAML(tc.wantYAML, want); err != nil {
+						t.Fatalf("%s: failed to parse yaml: %s", tc.name, err)
+					}
 
-				if !reflect.DeepEqual(got, want) {
-					t.Errorf("%s:\ngot:\n%s\nwant:\n%s", tc.name, gotYaml, tc.wantYAML)
+					if !reflect.DeepEqual(got, want) {
+						t.Errorf("%s:\ngot:\n%s\nwant:\n%s", tc.name, gotYaml, tc.wantYAML)
+					}
 				}
 			}
-		}
+		})
 	}
 }

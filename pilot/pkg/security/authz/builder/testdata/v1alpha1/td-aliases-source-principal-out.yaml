@@ -1,0 +1,58 @@
+rules:
+  policies:
+    httpbin-viewer:
+      permissions:
+      - andRules:
+          rules:
+          - orRules:
+              rules:
+              - header:
+                  exactMatch: GET
+                  name: :method
+      principals:
+      - andIds:
+          ids:
+          - metadata:
+              filter: istio_authn
+              path:
+              - key: request.auth.claims
+              - key: groups
+              value:
+                listMatch:
+                  oneOf:
+                    stringMatch:
+                      exact: some-group
+      - andIds:
+          ids:
+          - orIds:
+              ids:
+              - any: true
+      - andIds:
+          ids:
+          - orIds:
+              ids:
+              - metadata:
+                  filter: istio_authn
+                  path:
+                  - key: source.principal
+                  value:
+                    stringMatch:
+                      suffix: /ns/foo/sa/all-td
+      - andIds:
+          ids:
+          - orIds:
+              ids:
+              - metadata:
+                  filter: istio_authn
+                  path:
+                  - key: source.principal
+                  value:
+                    stringMatch:
+                      suffix: -td/ns/foo/sa/prefix-td
+              - metadata:
+                  filter: istio_authn
+                  path:
+                  - key: source.principal
+                  value:
+                    stringMatch:
+                      exact: some-trustdomain/ns/foo/sa/prefix-td

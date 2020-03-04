@@ -16,6 +16,7 @@ package pilot
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -31,7 +32,7 @@ import (
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 
-func TestOutboundSniffing(t *testing.T) {
+func TestSniffing(t *testing.T) {
 	framework.NewTest(t).Run(func(ctx framework.TestContext) {
 		runTest(t, ctx)
 	})
@@ -47,10 +48,14 @@ func runTest(t *testing.T, ctx framework.TestContext) {
 		{
 			Name:     "foo",
 			Protocol: protocol.HTTP,
+			// We use a port > 1024 to not require root
+			InstancePort: 8090,
 		},
 		{
 			Name:     "http",
 			Protocol: protocol.HTTP,
+			// We use a port > 1024 to not require root
+			InstancePort: 8091,
 		},
 		{
 			Name:     "bar",
@@ -70,40 +75,98 @@ func runTest(t *testing.T, ctx framework.TestContext) {
 		},
 	}
 
-	var from, to echo.Instance
+	var fromWithSidecar, fromWithoutSidecar, to echo.Instance
 	echoboot.NewBuilderOrFail(t, ctx).
-		With(&from, echo.Config{
-			Service:   "from",
+		With(&fromWithSidecar, echo.Config{
+			Service:   "from-with-sidecar",
+			Namespace: ns,
+			Ports:     ports,
+			Subsets:   []echo.SubsetConfig{{}},
+			Galley:    g,
+			Pilot:     p,
+		}).
+		With(&fromWithoutSidecar, echo.Config{
+			Service:   "from-without-sidecar",
 			Namespace: ns,
 			Ports:     ports,
 			Galley:    g,
 			Pilot:     p,
+			Subsets: []echo.SubsetConfig{
+				{
+					Annotations: map[echo.Annotation]*echo.AnnotationValue{
+						echo.SidecarInject: {
+							Value: strconv.FormatBool(false)},
+					},
+				},
+			},
 		}).
 		With(&to, echo.Config{
 			Service:   "to",
 			Namespace: ns,
+			Subsets:   []echo.SubsetConfig{{}},
 			Ports:     ports,
 			Galley:    g,
 			Pilot:     p,
 		}).
 		BuildOrFail(ctx)
 
-	from.WaitUntilCallableOrFail(t, to)
-	log.Infof("%s app ready: %s", ctx.Name(), from.Config().Service)
+	fromWithSidecar.WaitUntilCallableOrFail(t, to)
+	fromWithoutSidecar.WaitUntilCallableOrFail(t, to)
+	log.Infof("%s app ready: %s %s",
+		ctx.Name(),
+		fromWithSidecar.Config().Service,
+		fromWithoutSidecar.Config().Service)
 
 	testCases := []struct {
 		portName string
+		from     echo.Instance
 		scheme   scheme.Instance
 	}{
-		{"foo", scheme.HTTP},
-		{"http", scheme.HTTP},
-		{"baz", scheme.GRPC},
-		{"grpc", scheme.GRPC},
+		{
+			portName: "foo",
+			from:     fromWithSidecar,
+			scheme:   scheme.HTTP,
+		},
+		{
+			portName: "http",
+			from:     fromWithSidecar,
+			scheme:   scheme.HTTP,
+		},
+		{
+			portName: "baz",
+			from:     fromWithSidecar,
+			scheme:   scheme.GRPC,
+		},
+		{
+			portName: "grpc",
+			from:     fromWithSidecar,
+			scheme:   scheme.GRPC,
+		},
+		{
+			portName: "foo",
+			from:     fromWithoutSidecar,
+			scheme:   scheme.HTTP,
+		},
+		{
+			portName: "http",
+			from:     fromWithoutSidecar,
+			scheme:   scheme.HTTP,
+		},
+		{
+			portName: "baz",
+			from:     fromWithoutSidecar,
+			scheme:   scheme.GRPC,
+		},
+		{
+			portName: "grpc",
+			from:     fromWithoutSidecar,
+			scheme:   scheme.GRPC,
+		},
 	}
 
 	for _, tc := range testCases {
 		connChecker := connection.Checker{
-			From: from,
+			From: tc.from,
 			Options: echo.CallOptions{
 				Target:   to,
 				PortName: tc.portName,
@@ -113,7 +176,7 @@ func runTest(t *testing.T, ctx framework.TestContext) {
 		}
 		subTestName := fmt.Sprintf(
 			"%s->%s:%s",
-			from.Config().Service,
+			tc.from.Config().Service,
 			to.Config().Service,
 			connChecker.Options.PortName)
 

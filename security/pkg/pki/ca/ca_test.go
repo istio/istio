@@ -96,10 +96,9 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	const caNamespace = "default"
 	client := fake.NewSimpleClientset()
 	rootCertFile := ""
-	readSigningCertOnly := false
 	rootCertCheckInverval := time.Hour
 
-	caopts, err := NewSelfSignedIstioCAOptions(context.Background(), readSigningCertOnly,
+	caopts, err := NewSelfSignedIstioCAOptions(context.Background(),
 		0, caCertTTL, rootCertCheckInverval, defaultCertTTL,
 		maxCertTTL, org, false, caNamespace, -1, client.CoreV1(),
 		rootCertFile, false)
@@ -109,7 +108,7 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 
 	ca, err := NewIstioCA(caopts)
 	if err != nil {
-		t.Errorf("Got error while createing self-signed CA: %v", err)
+		t.Errorf("Got error while creating self-signed CA: %v", err)
 	}
 	if ca == nil {
 		t.Fatalf("Failed to create a self-signed CA.")
@@ -188,10 +187,9 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	org := "test.ca.Org"
 	caNamespace := "default"
 	const rootCertFile = ""
-	readSigningCertOnly := false
 	rootCertCheckInverval := time.Hour
 
-	caopts, err := NewSelfSignedIstioCAOptions(context.Background(), readSigningCertOnly,
+	caopts, err := NewSelfSignedIstioCAOptions(context.Background(),
 		0, caCertTTL, rootCertCheckInverval, certTTL, maxCertTTL,
 		org, false, caNamespace, -1, client.CoreV1(),
 		rootCertFile, false)
@@ -201,7 +199,7 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 
 	ca, err := NewIstioCA(caopts)
 	if err != nil {
-		t.Errorf("Got error while createing self-signed CA: %v", err)
+		t.Errorf("Got error while creating self-signed CA: %v", err)
 	}
 	if ca == nil {
 		t.Fatalf("Failed to create a self-signed CA.")
@@ -254,7 +252,6 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	org := "test.ca.Org"
 	caNamespace := "default"
 	const rootCertFile = ""
-	readSigningCertOnly := true
 	rootCertCheckInverval := time.Hour
 
 	client := fake.NewSimpleClientset()
@@ -263,7 +260,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	expectedErr := "secret waiting thread is terminated"
 	ctx0, cancel0 := context.WithTimeout(context.Background(), time.Millisecond*50)
 	defer cancel0()
-	_, err := NewSelfSignedIstioCAOptions(ctx0, readSigningCertOnly, 0,
+	_, err := NewSelfSignedIstioCAOptions(ctx0, 0,
 		caCertTTL, certTTL, rootCertCheckInverval, maxCertTTL, org, false,
 		caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile, false)
 	if err == nil {
@@ -282,7 +279,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 
 	ctx1, cancel1 := context.WithCancel(context.Background())
 	defer cancel1()
-	caopts, err := NewSelfSignedIstioCAOptions(ctx1, readSigningCertOnly, 0,
+	caopts, err := NewSelfSignedIstioCAOptions(ctx1, 0,
 		caCertTTL, certTTL, rootCertCheckInverval, maxCertTTL, org, false,
 		caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile, false)
 	if err != nil {
@@ -291,7 +288,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 
 	ca, err := NewIstioCA(caopts)
 	if err != nil {
-		t.Errorf("Got error while createing self-signed CA: %v", err)
+		t.Errorf("Got error while creating self-signed CA: %v", err)
 	}
 	if ca == nil {
 		t.Fatalf("Failed to create a self-signed CA.")
@@ -337,7 +334,7 @@ func TestCreatePluggedCertCA(t *testing.T) {
 
 	ca, err := NewIstioCA(caopts)
 	if err != nil {
-		t.Errorf("Got error while createing plugged-cert CA: %v", err)
+		t.Errorf("Got error while creating plugged-cert CA: %v", err)
 	}
 	if ca == nil {
 		t.Fatalf("Failed to create a plugged-cert CA.")
@@ -561,7 +558,7 @@ func TestSignWithCertChain(t *testing.T) {
 
 	ca, err := NewIstioCA(caopts)
 	if err != nil {
-		t.Errorf("Got error while createing plugged-cert CA: %v", err)
+		t.Errorf("Got error while creating plugged-cert CA: %v", err)
 	}
 	if ca == nil {
 		t.Fatalf("Failed to create a plugged-cert CA.")
@@ -590,6 +587,47 @@ func TestSignWithCertChain(t *testing.T) {
 
 	if len(cert.Certificate) != 3 {
 		t.Errorf("Unexpected number of certificates returned: %d (expected 4)", len(cert.Certificate))
+	}
+}
+
+func TestGenKeyCert(t *testing.T) {
+	rootCertFile := "../testdata/multilevelpki/root-cert.pem"
+	certChainFile := "../testdata/multilevelpki/int-cert-chain.pem"
+	signingCertFile := "../testdata/multilevelpki/int-cert.pem"
+	signingKeyFile := "../testdata/multilevelpki/int-key.pem"
+	caNamespace := "default"
+
+	defaultWorkloadCertTTL := 30 * time.Minute
+	maxWorkloadCertTTL := 3650 * 24 * time.Hour
+
+	client := fake.NewSimpleClientset()
+
+	caopts, err := NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile,
+		defaultWorkloadCertTTL, maxWorkloadCertTTL, caNamespace, client.CoreV1())
+	if err != nil {
+		t.Fatalf("failed to create a plugged-cert CA Options: %v", err)
+	}
+
+	ca, err := NewIstioCA(caopts)
+	if err != nil {
+		t.Errorf("got error while creating plugged-cert CA: %v", err)
+	}
+	if ca == nil {
+		t.Fatalf("failed to create a plugged-cert CA.")
+	}
+
+	certPEM, privPEM, err := ca.GenKeyCert([]string{"host1", "host2"}, 3650*24*time.Hour)
+	if err != nil {
+		t.Error(err)
+	}
+
+	cert, err := tls.X509KeyPair(certPEM, privPEM)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if len(cert.Certificate) != 3 {
+		t.Errorf("unexpected number of certificates returned: %d (expected 3)", len(cert.Certificate))
 	}
 }
 

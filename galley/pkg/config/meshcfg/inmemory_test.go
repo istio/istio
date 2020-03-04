@@ -19,9 +19,10 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
+	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 func TestInMemorySource_Empty(t *testing.T) {
@@ -55,20 +56,21 @@ func TestInMemorySource_SetBeforeStart(t *testing.T) {
 	expected := []event.Event{
 		{
 			Kind:   event.Added,
-			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
-					Name: ResourceName,
+					FullName: ResourceName,
+					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
-				Item: Default(),
+				Message: Default(),
 			},
 		},
 		{
 			Kind:   event.FullSync,
-			Source: IstioMeshconfig,
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	g.Eventually(acc.Events).Should(Equal(expected))
+	fixtures.ExpectEventsEventually(t, acc, expected...)
 }
 
 func TestInMemorySource_SetAfterStart(t *testing.T) {
@@ -86,20 +88,21 @@ func TestInMemorySource_SetAfterStart(t *testing.T) {
 	expected := []event.Event{
 		{
 			Kind:   event.Added,
-			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
-					Name: ResourceName,
+					FullName: ResourceName,
+					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
-				Item: Default(),
+				Message: Default(),
 			},
 		},
 		{
 			Kind:   event.FullSync,
-			Source: IstioMeshconfig,
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	g.Eventually(acc.Events).Should(Equal(expected))
+	fixtures.ExpectEventsEventually(t, acc, expected...)
 }
 
 func TestInMemorySource_DoubleStart(t *testing.T) {
@@ -118,20 +121,21 @@ func TestInMemorySource_DoubleStart(t *testing.T) {
 	expected := []event.Event{
 		{
 			Kind:   event.Added,
-			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
-					Name: ResourceName,
+					FullName: ResourceName,
+					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
-				Item: Default(),
+				Message: Default(),
 			},
 		},
 		{
 			Kind:   event.FullSync,
-			Source: IstioMeshconfig,
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	g.Eventually(acc.Events).Should(Equal(expected))
+	fixtures.ExpectEventsEventually(t, acc, expected...)
 }
 
 func TestInMemorySource_StartStop(t *testing.T) {
@@ -153,25 +157,24 @@ func TestInMemorySource_StartStop(t *testing.T) {
 	expected := []event.Event{
 		{
 			Kind:   event.Added,
-			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
-					Name: ResourceName,
+					FullName: ResourceName,
+					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
-				Item: Default(),
+				Message: Default(),
 			},
 		},
 		{
 			Kind:   event.FullSync,
-			Source: IstioMeshconfig,
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	g.Eventually(acc.Events).Should(Equal(expected))
+	fixtures.ExpectEventsEventually(t, acc, expected...)
 }
 
 func TestInMemorySource_ResetOnUpdate(t *testing.T) {
-	g := NewGomegaWithT(t)
-
 	s := NewInmemory()
 
 	acc := &fixtures.Accumulator{}
@@ -186,22 +189,23 @@ func TestInMemorySource_ResetOnUpdate(t *testing.T) {
 	expected := []event.Event{
 		{
 			Kind:   event.Added,
-			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
-					Name: ResourceName,
+					FullName: ResourceName,
+					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
-				Item: Default(),
+				Message: Default(),
 			},
 		},
 		{
 			Kind:   event.FullSync,
-			Source: IstioMeshconfig,
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 		{
 			Kind:   event.Reset,
-			Source: IstioMeshconfig,
+			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	g.Eventually(acc.Events).Should(Equal(expected))
+	fixtures.ExpectEventsEventually(t, acc, expected...)
 }

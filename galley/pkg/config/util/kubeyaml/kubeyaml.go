@@ -23,30 +23,6 @@ const (
 	yamlSeparator = "---\n"
 )
 
-// Split the given yaml doc if it's multipart document.
-func Split(yamlText []byte) [][]byte {
-	parts := bytes.Split(yamlText, []byte(yamlSeparator))
-	var result [][]byte
-	for _, p := range parts {
-		if len(p) != 0 {
-			result = append(result, p)
-		}
-	}
-	return result
-}
-
-// SplitString splits the given yaml doc if it's multipart document.
-func SplitString(yamlText string) []string {
-	parts := strings.Split(yamlText, yamlSeparator)
-	var result []string
-	for _, p := range parts {
-		if len(p) != 0 {
-			result = append(result, p)
-		}
-	}
-	return result
-}
-
 // Join the given yaml parts into a single multipart document.
 func Join(parts ...[]byte) []byte {
 	var b bytes.Buffer

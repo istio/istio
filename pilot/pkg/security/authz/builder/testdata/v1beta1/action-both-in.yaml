@@ -1,0 +1,23 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-deny
+  namespace: foo
+spec:
+  action: DENY
+  rules:
+  - from:
+    - source:
+        principals: ["deny"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-allow
+  namespace: foo
+spec:
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["allow"]

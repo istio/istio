@@ -19,28 +19,30 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/processing"
-	"istio.io/istio/galley/pkg/config/testing/data"
+	"istio.io/istio/galley/pkg/config/testing/basicmeta"
+	"istio.io/istio/galley/pkg/config/testing/fixtures"
+	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/schema/collection"
 )
 
 func TestSimpleTransformerProvider(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	input := data.Collection1
-	output := data.Collection2
+	input := basicmeta.K8SCollection1
+	output := basicmeta.Collection2
 	handleFn := func(e event.Event, h event.Handler) {}
 	opts := processing.ProcessorOptions{}
 
 	providers := Providers{
 		NewSimpleTransformerProvider(input, output, handleFn),
 	}
-	g.Expect(providers[0].Inputs()).To(ConsistOf(input))
-	g.Expect(providers[0].Outputs()).To(ConsistOf(output))
+	fixtures.ExpectEqual(t, providers[0].Inputs(), collection.SchemasFor(input))
+	fixtures.ExpectEqual(t, providers[0].Outputs(), collection.SchemasFor(output))
 
 	transformers := providers.Create(opts)
 	g.Expect(transformers).To(HaveLen(len(providers)))
 
-	g.Expect(transformers[0].Inputs()).To(ConsistOf(input))
-	g.Expect(transformers[0].Outputs()).To(ConsistOf(output))
+	fixtures.ExpectEqual(t, transformers[0].Inputs(), collection.SchemasFor(input))
+	fixtures.ExpectEqual(t, transformers[0].Outputs(), collection.SchemasFor(output))
 }

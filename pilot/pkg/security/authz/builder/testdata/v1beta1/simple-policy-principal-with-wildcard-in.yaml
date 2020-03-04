@@ -1,0 +1,16 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin
+  namespace: foo
+spec:
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  rules:
+    - from:
+        - source:
+            principals: ["*"]
+        - source:
+            principals: ["*/ns/foo/sa/rule[0]-from[1]-principal[0]", "*bar/ns/foo/sa/rule[0]-from[1]-principal[1]"]

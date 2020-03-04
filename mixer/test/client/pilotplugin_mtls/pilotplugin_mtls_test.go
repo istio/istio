@@ -15,6 +15,7 @@
 package client_test
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"testing"
@@ -36,6 +37,7 @@ import (
 
 	"istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/mixer"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
@@ -285,7 +287,7 @@ func TestPilotPlugin(t *testing.T) {
 
 	snapshots := cache.NewSnapshotCache(true, mock{}, nil)
 	_ = snapshots.SetSnapshot(id, makeSnapshot(s, t))
-	server := xds.NewServer(snapshots, nil)
+	server := xds.NewServer(context.Background(), snapshots, nil)
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, server)
 	go func() {
 		_ = grpcServer.Serve(lis)
@@ -341,7 +343,12 @@ var (
 			UID:       "istio://ns3/services/svc",
 		},
 	}
-	mesh = &model.Environment{
+	pushContext = model.PushContext{
+		ServiceByHostnameAndNamespace: map[host.Name]map[string]*model.Service{
+			host.Name("svc.ns3"): {
+				"ns3": &svc,
+			},
+		},
 		Mesh: &meshconfig.MeshConfig{
 			MixerCheckServer:            "mixer_server:9091",
 			MixerReportServer:           "mixer_server:9091",
@@ -349,16 +356,8 @@ var (
 		},
 		ServiceDiscovery: mock{},
 	}
-	pushContext = model.PushContext{
-		ServiceByHostnameAndNamespace: map[host.Name]map[string]*model.Service{
-			host.Name("svc.ns3"): {
-				"ns3": &svc,
-			},
-		},
-	}
 	serverParams = plugin.InputParams{
-		ListenerProtocol: plugin.ListenerProtocolHTTP,
-		Env:              mesh,
+		ListenerProtocol: networking.ListenerProtocolHTTP,
 		Node: &model.Proxy{
 			ID:       "pod1.ns2",
 			Type:     model.SidecarProxy,
@@ -368,8 +367,7 @@ var (
 		Push:            &pushContext,
 	}
 	clientParams = plugin.InputParams{
-		ListenerProtocol: plugin.ListenerProtocolHTTP,
-		Env:              mesh,
+		ListenerProtocol: networking.ListenerProtocolHTTP,
 		Node: &model.Proxy{
 			ID:       "pod2.ns2",
 			Type:     model.SidecarProxy,
@@ -425,7 +423,7 @@ func makeSnapshot(s *env.TestSetup, t *testing.T) cache.Snapshot {
 
 	p := mixer.NewPlugin()
 
-	serverMutable := plugin.MutableObjects{Listener: serverListener, FilterChains: []plugin.FilterChain{{}}}
+	serverMutable := networking.MutableObjects{Listener: serverListener, FilterChains: []networking.FilterChain{{}}}
 	if err := p.OnInboundListener(&serverParams, &serverMutable); err != nil {
 		t.Error(err)
 	}
@@ -452,7 +450,7 @@ func makeSnapshot(s *env.TestSetup, t *testing.T) cache.Snapshot {
 		},
 	}}
 
-	clientMutable := plugin.MutableObjects{Listener: clientListener, FilterChains: []plugin.FilterChain{{}}}
+	clientMutable := networking.MutableObjects{Listener: clientListener, FilterChains: []networking.FilterChain{{}}}
 	if err := p.OnOutboundListener(&clientParams, &clientMutable); err != nil {
 		t.Error(err)
 	}
@@ -465,8 +463,8 @@ func makeSnapshot(s *env.TestSetup, t *testing.T) cache.Snapshot {
 	p.OnInboundRouteConfiguration(&serverParams, serverRoute)
 	p.OnOutboundRouteConfiguration(&clientParams, clientRoute)
 
-	return cache.Snapshot{
-		Routes:    cache.NewResources("http", []cache.Resource{clientRoute, serverRoute}),
-		Listeners: cache.NewResources("http", []cache.Resource{clientListener, serverListener}),
-	}
+	snapshot := cache.Snapshot{}
+	snapshot.Resources[cache.Route] = cache.NewResources("http", []cache.Resource{clientRoute, serverRoute})
+	snapshot.Resources[cache.Listener] = cache.NewResources("http", []cache.Resource{clientListener, serverListener})
+	return snapshot
 }

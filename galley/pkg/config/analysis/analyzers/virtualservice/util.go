@@ -34,6 +34,11 @@ func getRouteDestinations(vs *v1alpha3.VirtualService) []*v1alpha3.Destination {
 		for _, rd := range r.GetRoute() {
 			destinations = append(destinations, rd.GetDestination())
 		}
+		// If there is a mirror destination, check it too
+		m := r.GetMirror()
+		if m != nil {
+			destinations = append(destinations, m)
+		}
 	}
 
 	return destinations

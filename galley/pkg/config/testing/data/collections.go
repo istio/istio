@@ -15,28 +15,56 @@
 package data
 
 import (
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/testing/basicmeta"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 var (
-	// Collection1 is a testing collection
-	Collection1 = collection.NewName("collection1")
+	// K8SCollection2 is a testing collection
+	K8SCollection2 = basicmeta.MustGet2().KubeCollections().MustFind("k8s/collection2")
 
-	// Collection2 is a testing collection
-	Collection2 = collection.NewName("collection2")
+	Foo = collection.Builder{
+		Name:         "foo",
+		VariableName: "Foo",
+		Resource: resource.Builder{
+			Kind:         "Foo",
+			Plural:       "Foos",
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.MustBuild(),
+	}.MustBuild()
 
-	// Collection3 is a testing collection
-	Collection3 = collection.NewName("collection3")
+	Bar = collection.Builder{
+		Name:         "bar",
+		VariableName: "Bar",
+		Resource: resource.Builder{
+			Kind:         "Bar",
+			Plural:       "Bars",
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.MustBuild(),
+	}.MustBuild()
 
-	// CollectionNames of all collections in the test data.
-	CollectionNames = collection.Names{Collection1, Collection2, Collection3}
+	Boo = collection.Builder{
+		Name:         "boo",
+		VariableName: "Boo",
+		Resource: resource.Builder{
+			Kind:         "Boo",
+			Plural:       "Boos",
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.MustBuild(),
+	}.MustBuild()
 
-	// Specs is the set of collection.Specs for all test data.
-	Specs = func() collection.Specs {
-		b := collection.NewSpecsBuilder()
-		b.MustAdd(collection.MustNewSpec(Collection1.String(), "google.protobuf", "google.protobuf.Empty"))
-		b.MustAdd(collection.MustNewSpec(Collection2.String(), "google.protobuf", "google.protobuf.Empty"))
-		b.MustAdd(collection.MustNewSpec(Collection3.String(), "google.protobuf", "google.protobuf.Empty"))
-		return b.Build()
-	}()
+	Baz = collection.Builder{
+		Name:         "baz",
+		VariableName: "Baz",
+		Resource: resource.Builder{
+			Kind:         "Baz",
+			Plural:       "Bazes",
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.MustBuild(),
+	}.MustBuild()
 )

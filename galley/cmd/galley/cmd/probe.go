@@ -30,15 +30,15 @@ func probeCmd() *cobra.Command {
 	prb := &cobra.Command{
 		Use:   "probe",
 		Short: "Check the liveness or readiness of a locally-running server",
-		Run: func(cmd *cobra.Command, _ []string) {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			if !probeOptions.IsValid() {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "some options are not valid")
-				return
+				return fmt.Errorf("some options are not valid")
 			}
 			if err := probe.NewFileClient(&probeOptions).GetStatus(); err != nil {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "fail on inspecting path %s: %v", probeOptions.Path, err)
+				return fmt.Errorf("fail on inspecting path %s: %v", probeOptions.Path, err)
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "OK")
+			fmt.Fprintf(cmd.OutOrStdout(), "OK")
+			return nil
 		},
 	}
 	prb.PersistentFlags().StringVar(&probeOptions.Path, "probe-path", "",

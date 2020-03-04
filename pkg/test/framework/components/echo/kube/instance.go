@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -36,10 +35,9 @@ import (
 )
 
 const (
-	tcpHealthPort         = 3333
-	httpReadinessPort     = 8080
-	defaultDomain         = "cluster.local"
-	noSidecarWaitDuration = 10 * time.Second
+	tcpHealthPort     = 3333
+	httpReadinessPort = 8080
+	defaultDomain     = "cluster.local"
 )
 
 var (
@@ -54,6 +52,7 @@ type instance struct {
 	env       *kubeEnv.Environment
 	workloads []*workload
 	grpcPort  uint16
+	ctx       resource.Context
 }
 
 func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err error) {
@@ -74,6 +73,7 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	c := &instance{
 		env: env,
 		cfg: cfg,
+		ctx: ctx,
 	}
 	c.id = ctx.TrackResource(c)
 
@@ -198,10 +198,6 @@ func (c *instance) WaitUntilCallable(instances ...echo.Instance) error {
 		}
 	}
 
-	if !c.cfg.Annotations.GetBool(echo.SidecarInject) {
-		time.Sleep(noSidecarWaitDuration)
-	}
-
 	return nil
 }
 
@@ -210,6 +206,17 @@ func (c *instance) WaitUntilCallableOrFail(t test.Failer, instances ...echo.Inst
 	if err := c.WaitUntilCallable(instances...); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// WorkloadHasSidecar returns true if the input endpoint is deployed with sidecar injected based on the config.
+func workloadHasSidecar(cfg echo.Config, endpoint *kubeCore.ObjectReference) bool {
+	// Match workload first.
+	for _, w := range cfg.Subsets {
+		if strings.HasPrefix(endpoint.Name, fmt.Sprintf("%v-%v", cfg.Service, w.Version)) {
+			return w.Annotations.GetBool(echo.SidecarInject)
+		}
+	}
+	return true
 }
 
 func (c *instance) initialize(endpoints *kubeCore.Endpoints) error {
@@ -221,7 +228,7 @@ func (c *instance) initialize(endpoints *kubeCore.Endpoints) error {
 	workloads := make([]*workload, 0)
 	for _, subset := range endpoints.Subsets {
 		for _, addr := range subset.Addresses {
-			workload, err := newWorkload(addr, c.cfg.Annotations, c.grpcPort, c.env.Accessor)
+			workload, err := newWorkload(addr, workloadHasSidecar(c.cfg, addr.TargetRef), c.grpcPort, c.env.Accessor, c.ctx)
 			if err != nil {
 				return err
 			}

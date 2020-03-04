@@ -19,12 +19,18 @@ import (
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	redis_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/redis_proxy/v2"
+	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+
 	"github.com/golang/protobuf/ptypes"
+
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 func TestBuildRedisFilter(t *testing.T) {
-	redisFilter := buildRedisFilter("redis", "redis-cluster", true)
+	redisFilter := buildRedisFilter("redis", "redis-cluster")
 	if redisFilter.Name != xdsutil.RedisProxy {
 		t.Errorf("redis filter name is %s not %s", redisFilter.Name, xdsutil.RedisProxy)
 	}
@@ -45,12 +51,176 @@ func TestBuildRedisFilter(t *testing.T) {
 	} else {
 		t.Errorf("redis filter type is %T not listener.Filter_TypedConfig ", redisFilter.ConfigType)
 	}
+}
 
-	redisFilter = buildRedisFilter("redis", "redis-cluster", false)
-	if redisFilter.Name != xdsutil.RedisProxy {
-		t.Errorf("redis filter name is %s not %s", redisFilter.Name, xdsutil.RedisProxy)
+func TestInboundNetworkFilterStatPrefix(t *testing.T) {
+	cases := []struct {
+		name               string
+		statPattern        string
+		expectedStatPrefix string
+	}{
+		{
+			"no pattern",
+			"",
+			"inbound|9999|http|v0.default.example.org",
+		},
+		{
+			"service only pattern",
+			"%SERVICE%",
+			"v0.default.example.org",
+		},
 	}
-	if _, ok := redisFilter.ConfigType.(*listener.Filter_Config); !ok {
-		t.Errorf("redis filter type is %T not listener.Filter_Config ", redisFilter.ConfigType)
+
+	services := []*model.Service{
+		buildService("test.com", "10.10.0.0/24", protocol.TCP, tnow),
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+
+			env := buildListenerEnv(services)
+			env.PushContext.InitContext(&env, nil, nil)
+			env.PushContext.Mesh.InboundClusterStatName = tt.statPattern
+
+			proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
+			proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
+
+			instance := &model.ServiceInstance{
+
+				Service: &model.Service{
+					Hostname:     "v0.default.example.org",
+					Address:      "9.9.9.9",
+					CreationTime: tnow,
+					Attributes: model.ServiceAttributes{
+						Namespace: "not-default",
+					},
+				},
+				ServicePort: &model.Port{
+					Port: 9999,
+					Name: "http",
+				},
+				Endpoint: &model.IstioEndpoint{},
+			}
+
+			listeners := buildInboundNetworkFilters(env.PushContext, &proxy, instance)
+			tcp := &tcp_proxy.TcpProxy{}
+			ptypes.UnmarshalAny(listeners[0].GetTypedConfig(), tcp)
+			if tcp.StatPrefix != tt.expectedStatPrefix {
+				t.Fatalf("Unexpected Stat Prefix, Expecting %s, Got %s", tt.expectedStatPrefix, tcp.StatPrefix)
+			}
+		})
+	}
+}
+
+func TestOutboundNetworkFilterStatPrefix(t *testing.T) {
+	cases := []struct {
+		name               string
+		statPattern        string
+		routes             []*networking.RouteDestination
+		expectedStatPrefix string
+	}{
+		{
+			"no pattern, single route",
+			"",
+			[]*networking.RouteDestination{
+				{
+					Destination: &networking.Destination{
+						Host: "test.com",
+						Port: &networking.PortSelector{
+							Number: 9999,
+						},
+					},
+				},
+			},
+			"outbound|9999||test.com",
+		},
+		{
+			"service only pattern, single route",
+			"%SERVICE%",
+			[]*networking.RouteDestination{
+				{
+					Destination: &networking.Destination{
+						Host: "test.com",
+						Port: &networking.PortSelector{
+							Number: 9999,
+						},
+					},
+				},
+			},
+			"test.com",
+		},
+		{
+			"no pattern, multiple routes",
+			"",
+			[]*networking.RouteDestination{
+				{
+					Destination: &networking.Destination{
+						Host: "test.com",
+						Port: &networking.PortSelector{
+							Number: 9999,
+						},
+					},
+					Weight: 50,
+				},
+				{
+					Destination: &networking.Destination{
+						Host: "test.com",
+						Port: &networking.PortSelector{
+							Number: 8888,
+						},
+					},
+					Weight: 50,
+				},
+			},
+			"test.com.ns", // No stat pattern will be applied for multiple routes, as it will be always be name.namespace.
+		},
+		{
+			"service pattern, multiple routes",
+			"%SERVICE%",
+			[]*networking.RouteDestination{
+				{
+					Destination: &networking.Destination{
+						Host: "test.com",
+						Port: &networking.PortSelector{
+							Number: 9999,
+						},
+					},
+					Weight: 50,
+				},
+				{
+					Destination: &networking.Destination{
+						Host: "test.com",
+						Port: &networking.PortSelector{
+							Number: 8888,
+						},
+					},
+					Weight: 50,
+				},
+			},
+			"test.com.ns", // No stat pattern will be applied for multiple routes, as it will be always be name.namespace.
+		},
+	}
+
+	services := []*model.Service{
+		buildService("test.com", "10.10.0.0/24", protocol.TCP, tnow),
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+
+			env := buildListenerEnv(services)
+			env.PushContext.InitContext(&env, nil, nil)
+			env.PushContext.Mesh.OutboundClusterStatName = tt.statPattern
+
+			proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
+			proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
+
+			listeners := buildOutboundNetworkFilters(&proxy, tt.routes, env.PushContext, &model.Port{Port: 9999}, model.ConfigMeta{Name: "test.com", Namespace: "ns"})
+			tcp := &tcp_proxy.TcpProxy{}
+			ptypes.UnmarshalAny(listeners[0].GetTypedConfig(), tcp)
+			if tcp.StatPrefix != tt.expectedStatPrefix {
+				t.Fatalf("Unexpected Stat Prefix, Expecting %s, Got %s", tt.expectedStatPrefix, tcp.StatPrefix)
+			}
+		})
 	}
 }

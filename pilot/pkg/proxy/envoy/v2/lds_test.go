@@ -22,6 +22,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdsapi_listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
@@ -79,10 +80,10 @@ func TestLDSIsolated(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// 7071 (inbound), 2001 (service - also as http proxy), 15002 (http-proxy), 18010 (fortio), 15006 (virtual inbound)
-		// We dont get mixer on 9091 or 15004 because there are no services defined in istio-system namespace
+		// 7071 (inbound), 2001 (service - also as http proxy), 18010 (fortio), 15006 (virtual inbound)
+		// We do not get mixer on 9091 because there are no services defined in istio-system namespace
 		// in the none.yaml setup
-		if len(ldsr.GetHTTPListeners()) != 5 {
+		if len(ldsr.GetHTTPListeners()) != 4 {
 			// TODO: we are still debating if for HTTP services we have any use case to create a 127.0.0.1:port outbound
 			// for the service (the http proxy is already covering this)
 			t.Error("HTTP listeners, expecting 4 got ", len(ldsr.GetHTTPListeners()), ldsr.GetHTTPListeners())
@@ -195,7 +196,6 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 		args.Plugins = bootstrap.DefaultPlugins
 		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/sidecar-ns-scope"
 		args.Mesh.MixerAddress = ""
-		args.Mesh.RdsRefreshDelay = nil
 		args.MeshConfig = nil
 		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/sidecar-ns-scope/mesh.yaml"
 		args.Service.Registries = []string{}
@@ -258,7 +258,6 @@ func TestLDSWithIngressGateway(t *testing.T) {
 		args.Plugins = bootstrap.DefaultPlugins
 		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/ingress-gateway"
 		args.Mesh.MixerAddress = ""
-		args.Mesh.RdsRefreshDelay = nil
 		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/ingress-gateway/mesh.yaml"
 		args.Service.Registries = []string{}
 	})
@@ -380,7 +379,6 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 		args.Plugins = bootstrap.DefaultPlugins
 		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/sidecar-without-service"
 		args.Mesh.MixerAddress = ""
-		args.Mesh.RdsRefreshDelay = nil
 		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/sidecar-without-service/mesh.yaml"
 		args.Service.Registries = []string{}
 	})
@@ -467,7 +465,6 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 		args.Plugins = bootstrap.DefaultPlugins
 		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/envoyfilter-without-service"
 		args.Mesh.MixerAddress = ""
-		args.Mesh.RdsRefreshDelay = nil
 		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/envoyfilter-without-service/mesh.yaml"
 		args.Service.Registries = []string{}
 	})
@@ -515,7 +512,7 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 				Meta: model.NodeMetadata{
 					InstanceIPs:     []string{test.ip}, // as service instance of ingress gateway
 					ConfigNamespace: "istio-system",
-					IstioVersion:    "1.3.0",
+					IstioVersion:    "1.4.0",
 				}.ToStruct(),
 				IP:        test.ip,
 				Namespace: "consumerns", // namespace must match the namespace of the sidecar in the configs.yaml
@@ -586,11 +583,11 @@ func expectLuaFilter(t *testing.T, l *xdsapi.Listener, expected bool) {
 }
 
 func memServiceDiscovery(server *bootstrap.Server, t *testing.T) *v2.MemServiceDiscovery {
-	index, found := server.ServiceController.GetRegistryIndex("v2-debug")
+	index, found := server.ServiceController().GetRegistryIndex("v2-debug")
 	if !found {
 		t.Fatal("Could not find Mock ServiceRegistry")
 	}
-	registry, ok := server.ServiceController.GetRegistries()[index].ServiceDiscovery.(*v2.MemServiceDiscovery)
+	registry, ok := server.ServiceController().GetRegistries()[index].(serviceregistry.Simple).ServiceDiscovery.(*v2.MemServiceDiscovery)
 	if !ok {
 		t.Fatal("Unexpected type of Mock ServiceRegistry")
 	}

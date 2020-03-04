@@ -16,17 +16,18 @@ package schema
 import (
 	"fmt"
 
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
-	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema"
-	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 // ValidationAnalyzer runs schema validation as an analyzer and reports any violations as messages
 type ValidationAnalyzer struct {
-	s schema.Instance
+	s collection.Schema
 }
 
 var _ analysis.Analyzer = &ValidationAnalyzer{}
@@ -35,35 +36,39 @@ var _ analysis.Analyzer = &ValidationAnalyzer{}
 // This automation comes with an assumption: that the collection names used by the schema match the metadata used by Galley components
 func AllValidationAnalyzers() []analysis.Analyzer {
 	result := make([]analysis.Analyzer, 0)
-	for _, s := range schemas.Istio {
-		// Skip synthetic service entries
-		// TODO(https://github.com/istio/istio/issues/17949)
-		if s.VariableName == schemas.SyntheticServiceEntry.VariableName {
-			continue
-		}
+	collections.Istio.ForEach(func(s collection.Schema) (done bool) {
 		result = append(result, &ValidationAnalyzer{s: s})
-	}
+		return
+	})
 	return result
 }
 
 // Metadata implements Analyzer
 func (a *ValidationAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name:   fmt.Sprintf("schema.ValidationAnalyzer.%s", a.s.VariableName),
-		Inputs: collection.Names{collection.NewName(a.s.Collection)},
+		Name:        fmt.Sprintf("schema.ValidationAnalyzer.%s", a.s.Resource().Kind()),
+		Description: fmt.Sprintf("Runs schema validation as an analyzer on '%s' resources", a.s.Resource().Kind()),
+		Inputs:      collection.Names{a.s.Name()},
 	}
 }
 
 // Analyze implements Analyzer
 func (a *ValidationAnalyzer) Analyze(ctx analysis.Context) {
-	c := collection.NewName(a.s.Collection)
+	c := a.s.Name()
 
-	ctx.ForEach(c, func(r *resource.Entry) bool {
-		name, ns := r.Metadata.Name.InterpretAsNamespaceAndName()
+	ctx.ForEach(c, func(r *resource.Instance) bool {
+		ns := r.Metadata.FullName.Namespace
+		name := r.Metadata.FullName.Name
 
-		err := a.s.Validate(name, ns, r.Item)
+		err := a.s.Resource().ValidateProto(string(name), string(ns), r.Message)
 		if err != nil {
-			ctx.Report(c, msg.NewSchemaValidationError(r, err))
+			if multiErr, ok := err.(*multierror.Error); ok {
+				for _, err := range multiErr.WrappedErrors() {
+					ctx.Report(c, msg.NewSchemaValidationError(r, err))
+				}
+			} else {
+				ctx.Report(c, msg.NewSchemaValidationError(r, err))
+			}
 		}
 
 		return true

@@ -25,11 +25,14 @@ func (s *GatewayAnalyzer) Metadata() analysis.Metadata {
     return analysis.Metadata{
         // Each analyzer should have a unique name. Use <top-level-pkg>.<struct type>
         Name: "virtualservice.GatewayAnalyzer",
-
+        // Each analyzer should have a short, one line description of what they
+        // do. This description is shown when --list-analyzers is called via
+        // the command line.
+        Description: "Checks that VirtualService resources reference Gateways that exist",
         // Each analyzer should register the collections that it needs to use as input.
         Inputs: collection.Names{
-            metadata.IstioNetworkingV1Alpha3Gateways,
-            metadata.IstioNetworkingV1Alpha3Virtualservices,
+            collections.IstioNetworkingV1Alpha3Gateways.Name(),
+            collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
         },
     }
 }
@@ -38,35 +41,34 @@ func (s *GatewayAnalyzer) Metadata() analysis.Metadata {
 func (s *GatewayAnalyzer) Analyze(c analysis.Context) {
     // The context object has several functions that let you access the configuration resources
     // in the current snapshot. The available collections, and how they map to k8s resources,
-    // are defined in galley/pkg/config/processor/metadata/metadata.yaml
-    // Available resources are listed under the "localAnalysis" and "syntheticServiceEntry" snapshots in that file.
-    c.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Entry) bool {
+    // are defined in galley/pkg/config/schema/metadata.yaml
+    // Available resources are listed under the "localAnalysis" snapshot in that file.
+    c.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
         s.analyzeVirtualService(r, c)
         return true
     })
 }
 
-func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Entry, c analysis.Context) {
+func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis.Context) {
     // The actual resource entry, represented as a protobuf message, can be obtained via
-    // the Item property of resource.Entry. It will need to be cast to the appropriate type.
+    // the Item property of resource.Instance. It will need to be cast to the appropriate type.
     //
-    // Since the resource.Entry also contains important metadata not included in the protobuf
+    // Since the resource.Instance also contains important metadata not included in the protobuf
     // message (such as the resource namespace/name) it's often useful to not do this casting
     // too early.
     vs := r.Item.(*v1alpha3.VirtualService)
 
     // The resource name includes the namespace, if one exists. It should generally be safe to
     // assume that the namespace is not blank, except for cluster-scoped resources.
-    ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
     for _, gwName := range vs.Gateways {
-        if !c.Exists(metadata.IstioNetworkingV1Alpha3Gateways, resource.NewName(ns, gwName)) {
+        if !c.Exists(collections.IstioNetworkingV1Alpha3Gateways, resource.NewName(r.Metadata.FullName.Namespace, gwName)) {
             // Messages are defined in galley/pkg/config/analysis/msg/messages.yaml
             // From there, code is generated for each message type, including a constructor function
             // that you can use to create a new validation message of each type.
             msg := msg.NewReferencedResourceNotFound(r, "gateway", gwName)
 
             // Messages are reported via the passed-in context object.
-            c.Report(metadata.IstioNetworkingV1Alpha3Virtualservices, msg)
+            c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), msg)
         }
     }
 }
@@ -127,9 +129,9 @@ e.g. for the GatewayAnalyzer used as an example above, you would add something l
         },
         // A single specific analyzer to run
         analyzer: &virtualservice.GatewayAnalyzer{},
-        // List of expected validation messages, as (messageType, <kind>/<name>) tuples
+        // List of expected validation messages, as (messageType, <kind> <name>[.<namespace>]) tuples
         expected: []message{
-            {msg.ReferencedResourceNotFound, "VirtualService/httpbin-bogus"},
+            {msg.ReferencedResourceNotFound, "VirtualService httpbin-bogus"},
         },
     },
 ```
@@ -177,16 +179,16 @@ inputs in the analyzer metadata. This should help you find any unused inputs and
 
 ### 5. Testing via istioctl
 
-You can use `istioctl experimental analyze` to run all analyzers, including your new one. e.g.
+You can use `istioctl analyze` to run all analyzers, including your new one. e.g.
 
 ```sh
-make istioctl && $GOPATH/out/linux_amd64/release/istioctl experimental analyze
+make istioctl && $GOPATH/out/linux_amd64/release/istioctl analyze
 ```
 
 ### 6. Write a user-facing documentation page
 
 Each analysis message needs to be documented for customers. This is done by introducing a markdown file for
-each message in the istio.io repo in the content/en/docs/reference/config/analysis directory. You create
+each message in the [istio.io](https://github.com/istio/istio.io) repo in the [content/en/docs/reference/config/analysis](https://github.com/istio/istio.io/tree/master/content/en/docs/reference/config/analysis) directory. You create
 a subdirectory with the code of the error message, and add a `index.md` file that contains the
 full description of the problem with potential remediation steps, examples, etc. See the existing
 files in that directory for examples of how this is done.

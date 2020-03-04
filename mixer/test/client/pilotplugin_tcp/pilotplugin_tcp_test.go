@@ -15,6 +15,7 @@
 package client_test
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"testing"
@@ -34,6 +35,7 @@ import (
 
 	"istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/mixer"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
@@ -146,7 +148,7 @@ func TestPilotPluginTCP(t *testing.T) {
 
 	snapshots := cache.NewSnapshotCache(true, mock{}, nil)
 	_ = snapshots.SetSnapshot(id, makeSnapshot(s, t, model.SidecarProxy))
-	server := xds.NewServer(snapshots, nil)
+	server := xds.NewServer(context.Background(), snapshots, nil)
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, server)
 	go func() {
 		_ = grpcServer.Serve(lis)
@@ -211,19 +213,17 @@ var (
 			UID:       "istio://ns3/services/svc",
 		},
 	}
-	mesh = &model.Environment{
-		Mesh: &meshconfig.MeshConfig{
-			MixerCheckServer:  "mixer_server:9091",
-			MixerReportServer: "mixer_server:9091",
-		},
-		ServiceDiscovery: mock{},
-	}
 	pushContext = model.PushContext{
 		ServiceByHostnameAndNamespace: map[host.Name]map[string]*model.Service{
 			host.Name("svc.ns3"): {
 				"ns3": &svc,
 			},
 		},
+		Mesh: &meshconfig.MeshConfig{
+			MixerCheckServer:  "mixer_server:9091",
+			MixerReportServer: "mixer_server:9091",
+		},
+		ServiceDiscovery: mock{},
 	}
 )
 
@@ -252,8 +252,7 @@ func makeSnapshot(s *env.TestSetup, t *testing.T, node model.NodeType) cache.Sna
 	p := mixer.NewPlugin()
 
 	serverParams := plugin.InputParams{
-		ListenerProtocol: plugin.ListenerProtocolTCP,
-		Env:              mesh,
+		ListenerProtocol: networking.ListenerProtocolTCP,
 		Node: &model.Proxy{
 			ID:           "pod1.ns1",
 			Type:         node,
@@ -264,8 +263,7 @@ func makeSnapshot(s *env.TestSetup, t *testing.T, node model.NodeType) cache.Sna
 		Push:            &pushContext,
 	}
 	clientParams := plugin.InputParams{
-		ListenerProtocol: plugin.ListenerProtocolTCP,
-		Env:              mesh,
+		ListenerProtocol: networking.ListenerProtocolTCP,
 		Node: &model.Proxy{
 			ID:           "pod2.ns2",
 			Type:         node,
@@ -276,19 +274,19 @@ func makeSnapshot(s *env.TestSetup, t *testing.T, node model.NodeType) cache.Sna
 		Push:    &pushContext,
 	}
 
-	serverMutable := plugin.MutableObjects{Listener: serverListener, FilterChains: []plugin.FilterChain{{}}}
+	serverMutable := networking.MutableObjects{Listener: serverListener, FilterChains: []networking.FilterChain{{}}}
 	if err := p.OnInboundListener(&serverParams, &serverMutable); err != nil {
 		t.Error(err)
 	}
 	serverListener.FilterChains[0].Filters = append(serverMutable.FilterChains[0].TCP, serverListener.FilterChains[0].Filters...)
 
-	clientMutable := plugin.MutableObjects{Listener: clientListener, FilterChains: []plugin.FilterChain{{}}}
+	clientMutable := networking.MutableObjects{Listener: clientListener, FilterChains: []networking.FilterChain{{}}}
 	if err := p.OnOutboundListener(&clientParams, &clientMutable); err != nil {
 		t.Error(err)
 	}
 	clientListener.FilterChains[0].Filters = append(clientMutable.FilterChains[0].TCP, clientListener.FilterChains[0].Filters...)
 
-	return cache.Snapshot{
-		Listeners: cache.NewResources(string(node), []cache.Resource{clientListener, serverListener}),
-	}
+	snapshot := cache.Snapshot{}
+	snapshot.Resources[cache.Listener] = cache.NewResources(string(node), []cache.Resource{clientListener, serverListener})
+	return snapshot
 }

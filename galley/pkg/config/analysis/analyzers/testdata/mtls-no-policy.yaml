@@ -1,0 +1,38 @@
+# We have a DR for our service, but no policy
+# A service exists called missing-dr-service
+apiVersion: v1
+kind: Service
+metadata:
+  name: missing-policy-service
+  namespace: no-policy
+spec:
+  selector:
+    app: missing-policy-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: missing-policy-service-pod
+  namespace: no-policy
+  labels:
+    app: missing-policy-service
+spec:
+  containers:
+  - name: istio-proxy
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: no-policy-service-dr
+  namespace: no-policy
+spec:
+  host: missing-policy-service.no-policy.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+# Nothing else specified. Without a Policy, this will fail.
+---

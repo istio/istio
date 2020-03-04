@@ -10,11 +10,11 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"unit-test-fake-version","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"unit-test-fake-version","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
-        security.istio.io/mtlsReady: "true"
+        security.istio.io/tlsMode: "istio"
         tier: backend
         track: stable
     spec:
@@ -84,7 +84,7 @@ spec:
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         image: gcr.io/istio-release/proxyv2:master-latest-daily
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: istio-proxy
         ports:
         - containerPort: 15090
@@ -102,14 +102,18 @@ spec:
             cpu: 10m
             memory: 30Mi
         securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
           readOnlyRootFilesystem: true
+          runAsGroup: 1337
+          runAsNonRoot: true
           runAsUser: 1337
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
-        - mountPath: /etc/certs/
-          name: istio-certs
-          readOnly: true
       initContainers:
       - command:
         - sh
@@ -139,7 +143,7 @@ spec:
         - -b
         - "80"
         - -d
-        - "15020"
+        - "15090,15020"
         image: gcr.io/istio-release/proxy_init:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-init
@@ -151,19 +155,22 @@ spec:
             cpu: 10m
             memory: 10Mi
         securityContext:
-          runAsUser: 0
-          runAsNonRoot: false
+          allowPrivilegeEscalation: false
           capabilities:
             add:
             - NET_ADMIN
+            - NET_RAW
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: false
+          runAsGroup: 0
+          runAsNonRoot: false
+          runAsUser: 0
       volumes:
       - emptyDir:
           medium: Memory
         name: istio-envoy
-      - name: istio-certs
-        secret:
-          optional: true
-          secretName: istio.default
 status: {}
 
 ---

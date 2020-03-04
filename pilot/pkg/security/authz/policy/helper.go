@@ -16,20 +16,21 @@ package policy
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/davecgh/go-spew/spew"
-	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
+	envoyRbacPb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 	"github.com/hashicorp/go-multierror"
 
-	istio_rbac "istio.io/api/rbac/v1alpha1"
-	authpb "istio.io/api/security/v1beta1"
+	istioRbacPb "istio.io/api/rbac/v1alpha1"
+	istioSecurityPb "istio.io/api/security/v1beta1"
 
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
+	authzModel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 // We cannot import `testing` here, as it will bring extra test flags into the binary. Instead, just include the interface here
@@ -38,7 +39,7 @@ type mockTest interface {
 	Helper()
 }
 
-func NewServiceMetadata(hostname string, labels map[string]string, t mockTest) *authz_model.ServiceMetadata {
+func NewServiceMetadata(hostname string, labels map[string]string, t mockTest) *authzModel.ServiceMetadata {
 	t.Helper()
 	splits := strings.Split(hostname, ".")
 	if len(splits) < 2 {
@@ -55,10 +56,16 @@ func NewServiceMetadata(hostname string, labels map[string]string, t mockTest) *
 			},
 			Hostname: host.Name(hostname),
 		},
-		Labels: labels,
+		Endpoint: &model.IstioEndpoint{
+			Attributes: model.ServiceAttributes{
+				Name:      name,
+				Namespace: namespace,
+			},
+			Labels: labels,
+		},
 	}
 
-	serviceMetadata, err := authz_model.NewServiceMetadata(name, namespace, serviceInstance)
+	serviceMetadata, err := authzModel.NewServiceMetadata(name, namespace, serviceInstance)
 	if err != nil {
 		t.Fatalf("failed to initialize service instance: %s", err)
 	}
@@ -68,7 +75,7 @@ func NewServiceMetadata(hostname string, labels map[string]string, t mockTest) *
 
 func NewAuthzPolicies(policies []*model.Config, t mockTest) *model.AuthorizationPolicies {
 	t.Helper()
-	store := model.MakeIstioStore(memory.Make(schemas.Istio))
+	store := model.MakeIstioStore(memory.Make(collections.Pilot))
 	for _, p := range policies {
 		if _, err := store.Create(*p); err != nil {
 			t.Fatalf("failed to initialize authz policies: %s", err)
@@ -88,12 +95,14 @@ func NewAuthzPolicies(policies []*model.Config, t mockTest) *model.Authorization
 func SimpleClusterRbacConfig() *model.Config {
 	cfg := &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      schemas.ClusterRbacConfig.Type,
+			Type:      collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Kind(),
+			Version:   collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Version(),
+			Group:     collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Group(),
 			Name:      "default",
 			Namespace: "default",
 		},
-		Spec: &istio_rbac.RbacConfig{
-			Mode: istio_rbac.RbacConfig_ON,
+		Spec: &istioRbacPb.RbacConfig{
+			Mode: istioRbacPb.RbacConfig_ON,
 		},
 	}
 	return cfg
@@ -104,8 +113,8 @@ func RoleTag(name string) string {
 }
 
 func SimpleRole(name string, namespace string, service string) *model.Config {
-	spec := &istio_rbac.ServiceRole{
-		Rules: []*istio_rbac.AccessRule{
+	spec := &istioRbacPb.ServiceRole{
+		Rules: []*istioRbacPb.AccessRule{
 			{
 				Methods: []string{RoleTag(name)},
 			},
@@ -116,7 +125,9 @@ func SimpleRole(name string, namespace string, service string) *model.Config {
 	}
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      schemas.ServiceRole.Type,
+			Type:      collections.IstioRbacV1Alpha1Serviceroles.Resource().Kind(),
+			Version:   collections.IstioRbacV1Alpha1Serviceroles.Resource().Version(),
+			Group:     collections.IstioRbacV1Alpha1Serviceroles.Resource().Group(),
 			Name:      name,
 			Namespace: namespace,
 		},
@@ -124,28 +135,53 @@ func SimpleRole(name string, namespace string, service string) *model.Config {
 	}
 }
 
-func SimplePrincipal(name string) string {
-	return fmt.Sprintf("cluster.local/ns/%s/sa/%s", name, name)
-}
-
 func CustomPrincipal(trustDomain, namespace, saName string) string {
 	return fmt.Sprintf("%s/ns/%s/sa/%s", trustDomain, namespace, saName)
 }
 
-func SimpleBinding(name string, namespace string, role string) *model.Config {
+func BindingTag(name string) string {
+	return fmt.Sprintf("UserFromBinding[%s]", name)
+}
+
+func SimpleBinding(name, namespace, role string) *model.Config {
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      schemas.ServiceRoleBinding.Type,
+			Type:      collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(),
+			Version:   collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Version(),
+			Group:     collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Group(),
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: &istio_rbac.ServiceRoleBinding{
-			Subjects: []*istio_rbac.Subject{
+		Spec: &istioRbacPb.ServiceRoleBinding{
+			Subjects: []*istioRbacPb.Subject{
 				{
-					User: SimplePrincipal(name),
+					User: BindingTag(name),
 				},
 			},
-			RoleRef: &istio_rbac.RoleRef{
+			RoleRef: &istioRbacPb.RoleRef{
+				Name: role,
+				Kind: "ServiceRole",
+			},
+		},
+	}
+}
+
+func SimpleBindingWithUser(name, namespace, role, user string) *model.Config {
+	return &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(),
+			Version:   collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Version(),
+			Group:     collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Group(),
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: &istioRbacPb.ServiceRoleBinding{
+			Subjects: []*istioRbacPb.Subject{
+				{
+					User: user,
+				},
+			},
+			RoleRef: &istioRbacPb.RoleRef{
 				Name: role,
 				Kind: "ServiceRole",
 			},
@@ -155,8 +191,8 @@ func SimpleBinding(name string, namespace string, role string) *model.Config {
 
 func SimplePermissiveBinding(name string, namespace string, role string) *model.Config {
 	cfg := SimpleBinding(name, namespace, role)
-	binding := cfg.Spec.(*istio_rbac.ServiceRoleBinding)
-	binding.Mode = istio_rbac.EnforcementMode_PERMISSIVE
+	binding := cfg.Spec.(*istioRbacPb.ServiceRoleBinding)
+	binding.Mode = istioRbacPb.EnforcementMode_PERMISSIVE
 	return cfg
 }
 
@@ -164,28 +200,22 @@ func AuthzPolicyTag(name string) string {
 	return fmt.Sprintf("UserFromPolicy[%s]", name)
 }
 
-func SimpleAuthzPolicy(name string, namespace string) *model.Config {
-	return &model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      schemas.AuthorizationPolicy.Type,
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: &authpb.AuthorizationPolicy{
-			Rules: []*authpb.Rule{
-				{
-					From: []*authpb.Rule_From{
-						{
-							Source: &authpb.Source{
-								Principals: []string{AuthzPolicyTag(name)},
-							},
+func SimpleAuthorizationProto(name string, action istioSecurityPb.AuthorizationPolicy_Action) *istioSecurityPb.AuthorizationPolicy {
+	return &istioSecurityPb.AuthorizationPolicy{
+		Action: action,
+		Rules: []*istioSecurityPb.Rule{
+			{
+				From: []*istioSecurityPb.Rule_From{
+					{
+						Source: &istioSecurityPb.Source{
+							Principals: []string{AuthzPolicyTag(name)},
 						},
 					},
-					To: []*authpb.Rule_To{
-						{
-							Operation: &authpb.Operation{
-								Methods: []string{"GET"},
-							},
+				},
+				To: []*istioSecurityPb.Rule_To{
+					{
+						Operation: &istioSecurityPb.Operation{
+							Methods: []string{"GET"},
 						},
 					},
 				},
@@ -194,7 +224,33 @@ func SimpleAuthzPolicy(name string, namespace string) *model.Config {
 	}
 }
 
-func Verify(got *envoy_rbac.RBAC, want map[string][]string) error {
+func SimpleAllowPolicy(name string, namespace string) *model.Config {
+	return &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind(),
+			Version:   collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Version(),
+			Group:     collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Group(),
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: SimpleAuthorizationProto(name, istioSecurityPb.AuthorizationPolicy_ALLOW),
+	}
+}
+
+func SimpleDenyPolicy(name string, namespace string) *model.Config {
+	return &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind(),
+			Group:     collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Group(),
+			Version:   collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Version(),
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: SimpleAuthorizationProto(name, istioSecurityPb.AuthorizationPolicy_DENY),
+	}
+}
+
+func Verify(got *envoyRbacPb.RBAC, want map[string][]string, needToCheckPrincipals bool, wantDeny bool) error {
 	var err error
 	if len(want) == 0 {
 		if len(got.GetPolicies()) != 0 {
@@ -202,9 +258,9 @@ func Verify(got *envoy_rbac.RBAC, want map[string][]string) error {
 				fmt.Errorf("got %d rules but want 0", len(got.Policies)))
 		}
 	} else {
-		if got.Action != envoy_rbac.RBAC_ALLOW {
+		if (wantDeny && got.Action != envoyRbacPb.RBAC_DENY) || (!wantDeny && got.Action != envoyRbacPb.RBAC_ALLOW) {
 			err = multierror.Append(err,
-				fmt.Errorf("got action %s but want %s", got.GetAction(), envoy_rbac.RBAC_ALLOW))
+				fmt.Errorf("got action %s but want opposite", got.GetAction()))
 		}
 		if len(want) != len(got.Policies) {
 			err = multierror.Append(err, fmt.Errorf("got %d rules but want %d",
@@ -216,8 +272,11 @@ func Verify(got *envoy_rbac.RBAC, want map[string][]string) error {
 			if !ok {
 				err = multierror.Append(err, fmt.Errorf("not found rule %q", key))
 			} else {
-				// FIXME(pitlv2109/yangmingzhu): This doesn't always work because |actualStr| might contain
-				// more stuff than |values| from |want|. Need to check both ways.
+				// Enable principal count check if principals are important for the current test (e.g. generating RBAC config based
+				// on trust domain aliases).
+				if needToCheckPrincipals {
+					err = checkPrincipalCounts(key, actualStr, values)
+				}
 				for _, value := range values {
 					if !strings.Contains(actualStr, value) {
 						err = multierror.Append(err, fmt.Errorf("not found %q in rule %q", value, key))
@@ -228,4 +287,33 @@ func Verify(got *envoy_rbac.RBAC, want map[string][]string) error {
 	}
 
 	return err
+}
+
+// checkSourcePrincipalCounts checks if |actual| and |want| have the same number of source.principal.
+// For example, both |actual| and |want| can only have one key "source.principal",
+// but |actual| can have "foo" and "bar", and |want| can only has "foo". This is possible since
+// in v1beta1, principals can be a list.
+func checkPrincipalCounts(ruleKey string, actual string, want []string) error {
+	// Only work with principals, not other identities like namespaces.
+	keyRegEx := regexp.MustCompile("source.principal")
+	keyMatches := keyRegEx.FindAllStringIndex(actual, -1)
+	numPrincipals := 0
+	for _, w := range want {
+		if isPrincipal(w) {
+			numPrincipals++
+		}
+	}
+	if len(keyMatches) != numPrincipals {
+		return fmt.Errorf("the number of principals are not the same in rule %q.\n"+
+			"Got %s, want %s", ruleKey, actual, want)
+	}
+	return nil
+}
+
+// isPrincipal returns if s is an Istio authorization principal.
+// It supports * in principals (including prefix or suffix in some cases),
+// but the principals must be in the format */*/*/*/*.
+// This should be used for testing only.
+func isPrincipal(s string) bool {
+	return s == "*" || len(strings.Split(s, "/")) == 5
 }

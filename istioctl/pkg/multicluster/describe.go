@@ -44,11 +44,11 @@ const (
 )
 
 func secretStateAndServer(env Environment, srs remoteSecrets, c *Cluster) (remoteSecretStatus, string) {
-	remoteSecret, ok := srs[c.uid]
+	remoteSecret, ok := srs[c.clusterName]
 	if !ok {
 		return rsStatusNotFound, ""
 	}
-	key := string(c.uid)
+	key := c.clusterName
 	kubeconfig, ok := remoteSecret.Data[key]
 	if !ok {
 		return rsStatusConfigMissing, ""
@@ -67,7 +67,7 @@ func secretStateAndServer(env Environment, srs remoteSecrets, c *Cluster) (remot
 	}
 
 	server := cluster.Server
-	if configCluster, ok := env.GetConfig().Clusters[c.context]; ok {
+	if configCluster, ok := env.GetConfig().Clusters[c.Context]; ok {
 		if server != configCluster.Server {
 			return seStatusServerAddrMismatch, fmt.Sprintf("%v (%v from local kubeconfig)", server, configCluster.Server)
 		}
@@ -80,7 +80,7 @@ func describeCACerts(env Environment, c *Cluster, indent string) {
 	secrets := c.readCACerts(env)
 
 	tw := tabwriter.NewWriter(env.Stdout(), 0, 8, 2, '\t', 0)
-	fmt.Fprintf(tw, "%vNAME\tISSUER\tSUBJECT\tNOTAFTER\n", indent)
+	_, _ = fmt.Fprintf(tw, "%vNAME\tISSUER\tSUBJECT\tNOTAFTER\n", indent)
 
 	for _, info := range []struct {
 		cert *x509.Certificate
@@ -88,11 +88,10 @@ func describeCACerts(env Environment, c *Cluster, indent string) {
 	}{
 		{secrets.externalRootCert, "ExternalRootCert"},
 		{secrets.externalCACert, "ExternalCACert"},
-		{secrets.selfSignedRootCert, "SelfSignedRootCert"},
-		{secrets.selfSignedCACert, "SelfSignedCACert"},
+		{secrets.selfSignedCACert, "SelfSignedRootCert"},
 	} {
 		if c := info.cert; c != nil {
-			fmt.Fprintf(tw, "%v%v\t%q\t%q\t%v\n",
+			_, _ = fmt.Fprintf(tw, "%v%v\t%q\t%q\t%v\n",
 				indent,
 				info.name,
 				c.Issuer,
@@ -101,42 +100,42 @@ func describeCACerts(env Environment, c *Cluster, indent string) {
 		}
 	}
 
-	tw.Flush()
+	_ = tw.Flush()
 }
 
 func describeRemoteSecrets(env Environment, mesh *Mesh, c *Cluster, indent string) {
 	serviceRegistrySecrets := c.readRemoteSecrets(env)
 
 	tw := tabwriter.NewWriter(env.Stdout(), 0, 8, 2, '\t', 0)
-	fmt.Fprintf(tw, "%vCONTEXT\tUID\tREGISTERED\tMASTER\t\n", indent)
-	for _, other := range mesh.sortedClusters {
-		if other.uid == c.uid {
+	_, _ = fmt.Fprintf(tw, "%vCONTEXT\tUID\tREGISTERED\tMASTER\t\n", indent)
+	for _, other := range mesh.SortedClusters() {
+		if other.clusterName == c.clusterName {
 			continue
 		}
 
 		secretState, server := secretStateAndServer(env, serviceRegistrySecrets, other)
 
-		fmt.Fprintf(tw, "%v%v\t%v\t%v\t%v\n",
+		_, _ = fmt.Fprintf(tw, "%v%v\t%v\t%v\t%v\n",
 			indent,
-			other.context,
-			other.uid,
+			other.Context,
+			other.clusterName,
 			secretState,
 			server,
 		)
 	}
-	tw.Flush()
+	_ = tw.Flush()
 }
 
-func describeIngressGateways(env Environment, c *Cluster, indent string) {
-	gatewayAddresses := c.readIngressGatewayAddresses(env)
+func describeIngressGateways(env Environment, c *Cluster, indent string) { // nolint: interfacer
+	gateways := c.readIngressGateways()
 
 	env.Printf("%vgateways: ", indent)
-	if len(gatewayAddresses) == 0 {
+	if len(gateways) == 0 {
 		env.Printf("<none>")
 	} else {
-		for i, addr := range gatewayAddresses {
-			env.Printf("%v", addr)
-			if i < len(gatewayAddresses)-1 {
+		for i, gateway := range gateways {
+			env.Printf("%v", gateway)
+			if i < len(gateways)-1 {
 				env.Printf(", ")
 			}
 		}
@@ -145,10 +144,10 @@ func describeIngressGateways(env Environment, c *Cluster, indent string) {
 }
 
 func describeCluster(env Environment, mesh *Mesh, c *Cluster) error {
-	env.Printf("%v context=%v uid=%v network=%v istio=%v %v\n",
+	env.Printf("%v Context=%v clusterName=%v network=%v istio=%v %v\n",
 		strings.Repeat("-", 10),
-		c.context,
-		c.uid,
+		c.Context,
+		c.clusterName,
 		c.Network,
 		c.installed,
 		strings.Repeat("-", 10))
@@ -170,13 +169,13 @@ func describeCluster(env Environment, mesh *Mesh, c *Cluster) error {
 }
 
 func Describe(opt describeOptions, env Environment) error {
-	mesh, err := meshFromFileDesc(opt.filename, opt.Kubeconfig, env)
+	mesh, err := meshFromFileDesc(opt.filename, env)
 	if err != nil {
 		return err
 	}
 
 	if opt.all {
-		for _, cluster := range mesh.sortedClusters {
+		for _, cluster := range mesh.SortedClusters() {
 			if err := describeCluster(env, mesh, cluster); err != nil {
 				env.Errorf("could not describe cluster %v: %v\n", cluster, err)
 			}
@@ -211,7 +210,7 @@ func (o *describeOptions) prepare(flags *pflag.FlagSet) error {
 func (o *describeOptions) addFlags(flags *pflag.FlagSet) {
 	o.filenameOption.addFlags(flags)
 
-	flags.BoolVar(&o.all, "all", o.all,
+	flags.BoolVar(&o.all, "all", true,
 		"describe the status of all clustersByContext in the mesh")
 }
 

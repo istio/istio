@@ -98,7 +98,7 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 		"IstioCAAddress is incorrect": {
 			caAddress:   lis.Addr().String() + "1",
 			dialOptions: []grpc.DialOption{grpc.WithInsecure()},
-			expectedErr: "rpc error: code = Unavailable desc = all SubConns are in TransientFailure",
+			expectedErr: "rpc error: code = Unavailable",
 		},
 		"Without Insecure option": {
 			caAddress:   lis.Addr().String(),

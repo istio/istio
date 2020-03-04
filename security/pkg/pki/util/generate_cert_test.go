@@ -551,3 +551,150 @@ func TestAppendRootCerts(t *testing.T) {
 		}
 	}
 }
+
+// TestGenRootCertFromExistingKey creates original root certificate and private key, and then
+// uses the private key to generate a new root certificate. Verifies that the new root certificate
+// matches old root certificate except lifetime changes.
+func TestGenRootCertFromExistingKey(t *testing.T) {
+	// Generate root certificate and private key
+	caCertTTL := 24 * time.Hour
+	oldOrg := "old org"
+	caKeySize := 512
+	caCertOptions := CertOptions{
+		TTL:          caCertTTL,
+		Org:          oldOrg,
+		IsCA:         true,
+		IsSelfSigned: true,
+		RSAKeySize:   caKeySize,
+		IsDualUse:    false,
+	}
+	oldRootCertPem, oldRootKeyPem, err := GenCertKeyFromOptions(caCertOptions)
+	if err != nil {
+		t.Errorf("failed to generate root certificate from options: %v", err)
+	}
+
+	// Rotate root certificate using the old private key.
+	// 1. get cert option from old root certificate.
+	oldCertOptions, err := GetCertOptionsFromExistingCert(oldRootCertPem)
+	if err != nil {
+		t.Errorf("failed to generate cert options from existing root certificate: %v", err)
+	}
+	// 2. create cert option for new root certificate.
+	defaultOrg := "default org"
+	// Verify that changing RSA key size does not change private key, as the key is reused.
+	defaultRSAKeySize := 1024
+	// Create a default cert options
+	newCertOptions := CertOptions{
+		TTL:           caCertTTL,
+		SignerPrivPem: oldRootKeyPem,
+		Org:           defaultOrg,
+		IsCA:          true,
+		IsSelfSigned:  true,
+		RSAKeySize:    defaultRSAKeySize,
+		IsDualUse:     false,
+	}
+	// Merge cert options.
+	newCertOptions = MergeCertOptions(newCertOptions, oldCertOptions)
+	if newCertOptions.Org != oldOrg && newCertOptions.Org == defaultOrg {
+		t.Error("Org in cert options should be overwritten")
+	}
+	// 3. create new root certificate.
+	newRootCertPem, newRootKeyPem, err := GenRootCertFromExistingKey(newCertOptions)
+	if err != nil {
+		t.Errorf("failed to generate root certificate from existing key: %v", err)
+	}
+
+	// Verifies that private key does not change, and certificates match.
+	if !bytes.Equal(oldRootKeyPem, newRootKeyPem) {
+		t.Errorf("private key should not change")
+	}
+	keyLen, err := getPublicKeySizeInBits(newRootKeyPem)
+	if err != nil {
+		t.Errorf("failed to parse private key: %v", err)
+	}
+	if keyLen != caKeySize {
+		t.Errorf("Public key size should not change, (got %d) vs (expected %d)",
+			keyLen, caKeySize)
+	}
+
+	oldRootCert, _ := ParsePemEncodedCertificate(oldRootCertPem)
+	newRootCert, _ := ParsePemEncodedCertificate(newRootCertPem)
+	if oldRootCert.Subject.String() != newRootCert.Subject.String() {
+		t.Errorf("certificate Subject does not match (old: %s) vs (new: %s)",
+			oldRootCert.Subject.String(), newRootCert.Subject.String())
+	}
+	if oldRootCert.Issuer.String() != newRootCert.Issuer.String() {
+		t.Errorf("certificate Issuer does not match (old: %s) vs (new: %s)",
+			oldRootCert.Issuer.String(), newRootCert.Issuer.String())
+	}
+	if oldRootCert.IsCA != newRootCert.IsCA {
+		t.Errorf("certificate IsCA does not match (old: %t) vs (new: %t)",
+			oldRootCert.IsCA, newRootCert.IsCA)
+	}
+	if oldRootCert.Version != newRootCert.Version {
+		t.Errorf("certificate Version does not match (old: %d) vs (new: %d)",
+			oldRootCert.Version, newRootCert.Version)
+	}
+	if oldRootCert.PublicKeyAlgorithm != newRootCert.PublicKeyAlgorithm {
+		t.Errorf("public key algorithm does not match (old: %s) vs (new: %s)",
+			oldRootCert.PublicKeyAlgorithm.String(), newRootCert.PublicKeyAlgorithm.String())
+	}
+}
+
+func getPublicKeySizeInBits(keyPem []byte) (int, error) {
+	privateKey, err := ParsePemEncodedKey(keyPem)
+	if err != nil {
+		return 0, err
+	}
+	k := privateKey.(*rsa.PrivateKey)
+	return k.PublicKey.Size() * 8, nil
+}
+
+// TestMergeCertOptions verifies that cert option fields are overwritten.
+func TestMergeCertOptions(t *testing.T) {
+	certTTL := 240 * time.Hour
+	org := "old org"
+	keySize := 512
+	defaultCertOptions := CertOptions{
+		TTL:          certTTL,
+		Org:          org,
+		IsCA:         true,
+		IsSelfSigned: true,
+		RSAKeySize:   keySize,
+		IsDualUse:    false,
+	}
+
+	deltaCertTTL := 1 * time.Hour
+	deltaOrg := "delta org"
+	deltaKeySize := 1024
+	deltaCertOptions := CertOptions{
+		TTL:          deltaCertTTL,
+		Org:          deltaOrg,
+		IsCA:         true,
+		IsSelfSigned: true,
+		RSAKeySize:   deltaKeySize,
+		IsDualUse:    true,
+	}
+
+	mergedCertOptions := MergeCertOptions(defaultCertOptions, deltaCertOptions)
+	if mergedCertOptions.Org != deltaCertOptions.Org {
+		t.Errorf("Org does not match, (get %s) vs (expected %s)",
+			mergedCertOptions.Org, deltaCertOptions.Org)
+	}
+	if mergedCertOptions.TTL != defaultCertOptions.TTL {
+		t.Errorf("TTL does not match, (get %s) vs (expected %s)",
+			mergedCertOptions.TTL.String(), deltaCertOptions.TTL.String())
+	}
+	if mergedCertOptions.IsCA != defaultCertOptions.IsCA {
+		t.Errorf("IsCA does not match, (get %t) vs (expected %t)",
+			mergedCertOptions.IsCA, deltaCertOptions.IsCA)
+	}
+	if mergedCertOptions.RSAKeySize != defaultCertOptions.RSAKeySize {
+		t.Errorf("TTL does not match, (get %d) vs (expected %d)",
+			mergedCertOptions.RSAKeySize, deltaCertOptions.RSAKeySize)
+	}
+	if mergedCertOptions.IsDualUse != defaultCertOptions.IsDualUse {
+		t.Errorf("IsDualUse does not match, (get %t) vs (expected %t)",
+			mergedCertOptions.IsDualUse, deltaCertOptions.IsDualUse)
+	}
+}

@@ -38,12 +38,13 @@ import (
 )
 
 const (
-	proxyContainerName          = "istio-proxy"
-	initContainerName           = "istio-init"
+	annotationPolicy            = "sidecar.istio.io/inject"
+	certVolumeName              = "istio-certs"
 	enableCoreDumpContainerName = "enable-core-dump"
 	envoyVolumeName             = "istio-envoy"
-	certVolumeName              = "istio-certs"
-	annotationPolicy            = "sidecar.istio.io/inject"
+	initContainerName           = "istio-init"
+	jwtTokenVolumeName          = "istio-token"
+	proxyContainerName          = "istio-proxy"
 	sidecarAnnotationPrefix     = "sidecar.istio.io"
 )
 
@@ -112,7 +113,8 @@ func removeInjectedContainers(containers []corev1.Container, injectedContainerNa
 	return containers
 }
 
-// removeInjectedVolumes removes the injected volumes - istio-envoy and istio-certs
+// removeInjectedVolumes removes the injected volumes if exists.
+// for example, istio-envoy, istio-certs, and istio-token
 func removeInjectedVolumes(volumes []corev1.Volume, injectedVolume string) []corev1.Volume {
 
 	for index, v := range volumes {

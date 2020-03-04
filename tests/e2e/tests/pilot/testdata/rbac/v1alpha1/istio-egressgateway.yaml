@@ -21,6 +21,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: istio-egressgateway
+  namespace: istio-system
 spec:
   selector:
     istio: egressgateway
@@ -57,8 +58,10 @@ spec:
             port:
               number: 80
           weight: 100
-      appendHeaders:
-        handled-by-egress-gateway: "true"
+      headers:
+        request:
+          add:
+            handled-by-egress-gateway: "true"
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry

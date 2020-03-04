@@ -4,22 +4,67 @@
 package basicmeta
 
 import (
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config/validation"
 )
 
 var (
 
-	// Collection1 is the name of collection collection1
-	Collection1 = collection.NewName("collection1")
+	// Collection2 describes the collection collection2
+	Collection2 = collection.Builder{
+		Name:         "collection2",
+		VariableName: "Collection2",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "testdata.istio.io",
+			Kind:          "Kind1",
+			Plural:        "Kind1s",
+			Version:       "v1alpha1",
+			Proto:         "google.protobuf.Struct",
+			ProtoPackage:  "github.com/gogo/protobuf/types",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
 
-	// Collection2 is the name of collection collection2
-	Collection2 = collection.NewName("collection2")
+	// K8SCollection1 describes the collection k8s/collection1
+	K8SCollection1 = collection.Builder{
+		Name:         "k8s/collection1",
+		VariableName: "K8SCollection1",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "testdata.istio.io",
+			Kind:          "Kind1",
+			Plural:        "Kind1s",
+			Version:       "v1alpha1",
+			Proto:         "google.protobuf.Struct",
+			ProtoPackage:  "github.com/gogo/protobuf/types",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// All contains all collections in the system.
+	All = collection.NewSchemasBuilder().
+		MustAdd(Collection2).
+		MustAdd(K8SCollection1).
+		Build()
+
+	// Istio contains only Istio collections.
+	Istio = collection.NewSchemasBuilder().
+		Build()
+
+	// Kube contains only kubernetes collections.
+	Kube = collection.NewSchemasBuilder().
+		MustAdd(K8SCollection1).
+		Build()
+
+	// Pilot contains only collections used by Pilot.
+	Pilot = collection.NewSchemasBuilder().
+		Build()
+
+	// PilotServiceApi contains only collections used by Pilot, including experimental Service Api.
+	PilotServiceApi = collection.NewSchemasBuilder().
+			Build()
 )
-
-// CollectionNames returns the collection names declared in this package.
-func CollectionNames() []collection.Name {
-	return []collection.Name{
-		Collection1,
-		Collection2,
-	}
-}

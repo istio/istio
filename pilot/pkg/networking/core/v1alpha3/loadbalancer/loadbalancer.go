@@ -23,14 +23,36 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
 )
+
+func GetLocalityLbSetting(
+	mesh *v1alpha3.LocalityLoadBalancerSetting,
+	destrule *v1alpha3.LocalityLoadBalancerSetting,
+) *v1alpha3.LocalityLoadBalancerSetting {
+	// Locality lb is enabled if its defined in mesh config
+	enabled := mesh != nil
+	// Unless we explicitly override this in destination rule
+	if destrule != nil && destrule.Enabled != nil {
+		enabled = destrule.Enabled.GetValue()
+	}
+	if !enabled {
+		return nil
+	}
+
+	// Destination Rule overrides mesh config. If its defined, use that
+	if destrule != nil {
+		return destrule
+	}
+	// Otherwise fall back to mesh default
+	return mesh
+}
 
 func ApplyLocalityLBSetting(
 	locality *core.Locality,
 	loadAssignment *apiv2.ClusterLoadAssignment,
-	localityLB *meshconfig.LocalityLoadBalancerSetting,
+	localityLB *v1alpha3.LocalityLoadBalancerSetting,
 	enableFailover bool,
 ) {
 	if locality == nil || loadAssignment == nil {
@@ -50,7 +72,7 @@ func ApplyLocalityLBSetting(
 func applyLocalityWeight(
 	locality *core.Locality,
 	loadAssignment *apiv2.ClusterLoadAssignment,
-	distribute []*meshconfig.LocalityLoadBalancerSetting_Distribute) {
+	distribute []*v1alpha3.LocalityLoadBalancerSetting_Distribute) {
 	if distribute == nil {
 		return
 	}
@@ -87,9 +109,11 @@ func applyLocalityWeight(
 				// in case wildcard dest matching multi groups of endpoints
 				// the load balancing weight for a locality is divided by the sum of the weights of all localities
 				for index, originalWeight := range destLocMap {
-					weight := float64(originalWeight*weight) / float64(totalWeight)
-					loadAssignment.Endpoints[index].LoadBalancingWeight = &wrappers.UInt32Value{
-						Value: uint32(math.Ceil(weight)),
+					destWeight := float64(originalWeight*weight) / float64(totalWeight)
+					if destWeight > 0 {
+						loadAssignment.Endpoints[index].LoadBalancingWeight = &wrappers.UInt32Value{
+							Value: uint32(math.Ceil(destWeight)),
+						}
 					}
 				}
 			}
@@ -107,7 +131,7 @@ func applyLocalityWeight(
 func applyLocalityFailover(
 	locality *core.Locality,
 	loadAssignment *apiv2.ClusterLoadAssignment,
-	failover []*meshconfig.LocalityLoadBalancerSetting_Failover) {
+	failover []*v1alpha3.LocalityLoadBalancerSetting_Failover) {
 	// key is priority, value is the index of the LocalityLbEndpoints in ClusterLoadAssignment
 	priorityMap := map[int][]int{}
 

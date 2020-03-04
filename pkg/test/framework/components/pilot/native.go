@@ -25,7 +25,6 @@ import (
 	meshapi "istio.io/api/mesh/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test/env"
@@ -78,7 +77,7 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 	bootstrap.PilotCertDir = pilotCertDir
 
 	// Dynamically assign all ports.
-	options := envoy.DiscoveryServiceOptions{
+	options := bootstrap.DiscoveryServiceOptions{
 		HTTPAddr:       ":0",
 		MonitoringAddr: ":0",
 		GrpcAddr:       ":0",
@@ -91,24 +90,30 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 		m = cfg.MeshConfig
 	}
 
-	bootstrapArgs := bootstrap.PilotArgs{
-		Namespace:        e.SystemNamespace,
-		DiscoveryOptions: options,
-		Config: bootstrap.ConfigArgs{
+	if cfg.ServiceArgs.Registries == nil {
+		cfg.ServiceArgs = bootstrap.ServiceArgs{
+			// A ServiceEntry registry is added by default, which is what we want. Don't include any other registries.
+			Registries: []string{},
+		}
+	}
+
+	bootstrapArgs := bootstrap.NewPilotArgs(func(p *bootstrap.PilotArgs) {
+		p.Namespace = e.SystemNamespace
+		p.DiscoveryOptions = options
+		p.Config = bootstrap.ConfigArgs{
 			ControllerOptions: controller.Options{
 				DomainSuffix: e.Domain,
 			},
-		},
-		MeshConfig: m,
+		}
+		p.MeshConfig = m
+
 		// Use the config store for service entries as well.
-		Service: bootstrap.ServiceArgs{
-			// A ServiceEntry registry is added by default, which is what we want. Don't include any other registries.
-			Registries: []string{},
-		},
+		p.Service = cfg.ServiceArgs
+
 		// Include all of the default plugins for integration with Mixer, etc.
-		Plugins:   bootstrap.DefaultPlugins,
-		ForceStop: true,
-	}
+		p.Plugins = bootstrap.DefaultPlugins
+		p.ForceStop = true
+	})
 
 	if bootstrapArgs.MeshConfig == nil {
 		bootstrapArgs.MeshConfig = &meshapi.MeshConfig{}
@@ -121,7 +126,7 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 		Address: galleyHostPort,
 	})
 
-	bootstrapArgs.MCPMaxMessageSize = bootstrap.DefaultMCPMaxMsgSize
+	bootstrapArgs.MCPOptions.MaxMessageSize = 1024 * 1024 * 4
 
 	var err error
 	// Create the server for the discovery service.
@@ -135,7 +140,7 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 
 	time.Sleep(1 * time.Second)
-	if instance.client, err = newClient(instance.server.GRPCListeningAddr.(*net.TCPAddr)); err != nil {
+	if instance.client, err = newClient(instance.server.GRPCListener.Addr().(*net.TCPAddr)); err != nil {
 		return nil, err
 	}
 
@@ -164,7 +169,7 @@ func (c *nativeComponent) Close() (err error) {
 
 // GetDiscoveryAddress gets the discovery address for pilot.
 func (c *nativeComponent) GetDiscoveryAddress() *net.TCPAddr {
-	return c.server.GRPCListeningAddr.(*net.TCPAddr)
+	return c.server.GRPCListener.Addr().(*net.TCPAddr)
 }
 
 // GetSecureDiscoveryAddress gets the discovery address for pilot.

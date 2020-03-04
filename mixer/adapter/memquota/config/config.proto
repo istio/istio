@@ -39,6 +39,7 @@ option go_package="config";
 option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
+option (gogoproto.stable_marshaler_all) = true;
 
 // Configuration format for the `memquota` adapter.
 message Params {

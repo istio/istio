@@ -55,10 +55,9 @@ type Environment struct {
 	PortManager reserveport.PortManager
 
 	// Docker resources, Lazy-initialized.
-	dockerClient  *client.Client
-	network       *docker.Network
-	imageRegistry *ImageRegistry
-	mux           sync.Mutex
+	dockerClient *client.Client
+	network      *docker.Network
+	mux          sync.Mutex
 }
 
 var _ resource.Environment = &Environment{}
@@ -107,7 +106,7 @@ func (e *Environment) DockerClient() (*client.Client, error) {
 
 	if e.dockerClient == nil {
 		// Create a shared network for Docker containers.
-		c, err := client.NewEnvClient()
+		c, err := client.NewClientWithOpts(client.FromEnv)
 		if err != nil {
 			return nil, err
 		}
@@ -145,22 +144,6 @@ func (e *Environment) Network() (*docker.Network, error) {
 	return e.network, nil
 }
 
-func (e *Environment) ImageRegistry() (*ImageRegistry, error) {
-	c, err := e.DockerClient()
-	if err != nil {
-		return nil, err
-	}
-
-	e.mux.Lock()
-	defer e.mux.Unlock()
-
-	if e.imageRegistry == nil {
-		e.imageRegistry = newImageRegistry(c)
-	}
-
-	return e.imageRegistry, nil
-}
-
 func (e *Environment) Close() (err error) {
 	e.mux.Lock()
 	defer e.mux.Unlock()
@@ -174,11 +157,6 @@ func (e *Environment) Close() (err error) {
 		err = multierror.Append(err, e.network.Close()).ErrorOrNil()
 	}
 	e.network = nil
-
-	if e.imageRegistry != nil {
-		err = multierror.Append(err, e.imageRegistry.Close()).ErrorOrNil()
-	}
-	e.imageRegistry = nil
 
 	if e.dockerClient != nil {
 		err = multierror.Append(err, e.dockerClient.Close()).ErrorOrNil()

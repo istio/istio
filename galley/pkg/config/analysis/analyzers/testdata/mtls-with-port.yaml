@@ -1,0 +1,62 @@
+# Our service has three secure mtls ports, but the DR only specifies one. Note
+# that one of the secure ports is a UDP port - we ignore those, so the analyzer
+# should only produce one message.
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: default
+  namespace: my-namespace
+spec:
+  targets:
+  - name: my-service
+    ports:
+    - number: 8080
+    - number: 8081
+    - number: 8082
+  peers:
+  - mtls:
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+  namespace: my-namespace
+spec:
+  selector:
+    app: my-service
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+    - protocol: TCP
+      port: 8081
+      targetPort: 8081
+    - protocol: UDP
+      port: 8082
+      targetPort: 8082
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-service-pod
+  namespace: my-namespace
+  labels:
+    app: my-service
+spec:
+  containers:
+  - name: istio-proxy
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: default
+  namespace: my-namespace
+spec:
+  host: my-service.my-namespace.svc.cluster.local
+  trafficPolicy:
+    portLevelSettings:
+    - port: 
+        number: 8080
+      tls:
+        mode: ISTIO_MUTUAL
+---

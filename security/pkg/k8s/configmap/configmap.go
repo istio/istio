@@ -15,7 +15,6 @@
 package configmap
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -27,7 +26,7 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-var configMapLog = log.RegisterScope("configMapController", "ConfigMap controller log", 0)
+var configMapLog = log.RegisterScope("configmapcontroller", "ConfigMap controller log", 0)
 
 const (
 	IstioSecurityConfigMapName = "istio-security"
@@ -84,25 +83,20 @@ func (c *Controller) InsertCATLSRootCert(value string) error {
 // retries until timeout.
 func (c *Controller) InsertCATLSRootCertWithRetry(value string, retryInterval,
 	timeout time.Duration) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
+	start := time.Now()
+	for {
+		err := c.InsertCATLSRootCert(value)
+		if err == nil {
+			return nil
+		}
+		configMapLog.Errorf("Failed on updating root cert in config map: %s", err.Error())
 
-	err := c.InsertCATLSRootCert(value)
-	ticker := time.NewTicker(retryInterval)
-	for err != nil {
-		configMapLog.Errorf("Failed to update root cert in config map: %s", err.Error())
-		select {
-		case <-ticker.C:
-			if err = c.InsertCATLSRootCert(value); err == nil {
-				break
-			}
-		case <-ctx.Done():
-			configMapLog.Error("Failed to update root cert in config map until timeout.")
-			ticker.Stop()
+		if time.Since(start) > timeout {
+			configMapLog.Errorf("Timeout on updating root cert in config map.")
 			return err
 		}
+		time.Sleep(retryInterval)
 	}
-	return nil
 }
 
 // GetCATLSRootCert gets the CA TLS root certificate from the configmap.

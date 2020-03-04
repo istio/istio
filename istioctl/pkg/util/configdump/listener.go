@@ -17,7 +17,8 @@ package configdump
 import (
 	"sort"
 
-	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/golang/protobuf/ptypes"
 )
 
@@ -27,17 +28,34 @@ func (w *Wrapper) GetDynamicListenerDump(stripVersions bool) (*adminapi.Listener
 	if err != nil {
 		return nil, err
 	}
-	dal := listenerDump.GetDynamicActiveListeners()
+
+	dal := make([]*adminapi.ListenersConfigDump_DynamicListener, 0)
+	for _, l := range listenerDump.DynamicListeners {
+		if l.ActiveState != nil {
+			dal = append(dal, l)
+		}
+	}
+
 	sort.Slice(dal, func(i, j int) bool {
-		return dal[i].Listener.Name < dal[j].Listener.Name
+		listener := &xdsapi.Listener{}
+		err = ptypes.UnmarshalAny(dal[i].ActiveState.Listener, listener)
+		if err != nil {
+			return false
+		}
+		name := listener.Name
+		err = ptypes.UnmarshalAny(dal[j].ActiveState.Listener, listener)
+		if err != nil {
+			return false
+		}
+		return name < listener.Name
 	})
 	if stripVersions {
 		for i := range dal {
-			dal[i].VersionInfo = ""
-			dal[i].LastUpdated = nil
+			dal[i].ActiveState.VersionInfo = ""
+			dal[i].ActiveState.LastUpdated = nil
 		}
 	}
-	return &adminapi.ListenersConfigDump{DynamicActiveListeners: dal}, nil
+	return &adminapi.ListenersConfigDump{DynamicListeners: dal}, nil
 }
 
 // GetListenerConfigDump retrieves the listener config dump from the ConfigDump

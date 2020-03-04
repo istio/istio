@@ -18,6 +18,8 @@ import (
 	"fmt"
 
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/errors"
+	"istio.io/istio/pkg/test/framework/resource"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -44,9 +46,11 @@ type workload struct {
 	forwarder kube.PortForwarder
 	sidecar   *sidecar
 	accessor  *kube.Accessor
+	ctx       resource.Context
 }
 
-func newWorkload(addr kubeCore.EndpointAddress, annotations echo.Annotations, grpcPort uint16, accessor *kube.Accessor) (*workload, error) {
+func newWorkload(addr kubeCore.EndpointAddress, sidecared bool, grpcPort uint16,
+	accessor *kube.Accessor, ctx resource.Context) (*workload, error) {
 	if addr.TargetRef == nil || addr.TargetRef.Kind != "Pod" {
 		return nil, fmt.Errorf("invalid TargetRef for endpoint %s: %v", addr.IP, addr.TargetRef)
 	}
@@ -73,7 +77,7 @@ func newWorkload(addr kubeCore.EndpointAddress, annotations echo.Annotations, gr
 	}
 
 	var s *sidecar
-	if annotations.GetBool(echo.SidecarInject) {
+	if sidecared {
 		if s, err = newSidecar(pod, accessor); err != nil {
 			return nil, err
 		}
@@ -86,6 +90,7 @@ func newWorkload(addr kubeCore.EndpointAddress, annotations echo.Annotations, gr
 		Instance:  c,
 		sidecar:   s,
 		accessor:  accessor,
+		ctx:       ctx,
 	}, nil
 }
 
@@ -96,7 +101,20 @@ func (w *workload) Close() (err error) {
 	if w.forwarder != nil {
 		err = multierror.Append(err, w.forwarder.Close()).ErrorOrNil()
 	}
+	if w.ctx.Settings().FailOnDeprecation && w.sidecar != nil {
+		err = multierror.Append(err, w.checkDeprecation()).ErrorOrNil()
+	}
 	return
+}
+
+func (w *workload) checkDeprecation() error {
+	logs, err := w.sidecar.Logs()
+	if err != nil {
+		return fmt.Errorf("could not get sidecar logs to inspect for deprecation messages: %v", err)
+	}
+
+	info := fmt.Sprintf("pod: %s/%s", w.pod.Namespace, w.pod.Name)
+	return errors.FindDeprecatedMessagesInEnvoyLog(logs, info)
 }
 
 func (w *workload) Address() string {

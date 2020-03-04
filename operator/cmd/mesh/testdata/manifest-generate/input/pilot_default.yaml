@@ -1,0 +1,11 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  profile: empty
+  hub: docker.io/istio
+  tag: 1.1.4
+  meshConfig:
+    rootNamespace: istio-control
+  components:
+    pilot:
+      enabled: true

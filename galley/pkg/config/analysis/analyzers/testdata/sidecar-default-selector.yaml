@@ -1,0 +1,42 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: no-selector # Since this is the only Sidecar in the namespace without a workload selector, no conflict
+  namespace: ns1
+spec:
+  egress:
+  - hosts:
+    - "./*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: has-selector
+  namespace: ns1
+spec:
+  workloadSelector: # Since this has a workload selector, it shouldn't conflict with the other Sidecar in the namespace
+    labels:
+      app: foo
+  egress:
+  - hosts:
+    - "./*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: has-conflict-1 # Both Sidecars in this namespace omit workload selector, so they are in conflict
+  namespace: ns2
+spec:
+  egress:
+  - hosts:
+    - "./*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: has-conflict-2 # Both Sidecars in this namespace omit workload selector, so they are in conflict
+  namespace: ns2
+spec:
+  egress:
+  - hosts:
+    - "./*"

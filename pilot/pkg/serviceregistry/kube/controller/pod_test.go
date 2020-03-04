@@ -26,7 +26,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -101,18 +100,68 @@ func cleanup(ki kubernetes.Interface) {
 }
 
 func TestPodCache(t *testing.T) {
-	t.Run("localApiserver", func(t *testing.T) {
-		c, fx := newLocalController(t)
-		defer c.Stop()
-		defer cleanup(c.client)
-		testPodCache(t, c, fx)
-	})
 	t.Run("fakeApiserver", func(t *testing.T) {
 		t.Parallel()
-		c, fx := newFakeController(t)
+		c, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: EndpointsOnly})
 		defer c.Stop()
 		testPodCache(t, c, fx)
 	})
+}
+
+// Regression test for https://github.com/istio/istio/issues/20676
+func TestIPReuse(t *testing.T) {
+	c, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: EndpointsOnly})
+	defer c.Stop()
+	initTestEnv(t, c.client, fx)
+
+	cache.WaitForCacheSync(c.stop, c.nodes.HasSynced, c.pods.informer.HasSynced,
+		c.services.HasSynced, c.endpoints.HasSynced)
+
+	createPod(t, c, "128.0.0.1", "pod")
+	if p, f := c.pods.getPodKey("128.0.0.1"); !f || p != "ns/pod" {
+		t.Fatalf("unexpected pod: %v", p)
+	}
+
+	// Change the pod IP. This can happen if the pod moves to another node, for example.
+	createPod(t, c, "128.0.0.2", "pod")
+	if p, f := c.pods.getPodKey("128.0.0.2"); !f || p != "ns/pod" {
+		t.Fatalf("unexpected pod: %v", p)
+	}
+	if p, f := c.pods.getPodKey("128.0.0.1"); f {
+		t.Fatalf("expected no pod, got pod: %v", p)
+	}
+
+	// A new pod is created with the old IP. We should get new-pod, not pod
+	createPod(t, c, "128.0.0.1", "new-pod")
+	if p, f := c.pods.getPodKey("128.0.0.1"); !f || p != "ns/new-pod" {
+		t.Fatalf("unexpected pod: %v", p)
+	}
+
+	// A new pod is created with the same IP. In theory this should never happen, but maybe we miss an update somehow.
+	createPod(t, c, "128.0.0.1", "another-pod")
+	if p, f := c.pods.getPodKey("128.0.0.1"); !f || p != "ns/another-pod" {
+		t.Fatalf("unexpected pod: %v", p)
+	}
+
+	err := c.client.CoreV1().Pods("ns").Delete("another-pod", &metav1.DeleteOptions{})
+	if err != nil {
+		t.Fatalf("Cannot delete pod: %v", err)
+	}
+	if err := wait.Poll(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		if _, ok := c.pods.getPodKey("128.0.0.1"); ok {
+			return false, nil
+		}
+		return true, nil
+	}); err != nil {
+		t.Fatalf("delete failed: %v", err)
+	}
+}
+
+func createPod(t *testing.T, c *Controller, ip, name string) {
+	addPods(t, c, generatePod(ip, name, "ns", "1", "", map[string]string{}, map[string]string{}))
+	if err := waitForPod(c, ip); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func waitForPod(c *Controller, ip string) error {
@@ -135,14 +184,14 @@ func testPodCache(t *testing.T, c *Controller, fx *FakeXdsUpdater) {
 		generatePod("128.0.0.2", "cpod2", "nsa", "", "", map[string]string{"app": "prod-app-1"}, map[string]string{}),
 		generatePod("128.0.0.3", "cpod3", "nsb", "", "", map[string]string{"app": "prod-app-2"}, map[string]string{}),
 	}
-	cache.WaitForCacheSync(c.stop, c.nodes.informer.HasSynced, c.pods.informer.HasSynced,
-		c.services.informer.HasSynced, c.endpoints.informer.HasSynced)
+	cache.WaitForCacheSync(c.stop, c.nodes.HasSynced, c.pods.informer.HasSynced,
+		c.services.HasSynced, c.endpoints.HasSynced)
 
 	for _, pod := range pods {
 		pod := pod
 		addPods(t, c, pod)
 		// Wait for the workload event
-		waitForPod(c, pod.Status.PodIP)
+		_ = waitForPod(c, pod.Status.PodIP)
 	}
 
 	// Verify podCache
@@ -172,11 +221,11 @@ func testPodCache(t *testing.T, c *Controller, fx *FakeXdsUpdater) {
 // Checks that events from the watcher create the proper internal structures
 func TestPodCacheEvents(t *testing.T) {
 	t.Parallel()
-	handler := &kube.ChainHandler{}
-	c, fx := newFakeController(t)
-	podCache := newPodCache(cacheHandler{handler: handler}, c)
+	c, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: EndpointsOnly})
+	defer c.Stop()
+	podCache := newPodCache(nil, c)
 
-	f := podCache.event
+	f := podCache.onEvent
 
 	ns := "default"
 	ip := "172.0.3.35"
@@ -197,7 +246,8 @@ func TestPodCacheEvents(t *testing.T) {
 	}
 
 	pod2 := metav1.ObjectMeta{Name: "pod2", Namespace: ns}
-	if err := f(&v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodFailed}}, model.EventUpdate); err != nil {
+	if err := f(
+		&v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodFailed}}, model.EventUpdate); err != nil {
 		t.Error(err)
 	}
 	if err := f(&v1.Pod{ObjectMeta: pod2, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodRunning}}, model.EventAdd); err != nil {

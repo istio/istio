@@ -1,0 +1,79 @@
+# Generated from ClusterRbacConfig with mode ON_WITH_INCLUSION on namespace "default". This policy will deny all requests to namespace "default" by default.
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-namespace-deny-all
+  namespace: default
+spec:
+  {}
+---
+# Generated for service "productpage" found in ServiceRole "role" at rule 0
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-role-rule0-svc0-target0
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        ipBlocks:
+        - 10.0.0.0/8
+        namespaces:
+        - source.namespace
+        principals:
+        - user
+        - source.principal
+        requestPrincipals:
+        - request.auth.principal
+    to:
+    - operation:
+        methods:
+        - GET
+        - POST
+        paths:
+        - /a
+        - /b
+        ports:
+        - "80"
+        - "90"
+    when:
+    - key: experimental.envoy.filters.network.mysql_proxy[db.table]
+      values:
+      - add
+      - delete
+    - key: request.auth.audiences
+      values:
+      - request.auth.audiences
+    - key: request.auth.claims[group]
+      values:
+      - group
+    - key: request.auth.claims[issuer]
+      values:
+      - request.auth.claims[issuer]
+    - key: request.auth.claims[subject]
+      values:
+      - request.auth.claims[subject]
+    - key: request.auth.presenter
+      values:
+      - request.auth.presenter
+    - key: request.headers[User-Agent]
+      values:
+      - request.headers[User-Agent]
+    - key: request.headers[x-id]
+      values:
+      - id-1
+      - id-2
+    - key: request.headers[x-lang]
+      values:
+      - en
+      - jp
+    - key: source.principal
+      values:
+      - source.principal
+  selector:
+    matchLabels:
+      app: productpage
+      env: staging
+      version: v1
+---

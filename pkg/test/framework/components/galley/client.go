@@ -62,7 +62,7 @@ func (c *client) waitForSnapshot(collection string, validator SnapshotValidatorF
 			return nil, false, err
 		}
 		return nil, true, nil
-	}, retry.Delay(time.Millisecond), retry.Timeout(time.Second*30))
+	}, retry.Delay(time.Millisecond*50), retry.Timeout(time.Second*30))
 
 	return err
 }

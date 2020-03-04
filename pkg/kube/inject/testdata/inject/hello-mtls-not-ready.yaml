@@ -13,7 +13,7 @@ spec:
     metadata:
       labels:
         app: hello
-        security.istio.io/mtlsReady: "false"
+        security.istio.io/tlsMode: "disabled"
         tier: backend
         track: stable
     spec:

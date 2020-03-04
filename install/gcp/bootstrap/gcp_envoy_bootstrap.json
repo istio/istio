@@ -60,7 +60,16 @@
               }
             },
             "call_credentials": {
+            {{ if .sts }}
+            "sts_service": {
+              "token_exchange_service_uri": "http://localhost:{{ .sts_port }}/token",
+              "subject_token_path": "/var/run/secrets/tokens/istio-token",
+              "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+              "scope": "https://www.googleapis.com/auth/cloud-platform",
+            }
+            {{ else }}
               "google_compute_engine": {}
+            {{ end }}
             }
           }
         }
@@ -84,9 +93,31 @@
       "config": {
       "stackdriver_exporter_enabled": true,
       "stackdriver_project_id": "{{ .stackdriverProjectID }}",
+      {{ if .sts_port }}
+      "stackdriver_grpc_service": {
+        "google_grpc": {
+          "stat_prefix": "oc_stackdriver_tracer",
+          "channel_credentials": {
+            "ssl_credentials": {
+              "root_certs": {
+                "filename": "/etc/ssl/certs/ca-certificates.crt"
+              }
+            }
+          },
+          "call_credentials": {
+            "sts_service": {
+              "token_exchange_service_uri": "http://localhost:{{ .stsPort }}/token",
+              "subject_token_path": "/var/run/secrets/tokens/istio-token",
+              "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+              "scope": "https://www.googleapis.com/auth/cloud-platform",
+            }
+          }
+        }
+      }
+      {{ end }}
       "stdout_exporter_enabled": {{ .stackdriverDebug }},
-      "incoming_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN"],
-      "outgoing_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN"],
+      "incoming_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],
+      "outgoing_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],
       "trace_config":{
         "constant_sampler":{
           "decision": "ALWAYS_PARENT"
@@ -99,4 +130,18 @@
     }
   }}
   {{ end }}
+  ,
+  "layered_runtime": {
+    "layers": [
+      {
+        "name": "rtds_layer",
+        "rtds_layer": {
+          "name": "traffic_director_runtime",
+          "rtds_config": {
+            "ads": {}
+           }
+       }
+      }
+     ]
+  }
 }

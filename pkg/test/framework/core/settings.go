@@ -47,9 +47,16 @@ type Settings struct {
 	// Indicates that the tests are running in CI Mode
 	CIMode bool
 
+	// Should the tests fail if usage of deprecated stuff (e.g. Envoy flags) is detected
+	FailOnDeprecation bool
+
 	// Local working directory root for creating temporary directories / files in. If left empty,
 	// os.TempDir() will be used.
 	BaseDir string
+
+	// The number of times to retry failed tests.
+	// This should not be depended on as a primary means for reducing test flakes.
+	Retries int
 
 	// The label selector that the user has specified.
 	SelectorString string
@@ -90,11 +97,12 @@ func DefaultSettings() *Settings {
 func (s *Settings) String() string {
 	result := ""
 
-	result += fmt.Sprintf("Environment:  %v\n", s.Environment)
-	result += fmt.Sprintf("TestID:       %s\n", s.TestID)
-	result += fmt.Sprintf("RunID:        %s\n", s.RunID.String())
-	result += fmt.Sprintf("NoCleanup:    %v\n", s.NoCleanup)
-	result += fmt.Sprintf("BaseDir:      %s\n", s.BaseDir)
-	result += fmt.Sprintf("Selector:     %v\n", s.Selector)
+	result += fmt.Sprintf("Environment:       %v\n", s.Environment)
+	result += fmt.Sprintf("TestID:            %s\n", s.TestID)
+	result += fmt.Sprintf("RunID:             %s\n", s.RunID.String())
+	result += fmt.Sprintf("NoCleanup:         %v\n", s.NoCleanup)
+	result += fmt.Sprintf("BaseDir:           %s\n", s.BaseDir)
+	result += fmt.Sprintf("Selector:          %v\n", s.Selector)
+	result += fmt.Sprintf("FailOnDeprecation: %v\n", s.FailOnDeprecation)
 	return result
 }

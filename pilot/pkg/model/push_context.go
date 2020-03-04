@@ -16,22 +16,33 @@ package model
 
 import (
 	"encoding/json"
+	"net"
 	"sort"
 	"sync"
 	"time"
 
 	authn "istio.io/api/authentication/v1alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/monitoring"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/visibility"
-	"istio.io/pkg/monitoring"
 )
+
+// Metrics is an interface for capturing metrics on a per-node basis.
+type Metrics interface {
+	// AddMetric will add an case to the metric for the given node.
+	AddMetric(metric monitoring.Metric, key string, proxy *Proxy, msg string)
+}
+
+var _ Metrics = &PushContext{}
 
 // PushContext tracks the status of a push - metrics and errors.
 // Metrics are reset after a push - at the beginning all
@@ -65,6 +76,10 @@ type PushContext struct {
 	ServiceByHostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
 	// ServiceAccounts contains a map of hostname and port to service accounts.
 	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
+	// QuotaSpec has all quota specs
+	QuotaSpec []Config `json:"-"`
+	// QuotaSpecBindings has all quota bindings
+	QuotaSpecBinding []Config `json:"-"`
 
 	// VirtualService related
 	privateVirtualServicesByNamespace map[string][]Config
@@ -96,15 +111,39 @@ type PushContext struct {
 	// are no authorization policies in the cluster.
 	AuthzPolicies *AuthorizationPolicies `json:"-"`
 
-	// Env has a pointer to the shared environment used to create the snapshot.
-	Env *Environment `json:"-"`
+	// Mesh configuration for the mesh.
+	Mesh *meshconfig.MeshConfig `json:"-"`
+
+	// Networks configuration.
+	Networks *meshconfig.MeshNetworks `json:"-"`
+
+	// Discovery interface for listing services and instances.
+	ServiceDiscovery `json:"-"`
+
+	// Config interface for listing routing rules
+	IstioConfigStore `json:"-"`
 
 	// AuthNPolicies contains a map of hostname and port to authentication policy
 	AuthnPolicies processedAuthnPolicies `json:"-"`
 
+	// AuthnBetaPolicies contains (beta) Authn policies by namespace.
+	AuthnBetaPolicies *AuthenticationPolicies `json:"-"`
+
 	initDone bool
 
 	Version string
+
+	// cache gateways addresses for each network
+	// this is mainly used for kubernetes multi-cluster scenario
+	networkGateways map[string][]*Gateway
+}
+
+// Gateway is the gateway of a network
+type Gateway struct {
+	// gateway ip address
+	Addr string
+	// gateway port
+	Port uint32
 }
 
 type processedDestRules struct {
@@ -149,11 +188,8 @@ type XDSUpdater interface {
 	// name.
 	EDSUpdate(shard, hostname string, namespace string, entry []*IstioEndpoint) error
 
-	// SvcUpdate is called when a service port mapping definition is updated.
-	// This interface is WIP - labels, annotations and other changes to service may be
-	// updated to force a EDS and CDS recomputation and incremental push, as it doesn't affect
-	// LDS/RDS.
-	SvcUpdate(shard, hostname string, ports map[string]uint32, rports map[uint32]string)
+	// SvcUpdate is called when a service definition is updated/deleted.
+	SvcUpdate(shard, hostname string, namespace string, event Event)
 
 	// ConfigUpdate is called to notify the XDS server of config updates and request a push.
 	// The requests may be collapsed and throttled.
@@ -181,7 +217,7 @@ type PushRequest struct {
 	// ConfigTypesUpdated contains the types of configs that have changed.
 	// The config types are those defined in pkg/config/schemas
 	// Applicable only when Full is set to true.
-	ConfigTypesUpdated map[string]struct{}
+	ConfigTypesUpdated map[resource.GroupVersionKind]struct{}
 
 	// EdsUpdates keeps track of all service updated since last full push.
 	// Key is the hostname (serviceName).
@@ -195,7 +231,32 @@ type PushRequest struct {
 	// Start represents the time a push was started. This represents the time of adding to the PushQueue.
 	// Note that this does not include time spent debouncing.
 	Start time.Time
+
+	// Reason represents the reason for requesting a push. This should only be a fixed set of values,
+	// to avoid unbounded cardinality in metrics. If this is not set, it may be automatically filled in later.
+	// There should only be multiple reasons if the push request is the result of two distinct triggers, rather than
+	// classifying a single trigger as having multiple reasons.
+	Reason []TriggerReason
 }
+
+type TriggerReason string
+
+const (
+	// Describes a push triggered by an Endpoint change
+	EndpointUpdate TriggerReason = "endpoint"
+	// Describes a push triggered by a config (generally and Istio CRD) change.
+	ConfigUpdate TriggerReason = "config"
+	// Describes a push triggered by a Service change
+	ServiceUpdate TriggerReason = "service"
+	// Describes a push triggered by a change to an individual proxy (such as label change)
+	ProxyUpdate TriggerReason = "proxy"
+	// Describes a push triggered by a change to global config, such as mesh config
+	GlobalUpdate TriggerReason = "global"
+	// Describes a push triggered by an unknown reason
+	UnknownTrigger TriggerReason = "unknown"
+	// Describes a push triggered for debugging
+	DebugTrigger TriggerReason = "debug"
+)
 
 // Merge two update requests together
 func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
@@ -215,6 +276,9 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 
 		// The other push context is presumed to be later and more up to date
 		Push: other.Push,
+
+		// Merge the two reasons. Note that we shouldn't deduplicate here, or we would under count
+		Reason: append(first.Reason, other.Reason...),
 	}
 
 	// Only merge EdsUpdates when incremental eds push needed.
@@ -231,11 +295,6 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		merged.EdsUpdates = nil
 	}
 
-	if !features.ScopePushes.Get() {
-		// If push scoping is not enabled, we do not care about target namespaces
-		return merged
-	}
-
 	// Merge the target namespaces
 	if len(first.NamespacesUpdated) > 0 && len(other.NamespacesUpdated) > 0 {
 		merged.NamespacesUpdated = make(map[string]struct{})
@@ -249,7 +308,7 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 
 	// Merge the config updates
 	if len(first.ConfigTypesUpdated) > 0 && len(other.ConfigTypesUpdated) > 0 {
-		merged.ConfigTypesUpdated = make(map[string]struct{})
+		merged.ConfigTypesUpdated = make(map[resource.GroupVersionKind]struct{})
 		for update := range first.ConfigTypesUpdated {
 			merged.ConfigTypesUpdated[update] = struct{}{}
 		}
@@ -274,8 +333,13 @@ type combinedDestinationRule struct {
 	config *Config
 }
 
-// Add will add an case to the metric.
-func (ps *PushContext) Add(metric monitoring.Metric, key string, proxy *Proxy, msg string) {
+// IsMixerEnabled returns true if mixer is enabled in the Mesh config.
+func (ps *PushContext) IsMixerEnabled() bool {
+	return ps != nil && ps.Mesh != nil && (ps.Mesh.MixerCheckServer != "" || ps.Mesh.MixerReportServer != "")
+}
+
+// AddMetric will add an case to the metric.
+func (ps *PushContext) AddMetric(metric monitoring.Metric, key string, proxy *Proxy, msg string) {
 	if ps == nil {
 		log.Infof("Metric without context %s %v %s", key, proxy, msg)
 		return
@@ -344,6 +408,13 @@ var (
 		"Number of conflicting tcp listeners with current tcp listener.",
 	)
 
+	// ProxyStatusConflictOutboundListenerTCPOverThrift metric tracks number of
+	// TCP listeners that conflicted with existing Thrift listeners on same port
+	ProxyStatusConflictOutboundListenerTCPOverThrift = monitoring.NewGauge(
+		"pilot_conflict_outbound_listener_tcp_over_current_thrift",
+		"Number of conflicting tcp listeners with current thrift listener.",
+	)
+
 	// ProxyStatusConflictOutboundListenerHTTPOverTCP metric tracks number of
 	// wildcard HTTP listeners that conflicted with existing wildcard TCP listener on same port
 	ProxyStatusConflictOutboundListenerHTTPOverTCP = monitoring.NewGauge(
@@ -362,6 +433,13 @@ var (
 	DuplicatedClusters = monitoring.NewGauge(
 		"pilot_duplicate_envoy_clusters",
 		"Duplicate envoy clusters caused by service entries with same hostname",
+	)
+
+	// DNSNoEndpointClusters tracks dns clusters without endpoints
+	DNSNoEndpointClusters = monitoring.NewGauge(
+		"pilot_dns_cluster_without_endpoints",
+		"DNS clusters without endpoints caused by the endpoint field in "+
+			"STRICT_DNS type cluster is not set or the corresponding subset cannot select any endpoint",
 	)
 
 	// ProxyStatusClusterNoInstances tracks clusters (services) without workloads.
@@ -447,13 +525,13 @@ func NewPushContext() *PushContext {
 }
 
 // JSON implements json.Marshaller, with a lock.
-func (ps *PushContext) JSON() ([]byte, error) {
+func (ps *PushContext) StatusJSON() ([]byte, error) {
 	if ps == nil {
 		return []byte{'{', '}'}, nil
 	}
 	ps.proxyStatusMutex.RLock()
 	defer ps.proxyStatusMutex.RUnlock()
-	return json.MarshalIndent(ps, "", "    ")
+	return json.MarshalIndent(ps.ProxyStatus, "", "    ")
 }
 
 // OnConfigChange is called when a config change is detected.
@@ -474,6 +552,89 @@ func (ps *PushContext) UpdateMetrics() {
 		mmap := ps.ProxyStatus[pm.Name()]
 		pm.Record(float64(len(mmap)))
 	}
+}
+
+func virtualServiceDestinations(v *networking.VirtualService) []*networking.Destination {
+	if v == nil {
+		return nil
+	}
+
+	var ds []*networking.Destination
+
+	for _, h := range v.Http {
+		for _, r := range h.Route {
+			if r.Destination != nil {
+				ds = append(ds, r.Destination)
+			}
+		}
+		if h.Mirror != nil {
+			ds = append(ds, h.Mirror)
+		}
+	}
+	for _, t := range v.Tcp {
+		for _, r := range t.Route {
+			if r.Destination != nil {
+				ds = append(ds, r.Destination)
+			}
+		}
+	}
+	for _, t := range v.Tls {
+		for _, r := range t.Route {
+			if r.Destination != nil {
+				ds = append(ds, r.Destination)
+			}
+		}
+	}
+
+	return ds
+}
+
+// GatewayServices returns the set of services which are referred from the proxy gateways.
+func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
+	svcs := ps.Services(proxy)
+	// gateway set.
+	gateways := map[string]bool{}
+	// host set.
+	hostsFromGateways := map[string]struct{}{}
+
+	// MergedGateway will be nil when there are no configs in the
+	// system during initial installation.
+	if proxy.MergedGateway == nil {
+		return nil
+	}
+
+	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
+		gateways[gw] = true
+	}
+	log.Debugf("GatewayServices: gateway %v has following gw resources:%v", proxy.ID, gateways)
+
+	for _, vsConfig := range ps.VirtualServices(proxy, gateways) {
+		vs, ok := vsConfig.Spec.(*networking.VirtualService)
+		if !ok { // should never happen
+			log.Errorf("Failed in getting a virtual service: %v", vsConfig.Labels)
+			return svcs
+		}
+
+		for _, d := range virtualServiceDestinations(vs) {
+			hostsFromGateways[d.Host] = struct{}{}
+		}
+	}
+
+	log.Debugf("GatewayServices: gateway %v is exposing these hosts:%v", proxy.ID, hostsFromGateways)
+
+	gwSvcs := make([]*Service, 0, len(svcs))
+
+	for _, s := range svcs {
+		svcHost := string(s.Hostname)
+
+		if _, ok := hostsFromGateways[svcHost]; ok {
+			gwSvcs = append(gwSvcs, s)
+		}
+	}
+
+	log.Debugf("GatewayServices:: gateways len(services)=%d, len(filtered)=%d", len(svcs), len(gwSvcs))
+
+	return gwSvcs
 }
 
 // Services returns the list of services that are visible to a Proxy in a given config namespace
@@ -524,16 +685,16 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 		rule := cfg.Spec.(*networking.VirtualService)
 		if len(rule.Gateways) == 0 {
 			// This rule applies only to IstioMeshGateway
-			if gateways[constants.IstioMeshGateway] {
+			if _, ok := gateways[constants.IstioMeshGateway]; ok {
 				out = append(out, cfg)
 			}
 		} else {
 			for _, g := range rule.Gateways {
 				// note: Gateway names do _not_ use wildcard matching, so we do not use Name.Matches here
-				if gateways[resolveGatewayName(g, cfg.ConfigMeta)] {
+				if _, ok := gateways[resolveGatewayName(g, cfg.ConfigMeta)]; ok {
 					out = append(out, cfg)
 					break
-				} else if g == constants.IstioMeshGateway && gateways[g] {
+				} else if _, ok := gateways[g]; ok && g == constants.IstioMeshGateway {
 					// "mesh" gateway cannot be expanded into FQDN
 					out = append(out, cfg)
 					break
@@ -598,7 +759,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 // GetAllSidecarScopes returns a map of namespace and the set of SidecarScope
 // object associated with the namespace. This will be used by the CDS code to
 // precompute CDS output for each sidecar scope. Since we have a default sidecarscope
-// for namespaces that dont explicitly have one, we are guaranteed to
+// for namespaces that do not explicitly have one, we are guaranteed to
 // have the CDS output cached for every namespace/sidecar scope combo.
 func (ps *PushContext) GetAllSidecarScopes() map[string][]*SidecarScope {
 	return ps.sidecarsByNamespace
@@ -625,12 +786,12 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 	// If the proxy config namespace is same as the root config namespace
 	// look for dest rules in the service's namespace first. This hack is needed
 	// because sometimes, istio-system tends to become the root config namespace.
-	// Destination rules are defined here for global purposes. We dont want these
+	// Destination rules are defined here for global purposes. We do not want these
 	// catch all destination rules to be the only dest rule, when processing CDS for
 	// proxies like the istio-ingressgateway or istio-egressgateway.
 	// If there are no service specific dest rules, we will end up picking up the same
 	// rules anyway, later in the code
-	if proxy.ConfigNamespace != ps.Env.Mesh.RootNamespace {
+	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
 		// search through the DestinationRules in proxy's namespace first
 		if ps.namespaceLocalDestRules[proxy.ConfigNamespace] != nil {
 			if hostname, ok := MostSpecificHostMatch(service.Hostname,
@@ -666,10 +827,10 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 	// if no public/private rule in calling proxy's namespace matched, and no public rule in the
 	// target service's namespace matched, search for any public destination rule in the config root namespace
 	// NOTE: This does mean that we are effectively ignoring private dest rules in the config root namespace
-	if ps.namespaceExportedDestRules[ps.Env.Mesh.RootNamespace] != nil {
+	if ps.namespaceExportedDestRules[ps.Mesh.RootNamespace] != nil {
 		if hostname, ok := MostSpecificHostMatch(service.Hostname,
-			ps.namespaceExportedDestRules[ps.Env.Mesh.RootNamespace].hosts); ok {
-			return ps.namespaceExportedDestRules[ps.Env.Mesh.RootNamespace].destRule[hostname].config
+			ps.namespaceExportedDestRules[ps.Mesh.RootNamespace].hosts); ok {
+			return ps.namespaceExportedDestRules[ps.Mesh.RootNamespace].destRule[hostname].config
 		}
 	}
 
@@ -708,7 +869,10 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 		return nil
 	}
 
-	ps.Env = env
+	ps.Mesh = env.Mesh()
+	ps.Networks = env.Networks()
+	ps.ServiceDiscovery = env
+	ps.IstioConfigStore = env
 	ps.Version = env.Version()
 
 	// Must be initialized first
@@ -726,6 +890,9 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 			return nil
 		}
 	}
+
+	// TODO: only do this when meshnetworks or gateway service changed
+	ps.initMeshNetworks()
 
 	ps.initDone = true
 	return nil
@@ -761,6 +928,14 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 		return err
 	}
 
+	if err := ps.initQuotaSpecs(env); err != nil {
+		return err
+	}
+
+	if err := ps.initQuotaSpecBindings(env); err != nil {
+		return err
+	}
+
 	// Must be initialized in the end
 	if err := ps.initSidecarScopes(env); err != nil {
 		return err
@@ -774,28 +949,43 @@ func (ps *PushContext) updateContext(
 	pushReq *PushRequest) error {
 
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
-		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged bool
+		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, quotasChanged bool
 
 	for k := range pushReq.ConfigTypesUpdated {
 		switch k {
-		case schemas.ServiceEntry.Type, schemas.SyntheticServiceEntry.Type:
+		case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind():
 			servicesChanged = true
-		case schemas.DestinationRule.Type:
+		case collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind():
 			destinationRulesChanged = true
-		case schemas.VirtualService.Type:
+		case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
 			virtualServicesChanged = true
-		case schemas.Gateway.Type:
+		case collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():
 			gatewayChanged = true
-		case schemas.Sidecar.Type:
+		case collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind():
 			sidecarsChanged = true
-		case schemas.EnvoyFilter.Type:
+		case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind():
 			envoyFiltersChanged = true
-		case schemas.ServiceRoleBinding.Type, schemas.ServiceRole.Type,
-			schemas.ClusterRbacConfig.Type, schemas.RbacConfig.Type,
-			schemas.AuthorizationPolicy.Type:
+		case collections.IstioRbacV1Alpha1Servicerolebindings.Resource().GroupVersionKind(),
+			collections.IstioRbacV1Alpha1Serviceroles.Resource().GroupVersionKind(),
+			collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().GroupVersionKind(),
+			collections.IstioRbacV1Alpha1Rbacconfigs.Resource().GroupVersionKind(),
+			collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
 			authzChanged = true
-		case schemas.AuthenticationPolicy.Type, schemas.AuthenticationMeshPolicy.Type:
+		case collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind(),
+			collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().GroupVersionKind(),
+			collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(),
+			collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
 			authnChanged = true
+		case collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(),
+			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind():
+			quotasChanged = true
+		case collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().GroupVersionKind(),
+			collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(),
+			collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind(),
+			collections.K8SServiceApisV1Alpha1Gateways.Resource().GroupVersionKind(),
+			collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind():
+			virtualServicesChanged = true
+			gatewayChanged = true
 		}
 	}
 
@@ -836,6 +1026,7 @@ func (ps *PushContext) updateContext(
 		}
 	} else {
 		ps.AuthnPolicies = oldPushContext.AuthnPolicies
+		ps.AuthnBetaPolicies = oldPushContext.AuthnBetaPolicies
 	}
 
 	if authzChanged {
@@ -862,6 +1053,18 @@ func (ps *PushContext) updateContext(
 	} else {
 		ps.gatewaysByNamespace = oldPushContext.gatewaysByNamespace
 		ps.allGateways = oldPushContext.allGateways
+	}
+
+	if quotasChanged {
+		if err := ps.initQuotaSpecs(env); err != nil {
+			return err
+		}
+		if err := ps.initQuotaSpecBindings(env); err != nil {
+			return err
+		}
+	} else {
+		ps.QuotaSpec = oldPushContext.QuotaSpec
+		ps.QuotaSpecBinding = oldPushContext.QuotaSpecBinding
 	}
 
 	// Must be initialized in the end
@@ -937,7 +1140,14 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 
 // Caches list of authentication policies
 func (ps *PushContext) initAuthnPolicies(env *Environment) error {
-	authNPolicies, err := env.List(schemas.AuthenticationPolicy.Type, NamespaceAll)
+	// Init beta policy.
+	var initBetaPolicyErro error
+	if ps.AuthnBetaPolicies, initBetaPolicyErro = initAuthenticationPolicies(env); initBetaPolicyErro != nil {
+		return initBetaPolicyErro
+	}
+
+	// Processing alpha policy. This will be removed after beta API released.
+	authNPolicies, err := env.List(collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -975,7 +1185,7 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 		}
 	}
 
-	if specs, err := env.List(schemas.AuthenticationMeshPolicy.Type, NamespaceAll); err == nil {
+	if specs, err := env.List(collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().GroupVersionKind(), NamespaceAll); err == nil {
 		for _, spec := range specs {
 			if spec.Name == constants.DefaultAuthenticationPolicyName {
 				ps.AuthnPolicies.defaultMeshPolicy = spec.Spec.(*authn.Policy)
@@ -1000,7 +1210,7 @@ func (ps *PushContext) addAuthnPolicy(hostname host.Name, selector *authn.PortSe
 func (ps *PushContext) initVirtualServices(env *Environment) error {
 	ps.privateVirtualServicesByNamespace = map[string][]Config{}
 	ps.publicVirtualServices = []Config{}
-	virtualServices, err := env.List(schemas.VirtualService.Type, NamespaceAll)
+	virtualServices, err := env.List(collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1044,13 +1254,15 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 				}
 			}
 			for _, w := range d.Route {
-				w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
+				if w.Destination != nil {
+					w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
+				}
 			}
 			if d.Mirror != nil {
 				d.Mirror.Host = string(ResolveShortnameToFQDN(d.Mirror.Host, r.ConfigMeta))
 			}
 		}
-		//resolve host in tcp route.destination
+		// resolve host in tcp route.destination
 		for _, d := range rule.Tcp {
 			for _, m := range d.Match {
 				for i, g := range m.Gateways {
@@ -1060,7 +1272,9 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 				}
 			}
 			for _, w := range d.Route {
-				w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
+				if w.Destination != nil {
+					w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
+				}
 			}
 		}
 		//resolve host in tls route.destination
@@ -1073,7 +1287,9 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 				}
 			}
 			for _, w := range tls.Route {
-				w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
+				if w.Destination != nil {
+					w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
+				}
 			}
 		}
 	}
@@ -1109,8 +1325,8 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 
 func (ps *PushContext) initDefaultExportMaps() {
 	ps.defaultDestinationRuleExportTo = make(map[visibility.Instance]bool)
-	if ps.Env.Mesh.DefaultDestinationRuleExportTo != nil {
-		for _, e := range ps.Env.Mesh.DefaultDestinationRuleExportTo {
+	if ps.Mesh.DefaultDestinationRuleExportTo != nil {
+		for _, e := range ps.Mesh.DefaultDestinationRuleExportTo {
 			ps.defaultDestinationRuleExportTo[visibility.Instance(e)] = true
 		}
 	} else {
@@ -1119,8 +1335,8 @@ func (ps *PushContext) initDefaultExportMaps() {
 	}
 
 	ps.defaultServiceExportTo = make(map[visibility.Instance]bool)
-	if ps.Env.Mesh.DefaultServiceExportTo != nil {
-		for _, e := range ps.Env.Mesh.DefaultServiceExportTo {
+	if ps.Mesh.DefaultServiceExportTo != nil {
+		for _, e := range ps.Mesh.DefaultServiceExportTo {
 			ps.defaultServiceExportTo[visibility.Instance(e)] = true
 		}
 	} else {
@@ -1128,8 +1344,8 @@ func (ps *PushContext) initDefaultExportMaps() {
 	}
 
 	ps.defaultVirtualServiceExportTo = make(map[visibility.Instance]bool)
-	if ps.Env.Mesh.DefaultVirtualServiceExportTo != nil {
-		for _, e := range ps.Env.Mesh.DefaultVirtualServiceExportTo {
+	if ps.Mesh.DefaultVirtualServiceExportTo != nil {
+		for _, e := range ps.Mesh.DefaultVirtualServiceExportTo {
 			ps.defaultVirtualServiceExportTo[visibility.Instance(e)] = true
 		}
 	} else {
@@ -1150,7 +1366,7 @@ func (ps *PushContext) initDefaultExportMaps() {
 // with the proxy and derive listeners/routes/clusters based on the sidecar
 // scope.
 func (ps *PushContext) initSidecarScopes(env *Environment) error {
-	sidecarConfigs, err := env.List(schemas.Sidecar.Type, NamespaceAll)
+	sidecarConfigs, err := env.List(collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1186,9 +1402,9 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 	// Root namespace can have only one sidecar config object
 	// Currently we expect that it has no workloadSelectors
 	var rootNSConfig *Config
-	if env.Mesh.RootNamespace != "" {
+	if ps.Mesh.RootNamespace != "" {
 		for _, sidecarConfig := range sidecarConfigs {
-			if sidecarConfig.Namespace == env.Mesh.RootNamespace &&
+			if sidecarConfig.Namespace == ps.Mesh.RootNamespace &&
 				sidecarConfig.Spec.(*networking.Sidecar).WorkloadSelector == nil {
 				rootNSConfig = &sidecarConfig
 				break
@@ -1196,7 +1412,7 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 		}
 	}
 
-	// build sidecar scopes for namespaces that dont have a non-workloadSelector sidecar CRD object.
+	// build sidecar scopes for namespaces that do not have a non-workloadSelector sidecar CRD object.
 	// Derive the sidecar scope from the root namespace's sidecar object if present. Else fallback
 	// to the default Istio behavior mimicked by the DefaultSidecarScopeForNamespace function.
 	for _, nsMap := range ps.ServiceByHostnameAndNamespace {
@@ -1212,11 +1428,20 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 
 // Split out of DestinationRule expensive conversions - once per push.
 func (ps *PushContext) initDestinationRules(env *Environment) error {
-	configs, err := env.List(schemas.DestinationRule.Type, NamespaceAll)
+	configs, err := env.List(collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		return err
 	}
-	ps.SetDestinationRules(configs)
+
+	// values returned from ConfigStore.List are immutable.
+	// Therefore, we make a copy
+	destRules := make([]Config, len(configs))
+
+	for i := range destRules {
+		destRules[i] = configs[i].DeepCopy()
+	}
+
+	ps.SetDestinationRules(destRules)
 	return nil
 }
 
@@ -1254,7 +1479,7 @@ func authenticationPolicyForWorkload(policiesByPort []*authnPolicyByPort, port *
 			matchedMeta = policiesByPort[i].configMeta
 		}
 
-		if port != nil && port.Match(policyByPort.portSelector) {
+		if port != nil && policyByPort.portSelector != nil && port.Match(policyByPort.portSelector) {
 			matchedPolicy = policiesByPort[i].policy
 			matchedMeta = policiesByPort[i].configMeta
 			break
@@ -1364,7 +1589,7 @@ func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
 
 // pre computes envoy filters per namespace
 func (ps *PushContext) initEnvoyFilters(env *Environment) error {
-	envoyFilterConfigs, err := env.List(schemas.EnvoyFilter.Type, NamespaceAll)
+	envoyFilterConfigs, err := env.List(collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1382,32 +1607,65 @@ func (ps *PushContext) initEnvoyFilters(env *Environment) error {
 	return nil
 }
 
-func (ps *PushContext) EnvoyFilters(proxy *Proxy) []*EnvoyFilterWrapper {
+// EnvoyFilters return the merged EnvoyFilterWrapper of a proxy
+func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 	// this should never happen
 	if proxy == nil {
 		return nil
 	}
-	out := make([]*EnvoyFilterWrapper, 0)
+	matchedEnvoyFilters := make([]*EnvoyFilterWrapper, 0)
 	// EnvoyFilters supports inheritance (global ones plus namespace local ones).
 	// First get all the filter configs from the config root namespace
 	// and then add the ones from proxy's own namespace
-	if ps.Env.Mesh.RootNamespace != "" {
+	if ps.Mesh.RootNamespace != "" {
 		// if there is no workload selector, the config applies to all workloads
 		// if there is a workload selector, check for matching workload labels
-		for _, efw := range ps.envoyFiltersByNamespace[ps.Env.Mesh.RootNamespace] {
-			if efw.workloadSelector == nil || proxy.WorkloadLabels.IsSupersetOf(efw.workloadSelector) {
-				out = append(out, efw)
+		for _, efw := range ps.envoyFiltersByNamespace[ps.Mesh.RootNamespace] {
+			var workloadLabels labels.Collection
+			// This should never happen except in tests.
+			if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
+				workloadLabels = labels.Collection{proxy.Metadata.Labels}
+			}
+			if efw.workloadSelector == nil || workloadLabels.IsSupersetOf(efw.workloadSelector) {
+				matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
 			}
 		}
 	}
 
 	// To prevent duplicate envoyfilters in case root namespace equals proxy's namespace
-	if proxy.ConfigNamespace != ps.Env.Mesh.RootNamespace {
+	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
 		for _, efw := range ps.envoyFiltersByNamespace[proxy.ConfigNamespace] {
-			if efw.workloadSelector == nil || proxy.WorkloadLabels.IsSupersetOf(efw.workloadSelector) {
-				out = append(out, efw)
+			var workloadLabels labels.Collection
+			// This should never happen except in tests.
+			if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
+				workloadLabels = labels.Collection{proxy.Metadata.Labels}
+			}
+			if efw.workloadSelector == nil || workloadLabels.IsSupersetOf(efw.workloadSelector) {
+				matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
 			}
 		}
+	}
+
+	var out *EnvoyFilterWrapper
+	if len(matchedEnvoyFilters) > 0 {
+		out = &EnvoyFilterWrapper{
+			// no need populate workloadSelector, as it is not used later.
+			Patches: make(map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper),
+		}
+	}
+	// merge EnvoyFilterWrapper
+	for _, efw := range matchedEnvoyFilters {
+		for applyTo, cps := range efw.Patches {
+			if out.Patches[applyTo] == nil {
+				out.Patches[applyTo] = []*EnvoyFilterConfigPatchWrapper{}
+			}
+			for _, cp := range cps {
+				if proxyMatch(proxy, cp) {
+					out.Patches[applyTo] = append(out.Patches[applyTo], cp)
+				}
+			}
+		}
+		out.DeprecatedFilters = append(out.DeprecatedFilters, efw.DeprecatedFilters...)
 	}
 
 	return out
@@ -1415,7 +1673,7 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) []*EnvoyFilterWrapper {
 
 // pre computes gateways per namespace
 func (ps *PushContext) initGateways(env *Environment) error {
-	gatewayConfigs, err := env.List(schemas.Gateway.Type, NamespaceAll)
+	gatewayConfigs, err := env.List(collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -1454,7 +1712,12 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 			out = append(out, cfg)
 		} else {
 			gatewaySelector := labels.Instance(gw.GetSelector())
-			if proxy.WorkloadLabels.IsSupersetOf(gatewaySelector) {
+			var workloadLabels labels.Collection
+			// This should never happen except in tests.
+			if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
+				workloadLabels = labels.Collection{proxy.Metadata.Labels}
+			}
+			if workloadLabels.IsSupersetOf(gatewaySelector) {
 				out = append(out, cfg)
 			}
 		}
@@ -1464,4 +1727,119 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		return nil
 	}
 	return MergeGateways(out...)
+}
+
+// pre computes gateways for each network
+func (ps *PushContext) initMeshNetworks() {
+	if ps.Networks == nil || len(ps.Networks.Networks) == 0 {
+		return
+	}
+
+	ps.networkGateways = map[string][]*Gateway{}
+	for network, networkConf := range ps.Networks.Networks {
+		gws := networkConf.Gateways
+		if len(gws) == 0 {
+			// all endpoints in this network are reachable directly from others. nothing to do.
+			continue
+		}
+
+		registryName := getNetworkRegistry(networkConf)
+		gateways := []*Gateway{}
+		for _, gw := range gws {
+			gatewayAddresses := getGatewayAddresses(gw, registryName, ps.ServiceDiscovery)
+			for _, addr := range gatewayAddresses {
+				gateways = append(gateways, &Gateway{addr, gw.Port})
+			}
+		}
+
+		ps.networkGateways[network] = gateways
+	}
+}
+
+func (ps *PushContext) initQuotaSpecs(env *Environment) error {
+	var err error
+	ps.QuotaSpec, err = env.List(collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(), NamespaceAll)
+	return err
+}
+
+func (ps *PushContext) initQuotaSpecBindings(env *Environment) error {
+	var err error
+	ps.QuotaSpecBinding, err = env.List(collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(), NamespaceAll)
+	return err
+}
+
+func getNetworkRegistry(network *meshconfig.Network) string {
+	var registryName string
+	for _, eps := range network.Endpoints {
+		if eps != nil && len(eps.GetFromRegistry()) > 0 {
+			registryName = eps.GetFromRegistry()
+			break
+		}
+	}
+
+	return registryName
+}
+
+func getGatewayAddresses(gw *meshconfig.Network_IstioNetworkGateway, registryName string, discovery ServiceDiscovery) []string {
+	// First, if a gateway address is provided in the configuration use it. If the gateway address
+	// in the config was a hostname it got already resolved and replaced with an IP address
+	// when loading the config
+	if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
+		return []string{gw.GetAddress()}
+	}
+
+	// Second, try to find the gateway addresses by the provided service name
+	if gwSvcName := gw.GetRegistryServiceName(); len(gwSvcName) > 0 && len(registryName) > 0 {
+		svc, _ := discovery.GetService(host.Name(gwSvcName))
+		if svc != nil {
+			return svc.Attributes.ClusterExternalAddresses[registryName]
+		}
+	}
+
+	return nil
+}
+
+func (ps *PushContext) NetworkGateways() map[string][]*Gateway {
+	return ps.networkGateways
+}
+
+func (ps *PushContext) NetworkGatewaysByNetwork(network string) []*Gateway {
+	if ps.networkGateways != nil {
+		return ps.networkGateways[network]
+	}
+
+	return nil
+}
+
+func (ps *PushContext) QuotaSpecByDestination(instance *ServiceInstance) []Config {
+	return filterQuotaSpecsByDestination(instance, ps.QuotaSpecBinding, ps.QuotaSpec)
+}
+
+// BestEffortInferServiceMTLSMode infers the mTLS mode for the service + port from all authentication
+// policies (both alpha and beta) in the system. The function always returns MTLSUnknown for external service.
+// The resulst is a best effort. It is because the PeerAuthentication is workload-based, this function is unable
+// to compute the correct service mTLS mode without knowing service to workload binding. For now, this
+// function uses only mesh and namespace level PeerAuthentication and ignore workload & port level policies.
+// This function is used to give a hint for auto-mTLS configuration on client side.
+func (ps *PushContext) BestEffortInferServiceMTLSMode(service *Service, port *Port) MutualTLSMode {
+	if service.MeshExternal {
+		// Only need the authentication MTLS mode when service is not external.
+		return MTLSUnknown
+	}
+
+	// First , check mTLS settings from beta policy (i.e PeerAuthentication) at namespace / mesh level.
+	// If the mode is not unknown, use it.
+	if serviceMTLSMode := ps.AuthnBetaPolicies.GetNamespaceMutualTLSMode(service.Attributes.Namespace); serviceMTLSMode != MTLSUnknown {
+		return serviceMTLSMode
+	}
+
+	// Namespace/Mesh PeerAuthentication does not exist, check alpha authN policy.
+	policy, _ := ps.AuthenticationPolicyForWorkload(service, port)
+	if policy != nil {
+		// If alpha authN policy exist, used the mode defined by the policy.
+		return v1alpha1PolicyToMutualTLSMode(policy)
+	}
+
+	// When all are failed, default to permissive.
+	return MTLSPermissive
 }

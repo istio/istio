@@ -15,19 +15,12 @@
 package controller
 
 import (
-	"context"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-
-	"istio.io/pkg/log"
 )
-
-var caSecretControllerLog = log.RegisterScope("caSecretController",
-	"Self-signed root cert secret controller log", 0)
 
 // CaSecretController manages the self-signed signing CA secret.
 type CaSecretController struct {
@@ -45,54 +38,43 @@ func NewCaSecretController(core corev1.CoreV1Interface) *CaSecretController {
 // LoadCASecretWithRetry reads CA secret with retries until timeout.
 func (csc *CaSecretController) LoadCASecretWithRetry(secretName, namespace string,
 	retryInterval, timeout time.Duration) (*v1.Secret, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	caSecret, scrtErr := csc.client.Secrets(namespace).Get(secretName, metav1.GetOptions{})
-	if scrtErr != nil && !errors.IsNotFound(scrtErr) {
-		caSecretControllerLog.Errorf("Failed to read secret that holds CA certificate: %s. "+
-			"Wait until secret %s:%s can be loaded", scrtErr.Error(), namespace, secretName)
-		ticker := time.NewTicker(retryInterval)
-		for scrtErr != nil {
-			select {
-			case <-ticker.C:
-				if caSecret, scrtErr = csc.client.Secrets(namespace).Get(secretName, metav1.GetOptions{}); scrtErr == nil {
-					break
-				}
-			case <-ctx.Done():
-				caSecretControllerLog.Errorf("Timeout on loading CA secret %s:%s.", namespace, secretName)
-				ticker.Stop()
-				break
-			}
+	start := time.Now()
+	var caSecret *v1.Secret
+	var scrtErr error
+	for {
+		caSecret, scrtErr = csc.client.Secrets(namespace).Get(secretName, metav1.GetOptions{})
+		if scrtErr == nil {
+			return caSecret, scrtErr
 		}
+		k8sControllerLog.Errorf("Failed on loading CA secret %s:%s.",
+			namespace, secretName)
+
+		if time.Since(start) > timeout {
+			k8sControllerLog.Errorf("Timeout on loading CA secret %s:%s.",
+				namespace, secretName)
+			return caSecret, scrtErr
+		}
+		time.Sleep(retryInterval)
 	}
-	return caSecret, scrtErr
 }
 
 // UpdateCASecretWithRetry updates CA secret with retries until timeout.
 func (csc *CaSecretController) UpdateCASecretWithRetry(caSecret *v1.Secret,
 	retryInterval, timeout time.Duration) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	_, scrtErr := csc.client.Secrets(caSecret.Namespace).Update(caSecret)
-	if scrtErr != nil {
-		caSecretControllerLog.Errorf("Failed to update CA secret: %s. Wait until "+
-			"secret %s:%s can be updated", scrtErr.Error(), caSecret.Namespace, caSecret.Name)
-		ticker := time.NewTicker(retryInterval)
-		for scrtErr != nil {
-			select {
-			case <-ticker.C:
-				if caSecret, scrtErr = csc.client.Secrets(caSecret.Namespace).Update(caSecret); scrtErr == nil {
-					break
-				}
-			case <-ctx.Done():
-				caSecretControllerLog.Errorf("Timeout on updating CA secret %s:%s.",
-					caSecret.Namespace, caSecret.Name)
-				ticker.Stop()
-				break
-			}
+	start := time.Now()
+	for {
+		_, scrtErr := csc.client.Secrets(caSecret.Namespace).Update(caSecret)
+		if scrtErr == nil {
+			return nil
 		}
+		k8sControllerLog.Errorf("Failed on updating CA secret %s:%s.",
+			caSecret.Namespace, caSecret.Name)
+
+		if time.Since(start) > timeout {
+			k8sControllerLog.Errorf("Timeout on updating CA secret %s:%s.",
+				caSecret.Namespace, caSecret.Name)
+			return scrtErr
+		}
+		time.Sleep(retryInterval)
 	}
-	return scrtErr
 }

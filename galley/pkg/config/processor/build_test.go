@@ -20,12 +20,13 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processor/transforms"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
+	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schema/snapshots"
 )
 
 const yml = `
@@ -50,7 +51,7 @@ func TestProcessor(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	meshSrc := meshcfg.NewInmemory()
-	src := inmemory.NewKubeSource(metadata.MustGet().KubeSource().Resources())
+	src := inmemory.NewKubeSource(schema.MustGet().KubeCollections())
 	srcs := []event.Source{
 		meshSrc,
 		src,
@@ -58,15 +59,15 @@ func TestProcessor(t *testing.T) {
 
 	meshSrc.Set(meshcfg.Default())
 	distributor := snapshotter.NewInMemoryDistributor()
-	transformProviders := transforms.Providers(metadata.MustGet())
+	transformProviders := transforms.Providers(schema.MustGet())
 
 	processorSettings := Settings{
-		Metadata:           metadata.MustGet(),
+		Metadata:           schema.MustGet(),
 		DomainSuffix:       "svc.local",
 		Source:             event.CombineSources(srcs...),
 		TransformProviders: transformProviders,
 		Distributor:        distributor,
-		EnabledSnapshots:   []string{metadata.Default},
+		EnabledSnapshots:   []string{snapshots.Default},
 	}
 
 	rt, err := Initialize(processorSettings)

@@ -23,7 +23,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework/components/environment"
 
-	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -177,10 +177,13 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 			{
 				Name:     "http",
 				Protocol: protocol.HTTP,
+				// We use a port > 1024 to not require root
+				InstancePort: 8090,
 			},
 		},
-		Galley: g,
-		Pilot:  p,
+		Subsets: []echo.SubsetConfig{{}},
+		Galley:  g,
+		Pilot:   p,
 	}
 }
 

@@ -1,0 +1,33 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  components:
+    pilot:
+      enabled: true
+    policy:
+      enabled: false
+    telemetry:
+      enabled: false
+    proxy:
+      enabled: false
+    sidecarInjector:
+      enabled: false
+    citadel:
+      enabled: false
+    galley:
+      enabled: false
+    cni:
+      enabled: false
+
+  addonComponents:
+    prometheus:
+      enabled: false
+
+  values:
+    security:
+      createMeshPolicy: false
+
+    global:
+      istioRemote: true
+      enableTracing: false
+      network: ""

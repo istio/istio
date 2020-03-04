@@ -31,7 +31,7 @@ func TestTLSMultiplexing(t *testing.T) {
 		YamlFiles: []string{
 			// This policy configures b to use PERMISSIVE for port 80 and STRICT for port 9090.
 			"testdata/authn/v1alpha1/multiplexing/authn-policy-permissive.yaml",
-			// This configure serivce b's client to use ISTIO_MUTUAL mTLS when talking to service c.
+			// This configure service b's client to use ISTIO_MUTUAL mTLS when talking to service c.
 			"testdata/authn/v1alpha1/multiplexing/destination-rule.yaml",
 		},
 		kubeconfig: tc.Kube.KubeConfig,

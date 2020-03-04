@@ -1,0 +1,45 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: istio-operator
+  name: istio-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: istio-operator
+  template:
+    metadata:
+      labels:
+        name: istio-operator
+    spec:
+      serviceAccountName: istio-operator
+      containers:
+        - name: istio-operator
+          image: gcr.io/istio-testing/operator:1.6-dev
+          command:
+          - operator
+          - server
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          env:
+            - name: WATCH_NAMESPACE
+              value: "istio-system"
+            - name: LEADER_ELECTION_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "istio-operator"
+...

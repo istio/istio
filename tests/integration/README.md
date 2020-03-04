@@ -364,7 +364,7 @@ $ go test ./tests/integration/mycomponent/...
 
 Note that samples below invoking variations of ```go test ./...``` are intended to be run from the ```tests/integration``` directory.
 
-| WARNING: Many tests, including integration tests, assume that a [helm](https://github.com/helm/helm/blob/master/docs/install.md) client is installed and on the path.|
+| WARNING: Many tests, including integration tests, assume that a [Helm](https://helm.sh/docs/using_helm/#installing-helm) client is installed and on the path.|
 | --- |
 
 ### Test Parellelism and Kubernetes
@@ -430,52 +430,9 @@ Tool | Description |
 [Prow](https://github.com/kubernetes/test-infra/tree/master/prow) | Kubernetes-based CI/CD system developed by the Kubernetes community and is deployed in Google Kubernetes Engine (GKE).
 [TestGrid](https://k8s-testgrid.appspot.com/istio-release) | A Kubernetes dashboard used for visualizing the status of the Prow jobs.
 
-This section describes the steps for adding new tests to Prow and TestGrid.
+Test suites are defined for each toplevel directory (such as `pilot` and `telemetry`), so any tests added to these directories will automatically be run in CI.
 
-#### Step 1: Add a Test Script
-
-To simplify the process of running tests from Prow, each suite is given its own test script under the
-[prow](https://github.com/istio/istio/tree/master/prow) folder.
-
-Embedded in the name of the script is the following:
-
-1. Type of test (unit, end-to-end, integration)
-1. Component/feature being tested
-1. The environment used (i.e. native/local or k8s)
-1. Job execution (i.e. presubmit, postsubmit)
-
-For example, the file `integ-security-k8s-presubmit-tests.sh` runs integration tests for various Istio security
-features on Kubernetes during PR pre-submit.
-
-In general, when creating a new script use similar scripts as a guide.
-
-#### Step 2: Add a Prow Job
-
-Istio's Prow jobs are configured in the [istio/test-infra](https://github.com/istio/test-infra) repository.
-
-The [prow/cluster/jobs/istio/istio](https://github.com/istio/test-infra/tree/master/prow/cluster/jobs/istio/istio) folder
-contains configuration files for running Prow jobs against various Istio branches.
-
-For example, [istio.istio.master.yaml](https://github.com/istio/test-infra/blob/master/prow/cluster/jobs/istio/istio/istio.istio.master.gen.yaml)
-configures Prow jobs that run against Istio's master branch.
-
-Each configuration file contains sections for both **presubmit** and **postsubmit**. To add a new job, add a new config
-stanza to one of these sections, using an existing config stanza as a template.
-
-In general, all tests *should* be required to succeed. However, as flaky tests appear we may need to temporarily disable
-certain jobs from gating PR submission. This can be done by adding the following to the configuration:
-
-```yaml
-optional: true
-```
-
-When this is done, however, a GitHub issue should be raised to address the flake and move the job back to required.
-
-#### Step 3: Update TestGrid
-
-TestGrid is owned by the Kubernetes team and its configuration is located in the
-[kubernetes/test-infra](https://github.com/kubernetes/test-infra) repository.
-Configuring testgrid is explained [here](https://github.com/kubernetes/test-infra/blob/master/testgrid/config.md)
+If you need to add a new test suite, it can be added to the [job configuration](https://github.com/istio/test-infra/blob/master/prow/config/jobs/istio.yaml).
 
 ## Environments
 
@@ -489,6 +446,8 @@ also explicitly specify the native environment:
 ```console
 $ go test ./... -istio.test.env native
 ```
+
+Note: this may require you to [enable forwarding from Docker containers to the outside world](https://docs.docker.com/network/bridge/#enable-forwarding-from-docker-containers-to-the-outside-world).
 
 ### Kubernetes Environment
 

@@ -1,0 +1,123 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: productpage
+  name: productpage
+  namespace: default
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: productpage
+  name: productpage-other
+  namespace: other
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: reviews
+  name: reviews
+  namespace: default
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: ratings-app
+    myapp: ratings-myapp
+  name: ratings
+  namespace: default
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: maps-correctly-no-conflicts
+  namespace: default
+spec:
+  workloadSelector:
+    labels:
+      app: productpage # Maps to an existing workload without conflicts in the same ns, no error
+  egress:
+  - hosts:
+    - "./*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: maps-to-nonexistent
+  namespace: default
+spec:
+  workloadSelector:
+    labels:
+      app: bogus # This doesn't exist, and should generate an error
+  egress:
+  - hosts:
+    - "./*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: maps-to-different-ns
+  namespace: other
+spec:
+  workloadSelector:
+    labels:
+      app: reviews # This doesn't exist in the current namespace, and should generate an error
+  egress:
+  - hosts:
+    - "./*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: dupe-1
+  namespace: default
+spec:
+  workloadSelector:
+    labels:
+      app: reviews # Multiple sidecars have the same selector, should generate errors for both
+  egress:
+  - hosts:
+    - "./*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: dupe-2
+  namespace: default
+spec:
+  workloadSelector:
+    labels:
+      app: reviews # Multiple sidecars have the same selector, should generate errors for both
+  egress:
+  - hosts:
+    - "./*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: overlap-1
+  namespace: default
+spec:
+  workloadSelector:
+    labels:
+      app: ratings-app # Multiple sidecars select overlapping workloads, should generate errors for both
+  egress:
+  - hosts:
+    - "./*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: overlap-2
+  namespace: default
+spec:
+  workloadSelector:
+    labels:
+      myapp: ratings-myapp # Multiple sidecars select overlapping workloads, should generate errors for both
+  egress:
+  - hosts:
+    - "./*"

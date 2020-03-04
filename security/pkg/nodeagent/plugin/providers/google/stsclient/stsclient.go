@@ -33,9 +33,11 @@ import (
 )
 
 var (
-	secureTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
-	gkeClusterURL       = env.RegisterStringVar("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
-	stsClientLog        = log.RegisterScope("stsClientLog", "STS client debugging", 0)
+	// GKEClusterURL is the URL to send requests to the token exchange service.
+	GKEClusterURL = env.RegisterStringVar("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
+	// SecureTokenEndpoint is the Endpoint the STS client calls to.
+	SecureTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
+	stsClientLog        = log.RegisterScope("stsclient", "STS client debugging", 0)
 )
 
 const (
@@ -80,33 +82,46 @@ func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string)
 	string /*access token*/, time.Time /*expireTime*/, int /*httpRespCode*/, error) {
 	aud := constructAudience(trustDomain)
 	var jsonStr = constructFederatedTokenRequest(aud, k8sSAjwt)
-	req, _ := http.NewRequest("POST", secureTokenEndpoint, bytes.NewBuffer(jsonStr))
+	req, _ := http.NewRequest("POST", SecureTokenEndpoint, bytes.NewBuffer(jsonStr))
 	req.Header.Set("Content-Type", contentType)
 
 	resp, err := p.hTTPClient.Do(req)
-	if err != nil {
-		stsClientLog.Errorf("Failed to call getfederatedtoken: %v", err)
-		return "", time.Now(), resp.StatusCode, errors.New("failed to exchange token")
+	errMsg := "failed to call token exchange service. "
+	if err != nil || resp == nil {
+		statusCode := http.StatusServiceUnavailable
+		// If resp is not null, return the actually status code returned from the token service.
+		// If resp is null, return a service unavailable status and try again.
+		if resp != nil {
+			statusCode = resp.StatusCode
+			errMsg += fmt.Sprintf("HTTP status: %s. Error: %v", resp.Status, err)
+		} else {
+			errMsg += fmt.Sprintf("HTTP response empty. Error: %v", err)
+		}
+		return "", time.Now(), statusCode, errors.New(errMsg)
 	}
 	defer resp.Body.Close()
 
 	body, _ := ioutil.ReadAll(resp.Body)
 	respData := &federatedTokenResponse{}
 	if err := json.Unmarshal(body, respData); err != nil {
-		stsClientLog.Errorf("Failed to unmarshal response data: (HTTP status %d) %v",
-			resp.StatusCode, err)
-		return "", time.Now(), resp.StatusCode, errors.New("failed to exchange token")
+		return "", time.Now(), resp.StatusCode, fmt.Errorf(
+			"failed to unmarshal response data. HTTP status: %s. Error: %v. Body size: %d", resp.Status, err, len(body))
+	}
+
+	if respData.AccessToken == "" {
+		return "", time.Now(), resp.StatusCode, fmt.Errorf(
+			"exchanged empty token. HTTP status: %s. Response: %v", resp.Status, respData)
 	}
 
 	return respData.AccessToken, time.Now().Add(time.Second * time.Duration(respData.ExpiresIn)), resp.StatusCode, nil
 }
 
 func constructAudience(trustDomain string) string {
-	if gkeClusterURL == "" {
+	if GKEClusterURL == "" {
 		return trustDomain
 	}
 
-	return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, gkeClusterURL)
+	return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, GKEClusterURL)
 }
 
 func constructFederatedTokenRequest(aud, jwt string) []byte {

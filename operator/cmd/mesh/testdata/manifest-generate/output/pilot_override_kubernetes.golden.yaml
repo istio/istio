@@ -1,0 +1,208 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: istiod
+    istio: pilot
+    release: istio
+  name: istiod
+  namespace: istio-control
+spec:
+  selector:
+    matchLabels:
+      istio: pilot
+  strategy:
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 25%
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+      labels:
+        app: istiod
+        istio: pilot
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+            weight: 2
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - ppc64le
+            weight: 2
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - s390x
+            weight: 2
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - ppc64le
+                - s390x
+      containers:
+      - args:
+        - discovery
+        - --monitoringAddr=:15014
+        - --log_output_level=default:info
+        - --domain
+        - cluster.local
+        - --secureGrpcAddr=:15011
+        - --trust-domain=cluster.local
+        - --keepaliveMaxServerConnectionAge
+        - 60m
+        - --disable-install-crds=true
+        env:
+        - name: JWT_POLICY
+          value: third-party-jwt
+        - name: PILOT_CERT_PROVIDER
+          value: istiod
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.serviceAccountName
+        - name: PILOT_TRACE_SAMPLING
+          value: "1"
+        - name: CONFIG_NAMESPACE
+          value: istio-config
+        - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
+          value: "true"
+        - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
+          value: "false"
+        - name: INJECTION_WEBHOOK_CONFIG_NAME
+          value: istio-sidecar-injector
+        - name: ISTIOD_ADDR
+          value: istiod.istio-control.svc:15012
+        - name: PILOT_EXTERNAL_GALLEY
+          value: "false"
+        envFrom:
+        - configMapRef:
+            name: istiod
+            optional: true
+        image: docker.io/istio/pilot:1.1.4
+        name: discovery
+        ports:
+        - containerPort: 1234
+        - containerPort: 15010
+        - containerPort: 15017
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 5
+        resources:
+          requests:
+            cpu: 123m
+            memory: 2048Mi
+        securityContext:
+          capabilities:
+            drop:
+            - ALL
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
+        volumeMounts:
+        - mountPath: /etc/istio/config
+          name: config-volume
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
+          readOnly: true
+        - mountPath: /var/run/secrets/istio-dns
+          name: local-certs
+        - mountPath: /etc/cacerts
+          name: cacerts
+          readOnly: true
+        - mountPath: /var/lib/istio/inject
+          name: inject
+          readOnly: true
+        - mountPath: /var/lib/istio/local
+          name: istiod
+          readOnly: true
+      securityContext:
+        fsGroup: 1337
+      serviceAccountName: istio-pilot-service-account
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: local-certs
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: istio-ca
+              expirationSeconds: 43200
+              path: istio-token
+      - configMap:
+          name: istiod
+          optional: true
+        name: istiod
+      - name: cacerts
+        secret:
+          optional: true
+          secretName: cacerts
+      - configMap:
+          name: istio-sidecar-injector
+          optional: true
+        name: inject
+      - configMap:
+          name: istio
+        name: config-volume
+---
+
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: pilot
+    istio: pilot
+    release: istio
+  name: istio-pilot
+  namespace: istio-control
+spec:
+  ports:
+  - name: grpc-xds
+    port: 11111
+  - name: https-xds
+    port: 15011
+  - name: https-dns
+    port: 15012
+  - name: http-legacy-discovery
+    port: 8080
+  - name: http-monitoring
+    port: 15014
+  - name: https-webhook
+    port: 443
+    targetPort: 15017
+  selector:
+    istio: pilot
+---

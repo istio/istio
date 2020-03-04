@@ -6,7 +6,7 @@
 
 ## Step 1: Set up GCP
 
-This section walks you through the one-time set-up for creating and configuring a Google Coud Platform (GCP) project.
+This section walks you through the one-time set-up for creating and configuring a Google Cloud Platform (GCP) project.
 
 ### Install Google Cloud SDK
 
@@ -122,9 +122,9 @@ GOOS=linux make docker push
 
 ### Option 2: Use pre-built Istio images
 
-In this case, you'll need to specify the image SHA in the `TAG` environment variable. You can pick any SHA available on istio/istio.
+In this case, you'll need to specify the image SHA in the `TAG` environment variable. You can pick any SHA available from the [published build releases](https://github.com/istio/istio/wiki/Dev%20Builds) or the `latest` for latest released dev images.
 
 ```bash
 export HUB="gcr.io/istio-testing"
-export TAG="d0142e1afe41c18917018e2fa85ab37254f7e0ca"
+export TAG="latest"
 ```

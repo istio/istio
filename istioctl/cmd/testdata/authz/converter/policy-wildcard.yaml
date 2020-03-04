@@ -1,0 +1,69 @@
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ClusterRbacConfig
+metadata:
+  name: default
+spec:
+  mode: 'ON_WITH_INCLUSION'
+  inclusion:
+    namespaces: ["default"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: role
+  namespace: default
+spec:
+  rules:
+  - services: ["productpage.default.svc.cluster.local"]
+    methods: ["*"]
+    paths: ["*"]
+    constraints:
+    - key: "experimental.envoy.filters.network.mysql_proxy[db.table]"
+      values: ["*"]
+    - key: "request.headers[x-id]"
+      values: ["*"]
+    - key: "request.headers[x-lang]"
+      values: ["*"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: binding
+  namespace: default
+spec:
+  subjects:
+  - user: "*"
+    group: "*"
+    properties:
+      source.namespace: "*"
+      source.principal: "*"
+      request.headers[User-Agent]: "*"
+      request.auth.principal: "*"
+      request.auth.audiences: "*"
+      request.auth.presenter: "*"
+      request.auth.claims[issuer]: "*"
+      request.auth.claims[subject]: "*"
+  roleRef:
+    kind: ServiceRole
+    name: "role"
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: role-2
+  namespace: default
+spec:
+  rules:
+    - services: ["*"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: binding-2
+  namespace: default
+spec:
+  subjects:
+    - user: "*"
+  roleRef:
+    kind: ServiceRole
+    name: "role-2"

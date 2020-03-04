@@ -15,9 +15,9 @@
 package policy
 
 import (
-	http_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
+	envoyRbacHttpPb "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 )
 
 type Generator interface {
-	Generate(forTCPFilter bool) *http_config.RBAC
+	Generate(forTCPFilter bool) (denyConfig *envoyRbacHttpPb.RBAC, allowConfig *envoyRbacHttpPb.RBAC)
 }

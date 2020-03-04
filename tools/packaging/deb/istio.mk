@@ -13,58 +13,52 @@ deb/build-in-docker:
 # This target uses a locally installed 'fpm' - use 'docker.sidecar.deb' to use
 # the builder image.
 # TODO: consistent layout, possibly /opt/istio-VER/...
-sidecar.deb: ${ISTIO_OUT}/istio-sidecar.deb
+sidecar.deb: ${ISTIO_OUT_LINUX}/release/istio-sidecar.deb
 
-deb: ${ISTIO_OUT}/istio-sidecar.deb
+deb: ${ISTIO_OUT_LINUX}/release/istio-sidecar.deb
 
 # Base directory for istio binaries. Likely to change !
 ISTIO_DEB_BIN=/usr/local/bin
 
 ISTIO_DEB_DEPS:=pilot-discovery istioctl mixs istio_ca
 ISTIO_FILES:=
-# subst is used to turn an absolute path into the relative path that fpm seems to expect
 $(foreach DEP,$(ISTIO_DEB_DEPS),\
-        $(eval ${ISTIO_OUT}/istio.deb: $(ISTIO_OUT)/$(DEP)) \
-        $(eval ISTIO_FILES+=$(subst $(GO_TOP)/,,$(ISTIO_OUT))/$(DEP)=$(ISTIO_DEB_BIN)/$(DEP)) )
+        $(eval ${ISTIO_OUT_LINUX}/release/istio.deb: $(ISTIO_OUT_LINUX)/$(DEP)) \
+        $(eval ISTIO_FILES+=$(ISTIO_OUT_LINUX)/$(DEP)=$(ISTIO_DEB_BIN)/$(DEP)) )
 
-SIDECAR_DEB_DEPS:=envoy pilot-agent node_agent
+SIDECAR_DEB_DEPS:=envoy pilot-agent node_agent istio-iptables istio-clean-iptables
 SIDECAR_FILES:=
-# subst is used to turn an absolute path into the relative path that fpm seems to expect
 $(foreach DEP,$(SIDECAR_DEB_DEPS),\
-        $(eval ${ISTIO_OUT}/istio-sidecar.deb: $(ISTIO_OUT)/$(DEP)) \
-        $(eval SIDECAR_FILES+=$(subst $(GO_TOP)/,,$(ISTIO_OUT))/$(DEP)=$(ISTIO_DEB_BIN)/$(DEP)) )
+        $(eval ${ISTIO_OUT_LINUX}/release/istio-sidecar.deb: $(ISTIO_OUT_LINUX)/$(DEP)) \
+        $(eval SIDECAR_FILES+=$(ISTIO_OUT_LINUX)/$(DEP)=$(ISTIO_DEB_BIN)/$(DEP)) )
 
 ISTIO_DEB_DEST:=${ISTIO_DEB_BIN}/istio-start.sh \
 		${ISTIO_DEB_BIN}/istio-node-agent-start.sh \
-		${ISTIO_DEB_BIN}/istio-iptables.sh \
-		${ISTIO_DEB_BIN}/istio-clean-iptables.sh \
 		/lib/systemd/system/istio.service \
 		/lib/systemd/system/istio-auth-node-agent.service \
 		/var/lib/istio/envoy/sidecar.env
 
 $(foreach DEST,$(ISTIO_DEB_DEST),\
-        $(eval ${ISTIO_OUT}/istio-sidecar.deb:   tools/packaging/common/$(notdir $(DEST))) \
-        $(eval SIDECAR_FILES+=src/istio.io/istio/tools/packaging/common/$(notdir $(DEST))=$(DEST)))
+        $(eval ${ISTIO_OUT_LINUX}/istio-sidecar.deb:   tools/packaging/common/$(notdir $(DEST))) \
+        $(eval SIDECAR_FILES+=${REPO_ROOT}/tools/packaging/common/$(notdir $(DEST))=$(DEST)))
 
-SIDECAR_FILES+=src/istio.io/istio/tools/packaging/common/envoy_bootstrap_v2.json=/var/lib/istio/envoy/envoy_bootstrap_tmpl.json
-SIDECAR_FILES+=src/istio.io/istio/tools/packaging/common/envoy_bootstrap_drain.json=/var/lib/istio/envoy/envoy_bootstrap_drain.json
+SIDECAR_FILES+=${REPO_ROOT}/tools/packaging/common/envoy_bootstrap_v2.json=/var/lib/istio/envoy/envoy_bootstrap_tmpl.json
 
 # original name used in 0.2 - will be updated to 'istio.deb' since it now includes all istio binaries.
 ISTIO_DEB_NAME ?= istio-sidecar
 
 # TODO: rename istio-sidecar.deb to istio.deb
 
-# Note: adding --deb-systemd ${GO_TOP}/src/istio.io/istio/tools/packaging/common/istio.service will result in
+# Note: adding --deb-systemd ${REPO_ROOT}/tools/packaging/common/istio.service will result in
 # a /etc/systemd/system/multi-user.target.wants/istio.service and auto-start. Currently not used
 # since we need configuration.
 # --iteration 1 adds a "-1" suffix to the version that didn't exist before
-${ISTIO_OUT}/istio-sidecar.deb: | ${ISTIO_OUT}
-	$(MAKE) deb/fpm
+${ISTIO_OUT_LINUX}/release/istio-sidecar.deb: | ${ISTIO_OUT_LINUX} deb/fpm
 
 # Package the sidecar deb file.
 deb/fpm:
-	rm -f ${ISTIO_OUT}/istio-sidecar.deb
-	fpm -s dir -t deb -n ${ISTIO_DEB_NAME} -p ${ISTIO_OUT}/istio-sidecar.deb --version $(PACKAGE_VERSION) -C ${GO_TOP} -f \
+	rm -f ${ISTIO_OUT_LINUX}/release/istio-sidecar.deb
+	fpm -s dir -t deb -n ${ISTIO_DEB_NAME} -p ${ISTIO_OUT_LINUX}/release/istio-sidecar.deb --version $(PACKAGE_VERSION) -f \
 		--url http://istio.io  \
 		--license Apache \
 		--vendor istio.io \
@@ -77,9 +71,9 @@ deb/fpm:
 		--depends iptables \
 		$(SIDECAR_FILES)
 
-${ISTIO_OUT}/istio.deb:
-	rm -f ${ISTIO_OUT}/istio.deb
-	fpm -s dir -t deb -n istio -p ${ISTIO_OUT}/istio.deb --version $(PACKAGE_VERSION) -C ${GO_TOP} -f \
+${ISTIO_OUT_LINUX}/istio.deb:
+	rm -f ${ISTIO_OUT_LINUX}/release/istio.deb
+	fpm -s dir -t deb -n istio -p ${ISTIO_OUT_LINUX}/release/istio.deb --version $(PACKAGE_VERSION) -f \
 		--url http://istio.io  \
 		--license Apache \
 		--vendor istio.io \
@@ -88,22 +82,21 @@ ${ISTIO_OUT}/istio.deb:
 		$(ISTIO_FILES)
 
 # Install the deb in a docker image, for testing of the install process.
-deb/docker: build deb/fpm ${ISTIO_OUT}/istio.deb
+deb/docker: build deb/fpm ${ISTIO_OUT_LINUX}/release/istio.deb
 	mkdir -p ${OUT_DIR}/deb
 	cp tools/packaging/deb/Dockerfile tools/packaging/deb/deb_test.sh ${OUT_DIR}/deb
 	cp tests/testdata/config/*.yaml ${OUT_DIR}/deb
 	cp -a tests/testdata/certs ${OUT_DIR}/deb
-	cp ${ISTIO_OUT}/hyperistio ${OUT_DIR}/deb
 	cp ${GOPATH}/bin/{kube-apiserver,etcd,kubectl} ${OUT_DIR}/deb
-	cp ${ISTIO_OUT}/istio-sidecar.deb ${OUT_DIR}/deb/istio-sidecar.deb
-	cp ${ISTIO_OUT}/istio.deb ${OUT_DIR}/deb/istio.deb
+	cp ${ISTIO_OUT_LINUX}/istio-sidecar.deb ${OUT_DIR}/deb/istio-sidecar.deb
+	cp ${ISTIO_OUT_LINUX}/istio.deb ${OUT_DIR}/deb/istio.deb
 	docker build -t istio_deb -f ${OUT_DIR}/deb/Dockerfile ${OUT_DIR}/deb/
 
 deb/test:
 	docker run --cap-add=NET_ADMIN --rm -v ${ISTIO_GO}/tools/packaging/deb/deb_test.sh:/tmp/deb_test.sh istio_deb /tmp/deb_test.sh
 
 # For the test, by default use a local pilot.
-# Set it to 172.18.0.1 to run against a pilot or hyperistio running in IDE.
+# Set it to 172.18.0.1 to run against a pilot running in IDE.
 # You may need to enable 15007 in the local machine firewall for this to work.
 DEB_PILOT_IP ?= 127.0.0.1
 DEB_CMD ?= /bin/bash

@@ -21,6 +21,8 @@ import (
 	"reflect"
 	"testing"
 
+	"istio.io/istio/pkg/jwt"
+
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
 
@@ -32,7 +34,7 @@ type mockTokenReviewClient struct {
 	err error
 }
 
-func (c mockTokenReviewClient) ValidateK8sJwt(jwt string) ([]string, error) {
+func (c mockTokenReviewClient) ValidateK8sJwt(jwt, jwtPolicy string) ([]string, error) {
 	if c.id != nil {
 		return c.id, nil
 	}
@@ -46,6 +48,7 @@ func TestNewKubeJWTAuthenticator(t *testing.T) {
 	caCertFileContent := []byte("CACERT")
 	jwtFileContent := []byte("JWT")
 	trustDomain := "testdomain.com"
+	jwtPolicy := jwt.JWTPolicyThirdPartyJWT
 	url := "https://server/url"
 	if err := ioutil.WriteFile(validCACertPath, caCertFileContent, 0777); err != nil {
 		t.Errorf("Failed to write to testing CA cert file: %v", err)
@@ -77,7 +80,7 @@ func TestNewKubeJWTAuthenticator(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		authenticator, err := NewKubeJWTAuthenticator(url, tc.caCertPath, tc.jwtPath, trustDomain)
+		authenticator, err := NewKubeJWTAuthenticator(url, tc.caCertPath, tc.jwtPath, trustDomain, jwtPolicy)
 		if len(tc.expectedErrMsg) > 0 {
 			if err == nil {
 				t.Errorf("Case %s: Succeeded. Error expected: %v", id, err)
@@ -92,6 +95,7 @@ func TestNewKubeJWTAuthenticator(t *testing.T) {
 		expectedAuthenticator := &KubeJWTAuthenticator{
 			client:      tokenreview.NewK8sSvcAcctAuthn(url, caCertFileContent, string(jwtFileContent)),
 			trustDomain: trustDomain,
+			jwtPolicy:   jwtPolicy,
 		}
 		if !reflect.DeepEqual(authenticator, expectedAuthenticator) {
 			t.Errorf("Case %q: Unexpected authentication result: want %v but got %v",

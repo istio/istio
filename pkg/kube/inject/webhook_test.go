@@ -27,14 +27,21 @@ import (
 	"strings"
 	"testing"
 
-	"k8s.io/helm/pkg/strvals"
+	"istio.io/istio/operator/pkg/tpath"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+
+	"istio.io/istio/operator/pkg/name"
 
 	"istio.io/api/annotation"
+
+	operator "istio.io/istio/operator/cmd/mesh"
 
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/mesh"
@@ -45,20 +52,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/helm/pkg/chartutil"
-	"k8s.io/helm/pkg/engine"
-	"k8s.io/helm/pkg/proto/hapi/chart"
-	tversion "k8s.io/helm/pkg/proto/hapi/version"
-	"k8s.io/helm/pkg/timeconv"
 )
 
-const (
-	helmChartDirectory     = "../../../install/kubernetes/helm/istio"
-	helmConfigMapKey       = "istio/templates/sidecar-injector-configmap.yaml"
-	injectorConfig         = "../../../install/kubernetes/helm/istio/files/injection-template.yaml"
-	helmValuesFile         = "values.yaml"
-	yamlSeparator          = "\n---"
-	minimalSidecarTemplate = `
+const yamlSeparator = "\n---"
+
+var minimalSidecarTemplate = &Config{
+	Policy: InjectionPolicyEnabled,
+	Template: `
 initContainers:
 - name: istio-init
 containers:
@@ -67,8 +67,8 @@ volumes:
 - name: istio-envoy
 imagePullSecrets:
 - name: istio-image-pull-secrets
-`
-)
+`,
+}
 
 var (
 	rotatedKey = []byte(`-----BEGIN RSA PRIVATE KEY-----
@@ -549,10 +549,6 @@ func TestWebhookInject(t *testing.T) {
 			wantFile:  "TestWebhookInject_no_volumes_imagePullSecrets.patch",
 		},
 		{
-			inputFile: "TestWebhookInject_no_containers_volumes_imagePullSecrets.yaml",
-			wantFile:  "TestWebhookInject_no_containers_volumes_imagePullSecrets.patch",
-		},
-		{
 			inputFile: "TestWebhookInject_no_containers_volumes.yaml",
 			wantFile:  "TestWebhookInject_no_containers_volumes.patch",
 		},
@@ -634,6 +630,16 @@ func TestWebhookInject(t *testing.T) {
 			inputFile: "TestWebhookInject_mtls_not_ready.yaml",
 			wantFile:  "TestWebhookInject_mtls_not_ready.patch",
 		},
+		{
+			inputFile:    "TestWebhookInject_validationOrder.yaml",
+			wantFile:     "TestWebhookInject_validationOrder.patch",
+			templateFile: "TestWebhookInject_validationOrder_template.yaml",
+		},
+		{
+			inputFile:    "TestWebhookInject_probe_rewrite_timeout_retention.yaml",
+			wantFile:     "TestWebhookInject_probe_rewrite_timeout_retention.patch",
+			templateFile: "TestWebhookInject_probe_rewrite_timeout_retention_template.yaml",
+		},
 	}
 
 	for i, c := range cases {
@@ -643,7 +649,9 @@ func TestWebhookInject(t *testing.T) {
 		if c.templateFile != "" {
 			templateFile = c.templateFile
 		}
+		c := c
 		t.Run(fmt.Sprintf("[%d] %s", i, c.inputFile), func(t *testing.T) {
+			t.Parallel()
 			wh, cleanup := createTestWebhookFromFile(filepath.Join("testdata/webhook", templateFile), t)
 			defer cleanup()
 			podYAML := util.ReadFile(input, t)
@@ -726,6 +734,10 @@ func TestHelmInject(t *testing.T) {
 		{
 			inputFile: "deploymentconfig.yaml",
 			wantFile:  "deploymentconfig.yaml.injected",
+		},
+		{
+			inputFile: "deploymentconfig-with-canonical-service-label.yaml",
+			wantFile:  "deploymentconfig-with-canonical-service-label.yaml.injected",
 		},
 		{
 			inputFile: "deploymentconfig-multi.yaml",
@@ -834,7 +846,7 @@ func TestHelmInject(t *testing.T) {
 	}
 }
 
-func createTestWebhook(t testing.TB, configYaml string) (*Webhook, func()) {
+func createTestWebhook(t testing.TB, config *Config, values string) (*Webhook, func()) {
 	m := mesh.DefaultMeshConfig()
 	dir, err := ioutil.TempDir("", "webhook_test")
 	if err != nil {
@@ -843,152 +855,77 @@ func createTestWebhook(t testing.TB, configYaml string) (*Webhook, func()) {
 	cleanup := func() {
 		_ = os.RemoveAll(dir)
 	}
-	config := &Config{}
-	if err := yaml.Unmarshal([]byte(configYaml), config); err != nil {
-		t.Fatalf("failed to read webhook config: %v", err)
-	}
 	return &Webhook{
-		sidecarConfig:          config,
+		Config:                 config,
 		sidecarTemplateVersion: "unit-test-fake-version",
 		meshConfig:             &m,
-		valuesConfig:           getValuesWithHelm(nil, t),
+		valuesConfig:           values,
 	}, cleanup
 }
 
 func createTestWebhookFromFile(templateFile string, t *testing.T) (*Webhook, func()) {
 	t.Helper()
-	sidecarTemplate := string(util.ReadFile(templateFile, t))
-	return createTestWebhook(t, sidecarTemplate)
+	injectConfig := &Config{}
+	if err := yaml.Unmarshal(util.ReadFile(templateFile, t), injectConfig); err != nil {
+		t.Fatalf("failed to unmarshal injectionConfig: %v", err)
+	}
+	return createTestWebhook(t, injectConfig, "{}")
 }
 
 func createTestWebhookFromHelmConfigMap(t *testing.T) (*Webhook, func()) {
 	t.Helper()
 	// Load the config map with Helm. This simulates what will be done at runtime, by replacing function calls and
 	// variables and generating a new configmap for use by the injection logic.
-	sidecarTemplate := loadConfigMapWithHelm(nil, t)
-	return createTestWebhook(t, sidecarTemplate)
+	sidecarTemplate, values := loadInjectionConfigMap(t, "")
+	return createTestWebhook(t, sidecarTemplate, values)
 }
 
-func loadSidecarTemplate(t testing.TB) string {
-	injectionConfig, err := ioutil.ReadFile(injectorConfig) // nolint: vetshadow
-	if err != nil {
-		t.Fatalf("failed to load sidecar template: %v", err)
-	}
-	return string(injectionConfig)
-}
-
-func getValues(params *Params, t testing.TB) string {
-	values := getHelmValues(t)
-	mergedValues := mergeParamsIntoHelmValues(params, values, t)
-	return mergedValues
-}
-
-func getValuesWithHelm(params *Params, t testing.TB) string {
-	c, err := chartutil.Load(helmChartDirectory)
-	if err != nil {
-		t.Fatal(err)
-	}
-	values := getHelmValues(t)
-	mergedValues := mergeParamsIntoHelmValues(params, values, t)
-	chartConfig := &chart.Config{Raw: mergedValues, Values: map[string]*chart.Value{}}
-
-	vals, err := chartutil.CoalesceValues(c, chartConfig)
-	if err != nil {
-		t.Fatal(err)
-	}
-	out, err := vals.YAML()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return out
-}
-
-func loadConfigMapWithHelm(params *Params, t testing.TB) string {
+// loadInjectionConfigMap will render the charts using the operator, with given yaml overrides.
+// This allows us to fully simulate what will actually happen at run time.
+func loadInjectionConfigMap(t testing.TB, settings string) (template *Config, values string) {
 	t.Helper()
-	c, err := chartutil.Load(helmChartDirectory)
+	oy, err := tpath.AddSpecRoot(settings)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	values := getHelmValues(t)
-	mergedValues := mergeParamsIntoHelmValues(params, values, t)
-
-	chartConfig := &chart.Config{Raw: mergedValues, Values: map[string]*chart.Value{}}
-	options := chartutil.ReleaseOptions{
-		Name:      "istio",
-		Time:      timeconv.Now(),
-		Namespace: "",
-	}
-
-	vals, err := chartutil.ToRenderValuesCaps(c, chartConfig, options, &chartutil.Capabilities{TillerVersion: &tversion.Version{SemVer: "2.7.2"}})
+	manifests, _, err := operator.GenManifests(nil, oy, false, nil, nil)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("failed to generate manifests: %v", err)
 	}
+	for _, mlist := range manifests[name.PilotComponentName] {
+		for _, object := range strings.Split(mlist, yamlSeparator) {
 
-	files, err := engine.New().Render(c, vals)
-	if err != nil {
-		t.Fatal(err)
-	}
+			r := bytes.NewReader([]byte(object))
+			decoder := k8syaml.NewYAMLOrJSONDecoder(r, 1024)
 
-	f, ok := files[helmConfigMapKey]
-	if !ok {
-		t.Fatalf("Unable to located configmap file %s", helmConfigMapKey)
-	}
-
-	cfgMap := corev1.ConfigMap{}
-	err = yaml.Unmarshal([]byte(f), &cfgMap)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg, ok := cfgMap.Data["config"]
-	if !ok {
-		t.Fatal("ConfigMap yaml missing config field")
-	}
-
-	return cfg
-}
-
-func getHelmValues(t testing.TB) string {
-	t.Helper()
-	valuesFile := filepath.Join(helmChartDirectory, helmValuesFile)
-	return string(util.ReadFile(valuesFile, t))
-}
-
-func mergeParamsIntoHelmValues(params *Params, vals string, t testing.TB) string {
-	t.Helper()
-	if params == nil {
-		return vals
-	}
-	valMap := chartutil.FromYaml(vals)
-	paramsVals := params.intoHelmValues()
-	for path, value := range paramsVals {
-		setStr := fmt.Sprintf("%s=%s", path, escapeHelmValue(value))
-		if err := strvals.ParseInto(setStr, valMap); err != nil {
-			t.Fatal(err)
+			out := &unstructured.Unstructured{}
+			err := decoder.Decode(out)
+			if err != nil {
+				t.Fatalf("error decoding object: %v", err)
+			}
+			if out.GetName() == "istio-sidecar-injector" && (out.GroupVersionKind() == schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}) {
+				data, ok := out.Object["data"].(map[string]interface{})
+				if !ok {
+					t.Fatalf("failed to convert %v", out)
+				}
+				config, ok := data["config"].(string)
+				if !ok {
+					t.Fatalf("failed to config %v", data)
+				}
+				values, ok := data["values"].(string)
+				if !ok {
+					t.Fatalf("failed to config %v", data)
+				}
+				injectConfig := &Config{}
+				if err := yaml.Unmarshal([]byte(config), injectConfig); err != nil {
+					t.Fatalf("failed to unmarshal injectionConfig: %v", err)
+				}
+				return injectConfig, values
+			}
 		}
 	}
-	return chartutil.ToYaml(valMap)
-}
-
-func escapeHelmValue(val string) string {
-	if len(val) == 0 {
-		return val
-	}
-
-	if val[0] == '{' && val[len(val)-1] == '}' {
-		val := val[1 : len(val)-1]
-		val = strings.Replace(val, "{", "\\{", -1)
-		val = strings.Replace(val, "}", "\\}", -1)
-		val = strings.Replace(val, ".", "\\.", -1)
-		val = strings.Replace(val, "=", "\\=", -1)
-
-		return "{" + val + "}"
-	}
-
-	val = strings.Replace(val, ",", "\\,", -1)
-	val = strings.Replace(val, ".", "\\.", -1)
-	val = strings.Replace(val, "=", "\\=", -1)
-	return val
+	t.Fatal("could not find injection template")
+	return nil, ""
 }
 
 func splitYamlFile(yamlFile string, t *testing.T) [][]byte {
@@ -1130,9 +1067,6 @@ func normalizeAndCompareDeployments(got, want *appsv1.Deployment, t *testing.T) 
 	t.Helper()
 	// Scrub unimportant fields that tend to differ.
 	getAnnotations(got)[annotation.SidecarStatus.Name] = getAnnotations(want)[annotation.SidecarStatus.Name]
-	gotIstioCerts := istioCerts(got)
-	wantIstioCerts := istioCerts(want)
-	gotIstioCerts.Secret.DefaultMode = wantIstioCerts.Secret.DefaultMode
 	gotIstioInit := istioInit(got, t)
 	wantIstioInit := istioInit(want, t)
 	gotIstioInit.Image = wantIstioInit.Image
@@ -1181,16 +1115,6 @@ func normalizeAndCompareDeployments(got, want *appsv1.Deployment, t *testing.T) 
 
 func getAnnotations(d *appsv1.Deployment) map[string]string {
 	return d.Spec.Template.ObjectMeta.Annotations
-}
-
-func istioCerts(d *appsv1.Deployment) *corev1.Volume {
-	for i := 0; i < len(d.Spec.Template.Spec.Volumes); i++ {
-		v := &d.Spec.Template.Spec.Volumes[i]
-		if v.Name == "istio-certs" {
-			return v
-		}
-	}
-	return nil
 }
 
 func istioInit(d *appsv1.Deployment, t *testing.T) *corev1.Container {
@@ -1258,7 +1182,7 @@ func makeTestData(t testing.TB, skip bool) []byte {
 	return reviewJSON
 }
 
-func createWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
+func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 	t.Helper()
 	dir, err := ioutil.TempDir("", "webhook_test")
 	if err != nil {
@@ -1268,16 +1192,12 @@ func createWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
 		_ = os.RemoveAll(dir)
 	}
 
-	cfg := &Config{
-		Policy:   InjectionPolicyEnabled,
-		Template: sidecarTemplate,
-	}
 	configBytes, err := yaml.Marshal(cfg)
 	if err != nil {
 		cleanup()
 		t.Fatalf("Could not marshal test injection config: %v", err)
 	}
-	valuesBytes := []byte(getValues(&Params{}, t))
+	_, values := loadInjectionConfigMap(t, "")
 	var (
 		configFile     = filepath.Join(dir, "config-file.yaml")
 		valuesFile     = filepath.Join(dir, "values-file.yaml")
@@ -1293,7 +1213,7 @@ func createWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
 		t.Fatalf("WriteFile(%v) failed: %v", configFile, err)
 	}
 
-	if err := ioutil.WriteFile(valuesFile, valuesBytes, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(valuesFile, []byte(values), 0644); err != nil { // nolint: vetshadow
 		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", valuesFile, err)
 	}
@@ -1397,9 +1317,19 @@ func TestRunAndServe(t *testing.T) {
       "op": "add",
       "path": "/metadata/labels",
       "value": {
-         "security.istio.io/mtlsReady": "true"
+         "security.istio.io/tlsMode": "istio"
       }
-    }
+    },
+    {
+      "op": "add",
+      "path": "/metadata/labels/service.istio.io~1canonical-name",
+      "value": "test"
+	},
+	{
+		"op": "add",
+		"path": "/metadata/labels/service.istio.io~1canonical-revision",
+		"value": "latest"
+	}
 ]`)
 
 	cases := []struct {
@@ -1546,7 +1476,9 @@ func testSideCarInjectorMetrics(t *testing.T, wh *Webhook) {
 	if err != nil {
 		t.Fatalf("failed to read body: %v", err)
 	}
-	resp.Body.Close()
+	if err := resp.Body.Close(); err != nil {
+		t.Fatalf("failed to close: %v", err)
+	}
 
 	output := string(body)
 
@@ -1568,19 +1500,7 @@ func testSideCarInjectorMetrics(t *testing.T, wh *Webhook) {
 }
 
 func BenchmarkInjectServe(b *testing.B) {
-	mesh := mesh.DefaultMeshConfig()
-	params := &Params{
-		InitImage:           InitImageName(unitTestHub, unitTestTag),
-		ProxyImage:          ProxyImageName(unitTestHub, unitTestTag),
-		ImagePullPolicy:     "IfNotPresent",
-		Verbosity:           DefaultVerbosity,
-		SidecarProxyUID:     DefaultSidecarProxyUID,
-		Version:             "12345678",
-		Mesh:                &mesh,
-		IncludeIPRanges:     DefaultIncludeIPRanges,
-		IncludeInboundPorts: DefaultIncludeInboundPorts,
-	}
-	sidecarTemplate := loadConfigMapWithHelm(params, b)
+	sidecarTemplate, _ := loadInjectionConfigMap(b, "")
 	wh, cleanup := createWebhook(b, sidecarTemplate)
 	defer cleanup()
 

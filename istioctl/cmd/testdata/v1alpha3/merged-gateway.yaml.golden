@@ -12,6 +12,15 @@ spec:
   http:
   - match:
     - uri:
+        exact: /foo/bar/
+    route:
+    - destination:
+        host: anotherservice-service.another-namespace.svc.cluster.local
+        port:
+          number: 7080
+      weight: 100
+  - match:
+    - uri:
         prefix: /foo/
     route:
     - destination:
@@ -27,13 +36,4 @@ spec:
         host: my-ui.default.svc.cluster.local
         port:
           number: 80
-      weight: 100
-  - match:
-    - uri:
-        exact: /foo/bar/
-    route:
-    - destination:
-        host: anotherservice-service.another-namespace.svc.cluster.local
-        port:
-          number: 7080
       weight: 100

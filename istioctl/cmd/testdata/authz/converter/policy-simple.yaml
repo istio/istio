@@ -1,0 +1,53 @@
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ClusterRbacConfig
+metadata:
+  name: default
+spec:
+  mode: 'ON_WITH_INCLUSION'
+  inclusion:
+    namespaces: ["default"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: role
+  namespace: default
+spec:
+  rules:
+  - services: ["productpage.default.svc.cluster.local"]
+    methods: ["GET", "POST"]
+    paths: ["/a", "/b"]
+    constraints:
+    - key: "destination.port"
+      values: ["80", "90"]
+    - key: "destination.labels[env]"
+      values: ["staging"]
+    - key: "experimental.envoy.filters.network.mysql_proxy[db.table]"
+      values: ["add", "delete"]
+    - key: "request.headers[x-id]"
+      values: ["id-1", "id-2"]
+    - key: "request.headers[x-lang]"
+      values: ["en", "jp"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: binding
+  namespace: default
+spec:
+  subjects:
+  - user: "user"
+    group: "group"
+    properties:
+      source.ip: "10.0.0.0/8"
+      source.namespace: "source.namespace"
+      source.principal: "source.principal"
+      request.headers[User-Agent]: "request.headers[User-Agent]"
+      request.auth.principal: "request.auth.principal"
+      request.auth.audiences: "request.auth.audiences"
+      request.auth.presenter: "request.auth.presenter"
+      request.auth.claims[issuer]: "request.auth.claims[issuer]"
+      request.auth.claims[subject]: "request.auth.claims[subject]"
+  roleRef:
+    kind: ServiceRole
+    name: "role"

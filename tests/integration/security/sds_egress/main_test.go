@@ -37,6 +37,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("sds_egress_workload_mtls_istio_mutual_test", m).
+		Skip("https://github.com/istio/istio/issues/17933").
 		Label(label.CustomSetup).
 		RequireEnvironment(environment.Kube).
 		// SDS requires Kubernetes 1.13
@@ -66,4 +67,5 @@ func setupConfig(cfg *istio.Config) {
 	}
 	cfg.ValuesFile = "values-istio-sds-auth.yaml"
 	cfg.Values["gateways.istio-egressgateway.enabled"] = "true"
+	cfg.Values["prometheus.enabled"] = "true"
 }

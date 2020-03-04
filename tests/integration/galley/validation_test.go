@@ -22,8 +22,8 @@ import (
 	"gopkg.in/square/go-jose.v2/json"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/testdata/validation"
+	"istio.io/istio/galley/testdatasets/validation"
+	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/test/util/yml"
 
 	"istio.io/istio/pkg/test/framework"
@@ -106,8 +106,8 @@ func TestValidation(t *testing.T) {
 					ns := namespace.NewOrFail(t, fctx, namespace.Config{
 						Prefix: "validation",
 					})
-					err = env.ApplyContents(ns.Name(), ym)
-					defer func() { _ = env.DeleteContents(ns.Name(), ym) }()
+
+					err = env.ApplyContentsDryRun(ns.Name(), ym)
 
 					switch {
 					case err != nil && d.isValid():
@@ -123,6 +123,16 @@ func TestValidation(t *testing.T) {
 							t.Fatalf("config request denied for wrong reason: %v", err)
 						}
 					}
+
+					wetRunErr := env.ApplyContents(ns.Name(), ym)
+					defer func() { _ = env.DeleteContents(ns.Name(), ym) }()
+
+					if err != nil && wetRunErr == nil {
+						t.Fatalf("dry run returned no errors, but wet run returned: %v", wetRunErr)
+					}
+					if err == nil && wetRunErr != nil {
+						t.Fatalf("wet run returned no errors, but dry run returned: %v", err)
+					}
 				})
 			}
 		})
@@ -130,47 +140,16 @@ func TestValidation(t *testing.T) {
 
 var ignoredCRDs = []string{
 	// We don't validate K8s resources
+	"/v1/Endpoints",
 	"/v1/Namespace",
 	"/v1/Node",
 	"/v1/Pod",
-	"/v1/Endpoints",
+	"/v1/Secret",
 	"/v1/Service",
-	"extensions/v1beta1/Ingress",
+	"/v1/ConfigMap",
+	"apiextensions.k8s.io/v1beta1/CustomResourceDefinition",
 	"apps/v1/Deployment",
-	"networking.istio.io/v1alpha3/SyntheticServiceEntry",
-
-	// Legacy Mixer CRDs are ignored
-	"config.istio.io/v1alpha2/cloudwatch",
-	"config.istio.io/v1alpha2/statsd",
-	"config.istio.io/v1alpha2/stdio",
-	"config.istio.io/v1alpha2/listentry",
-	"config.istio.io/v1alpha2/metric",
-	"config.istio.io/v1alpha2/stackdriver",
-	"config.istio.io/v1alpha2/kubernetes",
-	"config.istio.io/v1alpha2/quota",
-	"config.istio.io/v1alpha2/zipkin",
-	"config.istio.io/v1alpha2/prometheus",
-	"config.istio.io/v1alpha2/redisquota",
-	"config.istio.io/v1alpha2/reportnothing",
-	"config.istio.io/v1alpha2/edge",
-	"config.istio.io/v1alpha2/noop",
-	"config.istio.io/v1alpha2/signalfx",
-	"config.istio.io/v1alpha2/solarwinds",
-	"config.istio.io/v1alpha2/apikey",
-	"config.istio.io/v1alpha2/bypass",
-	"config.istio.io/v1alpha2/dogstatsd",
-	"config.istio.io/v1alpha2/kubernetesenv",
-	"config.istio.io/v1alpha2/listchecker",
-	"config.istio.io/v1alpha2/tracespan",
-	"config.istio.io/v1alpha2/authorization",
-	"config.istio.io/v1alpha2/fluentd",
-	"config.istio.io/v1alpha2/memquota",
-	"config.istio.io/v1alpha2/opa",
-	"config.istio.io/v1alpha2/checknothing",
-	"config.istio.io/v1alpha2/circonus",
-	"config.istio.io/v1alpha2/denier",
-	"config.istio.io/v1alpha2/logentry",
-	"config.istio.io/v1alpha2/rbac",
+	"extensions/v1beta1/Ingress",
 }
 
 func TestEnsureNoMissingCRDs(t *testing.T) {
@@ -187,9 +166,28 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 
 			recognized := make(map[string]struct{})
 
-			for _, r := range metadata.MustGet().KubeSource().Resources() {
-				s := strings.Join([]string{r.Group, r.Version, r.Kind}, "/")
+			// TODO(jasonwzm) remove this after multi-version APIs are supported.
+			for _, r := range schema.MustGet().KubeCollections().All() {
+				s := strings.Join([]string{r.Resource().Group(), r.Resource().Version(), r.Resource().Kind()}, "/")
 				recognized[s] = struct{}{}
+			}
+			for _, gvk := range []string{
+				"networking.istio.io/v1beta1/Gateway",
+				"networking.istio.io/v1beta1/DestinationRule",
+				"networking.istio.io/v1beta1/VirtualService",
+				"networking.istio.io/v1beta1/Sidecar",
+			} {
+				recognized[gvk] = struct{}{}
+			}
+			// These CRDs are validated outside of Istio
+			for _, gvk := range []string{
+				"networking.x.k8s.io/v1alpha1/Gateway",
+				"networking.x.k8s.io/v1alpha1/GatewayClass",
+				"networking.x.k8s.io/v1alpha1/HTTPRoute",
+				"networking.x.k8s.io/v1alpha1/TcpRoute",
+				"networking.x.k8s.io/v1alpha1/TrafficSplit",
+			} {
+				delete(recognized, gvk)
 			}
 
 			testedValid := make(map[string]struct{})

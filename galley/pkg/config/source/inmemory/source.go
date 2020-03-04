@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"sync"
 
-	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/scope"
+	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/schema/collection"
 )
 
 var inMemoryNameDiscriminator int64
@@ -37,19 +37,20 @@ type Source struct {
 var _ event.Source = &Source{}
 
 // New returns a new in-memory source, based on given collections.
-func New(collections collection.Names) *Source {
+func New(collections collection.Schemas) *Source {
 	name := fmt.Sprintf("inmemory-%d", inMemoryNameDiscriminator)
 	inMemoryNameDiscriminator++
 
-	scope.Source.Debugf("Creating new in-memory source (collections: %d)", len(collections))
+	all := collections.All()
+	scope.Source.Debugf("Creating new in-memory source (collections: %d)", len(all))
 
 	s := &Source{
 		collections: make(map[collection.Name]*Collection),
 		name:        name,
 	}
 
-	for _, c := range collections {
-		s.collections[c] = NewCollection(c)
+	for _, c := range all {
+		s.collections[c.Name()] = NewCollection(c)
 	}
 
 	return s

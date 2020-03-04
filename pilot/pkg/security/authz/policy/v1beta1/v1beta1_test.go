@@ -19,39 +19,53 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
+	securityPb "istio.io/api/security/v1beta1"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/security/authz/policy"
+	"istio.io/istio/pilot/pkg/security/trustdomain"
 )
 
 // TODO(pitlv2109): Add unit tests with trust domain aliases.
 func TestV1beta1Generator_Generate(t *testing.T) {
 	testCases := []struct {
-		name         string
-		policies     []model.Config
-		wantRules    map[string][]string
-		forTCPFilter bool
+		name           string
+		denyPolicies   []model.AuthorizationPolicyConfig
+		wantDenyRules  map[string][]string
+		allowPolicies  []model.AuthorizationPolicyConfig
+		wantAllowRules map[string][]string
+		forTCPFilter   bool
 	}{
 		{
-			name: "no policy",
-		},
-		{
 			name: "one policy",
-			policies: []model.Config{
-				*policy.SimpleAuthzPolicy("default", "foo"),
+			allowPolicies: []model.AuthorizationPolicyConfig{
+				{
+					Name:                "default",
+					Namespace:           "foo",
+					AuthorizationPolicy: policy.SimpleAuthorizationProto("default", securityPb.AuthorizationPolicy_ALLOW),
+				},
 			},
-			wantRules: map[string][]string{
+			wantAllowRules: map[string][]string{
 				"ns[foo]-policy[default]-rule[0]": {
 					policy.AuthzPolicyTag("default"),
 				},
 			},
 		},
 		{
-			name: "two policies",
-			policies: []model.Config{
-				*policy.SimpleAuthzPolicy("default", "foo"),
-				*policy.SimpleAuthzPolicy("default", "istio-system"),
+			name: "allow policies",
+			allowPolicies: []model.AuthorizationPolicyConfig{
+				{
+					Name:                "default",
+					Namespace:           "foo",
+					AuthorizationPolicy: policy.SimpleAuthorizationProto("default", securityPb.AuthorizationPolicy_ALLOW),
+				},
+				{
+					Name:                "default",
+					Namespace:           "istio-system",
+					AuthorizationPolicy: policy.SimpleAuthorizationProto("default", securityPb.AuthorizationPolicy_ALLOW),
+				},
 			},
-			wantRules: map[string][]string{
+			wantAllowRules: map[string][]string{
 				"ns[foo]-policy[default]-rule[0]": {
 					policy.AuthzPolicyTag("default"),
 				},
@@ -60,21 +74,87 @@ func TestV1beta1Generator_Generate(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "deny policies",
+			denyPolicies: []model.AuthorizationPolicyConfig{
+				{
+					Name:                "default",
+					Namespace:           "foo",
+					AuthorizationPolicy: policy.SimpleAuthorizationProto("default", securityPb.AuthorizationPolicy_DENY),
+				},
+				{
+					Name:                "default",
+					Namespace:           "istio-system",
+					AuthorizationPolicy: policy.SimpleAuthorizationProto("default", securityPb.AuthorizationPolicy_DENY),
+				},
+			},
+			wantDenyRules: map[string][]string{
+				"ns[foo]-policy[default]-rule[0]": {
+					policy.AuthzPolicyTag("default"),
+				},
+				"ns[istio-system]-policy[default]-rule[0]": {
+					policy.AuthzPolicyTag("default"),
+				},
+			},
+		},
+		{
+			name: "allow and deny policies",
+			denyPolicies: []model.AuthorizationPolicyConfig{
+				{
+					Name:                "default-deny",
+					Namespace:           "foo",
+					AuthorizationPolicy: policy.SimpleAuthorizationProto("default", securityPb.AuthorizationPolicy_DENY),
+				},
+				{
+					Name:                "default-deny",
+					Namespace:           "istio-system",
+					AuthorizationPolicy: policy.SimpleAuthorizationProto("default", securityPb.AuthorizationPolicy_DENY),
+				},
+			},
+			wantDenyRules: map[string][]string{
+				"ns[foo]-policy[default-deny]-rule[0]": {
+					policy.AuthzPolicyTag("default"),
+				},
+				"ns[istio-system]-policy[default-deny]-rule[0]": {
+					policy.AuthzPolicyTag("default"),
+				},
+			},
+			allowPolicies: []model.AuthorizationPolicyConfig{
+				{
+					Name:                "default-allow",
+					Namespace:           "foo",
+					AuthorizationPolicy: policy.SimpleAuthorizationProto("default", securityPb.AuthorizationPolicy_ALLOW),
+				},
+				{
+					Name:                "default-allow",
+					Namespace:           "istio-system",
+					AuthorizationPolicy: policy.SimpleAuthorizationProto("default", securityPb.AuthorizationPolicy_ALLOW),
+				},
+			},
+			wantAllowRules: map[string][]string{
+				"ns[foo]-policy[default-allow]-rule[0]": {
+					policy.AuthzPolicyTag("default"),
+				},
+				"ns[istio-system]-policy[default-allow]-rule[0]": {
+					policy.AuthzPolicyTag("default"),
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := NewGenerator("", nil, tc.policies)
+			g := NewGenerator(trustdomain.NewTrustDomainBundle("", nil), tc.denyPolicies, tc.allowPolicies)
 			if g == nil {
 				t.Fatal("failed to create generator")
 			}
 
-			got := g.Generate(tc.forTCPFilter)
-			if got.GetRules() == nil {
-				t.Fatal("rule must not be nil")
+			gotDeny, gotAllow := g.Generate(tc.forTCPFilter)
+			if err := policy.Verify(gotDeny.GetRules(), tc.wantDenyRules, false, true /* wantDeny */); err != nil {
+				t.Fatalf("%s\n%s", err, spew.Sdump(gotDeny))
 			}
-			if err := policy.Verify(got.GetRules(), tc.wantRules); err != nil {
-				t.Fatalf("%s\n%s", err, spew.Sdump(got))
+			if err := policy.Verify(gotAllow.GetRules(), tc.wantAllowRules, false, false /* wantDeny */); err != nil {
+				t.Fatalf("%s\n%s", err, spew.Sdump(gotAllow))
 			}
 		})
 	}

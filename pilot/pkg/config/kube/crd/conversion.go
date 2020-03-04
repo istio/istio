@@ -19,25 +19,65 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-	"strings"
 
+	"github.com/gogo/protobuf/proto"
+	"github.com/hashicorp/go-multierror"
+	"gopkg.in/yaml.v2"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
+
+	"istio.io/istio/pkg/config/schema/resource"
 
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/schema"
-	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
-// ConvertObject converts an IstioObject k8s-style object to the
-// internal configuration model.
-func ConvertObject(schema schema.Instance, object IstioObject, domain string) (*model.Config, error) {
-	data, err := schema.FromJSONMap(object.GetSpec())
+// FromJSON converts a canonical JSON to a proto message
+func FromJSON(s collection.Schema, js string) (proto.Message, error) {
+	pb, err := s.Resource().NewProtoInstance()
+	if err != nil {
+		return nil, err
+	}
+	if err = gogoprotomarshal.ApplyJSON(js, pb); err != nil {
+		return nil, err
+	}
+	return pb, nil
+}
+
+// FromYAML converts a canonical YAML to a proto message
+func FromYAML(s collection.Schema, yml string) (proto.Message, error) {
+	pb, err := s.Resource().NewProtoInstance()
+	if err != nil {
+		return nil, err
+	}
+	if err = gogoprotomarshal.ApplyYAML(yml, pb); err != nil {
+		return nil, err
+	}
+	return pb, nil
+}
+
+// FromJSONMap converts from a generic map to a proto message using canonical JSON encoding
+// JSON encoding is specified here: https://developers.google.com/protocol-buffers/docs/proto3#json
+func FromJSONMap(s collection.Schema, data interface{}) (proto.Message, error) {
+	// Marshal to YAML bytes
+	str, err := yaml.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+	out, err := FromYAML(s, string(str))
+	if err != nil {
+		return nil, multierror.Prefix(err, fmt.Sprintf("YAML decoding error: %v", string(str)))
+	}
+	return out, nil
+}
+
+// ConvertObject converts an IstioObject k8s-style object to the internal configuration model.
+func ConvertObject(schema collection.Schema, object IstioObject, domain string) (*model.Config, error) {
+	data, err := FromJSONMap(schema, object.GetSpec())
 	if err != nil {
 		return nil, err
 	}
@@ -45,9 +85,9 @@ func ConvertObject(schema schema.Instance, object IstioObject, domain string) (*
 
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              schema.Type,
-			Group:             ResourceGroup(&schema),
-			Version:           schema.Version,
+			Type:              schema.Resource().Kind(),
+			Group:             schema.Resource().Group(),
+			Version:           schema.Resource().Version(),
 			Name:              meta.Name,
 			Namespace:         meta.Namespace,
 			Domain:            domain,
@@ -60,33 +100,8 @@ func ConvertObject(schema schema.Instance, object IstioObject, domain string) (*
 	}, nil
 }
 
-// ConvertObjectFromUnstructured converts an IstioObject k8s-style object to the
-// internal configuration model.
-func ConvertObjectFromUnstructured(schema schema.Instance, un *unstructured.Unstructured, domain string) (*model.Config, error) {
-	data, err := schema.FromJSONMap(un.Object["spec"])
-	if err != nil {
-		return nil, err
-	}
-
-	return &model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:              schema.Type,
-			Group:             ResourceGroup(&schema),
-			Version:           schema.Version,
-			Name:              un.GetName(),
-			Namespace:         un.GetNamespace(),
-			Domain:            domain,
-			Labels:            un.GetLabels(),
-			Annotations:       un.GetAnnotations(),
-			ResourceVersion:   un.GetResourceVersion(),
-			CreationTimestamp: un.GetCreationTimestamp().Time,
-		},
-		Spec: data,
-	}, nil
-}
-
 // ConvertConfig translates Istio config to k8s config JSON
-func ConvertConfig(schema schema.Instance, cfg model.Config) (IstioObject, error) {
+func ConvertConfig(schema collection.Schema, cfg model.Config) (IstioObject, error) {
 	spec, err := gogoprotomarshal.ToJSONMap(cfg.Spec)
 	if err != nil {
 		return nil, err
@@ -95,74 +110,27 @@ func ConvertConfig(schema schema.Instance, cfg model.Config) (IstioObject, error
 	if namespace == "" {
 		namespace = meta_v1.NamespaceDefault
 	}
-	out := KnownTypes[schema.Type].Object.DeepCopyObject().(IstioObject)
-	out.SetObjectMeta(meta_v1.ObjectMeta{
-		Name:            cfg.Name,
-		Namespace:       namespace,
-		ResourceVersion: cfg.ResourceVersion,
-		Labels:          cfg.Labels,
-		Annotations:     cfg.Annotations,
-	})
-	out.SetSpec(spec)
-
-	return out, nil
-}
-
-// ResourceName converts "my-name" to "myname".
-// This is needed by k8s API server as dashes prevent kubectl from accessing CRDs
-func ResourceName(s string) string {
-	return strings.Replace(s, "-", "", -1)
-}
-
-// ResourceGroup generates the k8s API group for each schema.
-func ResourceGroup(schema *schema.Instance) string {
-	return schema.Group + constants.IstioAPIGroupDomain
+	return &IstioKind{
+		TypeMeta: meta_v1.TypeMeta{
+			Kind:       schema.Resource().Kind(),
+			APIVersion: schema.Resource().APIVersion(),
+		},
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name:              cfg.Name,
+			Namespace:         namespace,
+			ResourceVersion:   cfg.ResourceVersion,
+			Labels:            cfg.Labels,
+			Annotations:       cfg.Annotations,
+			CreationTimestamp: meta_v1.NewTime(cfg.CreationTimestamp),
+		},
+		Spec: spec,
+	}, nil
 }
 
 // TODO - add special cases for type-to-kind and kind-to-type
 // conversions with initial-isms. Consider adding additional type
 // information to the abstract model and/or elevating k8s
 // representation to first-class type to avoid extra conversions.
-
-// KebabCaseToCamelCase converts "my-name" to "MyName"
-func KebabCaseToCamelCase(s string) string {
-	switch s {
-	case "http-api-spec":
-		return "HTTPAPISpec"
-	case "http-api-spec-binding":
-		return "HTTPAPISpecBinding"
-	default:
-		words := strings.Split(s, "-")
-		out := ""
-		for _, word := range words {
-			out += strings.Title(word)
-		}
-		return out
-	}
-}
-
-// CamelCaseToKebabCase converts "MyName" to "my-name"
-func CamelCaseToKebabCase(s string) string {
-	switch s {
-	case "HTTPAPISpec":
-		return "http-api-spec"
-	case "HTTPAPISpecBinding":
-		return "http-api-spec-binding"
-	default:
-		var out bytes.Buffer
-		for i := range s {
-			if 'A' <= s[i] && s[i] <= 'Z' {
-				if i > 0 {
-					out.WriteByte('-')
-				}
-				out.WriteByte(s[i] - 'A' + 'a')
-			} else {
-				out.WriteByte(s[i])
-			}
-		}
-		return out.String()
-	}
-}
 
 func parseInputsImpl(inputs string, withValidate bool) ([]model.Config, []IstioKind, error) {
 	var varr []model.Config
@@ -185,7 +153,8 @@ func parseInputsImpl(inputs string, withValidate bool) ([]model.Config, []IstioK
 			continue
 		}
 
-		s, exists := schemas.Istio.GetByType(CamelCaseToKebabCase(obj.Kind))
+		gvk := obj.GroupVersionKind()
+		s, exists := collections.PilotServiceApi.FindByGroupVersionKind(resource.FromKubernetesGVK(&gvk))
 		if !exists {
 			log.Debugf("unrecognized type %v", obj.Kind)
 			others = append(others, obj)
@@ -198,7 +167,7 @@ func parseInputsImpl(inputs string, withValidate bool) ([]model.Config, []IstioK
 		}
 
 		if withValidate {
-			if err := s.Validate(cfg.Name, cfg.Namespace, cfg.Spec); err != nil {
+			if err := s.Resource().ValidateProto(cfg.Name, cfg.Namespace, cfg.Spec); err != nil {
 				return nil, nil, fmt.Errorf("configuration is invalid: %v", err)
 			}
 		}

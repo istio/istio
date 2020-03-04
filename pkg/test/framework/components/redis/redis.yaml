@@ -111,7 +111,6 @@ spec:
 
 ---
 # Source: redis/templates/redis-slave-deployment.yaml
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -146,11 +145,10 @@ spec:
       serviceAccountName: "default"
       containers:
       - name: redis-release
-        image: docker.io/bitnami/redis:4.0.12
-        imagePullPolicy: "Always"
+        image: "{{ .BitnamiHub }}/redis:4.0.12"
+        imagePullPolicy: "{{.ImagePullPolicy}}"
         command:
           - /run.sh
-          
         args:
         - "--port"
         - "$(REDIS_PORT)"
@@ -256,11 +254,10 @@ spec:
       serviceAccountName: "default"
       containers:
       - name: redis-release
-        image: "docker.io/bitnami/redis:4.0.12"
-        imagePullPolicy: "Always"
+        image: "{{ .BitnamiHub }}/redis:4.0.12"
+        imagePullPolicy: "{{.ImagePullPolicy}}"
         command:
           - /run.sh
-          
         args:
         - "--port"
         - "$(REDIS_PORT)"
@@ -315,8 +312,8 @@ spec:
           mountPath: /opt/bitnami/redis/etc
       initContainers:
       - name: volume-permissions
-        image: "docker.io/bitnami/minideb:latest"
-        imagePullPolicy: "IfNotPresent"
+        image: "{{ .BitnamiHub }}/minideb:latest"
+        imagePullPolicy: "{{.ImagePullPolicy}}"
         command: ["/bin/chown", "-R", "1001:1001", "/data"]
         securityContext:
           runAsUser: 0
@@ -348,5 +345,3 @@ spec:
             storage: "8Gi"
   updateStrategy:
     type: RollingUpdate
-
-

@@ -10,26 +10,8 @@ messages:
       - name: detail
         type: string
 
-  - name: "NotYetImplemented"
-    code: IST0002
-    level: Error
-    description: "A feature that the configuration is depending on is not implemented yet."
-    template: "Not yet implemented: %s"
-    args:
-      - name: detail
-        type: string
-
-  - name: "ParseError"
-    code: IST0003
-    level: Warning
-    description: "There was a parse error during the parsing of the configuration text"
-    template: "Parse error: %s"
-    args:
-      - name: detail
-        type: string
-
   - name: "Deprecated"
-    code: IST0004
+    code: IST0002
     level: Warning
     description: "A feature that the configuration is depending on is now deprecated."
     template: "Deprecated: %s"
@@ -63,12 +45,8 @@ messages:
     code: IST0103
     level: Warning
     description: "A pod is missing the Istio proxy."
-    template: "The pod is missing its Istio proxy. Run 'kubectl delete pod %s -n %s' to restart it"
+    template: "The pod is missing the Istio proxy. This can often be resolved by restarting or redeploying the workload."
     args:
-      - name: pod
-        type: string
-      - name: namespace
-        type: string
 
   - name: "GatewayPortNotOnWorkload"
     code: IST0104
@@ -81,24 +59,24 @@ messages:
       - name: port
         type: int
   
-  - name: "IstioProxyVersionMismatch"
+  - name: "IstioProxyImageMismatch"
     code: IST0105
     level: Warning
-    description: "The version of the Istio proxy running on the pod does not match the version used by the istio injector."
-    template: "The version of the Istio proxy running on the pod does not match the version used by the istio injector (pod version: %s; injector version: %s). This often happens after upgrading the Istio control-plane and can be fixed by redeploying the pod."
+    description: "The image of the Istio proxy running on the pod does not match the image defined in the injection configuration."
+    template: "The image of the Istio proxy running on the pod does not match the image defined in the injection configuration (pod image: %s; injection configuration image: %s). This often happens after upgrading the Istio control-plane and can be fixed by redeploying the pod."
     args:
-      - name: proxyVersion
+      - name: proxyImage
         type: string
-      - name: injectionVersion
+      - name: injectionImage
         type: string
 
   - name: "SchemaValidationError"
     code: IST0106
     level: Error
-    description: "The resource has one or more schema validation errors."
-    template: "The resource has one or more schema validation errors: %v"
+    description: "The resource has a schema validation error."
+    template: "Schema validation error: %v"
     args:
-      - name: combinedErr
+      - name: err
         type: error
 
   - name: "MisplacedAnnotation"
@@ -120,4 +98,148 @@ messages:
     args:
        - name: annotation
          type: string
+
+  - name: "ConflictingMeshGatewayVirtualServiceHosts"
+    code: IST0109
+    level: Error
+    description: "Conflicting hosts on VirtualServices associated with mesh gateway"
+    template: "The VirtualServices %s associated with mesh gateway define the same host %s which can lead to undefined behavior. This can be fixed by merging the conflicting VirtualServices into a single resource."
+    args:
+      - name: virtualServices
+        type: string
+      - name: host
+        type: string
+
+  - name: "ConflictingSidecarWorkloadSelectors"
+    code: IST0110
+    level: Error
+    description: "A Sidecar resource selects the same workloads as another Sidecar resource"
+    template: "The Sidecars %v in namespace %q select the same workload pod %q, which can lead to undefined behavior."
+    args:
+      - name: conflictingSidecars
+        type: "[]string"
+      - name: namespace
+        type: string
+      - name: workloadPod
+        type: string
+
+  - name: "MultipleSidecarsWithoutWorkloadSelectors"
+    code: IST0111
+    level: Error
+    description: "More than one sidecar resource in a namespace has no workload selector"
+    template: "The Sidecars %v in namespace %q have no workload selector, which can lead to undefined behavior."
+    args:
+      - name: conflictingSidecars
+        type: "[]string"
+      - name: namespace
+        type: string
+
+  - name: "VirtualServiceDestinationPortSelectorRequired"
+    code: IST0112
+    level: Error
+    description: "A VirtualService routes to a service with more than one port exposed, but does not specify which to use."
+    template: "This VirtualService routes to a service %q that exposes multiple ports %v. Specifying a port in the destination is required to disambiguate."
+    args:
+      - name: destHost
+        type: string
+      - name: destPorts
+        type: "[]int"
+
+  - name: "MTLSPolicyConflict"
+    code: IST0113
+    level: Error
+    description: "A DestinationRule and Policy are in conflict with regards to mTLS."
+    template: "A DestinationRule and Policy are in conflict with regards to mTLS for host %s. The DestinationRule %q specifies that mTLS must be %t but the Policy object %q specifies %s."
+    args:
+      - name: host
+        type: string
+      - name: destinationRuleName
+        type: string
+      - name: destinationRuleMTLSMode
+        type: bool
+      - name: policyName
+        type: string
+      - name: policyMTLSMode
+        type: string
+
+  - name: "PolicySpecifiesPortNameThatDoesntExist"
+    code: IST0114
+    level: Warning
+    description: "A Policy targets a port name that cannot be found."
+    template: "Port name %s could not be found for host %s, which means the Policy won't be enforced."
+    args:
+      - name: portName
+        type: string
+      - name: host
+        type: string
+
+  - name: "DestinationRuleUsesMTLSForWorkloadWithoutSidecar"
+    code: IST0115
+    level: Error
+    description: "A DestinationRule uses mTLS for a workload that has no sidecar."
+    template: "DestinationRule %s uses mTLS for workload %s that has no sidecar. Traffic from workloads with sidecars will fail."
+    args:
+      - name: destinationRuleName
+        type: string
+      - name: host
+        type: string
+
+  - name: "DeploymentAssociatedToMultipleServices"
+    code: IST0116
+    level: Warning
+    description: "The resulting pods of a service mesh deployment can't be associated with multiple services using the same port but different protocols."
+    template: "This deployment is associated with multiple services using port %d but different protocols: %v"
+    args:
+      - name: deployment
+        type: string
+      - name: port
+        type: int32
+      - name: services
+        type: "[]string"
+
+  - name: "DeploymentRequiresServiceAssociated"
+    code: IST0117
+    level: Warning
+    description: "The resulting pods of a service mesh deployment must be associated with at least one service."
+    template: "No service associated with this deployment. Service mesh deployments must be associated with a service."
+
+  - name: "PortNameIsNotUnderNamingConvention"
+    code: IST0118
+    level: Info
+    description: "Port name is not under naming convention. Protocol detection is applied to the port."
+    template: "Port name %s (port: %d, targetPort: %s) doesn't follow the naming convention of Istio port."
+    args:
+      - name: portName
+        type: string
+      - name: port
+        type: int
+      - name: targetPort
+        type: string
+
+  - name: "JwtFailureDueToInvalidServicePortPrefix"
+    code: IST0119
+    level: Warning
+    description: "Authentication policy with JWT targets Service with invalid port specification."
+    template: "Authentication policy with JWT targets Service with invalid port specification (port: %d, name: %s, protocol: %s, targetPort: %s)."
+    args:
+      - name: port
+        type: int
+      - name: portName
+        type: string
+      - name: protocol
+        type: string
+      - name: targetPort
+        type: string
+
+  - name: "PolicyResourceIsDeprecated"
+    code: IST0120
+    level: Info
+    description: "The Policy resource is deprecated and will be removed in a future Istio release. Migrate to the PeerAuthentication resource."
+    template: "The Policy resource is deprecated and will be removed in a future Istio release. Migrate to the PeerAuthentication resource."
+
+  - name: "MeshPolicyResourceIsDeprecated"
+    code: IST0121
+    level: Info
+    description: "The MeshPolicy resource is deprecated and will be removed in a future Istio release. Migrate to the PeerAuthentication resource."
+    template: "The MeshPolicy resource is deprecated and will be removed in a future Istio release. Migrate to the PeerAuthentication resource."
 

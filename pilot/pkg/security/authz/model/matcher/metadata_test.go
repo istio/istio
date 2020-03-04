@@ -15,6 +15,7 @@
 package matcher
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -45,6 +46,74 @@ func TestMetadataStringMatcher(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(*actual, *expect) {
-		t.Errorf("expecting %v, but got %v", *expect, *actual)
+		t.Errorf("want %s, got %s", expect.String(), actual.String())
+	}
+}
+
+func TestMetadataListMatcher(t *testing.T) {
+	getWant := func(regex string) envoy_matcher.MetadataMatcher {
+		return envoy_matcher.MetadataMatcher{
+			Filter: "istio_authn",
+			Path: []*envoy_matcher.MetadataMatcher_PathSegment{
+				{
+					Segment: &envoy_matcher.MetadataMatcher_PathSegment_Key{
+						Key: "key1",
+					},
+				},
+				{
+					Segment: &envoy_matcher.MetadataMatcher_PathSegment_Key{
+						Key: "key2",
+					},
+				},
+			},
+			Value: &envoy_matcher.ValueMatcher{
+				MatchPattern: &envoy_matcher.ValueMatcher_ListMatch{
+					ListMatch: &envoy_matcher.ListMatcher{
+						MatchPattern: &envoy_matcher.ListMatcher_OneOf{
+							OneOf: &envoy_matcher.ValueMatcher{
+								MatchPattern: &envoy_matcher.ValueMatcher_StringMatch{
+									StringMatch: &envoy_matcher.StringMatcher{
+										MatchPattern: &envoy_matcher.StringMatcher_SafeRegex{
+											SafeRegex: &envoy_matcher.RegexMatcher{
+												EngineType: &envoy_matcher.RegexMatcher_GoogleRe2{
+													GoogleRe2: &envoy_matcher.RegexMatcher_GoogleRE2{},
+												},
+												Regex: regex,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+	getActual := func(treatWildcardAsRequired bool) envoy_matcher.MetadataMatcher {
+		return *MetadataListMatcher("istio_authn", []string{"key1", "key2"}, "*", treatWildcardAsRequired)
+	}
+
+	testCases := []struct {
+		treatWildcardAsRequired bool
+		want                    string
+	}{
+		{
+			treatWildcardAsRequired: false,
+			want:                    ".*",
+		},
+		{
+			treatWildcardAsRequired: true,
+			want:                    ".+",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("treatWildcardAsRequired[%v]", tc.treatWildcardAsRequired), func(t *testing.T) {
+			want := getWant(tc.want)
+			actual := getActual(tc.treatWildcardAsRequired)
+			if !reflect.DeepEqual(want, actual) {
+				t.Errorf("want %s, but got %s", want.String(), actual.String())
+			}
+		})
 	}
 }

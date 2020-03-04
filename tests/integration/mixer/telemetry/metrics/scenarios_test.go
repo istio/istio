@@ -135,46 +135,18 @@ func testMetric(t *testing.T, ctx framework.TestContext, label string, labelValu
 		t.Fatal(err)
 	}
 
-	// We shold see 10 requests but giving an error of 1, to make test less flaky.
+	// We should see 10 requests but giving an error of 1, to make test less flaky.
 	if (f - i) < float64(9) {
 		t.Errorf("Bad metric value: got %f, want at least 9", f-i)
 	}
-}
-
-func TestStateMetrics(t *testing.T) {
-	framework.
-		NewTest(t).
-		RequiresEnvironment(environment.Kube).
-		Run(func(ctx framework.TestContext) {
-			g.ApplyConfigOrFail(
-				t,
-				bookinfoNs,
-				bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-				bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-			)
-			defer g.DeleteConfigOrFail(t,
-				bookinfoNs,
-				bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-				bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-			)
-
-			util.AllowRuleSync(t)
-
-			query := fmt.Sprintf("sum(galley_istio_networking_destinationrules{namespace=\"%s\",version=\"v1alpha3\"})", bookinfoNs.Name())
-			util.ValidateMetric(t, prom, query, "galley_istio_networking_destinationrules", 4)
-
-			query = fmt.Sprintf("sum(galley_istio_networking_virtualservices{namespace=\"%s\"})", bookinfoNs.Name())
-			util.ValidateMetric(t, prom, query, "galley_istio_networking_virtualservices", 5)
-
-			query = fmt.Sprintf("sum(galley_istio_networking_gateways{namespace=\"%s\"})", bookinfoNs.Name())
-			util.ValidateMetric(t, prom, query, "galley_istio_networking_gateways", 1)
-		})
 }
 
 // Port of TestTcpMetric
 func TestTcpMetric(t *testing.T) {
 	framework.
 		NewTest(t).
+		// TODO(https://github.com/istio/istio/issues/18105)
+		Label(label.Flaky).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			_ = bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoRatingsv2})
@@ -220,7 +192,25 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("mixer_telemetry_metrics", m).
 		RequireEnvironment(environment.Kube).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
+		Label(label.CustomSetup).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
+			cfg.ControlPlaneValues = `
+values:
+  prometheus:
+    enabled: true
+  global:
+    disablePolicyChecks: false
+  telemetry:
+    v1:
+      enabled: true
+    v2:
+      enabled: false
+components:
+  policy:
+    enabled: true
+  telemetry:
+    enabled: true`
+		})).
 		Setup(testsetup).
 		Run()
 }

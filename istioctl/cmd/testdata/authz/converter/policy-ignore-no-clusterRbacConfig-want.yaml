@@ -1,0 +1,17 @@
+# Generated for service "productpage.default.svc.cluster.local" found in ServiceRole "productpage" at rule 0
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-productpage-rule0-svc0-target0
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        principals:
+        - user
+  selector:
+    matchLabels:
+      app: productpage
+      version: v1
+---

@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/util"
 
-	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -155,7 +155,7 @@ metadata:
 spec:
   egress:
   - hosts:
-    - "istio-system/*"
+    - "%s/*"
     - "./b.%s.svc.%s"
     - "*/%s"
   outboundTrafficPolicy:
@@ -179,7 +179,8 @@ func TestMirroringExternalService(t *testing.T) {
 		mirrorHost:        fakeExternalURL,
 		mirrorClusterName: fakeExternalURL,
 		fnInjectConfig: func(ns namespace.Instance, instances [3]echo.Instance) {
-			g.ApplyConfigOrFail(t, ns, fmt.Sprintf(sidecar, ns.Name(), instances[1].Config().Domain, fakeExternalURL))
+			g.ApplyConfigOrFail(t, ns, fmt.Sprintf(sidecar, i.Settings().ConfigNamespace, ns.Name(),
+				instances[1].Config().Domain, fakeExternalURL))
 			g.ApplyConfigOrFail(t, ns, fmt.Sprintf(serviceEntry, fakeExternalURL, instances[2].Address()))
 			if err := outboundtrafficpolicy.WaitUntilNotCallable(instances[0], instances[2]); err != nil {
 				t.Fatalf("failed to apply sidecar, %v", err)
@@ -292,7 +293,12 @@ func checkIfMirrorWasApplied(target echo.Instance, mirrorClusterName string, tc 
 			clusterName := fmt.Sprintf("outbound|%d||%s", port.ServicePort, mirrorClusterName)
 			instance.Equals(clusterName, "{.requestMirrorPolicy.cluster}")
 
-			instance.Equals(tc.percentage, "{.requestMirrorPolicy.runtimeFraction.defaultValue.numerator}")
+			if tc.absent {
+				instance.Equals(tc.percentage, "{.requestMirrorPolicy.runtimeFraction.defaultValue.numerator}")
+			} else {
+				instance.Equals(tc.percentage*10000, "{.requestMirrorPolicy.runtimeFraction.defaultValue.numerator}") // Set to MILLION.
+				instance.Equals("MILLION", "{.requestMirrorPolicy.runtimeFraction.defaultValue.denominator}")
+			}
 		} else {
 			instance.NotExists("{.requestMirrorPolicy}")
 		}
@@ -386,7 +392,7 @@ func verifyTrafficMirror(instances [3]echo.Instance, tc testCaseMirror, testID s
 func logCount(instance echo.Instance, testID string) (float64, error) {
 	workloads, err := instance.Workloads()
 	if err != nil {
-		return -1, fmt.Errorf("failed to get workloads: %v", err)
+		return -1, fmt.Errorf("failed to get Subsets: %v", err)
 	}
 
 	var logs string

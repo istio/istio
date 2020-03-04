@@ -471,7 +471,7 @@ func TestCrdsRetryAsynchronously(t *testing.T) {
 	}
 	atomic.StoreInt32(&count, 1)
 
-	after := time.After(time.Second / 10)
+	after := time.After(time.Second)
 	tick := time.Tick(time.Millisecond)
 loop:
 	for {

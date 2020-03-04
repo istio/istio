@@ -94,6 +94,11 @@ func TestValidateCondition(t *testing.T) {
 		wantError bool
 	}{
 		{
+			key:       "request.headers[:authority]",
+			values:    []string{"productpage", ""},
+			wantError: true,
+		},
+		{
 			key:    "request.headers[:authority]",
 			values: []string{"productpage"},
 		},
@@ -112,22 +117,29 @@ func TestValidateCondition(t *testing.T) {
 			wantError: true,
 		},
 		{
-			key: "source.namespace",
+			key:    "source.namespace",
+			values: []string{"value"},
 		},
 		{
-			key: "source.user",
+			key:       "source.user",
+			values:    []string{"value"},
+			wantError: true,
 		},
 		{
-			key: "source.principal",
+			key:    "source.principal",
+			values: []string{"value"},
 		},
 		{
-			key: "request.auth.principal",
+			key:    "request.auth.principal",
+			values: []string{"value"},
 		},
 		{
-			key: "request.auth.audiences",
+			key:    "request.auth.audiences",
+			values: []string{"value"},
 		},
 		{
-			key: "request.auth.presenter",
+			key:    "request.auth.presenter",
+			values: []string{"value"},
 		},
 		{
 			key:    "request.auth.claims[id]",
@@ -135,6 +147,7 @@ func TestValidateCondition(t *testing.T) {
 		},
 		{
 			key:       "request.auth.claims[]",
+			values:    []string{"value"},
 			wantError: true,
 		},
 		{
@@ -156,26 +169,37 @@ func TestValidateCondition(t *testing.T) {
 			wantError: true,
 		},
 		{
-			key:       "destination.labels",
+			key:       "destination.labels[app]",
+			values:    []string{"value"},
 			wantError: true,
 		},
 		{
 			key:       "destination.name",
+			values:    []string{"value"},
 			wantError: true,
 		},
 		{
 			key:       "destination.namespace",
+			values:    []string{"value"},
 			wantError: true,
 		},
 		{
-			key:       "destination.use",
+			key:       "destination.user",
+			values:    []string{"value"},
 			wantError: true,
 		},
 		{
-			key: "connection.sni",
+			key:    "connection.sni",
+			values: []string{"value"},
 		},
 		{
-			key: "experimental.envoy.filters.a.b[c]",
+			key:    "experimental.envoy.filters.a.b[c]",
+			values: []string{"value"},
+		},
+		{
+			key:       "experimental.envoy.filters.a.b.x",
+			values:    []string{"value"},
+			wantError: true,
 		},
 	}
 	for _, c := range cases {

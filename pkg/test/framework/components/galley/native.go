@@ -24,17 +24,15 @@ import (
 	"syscall"
 	"time"
 
-	"istio.io/pkg/appsignals"
-
 	"istio.io/istio/galley/pkg/server"
 	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/pkg/appsignals"
 )
 
 var (
@@ -263,7 +261,6 @@ func (c *nativeComponent) reset() error {
 	if err = c.applyAttributeManifest(); err != nil {
 		return err
 	}
-
 	return c.restart()
 }
 
@@ -279,8 +276,11 @@ func (c *nativeComponent) restart() error {
 	a.MonitoringPort = 0
 	a.ExcludedResourceKinds = nil
 	a.EnableServiceDiscovery = true
-	a.ValidationArgs.EnableValidation = false
-	a.ValidationArgs.EnableReconcileWebhookConfiguration = false
+	a.EnableValidationServer = false
+	a.EnableValidationController = false
+	a.ValidationWebhookControllerArgs.UnregisterValidationWebhook = false
+	a.Readiness.Path = "/tmp/readinessProbe"
+	a.Liveness.Path = "/tmp/livenessProbe"
 
 	// Bind to an arbitrary port.
 	a.APIAddress = "tcp://0.0.0.0:0"
@@ -331,17 +331,67 @@ func (c *nativeComponent) Close() (err error) {
 }
 
 func (c *nativeComponent) applyAttributeManifest() error {
-	helmExtractDir, err := c.context.CreateTmpDirectory("helm-mixer-attribute-extract")
-	if err != nil {
-		return err
-	}
-
-	m, err := deployment.ExtractAttributeManifest(helmExtractDir)
-	if err != nil {
-		return err
-	}
-
-	return c.ApplyConfig(nil, m)
+	return c.ApplyConfig(nil, `
+apiVersion: "config.istio.io/v1alpha2"
+kind: attributemanifest
+metadata:
+  name: kubernetes
+  namespace: istio-system
+spec:
+  attributes:
+    source.ip:
+      valueType: IP_ADDRESS
+    source.labels:
+      valueType: STRING_MAP
+    source.metadata:
+      valueType: STRING_MAP
+    source.name:
+      valueType: STRING
+    source.namespace:
+      valueType: STRING
+    source.owner:
+      valueType: STRING
+    source.serviceAccount:
+      valueType: STRING
+    source.services:
+      valueType: STRING
+    source.workload.uid:
+      valueType: STRING
+    source.workload.name:
+      valueType: STRING
+    source.workload.namespace:
+      valueType: STRING
+    destination.ip:
+      valueType: IP_ADDRESS
+    destination.labels:
+      valueType: STRING_MAP
+    destination.metadata:
+      valueType: STRING_MAP
+    destination.owner:
+      valueType: STRING
+    destination.name:
+      valueType: STRING
+    destination.container.name:
+      valueType: STRING
+    destination.namespace:
+      valueType: STRING
+    destination.service.uid:
+      valueType: STRING
+    destination.service.name:
+      valueType: STRING
+    destination.service.namespace:
+      valueType: STRING
+    destination.service.host:
+      valueType: STRING
+    destination.serviceAccount:
+      valueType: STRING
+    destination.workload.uid:
+      valueType: STRING
+    destination.workload.name:
+      valueType: STRING
+    destination.workload.namespace:
+      valueType: STRING
+`)
 }
 
 func applyNamespace(ns namespace.Instance, yamlText string) (out string, err error) {

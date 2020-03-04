@@ -87,6 +87,13 @@ var IngressCredentialCaCertB = IngressCredential{
 	CaCert: CaCertB,
 }
 
+var (
+	credNames = []string{"bookinfo-credential-1", "bookinfo-credential-2", "bookinfo-credential-3",
+		"bookinfo-credential-4", "bookinfo-credential-5"}
+	hosts = []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com",
+		"bookinfo4.example.com", "bookinfo5.example.com"}
+)
+
 // CreateIngressKubeSecret reads credential names from credNames and key/cert from ingressCred,
 // and creates K8s secrets for ingress gateway.
 // nolint: interfacer
@@ -212,10 +219,52 @@ func VisitProductPage(ing ingress.Instance, host string, callType ingress.CallTy
 
 // RotateSecrets deletes kubernetes secrets by name in credNames and creates same secrets using key/cert
 // from ingressCred.
-func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string,
+func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string, // nolint:interfacer
 	ingressType ingress.CallType, ingressCred IngressCredential) {
-	DeleteSecrets(t, ctx, credNames)
-	CreateIngressKubeSecret(t, ctx, credNames, ingressType, ingressCred)
+	istioCfg := istio.DefaultConfigOrFail(t, ctx)
+	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+	kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
+	for _, cn := range credNames {
+		scrt, err := kubeAccessor.GetSecret(systemNS.Name()).Get(cn, metav1.GetOptions{})
+		if err != nil {
+			t.Errorf("Failed to get secret %s:%s (error: %s)", scrt.Namespace, scrt.Name, err)
+			continue
+		}
+		scrt = updateSecret(ingressType, scrt, ingressCred)
+		if _, err = kubeAccessor.GetSecret(systemNS.Name()).Update(scrt); err != nil {
+			t.Errorf("Failed to update secret %s:%s (error: %s)", scrt.Namespace, scrt.Name, err)
+		}
+	}
+	// Check if Kubernetes secret is ready
+	maxRetryNumber := 5
+	checkRetryInterval := time.Second * 1
+	for _, cn := range credNames {
+		t.Logf("Check ingress Kubernetes secret %s:%s...", systemNS.Name(), cn)
+		for i := 0; i < maxRetryNumber; i++ {
+			_, err := kubeAccessor.GetSecret(systemNS.Name()).Get(cn, metav1.GetOptions{})
+			if err != nil {
+				time.Sleep(checkRetryInterval)
+			} else {
+				t.Logf("Secret %s:%s is ready.", systemNS.Name(), cn)
+				break
+			}
+		}
+	}
+}
+
+// createSecret creates a kubernetes secret which stores private key, server certificate for TLS ingress gateway.
+// For mTLS ingress gateway, createSecret adds ca certificate into the secret object.
+func updateSecret(ingressType ingress.CallType, scrt *v1.Secret, ic IngressCredential) *v1.Secret {
+	if ingressType == ingress.Mtls {
+		scrt.Data[genericScrtCert] = []byte(ic.ServerCert)
+		scrt.Data[genericScrtKey] = []byte(ic.PrivateKey)
+		scrt.Data[genericScrtCaCert] = []byte(ic.CaCert)
+
+	} else {
+		scrt.Data[tlsScrtCert] = []byte(ic.ServerCert)
+		scrt.Data[tlsScrtKey] = []byte(ic.PrivateKey)
+	}
+	return scrt
 }
 
 // DeleteSecrets deletes kubernetes secrets by name in credNames.
@@ -261,7 +310,7 @@ func DeployBookinfo(t *testing.T, ctx framework.TestContext, g galley.Instance, 
 
 	// Backup the original bookinfo root.
 	originBookInfoRoot := env.BookInfoRoot
-	env.BookInfoRoot = path.Join(env.IstioRoot, "tests/integration/security/sds_ingress/")
+	env.BookInfoRoot = path.Join(env.IstioSrc, "tests/integration/security/sds_ingress/")
 	var gatewayPath, virtualSvcPath, destRulePath bookinfo.ConfigFile
 	switch gatewayType {
 	case SingleTLSGateway:
@@ -360,4 +409,77 @@ func GetStatsByName(t *testing.T, ing ingress.Instance, statsName string) (int, 
 		}
 	}
 	return 0, fmt.Errorf("unable to get ingress gateway proxy sds stats: %v", err)
+}
+
+// RunTestMultiMtlsGateways deploys multiple mTLS gateways with SDS enabled, and creates kubernetes that store
+// private key, server certificate and CA certificate for each mTLS gateway. Verifies that all gateways are able to terminate
+// mTLS connections successfully.
+func RunTestMultiMtlsGateways(t *testing.T, ctx framework.TestContext,
+	inst istio.Instance, g galley.Instance) { // nolint:interfacer
+	t.Helper()
+
+	CreateIngressKubeSecret(t, ctx, credNames, ingress.Mtls, IngressCredentialA)
+	DeployBookinfo(t, ctx, g, MultiMTLSGateway)
+
+	ing := ingress.NewOrFail(t, ctx, ingress.Config{
+		Istio: inst,
+	})
+	// Expect 2 SDS updates for each listener, one for server key/cert, and one for CA cert.
+	err := WaitUntilGatewaySdsStatsGE(t, ing, 2*len(credNames), 30*time.Second)
+	if err != nil {
+		t.Errorf("sds update stats does not match: %v", err)
+	}
+	// Expect 2 active listeners, one listens on 443 and the other listens on 15090
+	err = WaitUntilGatewayActiveListenerStatsGE(t, ing, 2, 60*time.Second)
+	if err != nil {
+		t.Errorf("total active listener stats does not match: %v", err)
+	}
+	tlsContext := TLSContext{
+		CaCert:     CaCertA,
+		PrivateKey: TLSClientKeyA,
+		Cert:       TLSClientCertA,
+	}
+	callType := ingress.Mtls
+
+	for _, h := range hosts {
+		err := VisitProductPage(ing, h, callType, tlsContext, 30*time.Second,
+			ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
+		if err != nil {
+			t.Errorf("unable to retrieve 200 from product page at host %s: %v", h, err)
+		}
+	}
+}
+
+// RunTestMultiTLSGateways deploys multiple TLS gateways with SDS enabled, and creates kubernetes that store
+// private key and server certificate for each TLS gateway. Verifies that all gateways are able to terminate
+// SSL connections successfully.
+func RunTestMultiTLSGateways(t *testing.T, ctx framework.TestContext,
+	inst istio.Instance, g galley.Instance) { // nolint:interfacer
+	t.Helper()
+
+	CreateIngressKubeSecret(t, ctx, credNames, ingress.TLS, IngressCredentialA)
+	DeployBookinfo(t, ctx, g, MultiTLSGateway)
+
+	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
+	err := WaitUntilGatewaySdsStatsGE(t, ing, len(credNames), 30*time.Second)
+	if err != nil {
+		t.Errorf("sds update stats does not match: %v", err)
+	}
+	// Expect two active listeners, one listens on 443 and the other listens on 15090
+	err = WaitUntilGatewayActiveListenerStatsGE(t, ing, 2, 60*time.Second)
+	if err != nil {
+		t.Errorf("total active listener stats does not match: %v", err)
+	}
+	tlsContext := TLSContext{
+		CaCert: CaCertA,
+	}
+	callType := ingress.TLS
+
+	for _, h := range hosts {
+		err := VisitProductPage(ing, h, callType, tlsContext, 30*time.Second,
+			ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
+		if err != nil {
+			t.Errorf("unable to retrieve 200 from product page at host %s: %v", h, err)
+		}
+	}
 }

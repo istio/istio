@@ -49,6 +49,8 @@ const (
 // gateway, and then, an incorrectly configured simple TLS gateway. The test will ensure that requests are routed
 // securely through the egress gateway in the first case, and fail in the second case.
 func TestSdsEgressGatewayIstioMutual(t *testing.T) {
+	// Turn it back on once issue is fixed.
+	t.Skip("https://github.com/istio/istio/issues/17933")
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {

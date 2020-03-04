@@ -46,5 +46,5 @@ chmod o+rx /usr/local/bin/{envoy,pilot-agent,node_agent}
 # CAP_NET_ADMIN, so any iptables rule matching on "-m owner --uid-owner
 # istio-proxy" will not match connections from those processes anymore.
 # Instead, rely on the process's effective gid being istio-proxy and create a
-# "-m owner --gid-owner istio-proxy" iptables rule in istio-iptables.sh.
+# "-m owner --gid-owner istio-proxy" iptables rule in istio-iptables.
 chmod 2755 /usr/local/bin/{envoy,pilot-agent}

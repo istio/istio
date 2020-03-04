@@ -18,9 +18,9 @@
 package transformer
 
 import (
-	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing"
+	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/schema/collection"
 )
 
 // Provider includes the basic schema and a function to create a Transformer
@@ -28,13 +28,13 @@ import (
 // that aren't available until after processing has started, but we need to know about inputs/outputs
 // before that happens.
 type Provider struct {
-	inputs   collection.Names
-	outputs  collection.Names
+	inputs   collection.Schemas
+	outputs  collection.Schemas
 	createFn func(processing.ProcessorOptions) event.Transformer
 }
 
 // NewProvider creates a new transformer Provider
-func NewProvider(inputs, outputs collection.Names, createFn func(processing.ProcessorOptions) event.Transformer) Provider {
+func NewProvider(inputs, outputs collection.Schemas, createFn func(processing.ProcessorOptions) event.Transformer) Provider {
 	return Provider{
 		inputs:   inputs,
 		outputs:  outputs,
@@ -43,12 +43,12 @@ func NewProvider(inputs, outputs collection.Names, createFn func(processing.Proc
 }
 
 // Inputs returns the input collections for this provider
-func (p *Provider) Inputs() collection.Names {
+func (p *Provider) Inputs() collection.Schemas {
 	return p.inputs
 }
 
 // Outputs returns the output collections for this provider
-func (p *Provider) Outputs() collection.Names {
+func (p *Provider) Outputs() collection.Schemas {
 	return p.outputs
 }
 
@@ -69,10 +69,39 @@ func (t Providers) Create(o processing.ProcessorOptions) []event.Transformer {
 	return xforms
 }
 
+// RequiredInputsFor back-maps a list of collections used as transformer outputs, returning the set of
+// upstream input collections required to generate those outputs.
+func (t Providers) RequiredInputsFor(outputs collection.Names) map[collection.Name]struct{} {
+	// For each transform, map output to inputs
+	outToIn := make(map[collection.Name]map[collection.Name]struct{})
+	for _, xfp := range t {
+		xfp.Outputs().ForEach(func(out collection.Schema) (outDone bool) {
+			if _, ok := outToIn[out.Name()]; !ok {
+				outToIn[out.Name()] = make(map[collection.Name]struct{})
+			}
+			xfp.Inputs().ForEach(func(in collection.Schema) (inDone bool) {
+				outToIn[out.Name()][in.Name()] = struct{}{}
+				return
+			})
+			return
+		})
+	}
+
+	// 2. For each input collection, get its inputs using the above mapping and include them in the output set
+	inputs := make(map[collection.Name]struct{})
+	for _, c := range outputs {
+		for in := range outToIn[c] {
+			inputs[in] = struct{}{}
+		}
+	}
+
+	return inputs
+}
+
 // NewSimpleTransformerProvider creates a basic transformer provider for a basic transformer
-func NewSimpleTransformerProvider(input, output collection.Name, handleFn func(e event.Event, h event.Handler)) Provider {
-	inputs := collection.Names{input}
-	outputs := collection.Names{output}
+func NewSimpleTransformerProvider(input, output collection.Schema, handleFn func(e event.Event, h event.Handler)) Provider {
+	inputs := collection.NewSchemasBuilder().MustAdd(input).Build()
+	outputs := collection.NewSchemasBuilder().MustAdd(output).Build()
 
 	createFn := func(processing.ProcessorOptions) event.Transformer {
 		return event.NewFnTransform(inputs, outputs, nil, nil, handleFn)

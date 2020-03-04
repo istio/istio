@@ -126,11 +126,13 @@ type Stream interface {
 // Source implements the resource source message exchange for MCP.
 // It can be instantiated by client and server
 type Source struct {
+	// nextStreamID and connections must be at start of struct to ensure 64bit alignment for atomics on
+	// 32bit architectures. See also: https://golang.org/pkg/sync/atomic/#pkg-note-BUG
+	nextStreamID   int64
+	connections    int64
 	watcher        Watcher
 	collections    []CollectionOptions
-	nextStreamID   int64
 	reporter       monitoring.Reporter
-	connections    int64
 	requestLimiter rate.LimitFactory
 }
 

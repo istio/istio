@@ -84,7 +84,7 @@ type Args struct {
 	// The introspection options to use
 	IntrospectionOptions *ctrlz.Options
 
-	// Address to use for Mixer's gRPC API. This setting supercedes the API port setting.
+	// Address to use for Mixer's gRPC API. This setting supersedes the API port setting.
 	APIAddress string
 
 	// Port to use for Mixer's gRPC API
