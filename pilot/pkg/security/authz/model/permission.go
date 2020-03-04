@@ -134,11 +134,14 @@ func (permission *Permission) Generate(forTCPFilter, forDenyPolicy bool) (*envoy
 		return nil, nil
 	}
 
+	// When true, the function will only handle the TCP fields in the permission.
 	onlyTCPFields := false
 	if err := permission.ValidateForTCP(forTCPFilter); err != nil {
 		if !forDenyPolicy {
 			return nil, err
 		}
+		// Set onlyTCPFields to true if the deny policy is using HTTP fields so that
+		// we generate a deny policy with only TCP fields.
 		onlyTCPFields = true
 	}
 	pg := permissionGenerator{}
