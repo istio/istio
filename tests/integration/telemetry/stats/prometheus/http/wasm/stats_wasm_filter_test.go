@@ -25,6 +25,11 @@ import (
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus/http"
 )
 
+// TestWasmStatsFilter verifies the stats filter could emit expected client and server side
+// metrics when running wiht Wasm runtime.
+// This test focuses on stats filter and metadata exchange filter could work coherently with
+// proxy bootstrap config with Wasm runtime. To avoid flake, it does not verify correctness
+// of metrics, which should be covered by integration test in proxy repo.
 func TestWasmStatsFilter(t *testing.T) {
 	common.TestStatsFilter(t)
 }

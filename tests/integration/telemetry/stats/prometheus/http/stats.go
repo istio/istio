@@ -61,10 +61,8 @@ func GetPromInstance() prometheus.Instance {
 	return promInst
 }
 
-// TestStatsFilter verifies the stats filter could emit expected client and server side metrics.
-// This test focuses on stats filter and metadata exchange filter could work coherently with
-// proxy bootstrap config. To avoid flake, it does not verify correctness of metrics, which
-// should be covered by integration test in proxy repo.
+// TestStatsFilter includes common test logic for stats and mx exchange filters running
+// with nullvm and wasm runtime.
 func TestStatsFilter(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
