@@ -96,11 +96,14 @@ func (principal *Principal) Generate(forTCPFilter, forDenyPolicy bool) (*envoy_r
 		return nil, nil
 	}
 
+	// When true, the function will only handle the TCP fields in the principal.
 	onlyTCPFields := false
 	if err := principal.ValidateForTCP(forTCPFilter); err != nil {
 		if !forDenyPolicy {
 			return nil, err
 		}
+		// Set onlyTCPFields to true if the deny policy is using HTTP fields so that
+		// we generate a deny policy with only TCP fields.
 		onlyTCPFields = true
 	}
 
