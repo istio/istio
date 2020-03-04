@@ -18,8 +18,9 @@ import (
 	"fmt"
 	"strings"
 
-	"istio.io/pkg/log"
 	k8s "sigs.k8s.io/service-apis/api/v1alpha1"
+
+	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -74,20 +75,14 @@ func findByName(name, namespace string, cfgs []model.Config) *model.Config {
 
 func convertResources(r *KubernetesResources) (IstioResources, error) {
 	result := IstioResources{}
-	gw, routeMap, err := convertGateway(r)
-	if err != nil {
-		return result, fmt.Errorf("failed to convert gateways: %v", err)
-	}
-	vs, err := convertVirtualService(r, routeMap)
-	if err != nil {
-		return result, fmt.Errorf("failed to convert gateways: %v", err)
-	}
+	gw, routeMap := convertGateway(r)
+	vs := convertVirtualService(r, routeMap)
 	result.Gateway = gw
 	result.VirtualService = vs
 	return result, nil
 }
 
-func convertVirtualService(r *KubernetesResources, routeMap map[*k8s.HTTPRouteSpec][]string) ([]model.Config, error) {
+func convertVirtualService(r *KubernetesResources, routeMap map[*k8s.HTTPRouteSpec][]string) []model.Config {
 	result := []model.Config{}
 	// TODO implement this once the API does. For now just iterate to make sure types work
 	for _, obj := range r.TrafficSplit {
@@ -158,7 +153,7 @@ func convertVirtualService(r *KubernetesResources, routeMap map[*k8s.HTTPRouteSp
 		}
 		result = append(result, vsConfig)
 	}
-	return result, nil
+	return result
 }
 
 // TODO support traffic split
@@ -237,7 +232,7 @@ func createURIMatch(match *k8s.HTTPRouteMatch) *istio.StringMatch {
 	}
 }
 
-func convertGateway(r *KubernetesResources) ([]model.Config, map[*k8s.HTTPRouteSpec][]string, error) {
+func convertGateway(r *KubernetesResources) ([]model.Config, map[*k8s.HTTPRouteSpec][]string) {
 	result := []model.Config{}
 	routeToGateway := map[*k8s.HTTPRouteSpec][]string{}
 	for _, obj := range r.Gateway {
@@ -308,5 +303,5 @@ func convertGateway(r *KubernetesResources) ([]model.Config, map[*k8s.HTTPRouteS
 		}
 		result = append(result, gatewayConfig)
 	}
-	return result, routeToGateway, nil
+	return result, routeToGateway
 }
