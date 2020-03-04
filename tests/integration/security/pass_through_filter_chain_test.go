@@ -168,10 +168,15 @@ func TestPassThroughFilterChain(t *testing.T) {
 							if response.StatusCodeOK != responses[0].Code {
 								return fmt.Errorf("want status %s but got %s", response.StatusCodeOK, responses[0].Code)
 							}
-						} else if err == nil || !strings.Contains(err.Error(), "EOF") {
-							// The request should always be rejected in TCP level because we currently do not support
-							// HTTP filters in pass through filter chains.
-							return fmt.Errorf("want error EOF but got: %v", err)
+						} else {
+							// Check HTTP forbidden response
+							if len(responses) >= 1 && response.StatusCodeForbidden == responses[0].Code {
+								return nil
+							}
+
+							if err == nil || !strings.Contains(err.Error(), "EOF") {
+								return fmt.Errorf("want error EOF but got: %v", err)
+							}
 						}
 						return nil
 					}, retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
