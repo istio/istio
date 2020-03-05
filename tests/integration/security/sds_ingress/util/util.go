@@ -370,11 +370,11 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext,
 	var credNames []string
 	var tests []TestConfig
 	for i := 1; i < 6; i++ {
-		cred := fmt.Sprintf("bookinfo-credential-%d", i)
+		cred := fmt.Sprintf("runtestmultimtlsgateways-%d", i)
 		tests = append(tests, TestConfig{
 			Mode:           "MUTUAL",
 			CredentialName: cred,
-			Host:           fmt.Sprintf("bookinfo%d.example.com", i),
+			Host:           fmt.Sprintf("runtestmultimtlsgateways%d.example.com", i),
 		})
 		credNames = append(credNames, cred)
 	}
@@ -411,11 +411,11 @@ func RunTestMultiTLSGateways(ctx framework.TestContext,
 	var credNames []string
 	var tests []TestConfig
 	for i := 1; i < 6; i++ {
-		cred := fmt.Sprintf("bookinfo-credential-%d", i)
+		cred := fmt.Sprintf("runtestmultitlsgateways-%d", i)
 		tests = append(tests, TestConfig{
 			Mode:           "SIMPLE",
 			CredentialName: cred,
-			Host:           fmt.Sprintf("bookinfo%d.example.com", i),
+			Host:           fmt.Sprintf("runtestmultitlsgateways%d.example.com", i),
 		})
 		credNames = append(credNames, cred)
 	}

@@ -50,7 +50,6 @@ func TestMain(m *testing.M) {
 			return nil
 		}).
 		Run()
-
 }
 
 func TestSingleTlsGateway_SecretRotation(t *testing.T) {
@@ -60,8 +59,8 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 
 			var (
-				credName = "bookinfo-credential-1"
-				host     = "bookinfo1.example.com"
+				credName = "testsingletlsgateway-secretrotation"
+				host     = "testsingletlsgateway-secretrotation.example.com"
 			)
 			// Add kubernetes secret to provision key/cert for ingress gateway.
 			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName}, ingress.TLS, ingressutil.IngressCredentialA)
@@ -118,9 +117,9 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 
 			var (
-				credName   = []string{"bookinfo-credential-1"}
-				credCaName = []string{"bookinfo-credential-1-cacert"}
-				host       = "bookinfo1.example.com"
+				credName   = []string{"testsinglemtlsgateway-serverkeycertrotation"}
+				credCaName = []string{"testsinglemtlsgateway-serverkeycertrotation-cacert"}
+				host       = "testsinglemtlsgateway-serverkeycertrotation.example.com"
 			)
 
 			ns := ingressutil.SetupTest(ctx, g)
@@ -183,8 +182,8 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			var (
-				credName = []string{"bookinfo-credential-1"}
-				host     = "bookinfo1.example.com"
+				credName = []string{"testsinglemtlsgateway-compoundsecretrotation"}
+				host     = "testsinglemtlsgateway-compoundsecretrotation.example.com"
 			)
 
 			// Add kubernetes secret to provision key/cert for ingress gateway.
@@ -233,6 +232,9 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 		})
 }
 
+// TestTlsGateways deploys multiple TLS gateways with SDS enabled, and creates kubernetes that store
+// private key and server certificate for each TLS gateway. Verifies that all gateways are able to terminate
+// SSL connections successfully.
 func TestTlsGateways(t *testing.T) {
 	framework.
 		NewTest(t).
@@ -242,6 +244,9 @@ func TestTlsGateways(t *testing.T) {
 		})
 }
 
+// TestMtlsGateways deploys multiple mTLS gateways with SDS enabled, and creates kubernetes that store
+// private key, server certificate and CA certificate for each mTLS gateway. Verifies that all gateways are able to terminate
+// mTLS connections successfully.
 func TestMtlsGateways(t *testing.T) {
 	framework.
 		NewTest(t).
@@ -273,7 +278,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 			}{
 				{
 					name:       "tls ingress gateway invalid private key",
-					secretName: "bookinfo-credential-1",
+					secretName: "testmultitlsgateway-invalidsecret-1",
 					ingressGatewayCredential: ingressutil.IngressCredential{
 						PrivateKey: "invalid",
 						ServerCert: ingressutil.TLSServerCertA,
@@ -281,7 +286,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 					ingressConfig: ingress.Config{
 						Istio: inst,
 					},
-					hostName: "bookinfo1.example.com",
+					hostName: "testmultitlsgateway-invalidsecret1.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
 						ResponseCode: 0,
 						// TODO(JimmyCYJ): Temporarily skip verification of error message to deflake test.
@@ -296,7 +301,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 				},
 				{
 					name:       "tls ingress gateway invalid server cert",
-					secretName: "bookinfo-credential-2",
+					secretName: "testmultitlsgateway-invalidsecret-2",
 					ingressGatewayCredential: ingressutil.IngressCredential{
 						PrivateKey: ingressutil.TLSServerKeyA,
 						ServerCert: "invalid",
@@ -304,7 +309,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 					ingressConfig: ingress.Config{
 						Istio: inst,
 					},
-					hostName: "bookinfo2.example.com",
+					hostName: "testmultitlsgateway-invalidsecret2.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
 						ResponseCode: 0,
 						ErrorMessage: "",
@@ -316,7 +321,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 				},
 				{
 					name:       "tls ingress gateway mis-matched key and cert",
-					secretName: "bookinfo-credential-3",
+					secretName: "testmultitlsgateway-invalidsecret-3",
 					ingressGatewayCredential: ingressutil.IngressCredential{
 						PrivateKey: ingressutil.TLSServerKeyA,
 						ServerCert: ingressutil.TLSServerCertB,
@@ -324,7 +329,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 					ingressConfig: ingress.Config{
 						Istio: inst,
 					},
-					hostName: "bookinfo3.example.com",
+					hostName: "testmultitlsgateway-invalidsecret3.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
 						ResponseCode: 0,
 						ErrorMessage: "",
@@ -336,14 +341,14 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 				},
 				{
 					name:       "tls ingress gateway no private key",
-					secretName: "bookinfo-credential-4",
+					secretName: "testmultitlsgateway-invalidsecret-4",
 					ingressGatewayCredential: ingressutil.IngressCredential{
 						ServerCert: ingressutil.TLSServerCertA,
 					},
 					ingressConfig: ingress.Config{
 						Istio: inst,
 					},
-					hostName: "bookinfo4.example.com",
+					hostName: "testmultitlsgateway-invalidsecret4.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
 						ResponseCode: 0,
 						ErrorMessage: "",
@@ -355,14 +360,14 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 				},
 				{
 					name:       "tls ingress gateway no server cert",
-					secretName: "bookinfo-credential-5",
+					secretName: "testmultitlsgateway-invalidsecret-5",
 					ingressGatewayCredential: ingressutil.IngressCredential{
 						PrivateKey: ingressutil.TLSServerKeyA,
 					},
 					ingressConfig: ingress.Config{
 						Istio: inst,
 					},
-					hostName: "bookinfo5.example.com",
+					hostName: "testmultitlsgateway-invalidsecret5.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
 						ResponseCode: 0,
 						ErrorMessage: "",
@@ -416,7 +421,7 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 			}{
 				{
 					name:       "mtls ingress gateway invalid CA cert",
-					secretName: "bookinfo-credential-1",
+					secretName: "testmultimtlsgateway-invalidsecret-1",
 					ingressGatewayCredential: ingressutil.IngressCredential{
 						PrivateKey: ingressutil.TLSServerKeyA,
 						ServerCert: ingressutil.TLSServerCertA,
@@ -425,7 +430,7 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 					ingressConfig: ingress.Config{
 						Istio: inst,
 					},
-					hostName: "bookinfo1.example.com",
+					hostName: "testmultimtlsgateway-invalidsecret1.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
 						ResponseCode: 0,
 						// TODO(JimmyCYJ): Temporarily skip verification of error message to deflake test.
@@ -442,7 +447,7 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 				},
 				{
 					name:       "mtls ingress gateway no CA cert",
-					secretName: "bookinfo-credential-2",
+					secretName: "testmultimtlsgateway-invalidsecret-2",
 					ingressGatewayCredential: ingressutil.IngressCredential{
 						PrivateKey: ingressutil.TLSServerKeyA,
 						ServerCert: ingressutil.TLSServerCertA,
@@ -450,7 +455,7 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 					ingressConfig: ingress.Config{
 						Istio: inst,
 					},
-					hostName: "bookinfo2.example.com",
+					hostName: "testmultimtlsgateway-invalidsecret2.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
 						ResponseCode: 0,
 						ErrorMessage: "",
@@ -464,7 +469,7 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 				},
 				{
 					name:       "mtls ingress gateway mismatched CA cert",
-					secretName: "bookinfo-credential-3",
+					secretName: "testmultimtlsgateway-invalidsecret-3",
 					ingressGatewayCredential: ingressutil.IngressCredential{
 						PrivateKey: ingressutil.TLSServerKeyA,
 						ServerCert: ingressutil.TLSServerCertA,
@@ -473,7 +478,7 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 					ingressConfig: ingress.Config{
 						Istio: inst,
 					},
-					hostName: "bookinfo3.example.com",
+					hostName: "testmultimtlsgateway-invalidsecret3.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
 						ResponseCode: 0,
 						ErrorMessage: "",
