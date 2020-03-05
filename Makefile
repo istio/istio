@@ -31,7 +31,7 @@ SHELL := /bin/bash
 export BUILD_WITH_CONTAINER ?= 0
 
 # Version of image used within build container
-IMAGE_VERSION ?= master-2020-03-04T04-41-33
+IMAGE_VERSION ?= master-2020-03-05T18-27-04
 
 LOCAL_ARCH := $(shell uname -m)
 ifeq ($(LOCAL_ARCH),x86_64)
