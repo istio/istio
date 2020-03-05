@@ -19,7 +19,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
 	discoverylister "k8s.io/client-go/listers/discovery/v1alpha1"
@@ -266,21 +265,11 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 
 func (esc *endpointSliceController) newIstioEndpoint(pod *v1.Pod, endpoint discoveryv1alpha1.Endpoint, attributes model.ServiceAttributes) model.IstioEndpoint {
 	if pod != nil {
-		podLabels := make(map[string]string, len(pod.Labels))
-		for key, value := range pod.Labels {
-			podLabels[key] = value
-		}
 		// Respect pod "istio-locality" label
-		if podLabels[model.LocalityLabel] == "" {
+		if pod.Labels[model.LocalityLabel] == "" {
+			pod = pod.DeepCopy()
 			// mutate the labels, only need `istio-locality`
-			podLabels[model.LocalityLabel] = getLocalityFromTopology(endpoint.Topology)
-		}
-		pod = &v1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      pod.Name,
-				Namespace: pod.Namespace,
-				Labels:    podLabels,
-			},
+			pod.Labels[model.LocalityLabel] = getLocalityFromTopology(endpoint.Topology)
 		}
 	}
 

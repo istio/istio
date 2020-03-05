@@ -22,11 +22,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/config/labels"
-
-	"istio.io/pkg/log"
 )
 
 // PodCache is an eventually consistent pod cache
@@ -173,13 +172,4 @@ func (pc *PodCache) getPod(name string, namespace string) *v1.Pod {
 		return nil
 	}
 	return pod
-}
-
-// labelsByIP returns pod labels or nil if pod not found or an error occurred
-func (pc *PodCache) labelsByIP(addr string) (labels.Instance, bool) {
-	pod := pc.getPodByIP(addr)
-	if pod == nil {
-		return nil, false
-	}
-	return pod.Labels, true
 }

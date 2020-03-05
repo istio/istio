@@ -1730,8 +1730,8 @@ func TestEndpointUpdate(t *testing.T) {
 				if err := waitForPod(controller, pod.Status.PodIP); err != nil {
 					t.Fatalf("wait for pod err: %v", err)
 				}
-				// pod first time occur will trigger xds push
-				fx.Wait("xds")
+				// pod first time occur will trigger proxy push
+				fx.Wait("proxy")
 			}
 
 			// 1. incremental eds for normal service endpoint update
@@ -1802,7 +1802,13 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 					t.Fatalf("wait for pod err: %v", err)
 				}
 				// pod first time occur will trigger xds push
-				fx.Wait("xds")
+				fx.Wait("proxy")
+			}
+			// create service
+			createService(controller, "pod1", "nsA", nil,
+				[]int32{8080}, map[string]string{"app": "prod-app"}, t)
+			if ev := fx.Wait("service"); ev == nil {
+				t.Fatal("Timeout creating service")
 			}
 
 			// Create Endpoints for pod1 and validate that EDS is triggered.
@@ -1816,6 +1822,13 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 			// Now delete pod2, from PodCache and send Endpoints. This simulates the case that endpoint comes
 			// when PodCache does not yet have entry for the pod.
 			_ = controller.pods.onEvent(pod2, model.EventDelete)
+
+			// create service
+			createService(controller, "pod2", "nsA", nil,
+				[]int32{8080}, map[string]string{"app": "prod-app"}, t)
+			if ev := fx.Wait("service"); ev == nil {
+				t.Fatal("Timeout creating service")
+			}
 
 			pod2Ips := []string{"172.0.1.2"}
 			createEndpoints(controller, "pod2", "nsA", portNames, pod2Ips, t)
