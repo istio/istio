@@ -987,8 +987,7 @@ var _datasetMeshIstioIoV1alpha1Meshconfig_expectedJson = []byte(`{
                   },
                   "proxy_admin_port": 15000,
                   "service_cluster": "istio-proxy",
-                  "stat_name_length": 189,
-                  "status_port": 15020
+                  "stat_name_length": 189
                 },
                 "default_destination_rule_export_to": [
                   "*"
