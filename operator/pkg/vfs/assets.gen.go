@@ -14853,63 +14853,13 @@ spec:
     istio: ingressgateway
   servers:
     - port:
-        number: 15011
-        protocol: TCP
-        name: tcp-pilot
-      hosts:
-        - "*"
-    - port:
         number: 15012
         protocol: TCP
         name: tcp-istiod
       hosts:
         - "*"
-    - port:
-        number: 8060
-        protocol: TCP
-        name: tcp-citadel
-      hosts:
-        - "*"
 ---
 
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: meshexpansion-vs-pilot
-  namespace: {{ .Release.Namespace }}
-  labels:
-    release: {{ .Release.Name }}
-spec:
-  hosts:
-  - istio-pilot.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
-  gateways:
-  - meshexpansion-gateway
-  tcp:
-  - match:
-    - port: 15011
-    route:
-    - destination:
-        host: istio-pilot.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
-        port:
-          number: 15011
----
-
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: meshexpansion-dr-pilot
-  namespace: {{ .Release.Namespace }}
-  labels:
-    release: {{ .Release.Name }}
-spec:
-  host: istio-pilot.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
-  trafficPolicy:
-    portLevelSettings:
-    - port:
-        number: 15011
-      tls:
-        mode: DISABLE
----
 
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -14948,28 +14898,6 @@ spec:
         number: 15012
       tls:
         mode: DISABLE
----
-
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: meshexpansion-vs-citadel
-  namespace: {{ .Release.Namespace }}
-  labels:
-    release: {{ .Release.Name }}
-spec:
-  hosts:
-  - istio-citadel.{{ $.Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
-  gateways:
-  - meshexpansion-gateway
-  tcp:
-  - match:
-    - port: 8060
-    route:
-    - destination:
-        host: istio-citadel.{{ $.Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
-        port:
-          number: 8060
 
 {{- end }}
 
@@ -15431,12 +15359,9 @@ gateways:
     # exposing unnecessary ports on the web.
     # You can remove these ports if you are not using mesh expansion
     meshExpansionPorts:
-    - port: 15011
-      targetPort: 15011
-      name: tcp-pilot-grpc-tls
-    - port: 8060
-      targetPort: 8060
-      name: tcp-citadel-grpc-tls
+    - port: 15012
+      targetPort: 15012
+      name: tcp-istiod
     - port: 853
       targetPort: 853
       name: tcp-dns-tls
