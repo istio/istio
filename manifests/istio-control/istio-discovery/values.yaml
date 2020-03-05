@@ -173,11 +173,16 @@ telemetry:
     enabled: false
   v2:
     # For Null VM case now. If enabled, will set disableMixerHttpReports to true and not define mixerReportServer
-    # also enable metadata exchange and stats filter.
+    # This also enables metadata exchange.
     enabled: true
+    metadataExchange:
+      # Indicates whether to enable WebAssembly runtime for metadata exchange filter.
+      wasmEnabled: false
     # Indicate if prometheus stats filter is enabled or not
     prometheus:
       enabled: true
+      # Indicates whether to enable WebAssembly runtime for stats filter.
+      wasmEnabled: false
     # stackdriver filter settings.
     stackdriver:
       enabled: false

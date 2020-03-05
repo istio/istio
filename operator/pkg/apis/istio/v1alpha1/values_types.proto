@@ -1313,12 +1313,22 @@ message TelemetryV2Config {
   TelemetryV2PrometheusConfig prometheus = 2;
 
   TelemetryV2StackDriverConfig stackdriver = 3;
+
+  TelemetryV2MetadataExchangeConfig metadata_exchange = 4;
+}
+
+message TelemetryV2MetadataExchangeConfig {
+  // Controls whether enabled WebAssembly runtime for metadata exchange filter.
+  google.protobuf.BoolValue wasmEnabled = 2;
 }
 
 // Conrols telemetry v2 prometheus settings.
 message TelemetryV2PrometheusConfig {
   // Controls whether stats envoyfilter would be enabled or not.
   google.protobuf.BoolValue enabled = 1;
+
+  // Controls whether enabled WebAssembly runtime for stats filter.
+  google.protobuf.BoolValue wasmEnabled = 2;
 }
 
 // Conrols telemetry v2 stackdriver settings.
