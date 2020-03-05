@@ -227,18 +227,11 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 	log.Info("Istiod CA has started")
 
 	if s.kubeClient != nil {
-		nc, err := NewNamespaceController(func() map[string]string {
+		nc := NewNamespaceController(func() map[string]string {
 			return map[string]string{
 				constants.CACertNamespaceConfigMapDataName: string(ca.GetCAKeyCertBundle().GetRootCertPem()),
 			}
 		}, s.kubeClient)
-		if err != nil {
-			log.Warnf("failed to start istiod namespace controller, error: %v", err)
-		} else {
-			s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
-				nc.Run(stop)
-			})
-		}
 		s.leaderElection.AddRunFunction(func(_ <-chan struct{}) {
 			nc.Run(stopCh)
 		})
