@@ -17359,7 +17359,7 @@ data:
       {{- else }}
         image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
       {{- end }}
-        command:
+        args:
         - istio-iptables
         - "-p"
         - 15001
