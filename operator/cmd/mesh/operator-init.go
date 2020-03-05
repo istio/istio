@@ -213,7 +213,7 @@ func getCRAndNamespaceFromFile(filePath string, l *Logger) (customResource strin
 
 // chartsRootDir, helmBaseDir, componentName, namespace string) (TemplateRenderer, error) {
 func renderOperatorManifest(_ *rootArgs, oiArgs *operatorInitArgs, _ *Logger) (string, error) {
-	r, err := helm.NewHelmRenderer("", "../operator", istioControllerComponentName, oiArgs.operatorNamespace)
+	r, err := helm.NewHelmRenderer("", "../operator-chart", istioControllerComponentName, oiArgs.operatorNamespace)
 	if err != nil {
 		return "", err
 	}
