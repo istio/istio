@@ -16,9 +16,12 @@ package mesh
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
+	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/validate"
 )
 
 const (
@@ -27,13 +30,23 @@ const (
 
 var (
 	// Keep bool values as string to avoid type conversion of flags
-	boolValues = []string{"true", "false"}
+	boolValues = []bool{true, false}
 
+	// Ref: https://kubernetes.io/docs/concepts/configuration/overview/#container-images
 	imagePullPolicy = []string{"Always", "IfNotPresent", "Never"}
 
-	profile = []string{"minimal", "remote", "sds", "default", "demo"}
+	// Keep this list updated as per following
+	// https://preliminary.istio.io/docs/setup/additional-setup/config-profiles/
+	profile = []string{"default", "demo", "empty", "minimal", "preview", "remote", "separate"}
 
-	setFlagValues = map[string][]string{
+	// https://preliminary.istio.io/docs/reference/config/istio.operator.v1alpha1/#IstioOperatorSpec
+	setFlagValues = map[string]interface{}{
+		"profile": profile,
+
+		"installPackagePath": validate.CheckIstioOperatorSpec,
+		"hub":                validate.CheckIstioOperatorSpec,
+		"tag":                validate.CheckIstioOperatorSpec,
+
 		"sds.enabled":     boolValues,
 		"imagePullPolicy": imagePullPolicy,
 
@@ -48,7 +61,6 @@ var (
 
 		"telemetry.enabled":                     boolValues,
 		"security.components.nodeAgent.enabled": boolValues,
-		"profile":                               profile,
 	}
 )
 
@@ -68,11 +80,7 @@ func ValidateSetFlags(setOverlay []string) (errs util.Errors) {
 		flagName, flagValue := splitSetFlags(flags)
 
 		if isFlagNameAvailable(flagName) {
-			val := getFlagValue(flagName)
-			if !containString(val, flagValue) {
-				errs = append(errs, fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %q",
-					flagValue, flagName, strings.Join(val, ", ")))
-			}
+			errs = verifyValues(flagName, flagValue)
 		} else {
 			errs = append(errs, fmt.Errorf("\n Invalid flag: %q", valuesGlobal+flagName))
 		}
@@ -92,7 +100,7 @@ func isFlagNameAvailable(flagName string) bool {
 }
 
 // getFlagValue gives searched flag values
-func getFlagValue(flagName string) []string {
+func getFlagValue(flagName string) interface{} {
 	if val, ok := setFlagValues[flagName]; ok {
 		return val
 	}
@@ -110,7 +118,7 @@ func splitSetFlags(flags string) (string, string) {
 	return flagName, flagValue
 }
 
-// containString verifies if the flag value is valid value
+// containString verifies if the flag value is valid string value
 func containString(s []string, searchterm string) bool {
 	for _, a := range s {
 		if a == searchterm {
@@ -118,4 +126,27 @@ func containString(s []string, searchterm string) bool {
 		}
 	}
 	return false
+}
+
+func verifyValues(flagName, flagValue string) (errs util.Errors) {
+	val := getFlagValue(flagName)
+	switch val.(type) {
+	case []string:
+		if !containString(val.([]string), flagValue) {
+			errs = append(errs, fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %q",
+				flagValue, flagName, strings.Join(val.([]string), ", ")))
+		}
+	case []bool:
+		_, err := strconv.ParseBool(flagValue)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %t",
+				flagValue, flagName, boolValues))
+		}
+	case validate.ValidatorFunc:
+		iops := &v1alpha1.IstioOperatorSpec{Tag: flagValue}
+		if err := validate.CheckIstioOperatorSpec(iops, true); len(err) != 0 {
+			errs = append(errs, fmt.Errorf(err.Error()))
+		}
+	}
+	return
 }
