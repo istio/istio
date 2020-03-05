@@ -84,6 +84,8 @@ type restClientBuilder struct {
 	types          []*crd.SchemaType
 }
 
+var scope = log.RegisterScope("client", "", 0)
+
 func (b *restClientBuilder) build() *restClient {
 	return &restClient{
 		apiVersion: b.apiVersion,
@@ -211,18 +213,18 @@ func (cl *Client) Schemas() collection.Schemas {
 func (cl *Client) Get(typ resource.GroupVersionKind, name, namespace string) *model.Config {
 	t, ok := crd.SupportedTypes[typ]
 	if !ok {
-		log.Warnf("unknown type: %s", typ)
+		scope.Warnf("unknown type: %s", typ)
 		return nil
 	}
 	rc, ok := cl.clientset[t.Schema.Resource().APIVersion()]
 	if !ok {
-		log.Warnf("cannot find client for type: %s", typ)
+		scope.Warnf("cannot find client for type: %s", typ)
 		return nil
 	}
 
 	s, exists := rc.schemas.FindByGroupVersionKind(typ)
 	if !exists {
-		log.Warnf("cannot find proto schema for type: %s", typ)
+		scope.Warnf("cannot find proto schema for type: %s", typ)
 		return nil
 	}
 
@@ -234,13 +236,13 @@ func (cl *Client) Get(typ resource.GroupVersionKind, name, namespace string) *mo
 		Do().Into(config)
 
 	if err != nil {
-		log.Warna(err)
+		scope.Warna(err)
 		return nil
 	}
 
 	out, err := crd.ConvertObject(s, config, cl.domainSuffix)
 	if err != nil {
-		log.Warna(err)
+		scope.Warna(err)
 		return nil
 	}
 	if cl.objectInEnvironment(out) {
@@ -442,7 +444,7 @@ func (cl *Client) RegisterMockResourceCRD() error {
 				continue
 			}
 
-			log.Warnf("Not established: %v", name)
+			scope.Warnf("Not established: %v", name)
 			skipCreate = false
 			break
 		}
@@ -473,7 +475,7 @@ func (cl *Client) RegisterMockResourceCRD() error {
 				},
 			},
 		}
-		log.Infof("registering CRD %q", name)
+		scope.Infof("registering CRD %q", name)
 		_, err = cs.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return err
@@ -493,23 +495,23 @@ func (cl *Client) RegisterMockResourceCRD() error {
 				switch cond.Type {
 				case apiextensionsv1beta1.Established:
 					if cond.Status == apiextensionsv1beta1.ConditionTrue {
-						log.Infof("established CRD %q", name)
+						scope.Infof("established CRD %q", name)
 						continue descriptor
 					}
 				case apiextensionsv1beta1.NamesAccepted:
 					if cond.Status == apiextensionsv1beta1.ConditionFalse {
-						log.Warnf("name conflict: %v", cond.Reason)
+						scope.Warnf("name conflict: %v", cond.Reason)
 					}
 				}
 			}
-			log.Infof("missing status condition for %q", name)
+			scope.Infof("missing status condition for %q", name)
 			return false, nil
 		}
 		return true, nil
 	})
 
 	if errPoll != nil {
-		log.Error("failed to verify CRD creation")
+		scope.Error("failed to verify CRD creation")
 		return errPoll
 	}
 

@@ -68,6 +68,7 @@ func defaultLogOptions() *log.Options {
 	o.SetOutputLevel("analysis", log.WarnLevel)
 	o.SetOutputLevel("installer", log.WarnLevel)
 	o.SetOutputLevel("translator", log.WarnLevel)
+	o.SetOutputLevel("client", log.ErrorLevel)
 
 	return o
 }

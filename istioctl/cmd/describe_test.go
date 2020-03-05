@@ -131,6 +131,30 @@ var (
 		},
 		{
 			ConfigMeta: model.ConfigMeta{
+				Name:      "productpage",
+				Namespace: "default",
+				Type:      collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
+				Group:     collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Group(),
+				Version:   collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
+			},
+			Spec: &networking.DestinationRule{
+				Host: "productpage",
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{
+				Name:      "details",
+				Namespace: "default",
+				Type:      collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
+				Group:     collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Group(),
+				Version:   collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
+			},
+			Spec: &networking.DestinationRule{
+				Host: "details",
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{
 				Name:      "bookinfo",
 				Namespace: "default",
 				Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
@@ -539,6 +563,8 @@ RBAC policies: ratings-reader
 Service: productpage
    Port:  9080/UnsupportedProtocol targets pod port 9080
    9080 is unnamed which does not follow Istio conventions
+DestinationRule: productpage for "productpage"
+   No Traffic Policy
 Authn: None
 
 
@@ -550,7 +576,7 @@ VirtualService: bookinfo
 		},
 		{ // case 7 has 1.2 data, and a service with unnamed port, and no containerPort
 			execClientConfig: cannedConfig,
-			configs:          []model.Config{},
+			configs:          cannedIstioConfig,
 			k8sConfigs:       cannedNoPortNameK8sEnv,
 			args:             strings.Split("-n bookinfo experimental describe pod ratings-v1-f745cf57b-vfwcv", " "),
 			expectedOutput: `Pod: ratings-v1-f745cf57b-vfwcv
@@ -560,6 +586,9 @@ Service: ratings
    Port:  9080/UnsupportedProtocol targets pod port 9080
    Warning: Pod ratings-v1-f745cf57b-vfwcv port 9080 not exposed by Container
    9080 is unnamed which does not follow Istio conventions
+DestinationRule: ratings for "ratings"
+   Matching subsets: v1
+   Traffic Policy TLS Mode: ISTIO_MUTUAL
 Pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak mTLS
 RBAC policies: ratings-reader
 `,
@@ -668,6 +697,8 @@ func TestDescribeAutoMTLS(t *testing.T) {
 --------------------
 Service: productpage
    Port:  9080/auto-detect targets pod port 9080
+DestinationRule: productpage for "productpage"
+   No Traffic Policy
 Pod is STRICT, clients configured automatically
 
 
@@ -685,6 +716,8 @@ VirtualService: bookinfo
 			args:             strings.Split("x describe svc productpage", " "),
 			expectedOutput: `Service: productpage
    Port:  9080/auto-detect targets pod port 9080
+DestinationRule: productpage for "productpage"
+   No Traffic Policy
 Pod is STRICT, clients configured automatically
 
 
