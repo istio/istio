@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
@@ -40,6 +41,7 @@ type TokenManager struct {
 
 type Config struct {
 	TrustDomain string
+	ProxyConfig *meshconfig.ProxyConfig
 }
 
 // GCPProjectInfo stores GCP project information, including project number,
@@ -79,6 +81,9 @@ func CreateTokenManager(tokenManagerType string, config Config) stsservice.Token
 	}
 	switch tokenManagerType {
 	case GoogleTokenExchange:
+		if config.ProxyConfig != nil || config.ProxyConfig.GetProxyMetadata() != nil {
+			platform.InitGCPConfig(config.ProxyConfig.GetProxyMetadata()["GCP_METADATA"])
+		}
 		if projectInfo := getGCPProjectInfo(); len(projectInfo.Number) > 0 {
 			gkeClusterURL := fmt.Sprintf("https://container.googleapis.com/v1/projects/%s/locations/%s/clusters/%s",
 				projectInfo.id, projectInfo.clusterLocation, projectInfo.cluster)

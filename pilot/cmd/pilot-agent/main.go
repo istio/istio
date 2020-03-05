@@ -408,7 +408,10 @@ var (
 					localHostAddr = localHostIPv6
 				}
 				tokenManager := tokenmanager.CreateTokenManager(tokenManagerPlugin,
-					tokenmanager.Config{TrustDomain: trustDomain})
+					tokenmanager.Config{
+						TrustDomain: trustDomain,
+						ProxyConfig: &proxyConfig,
+					})
 				stsServer, err := stsserver.NewServer(stsserver.Config{
 					LocalHostAddr: localHostAddr,
 					LocalPort:     stsPort,

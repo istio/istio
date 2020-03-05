@@ -16,6 +16,7 @@ package platform
 
 import (
 	"fmt"
+	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 	"regexp"
 	"strings"
 
@@ -23,7 +24,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
 	"istio.io/pkg/env"
-
 	"istio.io/pkg/log"
 )
 
@@ -36,7 +36,8 @@ const (
 )
 
 var (
-	gcpMetadataVar = env.RegisterStringVar("GCP_METADATA", "", "Pipe separted GCP metadata, schemed as PROJECT_ID|PROJECT_NUMBER|CLUSTER_NAME|CLUSTER_ZONE")
+	gcpMetadataEnvVar  = env.RegisterStringVar("GCP_METADATA", "", "Pipe separated GCP metadata, schemed as PROJECT_ID|PROJECT_NUMBER|CLUSTER_NAME|CLUSTER_ZONE")
+	gcpMetaDataInitStr = ""
 )
 
 var (
@@ -68,9 +69,13 @@ type gcpEnv struct {
 	instanceIDFn       metadataFn
 }
 
+func InitGCPConfig(gmd string) {
+	gcpMetaDataInitStr = gmd
+}
+
 // IsGCP returns whether or not the platform for bootstrapping is Google Cloud Platform.
 func IsGCP() bool {
-	if gcpMetadataVar.Get() != "" {
+	if gcpMetadataEnvVar.Get() != "" || gcpMetaDataInitStr != "" {
 		// Assume this is running on GCP if GCP project env variable is set.
 		return true
 	}
@@ -98,7 +103,7 @@ func (e *gcpEnv) Metadata() map[string]string {
 	if e == nil {
 		return md
 	}
-	if gcpMetadataVar.Get() == "" && !e.shouldFillMetadata() {
+	if gcpMetadataEnvVar.Get() == "" && gcpMetaDataInitStr == "" && !e.shouldFillMetadata() {
 		return md
 	}
 	envPid, envNPid, envCN, envLoc := parseGCPMetadata()
@@ -129,13 +134,18 @@ func (e *gcpEnv) Metadata() map[string]string {
 }
 
 func parseGCPMetadata() (pid, npid, cluster, location string) {
-	gcpmd := gcpMetadataVar.Get()
+	gcpmd := gcpMetadataEnvVar.Get()
 	log.Infof("Extract GCP metadata from env variable GCP_METADATA: %v", gcpmd)
 	parts := strings.Split(gcpmd, "|")
-	if len(parts) != 4 {
-		return
+	if len(parts) == 4 {
+		return parts[0], parts[1], parts[2], parts[3]
 	}
-	return parts[0], parts[1], parts[2], parts[3]
+	log.Infof("Extract GCP metadata from InitGCPConfig GCP_METADATA: %v", gcpmd)
+	parts = strings.Split(gcpMetaDataInitStr, "|")
+	if len(parts) == 4 {
+		return parts[0], parts[1], parts[2], parts[3]
+	}
+	return
 }
 
 // Converts a GCP zone into a region.
