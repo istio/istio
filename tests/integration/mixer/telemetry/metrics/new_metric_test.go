@@ -48,6 +48,7 @@ func TestNewMetric(t *testing.T) {
 				return nil
 			}, retry.Delay(time.Second))
 
-			util.ValidateMetric(t, prom, "sum(istio_double_request_count{message=\"twice the fun!\"})", "istio_double_request_count", 1)
+			// We are expecting double request count, so we should see at least 2 requests here
+			util.ValidateMetric(t, prom, "sum(istio_double_request_count{message=\"twice the fun!\"})", "istio_double_request_count", 2)
 		})
 }
