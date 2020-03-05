@@ -75,12 +75,14 @@ var (
 		{
 			"istio-grafana-configuration-dashboards-istio-service-dashboard",
 			"istio-service-dashboard.json",
-			[]string{},
+			[]string{
+			},
 		},
 		{
 			"istio-grafana-configuration-dashboards-istio-workload-dashboard",
 			"istio-workload-dashboard.json",
-			[]string{},
+			[]string{
+			},
 		},
 		{
 			"istio-grafana-configuration-dashboards-istio-performance-dashboard",
