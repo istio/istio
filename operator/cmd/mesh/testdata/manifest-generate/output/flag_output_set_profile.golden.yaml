@@ -6208,8 +6208,6 @@ metadata:
 webhooks:
 ---
 
-# Citadel component is disabled.
-
 # Cni component is disabled.
 
 # EgressGateways istio-egressgateway component is disabled.

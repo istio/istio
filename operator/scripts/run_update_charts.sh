@@ -32,7 +32,7 @@ cp -Rf "${OPERATOR_DIR}"/data/* "${OUT_DIR}/."
 
 mkdir -p "${OUT_DIR}/charts"
 
-for c in base gateways istio-cni istiocoredns istio-telemetry istio-control istio-policy security
+for c in base gateways istio-cni istiocoredns istio-telemetry istio-control istio-policy
 do
     cp -Rf "${INSTALLER_DIR}/${c}" "${OUT_DIR}/charts"
 done

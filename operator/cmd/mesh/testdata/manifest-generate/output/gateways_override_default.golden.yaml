@@ -539,8 +539,6 @@ metadata:
 
 # Base component is disabled.
 
-# Citadel component is disabled.
-
 # Cni component is disabled.
 
 # EgressGateways istio-egressgateway component is disabled.
