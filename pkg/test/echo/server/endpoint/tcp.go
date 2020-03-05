@@ -72,13 +72,13 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 }
 
 // Handles incoming connection.
-func (s *tcpInstance) echo(conn net.Conn) {
+func (s *tcpInstance) echo(conn io.ReadWriteCloser) {
 	defer func() {
 		_ = conn.Close()
 	}()
 
 	// Fill the field in the response
-	conn.Write([]byte(fmt.Sprintf("%s=%s\n", string(response.StatusCodeField), response.StatusCodeOK)))
+	_, _ = conn.Write([]byte(fmt.Sprintf("%s=%s\n", string(response.StatusCodeField), response.StatusCodeOK)))
 
 	for {
 		buf, err := bufio.NewReader(conn).ReadBytes(byte('\n'))
@@ -90,7 +90,7 @@ func (s *tcpInstance) echo(conn net.Conn) {
 		}
 
 		// echo the message in the buffer
-		conn.Write(buf)
+		_, _ = conn.Write(buf)
 	}
 }
 
