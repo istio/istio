@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: stackdriver-bootstrap-config
+  namespace: {{ .EchoNamespace }}
+data:
+  custom_bootstrap.json: |
+    {
+      "node": {
+        "metadata": {
+          "INSECURE_STACKDRIVER_ENDPOINT": "stackdriver.{{ .StackdriverNamespace }}:8090",
+          "STACKDRIVER_MONITORING_EXPORT_INTERVAL_SECS": "10",
+          "MESH_ID": "test-mesh",
+        }
+      }
+    }
