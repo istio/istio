@@ -159,7 +159,7 @@ spec:
         - mountPath: /etc/istio/pod
           name: podinfo
       initContainers:
-      - command:
+      - args:
         - istio-iptables
         - -p
         - "15001"

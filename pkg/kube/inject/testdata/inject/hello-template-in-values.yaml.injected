@@ -148,7 +148,7 @@ spec:
         - global
         - default.global
       initContainers:
-      - command:
+      - args:
         - istio-iptables
         - -p
         - "15001"

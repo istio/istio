@@ -275,8 +275,6 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
   ./mixer/test/policybackend \
-  ./tools/istio-iptables \
-  ./tools/istio-clean-iptables \
   ./operator/cmd/operator
 
 # List of binaries included in releases
