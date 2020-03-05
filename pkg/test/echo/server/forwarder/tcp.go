@@ -49,7 +49,7 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, er
 		return outBuffer.String(), err
 	}
 
-	// Make sure the client write something to the buffer
+	// Make sure the client writes something to the buffer
 	message := "HelloWorld"
 	if req.Message != "" {
 		message = req.Message

@@ -43,9 +43,10 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 		return err
 	}
 
-	s.l = listener
 	// Store the actual listening port back to the argument.
 	s.Port.Port = p
+	s.l = listener
+
 	fmt.Printf("Listening TCP on %v\n", p)
 
 	// Start serving TCP traffic.
@@ -57,7 +58,6 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 				return
 			}
 
-			log.Info("xydebug !!!")
 			go s.echo(conn)
 		}
 	}()
@@ -95,10 +95,10 @@ func (s *tcpInstance) awaitReady(onReady OnReadyFunc, port int) {
 
 	err := retry.UntilSuccess(func() error {
 		conn, err := net.Dial("tcp", address)
-		defer conn.Close()
 		if err != nil {
 			return err
 		}
+		defer conn.Close()
 
 		// Server is up now, we're ready.
 		return nil

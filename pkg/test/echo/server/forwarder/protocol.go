@@ -20,12 +20,11 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
 	"time"
-
-	"istio.io/pkg/log"
 
 	"github.com/gorilla/websocket"
 
@@ -135,8 +134,8 @@ func newProtocol(cfg Config) (protocol, error) {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout)
 		defer cancel()
-		address := rawURL[len(u.Scheme+"://"):]
 
+		address := rawURL[len(u.Scheme+"://"):]
 		tcpConn, err := cfg.Dialer.TCP(dialer, ctx, address)
 		if err != nil {
 			return nil, err
