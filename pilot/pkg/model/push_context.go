@@ -887,7 +887,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 		}
 	} else {
 		if err := ps.updateContext(env, oldPushContext, pushReq); err != nil {
-			return nil
+			return err
 		}
 	}
 
