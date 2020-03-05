@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"sync"
 	"testing"
-	"time"
 
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -130,8 +129,6 @@ func Test_SecretController(t *testing.T) {
 	g.Expect(
 		StartSecretController(clientset, addCallback, updateCallback, deleteCallback, secretNamespace)).
 		Should(Succeed())
-
-	time.Sleep(100 * time.Millisecond)
 
 	for i, step := range steps {
 		resetCallbackData()
