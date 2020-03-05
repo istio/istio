@@ -80,3 +80,14 @@ func IsComponentEnabledFromValue(cn name.ComponentName, valueSpec map[string]int
 	}
 	return enableNode, true, nil
 }
+
+// OverlayValuesEnablement overlays any enablement in values path from the user file overlay or set flag overlay.
+// The overlay is translated from values to the corresponding addonComponents enablement paths.
+func OverlayValuesEnablement(baseYAML, fileOverlayYAML, setOverlayYAML string) (string, error) {
+	overlayYAML, err := util.OverlayYAML(fileOverlayYAML, setOverlayYAML)
+	if err != nil {
+		return "", fmt.Errorf("could not overlay user config over base: %s", err)
+	}
+
+	return YAMLTree(overlayYAML, baseYAML, name.ValuesEnablementPathMap)
+}

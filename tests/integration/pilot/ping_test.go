@@ -76,6 +76,7 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 			Service:             "inoutsplitapp0",
 			Namespace:           ns,
 			Ports:               ports,
+			Subsets:             []echo.SubsetConfig{{}},
 			Galley:              g,
 			Pilot:               p,
 			IncludeInboundPorts: "*",
@@ -83,6 +84,7 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 		With(&inoutSplitApp1, echo.Config{
 			Service:             "inoutsplitapp1",
 			Namespace:           ns,
+			Subsets:             []echo.SubsetConfig{{}},
 			Ports:               ports,
 			Galley:              g,
 			Pilot:               p,
@@ -92,6 +94,7 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 			&inoutUnitedApp0, echo.Config{
 				Service:   "inoutunitedapp0",
 				Namespace: ns,
+				Subsets:   []echo.SubsetConfig{{}},
 				Ports:     ports,
 				Galley:    g,
 				Pilot:     p,
@@ -99,6 +102,7 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 		With(&inoutUnitedApp1, echo.Config{
 			Service:   "inoutunitedapp1",
 			Namespace: ns,
+			Subsets:   []echo.SubsetConfig{{}},
 			Ports:     ports,
 			Galley:    g,
 			Pilot:     p,

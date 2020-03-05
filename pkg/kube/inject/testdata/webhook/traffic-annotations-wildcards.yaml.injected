@@ -95,6 +95,8 @@ spec:
           value: REDIRECT
         - name: ISTIO_META_MESH_ID
           value: cluster.local
+        - name: ISTIO_KUBE_APP_PROBERS
+          value: '{}'
         image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: Always
         name: istio-proxy

@@ -60,7 +60,7 @@ func main() {
 	typeList := []ConfigData{
 		MakeConfigData(collections.Mock),
 	}
-	for _, s := range collections.Pilot.All() {
+	for _, s := range collections.PilotServiceApi.All() {
 		typeList = append(typeList, MakeConfigData(s))
 	}
 	var buffer bytes.Buffer

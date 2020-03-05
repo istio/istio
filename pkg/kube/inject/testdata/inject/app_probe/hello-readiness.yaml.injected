@@ -34,8 +34,8 @@ spec:
           name: http
         readinessProbe:
           httpGet:
-            path: /ip
-            port: 8000
+            path: /app-health/hello/readyz
+            port: 15020
         resources: {}
       - args:
         - proxy
@@ -105,6 +105,8 @@ spec:
           value: kubernetes://apis/apps/v1/namespaces/default/deployments/hello
         - name: ISTIO_META_MESH_ID
           value: cluster.local
+        - name: ISTIO_KUBE_APP_PROBERS
+          value: '{"/app-health/hello/readyz":{"httpGet":{"path":"/ip","port":8000}}}'
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: Always
         name: istio-proxy

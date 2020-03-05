@@ -477,6 +477,10 @@ global:
     # Setting this port to a non-zero value enables STS server.
     servicePort: 0
 
+  # The customized CA address to retrieve certificates for the pods in the cluster.
+  # CSR clients such as the Istio Agent and ingress gateways can use this to specify the CA endpoint.
+  caAddress: ""
+
   # Configure the mesh networks to be used by the Split Horizon EDS.
   #
   # The following example defines two networks with different endpoints association methods.

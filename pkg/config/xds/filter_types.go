@@ -69,4 +69,5 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/filter/thrift/rate_limit/v2alpha1"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/filter/thrift/router/v2alpha1"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/filter/udp/udp_proxy/v2alpha"
+	_ "github.com/envoyproxy/go-control-plane/envoy/config/trace/v2"
 )

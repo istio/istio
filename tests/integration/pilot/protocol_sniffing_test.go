@@ -81,6 +81,7 @@ func runTest(t *testing.T, ctx framework.TestContext) {
 			Service:   "from-with-sidecar",
 			Namespace: ns,
 			Ports:     ports,
+			Subsets:   []echo.SubsetConfig{{}},
 			Galley:    g,
 			Pilot:     p,
 		}).
@@ -90,14 +91,19 @@ func runTest(t *testing.T, ctx framework.TestContext) {
 			Ports:     ports,
 			Galley:    g,
 			Pilot:     p,
-			Annotations: map[echo.Annotation]*echo.AnnotationValue{
-				echo.SidecarInject: {
-					Value: strconv.FormatBool(false)},
+			Subsets: []echo.SubsetConfig{
+				{
+					Annotations: map[echo.Annotation]*echo.AnnotationValue{
+						echo.SidecarInject: {
+							Value: strconv.FormatBool(false)},
+					},
+				},
 			},
 		}).
 		With(&to, echo.Config{
 			Service:   "to",
 			Namespace: ns,
+			Subsets:   []echo.SubsetConfig{{}},
 			Ports:     ports,
 			Galley:    g,
 			Pilot:     p,
