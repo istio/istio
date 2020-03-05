@@ -3,7 +3,7 @@ alwaysInjectSelector: []
 neverInjectSelector: []
 injectedAnnotations: {}
 template: |-
-  rewriteAppHTTPProbe: false
+  rewriteAppHTTPProbe: true
   initContainers:
   - name: istio-init
     image: example.com/init:latest
