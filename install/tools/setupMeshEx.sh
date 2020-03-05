@@ -47,11 +47,14 @@
 # It will need to be installed on each machine expanding the mesh.
 function istioDnsmasq() {
   local NS=${ISTIO_NAMESPACE:-istio-system}
+  # PILOT_IP is now the only address we use for reaching control plane
+  # DNS is still using the dns-ilb, since it's UDP. May change in 1.6
   # Multiple tries, it may take some time until the controllers generate the IPs
   for _ in {1..20}; do
     PILOT_IP=$(kubectl get -n "$NS" service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+    ISTIO_DNS=$(kubectl get -n kube-system service dns-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
-    if [ "${PILOT_IP}" == "" ] ; then
+    if [ "${PILOT_IP}" == "" ] || [  "${ISTIO_DNS}" == "" ]  ; then
       echo "Waiting for ILBs, pilot=$PILOT_IP"
       sleep 30
     else
@@ -59,7 +62,7 @@ function istioDnsmasq() {
     fi
   done
 
-  if [ "${PILOT_IP}" == "" ] ; then
+  if [ "${PILOT_IP}" == "" ] || [  "${ISTIO_DNS}" == "" ] ; then
     echo "Failed to create ILBs"
     exit 1
   fi
