@@ -378,7 +378,7 @@ var (
 			}
 			ctx, cancel := context.WithCancel(context.Background())
 			// If a status port was provided, start handling status probes.
-			if proxyConfig.StatusPort > 0{
+			if proxyConfig.StatusPort > 0 {
 				localHostAddr := localHostIPv4
 				if proxyIPv6 {
 					localHostAddr = localHostIPv6
