@@ -83,8 +83,6 @@ spec:
         - zipkin.istio-system:9411
         - --proxyAdminPort
         - "15000"
-        - --statusPort
-        - "15020"
         - --controlPlaneAuthPolicy
         - NONE
         - --discoveryAddress

@@ -625,8 +625,6 @@ spec:
             - "15000"
             - --controlPlaneAuthPolicy
             - NONE
-            - --statusPort
-            - "15020"
             - --trust-domain=cluster.local
             - --controlPlaneBootstrap=false
           env:
@@ -7260,8 +7258,6 @@ spec:
           - zipkin.istio-system:9411
           - --proxyAdminPort
           - "15000"
-          - --statusPort
-          - "15020"
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
@@ -8022,8 +8018,6 @@ spec:
           - zipkin.istio-system:9411
           - --proxyAdminPort
           - "15000"
-          - --statusPort
-          - "15020"
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
@@ -9067,10 +9061,6 @@ data:
         {{ end -}}
         - --proxyLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel}}
         - --proxyComponentLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel}}
-      {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
-        - --statusPort
-        - "{{ annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort }}"
-      {{- end }}
       {{- if .Values.global.sts.servicePort }}
         - --stsPort={{ .Values.global.sts.servicePort }}
       {{- end }}

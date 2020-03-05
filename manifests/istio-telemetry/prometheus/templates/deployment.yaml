@@ -123,8 +123,6 @@ spec:
             - --controlPlaneAuthPolicy
             - NONE
               {{- end }}
-            - --statusPort
-            - "15020"
               {{- if .Values.global.trustDomain }}
             - --trust-domain={{ .Values.global.trustDomain }}
               {{- end }}

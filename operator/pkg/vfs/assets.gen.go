@@ -13451,8 +13451,6 @@ spec:
         {{- end }}
           - --proxyAdminPort
           - "15000"
-          - --statusPort
-          - "15020"
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
         {{- end }}
@@ -14504,8 +14502,6 @@ spec:
         {{- end }}
           - --proxyAdminPort
           - "15000"
-          - --statusPort
-          - "15020"
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
         {{- end }}
@@ -17470,10 +17466,6 @@ data:
         {{ end -}}
         - --proxyLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/logLevel`+"`"+` .Values.global.proxy.logLevel}}
         - --proxyComponentLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/componentLogLevel`+"`"+` .Values.global.proxy.componentLogLevel}}
-      {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
-        - --statusPort
-        - "{{ annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort }}"
-      {{- end }}
       {{- if .Values.global.sts.servicePort }}
         - --stsPort={{ .Values.global.sts.servicePort }}
       {{- end }}
@@ -18961,10 +18953,6 @@ template: |
     {{ end -}}
     - --proxyLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/logLevel`+"`"+` .Values.global.proxy.logLevel}}
     - --proxyComponentLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/componentLogLevel`+"`"+` .Values.global.proxy.componentLogLevel}}
-  {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
-    - --statusPort
-    - "{{ annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort }}"
-  {{- end }}
   {{- if .Values.global.sts.servicePort }}
     - --stsPort={{ .Values.global.sts.servicePort }}
   {{- end }}
@@ -42348,8 +42336,6 @@ spec:
             - --controlPlaneAuthPolicy
             - NONE
               {{- end }}
-            - --statusPort
-            - "15020"
               {{- if .Values.global.trustDomain }}
             - --trust-domain={{ .Values.global.trustDomain }}
               {{- end }}

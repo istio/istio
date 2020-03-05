@@ -384,8 +384,6 @@ spec:
             - "15000"
             - --controlPlaneAuthPolicy
             - NONE
-            - --statusPort
-            - "15020"
             - --trust-domain=cluster.local
             - --controlPlaneBootstrap=false
           env:

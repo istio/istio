@@ -384,8 +384,6 @@ spec:
             - "15000"
             - --controlPlaneAuthPolicy
             - NONE
-            - --statusPort
-            - "15020"
             - --trust-domain=cluster.local
             - --controlPlaneBootstrap=false
           env:
@@ -663,8 +661,6 @@ spec:
         - zipkin.istio-system:9411
         - --proxyAdminPort
         - "15000"
-        - --statusPort
-        - "15020"
         - --controlPlaneAuthPolicy
         - NONE
         - --discoveryAddress

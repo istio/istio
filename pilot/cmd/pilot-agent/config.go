@@ -16,6 +16,7 @@ package main
 
 import (
 	"io/ioutil"
+	"strconv"
 	"strings"
 
 	"github.com/gogo/protobuf/types"
@@ -152,6 +153,13 @@ func readPodAnnotations() (map[string]string, error) {
 func applyAnnotations(config meshconfig.ProxyConfig, annos map[string]string) meshconfig.ProxyConfig {
 	if v, f := annos[annotation.SidecarDiscoveryAddress.Name]; f {
 		config.DiscoveryAddress = v
+	}
+	if v, f := annos[annotation.SidecarStatusPort.Name]; f {
+		p, err := strconv.Atoi(v)
+		if err != nil {
+			log.Errorf("Invalid annotation %v=%v: %v", annotation.SidecarStatusPort, p, err)
+		}
+		config.StatusPort = int32(p)
 	}
 	return config
 }
