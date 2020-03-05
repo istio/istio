@@ -185,7 +185,7 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 
 	discHost, discPort, err := net.SplitHostPort(discAddr)
 	if err != nil {
-		log.Fatala("Invalid discovery address", discAddr, err)
+		log.Fatalf("Invalid discovery address %v %v", discAddr, err)
 	}
 
 	if _, err := os.Stat(jwtPath); err == nil && citadel.ProvCert == "" {
