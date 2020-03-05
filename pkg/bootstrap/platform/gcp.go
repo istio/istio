@@ -16,7 +16,6 @@ package platform
 
 import (
 	"fmt"
-	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 	"regexp"
 	"strings"
 
