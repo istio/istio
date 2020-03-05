@@ -142,11 +142,6 @@ spec:
     - match:
         pathType: Prefix
         path: /get
-      filter:
-        headers:
-          add:
-            my-added-header: added-value
-          remove: [my-removed-header]
       action:
         forwardTo:
           group: v1
