@@ -397,8 +397,8 @@ func TestMostSpecificHostMatch(t *testing.T) {
 		{[]host.Name{"*.foo.bar.com", "bar.foo.bar.com"}, "bar.foo.bar.com", "bar.foo.bar.com"},
 
 		// should not match non-wildcards for wildcard needle
-		{[]host.Name{"bar.foo.com","foo.bar.com"}, "*.foo.com", ""},
-		{[]host.Name{"foo.bar.foo.com","bar.foo.bar.com"}, "*.bar.foo.com", ""},
+		{[]host.Name{"bar.foo.com", "foo.bar.com"}, "*.foo.com", ""},
+		{[]host.Name{"foo.bar.foo.com", "bar.foo.bar.com"}, "*.bar.foo.com", ""},
 	}
 
 	for idx, tt := range tests {
