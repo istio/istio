@@ -1,5 +1,4 @@
-{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
-
+{{- if or (eq .Values.revision "") (not .Values.clusterResources) }}
 apiVersion: v1
 kind: Service
 metadata:
