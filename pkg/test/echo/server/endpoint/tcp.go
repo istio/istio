@@ -84,7 +84,9 @@ func (s *tcpInstance) echo(conn net.Conn) {
 }
 
 func (s *tcpInstance) Close() error {
-	s.l.Close()
+	if s.l != nil {
+		s.l.Close()
+	}
 	return nil
 }
 
