@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors. All Rights Reserved.
+// Copyright 2020 Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -135,7 +135,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 					return fmt.Errorf("stackdriver server does not received expected server or client request count, server %v client %v", srvReceived, cltReceived)
 				}
 				return nil
-			}, retry.Delay(3*time.Second), retry.Timeout(20*time.Second))
+			}, retry.Delay(3*time.Second), retry.Timeout(40*time.Second))
 		})
 }
 

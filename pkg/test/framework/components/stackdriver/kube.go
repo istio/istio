@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright 2020 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -139,9 +139,6 @@ func (c *kubeComponent) ID() resource.ID {
 
 // Close implements io.Closer.
 func (c *kubeComponent) Close() error {
-	scopes.CI.Infof("Deleting Stackdriver Install")
-	_ = c.env.DeleteNamespace(stackdriverNamespace)
-	_ = c.env.WaitForNamespaceDeletion(stackdriverNamespace)
 	return nil
 }
 
