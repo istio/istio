@@ -727,11 +727,11 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 		}
 	}
 
-	initEndpoint := c.newIstioEndpoint(pod)
+	initEndpoint := c.newIstioEndpoint(pod, svc.Attributes)
 	for tp, svcPort := range tps {
 		// consider multiple IP scenarios
 		for _, ip := range proxy.IPAddresses {
-			istioEndpoint := c.completeIstioEndpoint(initEndpoint, ip, int32(tp.Port), svcPort.Name, svc)
+			istioEndpoint := c.completeIstioEndpoint(initEndpoint, ip, int32(tp.Port), svcPort.Name)
 			out = append(out, &model.ServiceInstance{
 				Service:     svc,
 				ServicePort: svcPort,
@@ -805,6 +805,13 @@ func (c *Controller) AppendInstanceHandler(func(*model.ServiceInstance, model.Ev
 func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 	hostname := kube.ServiceHostname(ep.Name, ep.Namespace, c.domainSuffix)
 
+	c.RLock()
+	svc := c.servicesMap[hostname]
+	c.RUnlock()
+	if svc == nil {
+		log.Infof("Handle EDS endpoints: skip updating, service %s/%s has mot been populated", ep.Name, ep.Namespace)
+		return
+	}
 	endpoints := make([]*model.IstioEndpoint, 0)
 	if event != model.EventDelete {
 		for _, ss := range ep.Subsets {
@@ -827,23 +834,19 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 					}
 				}
 
-				initEndpoint := c.newIstioEndpoint(pod)
+				initEndpoint := c.newIstioEndpoint(pod, svc.Attributes)
 
 				// EDS and ServiceEntry use name for service port - ADS will need to
 				// map to numbers.
 				for _, port := range ss.Ports {
-					dummySvc := &model.Service{Attributes: model.ServiceAttributes{
-						Name:      ep.Name,
-						Namespace: ep.Namespace,
-					}}
-					istioEndpoint := c.completeIstioEndpoint(initEndpoint, ea.IP, port.Port, port.Name, dummySvc)
+					istioEndpoint := c.completeIstioEndpoint(initEndpoint, ea.IP, port.Port, port.Name)
 					endpoints = append(endpoints, istioEndpoint)
 				}
 			}
 		}
 	}
 
-	log.Infof("Handle EDS: %d endpoints for %s in namespace %s", len(endpoints), ep.Name, ep.Namespace)
+	log.Debugf("Handle EDS: %d endpoints for %s in namespace %s", len(endpoints), ep.Name, ep.Namespace)
 
 	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(hostname), ep.Namespace, endpoints)
 }
@@ -947,7 +950,8 @@ func createUID(podName, namespace string) string {
 }
 
 // first phase of instantiating IstioEndpoint
-func (c *Controller) newIstioEndpoint(pod *v1.Pod) model.IstioEndpoint {
+// Note: must be followed by `completeIstioEndpoint` to build a complete IstioEndpoint
+func (c *Controller) newIstioEndpoint(pod *v1.Pod, attributes model.ServiceAttributes) model.IstioEndpoint {
 	locality, sa, uid := "", "", ""
 	var podLabels labels.Instance
 	if pod != nil {
@@ -965,23 +969,22 @@ func (c *Controller) newIstioEndpoint(pod *v1.Pod) model.IstioEndpoint {
 			Label:     locality,
 			ClusterID: c.clusterID,
 		},
-		TLSMode: kube.PodTLSMode(pod),
+		TLSMode:    kube.PodTLSMode(pod),
+		Attributes: attributes,
 	}
 }
 
-// second phase: complete IstioEndpoint
+// second phase: complete IstioEndpoint with address and port
 func (c *Controller) completeIstioEndpoint(
 	ep model.IstioEndpoint,
 	address string,
 	endpointPort int32,
-	svcPortName string,
-	svc *model.Service) *model.IstioEndpoint {
+	svcPortName string) *model.IstioEndpoint {
 
 	ep.Address = address
 	ep.EndpointPort = uint32(endpointPort)
 	ep.ServicePortName = svcPortName
 	ep.Network = c.endpointNetwork(address)
-	ep.Attributes = svc.Attributes
 
 	return &ep
 }

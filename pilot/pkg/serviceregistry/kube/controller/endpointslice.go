@@ -17,7 +17,9 @@ package controller
 import (
 	"sync"
 
+	v1 "k8s.io/api/core/v1"
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
 	discoverylister "k8s.io/client-go/listers/discovery/v1alpha1"
@@ -58,6 +60,15 @@ func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event)
 	svcName := slice.Labels[discoveryv1alpha1.LabelServiceName]
 	hostname := kube.ServiceHostname(svcName, slice.Namespace, esc.c.domainSuffix)
 
+	esc.c.RLock()
+	svc := esc.c.servicesMap[hostname]
+	esc.c.RUnlock()
+
+	if svc == nil {
+		log.Infof("Handle EDS endpoint: skip updating, service %s/%s has mot been populated", svcName, slice.Namespace)
+		return
+	}
+
 	endpoints := make([]*model.IstioEndpoint, 0)
 	if event != model.EventDelete {
 		for _, e := range slice.Endpoints {
@@ -81,20 +92,7 @@ func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event)
 					// For service without selector, maybe there are no related pods
 				}
 
-				var initEndpoint model.IstioEndpoint
-				if pod != nil {
-					podCopy := *pod
-					// Respect pod "istio-locality" label
-					if pod.Labels[model.LocalityLabel] == "" {
-						locality := getLocalityFromTopology(e.Topology)
-						// mutate the labels, only need `istio-locality`
-						podCopy.Labels = map[string]string{model.LocalityLabel: locality}
-					}
-					initEndpoint = esc.c.newIstioEndpoint(&podCopy)
-				} else {
-					initEndpoint = esc.c.newIstioEndpoint(nil)
-				}
-
+				initEndpoint := esc.newIstioEndpoint(pod, e, svc.Attributes)
 				// EDS and ServiceEntry use name for service port - ADS will need to
 				// map to numbers.
 				for _, port := range slice.Ports {
@@ -107,11 +105,7 @@ func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event)
 						portName = *port.Name
 					}
 
-					dummySvc := &model.Service{Attributes: model.ServiceAttributes{
-						Name:      svcName,
-						Namespace: slice.Namespace,
-					}}
-					istioEndpoint := esc.c.completeIstioEndpoint(initEndpoint, a, portNum, portName, dummySvc)
+					istioEndpoint := esc.c.completeIstioEndpoint(initEndpoint, a, portNum, portName)
 					endpoints = append(endpoints, istioEndpoint)
 				}
 			}
@@ -120,7 +114,7 @@ func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event)
 
 	esc.endpointCache.Update(hostname, slice.Name, endpoints)
 
-	log.Infof("Handle EDS endpoint %s in namespace %s", svcName, slice.Namespace)
+	log.Debugf("Handle EDS endpoint %s in namespace %s", svcName, slice.Namespace)
 
 	_ = esc.c.xdsUpdater.EDSUpdate(esc.c.clusterID, string(hostname), slice.Namespace, esc.endpointCache.Get(hostname))
 }
@@ -178,7 +172,7 @@ func (esc *endpointSliceController) proxyServiceInstances(c *Controller, ep *dis
 
 	podIP := proxy.IPAddresses[0]
 	pod := c.pods.getPodByIP(podIP)
-	initEndpoint := c.newIstioEndpoint(pod)
+	initEndpoint := c.newIstioEndpoint(pod, svc.Attributes)
 
 	for _, port := range ep.Ports {
 		if port.Name == nil || port.Port == nil {
@@ -194,7 +188,7 @@ func (esc *endpointSliceController) proxyServiceInstances(c *Controller, ep *dis
 			for _, ep := range ep.Endpoints {
 				for _, a := range ep.Addresses {
 					if a == ip {
-						istioEndpoint := c.completeIstioEndpoint(initEndpoint, ip, *port.Port, svcPort.Name, svc)
+						istioEndpoint := c.completeIstioEndpoint(initEndpoint, ip, *port.Port, svcPort.Name)
 						out = append(out, &model.ServiceInstance{
 							Endpoint:    istioEndpoint,
 							ServicePort: svcPort,
@@ -246,20 +240,7 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 					continue
 				}
 
-				var initEndpoint model.IstioEndpoint
-				if pod != nil {
-					podCopy := *pod
-					// Respect pod "istio-locality" label
-					if pod.Labels[model.LocalityLabel] == "" {
-						locality := getLocalityFromTopology(e.Topology)
-						// mutate the labels, only need `istio-locality`
-						podCopy.Labels = map[string]string{model.LocalityLabel: locality}
-					}
-					initEndpoint = esc.c.newIstioEndpoint(&podCopy)
-				} else {
-					initEndpoint = esc.c.newIstioEndpoint(nil)
-				}
-
+				initEndpoint := esc.newIstioEndpoint(pod, e, svc.Attributes)
 				// identify the port by name. K8S EndpointPort uses the service port name
 				for _, port := range slice.Ports {
 					var portNum int32
@@ -269,7 +250,7 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 
 					if port.Name == nil ||
 						svcPort.Name == *port.Name {
-						istioEndpoint := esc.c.completeIstioEndpoint(initEndpoint, a, portNum, svcPort.Name, svc)
+						istioEndpoint := esc.c.completeIstioEndpoint(initEndpoint, a, portNum, svcPort.Name)
 						out = append(out, &model.ServiceInstance{
 							Endpoint:    istioEndpoint,
 							ServicePort: svcPort,
@@ -281,6 +262,29 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 		}
 	}
 	return out, nil
+}
+
+func (esc *endpointSliceController) newIstioEndpoint(pod *v1.Pod, endpoint discoveryv1alpha1.Endpoint, attributes model.ServiceAttributes) model.IstioEndpoint {
+	if pod != nil {
+		podLabels := make(map[string]string, len(pod.Labels))
+		for key, value := range pod.Labels {
+			podLabels[key] = value
+		}
+		// Respect pod "istio-locality" label
+		if podLabels[model.LocalityLabel] == "" {
+			// mutate the labels, only need `istio-locality`
+			podLabels[model.LocalityLabel] = getLocalityFromTopology(endpoint.Topology)
+		}
+		pod = &v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      pod.Name,
+				Namespace: pod.Namespace,
+				Labels:    podLabels,
+			},
+		}
+	}
+
+	return esc.c.newIstioEndpoint(pod, attributes)
 }
 
 func getLocalityFromTopology(topology map[string]string) string {

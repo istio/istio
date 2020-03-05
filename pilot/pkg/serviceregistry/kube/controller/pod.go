@@ -183,12 +183,3 @@ func (pc *PodCache) labelsByIP(addr string) (labels.Instance, bool) {
 	}
 	return pod.Labels, true
 }
-
-// labelsByIP returns pod labels or nil if pod not found or an error occurred
-func (pc *PodCache) get(addr string) (labels.Instance, bool) {
-	pod := pc.getPodByIP(addr)
-	if pod == nil {
-		return nil, false
-	}
-	return pod.Labels, true
-}

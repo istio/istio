@@ -109,7 +109,7 @@ func (e *endpointsController) proxyServiceInstances(c *Controller, endpoints *v1
 	if svc != nil {
 		podIP := proxy.IPAddresses[0]
 		pod := c.pods.getPodByIP(podIP)
-		initEndpoint := c.newIstioEndpoint(pod)
+		initEndpoint := c.newIstioEndpoint(pod, svc.Attributes)
 
 		for _, ss := range endpoints.Subsets {
 			for _, port := range ss.Ports {
@@ -121,7 +121,7 @@ func (e *endpointsController) proxyServiceInstances(c *Controller, endpoints *v1
 				// consider multiple IP scenarios
 				for _, ip := range proxy.IPAddresses {
 					if hasProxyIP(ss.Addresses, ip) || hasProxyIP(ss.NotReadyAddresses, ip) {
-						istioEndpoint := c.completeIstioEndpoint(initEndpoint, ip, port.Port, svcPort.Name, svc)
+						istioEndpoint := c.completeIstioEndpoint(initEndpoint, ip, port.Port, svcPort.Name)
 						out = append(out, &model.ServiceInstance{
 							Endpoint:    istioEndpoint,
 							ServicePort: svcPort,
@@ -173,13 +173,13 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 				continue
 			}
 
-			initEndpoint := c.newIstioEndpoint(pod)
+			initEndpoint := c.newIstioEndpoint(pod, svc.Attributes)
 
 			// identify the port by name. K8S EndpointPort uses the service port name
 			for _, port := range ss.Ports {
 				if port.Name == "" || // 'name optional if single port is defined'
 					svcPort.Name == port.Name {
-					istioEndpoint := c.completeIstioEndpoint(initEndpoint, ea.IP, port.Port, svcPort.Name, svc)
+					istioEndpoint := c.completeIstioEndpoint(initEndpoint, ea.IP, port.Port, svcPort.Name)
 					out = append(out, &model.ServiceInstance{
 						Endpoint:    istioEndpoint,
 						ServicePort: svcPort,
