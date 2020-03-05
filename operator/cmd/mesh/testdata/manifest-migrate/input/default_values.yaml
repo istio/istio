@@ -147,7 +147,7 @@ gateways:
 sidecarInjectorWebhook:
   enabled: true
   enableNamespacesByDefault: false
-  rewriteAppHTTPProbe: false
+  rewriteAppHTTPProbe: true
   selfSigned: false
   injectLabel: istio-injection
   neverInjectSelector: []

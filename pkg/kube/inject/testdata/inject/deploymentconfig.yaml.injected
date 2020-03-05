@@ -99,6 +99,8 @@ spec:
           value: kubernetes://apis/apps.openshift.io/v1/namespaces/default/deploymentconfigs/hello
         - name: ISTIO_META_MESH_ID
           value: cluster.local
+        - name: ISTIO_KUBE_APP_PROBERS
+          value: '{}'
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: Always
         name: istio-proxy

@@ -30,14 +30,16 @@ spec:
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
         livenessProbe:
           httpGet:
-            port: http
+            path: /app-health/hello/livez
+            port: 15020
         name: hello
         ports:
         - containerPort: 80
           name: http
         readinessProbe:
           httpGet:
-            port: 3333
+            path: /app-health/hello/readyz
+            port: 15020
         resources: {}
       - args:
         - proxy
@@ -107,6 +109,8 @@ spec:
           value: kubernetes://apis/apps/v1/namespaces/default/deployments/hello
         - name: ISTIO_META_MESH_ID
           value: cluster.local
+        - name: ISTIO_KUBE_APP_PROBERS
+          value: '{"/app-health/hello/livez":{"httpGet":{"port":80}},"/app-health/hello/readyz":{"httpGet":{"port":3333}}}'
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: Always
         name: istio-proxy
