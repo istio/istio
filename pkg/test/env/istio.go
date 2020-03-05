@@ -129,7 +129,7 @@ func getDefaultIstioBin() string {
 }
 
 func getDefaultIstioOut() string {
-	return fmt.Sprintf("%s/out/%s_%s", build.Default.GOPATH, runtime.GOOS, runtime.GOARCH)
+	return fmt.Sprintf("%s/out/%s_%s", IstioSrc, runtime.GOOS, runtime.GOARCH)
 }
 
 func verifyFile(v Variable, f string) string {
