@@ -72,6 +72,7 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string,
 
 	err := secretcontroller.StartSecretController(kc,
 		mc.AddMemberCluster,
+		mc.UpdateMemberCluster,
 		mc.DeleteMemberCluster,
 		secretNamespace)
 	return mc, err
@@ -105,6 +106,13 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 	_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { m.updateHandler() })
 	go kubectl.Run(stopCh)
 	return nil
+}
+
+func (m *Multicluster) UpdateMemberCluster(clientset kubernetes.Interface, clusterID string) error {
+	if err := m.DeleteMemberCluster(clusterID); err != nil {
+		return err
+	}
+	return m.AddMemberCluster(clientset, clusterID)
 }
 
 // DeleteMemberCluster is passed to the secret controller as a callback to be called
