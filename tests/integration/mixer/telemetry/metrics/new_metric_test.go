@@ -17,10 +17,12 @@ package metrics
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
 	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/mixer"
 )
 
@@ -38,10 +40,13 @@ func TestNewMetric(t *testing.T) {
 
 			addr := ing.HTTPAddress()
 			url := fmt.Sprintf("http://%s/productpage", addr.String())
-			res := util.SendTraffic(ing, t, "Sending traffic", url, "", 10)
-			if res.RetCodes[200] < 1 {
-				t.Fatalf("unable to retrieve 200 from product page: %v", res.RetCodes)
-			}
+			retry.UntilSuccessOrFail(t, func() error {
+				res := util.SendTraffic(ing, t, "Sending traffic", url, "", 10)
+				if res.RetCodes[200] < 1 {
+					return fmt.Errorf("unable to retrieve 200 from product page: %v", res.RetCodes)
+				}
+				return nil
+			}, retry.Delay(time.Second))
 
 			util.ValidateMetric(t, prom, "sum(istio_double_request_count{message=\"twice the fun!\"})", "istio_double_request_count", 1)
 		})
