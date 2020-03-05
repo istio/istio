@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 )
 
 var _ protocol = &tcpProtocol{}
@@ -60,13 +61,18 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, er
 		return outBuffer.String(), err
 	}
 
-	resp, err := bufio.NewReader(c.conn).ReadBytes(byte('\n'))
+	buf := make([]byte, 1024+len(message))
+	n, err := bufio.NewReader(c.conn).Read(buf)
 	if err != nil {
 		return outBuffer.String(), err
 	}
-	outBuffer.WriteString(fmt.Sprintf("[%d body] %s\n", req.RequestID, string(resp)))
 
-	return outBuffer.String(), nil
+	for _, line := range strings.Split(string(buf[:n]), "\n") {
+		if line != "" {
+			outBuffer.WriteString(fmt.Sprintf("[%d body] %s\n", req.RequestID, line))
+		}
+	}
+	return outBuffer.String(), err
 }
 
 func (c *tcpProtocol) Close() error {

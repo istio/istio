@@ -17,7 +17,10 @@ package endpoint
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"net"
+
+	"istio.io/istio/pkg/test/echo/common/response"
 
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/pkg/log"
@@ -70,17 +73,25 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 
 // Handles incoming connection.
 func (s *tcpInstance) echo(conn net.Conn) {
-	buf, err := bufio.NewReader(conn).ReadBytes(byte('\n'))
-	if err != nil {
-		log.Warn("tcp read failed: " + err.Error())
-	}
+	defer func() {
+		_ = conn.Close()
+	}()
 
-	// echo the message in the buffer
-	_, err = conn.Write(buf)
-	if err != nil {
-		log.Warn("tcp write failed: " + err.Error())
+	// Fill the field in the response
+	conn.Write([]byte(fmt.Sprintf("%s=%s\n", string(response.StatusCodeField), response.StatusCodeOK)))
+
+	for {
+		buf, err := bufio.NewReader(conn).ReadBytes(byte('\n'))
+		if err != nil {
+			if err != io.EOF {
+				log.Warn("tcp read failed: " + err.Error())
+			}
+			return
+		}
+
+		// echo the message in the buffer
+		conn.Write(buf)
 	}
-	conn.Close()
 }
 
 func (s *tcpInstance) Close() error {
