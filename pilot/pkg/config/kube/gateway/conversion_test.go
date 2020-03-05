@@ -34,10 +34,7 @@ func TestConvertResources(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt, func(t *testing.T) {
 			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt))
-			output, err := convertResources(splitInput(input))
-			if err != nil {
-				t.Fatal(err)
-			}
+			output := convertResources(splitInput(input))
 
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt)
 			if util.Refresh() {
