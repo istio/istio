@@ -20,11 +20,12 @@ import (
 
 	k8s "sigs.k8s.io/service-apis/api/v1alpha1"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
 
 	istio "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 )
@@ -72,22 +73,16 @@ func findByName(name, namespace string, cfgs []model.Config) *model.Config {
 	return nil
 }
 
-func convertResources(r *KubernetesResources) (IstioResources, error) {
+func convertResources(r *KubernetesResources) IstioResources {
 	result := IstioResources{}
-	gw, routeMap, err := convertGateway(r)
-	if err != nil {
-		return result, fmt.Errorf("failed to convert gateways: %v", err)
-	}
-	vs, err := convertVirtualService(r, routeMap)
-	if err != nil {
-		return result, fmt.Errorf("failed to convert gateways: %v", err)
-	}
+	gw, routeMap := convertGateway(r)
+	vs := convertVirtualService(r, routeMap)
 	result.Gateway = gw
 	result.VirtualService = vs
-	return result, nil
+	return result
 }
 
-func convertVirtualService(r *KubernetesResources, routeMap map[*k8s.HTTPRouteSpec][]string) ([]model.Config, error) {
+func convertVirtualService(r *KubernetesResources, routeMap map[*k8s.HTTPRouteSpec][]string) []model.Config {
 	result := []model.Config{}
 	// TODO implement this once the API does. For now just iterate to make sure types work
 	for _, obj := range r.TrafficSplit {
@@ -103,8 +98,7 @@ func convertVirtualService(r *KubernetesResources, routeMap map[*k8s.HTTPRouteSp
 
 		gateways, f := routeMap[route]
 		if !f {
-			// TODO this is not an error, should be a warning at best
-			return nil, fmt.Errorf("route %v not found in %v", obj.Name, routeMap)
+			continue
 		}
 
 		httproutes := []*istio.HTTPRoute{}
@@ -155,12 +149,11 @@ func convertVirtualService(r *KubernetesResources, routeMap map[*k8s.HTTPRouteSp
 				Hosts:    hosts,
 				Gateways: gateways,
 				Http:     httproutes,
-				ExportTo: []string{util.ExportToNamespaceLocal}, // TODO is this correct?
 			},
 		}
 		result = append(result, vsConfig)
 	}
-	return result, nil
+	return result
 }
 
 // TODO support traffic split
@@ -239,7 +232,7 @@ func createURIMatch(match *k8s.HTTPRouteMatch) *istio.StringMatch {
 	}
 }
 
-func convertGateway(r *KubernetesResources) ([]model.Config, map[*k8s.HTTPRouteSpec][]string, error) {
+func convertGateway(r *KubernetesResources) ([]model.Config, map[*k8s.HTTPRouteSpec][]string) {
 	result := []model.Config{}
 	routeToGateway := map[*k8s.HTTPRouteSpec][]string{}
 	for _, obj := range r.Gateway {
@@ -249,11 +242,15 @@ func convertGateway(r *KubernetesResources) ([]model.Config, map[*k8s.HTTPRouteS
 		for _, l := range kgw.Listeners {
 			if l.Port == nil {
 				// TODO this is optional in spec
-				return nil, nil, fmt.Errorf("invalid listener, port is nil: %v", l)
+				// TODO propagate errors to status
+				log.Warnf("invalid listener, port is nil: %v", l)
+				continue
 			}
 			if l.Protocol == nil {
 				// TODO this is optional in spec
-				return nil, nil, fmt.Errorf("invalid listener, protocol is nil: %v", l)
+				// TODO propagate errors to status
+				log.Warnf("invalid listener, protocol is nil: %v", l)
+				continue
 			}
 			server := &istio.Server{
 				Port: &istio.Port{
@@ -274,7 +271,9 @@ func convertGateway(r *KubernetesResources) ([]model.Config, map[*k8s.HTTPRouteS
 		for _, route := range kgw.Routes {
 			r, f := r.LookupReference(route, obj.Namespace)
 			if !f {
-				return nil, nil, fmt.Errorf("route %v/%v not found", route.Resource, route.Name)
+				// TODO propagate errors to status
+				log.Warnf("route %v/%v not found", route.Resource, route.Name)
+				continue
 			}
 			switch r.Type {
 			case collections.K8SServiceApisV1Alpha1Httproutes.Resource().Kind():
@@ -283,7 +282,8 @@ func convertGateway(r *KubernetesResources) ([]model.Config, map[*k8s.HTTPRouteS
 			case collections.K8SServiceApisV1Alpha1Tcproutes.Resource().Kind():
 				// TODO implement this once the spec is defined
 			default:
-				return nil, nil, fmt.Errorf("unsupported typed %v", r.Type)
+				log.Warnf("unsupported typed %v", r.Type)
+				continue
 			}
 		}
 		gatewayConfig := model.Config{
@@ -297,12 +297,11 @@ func convertGateway(r *KubernetesResources) ([]model.Config, map[*k8s.HTTPRouteS
 			},
 			Spec: &istio.Gateway{
 				Servers: servers,
-				// TODO derive this from gateway or gatewayclass somehow
-				//Selector: labels.Instance{constants.IstioLabel: "ingressgateway"}, // TODO hardcoded
-				Selector: labels.Instance{"app": "istio"}, // TODO hardcoded
+				// TODO derive this from gatewayclass param ref
+				Selector: labels.Instance{constants.IstioLabel: "ingressgateway"},
 			},
 		}
 		result = append(result, gatewayConfig)
 	}
-	return result, routeToGateway, nil
+	return result, routeToGateway
 }
