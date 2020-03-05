@@ -240,6 +240,12 @@ spec:
           - name: ISTIO_META_NETWORK
             value: {{ .Values.global.network }}
           {{- end }}
+          {{- if .Values.global.proxy.env }}
+          {{- range $key, $val := .Values.global.proxy.env }}
+          - name: {{ $key }}
+            value: "{{ $val }}"
+          {{- end }}
+          {{- end }}
 {{- if $gateway.podAnnotations }}
           - name: "ISTIO_METAJSON_ANNOTATIONS"
             value: |

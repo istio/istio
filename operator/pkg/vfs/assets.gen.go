@@ -13537,6 +13537,12 @@ spec:
             value: {{ $val }}
           {{- end }}
           {{ end }}
+          {{- if .Values.global.proxy.env }}
+          {{- range $key, $val := .Values.global.proxy.env }}
+          - name: {{ $key }}
+            value: "{{ $val }}"
+          {{- end }}
+          {{- end }}
 {{- if $gateway.podAnnotations }}
           - name: "ISTIO_METAJSON_ANNOTATIONS"
             value: |
@@ -14602,6 +14608,12 @@ spec:
           {{- if and (not $network_set) .Values.global.network }}
           - name: ISTIO_META_NETWORK
             value: {{ .Values.global.network }}
+          {{- end }}
+          {{- if .Values.global.proxy.env }}
+          {{- range $key, $val := .Values.global.proxy.env }}
+          - name: {{ $key }}
+            value: "{{ $val }}"
+          {{- end }}
           {{- end }}
 {{- if $gateway.podAnnotations }}
           - name: "ISTIO_METAJSON_ANNOTATIONS"
@@ -17643,6 +17655,12 @@ data:
         - name: ISTIO_META_MESH_ID
           value: "{{ .Values.global.trustDomain }}"
         {{- end }}
+        {{- if .Values.global.proxy.env }}
+        {{- range $key, $val := .Values.global.proxy.env }}
+        - name: {{ $key }}
+          value: {{ $val }}
+        {{- end }}
+        {{- end }}
         {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
         {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
           - name: {{ $key }}
@@ -19133,6 +19151,12 @@ template: |
     {{- else if .Values.global.trustDomain }}
     - name: ISTIO_META_MESH_ID
       value: "{{ .Values.global.trustDomain }}"
+    {{- end }}
+    {{- if .Values.global.proxy.env }}
+    {{- range $key, $val := .Values.global.proxy.env }}
+    - name: {{ $key }}
+      value: "{{ $val }}"
+    {{- end }}
     {{- end }}
     {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
     {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}

@@ -1580,6 +1580,9 @@ message ProxyConfig {
   string enableCoreDumpImage = 33 [deprecated=true];
 
   string outlierLogPath = 34;
+
+  // Environment variables passed to the proxy container.
+  TypeMapStringInterface env = 36;
 }
 
 // Specifies which tracer to use.
