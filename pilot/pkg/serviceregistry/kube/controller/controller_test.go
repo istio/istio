@@ -1801,7 +1801,7 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 				if err := waitForPod(controller, pod.Status.PodIP); err != nil {
 					t.Fatalf("wait for pod err: %v", err)
 				}
-				// pod first time occur will trigger xds push
+				// pod first time occur will trigger proxy push
 				fx.Wait("proxy")
 			}
 			// create service
