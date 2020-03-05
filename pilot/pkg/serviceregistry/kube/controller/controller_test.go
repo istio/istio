@@ -1731,7 +1731,9 @@ func TestEndpointUpdate(t *testing.T) {
 					t.Fatalf("wait for pod err: %v", err)
 				}
 				// pod first time occur will trigger proxy push
-				fx.Wait("proxy")
+				if ev := fx.Wait("proxy"); ev == nil {
+					t.Fatal("Timeout creating service")
+				}
 			}
 
 			// 1. incremental eds for normal service endpoint update
@@ -1802,7 +1804,9 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 					t.Fatalf("wait for pod err: %v", err)
 				}
 				// pod first time occur will trigger proxy push
-				fx.Wait("proxy")
+				if ev := fx.Wait("proxy"); ev == nil {
+					t.Fatal("Timeout creating service")
+				}
 			}
 			// create service
 			createService(controller, "pod1", "nsA", nil,
