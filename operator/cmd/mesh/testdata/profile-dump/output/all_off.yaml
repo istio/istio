@@ -561,7 +561,7 @@ spec:
       objectSelector:
         autoInject: true
         enabled: false
-      rewriteAppHTTPProbe: false
+      rewriteAppHTTPProbe: true
     telemetry:
       enabled: true
       v1:

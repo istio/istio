@@ -24,6 +24,8 @@ import (
 
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 
+	"istio.io/pkg/log"
+
 	"github.com/prometheus/common/model"
 	"golang.org/x/sync/errgroup"
 
@@ -68,22 +70,17 @@ var (
 			"istio-mesh-dashboard.json",
 			[]string{
 				"galley_",
-				"istio_tcp_",
 			},
 		},
 		{
 			"istio-grafana-configuration-dashboards-istio-service-dashboard",
 			"istio-service-dashboard.json",
-			[]string{
-				"istio_tcp_",
-			},
+			[]string{},
 		},
 		{
 			"istio-grafana-configuration-dashboards-istio-workload-dashboard",
 			"istio-workload-dashboard.json",
-			[]string{
-				"istio_tcp_",
-			},
+			[]string{},
 		},
 		{
 			"istio-grafana-configuration-dashboards-istio-performance-dashboard",
@@ -338,7 +335,9 @@ func setupDashboardTest(t framework.TestContext) {
 					Address:  addr,
 				})
 				if err != nil {
-					return err
+					// Do not fail on errors since there may be initial startup errors
+					// These calls are not under tests, the dashboards are, so we can be leniant here
+					log.Warnf("requests failed: %v", err)
 				}
 			}
 			_, err := ingr.Call(ingress.CallOptions{
@@ -348,7 +347,9 @@ func setupDashboardTest(t framework.TestContext) {
 				Address:  tcpAddr,
 			})
 			if err != nil {
-				return err
+				// Do not fail on errors since there may be initial startup errors
+				// These calls are not under tests, the dashboards are, so we can be leniant here
+				log.Warnf("requests failed: %v", err)
 			}
 			return nil
 		})

@@ -904,6 +904,11 @@ rules:
   - apiGroups: [""]
     resources: ["serviceaccounts"]
     verbs: ["get", "watch", "list"]
+
+  # Use for Kubernetes Service APIs
+  - apiGroups: ["networking.x.k8s.io"]
+    resources: ["*"]
+    verbs: ["get", "watch", "list"]
 ---
 
 
@@ -8915,7 +8920,7 @@ data:
           "autoInject": true,
           "enabled": false
         },
-        "rewriteAppHTTPProbe": false
+        "rewriteAppHTTPProbe": true
       }
     }
 

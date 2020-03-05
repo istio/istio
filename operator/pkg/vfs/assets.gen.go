@@ -12271,6 +12271,11 @@ rules:
   - apiGroups: [""]
     resources: ["serviceaccounts"]
     verbs: ["get", "watch", "list"]
+
+  # Use for Kubernetes Service APIs
+  - apiGroups: ["networking.x.k8s.io"]
+    resources: ["*"]
+    verbs: ["get", "watch", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -12564,6 +12569,11 @@ rules:
     verbs: ["create", "get", "watch", "list", "update", "delete"]
   - apiGroups: [""]
     resources: ["serviceaccounts"]
+    verbs: ["get", "watch", "list"]
+
+  # Use for Kubernetes Service APIs
+  - apiGroups: ["networking.x.k8s.io"]
+    resources: ["*"]
     verbs: ["get", "watch", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -14860,6 +14870,7 @@ spec:
         - "*"
 ---
 
+
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -15358,12 +15369,9 @@ gateways:
     # exposing unnecessary ports on the web.
     # You can remove these ports if you are not using mesh expansion
     meshExpansionPorts:
-    - port: 15011
-      targetPort: 15011
-      name: tcp-pilot-grpc-tls
-    - port: 8060
-      targetPort: 8060
-      name: tcp-citadel-grpc-tls
+    - port: 15012
+      targetPort: 15012
+      name: tcp-istiod
     - port: 853
       targetPort: 853
       name: tcp-dns-tls
@@ -46591,7 +46599,7 @@ spec:
 
     sidecarInjectorWebhook:
       enableNamespacesByDefault: false
-      rewriteAppHTTPProbe: false
+      rewriteAppHTTPProbe: true
       injectLabel: istio-injection
       objectSelector:
         enabled: false
