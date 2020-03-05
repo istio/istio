@@ -36,8 +36,6 @@ data:
 
     enableEnvoyAccessLogService: {{ .Values.global.proxy.envoyAccessLogService.enabled }}
 
-    {{- if .Values.global.istioRemote }}
-
     {{- if .Values.global.remotePolicyAddress }}
     {{- if .Values.global.createRemoteSvcEndpoints }}
     mixerCheckServer: istio-policy.{{ .Release.Namespace }}:15004
@@ -50,7 +48,6 @@ data:
     mixerReportServer: istio-telemetry.{{ .Release.Namespace }}:15004
     {{- else }}
     mixerReportServer: {{ .Values.global.remoteTelemetryAddress }}:15004
-    {{- end }}
     {{- end }}
 
     {{- else }}
@@ -73,7 +70,7 @@ data:
 
     {{- end }}
 
-    {{- if or .Values.mixer.policy.enabled (and .Values.global.istioRemote .Values.global.remotePolicyAddress) }}
+    {{- if or .Values.mixer.policy.enabled .Values.global.remotePolicyAddress }}
     # policyCheckFailOpen allows traffic in cases when the mixer policy service cannot be reached.
     # Default is false which means the traffic is denied when the client is unable to connect to Mixer.
     policyCheckFailOpen: {{ .Values.global.policyCheckFailOpen }}
@@ -256,10 +253,17 @@ data:
     {{- if not (eq .Values.revision "") }}
     {{- $defPilotHostname := printf "istiod-%s.%s.svc" .Values.revision .Release.Namespace }}
     {{- else }}
-    {{- $defPilotHostname := printf "istiod.%s.svc" .Release.Namespace }}
+    {{- $defPilotHostname := printf "istiod.%s.svc"  .Release.Namespace }}
     {{- end }}
     {{- $defPilotHostname := printf "istiod%s.%s.svc" .Values.revision .Release.Namespace }}
-    {{- $pilotAddress := .Values.global.remotePilotAddress | default $defPilotHostname }}
+
+    {{- if .Values.global.remotePilotAddress }}
+    # Use the DNS hostname instead of the IP address. The discovery address needs to match the
+    # SAN in istiod's cert. The istiod-remote.<namespace>.svc will resolve to the remotePilotAddress.
+    {{- $pilotAddress := istiod-remote.{{ .Values.global.configNamespace }}.svc }}
+    {{- else }}
+    {{- $pilotAddress := $defPilotHostname }}
+    {{- end }}
 
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE

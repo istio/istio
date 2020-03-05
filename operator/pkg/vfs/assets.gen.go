@@ -12701,7 +12701,41 @@ func chartsBaseTemplatesCrdsYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsBaseTemplatesEndpointsYaml = []byte(`{{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
+var _chartsBaseTemplatesEndpointsYaml = []byte(`{{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: istio-pilot
+  namespace: {{ .Values.global.istioNamespace }}
+subsets:
+- addresses:
+  - ip: {{ .Values.global.remotePilotAddress }}
+  ports:
+  - port: 15010
+    name: grpc-xds # direct
+  - port: 15011
+    name: https-xds # mTLS or non-mTLS depending on auth setting
+  - port: 8080
+    name: http-legacy-discovery # direct
+  - port: 15012
+    name: http-istiod
+  - port: 15014
+    name: http-monitoring
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: istiod-remote
+  namespace: {{ .Release.Namespace }}
+subsets:
+- addresses:
+  - ip: {{ .Values.global.remotePilotAddress }}
+  ports:
+  - port: 15012
+    name: http-istiod
+{{- end }}
+
+{{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
 ---
 apiVersion: v1
 kind: Endpoints
@@ -12827,7 +12861,38 @@ func chartsBaseTemplatesServiceaccountYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsBaseTemplatesServicesYaml = []byte(`{{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
+var _chartsBaseTemplatesServicesYaml = []byte(`{{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-pilot
+  namespace: {{ .Values.global.istioNamespace }}
+spec:
+  ports:
+  - port: 15010
+    name: grpc-xds # direct
+  - port: 15011
+    name: https-xds # mTLS or non-mTLS depending on auth setting
+  - port: 8080
+    name: http-legacy-discovery # direct
+  - port: 15012
+    name: http-istiod    
+  - port: 15014
+    name: http-monitoring
+  clusterIP: None
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istiod-remote
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: 15012
+    name: http-istiod
+---
+{{- end }}
+{{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -14448,7 +14513,9 @@ spec:
           - NONE
           - --discoveryAddress
           {{- if .Values.global.remotePilotAddress }}
-          - {{ .Values.global.remotePilotAddress }}:15012
+          # Use the DNS hostname instead of the IP address. The discovery address needs to match the
+          # SAN in istiod's cert. The istiod-remote.<namespace>.svc will resolve to the remotePilotAddress.
+          - istiod-remote.{{ .Values.global.configNamespace }}.svc:15012
           {{- else if .Values.global.configNamespace }}
           - istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
           {{- else }}
@@ -17743,6 +17810,7 @@ rules:
 ---
 # Source: istio-discovery/templates/service.yaml
 
+
 apiVersion: v1
 kind: Service
 metadata:
@@ -19524,8 +19592,6 @@ data:
 
     enableEnvoyAccessLogService: {{ .Values.global.proxy.envoyAccessLogService.enabled }}
 
-    {{- if .Values.global.istioRemote }}
-
     {{- if .Values.global.remotePolicyAddress }}
     {{- if .Values.global.createRemoteSvcEndpoints }}
     mixerCheckServer: istio-policy.{{ .Release.Namespace }}:15004
@@ -19538,7 +19604,6 @@ data:
     mixerReportServer: istio-telemetry.{{ .Release.Namespace }}:15004
     {{- else }}
     mixerReportServer: {{ .Values.global.remoteTelemetryAddress }}:15004
-    {{- end }}
     {{- end }}
 
     {{- else }}
@@ -19561,7 +19626,7 @@ data:
 
     {{- end }}
 
-    {{- if or .Values.mixer.policy.enabled (and .Values.global.istioRemote .Values.global.remotePolicyAddress) }}
+    {{- if or .Values.mixer.policy.enabled .Values.global.remotePolicyAddress }}
     # policyCheckFailOpen allows traffic in cases when the mixer policy service cannot be reached.
     # Default is false which means the traffic is denied when the client is unable to connect to Mixer.
     policyCheckFailOpen: {{ .Values.global.policyCheckFailOpen }}
@@ -19744,10 +19809,17 @@ data:
     {{- if not (eq .Values.revision "") }}
     {{- $defPilotHostname := printf "istiod-%s.%s.svc" .Values.revision .Release.Namespace }}
     {{- else }}
-    {{- $defPilotHostname := printf "istiod.%s.svc" .Release.Namespace }}
+    {{- $defPilotHostname := printf "istiod.%s.svc"  .Release.Namespace }}
     {{- end }}
     {{- $defPilotHostname := printf "istiod%s.%s.svc" .Values.revision .Release.Namespace }}
-    {{- $pilotAddress := .Values.global.remotePilotAddress | default $defPilotHostname }}
+
+    {{- if .Values.global.remotePilotAddress }}
+    # Use the DNS hostname instead of the IP address. The discovery address needs to match the
+    # SAN in istiod's cert. The istiod-remote.<namespace>.svc will resolve to the remotePilotAddress.
+    {{- $pilotAddress := istiod-remote.{{ .Values.global.configNamespace }}.svc }}
+    {{- else }}
+    {{- $pilotAddress := $defPilotHostname }}
+    {{- end }}
 
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
@@ -20313,7 +20385,8 @@ func chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml() (*asset,
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesServiceYaml = []byte(`{{- if or (eq .Values.revision "") (not .Values.clusterResources) }}
+var _chartsIstioControlIstioDiscoveryTemplatesServiceYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
+
 apiVersion: v1
 kind: Service
 metadata:
@@ -46968,37 +47041,9 @@ func profilesPreviewYaml() (*asset, error) {
 var _profilesRemoteYaml = []byte(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
-  components:
-    pilot:
-      enabled: true
-    policy:
-      enabled: false
-    telemetry:
-      enabled: false
-    proxy:
-      enabled: false
-    sidecarInjector:
-      enabled: false
-    citadel:
-      enabled: false
-    galley:
-      enabled: false
-    cni:
-      enabled: false
-
   addonComponents:
     prometheus:
-      enabled: false
-
-  values:
-    security:
-      createMeshPolicy: false
-
-    global:
-      istioRemote: true
-      enableTracing: false
-      network: ""
-`)
+      enabled: false`)
 
 func profilesRemoteYamlBytes() ([]byte, error) {
 	return _profilesRemoteYaml, nil

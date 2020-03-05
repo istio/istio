@@ -559,7 +559,6 @@ global:
   # webhook configurations. When this option is set as false, webhooks manage their
   # own webhook configurations.
   operatorManageWebhooks: false
-  istioRemote: false
 
   # Settings for remote cluster.
   createRemoteSvcEndpoints: false

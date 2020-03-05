@@ -140,7 +140,9 @@ spec:
           - NONE
           - --discoveryAddress
           {{- if .Values.global.remotePilotAddress }}
-          - {{ .Values.global.remotePilotAddress }}:15012
+          # Use the DNS hostname instead of the IP address. The discovery address needs to match the
+          # SAN in istiod's cert. The istiod-remote.<namespace>.svc will resolve to the remotePilotAddress.
+          - istiod-remote.{{ .Values.global.configNamespace }}.svc:15012
           {{- else if .Values.global.configNamespace }}
           - istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
           {{- else }}
