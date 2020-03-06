@@ -370,16 +370,8 @@ spec:
             - "/usr/local/bin/envoy"
             - --serviceCluster
             - "istio-proxy-prometheus"
-            - --drainDuration
-            - "45s"
-            - --parentShutdownDuration
-            - "1m0s"
-            - --discoveryAddress
-            - istio-pilot.istio-system.svc:15012
             - --proxyLogLevel=warning
             - --proxyComponentLogLevel=misc:error
-            - --connectTimeout
-            - "10s"
             - --proxyAdminPort
             - "15000"
             - --controlPlaneAuthPolicy
@@ -448,8 +440,14 @@ spec:
               name: istio-token
             - mountPath: /etc/istio-certs/
               name: istio-certs
+            - name: istio-config-volume
+              mountPath: /etc/istio/config
 
       volumes:
+      - name: istio-config-volume
+        configMap:
+          name: istio
+          optional: true
       - name: config-volume
         configMap:
           name: prometheus
