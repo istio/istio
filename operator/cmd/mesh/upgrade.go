@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/hooks"
 	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/tpath"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	"istio.io/pkg/log"
 )
@@ -166,6 +167,11 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 		overrideIOPSYaml, err = ReadLayeredYAMLs(args.inFilenames)
 		if err != nil {
 			return fmt.Errorf("failed to read override IOPS from file: %v, error: %v", args.inFilenames, err)
+		}
+		// Grab the IstioOperatorSpec subtree.
+		overrideIOPSYaml, err = tpath.GetSpecSubtree(overrideIOPSYaml)
+		if err != nil {
+			return fmt.Errorf("failed to get spec subtree from IOPS yaml, error: %v", err)
 		}
 	}
 
