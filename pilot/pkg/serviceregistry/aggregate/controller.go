@@ -232,7 +232,7 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		} else if len(instances) > 0 {
-			out = append(out, instances...)
+			out = instances
 			node.ClusterID = instances[0].Endpoint.Locality.ClusterID
 			break
 		}
@@ -240,7 +240,7 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 
 	if len(out) > 0 {
 		if errs != nil {
-			log.Debugf("GetProxyServiceInstances() found match but encountered an error: %v", errs)
+			log.Warnf("GetProxyServiceInstances() found match but encountered an error: %v", errs)
 		}
 		return out, nil
 	}

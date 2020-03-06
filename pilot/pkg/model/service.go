@@ -356,7 +356,6 @@ type ServiceDiscovery interface {
 	Services() ([]*Service, error)
 
 	// GetService retrieves a service by host name if it exists
-	// Deprecated - do not use for anything other than tests
 	GetService(hostname host.Name) (*Service, error)
 
 	// InstancesByPort retrieves instances for a service on the given ports with labels that match

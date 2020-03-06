@@ -533,6 +533,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	out := make([]*model.ServiceInstance, 0)
+	var err error
 	if len(proxy.IPAddresses) > 0 {
 		// only need to fetch the corresponding pod through the first IP, although there are multiple IP scenarios,
 		// because multiple ips belong to the same pod
@@ -558,7 +559,6 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 			// 2. Headless service without selector
 			out = c.endpoints.GetProxyServiceInstances(c, proxy)
 		} else {
-			var err error
 			// 3. The pod is not present when this is called
 			// due to eventual consistency issues. However, we have a lot of information about the pod from the proxy
 			// metadata already. Because of this, we can still get most of the information we need.
@@ -566,7 +566,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 			// attempt to read the real pod.
 			out, err = c.getProxyServiceInstancesFromMetadata(proxy)
 			if err != nil {
-				log.Warnf("getProxyServiceInstancesFromMetadata for %v failed: %v", proxy.ID, err)
+				err = fmt.Errorf("getProxyServiceInstancesFromMetadata for %v (ip=%v) failed: %v", proxy.ID, proxyIP, err)
 			}
 		}
 	}
@@ -577,7 +577,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 			log.Infof("Missing metrics env, empty list of services for pod %s", proxy.ID)
 		}
 	}
-	return out, nil
+	return out, err
 }
 
 // getProxyServiceInstancesFromMetadata retrieves ServiceInstances using proxy Metadata rather than

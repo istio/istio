@@ -1743,12 +1743,18 @@ func (ps *PushContext) initMeshNetworks() {
 			continue
 		}
 
-		registryName := getNetworkRegistry(networkConf)
+		registryNames := getNetworkRegistres(networkConf)
 		gateways := []*Gateway{}
+
 		for _, gw := range gws {
-			gatewayAddresses := getGatewayAddresses(gw, registryName, ps.ServiceDiscovery)
-			for _, addr := range gatewayAddresses {
-				gateways = append(gateways, &Gateway{addr, gw.Port})
+			for _, registryName := range registryNames {
+				gatewayAddresses := getGatewayAddresses(gw, registryName, ps.ServiceDiscovery)
+
+				log.Infof("Endpoints from registry %v on network %v reachable through gateway(s) %v",
+					registryName, network, gatewayAddresses)
+				for _, addr := range gatewayAddresses {
+					gateways = append(gateways, &Gateway{addr, gw.Port})
+				}
 			}
 		}
 
@@ -1768,16 +1774,14 @@ func (ps *PushContext) initQuotaSpecBindings(env *Environment) error {
 	return err
 }
 
-func getNetworkRegistry(network *meshconfig.Network) string {
-	var registryName string
+func getNetworkRegistres(network *meshconfig.Network) []string {
+	var registryNames []string
 	for _, eps := range network.Endpoints {
 		if eps != nil && len(eps.GetFromRegistry()) > 0 {
-			registryName = eps.GetFromRegistry()
-			break
+			registryNames = append(registryNames, eps.GetFromRegistry())
 		}
 	}
-
-	return registryName
+	return registryNames
 }
 
 func getGatewayAddresses(gw *meshconfig.Network_IstioNetworkGateway, registryName string, discovery ServiceDiscovery) []string {
@@ -1789,7 +1793,7 @@ func getGatewayAddresses(gw *meshconfig.Network_IstioNetworkGateway, registryNam
 	}
 
 	// Second, try to find the gateway addresses by the provided service name
-	if gwSvcName := gw.GetRegistryServiceName(); len(gwSvcName) > 0 && len(registryName) > 0 {
+	if gwSvcName := gw.GetRegistryServiceName(); gwSvcName != "" && registryName != "" {
 		svc, _ := discovery.GetService(host.Name(gwSvcName))
 		if svc != nil {
 			return svc.Attributes.ClusterExternalAddresses[registryName]
