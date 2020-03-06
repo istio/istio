@@ -44,9 +44,15 @@ spec:
   - name: "vistio"
     labels:
       version: "vistio"
+    trafficPolicy:
+      tls:
+        mode: DISABLE
   - name: "vlegacy"
     labels:
       version: "vlegacy"
+    trafficPolicy:
+      tls:
+        mode: DISABLE
   trafficPolicy:
     tls:
       mode: DISABLE
