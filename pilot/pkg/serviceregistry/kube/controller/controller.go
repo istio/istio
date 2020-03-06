@@ -808,7 +808,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 	svc := c.servicesMap[hostname]
 	c.RUnlock()
 	if svc == nil {
-		log.Infof("Handle EDS endpoints: skip updating, service %s/%s has mot been populated", ep.Name, ep.Namespace)
+		log.Infof("Handle EDS endpoints: skip updating, service %s/%s has not been populated", ep.Name, ep.Namespace)
 		return
 	}
 	endpoints := make([]*model.IstioEndpoint, 0)

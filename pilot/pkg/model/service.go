@@ -286,7 +286,6 @@ type IstioEndpoint struct {
 	Address string
 
 	// ServicePortName tracks the name of the port, this is used to select the IstioEndpoint by service port.
-	// Note:
 	ServicePortName string
 
 	// UID identifies the workload, for telemetry purpose.
@@ -311,6 +310,10 @@ type IstioEndpoint struct {
 
 	// The load balancing weight associated with this endpoint.
 	LbWeight uint32
+
+	// Attributes contains additional attributes associated with the service
+	// used mostly by mixer and RBAC for policy enforcement purposes.
+	Attributes ServiceAttributes
 
 	// TLSMode endpoint is injected with istio sidecar and ready to configure Istio mTLS
 	TLSMode string

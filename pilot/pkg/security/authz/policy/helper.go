@@ -57,6 +57,10 @@ func NewServiceMetadata(hostname string, labels map[string]string, t mockTest) *
 			Hostname: host.Name(hostname),
 		},
 		Endpoint: &model.IstioEndpoint{
+			Attributes: model.ServiceAttributes{
+				Name:      name,
+				Namespace: namespace,
+			},
 			Labels: labels,
 		},
 	}
