@@ -91,7 +91,7 @@ func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event)
 					// For service without selector, maybe there are no related pods
 				}
 
-				initEndpoint := esc.newIstioEndpoint(pod, e)
+				builder := esc.newEndpointBuilder(pod, e)
 				// EDS and ServiceEntry use name for service port - ADS will need to
 				// map to numbers.
 				for _, port := range slice.Ports {
@@ -104,7 +104,7 @@ func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event)
 						portName = *port.Name
 					}
 
-					istioEndpoint := esc.c.applyAddressToIstioEndpoint(initEndpoint, a, portNum, portName)
+					istioEndpoint := builder.buildIstioEndpoint(a, portNum, portName)
 					endpoints = append(endpoints, istioEndpoint)
 				}
 			}
@@ -171,7 +171,7 @@ func (esc *endpointSliceController) proxyServiceInstances(c *Controller, ep *dis
 
 	podIP := proxy.IPAddresses[0]
 	pod := c.pods.getPodByIP(podIP)
-	initEndpoint := c.initIstioEndpoint(pod)
+	builder := NewEndpointBuilder(c, pod)
 
 	for _, port := range ep.Ports {
 		if port.Name == nil || port.Port == nil {
@@ -187,7 +187,7 @@ func (esc *endpointSliceController) proxyServiceInstances(c *Controller, ep *dis
 			for _, ep := range ep.Endpoints {
 				for _, a := range ep.Addresses {
 					if a == ip {
-						istioEndpoint := c.applyAddressToIstioEndpoint(initEndpoint, ip, *port.Port, svcPort.Name)
+						istioEndpoint := builder.buildIstioEndpoint(ip, *port.Port, svcPort.Name)
 						out = append(out, &model.ServiceInstance{
 							Endpoint:    istioEndpoint,
 							ServicePort: svcPort,
@@ -239,7 +239,7 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 					continue
 				}
 
-				initEndpoint := esc.newIstioEndpoint(pod, e)
+				builder := esc.newEndpointBuilder(pod, e)
 				// identify the port by name. K8S EndpointPort uses the service port name
 				for _, port := range slice.Ports {
 					var portNum int32
@@ -249,7 +249,7 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 
 					if port.Name == nil ||
 						svcPort.Name == *port.Name {
-						istioEndpoint := esc.c.applyAddressToIstioEndpoint(initEndpoint, a, portNum, svcPort.Name)
+						istioEndpoint := builder.buildIstioEndpoint(a, portNum, svcPort.Name)
 						out = append(out, &model.ServiceInstance{
 							Endpoint:    istioEndpoint,
 							ServicePort: svcPort,
@@ -263,7 +263,7 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 	return out, nil
 }
 
-func (esc *endpointSliceController) newIstioEndpoint(pod *v1.Pod, endpoint discoveryv1alpha1.Endpoint) model.IstioEndpoint {
+func (esc *endpointSliceController) newEndpointBuilder(pod *v1.Pod, endpoint discoveryv1alpha1.Endpoint) *EndpointBuilder {
 	if pod != nil {
 		// Respect pod "istio-locality" label
 		if pod.Labels[model.LocalityLabel] == "" {
@@ -273,7 +273,7 @@ func (esc *endpointSliceController) newIstioEndpoint(pod *v1.Pod, endpoint disco
 		}
 	}
 
-	return esc.c.initIstioEndpoint(pod)
+	return NewEndpointBuilder(esc.c, pod)
 }
 
 func getLocalityFromTopology(topology map[string]string) string {

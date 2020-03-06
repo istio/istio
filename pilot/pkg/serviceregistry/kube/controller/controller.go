@@ -726,11 +726,11 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 		}
 	}
 
-	initEndpoint := c.initIstioEndpoint(pod)
+	builder := NewEndpointBuilder(c, pod)
 	for tp, svcPort := range tps {
 		// consider multiple IP scenarios
 		for _, ip := range proxy.IPAddresses {
-			istioEndpoint := c.applyAddressToIstioEndpoint(initEndpoint, ip, int32(tp.Port), svcPort.Name)
+			istioEndpoint := builder.buildIstioEndpoint(ip, int32(tp.Port), svcPort.Name)
 			out = append(out, &model.ServiceInstance{
 				Service:     svc,
 				ServicePort: svcPort,
@@ -833,12 +833,12 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 					}
 				}
 
-				initEndpoint := c.initIstioEndpoint(pod)
+				builder := NewEndpointBuilder(c, pod)
 
 				// EDS and ServiceEntry use name for service port - ADS will need to
 				// map to numbers.
 				for _, port := range ss.Ports {
-					istioEndpoint := c.applyAddressToIstioEndpoint(initEndpoint, ea.IP, port.Port, port.Name)
+					istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, port.Name)
 					endpoints = append(endpoints, istioEndpoint)
 				}
 			}
@@ -946,43 +946,4 @@ func FindPort(pod *v1.Pod, svcPort *v1.ServicePort) (int, error) {
 
 func createUID(podName, namespace string) string {
 	return "kubernetes://" + podName + "." + namespace
-}
-
-// first phase of instantiating IstioEndpoint, applies pod metadata
-// Note: must be followed by `applyAddressToIstioEndpoint` to build a complete IstioEndpoint
-func (c *Controller) initIstioEndpoint(pod *v1.Pod) model.IstioEndpoint {
-	locality, sa, uid := "", "", ""
-	var podLabels labels.Instance
-	if pod != nil {
-		locality = c.getPodLocality(pod)
-		sa = kube.SecureNamingSAN(pod)
-		uid = createUID(pod.Name, pod.Namespace)
-		podLabels = pod.Labels
-	}
-
-	return model.IstioEndpoint{
-		Labels:         podLabels,
-		UID:            uid,
-		ServiceAccount: sa,
-		Locality: model.Locality{
-			Label:     locality,
-			ClusterID: c.clusterID,
-		},
-		TLSMode: kube.PodTLSMode(pod),
-	}
-}
-
-// second phase: complete IstioEndpoint with address and port
-func (c *Controller) applyAddressToIstioEndpoint(
-	ep model.IstioEndpoint,
-	address string,
-	endpointPort int32,
-	svcPortName string) *model.IstioEndpoint {
-
-	ep.Address = address
-	ep.EndpointPort = uint32(endpointPort)
-	ep.ServicePortName = svcPortName
-	ep.Network = c.endpointNetwork(address)
-
-	return &ep
 }
