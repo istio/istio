@@ -153,18 +153,17 @@ func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, path string, help 
 
 // SyncStatus is the synchronization status between Pilot and a given Envoy
 type SyncStatus struct {
-	ProxyID         string `json:"proxy,omitempty"`
-	ProxyVersion    string `json:"proxy_version,omitempty"`
-	IstioVersion    string `json:"istio_version,omitempty"`
-	ClusterSent     string `json:"cluster_sent,omitempty"`
-	ClusterAcked    string `json:"cluster_acked,omitempty"`
-	ListenerSent    string `json:"listener_sent,omitempty"`
-	ListenerAcked   string `json:"listener_acked,omitempty"`
-	RouteSent       string `json:"route_sent,omitempty"`
-	RouteAcked      string `json:"route_acked,omitempty"`
-	EndpointSent    string `json:"endpoint_sent,omitempty"`
-	EndpointAcked   string `json:"endpoint_acked,omitempty"`
-	EndpointPercent int    `json:"endpoint_percent,omitempty"`
+	ProxyID       string `json:"proxy,omitempty"`
+	ProxyVersion  string `json:"proxy_version,omitempty"`
+	IstioVersion  string `json:"istio_version,omitempty"`
+	ClusterSent   string `json:"cluster_sent,omitempty"`
+	ClusterAcked  string `json:"cluster_acked,omitempty"`
+	ListenerSent  string `json:"listener_sent,omitempty"`
+	ListenerAcked string `json:"listener_acked,omitempty"`
+	RouteSent     string `json:"route_sent,omitempty"`
+	RouteAcked    string `json:"route_acked,omitempty"`
+	EndpointSent  string `json:"endpoint_sent,omitempty"`
+	EndpointAcked string `json:"endpoint_acked,omitempty"`
 }
 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
@@ -175,17 +174,16 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 		con.mu.RLock()
 		if con.node != nil {
 			syncz = append(syncz, SyncStatus{
-				ProxyID:         con.node.ID,
-				IstioVersion:    con.node.Metadata.IstioVersion,
-				ClusterSent:     con.ClusterNonceSent,
-				ClusterAcked:    con.ClusterNonceAcked,
-				ListenerSent:    con.ListenerNonceSent,
-				ListenerAcked:   con.ListenerNonceAcked,
-				RouteSent:       con.RouteNonceSent,
-				RouteAcked:      con.RouteNonceAcked,
-				EndpointSent:    con.EndpointNonceSent,
-				EndpointAcked:   con.EndpointNonceAcked,
-				EndpointPercent: con.EndpointPercent,
+				ProxyID:       con.node.ID,
+				IstioVersion:  con.node.Metadata.IstioVersion,
+				ClusterSent:   con.ClusterNonceSent,
+				ClusterAcked:  con.ClusterNonceAcked,
+				ListenerSent:  con.ListenerNonceSent,
+				ListenerAcked: con.ListenerNonceAcked,
+				RouteSent:     con.RouteNonceSent,
+				RouteAcked:    con.RouteNonceAcked,
+				EndpointSent:  con.EndpointNonceSent,
+				EndpointAcked: con.EndpointNonceAcked,
 			})
 		}
 		con.mu.RUnlock()
