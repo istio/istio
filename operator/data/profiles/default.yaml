@@ -6,6 +6,9 @@ spec:
   hub: gcr.io/istio-testing
   tag: latest
 
+  meshConfig:
+    h2_upgrade_policy: UPGRADE
+
   # Traffic management feature
   components:
     base:
