@@ -32,7 +32,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
@@ -346,11 +345,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					continue
 				}
 
-				previous := sets.NewSet(con.Clusters...)
-				current := sets.NewSet(clusters...)
-
-				s.updateEdsClients(current.Difference(previous), previous.Difference(current), con)
-
 				con.Clusters = clusters
 				adsLog.Debugf("ADS:EDS: REQ %s %s clusters:%d", peerAddr, con.ConID, len(con.Clusters))
 				err := s.pushEds(s.globalPushContext(), con, versionInfo(), nil)
@@ -623,28 +617,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 		version, len(req.Push.Services(nil)), s.adsClientCount())
 	monServices.Record(float64(len(req.Push.Services(nil))))
 
-	t0 := time.Now()
-
-	// First update all cluster load assignments. This is computed for each cluster once per config change
-	// instead of once per endpoint.
-	edsClusterMutex.Lock()
-	// Create a temp map to avoid locking the add/remove
-	cMap := make(map[string]*EdsCluster, len(edsClusters))
-	for k, v := range edsClusters {
-		cMap[k] = v
-	}
-	edsClusterMutex.Unlock()
-
-	// UpdateCluster updates the cluster with a mutex, this code is safe ( but computing
-	// the update may be duplicated if multiple goroutines compute at the same time).
-	// In general this code is called from the 'event' callback that is throttled.
-	for clusterName, edsCluster := range cMap {
-		if err := s.updateCluster(req.Push, clusterName, edsCluster); err != nil {
-			adsLog.Errorf("updateCluster failed with clusterName %s", clusterName)
-			totalXDSInternalErrors.Increment()
-		}
-	}
-	adsLog.Infof("Cluster init time %v %s", time.Since(t0), version)
+	// full push
 	req.EdsUpdates = nil
 	s.startPush(req)
 }
@@ -684,10 +657,6 @@ func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 	s.adsClientsMutex.Lock()
 	defer s.adsClientsMutex.Unlock()
-
-	for _, c := range con.Clusters {
-		s.removeEdsCon(c, conID)
-	}
 
 	if _, exist := s.adsClients[conID]; !exist {
 		adsLog.Errorf("ADS: Removing connection for non-existing node:%v.", conID)

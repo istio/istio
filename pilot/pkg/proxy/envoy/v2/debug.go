@@ -781,46 +781,28 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance. It may be connected to another instance."))
 			return
 		}
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("You must provide a proxyID in the query string"))
+		return
 	}
 
-	edsClusterMutex.RLock()
-	defer edsClusterMutex.RUnlock()
 	comma := false
-	if con != nil {
-		_, _ = fmt.Fprintln(w, "[")
-		for _, clusterName := range con.Clusters {
-			if comma {
-				_, _ = fmt.Fprint(w, ",\n")
-			} else {
-				comma = true
-			}
-			cla := s.generateEndpoints(clusterName, con.node, s.globalPushContext(), nil)
-			jsonm := &jsonpb.Marshaler{Indent: "  "}
-			dbgString, _ := jsonm.MarshalToString(cla)
-			if _, err := w.Write([]byte(dbgString)); err != nil {
-				return
-			}
+	_, _ = fmt.Fprintln(w, "[")
+	for _, clusterName := range con.Clusters {
+		if comma {
+			_, _ = fmt.Fprint(w, ",\n")
+		} else {
+			comma = true
 		}
-		_, _ = fmt.Fprintln(w, "]")
-	} else if len(edsClusters) > 0 {
-		_, _ = fmt.Fprintln(w, "[")
-		for cluster := range edsClusters {
-			if comma {
-				_, _ = fmt.Fprint(w, ",\n")
-			} else {
-				comma = true
-			}
-			cla := s.loadAssignmentsForClusterLegacy(s.globalPushContext(), cluster)
-			jsonm := &jsonpb.Marshaler{Indent: "  "}
-			dbgString, _ := jsonm.MarshalToString(cla)
-			if _, err := w.Write([]byte(dbgString)); err != nil {
-				return
-			}
+		cla := s.generateEndpoints(clusterName, con.node, s.globalPushContext(), nil)
+		jsonm := &jsonpb.Marshaler{Indent: "  "}
+		dbgString, _ := jsonm.MarshalToString(cla)
+		if _, err := w.Write([]byte(dbgString)); err != nil {
+			return
 		}
-		_, _ = fmt.Fprintln(w, "]")
-	} else {
-		w.WriteHeader(404)
 	}
+	_, _ = fmt.Fprintln(w, "]")
 }
 
 // cdsz implements a status and debug interface for CDS.
