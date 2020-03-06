@@ -194,14 +194,14 @@
 // examples/user-gateway/ingress-gateway-only.yaml
 // examples/vm/values-istio-meshexpansion-gateways.yaml
 // examples/vm/values-istio-meshexpansion.yaml
-// operator/Chart.yaml
-// operator/templates/clusterrole.yaml
-// operator/templates/clusterrole_binding.yaml
-// operator/templates/crd.yaml
-// operator/templates/deployment.yaml
-// operator/templates/namespace.yaml
-// operator/templates/service.yaml
-// operator/templates/service_account.yaml
+// operator-chart/Chart.yaml
+// operator-chart/templates/clusterrole.yaml
+// operator-chart/templates/clusterrole_binding.yaml
+// operator-chart/templates/crd.yaml
+// operator-chart/templates/deployment.yaml
+// operator-chart/templates/namespace.yaml
+// operator-chart/templates/service.yaml
+// operator-chart/templates/service_account.yaml
 // profiles/default.yaml
 // profiles/demo.yaml
 // profiles/empty.yaml
@@ -12701,41 +12701,7 @@ func chartsBaseTemplatesCrdsYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsBaseTemplatesEndpointsYaml = []byte(`{{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
-apiVersion: v1
-kind: Endpoints
-metadata:
-  name: istio-pilot
-  namespace: {{ .Values.global.istioNamespace }}
-subsets:
-- addresses:
-  - ip: {{ .Values.global.remotePilotAddress }}
-  ports:
-  - port: 15010
-    name: grpc-xds # direct
-  - port: 15011
-    name: https-xds # mTLS or non-mTLS depending on auth setting
-  - port: 8080
-    name: http-legacy-discovery # direct
-  - port: 15012
-    name: http-istiod
-  - port: 15014
-    name: http-monitoring
----
-apiVersion: v1
-kind: Endpoints
-metadata:
-  name: istiod
-  namespace: {{ .Release.Namespace }}
-subsets:
-- addresses:
-  - ip: {{ .Values.global.remotePilotAddress }}
-  ports:
-  - port: 15012
-    name: http-istiod
-{{- end }}
-
-{{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
+var _chartsBaseTemplatesEndpointsYaml = []byte(`{{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
 ---
 apiVersion: v1
 kind: Endpoints
@@ -12861,38 +12827,7 @@ func chartsBaseTemplatesServiceaccountYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsBaseTemplatesServicesYaml = []byte(`{{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
-apiVersion: v1
-kind: Service
-metadata:
-  name: istio-pilot
-  namespace: {{ .Values.global.istioNamespace }}
-spec:
-  ports:
-  - port: 15010
-    name: grpc-xds # direct
-  - port: 15011
-    name: https-xds # mTLS or non-mTLS depending on auth setting
-  - port: 8080
-    name: http-legacy-discovery # direct
-  - port: 15012
-    name: http-istiod    
-  - port: 15014
-    name: http-monitoring
-  clusterIP: None
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: istiod
-  namespace: {{ .Release.Namespace }}
-spec:
-  ports:
-  - port: 15012
-    name: http-istiod
----
-{{- end }}
-{{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
+var _chartsBaseTemplatesServicesYaml = []byte(`{{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -14512,7 +14447,9 @@ spec:
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
-          {{- if .Values.global.configNamespace }}
+          {{- if .Values.global.remotePilotAddress }}
+          - {{ .Values.global.remotePilotAddress }}:15012
+          {{- else if .Values.global.configNamespace }}
           - istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
           {{- else }}
           - istio-pilot.istio-system.svc:15012
@@ -17804,7 +17741,6 @@ rules:
 ---
 # Source: istio-discovery/templates/service.yaml
 
-
 apiVersion: v1
 kind: Service
 metadata:
@@ -19804,16 +19740,16 @@ data:
       {{- end }}
 
     {{- if not (eq .Values.revision "") }}
-    {{- $defPilotHostname := printf "istiod-%s.%s" .Values.revision .Release.Namespace }}
+    {{- $defPilotHostname := printf "istiod-%s.%s.svc" .Values.revision .Release.Namespace }}
     {{- else }}
-    {{- $defPilotHostname := printf "istiod.%s"  .Release.Namespace }}
+    {{- $defPilotHostname := printf "istiod.%s.svc" .Release.Namespace }}
     {{- end }}
-    {{- $defPilotHostname := printf "istiod%s.%s" .Values.revision .Release.Namespace }}
+    {{- $defPilotHostname := printf "istiod%s.%s.svc" .Values.revision .Release.Namespace }}
     {{- $pilotAddress := .Values.global.remotePilotAddress | default $defPilotHostname }}
 
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
-      discoveryAddress: {{ $defPilotHostname }}.svc:15012
+      discoveryAddress: {{ $pilotAddress }}:15012
 
 
     {{- if .Values.global.proxy.envoyMetricsService.enabled }}
@@ -20375,8 +20311,7 @@ func chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml() (*asset,
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesServiceYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
-
+var _chartsIstioControlIstioDiscoveryTemplatesServiceYaml = []byte(`{{- if or (eq .Values.revision "") (not .Values.clusterResources) }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -45685,7 +45620,7 @@ func examplesVmValuesIstioMeshexpansionYaml() (*asset, error) {
 	return a, nil
 }
 
-var _operatorChartYaml = []byte(`apiVersion: v1
+var _operatorChartChartYaml = []byte(`apiVersion: v1
 name: operator
 version: 1.5.0
 tillerVersion: ">=2.7.2"
@@ -45699,22 +45634,22 @@ engine: gotpl
 icon: https://istio.io/favicons/android-192x192.png
 `)
 
-func operatorChartYamlBytes() ([]byte, error) {
-	return _operatorChartYaml, nil
+func operatorChartChartYamlBytes() ([]byte, error) {
+	return _operatorChartChartYaml, nil
 }
 
-func operatorChartYaml() (*asset, error) {
-	bytes, err := operatorChartYamlBytes()
+func operatorChartChartYaml() (*asset, error) {
+	bytes, err := operatorChartChartYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "operator/Chart.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "operator-chart/Chart.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _operatorTemplatesClusterroleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
+var _operatorChartTemplatesClusterroleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   creationTimestamp: null
@@ -45829,22 +45764,22 @@ rules:
 ---
 `)
 
-func operatorTemplatesClusterroleYamlBytes() ([]byte, error) {
-	return _operatorTemplatesClusterroleYaml, nil
+func operatorChartTemplatesClusterroleYamlBytes() ([]byte, error) {
+	return _operatorChartTemplatesClusterroleYaml, nil
 }
 
-func operatorTemplatesClusterroleYaml() (*asset, error) {
-	bytes, err := operatorTemplatesClusterroleYamlBytes()
+func operatorChartTemplatesClusterroleYaml() (*asset, error) {
+	bytes, err := operatorChartTemplatesClusterroleYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "operator/templates/clusterrole.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "operator-chart/templates/clusterrole.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _operatorTemplatesClusterrole_bindingYaml = []byte(`kind: ClusterRoleBinding
+var _operatorChartTemplatesClusterrole_bindingYaml = []byte(`kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: istio-operator
@@ -45859,22 +45794,22 @@ roleRef:
 ---
 `)
 
-func operatorTemplatesClusterrole_bindingYamlBytes() ([]byte, error) {
-	return _operatorTemplatesClusterrole_bindingYaml, nil
+func operatorChartTemplatesClusterrole_bindingYamlBytes() ([]byte, error) {
+	return _operatorChartTemplatesClusterrole_bindingYaml, nil
 }
 
-func operatorTemplatesClusterrole_bindingYaml() (*asset, error) {
-	bytes, err := operatorTemplatesClusterrole_bindingYamlBytes()
+func operatorChartTemplatesClusterrole_bindingYaml() (*asset, error) {
+	bytes, err := operatorChartTemplatesClusterrole_bindingYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "operator/templates/clusterrole_binding.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "operator-chart/templates/clusterrole_binding.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _operatorTemplatesCrdYaml = []byte(`apiVersion: apiextensions.k8s.io/v1beta1
+var _operatorChartTemplatesCrdYaml = []byte(`apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: istiooperators.install.istio.io
@@ -45921,22 +45856,22 @@ spec:
 ---
 `)
 
-func operatorTemplatesCrdYamlBytes() ([]byte, error) {
-	return _operatorTemplatesCrdYaml, nil
+func operatorChartTemplatesCrdYamlBytes() ([]byte, error) {
+	return _operatorChartTemplatesCrdYaml, nil
 }
 
-func operatorTemplatesCrdYaml() (*asset, error) {
-	bytes, err := operatorTemplatesCrdYamlBytes()
+func operatorChartTemplatesCrdYaml() (*asset, error) {
+	bytes, err := operatorChartTemplatesCrdYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "operator/templates/crd.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "operator-chart/templates/crd.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _operatorTemplatesDeploymentYaml = []byte(`apiVersion: apps/v1
+var _operatorChartTemplatesDeploymentYaml = []byte(`apiVersion: apps/v1
 kind: Deployment
 metadata:
   namespace: {{.Values.operatorNamespace}}
@@ -45980,22 +45915,22 @@ spec:
 ---
 `)
 
-func operatorTemplatesDeploymentYamlBytes() ([]byte, error) {
-	return _operatorTemplatesDeploymentYaml, nil
+func operatorChartTemplatesDeploymentYamlBytes() ([]byte, error) {
+	return _operatorChartTemplatesDeploymentYaml, nil
 }
 
-func operatorTemplatesDeploymentYaml() (*asset, error) {
-	bytes, err := operatorTemplatesDeploymentYamlBytes()
+func operatorChartTemplatesDeploymentYaml() (*asset, error) {
+	bytes, err := operatorChartTemplatesDeploymentYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "operator/templates/deployment.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "operator-chart/templates/deployment.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _operatorTemplatesNamespaceYaml = []byte(`apiVersion: v1
+var _operatorChartTemplatesNamespaceYaml = []byte(`apiVersion: v1
 kind: Namespace
 metadata:
   name: istio-operator
@@ -46005,22 +45940,22 @@ metadata:
 ---
 `)
 
-func operatorTemplatesNamespaceYamlBytes() ([]byte, error) {
-	return _operatorTemplatesNamespaceYaml, nil
+func operatorChartTemplatesNamespaceYamlBytes() ([]byte, error) {
+	return _operatorChartTemplatesNamespaceYaml, nil
 }
 
-func operatorTemplatesNamespaceYaml() (*asset, error) {
-	bytes, err := operatorTemplatesNamespaceYamlBytes()
+func operatorChartTemplatesNamespaceYaml() (*asset, error) {
+	bytes, err := operatorChartTemplatesNamespaceYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "operator/templates/namespace.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "operator-chart/templates/namespace.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _operatorTemplatesServiceYaml = []byte(`apiVersion: v1
+var _operatorChartTemplatesServiceYaml = []byte(`apiVersion: v1
 kind: Service
 metadata:
   namespace: {{.Values.operatorNamespace}}
@@ -46037,22 +45972,22 @@ spec:
 ---
 `)
 
-func operatorTemplatesServiceYamlBytes() ([]byte, error) {
-	return _operatorTemplatesServiceYaml, nil
+func operatorChartTemplatesServiceYamlBytes() ([]byte, error) {
+	return _operatorChartTemplatesServiceYaml, nil
 }
 
-func operatorTemplatesServiceYaml() (*asset, error) {
-	bytes, err := operatorTemplatesServiceYamlBytes()
+func operatorChartTemplatesServiceYaml() (*asset, error) {
+	bytes, err := operatorChartTemplatesServiceYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "operator/templates/service.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "operator-chart/templates/service.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _operatorTemplatesService_accountYaml = []byte(`apiVersion: v1
+var _operatorChartTemplatesService_accountYaml = []byte(`apiVersion: v1
 kind: ServiceAccount
 metadata:
   namespace: {{.Values.operatorNamespace}}
@@ -46060,17 +45995,17 @@ metadata:
 ---
 `)
 
-func operatorTemplatesService_accountYamlBytes() ([]byte, error) {
-	return _operatorTemplatesService_accountYaml, nil
+func operatorChartTemplatesService_accountYamlBytes() ([]byte, error) {
+	return _operatorChartTemplatesService_accountYaml, nil
 }
 
-func operatorTemplatesService_accountYaml() (*asset, error) {
-	bytes, err := operatorTemplatesService_accountYamlBytes()
+func operatorChartTemplatesService_accountYaml() (*asset, error) {
+	bytes, err := operatorChartTemplatesService_accountYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "operator/templates/service_account.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "operator-chart/templates/service_account.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -48479,14 +48414,14 @@ var _bindata = map[string]func() (*asset, error){
 	"examples/user-gateway/ingress-gateway-only.yaml":                                        examplesUserGatewayIngressGatewayOnlyYaml,
 	"examples/vm/values-istio-meshexpansion-gateways.yaml":                                   examplesVmValuesIstioMeshexpansionGatewaysYaml,
 	"examples/vm/values-istio-meshexpansion.yaml":                                            examplesVmValuesIstioMeshexpansionYaml,
-	"operator/Chart.yaml":                                                                    operatorChartYaml,
-	"operator/templates/clusterrole.yaml":                                                    operatorTemplatesClusterroleYaml,
-	"operator/templates/clusterrole_binding.yaml":                                            operatorTemplatesClusterrole_bindingYaml,
-	"operator/templates/crd.yaml":                                                            operatorTemplatesCrdYaml,
-	"operator/templates/deployment.yaml":                                                     operatorTemplatesDeploymentYaml,
-	"operator/templates/namespace.yaml":                                                      operatorTemplatesNamespaceYaml,
-	"operator/templates/service.yaml":                                                        operatorTemplatesServiceYaml,
-	"operator/templates/service_account.yaml":                                                operatorTemplatesService_accountYaml,
+	"operator-chart/Chart.yaml":                                                              operatorChartChartYaml,
+	"operator-chart/templates/clusterrole.yaml":                                              operatorChartTemplatesClusterroleYaml,
+	"operator-chart/templates/clusterrole_binding.yaml":                                      operatorChartTemplatesClusterrole_bindingYaml,
+	"operator-chart/templates/crd.yaml":                                                      operatorChartTemplatesCrdYaml,
+	"operator-chart/templates/deployment.yaml":                                               operatorChartTemplatesDeploymentYaml,
+	"operator-chart/templates/namespace.yaml":                                                operatorChartTemplatesNamespaceYaml,
+	"operator-chart/templates/service.yaml":                                                  operatorChartTemplatesServiceYaml,
+	"operator-chart/templates/service_account.yaml":                                          operatorChartTemplatesService_accountYaml,
 	"profiles/default.yaml":                                                                  profilesDefaultYaml,
 	"profiles/demo.yaml":                                                                     profilesDemoYaml,
 	"profiles/empty.yaml":                                                                    profilesEmptyYaml,
@@ -48833,16 +48768,16 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"values-istio-meshexpansion.yaml":          &bintree{examplesVmValuesIstioMeshexpansionYaml, map[string]*bintree{}},
 		}},
 	}},
-	"operator": &bintree{nil, map[string]*bintree{
-		"Chart.yaml": &bintree{operatorChartYaml, map[string]*bintree{}},
+	"operator-chart": &bintree{nil, map[string]*bintree{
+		"Chart.yaml": &bintree{operatorChartChartYaml, map[string]*bintree{}},
 		"templates": &bintree{nil, map[string]*bintree{
-			"clusterrole.yaml":         &bintree{operatorTemplatesClusterroleYaml, map[string]*bintree{}},
-			"clusterrole_binding.yaml": &bintree{operatorTemplatesClusterrole_bindingYaml, map[string]*bintree{}},
-			"crd.yaml":                 &bintree{operatorTemplatesCrdYaml, map[string]*bintree{}},
-			"deployment.yaml":          &bintree{operatorTemplatesDeploymentYaml, map[string]*bintree{}},
-			"namespace.yaml":           &bintree{operatorTemplatesNamespaceYaml, map[string]*bintree{}},
-			"service.yaml":             &bintree{operatorTemplatesServiceYaml, map[string]*bintree{}},
-			"service_account.yaml":     &bintree{operatorTemplatesService_accountYaml, map[string]*bintree{}},
+			"clusterrole.yaml":         &bintree{operatorChartTemplatesClusterroleYaml, map[string]*bintree{}},
+			"clusterrole_binding.yaml": &bintree{operatorChartTemplatesClusterrole_bindingYaml, map[string]*bintree{}},
+			"crd.yaml":                 &bintree{operatorChartTemplatesCrdYaml, map[string]*bintree{}},
+			"deployment.yaml":          &bintree{operatorChartTemplatesDeploymentYaml, map[string]*bintree{}},
+			"namespace.yaml":           &bintree{operatorChartTemplatesNamespaceYaml, map[string]*bintree{}},
+			"service.yaml":             &bintree{operatorChartTemplatesServiceYaml, map[string]*bintree{}},
+			"service_account.yaml":     &bintree{operatorChartTemplatesService_accountYaml, map[string]*bintree{}},
 		}},
 	}},
 	"profiles": &bintree{nil, map[string]*bintree{

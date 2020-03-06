@@ -109,6 +109,9 @@ var (
 
 	// RedisInstallFilePath is the redis installation file.
 	RedisInstallFilePath = path.Join(IstioSrc, "pkg/test/framework/components/redis/redis.yaml")
+
+	// StackdriverInstallFilePath is the stackdriver installation file.
+	StackdriverInstallFilePath = path.Join(IstioSrc, "pkg/test/framework/components/stackdriver/stackdriver.yaml")
 )
 
 func getDefaultIstioSrc() string {
