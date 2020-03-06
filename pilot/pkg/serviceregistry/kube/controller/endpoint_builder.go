@@ -24,8 +24,8 @@ import (
 
 // A stateful IstioEndpoint builder with metadata used to build IstioEndpoint
 type EndpointBuilder struct {
-	controller     *Controller
-	endpoint       model.IstioEndpoint
+	controller *Controller
+
 	labels         labels.Instance
 	uid            string
 	serviceAccount string
@@ -72,7 +72,6 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 		TLSMode:         b.tlsMode,
 		Address:         endpointAddress,
 		EndpointPort:    uint32(endpointPort),
-		LbWeight:        0,
 		ServicePortName: svcPortName,
 		Network:         b.controller.endpointNetwork(endpointAddress),
 	}
