@@ -57,11 +57,14 @@ type TestCase struct {
 
 // Context is a context for reachability tests.
 type Context struct {
-	ctx                   framework.TestContext
-	g                     galley.Instance
-	p                     pilot.Instance
-	Namespace             namespace.Instance
-	A, B, Headless, Naked echo.Instance
+	ctx          framework.TestContext
+	g            galley.Instance
+	p            pilot.Instance
+	Namespace    namespace.Instance
+	A, B         echo.Instance
+	Multiversion echo.Instance
+	Headless     echo.Instance
+	Naked        echo.Instance
 }
 
 // CreateContext creates and initializes reachability context.
@@ -71,24 +74,36 @@ func CreateContext(ctx framework.TestContext, g galley.Instance, p pilot.Instanc
 		Inject: true,
 	})
 
-	var a, b, headless, naked echo.Instance
+	var a, b, multiVersion, headless, naked echo.Instance
+	cfg := util.EchoConfig("multiversion", ns, false, nil, g, p)
+	cfg.Subsets = []echo.SubsetConfig{
+		{
+			Version: "v1",
+		},
+		{
+			Version:     "v-legacy",
+			Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+		},
+	}
 	echoboot.NewBuilderOrFail(ctx, ctx).
 		With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
 		With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+		With(&multiVersion, cfg).
 		With(&headless, util.EchoConfig("headless", ns, true, nil, g, p)).
 		With(&naked, util.EchoConfig("naked", ns, false, echo.NewAnnotations().
 			SetBool(echo.SidecarInject, false), g, p)).
 		BuildOrFail(ctx)
 
 	return Context{
-		ctx:       ctx,
-		g:         g,
-		p:         p,
-		Namespace: ns,
-		A:         a,
-		B:         b,
-		Headless:  headless,
-		Naked:     naked,
+		ctx:          ctx,
+		g:            g,
+		p:            p,
+		Namespace:    ns,
+		A:            a,
+		B:            b,
+		Multiversion: multiVersion,
+		Headless:     headless,
+		Naked:        naked,
 	}
 }
 
