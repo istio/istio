@@ -261,15 +261,22 @@
         "type": "STATIC",
         "connect_timeout": "0.250s",
         "lb_policy": "ROUND_ROBIN",
-        "hosts": [
-        {
-          "socket_address": {
-            "protocol": "TCP",
-            "address": "{{ .localhost }}",
-            "port_value": 15020
-          }
+        "load_assignment": {
+          "cluster_name": "prometheus_stats",
+          "endpoints": [{
+            "lb_endpoints": [{
+              "endpoint": {
+                "address":{
+                  "socket_address": {
+                    "protocol": "TCP",
+                    "address": "{{ .localhost }}",
+                    "port_value": 15020
+                  }
+                }
+              }
+            }]
+          }]
         }
-        ]
       },
       {
         "name": "sds-grpc",
