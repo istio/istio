@@ -17,6 +17,7 @@ package security
 import (
 	"testing"
 
+	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -248,6 +249,18 @@ func TestReachability(t *testing.T) {
 					ConfigFile:          "automtls-partial-sidecar-dr-no-tls.yaml",
 					RequiredEnvironment: environment.Kube,
 					Namespace:           systemNM,
+					CallOpts: []echo.CallOptions{
+						{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/v1",
+						},
+						{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/v2-default",
+						},
+					},
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// We only need one pair.
 						return src == rctx.A && opts.Target == rctx.Multiversion
