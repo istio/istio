@@ -245,20 +245,47 @@ func TestReachability(t *testing.T) {
 				// 		return true
 				// 	},
 				// },
+				// ------------------------------
+				// The follow three consecutive test together ensures the auto mtls works as intended
+				// for sidecar migration scenario.
+				// {
+				// 	ConfigFile:          "automtls-partial-sidecar-dr-no-tls.yaml",
+				// 	RequiredEnvironment: environment.Kube,
+				// 	Namespace:           systemNM,
+				// 	CallOpts: []echo.CallOptions{
+				// 		{
+				// 			PortName: "http",
+				// 			Scheme:   scheme.HTTP,
+				// 			Path:     "/vistio",
+				// 		},
+				// 		{
+				// 			PortName: "http",
+				// 			Scheme:   scheme.HTTP,
+				// 			Path:     "/vlegacy",
+				// 		},
+				// 	},
+				// 	Include: func(src echo.Instance, opts echo.CallOptions) bool {
+				// 		// We only need one pair.
+				// 		return src == rctx.A && opts.Target == rctx.Multiversion
+				// 	},
+				// 	ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+				// 		return true
+				// 	},
+				// },
 				{
-					ConfigFile:          "automtls-partial-sidecar-dr-no-tls.yaml",
+					ConfigFile:          "automtls-partial-sidecar-dr-disable.yaml",
 					RequiredEnvironment: environment.Kube,
 					Namespace:           systemNM,
 					CallOpts: []echo.CallOptions{
 						{
 							PortName: "http",
 							Scheme:   scheme.HTTP,
-							Path:     "/v1",
+							Path:     "/vistio",
 						},
 						{
 							PortName: "http",
 							Scheme:   scheme.HTTP,
-							Path:     "/v2-default",
+							Path:     "/vlegacy",
 						},
 					},
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
@@ -266,9 +293,36 @@ func TestReachability(t *testing.T) {
 						return src == rctx.A && opts.Target == rctx.Multiversion
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
+						// Only the request to legacy one succeeds as we disable mtls explicitly.
+						return opts.Path == "/vlegacy"
 					},
 				},
+				{
+					ConfigFile:          "automtls-partial-sidecar-dr-mutual.yaml",
+					RequiredEnvironment: environment.Kube,
+					Namespace:           systemNM,
+					CallOpts: []echo.CallOptions{
+						{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/vistio",
+						},
+						{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/vlegacy",
+						},
+					},
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// We only need one pair.
+						return src == rctx.A && opts.Target == rctx.Multiversion
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Only the request to vistio one succeeds as we enable mtls explicitly.
+						return opts.Path == "/vistio"
+					},
+				},
+				// ----- end of automtls partial test suites -----
 			}
 			rctx.Run(testCases)
 		})

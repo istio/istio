@@ -3,7 +3,7 @@ kind: "PeerAuthentication"
 metadata:
   name: "default"
   annotations:
-    test-suite: "automtls-partial-sidecar-dr-no-tls"
+    test-suite: "automtls-partial-dr-disable"
 spec:
   mtls:
     mode: STRICT
@@ -13,7 +13,7 @@ kind: VirtualService
 metadata:
   name: "multiversion-route"
   annotations:
-    test-suite: "automtls-partial-sidecar-dr-no-tls"
+    test-suite: "automtls-partial-dr-disable"
 spec:
   hosts:
   - "multiversion"
@@ -37,7 +37,7 @@ kind: DestinationRule
 metadata:
   name: "multiversion"
   annotations:
-    test-suite: "automtls-partial-sidecar-dr-no-tls"
+    test-suite: "automtls-partial-dr-disable"
 spec:
   host: "multiversion"
   subsets:
@@ -47,3 +47,6 @@ spec:
   - name: "vlegacy"
     labels:
       version: "vlegacy"
+  trafficPolicy:
+    tls:
+      mode: DISABLE

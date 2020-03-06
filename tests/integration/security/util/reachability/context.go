@@ -81,11 +81,13 @@ func CreateContext(ctx framework.TestContext, g galley.Instance, p pilot.Instanc
 	var a, b, multiVersion, headless, naked echo.Instance
 	cfg := util.EchoConfig("multiversion", ns, false, nil, g, p)
 	cfg.Subsets = []echo.SubsetConfig{
+		// Istio deployment, with sidecar.
 		{
-			Version: "v1",
+			Version: "vistio",
 		},
+		// Legacy deployment subset, does not have sidecar injected.
 		{
-			Version:     "v-legacy",
+			Version:     "vlegacy",
 			Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
 		},
 	}
