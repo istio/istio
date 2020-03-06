@@ -103,7 +103,7 @@ var (
 
 	// InvalidRegexp defines a diag.MessageType for message "InvalidRegexp".
 	// Description: Invalid Regex
-	InvalidRegexp = diag.NewMessageType(diag.Warning, "IST0122", "Invalid or unsupported %s regexp %q.")
+	InvalidRegexp = diag.NewMessageType(diag.Warning, "IST0122", "Field %q regular expression invalid: %q (%s)")
 )
 
 // All returns a list of all known message types.
@@ -363,11 +363,12 @@ func NewMeshPolicyResourceIsDeprecated(r *resource.Instance) diag.Message {
 }
 
 // NewInvalidRegexp returns a new diag.Message based on InvalidRegexp.
-func NewInvalidRegexp(r *resource.Instance, where string, re string) diag.Message {
+func NewInvalidRegexp(r *resource.Instance, where string, re string, problem string) diag.Message {
 	return diag.NewMessage(
 		InvalidRegexp,
 		r,
 		where,
 		re,
+		problem,
 	)
 }

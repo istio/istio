@@ -247,9 +247,11 @@ messages:
     code: IST0122
     level: Warning
     description: "Invalid Regex"
-    template: "Invalid or unsupported %s regexp %q."
+    template: "Field %q regular expression invalid: %q (%s)"
     args:
       - name: where
         type: string
       - name: re
+        type: string
+      - name: problem
         type: string

@@ -61,17 +61,15 @@ func (a *RegexAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis
 			analyzeStringMatch(r, m.GetMethod(), ctx, "method")
 			analyzeStringMatch(r, m.GetAuthority(), ctx, "authority")
 			for _, h := range m.GetHeaders() {
-				analyzeStringMatch(r, h, ctx, "header")
+				analyzeStringMatch(r, h, ctx, "headers")
 			}
 			for _, qp := range m.GetQueryParams() {
-				analyzeStringMatch(r, qp, ctx, "query param")
+				analyzeStringMatch(r, qp, ctx, "queryParams")
 			}
-			for _, wh := range m.GetWithoutHeaders() {
-				analyzeStringMatch(r, wh, ctx, "without header")
-			}
+			// We don't validate withoutHeaders, because they are undocumented
 		}
 		for _, origin := range route.GetCorsPolicy().GetAllowOrigins() {
-			analyzeStringMatch(r, origin, ctx, "CORS policy allow origins")
+			analyzeStringMatch(r, origin, ctx, "corsPolicy.allowOrigins")
 		}
 	}
 }
@@ -88,5 +86,5 @@ func analyzeStringMatch(r *resource.Instance, sm *v1alpha3.StringMatch, ctx anal
 	}
 
 	ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-		msg.NewInvalidRegexp(r, where, re))
+		msg.NewInvalidRegexp(r, where, re, err.Error()))
 }
