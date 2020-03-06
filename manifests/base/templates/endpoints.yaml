@@ -1,4 +1,4 @@
-{{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
+{{- if .Values.global.remotePilotAddress }}
 apiVersion: v1
 kind: Endpoints
 metadata:

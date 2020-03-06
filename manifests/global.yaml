@@ -564,7 +564,6 @@ global:
   createRemoteSvcEndpoints: false
   
   # configure remote pilot and istiod service and endpoint
-  remotePilotCreateSvcEndpoint: false
   remotePolicyAddress: ""
   remotePilotAddress: ""
   remoteTelemetryAddress: ""

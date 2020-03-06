@@ -12701,7 +12701,7 @@ func chartsBaseTemplatesCrdsYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsBaseTemplatesEndpointsYaml = []byte(`{{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
+var _chartsBaseTemplatesEndpointsYaml = []byte(`{{- if .Values.global.remotePilotAddress }}
 apiVersion: v1
 kind: Endpoints
 metadata:
@@ -12861,7 +12861,7 @@ func chartsBaseTemplatesServiceaccountYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsBaseTemplatesServicesYaml = []byte(`{{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
+var _chartsBaseTemplatesServicesYaml = []byte(`{{- if .Values.global.remotePilotAddress }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -12876,7 +12876,7 @@ spec:
   - port: 8080
     name: http-legacy-discovery # direct
   - port: 15012
-    name: http-istiod    
+    name: http-istiod
   - port: 15014
     name: http-monitoring
   clusterIP: None
@@ -13459,11 +13459,14 @@ spec:
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
-          {{- if .Values.global.configNamespace }}
-          - istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
-          {{- else }}
-          - istio-pilot.istio-system.svc:15012
-          {{- end }}
+        {{- $namespace := .Values.global.configNamespace | default "istio-system" }}
+        {{- if .Values.global.remotePilotAddress }}
+        # Use the DNS hostname instead of the IP address. The discovery address needs to match the
+        # SAN in istiod's cert. The istiod-remote.<namespace>.svc will resolve to the remotePilotAddress.
+          - istiod-remote.{{ $namespace }}.svc:15012
+        {{- else }}
+          - istio-pilot.{{ $namespace }}.svc:15012
+        {{- end }}
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
@@ -14512,14 +14515,13 @@ spec:
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
+          {{- $namespace := .Values.global.configNamespace | default "istio-system" }}
           {{- if .Values.global.remotePilotAddress }}
           # Use the DNS hostname instead of the IP address. The discovery address needs to match the
           # SAN in istiod's cert. The istiod-remote.<namespace>.svc will resolve to the remotePilotAddress.
-          - istiod-remote.{{ .Values.global.configNamespace }}.svc:15012
-          {{- else if .Values.global.configNamespace }}
-          - istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+          - istiod-remote.{{ $namespace }}.svc:15012
           {{- else }}
-          - istio-pilot.istio-system.svc:15012
+          - istio-pilot.{{ $namespace }}.svc:15012
           {{- end }}
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
@@ -17092,10 +17094,10 @@ data:
         zipkin:
           # Address of the Zipkin collector
           address: zipkin.istio-system:9411
+      discoveryAddress: istiod.istio-system.svc:15012
 
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
-      discoveryAddress: istiod.istio-system.svc:15012
 
 ---
 
@@ -17144,7 +17146,6 @@ data:
         "imagePullPolicy": "",
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
-        "istioRemote": false,
         "istiod": {
           "enabled": true
         },
@@ -19812,18 +19813,19 @@ data:
     {{- $defPilotHostname := printf "istiod.%s.svc"  .Release.Namespace }}
     {{- end }}
     {{- $defPilotHostname := printf "istiod%s.%s.svc" .Values.revision .Release.Namespace }}
+    {{- $istiodRemote := printf "istiod-remote.%s.svc" .Release.Namespace }}
 
     {{- if .Values.global.remotePilotAddress }}
-    # Use the DNS hostname instead of the IP address. The discovery address needs to match the
-    # SAN in istiod's cert. The istiod-remote.<namespace>.svc will resolve to the remotePilotAddress.
-    {{- $pilotAddress := istiod-remote.{{ .Values.global.configNamespace }}.svc }}
+      # Use the DNS hostname instead of the IP address. The discovery address needs to match the
+      # SAN in istiod's cert. The istiod-remote.<namespace>.svc will resolve to the remotePilotAddress.
+      discoveryAddress: {{ $istiodRemote }}:15012
     {{- else }}
-    {{- $pilotAddress := $defPilotHostname }}
+      discoveryAddress: {{ $defPilotHostname }}:15012
     {{- end }}
 
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
-      discoveryAddress: {{ $pilotAddress }}:15012
+
 
 
     {{- if .Values.global.proxy.envoyMetricsService.enabled }}

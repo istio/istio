@@ -256,18 +256,19 @@ data:
     {{- $defPilotHostname := printf "istiod.%s.svc"  .Release.Namespace }}
     {{- end }}
     {{- $defPilotHostname := printf "istiod%s.%s.svc" .Values.revision .Release.Namespace }}
+    {{- $istiodRemote := printf "istiod-remote.%s.svc" .Release.Namespace }}
 
     {{- if .Values.global.remotePilotAddress }}
-    # Use the DNS hostname instead of the IP address. The discovery address needs to match the
-    # SAN in istiod's cert. The istiod-remote.<namespace>.svc will resolve to the remotePilotAddress.
-    {{- $pilotAddress := istiod-remote.{{ .Values.global.configNamespace }}.svc }}
+      # Use the DNS hostname instead of the IP address. The discovery address needs to match the
+      # SAN in istiod's cert. The istiod-remote.<namespace>.svc will resolve to the remotePilotAddress.
+      discoveryAddress: {{ $istiodRemote }}:15012
     {{- else }}
-    {{- $pilotAddress := $defPilotHostname }}
+      discoveryAddress: {{ $defPilotHostname }}:15012
     {{- end }}
 
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
-      discoveryAddress: {{ $pilotAddress }}:15012
+
 
 
     {{- if .Values.global.proxy.envoyMetricsService.enabled }}

@@ -176,10 +176,10 @@ data:
         zipkin:
           # Address of the Zipkin collector
           address: zipkin.istio-system:9411
+      discoveryAddress: istiod.istio-system.svc:15012
 
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
-      discoveryAddress: istiod.istio-system.svc:15012
 
 ---
 
@@ -228,7 +228,6 @@ data:
         "imagePullPolicy": "",
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
-        "istioRemote": false,
         "istiod": {
           "enabled": true
         },
@@ -363,7 +362,6 @@ data:
           }
         },
         "remotePilotAddress": "",
-        "remotePilotCreateSvcEndpoint": false,
         "remotePolicyAddress": "",
         "remoteTelemetryAddress": "",
         "sds": {
