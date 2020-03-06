@@ -161,6 +161,7 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 }
 
 func TestAnalyzeNamespaceMessageHasNoResource(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/20936")
 	g := NewGomegaWithT(t)
 
 	u := &updaterMock{}
