@@ -592,8 +592,6 @@ func TestSidecarScope(t *testing.T) {
 	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
 	ps.Mesh = env.Mesh()
 	ps.ServiceDiscovery = env
-	ps.ServiceByHostnameAndNamespace[host.Name("svc1.default.cluster.local")] = map[string]*Service{"default": nil}
-	ps.ServiceByHostnameAndNamespace[host.Name("svc2.nosidecar.cluster.local")] = map[string]*Service{"nosidecar": nil}
 
 	configStore := newFakeStore()
 	sidecarWithWorkloadSelector := &networking.Sidecar{
@@ -620,10 +618,30 @@ func TestSidecarScope(t *testing.T) {
 			Type:      collections.IstioNetworkingV1Alpha3Sidecars.Resource().Kind(),
 			Group:     collections.IstioNetworkingV1Alpha3Sidecars.Resource().Group(),
 			Version:   collections.IstioNetworkingV1Alpha3Sidecars.Resource().Version(),
-			Name:      "foo",
+			Name:      "default",
 			Namespace: "default",
 		},
 		Spec: sidecarWithWorkloadSelector,
+	}
+	fooConfigWithWorkloadSelector := Config{
+		ConfigMeta: ConfigMeta{
+			Type:      collections.IstioNetworkingV1Alpha3Sidecars.Resource().Kind(),
+			Group:     collections.IstioNetworkingV1Alpha3Sidecars.Resource().Group(),
+			Version:   collections.IstioNetworkingV1Alpha3Sidecars.Resource().Version(),
+			Name:      "foo",
+			Namespace: "foo",
+		},
+		Spec: sidecarWithWorkloadSelector,
+	}
+	configWithoutWorkloadSelector := Config{
+		ConfigMeta: ConfigMeta{
+			Type:      collections.IstioNetworkingV1Alpha3Sidecars.Resource().Kind(),
+			Group:     collections.IstioNetworkingV1Alpha3Sidecars.Resource().Group(),
+			Version:   collections.IstioNetworkingV1Alpha3Sidecars.Resource().Version(),
+			Name:      "global-default",
+			Namespace: "default",
+		},
+		Spec: sidecarWithoutWorkloadSelector,
 	}
 	rootConfig := Config{
 		ConfigMeta: ConfigMeta{
@@ -636,6 +654,8 @@ func TestSidecarScope(t *testing.T) {
 		Spec: sidecarWithoutWorkloadSelector,
 	}
 	_, _ = configStore.Create(configWithWorkloadSelector)
+	_, _ = configStore.Create(configWithoutWorkloadSelector)
+	_, _ = configStore.Create(fooConfigWithWorkloadSelector)
 	_, _ = configStore.Create(rootConfig)
 
 	store := istioConfigStore{ConfigStore: configStore}
@@ -653,11 +673,17 @@ func TestSidecarScope(t *testing.T) {
 		{
 			proxy:      &Proxy{ConfigNamespace: "default"},
 			collection: labels.Collection{map[string]string{"app": "foo"}},
-			sidecar:    "default/foo",
+			sidecar:    "default/default",
 			describe:   "match local sidecar",
 		},
 		{
 			proxy:      &Proxy{ConfigNamespace: "default"},
+			collection: labels.Collection{map[string]string{"app": "bar"}},
+			sidecar:    "default/global-default",
+			describe:   "match namespace default",
+		},
+		{
+			proxy:      &Proxy{ConfigNamespace: "foo"},
 			collection: labels.Collection{map[string]string{"app": "bar"}},
 			sidecar:    "istio-system/global",
 			describe:   "no match local sidecar",
@@ -670,10 +696,12 @@ func TestSidecarScope(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		scope := ps.getSidecarScope(c.proxy, c.collection)
-		if c.sidecar != scopeToSidecar(scope) {
-			t.Errorf("case with %s should get sidecar %s but got %s", c.describe, c.sidecar, scopeToSidecar(scope))
-		}
+		t.Run(c.describe, func(t *testing.T) {
+			scope := ps.getSidecarScope(c.proxy, c.collection)
+			if c.sidecar != scopeToSidecar(scope) {
+				t.Errorf("expected sidecar %q but got %q", c.sidecar, scopeToSidecar(scope))
+			}
+		})
 	}
 }
 

@@ -96,7 +96,8 @@ type PushContext struct {
 	allExportedDestRules       *processedDestRules
 
 	// sidecars for each namespace
-	sidecarsByNamespace map[string][]*SidecarScope
+	sidecarsByNamespace  map[string][]*SidecarScope
+	defaultSidecarConfig *Config
 	// envoy filters for each namespace including global config namespace
 	envoyFiltersByNamespace map[string][]*EnvoyFilterWrapper
 	// gateways for each namespace
@@ -753,7 +754,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 		}
 	}
 
-	return DefaultSidecarScopeForNamespace(ps, proxy.ConfigNamespace)
+	return ConvertToSidecarScope(ps, ps.defaultSidecarConfig, proxy.ConfigNamespace)
 }
 
 // GetAllSidecarScopes returns a map of namespace and the set of SidecarScope
@@ -1422,6 +1423,8 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 			}
 		}
 	}
+
+	ps.defaultSidecarConfig = rootNSConfig
 
 	return nil
 }
