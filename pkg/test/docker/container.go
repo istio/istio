@@ -39,7 +39,7 @@ type PortMap map[ContainerPort]HostPort
 func (m PortMap) toNatPortMap() nat.PortMap {
 	out := make(nat.PortMap)
 	for k, v := range m {
-		out[toNatPort(k)] = []nat.PortBinding{{HostPort: strconv.Itoa(int(v))}}
+		out[toNatPort(k)] = []nat.PortBinding{{HostIP: "127.0.0.1", HostPort: strconv.Itoa(int(v))}}
 	}
 	return out
 }
