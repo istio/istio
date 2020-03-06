@@ -15,60 +15,19 @@
 package secretcontroller
 
 import (
-	"sync/atomic"
+	"fmt"
+	"sync"
 	"testing"
-	"time"
 
+	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-
-	pkgtest "istio.io/istio/pkg/test"
 )
 
-const secretName string = "testSecretName"
 const secretNamespace string = "istio-system"
-
-var testCreateControllerCalled int32
-var testDeleteControllerCalled int32
-
-func testCreateController(_ kubernetes.Interface, _ string) error {
-	atomic.StoreInt32(&testCreateControllerCalled, 1)
-	return nil
-}
-
-func testDeleteController(_ string) error {
-	atomic.StoreInt32(&testDeleteControllerCalled, 1)
-	return nil
-}
-
-func createMultiClusterSecret(k8s *fake.Clientset) error {
-	data := map[string][]byte{}
-	secret := v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
-			Namespace: secretNamespace,
-			Labels: map[string]string{
-				MultiClusterSecretLabel: "true",
-			},
-		},
-		Data: map[string][]byte{},
-	}
-
-	data["testRemoteCluster"] = []byte("Test")
-	secret.Data = data
-	_, err := k8s.CoreV1().Secrets(secretNamespace).Create(&secret)
-	return err
-}
-
-func deleteMultiClusterSecret(k8s *fake.Clientset) error {
-	var immediate int64
-
-	return k8s.CoreV1().Secrets(secretNamespace).Delete(
-		secretName, &metav1.DeleteOptions{GracePeriodSeconds: &immediate})
-}
 
 func mockLoadKubeConfig(_ []byte) (*clientcmdapi.Config, error) {
 	return &clientcmdapi.Config{}, nil
@@ -82,59 +41,139 @@ func mockCreateInterfaceFromClusterConfig(_ *clientcmdapi.Config) (kubernetes.In
 	return fake.NewSimpleClientset(), nil
 }
 
-func verifyControllerDeleted(t *testing.T, timeoutName string) {
-	pkgtest.NewEventualOpts(10*time.Millisecond, 5*time.Second).Eventually(t, timeoutName, func() bool {
-		return atomic.LoadInt32(&testDeleteControllerCalled) == 1
-	})
+func makeSecret(secret, clusterID string, kubeconfig []byte) *v1.Secret {
+	return &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secret,
+			Namespace: secretNamespace,
+			Labels: map[string]string{
+				MultiClusterSecretLabel: "true",
+			},
+		},
+		Data: map[string][]byte{
+			clusterID: kubeconfig,
+		},
+	}
 }
 
-func verifyControllerCreated(t *testing.T, timeoutName string) {
-	pkgtest.NewEventualOpts(10*time.Millisecond, 5*time.Second).Eventually(t, timeoutName, func() bool {
-		return atomic.LoadInt32(&testCreateControllerCalled) == 1
-	})
+var (
+	mu      sync.Mutex
+	added   string
+	updated string
+	deleted string
+)
+
+func addCallback(_ kubernetes.Interface, id string) error {
+	mu.Lock()
+	defer mu.Unlock()
+	added = id
+	return nil
+}
+
+func updateCallback(_ kubernetes.Interface, id string) error {
+	mu.Lock()
+	defer mu.Unlock()
+	updated = id
+	return nil
+}
+func deleteCallback(id string) error {
+	mu.Lock()
+	defer mu.Unlock()
+	deleted = id
+	return nil
+}
+
+func resetCallbackData() {
+	added = ""
+	updated = ""
+	deleted = ""
 }
 
 func Test_SecretController(t *testing.T) {
+	g := NewWithT(t)
+
 	LoadKubeConfig = mockLoadKubeConfig
 	ValidateClientConfig = mockValidateClientConfig
 	CreateInterfaceFromClusterConfig = mockCreateInterfaceFromClusterConfig
 
 	clientset := fake.NewSimpleClientset()
 
+	var (
+		secret0                        = makeSecret("s0", "c0", []byte("kubeconfig0-0"))
+		secret0UpdateKubeconfigChanged = makeSecret("s0", "c0", []byte("kubeconfig0-1"))
+		secret0UpdateKubeconfigSame    = makeSecret("s0", "c0", []byte("kubeconfig0-1"))
+		secret1                        = makeSecret("s1", "c1", []byte("kubeconfig1-0"))
+	)
+	secret0UpdateKubeconfigSame.Annotations = map[string]string{"foo": "bar"}
+
+	steps := []struct {
+		// only set one of these per step. The others should be nil.
+		add    *v1.Secret
+		update *v1.Secret
+		delete *v1.Secret
+
+		// only set one of these per step. The others should be empty.
+		wantAdded   string
+		wantUpdated string
+		wantDeleted string
+	}{
+		{add: secret0, wantAdded: "c0"},
+		{update: secret0UpdateKubeconfigChanged, wantUpdated: "c0"},
+		{update: secret0UpdateKubeconfigSame},
+		{add: secret1, wantAdded: "c1"},
+		{delete: secret0, wantDeleted: "c0"},
+		{delete: secret1, wantDeleted: "c1"},
+	}
+
 	// Start the secret controller and sleep to allow secret process to start.
-	err := StartSecretController(
-		clientset, testCreateController, testDeleteController, secretNamespace)
-	if err != nil {
-		t.Fatalf("Could not start secret controller: %v", err)
-	}
-	time.Sleep(100 * time.Millisecond)
+	g.Expect(
+		StartSecretController(clientset, addCallback, updateCallback, deleteCallback, secretNamespace)).
+		Should(Succeed())
 
-	// Create the multicluster secret.
-	err = createMultiClusterSecret(clientset)
-	if err != nil {
-		t.Fatalf("Unexpected error on secret create: %v", err)
-	}
+	for i, step := range steps {
+		resetCallbackData()
 
-	verifyControllerCreated(t, "Create remote secret controller")
+		t.Run(fmt.Sprintf("[%v]", i), func(t *testing.T) {
+			g := NewWithT(t)
 
-	if atomic.LoadInt32(&testDeleteControllerCalled) == 1 {
-		t.Fatalf("Test failed on create secret, delete callback function called")
-	}
+			switch {
+			case step.add != nil:
+				_, err := clientset.CoreV1().Secrets(secretNamespace).Create(step.add)
+				g.Expect(err).Should(BeNil())
+			case step.update != nil:
+				_, err := clientset.CoreV1().Secrets(secretNamespace).Update(step.update)
+				g.Expect(err).Should(BeNil())
+			case step.delete != nil:
+				g.Expect(clientset.CoreV1().Secrets(secretNamespace).Delete(step.delete.Name, &metav1.DeleteOptions{})).
+					Should(Succeed())
+			}
 
-	// Reset test variables and delete the multicluster secret.
-	atomic.StoreInt32(&testCreateControllerCalled, 0)
-	atomic.StoreInt32(&testDeleteControllerCalled, 0)
-
-	err = deleteMultiClusterSecret(clientset)
-	if err != nil {
-		t.Fatalf("Unexpected error on secret delete: %v", err)
-	}
-
-	// Test - Verify that the remote controller has been removed.
-	verifyControllerDeleted(t, "delete remote secret controller")
-
-	// Test
-	if atomic.LoadInt32(&testCreateControllerCalled) == 1 {
-		t.Fatalf("Test failed on delete secret, create callback function called")
+			switch {
+			case step.wantAdded != "":
+				g.Eventually(func() string {
+					mu.Lock()
+					defer mu.Unlock()
+					return added
+				}).Should(Equal(step.wantAdded))
+			case step.wantUpdated != "":
+				g.Eventually(func() string {
+					mu.Lock()
+					defer mu.Unlock()
+					return updated
+				}).Should(Equal(step.wantUpdated))
+			case step.wantDeleted != "":
+				g.Eventually(func() string {
+					mu.Lock()
+					defer mu.Unlock()
+					return deleted
+				}).Should(Equal(step.wantDeleted))
+			default:
+				g.Consistently(func() bool {
+					mu.Lock()
+					defer mu.Unlock()
+					return added == "" && updated == "" && deleted == ""
+				}).Should(Equal(true))
+			}
+		})
 	}
 }
