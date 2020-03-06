@@ -17280,7 +17280,6 @@ data:
           }
         },
         "remotePilotAddress": "",
-        "remotePilotCreateSvcEndpoint": false,
         "remotePolicyAddress": "",
         "remoteTelemetryAddress": "",
         "sds": {
@@ -46593,6 +46592,9 @@ spec:
           - port: 15011
             targetPort: 15011
             name: tcp-pilot-grpc-tls
+          - port: 15012
+            targetPort: 15012
+            name: http-istiod
           - port: 8060
             targetPort: 8060
             name: tcp-citadel-grpc-tls
