@@ -34,7 +34,7 @@ import (
 
 const (
 	IstioOperatorTreeString = `
-apiVersion: operator.istio.io/v1alpha1
+apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 `
 	iCPIOPTranslationsFilename = "translate-ICP-IOP-"

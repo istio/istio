@@ -652,7 +652,7 @@ spec:
       neverInjectSelector: []
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
-      rewriteAppHTTPProbe: false
+      rewriteAppHTTPProbe: true
       selfSigned: false
     tracing:
       enabled: false

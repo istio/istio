@@ -24,6 +24,10 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pilot/pkg/config/kube/gateway"
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config/schema/collection"
+
 	"google.golang.org/grpc/keepalive"
 
 	"github.com/hashicorp/go-multierror"
@@ -80,6 +84,9 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 			return err
 		}
 		s.ConfigStores = append(s.ConfigStores, configController)
+		if features.EnableServiceApis {
+			s.ConfigStores = append(s.ConfigStores, gateway.NewController(s.kubeClient, configController))
+		}
 	}
 
 	// If running in ingress mode (requires k8s), wrap the config controller.
@@ -290,7 +297,23 @@ func (s *Server) mcpController(
 }
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
-	configClient, err := controller.NewClient(args.Config.KubeConfig, "", collections.Pilot,
+	// TODO(howardjohn) allow the collection here to be configurable to allow running with only
+	// Kubernetes APIs.
+	schemas := collection.NewSchemasBuilder()
+	if features.EnableServiceApis {
+		schemas = schemas.
+			MustAdd(collections.K8SServiceApisV1Alpha1Tcproutes).
+			MustAdd(collections.K8SServiceApisV1Alpha1Gatewayclasses).
+			MustAdd(collections.K8SServiceApisV1Alpha1Gateways).
+			MustAdd(collections.K8SServiceApisV1Alpha1Httproutes).
+			MustAdd(collections.K8SServiceApisV1Alpha1Trafficsplits)
+	}
+	for _, schema := range collections.Pilot.All() {
+		if err := schemas.Add(schema); err != nil {
+			return nil, err
+		}
+	}
+	configClient, err := controller.NewClient(args.Config.KubeConfig, "", schemas.Build(),
 		args.Config.ControllerOptions.DomainSuffix, buildLedger(args.Config), args.Revision)
 	if err != nil {
 		return nil, multierror.Prefix(err, "failed to open a config client.")

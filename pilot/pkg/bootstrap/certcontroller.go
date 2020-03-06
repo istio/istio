@@ -51,7 +51,7 @@ var (
 	dnsCertFile = "./" + filepath.Join(dnsCertDir, "cert-chain.pem")
 
 	KubernetesCAProvider = "kubernetes"
-	CitadelCAProvider    = "citadel"
+	IstiodCAProvider     = "istiod"
 )
 
 // CertController can create certificates signed by K8S server.
@@ -125,13 +125,15 @@ func (s *Server) initDNSCerts(hostname string) error {
 		log.Infof("Generating K8S-signed cert for %v", names)
 		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient.CertificatesV1beta1().CertificateSigningRequests(),
 			strings.Join(names, ","), parts[0]+".csr.secret", parts[1], defaultCACertPath)
-	} else if features.PilotCertProvider.Get() == CitadelCAProvider {
-		log.Infof("Generating Citadel-signed cert for %v", names)
+	} else if features.PilotCertProvider.Get() == IstiodCAProvider {
+		log.Infof("Generating istiod-signed cert for %v", names)
 		certChain, keyPEM, err = s.ca.GenKeyCert(names, SelfSignedCACertTTL.Get())
 
 		signingKeyFile := path.Join(localCertDir.Get(), "ca-key.pem")
+		// check if signing key file exists the cert dir
 		if _, err := os.Stat(signingKeyFile); err != nil {
 			log.Infof("No plugged-in cert at %v; self-signed cert is used", signingKeyFile)
+
 			// When Citadel is configured to use self-signed certs, keep a local copy so other
 			// components can load it via file (e.g. webhook config controller).
 			if err := os.MkdirAll(dnsCertDir, 0700); err != nil {
@@ -173,7 +175,7 @@ func (s *Server) initDNSCerts(hostname string) error {
 		}
 
 	} else {
-		log.Infof("User specified certs: %v", features.PilotCertProvider.Get())
+		log.Infof("User specified cert provider: %v", features.PilotCertProvider.Get())
 		return nil
 	}
 	if err != nil {
@@ -193,6 +195,6 @@ func (s *Server) initDNSCerts(hostname string) error {
 	if err != nil {
 		return err
 	}
-	log.Infoa("Certificates created in ", dnsCertDir)
+	log.Infoa("DNS certificates created in ", dnsCertDir)
 	return nil
 }

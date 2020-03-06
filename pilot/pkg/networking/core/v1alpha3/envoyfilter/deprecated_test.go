@@ -19,13 +19,15 @@ import (
 	"testing"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
+	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 )
 
 func TestDeprecatedListenerMatch(t *testing.T) {
 	inputParams := &plugin.InputParams{
-		ListenerProtocol: plugin.ListenerProtocolHTTP,
+		ListenerProtocol: istionetworking.ListenerProtocolHTTP,
 		Node: &model.Proxy{
 			Type: model.SidecarProxy,
 		},

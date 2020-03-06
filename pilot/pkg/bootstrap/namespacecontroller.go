@@ -18,19 +18,17 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
-
-	"istio.io/istio/pkg/queue"
-	"istio.io/istio/security/pkg/listwatch"
-	"istio.io/pkg/log"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	informer "k8s.io/client-go/informers/core/v1"
+	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/pkg/log"
+
+	"istio.io/istio/pkg/queue"
 	certutil "istio.io/istio/security/pkg/util"
 )
 
@@ -51,7 +49,7 @@ var (
 type NamespaceController struct {
 	// getData is the function to fetch the data we will insert into the config map
 	getData func() map[string]string
-	core    corev1.CoreV1Interface
+	client  corev1.CoreV1Interface
 
 	queue queue.Instance
 
@@ -62,82 +60,65 @@ type NamespaceController struct {
 }
 
 // NewNamespaceController returns a pointer to a newly constructed NamespaceController instance.
-func NewNamespaceController(data func() map[string]string, core corev1.CoreV1Interface) (*NamespaceController, error) {
+func NewNamespaceController(data func() map[string]string, kubeClient kubernetes.Interface) *NamespaceController {
 	c := &NamespaceController{
 		getData: data,
-		core:    core,
+		client:  kubeClient.CoreV1(),
 		queue:   queue.NewQueue(time.Second),
 	}
-	configMapLw := listwatch.MultiNamespaceListerWatcher([]string{metav1.NamespaceAll}, func(namespace string) cache.ListerWatcher {
-		return &cache.ListWatch{
-			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-				options.LabelSelector = fields.SelectorFromSet(configMapLabel).String()
-				return core.ConfigMaps(namespace).List(options)
-			},
-			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-				options.LabelSelector = fields.SelectorFromSet(configMapLabel).String()
-				return core.ConfigMaps(namespace).Watch(options)
-			}}
-	})
-	_, c.configMapController =
-		cache.NewInformer(configMapLw, &v1.ConfigMap{}, 0, cache.ResourceEventHandlerFuncs{
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				c.queue.Push(func() error {
-					return c.configMapChange(newObj)
-				})
-			},
-			DeleteFunc: func(obj interface{}) {
-				cm, ok := obj.(*v1.ConfigMap)
-				if !ok {
-					tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-					if !ok {
-						log.Errorf("error decoding object, invalid type")
-						return
-					}
-					cm, ok = tombstone.Obj.(*v1.ConfigMap)
-					if !ok {
-						log.Errorf("error decoding object tombstone, invalid type")
-						return
-					}
-				}
-				c.queue.Push(func() error {
-					ns, err := core.Namespaces().Get(cm.Namespace, metav1.GetOptions{})
-					if err != nil {
-						return err
-					}
-					// If the namespace is terminating, we may get into a loop of trying to re-add the configmap back
-					// We should make sure the namespace still exists
-					if ns.Status.Phase != v1.NamespaceTerminating {
-						return c.insertDataForNamespace(cm.Namespace)
-					}
-					return nil
-				})
-			},
-		})
 
-	namespaceLW := listwatch.MultiNamespaceListerWatcher([]string{metav1.NamespaceAll}, func(namespace string) cache.ListerWatcher {
-		return &cache.ListWatch{
-			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-				return core.Namespaces().List(options)
-			},
-			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-				return core.Namespaces().Watch(options)
-			}}
-	})
-	_, c.namespaceController =
-		cache.NewInformer(namespaceLW, &v1.Namespace{}, 0, cache.ResourceEventHandlerFuncs{
-			UpdateFunc: func(_, newObj interface{}) {
-				c.queue.Push(func() error {
-					return c.namespaceChange(newObj)
-				})
-			},
-			AddFunc: func(obj interface{}) {
-				c.queue.Push(func() error {
-					return c.namespaceChange(obj)
-				})
-			},
+	configmapInformer := informer.NewFilteredConfigMapInformer(kubeClient, metav1.NamespaceAll, 0,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
+		func(options *metav1.ListOptions) {
+			options.LabelSelector = fields.SelectorFromSet(configMapLabel).String()
 		})
-	return c, nil
+	configmapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.queue.Push(func() error {
+				return c.configMapChange(newObj)
+			})
+		},
+		DeleteFunc: func(obj interface{}) {
+			cm, ok := obj.(*v1.ConfigMap)
+			if !ok {
+				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+				if !ok {
+					log.Errorf("error decoding object, invalid type")
+					return
+				}
+				cm, ok = tombstone.Obj.(*v1.ConfigMap)
+				if !ok {
+					log.Errorf("error decoding object tombstone, invalid type")
+					return
+				}
+			}
+			c.queue.Push(func() error {
+				ns, err := kubeClient.CoreV1().Namespaces().Get(cm.Namespace, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				// If the namespace is terminating, we may get into a loop of trying to re-add the configmap back
+				// We should make sure the namespace still exists
+				if ns.Status.Phase != v1.NamespaceTerminating {
+					return c.insertDataForNamespace(cm.Namespace)
+				}
+				return nil
+			})
+		},
+	})
+	c.configMapController = configmapInformer
+
+	namespaceInformer := informer.NewNamespaceInformer(kubeClient, 0, cache.Indexers{})
+	namespaceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.queue.Push(func() error {
+				return c.namespaceChange(obj)
+			})
+		},
+	})
+	c.namespaceController = namespaceInformer
+
+	return c
 }
 
 // Run starts the NamespaceController until a value is sent to stopCh.
@@ -158,7 +139,7 @@ func (nc *NamespaceController) insertDataForNamespace(ns string) error {
 		Namespace: ns,
 		Labels:    configMapLabel,
 	}
-	return certutil.InsertDataToConfigMap(nc.core, meta, nc.getData())
+	return certutil.InsertDataToConfigMap(nc.client, meta, nc.getData())
 }
 
 // On namespace change, update the config map.
@@ -177,7 +158,7 @@ func (nc *NamespaceController) configMapChange(obj interface{}) error {
 	cm, ok := obj.(*v1.ConfigMap)
 
 	if ok {
-		if err := certutil.UpdateDataInConfigMap(nc.core, cm.DeepCopy(), nc.getData()); err != nil {
+		if err := certutil.UpdateDataInConfigMap(nc.client, cm.DeepCopy(), nc.getData()); err != nil {
 			return fmt.Errorf("error when inserting CA cert to configmap %v: %v", cm.Name, err)
 		}
 	}

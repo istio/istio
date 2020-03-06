@@ -295,11 +295,6 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		merged.EdsUpdates = nil
 	}
 
-	if !features.ScopePushes.Get() {
-		// If push scoping is not enabled, we do not care about target namespaces
-		return merged
-	}
-
 	// Merge the target namespaces
 	if len(first.NamespacesUpdated) > 0 && len(other.NamespacesUpdated) > 0 {
 		merged.NamespacesUpdated = make(map[string]struct{})
@@ -892,7 +887,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 		}
 	} else {
 		if err := ps.updateContext(env, oldPushContext, pushReq); err != nil {
-			return nil
+			return err
 		}
 	}
 
@@ -984,6 +979,13 @@ func (ps *PushContext) updateContext(
 		case collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(),
 			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind():
 			quotasChanged = true
+		case collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().GroupVersionKind(),
+			collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(),
+			collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind(),
+			collections.K8SServiceApisV1Alpha1Gateways.Resource().GroupVersionKind(),
+			collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind():
+			virtualServicesChanged = true
+			gatewayChanged = true
 		}
 	}
 

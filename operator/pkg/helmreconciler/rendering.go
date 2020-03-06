@@ -20,10 +20,12 @@ import (
 	"strings"
 	"sync"
 
+	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio"
+	"istio.io/istio/operator/pkg/tpath"
+
 	jsonpatch "github.com/evanphx/json-patch"
 	"k8s.io/apimachinery/pkg/runtime"
-
-	"istio.io/istio/operator/pkg/tpath"
 
 	util2 "k8s.io/kubectl/pkg/util"
 
@@ -33,8 +35,6 @@ import (
 	"k8s.io/helm/pkg/manifest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"istio.io/api/operator/v1alpha1"
-	"istio.io/istio/operator/pkg/apis/istio"
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/helm"
@@ -69,17 +69,17 @@ func (h *HelmReconciler) FlushObjectCaches() {
 	objectCaches = make(map[string]*ObjectCache)
 }
 
-func (h *HelmReconciler) renderCharts(in RenderingInput) (ChartManifestsMap, error) {
+func (h *HelmReconciler) RenderCharts(in RenderingInput) (ChartManifestsMap, error) {
 	iop, ok := in.GetInputConfig().(*valuesv1alpha1.IstioOperator)
 	if !ok {
-		return nil, fmt.Errorf("unexpected type %T in renderCharts", in.GetInputConfig())
+		return nil, fmt.Errorf("unexpected type %T in RenderCharts", in.GetInputConfig())
 	}
 	iopSpec := iop.Spec
 	if err := validate.CheckIstioOperatorSpec(iopSpec, false); err != nil {
 		return nil, err
 	}
 
-	mergedIOPS, err := MergeIOPSWithProfile(iopSpec)
+	mergedIOPS, err := MergeIOPSWithProfile(iop)
 	if err != nil {
 		return nil, err
 	}
@@ -107,8 +107,8 @@ func (h *HelmReconciler) renderCharts(in RenderingInput) (ChartManifestsMap, err
 
 // MergeIOPSWithProfile overlays the values in iop on top of the defaults for the profile given by iop.profile and
 // returns the merged result.
-func MergeIOPSWithProfile(iop *v1alpha1.IstioOperatorSpec) (*v1alpha1.IstioOperatorSpec, error) {
-	profile := iop.Profile
+func MergeIOPSWithProfile(iop *valuesv1alpha1.IstioOperator) (*v1alpha1.IstioOperatorSpec, error) {
+	profile := iop.Spec.Profile
 
 	// This contains the IstioOperator CR.
 	baseIOPYAML, err := helm.ReadProfileYAML(profile)
@@ -151,17 +151,23 @@ func MergeIOPSWithProfile(iop *v1alpha1.IstioOperatorSpec) (*v1alpha1.IstioOpera
 	if err != nil {
 		return nil, err
 	}
-	baseYAML, err := tpath.GetSpecSubtree(baseIOPYAML)
+
+	mergedYAML, err := util.OverlayYAML(baseIOPYAML, overlayYAML)
 	if err != nil {
 		return nil, err
 	}
 
-	// Merge base and overlay.
-	mergedYAML, err := util.OverlayYAML(baseYAML, overlayYAML)
+	mergedYAML, err = translate.OverlayValuesEnablement(mergedYAML, overlayYAML, "")
 	if err != nil {
-		return nil, fmt.Errorf("could not overlay user config over base: %s", err)
+		return nil, err
 	}
-	return istio.UnmarshalAndValidateIOPS(mergedYAML)
+
+	mergedYAMLSpec, err := tpath.GetSpecSubtree(mergedYAML)
+	if err != nil {
+		return nil, err
+	}
+
+	return istio.UnmarshalAndValidateIOPS(mergedYAMLSpec)
 }
 
 // ProcessManifest apply the manifest to create or update resources, returns the number of objects processed
@@ -281,10 +287,10 @@ func (h *HelmReconciler) ProcessObject(chartName string, obj *unstructured.Unstr
 	objectKey, _ := client.ObjectKeyFromObject(mutatedObj)
 
 	if err = h.client.Get(context.TODO(), objectKey, receiver); apierrors.IsNotFound(err) {
-		log.Infof("creating resource: %s", objectKey)
+		log.Infof("creating resource: %s/%s/%s", obj.GetKind(), obj.GetNamespace(), obj.GetName())
 		return h.client.Create(context.TODO(), mutatedObj)
 	} else if err == nil {
-		log.Infof("updating resource: %s", objectKey)
+		log.Infof("updating resource: %s/%s/%s", obj.GetKind(), obj.GetNamespace(), obj.GetName())
 		if err := applyOverlay(receiver, mutatedObj); err != nil {
 			return err
 		}

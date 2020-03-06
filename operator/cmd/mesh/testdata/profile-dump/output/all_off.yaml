@@ -1,4 +1,4 @@
-apiVersion: operator.istio.io/v1alpha1
+apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   addonComponents:
@@ -312,7 +312,7 @@ spec:
       operatorManageWebhooks: false
       outboundTrafficPolicy:
         mode: ALLOW_ANY
-      pilotCertProvider: citadel
+      pilotCertProvider: istiod
       policyCheckFailOpen: false
       priorityClassName: ""
       proxy:
@@ -441,6 +441,8 @@ spec:
       contextPath: /kiali
       createDemoSecret: false
       dashboard:
+        grafanaInClusterURL: http://grafana:3000
+        jaegerInClusterURL: http://tracing/jaeger
         passphraseKey: passphrase
         secretName: kiali
         usernameKey: username
@@ -559,7 +561,7 @@ spec:
       objectSelector:
         autoInject: true
         enabled: false
-      rewriteAppHTTPProbe: false
+      rewriteAppHTTPProbe: true
     telemetry:
       enabled: true
       v1:
@@ -614,15 +616,15 @@ spec:
         maxSpans: 500000
         node:
           cpus: 2
-        probeStartupDelay: 200
+        probeStartupDelay: 10
         queryPort: 9411
         resources:
           limits:
-            cpu: 300m
-            memory: 900Mi
+            cpu: 1000m
+            memory: 2048Mi
           requests:
             cpu: 150m
             memory: 900Mi
-        tag: 2.14.2
+        tag: 2.20.0
     version: ""
 

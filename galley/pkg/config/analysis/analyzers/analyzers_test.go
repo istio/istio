@@ -176,6 +176,17 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name: "mtlsAnalyzerPeerAuthenticationDisablesAnalyzer",
+		inputFiles: []string{
+			"testdata/mtls-meshpolicy.yaml",
+			"testdata/peerauthentication-crd.yaml",
+		},
+		analyzer: &auth.MTLSAnalyzer{},
+		expected: []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
 		name:       "mtlsAnalyzerWithPermissiveMeshPolicy",
 		inputFiles: []string{"testdata/mtls-meshpolicy-permissive.yaml"},
 		analyzer:   &auth.MTLSAnalyzer{},

@@ -28,19 +28,22 @@ spec:
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
         livenessProbe:
           httpGet:
-            port: http
+            path: /app-health/hello/livez
+            port: 15020
         name: hello
         ports:
         - containerPort: 80
           name: http
         readinessProbe:
           httpGet:
-            port: 3333
+            path: /app-health/hello/readyz
+            port: 15020
         resources: {}
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
         livenessProbe:
           httpGet:
-            port: http
+            path: /app-health/world/livez
+            port: 15020
         name: world
         ports:
         - containerPort: 90
@@ -70,9 +73,9 @@ spec:
         - name: JWT_POLICY
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
-          value: citadel
+          value: istiod
         - name: CA_ADDR
-          value: istio-pilot.istio-system.svc:15012
+          value: istiod.istio-system.svc:15012
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -116,6 +119,8 @@ spec:
           value: REDIRECT
         - name: ISTIO_META_MESH_ID
           value: cluster.local
+        - name: ISTIO_KUBE_APP_PROBERS
+          value: '{"/app-health/hello/livez":{"httpGet":{"port":80}},"/app-health/hello/readyz":{"httpGet":{"port":3333}},"/app-health/world/livez":{"httpGet":{"port":90}}}'
         image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: Always
         name: istio-proxy
@@ -148,8 +153,8 @@ spec:
           runAsNonRoot: true
           runAsUser: 1337
         volumeMounts:
-        - mountPath: /etc/istio/citadel-ca-cert
-          name: citadel-ca-cert
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
         - mountPath: /etc/istio/proxy
           name: istio-envoy
         - mountPath: /var/run/secrets/tokens
@@ -174,7 +179,7 @@ spec:
         - -b
         - '*'
         - -d
-        - "15090,15020"
+        - 15090,15020
         image: gcr.io/istio-release/proxy_init:master-latest-daily
         imagePullPolicy: Always
         name: istio-init
@@ -220,7 +225,7 @@ spec:
               path: istio-token
       - configMap:
           name: istio-ca-root-cert
-        name: citadel-ca-cert
+        name: istiod-ca-cert
 status: {}
 
 ---

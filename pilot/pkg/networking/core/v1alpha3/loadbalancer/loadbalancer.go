@@ -31,11 +31,18 @@ func GetLocalityLbSetting(
 	mesh *v1alpha3.LocalityLoadBalancerSetting,
 	destrule *v1alpha3.LocalityLoadBalancerSetting,
 ) *v1alpha3.LocalityLoadBalancerSetting {
-	// Locality lb is enabled if its defined in mesh config
-	enabled := mesh != nil
+	var enabled bool
+	// Locality lb is enabled if its not explicitly disabled in mesh global config
+	if mesh != nil && (mesh.Enabled == nil || mesh.Enabled.Value) {
+		enabled = true
+	}
 	// Unless we explicitly override this in destination rule
-	if destrule != nil && destrule.Enabled != nil {
-		enabled = destrule.Enabled.GetValue()
+	if destrule != nil {
+		if destrule.Enabled != nil && !destrule.Enabled.Value {
+			enabled = false
+		} else {
+			enabled = true
+		}
 	}
 	if !enabled {
 		return nil
@@ -109,9 +116,11 @@ func applyLocalityWeight(
 				// in case wildcard dest matching multi groups of endpoints
 				// the load balancing weight for a locality is divided by the sum of the weights of all localities
 				for index, originalWeight := range destLocMap {
-					weight := float64(originalWeight*weight) / float64(totalWeight)
-					loadAssignment.Endpoints[index].LoadBalancingWeight = &wrappers.UInt32Value{
-						Value: uint32(math.Ceil(weight)),
+					destWeight := float64(originalWeight*weight) / float64(totalWeight)
+					if destWeight > 0 {
+						loadAssignment.Endpoints[index].LoadBalancingWeight = &wrappers.UInt32Value{
+							Value: uint32(math.Ceil(destWeight)),
+						}
 					}
 				}
 			}

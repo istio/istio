@@ -550,7 +550,7 @@ spec:
 
     sidecarInjectorWebhook:
       enableNamespacesByDefault: false
-      rewriteAppHTTPProbe: false
+      rewriteAppHTTPProbe: true
       selfSigned: false
       injectLabel: istio-injection
       objectSelector:

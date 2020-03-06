@@ -61,7 +61,7 @@ spec:
     - sourceLabels: [__meta_kubernetes_pod_container_port_name]
       action: keep
       regex: '.*-envoy-prom'
-    - action: labelmap
+    - action: labeldrop
       regex: "__meta_kubernetes_pod_label_(.+)"
     - sourceLabels: [__meta_kubernetes_namespace]
       action: replace

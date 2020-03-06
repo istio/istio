@@ -349,6 +349,66 @@ func TestBuildConfigInfoMetadata(t *testing.T) {
 	}
 }
 
+func TestAddSubsetToMetadata(t *testing.T) {
+	cases := []struct {
+		name   string
+		in     *core.Metadata
+		subset string
+		want   *core.Metadata
+	}{
+		{
+			"simple subset",
+			&core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"config": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
+								},
+							},
+						},
+					},
+				},
+			},
+			"test-subset",
+			&core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"config": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
+								},
+							},
+							"subset": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "test-subset",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"no metadata",
+			&core.Metadata{},
+			"test-subset",
+			&core.Metadata{},
+		},
+	}
+
+	for _, v := range cases {
+		t.Run(v.name, func(tt *testing.T) {
+			got := AddSubsetToMetadata(v.in, v.subset)
+			if diff, equal := messagediff.PrettyDiff(got, v.want); !equal {
+				tt.Errorf("AddSubsetToMetadata(%v, %s) produced incorrect result:\ngot: %v\nwant: %v\nDiff: %s", v.in, v.subset, got, v.want, diff)
+			}
+		})
+	}
+}
+
 func TestCloneCluster(t *testing.T) {
 	cluster := buildFakeCluster()
 	clone := CloneCluster(cluster)

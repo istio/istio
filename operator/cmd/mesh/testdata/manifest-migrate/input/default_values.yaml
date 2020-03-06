@@ -147,7 +147,7 @@ gateways:
 sidecarInjectorWebhook:
   enabled: true
   enableNamespacesByDefault: false
-  rewriteAppHTTPProbe: false
+  rewriteAppHTTPProbe: true
   selfSigned: false
   injectLabel: istio-injection
   neverInjectSelector: []
@@ -431,7 +431,9 @@ kiali:
     secretName: kiali 
     viewOnlyMode: false 
     grafanaURL:  
+    grafanaInClusterURL: http://grafana:3000
     jaegerURL:  
+    jaegerInClusterURL: http://tracing/jaeger
   createDemoSecret: false
   security:
     enabled: true

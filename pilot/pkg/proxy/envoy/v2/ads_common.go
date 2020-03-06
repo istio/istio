@@ -15,17 +15,11 @@
 package v2
 
 import (
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
 func ProxyNeedsPush(proxy *model.Proxy, pushEv *XdsEvent) bool {
-	if !features.ScopePushes.Get() {
-		// If push scoping is not enabled, we push for all proxies
-		return true
-	}
-
 	targetNamespaces := pushEv.namespacesUpdated
 	configs := pushEv.configTypesUpdated
 
@@ -94,7 +88,7 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 
 	// In case configTypes is not set, for example mesh configuration updated.
 	// If push scoping is not enabled, we push all xds
-	if !features.ScopePushes.Get() || len(pushEv.configTypesUpdated) == 0 {
+	if len(pushEv.configTypesUpdated) == 0 {
 		out[CDS] = true
 		out[EDS] = true
 		out[LDS] = true

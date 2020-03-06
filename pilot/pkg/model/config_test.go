@@ -391,6 +391,10 @@ func TestMostSpecificHostMatch(t *testing.T) {
 
 		{[]host.Name{"bar.com", "*.foo.com"}, "*foo.com", "*.foo.com"},
 		{[]host.Name{"foo.com", "*.foo.com"}, "*foo.com", "foo.com"},
+
+		// should prioritize closest match
+		{[]host.Name{"*.bar.com", "foo.bar.com"}, "foo.bar.com", "foo.bar.com"},
+		{[]host.Name{"*.foo.bar.com", "bar.foo.bar.com"}, "bar.foo.bar.com", "bar.foo.bar.com"},
 	}
 
 	for idx, tt := range tests {

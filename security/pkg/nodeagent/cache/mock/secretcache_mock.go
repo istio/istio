@@ -32,13 +32,13 @@ type CAClient struct {
 	failureRate         int
 }
 
-// Create a CA client that sends CSR with a default failure rate 0.5. If failureRate
+// Create a CA client that sends CSR with a default failure rate 0.2. If failureRate
 // is non zero, e.g. [0.1, 0.9], the failure rate is changed.
 func NewMockCAClient(mockCertChain1st, mockCertChainRemain []string, failureRate float32) *CAClient {
 	cl := CAClient{
 		mockCertChain1st:    mockCertChain1st,
 		mockCertChainRemain: mockCertChainRemain,
-		failureRate:         2,
+		failureRate:         5,
 	}
 
 	if failureRate > 0 {

@@ -42,7 +42,7 @@ spec:
           ports:
             - containerPort: {{ .Values.tracing.zipkin.queryPort }}
           livenessProbe:
-            initialDelaySeconds: {{ .Values.tracing.zipkin.probeStartupDelay }}
+            initialDelaySeconds: {{ .Values.tracing.zipkin.livenessProbeStartupDelay }}
             tcpSocket:
               port: {{ .Values.tracing.zipkin.queryPort }}
           readinessProbe:
