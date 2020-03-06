@@ -228,7 +228,6 @@
 // profiles/demo.yaml
 // profiles/empty.yaml
 // profiles/minimal.yaml
-// profiles/preview.yaml
 // profiles/remote.yaml
 // profiles/separate.yaml
 // translateConfig/names-1.5.yaml
@@ -40831,36 +40830,6 @@ func profilesMinimalYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesPreviewYaml = []byte(`# The preview profile contains features that are experimental.
-# This is intended to explore new features coming to Istio.
-# Stability, security, and performance are not guaranteed - use at your own risk.
-apiVersion: install.istio.io/v1alpha1
-kind: IstioOperator
-spec:
-  values:
-    telemetry:
-      v2:
-        metadataExchange:
-          wasmEnabled: true
-        prometheus:
-          wasmEnabled: true
-`)
-
-func profilesPreviewYamlBytes() ([]byte, error) {
-	return _profilesPreviewYaml, nil
-}
-
-func profilesPreviewYaml() (*asset, error) {
-	bytes, err := profilesPreviewYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "profiles/preview.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _profilesRemoteYaml = []byte(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
@@ -42076,7 +42045,6 @@ var _bindata = map[string]func() (*asset, error){
 	"profiles/demo.yaml":                                                                     profilesDemoYaml,
 	"profiles/empty.yaml":                                                                    profilesEmptyYaml,
 	"profiles/minimal.yaml":                                                                  profilesMinimalYaml,
-	"profiles/preview.yaml":                                                                  profilesPreviewYaml,
 	"profiles/remote.yaml":                                                                   profilesRemoteYaml,
 	"profiles/separate.yaml":                                                                 profilesSeparateYaml,
 	"translateConfig/names-1.5.yaml":                                                         translateconfigNames15Yaml,
@@ -42465,7 +42433,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"demo.yaml":     &bintree{profilesDemoYaml, map[string]*bintree{}},
 		"empty.yaml":    &bintree{profilesEmptyYaml, map[string]*bintree{}},
 		"minimal.yaml":  &bintree{profilesMinimalYaml, map[string]*bintree{}},
-		"preview.yaml":  &bintree{profilesPreviewYaml, map[string]*bintree{}},
 		"remote.yaml":   &bintree{profilesRemoteYaml, map[string]*bintree{}},
 		"separate.yaml": &bintree{profilesSeparateYaml, map[string]*bintree{}},
 	}},
