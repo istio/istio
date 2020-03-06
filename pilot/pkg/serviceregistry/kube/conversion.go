@@ -149,10 +149,6 @@ func ExternalNameServiceInstances(k8sSvc coreV1.Service, svc *model.Service) []*
 				EndpointPort:    uint32(portEntry.Port),
 				ServicePortName: portEntry.Name,
 				Labels:          k8sSvc.Labels,
-				Attributes: model.ServiceAttributes{
-					Name:      svc.Attributes.Name,
-					Namespace: svc.Attributes.Namespace,
-				},
 			},
 		})
 	}
