@@ -70,17 +70,22 @@ var (
 			"istio-mesh-dashboard.json",
 			[]string{
 				"galley_",
+				"istio_tcp_",
 			},
 		},
 		{
 			"istio-grafana-configuration-dashboards-istio-service-dashboard",
 			"istio-service-dashboard.json",
-			[]string{},
+			[]string{
+				"istio_tcp_",
+			},
 		},
 		{
 			"istio-grafana-configuration-dashboards-istio-workload-dashboard",
 			"istio-workload-dashboard.json",
-			[]string{},
+			[]string{
+				"istio_tcp_",
+			},
 		},
 		{
 			"istio-grafana-configuration-dashboards-istio-performance-dashboard",
