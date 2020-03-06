@@ -1,17 +1,16 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-mixer-admin-role-binding-{{ .Release.Namespace }}
+  name: istio-policy-admin-role-binding-{{ .Release.Namespace }}
   labels:
-    app: istio-telemetry
-    chart: {{ template "mixer.chart" . }}
-    heritage: {{ .Release.Service }}
+    app: istio-policy
     release: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-mixer-{{ .Release.Namespace }}
+  name: istio-policy
 subjects:
   - kind: ServiceAccount
-    name: istio-mixer-service-account
+    name: istio-policy-service-account
     namespace: {{ .Release.Namespace }}
+---

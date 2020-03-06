@@ -39,12 +39,69 @@ mixer:
 
   telemetry:
     enabled: true
+
+telemetry:
+  enabled: true
+  v1:
+    # Set true to enable Mixer based telemetry
+    enabled: true
+  v2:
+    # For Null VM case now. If enabled, will set disableMixerHttpReports to true and not define mixerReportServer
+    # also enable metadata exchange and stats filter.
+    enabled: false
+    # Indicate if prometheus stats filter is enabled or not
+    prometheus:
+      enabled: true
+    # stackdriver filter settings.
+    stackdriver:
+      enabled: false
+      logging: false
+      monitoring: false
+      topology: false
+    #  configOverride parts give you the ability to override the low level configuration params passed to envoy filter.
+
+      configOverride: {}
+      #  e.g.
+      #  enable_mesh_edges_reporting: true
+      #  disable_server_access_logging: false
+      #  meshEdgesReportingDuration: 500s
+      #  disable_host_header_fallback: true
+
 #
 # pilot configuration
 #
 # @see charts/pilot/values.yaml
 pilot:
   enabled: true
+
+  # Used to override control-plane networks
+  meshNetworks:
+    networks: {}
+
+  # Install the mesh config map, generated from values.yaml.
+  # If false, pilot wil use default values (by default) or user-supplied values.
+  configMap: true
+
+  # Controls legacy k8s ingress
+  # Only one pilot profile should enable ingress support !!!
+  ingress:
+    # If empty, node-port is assumed.
+    ingressService: istio-ingressgateway
+    # DEFAULT: all Ingress resources without annotation or with istio annotation
+    # STRICT: only with istio annotation
+    # OFF: no ingress or sync.
+    ingressControllerMode: "OFF"
+
+    # Value to set on "kubernetes.io/ingress.class" annotations to activate, if mode is STRICT
+    # This is required to be different than 'istio' if multiple ingresses are present.
+    ingressClass: istio
+
+  policy:
+    # Will not define mixerCheckServer and mixerReportServer
+    enabled: false
+
+  # Indicate if Galley is enabled to send MCP queries
+  useMCP: true
 
 #
 # security configuration
@@ -106,6 +163,34 @@ istiocoredns:
 
 # Common settings used among istio subcharts.
 global:
+  # Used to locate istio-pilot.
+  # Default is to install pilot in a dedicated namespace, istio-pilot11. You can use multiple namespaces, but
+  # for each 'profile' you need to match the control plane namespace and the value of istioNamespace
+  # It is assumed that istio-system is running either 1.0 or an upgraded version of 1.1, but only security components are
+  # used (citadel generating the secrets).
+  istioNamespace: istio-system
+  configNamespace: istio-system
+
+  # Telemetry namespace, including tracing.
+  telemetryNamespace: istio-system
+
+  prometheusNamespace: istio-system
+
+  policyNamespace: istio-system
+
+  configRootNamespace: istio-system
+
+  # Settings for remote cluster.
+  createRemoteSvcEndpoints: false
+  remotePilotCreateSvcEndpoint: false
+  remotePolicyAddress: ""
+  remotePilotAddress: ""
+  remoteTelemetryAddress: ""
+
+  # Version is set as 'version' label and part of the resource names when installing.
+  # It is used to support multiple version in same namespace, similar with normal app traffic shift.
+  version: ""
+
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
   # Dev builds from prow are on gcr.io
@@ -198,11 +283,11 @@ global:
 
     # Log level for proxy, applies to gateways and sidecars.  If left empty, "warning" is used.
     # Expected values are: trace|debug|info|warning|error|critical|off
-    logLevel: ""
+    logLevel: "warning"
 
     # Per Component log level for proxy, applies to gateways and sidecars. If a component level is
     # not set, then the global "logLevel" will be used. If left empty, "misc:error" is used.
-    componentLogLevel: ""
+    componentLogLevel: "misc:error"
 
     # Configure the DNS refresh rate for Envoy cluster of type STRICT_DNS
     # This must be given it terms of seconds. For example, 300s is valid but 5m is invalid.
@@ -314,7 +399,7 @@ global:
 
   # controlPlaneSecurityEnabled enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
-  controlPlaneSecurityEnabled: false
+  controlPlaneSecurityEnabled: true
 
   # disablePolicyChecks disables mixer policy checks.
   # if mixer.policy.enabled==true then disablePolicyChecks has affect.
@@ -474,7 +559,7 @@ global:
   # The default depends on the environment.
   #   kubernetes: cluster.local
   #   else:  default dns domain
-  trustDomain: ""
+  trustDomain: "cluster.local"
 
   #  The trust domain aliases represent the aliases of trust_domain.
   #  For example, if we have

@@ -4,7 +4,7 @@ kind: MutatingWebhookConfiguration
 metadata:
   name: istio-sidecar-injector
   labels:
-    app: {{ template "sidecar-injector.name" . }}
+    app: sidecar-injector
     chart: {{ template "sidecar-injector.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}

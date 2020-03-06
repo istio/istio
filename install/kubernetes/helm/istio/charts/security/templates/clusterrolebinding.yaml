@@ -3,7 +3,6 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-citadel-{{ .Release.Namespace }}
   labels:
-    app: {{ template "security.name" . }}
     chart: {{ template "security.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}

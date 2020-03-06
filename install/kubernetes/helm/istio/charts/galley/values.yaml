@@ -36,3 +36,14 @@ enableServiceDiscovery: false
 
 # Enable analysis and status update in Galley
 enableAnalysis: false
+
+resources:
+  requests:
+    cpu: 100m
+#   memory: 128Mi
+# limits:
+#   cpu: 100m
+#   memory: 128Mi
+
+# TODO: Galley appears to use the mesh config - need to find which fields are used and need to be configured.
+mesh: {}

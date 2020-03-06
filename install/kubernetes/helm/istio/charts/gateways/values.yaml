@@ -63,28 +63,26 @@ istio-ingressgateway:
   - port: 80
     targetPort: 80
     name: http2
-    nodePort: 31380
   - port: 443
     name: https
-    nodePort: 31390
   # Example of a port to add. Remove if not needed
   - port: 31400
+    targetPort: 31400
     name: tcp
-    nodePort: 31400
   ### PORTS FOR UI/metrics #####
   ## Disable if not needed
   - port: 15029
     targetPort: 15029
-    name: https-kiali
+    name: kiali
   - port: 15030
     targetPort: 15030
-    name: https-prometheus
+    name: prometheus
   - port: 15031
     targetPort: 15031
-    name: https-grafana
+    name: grafana
   - port: 15032
     targetPort: 15032
-    name: https-tracing
+    name: tracing
     # This is the port where sni routing happens
   - port: 15443
     targetPort: 15443
@@ -99,9 +97,6 @@ istio-ingressgateway:
   - port: 15011
     targetPort: 15011
     name: tcp-pilot-grpc-tls
-  - port: 15004
-    targetPort: 15004
-    name: tcp-mixer-grpc-tls
   - port: 8060
     targetPort: 8060
     name: tcp-citadel-grpc-tls

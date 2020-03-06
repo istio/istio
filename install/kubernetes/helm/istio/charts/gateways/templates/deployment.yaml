@@ -14,8 +14,6 @@ spec:
 {{- if not $spec.autoscaleEnabled }}
 {{- if $spec.replicaCount }}
   replicas: {{ $spec.replicaCount }}
-{{- else }}
-  replicas: 1
 {{- end }}
 {{- end }}
   selector:
@@ -96,6 +94,9 @@ spec:
             {{- range $key, $val := $spec.ports }}
             - containerPort: {{ $val.port }}
             {{- end }}
+            {{- range $key, $val := $spec.meshExpansionPorts }}
+            - containerPort: {{ $val.port }}
+            {{- end }}
             - containerPort: 15090
               protocol: TCP
               name: http-envoy-prom
@@ -133,8 +134,8 @@ spec:
           - --zipkinAddress
           {{- if $.Values.global.tracer.zipkin.address }}
           - {{ $.Values.global.tracer.zipkin.address }}
-          {{- else if $.Values.global.istioNamespace }}
-          - zipkin.{{ $.Values.global.istioNamespace }}:9411
+          {{- else if $.Values.global.telemetryNamespace }}
+          - zipkin.{{ $.Values.global.telemetryNamespace }}:9411
           {{- else }}
           - zipkin:9411
           {{- end }}
@@ -166,8 +167,8 @@ spec:
           - --controlPlaneAuthPolicy
           - MUTUAL_TLS
           - --discoveryAddress
-          {{- if $.Values.global.istioNamespace }}
-          - istio-pilot.{{ $.Values.global.istioNamespace }}:15011
+          {{- if $.Values.global.configNamespace }}
+          - istio-pilot.{{ $.Values.global.configNamespace }}:15011
           {{- else }}
           - istio-pilot:15011
           {{- end }}
@@ -175,8 +176,8 @@ spec:
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
-          {{- if $.Values.global.istioNamespace }}
-          - istio-pilot.{{ $.Values.global.istioNamespace }}:15010
+          {{- if $.Values.global.configNamespace }}
+          - istio-pilot.{{ $.Values.global.configNamespace }}:15010
           {{- else }}
           - istio-pilot:15010
           {{- end }}
@@ -238,22 +239,6 @@ spec:
           - name: ISTIO_AUTO_MTLS_ENABLED
             value: "true"
           {{- end }}
-          - name: ISTIO_META_POD_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.name
-          - name: ISTIO_META_CONFIG_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
-          - name: ISTIO_METAJSON_LABELS
-            value: |
-              {{ $labels | toJson}}
-          - name: ISTIO_META_CLUSTER_ID
-            value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
-          - name: SDS_ENABLED
-            value: "{{ $.Values.global.sds.enabled }}"
           - name: ISTIO_META_WORKLOAD_NAME
             value: {{ $key }}
           - name: ISTIO_META_OWNER
@@ -265,6 +250,39 @@ spec:
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.trustDomain }}"
           {{- end }}
+          - name: ISTIO_META_POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: ISTIO_META_CONFIG_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          {{- if $spec.sds }}
+          {{- if $spec.sds.enabled }}
+          - name: ISTIO_META_USER_SDS
+            value: "true"
+          {{- end }}
+          {{- end }}
+          {{- if $spec.env }}
+          {{- range $key, $val := $spec.env }}
+          - name: {{ $key }}
+            value: {{ $val }}
+          {{- end }}
+          {{- end }}
+{{- if $spec.podAnnotations }}
+          - name: "ISTIO_METAJSON_ANNOTATIONS"
+            value: |
+{{ toJson $spec.podAnnotations | indent 16}}
+{{ end }}
+          - name: ISTIO_METAJSON_LABELS
+            value: |
+              {{ $labels | toJson}}
+          - name: ISTIO_META_CLUSTER_ID
+            value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
+          - name: SDS_ENABLED
+            value: "{{ $.Values.global.sds.enabled }}"
           {{- if eq $.Values.global.proxy.tracer "datadog" }}
           - name: HOST_IP
             valueFrom:
@@ -287,18 +305,6 @@ spec:
           {{- if $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents }}
           - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
             value: "{{ $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents.Value }}"
-          {{- end }}
-          {{- end }}
-          {{- if $spec.sds }}
-          {{- if $spec.sds.enabled }}
-          - name: ISTIO_META_USER_SDS
-            value: "true"
-          {{- end }}
-          {{- end }}
-          {{- if $spec.env }}
-          {{- range $key, $val := $spec.env }}
-          - name: {{ $key }}
-            value: {{ $val }}
           {{- end }}
           {{- end }}
           {{ if eq $key "istio-ingressgateway" }}

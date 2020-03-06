@@ -90,7 +90,7 @@ adapters:
   # stdio is a debug adapter in istio-telemetry, it is not recommended for production use.
   stdio:
     enabled: false
-    outputAsJson: true
+    outputAsJson: false
   prometheus:
     enabled: true
     metricsExpiryDuration: 10m

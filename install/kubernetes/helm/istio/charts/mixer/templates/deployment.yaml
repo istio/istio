@@ -1,13 +1,13 @@
 {{- define "policy_container" }}
     spec:
-      serviceAccountName: istio-mixer-service-account
+      serviceAccountName: istio-policy-service-account
 {{- if $.Values.global.priorityClassName }}
       priorityClassName: "{{ $.Values.global.priorityClassName }}"
 {{- end }}
       volumes:
       - name: istio-certs
         secret:
-          secretName: istio.istio-mixer-service-account
+          secretName: istio.istio-policy-service-account
           optional: true
       {{- if $.Values.global.sds.enabled }}
       - hostPath:
@@ -27,6 +27,9 @@
         secret:
           secretName: policy-adapter-secret
           optional: true
+      - name: policy-envoy-config
+        configMap:
+          name: policy-envoy-config
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
@@ -46,12 +49,17 @@
 {{- end }}
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
+        - containerPort: 9091
         - containerPort: {{ .Values.global.monitoringPort }}
         - containerPort: 42422
         args:
           - --monitoringPort={{ .Values.global.monitoringPort }}
           - --address
+{{- if .Values.global.controlPlaneSecurityEnabled }}
           - unix:///sock/mixer.socket
+{{- else }}
+          - tcp://0.0.0.0:9091
+{{- end }}
 {{- if $.Values.global.logging.level }}
           - --log_output_level={{ $.Values.global.logging.level }}
 {{- end}}
@@ -104,12 +112,16 @@
 {{- end }}
         - name: uds-socket
           mountPath: /sock
+        - name: policy-adapter-secret
+          mountPath: /var/run/secrets/istio.io/policy/adapter
+          readOnly: true
         livenessProbe:
           httpGet:
             path: /version
             port: {{ .Values.global.monitoringPort }}
           initialDelaySeconds: 5
           periodSeconds: 5
+{{- if .Values.global.controlPlaneSecurityEnabled }}
       - name: istio-proxy
 {{- if contains "/" $.Values.global.proxy.image }}
         image: "{{ $.Values.global.proxy.image }}"
@@ -191,6 +203,7 @@
           mountPath: /var/run/secrets/istio.io/policy/adapter
           readOnly: true
 {{- end }}
+{{- end }}
 
 {{- define "telemetry_container" }}
     spec:
@@ -221,6 +234,9 @@
         secret:
           secretName: telemetry-adapter-secret
           optional: true
+      - name: telemetry-envoy-config
+        configMap:
+          name: telemetry-envoy-config
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
@@ -240,12 +256,17 @@
 {{- end }}
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
+        - containerPort: 9091
         - containerPort: {{ .Values.global.monitoringPort }}
         - containerPort: 42422
         args:
           - --monitoringPort={{ .Values.global.monitoringPort }}
           - --address
+{{- if .Values.global.controlPlaneSecurityEnabled }}
           - unix:///sock/mixer.socket
+{{- else }}
+          - tcp://0.0.0.0:9091
+{{- end }}
 {{- if $.Values.global.logging.level }}
           - --log_output_level={{ $.Values.global.logging.level }}
 {{- end}}
@@ -267,15 +288,12 @@
           {{- else }}
           - --useAdapterCRDs=false
           {{- end }}
+          - --useTemplateCRDs=false
           {{- if $.Values.global.tracer.zipkin.address }}
           - --trace_zipkin_url=http://{{- $.Values.global.tracer.zipkin.address }}/api/v1/spans
           {{- else }}
           - --trace_zipkin_url=http://zipkin.{{ $.Release.Namespace }}:9411/api/v1/spans
           {{- end }}
-          - --averageLatencyThreshold
-          - {{ $.Values.telemetry.loadshedding.latencyThreshold }}
-          - --loadsheddingMode
-          - {{ $.Values.telemetry.loadshedding.mode }}
         {{- if .Values.env }}
         env:
         - name: POD_NAMESPACE
@@ -302,17 +320,18 @@
           mountPath: /etc/certs
           readOnly: true
 {{- end }}
+        - name: uds-socket
+          mountPath: /sock
         - name: telemetry-adapter-secret
           mountPath: /var/run/secrets/istio.io/telemetry/adapter
           readOnly: true
-        - name: uds-socket
-          mountPath: /sock
         livenessProbe:
           httpGet:
             path: /version
             port: {{ .Values.global.monitoringPort }}
           initialDelaySeconds: 5
           periodSeconds: 5
+{{- if .Values.global.controlPlaneSecurityEnabled }}
       - name: istio-proxy
 {{- if contains "/" $.Values.global.proxy.image }}
         image: "{{ $.Values.global.proxy.image }}"
@@ -375,20 +394,23 @@
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
-        - name: istio-certs
-          mountPath: /etc/certs
-          readOnly: true
-        {{- if $.Values.global.sds.enabled }}
+        - name: telemetry-envoy-config
+          mountPath: /var/lib/envoy
+        {{- if .Values.global.sds.enabled }}
         - name: sds-uds-path
           mountPath: /var/run/sds
           readOnly: true
         - name: istio-token
           mountPath: /var/run/secrets/tokens
+        {{ else }}
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
         {{- end }}
         - name: uds-socket
           mountPath: /sock
 {{- end }}
-
+{{- end }}
 
 {{- range $key, $spec := .Values }}
 {{- if or (eq $key "policy") (eq $key "telemetry") }}
@@ -399,7 +421,7 @@ metadata:
   name: istio-{{ $key }}
   namespace: {{ $.Release.Namespace }}
   labels:
-    app: istio-mixer
+    app: istio-{{ $key }}
     chart: {{ template "mixer.chart" $ }}
     heritage: {{ $.Release.Service }}
     release: {{ $.Release.Name }}
@@ -427,7 +449,6 @@ spec:
         chart: {{ template "mixer.chart" $ }}
         heritage: {{ $.Release.Service }}
         release: {{ $.Release.Name }}
-        security.istio.io/tlsMode: "istio"
         istio: mixer
         istio-mixer-type: {{ $key }}
       annotations:

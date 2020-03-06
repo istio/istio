@@ -50,13 +50,23 @@ spec:
             - --tlsKeyFile=/etc/istio/certs/key.pem
             - --injectConfig=/etc/istio/inject/config
             - --meshConfig=/etc/istio/config/mesh
+            - --port=9443
             - --healthCheckInterval=2s
-            - --healthCheckFile=/health
+            - --healthCheckFile=/tmp/health
 {{- if .Values.global.operatorManageWebhooks }}
             - --reconcileWebhookConfig=false
 {{- else }}
             - --reconcileWebhookConfig=true
 {{- end }}
+                  {{- if eq .Release.Namespace "istio-system"}}
+            - --webhookConfigName=istio-sidecar-injector
+                  {{ else }}
+            - --webhookConfigName=istio-sidecar-injector-{{ .Release.Namespace }}
+                  {{- end }}
+            - --log_output_level=debug
+          {{- if .Values.global.logAsJson }}
+            - --log_as_json
+          {{- end }}
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -72,7 +82,7 @@ spec:
               command:
                 - /usr/local/bin/sidecar-injector
                 - probe
-                - --probe-path=/health
+                - --probe-path=/tmp/health
                 - --interval=4s
             initialDelaySeconds: 4
             periodSeconds: 4
@@ -81,7 +91,7 @@ spec:
               command:
                 - /usr/local/bin/sidecar-injector
                 - probe
-                - --probe-path=/health
+                - --probe-path=/tmp/health
                 - --interval=4s
             initialDelaySeconds: 4
             periodSeconds: 4
@@ -94,7 +104,7 @@ spec:
       volumes:
       - name: config-volume
         configMap:
-          name: istio
+          name: injector-mesh
       - name: certs
         secret:
 {{- if .Values.global.certificates }}

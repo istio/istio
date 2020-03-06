@@ -3,7 +3,7 @@ kind: ClusterRole
 metadata:
   name: istio-sidecar-injector-{{ .Release.Namespace }}
   labels:
-    app: {{ template "sidecar-injector.name" . }}
+    app: sidecar-injector
     chart: {{ template "sidecar-injector.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -11,9 +11,11 @@ metadata:
 rules:
 - apiGroups: [""]
   resources: ["configmaps"]
+  resourceNames: ["istio-sidecar-injector"]
   verbs: ["get", "list", "watch"]
 {{- if not .Values.global.operatorManageWebhooks }}
 - apiGroups: ["admissionregistration.k8s.io"]
   resources: ["mutatingwebhookconfigurations"]
+  resourceNames: ["istio-sidecar-injector", "istio-sidecar-injector-{{.Release.Namespace}}"]
   verbs: ["get", "list", "watch", "patch"]
 {{- end }}

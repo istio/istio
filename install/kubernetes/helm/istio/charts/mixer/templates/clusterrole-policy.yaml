@@ -1,12 +1,10 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istio-mixer-{{ .Release.Namespace }}
+  name: istio-policy
   labels:
-    app: istio-telemetry
-    chart: {{ template "mixer.chart" . }}
-    heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    app: istio-policy
 rules:
 - apiGroups: ["config.istio.io"] # istio CRD watcher
   resources: ["*"]
@@ -20,3 +18,4 @@ rules:
 - apiGroups: ["extensions", "apps"]
   resources: ["replicasets"]
   verbs: ["get", "list", "watch"]
+---

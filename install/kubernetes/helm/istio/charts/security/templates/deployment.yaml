@@ -22,7 +22,7 @@ spec:
   template:
     metadata:
       labels:
-        app: {{ template "security.name" . }}
+        app: citadel
         chart: {{ template "security.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
@@ -52,7 +52,7 @@ spec:
             - --append-dns-names=true
             - --grpc-port=8060
             - --citadel-storage-namespace={{ .Release.Namespace }}
-            - --custom-dns-names=istio-pilot-service-account.{{ .Release.Namespace }}:istio-pilot.{{ .Release.Namespace }}
+            - --custom-dns-names={{ range $k,$v := .Values.dnsCerts }}{{ $k }}:{{ $v }},{{ end }}
             - --monitoring-port={{ .Values.global.monitoringPort }}
           {{- if .Values.selfSigned }}
             - --self-signed-ca=true
@@ -83,8 +83,8 @@ spec:
               value: {{ $val | quote }}
             {{- end }}
             {{- end }}
-          {{- if .Values.citadelHealthCheck }}
           livenessProbe:
+          {{- if .Values.citadelHealthCheck }}
             exec:
               command:
               - /usr/local/bin/istio_ca
@@ -93,6 +93,12 @@ spec:
               - --interval=125s # the maximum time gap allowed between the file mtime and the current sys clock
             initialDelaySeconds: 60
             periodSeconds: 60
+          {{- else }}
+            httpGet:
+              path: /version
+              port: 15014
+            initialDelaySeconds: 5
+            periodSeconds: 5
           {{- end }}
           resources:
 {{- if .Values.resources }}

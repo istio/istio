@@ -10,7 +10,6 @@ autoscaleMax: 5
 rollingMaxSurge: 100%
 rollingMaxUnavailable: 25%
 image: pilot
-sidecar: true
 traceSampling: 1.0
 # if protocol sniffing is enabled for outbound
 enableProtocolSniffingForOutbound: true
@@ -21,8 +20,14 @@ resources:
   requests:
     cpu: 500m
     memory: 2048Mi
-env:
-  PILOT_PUSH_THROTTLE: 100
+
+# Namespace for Istio config
+configNamespace: istio-config
+
+# Applications namespace list pilot manages
+appNamespaces: []
+
+env: {}
 cpu:
   targetAverageUtilization: 80
 nodeSelector: {}

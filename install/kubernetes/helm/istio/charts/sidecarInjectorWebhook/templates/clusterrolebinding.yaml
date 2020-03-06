@@ -3,7 +3,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-sidecar-injector-admin-role-binding-{{ .Release.Namespace }}
   labels:
-    app: {{ template "sidecar-injector.name" . }}
+    app: sidecar-injector
     chart: {{ template "sidecar-injector.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}

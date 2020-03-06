@@ -3,7 +3,7 @@ kind: ClusterRole
 metadata:
   name: istio-citadel-{{ .Release.Namespace }}
   labels:
-    app: {{ template "security.name" . }}
+    app: citadel
     chart: {{ template "security.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}

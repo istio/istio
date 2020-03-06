@@ -16,7 +16,7 @@ spec:
 {{- end }}
   selector:
     matchLabels:
-      app: {{ template "security.name" . }}
+      app: citadel
       release: {{ .Release.Name }}
       istio: citadel
 {{- end }}

@@ -2,7 +2,8 @@
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: istio-galley
+  name: istio-galley-{{ .Release.Namespace }}
+  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "galley.name" . }}
     chart: {{ template "galley.chart" . }}
@@ -125,3 +126,4 @@ webhooks:
     failurePolicy: Fail
     sideEffects: None
 {{- end }}
+---
