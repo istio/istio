@@ -251,7 +251,7 @@ func TestReachability(t *testing.T) {
 				{
 					ConfigFile:          "automtls-partial-sidecar-dr-no-tls.yaml",
 					RequiredEnvironment: environment.Kube,
-					Namespace:           systemNM,
+					Namespace:           rctx.Namespace,
 					CallOpts: []echo.CallOptions{
 						{
 							PortName: "http",
@@ -275,7 +275,7 @@ func TestReachability(t *testing.T) {
 				{
 					ConfigFile:          "automtls-partial-sidecar-dr-disable.yaml",
 					RequiredEnvironment: environment.Kube,
-					Namespace:           systemNM,
+					Namespace:           rctx.Namespace,
 					CallOpts: []echo.CallOptions{
 						{
 							PortName: "http",
@@ -300,7 +300,7 @@ func TestReachability(t *testing.T) {
 				{
 					ConfigFile:          "automtls-partial-sidecar-dr-mutual.yaml",
 					RequiredEnvironment: environment.Kube,
-					Namespace:           systemNM,
+					Namespace:           rctx.Namespace,
 					CallOpts: []echo.CallOptions{
 						{
 							PortName: "http",
