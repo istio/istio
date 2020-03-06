@@ -544,10 +544,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						Label:     "r/z",
 						ClusterID: clusterID,
 					},
-					Attributes: model.ServiceAttributes{
-						Name:      "svc1",
-						Namespace: "nsa",
-					},
 				},
 			}
 			if len(metaServices) != 1 {
@@ -610,11 +606,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					Labels:         labels.Instance{"app": "prod-app"},
 					ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
 					TLSMode:        model.DisabledTLSModeLabel, UID: "kubernetes://pod2.nsa",
-					Attributes: model.ServiceAttributes{
-						ServiceRegistry: string(serviceregistry.Kubernetes),
-						Name:            "svc1",
-						Namespace:       "nsa",
-						UID:             "istio://nsa/services/svc1"},
 				},
 			}
 			if len(podServices) != 1 {
@@ -671,12 +662,8 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					},
 					Labels:         labels.Instance{"app": "prod-app", "istio-locality": "region.zone"},
 					ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
-					TLSMode:        model.DisabledTLSModeLabel, UID: "kubernetes://pod3.nsa",
-					Attributes: model.ServiceAttributes{
-						ServiceRegistry: string(serviceregistry.Kubernetes),
-						Name:            "svc1",
-						Namespace:       "nsa",
-						UID:             "istio://nsa/services/svc1"},
+					TLSMode:        model.DisabledTLSModeLabel,
+					UID:            "kubernetes://pod3.nsa",
 				},
 			}
 			if len(podServices) != 1 {
