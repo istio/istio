@@ -17,7 +17,6 @@ package v2
 import (
 	"reflect"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -68,19 +67,6 @@ var (
 	connectionNumber = int64(0)
 )
 
-// EdsCluster tracks eds-related info for monitored cluster. Used in 1.0, where cluster info is not source-dependent.
-type EdsCluster struct {
-	// mutex protects changes to this cluster
-	mutex sync.Mutex
-
-	// LoadAssignment has the pre-computed EDS response for this cluster. Any sidecar asking for the
-	// cluster will get this response.
-	LoadAssignment *xdsapi.ClusterLoadAssignment
-
-	// EdsClients keeps track of all nodes monitoring the cluster.
-	EdsClients map[string]struct{} `json:"-"`
-}
-
 // TODO: add prom metrics !
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
@@ -108,15 +94,6 @@ func buildEnvoyLbEndpoint(e *model.IstioEndpoint, push *model.PushContext) *endp
 	ep.Metadata = util.BuildLbEndpointMetadata(e.UID, e.Network, e.TLSMode, push)
 
 	return ep
-}
-
-// Determine Service associated with a hostname when there is no Sidecar scope. Which namespace the service comes from
-// is undefined, as we do not have enough information to make a smart decision
-func legacyServiceForHostname(hostname host.Name, serviceByHostname map[host.Name]map[string]*model.Service) *model.Service {
-	for _, service := range serviceByHostname[hostname] {
-		return service
-	}
-	return nil
 }
 
 // updateServiceShards will list the endpoints and create the shards.
@@ -192,7 +169,7 @@ func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, namespace string, 
 
 // Update clusters for an incremental EDS push, and initiate the push.
 // Only clusters that changed are updated/pushed.
-func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext, req *model.PushRequest) {
+func (s *DiscoveryServer) edsIncremental(version string, req *model.PushRequest) {
 	adsLog.Infof("XDS:EDSInc Pushing:%s Services:%v ConnectedEndpoints:%d",
 		version, req.EdsUpdates, s.adsClientCount())
 	s.startPush(req)

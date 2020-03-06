@@ -417,7 +417,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (f
 	s.addCon(con.ConID, con)
 	con.mu.Unlock()
 
-	return func() { s.removeCon(con.ConID, con) }, nil
+	return func() { s.removeCon(con.ConID) }, nil
 }
 
 // initProxy initializes the Proxy from node.
@@ -609,7 +609,7 @@ func AdsPushAll(s *DiscoveryServer) {
 // to the model ConfigStorageCache and Controller.
 func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 	if !req.Full {
-		s.edsIncremental(version, req.Push, req)
+		s.edsIncremental(version, req)
 		return
 	}
 
@@ -654,7 +654,7 @@ func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 	xdsClients.Record(float64(len(s.adsClients)))
 }
 
-func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
+func (s *DiscoveryServer) removeCon(conID string) {
 	s.adsClientsMutex.Lock()
 	defer s.adsClientsMutex.Unlock()
 
