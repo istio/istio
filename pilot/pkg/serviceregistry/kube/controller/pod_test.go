@@ -201,19 +201,19 @@ func testPodCache(t *testing.T, c *Controller, fx *FakeXdsUpdater) {
 		"128.0.0.3": {"app": "prod-app-2"},
 	}
 	for addr, wantTag := range wantLabels {
-		tag, found := c.pods.labelsByIP(addr)
-		if !found {
+		pod := c.pods.getPodByIP(addr)
+		if pod == nil {
 			t.Error("Not found ", addr)
 			continue
 		}
-		if !reflect.DeepEqual(wantTag, tag) {
-			t.Errorf("Expected %v got %v", wantTag, tag)
+		if !reflect.DeepEqual(wantTag, labels.Instance(pod.Labels)) {
+			t.Errorf("Expected %v got %v", wantTag, labels.Instance(pod.Labels))
 		}
 	}
 
 	// Former 'wantNotFound' test. A pod not in the cache results in found = false
-	_, found := c.pods.labelsByIP("128.0.0.4")
-	if found {
+	pod := c.pods.getPodByIP("128.0.0.4")
+	if pod != nil {
 		t.Error("Expected not found but was found")
 	}
 }

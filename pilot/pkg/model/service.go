@@ -285,11 +285,7 @@ type IstioEndpoint struct {
 	// Address is the address of the endpoint, using envoy proto.
 	Address string
 
-	// ServicePortName tracks the name of the port, to avoid 'eventual consistency' issues.
-	// Sometimes the Endpoint is visible before Service - so looking up the port number would
-	// fail. Instead the mapping to number is made when the clusters are computed. The lazy
-	// computation will also help with 'on-demand' and 'split horizon' - where it will be skipped
-	// for not used clusters or endpoints behind a gate.
+	// ServicePortName tracks the name of the port, this is used to select the IstioEndpoint by service port.
 	ServicePortName string
 
 	// UID identifies the workload, for telemetry purpose.
