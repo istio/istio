@@ -88,6 +88,7 @@ func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 			upgradeWaitCheckVerMaxAttempts).String())
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false,
 		"Apply the upgrade without eligibility checks")
+	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, SetFlagHelpStr)
 }
 
 // UpgradeCmd upgrades Istio control plane in-place with eligibility checks
@@ -178,7 +179,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 	// Generates IOPS for args.inFilenames IOP specs yaml. Param force is set to true to
 	// skip the validation because the code only has the validation proto for the
 	// target version.
-	currentIOPSYaml, _, err := GenerateConfig(args.inFilenames, "", true, nil, l)
+	currentIOPSYaml, _, err := GenerateConfig(args.inFilenames, ysf, true, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate IOPS from file: %s for the current version: %s, error: %v",
 			args.inFilenames, currentVersion, err)
