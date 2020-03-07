@@ -490,19 +490,19 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			svcNode.ID = "pod1.nsa"
 			svcNode.DNSDomain = "nsa.svc.cluster.local"
 			svcNode.Metadata = &model.NodeMetadata{Namespace: "nsa"}
-			services, err := controller.GetProxyServiceInstances(&svcNode)
+			serviceInstances, err := controller.GetProxyServiceInstances(&svcNode)
 			if err != nil {
 				t.Fatalf("client encountered error during GetProxyServiceInstances(): %v", err)
 			}
 
-			if len(services) != 1 {
-				t.Fatalf("GetProxyServiceInstances() returned wrong # of endpoints => %d, want %d", len(services), fakeSvcCounts+1)
+			if len(serviceInstances) != 1 {
+				t.Fatalf("GetProxyServiceInstances() expected 1 instance, got %d", len(serviceInstances))
 			}
 
 			hostname := kube.ServiceHostname("svc1", "nsa", domainSuffix)
-			if services[0].Service.Hostname != hostname {
+			if serviceInstances[0].Service.Hostname != hostname {
 				t.Fatalf("GetProxyServiceInstances() wrong service instance returned => hostname %q, want %q",
-					services[0].Service.Hostname, hostname)
+					serviceInstances[0].Service.Hostname, hostname)
 			}
 
 			// Test that we can look up instances just by Proxy metadata
@@ -543,10 +543,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					Locality: model.Locality{
 						Label:     "r/z",
 						ClusterID: clusterID,
-					},
-					Attributes: model.ServiceAttributes{
-						Name:      "svc1",
-						Namespace: "nsa",
 					},
 				},
 			}
@@ -610,10 +606,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					Labels:         labels.Instance{"app": "prod-app"},
 					ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
 					TLSMode:        model.DisabledTLSModeLabel, UID: "kubernetes://pod2.nsa",
-					Attributes: model.ServiceAttributes{
-						Name:      "svc1",
-						Namespace: "nsa",
-					},
 				},
 			}
 			if len(podServices) != 1 {
@@ -670,11 +662,8 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					},
 					Labels:         labels.Instance{"app": "prod-app", "istio-locality": "region.zone"},
 					ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
-					TLSMode:        model.DisabledTLSModeLabel, UID: "kubernetes://pod3.nsa",
-					Attributes: model.ServiceAttributes{
-						Name:      "svc1",
-						Namespace: "nsa",
-					},
+					TLSMode:        model.DisabledTLSModeLabel,
+					UID:            "kubernetes://pod3.nsa",
 				},
 			}
 			if len(podServices) != 1 {
@@ -1728,8 +1717,10 @@ func TestEndpointUpdate(t *testing.T) {
 				if err := waitForPod(controller, pod.Status.PodIP); err != nil {
 					t.Fatalf("wait for pod err: %v", err)
 				}
-				// pod first time occur will trigger xds push
-				fx.Wait("xds")
+				// pod first time occur will trigger proxy push
+				if ev := fx.Wait("proxy"); ev == nil {
+					t.Fatal("Timeout creating service")
+				}
 			}
 
 			// 1. incremental eds for normal service endpoint update
@@ -1799,8 +1790,16 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 				if err := waitForPod(controller, pod.Status.PodIP); err != nil {
 					t.Fatalf("wait for pod err: %v", err)
 				}
-				// pod first time occur will trigger xds push
-				fx.Wait("xds")
+				// pod first time occur will trigger proxy push
+				if ev := fx.Wait("proxy"); ev == nil {
+					t.Fatal("Timeout creating service")
+				}
+			}
+			// create service
+			createService(controller, "pod1", "nsA", nil,
+				[]int32{8080}, map[string]string{"app": "prod-app"}, t)
+			if ev := fx.Wait("service"); ev == nil {
+				t.Fatal("Timeout creating service")
 			}
 
 			// Create Endpoints for pod1 and validate that EDS is triggered.
@@ -1814,6 +1813,13 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 			// Now delete pod2, from PodCache and send Endpoints. This simulates the case that endpoint comes
 			// when PodCache does not yet have entry for the pod.
 			_ = controller.pods.onEvent(pod2, model.EventDelete)
+
+			// create service
+			createService(controller, "pod2", "nsA", nil,
+				[]int32{8080}, map[string]string{"app": "prod-app"}, t)
+			if ev := fx.Wait("service"); ev == nil {
+				t.Fatal("Timeout creating service")
+			}
 
 			pod2Ips := []string{"172.0.1.2"}
 			createEndpoints(controller, "pod2", "nsA", portNames, pod2Ips, t)

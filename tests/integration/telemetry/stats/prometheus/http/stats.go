@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors. All Rights Reserved.
+// Copyright 2020 Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,14 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package promtheus
+package prometheus
 
 import (
 	"fmt"
 	"testing"
 	"time"
-
-	"istio.io/istio/pkg/test/framework/label"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
@@ -32,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/mixer"
+	promUtil "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
 
 var (
@@ -42,42 +41,44 @@ var (
 	promInst       prometheus.Instance
 )
 
-func getIstioInstance() *istio.Instance {
+// GetIstioInstance gets Istio instance.
+func GetIstioInstance() *istio.Instance {
 	return &ist
 }
 
-func getBookinfoNamespaceInstance() namespace.Instance {
+// GetBookinfoNamespaceInstance gets bookinfo instance.
+func GetBookinfoNamespaceInstance() namespace.Instance {
 	return bookinfoNsInst
 }
 
-func getIngressInstance() ingress.Instance {
+// GetIngressInstance gets ingress instance.
+func GetIngressInstance() ingress.Instance {
 	return ingInst
 }
 
-func getPromInstance() prometheus.Instance {
+// GetPromInstance gets prometheus instance.
+func GetPromInstance() prometheus.Instance {
 	return promInst
 }
 
-// TestStatsFilter verifies the stats filter could emit expected client and server side metrics.
-// This test focuses on stats filter and metadata exchange filter could work coherently with
-// proxy bootstrap config. To avoid flake, it does not verify correctness of metrics, which
-// should be covered by integration test in proxy repo.
+// TestStatsFilter includes common test logic for stats and mx exchange filters running
+// with nullvm and wasm runtime.
 func TestStatsFilter(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			ingress := getIngressInstance()
+			ingress := GetIngressInstance()
 			addr := ingress.HTTPAddress()
 			url := fmt.Sprintf("http://%s/productpage", addr.String())
 			sourceQuery, destinationQuery := buildQuery()
 			retry.UntilSuccessOrFail(t, func() error {
 				util.SendTraffic(ingress, t, "Sending traffic", url, "", 200)
 				// Query client side metrics
-				if err := QueryPrometheus(t, sourceQuery, getPromInstance()); err != nil {
+				if err := promUtil.QueryPrometheus(t, sourceQuery, GetPromInstance()); err != nil {
 					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
 					return err
 				}
-				if err := QueryPrometheus(t, destinationQuery, getPromInstance()); err != nil {
+				if err := promUtil.QueryPrometheus(t, destinationQuery, GetPromInstance()); err != nil {
 					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
 					return err
 				}
@@ -86,28 +87,8 @@ func TestStatsFilter(t *testing.T) {
 		})
 }
 
-func TestMain(m *testing.M) {
-	framework.NewSuite("stats_filter_test", m).
-		RequireEnvironment(environment.Kube).
-		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(getIstioInstance(), setupConfig)).
-		Setup(testSetup).
-		Run()
-}
-
-func setupConfig(cfg *istio.Config) {
-	if cfg == nil {
-		return
-	}
-	// disable mixer telemetry and enable telemetry v2
-	cfg.Values["telemetry.enabled"] = "true"
-	cfg.Values["telemetry.v1.enabled"] = "false"
-	cfg.Values["telemetry.v2.enabled"] = "true"
-	cfg.Values["telemetry.v2.prometheus.enabled"] = "true"
-	cfg.Values["prometheus.enabled"] = "true"
-}
-
-func testSetup(ctx resource.Context) (err error) {
+// TestSetup set up bookinfo app for stats testing.
+func TestSetup(ctx resource.Context) (err error) {
 	galInst, err = galley.New(ctx, galley.Config{})
 	if err != nil {
 		return
@@ -145,7 +126,7 @@ func testSetup(ctx resource.Context) (err error) {
 }
 
 func buildQuery() (sourceQuery, destinationQuery string) {
-	bookinfoNsInst := getBookinfoNamespaceInstance()
+	bookinfoNsInst := GetBookinfoNamespaceInstance()
 	sourceQuery = `istio_requests_total{reporter="source",`
 	destinationQuery = `istio_requests_total{reporter="destination",`
 	labels := map[string]string{

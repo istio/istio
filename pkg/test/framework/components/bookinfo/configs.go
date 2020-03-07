@@ -63,6 +63,9 @@ const (
 
 	// TelemetryLogEntry uses "telemetry/log-entry.yaml"
 	TelemetryLogEntry ConfigFile = "telemetry/log-entry.yaml"
+
+	// DoubleMetric uses "telemetry/metrics.yaml"
+	DoubleMetric ConfigFile = "telemetry/metrics.yaml"
 )
 
 // LoadGatewayFileWithNamespaceOrFail loads a Book Info Gateway configuration file from the system, changes it to be fit

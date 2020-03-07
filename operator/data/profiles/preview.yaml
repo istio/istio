@@ -3,4 +3,11 @@
 # Stability, security, and performance are not guaranteed - use at your own risk.
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
-spec: {}
+spec:
+  values:
+    telemetry:
+      v2:
+        metadataExchange:
+          wasmEnabled: true
+        prometheus:
+          wasmEnabled: true

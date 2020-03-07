@@ -17,11 +17,9 @@ package kube
 import (
 	"strings"
 
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 
 	coreV1 "k8s.io/api/core/v1"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -41,14 +39,6 @@ var (
 		MongoDB: {},
 	}
 )
-
-func ConvertLabels(obj metaV1.ObjectMeta) labels.Instance {
-	out := make(labels.Instance, len(obj.Labels))
-	for k, v := range obj.Labels {
-		out[k] = v
-	}
-	return out
-}
 
 var grpcWeb = string(protocol.GRPCWeb)
 var grpcWebLen = len(grpcWeb)
