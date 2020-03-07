@@ -165,6 +165,9 @@ func buildQuery() (destinationQuery string) {
 	destinationQuery = `istio_tcp_connections_opened_total{reporter="destination",`
 	labels := map[string]string{
 		"request_protocol":               "tcp",
+		"destination_service_name":       "mongodb",
+		"destination_canonical_revision": "v1",
+		"destination_canonical_service":  "mongodb",
 		"destination_app":                "mongodb",
 		"destination_version":            "v1",
 		"destination_workload_namespace": bookinfoNs.Name(),

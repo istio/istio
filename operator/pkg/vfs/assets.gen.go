@@ -13433,22 +13433,8 @@ spec:
         {{- if .Values.global.logAsJson }}
           - --log_as_json
         {{- end }}
-          - --drainDuration
-          - '45s' #drainDuration
-          - --parentShutdownDuration
-          - '1m0s' #parentShutdownDuration
-          - --connectTimeout
-          - '10s' #connectTimeout
           - --serviceCluster
           - istio-egressgateway
-          - --zipkinAddress
-        {{- if .Values.global.tracer.zipkin.address }}
-          - {{ .Values.global.tracer.zipkin.address }}
-        {{- else if .Values.global.telemetryNamespace }}
-          - zipkin.{{ .Values.global.telemetryNamespace }}:9411
-        {{- else }}
-          - zipkin:9411
-        {{- end }}
           - --proxyAdminPort
           - "15000"
           - --statusPort
@@ -14477,34 +14463,8 @@ spec:
         {{- if .Values.global.logAsJson }}
           - --log_as_json
         {{- end }}
-          - --drainDuration
-          - '45s' #drainDuration
-          - --parentShutdownDuration
-          - '1m0s' #parentShutdownDuration
-          - --connectTimeout
-          - '10s' #connectTimeout
           - --serviceCluster
           - istio-ingressgateway
-          - --zipkinAddress
-        {{- if .Values.global.tracer.zipkin.address }}
-          - {{ .Values.global.tracer.zipkin.address }}
-        {{- else if .Values.global.telemetryNamespace }}
-          - zipkin.{{ .Values.global.telemetryNamespace }}:9411
-        {{- else }}
-          - zipkin:9411
-        {{- end }}
-        {{- if $.Values.global.proxy.envoyMetricsService.enabled }}
-          - --envoyMetricsService
-          {{- with  $.Values.global.proxy.envoyMetricsService }}
-          - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
-          {{- end }}
-        {{- end}}
-        {{- if $.Values.global.proxy.envoyAccessLogService.enabled }}
-          - --envoyAccessLogService
-          {{- with  $.Values.global.proxy.envoyAccessLogService }}
-          - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
-          {{- end }}
-        {{- end }}
           - --proxyAdminPort
           - "15000"
           - --statusPort
@@ -42311,40 +42271,12 @@ spec:
             - "/usr/local/bin/envoy"
             - --serviceCluster
             - "istio-proxy-prometheus"
-            - --drainDuration
-            - "45s"
-            - --parentShutdownDuration
-            - "1m0s"
-            - --discoveryAddress
-            {{- if .Values.global.configNamespace }}
-            - istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
-            {{- else }}
-            - istio-pilot.istio-system.svc:15012
-            {{- end }}
             {{- if .Values.global.proxy.logLevel }}
             - --proxyLogLevel={{ .Values.global.proxy.logLevel }}
             {{- end}}
             {{- if .Values.global.proxy.componentLogLevel }}
             - --proxyComponentLogLevel={{ .Values.global.proxy.componentLogLevel }}
             {{- end}}
-            - --connectTimeout
-            - "10s"
-              {{- if .Values.global.proxy.envoyStatsd.enabled }}
-            - --statsdUdpAddress
-            - "{{ .ProxyConfig.StatsdUdpAddress }}"
-              {{- end }}
-            {{- if $.Values.global.proxy.envoyMetricsService.enabled }}
-            - --envoyMetricsService
-            {{- with  $.Values.global.proxy.envoyMetricsService }}
-            - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
-            {{- end }}
-            {{- end}}
-            {{- if $.Values.global.proxy.envoyAccessLogService.enabled }}
-            - --envoyAccessLogService
-            {{- with  $.Values.global.proxy.envoyAccessLogService }}
-            - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
-            {{- end }}
-            {{- end }}
             - --proxyAdminPort
             - "15000"
               {{- if .Values.global.istiod.enabled }}
@@ -42445,9 +42377,15 @@ spec:
               {{- end }}
             - mountPath: /etc/istio-certs/
               name: istio-certs
+            - name: istio-config-volume
+              mountPath: /etc/istio/config
 {{- end }}
 
       volumes:
+      - name: istio-config-volume
+        configMap:
+          name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+          optional: true
       - name: config-volume
         configMap:
           name: prometheus
@@ -42782,7 +42720,10 @@ var _chartsIstioTelemetryPrometheusValuesYaml = []byte(`prometheus:
 
 # Indicate if Citadel is enabled, i.e., whether its generated certificates are available
 security:
-  enabled: true`)
+  enabled: true
+
+revision: ""
+`)
 
 func chartsIstioTelemetryPrometheusValuesYamlBytes() ([]byte, error) {
 	return _chartsIstioTelemetryPrometheusValuesYaml, nil
@@ -45358,13 +45299,12 @@ metadata:
   labels:
     app: security
     release: {{ .Release.Name }}
-  {{- if .Values.global.imagePullSecrets }}
-spec:
-  imagePullSecrets:
-  {{- range .Values.global.imagePullSecrets }}
+{{- if .Values.global.imagePullSecrets }}
+imagePullSecrets:
+{{- range .Values.global.imagePullSecrets }}
   - name: {{ . }}
-  {{- end }}
-  {{- end }}
+{{- end }}
+{{- end }}
 `)
 
 func chartsSecurityCitadelTemplatesServiceaccountYamlBytes() ([]byte, error) {
@@ -46249,7 +46189,7 @@ spec:
           scaleTargetRef:
             apiVersion: apps/v1
             kind: Deployment
-            name: istio-ingressgateway
+            name: istio-egressgateway
           metrics:
             - type: Resource
               resource:
