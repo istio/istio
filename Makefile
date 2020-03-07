@@ -30,11 +30,9 @@ SHELL := /bin/bash
 # figure out all the tools you need in your environment to make that work.
 export BUILD_WITH_CONTAINER ?= 0
 
-# Set up environment variables. Using a common script allows the script and makefile to re-use logic
-$(shell mkdir -p out)
-$(shell $(PWD)/common/scripts/setup_env.sh)
-
 ifeq ($(BUILD_WITH_CONTAINER),1)
+
+$(shell $(PWD)/common/scripts/setup_env.sh)
 
 RUN = ./common/scripts/run.sh
 
@@ -52,6 +50,13 @@ shell:
 .PHONY: default
 
 else
+
+# If we are not in build container, we need a workaround to get environment properly set
+# Write to file, then include
+$(shell mkdir -p out)
+$(shell $(PWD)/common/scripts/setup_env.sh envfile > out/.env)
+include out/.env
+export out/.env
 
 export GOBIN ?= $(GOPATH)/bin
 include Makefile.core.mk

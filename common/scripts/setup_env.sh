@@ -85,4 +85,13 @@ if [[ -d "${HOME}/.kube" ]]; then
   CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.kube,destination=/home/.kube "
 fi
 
-export REPO_ROOT=/work
+# For non container build, we need to write env to file
+if [[ "${1}" == "envfile" ]]; then
+  echo "TARGET_OUT_LINUX=${TARGET_OUT_LINUX}"
+  echo "TARGET_OUT=${TARGET_OUT}"
+  echo "TIMEZONE=${TIMEZONE}"
+  echo "LOCAL_OS=${LOCAL_OS}"
+  echo "TARGET_OS=${TARGET_OS}"
+  echo "LOCAL_ARCH=${LOCAL_ARCH}"
+  echo "TARGET_ARCH=${TARGET_ARCH}"
+fi

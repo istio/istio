@@ -32,6 +32,7 @@ source "${WD}/setup_env.sh"
 # Override variables with container specific
 export TARGET_OUT=${CONTAINER_TARGET_OUT}
 export TARGET_OUT_LINUX=${CONTAINER_TARGET_OUT_LINUX}
+export REPO_ROOT=/work
 
 # $CONTAINER_OPTIONS becomes an empty arg when quoted, so SC2086 is disabled for the
 # following command only
