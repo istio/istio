@@ -45211,13 +45211,12 @@ metadata:
   labels:
     app: security
     release: {{ .Release.Name }}
-  {{- if .Values.global.imagePullSecrets }}
-spec:
-  imagePullSecrets:
-  {{- range .Values.global.imagePullSecrets }}
+{{- if .Values.global.imagePullSecrets }}
+imagePullSecrets:
+{{- range .Values.global.imagePullSecrets }}
   - name: {{ . }}
-  {{- end }}
-  {{- end }}
+{{- end }}
+{{- end }}
 `)
 
 func chartsSecurityCitadelTemplatesServiceaccountYamlBytes() ([]byte, error) {
