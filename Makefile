@@ -30,6 +30,9 @@ SHELL := /bin/bash
 # figure out all the tools you need in your environment to make that work.
 export BUILD_WITH_CONTAINER ?= 0
 
+# Name of build container image
+IMAGE_NAME ?= build-tools
+
 # Version of image used within build container
 IMAGE_VERSION ?= master-2020-03-05T18-27-04
 
@@ -65,7 +68,7 @@ export TARGET_OUT = /work/out/$(TARGET_OS)_$(TARGET_ARCH)
 export TARGET_OUT_LINUX = /work/out/linux_amd64
 CONTAINER_CLI ?= docker
 DOCKER_SOCKET_MOUNT ?= -v /var/run/docker.sock:/var/run/docker.sock
-IMG ?= gcr.io/istio-testing/build-tools:$(IMAGE_VERSION)
+IMG ?= gcr.io/istio-testing/$(IMAGE_NAME):$(IMAGE_VERSION)
 UID = $(shell id -u)
 GID = `grep '^docker:' /etc/group | cut -f3 -d:`
 PWD = $(shell pwd)
