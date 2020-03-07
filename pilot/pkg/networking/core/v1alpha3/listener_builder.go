@@ -336,16 +336,17 @@ func (builder *ListenerBuilder) patchListeners(push *model.PushContext) {
 func (builder *ListenerBuilder) getListeners() []*xdsapi.Listener {
 	if builder.node.Type == model.SidecarProxy {
 		nInbound, nOutbound := len(builder.inboundListeners), len(builder.outboundListeners)
-		nVirtual, nVirtualInbound := 0, 0
+		nVirtualOutbound, nVirtualInbound := 0, 0
 		if builder.virtualOutboundListener != nil {
-			nVirtual = 1
+			nVirtualOutbound = 1
 		}
 		if builder.virtualInboundListener != nil {
 			nVirtualInbound = 1
 		}
-		nListener := nInbound + nOutbound + nVirtual + nVirtualInbound
+		nListener := nInbound + nOutbound + nVirtualOutbound + nVirtualInbound
 
 		listeners := make([]*xdsapi.Listener, 0, nListener)
+		// TODO: delete me as only the virtual inbound is being used now
 		listeners = append(listeners, builder.inboundListeners...)
 		listeners = append(listeners, builder.outboundListeners...)
 		if builder.virtualOutboundListener != nil {
@@ -359,7 +360,7 @@ func (builder *ListenerBuilder) getListeners() []*xdsapi.Listener {
 			nListener,
 			builder.node.ID,
 			nInbound, nOutbound,
-			nVirtual, nVirtualInbound)
+			nVirtualOutbound, nVirtualInbound)
 		return listeners
 	}
 
@@ -474,7 +475,7 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 					break
 				}
 			}
-			filterChain.Name = VirtualInboundListenerName
+			filterChain.Name = VirtualInboundCatchAllTCPFilterChainName
 			filterChains = append(filterChains, filterChain)
 		}
 	}
@@ -549,7 +550,7 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
 		}
 
 		filterChain := &listener.FilterChain{
-			Name:             VirtualInboundListenerName,
+			Name:             VirtualInboundCatchAllHTTPFilterChainName,
 			FilterChainMatch: &filterChainMatch,
 			Filters: []*listener.Filter{
 				filter,

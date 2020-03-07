@@ -100,6 +100,12 @@ const (
 	// VirtualInboundListenerName is the name for traffic capture listener
 	VirtualInboundListenerName = "virtualInbound"
 
+	// VirtualInboundCatchAllTCPFilterChainName is the name of the catch all tcp filter chain
+	VirtualInboundCatchAllTCPFilterChainName = "virtualInbound-catchall-tcp"
+
+	// VirtualInboundCatchAllTCPFilterChainName is the name of the catch all http filter chain
+	VirtualInboundCatchAllHTTPFilterChainName = "virtualInbound-catchall-http"
+
 	// WildcardAddress binds to all IP addresses
 	WildcardAddress = "0.0.0.0"
 
@@ -580,11 +586,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			instance := configgen.findOrCreateServiceInstance(node.ServiceInstances, ingressListener,
 				sidecarScope.Config.Name, sidecarScope.Config.Namespace)
 			listenerOpts := buildListenerOpts{
-				push:        push,
-				proxy:       node,
-				bind:        bind,
-				port:        listenPort.Port,
-				bindToPort:  bindToPort,
+				push:       push,
+				proxy:      node,
+				bind:       bind,
+				port:       listenPort.Port,
+				bindToPort: bindToPort,
 			}
 
 			listenerOpts.userTLSOpts = rule.InboundTls

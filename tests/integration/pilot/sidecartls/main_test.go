@@ -140,8 +140,8 @@ func setupTest(t *testing.T, ctx resource.Context) (pilot.Instance, *model.Proxy
 	}
 	return p, nodeID, func() {
 		// allow disable mtls later
-		deleteConfig(t, g, config, StrictMtls, appNamespace)
-		createConfig(t, g, config, DisableMTLS, appNamespace)
+//		deleteConfig(t, g, config, StrictMtls, appNamespace)
+//		createConfig(t, g, config, DisableMTLS, appNamespace)
 	}
 }
 
@@ -182,9 +182,8 @@ func TestMain(m *testing.M) {
 
 func TestSidecarCustomTLS(t *testing.T) {
 	framework.Run(t, func(ctx framework.TestContext) {
-		p, nodeID, disableMTLSFunc := setupTest(t, ctx)
+		p, nodeID, _ := setupTest(t, ctx)
 		var nodeMetadata = &structpb.Struct{Fields: map[string]*structpb.Value{
-			"ISTIO_VERSION": {Kind: &structpb.Value_StringValue{StringValue: "1.5"}},
 			"NAMESPACE":     {Kind: &structpb.Value_StringValue{StringValue: nodeID.Metadata.Namespace}},
 		}}
 		listenerReq := &xdsapi.DiscoveryRequest{
@@ -201,11 +200,11 @@ func TestSidecarCustomTLS(t *testing.T) {
 		if err := p.WatchDiscovery(5*time.Second, checkInboundFilterChainMTLS); err != nil {
 			t.Error(err)
 		}
-		// apply new PeerAuthentication to disable mtls
-		disableMTLSFunc()
-		if err := p.WatchDiscovery(5*time.Second, checkCustomInboundFilterChainTLS); err != nil {
-			t.Error(err)
-		}
+		//// apply new PeerAuthentication to disable mtls
+		//disableMTLSFunc()
+		//if err := p.WatchDiscovery(5*time.Second, checkCustomInboundFilterChainTLS); err != nil {
+		//	t.Error(err)
+		//}
 	})
 }
 
@@ -257,16 +256,29 @@ func checkInboundFilterChainMTLS(resp *xdsapi.DiscoveryResponse) (success bool, 
 			return false, err
 		}
 		got[c.Name] = struct{}{}
-		if c.Name == "1.1.1.1_9080" {
-			tlscontext := &auth.DownstreamTlsContext{}
-			transportSocket := c.FilterChains[0].TransportSocket.GetTypedConfig()
-			ptypes.UnmarshalAny(transportSocket, tlscontext)
-			if !reflect.DeepEqual(expectedTLSContext, tlscontext) {
-				return false, fmt.Errorf("expected tls context: %+v, got %+v\n diff: %s", expectedTLSContext, tlscontext, cmp.Diff(expectedTLSContext, tlscontext))
+		if c.Name == "virtualInbound" {
+			fcFound := false
+			for _, fc := range c.FilterChains {
+				if fc.Name != "1.1.1.1_9080" {
+					continue
+				}
+				tlscontext := &auth.DownstreamTlsContext{}
+				transportSocket := fc.TransportSocket.GetTypedConfig()
+				if e := ptypes.UnmarshalAny(transportSocket, tlscontext); e != nil {
+					return false, fmt.Errorf("failed to unmarshall tls context: %v", e)
+				}
+				if !reflect.DeepEqual(expectedTLSContext, tlscontext) {
+					return false, fmt.Errorf("expected tls context: %+v, got %+v\n diff: %s", expectedTLSContext, tlscontext, cmp.Diff(expectedTLSContext, tlscontext))
+				}
+				fcFound = true
+				break
+			}
+			if !fcFound {
+				return false, fmt.Errorf("did not find filter chain with name 1.1.1.1_9080")
 			}
 		}
-
 	}
+
 	if !reflect.DeepEqual(expected, got) {
 		return false, nil
 	}
@@ -302,15 +314,22 @@ func checkCustomInboundFilterChainTLS(resp *xdsapi.DiscoveryResponse) (success b
 		if err := proto.Unmarshal(res.Value, c); err != nil {
 			return false, err
 		}
-		if c.Name == "1.1.1.1_9080" {
-			tlscontext := &auth.DownstreamTlsContext{}
-			transportSocket := c.FilterChains[0].TransportSocket.GetTypedConfig()
-			ptypes.UnmarshalAny(transportSocket, tlscontext)
-			if !reflect.DeepEqual(expectedTLSContext, tlscontext) {
-				return false, fmt.Errorf("expected tls context: %+v, got %+v\n diff: %s",
-					expectedTLSContext, tlscontext, cmp.Diff(expectedTLSContext, tlscontext))
+		if c.Name == "virtualInbound" {
+			for _, fc := range c.FilterChains {
+				if fc.Name != "1.1.1.1_9080" {
+					continue
+				}
+				tlscontext := &auth.DownstreamTlsContext{}
+				transportSocket := fc.TransportSocket.GetTypedConfig()
+				if e := ptypes.UnmarshalAny(transportSocket, tlscontext); e != nil {
+					return false, fmt.Errorf("failed to unmarshall tls context: %v", e)
+				}
+				if !reflect.DeepEqual(expectedTLSContext, tlscontext) {
+					return false, fmt.Errorf("expected tls context: %+v, got %+v\n diff: %s",
+						expectedTLSContext, tlscontext, cmp.Diff(expectedTLSContext, tlscontext))
+				}
+				return true, nil
 			}
-			return true, nil
 		}
 	}
 	// not matched
