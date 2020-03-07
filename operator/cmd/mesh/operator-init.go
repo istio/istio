@@ -26,28 +26,16 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/utils/pointer"
 
-	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/version"
-	buildversion "istio.io/pkg/version"
 )
 
 type operatorInitArgs struct {
-	// hub is the hub for the operator image.
-	hub string
-	// tag is the tag for the operator image.
-	tag string
-	// operatorNamespace is the namespace the operator controller is installed into.
-	operatorNamespace string
-	// istioNamespace is the namespace Istio is installed into.
-	istioNamespace string
-	// inFilenames is the path to the input IstioOperator CR.
-	inFilename string
-
+	operatorDumpArgs
 	// kubeConfigPath is the path to kube config file.
 	kubeConfigPath string
 	// context is the cluster context in the kube config.
@@ -71,28 +59,15 @@ var (
 	defaultManifestApplier = applyManifest
 )
 
-func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
-	hub, tag := buildversion.DockerInfo.Hub, buildversion.DockerInfo.Tag
-	if hub == "" {
-		hub = "gcr.io/istio-testing"
-	}
-	if tag == "" {
-		tag = "latest"
-	}
-	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename", "f", "", "Path to file containing IstioOperator custom resource")
-	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config")
-	cmd.PersistentFlags().StringVar(&args.context, "context", "", "The name of the kubeconfig context to use")
-	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second, "Maximum seconds to wait for the Istio operator to be ready."+
-		" The --wait flag must be set for this flag to apply")
-	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false, "Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
-		"of a Deployment are in a ready state before the command exits. It will wait for a maximum duration of --readiness-timeout seconds")
+func addOperatorInitFlags(cmd *cobra.Command, oiArgs *operatorInitArgs) {
+	addOperatorDumpFlags(cmd, &oiArgs.operatorDumpArgs)
 
-	cmd.PersistentFlags().StringVar(&args.hub, "hub", hub, "The hub for the operator controller image")
-	cmd.PersistentFlags().StringVar(&args.tag, "tag", tag, "The tag for the operator controller image")
-	cmd.PersistentFlags().StringVar(&args.operatorNamespace, "operatorNamespace", "istio-operator",
-		"The namespace the operator controller is installed into")
-	cmd.PersistentFlags().StringVar(&args.istioNamespace, "istioNamespace", "istio-system",
-		"The namespace Istio is installed into")
+	cmd.PersistentFlags().StringVarP(&oiArgs.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config")
+	cmd.PersistentFlags().StringVar(&oiArgs.context, "context", "", "The name of the kubeconfig context to use")
+	cmd.PersistentFlags().DurationVar(&oiArgs.readinessTimeout, "readiness-timeout", 300*time.Second, "Maximum seconds to wait for the Istio operator to be ready."+
+		" The --wait flag must be set for this flag to apply")
+	cmd.PersistentFlags().BoolVarP(&oiArgs.wait, "wait", "w", false, "Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
+		"of a Deployment are in a ready state before the command exits. It will wait for a maximum duration of --readiness-timeout seconds")
 }
 
 func operatorInitCmd(rootArgs *rootArgs, oiArgs *operatorInitArgs) *cobra.Command {
@@ -119,7 +94,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l *Logger, apply man
 
 	l.logAndPrintf("Using operator Deployment image: %s/operator:%s", oiArgs.hub, oiArgs.tag)
 
-	mstr, err := renderOperatorManifest(args, oiArgs, l)
+	mstr, err := renderOperatorManifest(args, &oiArgs.operatorDumpArgs, l)
 	if err != nil {
 		l.logAndFatal(err)
 	}
@@ -209,43 +184,6 @@ func getCRAndNamespaceFromFile(filePath string, l *Logger) (customResource strin
 	customResource = string(b)
 	istioNamespace = v1alpha1.Namespace(mergedIOPS)
 	return
-}
-
-// chartsRootDir, helmBaseDir, componentName, namespace string) (TemplateRenderer, error) {
-func renderOperatorManifest(_ *rootArgs, oiArgs *operatorInitArgs, _ *Logger) (string, error) {
-	r, err := helm.NewHelmRenderer("", "../operator-chart", istioControllerComponentName, oiArgs.operatorNamespace)
-	if err != nil {
-		return "", err
-	}
-
-	if err := r.Run(); err != nil {
-		return "", err
-	}
-
-	tmpl := `
-operatorNamespace: {{.OperatorNamespace}}
-istioNamespace: {{.IstioNamespace}}
-hub: {{.Hub}}
-tag: {{.Tag}}
-`
-
-	tv := struct {
-		OperatorNamespace string
-		IstioNamespace    string
-		Hub               string
-		Tag               string
-	}{
-		OperatorNamespace: oiArgs.operatorNamespace,
-		IstioNamespace:    oiArgs.istioNamespace,
-		Hub:               oiArgs.hub,
-		Tag:               oiArgs.tag,
-	}
-	vals, err := util.RenderTemplate(tmpl, tv)
-	if err != nil {
-		return "", err
-	}
-	scope.Infof("Installing operator charts with the following values:\n%s", vals)
-	return r.RenderManifest(vals)
 }
 
 func genNamespaceResource(namespace string) string {

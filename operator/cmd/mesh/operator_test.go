@@ -45,10 +45,12 @@ func TestOperatorInit(t *testing.T) {
 
 	rootArgs := &rootArgs{}
 	oiArgs := &operatorInitArgs{
-		hub:               "foo.io/istio",
-		tag:               "1.2.3",
-		operatorNamespace: "operator-test-namespace",
-		istioNamespace:    "istio-test-namespace",
+		operatorDumpArgs: operatorDumpArgs{
+			hub:               "foo.io/istio",
+			tag:               "1.2.3",
+			operatorNamespace: "operator-test-namespace",
+			istioNamespace:    "istio-test-namespace",
+		},
 	}
 
 	operatorInit(rootArgs, oiArgs, NewLogger(rootArgs.logToStdErr, os.Stdout, os.Stderr), mockApplyManifest)
@@ -101,6 +103,47 @@ func TestOperatorInit(t *testing.T) {
 	}
 }
 
+func TestOperatorDump(t *testing.T) {
+	goldenFilepath := filepath.Join(repoRootDir, "cmd/mesh/testdata/operator/output/operator-dump.yaml")
+
+	odArgs := &operatorDumpArgs{
+		hub:               "foo.io/istio",
+		tag:               "1.2.3",
+		operatorNamespace: "operator-test-namespace",
+		istioNamespace:    "istio-test-namespace",
+	}
+	gotYAML, err := runOperatorDump(odArgs)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fmt.Println(gotYAML)
+	if refreshGoldenFiles() {
+		t.Logf("Refreshing golden file for %s", goldenFilepath)
+		if err := ioutil.WriteFile(goldenFilepath, []byte(gotYAML), 0644); err != nil {
+			t.Error(err)
+		}
+	}
+
+	wantYAML, err := readFile(goldenFilepath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if diff := util.YAMLDiff(wantYAML, gotYAML); diff != "" {
+		t.Fatalf("diff: %s", diff)
+	}
+}
+
+func runOperatorDump(odArgs *operatorDumpArgs) (string, error) {
+	cmd := "operator dump --hub " + odArgs.hub
+	cmd += " --tag " + odArgs.tag
+	cmd += " --operatorNamespace " + odArgs.operatorNamespace
+	cmd += " --istioNamespace " + odArgs.istioNamespace
+
+	return runCommand(cmd)
+}
+
 func mockApplyManifest(manifestStr, componentName string, opts *kubectlcmd.Options, _ bool, _ *Logger) bool {
 	applyOutput = append(applyOutput, applyParams{
 		componentName: componentName,
@@ -116,10 +159,12 @@ func TestOperatorRemove(t *testing.T) {
 	rootArgs := &rootArgs{}
 	orArgs := &operatorRemoveArgs{
 		operatorInitArgs: operatorInitArgs{
-			hub:               "foo.io/istio",
-			tag:               "1.2.3",
-			operatorNamespace: "operator-test-namespace",
-			istioNamespace:    "istio-test-namespace",
+			operatorDumpArgs: operatorDumpArgs{
+				hub:               "foo.io/istio",
+				tag:               "1.2.3",
+				operatorNamespace: "operator-test-namespace",
+				istioNamespace:    "istio-test-namespace",
+			},
 		},
 		force: true,
 	}

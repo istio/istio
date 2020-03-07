@@ -38,9 +38,9 @@ var (
 	defaultManifestDeleter = deleteManifest
 )
 
-func addOperatorRemoveFlags(cmd *cobra.Command, oiArgs *operatorRemoveArgs) {
-	addOperatorInitFlags(cmd, &oiArgs.operatorInitArgs)
-	cmd.PersistentFlags().BoolVar(&oiArgs.force, "force", false, "Proceed even with errors")
+func addOperatorRemoveFlags(cmd *cobra.Command, orArgs *operatorRemoveArgs) {
+	addOperatorInitFlags(cmd, &orArgs.operatorInitArgs)
+	cmd.PersistentFlags().BoolVar(&orArgs.force, "force", false, "Proceed even with errors")
 }
 
 func operatorRemoveCmd(rootArgs *rootArgs, orArgs *operatorRemoveArgs) *cobra.Command {
@@ -72,7 +72,7 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l *Logger, delet
 
 	l.logAndPrintf("Using operator Deployment image: %s/operator:%s", orArgs.hub, orArgs.tag)
 
-	mstr, err := renderOperatorManifest(args, &orArgs.operatorInitArgs, l)
+	mstr, err := renderOperatorManifest(args, &orArgs.operatorDumpArgs, l)
 	if err != nil {
 		l.logAndFatal(err)
 	}

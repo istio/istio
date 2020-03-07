@@ -27,19 +27,24 @@ func OperatorCmd() *cobra.Command {
 	}
 
 	oiArgs := &operatorInitArgs{}
+	odArgs := &operatorDumpArgs{}
 	orArgs := &operatorRemoveArgs{}
 	args := &rootArgs{}
 
 	oic := operatorInitCmd(args, oiArgs)
+	odc := operatorDumpCmd(args, odArgs)
 	orc := operatorRemoveCmd(args, orArgs)
 
 	addFlags(oic, args)
+	addFlags(odc, args)
 	addFlags(orc, args)
 
 	addOperatorInitFlags(oic, oiArgs)
+	addOperatorDumpFlags(odc, odArgs)
 	addOperatorRemoveFlags(orc, orArgs)
 
 	oc.AddCommand(oic)
+	oc.AddCommand(odc)
 	oc.AddCommand(orc)
 
 	return oc
