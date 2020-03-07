@@ -100,7 +100,6 @@ spec:
         {{- end }}
           - --serviceCluster
           - istio-egressgateway
-          - --zipkinAddress
           - --proxyAdminPort
           - "15000"
           - --statusPort

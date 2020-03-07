@@ -1747,14 +1747,12 @@ func (ps *PushContext) initMeshNetworks() {
 		gateways := []*Gateway{}
 
 		for _, gw := range gws {
-			for _, registryName := range registryNames {
-				gatewayAddresses := getGatewayAddresses(gw, registryName, ps.ServiceDiscovery)
+			gatewayAddresses := getGatewayAddresses(gw, registryNames, ps.ServiceDiscovery)
 
-				log.Infof("Endpoints from registry %v on network %v reachable through gateway(s) %v",
-					registryName, network, gatewayAddresses)
-				for _, addr := range gatewayAddresses {
-					gateways = append(gateways, &Gateway{addr, gw.Port})
-				}
+			log.Infof("Endpoints from registry(s) %v on network %v reachable through gateway(s) %v",
+				registryNames, network, gatewayAddresses)
+			for _, addr := range gatewayAddresses {
+				gateways = append(gateways, &Gateway{addr, gw.Port})
 			}
 		}
 
@@ -1784,7 +1782,7 @@ func getNetworkRegistres(network *meshconfig.Network) []string {
 	return registryNames
 }
 
-func getGatewayAddresses(gw *meshconfig.Network_IstioNetworkGateway, registryName string, discovery ServiceDiscovery) []string {
+func getGatewayAddresses(gw *meshconfig.Network_IstioNetworkGateway, registryNames []string, discovery ServiceDiscovery) []string {
 	// First, if a gateway address is provided in the configuration use it. If the gateway address
 	// in the config was a hostname it got already resolved and replaced with an IP address
 	// when loading the config
@@ -1793,10 +1791,14 @@ func getGatewayAddresses(gw *meshconfig.Network_IstioNetworkGateway, registryNam
 	}
 
 	// Second, try to find the gateway addresses by the provided service name
-	if gwSvcName := gw.GetRegistryServiceName(); gwSvcName != "" && registryName != "" {
+	if gwSvcName := gw.GetRegistryServiceName(); gwSvcName != "" {
 		svc, _ := discovery.GetService(host.Name(gwSvcName))
 		if svc != nil {
-			return svc.Attributes.ClusterExternalAddresses[registryName]
+			var gateways []string
+			for _, registryName := range registryNames {
+				gateways = append(gateways, svc.Attributes.ClusterExternalAddresses[registryName]...)
+			}
+			return gateways
 		}
 	}
 
