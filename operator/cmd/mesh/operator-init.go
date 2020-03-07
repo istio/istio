@@ -65,7 +65,7 @@ func addOperatorInitFlags(cmd *cobra.Command, oiArgs *operatorInitArgs) {
 	cmd.PersistentFlags().StringVarP(&oiArgs.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config")
 	cmd.PersistentFlags().StringVar(&oiArgs.context, "context", "", "The name of the kubeconfig context to use")
 	cmd.PersistentFlags().DurationVar(&oiArgs.readinessTimeout, "readiness-timeout", 300*time.Second, "Maximum seconds to wait for the Istio operator "+
-	        "to be ready. The --wait flag must be set for this flag to apply")
+		"to be ready. The --wait flag must be set for this flag to apply")
 	cmd.PersistentFlags().BoolVarP(&oiArgs.wait, "wait", "w", false, "Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
 		"of a Deployment are in a ready state before the command exits. It will wait for a maximum duration of --readiness-timeout seconds")
 }
