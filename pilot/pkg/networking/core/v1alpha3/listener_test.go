@@ -443,10 +443,6 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if features.RestrictPodIPTrafficLoops.Get() {
-				// Expect a filter chain on the node IP
-				tt.expectedChains = append([]string{"1.1.1.1"}, tt.expectedChains...)
-			}
 			services := []*model.Service{
 				buildService("test.com", tt.CIDR, protocol.TCP, tnow),
 			}
@@ -798,19 +794,19 @@ func testOutboundListenerConflictV14(t *testing.T, services ...*model.Service) {
 	oldestProtocol := oldestService.Ports[0].Protocol
 	if oldestProtocol == protocol.MySQL {
 		if len(listeners[0].FilterChains) != 2 {
-			t.Fatalf("expectd %d filter chains, found %d", 2, len(listeners[0].FilterChains))
+			t.Fatalf("expected %d filter chains, found %d", 2, len(listeners[0].FilterChains))
 		} else if !isTCPFilterChain(listeners[0].FilterChains[1]) {
 			t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
 		}
 	} else if oldestProtocol != protocol.HTTP && oldestProtocol != protocol.TCP {
-		if len(listeners[0].FilterChains) != 3 {
-			t.Fatalf("expectd %d filter chains, found %d", 3, len(listeners[0].FilterChains))
+		if len(listeners[0].FilterChains) != 2 {
+			t.Fatalf("expectd %d filter chains, found %d", 2, len(listeners[0].FilterChains))
 		} else {
-			if !isHTTPFilterChain(listeners[0].FilterChains[2]) {
+			if !isHTTPFilterChain(listeners[0].FilterChains[1]) {
 				t.Fatalf("expected http filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
 			}
 
-			if !isTCPFilterChain(listeners[0].FilterChains[1]) {
+			if !isTCPFilterChain(listeners[0].FilterChains[0]) {
 				t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[2].Filters[0].Name)
 			}
 		}
