@@ -1,0 +1,71 @@
+package model
+
+import (
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/pkg/ledger"
+)
+
+type fakeStore struct {
+	store map[resource.GroupVersionKind]map[string][]Config
+}
+
+func NewFakeStore() *fakeStore {
+	f := fakeStore{
+		store: make(map[resource.GroupVersionKind]map[string][]Config),
+	}
+	return &f
+}
+
+var _ ConfigStore = (*fakeStore)(nil)
+
+func (*fakeStore) Schemas() collection.Schemas {
+	return collections.Pilot
+}
+
+func (*fakeStore) Get(typ resource.GroupVersionKind, name, namespace string) *Config { return nil }
+
+func (s *fakeStore) List(typ resource.GroupVersionKind, namespace string) ([]Config, error) {
+	nsConfigs := s.store[typ]
+	if nsConfigs == nil {
+		return nil, nil
+	}
+	var res []Config
+	if namespace == NamespaceAll {
+		for _, configs := range nsConfigs {
+			res = append(res, configs...)
+		}
+		return res, nil
+	}
+	return nsConfigs[namespace], nil
+}
+
+func (s *fakeStore) Create(config Config) (revision string, err error) {
+	configs := s.store[config.GroupVersionKind()]
+	if configs == nil {
+		configs = make(map[string][]Config)
+	}
+	configs[config.Namespace] = append(configs[config.Namespace], config)
+	s.store[config.GroupVersionKind()] = configs
+	return "", nil
+}
+
+func (*fakeStore) Update(config Config) (newRevision string, err error) { return "", nil }
+
+func (*fakeStore) Delete(typ resource.GroupVersionKind, name, namespace string) error { return nil }
+
+func (*fakeStore) Version() string {
+	return "not implemented"
+}
+func (*fakeStore) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+	return "not implemented", nil
+}
+
+func (s *fakeStore) GetLedger() ledger.Ledger {
+	panic("implement me")
+}
+
+func (s *fakeStore) SetLedger(ledger.Ledger) error {
+	panic("implement me")
+}
