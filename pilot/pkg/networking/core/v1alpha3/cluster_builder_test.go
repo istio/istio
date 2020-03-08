@@ -161,7 +161,7 @@ func TestApplyDestinationRule(t *testing.T) {
 				},
 			},
 			expectedSubsetClusters: []*apiv2.Cluster{
-				&apiv2.Cluster{
+				{
 					Name:                 "outbound|8080|foobar|foo",
 					ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_EDS},
 					EdsClusterConfig: &apiv2.Cluster_EdsClusterConfig{
