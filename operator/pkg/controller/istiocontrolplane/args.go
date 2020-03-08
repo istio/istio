@@ -20,7 +20,7 @@ import (
 
 // Options represents the details used to configure the controller.
 type Options struct {
-	// BaseChartPath is the abosolute path used as the base path when a relative path is specified in
+	// BaseChartPath is the absolute path used as the base path when a relative path is specified in
 	// IstioOperator.Spec.ChartPath
 	BaseChartPath string
 	// DefaultChartPath is the relative path used added to BaseChartPath when no value is specified in
