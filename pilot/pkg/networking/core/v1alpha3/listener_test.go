@@ -1178,7 +1178,7 @@ func testInboundListenerConfigWithSidecar(t *testing.T, proxy *model.Proxy, serv
 	}
 	expectedTLSContext := &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
-			AlpnProtocols: util.ALPNHttp,
+			AlpnProtocols: util.ALPNPlaintextHttp,
 			TlsCertificates: []*auth.TlsCertificate{
 				{
 					CertificateChain: &core.DataSource{
@@ -2330,7 +2330,7 @@ func TestBuildSidecarListenerTlsContext(t *testing.T) {
 			},
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: util.ALPNHttp,
+					AlpnProtocols: util.ALPNPlaintextHttp,
 					TlsCertificates: []*auth.TlsCertificate{
 						{
 							CertificateChain: &core.DataSource{
@@ -2362,7 +2362,7 @@ func TestBuildSidecarListenerTlsContext(t *testing.T) {
 			},
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: util.ALPNHttp,
+					AlpnProtocols: util.ALPNPlaintextHttp,
 					TlsCertificates: []*auth.TlsCertificate{
 						{
 							CertificateChain: &core.DataSource{
@@ -2404,7 +2404,7 @@ func TestBuildSidecarListenerTlsContext(t *testing.T) {
 			},
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: util.ALPNHttp,
+					AlpnProtocols: util.ALPNPlaintextHttp,
 					TlsCertificates: []*auth.TlsCertificate{
 						{
 							CertificateChain: &core.DataSource{
@@ -2446,7 +2446,7 @@ func TestBuildSidecarListenerTlsContext(t *testing.T) {
 			sdsUdsPath: "unix:/var/run/sidecar/sds",
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: util.ALPNHttp,
+					AlpnProtocols: util.ALPNPlaintextHttp,
 					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
 							Name: "test",

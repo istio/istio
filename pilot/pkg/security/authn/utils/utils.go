@@ -37,38 +37,19 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 	meta := node.Metadata
 	var alpnIstioMatch *ldsv2.FilterChainMatch
 	var tls *auth.DownstreamTlsContext
-	if util.IsTCPMetadataExchangeEnabled(node) {
-		alpnIstioMatch = &ldsv2.FilterChainMatch{
-			ApplicationProtocols: util.ALPNInMeshWithMxc,
-		}
-		tls = &auth.DownstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{
-				// For TCP with mTLS, we advertise "istio-peer-exchange" from client and
-				// expect the same from server. This  is so that secure metadata exchange
-				// transfer can take place between sidecars for TCP with mTLS.
-				AlpnProtocols: util.ALPNDownstream,
-			},
-			RequireClientCertificate: protovalue.BoolTrue,
-		}
-	} else {
-		alpnIstioMatch = &ldsv2.FilterChainMatch{
-			ApplicationProtocols: util.ALPNInMesh,
-		}
-		tls = &auth.DownstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{
-				// Note that in the PERMISSIVE mode, we match filter chain on "istio" ALPN,
-				// which is used to differentiate between service mesh and legacy traffic.
-				//
-				// Client sidecar outbound cluster's TLSContext.ALPN must include "istio".
-				//
-				// Server sidecar filter chain's FilterChainMatch.ApplicationProtocols must
-				// include "istio" for the secure traffic, but its TLSContext.ALPN must not
-				// include "istio", which would interfere with negotiation of the underlying
-				// protocol, e.g. HTTP/2.
-				AlpnProtocols: util.ALPNHttp,
-			},
-			RequireClientCertificate: protovalue.BoolTrue,
-		}
+	alpnIstioMatch = &ldsv2.FilterChainMatch{
+		ApplicationProtocols: util.ALPNMtlsTcpWithMxc,
+	}
+	tls = &auth.DownstreamTlsContext{
+		CommonTlsContext: &auth.CommonTlsContext{
+			// For TCP with mTLS, we advertise "istio-peer-exchange" from client and
+			// expect the same from server. This is so that secure metadata exchange
+			// transfer can take place between sidecars for TCP with mTLS.
+			// TODO: why does this exist? it is inconsistent with application protocols in match section
+			// and with the fcm options from sniffing
+			AlpnProtocols: util.ALPNDownstream,
+		},
+		RequireClientCertificate: protovalue.BoolTrue,
 	}
 	util.ApplyToCommonTLSContext(tls.CommonTlsContext, meta, sdsUdsPath, []string{} /*subjectAltNames*/)
 

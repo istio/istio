@@ -70,9 +70,6 @@ const (
 
 	// SniClusterFilter is the name of the sni_cluster envoy filter
 	SniClusterFilter = "envoy.filters.network.sni_cluster"
-	// ForwardDownstreamSniFilter forwards the sni from downstream connections to upstream
-	// Used only in the fallthrough filter stack for TLS connections
-	ForwardDownstreamSniFilter = "forward_downstream_sni"
 	// IstioMetadataKey is the key under which metadata is added to a route or cluster
 	// regarding the virtual service or destination rule used for each
 	IstioMetadataKey = "istio"
@@ -97,25 +94,21 @@ const (
 	subsetNameStatPattern      = "%SUBSET_NAME%"
 )
 
-// ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
-var ALPNH2Only = []string{"h2"}
+// ALPNPlaintextH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
+var ALPNPlaintextH2Only = []string{"h2"}
 
-// ALPNInMeshH2 advertises that Proxy is going to use HTTP/2 when talking to the in-mesh cluster.
+// ALPNMtlsH2 advertises that Proxy is going to use HTTP/2 when talking to the in-mesh cluster.
 // The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
 // Once Envoy supports client-side ALPN negotiation, this should be {"istio", "h2", "http/1.1"}.
-var ALPNInMeshH2 = []string{"istio", "h2"}
+var ALPNMtlsH2 = []string{"istio-h2"}
 
-// ALPNInMesh advertises that Proxy is going to talk to the in-mesh cluster.
-// The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
-var ALPNInMesh = []string{"istio"}
-
-// ALPNInMeshWithMxc advertises that Proxy is going to talk to the in-mesh cluster and has metadata exchange enabled for
+// ALPNMtlsTcpWithMxc advertises that Proxy is going to talk to the in-mesh cluster and has metadata exchange enabled for
 // TCP. The custom "istio-peer-exchange" value indicates, metadata exchange is enabled for TCP. The custom "istio" value
 // indicates in-mesh traffic and it's going to be used for routing decisions.
-var ALPNInMeshWithMxc = []string{"istio-peer-exchange", "istio"}
+var ALPNMtlsTcpWithMxc = []string{"istio-peer-exchange", "istio"}
 
-// ALPNHttp advertises that Proxy is going to talking either http2 or http 1.1.
-var ALPNHttp = []string{"h2", "http/1.1"}
+// ALPNPlaintextHttp advertises that Proxy is going to talking either http2 or http 1.1.
+var ALPNPlaintextHttp = []string{"h2", "http/1.1"}
 
 // ALPNDownstream advertises that Proxy is going to talking either tcp(for metadata exchange), http2 or http 1.1.
 var ALPNDownstream = []string{"istio-peer-exchange", "h2", "http/1.1"}
@@ -288,11 +281,6 @@ func IsProtocolSniffingEnabledForInboundPort(node *model.Proxy, port *model.Port
 
 func IsProtocolSniffingEnabledForOutboundPort(node *model.Proxy, port *model.Port) bool {
 	return IsProtocolSniffingEnabledForOutbound(node) && port.Protocol.IsUnsupported()
-}
-
-// IsTCPMetadataExchangeEnabled checks whether Metadata Exchanged enabled for TCP using ALPN.
-func IsTCPMetadataExchangeEnabled(node *model.Proxy) bool {
-	return features.EnableTCPMetadataExchange.Get() && IsIstioVersionGE15(node)
 }
 
 // ConvertLocality converts '/' separated locality string to Locality struct.

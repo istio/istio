@@ -178,69 +178,25 @@ var (
 	plaintextHTTPALPNs = []string{"http/1.0", "http/1.1", "h2c"}
 	mtlsHTTPALPNs      = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
 
-	mtlsTCPALPNs        = []string{"istio"}
 	mtlsTCPWithMxcALPNs = []string{"istio-peer-exchange", "istio"}
 
 	// These ALPNs are injected in the client side by the ALPN filter.
-	// "istio" is added for each upstream protocol in order to make it
-	// backward compatible. e.g., 1.4 proxy -> 1.3 proxy.
-	mtlsHTTP10ALPN = []string{"istio-http/1.0", "istio"}
-	mtlsHTTP11ALPN = []string{"istio-http/1.1", "istio"}
-	mtlsHTTP2ALPN  = []string{"istio-h2", "istio"}
+	mtlsHTTP10ALPN = []string{"istio-http/1.0"}
+	mtlsHTTP11ALPN = []string{"istio-http/1.1"}
+	mtlsHTTP2ALPN  = []string{"istio-h2"}
 
 	// Double the number of filter chains. Half of filter chains are used as http filter chain and half of them are used as tcp proxy
 	// id in [0, len(allChains)/2) are configured as http filter chain, [(len(allChains)/2, len(allChains)) are configured as tcp proxy
 	// If mTLS permissive is enabled, there are five filter chains. The filter chain match should be
 	//  FCM 1: ALPN [istio-http/1.0, istio-http/1.1, istio-h2] Transport protocol: tls      --> HTTP traffic from sidecar over TLS
 	//  FCM 2: ALPN [http/1.0, http/1.1, h2c] Transport protocol: N/A                       --> HTTP traffic over plain text
-	//  FCM 3: ALPN [istio] Transport protocol: tls                                         --> TCP traffic from sidecar over TLS
+	//  FCM 3: ALPN [istio, istio-peer-exchange] Transport protocol: tls                    --> TCP traffic from sidecar over TLS
 	//  FCM 4: ALPN [] Transport protocol: N/A                                              --> TCP traffic over plain text
 	//  FCM 5: ALPN [] Transport protocol: tls                                              --> TCP traffic over TLS
 	// If traffic is over plain text or mTLS is strict mode, there are two filter chains. The filter chain match should be
 	//  FCM 1: ALPN [http/1.0, http/1.1, h2c, istio-http/1.0, istio-http/1.1, istio-h2]     --> HTTP traffic over plain text or TLS
 	//  FCM 2: ALPN []                                                                      --> TCP traffic over plain text or TLS
 	inboundPermissiveFilterChainMatchOptions = []FilterChainMatchOptions{
-		{
-			// client side traffic was detected as HTTP by the outbound listener, sent over mTLS
-			ApplicationProtocols: mtlsHTTPALPNs,
-			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
-			TransportProtocol: "tls",
-			Protocol:          istionetworking.ListenerProtocolHTTP,
-		},
-		{
-			// client side traffic was detected as HTTP by the outbound listener, sent out as plain text
-			ApplicationProtocols: plaintextHTTPALPNs,
-			// No transport protocol match as this filter chain (+match) will be used for plain text connections
-			Protocol: istionetworking.ListenerProtocolHTTP,
-		},
-		{
-			// client side traffic could not be identified by the outbound listener, but sent over mTLS
-			ApplicationProtocols: mtlsTCPALPNs,
-			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
-			TransportProtocol: "tls",
-			Protocol:          istionetworking.ListenerProtocolTCP,
-		},
-		{
-			// client side traffic could not be identified by the outbound listener, sent over plaintext
-			// or it could be that the client has no sidecar. In this case, this filter chain is simply
-			// receiving plaintext TCP traffic.
-			Protocol: istionetworking.ListenerProtocolTCP,
-		},
-		{
-			// client side traffic could not be identified by the outbound listener, sent over one-way
-			// TLS (HTTPS for example) by the downstream application.
-			// or it could be that the client has no sidecar, and it is directly making a HTTPS connection to
-			// this sidecar. In this case, this filter chain is receiving plaintext one-way TLS traffic. The TLS
-			// inspector would detect this as TLS traffic [not necessarily mTLS]. But since there is no ALPN to match,
-			// this filter chain match will treat the traffic as just another TCP proxy.
-			TransportProtocol: "tls",
-			Protocol:          istionetworking.ListenerProtocolTCP,
-		},
-	}
-
-	// Same as inboundPermissiveFilterChainMatchOptions except for following case:
-	// FCM 3: ALPN [istio-peer-exchange, istio] Transport protocol: tls            --> TCP traffic from sidecar over TLS
-	inboundPermissiveFilterChainMatchWithMxcOptions = []FilterChainMatchOptions{
 		{
 			// client side traffic was detected as HTTP by the outbound listener, sent over mTLS
 			ApplicationProtocols: mtlsHTTPALPNs,
@@ -737,12 +693,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 		allChains = append(allChains, allChains...)
 		if tlsInspectorEnabled {
 			allChains = append(allChains, istionetworking.FilterChain{})
-			if util.IsTCPMetadataExchangeEnabled(node) {
-				filterChainMatchOption = inboundPermissiveFilterChainMatchWithMxcOptions
-			} else {
-				filterChainMatchOption = inboundPermissiveFilterChainMatchOptions
-			}
-
+			filterChainMatchOption = inboundPermissiveFilterChainMatchOptions
 		} else {
 			if hasTLSContext {
 				filterChainMatchOption = inboundStrictFilterChainMatchOptions
@@ -851,7 +802,7 @@ func buildSidecarListenerTLSContext(userTLSOpts *networking.Server_TLSOptions, m
 
 	tls := &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
-			AlpnProtocols: util.ALPNHttp,
+			AlpnProtocols: util.ALPNPlaintextHttp,
 		},
 	}
 

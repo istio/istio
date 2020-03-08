@@ -415,7 +415,7 @@ func buildGatewayListenerTLSContext(
 
 	tls := &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
-			AlpnProtocols: util.ALPNHttp,
+			AlpnProtocols: util.ALPNPlaintextHttp,
 		},
 	}
 

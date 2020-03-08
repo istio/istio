@@ -1126,7 +1126,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSetting
 		}
 		if cluster.Http2ProtocolOptions != nil {
 			// This is HTTP/2 cluster, advertise it with ALPN.
-			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNPlaintextH2Only
 		}
 	case networking.TLSSettings_MUTUAL, networking.TLSSettings_ISTIO_MUTUAL:
 		if tls.ClientCertificate == "" || tls.PrivateKey == "" {
@@ -1178,17 +1178,13 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSetting
 		if cluster.Http2ProtocolOptions != nil {
 			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
 			if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
-				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
+				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNMtlsH2
 			} else {
-				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNPlaintextH2Only
 			}
 		} else if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
 			// This is in-mesh cluster, advertise it with ALPN.
-			if util.IsTCPMetadataExchangeEnabled(node) {
-				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshWithMxc
-			} else {
-				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh
-			}
+			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNMtlsTcpWithMxc
 		}
 	}
 

@@ -291,7 +291,7 @@ func checkCustomInboundFilterChainTLS(resp *xdsapi.DiscoveryResponse) (success b
 					},
 				},
 			},
-			AlpnProtocols: util.ALPNHttp,
+			AlpnProtocols: util.ALPNPlaintextHttp,
 		},
 		RequireClientCertificate: &wrappers.BoolValue{
 			Value: false,

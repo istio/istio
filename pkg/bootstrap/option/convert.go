@@ -84,7 +84,7 @@ func tlsConverter(tls *networkingAPI.TLSSettings, sniName string, metadata *mode
 				},
 				Sni: tls.Sni,
 			}
-			tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNH2Only
+			tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNPlaintextH2Only
 		case networkingAPI.TLSSettings_MUTUAL, networkingAPI.TLSSettings_ISTIO_MUTUAL:
 			clientCertificate := tls.ClientCertificate
 			if tls.ClientCertificate == "" && tls.Mode == networkingAPI.TLSSettings_ISTIO_MUTUAL {
@@ -120,9 +120,9 @@ func tlsConverter(tls *networkingAPI.TLSSettings, sniName string, metadata *mode
 				tlsContext.Sni = sniName
 			}
 			if tls.Mode == networkingAPI.TLSSettings_ISTIO_MUTUAL {
-				tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNInMeshH2
+				tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNMtlsH2
 			} else {
-				tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNH2Only
+				tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNPlaintextH2Only
 			}
 		default:
 			// No TLS.
