@@ -207,6 +207,7 @@
   },
   "admin": {
     "access_log_path": "/dev/null",
+    "profile_path": "{{ .config.ConfigPath }}/envoy.prof",
     "address": {
       "socket_address": {
         "address": "{{ .localhost }}",
