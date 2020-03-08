@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 94
+number_of_entries: 95
 ---
 <h2 id="AddonIngressConfig">AddonIngressConfig</h2>
 <section>
@@ -6898,6 +6898,41 @@ No
 No
 </td>
 </tr>
+<tr id="TelemetryV2Config-metadata_exchange">
+<td><code>metadataExchange</code></td>
+<td><code><a href="#TelemetryV2MetadataExchangeConfig">TelemetryV2MetadataExchangeConfig</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TelemetryV2MetadataExchangeConfig">TelemetryV2MetadataExchangeConfig</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TelemetryV2MetadataExchangeConfig-wasmEnabled">
+<td><code>wasmEnabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Controls whether enabled WebAssembly runtime for metadata exchange filter.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -6920,6 +6955,17 @@ No
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
 <td>
 <p>Controls whether stats envoyfilter would be enabled or not.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2PrometheusConfig-wasmEnabled">
+<td><code>wasmEnabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Controls whether enabled WebAssembly runtime for stats filter.</p>
 
 </td>
 <td>
