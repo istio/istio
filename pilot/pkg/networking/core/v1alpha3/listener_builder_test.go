@@ -199,27 +199,24 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 	// prepare
 	t.Helper()
 	listeners := prepareListeners(t)
-	// app port listener and virtual inbound listener
-	if len(listeners) != 3 {
-		t.Fatalf("expected %d listeners, found %d", 3, len(listeners))
+	// virtual inbound listener and virtual outbound
+	if len(listeners) != 2 {
+		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
 	}
 
-	// The rest attributes are verified in other tests
-	verifyInboundHTTPListenerServerName(t, listeners[0])
+	if !strings.HasPrefix(listeners[0].Name, VirtualOutboundListenerName) {
+		t.Fatalf("expect virtual listener, found %s", listeners[0].Name)
+	} else {
+		t.Logf("found virtual listener: %s", listeners[0].Name)
+	}
 
-	if !strings.HasPrefix(listeners[1].Name, VirtualOutboundListenerName) {
+	if !strings.HasPrefix(listeners[1].Name, VirtualInboundListenerName) {
 		t.Fatalf("expect virtual listener, found %s", listeners[1].Name)
 	} else {
-		t.Logf("found virtual listener: %s", listeners[1].Name)
+		t.Logf("found virtual inbound listener: %s", listeners[1].Name)
 	}
 
-	if !strings.HasPrefix(listeners[2].Name, VirtualInboundListenerName) {
-		t.Fatalf("expect virtual listener, found %s", listeners[2].Name)
-	} else {
-		t.Logf("found virtual inbound listener: %s", listeners[2].Name)
-	}
-
-	l := listeners[2]
+	l := listeners[1]
 
 	byListenerName := map[string]int{}
 
@@ -243,17 +240,12 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	// prepare
 	t.Helper()
 	listeners := prepareListeners(t)
-	// app port listener and virtual inbound listener
-	if len(listeners) != 3 {
-		t.Fatalf("expect %d listeners, found %d", 3, len(listeners))
+	// virtual inbound listener and virtual outbound
+	if len(listeners) != 2 {
+		t.Fatalf("expect %d listeners, found %d", 2, len(listeners))
 	}
 
-	l := listeners[2]
-	// 3 is the 2 passthrough tcp filter chain for ipv4 and 1 http filter chain for ipv4
-	if len(l.FilterChains) != len(listeners[0].FilterChains)+3 {
-		t.Fatalf("expect virtual listener has %d filter chains as the sum of 2nd level listeners "+
-			"plus the 3 fallthrough filter chains, found %d", len(listeners[0].FilterChains)+2, len(l.FilterChains))
-	}
+	l := listeners[1]
 
 	sawFakePluginFilter := false
 	sawIpv4PassthroughCluster := 0
@@ -262,7 +254,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	sawIpv4PsssthroughFilterChainMatchTLSFromFakePlugin := false
 	for _, fc := range l.FilterChains {
 		if len(fc.Filters) == 2 && fc.Filters[1].Name == xdsutil.TCPProxy &&
-			fc.Name == VirtualInboundListenerName {
+			fc.Name == VirtualInboundCatchAllTCPFilterChainName {
 			if fc.Filters[0].Name == fakePluginTCPFilter {
 				sawFakePluginFilter = true
 			}
@@ -293,7 +285,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 		}
 
 		if len(fc.Filters) == 1 && fc.Filters[0].Name == xdsutil.HTTPConnectionManager &&
-			fc.Name == VirtualInboundListenerName {
+			fc.Name == VirtualInboundCatchAllHTTPFilterChainName {
 			if !reflect.DeepEqual(fc.FilterChainMatch.ApplicationProtocols, plaintextHTTPALPNs) {
 				t.Fatalf("expect %v application protocols, found %v", plaintextHTTPALPNs, fc.FilterChainMatch.ApplicationProtocols)
 			}

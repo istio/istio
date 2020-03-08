@@ -68,7 +68,6 @@ type ListenerBuilder struct {
 	outboundListeners       []*xdsapi.Listener
 	virtualOutboundListener *xdsapi.Listener
 	virtualInboundListener  *xdsapi.Listener
-	useInboundFilterChain   bool
 }
 
 // Setup the filter chain match so that the match should work under both
@@ -99,13 +98,15 @@ func amendFilterChainMatchFromInboundListener(chain *listener.FilterChain, l *xd
 }
 
 // Accumulate the filter chains from per proxy service listeners
-func reduceInboundListenerToFilterChains(listeners []*xdsapi.Listener) ([]*listener.FilterChain, bool) {
+func reduceInboundListenerToFilterChains(listeners []*xdsapi.Listener) ([]*xdsapi.Listener, []*listener.FilterChain, bool) {
 	needTLS := false
 	chains := make([]*listener.FilterChain, 0)
+	physicalListeners := make([]*xdsapi.Listener, 0, len(listeners))
 	for _, l := range listeners {
 		// default bindToPort is true and these listener should be skipped
 		if v1Opt := l.GetDeprecatedV1(); v1Opt == nil || v1Opt.BindToPort == nil || v1Opt.BindToPort.Value {
 			// A listener on real port should not be intercepted by virtual inbound listener
+			physicalListeners = append(physicalListeners, l)
 			continue
 		}
 		for _, c := range l.FilterChains {
@@ -114,23 +115,11 @@ func reduceInboundListenerToFilterChains(listeners []*xdsapi.Listener) ([]*liste
 			needTLS = needTLS || needTLSLocal
 		}
 	}
-	return chains, needTLS
+	return physicalListeners, chains, needTLS
 }
 
 func (builder *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThroughFilterChain bool) *ListenerBuilder {
-	// Deprecated by envoyproxy. Replaced
-	// 1. filter chains in this listener
-	// 2. explicit original_dst listener filter
-	// UseOriginalDst: proto.BoolTrue,
-	builder.virtualInboundListener.UseOriginalDst = nil
-	builder.virtualInboundListener.ListenerFilters = append(builder.virtualInboundListener.ListenerFilters,
-		&listener.ListenerFilter{
-			Name: xdsutil.OriginalDestination,
-		},
-	)
-	// TODO: Trim the inboundListeners properly. Those that have been added to filter chains should
-	// be removed while those that haven't been added need to remain in the inboundListeners list.
-	filterChains, needTLS := reduceInboundListenerToFilterChains(builder.inboundListeners)
+	physicalListeners, filterChains, needTLS := reduceInboundListenerToFilterChains(builder.inboundListeners)
 	sort.SliceStable(filterChains, func(i, j int) bool {
 		return filterChains[i].Name < filterChains[j].Name
 	})
@@ -144,6 +133,10 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassTh
 				Name: xdsutil.TlsInspector,
 			})
 	}
+
+	// We have reduced all virtual listeners to filter chains. Store the remaining
+	// physical listeners created by the Sidecar back into the inboundListeners
+	builder.inboundListeners = physicalListeners
 
 	// Note: the HTTP inspector should be after TLS inspector.
 	// If TLS inspector sets transport protocol to tls, the http inspector
@@ -165,8 +158,6 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassTh
 func NewListenerBuilder(node *model.Proxy) *ListenerBuilder {
 	builder := &ListenerBuilder{
 		node: node,
-		// The extra inbound listener has no side effect for iptables that doesn't redirect to 15006
-		useInboundFilterChain: true,
 	}
 	return builder
 }
@@ -297,13 +288,15 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(
 		Name:             VirtualInboundListenerName,
 		Address:          util.BuildAddress(actualWildcard, ProxyInboundListenPort),
 		Transparent:      isTransparentProxy,
-		UseOriginalDst:   proto.BoolTrue,
 		TrafficDirection: core.TrafficDirection_INBOUND,
 		FilterChains:     filterChains,
+		ListenerFilters: []*listener.ListenerFilter{
+			{
+				Name: xdsutil.OriginalDestination,
+			},
+		},
 	}
-	if builder.useInboundFilterChain {
-		builder.aggregateVirtualInboundListener(needTLSForPassThroughFilterChain)
-	}
+	builder.aggregateVirtualInboundListener(needTLSForPassThroughFilterChain)
 	return builder
 }
 
@@ -336,14 +329,14 @@ func (builder *ListenerBuilder) patchListeners(push *model.PushContext) {
 func (builder *ListenerBuilder) getListeners() []*xdsapi.Listener {
 	if builder.node.Type == model.SidecarProxy {
 		nInbound, nOutbound := len(builder.inboundListeners), len(builder.outboundListeners)
-		nVirtual, nVirtualInbound := 0, 0
+		nVirtualOutbound, nVirtualInbound := 0, 0
 		if builder.virtualOutboundListener != nil {
-			nVirtual = 1
+			nVirtualOutbound = 1
 		}
 		if builder.virtualInboundListener != nil {
 			nVirtualInbound = 1
 		}
-		nListener := nInbound + nOutbound + nVirtual + nVirtualInbound
+		nListener := nInbound + nOutbound + nVirtualOutbound + nVirtualInbound
 
 		listeners := make([]*xdsapi.Listener, 0, nListener)
 		listeners = append(listeners, builder.inboundListeners...)
@@ -359,7 +352,7 @@ func (builder *ListenerBuilder) getListeners() []*xdsapi.Listener {
 			nListener,
 			builder.node.ID,
 			nInbound, nOutbound,
-			nVirtual, nVirtualInbound)
+			nVirtualOutbound, nVirtualInbound)
 		return listeners
 	}
 
@@ -474,7 +467,7 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 					break
 				}
 			}
-			filterChain.Name = VirtualInboundListenerName
+			filterChain.Name = VirtualInboundCatchAllTCPFilterChainName
 			filterChains = append(filterChains, filterChain)
 		}
 	}
@@ -549,7 +542,7 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
 		}
 
 		filterChain := &listener.FilterChain{
-			Name:             VirtualInboundListenerName,
+			Name:             VirtualInboundCatchAllHTTPFilterChainName,
 			FilterChainMatch: &filterChainMatch,
 			Filters: []*listener.Filter{
 				filter,

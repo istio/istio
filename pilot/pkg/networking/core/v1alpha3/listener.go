@@ -100,6 +100,12 @@ const (
 	// VirtualInboundListenerName is the name for traffic capture listener
 	VirtualInboundListenerName = "virtualInbound"
 
+	// VirtualInboundCatchAllTCPFilterChainName is the name of the catch all tcp filter chain
+	VirtualInboundCatchAllTCPFilterChainName = "virtualInbound-catchall-tcp"
+
+	// VirtualInboundCatchAllHTTPFilterChainName is the name of the catch all http filter chain
+	VirtualInboundCatchAllHTTPFilterChainName = "virtualInbound-catchall-http"
+
 	// WildcardAddress binds to all IP addresses
 	WildcardAddress = "0.0.0.0"
 
