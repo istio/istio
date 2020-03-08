@@ -19,6 +19,18 @@ import (
 	"testing"
 	"time"
 
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	"github.com/golang/protobuf/ptypes"
+
+	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/serviceregistry/mock"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/protocol"
+
+	"istio.io/istio/pilot/pkg/networking/core"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
+	"istio.io/istio/pkg/config/schema/resource"
+
 	envoy_api_v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -103,9 +115,143 @@ func createEndpoints(numEndpoints int, numServices int) []model.Config {
 	return result
 }
 
+func buildTestEnv(cfg []*model.Config, services int) model.Environment {
+	svcs := map[host.Name]*model.Service{}
+	for i := 0; i < services; i++ {
+		hn := host.Name(fmt.Sprintf("service-%d.namespace.svc.cluster.local", i))
+		s := &model.Service{
+			Attributes: model.ServiceAttributes{
+				Name:      fmt.Sprintf("service-%d", i),
+				Namespace: "namespace",
+			},
+			Ports: []*model.Port{{
+				Name:     "http",
+				Port:     80,
+				Protocol: protocol.HTTP,
+			}, {
+				Name:     "tcp",
+				Port:     81,
+				Protocol: protocol.TCP,
+			}, {}, {
+				Name:     "https",
+				Port:     443,
+				Protocol: protocol.HTTPS,
+			}, {
+				Name:     "auto",
+				Port:     83,
+				Protocol: protocol.Unsupported,
+			}},
+			Hostname: hn,
+			Address:  fmt.Sprintf("1.1.1.%d", services),
+		}
+		svcs[hn] = s
+	}
+	serviceDiscovery := mock.NewDiscovery(svcs, 1)
+
+	configStore := &fakes.IstioConfigStore{
+		ListStub: func(typ resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
+			res := []model.Config{}
+			for _, c := range cfg {
+				if c.Type == typ.Kind {
+					res = append(res, *c)
+				}
+			}
+			return res, nil
+		},
+	}
+
+	m := mesh.DefaultMeshConfig()
+	env := model.Environment{
+		PushContext:      model.NewPushContext(),
+		ServiceDiscovery: serviceDiscovery,
+		IstioConfigStore: configStore,
+		Watcher:          mesh.NewFixedWatcher(&m),
+	}
+
+	return env
+}
+
+// Setup test builds a mock test environment.
+// TODO make this configurable with Istio config, different service setups, etc
+func setupTest() (model.Environment, core.ConfigGenerator, model.Proxy) {
+	proxy := model.Proxy{
+		Type:        model.SidecarProxy,
+		IPAddresses: []string{"1.1.1.1"},
+		ID:          "v0.default",
+		DNSDomain:   "default.example.org",
+		Metadata: &model.NodeMetadata{
+			ConfigNamespace: "not-default",
+		},
+		ConfigNamespace: "not-default",
+	}
+	env := buildTestEnv(nil, 100)
+	env.PushContext.InitContext(&env, nil, nil)
+	proxy.SetSidecarScope(env.PushContext)
+	configgen := core.NewConfigGenerator([]string{plugin.Authn, plugin.Authz, plugin.Health, plugin.Mixer})
+	return env, configgen, proxy
+}
+
+func routesFromListeners(ll []*envoy_api_v2.Listener) []string {
+	routes := []string{}
+	for _, l := range ll {
+		for _, fc := range l.FilterChains {
+			for _, filter := range fc.Filters {
+				if filter.Name == "envoy.http_connection_manager" {
+					filter.GetTypedConfig()
+					hcm := &http_conn.HttpConnectionManager{}
+					if err := ptypes.UnmarshalAny(filter.GetTypedConfig(), hcm); err != nil {
+						panic(err)
+					}
+					switch r := hcm.GetRouteSpecifier().(type) {
+					case *http_conn.HttpConnectionManager_Rds:
+						routes = append(routes, r.Rds.RouteConfigName)
+					}
+				}
+			}
+		}
+	}
+	return routes
+}
+
+func BenchmarkRouteGeneration(b *testing.B) {
+	env, configgen, proxy := setupTest()
+	// To determine which routes to generate, first gen listeners once (not part of benchmark) and extract routes
+	l := configgen.BuildListeners(&proxy, env.PushContext)
+	routeNames := routesFromListeners(l)
+	b.ResetTimer()
+	var response interface{}
+	for n := 0; n < b.N; n++ {
+		r := configgen.BuildHTTPRoutes(&proxy, env.PushContext, routeNames)
+		response = routeDiscoveryResponse(r, "", "")
+	}
+	_ = response
+}
+
+func BenchmarkClusterGeneration(b *testing.B) {
+	env, configgen, proxy := setupTest()
+	b.ResetTimer()
+	var response interface{}
+	for n := 0; n < b.N; n++ {
+		c := configgen.BuildClusters(&proxy, env.PushContext)
+		response = cdsDiscoveryResponse(c, "")
+	}
+	_ = response
+}
+
+func BenchmarkListenerGeneration(b *testing.B) {
+	env, configgen, proxy := setupTest()
+	b.ResetTimer()
+	var response interface{}
+	for n := 0; n < b.N; n++ {
+		l := configgen.BuildListeners(&proxy, env.PushContext)
+		response = ldsDiscoveryResponse(l, "", "")
+	}
+	_ = response
+}
+
 // BenchmarkEDS measures performance of EDS config generation
 // TODO Add more variables, such as different services
-func BenchmarkEDS(b *testing.B) {
+func BenchmarkEndpointGeneration(b *testing.B) {
 	tests := []struct {
 		endpoints int
 		services  int
