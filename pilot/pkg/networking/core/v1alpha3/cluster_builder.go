@@ -18,6 +18,7 @@ import (
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -79,7 +80,8 @@ func applyDestinationRule(cluster *apiv2.Cluster, clusterMode ClusterMode, servi
 			lbEndpoints = buildLocalityLbEndpoints(push, proxyNetworkView, service, port.Port, []labels.Instance{subset.Labels})
 		}
 
-		subsetCluster := buildDefaultCluster(push, subsetClusterName, cluster.GetType(), lbEndpoints, model.TrafficDirectionOutbound, proxy, nil, service.MeshExternal)
+		subsetCluster := buildDefaultCluster(push, subsetClusterName, cluster.GetType(), lbEndpoints,
+			model.TrafficDirectionOutbound, proxy, nil, service.MeshExternal)
 
 		if subsetCluster == nil {
 			continue

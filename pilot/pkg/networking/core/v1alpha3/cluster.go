@@ -189,9 +189,10 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 
 			setUpstreamProtocol(proxy, defaultCluster, port, model.TrafficDirectionOutbound)
 			clusters = append(clusters, defaultCluster)
-			maybeApplyEdsConfig(defaultCluster)
 
 			subsetClusters := applyDestinationRule(defaultCluster, DefaultClusterMode, service, port, proxy, networkView, push)
+
+			maybeApplyEdsConfig(defaultCluster)
 
 			// call plugins for subset clusters.
 			for _, subsetCluster := range subsetClusters {
@@ -237,8 +238,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 				continue
 			}
 			clusters = append(clusters, defaultCluster)
-			maybeApplyEdsConfig(defaultCluster)
 			clusters = append(clusters, applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, proxy, networkView, push)...)
+			maybeApplyEdsConfig(defaultCluster)
 		}
 	}
 

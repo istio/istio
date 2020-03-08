@@ -21,7 +21,9 @@ import (
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	envoy_api_v2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+
 	"github.com/golang/protobuf/ptypes/wrappers"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -98,7 +100,7 @@ func TestApplyDestinationRule(t *testing.T) {
 				},
 			},
 			expectedSubsetClusters: []*apiv2.Cluster{
-				&apiv2.Cluster{
+				{
 					Name:                 "outbound|8080|foobar|foo",
 					ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_EDS},
 					EdsClusterConfig: &apiv2.Cluster_EdsClusterConfig{
@@ -125,7 +127,7 @@ func TestApplyDestinationRule(t *testing.T) {
 				},
 			},
 			expectedSubsetClusters: []*apiv2.Cluster{
-				&apiv2.Cluster{
+				{
 					Name:                 "outbound_.8080_.foobar_.foo",
 					ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_EDS},
 					EdsClusterConfig: &apiv2.Cluster_EdsClusterConfig{
@@ -237,7 +239,7 @@ func TestApplyDestinationRule(t *testing.T) {
 }
 
 func compareClusters(t *testing.T, ec *apiv2.Cluster, gc *apiv2.Cluster) {
-	// TODO(ramaraochavali): Expand the comparision to more fields.
+	// TODO(ramaraochavali): Expand the comparison to more fields.
 	t.Helper()
 	if ec.Name != gc.Name {
 		t.Errorf("Unexpected cluster name want %s, got %s", ec.Name, gc.Name)
