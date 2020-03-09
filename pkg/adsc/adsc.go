@@ -21,10 +21,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"net"
 	"sync"
 	"time"
+
+	"istio.io/istio/pilot/pkg/networking/util"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -318,7 +319,7 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 		filter := l.FilterChains[len(l.FilterChains)-1].Filters[0]
 
 		// The actual destination will be the next to the last if the last filter is a passthrough filter
-		if(l.FilterChains[len(l.FilterChains)-1].GetName() == util.PassthroughFilterChain){
+		if l.FilterChains[len(l.FilterChains)-1].GetName() == util.PassthroughFilterChain {
 			filter = l.FilterChains[len(l.FilterChains)-2].Filters[0]
 		}
 

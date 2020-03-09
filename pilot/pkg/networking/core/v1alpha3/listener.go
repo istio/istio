@@ -1555,7 +1555,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 			// Since application protocol filter chain match has been added to the http filter chain, a fail through filter chain will be
 			// appended to the listener later to allow arbitrary egress TCP traffic pass through when its port is conflicted with existing
 			// HTTP services, which can happen when a pod accesses an services that is out of the service mesh.
-			if(listenerOpts.bind == actualWildcard) {
+			if listenerOpts.bind == actualWildcard {
 				for _, opt := range opts {
 					if opt.match == nil {
 						opt.match = &listener.FilterChainMatch{}
@@ -2305,8 +2305,8 @@ func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts,
 
 	opts.filterChainOpts = append(opts.filterChainOpts, &filterChainOpts{
 		filterChainName: util.PassthroughFilterChain,
-		networkFilters: fallthroughNetworkFilters,
-		isFallThrough:  true,
+		networkFilters:  fallthroughNetworkFilters,
+		isFallThrough:   true,
 	})
 	l.FilterChains = append(l.FilterChains, &listener.FilterChain{FilterChainMatch: wildcardMatch})
 }
@@ -2583,13 +2583,13 @@ func mergeFilterChains(httpFilterChain, tcpFilterChain []*listener.FilterChain) 
 		}
 
 		httpMatch := false
-		for _, p := range fc.FilterChainMatch.ApplicationProtocols{
-			if p == plaintextHTTPALPNs[0]{
+		for _, p := range fc.FilterChainMatch.ApplicationProtocols {
+			if p == plaintextHTTPALPNs[0] {
 				httpMatch = true
 				break
 			}
 		}
-		if (!httpMatch){
+		if !httpMatch {
 			fc.FilterChainMatch.ApplicationProtocols = append(fc.FilterChainMatch.ApplicationProtocols, plaintextHTTPALPNs...)
 		}
 		newFilterChan = append(newFilterChan, fc)
