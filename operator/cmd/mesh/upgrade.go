@@ -55,6 +55,9 @@ const (
 type upgradeArgs struct {
 	// inFilenames is an array of paths to the input IstioOperator CR files.
 	inFilenames []string
+	// set is a string with element format "path=value" where path is an IstioOperator path and the value is a
+	// value to set the node at that path to.
+	set []string
 	// versionsURI is a URI pointing to a YAML formatted versions mapping.
 	versionsURI string
 	// kubeConfigPath is the path to kube config file.
@@ -63,9 +66,6 @@ type upgradeArgs struct {
 	context string
 	// wait is flag that indicates whether to wait resources ready before exiting.
 	wait bool
-	// set is a string with element format "path=value" where path is an IstioOperator path and the value is a
-	// value to set the node at that path to.
-	set []string
 	// skipConfirmation means skipping the prompting confirmation for value changes in this upgrade.
 	skipConfirmation bool
 	// force means directly applying the upgrade without eligibility checks.
