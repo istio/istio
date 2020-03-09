@@ -214,8 +214,9 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 
 		// Explicit test service, in the v2 memory registry. Similar with mock.MakeService,
 		// but easier to read.
-		server.EnvoyXdsServer.MemRegistry.AddService("service3.default.svc.cluster.local", &model.Service{
-			Hostname: "service3.default.svc.cluster.local",
+		hostname = "service3.default.svc.cluster.local"
+		server.EnvoyXdsServer.MemRegistry.AddService(hostname, &model.Service{
+			Hostname: hostname,
 			Address:  "10.10.0.1",
 			Ports:    testPorts(0),
 			Attributes: model.ServiceAttributes{
@@ -224,34 +225,17 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 			},
 		})
 
-		server.EnvoyXdsServer.MemRegistry.AddInstance("service3.default.svc.cluster.local", &model.ServiceInstance{
-			Endpoint: &model.IstioEndpoint{
+		svc3Endpoints := make([]*model.IstioEndpoint, len(testPorts(0)))
+		for i, p := range testPorts(0) {
+			svc3Endpoints[i] = &model.IstioEndpoint{
 				Address:         app3Ip,
-				EndpointPort:    2080,
-				ServicePortName: "http-main",
+				EndpointPort:    uint32(p.Port),
+				ServicePortName: p.Name,
 				Locality:        model.Locality{Label: "az"},
-				Labels:          map[string]string{"version": "v1"},
-			},
-			ServicePort: &model.Port{
-				Name:     "http-main",
-				Port:     1080,
-				Protocol: protocol.HTTP,
-			},
-		})
-		server.EnvoyXdsServer.MemRegistry.AddInstance("service3.default.svc.cluster.local", &model.ServiceInstance{
-			Endpoint: &model.IstioEndpoint{
-				Address:         gatewayIP,
-				EndpointPort:    2080,
-				ServicePortName: "http-main",
-				Locality:        model.Locality{Label: "az"},
-				Labels:          map[string]string{"version": "v2", "app": "my-gateway-controller"},
-			},
-			ServicePort: &model.Port{
-				Name:     "http-main",
-				Port:     1080,
-				Protocol: protocol.HTTP,
-			},
-		})
+			}
+		}
+
+		server.EnvoyXdsServer.MemRegistry.SetEndpoints(string(hostname), "default", svc3Endpoints)
 
 		// Mock ingress service
 		server.EnvoyXdsServer.MemRegistry.AddService("istio-ingress.istio-system.svc.cluster.local", &model.Service{
