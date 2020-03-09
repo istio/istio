@@ -332,8 +332,8 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	push.Mutex.Unlock()
 	if svc == nil {
 		// Shouldn't happen here
-		adsLog.Warnf("can not find the service for cluster %s", clusterName)
-		return nil
+		adsLog.Debugf("can not find the service for cluster %s", clusterName)
+		return buildEmptyClusterLoadAssignment(clusterName)
 	}
 
 	// Service resolution type might have changed and Cluster may be still in the EDS cluster list of "XdsConnection.Clusters".
@@ -351,8 +351,8 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	svcPort, f := svc.Ports.GetByPort(port)
 	if !f {
 		// Shouldn't happen here
-		adsLog.Warnf("can not find the service port %d for cluster %s", port, clusterName)
-		return nil
+		adsLog.Debugf("can not find the service port %d for cluster %s", port, clusterName)
+		return buildEmptyClusterLoadAssignment(clusterName)
 	}
 
 	// The service was never updated - do the full update
@@ -361,8 +361,8 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	s.mutex.RUnlock()
 	if !f {
 		// Shouldn't happen here
-		adsLog.Warnf("can not find the endpointShards for cluster %s", clusterName)
-		return nil
+		adsLog.Debugf("can not find the endpointShards for cluster %s", clusterName)
+		return buildEmptyClusterLoadAssignment(clusterName)
 	}
 
 	locEps := buildLocalityLbEndpointsFromShards(se, svcPort, subsetLabels, clusterName, push)
@@ -585,6 +585,13 @@ func buildLocalityLbEndpointsFromShards(
 	updateEdsStats(locEps, clusterName)
 
 	return locEps
+}
+
+// cluster with no endpoints
+func buildEmptyClusterLoadAssignment(clusterName string) *xdsapi.ClusterLoadAssignment {
+	return &xdsapi.ClusterLoadAssignment{
+		ClusterName: clusterName,
+	}
 }
 
 func updateEdsStats(locEps []*endpoint.LocalityLbEndpoints, cluster string) {
