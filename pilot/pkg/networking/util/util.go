@@ -60,6 +60,8 @@ const (
 	// PassthroughRouteName is the name of the route that forwards traffic to the
 	// PassthroughCluster
 	PassthroughRouteName = "allow_any"
+	// PassthroughFilterChain to catch traffic that doesn't match other filter chains.
+	PassthroughFilterChain = "PassthroughFilterChain"
 
 	// Inbound pass through cluster need to the bind the loopback ip address for the security and loop avoidance.
 	InboundPassthroughClusterIpv4 = "InboundPassthroughClusterIpv4"

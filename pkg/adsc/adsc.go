@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"net"
 	"sync"
 	"time"
@@ -316,8 +317,8 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 		// The last filter is the actual destination for inbound listener
 		filter := l.FilterChains[len(l.FilterChains)-1].Filters[0]
 
-		// The second to last filter is the actual destination for outbound listener
-		if len(l.FilterChains) >= 2 && l.FilterChains[len(l.FilterChains)-2].Filters[0].Name == "envoy.http_connection_manager" {
+		// The actual destination will be the next to the last if the last filter is a passthrough filter
+		if(l.FilterChains[len(l.FilterChains)-1].GetName() == util.PassthroughFilterChain){
 			filter = l.FilterChains[len(l.FilterChains)-2].Filters[0]
 		}
 

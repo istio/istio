@@ -1479,13 +1479,13 @@ func TestOutboundListenerConfig_TCPFailThrough(t *testing.T) {
 	// Add a service and verify it's config
 	services := []*model.Service{
 		buildService("test1.com", wildcardIP, protocol.HTTP, tnow)}
-	listeners := buildOutboundListeners(&fakePlugin{}, &proxy, nil, nil, services...)
+	listeners := buildOutboundListeners(&fakePlugin{}, &proxy14, nil, nil, services...)
 
 	if len(listeners[0].FilterChains) != 3 {
 		t.Fatalf("expectd %d filter chains, found %d", 3, len(listeners[0].FilterChains))
 	}
 
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1], model.TrafficDirectionOutbound)
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1], model.TrafficDirectionOutbound,false)
 	verifyPassThroughTCPFilterChain(t, listeners[0].FilterChains[2])
 
 	if len(listeners[0].ListenerFilters) != 2 ||
@@ -1498,7 +1498,7 @@ func TestOutboundListenerConfig_TCPFailThrough(t *testing.T) {
 func verifyPassThroughTCPFilterChain(t *testing.T, fc *listener.FilterChain) {
 	t.Helper()
 	f := fc.Filters[0]
-	expectedStatPrefix := networkutil.PassthroughCluster
+	expectedStatPrefix := util.PassthroughCluster
 	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 	statPrefix := cfg.Fields["stat_prefix"].GetStringValue()
 	if statPrefix != expectedStatPrefix {
