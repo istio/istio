@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"net"
 	"sync"
 	"time"
@@ -314,6 +315,12 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 		ldsSize += proto.Size(l)
 		// The last filter will be the actual destination we care about
 		filter := l.FilterChains[len(l.FilterChains)-1].Filters[0]
+
+		// The actual destination will be the next to the last if the last filter is a passthrough filter
+		if(l.FilterChains[len(l.FilterChains)-1].GetName() == util.PassthroughFilterChain){
+			filter = l.FilterChains[len(l.FilterChains)-2].Filters[0]
+		}
+
 		if filter.Name == "mixer" {
 			filter = l.FilterChains[len(l.FilterChains)-1].Filters[1]
 		}
