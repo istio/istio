@@ -1485,7 +1485,7 @@ func TestOutboundListenerConfig_TCPFailThrough(t *testing.T) {
 		t.Fatalf("expectd %d filter chains, found %d", 3, len(listeners[0].FilterChains))
 	}
 
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1], model.TrafficDirectionOutbound,false)
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1], model.TrafficDirectionOutbound, false)
 	verifyPassThroughTCPFilterChain(t, listeners[0].FilterChains[2])
 
 	if len(listeners[0].ListenerFilters) != 2 ||
