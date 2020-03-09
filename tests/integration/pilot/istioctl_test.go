@@ -109,7 +109,7 @@ func TestVersion(t *testing.T) {
 				regexp.MustCompile(`client version: [a-z0-9\-]*`),
 				regexp.MustCompile(`egressgateway version: [a-z0-9\-]*`),
 				regexp.MustCompile(`ingressgateway version: [a-z0-9\-]*`),
-				regexp.MustCompile(`pilot version: [a-z0-9\-]*`),
+				regexp.MustCompile(`istiod version: [a-z0-9\-]*`),
 				regexp.MustCompile(`galley version: [a-z0-9\-]*`),
 				regexp.MustCompile(`policy version: [a-z0-9\-]*`),
 				regexp.MustCompile(`sidecar-injector version: [a-z0-9\-]*`),

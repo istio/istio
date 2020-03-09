@@ -258,7 +258,7 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 	}
 
 	labelToPodDetail := map[string]podDetail{
-		"pilot":            {"/usr/local/bin/pilot-discovery", "discovery"},
+		"istiod":           {"/usr/local/bin/pilot-discovery", "discovery"},
 		"citadel":          {"/usr/local/bin/istio_ca", "citadel"},
 		"egressgateway":    {"/usr/local/bin/pilot-agent", "istio-proxy"},
 		"galley":           {"/usr/local/bin/galley", "galley"},

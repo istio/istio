@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -98,10 +99,16 @@ func getProxyInfo() (*[]istioVersion.ProxyInfo, error) {
 		}
 
 		for _, ss := range sss {
-			pi = append(pi, istioVersion.ProxyInfo{
-				ID:           ss.ProxyID,
-				IstioVersion: ss.SyncStatus.IstioVersion,
-			})
+			// if proxy id has istio gateway items, let us exclude them
+			// from data plane as they are also shown under control plane
+			if !strings.HasPrefix(ss.ProxyID, "istio-ingressgateway") &&
+				!strings.HasPrefix(ss.ProxyID, "istio-egressgateway") {
+				pi = append(pi, istioVersion.ProxyInfo{
+					ID:           ss.ProxyID,
+					IstioVersion: ss.SyncStatus.IstioVersion,
+				})
+			}
+
 		}
 	}
 
