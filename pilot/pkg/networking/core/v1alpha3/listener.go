@@ -172,19 +172,6 @@ type FilterChainMatchOptions struct {
 // A set of pre-allocated variables related to protocol sniffing logic for
 // propagating the ALPN to upstreams
 var (
-	// These are sniffed by the HTTP Inspector in the outbound listener
-	// We need to forward these ALPNs to upstream so that the upstream can
-	// properly use a HTTP or TCP listener
-	plaintextHTTPALPNs = []string{"http/1.0", "http/1.1", "h2c"}
-	mtlsHTTPALPNs      = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
-
-	mtlsTCPWithMxcALPNs = []string{"istio-peer-exchange", "istio"}
-
-	// These ALPNs are injected in the client side by the ALPN filter.
-	mtlsHTTP10ALPN = []string{"istio-http/1.0"}
-	mtlsHTTP11ALPN = []string{"istio-http/1.1"}
-	mtlsHTTP2ALPN  = []string{"istio-h2"}
-
 	// Double the number of filter chains. Half of filter chains are used as http filter chain and half of them are used as tcp proxy
 	// id in [0, len(allChains)/2) are configured as http filter chain, [(len(allChains)/2, len(allChains)) are configured as tcp proxy
 	// If mTLS permissive is enabled, there are five filter chains. The filter chain match should be
@@ -199,20 +186,20 @@ var (
 	inboundPermissiveFilterChainMatchOptions = []FilterChainMatchOptions{
 		{
 			// client side traffic was detected as HTTP by the outbound listener, sent over mTLS
-			ApplicationProtocols: mtlsHTTPALPNs,
+			ApplicationProtocols: util.ALPNMtlsHTTP,
 			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
 			TransportProtocol: "tls",
 			Protocol:          istionetworking.ListenerProtocolHTTP,
 		},
 		{
 			// client side traffic was detected as HTTP by the outbound listener, sent out as plain text
-			ApplicationProtocols: plaintextHTTPALPNs,
+			ApplicationProtocols: util.ALPNPlaintextHTTP,
 			// No transport protocol match as this filter chain (+match) will be used for plain text connections
 			Protocol: istionetworking.ListenerProtocolHTTP,
 		},
 		{
 			// client side traffic could not be identified by the outbound listener, but sent over mTLS
-			ApplicationProtocols: mtlsTCPWithMxcALPNs,
+			ApplicationProtocols: util.ALPNMtlsTCPWithMxc,
 			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
 			TransportProtocol: "tls",
 			Protocol:          istionetworking.ListenerProtocolTCP,
@@ -239,7 +226,7 @@ var (
 		{
 			// client side traffic was detected as HTTP by the outbound listener.
 			// If we are in strict mode, we will get mTLS HTTP ALPNS only.
-			ApplicationProtocols: mtlsHTTPALPNs,
+			ApplicationProtocols: util.ALPNMtlsHTTP,
 			Protocol:             istionetworking.ListenerProtocolHTTP,
 		},
 		{
@@ -250,7 +237,7 @@ var (
 
 	inboundPlainTextFilterChainMatchOptions = []FilterChainMatchOptions{
 		{
-			ApplicationProtocols: plaintextHTTPALPNs,
+			ApplicationProtocols: util.ALPNPlaintextHTTP,
 			Protocol:             istionetworking.ListenerProtocolHTTP,
 		},
 		{
@@ -265,34 +252,6 @@ var (
 	// But end users can certainly configure it on their own via the meshConfig using the %FILTERSTATE% macro.
 	envoyWasmStateToLog = []string{"envoy.wasm.metadata_exchange.upstream", "envoy.wasm.metadata_exchange.upstream_id",
 		"envoy.wasm.metadata_exchange.downstream", "envoy.wasm.metadata_exchange.downstream_id"}
-
-	// EnvoyJSONLogFormat12 map of values for envoy json based access logs for Istio 1.2
-	EnvoyJSONLogFormat12 = &structpb.Struct{
-		Fields: map[string]*structpb.Value{
-			"start_time":                        {Kind: &structpb.Value_StringValue{StringValue: "%START_TIME%"}},
-			"method":                            {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:METHOD)%"}},
-			"path":                              {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"}},
-			"protocol":                          {Kind: &structpb.Value_StringValue{StringValue: "%PROTOCOL%"}},
-			"response_code":                     {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_CODE%"}},
-			"response_flags":                    {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_FLAGS%"}},
-			"bytes_received":                    {Kind: &structpb.Value_StringValue{StringValue: "%BYTES_RECEIVED%"}},
-			"bytes_sent":                        {Kind: &structpb.Value_StringValue{StringValue: "%BYTES_SENT%"}},
-			"duration":                          {Kind: &structpb.Value_StringValue{StringValue: "%DURATION%"}},
-			"upstream_service_time":             {Kind: &structpb.Value_StringValue{StringValue: "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"}},
-			"x_forwarded_for":                   {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-FORWARDED-FOR)%"}},
-			"user_agent":                        {Kind: &structpb.Value_StringValue{StringValue: "%REQ(USER-AGENT)%"}},
-			"request_id":                        {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-REQUEST-ID)%"}},
-			"authority":                         {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:AUTHORITY)%"}},
-			"upstream_host":                     {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_HOST%"}},
-			"upstream_cluster":                  {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_CLUSTER%"}},
-			"upstream_local_address":            {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_LOCAL_ADDRESS%"}},
-			"downstream_local_address":          {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
-			"downstream_remote_address":         {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_REMOTE_ADDRESS%"}},
-			"requested_server_name":             {Kind: &structpb.Value_StringValue{StringValue: "%REQUESTED_SERVER_NAME%"}},
-			"istio_policy_status":               {Kind: &structpb.Value_StringValue{StringValue: "%DYNAMIC_METADATA(istio.mixer:status)%"}},
-			"upstream_transport_failure_reason": {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_TRANSPORT_FAILURE_REASON%"}},
-		},
-	}
 
 	// EnvoyJSONLogFormat13 map of values for envoy json based access logs for Istio 1.3 onwards
 	EnvoyJSONLogFormat13 = &structpb.Struct{
@@ -327,10 +286,7 @@ var (
 func buildAccessLog(node *model.Proxy, fl *accesslogconfig.FileAccessLog, push *model.PushContext) {
 	switch push.Mesh.AccessLogEncoding {
 	case meshconfig.MeshConfig_TEXT:
-		formatString := EnvoyTextLogFormat12
-		if util.IsIstioVersionGE13(node) {
-			formatString = EnvoyTextLogFormat13
-		}
+		formatString := EnvoyTextLogFormat13
 
 		if push.Mesh.AccessLogFormat != "" {
 			formatString = push.Mesh.AccessLogFormat
@@ -358,11 +314,7 @@ func buildAccessLog(node *model.Proxy, fl *accesslogconfig.FileAccessLog, push *
 			}
 		}
 		if jsonLog == nil {
-			if util.IsIstioVersionGE13(node) {
-				jsonLog = EnvoyJSONLogFormat13
-			} else {
-				jsonLog = EnvoyJSONLogFormat12
-			}
+			jsonLog = EnvoyJSONLogFormat13
 		}
 		fl.AccessLogFormat = &accesslogconfig.FileAccessLog_JsonFormat{
 			JsonFormat: jsonLog,
@@ -715,12 +667,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 		switch pluginParams.ListenerProtocol {
 		case istionetworking.ListenerProtocolHTTP:
 			filterChainMatch = chain.FilterChainMatch
-			if filterChainMatch != nil && len(filterChainMatch.ApplicationProtocols) > 0 {
-				// This is the filter chain used by permissive mTLS. Append mtlsHTTPALPNs as the client side will
-				// override the ALPN with mtlsHTTPALPNs.
-				// TODO: This should move to authN code instead of us appending additional ALPNs here.
-				filterChainMatch.ApplicationProtocols = append(filterChainMatch.ApplicationProtocols, mtlsHTTPALPNs...)
-			}
 			httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams)
 
 		case istionetworking.ListenerProtocolThrift:
@@ -802,7 +748,7 @@ func buildSidecarListenerTLSContext(userTLSOpts *networking.Server_TLSOptions, m
 
 	tls := &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
-			AlpnProtocols: util.ALPNPlaintextHttp,
+			AlpnProtocols: util.ALPNPlaintextHTTP,
 		},
 	}
 
@@ -1565,7 +1511,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 				}
 
 				// Support HTTP/1.0, HTTP/1.1 and HTTP/2
-				opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, plaintextHTTPALPNs...)
+				opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, util.ALPNPlaintextHTTP...)
 			}
 
 			listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
@@ -1912,8 +1858,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 		filters = append(filters, &http_conn.HttpFilter{Name: wellknown.GRPCWeb})
 	}
 
-	if util.IsIstioVersionGE14(pluginParams.Node) &&
-		pluginParams.ServiceInstance != nil &&
+	if pluginParams.ServiceInstance != nil &&
 		pluginParams.ServiceInstance.ServicePort != nil &&
 		pluginParams.ServiceInstance.ServicePort.Protocol == protocol.GRPC {
 		filters = append(filters, &http_conn.HttpFilter{
@@ -1927,9 +1872,8 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	}
 
 	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
-	if util.IsIstioVersionGE14(pluginParams.Node) &&
-		(pluginParams.ListenerCategory == networking.EnvoyFilter_SIDECAR_OUTBOUND ||
-			pluginParams.DeprecatedListenerCategory == networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND) {
+	if pluginParams.ListenerCategory == networking.EnvoyFilter_SIDECAR_OUTBOUND ||
+		pluginParams.DeprecatedListenerCategory == networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND {
 		filters = append(filters, &http_conn.HttpFilter{
 			Name: AlpnFilterName,
 			ConfigType: &http_conn.HttpFilter_TypedConfig{
@@ -1937,15 +1881,15 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 					AlpnOverride: []*alpn_filter.FilterConfig_AlpnOverride{
 						{
 							UpstreamProtocol: alpn_filter.FilterConfig_HTTP10,
-							AlpnOverride:     mtlsHTTP10ALPN,
+							AlpnOverride:     util.ALPNMtlsHTTP10,
 						},
 						{
 							UpstreamProtocol: alpn_filter.FilterConfig_HTTP11,
-							AlpnOverride:     mtlsHTTP11ALPN,
+							AlpnOverride:     util.ALPNMtlsHTTP11,
 						},
 						{
 							UpstreamProtocol: alpn_filter.FilterConfig_HTTP2,
-							AlpnOverride:     mtlsHTTP2ALPN,
+							AlpnOverride:     util.ALPNMtlsH2,
 						},
 					},
 				}),
@@ -1981,12 +1925,8 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 
 	idleTimeout, err := time.ParseDuration(pluginParams.Node.Metadata.IdleTimeout)
 	if idleTimeout > 0 && err == nil {
-		if util.IsIstioVersionGE14(pluginParams.Node) {
-			connectionManager.CommonHttpProtocolOptions = &core.HttpProtocolOptions{
-				IdleTimeout: ptypes.DurationProto(idleTimeout),
-			}
-		} else {
-			connectionManager.IdleTimeout = ptypes.DurationProto(idleTimeout)
+		connectionManager.CommonHttpProtocolOptions = &core.HttpProtocolOptions{
+			IdleTimeout: ptypes.DurationProto(idleTimeout),
 		}
 	}
 
@@ -2035,10 +1975,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 				},
 			},
 		}
-
-		if util.IsIstioVersionGE14(pluginParams.Node) {
-			fl.CommonConfig.FilterStateObjectsToLog = envoyWasmStateToLog
-		}
+		fl.CommonConfig.FilterStateObjectsToLog = envoyWasmStateToLog
 
 		acc := &accesslog.AccessLog{
 			Name:       wellknown.HTTPGRPCAccessLog,
@@ -2200,7 +2137,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		DeprecatedV1:    deprecatedV1,
 	}
 
-	if util.IsIstioVersionGE13(opts.proxy) && opts.proxy.Type != model.Router {
+	if opts.proxy.Type != model.Router {
 		listener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(opts.push.Mesh.ProtocolDetectionTimeout)
 
 		if listener.ListenerFiltersTimeout != nil {
@@ -2516,7 +2453,7 @@ func mergeFilterChains(httpFilterChain, tcpFilterChain []*listener.FilterChain) 
 			fc.FilterChainMatch = &listener.FilterChainMatch{}
 		}
 
-		fc.FilterChainMatch.ApplicationProtocols = append(fc.FilterChainMatch.ApplicationProtocols, plaintextHTTPALPNs...)
+		fc.FilterChainMatch.ApplicationProtocols = append(fc.FilterChainMatch.ApplicationProtocols, util.ALPNPlaintextHTTP...)
 		newFilterChan = append(newFilterChan, fc)
 
 	}

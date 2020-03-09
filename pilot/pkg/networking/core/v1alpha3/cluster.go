@@ -1126,7 +1126,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSetting
 		}
 		if cluster.Http2ProtocolOptions != nil {
 			// This is HTTP/2 cluster, advertise it with ALPN.
-			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNPlaintextH2Only
+			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNPlaintextH2
 		}
 	case networking.TLSSettings_MUTUAL, networking.TLSSettings_ISTIO_MUTUAL:
 		if tls.ClientCertificate == "" || tls.PrivateKey == "" {
@@ -1180,11 +1180,11 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSetting
 			if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNMtlsH2
 			} else {
-				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNPlaintextH2Only
+				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNPlaintextH2
 			}
 		} else if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
 			// This is in-mesh cluster, advertise it with ALPN.
-			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNMtlsTcpWithMxc
+			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNMtlsTCPWithMxc
 		}
 	}
 
@@ -1199,7 +1199,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSetting
 	// Apply auto mtls to clusters excluding these kind of headless service
 	if cluster.LbPolicy != apiv2.Cluster_CLUSTER_PROVIDED {
 		// convert to transport socket matcher if the mode was auto detected
-		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected && util.IsIstioVersionGE14(proxy) {
+		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected {
 			transportSocket := cluster.TransportSocket
 			cluster.TransportSocket = nil
 			cluster.TransportSocketMatches = []*apiv2.Cluster_TransportSocketMatch{
@@ -1287,9 +1287,7 @@ func buildDefaultCluster(push *model.PushContext, name string, discoveryType api
 		cluster.DnsLookupFamily = apiv2.Cluster_V4_ONLY
 		dnsRate := gogo.DurationToProtoDuration(push.Mesh.DnsRefreshRate)
 		cluster.DnsRefreshRate = dnsRate
-		if util.IsIstioVersionGE13(proxy) {
-			cluster.RespectDnsTtl = true
-		}
+		cluster.RespectDnsTtl = true
 	}
 
 	if discoveryType == apiv2.Cluster_STATIC || discoveryType == apiv2.Cluster_STRICT_DNS {

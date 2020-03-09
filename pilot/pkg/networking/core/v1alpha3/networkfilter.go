@@ -77,7 +77,7 @@ func setAccessLog(push *model.PushContext, node *model.Proxy, config *tcp_proxy.
 		config.AccessLog = append(config.AccessLog, acc)
 	}
 
-	if push.Mesh.EnableEnvoyAccessLogService && util.IsIstioVersionGE14(node) {
+	if push.Mesh.EnableEnvoyAccessLogService {
 		fl := &accesslogconfig.TcpGrpcAccessLogConfig{
 			CommonConfig: &accesslogconfig.CommonGrpcAccessLogConfig{
 				LogName: tcpEnvoyAccessLogFriendlyName,
@@ -91,9 +91,7 @@ func setAccessLog(push *model.PushContext, node *model.Proxy, config *tcp_proxy.
 			},
 		}
 
-		if util.IsIstioVersionGE14(node) {
-			fl.CommonConfig.FilterStateObjectsToLog = envoyWasmStateToLog
-		}
+		fl.CommonConfig.FilterStateObjectsToLog = envoyWasmStateToLog
 
 		acc := &accesslog.AccessLog{
 			Name:       tcpEnvoyALSName,

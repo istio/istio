@@ -94,24 +94,28 @@ const (
 	subsetNameStatPattern      = "%SUBSET_NAME%"
 )
 
-// ALPNPlaintextH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
-var ALPNPlaintextH2Only = []string{"h2"}
+var (
+	// ALPNMtlsTCPWithMxc advertises that Proxy is going to talk to the in-mesh cluster and has metadata exchange enabled for
+	// TCP. The custom "istio-peer-exchange" value indicates, metadata exchange is enabled for TCP. The custom "istio" value
+	// indicates in-mesh traffic and it's going to be used for routing decisions.
+	// TODO: remove istio alpn in 1.7
+	ALPNMtlsTCPWithMxc = []string{"istio-peer-exchange", "istio"}
 
-// ALPNMtlsH2 advertises that Proxy is going to use HTTP/2 when talking to the in-mesh cluster.
-// The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
-// Once Envoy supports client-side ALPN negotiation, this should be {"istio", "h2", "http/1.1"}.
-var ALPNMtlsH2 = []string{"istio-h2"}
+	// ALPNPlaintextHTTP advertises that Proxy is going to talking either http2 or http 1.1 or http/1.0
+	ALPNPlaintextHTTP = []string{"http/1.0", "h2", "http/1.1"}
+	// ALPNMtlsHTTP advertises that the proxy is going to be talking either http2 or http 1.1 or http/1.0 over mTLS
+	ALPNMtlsHTTP = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
 
-// ALPNMtlsTcpWithMxc advertises that Proxy is going to talk to the in-mesh cluster and has metadata exchange enabled for
-// TCP. The custom "istio-peer-exchange" value indicates, metadata exchange is enabled for TCP. The custom "istio" value
-// indicates in-mesh traffic and it's going to be used for routing decisions.
-var ALPNMtlsTcpWithMxc = []string{"istio-peer-exchange", "istio"}
+	// ALPNPlaintextH2 advertises that Proxy is going to use HTTP/2 when talking to the cluster.
+	ALPNPlaintextH2 = []string{"h2"}
+	// ALPNMtlsH2 advertises that Proxy is going to use HTTP/2 when talking to the in-mesh endpoint over mTLS.
+	ALPNMtlsH2 = []string{"istio-h2"}
 
-// ALPNPlaintextHttp advertises that Proxy is going to talking either http2 or http 1.1.
-var ALPNPlaintextHttp = []string{"h2", "http/1.1"}
-
-// ALPNDownstream advertises that Proxy is going to talking either tcp(for metadata exchange), http2 or http 1.1.
-var ALPNDownstream = []string{"istio-peer-exchange", "h2", "http/1.1"}
+	// ALPNMtlsHTTP10 indicates the proxy is speaking over mTLS with http/1.0 protocol
+	ALPNMtlsHTTP10 = []string{"istio-http/1.0"}
+	// ALPNMtlsHTTP11 indicates the proxy is speaking over mTLS with http/1.1 protocol
+	ALPNMtlsHTTP11 = []string{"istio-http/1.1"}
+)
 
 // FallThroughFilterChainBlackHoleService is the blackhole service used for fall though
 // filter chain
@@ -263,12 +267,12 @@ func IsIstioVersionGE15(node *model.Proxy) bool {
 }
 
 // IsProtocolSniffingEnabled checks whether protocol sniffing is enabled.
-func IsProtocolSniffingEnabledForOutbound(node *model.Proxy) bool {
-	return features.EnableProtocolSniffingForOutbound.Get() && IsIstioVersionGE13(node)
+func IsProtocolSniffingEnabledForOutbound(_ *model.Proxy) bool {
+	return features.EnableProtocolSniffingForOutbound.Get()
 }
 
-func IsProtocolSniffingEnabledForInbound(node *model.Proxy) bool {
-	return features.EnableProtocolSniffingForInbound.Get() && IsIstioVersionGE14(node)
+func IsProtocolSniffingEnabledForInbound(_ *model.Proxy) bool {
+	return features.EnableProtocolSniffingForInbound.Get()
 }
 
 func IsProtocolSniffingEnabledForPort(node *model.Proxy, port *model.Port) bool {

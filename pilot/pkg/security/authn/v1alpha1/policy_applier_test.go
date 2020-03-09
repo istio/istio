@@ -801,7 +801,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
-			AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
+			AlpnProtocols: []string{"istio-peer-exchange", "istio"},
 		},
 		RequireClientCertificate: protovalue.BoolTrue,
 	}
@@ -916,70 +916,6 @@ func TestOnInboundFilterChains(t *testing.T) {
 			},
 		},
 		{
-			name: "PermissiveMTLSWithMxcOff",
-			in: &authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{
-					{
-						Params: &authn.PeerAuthenticationMethod_Mtls{
-							Mtls: &authn.MutualTls{
-								Mode: authn.MutualTls_PERMISSIVE,
-							},
-						},
-					},
-				},
-			},
-			node: &model.Proxy{
-				IstioVersion: &model.IstioVersion{Major: 1, Minor: 4, Patch: 0},
-				Metadata:     &model.NodeMetadata{IstioVersion: "1.4.0"},
-			},
-			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
-			expected: []networking.FilterChain{
-				{
-					TLSContext: &auth.DownstreamTlsContext{
-						CommonTlsContext: &auth.CommonTlsContext{
-							TlsCertificates: []*auth.TlsCertificate{
-								{
-									CertificateChain: &core.DataSource{
-										Specifier: &core.DataSource_Filename{
-											Filename: "/etc/certs/cert-chain.pem",
-										},
-									},
-									PrivateKey: &core.DataSource{
-										Specifier: &core.DataSource_Filename{
-											Filename: "/etc/certs/key.pem",
-										},
-									},
-								},
-							},
-							ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-								ValidationContext: &auth.CertificateValidationContext{
-									TrustedCa: &core.DataSource{
-										Specifier: &core.DataSource_Filename{
-											Filename: "/etc/certs/root-cert.pem",
-										},
-									},
-								},
-							},
-							AlpnProtocols: []string{"h2", "http/1.1"},
-						},
-						RequireClientCertificate: protovalue.BoolTrue,
-					},
-					FilterChainMatch: &listener.FilterChainMatch{
-						ApplicationProtocols: []string{"istio"},
-					},
-					ListenerFilters: []*listener.ListenerFilter{
-						{
-							Name:       "envoy.listener.tls_inspector",
-							ConfigType: &listener.ListenerFilter_Config{&structpb.Struct{}},
-						},
-					},
-				},
-				{
-					FilterChainMatch: &listener.FilterChainMatch{},
-				},
-			},
-		},
-		{
 			name: "mTLS policy using SDS",
 			in: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{
@@ -1007,7 +943,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 									ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName, "/tmp/sdsuds.sock"),
 								},
 							},
-							AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
+							AlpnProtocols: []string{"istio-peer-exchange", "istio"},
 						},
 						RequireClientCertificate: protovalue.BoolTrue,
 					},
@@ -1080,7 +1016,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 									},
 								},
 							},
-							AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
+							AlpnProtocols: []string{"istio-peer-exchange", "istio"},
 						},
 						RequireClientCertificate: protovalue.BoolTrue,
 					},
@@ -1093,6 +1029,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 			got := NewPolicyApplier(c.in).InboundFilterChain(8080,
 				c.sdsUdsPath,
 				c.node,
+				networking.ListenerProtocolTCP,
 			)
 			if !reflect.DeepEqual(got, c.expected) {
 				t.Errorf("[%v] unexpected filter chains, got \n%v, want \n%v", c.name, got, c.expected)

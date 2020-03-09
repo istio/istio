@@ -29,7 +29,8 @@ import (
 )
 
 // BuildInboundFilterChain returns the filter chain(s) corresponding to the mTLS mode.
-func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, node *model.Proxy) []networking.FilterChain {
+func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string,
+	node *model.Proxy, protocol networking.ListenerProtocol) []networking.FilterChain {
 	if mTLSMode == model.MTLSDisable || mTLSMode == model.MTLSUnknown {
 		return nil
 	}
@@ -38,19 +39,22 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 	var alpnIstioMatch *ldsv2.FilterChainMatch
 	var tls *auth.DownstreamTlsContext
 	alpnIstioMatch = &ldsv2.FilterChainMatch{
-		ApplicationProtocols: util.ALPNMtlsTcpWithMxc,
+		ApplicationProtocols: util.ALPNMtlsTCPWithMxc,
 	}
 	tls = &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
 			// For TCP with mTLS, we advertise "istio-peer-exchange" from client and
 			// expect the same from server. This is so that secure metadata exchange
 			// transfer can take place between sidecars for TCP with mTLS.
-			// TODO: why does this exist? it is inconsistent with application protocols in match section
-			// and with the fcm options from sniffing
-			AlpnProtocols: util.ALPNDownstream,
+			AlpnProtocols: util.ALPNMtlsTCPWithMxc,
 		},
 		RequireClientCertificate: protovalue.BoolTrue,
 	}
+	if protocol == networking.ListenerProtocolHTTP {
+		alpnIstioMatch.ApplicationProtocols = util.ALPNMtlsHTTP
+		tls.CommonTlsContext.AlpnProtocols = util.ALPNMtlsHTTP
+	}
+
 	util.ApplyToCommonTLSContext(tls.CommonTlsContext, meta, sdsUdsPath, []string{} /*subjectAltNames*/)
 
 	if mTLSMode == model.MTLSStrict {

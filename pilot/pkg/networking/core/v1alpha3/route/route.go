@@ -349,14 +349,13 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		Metadata: util.BuildConfigInfoMetadata(virtualService.ConfigMeta),
 	}
 
-	if util.IsIstioVersionGE13(node) {
-		routeName := in.Name
-		if match != nil && match.Name != "" {
-			routeName = routeName + "." + match.Name
-		}
-		out.Name = routeName
-		// add a name to the route
+	// add a name to the route
+	routeName := in.Name
+	if match != nil && match.Name != "" {
+		routeName = routeName + "." + match.Name
 	}
+	out.Name = routeName
+
 	out.TypedPerFilterConfig = make(map[string]*any.Any)
 	if redirect := in.Redirect; redirect != nil {
 		action := &route.Route_Redirect{
@@ -583,12 +582,10 @@ func translateRouteMatch(in *networking.HTTPMatchRequest, node *model.Proxy) *ro
 		out.Headers = append(out.Headers, &matcher)
 	}
 
-	if util.IsIstioVersionGE14(node) {
-		for name, stringMatch := range in.WithoutHeaders {
-			matcher := translateHeaderMatch(name, stringMatch, node)
-			matcher.InvertMatch = true
-			out.Headers = append(out.Headers, &matcher)
-		}
+	for name, stringMatch := range in.WithoutHeaders {
+		matcher := translateHeaderMatch(name, stringMatch, node)
+		matcher.InvertMatch = true
+		out.Headers = append(out.Headers, &matcher)
 	}
 
 	// guarantee ordering of headers
@@ -603,19 +600,15 @@ func translateRouteMatch(in *networking.HTTPMatchRequest, node *model.Proxy) *ro
 		case *networking.StringMatch_Prefix:
 			out.PathSpecifier = &route.RouteMatch_Prefix{Prefix: m.Prefix}
 		case *networking.StringMatch_Regex:
-			if !util.IsIstioVersionGE14(node) {
-				out.PathSpecifier = &route.RouteMatch_Regex{Regex: m.Regex}
-			} else {
-				out.PathSpecifier = &route.RouteMatch_SafeRegex{
-					SafeRegex: &matcher.RegexMatcher{
-						EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
-							MaxProgramSize: &wrappers.UInt32Value{
-								Value: uint32(maxRegExProgramSize),
-							},
-						}},
-						Regex: m.Regex,
-					},
-				}
+			out.PathSpecifier = &route.RouteMatch_SafeRegex{
+				SafeRegex: &matcher.RegexMatcher{
+					EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
+						MaxProgramSize: &wrappers.UInt32Value{
+							Value: uint32(maxRegExProgramSize),
+						},
+					}},
+					Regex: m.Regex,
+				},
 			}
 		}
 	}
@@ -710,15 +703,11 @@ func translateHeaderMatch(name string, in *networking.StringMatch, node *model.P
 		// Golang has a slightly different regex grammar
 		out.HeaderMatchSpecifier = &route.HeaderMatcher_PrefixMatch{PrefixMatch: m.Prefix}
 	case *networking.StringMatch_Regex:
-		if !util.IsIstioVersionGE14(node) {
-			out.HeaderMatchSpecifier = &route.HeaderMatcher_RegexMatch{RegexMatch: m.Regex}
-		} else {
-			out.HeaderMatchSpecifier = &route.HeaderMatcher_SafeRegexMatch{
-				SafeRegexMatch: &matcher.RegexMatcher{
-					EngineType: regexEngine,
-					Regex:      m.Regex,
-				},
-			}
+		out.HeaderMatchSpecifier = &route.HeaderMatcher_SafeRegexMatch{
+			SafeRegexMatch: &matcher.RegexMatcher{
+				EngineType: regexEngine,
+				Regex:      m.Regex,
+			},
 		}
 	}
 
@@ -840,9 +829,7 @@ func BuildDefaultHTTPInboundRoute(node *model.Proxy, clusterName string, operati
 		},
 	}
 
-	if util.IsIstioVersionGE13(node) {
-		val.Name = DefaultRouteName
-	}
+	val.Name = DefaultRouteName
 	return val
 }
 

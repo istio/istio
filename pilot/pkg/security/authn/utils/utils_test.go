@@ -57,7 +57,37 @@ func TestBuildInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
+			AlpnProtocols: []string{"istio-peer-exchange", "istio"},
+		},
+		RequireClientCertificate: protovalue.BoolTrue,
+	}
+
+	httpTLSContext := &auth.DownstreamTlsContext{
+		CommonTlsContext: &auth.CommonTlsContext{
+			TlsCertificates: []*auth.TlsCertificate{
+				{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: "/etc/certs/cert-chain.pem",
+						},
+					},
+					PrivateKey: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: "/etc/certs/key.pem",
+						},
+					},
+				},
+			},
+			ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+				ValidationContext: &auth.CertificateValidationContext{
+					TrustedCa: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: "/etc/certs/root-cert.pem",
+						},
+					},
+				},
+			},
+			AlpnProtocols: []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"},
 		},
 		RequireClientCertificate: protovalue.BoolTrue,
 	}
@@ -66,6 +96,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 		mTLSMode   model.MutualTLSMode
 		sdsUdsPath string
 		node       *model.Proxy
+		protocol   networking.ListenerProtocol
 	}
 	tests := []struct {
 		name string
@@ -94,12 +125,13 @@ func TestBuildInboundFilterChain(t *testing.T) {
 			want: nil,
 		},
 		{
-			name: "MTLSStrict",
+			name: "MTLSStrict-TCP",
 			args: args{
 				mTLSMode: model.MTLSStrict,
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
+				protocol: networking.ListenerProtocolTCP,
 			},
 			want: []networking.FilterChain{
 				{
@@ -108,12 +140,28 @@ func TestBuildInboundFilterChain(t *testing.T) {
 			},
 		},
 		{
-			name: "MTLSPermissive",
+			name: "MTLSStrict-HTTP",
+			args: args{
+				mTLSMode: model.MTLSStrict,
+				node: &model.Proxy{
+					Metadata: &model.NodeMetadata{},
+				},
+				protocol: networking.ListenerProtocolHTTP,
+			},
+			want: []networking.FilterChain{
+				{
+					TLSContext: httpTLSContext,
+				},
+			},
+		},
+		{
+			name: "MTLSPermissive-TCP",
 			args: args{
 				mTLSMode: model.MTLSPermissive,
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
+				protocol: networking.ListenerProtocolTCP,
 			},
 			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
 			want: []networking.FilterChain{
@@ -121,6 +169,34 @@ func TestBuildInboundFilterChain(t *testing.T) {
 					TLSContext: tlsContext,
 					FilterChainMatch: &listener.FilterChainMatch{
 						ApplicationProtocols: []string{"istio-peer-exchange", "istio"},
+					},
+					ListenerFilters: []*listener.ListenerFilter{
+						{
+							Name:       "envoy.listener.tls_inspector",
+							ConfigType: &listener.ListenerFilter_Config{&structpb.Struct{}},
+						},
+					},
+				},
+				{
+					FilterChainMatch: &listener.FilterChainMatch{},
+				},
+			},
+		},
+		{
+			name: "MTLSPermissive-HTTP",
+			args: args{
+				mTLSMode: model.MTLSPermissive,
+				node: &model.Proxy{
+					Metadata: &model.NodeMetadata{},
+				},
+				protocol: networking.ListenerProtocolHTTP,
+			},
+			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
+			want: []networking.FilterChain{
+				{
+					TLSContext: httpTLSContext,
+					FilterChainMatch: &listener.FilterChainMatch{
+						ApplicationProtocols: []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"},
 					},
 					ListenerFilters: []*listener.ListenerFilter{
 						{
@@ -192,7 +268,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 									},
 								},
 							},
-							AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
+							AlpnProtocols: []string{"istio-peer-exchange", "istio"},
 						},
 						RequireClientCertificate: protovalue.BoolTrue,
 					},
@@ -254,7 +330,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 									},
 								},
 							},
-							AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
+							AlpnProtocols: []string{"istio-peer-exchange", "istio"},
 						},
 						RequireClientCertificate: protovalue.BoolTrue,
 					},
@@ -264,7 +340,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := BuildInboundFilterChain(tt.args.mTLSMode, tt.args.sdsUdsPath, tt.args.node); !reflect.DeepEqual(got, tt.want) {
+			if got := BuildInboundFilterChain(tt.args.mTLSMode, tt.args.sdsUdsPath, tt.args.node, tt.args.protocol); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("BuildInboundFilterChain() = %v, want %v", spew.Sdump(got), spew.Sdump(tt.want))
 				t.Logf("got:\n%v\n", got[0].TLSContext.CommonTlsContext.TlsCertificateSdsSecretConfigs[0])
 			}
