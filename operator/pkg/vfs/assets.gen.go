@@ -39985,7 +39985,7 @@ spec:
           scaleTargetRef:
             apiVersion: apps/v1
             kind: Deployment
-            name: istio-ingressgateway
+            name: istio-egressgateway
           metrics:
             - type: Resource
               resource:
