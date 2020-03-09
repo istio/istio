@@ -171,6 +171,8 @@ spec:
             cpu: 100m
             memory: 128Mi
         volumeMounts:
+        - mountPath: /etc/istio/config
+          name: config-volume
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
         - mountPath: /var/run/secrets/tokens
@@ -184,6 +186,10 @@ spec:
         fsGroup: 1337
       serviceAccountName: istio-mixer-service-account
       volumes:
+      - configMap:
+          name: istio
+          optional: true
+        name: config-volume
       - configMap:
           name: istio-ca-root-cert
         name: istiod-ca-cert

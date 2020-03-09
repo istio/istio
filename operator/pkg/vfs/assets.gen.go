@@ -22498,6 +22498,10 @@ spec:
         fsGroup: 1337
       volumes:
 {{- if .Values.global.controlPlaneSecurityEnabled }}
+      - name: config-volume
+        configMap:
+          name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+          optional: true
       {{- if eq .Values.global.pilotCertProvider "istiod" }}
       - name: istiod-ca-cert
         configMap:
@@ -22697,6 +22701,8 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
+        - name: config-volume
+          mountPath: /etc/istio/config
         {{- if eq .Values.global.pilotCertProvider "istiod" }}
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
@@ -22886,7 +22892,8 @@ var _chartsIstioPolicyValuesYaml = []byte(`mixer:
     # "security" and value "S1".
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
-`)
+
+revision: ""`)
 
 func chartsIstioPolicyValuesYamlBytes() ([]byte, error) {
 	return _chartsIstioPolicyValuesYaml, nil
@@ -40275,6 +40282,10 @@ spec:
         fsGroup: 1337
       volumes:
 {{- if .Values.global.controlPlaneSecurityEnabled }}
+      - name: config-volume
+        configMap:
+          name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+          optional: true
 {{- if eq .Values.global.pilotCertProvider "istiod" }}
       - name: istiod-ca-cert
         configMap:
@@ -40477,6 +40488,8 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
+        - name: config-volume
+          mountPath: /etc/istio/config
         {{- if eq .Values.global.pilotCertProvider "istiod" }}
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
@@ -41705,7 +41718,8 @@ var _chartsIstioTelemetryMixerTelemetryValuesYaml = []byte(`mixer:
     # "security" and value "S1".
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
-`)
+
+revision: ""`)
 
 func chartsIstioTelemetryMixerTelemetryValuesYamlBytes() ([]byte, error) {
 	return _chartsIstioTelemetryMixerTelemetryValuesYaml, nil
