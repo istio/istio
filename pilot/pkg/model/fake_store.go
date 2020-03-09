@@ -21,26 +21,26 @@ import (
 	"istio.io/pkg/ledger"
 )
 
-type fakeStore struct {
+type FakeStore struct {
 	store map[resource.GroupVersionKind]map[string][]Config
 }
 
-func NewFakeStore() *fakeStore {
-	f := fakeStore{
+func NewFakeStore() *FakeStore {
+	f := FakeStore{
 		store: make(map[resource.GroupVersionKind]map[string][]Config),
 	}
 	return &f
 }
 
-var _ ConfigStore = (*fakeStore)(nil)
+var _ ConfigStore = (*FakeStore)(nil)
 
-func (*fakeStore) Schemas() collection.Schemas {
+func (*FakeStore) Schemas() collection.Schemas {
 	return collections.Pilot
 }
 
-func (*fakeStore) Get(typ resource.GroupVersionKind, name, namespace string) *Config { return nil }
+func (*FakeStore) Get(typ resource.GroupVersionKind, name, namespace string) *Config { return nil }
 
-func (s *fakeStore) List(typ resource.GroupVersionKind, namespace string) ([]Config, error) {
+func (s *FakeStore) List(typ resource.GroupVersionKind, namespace string) ([]Config, error) {
 	nsConfigs := s.store[typ]
 	if nsConfigs == nil {
 		return nil, nil
@@ -55,7 +55,7 @@ func (s *fakeStore) List(typ resource.GroupVersionKind, namespace string) ([]Con
 	return nsConfigs[namespace], nil
 }
 
-func (s *fakeStore) Create(config Config) (revision string, err error) {
+func (s *FakeStore) Create(config Config) (revision string, err error) {
 	configs := s.store[config.GroupVersionKind()]
 	if configs == nil {
 		configs = make(map[string][]Config)
@@ -65,21 +65,21 @@ func (s *fakeStore) Create(config Config) (revision string, err error) {
 	return "", nil
 }
 
-func (*fakeStore) Update(config Config) (newRevision string, err error) { return "", nil }
+func (*FakeStore) Update(config Config) (newRevision string, err error) { return "", nil }
 
-func (*fakeStore) Delete(typ resource.GroupVersionKind, name, namespace string) error { return nil }
+func (*FakeStore) Delete(typ resource.GroupVersionKind, name, namespace string) error { return nil }
 
-func (*fakeStore) Version() string {
+func (*FakeStore) Version() string {
 	return "not implemented"
 }
-func (*fakeStore) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+func (*FakeStore) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
 	return "not implemented", nil
 }
 
-func (s *fakeStore) GetLedger() ledger.Ledger {
+func (s *FakeStore) GetLedger() ledger.Ledger {
 	panic("implement me")
 }
 
-func (s *fakeStore) SetLedger(ledger.Ledger) error {
+func (s *FakeStore) SetLedger(ledger.Ledger) error {
 	panic("implement me")
 }

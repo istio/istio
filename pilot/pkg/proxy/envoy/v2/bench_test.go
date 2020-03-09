@@ -120,10 +120,10 @@ func createEndpoints(numEndpoints int, numServices int) []model.Config {
 	return result
 }
 
-func getNextIp(current string) string {
+func getNextIP(current string) string {
 	i := net.ParseIP(current).To4()
 	v := uint(i[0])<<24 + uint(i[1])<<16 + uint(i[2])<<8 + uint(i[3])
-	v += 1
+	v++
 	v3 := byte(v & 0xFF)
 	v2 := byte((v >> 8) & 0xFF)
 	v1 := byte((v >> 16) & 0xFF)
@@ -159,7 +159,7 @@ func buildTestEnv(t test.Failer, cfg []model.Config, input ConfigInput) model.En
 			Address:  ip,
 		}
 		svcs[hn] = s
-		ip = getNextIp(ip)
+		ip = getNextIP(ip)
 	}
 	serviceDiscovery := mock.NewDiscovery(svcs, 1)
 
