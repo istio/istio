@@ -51,6 +51,9 @@ type ConfigArgs struct {
 
 	// DistributionTracking control
 	DistributionTrackingEnabled bool
+
+	// Enable Config Analysis service, that will analyze and update CRD status. UseOldProcessor must be set to false.
+	EnableConfigAnalysis bool
 }
 
 // ConsulArgs provides configuration for the Consul service registry.

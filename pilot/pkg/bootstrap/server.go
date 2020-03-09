@@ -114,8 +114,9 @@ type Server struct {
 	// TODO(nmittler): Consider alternatives to exposing these directly
 	EnvoyXdsServer *envoyv2.DiscoveryServer
 
-	clusterID           string
-	environment         *model.Environment
+	clusterID   string
+	environment *model.Environment
+
 	configController    model.ConfigStoreCache
 	kubeClient          kubernetes.Interface
 	startFuncs          []startFunc
