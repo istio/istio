@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package multipletlsgateway
+package sdsingressk8sca
 
 import (
 	"testing"
@@ -22,8 +22,8 @@ import (
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
 var (
@@ -36,10 +36,8 @@ func TestMain(m *testing.M) {
 	// Integration test for the ingress SDS multiple Gateway flow when
 	// the control plane certificate provider is k8s CA.
 	framework.
-		NewSuite("sds_ingress_multiple_tls_gateways_k8sca_test", m).
-		Label(label.CustomSetup).
-		Label(label.Flaky).
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, nil)).
+		NewSuite("sds_ingress_k8sca", m).
+		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {
 				return err
@@ -53,4 +51,29 @@ func TestMain(m *testing.M) {
 		}).
 		Run()
 
+}
+
+func setupConfig(cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+	cfg.Values["global.pilotCertProvider"] = "kubernetes"
+}
+
+func TestMtlsGatewaysK8sca(t *testing.T) {
+	framework.
+		NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			util.RunTestMultiMtlsGateways(ctx, inst, g)
+		})
+}
+
+func TestTlsGatewaysK8sca(t *testing.T) {
+	framework.
+		NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			util.RunTestMultiTLSGateways(ctx, inst, g)
+		})
 }
