@@ -20322,7 +20322,7 @@ func chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml() (*asset,
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesServiceYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
+var _chartsIstioControlIstioDiscoveryTemplatesServiceYaml = []byte(`{{- if or (eq .Values.revision "") (not .Values.clusterResources) }}
 
 apiVersion: v1
 kind: Service
