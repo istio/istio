@@ -240,7 +240,7 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 
 	if len(out) > 0 {
 		if errs != nil {
-			log.Warnf("GetProxyServiceInstances() found match but encountered an error: %v", errs)
+			log.Debugf("GetProxyServiceInstances() found match but encountered an error: %v", errs)
 		}
 		return out, nil
 	}
