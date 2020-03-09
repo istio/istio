@@ -19,6 +19,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/resource"
 
+	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 )
 
@@ -27,6 +28,7 @@ type Instance interface {
 	// Gets the namespace in which stackdriver is deployed.
 	GetStackdriverNamespace() string
 	ListTimeSeries() ([]*monitoringpb.TimeSeries, error)
+	ListLogEntries() ([]*loggingpb.LogEntry, error)
 }
 
 // New returns a new instance of stackdriver.
