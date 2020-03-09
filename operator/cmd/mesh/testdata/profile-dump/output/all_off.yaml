@@ -224,7 +224,7 @@ spec:
         - name: tcp-pilot-grpc-tls
           port: 15011
           targetPort: 15011
-        - name: http-istiod
+        - name: tcp-istiod
           port: 15012
           targetPort: 15012
         - name: tcp-citadel-grpc-tls

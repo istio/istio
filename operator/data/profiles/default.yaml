@@ -506,7 +506,7 @@ spec:
             name: tcp-pilot-grpc-tls
           - port: 15012
             targetPort: 15012
-            name: http-istiod
+            name: tcp-istiod
           - port: 8060
             targetPort: 8060
             name: tcp-citadel-grpc-tls

@@ -12718,7 +12718,7 @@ subsets:
   - port: 8080
     name: http-legacy-discovery # direct
   - port: 15012
-    name: http-istiod
+    name: tcp-istiod
   - port: 15014
     name: http-monitoring
 ---
@@ -12732,7 +12732,7 @@ subsets:
   - ip: {{ .Values.global.remotePilotAddress }}
   ports:
   - port: 15012
-    name: http-istiod
+    name: tcp-istiod
 {{- end }}
 
 {{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
@@ -12876,8 +12876,8 @@ spec:
   - port: 8080
     name: http-legacy-discovery # direct
   - port: 15012
-    name: http-istiod
-  - port: 15014
+    name: grpc-istiod
+  - port: tcp
     name: http-monitoring
   clusterIP: None
 ---
@@ -12889,7 +12889,8 @@ metadata:
 spec:
   ports:
   - port: 15012
-    name: http-istiod
+    name: tcp-istiod
+  clusterIP: None
 ---
 {{- end }}
 {{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
@@ -46534,7 +46535,7 @@ spec:
             name: tcp-pilot-grpc-tls
           - port: 15012
             targetPort: 15012
-            name: http-istiod
+            name: tcp-istiod
           - port: 8060
             targetPort: 8060
             name: tcp-citadel-grpc-tls

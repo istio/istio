@@ -13,8 +13,8 @@ spec:
   - port: 8080
     name: http-legacy-discovery # direct
   - port: 15012
-    name: http-istiod
-  - port: 15014
+    name: grpc-istiod
+  - port: tcp
     name: http-monitoring
   clusterIP: None
 ---
@@ -26,7 +26,8 @@ metadata:
 spec:
   ports:
   - port: 15012
-    name: http-istiod
+    name: tcp-istiod
+  clusterIP: None
 ---
 {{- end }}
 {{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
