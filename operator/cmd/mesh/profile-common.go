@@ -23,6 +23,7 @@ import (
 
 	"istio.io/api/operator/v1alpha1"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	icpv1alpha2 "istio.io/istio/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
@@ -48,24 +49,30 @@ var scope = log.RegisterScope("installer", "installer", 0)
 // In step 3, the remaining fields in the same user overlay are applied on the resulting profile base.
 // The force flag causes validation errors not to abort but only emit log/console warnings.
 func GenerateConfig(inFilenames []string, setOverlayYAML string, force bool, kubeConfig *rest.Config, l *Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
-	profile := name.DefaultProfileName
+	fy, profile, err := readYamlProfle(inFilenames, setOverlayYAML, force, l)
+	if err != nil {
+		return "", nil, err
+	}
 
+	return genIOPSFromProfile(profile, fy, setOverlayYAML, force, kubeConfig, l)
+}
+
+func readYamlProfle(inFilenames []string, setOverlayYAML string, force bool, l *Logger) (string, string, error) {
+	profile := name.DefaultProfileName
 	// Get the overlay YAML from the list of files passed in. Also get the profile from the overlay files.
 	fy, fp, err := parseYAMLFiles(inFilenames, force, l)
 	if err != nil {
-		return "", nil, err
+		return "", "", err
 	}
 	if fp != "" {
 		profile = fp
 	}
-
 	// The profile coming from --set flag has the highest precedence.
 	psf := profileFromSetOverlay(setOverlayYAML)
 	if psf != "" {
 		profile = psf
 	}
-
-	return genIOPSFromProfile(profile, fy, setOverlayYAML, force, kubeConfig, l)
+	return fy, profile, nil
 }
 
 // parseYAMLFiles parses the given slice of filenames containing YAML and merges them into a single IstioOperator
@@ -136,6 +143,19 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 	outYAML, err := getProfileYAML(installPackagePath, profileOrPath)
 	if err != nil {
 		return "", nil, err
+	}
+
+	// if input is in IstioControlPlane format.
+	icp := &icpv1alpha2.IstioControlPlane{}
+	if err := util.UnmarshalWithJSONPB(outYAML, icp, false); err == nil {
+		translations, err := translate.ICPtoIOPTranslations(version.OperatorBinaryVersion)
+		if err != nil {
+			return "", nil, err
+		}
+		outYAML, err = translate.ICPToIOP(outYAML, translations)
+		if err != nil {
+			return "", nil, err
+		}
 	}
 
 	// Hub and tag are only known at build time and must be passed in here during runtime from build stamps.
