@@ -98,11 +98,17 @@ var (
 	// IstioChartDir is the Kubernetes Helm chart directory in the repository
 	IstioChartDir = path.Join(ChartsDir, "istio")
 
+	// SamplesRoot is the root folder for the samples directory
+	SamplesRoot = path.Join(IstioSrc, "samples")
+
 	// BookInfoRoot is the root folder for the bookinfo samples
-	BookInfoRoot = path.Join(IstioSrc, "samples/bookinfo")
+	BookInfoRoot = path.Join(SamplesRoot, "bookinfo")
 
 	// BookInfoKube is the book info folder that contains Yaml deployment files.
 	BookInfoKube = path.Join(BookInfoRoot, "platform/kube")
+
+	// SleepRoot is the root folder for the sleep samples directory
+	SleepRoot = path.Join(SamplesRoot, "sleep")
 
 	// ServiceAccountFilePath is the helm service account file.
 	ServiceAccountFilePath = path.Join(ChartsDir, "helm-service-account.yaml")
