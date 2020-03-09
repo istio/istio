@@ -161,7 +161,7 @@ spec:
           scaleTargetRef:
             apiVersion: apps/v1
             kind: Deployment
-            name: istio-ingressgateway
+            name: istio-egressgateway
           metrics:
             - type: Resource
               resource:
@@ -520,7 +520,7 @@ spec:
 
     sidecarInjectorWebhook:
       enableNamespacesByDefault: false
-      rewriteAppHTTPProbe: false
+      rewriteAppHTTPProbe: true
       injectLabel: istio-injection
       objectSelector:
         enabled: false

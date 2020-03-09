@@ -109,6 +109,9 @@ var (
 
 	// RedisInstallFilePath is the redis installation file.
 	RedisInstallFilePath = path.Join(IstioSrc, "pkg/test/framework/components/redis/redis.yaml")
+
+	// StackdriverInstallFilePath is the stackdriver installation file.
+	StackdriverInstallFilePath = path.Join(IstioSrc, "pkg/test/framework/components/stackdriver/stackdriver.yaml")
 )
 
 func getDefaultIstioSrc() string {
@@ -129,7 +132,7 @@ func getDefaultIstioBin() string {
 }
 
 func getDefaultIstioOut() string {
-	return fmt.Sprintf("%s/out/%s_%s", build.Default.GOPATH, runtime.GOOS, runtime.GOARCH)
+	return fmt.Sprintf("%s/out/%s_%s", IstioSrc, runtime.GOOS, runtime.GOARCH)
 }
 
 func verifyFile(v Variable, f string) string {

@@ -3,9 +3,6 @@
     "id": "sidecar~1.2.3.4~foo~bar",
     "cluster": "istio-proxy",
     "locality": {
-      
-      
-      
     },
     "metadata": {"EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,CANONICAL_TELEMETRY_SERVICE,MESH_ID,SERVICE_ACCOUNT","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","SDS":"true","TRUSTJWT":"true"}
   },
@@ -233,15 +230,43 @@
         "type": "STATIC",
         "connect_timeout": "0.250s",
         "lb_policy": "ROUND_ROBIN",
-        "hosts": [
-          {
-            "socket_address": {
-              "protocol": "TCP",
-              "address": "127.0.0.1",
-              "port_value": 15000
-            }
-          }
-        ]
+        "load_assignment": {
+          "cluster_name": "prometheus_stats",
+          "endpoints": [{
+            "lb_endpoints": [{
+              "endpoint": {
+                "address":{
+                  "socket_address": {
+                    "protocol": "TCP",
+                    "address": "127.0.0.1",
+                    "port_value": 15000
+                  }
+                }
+              }
+            }]
+          }]
+        }
+      },
+      {
+        "name": "sds-grpc",
+        "type": "STATIC",
+        "http2_protocol_options": {},
+        "connect_timeout": "1s",
+        "lb_policy": "ROUND_ROBIN",
+        "load_assignment": {
+          "cluster_name": "sds-grpc",
+          "endpoints": [{
+            "lb_endpoints": [{
+              "endpoint": {
+                "address":{
+                  "pipe": {
+                    "path": "/etc/istio/proxy/SDS"
+                  }
+                }
+              }
+            }]
+          }]
+        }
       },
       {
         "name": "xds-grpc",
@@ -250,99 +275,50 @@
         "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
-        
-        
-        "tls_context": {
-          "common_tls_context": {
-            "alpn_protocols": [
-              "h2"
-            ],
-            
-            "tls_certificate_sds_secret_configs":[
-              {
-                "name":"default",
-                "sds_config":{
-                  "api_config_source":{
-                    "api_type":"GRPC",
-                    "grpc_services":[
-                      {
-                        "google_grpc":{
-                          "target_uri": "udspath",
-                          "channel_credentials":{
-                            "local_credentials":{
-                            }
-                          },
-                          "call_credentials":[
-                            {
-                              "from_plugin":{
-                                "name":"envoy.grpc_credentials.file_based_metadata",
-                                "config":{
-                                  "secret_data":{
-                                    "filename": "/var/run/secrets/tokens/istio-token"
-                                  },
-                                  "header_key":"istio_sds_credentials_header-bin"
-                                }
-                              }
-                            }
-                          ],
-                          "credentials_factory_name":"envoy.grpc_credentials.file_based_metadata",
-                          "stat_prefix":"sdsstat"
+        "transport_socket": {
+          "name": "envoy.transport_sockets.tls",
+          "typed_config": {
+            "@type": "type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext",
+            "common_tls_context": {
+              "alpn_protocols": [
+                "h2"
+              ],
+              "tls_certificate_sds_secret_configs": [
+                {
+                  "name": "default",
+                  "sds_config": {
+                    "api_config_source": {
+                      "api_type": "GRPC",
+                      "grpc_services": [
+                        {
+                          "envoy_grpc": { "cluster_name": "sds-grpc" }
                         }
-                      }
-                    ]
+                      ]
+                    }
                   }
                 }
-              }
-            ],
-            "combined_validation_context":{
-              "default_validation_context":{
+              ],
+              "validation_context": {
+                "trusted_ca": {
+                  "filename": "./var/run/secrets/istio/root-cert.pem"
+                },
                 "verify_subject_alt_name": ["spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"]
-              },
-              "validation_context_sds_secret_config":{
-                "name":"ROOTCA",
-                "sds_config":{
-                  "api_config_source":{
-                    "api_type":"GRPC",
-                    "grpc_services":[
-                      {
-                        "google_grpc":{
-                          "target_uri": "udspath",
-                          "channel_credentials":{
-                            "local_credentials":{
-                            }
-                          },
-                          "call_credentials":[
-                            {
-                              "from_plugin":{
-                                "name":"envoy.grpc_credentials.file_based_metadata",
-                                "config":{
-                                  "secret_data":{
-                                    "filename": "/var/run/secrets/tokens/istio-token"
-                                  },
-                                  "header_key":"istio_sds_credentials_header-bin"
-                                }
-                              }
-                            }
-                          ],
-                          "credentials_factory_name":"envoy.grpc_credentials.file_based_metadata",
-                          "stat_prefix":"sdsstat"
-                        }
-                      }
-                    ]
-                  }
-                }
               }
             }
-            
-          },
-        },
-        
-        
-        "hosts": [
-          {
-            "socket_address": {"address": "istio-pilot", "port_value": 15011}
           }
-        ],
+        },
+        "load_assignment": {
+          "cluster_name": "xds-grpc",
+          "endpoints": [{
+            "lb_endpoints": [{
+              "endpoint": {
+                "address":{
+                  "socket_address": {"address": "istio-pilot", "port_value": 15011}
+                }
+              }
+            }]
+          }]
+        },
         "circuit_breakers": {
           "thresholds": [
             {
@@ -385,7 +361,8 @@
             "filters": [
               {
                 "name": "envoy.http_connection_manager",
-                "config": {
+                "typed_config": {
+                  "@type": "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager",
                   "codec_type": "AUTO",
                   "stat_prefix": "stats",
                   "route_config": {
@@ -408,9 +385,9 @@
                       }
                     ]
                   },
-                  "http_filters": {
+                  "http_filters": [{
                     "name": "envoy.router"
-                  }
+                  }]
                 }
               }
             ]

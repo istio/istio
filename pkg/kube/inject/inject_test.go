@@ -389,12 +389,12 @@ func TestRewriteAppProbe(t *testing.T) {
 		},
 		{
 			in:                  "hello-probes-with-flag-set-in-annotation.yaml",
-			rewriteAppHTTPProbe: false,
+			rewriteAppHTTPProbe: true,
 			want:                "hello-probes-with-flag-set-in-annotation.yaml.injected",
 		},
 		{
 			in:                  "hello-probes-with-flag-unset-in-annotation.yaml",
-			rewriteAppHTTPProbe: true,
+			rewriteAppHTTPProbe: false,
 			want:                "hello-probes-with-flag-unset-in-annotation.yaml.injected",
 		},
 		{
