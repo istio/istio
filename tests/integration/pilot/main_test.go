@@ -38,6 +38,22 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("pilot_test", m).
 		SetupOnEnv(environment.Kube, istio.Setup(&i, nil)).
+		SetupOnEnv(environment.Kube, istio.Setup(&i, func(cfg *istio.Config) {
+			cfg.ControlPlaneValues = `
+components:
+  base:
+    enabled: false
+  pilot:
+    enabled: true
+  ingressGateways:
+addonComponents:
+  prometheus:
+    enabled: false
+revision: canary
+values:
+  clusterResources: false
+`
+		})).
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {
 				return err

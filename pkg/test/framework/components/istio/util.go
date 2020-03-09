@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	dummyValidationRule = `
+	dummyValidationRuleTemplate = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
@@ -40,8 +40,7 @@ spec:
 )
 
 func waitForValidationWebhook(accessor *kube.Accessor, cfg Config) error {
-	dummyValidationRule = fmt.Sprintf(dummyValidationRule, cfg.SystemNamespace)
-
+	dummyValidationRule := fmt.Sprintf(dummyValidationRuleTemplate, cfg.SystemNamespace)
 	defer func() {
 		e := accessor.DeleteContents("", dummyValidationRule)
 		if e != nil {
