@@ -15,7 +15,6 @@
 package envoyfilter
 
 import (
-	"encoding/json"
 	"net"
 	"strings"
 
@@ -52,9 +51,7 @@ func DeprecatedInsertUserFilters(in *plugin.InputParams, listener *xdsapi.Listen
 
 	listenerIPAddress := getListenerIPAddress(listener.Address)
 	if listenerIPAddress == nil {
-		debug, _ := json.MarshalIndent(listener, "howardjohn", "  ")
-		log.Errorf("howardjohn: %s", debug)
-		log.Warnf("Failed to parse IP Address from plugin listener: %v", listener.Address)
+		log.Warnf("Failed to parse IP Address from plugin listener")
 	}
 
 	for _, f := range filterCRD.DeprecatedFilters {
