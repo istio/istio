@@ -48,7 +48,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
@@ -2390,14 +2389,6 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *istione
 			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d",
 				len(httpConnectionManagers[i].HttpFilters), mutable.Listener.Name, i)
 		}
-	}
-
-	if !opts.skipUserFilters {
-		// NOTE: we have constructed the HTTP connection manager filter above and we are passing the whole filter chain
-		// EnvoyFilter crd could choose to replace the HTTP ConnectionManager that we built or can choose to add
-		// more filters to the HTTP filter chain. In the latter case, the deprecatedInsertUserFilters function will
-		// overwrite the HTTP connection manager in the filter chain after inserting the new filters
-		return envoyfilter.DeprecatedInsertUserFilters(pluginParams, mutable.Listener, httpConnectionManagers)
 	}
 
 	return nil
