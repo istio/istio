@@ -13,8 +13,8 @@ spec:
   - port: 8080
     name: http-legacy-discovery # direct
   - port: 15012
-    name: grpc-istiod
-  - port: tcp
+    name: tcp-istiod
+  - port: 15014
     name: http-monitoring
   clusterIP: None
 ---

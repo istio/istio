@@ -12876,8 +12876,8 @@ spec:
   - port: 8080
     name: http-legacy-discovery # direct
   - port: 15012
-    name: grpc-istiod
-  - port: tcp
+    name: tcp-istiod
+  - port: 15014
     name: http-monitoring
   clusterIP: None
 ---
@@ -19758,7 +19758,7 @@ data:
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
       {{- if .Values.global.remotePilotAddress }}
-      discoveryAddress: {{ $istiodRemote := printf "istiod-remote.%s.svc" .Release.Namespace }}
+      discoveryAddress: {{ printf "istiod-remote.%s.svc" .Release.Namespace }}:15012
       {{- else }}
       discoveryAddress: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{.Release.Namespace}}.svc:15012
       {{- end }}
