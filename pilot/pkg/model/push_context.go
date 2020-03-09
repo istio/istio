@@ -1749,7 +1749,7 @@ func (ps *PushContext) initMeshNetworks() {
 		for _, gw := range gws {
 			gatewayAddresses := getGatewayAddresses(gw, registryNames, ps.ServiceDiscovery)
 
-			log.Infof("Endpoints from registry(s) %v on network %v reachable through gateway(s) %v",
+			log.Debugf("Endpoints from registry(s) %v on network %v reachable through gateway(s) %v",
 				registryNames, network, gatewayAddresses)
 			for _, addr := range gatewayAddresses {
 				gateways = append(gateways, &Gateway{addr, gw.Port})

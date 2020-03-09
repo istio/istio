@@ -119,7 +119,11 @@ func (s *Server) initDNSCerts(hostname, namespace string) error {
 	// The first is the recommended one, also used by Apiserver for webhooks.
 	names := []string{hostname}
 	for _, altName := range []string{"istiod", "istiod-remote", "istio-pilot"} {
-		names = append(names, fmt.Sprintf("%v.%v.svc", altName, namespace))
+		name := fmt.Sprintf("%v.%v.svc", altName, namespace)
+		if name == hostname {
+			continue // avoid dups
+		}
+		names = append(names, name)
 	}
 
 	var certChain, keyPEM []byte
