@@ -57,6 +57,11 @@ func applyDestinationRule(cluster *apiv2.Cluster, clusterMode ClusterMode, servi
 
 	// Apply traffic policy for the main default cluster.
 	applyTrafficPolicy(opts, proxy)
+
+	// Apply EdsConfig if needed. This should be called after traffic policy is applied because, traffic policy might change
+	// discovery type.
+	maybeApplyEdsConfig(cluster)
+
 	var clusterMetadata *core.Metadata
 	if destRule != nil {
 		clusterMetadata = util.BuildConfigInfoMetadata(destRule.ConfigMeta)

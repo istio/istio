@@ -192,8 +192,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 
 			subsetClusters := applyDestinationRule(defaultCluster, DefaultClusterMode, service, port, proxy, networkView, push)
 
-			maybeApplyEdsConfig(defaultCluster)
-
 			// call plugins for subset clusters.
 			for _, subsetCluster := range subsetClusters {
 				for _, p := range configgen.Plugins {
@@ -239,7 +237,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			}
 			clusters = append(clusters, defaultCluster)
 			clusters = append(clusters, applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, proxy, networkView, push)...)
-			maybeApplyEdsConfig(defaultCluster)
 		}
 	}
 
