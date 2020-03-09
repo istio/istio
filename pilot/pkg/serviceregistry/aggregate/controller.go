@@ -228,10 +228,6 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 	// It doesn't make sense for a single proxy to be found in more than one registry.
 	// TODO: if otherwise, warning or else what to do about it.
 	for _, r := range c.GetRegistries() {
-		if node.Metadata.ClusterID != "" && r.Cluster() != "" && r.Cluster() != node.Metadata.ClusterID {
-			continue
-		}
-
 		instances, err := r.GetProxyServiceInstances(node)
 		if err != nil {
 			errs = multierror.Append(errs, err)
