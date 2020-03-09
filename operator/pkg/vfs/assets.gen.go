@@ -18813,6 +18813,8 @@ template: |
   {{ end }}
   containers:
   - name: istio-proxy
+    lifecycle:
+      type: sidecar
   {{- if contains "/" (annotation .ObjectMeta `+"`"+`sidecar.istio.io/proxyImage`+"`"+` .Values.global.proxy.image) }}
     image: "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/proxyImage`+"`"+` .Values.global.proxy.image }}"
   {{- else }}

@@ -123,7 +123,7 @@ function cleanup_kind_cluster() {
 }
 
 function setup_kind_cluster() {
-  IMAGE="${1:-kindest/node:v1.17.0}"
+  IMAGE="${1:-gcr.io/istio-testing/kind-node:v1.19.0-alpha.pr-80744-0}"
   NAME="${2:-istio-testing}"
   CONFIG="${3:-}"
   # Delete any previous e2e KinD cluster
