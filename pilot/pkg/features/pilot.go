@@ -176,14 +176,6 @@ var (
 		false,
 		"Skip validating the peer is from the same trust domain when mTLS is enabled in authentication policy")
 
-	RestrictPodIPTrafficLoops = env.RegisterBoolVar(
-		"PILOT_RESTRICT_POD_UP_TRAFFIC_LOOP",
-		true,
-		"If enabled, this will block inbound traffic from matching outbound listeners, which "+
-			"could result in an infinite loop of traffic. This option is only provided for backward compatibility purposes "+
-			"and will be removed in the near future.",
-	)
-
 	EnableProtocolSniffingForOutbound = env.RegisterBoolVar(
 		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND",
 		true,
