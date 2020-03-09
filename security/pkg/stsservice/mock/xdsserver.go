@@ -142,6 +142,7 @@ func StartXDSServer(conf XDSConf, cb *XDSCallbacks, ls *DynamicListener, isTLS b
 
 type XDSCallbacks struct {
 	numStream        int
+	numReq           int
 	numTokenReceived int
 
 	callbackError     bool
@@ -218,12 +219,7 @@ func (c *XDSCallbacks) OnStreamOpen(ctx context.Context, id int64, url string) e
 				c.t.Errorf("xDS stream (id: %d, url: %s) sent a token that does "+
 					"not match expected token (%s vs %s)", id, url, h[0], c.expectedToken)
 			} else {
-				c.t.Logf("xDS stream (id: %d, url: %s) has valid token: %v", id, url, h[0])
-			}
-			if c.numStream <= c.numStreamClose {
-				time.Sleep(c.streamDuration)
-				c.t.Logf("force close %d/%d xDS stream (id: %d, url: %s)", c.numStream, c.numStreamClose, id, url)
-				return fmt.Errorf("force to close the stream (id: %d, url: %s)", id, url)
+				xdsServerLog.Infof("xDS stream (id: %d, url: %s) has valid token: %v", id, url, h[0])
 			}
 		} else {
 			c.t.Errorf("XDS stream (id: %d, url: %s) does not have token in metadata %+v",
@@ -243,6 +239,18 @@ func (c *XDSCallbacks) OnStreamClosed(id int64) {
 }
 func (c *XDSCallbacks) OnStreamRequest(id int64, _ *api.DiscoveryRequest) error {
 	xdsServerLog.Infof("receive xDS request (id: %d)", id)
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.numReq++
+
+	// Send out the first response to finish Envoy initialization, and close stream
+	// in followup requests.
+	if c.numReq > 1 && c.numStream <= c.numStreamClose {
+		time.Sleep(c.streamDuration)
+		xdsServerLog.Infof("force close %d/%d xDS stream (id: %d)", c.numStream, c.numStreamClose, id)
+		return fmt.Errorf("force to close the stream (id: %d)", id)
+	}
 	return nil
 }
 func (c *XDSCallbacks) OnStreamResponse(id int64, _ *api.DiscoveryRequest, _ *api.DiscoveryResponse) {

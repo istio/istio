@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -112,8 +113,8 @@ func claimKube(ctx resource.Context, name string) (Instance, error) {
 
 	if !env.Accessor.NamespaceExists(name) {
 		nsConfig := Config{
-			Inject:                  true,
-			CustomInjectorNamespace: cfg.CustomSidecarInjectorNamespace,
+			Inject:   true,
+			Revision: cfg.CustomSidecarInjectorNamespace,
 		}
 		nsLabels := createNamespaceLabels(&nsConfig)
 		if err := env.CreateNamespaceWithLabels(name, "istio-test", nsLabels); err != nil {
@@ -151,9 +152,10 @@ func newKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 func createNamespaceLabels(cfg *Config) map[string]string {
 	l := make(map[string]string)
 	if cfg.Inject {
-		l["istio-injection"] = "enabled"
-		if cfg.CustomInjectorNamespace != "" {
-			l["istio-env"] = cfg.CustomInjectorNamespace
+		if cfg.Revision != "" {
+			l[model.RevisionLabel] = cfg.Revision
+		} else {
+			l["istio-injection"] = "enabled"
 		}
 	}
 

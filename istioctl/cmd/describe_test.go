@@ -699,7 +699,7 @@ Service: productpage
    Port:  9080/auto-detect targets pod port 9080
 DestinationRule: productpage for "productpage"
    No Traffic Policy
-Pod is STRICT, clients configured automatically
+Pod is Strict mTLS, clients configured automatically
 
 
 Exposed on Ingress Gateway http://10.1.2.3:0
@@ -718,7 +718,7 @@ VirtualService: bookinfo
    Port:  9080/auto-detect targets pod port 9080
 DestinationRule: productpage for "productpage"
    No Traffic Policy
-Pod is STRICT, clients configured automatically
+Pod is Strict mTLS, clients configured automatically
 
 
 Exposed on Ingress Gateway http://10.1.2.3:0

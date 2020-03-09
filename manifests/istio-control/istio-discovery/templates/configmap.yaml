@@ -253,18 +253,13 @@ data:
         {{- end }}
       {{- end }}
 
-    {{- if not (eq .Values.revision "") }}
-    {{- $defPilotHostname := printf "istiod-%s.%s" .Values.revision .Release.Namespace }}
-    {{- else }}
-    {{- $defPilotHostname := printf "istiod.%s"  .Release.Namespace }}
-    {{- end }}
-    {{- $defPilotHostname := printf "istiod%s.%s" .Values.revision .Release.Namespace }}
-    {{- $pilotAddress := .Values.global.remotePilotAddress | default $defPilotHostname }}
-
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
-      discoveryAddress: {{ $defPilotHostname }}.svc:15012
-
+      {{- if .Values.global.remotePilotAddress }}
+      discoveryAddress: {{ .Values.global.remotePilotAddress }}
+      {{- else }}
+      discoveryAddress: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{.Release.Namespace}}.svc:15012
+      {{- end }}
 
     {{- if .Values.global.proxy.envoyMetricsService.enabled }}
       #

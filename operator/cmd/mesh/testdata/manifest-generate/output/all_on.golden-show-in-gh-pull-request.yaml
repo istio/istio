@@ -611,22 +611,12 @@ spec:
             - "/usr/local/bin/envoy"
             - --serviceCluster
             - "istio-proxy-prometheus"
-            - --drainDuration
-            - "45s"
-            - --parentShutdownDuration
-            - "1m0s"
-            - --discoveryAddress
-            - istio-pilot.istio-system.svc:15012
             - --proxyLogLevel=warning
             - --proxyComponentLogLevel=misc:error
-            - --connectTimeout
-            - "10s"
             - --proxyAdminPort
             - "15000"
             - --controlPlaneAuthPolicy
             - NONE
-            - --statusPort
-            - "15020"
             - --trust-domain=cluster.local
             - --controlPlaneBootstrap=false
           env:
@@ -689,8 +679,14 @@ spec:
               name: istio-token
             - mountPath: /etc/istio-certs/
               name: istio-certs
+            - name: istio-config-volume
+              mountPath: /etc/istio/config
 
       volumes:
+      - name: istio-config-volume
+        configMap:
+          name: istio
+          optional: true
       - name: config-volume
         configMap:
           name: prometheus
@@ -7248,24 +7244,12 @@ spec:
           - --proxyLogLevel=warning
           - --proxyComponentLogLevel=misc:error
           - --log_output_level=default:info
-          - --drainDuration
-          - '45s' #drainDuration
-          - --parentShutdownDuration
-          - '1m0s' #parentShutdownDuration
-          - --connectTimeout
-          - '10s' #connectTimeout
           - --serviceCluster
           - istio-egressgateway
-          - --zipkinAddress
-          - zipkin.istio-system:9411
           - --proxyAdminPort
           - "15000"
-          - --statusPort
-          - "15020"
           - --controlPlaneAuthPolicy
           - NONE
-          - --discoveryAddress
-          - istio-pilot.istio-system.svc:15012
           - --trust-domain=cluster.local
           readinessProbe:
             failureThreshold: 30
@@ -8010,24 +7994,12 @@ spec:
           - --proxyLogLevel=warning
           - --proxyComponentLogLevel=misc:error
           - --log_output_level=default:info
-          - --drainDuration
-          - '45s' #drainDuration
-          - --parentShutdownDuration
-          - '1m0s' #parentShutdownDuration
-          - --connectTimeout
-          - '10s' #connectTimeout
           - --serviceCluster
           - istio-ingressgateway
-          - --zipkinAddress
-          - zipkin.istio-system:9411
           - --proxyAdminPort
           - "15000"
-          - --statusPort
-          - "15020"
           - --controlPlaneAuthPolicy
           - NONE
-          - --discoveryAddress
-          - istio-pilot.istio-system.svc:15012
           - --trust-domain=cluster.local
           readinessProbe:
             failureThreshold: 30
@@ -9067,10 +9039,6 @@ data:
         {{ end -}}
         - --proxyLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel}}
         - --proxyComponentLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel}}
-      {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
-        - --statusPort
-        - "{{ annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort }}"
-      {{- end }}
       {{- if .Values.global.sts.servicePort }}
         - --stsPort={{ .Values.global.sts.servicePort }}
       {{- end }}
