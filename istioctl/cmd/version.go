@@ -101,15 +101,12 @@ func getProxyInfo() (*[]istioVersion.ProxyInfo, error) {
 		for _, ss := range sss {
 			// if proxy id has istio gateway items, let us exclude them
 			// from data plane as they are also shown under control plane
-			if !strings.HasPrefix(ss.ProxyID, "istio-ingressgateway-") &&
-				!strings.HasPrefix(ss.ProxyID, "istio-egressgateway-") &&
-				!strings.HasPrefix(ss.ProxyID, "prometheus-") {
+			if !strings.HasPrefix(ss.ProxyID, "istio-ingressgateway-") && !strings.HasPrefix(ss.ProxyID, "istio-egressgateway-") && !strings.HasPrefix(ss.ProxyID, "prometheus-") {
 				pi = append(pi, istioVersion.ProxyInfo{
 					ID:           ss.ProxyID,
 					IstioVersion: ss.SyncStatus.IstioVersion,
 				})
 			}
-
 		}
 	}
 
