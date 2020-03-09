@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/env"
@@ -89,7 +88,6 @@ var (
 	concurrency              int
 	templateFile             string
 	disableInternalTelemetry bool
-	tlsCertsToWatch          []string
 	loggingOptions           = log.DefaultOptions()
 	outlierLogPath           string
 
@@ -101,9 +99,7 @@ var (
 	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
 	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
-	autoMTLSEnabled      = env.RegisterBoolVar("ISTIO_AUTO_MTLS_ENABLED", false, "If true, auto mTLS is enabled, "+
-		"sidecar checks key/cert if SDS is not enabled.")
-	sdsUdsPathVar = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
+	sdsUdsPathVar        = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
 
 	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
 		"the provider of Pilot DNS certificate.").Get()
@@ -114,9 +110,6 @@ var (
 	meshConfig = env.RegisterStringVar("MESH_CONFIG", "", "The mesh configuration").Get()
 
 	sdsUdsWaitTimeout = time.Minute
-
-	// Indicates if any the remote services like AccessLogService, MetricsService have enabled tls.
-	rsTLSEnabled bool
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -187,11 +180,6 @@ var (
 				} else {
 					role.ID = role.IPAddresses[0]
 				}
-			}
-
-			tlsCertsToWatch = []string{
-				tlsServerCertChain, tlsServerKey, tlsServerRootCert,
-				tlsClientCertChain, tlsClientKey, tlsClientRootCert,
 			}
 
 			proxyConfig, err := constructProxyConfig()
@@ -268,20 +256,7 @@ var (
 				}
 			}
 
-			// dedupe cert paths so we don't set up 2 watchers for the same file:
-			tlsCertsToWatch = dedupeStrings(tlsCertsToWatch)
-
-			// Since Envoy needs the file-mounted certs for mTLS, we wait for them to become available
-			// before starting it. Skip waiting cert if sds is enabled, otherwise it takes long time for
-			// pod to start.
-			if (proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS || rsTLSEnabled || autoMTLSEnabled.Get()) && !nodeAgentSDSEnabled {
-				log.Infof("Monitored certs: %#v", tlsCertsToWatch)
-				for _, cert := range tlsCertsToWatch {
-					waitForFile(cert, 2*time.Minute)
-				}
-			}
-
-			// If control plane auth is not mTLS or global SDS flag is turned off, unset UDS path and token path
+			// If global SDS flag is turned off, unset UDS path and token path
 			// for control plane SDS.
 			if !nodeAgentSDSEnabled {
 				sdsUDSPath = ""
@@ -411,13 +386,7 @@ var (
 
 			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
 
-			if nodeAgentSDSEnabled {
-				tlsCertsToWatch = []string{}
-			}
-
-			// Watcher is also kicking envoy start.
-			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.Restart)
-			go watcher.Run(ctx)
+			agent.Restart(nil)
 
 			// On SIGINT or SIGTERM, cancel the context, triggering a graceful shutdown
 			go cmd.WaitSignalFunc(cancel)
@@ -570,18 +539,6 @@ func fromJSON(j string) *meshconfig.RemoteService {
 	}
 
 	return &m
-}
-
-func appendTLSCerts(rs *meshconfig.RemoteService) {
-	if rs.TlsSettings == nil {
-		return
-	}
-	if rs.TlsSettings.Mode == networking.TLSSettings_DISABLE {
-		return
-	}
-	rsTLSEnabled = true
-	tlsCertsToWatch = append(tlsCertsToWatch, rs.TlsSettings.CaCertificates, rs.TlsSettings.ClientCertificate,
-		rs.TlsSettings.PrivateKey)
 }
 
 func init() {
