@@ -102,8 +102,6 @@ spec:
           - istio-egressgateway
           - --proxyAdminPort
           - "15000"
-          - --statusPort
-          - "15020"
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
         {{- end }}

@@ -19,9 +19,7 @@ package inject
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strconv"
-	"strings"
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
@@ -29,19 +27,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-)
-
-const (
-	// StatusPortCmdFlagName is the name of the command line flag passed to pilot-agent for sidecar readiness probe.
-	// We reuse it for taking over application's readiness probing as well.
-	// TODO: replace the hardcoded statusPort elsewhere by this variable as much as possible.
-	StatusPortCmdFlagName = "statusPort"
-)
-
-var (
-	// regex pattern for to extract the pilot agent probing port.
-	// Supported format, --statusPort, -statusPort, --statusPort=15020.
-	statusPortPattern = regexp.MustCompile(fmt.Sprintf(`^-{1,2}%s(=(?P<port>\d+))?$`, StatusPortCmdFlagName))
 )
 
 // ShouldRewriteAppHTTPProbers returns if we should rewrite apps' probers config.
@@ -67,41 +52,6 @@ func FindSidecar(containers []corev1.Container) *corev1.Container {
 		}
 	}
 	return nil
-}
-
-// extractStatusPort accepts the sidecar container spec and returns its port for healthiness probing.
-func extractStatusPort(sidecar *corev1.Container) int {
-	for i, arg := range sidecar.Args {
-		// Skip for unrelated args.
-		match := statusPortPattern.FindAllStringSubmatch(strings.TrimSpace(arg), -1)
-		if len(match) != 1 {
-			continue
-		}
-		groups := statusPortPattern.SubexpNames()
-		portStr := ""
-		for ind, s := range match[0] {
-			if groups[ind] == "port" {
-				portStr = s
-				break
-			}
-		}
-		// Port not found from current arg, extract from next arg.
-		if portStr == "" {
-			// Matches the regex pattern, but without actual values provided.
-			if len(sidecar.Args) <= i+1 {
-				log.Errorf("No statusPort value provided, skip app probe rewriting")
-				return -1
-			}
-			portStr = sidecar.Args[i+1]
-		}
-		p, err := strconv.Atoi(portStr)
-		if err != nil {
-			log.Errorf("Failed to convert statusPort to int %v, err %v", portStr, err)
-			return -1
-		}
-		return p
-	}
-	return -1
 }
 
 // convertAppProber returns an overwritten `Probe` for pilot agent to take over.
@@ -166,7 +116,7 @@ func DumpAppProbers(podspec *corev1.PodSpec) string {
 }
 
 // rewriteAppHTTPProbes modifies the app probers in place for kube-inject.
-func rewriteAppHTTPProbe(annotations map[string]string, podSpec *corev1.PodSpec, spec *SidecarInjectionSpec) {
+func rewriteAppHTTPProbe(annotations map[string]string, podSpec *corev1.PodSpec, spec *SidecarInjectionSpec, port int32) {
 	if !ShouldRewriteAppHTTPProbers(annotations, spec) {
 		return
 	}
@@ -175,7 +125,14 @@ func rewriteAppHTTPProbe(annotations map[string]string, podSpec *corev1.PodSpec,
 		return
 	}
 
-	statusPort := extractStatusPort(sidecar)
+	statusPort := int(port)
+	if v, f := annotations[annotation.SidecarStatusPort.Name]; f {
+		p, err := strconv.Atoi(v)
+		if err != nil {
+			log.Errorf("Invalid annotation %v=%v: %v", annotation.SidecarStatusPort, p, err)
+		}
+		statusPort = p
+	}
 	// Pilot agent statusPort is not defined, skip changing application http probe.
 	if statusPort == -1 {
 		return
@@ -201,7 +158,7 @@ func rewriteAppHTTPProbe(annotations map[string]string, podSpec *corev1.PodSpec,
 }
 
 // createProbeRewritePatch generates the patch for webhook.
-func createProbeRewritePatch(annotations map[string]string, podSpec *corev1.PodSpec, spec *SidecarInjectionSpec) []rfc6902PatchOperation {
+func createProbeRewritePatch(annotations map[string]string, podSpec *corev1.PodSpec, spec *SidecarInjectionSpec, defaultPort int32) []rfc6902PatchOperation {
 	if !ShouldRewriteAppHTTPProbers(annotations, spec) {
 		return []rfc6902PatchOperation{}
 	}
@@ -210,10 +167,13 @@ func createProbeRewritePatch(annotations map[string]string, podSpec *corev1.PodS
 	if sidecar == nil {
 		return nil
 	}
-	statusPort := extractStatusPort(sidecar)
-	// Pilot agent statusPort is not defined, skip changing application http probe.
-	if statusPort == -1 {
-		return nil
+	statusPort := int(defaultPort)
+	if v, f := annotations[annotation.SidecarStatusPort.Name]; f {
+		p, err := strconv.Atoi(v)
+		if err != nil {
+			log.Errorf("Invalid annotation %v=%v: %v", annotation.SidecarStatusPort, p, err)
+		}
+		statusPort = p
 	}
 	for i, c := range podSpec.Containers {
 		// Skip sidecar container.
