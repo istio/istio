@@ -64,8 +64,6 @@ spec:
           - istio-ingressgateway
           - --proxyAdminPort
           - "15000"
-          - --statusPort
-          - "15020"
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress

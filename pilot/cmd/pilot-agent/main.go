@@ -72,7 +72,6 @@ var (
 	trustDomain        string
 	pilotIdentity      string
 	mixerIdentity      string
-	statusPort         uint16
 	stsPort            int
 	tokenManagerPlugin string
 
@@ -349,7 +348,7 @@ var (
 			}
 			ctx, cancel := context.WithCancel(context.Background())
 			// If a status port was provided, start handling status probes.
-			if statusPort > 0 {
+			if proxyConfig.StatusPort > 0 {
 				localHostAddr := localHostIPv4
 				if proxyIPv6 {
 					localHostAddr = localHostIPv6
@@ -358,7 +357,7 @@ var (
 				statusServer, err := status.NewServer(status.Config{
 					LocalHostAddr:  localHostAddr,
 					AdminPort:      proxyAdminPort,
-					StatusPort:     statusPort,
+					StatusPort:     uint16(proxyConfig.StatusPort),
 					KubeAppProbers: prober,
 					NodeType:       role.Type,
 				})
@@ -605,8 +604,6 @@ func init() {
 
 	proxyCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfig", "/etc/istio/config/mesh",
 		"File name for Istio mesh configuration. If not specified, a default mesh will be used. MESH_CONFIG environment variable takes precedence.")
-	proxyCmd.PersistentFlags().Uint16Var(&statusPort, "statusPort", 0,
-		"HTTP Port on which to serve pilot agent status. If zero, agent status will not be provided.")
 	proxyCmd.PersistentFlags().IntVar(&stsPort, "stsPort", 0,
 		"HTTP Port on which to serve Security Token Service (STS). If zero, STS service will not be provided.")
 	proxyCmd.PersistentFlags().StringVar(&tokenManagerPlugin, "tokenManagerPlugin", tokenmanager.GoogleTokenExchange,

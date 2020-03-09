@@ -258,10 +258,10 @@ data:
         zipkin:
           # Address of the Zipkin collector
           address: zipkin.istio-system:9411
-      discoveryAddress: istiod.istio-system.svc:15012
 
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
+      discoveryAddress: istiod.istio-system.svc:15012
 ---
 
 
@@ -791,10 +791,6 @@ data:
         {{ end -}}
         - --proxyLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel}}
         - --proxyComponentLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel}}
-      {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
-        - --statusPort
-        - "{{ annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort }}"
-      {{- end }}
       {{- if .Values.global.sts.servicePort }}
         - --stsPort={{ .Values.global.sts.servicePort }}
       {{- end }}

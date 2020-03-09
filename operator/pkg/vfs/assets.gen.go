@@ -13438,8 +13438,6 @@ spec:
           - istio-egressgateway
           - --proxyAdminPort
           - "15000"
-          - --statusPort
-          - "15020"
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
         {{- end }}
@@ -14468,8 +14466,6 @@ spec:
           - istio-ingressgateway
           - --proxyAdminPort
           - "15000"
-          - --statusPort
-          - "15020"
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
         {{- end }}
@@ -17435,10 +17431,6 @@ data:
         {{ end -}}
         - --proxyLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/logLevel`+"`"+` .Values.global.proxy.logLevel}}
         - --proxyComponentLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/componentLogLevel`+"`"+` .Values.global.proxy.componentLogLevel}}
-      {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
-        - --statusPort
-        - "{{ annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort }}"
-      {{- end }}
       {{- if .Values.global.sts.servicePort }}
         - --stsPort={{ .Values.global.sts.servicePort }}
       {{- end }}
@@ -18926,10 +18918,6 @@ template: |
     {{ end -}}
     - --proxyLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/logLevel`+"`"+` .Values.global.proxy.logLevel}}
     - --proxyComponentLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/componentLogLevel`+"`"+` .Values.global.proxy.componentLogLevel}}
-  {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
-    - --statusPort
-    - "{{ annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort }}"
-  {{- end }}
   {{- if .Values.global.sts.servicePort }}
     - --stsPort={{ .Values.global.sts.servicePort }}
   {{- end }}
@@ -19767,26 +19755,13 @@ data:
         {{- end }}
       {{- end }}
 
-    {{- if not (eq .Values.revision "") }}
-    {{- $defPilotHostname := printf "istiod-%s.%s.svc" .Values.revision .Release.Namespace }}
-    {{- else }}
-    {{- $defPilotHostname := printf "istiod.%s.svc"  .Release.Namespace }}
-    {{- end }}
-    {{- $defPilotHostname := printf "istiod%s.%s.svc" .Values.revision .Release.Namespace }}
-    {{- $istiodRemote := printf "istiod-remote.%s.svc" .Release.Namespace }}
-
-    {{- if .Values.global.remotePilotAddress }}
-      # Use the DNS hostname instead of the IP address. The discovery address needs to match the
-      # SAN in istiod's cert. The istiod-remote.<namespace>.svc will resolve to the remotePilotAddress.
-      discoveryAddress: {{ $istiodRemote }}:15012
-    {{- else }}
-      discoveryAddress: {{ $defPilotHostname }}:15012
-    {{- end }}
-
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
-
-
+      {{- if .Values.global.remotePilotAddress }}
+      discoveryAddress: {{ $istiodRemote := printf "istiod-remote.%s.svc" .Release.Namespace }}
+      {{- else }}
+      discoveryAddress: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{.Release.Namespace}}.svc:15012
+      {{- end }}
 
     {{- if .Values.global.proxy.envoyMetricsService.enabled }}
       #
@@ -42290,8 +42265,6 @@ spec:
             - --controlPlaneAuthPolicy
             - NONE
               {{- end }}
-            - --statusPort
-            - "15020"
               {{- if .Values.global.trustDomain }}
             - --trust-domain={{ .Values.global.trustDomain }}
               {{- end }}
@@ -47750,7 +47723,7 @@ var _translateconfigTranslateconfig15Yaml = []byte(`apiMapping:
   MeshConfig.rootNamespace:
     outPath: "global.istioNamespace"
   Revision:
-    outPath: "global.revision"
+    outPath: "revision"
 kubernetesMapping:
   "Components.{{.ComponentName}}.K8S.Affinity":
     outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.affinity"
@@ -47928,7 +47901,7 @@ var _translateconfigTranslateconfig16Yaml = []byte(`apiMapping:
   MeshConfig.rootNamespace:
     outPath: "global.istioNamespace"
   Revision:
-    outPath: "global.revision"
+    outPath: "revision"
 kubernetesMapping:
   "Components.{{.ComponentName}}.K8S.Affinity":
     outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.affinity"
