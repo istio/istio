@@ -54,7 +54,7 @@ else
 # If we are not in build container, we need a workaround to get environment properly set
 # Write to file, then include
 $(shell mkdir -p out)
-$(shell $(PWD)/common/scripts/setup_env.sh envfile > out/.env)
+$(shell $(shell pwd)/common/scripts/setup_env.sh envfile > out/.env)
 include out/.env
 export out/.env
 
