@@ -1475,6 +1475,37 @@ func TestHttpProxyListener(t *testing.T) {
 	}
 }
 
+func TestOutboundListenerConfig_TCPFailThrough(t *testing.T) {
+	// Add a service and verify it's config
+	services := []*model.Service{
+		buildService("test1.com", wildcardIP, protocol.HTTP, tnow)}
+	listeners := buildOutboundListeners(&fakePlugin{}, &proxy, nil, nil, services...)
+
+	if len(listeners[0].FilterChains) != 3 {
+		t.Fatalf("expectd %d filter chains, found %d", 3, len(listeners[0].FilterChains))
+	}
+
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1], model.TrafficDirectionOutbound)
+	verifyPassThroughTCPFilterChain(t, listeners[0].FilterChains[2])
+
+	if len(listeners[0].ListenerFilters) != 2 ||
+		listeners[0].ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
+		listeners[0].ListenerFilters[1].Name != "envoy.listener.http_inspector" {
+		t.Fatalf("expected %d listener filter, found %d", 2, len(listeners[0].ListenerFilters))
+	}
+}
+
+func verifyPassThroughTCPFilterChain(t *testing.T, fc *listener.FilterChain) {
+	t.Helper()
+	f := fc.Filters[0]
+	expectedStatPrefix := networkutil.PassthroughCluster
+	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
+	statPrefix := cfg.Fields["stat_prefix"].GetStringValue()
+	if statPrefix != expectedStatPrefix {
+		t.Fatalf("expected listener to contain stat_prefix %s, found %s", expectedStatPrefix, statPrefix)
+	}
+}
+
 func verifyOutboundTCPListenerHostname(t *testing.T, l *xdsapi.Listener, hostname host.Name) {
 	t.Helper()
 	if len(l.FilterChains) != 1 {

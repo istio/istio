@@ -312,8 +312,15 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 
 	for _, l := range ll {
 		ldsSize += proto.Size(l)
-		// The last filter will be the actual destination we care about
+
+		// The last filter is the actual destination for inbound listener
 		filter := l.FilterChains[len(l.FilterChains)-1].Filters[0]
+
+		// The second to last filter is the actual destination for outbound listener
+		if len(l.FilterChains) >= 2 && l.FilterChains[len(l.FilterChains)-2].Filters[0].Name == "envoy.http_connection_manager" {
+			filter = l.FilterChains[len(l.FilterChains)-2].Filters[0]
+		}
+
 		if filter.Name == "mixer" {
 			filter = l.FilterChains[len(l.FilterChains)-1].Filters[1]
 		}
