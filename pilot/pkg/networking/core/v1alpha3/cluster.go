@@ -1104,6 +1104,13 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 			}
 		}
 	}
+
+	// disable transport socket when cluster type is `Cluster_ORIGINAL_DST` and mtls is autoDetected
+	if cluster.LbPolicy == apiv2.Cluster_CLUSTER_PROVIDED {
+		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected && util.IsIstioVersionGE14(proxy) {
+			cluster.TransportSocket = nil
+		}
+	}
 }
 
 func setUpstreamProtocol(node *model.Proxy, c *cluster.Cluster, port *model.Port, direction model.TrafficDirection) {
