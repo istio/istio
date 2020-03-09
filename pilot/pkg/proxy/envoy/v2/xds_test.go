@@ -171,28 +171,25 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 			Address:  "10.10.0.3",
 			Ports:    testPorts(0),
 			Attributes: model.ServiceAttributes{
-				Name:      "service3",
+				Name:      "local",
 				Namespace: "default",
 			},
 		})
-		server.EnvoyXdsServer.MemRegistry.AddInstance(hostname, &model.ServiceInstance{
-			Endpoint: &model.IstioEndpoint{
+
+		server.EnvoyXdsServer.MemRegistry.SetEndpoints(string(hostname), "default", []*model.IstioEndpoint{
+			{
 				Address:         "127.0.0.1",
 				EndpointPort:    uint32(testEnv.Ports().BackendPort),
 				ServicePortName: "http",
 				Locality:        model.Locality{Label: "az"},
 				ServiceAccount:  "hello-sa",
 			},
-			ServicePort: &model.Port{
-				Name:     "http",
-				Port:     80,
-				Protocol: protocol.HTTP,
-			},
 		})
 
 		// "local" service points to the current host and the in-process mixer http test endpoint
-		server.EnvoyXdsServer.MemRegistry.AddService("local.default.svc.cluster.local", &model.Service{
-			Hostname: "local.default.svc.cluster.local",
+		hostname = "local.default.svc.cluster.local"
+		server.EnvoyXdsServer.MemRegistry.AddService(hostname, &model.Service{
+			Hostname: hostname,
 			Address:  "10.10.0.4",
 			Ports: []*model.Port{
 				{
@@ -205,17 +202,13 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 				Namespace: "default",
 			},
 		})
-		server.EnvoyXdsServer.MemRegistry.AddInstance("local.default.svc.cluster.local", &model.ServiceInstance{
-			Endpoint: &model.IstioEndpoint{
+
+		server.EnvoyXdsServer.MemRegistry.SetEndpoints(string(hostname), "default", []*model.IstioEndpoint{
+			{
 				Address:         localIP,
 				EndpointPort:    uint32(testEnv.Ports().BackendPort),
 				ServicePortName: "http",
 				Locality:        model.Locality{Label: "az"},
-			},
-			ServicePort: &model.Port{
-				Name:     "http",
-				Port:     80,
-				Protocol: protocol.HTTP,
 			},
 		})
 

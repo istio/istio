@@ -895,6 +895,7 @@ func (s *DiscoveryServer) getProxyConnection(proxyID string) *XdsConnection {
 	defer s.adsClientsMutex.RUnlock()
 
 	for conID := range s.adsClients {
+
 		if strings.Contains(conID, proxyID) {
 			return s.adsClients[conID]
 		}

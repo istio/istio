@@ -212,7 +212,7 @@ func (sd *MemServiceDiscovery) SetEndpoints(service string, namespace string, en
 	}
 
 	for _, e := range endpoints {
-		//servicePortName string, servicePort int, address string, port int
+		// servicePortName string, servicePort int, address string, port int
 		p, _ := svc.Ports.Get(e.ServicePortName)
 
 		instance := &model.ServiceInstance{
