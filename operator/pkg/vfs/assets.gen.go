@@ -12702,6 +12702,7 @@ func chartsBaseTemplatesCrdsYaml() (*asset, error) {
 }
 
 var _chartsBaseTemplatesEndpointsYaml = []byte(`{{- if .Values.global.remotePilotAddress }}
+  {{- if not .Values.global.istiod.enabled }}
 apiVersion: v1
 kind: Endpoints
 metadata:
@@ -12715,13 +12716,7 @@ subsets:
     name: grpc-xds # direct
   - port: 15011
     name: https-xds # mTLS or non-mTLS depending on auth setting
-  - port: 8080
-    name: http-legacy-discovery # direct
-  - port: 15012
-    name: tcp-istiod
-  - port: 15014
-    name: http-monitoring
----
+  {{- else }}
 apiVersion: v1
 kind: Endpoints
 metadata:
@@ -12733,10 +12728,10 @@ subsets:
   ports:
   - port: 15012
     name: tcp-istiod
-{{- end }}
-
-{{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
+  {{- end }}
 ---
+{{- end }}
+{{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
 apiVersion: v1
 kind: Endpoints
 metadata:
@@ -12862,6 +12857,7 @@ func chartsBaseTemplatesServiceaccountYaml() (*asset, error) {
 }
 
 var _chartsBaseTemplatesServicesYaml = []byte(`{{- if .Values.global.remotePilotAddress }}
+  {{- if not .Values.global.istiod.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -12873,14 +12869,8 @@ spec:
     name: grpc-xds # direct
   - port: 15011
     name: https-xds # mTLS or non-mTLS depending on auth setting
-  - port: 8080
-    name: http-legacy-discovery # direct
-  - port: 15012
-    name: tcp-istiod
-  - port: 15014
-    name: http-monitoring
   clusterIP: None
----
+  {{- else }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -12891,6 +12881,7 @@ spec:
   - port: 15012
     name: tcp-istiod
   clusterIP: None
+  {{- end }}
 ---
 {{- end }}
 {{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
