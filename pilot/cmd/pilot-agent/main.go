@@ -32,6 +32,8 @@ import (
 
 	stsserver "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
+	cleaniptables "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
+	iptables "istio.io/istio/tools/istio-iptables/pkg/cmd"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -645,6 +647,8 @@ func init() {
 
 	rootCmd.AddCommand(proxyCmd)
 	rootCmd.AddCommand(version.CobraCommand())
+	rootCmd.AddCommand(iptables.GetCommand())
+	rootCmd.AddCommand(cleaniptables.GetCommand())
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Pilot Agent",
