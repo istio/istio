@@ -247,7 +247,7 @@ func (c *kubeComponent) createClient(options CallOptions) (*http.Client, error) 
 				if s := strings.Split(addr, ":"); s[0] == options.Host {
 					addr = options.Address.String()
 				}
-				tc, err := tls.Dial(netw, addr, tlsConfig)
+				tc, err := tls.DialWithDialer(&net.Dialer{Timeout: options.Timeout}, netw, addr, tlsConfig)
 				if err != nil {
 					scopes.Framework.Errorf("TLS dial fail: %v", err)
 					return nil, err

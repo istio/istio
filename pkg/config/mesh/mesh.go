@@ -53,6 +53,7 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		Concurrency:            0,
 		StatNameLength:         189,
 		Tracing:                nil,
+		StatusPort:             15020,
 	}
 }
 

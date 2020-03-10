@@ -534,8 +534,6 @@ security-racetest:
 
 .PHONY: common-racetest
 common-racetest: ${BUILD_DEPS}
-	# Execute bash shell unit tests scripts
-	LOCAL_OUT=$(LOCAL_OUT) ./tests/scripts/istio-iptables-test.sh
 	go test ${T} -race ./pkg/... ./tests/common/... ./tools/istio-iptables/...
 
 #-----------------------------------------------------------------------------

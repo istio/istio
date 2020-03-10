@@ -45,3 +45,5 @@ mixer:
     # "security" and value "S1".
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
+
+revision: ""

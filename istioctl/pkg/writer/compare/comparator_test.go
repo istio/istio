@@ -32,6 +32,14 @@ func loadDiffEnvoyDump() []byte {
 	bytes, _ := ioutil.ReadFile("testdata/diffenvoyconfigdump.json")
 	return bytes
 }
+func loadTestData(t *testing.T, fn string) []byte {
+	t.Helper()
+	bytes, err := ioutil.ReadFile(fn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return bytes
+}
 
 func TestNewComparator(t *testing.T) {
 	tests := []struct {

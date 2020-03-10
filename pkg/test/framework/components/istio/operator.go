@@ -152,7 +152,6 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		"--skip-confirmation",
 		"--logtostderr",
 		"-f", iopFile,
-		"--set", "values.global.controlPlaneSecurityEnabled=false",
 		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
 		"--wait",
 	}

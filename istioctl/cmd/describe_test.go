@@ -668,7 +668,7 @@ func TestDescribeAutoMTLS(t *testing.T) {
 --------------------
 Service: productpage
    Port:  9080/auto-detect targets pod port 9080
-Pod is STRICT, clients configured automatically
+Pod is Strict mTLS, clients configured automatically
 
 
 Exposed on Ingress Gateway http://10.1.2.3:0
@@ -685,7 +685,7 @@ VirtualService: bookinfo
 			args:             strings.Split("x describe svc productpage", " "),
 			expectedOutput: `Service: productpage
    Port:  9080/auto-detect targets pod port 9080
-Pod is STRICT, clients configured automatically
+Pod is Strict mTLS, clients configured automatically
 
 
 Exposed on Ingress Gateway http://10.1.2.3:0
