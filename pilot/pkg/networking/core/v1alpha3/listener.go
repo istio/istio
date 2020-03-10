@@ -2114,7 +2114,7 @@ func buildThriftRatelimit(domain string, thriftconfig *meshconfig.MeshConfig_Thr
 		},
 	}
 
-	rlsClusterName, err := thritRLSClusterNameFromAuthority(thriftconfig.RateLimitUrl)
+	rlsClusterName, err := thriftRLSClusterNameFromAuthority(thriftconfig.RateLimitUrl)
 	if err != nil {
 		log.Errorf("unable to generate thrift rls cluster name: %s\n", rlsClusterName)
 		return nil
