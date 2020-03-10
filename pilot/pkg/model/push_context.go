@@ -1079,6 +1079,7 @@ func (ps *PushContext) updateContext(
 		}
 	} else {
 		ps.sidecarsByNamespace = oldPushContext.sidecarsByNamespace
+		ps.defaultSidecarConfig = oldPushContext.defaultSidecarConfig
 	}
 
 	return nil
