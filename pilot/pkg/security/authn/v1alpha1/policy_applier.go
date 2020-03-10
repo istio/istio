@@ -173,8 +173,7 @@ func convertToEnvoyJwtConfig(policyJwts []*authn_v1alpha1.Jwt) *envoy_jwt.JwtAut
 }
 
 // ConvertPolicyToJwtConfig converts policy into Jwt filter config for envoy.
-// Returns nil if there is no JWT policy. Returns the Istio JWT filter config if USE_ENVOY_JWT_FILTER
-// is false, otherwise returns the Envoy JWT filter config.
+// Returns nil if there is no JWT policy, otherwise returns the Envoy JWT filter config.
 func convertPolicyToJwtConfig(policy *authn_v1alpha1.Policy) (string, proto.Message) {
 	policyJwts := collectJwtSpecs(policy)
 	if len(policyJwts) == 0 {
