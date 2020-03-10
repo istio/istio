@@ -56,6 +56,8 @@ Istio is composed of these components:
 
 - **Galley**- Central component for validating, ingesting, aggregating, transforming and distributing config within Istio.
 
+- **Operator**- The component provides user friendly options to operate the Istio service mesh.
+
 Istio currently supports Kubernetes and Consul-based environments. We plan support for additional platforms such as
 Cloud Foundry, and Mesos in the near future.
 
