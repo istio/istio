@@ -107,7 +107,7 @@ func TestSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	promInst, err = prometheus.New(ctx)
+	promInst, err = prometheus.New(ctx, prometheus.Config{})
 	if err != nil {
 		return
 	}

@@ -65,28 +65,29 @@ func TestCitadelBootstrapKubernetes(t *testing.T) {
 
 			// Retrieve Citadel CA-root secret. Keep it for later comparison.
 			env := ctx.Environment().(*kube.Environment)
-			secrets := env.GetSecret(ns.Name())
+			cluster := env.KubeClusters[0]
+			secrets := cluster.GetSecret(ns.Name())
 			citadelSecret, err := secrets.Get(ca.CASecret, metav1.GetOptions{})
 			if err != nil {
 				t.Fatal("Failed to retrieve Citadel CA-root secret.")
 			}
 
 			// Delete Citadel pod, a new pod will be started.
-			pods, err := env.GetPods(ns.Name(), "istio=citadel")
+			pods, err := cluster.GetPods(ns.Name(), "istio=citadel")
 			if err != nil {
 				t.Fatal("Failed to get Citadel pods.")
 			}
-			env.DeletePod(ns.Name(), pods[0].GetName())
+			_ = cluster.DeletePod(ns.Name(), pods[0].GetName())
 
 			// Sleep 60 seconds for the recreated Citadel to detect the write error and exit.
 			time.Sleep(60 * time.Second)
 
-			pods, err = env.GetPods(ns.Name(), "istio=citadel")
+			pods, err = cluster.GetPods(ns.Name(), "istio=citadel")
 			if err != nil {
 				t.Fatalf("failed to get Citadel pod")
 			}
-			cl, cErr := env.Logs(ns.Name(), pods[0].Name, "citadel", false /* previousLog */)
-			pl, pErr := env.Logs(ns.Name(), pods[0].Name, "citadel", true /* previousLog */)
+			cl, cErr := cluster.Logs(ns.Name(), pods[0].Name, "citadel", false /* previousLog */)
+			pl, pErr := cluster.Logs(ns.Name(), pods[0].Name, "citadel", true /* previousLog */)
 			expectedErr := []string{"Failed to write secret to CA", "Failed to create a self-signed Citadel"}
 			if cl != "" && cErr == nil && strings.Contains(cl, expectedErr[0]) && strings.Contains(cl, expectedErr[1]) {
 				// Found the strings in the current log.
@@ -117,11 +118,11 @@ func TestCitadelBootstrapKubernetes(t *testing.T) {
 			time.Sleep(10 * time.Second)
 
 			// Delete Citadel pod, a new pod will be started.
-			pods, err = env.GetPods(ns.Name(), "istio=citadel")
+			pods, err = cluster.GetPods(ns.Name(), "istio=citadel")
 			if err != nil {
 				t.Fatal("Failed to get Citadel pods.")
 			}
-			env.DeletePod(ns.Name(), pods[0].GetName())
+			_ = cluster.DeletePod(ns.Name(), pods[0].GetName())
 			// Sleep 10 seconds for the Citadel pod to recreate.
 			time.Sleep(10 * time.Second)
 		})

@@ -296,7 +296,7 @@ func testsetup(ctx resource.Context) (err error) {
 	if _, err = mixer.New(ctx, mixer.Config{Galley: g}); err != nil {
 		return
 	}
-	red, err = redis.New(ctx)
+	red, err = redis.New(ctx, redis.Config{})
 	if err != nil {
 		return
 	}
@@ -304,7 +304,7 @@ func testsetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	prom, err = prometheus.New(ctx)
+	prom, err = prometheus.New(ctx, prometheus.Config{})
 	if err != nil {
 		return
 	}

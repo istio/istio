@@ -173,7 +173,7 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	sdInst, err = stackdriver.New(ctx)
+	sdInst, err = stackdriver.New(ctx, stackdriver.Config{})
 	if err != nil {
 		return
 	}

@@ -20,7 +20,7 @@ import (
 	"net"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	meshapi "istio.io/api/mesh/v1alpha1"
 

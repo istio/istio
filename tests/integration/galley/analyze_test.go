@@ -309,7 +309,7 @@ func istioctlSafe(t *testing.T, i istioctl.Instance, ns string, useKube bool, ex
 
 func applyFileOrFail(t *testing.T, ns, filename string) {
 	t.Helper()
-	if err := env.Apply(ns, filename); err != nil {
+	if err := cluster.Apply(ns, filename); err != nil {
 		t.Fatal(err)
 	}
 }

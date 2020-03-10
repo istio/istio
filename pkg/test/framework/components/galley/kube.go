@@ -50,10 +50,10 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 
 	n := &kubeComponent{
-		context:     ctx,
-		environment: ctx.Environment().(*kube.Environment),
-		cfg:         cfg,
-		cache:       yml.NewCache(dir),
+		context: ctx,
+		cluster: kube.ClusterOrDefault(cfg.Cluster, ctx.Environment()),
+		cfg:     cfg,
+		cache:   yml.NewCache(dir),
 	}
 	n.id = ctx.TrackResource(n)
 
@@ -68,8 +68,8 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return n, nil
 	}
 
-	fetchFn := n.environment.NewSinglePodFetch(ns, "istio=galley")
-	pods, err := n.environment.WaitUntilPodsAreReady(fetchFn)
+	fetchFn := n.cluster.NewSinglePodFetch(ns, "istio=galley")
+	pods, err := n.cluster.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
 	}
@@ -77,13 +77,13 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 	scopes.Framework.Debug("completed wait for Galley pod")
 
-	port, err := getGrpcPort(n.environment, ns)
+	port, err := n.getGrpcPort(ns)
 	if err != nil {
 		return nil, err
 	}
 	scopes.Framework.Debugf("extracted grpc port for service: %v", port)
 
-	if n.forwarder, err = n.environment.NewPortForwarder(pod, 0, port); err != nil {
+	if n.forwarder, err = n.cluster.NewPortForwarder(pod, 0, port); err != nil {
 		return nil, err
 	}
 	scopes.Framework.Debugf("initialized port forwarder: %v", n.forwarder.Address())
@@ -107,8 +107,8 @@ type kubeComponent struct {
 	id  resource.ID
 	cfg Config
 
-	context     resource.Context
-	environment *kube.Environment
+	context resource.Context
+	cluster kube.Cluster
 
 	client *client
 
@@ -132,7 +132,7 @@ func (c *kubeComponent) Address() string {
 func (c *kubeComponent) ClearConfig() (err error) {
 
 	for _, k := range c.cache.AllKeys() {
-		if err = c.environment.Accessor.Delete("", c.cache.GetFileFor(k)); err != nil {
+		if err = c.cluster.Delete("", c.cache.GetFileFor(k)); err != nil {
 			return err
 		}
 	}
@@ -161,7 +161,7 @@ func (c *kubeComponent) ApplyConfig(ns namespace.Instance, yamlText ...string) e
 		}
 
 		for _, k := range keys {
-			if err = c.environment.Accessor.Apply(nsName, c.cache.GetFileFor(k)); err != nil {
+			if err = c.cluster.Apply(nsName, c.cache.GetFileFor(k)); err != nil {
 				return err
 			}
 		}
@@ -188,7 +188,7 @@ func (c *kubeComponent) DeleteConfig(ns namespace.Instance, yamlText ...string) 
 	}
 
 	for _, txt := range yamlText {
-		err := c.environment.Accessor.DeleteContents(nsName, txt)
+		err := c.cluster.DeleteContents(nsName, txt)
 		if err != nil {
 			return err
 		}
@@ -265,8 +265,8 @@ func (c *kubeComponent) Close() (err error) {
 	return
 }
 
-func getGrpcPort(e *kube.Environment, ns string) (uint16, error) {
-	svc, err := e.Accessor.GetService(ns, "istio-galley")
+func (c *kubeComponent) getGrpcPort(ns string) (uint16, error) {
+	svc, err := c.cluster.GetService(ns, "istio-galley")
 	if err != nil {
 		return 0, fmt.Errorf("failed to retrieve service: %v", err)
 	}
