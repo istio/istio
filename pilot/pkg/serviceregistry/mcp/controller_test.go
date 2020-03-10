@@ -895,7 +895,7 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 	g.Expect(update).To(Equal("ConfigUpdate"))
 
 	for _, gw := range entries {
-		g.Expect(gw.Type).To(Equal(gatewayGvk))
+		g.Expect(gw.GroupVersionKind()).To(Equal(gatewayGvk))
 		switch gw.Name {
 		case "test-gateway":
 			g.Expect(gw.Spec).To(Equal(message))
@@ -965,7 +965,7 @@ func TestApplyIncrementalChange(t *testing.T) {
 	g.Expect(entries).To(HaveLen(2))
 
 	for _, gw := range entries {
-		g.Expect(gw.Type).To(Equal(gatewayGvk))
+		g.Expect(gw.GroupVersionKind()).To(Equal(gatewayGvk))
 		switch gw.Name {
 		case "test-gateway":
 			g.Expect(gw.Spec).To(Equal(message))
