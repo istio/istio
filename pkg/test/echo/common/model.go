@@ -14,8 +14,8 @@
 
 package common
 
-// TlsSettings defines TLS configuration for Echo server
-type TlsSettings struct {
+// TLSSettings defines TLS configuration for Echo server
+type TLSSettings struct {
 	RootCert   string
 	ClientCert string
 	Key        string

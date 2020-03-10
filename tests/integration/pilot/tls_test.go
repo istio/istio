@@ -100,7 +100,7 @@ spec:
 					Galley: g,
 					Pilot:  p,
 					// Set up TLS certs on the server. This will make the server listen with these credentials.
-					TlsSettings: &common.TlsSettings{
+					TLSSettings: &common.TLSSettings{
 						RootCert:   mustReadFile(t, "root.cert"),
 						ClientCert: mustReadFile(t, "cert.pem"),
 						Key:        mustReadFile(t, "priv.pem"),

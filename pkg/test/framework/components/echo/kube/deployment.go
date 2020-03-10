@@ -115,7 +115,7 @@ spec:
 {{- end }}
           - --version
           - "{{ $subset.Version }}"
-{{- if $.TlsSettings }}
+{{- if $.TLSSettings }}
           - --crt=/etc/certs/custom/cert-chain.pem
           - --key=/etc/certs/custom/key.pem
 {{- end }}
@@ -139,7 +139,7 @@ spec:
           initialDelaySeconds: 10
           periodSeconds: 10
           failureThreshold: 10
-{{- if $.TlsSettings }}
+{{- if $.TLSSettings }}
         volumeMounts:
         - mountPath: /etc/certs/custom
           name: custom-certs
@@ -150,18 +150,18 @@ spec:
 {{- end}}
 ---
 {{- end}}
-{{- if .TlsSettings }}
+{{- if .TLSSettings }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ $.Service }}-certs
 data:
   root-cert.pem: |
-{{ .TlsSettings.RootCert | indent 4 }}
+{{ .TLSSettings.RootCert | indent 4 }}
   cert-chain.pem: |
-{{ .TlsSettings.ClientCert | indent 4 }}
+{{ .TLSSettings.ClientCert | indent 4 }}
   key.pem: |
-{{.TlsSettings.Key | indent 4}}
+{{.TLSSettings.Key | indent 4}}
 ---
 {{- end}}
 apiVersion: v1
@@ -236,7 +236,7 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (string
 		"ServiceAnnotations":  cfg.ServiceAnnotations,
 		"IncludeInboundPorts": cfg.IncludeInboundPorts,
 		"Subsets":             cfg.Subsets,
-		"TlsSettings":         cfg.TlsSettings,
+		"TLSSettings":         cfg.TLSSettings,
 	}
 
 	// Generate the YAML content.

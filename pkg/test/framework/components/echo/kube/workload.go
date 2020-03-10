@@ -52,7 +52,7 @@ type workload struct {
 }
 
 func newWorkload(addr kubeCore.EndpointAddress, sidecared bool, grpcPort uint16,
-	cluster kube2.Cluster, tls *common.TlsSettings, ctx resource.Context) (*workload, error) {
+	cluster kube2.Cluster, tls *common.TLSSettings, ctx resource.Context) (*workload, error) {
 	if addr.TargetRef == nil || addr.TargetRef.Kind != "Pod" {
 		return nil, fmt.Errorf("invalid TargetRef for endpoint %s: %v", addr.IP, addr.TargetRef)
 	}

@@ -53,7 +53,7 @@ type instance struct {
 	workloads []*workload
 	grpcPort  uint16
 	ctx       resource.Context
-	tls       *echoCommon.TlsSettings
+	tls       *echoCommon.TLSSettings
 	cluster   kubeEnv.Cluster
 }
 
@@ -84,7 +84,7 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 		return nil, errors.New("unable fo find GRPC command port")
 	}
 	c.grpcPort = uint16(grpcPort.InstancePort)
-	c.tls = cfg.TlsSettings
+	c.tls = cfg.TLSSettings
 	// Generate the deployment YAML.
 	generatedYAML, err := generateYAML(cfg)
 	if err != nil {

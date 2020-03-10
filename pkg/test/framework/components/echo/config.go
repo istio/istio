@@ -83,7 +83,7 @@ type Config struct {
 	Cluster resource.Cluster
 
 	// TLS settings for echo server
-	TlsSettings *common.TlsSettings
+	TLSSettings *common.TLSSettings
 }
 
 // SubsetConfig is the config for a group of Subsets (e.g. Kubernetes deployment).
