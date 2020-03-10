@@ -51,7 +51,7 @@ require (
 	github.com/elazarl/goproxy v0.0.0-20190630181448-f1e96bc0f4c5 // indirect
 	github.com/elazarl/goproxy/ext v0.0.0-20190630181448-f1e96bc0f4c5 // indirect
 	github.com/emicklei/go-restful v2.9.6+incompatible
-	github.com/envoyproxy/go-control-plane v0.9.1-0.20191002184426-9d865299d2ff
+	github.com/envoyproxy/go-control-plane v0.9.1-0.20191021194855-3a04e5314385
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/fluent/fluent-logger-golang v1.3.0
