@@ -49,6 +49,12 @@ func TestComparator_ListenerDiff(t *testing.T) {
 			wantListenerDump: false,
 			wantDiff:         "",
 		},
+		{
+			name:     "no diff Istio 1.5 format",
+			envoy:    loadTestData(t, "testdata/envoyconfigdump2020.json"),
+			pilot:    map[string][]byte{"pilot": loadTestData(t, "testdata/pilotconfigdump2020.json")},
+			wantDiff: "",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
