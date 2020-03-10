@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/mixer"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/components/sleep"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
@@ -37,7 +36,6 @@ import (
 var (
 	ist        istio.Instance
 	bookinfoNs namespace.Instance
-	sleepNs    namespace.Instance
 	g          galley.Instance
 	ing        ingress.Instance
 	prom       prometheus.Instance
@@ -190,34 +188,6 @@ func TestTcpMetric(t *testing.T) {
 		})
 }
 
-func TestBlackHoleClustersMetric(t *testing.T) {
-	framework.
-		NewTest(t).
-		RequiresEnvironment(environment.Kube).
-		Run(func(ctx framework.TestContext) {
-			sleepInst := sleep.DeployOrFail(t, ctx, sleep.Config{Namespace: sleepNs, Cfg: sleep.Sleep})
-			respCode, err := sleepInst.Curl("http://istio.io")
-			if err != nil {
-				t.Fatalf("Unable to exec curl http://istio.io from sleep pod: %v", err)
-			}
-			if respCode != "502" {
-				t.Fatalf("502 not returned from sleep pod; received http response code: %s", respCode)
-			}
-			query := `sum(istio_requests_total{destination_service_name="BlackHoleCluster"})`
-			util.ValidateMetric(t, prom, query, "istio_requests_total", 1)
-
-			respCode, err = sleepInst.Curl("https://istio.io")
-			if err == nil {
-				t.Fatal("expected exec curl https://istio.io from sleep pod to error out")
-			}
-			if respCode != "000" {
-				t.Fatalf("000 not returned from sleep pod; received http response code: %s", respCode)
-			}
-			query = `sum(istio_tcp_connections_closed_total{destination_service="BlackHoleCluster",destination_service_name="BlackHoleCluster"})`
-			util.ValidateMetric(t, prom, query, "istio_tcp_connections_closed_total", 1)
-		})
-}
-
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("mixer_telemetry_metrics", m).
@@ -251,13 +221,6 @@ components:
 func testsetup(ctx resource.Context) (err error) {
 	bookinfoNs, err = namespace.New(ctx, namespace.Config{
 		Prefix: "istio-bookinfo",
-		Inject: true,
-	})
-	if err != nil {
-		return
-	}
-	sleepNs, err = namespace.New(ctx, namespace.Config{
-		Prefix: "istio-sleep",
 		Inject: true,
 	})
 	if err != nil {
