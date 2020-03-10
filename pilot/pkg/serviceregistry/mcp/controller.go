@@ -192,6 +192,23 @@ func (c *controller) Apply(change *sink.Change) error {
 
 	c.configStoreMu.Lock()
 	prevStore = c.configStore[kind]
+	// Incremental update when received incremental change
+	if change.Incremental {
+
+		//Although it is not a deep copy, there is no problem because the config will not be modified
+		prevCache := make(map[string]map[string]*model.Config, len(prevStore))
+		for namespace, namedConfig := range prevStore {
+			prevCache[namespace] = make(map[string]*model.Config, len(namedConfig))
+			for name, config := range namedConfig {
+				prevCache[namespace][name] = config
+			}
+		}
+		prevStore = prevCache
+
+		c.removeConfig(kind, change.Removed)
+		c.incrementalUpdate(kind, innerStore)
+		innerStore = c.configStore[kind]
+	}
 	c.configStore[kind] = innerStore
 	c.configStoreMu.Unlock()
 	c.sync(change.Collection)
@@ -328,4 +345,47 @@ func extractNameNamespace(metadataName string) (string, string) {
 		return segments[0], segments[1]
 	}
 	return "", segments[0]
+}
+
+func (c *controller) removeConfig(kind resource.GroupVersionKind, configName []string) {
+	if len(configName) == 0 {
+		return
+	}
+	for _, fullName := range configName {
+		namespace, name := extractNameNamespace(fullName)
+		if byType, ok := c.configStore[kind]; ok {
+			if byNamespace, ok := byType[namespace]; ok {
+				if conf, ok := byNamespace[name]; ok {
+					delete(byNamespace, conf.Name)
+				}
+				// clear parent map also
+				if len(byNamespace) == 0 {
+					delete(byType, namespace)
+				}
+			}
+			// clear parent map also
+			if len(byType) == 0 {
+				delete(c.configStore, kind)
+			}
+		}
+	}
+}
+
+func (c *controller) incrementalUpdate(kind resource.GroupVersionKind, conf map[string]map[string]*model.Config) {
+	if len(conf) == 0 {
+		return
+	}
+	if byType, ok := c.configStore[kind]; ok {
+		for namespace, namedConf := range conf {
+			if byNamespace, ok := byType[namespace]; ok {
+				for name, config := range namedConf {
+					byNamespace[name] = config
+				}
+			} else {
+				byType[namespace] = namedConf
+			}
+		}
+	} else {
+		c.configStore[kind] = conf
+	}
 }
