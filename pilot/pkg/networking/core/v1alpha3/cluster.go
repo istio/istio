@@ -152,7 +152,7 @@ func normalizeClusters(metrics model.Metrics, proxy *model.Proxy, clusters []*ap
 
 func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, push *model.PushContext) []*apiv2.Cluster {
 	clusters := make([]*apiv2.Cluster, 0)
-
+	cb := NewClusterBuilder(proxy, push)
 	inputParams := &plugin.InputParams{
 		Push: push,
 		Node: proxy,
@@ -189,8 +189,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 
 			setUpstreamProtocol(proxy, defaultCluster, port, model.TrafficDirectionOutbound)
 			clusters = append(clusters, defaultCluster)
-
-			subsetClusters := applyDestinationRule(defaultCluster, DefaultClusterMode, service, port, proxy, networkView, push)
+			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port, networkView)
 
 			// call plugins for subset clusters.
 			for _, subsetCluster := range subsetClusters {
@@ -214,6 +213,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 // All SniDnat clusters are internal services in the mesh.
 func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.Proxy, push *model.PushContext) []*apiv2.Cluster {
 	clusters := make([]*apiv2.Cluster, 0)
+	cb := NewClusterBuilder(proxy, push)
 
 	networkView := model.GetNetworkView(proxy)
 
@@ -236,7 +236,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 				continue
 			}
 			clusters = append(clusters, defaultCluster)
-			clusters = append(clusters, applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, proxy, networkView, push)...)
+			clusters = append(clusters, cb.applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, networkView)...)
 		}
 	}
 

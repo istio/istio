@@ -30,33 +30,47 @@ var (
 	defaultDestinationRule = networking.DestinationRule{}
 )
 
+// ClusterBuilder interface provides an abstraction for building Envoy Clusters.
+type ClusterBuilder struct {
+	proxy *model.Proxy
+	push  *model.PushContext
+}
+
+// NewClusterBuilder builds an instance of ClusterBuilder.
+func NewClusterBuilder(proxy *model.Proxy, push *model.PushContext) *ClusterBuilder {
+	return &ClusterBuilder{
+		proxy: proxy,
+		push:  push,
+	}
+}
+
 // applyDestinationRule applies the destination rule if it exists for the Service. It returns the subset clusters if any created as it
 // applies the destination rule.
-func applyDestinationRule(cluster *apiv2.Cluster, clusterMode ClusterMode, service *model.Service, port *model.Port, proxy *model.Proxy,
-	proxyNetworkView map[string]bool, push *model.PushContext) []*apiv2.Cluster {
-	destRule := push.DestinationRule(proxy, service)
+func (cb *ClusterBuilder) applyDestinationRule(cluster *apiv2.Cluster, clusterMode ClusterMode, service *model.Service, port *model.Port,
+	proxyNetworkView map[string]bool) []*apiv2.Cluster {
+	destRule := cb.push.DestinationRule(cb.proxy, service)
 	destinationRule := castDestinationRuleOrDefault(destRule)
 
 	opts := buildClusterOpts{
-		push:        push,
+		push:        cb.push,
 		cluster:     cluster,
 		policy:      destinationRule.TrafficPolicy,
 		port:        port,
 		clusterMode: clusterMode,
 		direction:   model.TrafficDirectionOutbound,
-		proxy:       proxy,
+		proxy:       cb.proxy,
 	}
 
 	if clusterMode == DefaultClusterMode {
-		opts.serviceAccounts = push.ServiceAccounts[service.Hostname][port.Port]
+		opts.serviceAccounts = cb.push.ServiceAccounts[service.Hostname][port.Port]
 		opts.istioMtlsSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 		opts.simpleTLSSni = string(service.Hostname)
 		opts.meshExternal = service.MeshExternal
-		opts.serviceMTLSMode = push.BestEffortInferServiceMTLSMode(service, port)
+		opts.serviceMTLSMode = cb.push.BestEffortInferServiceMTLSMode(service, port)
 	}
 
 	// Apply traffic policy for the main default cluster.
-	applyTrafficPolicy(opts, proxy)
+	applyTrafficPolicy(opts, cb.proxy)
 
 	// Apply EdsConfig if needed. This should be called after traffic policy is applied because, traffic policy might change
 	// discovery type.
@@ -82,30 +96,30 @@ func applyDestinationRule(cluster *apiv2.Cluster, clusterMode ClusterMode, servi
 		// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
 		var lbEndpoints []*endpoint.LocalityLbEndpoints
 		if cluster.GetType() != apiv2.Cluster_EDS && len(subset.Labels) != 0 {
-			lbEndpoints = buildLocalityLbEndpoints(push, proxyNetworkView, service, port.Port, []labels.Instance{subset.Labels})
+			lbEndpoints = buildLocalityLbEndpoints(cb.push, proxyNetworkView, service, port.Port, []labels.Instance{subset.Labels})
 		}
 
-		subsetCluster := buildDefaultCluster(push, subsetClusterName, cluster.GetType(), lbEndpoints,
-			model.TrafficDirectionOutbound, proxy, nil, service.MeshExternal)
+		subsetCluster := buildDefaultCluster(cb.push, subsetClusterName, cluster.GetType(), lbEndpoints,
+			model.TrafficDirectionOutbound, cb.proxy, nil, service.MeshExternal)
 
 		if subsetCluster == nil {
 			continue
 		}
-		if len(push.Mesh.OutboundClusterStatName) != 0 {
-			subsetCluster.AltStatName = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, port, service.Attributes)
+		if len(cb.push.Mesh.OutboundClusterStatName) != 0 {
+			subsetCluster.AltStatName = util.BuildStatPrefix(cb.push.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, port, service.Attributes)
 		}
-		setUpstreamProtocol(proxy, subsetCluster, port, model.TrafficDirectionOutbound)
+		setUpstreamProtocol(cb.proxy, subsetCluster, port, model.TrafficDirectionOutbound)
 
 		// Apply traffic policy for subset cluster with the destination rule traffice policy.
 		opts.cluster = subsetCluster
 		opts.policy = destinationRule.TrafficPolicy
 		opts.istioMtlsSni = defaultSni
-		applyTrafficPolicy(opts, proxy)
+		applyTrafficPolicy(opts, cb.proxy)
 
 		// If subset has a traffic policy, apply it so that it overrides the destination rule traffic policy.
 		if subset.TrafficPolicy != nil {
 			opts.policy = subset.TrafficPolicy
-			applyTrafficPolicy(opts, proxy)
+			applyTrafficPolicy(opts, cb.proxy)
 		}
 
 		maybeApplyEdsConfig(subsetCluster)

@@ -227,7 +227,9 @@ func TestApplyDestinationRule(t *testing.T) {
 
 			proxy.SetSidecarScope(env.PushContext)
 
-			subsetClusters := applyDestinationRule(tt.cluster, tt.clusterMode, tt.service, tt.port, tt.proxy, tt.networkView, env.PushContext)
+			cb := NewClusterBuilder(tt.proxy, env.PushContext)
+
+			subsetClusters := cb.applyDestinationRule(tt.cluster, tt.clusterMode, tt.service, tt.port, tt.networkView)
 			if len(subsetClusters) != len(tt.expectedSubsetClusters) {
 				t.Errorf("Unexpected subset clusters want %v, got %v", len(tt.expectedSubsetClusters), len(subsetClusters))
 			}
