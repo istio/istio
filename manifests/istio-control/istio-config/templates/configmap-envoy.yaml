@@ -36,6 +36,15 @@ data:
             max_requests: 100000
             max_retries: 3
 
+      - name: sds-grpc
+        type: STATIC
+        http2_protocol_options: {}
+        connect_timeout: 0.250s
+        lb_policy: ROUND_ROBIN
+        hosts:
+        - pipe:
+            path: "/etc/istio/proxy/SDS"
+
       listeners:
       - name: "15019"
         address:
@@ -77,16 +86,22 @@ data:
                       timeout: 0.000s
           tls_context:
             common_tls_context:
-              alpn_protocols:
-              - h2
-              tls_certificates:
-              - certificate_chain:
-                  filename: /etc/certs/cert-chain.pem
-                private_key:
-                  filename: /etc/certs/key.pem
-              validation_context:
-                trusted_ca:
-                  filename: /etc/certs/root-cert.pem
+              tls_certificate_sds_secret_configs:
+              - name: default
+                sds_config:
+                  api_config_source:
+                    api_type: GRPC
+                    grpc_services:
+                    - envoy_grpc:
+                        cluster_name: sds-grpc
+              validation_context_sds_secret_config:
+                name: ROOTCA
+                sds_config:
+                  api_config_source:
+                    api_type: GRPC
+                    grpc_services:
+                    - envoy_grpc:
+                        cluster_name: sds-grpc
             require_client_certificate: true
 {{- end }}
 ---

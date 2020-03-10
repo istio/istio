@@ -66,8 +66,8 @@ export DOCKER_GID
 TIMEZONE=$(readlink $readlink_flags /etc/localtime | sed -e 's/^.*zoneinfo\///')
 export TIMEZONE
 
-export TARGET_OUT="${TARGET_OUT:-${PWD}/out/${TARGET_OS}_${TARGET_ARCH}}"
-export TARGET_OUT_LINUX="${TARGET_OUT_LINUX:-${PWD}/out/linux_amd64}"
+export TARGET_OUT="${TARGET_OUT:-$(pwd)/out/${TARGET_OS}_${TARGET_ARCH}}"
+export TARGET_OUT_LINUX="${TARGET_OUT_LINUX:-$(pwd)/out/linux_amd64}"
 
 export CONTAINER_TARGET_OUT="${CONTAINER_TARGET_OUT:-/work/out/${TARGET_OS}_${TARGET_ARCH}}"
 export CONTAINER_TARGET_OUT_LINUX="${CONTAINER_TARGET_OUT_LINUX:-/work/out/linux_amd64}"

@@ -42,8 +42,6 @@ func TestMain(m *testing.M) {
 components:
   galley:
     enabled: true
-  citadel:
-    enabled: true
 `
 		})).
 		Run()

@@ -55,11 +55,6 @@ components:
     enabled: true
 `,
 		},
-		//verifies that the sidecar will not be injected again for an injected yaml
-		{
-			in:   "hello.yaml.injected",
-			want: "hello.yaml.injected",
-		},
 		{
 			in:   "hello-mtls-not-ready.yaml",
 			want: "hello-mtls-not-ready.yaml.injected",
