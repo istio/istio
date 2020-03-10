@@ -32,7 +32,7 @@ export BUILD_WITH_CONTAINER ?= 0
 
 ifeq ($(BUILD_WITH_CONTAINER),1)
 
-$(shell $(PWD)/common/scripts/setup_env.sh)
+$(shell $(shell pwd)/common/scripts/setup_env.sh)
 
 RUN = ./common/scripts/run.sh
 
@@ -54,9 +54,9 @@ else
 # If we are not in build container, we need a workaround to get environment properly set
 # Write to file, then include
 $(shell mkdir -p out)
-$(shell $(PWD)/common/scripts/setup_env.sh envfile > out/.env)
+$(shell $(shell pwd)/common/scripts/setup_env.sh envfile > out/.env)
 include out/.env
-export out/.env
+export
 
 export GOBIN ?= $(GOPATH)/bin
 include Makefile.core.mk
