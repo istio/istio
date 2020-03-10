@@ -188,13 +188,13 @@ func TestResolveJwksURI(t *testing.T) {
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
 
 	cases := []struct {
-		name string
+		name     string
 		in       *v1beta1.RequestAuthentication
 		expected []string
 	}{
 		{
 			name: "single jwt",
-			in:       &v1beta1.RequestAuthentication{
+			in: &v1beta1.RequestAuthentication{
 				JwtRules: []*v1beta1.JWTRule{
 					{
 						Issuer: ms.URL,
@@ -205,7 +205,7 @@ func TestResolveJwksURI(t *testing.T) {
 		},
 		{
 			name: "duplicate single jwt",
-			in:       &v1beta1.RequestAuthentication{
+			in: &v1beta1.RequestAuthentication{
 				JwtRules: []*v1beta1.JWTRule{
 					{
 						Issuer: ms.URL,
@@ -219,7 +219,7 @@ func TestResolveJwksURI(t *testing.T) {
 		},
 		{
 			name: "bad one",
-			in:       &v1beta1.RequestAuthentication{
+			in: &v1beta1.RequestAuthentication{
 				JwtRules: []*v1beta1.JWTRule{
 					{
 						Issuer: "bad-one",
@@ -233,10 +233,10 @@ func TestResolveJwksURI(t *testing.T) {
 		},
 		{
 			name: "JwksURI provided",
-			in:       &v1beta1.RequestAuthentication{
+			in: &v1beta1.RequestAuthentication{
 				JwtRules: []*v1beta1.JWTRule{
 					{
-						Issuer: "jwks URI provided",
+						Issuer:  "jwks URI provided",
 						JwksUri: "example.com",
 					},
 					{
@@ -248,11 +248,11 @@ func TestResolveJwksURI(t *testing.T) {
 		},
 		{
 			name: "Jwks provided",
-			in:       &v1beta1.RequestAuthentication{
+			in: &v1beta1.RequestAuthentication{
 				JwtRules: []*v1beta1.JWTRule{
 					{
 						Issuer: "jwks provided",
-						Jwks: "deadbeef",
+						Jwks:   "deadbeef",
 					},
 					{
 						Issuer: ms.URL,
@@ -266,13 +266,13 @@ func TestResolveJwksURI(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			r.ResolveJwksURI(c.in)
 			got := make([]string, 0, len(c.in.JwtRules))
-			for _, rule := range(c.in.JwtRules) {
+			for _, rule := range c.in.JwtRules {
 				got = append(got, rule.JwksUri)
 			}
 			if !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("want %v, got %v", c.expected, c.in)
 			}
-		})		
+		})
 	}
 }
 

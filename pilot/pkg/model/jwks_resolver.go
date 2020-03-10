@@ -235,7 +235,7 @@ func (r *JwksResolver) ResolveJwksURI(policy *v1beta1.RequestAuthentication) {
 			} else {
 				log.Warnf("Failed to get jwks_uri for issuer %q: %v", rule.Issuer, err)
 			}
-		}		
+		}
 	}
 }
 

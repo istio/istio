@@ -604,10 +604,10 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 	policies := getTestAuthenticationPolicies(createNonTrivialRequestAuthnTestConfigs(ms.URL), t)
 
 	cases := []struct {
-		name                   string
-		workloadNamespace      string
-		workloadLabels         labels.Collection
-		wantRequestAuthn          []*Config
+		name              string
+		workloadNamespace string
+		workloadLabels    labels.Collection
+		wantRequestAuthn  []*Config
 	}{
 		{
 			name:              "single hit",
@@ -625,18 +625,18 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 					Spec: &securityBeta.RequestAuthentication{
 						JwtRules: []*securityBeta.JWTRule{
 							{
-								Issuer: ms.URL,
+								Issuer:  ms.URL,
 								JwksUri: mockCertURL,
 							},
 						},
 					},
-				},				
+				},
 			},
 		},
 		{
 			name:              "double hit",
 			workloadNamespace: "foo",
-			workloadLabels:    labels.Collection{{"app":"httpbin"}},
+			workloadLabels:    labels.Collection{{"app": "httpbin"}},
 			wantRequestAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
@@ -649,7 +649,7 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 					Spec: &securityBeta.RequestAuthentication{
 						JwtRules: []*securityBeta.JWTRule{
 							{
-								Issuer: ms.URL,
+								Issuer:  ms.URL,
 								JwksUri: mockCertURL,
 							},
 						},
@@ -671,7 +671,7 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 						},
 						JwtRules: []*securityBeta.JWTRule{
 							{
-								Issuer: ms.URL,
+								Issuer:  ms.URL,
 								JwksUri: mockCertURL,
 							},
 							{
@@ -679,13 +679,13 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 							},
 						},
 					},
-				},				
+				},
 			},
 		},
 		{
 			name:              "tripple hit",
 			workloadNamespace: "foo",
-			workloadLabels:    labels.Collection{{"app":"httpbin", "version":"v1"}},
+			workloadLabels:    labels.Collection{{"app": "httpbin", "version": "v1"}},
 			wantRequestAuthn: []*Config{
 				{
 					ConfigMeta: ConfigMeta{
@@ -698,18 +698,18 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 					Spec: &securityBeta.RequestAuthentication{
 						Selector: &selectorpb.WorkloadSelector{
 							MatchLabels: map[string]string{
-								"app": "httpbin",
-								"version":"v1",
+								"app":     "httpbin",
+								"version": "v1",
 							},
 						},
 						JwtRules: []*securityBeta.JWTRule{
 							{
-								Issuer: "issuer-with-jwks-uri",
+								Issuer:  "issuer-with-jwks-uri",
 								JwksUri: "example.com",
 							},
 							{
 								Issuer: "issuer-with-jwks",
-								Jwks: "deadbeef",
+								Jwks:   "deadbeef",
 							},
 						},
 					},
@@ -725,7 +725,7 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 					Spec: &securityBeta.RequestAuthentication{
 						JwtRules: []*securityBeta.JWTRule{
 							{
-								Issuer: ms.URL,
+								Issuer:  ms.URL,
 								JwksUri: mockCertURL,
 							},
 						},
@@ -747,7 +747,7 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 						},
 						JwtRules: []*securityBeta.JWTRule{
 							{
-								Issuer: ms.URL,
+								Issuer:  ms.URL,
 								JwksUri: mockCertURL,
 							},
 							{
@@ -755,7 +755,7 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 							},
 						},
 					},
-				},				
+				},
 			},
 		},
 	}
@@ -875,9 +875,9 @@ func addJwtRule(issuer, jwksURI, jwks string, config *Config) {
 		spec.JwtRules = make([]*securityBeta.JWTRule, 0)
 	}
 	spec.JwtRules = append(spec.JwtRules, &securityBeta.JWTRule{
-		Issuer: issuer,
+		Issuer:  issuer,
 		JwksUri: jwksURI,
-		Jwks: jwks,
+		Jwks:    jwks,
 	})
 }
 
@@ -885,9 +885,8 @@ func createNonTrivialRequestAuthnTestConfigs(issuer string) []*Config {
 	configs := make([]*Config, 0)
 
 	globalCfg := createTestRequestAuthenticationResource("default", rootNamespace, nil)
-	addJwtRule(issuer, "", "", globalCfg)	
+	addJwtRule(issuer, "", "", globalCfg)
 	configs = append(configs, globalCfg)
-
 
 	httpbinCfg :=
 		createTestRequestAuthenticationResource("global-with-selector", rootNamespace, &selectorpb.WorkloadSelector{
@@ -900,12 +899,12 @@ func createNonTrivialRequestAuthnTestConfigs(issuer string) []*Config {
 	addJwtRule("bad-issuer", "", "", httpbinCfg)
 	configs = append(configs, httpbinCfg)
 
-	httpbinCfgV1 :=	createTestRequestAuthenticationResource("with-selector", "foo", &selectorpb.WorkloadSelector{
-			MatchLabels: map[string]string{
-				"app":     "httpbin",
-				"version": "v1",
-			},
-		})
+	httpbinCfgV1 := createTestRequestAuthenticationResource("with-selector", "foo", &selectorpb.WorkloadSelector{
+		MatchLabels: map[string]string{
+			"app":     "httpbin",
+			"version": "v1",
+		},
+	})
 	addJwtRule("issuer-with-jwks-uri", "example.com", "", httpbinCfgV1)
 	addJwtRule("issuer-with-jwks", "", "deadbeef", httpbinCfgV1)
 	configs = append(configs, httpbinCfgV1)
