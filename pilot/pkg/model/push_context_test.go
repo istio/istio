@@ -21,8 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/pkg/ledger"
-
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -34,7 +32,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 )
@@ -216,7 +213,7 @@ func TestAuthNPolicies(t *testing.T) {
 			}},
 		},
 	}
-	configStore := newFakeStore()
+	configStore := NewFakeStore()
 	for key, value := range authNPolicies {
 		cfg := Config{
 			ConfigMeta: ConfigMeta{
@@ -399,7 +396,7 @@ func TestJwtAuthNPolicy(t *testing.T) {
 		},
 	}
 
-	configStore := newFakeStore()
+	configStore := NewFakeStore()
 	for key, value := range authNPolicies {
 		cfg := Config{
 			ConfigMeta: ConfigMeta{
@@ -595,7 +592,7 @@ func TestSidecarScope(t *testing.T) {
 	ps.ServiceByHostnameAndNamespace[host.Name("svc1.default.cluster.local")] = map[string]*Service{"default": nil}
 	ps.ServiceByHostnameAndNamespace[host.Name("svc2.nosidecar.cluster.local")] = map[string]*Service{"nosidecar": nil}
 
-	configStore := newFakeStore()
+	configStore := NewFakeStore()
 	sidecarWithWorkloadSelector := &networking.Sidecar{
 		WorkloadSelector: &networking.WorkloadSelector{
 			Labels: map[string]string{"app": "foo"},
@@ -716,7 +713,7 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 			}},
 		},
 	}
-	configStore := newFakeStore()
+	configStore := NewFakeStore()
 	for key, value := range authNPolicies {
 		cfg := Config{
 			ConfigMeta: ConfigMeta{
@@ -857,67 +854,4 @@ func scopeToSidecar(scope *SidecarScope) string {
 		return ""
 	}
 	return scope.Config.Namespace + "/" + scope.Config.Name
-}
-
-type fakeStore struct {
-	store map[resource.GroupVersionKind]map[string][]Config
-}
-
-func newFakeStore() *fakeStore {
-	f := fakeStore{
-		store: make(map[resource.GroupVersionKind]map[string][]Config),
-	}
-	return &f
-}
-
-var _ ConfigStore = (*fakeStore)(nil)
-
-func (*fakeStore) Schemas() collection.Schemas {
-	return collections.Pilot
-}
-
-func (*fakeStore) Get(typ resource.GroupVersionKind, name, namespace string) *Config { return nil }
-
-func (s *fakeStore) List(typ resource.GroupVersionKind, namespace string) ([]Config, error) {
-	nsConfigs := s.store[typ]
-	if nsConfigs == nil {
-		return nil, nil
-	}
-	var res []Config
-	if namespace == NamespaceAll {
-		for _, configs := range nsConfigs {
-			res = append(res, configs...)
-		}
-		return res, nil
-	}
-	return nsConfigs[namespace], nil
-}
-
-func (s *fakeStore) Create(config Config) (revision string, err error) {
-	configs := s.store[config.GroupVersionKind()]
-	if configs == nil {
-		configs = make(map[string][]Config)
-	}
-	configs[config.Namespace] = append(configs[config.Namespace], config)
-	s.store[config.GroupVersionKind()] = configs
-	return "", nil
-}
-
-func (*fakeStore) Update(config Config) (newRevision string, err error) { return "", nil }
-
-func (*fakeStore) Delete(typ resource.GroupVersionKind, name, namespace string) error { return nil }
-
-func (*fakeStore) Version() string {
-	return "not implemented"
-}
-func (*fakeStore) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
-	return "not implemented", nil
-}
-
-func (s *fakeStore) GetLedger() ledger.Ledger {
-	panic("implement me")
-}
-
-func (s *fakeStore) SetLedger(ledger.Ledger) error {
-	panic("implement me")
 }
