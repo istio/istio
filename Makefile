@@ -56,6 +56,9 @@ else
 $(shell mkdir -p out)
 $(shell $(shell pwd)/common/scripts/setup_env.sh envfile > out/.env)
 include out/.env
+# An export free of arugments in a Makefile places all variables in the Makefile into the
+# environment. This behavior may be surprising to many that use shell often, which simply
+# displays the existing environment
 export
 
 export GOBIN ?= $(GOPATH)/bin
