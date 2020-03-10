@@ -17803,7 +17803,6 @@ rules:
 ---
 # Source: istio-discovery/templates/service.yaml
 
-
 apiVersion: v1
 kind: Service
 metadata:
