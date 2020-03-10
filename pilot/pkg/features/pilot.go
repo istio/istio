@@ -296,4 +296,11 @@ var (
 	EnableServiceApis = env.RegisterBoolVar("PILOT_ENABLED_SERVICE_APIS", false,
 		"If this is set to true, support for Kubernetes service-apis (github.com/kubernetes-sigs/service-apis) will "+
 			" be enabled. This feature is currently experimental, and is off by default.").Get()
+
+	EnableIncrementalMCP = env.RegisterBoolVar(
+		"PILOT_ENABLE_INCREMENTAL_MCP",
+		false,
+		"If enabled, pilot will set the incremental flag of the options in the mcp controller "+
+			"to true, and then galley may push data incrementally, it depends on whether the "+
+			"resource supports incremental. By default, this is false.").Get()
 )
