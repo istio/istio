@@ -15,7 +15,9 @@
 package v2
 
 import (
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -55,10 +57,20 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 			// but can be accessed directly from local network.
 			if epNetwork == proxyNetwork ||
 				len(push.NetworkGatewaysByNetwork(epNetwork)) == 0 {
-				lbEp.LoadBalancingWeight = &wrappers.UInt32Value{
-					Value: uint32(multiples),
+
+				// Make a copy so subsequent updates to the shared cache of
+				// service endpoints doesn't overwrite endpoints already in-flight.
+				lbEpAdd := &endpoint.LbEndpoint{
+					HostIdentifier: lbEp.HostIdentifier,
+					Metadata: &core.Metadata{
+						FilterMetadata: map[string]*pstruct.Struct{},
+					},
+					LoadBalancingWeight: &wrappers.UInt32Value{Value: uint32(multiples)},
 				}
-				lbEndpoints = append(lbEndpoints, lbEp)
+				for k, v := range lbEp.Metadata.FilterMetadata {
+					lbEpAdd.Metadata.FilterMetadata[k] = v
+				}
+				lbEndpoints = append(lbEndpoints, lbEpAdd)
 			} else {
 				// Remote network endpoint which can not be accessed directly from local network.
 				// Increase the weight counter
