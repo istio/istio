@@ -71,6 +71,6 @@ func (s *sleepComponent) Curl(url string) (string, error) {
 	podNs, podName := pods[0].Namespace, pods[0].Name
 
 	// Exec onto the pod and make a curl request for the given curl
-	command := fmt.Sprintf("curl -w %%{http_code} %s", url)
+	command := fmt.Sprintf("curl -o /dev/null -w %%{http_code} %s", url)
 	return s.Env().Accessor.Exec(podNs, podName, sleepContainerName, command)
 }

@@ -22,7 +22,7 @@ var (
 	prom       prometheus.Instance
 )
 
-func TestBlackHoleClusterMetric(t *testing.T) {
+func TestPassthroughClusterMetric(t *testing.T) {
 	framework.
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
@@ -32,20 +32,20 @@ func TestBlackHoleClusterMetric(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Unable to exec curl http://istio.io from sleep pod: %v", err)
 			}
-			if respCode != "502" {
-				t.Fatalf("502 not returned from sleep pod; received http response code: %s", respCode)
+			if respCode != "301" {
+				t.Fatalf("301 not returned from sleep pod; received http response code: %s", respCode)
 			}
-			query := `sum(istio_requests_total{destination_service_name="BlackHoleCluster"})`
+			query := `sum(istio_requests_total{destination_service_name="PassthroughCluster"})`
 			util.ValidateMetric(t, prom, query, "istio_requests_total", 1)
 
 			respCode, err = sleepInst.Curl("https://istio.io")
-			if err == nil {
-				t.Fatal("expected exec curl https://istio.io from sleep pod to error out")
+			if err != nil {
+				t.Fatalf("Unable to exec curl https://istio.io from sleep pod: %v", err)
 			}
-			if respCode != "000" {
-				t.Fatalf("000 not returned from sleep pod; received http response code: %s", respCode)
+			if respCode != "200" {
+				t.Fatalf("200 not returned from sleep pod; received http response code: %s", respCode)
 			}
-			query = `sum(istio_tcp_connections_closed_total{destination_service="BlackHoleCluster",destination_service_name="BlackHoleCluster"})`
+			query = `sum(istio_tcp_connections_closed_total{destination_service="PassthroughCluster",destination_service_name="PassthroughCluster"})`
 			util.ValidateMetric(t, prom, query, "istio_tcp_connections_closed_total", 1)
 		})
 }
@@ -63,7 +63,7 @@ values:
   global:
     disablePolicyChecks: false
     outboundTrafficPolicy:
-      mode: REGISTRY_ONLY
+      mode: ALLOW_ANY
   telemetry:
     v1:
       enabled: true
