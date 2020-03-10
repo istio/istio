@@ -56,7 +56,7 @@ else
 $(shell mkdir -p out)
 $(shell $(shell pwd)/common/scripts/setup_env.sh envfile > out/.env)
 include out/.env
-export out/.env
+export
 
 export GOBIN ?= $(GOPATH)/bin
 include Makefile.core.mk
