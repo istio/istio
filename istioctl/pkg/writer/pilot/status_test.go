@@ -166,15 +166,14 @@ func TestStatusWriter_PrintSingle(t *testing.T) {
 func statusInput1() []v2.SyncStatus {
 	return []v2.SyncStatus{
 		{
-			ProxyID:         "proxy1",
-			IstioVersion:    "1.1",
-			ClusterSent:     preDefinedNonce,
-			ClusterAcked:    newNonce(),
-			ListenerSent:    preDefinedNonce,
-			ListenerAcked:   preDefinedNonce,
-			EndpointSent:    preDefinedNonce,
-			EndpointAcked:   preDefinedNonce,
-			EndpointPercent: 100,
+			ProxyID:       "proxy1",
+			IstioVersion:  "1.1",
+			ClusterSent:   preDefinedNonce,
+			ClusterAcked:  newNonce(),
+			ListenerSent:  preDefinedNonce,
+			ListenerAcked: preDefinedNonce,
+			EndpointSent:  preDefinedNonce,
+			EndpointAcked: preDefinedNonce,
 		},
 	}
 }
