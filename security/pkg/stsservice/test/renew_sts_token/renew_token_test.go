@@ -16,6 +16,7 @@ package renewststoken
 
 import (
 	"testing"
+	"time"
 
 	"github.com/onsi/gomega"
 
@@ -56,7 +57,8 @@ func TestRenewToken(t *testing.T) {
 	setup.ProxySetup.WaitEnvoyReady()
 	// Verify that proxy re-connects XDS server after each stream close, and a
 	// different token is received.
-	g.Expect(cb.NumStream()).To(gomega.Equal(numCloseStream + 1))
+	gomega.SetDefaultEventuallyTimeout(10 * time.Second)
+	g.Eventually(func() int { return cb.NumStream() }).Should(gomega.Equal(numCloseStream + 1)) // nolint:gocritic
 	g.Expect(cb.NumTokenReceived()).To(gomega.Equal(numCloseStream + 1))
 	// Verify every time proxy reconnects to XDS server, gRPC STS fetches a new token.
 	g.Expect(setup.AuthServer.NumGetFederatedTokenCalls()).To(gomega.Equal(initialNumFederatedTokenCall + numCloseStream + 1))
