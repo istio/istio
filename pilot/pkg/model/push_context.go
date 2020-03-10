@@ -65,6 +65,10 @@ type PushContext struct {
 	defaultVirtualServiceExportTo  map[visibility.Instance]bool
 	defaultDestinationRuleExportTo map[visibility.Instance]bool
 
+	// The default Sidecar configuration from the config root namespace.
+	// This is used when a proxy not belonging to a services connects to Pilot.
+	defaultSidecarConfig *Config
+
 	// Service related
 	// TODO: move to a sub struct
 
@@ -753,7 +757,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 		}
 	}
 
-	return DefaultSidecarScopeForNamespace(ps, proxy.ConfigNamespace)
+	return ConvertToSidecarScope(ps, ps.defaultSidecarConfig, proxy.ConfigNamespace)
 }
 
 // GetAllSidecarScopes returns a map of namespace and the set of SidecarScope
@@ -1407,6 +1411,7 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 			if sidecarConfig.Namespace == ps.Mesh.RootNamespace &&
 				sidecarConfig.Spec.(*networking.Sidecar).WorkloadSelector == nil {
 				rootNSConfig = &sidecarConfig
+				ps.defaultSidecarConfig = rootNSConfig
 				break
 			}
 		}

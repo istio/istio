@@ -665,6 +665,12 @@ func TestSidecarScope(t *testing.T) {
 			sidecar:    "istio-system/global",
 			describe:   "no sidecar",
 		},
+		{
+			proxy:      &Proxy{ConfigNamespace: "noservice"},
+			collection: labels.Collection{map[string]string{"app": "bar"}},
+			sidecar:    "istio-system/global",
+			describe:   "no service",
+		},
 	}
 	for _, c := range cases {
 		scope := ps.getSidecarScope(c.proxy, c.collection)
