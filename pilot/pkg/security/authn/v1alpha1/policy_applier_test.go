@@ -198,13 +198,6 @@ func TestCollectJwtSpecs(t *testing.T) {
 	}
 }
 
-func setUseIstioJWTFilter(value string, t *testing.T) {
-	err := os.Setenv(features.UseIstioJWTFilter.Name, value)
-	if err != nil {
-		t.Fatalf("failed to set enable Istio JWT filter: %v", err)
-	}
-}
-
 func TestConvertPolicyToJwtConfig(t *testing.T) {
 	ms, err := test.StartNewServer()
 	if err != nil {
@@ -214,76 +207,11 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 	jwksURI := ms.URL + "/oauth2/v3/certs"
 
 	cases := []struct {
-		name        string
-		in          *authn.Policy
-		useIstioJWT bool
-		wantName    string
-		wantConfig  proto.Message
+		name       string
+		in         *authn.Policy
+		wantName   string
+		wantConfig proto.Message
 	}{
-		{
-			name: "legacy jwt filter",
-			in: &authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{
-					{
-						Params: &authn.PeerAuthenticationMethod_Jwt{
-							Jwt: &authn.Jwt{
-								JwksUri: jwksURI,
-							},
-						},
-					},
-				},
-			},
-			wantName:    "jwt-auth",
-			useIstioJWT: true,
-			wantConfig: &istio_jwt.JwtAuthentication{
-				Rules: []*istio_jwt.JwtRule{
-					{
-						JwksSourceSpecifier: &istio_jwt.JwtRule_LocalJwks{
-							LocalJwks: &istio_jwt.DataSource{
-								Specifier: &istio_jwt.DataSource_InlineString{
-									InlineString: test.JwtPubKey1,
-								},
-							},
-						},
-						Forward:              true,
-						ForwardPayloadHeader: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
-					},
-				},
-				AllowMissingOrFailed: true,
-			},
-		},
-		{
-			name: "legacy jwt filter with explicit Jwks",
-			in: &authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{
-					{
-						Params: &authn.PeerAuthenticationMethod_Jwt{
-							Jwt: &authn.Jwt{
-								Jwks: test.JwtPubKey1,
-							},
-						},
-					},
-				},
-			},
-			wantName:    "jwt-auth",
-			useIstioJWT: true,
-			wantConfig: &istio_jwt.JwtAuthentication{
-				Rules: []*istio_jwt.JwtRule{
-					{
-						JwksSourceSpecifier: &istio_jwt.JwtRule_LocalJwks{
-							LocalJwks: &istio_jwt.DataSource{
-								Specifier: &istio_jwt.DataSource_InlineString{
-									InlineString: test.JwtPubKey1,
-								},
-							},
-						},
-						Forward:              true,
-						ForwardPayloadHeader: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
-					},
-				},
-				AllowMissingOrFailed: true,
-			},
-		},
 		{
 			name: "upstream jwt filter",
 			in: &authn.Policy{
@@ -435,15 +363,9 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if c.useIstioJWT {
-				setUseIstioJWTFilter("true", t)
-			}
 			if gotName, gotCfg := convertPolicyToJwtConfig(c.in); gotName != c.wantName || !reflect.DeepEqual(c.wantConfig, gotCfg) {
 				t.Errorf("got:\n%s\n%#v\nwanted:\n%s\n%#v\n",
 					gotName, spew.Sdump(gotCfg), c.wantName, spew.Sdump(c.wantConfig))
-			}
-			if c.useIstioJWT {
-				setUseIstioJWTFilter("false", t)
 			}
 		})
 	}

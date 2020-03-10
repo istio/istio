@@ -37,7 +37,6 @@ import (
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	authn_filter_policy "istio.io/istio/security/proto/authentication/v1alpha1"
 	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
-	istio_jwt "istio.io/istio/security/proto/envoy/config/filter/http/jwt_auth/v2alpha1"
 )
 
 const (
@@ -173,49 +172,6 @@ func convertToEnvoyJwtConfig(policyJwts []*authn_v1alpha1.Jwt) *envoy_jwt.JwtAut
 	}
 }
 
-// TODO: Remove after fully migrate to Envoy JWT filter.
-func convertToIstioJwtConfig(policyJwts []*authn_v1alpha1.Jwt) *istio_jwt.JwtAuthentication {
-	ret := &istio_jwt.JwtAuthentication{
-		AllowMissingOrFailed: true,
-	}
-	for _, policyJwt := range policyJwts {
-		jwt := &istio_jwt.JwtRule{
-			Issuer:               policyJwt.Issuer,
-			Audiences:            policyJwt.Audiences,
-			ForwardPayloadHeader: outputLocationForJwtIssuer(policyJwt.Issuer),
-			Forward:              true,
-		}
-
-		for _, location := range policyJwt.JwtHeaders {
-			jwt.FromHeaders = append(jwt.FromHeaders, &istio_jwt.JwtHeader{
-				Name: location,
-			})
-		}
-		jwt.FromParams = policyJwt.JwtParams
-
-		jwtPubKey := policyJwt.Jwks
-		if jwtPubKey == "" {
-			var err error
-			jwtPubKey, err = model.JwtKeyResolver.GetPublicKey(policyJwt.JwksUri)
-			if err != nil {
-				log.Errorf("Failed to fetch jwt public key from %q: %s", policyJwt.JwksUri, err)
-			}
-		}
-
-		// Put empty string in config even if above ResolveJwtPubKey fails.
-		jwt.JwksSourceSpecifier = &istio_jwt.JwtRule_LocalJwks{
-			LocalJwks: &istio_jwt.DataSource{
-				Specifier: &istio_jwt.DataSource_InlineString{
-					InlineString: jwtPubKey,
-				},
-			},
-		}
-
-		ret.Rules = append(ret.Rules, jwt)
-	}
-	return ret
-}
-
 // ConvertPolicyToJwtConfig converts policy into Jwt filter config for envoy.
 // Returns nil if there is no JWT policy. Returns the Istio JWT filter config if USE_ENVOY_JWT_FILTER
 // is false, otherwise returns the Envoy JWT filter config.
@@ -225,11 +181,6 @@ func convertPolicyToJwtConfig(policy *authn_v1alpha1.Policy) (string, proto.Mess
 		return "", nil
 	}
 
-	if features.UseIstioJWTFilter.Get() {
-		return authn_model.IstioJwtFilterName, convertToIstioJwtConfig(policyJwts)
-	}
-
-	log.Debugf("Envoy JWT filter is used for JWT verification")
 	return authn_model.EnvoyJwtFilterName, convertToEnvoyJwtConfig(policyJwts)
 }
 
