@@ -34,7 +34,7 @@ endif
 
 _INTEGRATION_TEST_SELECT_FLAG = --istio.test.select=-postsubmit,-flaky,-multicluster
 ifneq ($(TEST_SELECT),)
-    _INTEGRATION_TEST_FLAGS += --istio.test.select=$(TEST_SELECT)
+    _INTEGRATION_TEST_SELECT_FLAGS += --istio.test.select=$(TEST_SELECT)
 endif
 
 # $(INTEGRATION_TEST_KUBECONFIG) specifies the kube config file to be used. If not specified, then
