@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 
 	"istio.io/istio/pkg/test/framework"
@@ -43,6 +44,7 @@ const (
 	stackdriverBootstrapOverride = "testdata/custom_bootstrap.yaml.tmpl"
 	serverRequestCount           = "testdata/server_request_count.json.tmpl"
 	clientRequestCount           = "testdata/client_request_count.json.tmpl"
+	serverLogEntry               = "testdata/server_access_log.json.tmpl"
 	sdBootstrapConfigMap         = "stackdriver-bootstrap-config"
 )
 
@@ -95,6 +97,23 @@ func getWantRequestCountTS() (cltRequestCount, srvRequestCount monitoring.TimeSe
 	return
 }
 
+func getWantServerLogEntry() (srvLogEntry loggingpb.LogEntry, err error) {
+	srvlogEntryTmpl, err := ioutil.ReadFile(serverLogEntry)
+	if err != nil {
+		return
+	}
+	sr, err := tmpl.Evaluate(string(srvlogEntryTmpl), map[string]interface{}{
+		"EchoNamespace": getEchoNamespaceInstance().Name(),
+	})
+	if err != nil {
+		return
+	}
+	if err = jsonpb.UnmarshalString(sr, &srvLogEntry); err != nil {
+		return
+	}
+	return
+}
+
 // TODO: add test for log, trace and edge.
 // TestStackdriverMonitoring verifies that stackdriver WASM filter exports metrics with expected labels.
 func TestStackdriverMonitoring(t *testing.T) {
@@ -103,6 +122,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			srvReceived := false
 			cltReceived := false
+			logReceived := false
 			retry.UntilSuccessOrFail(t, func() error {
 				_, err := clt.Call(echo.CallOptions{
 					Target:   srv,
@@ -130,9 +150,29 @@ func TestStackdriverMonitoring(t *testing.T) {
 						cltReceived = true
 					}
 				}
+
+				// Verify log entry
+				wantLog, err := getWantServerLogEntry()
+				if err != nil {
+					return fmt.Errorf("failed to parse wanted log entry: %v", err)
+				}
+				// Traverse all log entries received and compare with expected server log entry.
+				entries, err := sdInst.ListLogEntries()
+				if err != nil {
+					return fmt.Errorf("failed to get received log entries: %v", err)
+				}
+				for _, l := range entries {
+					if proto.Equal(l, &wantLog) {
+						logReceived = true
+					}
+				}
+
 				// Check if both client and server side request count metrics are received
 				if !srvReceived || !cltReceived {
 					return fmt.Errorf("stackdriver server does not received expected server or client request count, server %v client %v", srvReceived, cltReceived)
+				}
+				if !logReceived {
+					return fmt.Errorf("stackdriver server does not received expected log entry")
 				}
 				return nil
 			}, retry.Delay(3*time.Second), retry.Timeout(40*time.Second))
@@ -156,8 +196,8 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["telemetry.enabled"] = "true"
 	cfg.Values["telemetry.v1.enabled"] = "false"
 	cfg.Values["telemetry.v2.enabled"] = "true"
-	cfg.Values["telemetry.v2.prometheus.enabled"] = "false"
 	cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
+	cfg.Values["telemetry.v2.stackdriver.logging"] = "true"
 }
 
 func testSetup(ctx resource.Context) (err error) {
