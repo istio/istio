@@ -439,6 +439,21 @@ func cloneLocalityLbEndpoints(endpoints []*endpoint.LocalityLbEndpoints) []*endp
 	return out
 }
 
+// return a shallow copy LbEndpoint
+func CloneLbEndpoint(endpoint *endpoint.LbEndpoint) *endpoint.LbEndpoint {
+	if endpoint == nil {
+		return nil
+	}
+
+	clone := *endpoint
+	if endpoint.LoadBalancingWeight != nil {
+		clone.LoadBalancingWeight = &wrappers.UInt32Value{
+			Value: endpoint.GetLoadBalancingWeight().GetValue(),
+		}
+	}
+	return &clone
+}
+
 // BuildConfigInfoMetadata builds core.Metadata struct containing the
 // name.namespace of the config, the type, etc. Used by Mixer client
 // to generate attributes for policy and telemetry.
