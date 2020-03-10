@@ -5979,6 +5979,8 @@ spec:
     kind: PeerAuthentication
     listKind: PeerAuthenticationList
     plural: peerauthentications
+    shortNames:
+    - pa
     singular: peerauthentication
   scope: Namespaced
   subresources:
@@ -6055,6 +6057,8 @@ spec:
     kind: RequestAuthentication
     listKind: RequestAuthenticationList
     plural: requestauthentications
+    shortNames:
+    - ra
     singular: requestauthentication
   scope: Namespaced
   subresources:
