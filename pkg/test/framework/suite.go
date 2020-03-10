@@ -121,7 +121,7 @@ func (s *Suite) RequireEnvironmentVersion(version string) *Suite {
 
 		if ctx.Environment().EnvironmentName() == environment.Kube {
 			kenv := ctx.Environment().(*kube.Environment)
-			ver, err := kenv.GetKubernetesVersion()
+			ver, err := kenv.KubeClusters[0].GetKubernetesVersion()
 			if err != nil {
 				return fmt.Errorf("failed to get Kubernetes version: %v", err)
 			}

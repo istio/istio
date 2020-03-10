@@ -86,7 +86,7 @@ func TestStatusUpdate(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			g := NewGomegaWithT(t)
 
-			env := ctx.Environment().(*kube.Environment)
+			cluster := ctx.Environment().Clusters()[0].(kube.Cluster)
 
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "statusupdate",
@@ -102,7 +102,7 @@ func TestStatusUpdate(t *testing.T) {
 
 			// We define the function here so that it can take no args (as required by Gomega) and access the needed variables via closure
 			getStatusFn := func() string {
-				u, err := env.GetUnstructured(gvr, ns.Name(), name)
+				u, err := cluster.GetUnstructured(gvr, ns.Name(), name)
 				if err != nil {
 					t.Fatalf("Couldn't get status for resource %v", name)
 				}
@@ -110,7 +110,7 @@ func TestStatusUpdate(t *testing.T) {
 			}
 
 			// Apply config that should generate a validation message
-			err := env.ApplyContents(ns.Name(), serviceRoleBindingYaml)
+			_, err := cluster.ApplyContents(ns.Name(), serviceRoleBindingYaml)
 			if err != nil {
 				t.Fatalf("Error applying serviceRoleBindingYaml for test scenario: %v", err)
 			}
@@ -120,7 +120,7 @@ func TestStatusUpdate(t *testing.T) {
 				Should(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
 
 			// Apply config that should fix the problem and remove the validation message
-			err = env.ApplyContents(ns.Name(), serviceRoleYaml)
+			_, err = cluster.ApplyContents(ns.Name(), serviceRoleYaml)
 			if err != nil {
 				t.Fatalf("Error applying serviceRoleYaml for test scenario: %v", err)
 			}

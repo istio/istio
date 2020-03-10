@@ -38,15 +38,14 @@ var (
 )
 
 type kubeComponent struct {
-	id  resource.ID
-	env *kube.Environment
-	ns  namespace.Instance
+	id      resource.ID
+	ns      namespace.Instance
+	cluster kube.Cluster
 }
 
-func newKube(ctx resource.Context) (Instance, error) {
-	env := ctx.Environment().(*kube.Environment)
+func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	c := &kubeComponent{
-		env: env,
+		cluster: kube.ClusterOrDefault(cfg.Cluster, ctx.Environment()),
 	}
 	c.id = ctx.TrackResource(c)
 	var err error
@@ -72,7 +71,7 @@ func newKube(ctx resource.Context) (Instance, error) {
 		return nil, fmt.Errorf("failed to file service account file %s, err: %v", environ.ServiceAccountFilePath, err)
 	}
 
-	if err := env.Apply("kube-system", environ.ServiceAccountFilePath); err != nil {
+	if err := c.cluster.Apply("kube-system", environ.ServiceAccountFilePath); err != nil {
 		return nil, fmt.Errorf("failed to apply %s, err: %v", environ.ServiceAccountFilePath, err)
 	}
 
@@ -95,12 +94,12 @@ func newKube(ctx resource.Context) (Instance, error) {
 		return nil, fmt.Errorf("failed to render %s, err: %v", environ.RedisInstallFilePath, err)
 	}
 
-	if err := env.ApplyContents(c.ns.Name(), yamlContent); err != nil {
+	if _, err := c.cluster.ApplyContents(c.ns.Name(), yamlContent); err != nil {
 		return nil, fmt.Errorf("failed to apply rendered %s, err: %v", environ.RedisInstallFilePath, err)
 	}
 
-	fetchFn := c.env.NewPodFetch(c.ns.Name(), "app=redis")
-	if _, err := c.env.WaitUntilPodsAreReady(fetchFn); err != nil {
+	fetchFn := c.cluster.NewPodFetch(c.ns.Name(), "app=redis")
+	if _, err := c.cluster.WaitUntilPodsAreReady(fetchFn); err != nil {
 		return nil, err
 	}
 
@@ -114,8 +113,8 @@ func (c *kubeComponent) ID() resource.ID {
 // Close implements io.Closer.
 func (c *kubeComponent) Close() error {
 	scopes.CI.Infof("Deleting Redis Install")
-	_ = c.env.DeleteNamespace(redisNamespace)
-	_ = c.env.WaitForNamespaceDeletion(redisNamespace)
+	_ = c.cluster.DeleteNamespace(redisNamespace)
+	_ = c.cluster.WaitForNamespaceDeletion(redisNamespace)
 	return nil
 }
 

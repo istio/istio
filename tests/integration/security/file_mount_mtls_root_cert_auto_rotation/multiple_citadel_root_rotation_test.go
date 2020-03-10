@@ -47,8 +47,8 @@ func TestMtlsWithMultipleCitadel(t *testing.T) {
 			istioCfg := istio.DefaultConfigOrFail(t, ctx)
 
 			// Scale Citadel deployment
-			env := ctx.Environment().(*kube.Environment)
-			scaleDeployment(istioCfg.SystemNamespace, citadelDeployName, citadelReplica, t, env)
+			cluster := ctx.Environment().(*kube.Environment).KubeClusters[0]
+			scaleDeployment(istioCfg.SystemNamespace, citadelDeployName, citadelReplica, t, cluster)
 
 			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
@@ -74,33 +74,32 @@ func TestMtlsWithMultipleCitadel(t *testing.T) {
 				},
 			}
 			// Get initial root cert.
-			kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
 			systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 			// Wait for at least one root rotation to let workloads use new CA cert
 			// to set up mTLS connections.
 			for i := 0; i < 5; i++ {
-				caScrt, err := kubeAccessor.GetSecret(systemNS.Name()).Get(CASecret, metav1.GetOptions{})
+				caScrt, err := cluster.GetSecret(systemNS.Name()).Get(CASecret, metav1.GetOptions{})
 				if err != nil {
 					t.Fatalf("unable to load root secret: %s", err.Error())
 				}
 				for _, checker := range checkers {
 					retry.UntilSuccessOrFail(t, checker.Check, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 				}
-				err = waitUntilRootCertRotate(t, caScrt, kubeAccessor, systemNS.Name(), 40*time.Second)
+				err = waitUntilRootCertRotate(t, caScrt, cluster, systemNS.Name(), 40*time.Second)
 				if err != nil {
 					t.Errorf("Root cert is not rotated: %s", err.Error())
 				}
 			}
 			// Restore to one Citadel for other tests.
-			scaleDeployment(istioCfg.SystemNamespace, citadelDeployName, 1, t, env)
+			scaleDeployment(istioCfg.SystemNamespace, citadelDeployName, 1, t, cluster)
 		})
 }
 
-func scaleDeployment(namespace, deployment string, replicas int, t *testing.T, env *kube.Environment) {
-	if err := env.ScaleDeployment(namespace, deployment, replicas); err != nil {
+func scaleDeployment(namespace, deployment string, replicas int, t *testing.T, cluster kube.Cluster) {
+	if err := cluster.ScaleDeployment(namespace, deployment, replicas); err != nil {
 		t.Fatalf("Error scaling deployment %s to %d: %v", deployment, replicas, err)
 	}
-	if err := env.WaitUntilDeploymentIsReady(namespace, deployment); err != nil {
+	if err := cluster.WaitUntilDeploymentIsReady(namespace, deployment); err != nil {
 		t.Fatalf("Error waiting for deployment %s to be ready: %v", deployment, err)
 	}
 }
