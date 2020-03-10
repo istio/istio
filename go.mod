@@ -20,7 +20,7 @@ require (
 	github.com/Azure/go-autorest/autorest v0.9.4 // indirect
 	github.com/DataDog/datadog-go v2.2.0+incompatible
 	github.com/Masterminds/semver v1.4.2
-	github.com/Masterminds/sprig v2.14.1+incompatible // indirect
+	github.com/Masterminds/sprig v2.14.1+incompatible
 	github.com/Microsoft/go-winio v0.4.14 // indirect
 	github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6 // indirect
 	github.com/alicebob/miniredis v0.0.0-20180201100744-9d52b1fc8da9

@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"time"
 
+	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
@@ -80,6 +81,9 @@ type Config struct {
 
 	// Cluster to be used in a multicluster environment
 	Cluster resource.Cluster
+
+	// TLS settings for echo server
+	TlsSettings *common.TlsSettings
 }
 
 // SubsetConfig is the config for a group of Subsets (e.g. Kubernetes deployment).

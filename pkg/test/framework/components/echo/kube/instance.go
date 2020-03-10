@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	appEcho "istio.io/istio/pkg/test/echo/client"
+	echoCommon "istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	kubeEnv "istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -52,6 +53,7 @@ type instance struct {
 	workloads []*workload
 	grpcPort  uint16
 	ctx       resource.Context
+	tls       *echoCommon.TlsSettings
 	cluster   kubeEnv.Cluster
 }
 
@@ -82,7 +84,7 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 		return nil, errors.New("unable fo find GRPC command port")
 	}
 	c.grpcPort = uint16(grpcPort.InstancePort)
-
+	c.tls = cfg.TlsSettings
 	// Generate the deployment YAML.
 	generatedYAML, err := generateYAML(cfg)
 	if err != nil {
@@ -227,7 +229,7 @@ func (c *instance) initialize(endpoints *kubeCore.Endpoints) error {
 	workloads := make([]*workload, 0)
 	for _, subset := range endpoints.Subsets {
 		for _, addr := range subset.Addresses {
-			workload, err := newWorkload(addr, workloadHasSidecar(c.cfg, addr.TargetRef), c.grpcPort, c.cluster, c.ctx)
+			workload, err := newWorkload(addr, workloadHasSidecar(c.cfg, addr.TargetRef), c.grpcPort, c.cluster, c.tls, c.ctx)
 			if err != nil {
 				return err
 			}
