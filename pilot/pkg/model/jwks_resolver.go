@@ -28,6 +28,7 @@ import (
 	"time"
 
 	authn "istio.io/api/authentication/v1alpha1"
+	"istio.io/api/security/v1beta1"
 	"istio.io/pkg/cache"
 	"istio.io/pkg/monitoring"
 )
@@ -223,6 +224,19 @@ func (r *JwksResolver) SetAuthenticationPolicyJwksURIs(policy *authn.Policy) err
 	}
 
 	return nil
+}
+
+// ResolveJwksURI sets jwks_uri through openID discovery if it's not set in request authentication policy.
+func (r *JwksResolver) ResolveJwksURI(policy *v1beta1.RequestAuthentication) {
+	for _, rule := range policy.JwtRules {
+		if rule.JwksUri == "" && rule.Jwks == "" {
+			if uri, err := r.resolveJwksURIUsingOpenID(rule.Issuer); err == nil {
+				rule.JwksUri = uri
+			} else {
+				log.Warnf("Failed to get jwks_uri for issuer %q: %v", rule.Issuer, err)
+			}
+		}		
+	}
 }
 
 // GetPublicKey gets JWT public key and cache the key for future use.

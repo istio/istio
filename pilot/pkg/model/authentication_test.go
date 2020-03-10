@@ -24,6 +24,7 @@ import (
 	securityBeta "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
 
+	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -591,6 +592,183 @@ func TestGetPoliciesForWorkloadWithoutMeshPeerAuthn(t *testing.T) {
 	}
 }
 
+func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
+	ms, err := test.StartNewServer()
+	defer ms.Stop()
+	if err != nil {
+		t.Fatal("failed to start a mock server")
+	}
+
+	mockCertURL := ms.URL + "/oauth2/v3/certs"
+
+	policies := getTestAuthenticationPolicies(createNonTrivialRequestAuthnTestConfigs(ms.URL), t)
+
+	cases := []struct {
+		name                   string
+		workloadNamespace      string
+		workloadLabels         labels.Collection
+		wantRequestAuthn          []*Config
+	}{
+		{
+			name:              "single hit",
+			workloadNamespace: "foo",
+			workloadLabels:    labels.Collection{},
+			wantRequestAuthn: []*Config{
+				{
+					ConfigMeta: ConfigMeta{
+						Type:      requestAuthenticationGvk.Kind,
+						Version:   requestAuthenticationGvk.Version,
+						Group:     requestAuthenticationGvk.Group,
+						Name:      "default",
+						Namespace: rootNamespace,
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						JwtRules: []*securityBeta.JWTRule{
+							{
+								Issuer: ms.URL,
+								JwksUri: mockCertURL,
+							},
+						},
+					},
+				},				
+			},
+		},
+		{
+			name:              "double hit",
+			workloadNamespace: "foo",
+			workloadLabels:    labels.Collection{{"app":"httpbin"}},
+			wantRequestAuthn: []*Config{
+				{
+					ConfigMeta: ConfigMeta{
+						Type:      requestAuthenticationGvk.Kind,
+						Version:   requestAuthenticationGvk.Version,
+						Group:     requestAuthenticationGvk.Group,
+						Name:      "default",
+						Namespace: rootNamespace,
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						JwtRules: []*securityBeta.JWTRule{
+							{
+								Issuer: ms.URL,
+								JwksUri: mockCertURL,
+							},
+						},
+					},
+				},
+				{
+					ConfigMeta: ConfigMeta{
+						Type:      requestAuthenticationGvk.Kind,
+						Version:   requestAuthenticationGvk.Version,
+						Group:     requestAuthenticationGvk.Group,
+						Name:      "global-with-selector",
+						Namespace: rootNamespace,
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						Selector: &selectorpb.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "httpbin",
+							},
+						},
+						JwtRules: []*securityBeta.JWTRule{
+							{
+								Issuer: ms.URL,
+								JwksUri: mockCertURL,
+							},
+							{
+								Issuer: "bad-issuer",
+							},
+						},
+					},
+				},				
+			},
+		},
+		{
+			name:              "tripple hit",
+			workloadNamespace: "foo",
+			workloadLabels:    labels.Collection{{"app":"httpbin", "version":"v1"}},
+			wantRequestAuthn: []*Config{
+				{
+					ConfigMeta: ConfigMeta{
+						Type:      requestAuthenticationGvk.Kind,
+						Version:   requestAuthenticationGvk.Version,
+						Group:     requestAuthenticationGvk.Group,
+						Name:      "with-selector",
+						Namespace: "foo",
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						Selector: &selectorpb.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "httpbin",
+								"version":"v1",
+							},
+						},
+						JwtRules: []*securityBeta.JWTRule{
+							{
+								Issuer: "issuer-with-jwks-uri",
+								JwksUri: "example.com",
+							},
+							{
+								Issuer: "issuer-with-jwks",
+								Jwks: "deadbeef",
+							},
+						},
+					},
+				},
+				{
+					ConfigMeta: ConfigMeta{
+						Type:      requestAuthenticationGvk.Kind,
+						Version:   requestAuthenticationGvk.Version,
+						Group:     requestAuthenticationGvk.Group,
+						Name:      "default",
+						Namespace: rootNamespace,
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						JwtRules: []*securityBeta.JWTRule{
+							{
+								Issuer: ms.URL,
+								JwksUri: mockCertURL,
+							},
+						},
+					},
+				},
+				{
+					ConfigMeta: ConfigMeta{
+						Type:      requestAuthenticationGvk.Kind,
+						Version:   requestAuthenticationGvk.Version,
+						Group:     requestAuthenticationGvk.Group,
+						Name:      "global-with-selector",
+						Namespace: rootNamespace,
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						Selector: &selectorpb.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "httpbin",
+							},
+						},
+						JwtRules: []*securityBeta.JWTRule{
+							{
+								Issuer: ms.URL,
+								JwksUri: mockCertURL,
+							},
+							{
+								Issuer: "bad-issuer",
+							},
+						},
+					},
+				},				
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := policies.GetJwtPoliciesForWorkload(tc.workloadNamespace, tc.workloadLabels); !reflect.DeepEqual(tc.wantRequestAuthn, got) {
+				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantRequestAuthn), printConfigs(got))
+			}
+		})
+	}
+}
+
 func getTestAuthenticationPolicies(configs []*Config, t *testing.T) *AuthenticationPolicies {
 	configStore := NewFakeStore()
 	for _, cfg := range configs {
@@ -687,6 +865,50 @@ func createTestConfigs(withMeshPeerAuthn bool) []*Config {
 			createTestPeerAuthenticationResource("ignored-another-newer", rootNamespace, baseTimestamp.Add(time.Second),
 				nil, securityBeta.PeerAuthentication_MutualTLS_UNSET))
 	}
+
+	return configs
+}
+
+func addJwtRule(issuer, jwksURI, jwks string, config *Config) {
+	spec := config.Spec.(*securityBeta.RequestAuthentication)
+	if spec.JwtRules == nil {
+		spec.JwtRules = make([]*securityBeta.JWTRule, 0)
+	}
+	spec.JwtRules = append(spec.JwtRules, &securityBeta.JWTRule{
+		Issuer: issuer,
+		JwksUri: jwksURI,
+		Jwks: jwks,
+	})
+}
+
+func createNonTrivialRequestAuthnTestConfigs(issuer string) []*Config {
+	configs := make([]*Config, 0)
+
+	globalCfg := createTestRequestAuthenticationResource("default", rootNamespace, nil)
+	addJwtRule(issuer, "", "", globalCfg)	
+	configs = append(configs, globalCfg)
+
+
+	httpbinCfg :=
+		createTestRequestAuthenticationResource("global-with-selector", rootNamespace, &selectorpb.WorkloadSelector{
+			MatchLabels: map[string]string{
+				"app": "httpbin",
+			},
+		})
+
+	addJwtRule(issuer, "", "", httpbinCfg)
+	addJwtRule("bad-issuer", "", "", httpbinCfg)
+	configs = append(configs, httpbinCfg)
+
+	httpbinCfgV1 :=	createTestRequestAuthenticationResource("with-selector", "foo", &selectorpb.WorkloadSelector{
+			MatchLabels: map[string]string{
+				"app":     "httpbin",
+				"version": "v1",
+			},
+		})
+	addJwtRule("issuer-with-jwks-uri", "example.com", "", httpbinCfgV1)
+	addJwtRule("issuer-with-jwks", "", "deadbeef", httpbinCfgV1)
+	configs = append(configs, httpbinCfgV1)
 
 	return configs
 }
