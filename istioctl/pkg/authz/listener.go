@@ -212,18 +212,6 @@ func (l *ParsedListener) print(w io.Writer, printAll bool) {
 		}
 		mTLS := fmt.Sprintf("%s (%s)", mTLSEnabled, mTLSMode)
 
-		jwtPolicy := "no (none)"
-		if fc.envoyJWT != nil {
-			jwtPolicy = "yes (none)"
-			issuers := make([]string, 0)
-			for _, rule := range fc.envoyJWT.GetProviders() {
-				issuers = append(issuers, rule.Issuer)
-			}
-			if len(issuers) != 0 {
-				jwtPolicy = fmt.Sprintf("yes (%d: %s)", len(issuers), strings.Join(issuers, ", "))
-			}
-		}
-
 		rbacPolicy := "no (none)"
 		if fc.rbacHTTP != nil || fc.rbacTCP != nil {
 			rbacPolicy = "yes (none)"
@@ -241,11 +229,11 @@ func (l *ParsedListener) print(w io.Writer, printAll bool) {
 
 		var err error
 		if printAll {
-			_, err = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-				listenerName, fc.routeHTTP, sni, alpn, cert, mTLS, jwtPolicy, rbacPolicy)
+			_, err = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+				listenerName, fc.routeHTTP, sni, alpn, cert, mTLS, rbacPolicy)
 		} else {
-			_, err = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-				listenerName, cert, mTLS, jwtPolicy, rbacPolicy)
+			_, err = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+				listenerName, cert, mTLS, rbacPolicy)
 		}
 		if err != nil {
 			log.Errorf("failed to print output: %s", err)
@@ -256,9 +244,9 @@ func (l *ParsedListener) print(w io.Writer, printAll bool) {
 
 func PrintParsedListeners(writer io.Writer, parsedListeners []*ParsedListener, printAll bool) {
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 5, ' ', 0)
-	col := "LISTENER[FilterChain]\tHTTP ROUTE\tSNI\tALPN\tCERTIFICATE\tmTLS (MODE)\tJWT (ISSUERS)\tAuthZ (RULES)"
+	col := "LISTENER[FilterChain]\tHTTP ROUTE\tSNI\tALPN\tCERTIFICATE\tmTLS (MODE)\tAuthZ (RULES)"
 	if !printAll {
-		col = "LISTENER[FilterChain]\tCERTIFICATE\tmTLS (MODE)\tJWT (ISSUERS)\tAuthZ (RULES)"
+		col = "LISTENER[FilterChain]\tCERTIFICATE\tmTLS (MODE)\tAuthZ (RULES)"
 	}
 
 	if _, err := fmt.Fprintln(w, col); err != nil {
