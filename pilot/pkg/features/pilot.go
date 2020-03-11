@@ -288,4 +288,7 @@ var (
 	EnableServiceApis = env.RegisterBoolVar("PILOT_ENABLED_SERVICE_APIS", false,
 		"If this is set to true, support for Kubernetes service-apis (github.com/kubernetes-sigs/service-apis) will "+
 			" be enabled. This feature is currently experimental, and is off by default.").Get()
+
+	ClusterName = env.RegisterStringVar("CLUSTER_ID", "Kubernetes",
+		"Defines the cluster and service registry that this Istiod instance is belongs to")
 )

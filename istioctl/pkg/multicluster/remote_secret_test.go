@@ -110,6 +110,7 @@ metadata:
   labels:
     istio/multiCluster: "true"
   name: istio-remote-secret-54643f96-eca0-11e9-bb97-42010a80000a
+  namespace: istio-system-test
 stringData:
   54643f96-eca0-11e9-bb97-42010a80000a: |
     apiVersion: v1
