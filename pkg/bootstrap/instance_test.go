@@ -278,7 +278,6 @@ func TestGolden(t *testing.T) {
 				LocalEnv:          localEnv,
 				NodeIPs:           []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6", "10.4.4.4"},
 				SDSUDSPath:        c.sdsUDSPath,
-				SDSTokenPath:      c.sdsTokenPath,
 				OutlierLogPath:    "/dev/stdout",
 				PilotCertProvider: "istiod",
 			}).CreateFileForEpoch(0)

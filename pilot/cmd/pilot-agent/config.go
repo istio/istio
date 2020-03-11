@@ -19,6 +19,8 @@ import (
 	"strconv"
 	"strings"
 
+	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/proxy"
@@ -29,6 +31,29 @@ import (
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/pkg/log"
 )
+
+// getTlsCerts returns all file based certificates from mesh config
+// TODO(https://github.com/istio/istio/issues/21834) serve over SDS instead of files
+func getTlsCerts(pc meshconfig.ProxyConfig) []string {
+	certs := []string{}
+	appendTLSCerts := func(rs *meshconfig.RemoteService) {
+		if rs.TlsSettings == nil {
+			return
+		}
+		if rs.TlsSettings.Mode == networking.TLSSettings_DISABLE {
+			return
+		}
+		certs = append(certs, rs.TlsSettings.CaCertificates, rs.TlsSettings.ClientCertificate,
+			rs.TlsSettings.PrivateKey)
+	}
+	if pc.EnvoyMetricsService != nil {
+		appendTLSCerts(pc.EnvoyMetricsService)
+	}
+	if pc.EnvoyAccessLogService != nil {
+		appendTLSCerts(pc.EnvoyAccessLogService)
+	}
+	return certs
+}
 
 func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 	meshConfig, err := getMeshConfig()
@@ -61,13 +86,6 @@ func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 			proxyConfig.StatsdUdpAddress = addr
 		}
 	}
-	if proxyConfig.EnvoyMetricsService != nil {
-		appendTLSCerts(proxyConfig.EnvoyMetricsService)
-	}
-	if proxyConfig.EnvoyAccessLogService != nil {
-		appendTLSCerts(proxyConfig.EnvoyAccessLogService)
-	}
-
 	if err := validation.ValidateProxyConfig(&proxyConfig); err != nil {
 		return meshconfig.ProxyConfig{}, err
 	}

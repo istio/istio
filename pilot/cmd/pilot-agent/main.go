@@ -20,7 +20,6 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -34,7 +33,6 @@ import (
 	iptables "istio.io/istio/tools/istio-iptables/pkg/cmd"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/env"
@@ -88,7 +86,6 @@ var (
 	concurrency              int
 	templateFile             string
 	disableInternalTelemetry bool
-	tlsCertsToWatch          []string
 	loggingOptions           = log.DefaultOptions()
 	outlierLogPath           string
 
@@ -99,10 +96,7 @@ var (
 	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
 	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
-	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
-	autoMTLSEnabled      = env.RegisterBoolVar("ISTIO_AUTO_MTLS_ENABLED", false, "If true, auto mTLS is enabled, "+
-		"sidecar checks key/cert if SDS is not enabled.")
-	sdsUdsPathVar = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
+	sdsUdsPathVar        = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
 
 	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
 		"the provider of Pilot DNS certificate.").Get()
@@ -112,9 +106,6 @@ var (
 		"The output directory for the key and certificate. If empty, key and certificate will not be saved. "+
 			"Must be set for VMs using provisioning certificates.").Get()
 	meshConfig = env.RegisterStringVar("MESH_CONFIG", "", "The mesh configuration").Get()
-
-	// Indicates if any the remote services like AccessLogService, MetricsService have enabled tls.
-	rsTLSEnabled bool
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -187,11 +178,6 @@ var (
 				}
 			}
 
-			tlsCertsToWatch = []string{
-				tlsServerCertChain, tlsServerKey, tlsServerRootCert,
-				tlsClientCertChain, tlsClientKey, tlsClientRootCert,
-			}
-
 			proxyConfig, err := constructProxyConfig()
 			if err != nil {
 				return fmt.Errorf("failed to get proxy config: %v", err)
@@ -228,66 +214,45 @@ var (
 			} else {
 				log.Info("Using existing certs")
 			}
-			nodeAgentSDSEnabled := false
-			sdsTokenPath := ""
-			if _, err := os.Stat(caclient.ProvCert + "/key.pem"); err == nil {
-				// Using a provisioning cert - this is not using old SDS NodeAgent, and requires certs.
-			} else {
-				nodeAgentSDSEnabled, sdsTokenPath = detectSds(sdsUDSPath, jwtPath)
-			}
+			// Istiod and new SDS-only mode doesn't use sdsUdsPathVar - sdsEnabled will be false.
+			sa := istio_agent.NewSDSAgent(proxyConfig.DiscoveryAddress, proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
+				pilotCertProvider, jwtPath, outputKeyCertToDir)
 
-			if !nodeAgentSDSEnabled { // Not using citadel agent - this is either Pilot or Istiod.
+			if sa.JWTPath != "" {
+				// If user injected a JWT token for SDS - use SDS.
+				sdsUDSPath = sa.SDSAddress
 
-				// Istiod and new SDS-only mode doesn't use sdsUdsPathVar - sdsEnabled will be false.
-				sa := istio_agent.NewSDSAgent(proxyConfig.DiscoveryAddress, proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
-					pilotCertProvider, jwtPath, outputKeyCertToDir)
+				// Connection to Istiod secure port
+				if sa.RequireCerts {
+					proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
+				}
 
-				if sa.JWTPath != "" {
-					// If user injected a JWT token for SDS - use SDS.
-					nodeAgentSDSEnabled = true
-					sdsTokenPath = sa.JWTPath
-					sdsUDSPath = sa.SDSAddress
+				// For normal Istio - start in process SDS.
 
-					// Connection to Istiod secure port
-					if sa.RequireCerts {
-						proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
-					}
+				// citadel node-agent not found, but we have a K8S JWT available. Start an in-process SDS.
+				_, err := sa.Start(role.Type == model.SidecarProxy, podNamespaceVar.Get())
+				if err != nil {
+					log.Fatala("Failed to start in-process SDS", err)
+				}
 
-					// For normal Istio - start in process SDS.
-
-					// citadel node-agent not found, but we have a K8S JWT available. Start an in-process SDS.
-					_, err := sa.Start(role.Type == model.SidecarProxy, podNamespaceVar.Get())
-					if err != nil {
-						log.Fatala("Failed to start in-process SDS", err)
-					}
-
-					if sa.RequireCerts {
-						proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
-					}
-					if sa.SAN != "" {
-						pilotSAN = append(pilotSAN, sa.SAN)
-					}
+				if sa.RequireCerts {
+					proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
+				}
+				if sa.SAN != "" {
+					pilotSAN = append(pilotSAN, sa.SAN)
 				}
 			}
 
-			// dedupe cert paths so we don't set up 2 watchers for the same file:
-			tlsCertsToWatch = dedupeStrings(tlsCertsToWatch)
+			// dedupe cert paths so we don't set up 2 watchers for the same file
+			tlsCerts := dedupeStrings(getTlsCerts(proxyConfig))
 
 			// Since Envoy needs the file-mounted certs for mTLS, we wait for them to become available
-			// before starting it. Skip waiting cert if sds is enabled, otherwise it takes long time for
-			// pod to start.
-			if (proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS || rsTLSEnabled || autoMTLSEnabled.Get()) && !nodeAgentSDSEnabled {
-				log.Infof("Monitored certs: %#v", tlsCertsToWatch)
-				for _, cert := range tlsCertsToWatch {
+			// before starting it.
+			if len(tlsCerts) > 0 {
+				log.Infof("Monitored certs: %#v", tlsCerts)
+				for _, cert := range tlsCerts {
 					waitForFile(cert, 2*time.Minute)
 				}
-			}
-
-			// If control plane auth is not mTLS or global SDS flag is turned off, unset UDS path and token path
-			// for control plane SDS.
-			if !nodeAgentSDSEnabled {
-				sdsUDSPath = ""
-				sdsTokenPath = ""
 			}
 
 			// If the token and path are present - use SDS.
@@ -349,7 +314,6 @@ var (
 				PodNamespace:        podNamespace,
 				PodIP:               podIP,
 				SDSUDSPath:          sdsUDSPath,
-				SDSTokenPath:        sdsTokenPath,
 				STSPort:             stsPort,
 				ControlPlaneAuth:    proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 				DisableReportCalls:  disableInternalTelemetry,
@@ -359,12 +323,8 @@ var (
 
 			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
 
-			if nodeAgentSDSEnabled {
-				tlsCertsToWatch = []string{}
-			}
-
 			// Watcher is also kicking envoy start.
-			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.Restart)
+			watcher := envoy.NewWatcher(tlsCerts, agent.Restart)
 			go watcher.Run(ctx)
 
 			// On SIGINT or SIGTERM, cancel the context, triggering a graceful shutdown
@@ -463,40 +423,6 @@ func getDNSDomain(podNamespace, domain string) string {
 	return domain
 }
 
-// detectSds checks if the SDS address (when it is UDS) and JWT paths are present.
-func detectSds(sdsAddress, jwtPath string) (bool, string) {
-	if !sdsEnabledVar.Get() {
-		return false, ""
-	}
-
-	if len(sdsAddress) == 0 {
-		return false, ""
-	}
-
-	if _, err := os.Stat(jwtPath); err != nil {
-		return false, ""
-	}
-
-	// sdsAddress will not be empty when sdsAddress is a UDS address.
-	udsPath := ""
-	if strings.HasPrefix(sdsAddress, "unix:") {
-		udsPath = strings.TrimPrefix(sdsAddress, "unix:")
-		if len(udsPath) == 0 {
-			// If sdsAddress is "unix:", it is invalid, return false.
-			return false, ""
-		}
-	} else {
-		return true, jwtPath
-	}
-
-	// treat sds as disabled if uds path isn't set.
-	if _, err := os.Stat(udsPath); err != nil {
-		return false, ""
-	}
-
-	return true, jwtPath
-}
-
 func fromJSON(j string) *meshconfig.RemoteService {
 	var m meshconfig.RemoteService
 	err := jsonpb.UnmarshalString(j, &m)
@@ -506,18 +432,6 @@ func fromJSON(j string) *meshconfig.RemoteService {
 	}
 
 	return &m
-}
-
-func appendTLSCerts(rs *meshconfig.RemoteService) {
-	if rs.TlsSettings == nil {
-		return
-	}
-	if rs.TlsSettings.Mode == networking.TLSSettings_DISABLE {
-		return
-	}
-	rsTLSEnabled = true
-	tlsCertsToWatch = append(tlsCertsToWatch, rs.TlsSettings.CaCertificates, rs.TlsSettings.ClientCertificate,
-		rs.TlsSettings.PrivateKey)
 }
 
 func init() {
