@@ -347,11 +347,8 @@ func extractNameNamespace(metadataName string) (string, string) {
 	return "", segments[0]
 }
 
-func (c *controller) removeConfig(kind resource.GroupVersionKind, configName []string) {
-	if len(configName) == 0 {
-		return
-	}
-	for _, fullName := range configName {
+func (c *controller) removeConfig(kind resource.GroupVersionKind, resources []string) {
+	for _, fullName := range resources {
 		namespace, name := extractNameNamespace(fullName)
 		if byType, ok := c.configStore[kind]; ok {
 			if byNamespace, ok := byType[namespace]; ok {
