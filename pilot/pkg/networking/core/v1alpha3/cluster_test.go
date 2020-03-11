@@ -1624,33 +1624,6 @@ func TestClusterDiscoveryTypeAndLbPolicyPassthrough(t *testing.T) {
 	g.Expect(clusters[0].EdsClusterConfig).To(BeNil())
 }
 
-func TestClusterDiscoveryTypeAndLbPolicyPassthroughIstioVersion12(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	clusters, err := buildTestClustersWithIstioVersion("*.example.org", model.ClientSideLB, model.SidecarProxy, nil, testMesh,
-		&networking.DestinationRule{
-			Host: "*.example.org",
-			TrafficPolicy: &networking.TrafficPolicy{
-				LoadBalancer: &networking.LoadBalancerSettings{
-					LbPolicy: &networking.LoadBalancerSettings_Simple{
-						Simple: networking.LoadBalancerSettings_PASSTHROUGH,
-					},
-				},
-				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
-				},
-			},
-		},
-		nil, // authnPolicy
-		nil, // peerAuthn
-		&model.IstioVersion{Major: 1, Minor: 2})
-
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_ORIGINAL_DST_LB))
-	g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
-	g.Expect(clusters[0].EdsClusterConfig).To(BeNil())
-}
-
 func TestBuildClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 	g := NewGomegaWithT(t)
 
