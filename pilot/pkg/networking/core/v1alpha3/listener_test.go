@@ -1477,12 +1477,12 @@ func TestOutboundListenerConfig_TCPFailThrough(t *testing.T) {
 		buildService("test1.com", wildcardIP, protocol.HTTP, tnow)}
 	listeners := buildOutboundListeners(&fakePlugin{}, &proxy14, nil, nil, services...)
 
-	if len(listeners[0].FilterChains) != 3 {
-		t.Fatalf("expectd %d filter chains, found %d", 3, len(listeners[0].FilterChains))
+	if len(listeners[0].FilterChains) != 2 {
+		t.Fatalf("expectd %d filter chains, found %d", 2, len(listeners[0].FilterChains))
 	}
 
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1], model.TrafficDirectionOutbound, false)
-	verifyPassThroughTCPFilterChain(t, listeners[0].FilterChains[2])
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0], model.TrafficDirectionOutbound, false)
+	verifyPassThroughTCPFilterChain(t, listeners[0].FilterChains[1])
 
 	if len(listeners[0].ListenerFilters) != 2 ||
 		listeners[0].ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
