@@ -368,13 +368,12 @@ func newBlackholeFilter() *listener.Filter {
 // for the filter chain.
 func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 	node *model.Proxy, push *model.PushContext) ([]*listener.FilterChain, bool) {
-	ipv4, ipv6 := ipv4AndIpv6Support(node)
 	// ipv4 and ipv6 feature detect
 	ipVersions := make([]string, 0, 2)
-	if ipv4 {
+	if node.SupportsIPv4() {
 		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv4)
 	}
-	if ipv6 {
+	if node.SupportsIPv6() {
 		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
 	}
 	filterChains := make([]*listener.FilterChain, 0, 2)
@@ -466,13 +465,12 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 
 func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
 	node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
-	ipv4, ipv6 := ipv4AndIpv6Support(node)
 	// ipv4 and ipv6 feature detect
 	ipVersions := make([]string, 0, 2)
-	if ipv4 {
+	if node.SupportsIPv4() {
 		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv4)
 	}
-	if ipv6 {
+	if node.SupportsIPv6() {
 		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
 	}
 	filterChains := make([]*listener.FilterChain, 0, 2)

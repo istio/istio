@@ -2410,24 +2410,6 @@ func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
 	return WildcardIPv6Address, LocalhostIPv6Address
 }
 
-func ipv4AndIpv6Support(node *model.Proxy) (bool, bool) {
-	ipv4, ipv6 := false, false
-	for i := 0; i < len(node.IPAddresses); i++ {
-		addr := net.ParseIP(node.IPAddresses[i])
-		if addr == nil {
-			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
-			// skip it to prevent a panic.
-			continue
-		}
-		if addr.To4() != nil {
-			ipv4 = true
-		} else {
-			ipv6 = true
-		}
-	}
-	return ipv4, ipv6
-}
-
 // getSidecarInboundBindIP returns the IP that the proxy can bind to along with the sidecar specified port.
 // It looks for an unicast address, if none found, then the default wildcard address is used.
 // This will make the inbound listener bind to instance_ip:port instead of 0.0.0.0:port where applicable.

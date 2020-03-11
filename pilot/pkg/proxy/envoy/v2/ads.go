@@ -450,6 +450,8 @@ func (s *DiscoveryServer) initProxy(node *core.Node) (*model.Proxy, error) {
 		proxy.Locality = node.Locality
 	}
 
+	proxy.DiscoverIPVersions()
+
 	return proxy, nil
 }
 
