@@ -2243,7 +2243,7 @@ message Values {
 
   TracingConfig tracing = 14;
 
-  KialiConfig kiali = 15;
+  TypeMapStringInterface kiali = 15;
 
   // Deprecated.
   string version = 16;
