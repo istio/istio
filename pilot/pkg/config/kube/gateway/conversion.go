@@ -30,6 +30,10 @@ import (
 	"istio.io/istio/pkg/config/constants"
 )
 
+const (
+	ControllerName = "istio.io/gateway-controller"
+)
+
 type KubernetesResources struct {
 	GatewayClass []model.Config
 	Gateway      []model.Config
@@ -232,11 +236,30 @@ func createURIMatch(match *k8s.HTTPRouteMatch) *istio.StringMatch {
 	}
 }
 
+// getGatewayClass finds all gateway class that are owned by Istio
+func getGatewayClasses(r *KubernetesResources) map[string]struct{} {
+	classes := map[string]struct{}{}
+	for _, obj := range r.GatewayClass {
+		gwc := obj.Spec.(*k8s.GatewayClassSpec)
+		if gwc.Controller == ControllerName {
+			// TODO we can add any settings we need here needed for the controller
+			// For now, we have none, so just add a struct
+			classes[obj.Name] = struct{}{}
+		}
+	}
+	return classes
+}
+
 func convertGateway(r *KubernetesResources) ([]model.Config, map[*k8s.HTTPRouteSpec][]string) {
 	result := []model.Config{}
 	routeToGateway := map[*k8s.HTTPRouteSpec][]string{}
+	classes := getGatewayClasses(r)
 	for _, obj := range r.Gateway {
 		kgw := obj.Spec.(*k8s.GatewaySpec)
+		if _, f := classes[kgw.Class]; !f {
+			// No gateway class found, this may be meant for another controller; should be skipped.
+			continue
+		}
 		name := obj.Name + "-" + constants.KubernetesGatewayName
 		var servers []*istio.Server
 		for _, l := range kgw.Listeners {
