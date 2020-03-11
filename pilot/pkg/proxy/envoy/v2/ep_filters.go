@@ -100,10 +100,10 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 				lbEndpoints = append(lbEndpoints, gwEp)
 			}
 		}
+
 		// Found endpoint(s) that can be accessed from local network
 		// and then build a new LocalityLbEndpoints with them.
 		newEp := createLocalityLbEndpoints(ep, lbEndpoints)
-
 		filtered = append(filtered, newEp)
 	}
 

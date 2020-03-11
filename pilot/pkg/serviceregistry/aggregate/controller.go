@@ -228,7 +228,7 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 	// It doesn't make sense for a single proxy to be found in more than one registry.
 	// TODO: if otherwise, warning or else what to do about it.
 	for _, r := range c.GetRegistries() {
-		// Skip the service registry when we know there won't be match
+		// Skip the service registry when we know there won't be a match
 		// because the proxy is in a different cluster. We can't trust
 		// the default service registry because its always named `Kubernetes`
 		// and won't match the CLUSTER_ID label from the proxies.
