@@ -15,7 +15,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -23,7 +22,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"text/template"
 	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -50,7 +48,6 @@ import (
 	envoyDiscovery "istio.io/istio/pilot/pkg/proxy/envoy"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/envoy"
@@ -82,7 +79,6 @@ var (
 
 	// proxy config flags (named identically)
 	configPath               string
-	controlPlaneBootstrap    bool
 	binaryPath               string
 	serviceCluster           string
 	proxyAdminPort           uint16
@@ -116,8 +112,6 @@ var (
 		"The output directory for the key and certificate. If empty, key and certificate will not be saved. "+
 			"Must be set for VMs using provisioning certificates.").Get()
 	meshConfig = env.RegisterStringVar("MESH_CONFIG", "", "The mesh configuration").Get()
-
-	sdsUdsWaitTimeout = time.Minute
 
 	// Indicates if any the remote services like AccessLogService, MetricsService have enabled tls.
 	rsTLSEnabled bool
@@ -239,7 +233,7 @@ var (
 			if _, err := os.Stat(caclient.ProvCert + "/key.pem"); err == nil {
 				// Using a provisioning cert - this is not using old SDS NodeAgent, and requires certs.
 			} else {
-				nodeAgentSDSEnabled, sdsTokenPath = detectSds(controlPlaneBootstrap, sdsUDSPath, jwtPath)
+				nodeAgentSDSEnabled, sdsTokenPath = detectSds(sdsUDSPath, jwtPath)
 			}
 
 			if !nodeAgentSDSEnabled { // Not using citadel agent - this is either Pilot or Istiod.
@@ -297,61 +291,7 @@ var (
 			}
 
 			// If the token and path are present - use SDS.
-
-			// TODO: change Mixer and Pilot to use standard template and deprecate this custom bootstrap parser
-			if controlPlaneBootstrap {
-				if templateFile != "" && proxyConfig.CustomConfigFile == "" {
-					// Generate a custom bootstrap template.
-					opts := []option.Instance{
-						option.PodName(podName),
-						option.PodNamespace(podNamespace),
-						option.MixerSubjectAltName(mixerSAN),
-						option.PodIP(podIP),
-						option.ControlPlaneAuth(proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS),
-						option.DisableReportCalls(disableInternalTelemetry),
-						option.SDSTokenPath(sdsTokenPath),
-						option.SDSUDSPath(sdsUDSPath),
-					}
-
-					if stsPort > 0 {
-						opts = append(opts, option.STSEnabled(true),
-							option.STSPort(stsPort))
-					}
-
-					// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
-					if proxyIPv6 {
-						opts = append(opts, option.Localhost(option.LocalhostIPv6),
-							option.Wildcard(option.WildcardIPv6),
-							option.DNSLookupFamily(option.DNSLookupFamilyIPv6))
-					} else {
-						opts = append(opts, option.Localhost(option.LocalhostIPv4),
-							option.Wildcard(option.WildcardIPv4),
-							option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
-					}
-
-					params, err := option.NewTemplateParams(opts...)
-					if err != nil {
-						return err
-					}
-
-					tmpl, err := template.ParseFiles(templateFile)
-					if err != nil {
-						return err
-					}
-					var buffer bytes.Buffer
-					err = tmpl.Execute(&buffer, params)
-					if err != nil {
-						return err
-					}
-					content := buffer.Bytes()
-					log.Infof("Static config:\n%s", string(content))
-					proxyConfig.CustomConfigFile = proxyConfig.ConfigPath + "/envoy.yaml"
-					err = ioutil.WriteFile(proxyConfig.CustomConfigFile, content, 0644)
-					if err != nil {
-						return err
-					}
-				}
-			} else if templateFile != "" && proxyConfig.CustomConfigFile == "" {
+			if templateFile != "" && proxyConfig.CustomConfigFile == "" {
 				proxyConfig.ProxyBootstrapTemplatePath = templateFile
 			}
 			ctx, cancel := context.WithCancel(context.Background())
@@ -524,7 +464,7 @@ func getDNSDomain(podNamespace, domain string) string {
 }
 
 // detectSds checks if the SDS address (when it is UDS) and JWT paths are present.
-func detectSds(controlPlaneBootstrap bool, sdsAddress, jwtPath string) (bool, string) {
+func detectSds(sdsAddress, jwtPath string) (bool, string) {
 	if !sdsEnabledVar.Get() {
 		return false, ""
 	}
@@ -549,20 +489,8 @@ func detectSds(controlPlaneBootstrap bool, sdsAddress, jwtPath string) (bool, st
 		return true, jwtPath
 	}
 
-	if !controlPlaneBootstrap {
-		// workload sidecar
-		// treat sds as disabled if uds path isn't set.
-		if _, err := os.Stat(udsPath); err != nil {
-			return false, ""
-		}
-
-		return true, jwtPath
-	}
-
-	// controlplane components like pilot/mixer/galley have sidecar
-	// they start almost same time as sds server; wait since there is a chance
-	// when pilot-agent start, the uds file doesn't exist.
-	if !waitForFile(udsPath, sdsUdsWaitTimeout) {
+	// treat sds as disabled if uds path isn't set.
+	if _, err := os.Stat(udsPath); err != nil {
 		return false, ""
 	}
 
@@ -641,8 +569,6 @@ func init() {
 		"Go template bootstrap config")
 	proxyCmd.PersistentFlags().BoolVar(&disableInternalTelemetry, "disableInternalTelemetry", false,
 		"Disable internal telemetry")
-	proxyCmd.PersistentFlags().BoolVar(&controlPlaneBootstrap, "controlPlaneBootstrap", true,
-		"Process bootstrap provided via templateFile to be used by control plane components.")
 	proxyCmd.PersistentFlags().StringVar(&outlierLogPath, "outlierLogPath", "",
 		"The log path for outlier detection")
 

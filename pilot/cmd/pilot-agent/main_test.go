@@ -18,7 +18,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
@@ -113,66 +112,46 @@ func TestPilotDefaultDomainKubernetes(t *testing.T) {
 }
 
 func TestDetectSds(t *testing.T) {
-	sdsUdsWaitTimeout = 100 * time.Millisecond
 	os.Setenv("SDS_ENABLED", "true")
 	defer func() {
-		sdsUdsWaitTimeout = time.Minute
 		os.Unsetenv("SDS_ENABLED")
 	}()
 
 	g := gomega.NewGomegaWithT(t)
 	tests := []struct {
-		controlPlaneBootstrap bool
-		sdsAddress            string
-		tokenPath             string
-		expectedSdsEnabled    bool
-		expectedSdsTokenPath  string
+		sdsAddress           string
+		tokenPath            string
+		expectedSdsEnabled   bool
+		expectedSdsTokenPath string
 	}{
 		{
-			controlPlaneBootstrap: true,
-			expectedSdsEnabled:    false,
-			expectedSdsTokenPath:  "",
+			expectedSdsEnabled:   false,
+			expectedSdsTokenPath: "",
 		},
 		{
-			controlPlaneBootstrap: true,
-			sdsAddress:            "/tmp/testtmpuds1.log",
-			tokenPath:             "/tmp/testtmptoken1.log",
-			expectedSdsEnabled:    true,
-			expectedSdsTokenPath:  "/tmp/testtmptoken1.log",
+			sdsAddress:           "/tmp/testtmpuds1.log",
+			tokenPath:            "/tmp/testtmptoken1.log",
+			expectedSdsEnabled:   true,
+			expectedSdsTokenPath: "/tmp/testtmptoken1.log",
 		},
 		{
-			controlPlaneBootstrap: true,
-			sdsAddress:            "unix:/tmp/testtmpuds1.log",
-			tokenPath:             "/tmp/testtmptoken1.log",
-			expectedSdsEnabled:    true,
-			expectedSdsTokenPath:  "/tmp/testtmptoken1.log",
+			sdsAddress:           "unix:/tmp/testtmpuds1.log",
+			tokenPath:            "/tmp/testtmptoken1.log",
+			expectedSdsEnabled:   true,
+			expectedSdsTokenPath: "/tmp/testtmptoken1.log",
 		},
 		{
-			controlPlaneBootstrap: true,
-			sdsAddress:            "/tmp/testtmpuds1.log",
-			tokenPath:             "/tmp/testtmptoken1.log",
-			expectedSdsEnabled:    true,
-			expectedSdsTokenPath:  "/tmp/testtmptoken1.log",
+			sdsAddress:           "/tmp/testtmpuds1.log",
+			tokenPath:            "/tmp/testtmptoken1.log",
+			expectedSdsEnabled:   true,
+			expectedSdsTokenPath: "/tmp/testtmptoken1.log",
 		},
 		{
-			controlPlaneBootstrap: true,
-			tokenPath:             "/tmp/testtmptoken1.log",
-			expectedSdsEnabled:    false,
+			tokenPath:          "/tmp/testtmptoken1.log",
+			expectedSdsEnabled: false,
 		},
 		{
-			controlPlaneBootstrap: true,
-			sdsAddress:            "/tmp/testtmpuds1.log",
-		},
-		{
-			controlPlaneBootstrap: false,
-			sdsAddress:            "/tmp/test_tmp_uds2",
-			tokenPath:             "/tmp/test_tmp_token2",
-			expectedSdsEnabled:    true,
-			expectedSdsTokenPath:  "/tmp/test_tmp_token2",
-		},
-		{
-			controlPlaneBootstrap: false,
-			sdsAddress:            "/tmp/test_tmp_uds4",
+			sdsAddress: "/tmp/testtmpuds1.log",
 		},
 	}
 	for _, tt := range tests {
@@ -190,7 +169,7 @@ func TestDetectSds(t *testing.T) {
 			}
 		}
 
-		enabled, path := detectSds(tt.controlPlaneBootstrap, tt.sdsAddress, tt.tokenPath)
+		enabled, path := detectSds(tt.sdsAddress, tt.tokenPath)
 		g.Expect(enabled).To(gomega.Equal(tt.expectedSdsEnabled))
 		g.Expect(path).To(gomega.Equal(tt.expectedSdsTokenPath))
 	}
