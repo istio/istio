@@ -224,6 +224,18 @@ func (iptConfigurator *IptablesConfigurator) handleInboundIpv6Rules(ipv6RangesEx
 	// ::6 is bind connect from inbound passthrough cluster
 	iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-s", "::6/128", "-j", constants.RETURN)
 
+	// for inbound traffic envoy redirect to specific local pod IP, just RETURN.
+	// these rules are avoid for redirecting traffic into ISTIO_IN_REDIRECT for inbound traffic
+	for _, uid := range split(iptConfigurator.cfg.ProxyUID) {
+		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT,
+			"-s", "::1/128", "!", "-d", "::1/128", "-m", "owner", "--uid-owner", uid, "-j", "RETURN")
+	}
+
+	for _, gid := range split(iptConfigurator.cfg.ProxyGID) {
+		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT,
+			"-s", "::1/128", "!", "-d", "::1/128", "-m", "owner", "--gid-owner", gid, "-j", "RETURN")
+	}
+
 	for _, uid := range split(iptConfigurator.cfg.ProxyUID) {
 		// Redirect app calls back to itself via Envoy when using the service VIP
 		// e.g. appN => Envoy (client) => Envoy (server) => appN.
@@ -366,6 +378,18 @@ func (iptConfigurator *IptablesConfigurator) run() {
 
 	// 127.0.0.6 is bind connect from inbound passthrough cluster
 	iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-s", "127.0.0.6/32", "-j", constants.RETURN)
+
+	// for inbound traffic envoy redirect to specific local pod IP, just RETURN.
+	// these rules are avoid for redirecting traffic into ISTIO_IN_REDIRECT for inbound traffic
+	for _, uid := range split(iptConfigurator.cfg.ProxyUID) {
+		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT,
+			"-s", "127.0.0.1/32", "!", "-d", "127.0.0.1/32", "-m", "owner", "--uid-owner", uid, "-j", "RETURN")
+	}
+
+	for _, gid := range split(iptConfigurator.cfg.ProxyGID) {
+		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT,
+			"-s", "127.0.0.1/32", "!", "-d", "127.0.0.1/32", "-m", "owner", "--gid-owner", gid, "-j", "RETURN")
+	}
 
 	for _, uid := range split(iptConfigurator.cfg.ProxyUID) {
 		// Redirect app calls back to itself via Envoy when using the service VIP

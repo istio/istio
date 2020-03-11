@@ -30,6 +30,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/api/annotation"
 	meshAPI "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/log"
 
@@ -38,6 +39,7 @@ import (
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/spiffe"
+	portutil "istio.io/istio/pkg/util"
 )
 
 const (
@@ -385,6 +387,18 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 				meta.Labels = m
 				if telemetrySvc := m["istioTelemetryService"]; len(telemetrySvc) > 0 {
 					meta.CanonicalTelemetryService = m["istioTelemetryService"]
+				}
+			}
+		case "ISTIO_METAJSON_ANNOTATIONS":
+			m := jsonStringToMap(val)
+			if len(m) > 0 {
+				if bindPodIPPorts := m[annotation.SidecarTrafficBindPodIPPorts.Name]; len(bindPodIPPorts) > 0 {
+					ports, err := portutil.ParsePorts(bindPodIPPorts)
+					// should never happen because we have checked in injector
+					if err != nil {
+						log.Warnf("invalid value for annotation %s: %s", annotation.SidecarTrafficBindPodIPPorts.Name, bindPodIPPorts)
+					}
+					meta.BindPodIPPorts = ports
 				}
 			}
 		case "POD_NAME":

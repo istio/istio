@@ -365,6 +365,10 @@ type NodeMetadata struct {
 	// Alpha in 1.1, based on feedback may be turned into an API or change. Set to "1" to enable.
 	HTTP10 string `json:"HTTP10,omitempty"`
 
+	// BindPodIPPorts indecate the application ports which are bind to specific pod IP instead of 127.0.0.1 or ::1.
+	// For these ports, the inbound traffic will redirect to pod IP instead of 127.0.0.1 or ::1.
+	BindPodIPPorts []int `json:"BIND_PODIP_PORTS,omitempty"`
+
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
 	Raw map[string]interface{} `json:"-"`

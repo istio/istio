@@ -2318,6 +2318,35 @@ func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
 	return WildcardIPv6Address, LocalhostIPv6Address
 }
 
+// getActualInboundBindAddress decide which ip should be bind for inbound.
+// default return 127.0.0.1/::1, if user specific use podIP in annotation,
+// return the podIP for binding
+func getActualInboundBindAddress(node *model.Proxy, port int) string {
+	bindPodIP := false
+	for _, p := range node.Metadata.BindPodIPPorts {
+		if p == port {
+			bindPodIP = true
+			break
+		}
+	}
+	for i := 0; i < len(node.IPAddresses); i++ {
+		addr := net.ParseIP(node.IPAddresses[i])
+		if addr == nil {
+			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
+			// skip it to prevent a panic.
+			continue
+		}
+		if bindPodIP {
+			return node.IPAddresses[i]
+		}
+		if addr.To4() != nil {
+			return LocalhostAddress
+		}
+		return LocalhostIPv6Address
+	}
+	return LocalhostAddress
+}
+
 // getSidecarInboundBindIP returns the IP that the proxy can bind to along with the sidecar specified port.
 // It looks for an unicast address, if none found, then the default wildcard address is used.
 // This will make the inbound listener bind to instance_ip:port instead of 0.0.0.0:port where applicable.

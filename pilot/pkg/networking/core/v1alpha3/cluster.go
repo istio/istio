@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	"fmt"
 	"math"
+	"net"
 	"strconv"
 	"strings"
 
@@ -352,12 +353,13 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(proxy *model.Proxy,
 			// Filter out service instances with the same port as we are going to mark them as duplicates any way
 			// in normalizeClusters method.
 			if !have[instance.ServicePort] {
+				bind := getActualInboundBindAddress(proxy, int(instance.Endpoint.EndpointPort))
 				pluginParams := &plugin.InputParams{
 					Node:            proxy,
 					ServiceInstance: instance,
 					Port:            instance.ServicePort,
 					Push:            push,
-					Bind:            actualLocalHost,
+					Bind:            bind,
 				}
 				localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams)
 				clusters = append(clusters, localCluster)
@@ -385,11 +387,12 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(proxy *model.Proxy,
 				Protocol: protocol.Parse(ingressListener.Port.Protocol),
 				Name:     ingressListener.Port.Name,
 			}
+			bind := getActualInboundBindAddress(proxy, listenPort.Port)
 
 			// When building an inbound cluster for the ingress listener, we take the defaultEndpoint specified
 			// by the user and parse it into host:port or a unix domain socket
-			// The default endpoint can be 127.0.0.1:port or :port or unix domain socket
-			endpointAddress := actualLocalHost
+			// The default endpoint can be 127.0.0.1:port or ip:port or :port or unix domain socket
+			endpointAddress := bind
 			port := 0
 			var err error
 			if strings.HasPrefix(ingressListener.DefaultEndpoint, model.UnixAddressPrefix) {
@@ -462,6 +465,23 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 	localityLbEndpoints := buildInboundLocalityLbEndpoints(pluginParams.Bind, instance.Endpoint.EndpointPort)
 	localCluster := cb.buildDefaultCluster(clusterName, apiv2.Cluster_STATIC, localityLbEndpoints,
 		model.TrafficDirectionInbound, nil, false)
+	endpointIP := net.ParseIP(pluginParams.Bind)
+	if endpointIP != nil {
+		localAddr := LocalhostIPv6Address
+		if endpointIP.To4() != nil {
+			localAddr = LocalhostAddress
+		}
+		// specific the bind address for inbound traffic redirect to local service.
+		// this configuration is used to distinguish traffic between inbound traffic to specific podIP and outbound traffic back to itself using VIP.
+		localCluster.UpstreamBindConfig = &core.BindConfig{
+			SourceAddress: &core.SocketAddress{
+				Address: localAddr,
+				PortSpecifier: &core.SocketAddress_PortValue{
+					PortValue: uint32(0),
+				},
+			},
+		}
+	}
 	// If stat name is configured, build the alt statname.
 	if len(pluginParams.Push.Mesh.InboundClusterStatName) != 0 {
 		localCluster.AltStatName = util.BuildStatPrefix(pluginParams.Push.Mesh.InboundClusterStatName,

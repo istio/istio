@@ -29,6 +29,7 @@ import (
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	apiv2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
@@ -1689,6 +1690,103 @@ func TestBuildInboundClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 		g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
 		g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds()))
 	}
+}
+
+func TestBuildInboundClustersWithBindPodIPPorts(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	configgen := NewConfigGenerator([]plugin.Plugin{})
+	serviceDiscovery := &fakes.ServiceDiscovery{}
+	configStore := &fakes.IstioConfigStore{}
+	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
+
+	proxy := &model.Proxy{
+		Metadata:     &model.NodeMetadata{BindPodIPPorts: []int{7777, 8888}},
+		SidecarScope: &model.SidecarScope{},
+		IPAddresses:  []string{"192.168.1.1"},
+	}
+
+	servicePort80 := &model.Port{
+		Name:     "default",
+		Port:     80,
+		Protocol: protocol.HTTP,
+	}
+	servicePort17777 := &model.Port{
+		Name:     "p17777",
+		Port:     17777,
+		Protocol: protocol.HTTP,
+	}
+	servicePort18888 := &model.Port{
+		Name:     "p8888",
+		Port:     18888,
+		Protocol: protocol.HTTP,
+	}
+
+	service := &model.Service{
+		Hostname:    host.Name("backend.default.svc.cluster.local"),
+		Address:     "1.1.1.1",
+		ClusterVIPs: make(map[string]string),
+		Ports:       model.PortList{servicePort80, servicePort17777, servicePort18888},
+		Resolution:  model.Passthrough,
+	}
+
+	instances := []*model.ServiceInstance{
+		{
+			Service:     service,
+			ServicePort: servicePort80,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.1",
+				EndpointPort: 10001,
+			},
+		},
+		{
+			Service:     service,
+			ServicePort: servicePort17777,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.1",
+				EndpointPort: 7777,
+			},
+		},
+		{
+			Service:     service,
+			ServicePort: servicePort18888,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.1",
+				EndpointPort: 8888,
+			},
+		},
+	}
+
+	expectedPortBindMap := map[uint32]string{
+		10001: LocalhostAddress,
+		7777:  "192.168.1.1",
+		8888:  "192.168.1.1",
+	}
+
+	clusters := configgen.buildInboundClusters(proxy, env.PushContext, instances, nil)
+	g.Expect(len(clusters)).ShouldNot(Equal(0))
+
+	for _, cluster := range clusters {
+		g.Expect(cluster.UpstreamBindConfig).NotTo(BeNil())
+		ep, ok := cluster.LoadAssignment.Endpoints[0].LbEndpoints[0].HostIdentifier.(*endpoint.LbEndpoint_Endpoint)
+		if !ok {
+			t.Errorf("failed convert endpoint")
+			continue
+		}
+		sa, ok := ep.Endpoint.Address.Address.(*core.Address_SocketAddress)
+		if !ok {
+			t.Errorf("failed convert address")
+		}
+		port, ok := sa.SocketAddress.PortSpecifier.(*core.SocketAddress_PortValue)
+		if !ok {
+			t.Errorf("failed convert port")
+		}
+		if val, exist := expectedPortBindMap[port.PortValue]; exist {
+			g.Expect(val).Should(Equal(sa.SocketAddress.Address))
+			delete(expectedPortBindMap, port.PortValue)
+		}
+	}
+	g.Expect(len(expectedPortBindMap)).Should(Equal(0))
 }
 
 func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
