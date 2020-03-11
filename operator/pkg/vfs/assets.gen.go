@@ -13232,7 +13232,7 @@ var _chartsGatewaysIstioEgressTemplatesAutoscaleYaml = []byte(`{{ $gateway := in
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ $gateway.name }}
+  name: {{ $gateway.name | default "istio-egressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -13243,7 +13243,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ $gateway.name }}
+    name: {{ $gateway.name | default "istio-egressgateway" }}
   metrics:
     - type: Resource
       resource:
@@ -13272,7 +13272,7 @@ var _chartsGatewaysIstioEgressTemplatesDeploymentYaml = []byte(`{{ $gateway := i
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ $gateway.name }}
+  name: {{ $gateway.name | default "istio-egressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -13299,7 +13299,7 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
-        service.istio.io/canonical-name: {{ $gateway.name }}
+        service.istio.io/canonical-name: {{ $gateway.name | default "istio-egressgateway" }}
 {{- if not (eq .Values.revision "") }}
         service.istio.io/canonical-revision: {{ .Values.revision }}
 {{- else}}
@@ -13369,7 +13369,7 @@ spec:
           - --log_as_json
         {{- end }}
           - --serviceCluster
-          - {{ $gateway.name }}
+          - {{ $gateway.name | default "istio-egressgateway" }}
           - --proxyAdminPort
           - "15000"
         {{- if .Values.global.sts.servicePort }}
@@ -13431,9 +13431,9 @@ spec:
               fieldRef:
                 fieldPath: spec.serviceAccountName
           - name: ISTIO_META_WORKLOAD_NAME
-            value: {{ $gateway.name }}
+            value: {{ $gateway.name | default "istio-egressgateway" }}
           - name: ISTIO_META_OWNER
-            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/{{ $gateway.name }}
+            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/{{ $gateway.name | default "istio-egressgateway" }}
           {{- if $.Values.global.meshID }}
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.meshID }}"
@@ -13574,7 +13574,7 @@ var _chartsGatewaysIstioEgressTemplatesPoddisruptionbudgetYaml = []byte(`{{- if 
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: {{ $gateway.name }}
+  name: {{ $gateway.name | default "istio-egressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -13706,7 +13706,7 @@ var _chartsGatewaysIstioEgressTemplatesServiceYaml = []byte(`{{ $gateway := inde
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ $gateway.name }}
+  name: {{ $gateway.name | default "istio-egressgateway" }}
   namespace: {{ .Release.Namespace }}
   annotations:
     {{- range $key, $val := $gateway.serviceAnnotations }}
@@ -14187,7 +14187,7 @@ var _chartsGatewaysIstioIngressTemplatesAutoscaleYaml = []byte(`{{ $gateway := i
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ $gateway.name }}
+  name: {{ $gateway.name | default "istio-ingressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -14198,7 +14198,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ $gateway.name }}
+    name: {{ $gateway.name | default "istio-ingressgateway" }}
   metrics:
     - type: Resource
       resource:
@@ -14289,7 +14289,7 @@ var _chartsGatewaysIstioIngressTemplatesDeploymentYaml = []byte(`{{- $gateway :=
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ $gateway.name }}
+  name: {{ $gateway.name | default "istio-ingressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -14316,7 +14316,7 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
-        service.istio.io/canonical-name: {{ $gateway.name }}
+        service.istio.io/canonical-name: {{ $gateway.name | default "istio-ingressgateway" }}
         {{- if not (eq .Values.revision "") }}
         service.istio.io/canonical-revision: {{ .Values.revision }}
         {{- else}}
@@ -14389,7 +14389,7 @@ spec:
           - --log_as_json
         {{- end }}
           - --serviceCluster
-          - {{ $gateway.name }}
+          - {{ $gateway.name | default "istio-ingressgateway" }}
           - --proxyAdminPort
           - "15000"
         {{- if .Values.global.sts.servicePort }}
@@ -14461,9 +14461,9 @@ spec:
               fieldRef:
                 fieldPath: spec.serviceAccountName
           - name: ISTIO_META_WORKLOAD_NAME
-            value: {{ $gateway.name }}
+            value: {{ $gateway.name | default "istio-ingressgateway" }}
           - name: ISTIO_META_OWNER
-            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/{{ $gateway.name }}
+            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/{{ $gateway.name | default "istio-ingressgateway" }}
           {{- if $.Values.global.meshID }}
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.meshID }}"
@@ -15034,7 +15034,7 @@ var _chartsGatewaysIstioIngressTemplatesServiceYaml = []byte(`{{ $gateway := ind
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ $gateway.name }}
+  name: {{ $gateway.name | default "istio-ingressgateway" }}
   namespace: {{ .Release.Namespace }}
   annotations:
     {{- range $key, $val := $gateway.serviceAnnotations }}

@@ -42,6 +42,7 @@ func setupConfig(cfg *istio.Config) {
 components:
   egressGateways:
   - enabled: true
+    name: istio-egressgateway
 values:
   global:
     outboundTrafficPolicy:
