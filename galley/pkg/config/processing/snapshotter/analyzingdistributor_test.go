@@ -506,3 +506,4 @@ type fakeOrigin struct {
 
 func (f fakeOrigin) Namespace() resource.Namespace { return f.namespace }
 func (f fakeOrigin) FriendlyName() string          { return f.friendlyName }
+func (f fakeOrigin) Reference() string             { return "" }
