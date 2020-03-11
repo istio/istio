@@ -27,4 +27,7 @@ type Cluster interface {
 
 	// Index of this Cluster within the Environment
 	Index() ClusterIndex
+
+	// IsControlPlaneCluster indicates whether or not a control plane has/should have a control plane deployed.
+	IsControlPlaneCluster() bool
 }

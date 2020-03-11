@@ -73,6 +73,7 @@ var (
 		ChartDir:                       env.IstioChartDir,
 		ValuesFile:                     E2EValuesFile,
 		CustomSidecarInjectorNamespace: "",
+		ControlPlaneTopology:           make(map[resource.ClusterIndex]resource.ClusterIndex),
 	}
 )
 
@@ -122,6 +123,10 @@ type Config struct {
 	// Indicates that the test should deploy Istio into the target Kubernetes cluster before running tests.
 	DeployIstio bool
 
+	// ControlPlaneTopology maps each cluster to the cluster that runs its control plane. For replicated control
+	// plane cases (where each cluster has its own control plane), the cluster will map to itself (e.g. 0->0).
+	ControlPlaneTopology map[resource.ClusterIndex]resource.ClusterIndex
+
 	// Do not wait for the validation webhook before completing the deployment. This is useful for
 	// doing deployments without Galley.
 	SkipWaitForValidationWebhook bool
@@ -162,7 +167,7 @@ func (c *Config) IsMtlsEnabled() bool {
 	return true
 }
 
-func (c *Config) IstioOperator() string {
+func (c *Config) IstioOperatorConfigYAML() string {
 	data := ""
 	if c.ControlPlaneValues != "" {
 		data = Indent(c.ControlPlaneValues, "  ")
@@ -336,6 +341,7 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("ValuesFile:                     %s\n", c.ValuesFile)
 	result += fmt.Sprintf("SkipWaitForValidationWebhook:   %v\n", c.SkipWaitForValidationWebhook)
 	result += fmt.Sprintf("CustomSidecarInjectorNamespace: %s\n", c.CustomSidecarInjectorNamespace)
+	result += fmt.Sprintf("ControlPlaneTopology:           %v\n", c.ControlPlaneTopology)
 
 	return result
 }
