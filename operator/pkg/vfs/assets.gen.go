@@ -80,7 +80,6 @@
 // charts/istio-control/istio-discovery/templates/configmap-jwks.yaml
 // charts/istio-control/istio-discovery/templates/configmap.yaml
 // charts/istio-control/istio-discovery/templates/deployment.yaml
-// charts/istio-control/istio-discovery/templates/enable-mesh-mtls.yaml
 // charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml
 // charts/istio-control/istio-discovery/templates/mutatingwebhook.yaml
 // charts/istio-control/istio-discovery/templates/poddisruptionbudget.yaml
@@ -18721,11 +18720,6 @@ webhooks:
 # Source: istio-discovery/templates/configmap-jwks.yaml
 
 
----
-# Source: istio-discovery/templates/enable-mesh-mtls.yaml
-
-
-
 `)
 
 func chartsIstioControlIstioDiscoveryFilesGenIstioYamlBytes() ([]byte, error) {
@@ -20026,74 +20020,6 @@ func chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "charts/istio-control/istio-discovery/templates/deployment.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioControlIstioDiscoveryTemplatesEnableMeshMtlsYaml = []byte(`{{- /*
-
-TODO(https://github.com/istio/istio/issues/18199) remove this configuration from charts once the operator starts managing it
-
-*/ -}}
-
-{{ if .Values.clusterResources }}
-{{- if .Values.global.mtls.enabled }}
-
-# Authentication policy to enable mutual TLS for all services (that have sidecar) in the mesh.
-apiVersion: "authentication.istio.io/v1alpha1"
-kind: "MeshPolicy"
-metadata:
-  name: "default"
-  labels:
-    release: {{ .Release.Name }}
-spec:
-  peers:
-  - mtls: {}
----
-{{- if not .Values.global.mtls.auto }}
-# We only need explicit destination rule with ISITO_MUTUAL when auto mTLS is not enabled.
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: "default"
-  namespace: {{ .Release.Namespace }}
-  labels:
-    release: {{ .Release.Name }}
-spec:
-  host: "*.local"
-  trafficPolicy:
-    tls:
-      mode: ISTIO_MUTUAL
----
-{{ end }}
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: "api-server"
-  namespace: {{ .Release.Namespace }}
-  labels:
-    release: {{ .Release.Name }}
-spec:
-  host: "kubernetes.default.svc.{{ .Values.global.proxy.clusterDomain }}"
-  trafficPolicy:
-    tls:
-      mode: DISABLE
----
-{{ end }}
-{{ end }}
-`)
-
-func chartsIstioControlIstioDiscoveryTemplatesEnableMeshMtlsYamlBytes() ([]byte, error) {
-	return _chartsIstioControlIstioDiscoveryTemplatesEnableMeshMtlsYaml, nil
-}
-
-func chartsIstioControlIstioDiscoveryTemplatesEnableMeshMtlsYaml() (*asset, error) {
-	bytes, err := chartsIstioControlIstioDiscoveryTemplatesEnableMeshMtlsYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-discovery/templates/enable-mesh-mtls.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -47677,7 +47603,6 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-control/istio-discovery/templates/configmap-jwks.yaml":                     chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml,
 	"charts/istio-control/istio-discovery/templates/configmap.yaml":                          chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml,
 	"charts/istio-control/istio-discovery/templates/deployment.yaml":                         chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml,
-	"charts/istio-control/istio-discovery/templates/enable-mesh-mtls.yaml":                   chartsIstioControlIstioDiscoveryTemplatesEnableMeshMtlsYaml,
 	"charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml":          chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml,
 	"charts/istio-control/istio-discovery/templates/mutatingwebhook.yaml":                    chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml,
 	"charts/istio-control/istio-discovery/templates/poddisruptionbudget.yaml":                chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml,
@@ -47960,7 +47885,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"configmap-jwks.yaml":                     &bintree{chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml, map[string]*bintree{}},
 					"configmap.yaml":                          &bintree{chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml, map[string]*bintree{}},
 					"deployment.yaml":                         &bintree{chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml, map[string]*bintree{}},
-					"enable-mesh-mtls.yaml":                   &bintree{chartsIstioControlIstioDiscoveryTemplatesEnableMeshMtlsYaml, map[string]*bintree{}},
 					"istiod-injector-configmap.yaml":          &bintree{chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml, map[string]*bintree{}},
 					"mutatingwebhook.yaml":                    &bintree{chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml, map[string]*bintree{}},
 					"poddisruptionbudget.yaml":                &bintree{chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
