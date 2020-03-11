@@ -52,7 +52,6 @@ import (
 	istio_agent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
-	caclient "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 )
 
 const (
