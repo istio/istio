@@ -55,10 +55,13 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 			// but can be accessed directly from local network.
 			if epNetwork == proxyNetwork ||
 				len(push.NetworkGatewaysByNetwork(epNetwork)) == 0 {
-				lbEp.LoadBalancingWeight = &wrappers.UInt32Value{
+				// Clone the endpoint so subsequent updates to the shared cache of
+				// service endpoints doesn't overwrite endpoints already in-flight.
+				clonedLbEp := util.CloneLbEndpoint(lbEp)
+				clonedLbEp.LoadBalancingWeight = &wrappers.UInt32Value{
 					Value: uint32(multiples),
 				}
-				lbEndpoints = append(lbEndpoints, lbEp)
+				lbEndpoints = append(lbEndpoints, clonedLbEp)
 			} else {
 				// Remote network endpoint which can not be accessed directly from local network.
 				// Increase the weight counter

@@ -1,4 +1,5 @@
-{{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
+{{- if .Values.global.remotePilotAddress }}
+  {{- if not .Values.global.istiod.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -13,20 +14,22 @@ spec:
   - port: 8080
     name: http-legacy-discovery # direct
   - port: 15012
-    name: http-istiod    
+    name: tcp-istiod
   - port: 15014
     name: http-monitoring
   clusterIP: None
----
+  {{- else }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: istiod
+  name: istiod-remote
   namespace: {{ .Release.Namespace }}
 spec:
   ports:
   - port: 15012
-    name: http-istiod
+    name: tcp-istiod
+  clusterIP: None
+  {{- end }}
 ---
 {{- end }}
 {{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
