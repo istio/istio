@@ -17,11 +17,11 @@ package framework
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 
 	"istio.io/istio/pkg/test/framework"
 )
@@ -46,6 +46,9 @@ func TestMain(m *testing.M) {
 		// The following two setup methods will run conditionally, depending on the environment.
 		SetupOnEnv(environment.Native, setupNative).
 		SetupOnEnv(environment.Kube, setupKube).
+
+		// Require that this test only run on single-cluster environments.
+		RequireSingleCluster().
 
 		// The following is how to deploy Istio on Kubernetes, as part of the suite setup.
 		// The deployment must work. If you're breaking this, you'll break many integration tests.
