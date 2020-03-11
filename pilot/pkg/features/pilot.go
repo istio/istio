@@ -288,6 +288,13 @@ var (
 		"If this is set to true, support for Kubernetes service-apis (github.com/kubernetes-sigs/service-apis) will "+
 			" be enabled. This feature is currently experimental, and is off by default.").Get()
 
+	EnableVirtualServiceDelegate = env.RegisterBoolVar(
+		"PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE",
+		false,
+		"If enabled, Pilot will merge virtual services withe delegates. "+
+			"By default, this is false, and virtualService with delegate will be ignored",
+	)
+
 	ClusterName = env.RegisterStringVar("CLUSTER_ID", "Kubernetes",
 		"Defines the cluster and service registry that this Istiod instance is belongs to")
 )
