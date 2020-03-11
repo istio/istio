@@ -293,7 +293,7 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 				{
 					name:     "HTTPS Traffic",
 					portName: "https",
-					scheme:   scheme.HTTPS,
+					scheme:   scheme.HTTP,
 				},
 				{
 					name:     "HTTP Traffic Egress",
