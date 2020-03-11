@@ -17950,6 +17950,8 @@ spec:
             value: istiod.istio-system.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
             value: "false"
+          - name: CLUSTER_ID
+            value: "Kubernetes"
           resources:
             requests:
               cpu: 500m
