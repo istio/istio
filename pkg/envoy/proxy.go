@@ -205,13 +205,11 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 }
 
 func (e *envoy) Cleanup(epoch int) {
-	var filePath string
-	// when use the parameter "--templateFile=/path/xxx.tmpl"
+	// should return when use the parameter "--templateFile=/path/xxx.tmpl".
 	if e.Config.CustomConfigFile != "" {
-		filePath = e.Config.CustomConfigFile
-	} else {
-		filePath = configFile(e.Config.ConfigPath, epoch)
+		return
 	}
+	filePath := configFile(e.Config.ConfigPath, epoch)
 	if err := os.Remove(filePath); err != nil {
 		log.Warnf("Failed to delete config file %s for %d, %v", filePath, epoch, err)
 	}
