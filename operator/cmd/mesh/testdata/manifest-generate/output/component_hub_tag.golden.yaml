@@ -6733,8 +6733,6 @@ metadata:
 webhooks:
 ---
 
-# Citadel component is disabled.
-
 # Resources for Cni component
 
 apiVersion: rbac.authorization.k8s.io/v1
