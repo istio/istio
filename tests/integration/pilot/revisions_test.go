@@ -18,6 +18,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/istio"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -30,6 +32,24 @@ import (
 func TestMultiRevision(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
+			if err := istio.Setup(&i, func(cfg *istio.Config) {
+				cfg.ControlPlaneValues = `
+components:
+  base:
+    enabled: false
+  pilot:
+    enabled: true
+  ingressGateways:
+addonComponents:
+  prometheus:
+    enabled: false
+revision: canary
+values:
+  clusterResources: false
+`
+			})(ctx); err != nil {
+				t.Fatalf("failed to set up additional revision: %v", err)
+			}
 			stable := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "stable",
 				Inject: true,
