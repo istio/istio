@@ -83,6 +83,10 @@ components:
 			want: "frontend.yaml.injected",
 		},
 		{
+			in:   "hello-startup-probe.yaml",
+			want: "hello-startup-probe.yaml.injected",
+		},
+		{
 			in:   "hello-service.yaml",
 			want: "hello-service.yaml.injected",
 		},
