@@ -494,3 +494,46 @@ func TestExternConditionalString(t *testing.T) {
 		t.Errorf("externIfElse(true, \"yes\", \"no\") => %s, wanted: yes", got)
 	}
 }
+
+
+func TestExternReplaceAllString(t *testing.T) {
+	testCases := []struct {
+		name string
+		pattern string
+		replacement string
+		value string
+		expected string
+	}{
+		{
+			name: "Should replace in a string",
+			pattern: "^\\S*/",
+			replacement: "before-slash",
+			value: "something/-other-stuff",
+			expected: "before-slash-other-stuff",
+		},
+		{
+			name: "Should handle replace with nothing",
+			pattern: "^\\S*/",
+			replacement: "",
+			value: "something/other-stuff",
+			expected: "other-stuff",
+		},
+		{
+			name: "Should handle illegal regex",
+			pattern: "illegal",
+			replacement: "random",
+			value: "something/other-stuff",
+			expected: "",
+		},
+	}
+
+	//Run the test for every provided case
+	for _, c := range testCases {
+		t.Run(c.name, func(t *testing.T) {
+			result := ExternReplaceAllString(c.pattern, c.replacement, c.value)
+			if result != c.expected {
+				t.Fatalf("Expected %v, got %v", c.expected, result)
+			}
+		})
+	}
+}

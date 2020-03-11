@@ -17,6 +17,7 @@ package lang
 import (
 	"errors"
 	"fmt"
+	"istio.io/pkg/log"
 	"net"
 	"net/mail"
 	"net/url"
@@ -55,6 +56,7 @@ var Externs = map[string]interpreter.Extern{
 	"emptyStringMap":    interpreter.ExternFromFn("emptyStringMap", externEmptyStringMap),
 	"conditionalString": interpreter.ExternFromFn("conditionalString", externConditionalString),
 	"toLower":           interpreter.ExternFromFn("toLower", ExternToLower),
+	"replaceAll":        interpreter.ExternFromFn("replaceAll", ExternReplaceAllString),
 }
 
 // ExternFunctionMetadata is the type-metadata about externs. It gets used during compilations.
@@ -124,6 +126,11 @@ var ExternFunctionMetadata = []ast.FunctionMetadata{
 		Name:          "toLower",
 		ReturnType:    config.STRING,
 		ArgumentTypes: []config.ValueType{config.STRING},
+	},
+	{
+		Name:          "replaceAll",
+		ReturnType:    config.STRING,
+		ArgumentTypes: []config.ValueType{config.STRING, config.STRING, config.STRING},
 	},
 }
 
@@ -378,4 +385,13 @@ func externConditionalString(condition bool, trueStr, falseStr string) string {
 // ExternToLower changes the string case to lower
 func ExternToLower(str string) string {
 	return strings.ToLower(str)
+}
+
+func ExternReplaceAllString(pattern string, replace string, str string) string {
+	r, err := regexp.Compile(pattern)
+	if err != nil {
+		log.Errorf("Failed to compile regex %v. Error: %v", pattern, err)
+		return ""
+	}
+	return r.ReplaceAllString(str, replace)
 }
