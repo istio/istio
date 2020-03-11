@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istio-ingressgateway
+  name: {{ $gateway.name }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -29,7 +29,7 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
-        service.istio.io/canonical-name: istio-ingressgateway
+        service.istio.io/canonical-name: {{ $gateway.name }}
         {{- if not (eq .Values.revision "") }}
         service.istio.io/canonical-revision: {{ .Values.revision }}
         {{- else}}
@@ -102,7 +102,7 @@ spec:
           - --log_as_json
         {{- end }}
           - --serviceCluster
-          - istio-ingressgateway
+          - {{ $gateway.name }}
           - --proxyAdminPort
           - "15000"
         {{- if .Values.global.sts.servicePort }}
@@ -174,9 +174,9 @@ spec:
               fieldRef:
                 fieldPath: spec.serviceAccountName
           - name: ISTIO_META_WORKLOAD_NAME
-            value: istio-ingressgateway
+            value: {{ $gateway.name }}
           - name: ISTIO_META_OWNER
-            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/istio-ingressgateway
+            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/{{ $gateway.name }}
           {{- if $.Values.global.meshID }}
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.meshID }}"
