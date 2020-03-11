@@ -17186,6 +17186,7 @@ data:
               "memory": "128Mi"
             }
           },
+          "secretTTL": "86400s",
           "statusPort": 15020,
           "tracer": "zipkin"
         },
@@ -17417,6 +17418,8 @@ data:
           value: {{ .Values.global.jwtPolicy }}
         - name: PILOT_CERT_PROVIDER
           value: {{ .Values.global.pilotCertProvider }}
+        - name: SECRET_TTL
+          value: {{ .Values.global.proxy.secretTTL }}
         # Temp, pending PR to make it default or based on the istiodAddr env
         - name: CA_ADDR
         {{- if .Values.global.caAddress }}
@@ -18903,6 +18906,8 @@ template: |
       value: {{ .Values.global.jwtPolicy }}
     - name: PILOT_CERT_PROVIDER
       value: {{ .Values.global.pilotCertProvider }}
+    - name: SECRET_TTL
+      value: {{ .Values.global.proxy.secretTTL }}
     # Temp, pending PR to make it default or based on the istiodAddr env
     - name: CA_ADDR
     {{- if .Values.global.caAddress }}
@@ -46300,6 +46305,7 @@ spec:
       jwtPolicy: third-party-jwt
       proxy:
         image: proxyv2
+        secretTTL: 86400s
         clusterDomain: "cluster.local"
         resources:
           requests:

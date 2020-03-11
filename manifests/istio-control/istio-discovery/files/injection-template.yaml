@@ -147,6 +147,8 @@ template: |
       value: {{ .Values.global.jwtPolicy }}
     - name: PILOT_CERT_PROVIDER
       value: {{ .Values.global.pilotCertProvider }}
+    - name: SECRET_TTL
+      value: {{ .Values.global.proxy.secretTTL }}
     # Temp, pending PR to make it default or based on the istiodAddr env
     - name: CA_ADDR
     {{- if .Values.global.caAddress }}

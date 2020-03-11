@@ -1580,6 +1580,11 @@ message ProxyConfig {
   string enableCoreDumpImage = 33 [deprecated=true];
 
   string outlierLogPath = 34;
+
+  // Configure the certificate TTL (unit: seconds). For example, 86400s is
+  // 24*3600 seconds (i.e., 24 hours).
+  // Note: field number 35 is used by "enabled", so 36 is used here.
+  google.protobuf.Duration secretTTL = 36;
 }
 
 // Specifies which tracer to use.

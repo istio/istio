@@ -358,6 +358,7 @@ spec:
           requests:
             cpu: 100m
             memory: 128Mi
+        secretTTL: 86400s
         statusPort: 15020
         tracer: zipkin
       proxy_init:

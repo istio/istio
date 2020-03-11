@@ -218,6 +218,7 @@ spec:
       jwtPolicy: third-party-jwt
       proxy:
         image: proxyv2
+        secretTTL: 86400s
         clusterDomain: "cluster.local"
         resources:
           requests:

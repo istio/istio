@@ -70,6 +70,10 @@ global:
   proxy:
     image: proxyv2
 
+    # Configure the certificate TTL. The default value is
+    # 24*3600 seconds (i.e., 24 hours).
+    secretTTL: 86400s
+
     # cluster domain. Default value is "cluster.local".
     clusterDomain: "cluster.local"
 

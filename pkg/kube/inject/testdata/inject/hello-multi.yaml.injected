@@ -53,6 +53,8 @@ spec:
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: istiod
+        - name: SECRET_TTL
+          value: 86400s
         - name: CA_ADDR
           value: istiod.istio-system.svc:15012
         - name: POD_NAME
@@ -265,6 +267,8 @@ spec:
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: istiod
+        - name: SECRET_TTL
+          value: 86400s
         - name: CA_ADDR
           value: istiod.istio-system.svc:15012
         - name: POD_NAME
