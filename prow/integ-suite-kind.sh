@@ -90,6 +90,9 @@ export PULL_POLICY=IfNotPresent
 export HUB=${HUB:-"istio-testing"}
 export TAG="${TAG:-"istio-testing"}"
 
+# Default IP family of the cluster is IPv4
+export IP_FAMILY="${IP_FAMILY:-ipv4}"
+
 # Setup junit report and verbose logging
 export T="${T:-"-v"}"
 export CI="true"
@@ -98,8 +101,9 @@ make init
 
 if [[ -z "${SKIP_SETUP:-}" ]]; then
   if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
-    time setup_kind_cluster "${NODE_IMAGE:-}"
+    time setup_kind_cluster "${IP_FAMILY}" "${NODE_IMAGE:-}"
   else
+    # TODO: Support IPv6 multicluster
     time setup_kind_multicluster_single_network "${NODE_IMAGE:-}"
   fi
 fi

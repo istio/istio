@@ -138,9 +138,10 @@ function cleanup_kind_multicluster() {
 }
 
 function setup_kind_cluster() {
-  IMAGE="${1:-kindest/node:v1.17.0}"
-  NAME="${2:-istio-testing}"
-  CONFIG="${3:-}"
+  IP_FAMILY="${1:-ipv4}"
+  IMAGE="${2:-kindest/node:v1.17.0}"
+  NAME="${3:-istio-testing}"
+  CONFIG="${4:-}"
   # Delete any previous e2e KinD cluster
   echo "Deleting previous KinD cluster with name=${NAME}"
   if ! (kind delete cluster --name="${NAME}" -v9) > /dev/null; then
@@ -164,6 +165,13 @@ function setup_kind_cluster() {
     else
       # Kubernetes 1.15+
       CONFIG=./prow/config/trustworthy-jwt.yaml
+    fi
+      # Configure the cluster IP Family only for default configs
+    if [ "${IP_FAMILY}" = "ipv6" ]; then
+      cat <<EOF >> "${CONFIG}"
+networking:
+  ipFamily: ipv6
+EOF
     fi
   fi
 
@@ -195,7 +203,7 @@ EOF
     apiVersion: kind.sigs.k8s.io/v1alpha3
     networking:
       podSubnet: 10.20.0.0/16
-      serviceSubnet: 10.255.10.0/24
+      serviceSubnet: 10.255.20.0/24
 EOF
 
   CLUSTERREG_DIR="$(mktemp -d)"
@@ -206,8 +214,9 @@ EOF
   trap cleanup_kind_multicluster EXIT
 
   # Create two clusters. Explicitly delcare the subnet so we can connect the two later
-  KUBECONFIG="${CLUSTER1_KUBECONFIG}" setup_kind_cluster "${IMAGE}" "${CLUSTER1_NAME}" "${CLUSTER1_YAML}"
-  KUBECONFIG="${CLUSTER2_KUBECONFIG}" setup_kind_cluster "${IMAGE}" "${CLUSTER2_NAME}" "${CLUSTER2_YAML}"
+  # TODO: add IPv6
+  KUBECONFIG="${CLUSTER1_KUBECONFIG}" setup_kind_cluster "ipv4" "${IMAGE}" "${CLUSTER1_NAME}" "${CLUSTER1_YAML}"
+  KUBECONFIG="${CLUSTER2_KUBECONFIG}" setup_kind_cluster "ipv4" "${IMAGE}" "${CLUSTER2_NAME}" "${CLUSTER2_YAML}"
 
   # Replace with --internal which allows cross-cluster api server access
   kind get kubeconfig --name "${CLUSTER1_NAME}" --internal > "${CLUSTER1_KUBECONFIG}"
