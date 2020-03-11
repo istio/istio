@@ -692,6 +692,10 @@ func TestHelmInject(t *testing.T) {
 			wantFile:  "hello-probes.yaml.injected",
 		},
 		{
+			inputFile: "hello-startup-probe.yaml",
+			wantFile:  "hello-startup-probe.yaml.injected",
+		},
+		{
 			inputFile: "hello.yaml",
 			wantFile:  "hello-config-map-name.yaml.injected",
 		},
