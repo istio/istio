@@ -181,13 +181,13 @@ func ResolveHostsInNetworksConfig(config *meshconfig.MeshNetworks) {
 	}
 	for _, n := range config.Networks {
 		for _, gw := range n.Gateways {
-			gwIP := net.ParseIP(gw.GetAddress())
-			if gwIP == nil {
-				addrs, err := net.LookupHost(gw.GetAddress())
+			gwAddr := gw.GetAddress()
+			gwIP := net.ParseIP(gwAddr)
+			if gwIP == nil && len(gwAddr) != 0 {
+				addrs, err := net.LookupHost(gwAddr)
 				if err != nil {
 					log.Warnf("error resolving host %#v: %v", gw.GetAddress(), err)
-				}
-				if err == nil && len(addrs) > 0 {
+				} else {
 					gw.Gw = &meshconfig.Network_IstioNetworkGateway_Address{
 						Address: addrs[0],
 					}
