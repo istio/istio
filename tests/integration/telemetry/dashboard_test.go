@@ -130,14 +130,14 @@ func TestDashboard(t *testing.T) {
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
-			p := prometheus.NewOrFail(ctx, ctx)
+			p := prometheus.NewOrFail(ctx, ctx, prometheus.Config{})
 			kenv := ctx.Environment().(*kube.Environment)
 			setupDashboardTest(ctx)
 			waitForMetrics(ctx, p)
 			for _, d := range dashboards {
 				d := d
 				ctx.NewSubTest(d.name).RunParallel(func(t framework.TestContext) {
-					cm, err := kenv.Accessor.GetConfigMap(d.configmap, i.Settings().TelemetryNamespace)
+					cm, err := kenv.KubeClusters[0].GetConfigMap(d.configmap, i.Settings().TelemetryNamespace)
 					if err != nil {
 						t.Fatalf("Failed to find dashboard %v: %v", d.configmap, err)
 					}

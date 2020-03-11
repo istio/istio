@@ -242,6 +242,8 @@ func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string,
 	id := fmt.Sprintf("network%d", clusterNum)
 	memRegistry := v2.NewMemServiceDiscovery(
 		map[host.Name]*model.Service{}, 2)
+	memRegistry.EDSUpdater = server.EnvoyXdsServer
+
 	server.ServiceController().AddRegistry(serviceregistry.Simple{
 		ClusterID:        id,
 		ProviderID:       serviceregistry.Mock,
@@ -282,27 +284,29 @@ func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string,
 	memRegistry.AddService("service5.default.svc.cluster.local", &model.Service{
 		Hostname: "service5.default.svc.cluster.local",
 		Address:  "10.10.0.1",
-		Ports:    testPorts(0),
-	})
-	for i := 0; i < numOfEndpoints; i++ {
-		memRegistry.AddInstance("service5.default.svc.cluster.local", &model.ServiceInstance{
-			Endpoint: &model.IstioEndpoint{
-				Address:      fmt.Sprintf("10.%d.0.%d", clusterNum, i+1),
-				EndpointPort: 2080,
-				Network:      id,
-				Locality: model.Locality{
-					Label: "az",
-				},
-				UID:    "kubernetes://dummy",
-				Labels: svcLabels,
-			},
-			ServicePort: &model.Port{
+		Ports: []*model.Port{
+			{
 				Name:     "http-main",
 				Port:     1080,
 				Protocol: protocol.HTTP,
 			},
-		})
+		},
+	})
+	istioEndpoints := make([]*model.IstioEndpoint, numOfEndpoints)
+	for i := 0; i < numOfEndpoints; i++ {
+		istioEndpoints[i] = &model.IstioEndpoint{
+			Address:         fmt.Sprintf("10.%d.0.%d", clusterNum, i+1),
+			EndpointPort:    2080,
+			ServicePortName: "http-main",
+			Network:         id,
+			Locality: model.Locality{
+				Label: "az",
+			},
+			UID:    "kubernetes://dummy",
+			Labels: svcLabels,
+		}
 	}
+	memRegistry.SetEndpoints("service5.default.svc.cluster.local", "default", istioEndpoints)
 }
 
 func sendCDSReqWithMetadata(node string, metadata *structpb.Struct, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {

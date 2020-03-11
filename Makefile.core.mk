@@ -275,8 +275,6 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
   ./mixer/test/policybackend \
-  ./tools/istio-iptables \
-  ./tools/istio-clean-iptables \
   ./operator/cmd/operator
 
 # List of binaries included in releases
@@ -534,8 +532,6 @@ security-racetest:
 
 .PHONY: common-racetest
 common-racetest: ${BUILD_DEPS}
-	# Execute bash shell unit tests scripts
-	LOCAL_OUT=$(LOCAL_OUT) ./tests/scripts/istio-iptables-test.sh
 	go test ${T} -race ./pkg/... ./tests/common/... ./tools/istio-iptables/...
 
 #-----------------------------------------------------------------------------

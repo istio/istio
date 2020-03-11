@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/tests/util"
@@ -173,10 +174,10 @@ func TestAdsClusterUpdate(t *testing.T) {
 		}
 	}
 
-	cluster1 := "outbound|80||adsclusterupdate.default.svc.cluster.local"
+	cluster1 := "outbound|80||local.default.svc.cluster.local"
 	sendEDSReqAndVerify(cluster1)
 
-	cluster2 := "outbound|80||adsclusterupdate2.default.svc.cluster.local"
+	cluster2 := "outbound|80||hello.default.svc.cluster.local"
 	sendEDSReqAndVerify(cluster2)
 }
 
@@ -190,17 +191,25 @@ func TestAdsUpdate(t *testing.T) {
 	}
 	defer cancel()
 
-	// Old style cluster.
-	// TODO: convert tests (except eds) to new style.
 	server.EnvoyXdsServer.MemRegistry.AddService("adsupdate.default.svc.cluster.local", &model.Service{
 		Hostname: "adsupdate.default.svc.cluster.local",
 		Address:  "10.11.0.1",
-		Ports:    testPorts(0),
+		Ports: []*model.Port{
+			{
+				Name:     "http-main",
+				Port:     2080,
+				Protocol: protocol.HTTP,
+			},
+		},
+		Attributes: model.ServiceAttributes{
+			Name:      "adsupdate",
+			Namespace: "default",
+		},
 	})
 	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
 	time.Sleep(time.Millisecond * 200)
-	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
-		"http-main", 2080, "10.2.0.1", 1080)
+	server.EnvoyXdsServer.MemRegistry.SetEndpoints("adsupdate.default.svc.cluster.local", "default",
+		newEndpointWithAccount("10.2.0.1", "hello-sa", "v1"))
 
 	err = sendEDSReq([]string{"outbound|2080||adsupdate.default.svc.cluster.local"}, sidecarID("1.1.1.1", "app3"), edsstr)
 	if err != nil {

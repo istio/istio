@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	env *kube.Environment
+	cluster kube.Cluster
 )
 
 func TestMain(m *testing.M) {
@@ -42,7 +42,7 @@ components:
 `
 		})).
 		SetupOnEnv(environment.Kube, func(ctx resource.Context) error {
-			env = ctx.Environment().(*kube.Environment)
+			cluster = ctx.Environment().Clusters()[0].(kube.Cluster)
 			return nil
 		}).
 		Run()

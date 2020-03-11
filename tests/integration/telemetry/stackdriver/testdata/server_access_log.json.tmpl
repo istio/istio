@@ -1,0 +1,24 @@
+{
+    "http_request": {
+        "request_method": "POST",
+        "request_url": "http://srv.{{ .EchoNamespace }}.svc.cluster.local:7070/proto.EchoTestService/Echo",
+        "protocol": "grpc",
+        "status": "200"
+    },
+    "labels": {
+        "destination_app": "srv",
+        "destination_namespace": "{{ .EchoNamespace }}",
+        "destination_principal": "spiffe://cluster.local/ns/{{ .EchoNamespace }}/sa/default",
+        "destination_service_host": "srv.{{ .EchoNamespace }}.svc.cluster.local",
+        "destination_version": "v1",
+        "destination_workload": "srv-v1",
+        "mesh_uid": "test-mesh",
+        "response_flag": "-",
+        "service_authentication_policy": "MUTUAL_TLS",
+        "source_app": "clt",
+        "source_namespace": "{{ .EchoNamespace }}",
+        "source_principal": "spiffe://cluster.local/ns/{{ .EchoNamespace }}/sa/default",
+        "source_version": "v1",
+        "source_workload": "clt-v1"
+    }
+}

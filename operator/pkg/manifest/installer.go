@@ -41,6 +41,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 
+	"istio.io/istio/pilot/pkg/model"
+
 	// For GCP auth functionality.
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/rest"
@@ -264,7 +266,7 @@ func parseKubectlVersion(kubectlStdout string) (*goversion.Version, *goversion.V
 }
 
 // ApplyAll applies all given manifests using kubectl client.
-func ApplyAll(manifests name.ManifestMap, version pkgversion.Version, opts *kubectlcmd.Options) (CompositeOutput, error) {
+func ApplyAll(manifests name.ManifestMap, version pkgversion.Version, revision string, opts *kubectlcmd.Options) (CompositeOutput, error) {
 	scope.Infof("Preparing manifests for these components:")
 	for c := range manifests {
 		scope.Infof("- %s", c)
@@ -273,10 +275,10 @@ func ApplyAll(manifests name.ManifestMap, version pkgversion.Version, opts *kube
 	if _, err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
 		return nil, err
 	}
-	return applyRecursive(manifests, version, opts)
+	return applyRecursive(manifests, version, revision, opts)
 }
 
-func applyRecursive(manifests name.ManifestMap, version pkgversion.Version, opts *kubectlcmd.Options) (CompositeOutput, error) {
+func applyRecursive(manifests name.ManifestMap, version pkgversion.Version, revision string, opts *kubectlcmd.Options) (CompositeOutput, error) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	out := CompositeOutput{}
@@ -291,7 +293,7 @@ func applyRecursive(manifests name.ManifestMap, version pkgversion.Version, opts
 				<-s
 				scope.Infof("Prerequisite for %s has completed, proceeding with install.", c)
 			}
-			applyOut, appliedObjects := ApplyManifest(c, strings.Join(m, helm.YAMLSeparator), version.String(), *opts)
+			applyOut, appliedObjects := ApplyManifest(c, strings.Join(m, helm.YAMLSeparator), version.String(), revision, *opts)
 			mu.Lock()
 			out[c] = applyOut
 			allAppliedObjects = append(allAppliedObjects, appliedObjects...)
@@ -321,7 +323,7 @@ func applyRecursive(manifests name.ManifestMap, version pkgversion.Version, opts
 	return out, nil
 }
 
-func ApplyManifest(componentName name.ComponentName, manifestStr, version string,
+func ApplyManifest(componentName name.ComponentName, manifestStr, version, revision string,
 	opts kubectlcmd.Options) (*ComponentApplyOutput, object.K8sObjects) {
 	stdout, stderr := "", ""
 	appliedObjects := object.K8sObjects{}
@@ -330,6 +332,9 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
 	componentLabel := fmt.Sprintf("%s=%s", istioComponentLabelStr, componentName)
+	if revision != "" {
+		componentLabel += fmt.Sprintf(",%s=%s", model.RevisionLabel, revision)
+	}
 
 	// TODO: remove this when `kubectl --prune` supports empty objects
 	//  (https://github.com/kubernetes/kubernetes/issues/40635)
@@ -376,6 +381,9 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 		o.AddLabels(map[string]string{istioComponentLabelStr: string(componentName)})
 		o.AddLabels(map[string]string{operatorLabelStr: operatorReconcileStr})
 		o.AddLabels(map[string]string{istioVersionLabelStr: version})
+		if revision != "" {
+			o.AddLabels(map[string]string{model.RevisionLabel: revision})
+		}
 	}
 
 	opts.ExtraArgs = []string{"--force", "--selector", componentLabel}

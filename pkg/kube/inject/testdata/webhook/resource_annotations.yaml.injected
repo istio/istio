@@ -38,8 +38,6 @@ spec:
         - resource.$(POD_NAMESPACE)
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
-        - --statusPort
-        - "15020"
         - --trust-domain=cluster.local
         - --controlPlaneBootstrap=false
         - --concurrency
@@ -133,7 +131,7 @@ spec:
         - mountPath: /etc/istio/pod
           name: podinfo
       initContainers:
-      - command:
+      - args:
         - istio-iptables
         - -p
         - "15001"

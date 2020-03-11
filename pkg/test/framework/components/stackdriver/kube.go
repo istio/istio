@@ -29,6 +29,8 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 
 	jsonpb "github.com/golang/protobuf/jsonpb"
+	ltype "google.golang.org/genproto/googleapis/logging/type"
+	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 )
 
@@ -44,15 +46,14 @@ var (
 
 type kubeComponent struct {
 	id        resource.ID
-	env       *kube.Environment
 	ns        namespace.Instance
 	forwarder testKube.PortForwarder
+	cluster   kube.Cluster
 }
 
-func newKube(ctx resource.Context) (Instance, error) {
-	env := ctx.Environment().(*kube.Environment)
+func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	c := &kubeComponent{
-		env: env,
+		cluster: kube.ClusterOrDefault(cfg.Cluster, ctx.Environment()),
 	}
 	c.id = ctx.TrackResource(c)
 	var err error
@@ -80,18 +81,18 @@ func newKube(ctx resource.Context) (Instance, error) {
 		return nil, fmt.Errorf("failed to read %s, err: %v", environ.StackdriverInstallFilePath, err)
 	}
 
-	if err := env.ApplyContents(c.ns.Name(), string(yamlContent)); err != nil {
+	if _, err := c.cluster.ApplyContents(c.ns.Name(), string(yamlContent)); err != nil {
 		return nil, fmt.Errorf("failed to apply rendered %s, err: %v", environ.StackdriverInstallFilePath, err)
 	}
 
-	fetchFn := env.Accessor.NewSinglePodFetch(c.ns.Name(), "app=stackdriver")
-	pods, err := env.Accessor.WaitUntilPodsAreReady(fetchFn)
+	fetchFn := c.cluster.NewSinglePodFetch(c.ns.Name(), "app=stackdriver")
+	pods, err := c.cluster.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
 	}
 	pod := pods[0]
 
-	forwarder, err := env.Accessor.NewPortForwarder(pod, 0, stackdriverPort)
+	forwarder, err := c.cluster.NewPortForwarder(pod, 0, stackdriverPort)
 	if err != nil {
 		return nil, err
 	}
@@ -129,6 +130,42 @@ func (c *kubeComponent) ListTimeSeries() ([]*monitoringpb.TimeSeries, error) {
 		t.Points = nil
 		t.Resource = nil
 		ret = append(ret, t)
+	}
+	return ret, nil
+}
+
+func (c *kubeComponent) ListLogEntries() ([]*loggingpb.LogEntry, error) {
+	client := http.Client{
+		Timeout: 5 * time.Second,
+	}
+	resp, err := client.Get("http://" + c.forwarder.Address() + "/logentries")
+	if err != nil {
+		return []*loggingpb.LogEntry{}, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return []*loggingpb.LogEntry{}, err
+	}
+	var r loggingpb.ListLogEntriesResponse
+	err = jsonpb.UnmarshalString(string(body), &r)
+	if err != nil {
+		return []*loggingpb.LogEntry{}, err
+	}
+	var ret []*loggingpb.LogEntry
+	for _, l := range r.Entries {
+		// Remove fields that do not need verification
+		l.Timestamp = nil
+		l.Severity = ltype.LogSeverity_DEFAULT
+		l.HttpRequest.ResponseSize = 0
+		l.HttpRequest.RequestSize = 0
+		l.HttpRequest.ServerIp = ""
+		l.HttpRequest.RemoteIp = ""
+		l.HttpRequest.Latency = nil
+		delete(l.Labels, "request_id")
+		delete(l.Labels, "source_name")
+		delete(l.Labels, "destination_name")
+		ret = append(ret, l)
 	}
 	return ret, nil
 }

@@ -13372,8 +13372,6 @@ spec:
           - istio-egressgateway
           - --proxyAdminPort
           - "15000"
-          - --statusPort
-          - "15020"
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
         {{- end }}
@@ -14393,8 +14391,6 @@ spec:
           - istio-ingressgateway
           - --proxyAdminPort
           - "15000"
-          - --statusPort
-          - "15020"
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
         {{- end }}
@@ -16174,6 +16170,15 @@ data:
             max_requests: 100000
             max_retries: 3
 
+      - name: sds-grpc
+        type: STATIC
+        http2_protocol_options: {}
+        connect_timeout: 0.250s
+        lb_policy: ROUND_ROBIN
+        hosts:
+        - pipe:
+            path: "/etc/istio/proxy/SDS"
+
       listeners:
       - name: "15019"
         address:
@@ -16215,16 +16220,22 @@ data:
                       timeout: 0.000s
           tls_context:
             common_tls_context:
-              alpn_protocols:
-              - h2
-              tls_certificates:
-              - certificate_chain:
-                  filename: /etc/certs/cert-chain.pem
-                private_key:
-                  filename: /etc/certs/key.pem
-              validation_context:
-                trusted_ca:
-                  filename: /etc/certs/root-cert.pem
+              tls_certificate_sds_secret_configs:
+              - name: default
+                sds_config:
+                  api_config_source:
+                    api_type: GRPC
+                    grpc_services:
+                    - envoy_grpc:
+                        cluster_name: sds-grpc
+              validation_context_sds_secret_config:
+                name: ROOTCA
+                sds_config:
+                  api_config_source:
+                    api_type: GRPC
+                    grpc_services:
+                    - envoy_grpc:
+                        cluster_name: sds-grpc
             require_client_certificate: true
 {{- end }}
 ---
@@ -16458,6 +16469,20 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: status.podIP
+          - name: JWT_POLICY
+            value: {{ .Values.global.jwtPolicy }}
+          - name: PILOT_CERT_PROVIDER
+            value: {{ .Values.global.pilotCertProvider }}
+          - name: "ISTIO_META_USER_SDS"
+            value: "true"
+          - name: CA_ADDR
+            {{- if .Values.global.caAddress }}
+            value: {{ .Values.global.caAddress }}
+            {{- else if .Values.global.configNamespace }}
+            value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+            {{- else }}
+            value: istiod.istio-system.svc:15012
+            {{- end }}
           resources:
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 12 }}
@@ -16465,9 +16490,15 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
           volumeMounts:
-          - name: istio-certs
-            mountPath: /etc/certs
+          {{- if eq .Values.global.pilotCertProvider "istiod" }}
+          - mountPath: /var/run/secrets/istio
+            name: istiod-ca-cert
+          {{- end }}
+          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+          - name: istio-token
+            mountPath: /var/run/secrets/tokens
             readOnly: true
+          {{- end }}
           - name: envoy-config
             mountPath: /var/lib/istio/galley/envoy
 {{- end }}
@@ -16478,6 +16509,20 @@ spec:
       - name: envoy-config
         configMap:
           name: galley-envoy-config
+      {{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
+        configMap:
+          name: istio-ca-root-cert
+      {{- end }}
+      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
+              expirationSeconds: 43200
+              audience: {{ .Values.global.sds.token.aud }}
+      {{- end }}
   {{- end }}
       # Different config map from pilot, to allow independent config and rollout.
       # Both are derived from values.yaml.
@@ -17242,7 +17287,7 @@ data:
       {{- else }}
         image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
       {{- end }}
-        command:
+        args:
         - istio-iptables
         - "-p"
         - 15001
@@ -17353,10 +17398,6 @@ data:
         {{ end -}}
         - --proxyLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/logLevel`+"`"+` .Values.global.proxy.logLevel}}
         - --proxyComponentLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/componentLogLevel`+"`"+` .Values.global.proxy.componentLogLevel}}
-      {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
-        - --statusPort
-        - "{{ annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort }}"
-      {{- end }}
       {{- if .Values.global.sts.servicePort }}
         - --stsPort={{ .Values.global.sts.servicePort }}
       {{- end }}
@@ -18732,7 +18773,7 @@ template: |
   {{- else }}
     image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
   {{- end }}
-    command:
+    args:
     - istio-iptables
     - "-p"
     - 15001
@@ -18843,10 +18884,6 @@ template: |
     {{ end -}}
     - --proxyLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/logLevel`+"`"+` .Values.global.proxy.logLevel}}
     - --proxyComponentLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/componentLogLevel`+"`"+` .Values.global.proxy.componentLogLevel}}
-  {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
-    - --statusPort
-    - "{{ annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort }}"
-  {{- end }}
   {{- if .Values.global.sts.servicePort }}
     - --stsPort={{ .Values.global.sts.servicePort }}
   {{- end }}
@@ -19687,18 +19724,13 @@ data:
         {{- end }}
       {{- end }}
 
-    {{- if not (eq .Values.revision "") }}
-    {{- $defPilotHostname := printf "istiod-%s.%s.svc" .Values.revision .Release.Namespace }}
-    {{- else }}
-    {{- $defPilotHostname := printf "istiod.%s.svc" .Release.Namespace }}
-    {{- end }}
-    {{- $defPilotHostname := printf "istiod%s.%s.svc" .Values.revision .Release.Namespace }}
-    {{- $pilotAddress := .Values.global.remotePilotAddress | default $defPilotHostname }}
-
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
-      discoveryAddress: {{ $pilotAddress }}:15012
-
+      {{- if .Values.global.remotePilotAddress }}
+      discoveryAddress: {{ .Values.global.remotePilotAddress }}
+      {{- else }}
+      discoveryAddress: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{.Release.Namespace}}.svc:15012
+      {{- end }}
 
     {{- if .Values.global.proxy.envoyMetricsService.enabled }}
       #
@@ -22465,6 +22497,26 @@ spec:
       securityContext:
         fsGroup: 1337
       volumes:
+{{- if .Values.global.controlPlaneSecurityEnabled }}
+      - name: config-volume
+        configMap:
+          name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+          optional: true
+      {{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
+        configMap:
+          name: istio-ca-root-cert
+      {{- end }}
+      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
+              expirationSeconds: 43200
+              audience: {{ .Values.global.sds.token.aud }}
+      {{- end }}
+{{- end }}
       - name: istio-certs
         secret:
           secretName: istio.istio-policy-service-account
@@ -22584,7 +22636,7 @@ spec:
         image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
 {{- end }}
 {{- if .Values.global.imagePullPolicy }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
 {{- end }}
         ports:
         - containerPort: 15004
@@ -22628,6 +22680,20 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: status.podIP
+        - name: JWT_POLICY
+          value: {{ .Values.global.jwtPolicy }}
+        - name: PILOT_CERT_PROVIDER
+          value: {{ .Values.global.pilotCertProvider }}
+        - name: "ISTIO_META_USER_SDS"
+          value: "true"
+        - name: CA_ADDR
+        {{- if .Values.global.caAddress }}
+          value: {{ .Values.global.caAddress }}
+        {{- else if .Values.global.configNamespace }}
+          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+        {{- else }}
+          value: istiod.istio-system.svc:15012
+        {{- end }}
         resources:
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 10 }}
@@ -22635,9 +22701,17 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
-        - name: istio-certs
-          mountPath: /etc/certs
+        - name: config-volume
+          mountPath: /etc/istio/config
+        {{- if eq .Values.global.pilotCertProvider "istiod" }}
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
+        {{- end }}
+        {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+        - name: istio-token
+          mountPath: /var/run/secrets/tokens
           readOnly: true
+        {{- end }}
         - name: uds-socket
           mountPath: /sock
 {{- end }}
@@ -22818,7 +22892,8 @@ var _chartsIstioPolicyValuesYaml = []byte(`mixer:
     # "security" and value "S1".
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
-`)
+
+revision: ""`)
 
 func chartsIstioPolicyValuesYamlBytes() ([]byte, error) {
 	return _chartsIstioPolicyValuesYaml, nil
@@ -39871,6 +39946,15 @@ data:
             address: 127.0.0.1
             port_value: 15000
 
+      - name: sds-grpc
+        type: STATIC
+        http2_protocol_options: {}
+        connect_timeout: 0.250s
+        lb_policy: ROUND_ROBIN
+        hosts:
+        - pipe:
+            path: "/etc/istio/proxy/SDS"
+
       - name: inbound_9092
         circuit_breakers:
           thresholds:
@@ -39898,17 +39982,26 @@ data:
 
         tls_context:
           common_tls_context:
-            tls_certificates:
-            - certificate_chain:
-                filename: /etc/certs/cert-chain.pem
-              private_key:
-                filename: /etc/certs/key.pem
-            validation_context:
-              trusted_ca:
-                filename: /etc/certs/root-cert.pem
-              verify_subject_alt_name:
-              - spiffe://{{ .Values.global.trustDomain }}/ns/{{ .Values.global.configNamespace }}/sa/istio-galley-service-account
-
+            tls_certificate_sds_secret_configs:
+            - name: default
+              sds_config:
+                api_config_source:
+                  api_type: GRPC
+                  grpc_services:
+                  - envoy_grpc:
+                      cluster_name: sds-grpc
+            combined_validation_context:
+              default_validation_context:
+                verify_subject_alt_name:
+                - spiffe://{{ .Values.global.trustDomain }}/ns/{{ .Values.global.configNamespace }}/sa/istio-galley-service-account
+              validation_context_sds_secret_config:
+                name: ROOTCA
+                sds_config:
+                  api_config_source:
+                    api_type: GRPC
+                    grpc_services:
+                    - envoy_grpc:
+                        cluster_name: sds-grpc
         hosts:
           - socket_address:
               address: istio-galley.{{ .Values.global.configNamespace }}
@@ -40007,18 +40100,26 @@ data:
             name: envoy.http_connection_manager
     {{- if .Values.global.controlPlaneSecurityEnabled }}
           tls_context:
+            require_client_certificate: true
             common_tls_context:
               alpn_protocols:
               - h2
-              tls_certificates:
-              - certificate_chain:
-                  filename: /etc/certs/cert-chain.pem
-                private_key:
-                  filename: /etc/certs/key.pem
-              validation_context:
-                trusted_ca:
-                  filename: /etc/certs/root-cert.pem
-            require_client_certificate: true
+              tls_certificate_sds_secret_configs:
+              - name: default
+                sds_config:
+                  api_config_source:
+                    api_type: GRPC
+                    grpc_services:
+                    - envoy_grpc:
+                        cluster_name: sds-grpc
+              validation_context_sds_secret_config:
+                name: ROOTCA
+                sds_config:
+                  api_config_source:
+                    api_type: GRPC
+                    grpc_services:
+                    - envoy_grpc:
+                        cluster_name: sds-grpc
     {{- end }}
 
       - name: "9091"
@@ -40180,6 +40281,26 @@ spec:
       securityContext:
         fsGroup: 1337
       volumes:
+{{- if .Values.global.controlPlaneSecurityEnabled }}
+      - name: config-volume
+        configMap:
+          name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+          optional: true
+{{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
+        configMap:
+          name: istio-ca-root-cert
+{{- end }}
+{{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
+              expirationSeconds: 43200
+              audience: {{ .Values.global.sds.token.aud }}
+{{- end }}
+{{- end }}
       - name: istio-certs
         secret:
           secretName: istio.istio-mixer-service-account
@@ -40346,6 +40467,20 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: status.podIP
+        - name: JWT_POLICY
+          value: {{ .Values.global.jwtPolicy }}
+        - name: PILOT_CERT_PROVIDER
+          value: {{ .Values.global.pilotCertProvider }}
+        - name: "ISTIO_META_USER_SDS"
+          value: "true"
+        - name: CA_ADDR
+          {{- if .Values.global.caAddress }}
+          value: {{ .Values.global.caAddress }}
+          {{- else if .Values.global.configNamespace }}
+          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+          {{- else }}
+          value: istiod.istio-system.svc:15012
+      {{- end }}
         resources:
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 10 }}
@@ -40353,11 +40488,19 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
+        - name: config-volume
+          mountPath: /etc/istio/config
+        {{- if eq .Values.global.pilotCertProvider "istiod" }}
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
+        {{- end }}
+        {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+        - name: istio-token
+          mountPath: /var/run/secrets/tokens
+          readOnly: true
+        {{- end }}
         - name: telemetry-envoy-config
           mountPath: /var/lib/envoy
-        - name: istio-certs
-          mountPath: /etc/certs
-          readOnly: true
         - name: uds-socket
           mountPath: /sock
 {{- end }}
@@ -41575,7 +41718,8 @@ var _chartsIstioTelemetryMixerTelemetryValuesYaml = []byte(`mixer:
     # "security" and value "S1".
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
-`)
+
+revision: ""`)
 
 func chartsIstioTelemetryMixerTelemetryValuesYamlBytes() ([]byte, error) {
 	return _chartsIstioTelemetryMixerTelemetryValuesYaml, nil
@@ -42201,8 +42345,6 @@ spec:
             - --controlPlaneAuthPolicy
             - NONE
               {{- end }}
-            - --statusPort
-            - "15020"
               {{- if .Values.global.trustDomain }}
             - --trust-domain={{ .Values.global.trustDomain }}
               {{- end }}
@@ -47686,7 +47828,7 @@ var _translateconfigTranslateconfig15Yaml = []byte(`apiMapping:
   MeshConfig.rootNamespace:
     outPath: "global.istioNamespace"
   Revision:
-    outPath: "global.revision"
+    outPath: "revision"
 kubernetesMapping:
   "Components.{{.ComponentName}}.K8S.Affinity":
     outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.affinity"
@@ -47864,7 +48006,7 @@ var _translateconfigTranslateconfig16Yaml = []byte(`apiMapping:
   MeshConfig.rootNamespace:
     outPath: "global.istioNamespace"
   Revision:
-    outPath: "global.revision"
+    outPath: "revision"
 kubernetesMapping:
   "Components.{{.ComponentName}}.K8S.Affinity":
     outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.affinity"

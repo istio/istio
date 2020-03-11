@@ -53,6 +53,7 @@ func (w *Wrapper) GetDynamicListenerDump(stripVersions bool) (*adminapi.Listener
 		for i := range dal {
 			dal[i].ActiveState.VersionInfo = ""
 			dal[i].ActiveState.LastUpdated = nil
+			dal[i].Name = "" // In Istio 1.5, Envoy creates this; suppress it
 		}
 	}
 	return &adminapi.ListenersConfigDump{DynamicListeners: dal}, nil

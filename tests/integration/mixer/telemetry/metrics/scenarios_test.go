@@ -237,7 +237,7 @@ func testsetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	prom, err = prometheus.New(ctx)
+	prom, err = prometheus.New(ctx, prometheus.Config{})
 	if err != nil {
 		return err
 	}

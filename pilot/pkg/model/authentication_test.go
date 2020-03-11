@@ -592,7 +592,7 @@ func TestGetPoliciesForWorkloadWithoutMeshPeerAuthn(t *testing.T) {
 }
 
 func getTestAuthenticationPolicies(configs []*Config, t *testing.T) *AuthenticationPolicies {
-	configStore := newFakeStore()
+	configStore := NewFakeStore()
 	for _, cfg := range configs {
 		log.Infof("add config %s\n", cfg.Name)
 		if _, err := configStore.Create(*cfg); err != nil {

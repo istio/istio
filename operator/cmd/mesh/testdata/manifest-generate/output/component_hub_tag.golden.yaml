@@ -376,8 +376,6 @@ spec:
             - "15000"
             - --controlPlaneAuthPolicy
             - NONE
-            - --statusPort
-            - "15020"
             - --trust-domain=cluster.local
             - --controlPlaneBootstrap=false
           env:
@@ -7057,8 +7055,6 @@ spec:
         - istio-ingressgateway
         - --proxyAdminPort
         - "15000"
-        - --statusPort
-        - "15020"
         - --controlPlaneAuthPolicy
         - NONE
         - --trust-domain=cluster.local
@@ -8021,7 +8017,7 @@ data:
       {{- else }}
         image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
       {{- end }}
-        command:
+        args:
         - istio-iptables
         - "-p"
         - 15001
@@ -8132,10 +8128,6 @@ data:
         {{ end -}}
         - --proxyLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel}}
         - --proxyComponentLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel}}
-      {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
-        - --statusPort
-        - "{{ annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort }}"
-      {{- end }}
       {{- if .Values.global.sts.servicePort }}
         - --stsPort={{ .Values.global.sts.servicePort }}
       {{- end }}

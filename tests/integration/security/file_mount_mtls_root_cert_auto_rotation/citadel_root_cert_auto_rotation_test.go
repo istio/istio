@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -44,16 +43,16 @@ func TestCitadelRootCertUpgrade(t *testing.T) {
 			istioCfg := istio.DefaultConfigOrFail(t, ctx)
 
 			// Get initial root cert.
-			kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
+			cluster := ctx.Environment().(*kube.Environment).KubeClusters[0]
 			systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
-			caScrt, err := kubeAccessor.GetSecret(systemNS.Name()).Get(CASecret, metav1.GetOptions{})
+			caScrt, err := cluster.GetSecret(systemNS.Name()).Get(CASecret, metav1.GetOptions{})
 			if err != nil {
 				t.Fatalf("unable to load root secret: %s", err.Error())
 			}
 
 			// Root cert rotates every 20~40 seconds. Wait until the next round of root
 			// cert rotation is completed and verify the root cert.
-			err = waitUntilRootCertRotate(t, caScrt, kubeAccessor, systemNS.Name(), 40*time.Second)
+			err = waitUntilRootCertRotate(t, caScrt, cluster, systemNS.Name(), 40*time.Second)
 			if err != nil {
 				t.Errorf("Root cert is not rotated: %s", err.Error())
 			}
@@ -76,14 +75,14 @@ func verifyRootRotation(t *testing.T, lastScrt, newScrt *v1.Secret) error {
 
 // waitUntilRootCertRotate checks root cert in kubernetes secret istio-ca-secret
 // and return when the secret is rotated or timeout.
-func waitUntilRootCertRotate(t *testing.T, oldSecret *v1.Secret, kubeAccessor *testKube.Accessor,
+func waitUntilRootCertRotate(t *testing.T, oldSecret *v1.Secret, cluster kube.Cluster,
 	namespace string, timeout time.Duration) error {
 	start := time.Now()
 	for {
 		if time.Since(start) > timeout {
 			return fmt.Errorf("root cert does not change after %s", timeout.String())
 		}
-		curScrt, err := kubeAccessor.GetSecret(namespace).Get(CASecret, metav1.GetOptions{})
+		curScrt, err := cluster.GetSecret(namespace).Get(CASecret, metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("Failed to get timestamp from secret istio-ca-secret: %s", err.Error())
 		}

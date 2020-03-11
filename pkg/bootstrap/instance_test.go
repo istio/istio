@@ -43,7 +43,6 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/bootstrap/platform"
-	"istio.io/istio/pkg/test/env"
 )
 
 type stats struct {
@@ -76,10 +75,7 @@ var (
 // cp $TOP/out/linux_amd64/release/bootstrap/tracing_lightstep/envoy-rev0.json pkg/bootstrap/testdata/tracing_lightstep_golden.json
 // cp $TOP/out/linux_amd64/release/bootstrap/tracing_zipkin/envoy-rev0.json pkg/bootstrap/testdata/tracing_zipkin_golden.json
 func TestGolden(t *testing.T) {
-	out := env.ISTIO_OUT.Value() // defined in the makefile
-	if out == "" {
-		out = "/tmp"
-	}
+	out := "/tmp"
 	var ts *httptest.Server
 
 	cases := []struct {
