@@ -1892,8 +1892,3 @@ webhooks:
 # Source: istio-discovery/templates/configmap-jwks.yaml
 
 
----
-# Source: istio-discovery/templates/enable-mesh-mtls.yaml
-
-
-
