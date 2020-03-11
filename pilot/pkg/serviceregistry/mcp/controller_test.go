@@ -23,6 +23,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
+
 	"istio.io/istio/pkg/config/schema/resource"
 
 	authn "istio.io/api/authentication/v1alpha1"
