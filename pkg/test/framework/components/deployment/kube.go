@@ -77,10 +77,6 @@ func (c *kubeComponent) Name() string {
 	return c.cfg.Name
 }
 
-func (c *kubeComponent) Env() *kube.Environment {
-	return c.env
-}
-
 func (c *kubeComponent) Namespace() namespace.Instance {
 	return c.cfg.Namespace
 }

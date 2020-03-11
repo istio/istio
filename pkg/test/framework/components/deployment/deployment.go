@@ -29,9 +29,6 @@ type Instance interface {
 
 	// Namespace of the deployment, if any.
 	Namespace() namespace.Instance
-
-	// Environment of the deployment
-	Env() *kube.Environment
 }
 
 type Config struct {
