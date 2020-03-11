@@ -110,8 +110,6 @@ func NewCoreComponent(cn name.ComponentName, opts *Options) IstioComponent {
 		component = NewPolicyComponent(opts)
 	case name.TelemetryComponentName:
 		component = NewTelemetryComponent(opts)
-	case name.CitadelComponentName:
-		component = NewCitadelComponent(opts)
 	case name.CNIComponentName:
 		component = NewCNIComponent(opts)
 	default:
@@ -278,52 +276,6 @@ func (c *PilotComponent) Namespace() string {
 
 // Enabled implements the IstioComponent interface.
 func (c *PilotComponent) Enabled() bool {
-	return isCoreComponentEnabled(c.CommonComponentFields)
-}
-
-// CitadelComponent is the pilot component.
-type CitadelComponent struct {
-	*CommonComponentFields
-}
-
-// NewCitadelComponent creates a new PilotComponent and returns a pointer to it.
-func NewCitadelComponent(opts *Options) *CitadelComponent {
-	cn := name.CitadelComponentName
-	return &CitadelComponent{
-		&CommonComponentFields{
-			Options:       opts,
-			componentName: cn,
-		},
-	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *CitadelComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *CitadelComponent) RenderManifest() (string, error) {
-	return renderManifest(c, c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *CitadelComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *CitadelComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
-}
-
-// Namespace implements the IstioComponent interface.
-func (c *CitadelComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// Enabled implements the IstioComponent interface.
-func (c *CitadelComponent) Enabled() bool {
 	return isCoreComponentEnabled(c.CommonComponentFields)
 }
 
