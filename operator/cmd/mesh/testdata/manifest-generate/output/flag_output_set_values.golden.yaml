@@ -6614,6 +6614,8 @@ spec:
                   fieldPath: metadata.namespace
             - name: ISTIO_META_MESH_ID
               value: "cluster.local"
+            - name: ISTIO_META_CLUSTER_ID
+              value: "Kubernetes"
           imagePullPolicy: Always
           readinessProbe:
             failureThreshold: 30

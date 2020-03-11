@@ -42477,6 +42477,8 @@ spec:
             - name: ISTIO_META_MESH_ID
               value: "{{ .Values.global.trustDomain }}"
               {{- end }}
+            - name: ISTIO_META_CLUSTER_ID
+              value: "{{ .Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           readinessProbe:
             failureThreshold: 30
