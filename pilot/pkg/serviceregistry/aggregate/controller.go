@@ -17,6 +17,8 @@ package aggregate
 import (
 	"sync"
 
+	"istio.io/istio/pilot/pkg/features"
+
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/pkg/log"
@@ -221,6 +223,32 @@ func (c *Controller) InstancesByPort(svc *model.Service, port int,
 	return instances, errs
 }
 
+func nodeClusterID(node *model.Proxy) string {
+	if node.Metadata == nil || node.Metadata.ClusterID == "" {
+		return ""
+	}
+	return node.Metadata.ClusterID
+}
+
+// Skip the service registry when there won't be a match
+// because the proxy is in a different cluster.
+func skipSearchingRegistryForProxy(nodeClusterID, registryClusterID, selfClusterID string) bool {
+	// We can't trust the default service registry because its always
+	// named `Kubernetes`. Use the `CLUSTER_ID` envvar to find the
+	// local cluster name in these cases.
+	// TODO(https://github.com/istio/istio/issues/22093)
+	if registryClusterID == string(serviceregistry.Kubernetes) {
+		registryClusterID = selfClusterID
+	}
+
+	// We can't be certain either way
+	if registryClusterID == "" || nodeClusterID == "" {
+		return false
+	}
+
+	return registryClusterID != nodeClusterID
+}
+
 // GetProxyServiceInstances lists service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
 	out := make([]*model.ServiceInstance, 0)
@@ -228,17 +256,10 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 	// It doesn't make sense for a single proxy to be found in more than one registry.
 	// TODO: if otherwise, warning or else what to do about it.
 	for _, r := range c.GetRegistries() {
-		// Skip the service registry when we know there won't be a match
-		// because the proxy is in a different cluster. We can't trust
-		// the default service registry because its always named `Kubernetes`
-		// and won't match the CLUSTER_ID label from the proxies.
-		if r.Cluster() != "" &&
-			r.Cluster() != string(serviceregistry.Kubernetes) &&
-			node.Metadata != nil &&
-			node.Metadata.ClusterID != "" &&
-			node.Metadata.ClusterID != r.Cluster() {
-			log.Debugf("GetProxyServiceInstances(): not checking cluster %v: proxy %v is associated with cluster %v",
-				r.Cluster(), node.ID, node.Metadata.ClusterID)
+		nodeClusterID := nodeClusterID(node)
+		if skipSearchingRegistryForProxy(nodeClusterID, r.Cluster(), features.ClusterName.Get()) {
+			log.Debugf("GetProxyServiceInstances(): not searching registry %v: proxy %v CLUSTER_ID is %v",
+				r.Cluster(), node.ID, nodeClusterID)
 			continue
 		}
 
