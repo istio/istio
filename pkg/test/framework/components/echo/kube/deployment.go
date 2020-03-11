@@ -102,7 +102,7 @@ spec:
 {{- range $i, $p := $.ContainerPorts }}
 {{- if eq .Protocol "GRPC" }}
           - --grpc
-{{- else if or (eq .Protocol "TCP") (eq .Protocol "HTTPS") }}
+{{- else if eq .Protocol "TCP" }}
           - --tcp
 {{- else }}
           - --port
