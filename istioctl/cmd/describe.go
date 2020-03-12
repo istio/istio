@@ -1235,14 +1235,15 @@ func printIngressService(writer io.Writer, ingressSvc *v1.Service, ingressPod *v
 		}
 
 		// Get port number
-		nport, err := pilotcontroller.FindPort(ingressPod, &port)
+		_, err := pilotcontroller.FindPort(ingressPod, &port)
 		if err == nil {
+			nport := int(port.Port)
 			protocol := string(servicePortProtocol(port.Name))
 
 			scheme := protocolToScheme[protocol]
 			portSuffix := ""
 			if schemePortDefault[scheme] != nport {
-				portSuffix = fmt.Sprintf(":%d\n", nport)
+				portSuffix = fmt.Sprintf(":%d", nport)
 			}
 			fmt.Fprintf(writer, "\nExposed on Ingress Gateway %s://%s%s\n", scheme, ip, portSuffix)
 		}
