@@ -26,7 +26,6 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/utils/pointer"
 
-	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
@@ -37,14 +36,9 @@ import (
 )
 
 type operatorInitArgs struct {
-	// hub is the hub for the operator image.
-	hub string
-	// tag is the tag for the operator image.
-	tag string
-	// operatorNamespace is the namespace the operator controller is installed into.
-	operatorNamespace string
-	// istioNamespace is the namespace Istio is installed into.
-	istioNamespace string
+	// common is shared operator args
+	common operatorCommonArgs
+
 	// inFilenames is the path to the input IstioOperator CR.
 	inFilename string
 
@@ -87,11 +81,11 @@ func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
 	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false, "Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
 		"of a Deployment are in a ready state before the command exits. It will wait for a maximum duration of --readiness-timeout seconds")
 
-	cmd.PersistentFlags().StringVar(&args.hub, "hub", hub, "The hub for the operator controller image")
-	cmd.PersistentFlags().StringVar(&args.tag, "tag", tag, "The tag for the operator controller image")
-	cmd.PersistentFlags().StringVar(&args.operatorNamespace, "operatorNamespace", "istio-operator",
+	cmd.PersistentFlags().StringVar(&args.common.hub, "hub", hub, "The hub for the operator controller image")
+	cmd.PersistentFlags().StringVar(&args.common.tag, "tag", tag, "The tag for the operator controller image")
+	cmd.PersistentFlags().StringVar(&args.common.operatorNamespace, "operatorNamespace", "istio-operator",
 		"The namespace the operator controller is installed into")
-	cmd.PersistentFlags().StringVar(&args.istioNamespace, "istioNamespace", "istio-system",
+	cmd.PersistentFlags().StringVar(&args.common.istioNamespace, "istioNamespace", "istio-system",
 		"The namespace Istio is installed into")
 }
 
@@ -112,18 +106,19 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l *Logger, apply man
 	initLogsOrExit(args)
 
 	// Error here likely indicates Deployment is missing. If some other K8s error, we will hit it again later.
-	already, _ := isControllerInstalled(oiArgs.kubeConfigPath, oiArgs.context, oiArgs.operatorNamespace)
+	already, _ := isControllerInstalled(oiArgs.kubeConfigPath, oiArgs.context, oiArgs.common.operatorNamespace)
 	if already {
-		l.logAndPrintf("Operator controller is already installed in %s namespace, updating.", oiArgs.operatorNamespace)
+		l.logAndPrintf("Operator controller is already installed in %s namespace, updating.", oiArgs.common.operatorNamespace)
 	}
 
-	l.logAndPrintf("Using operator Deployment image: %s/operator:%s", oiArgs.hub, oiArgs.tag)
+	l.logAndPrintf("Using operator Deployment image: %s/operator:%s", oiArgs.common.hub, oiArgs.common.tag)
 
-	mstr, err := renderOperatorManifest(args, oiArgs, l)
+	vals, mstr, err := renderOperatorManifest(args, &oiArgs.common, l)
 	if err != nil {
 		l.logAndFatal(err)
 	}
 
+	scope.Infof("Installing operator charts with the following values:\n%s", vals)
 	scope.Infof("Using the following manifest to install operator:\n%s\n", mstr)
 
 	opts := &kubectlcmd.Options{
@@ -160,7 +155,7 @@ func applyManifest(manifestStr, componentName string, opts *kubectlcmd.Options, 
 	l.logAndPrint("")
 	// Specifically don't prune operator installation since it leads to a lot of resources being reapplied.
 	opts.Prune = pointer.BoolPtr(false)
-	out, objs := manifest.ApplyManifest(name.ComponentName(componentName), manifestStr, version.OperatorBinaryVersion.String(), *opts)
+	out, objs := manifest.ApplyManifest(name.ComponentName(componentName), manifestStr, version.OperatorBinaryVersion.String(), "", *opts)
 
 	if opts.Wait {
 		err := manifest.WaitForResources(objs, opts)
@@ -209,43 +204,6 @@ func getCRAndNamespaceFromFile(filePath string, l *Logger) (customResource strin
 	customResource = string(b)
 	istioNamespace = v1alpha1.Namespace(mergedIOPS)
 	return
-}
-
-// chartsRootDir, helmBaseDir, componentName, namespace string) (TemplateRenderer, error) {
-func renderOperatorManifest(_ *rootArgs, oiArgs *operatorInitArgs, _ *Logger) (string, error) {
-	r, err := helm.NewHelmRenderer("", "../operator-chart", istioControllerComponentName, oiArgs.operatorNamespace)
-	if err != nil {
-		return "", err
-	}
-
-	if err := r.Run(); err != nil {
-		return "", err
-	}
-
-	tmpl := `
-operatorNamespace: {{.OperatorNamespace}}
-istioNamespace: {{.IstioNamespace}}
-hub: {{.Hub}}
-tag: {{.Tag}}
-`
-
-	tv := struct {
-		OperatorNamespace string
-		IstioNamespace    string
-		Hub               string
-		Tag               string
-	}{
-		OperatorNamespace: oiArgs.operatorNamespace,
-		IstioNamespace:    oiArgs.istioNamespace,
-		Hub:               oiArgs.hub,
-		Tag:               oiArgs.tag,
-	}
-	vals, err := util.RenderTemplate(tmpl, tv)
-	if err != nil {
-		return "", err
-	}
-	scope.Infof("Installing operator charts with the following values:\n%s", vals)
-	return r.RenderManifest(vals)
 }
 
 func genNamespaceResource(namespace string) string {

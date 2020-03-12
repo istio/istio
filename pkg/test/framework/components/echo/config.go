@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // Config defines the options for creating an Echo component.
@@ -76,6 +77,9 @@ type Config struct {
 	// Subsets contains the list of Subsets config belonging to this echo
 	// service instance.
 	Subsets []SubsetConfig
+
+	// Cluster to be used in a multicluster environment
+	Cluster resource.Cluster
 }
 
 // SubsetConfig is the config for a group of Subsets (e.g. Kubernetes deployment).

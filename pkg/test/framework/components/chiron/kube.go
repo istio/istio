@@ -43,7 +43,7 @@ func newKube(ctx resource.Context, cfg Config) Instance {
 	c.id = ctx.TrackResource(c)
 
 	env := ctx.Environment().(*kube.Environment)
-	c.secret = env.GetSecret(c.istio.Settings().IstioNamespace)
+	c.secret = env.KubeClusters[0].GetSecret(c.istio.Settings().IstioNamespace)
 
 	return c
 }

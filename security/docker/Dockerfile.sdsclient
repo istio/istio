@@ -1,9 +1,0 @@
-# Version is the base image version from the TLD Makefile
-ARG BASE_VERSION=latest
-
-# The following section is used as base image if BASE_DISTRIBUTION=default
-FROM docker.io/istio/base:${BASE_VERSION} as default
-
-COPY sdsclient /
-RUN chmod 755 /sdsclient
-ENTRYPOINT ["/sdsclient"]

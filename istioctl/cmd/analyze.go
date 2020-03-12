@@ -431,7 +431,11 @@ func colorSuffix() string {
 func renderMessage(m diag.Message) string {
 	origin := ""
 	if m.Resource != nil {
-		origin = " (" + m.Resource.Origin.FriendlyName() + ")"
+		loc := ""
+		if m.Resource.Origin.Reference() != "" {
+			loc = " " + m.Resource.Origin.Reference()
+		}
+		origin = " (" + m.Resource.Origin.FriendlyName() + loc + ")"
 	}
 	return fmt.Sprintf(
 		"%s%v%s [%v]%s %s", colorPrefix(m), m.Type.Level(), colorSuffix(), m.Type.Code(), origin, fmt.Sprintf(m.Type.Template(), m.Parameters...))

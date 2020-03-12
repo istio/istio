@@ -68,6 +68,9 @@ func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
 	result["level"] = m.Type.Level().String()
 	if includeOrigin && m.Resource != nil {
 		result["origin"] = m.Resource.Origin.FriendlyName()
+		if m.Resource.Origin.Reference() != "" {
+			result["reference"] = m.Resource.Origin.Reference()
+		}
 	}
 	result["message"] = fmt.Sprintf(m.Type.Template(), m.Parameters...)
 
@@ -84,7 +87,11 @@ func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
 func (m *Message) String() string {
 	origin := ""
 	if m.Resource != nil {
-		origin = "(" + m.Resource.Origin.FriendlyName() + ")"
+		loc := ""
+		if m.Resource.Origin.Reference() != "" {
+			loc = " " + m.Resource.Origin.Reference()
+		}
+		origin = " (" + m.Resource.Origin.FriendlyName() + loc + ")"
 	}
 	return fmt.Sprintf(
 		"%v [%v]%s %s", m.Type.Level(), m.Type.Code(), origin, fmt.Sprintf(m.Type.Template(), m.Parameters...))

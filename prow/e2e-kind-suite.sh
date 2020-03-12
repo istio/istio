@@ -85,10 +85,13 @@ E2E_ARGS+=("--image_pull_policy" "IfNotPresent")
 export HUB=${HUB:-"istio-testing"}
 export TAG="${TAG:-"istio-testing"}"
 
+# Default IP family of the cluster is IPv4
+export IP_FAMILY="${IP_FAMILY:-ipv4}"
+
 make init
 
 if [[ -z "${SKIP_SETUP:-}" ]]; then
-  time setup_kind_cluster "${NODE_IMAGE:-}"
+  time setup_kind_cluster "${IP_FAMILY}" "${NODE_IMAGE:-}"
 fi
 
 if [[ -z "${SKIP_BUILD:-}" ]]; then

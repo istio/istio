@@ -53,14 +53,15 @@ type kubeComponent struct {
 	id        resource.ID
 	namespace string
 	env       *kube.Environment
+	cluster   kube.Cluster
 }
 
-// getAddressInner returns the ingress gateway address for plain text  requests.
-func getAddressInner(env *kube.Environment, ns string, port int) (interface{}, bool, error) {
+// getHTTPAddressInner returns the ingress gateway address for plain text http requests.
+func (c *kubeComponent) getAddressInner(ns string, port int) (interface{}, bool, error) {
 	// In Minikube, we don't have the ingress gateway. Instead we do a little bit of trickery to to get the Node
 	// port.
-	if env.Settings().Minikube {
-		pods, err := env.GetPods(ns, fmt.Sprintf("istio=%s", istioLabel))
+	if c.env.Settings().Minikube {
+		pods, err := c.cluster.GetPods(ns, fmt.Sprintf("istio=%s", istioLabel))
 		if err != nil {
 			return nil, false, err
 		}
@@ -76,7 +77,7 @@ func getAddressInner(env *kube.Environment, ns string, port int) (interface{}, b
 			return nil, false, fmt.Errorf("no Host IP available on the ingress node yet")
 		}
 
-		svc, err := env.Accessor.GetService(ns, serviceName)
+		svc, err := c.cluster.GetService(ns, serviceName)
 		if err != nil {
 			return nil, false, err
 		}
@@ -101,7 +102,7 @@ func getAddressInner(env *kube.Environment, ns string, port int) (interface{}, b
 	}
 
 	// Otherwise, get the load balancer IP.
-	svc, err := env.Accessor.GetService(ns, serviceName)
+	svc, err := c.cluster.GetService(ns, serviceName)
 	if err != nil {
 		return nil, false, err
 	}
@@ -117,7 +118,7 @@ func getAddressInner(env *kube.Environment, ns string, port int) (interface{}, b
 // getHTTPSAddressInner returns the ingress gateway address for https requests.
 func getHTTPSAddressInner(env *kube.Environment, ns string) (interface{}, bool, error) {
 	if env.Settings().Minikube {
-		pods, err := env.GetPods(ns, fmt.Sprintf("istio=%s", istioLabel))
+		pods, err := env.KubeClusters[0].GetPods(ns, fmt.Sprintf("istio=%s", istioLabel))
 		if err != nil {
 			return nil, false, err
 		}
@@ -133,7 +134,7 @@ func getHTTPSAddressInner(env *kube.Environment, ns string) (interface{}, bool, 
 			return nil, false, fmt.Errorf("no Host IP available on the ingress node yet")
 		}
 
-		svc, err := env.Accessor.GetService(ns, serviceName)
+		svc, err := env.KubeClusters[0].GetService(ns, serviceName)
 		if err != nil {
 			return nil, false, err
 		}
@@ -157,7 +158,7 @@ func getHTTPSAddressInner(env *kube.Environment, ns string) (interface{}, bool, 
 		return net.TCPAddr{IP: net.ParseIP(ip), Port: int(nodePort)}, true, nil
 	}
 
-	svc, err := env.Accessor.GetService(ns, serviceName)
+	svc, err := env.KubeClusters[0].GetService(ns, serviceName)
 	if err != nil {
 		return nil, false, err
 	}
@@ -175,6 +176,7 @@ func newKube(ctx resource.Context, cfg Config) Instance {
 	c.id = ctx.TrackResource(c)
 	c.namespace = cfg.Istio.Settings().IngressNamespace
 	c.env = ctx.Environment().(*kube.Environment)
+	c.cluster = kube.ClusterOrDefault(cfg.Cluster, ctx.Environment())
 
 	return c
 }
@@ -186,7 +188,7 @@ func (c *kubeComponent) ID() resource.ID {
 // HTTPAddress returns HTTP address of ingress gateway.
 func (c *kubeComponent) HTTPAddress() net.TCPAddr {
 	address, err := retry.Do(func() (interface{}, bool, error) {
-		return getAddressInner(c.env, c.namespace, 80)
+		return c.getAddressInner(c.namespace, 80)
 	}, retryTimeout, retryDelay)
 	if err != nil {
 		return net.TCPAddr{}
@@ -197,7 +199,7 @@ func (c *kubeComponent) HTTPAddress() net.TCPAddr {
 // TCPAddress returns TCP address of ingress gateway.
 func (c *kubeComponent) TCPAddress() net.TCPAddr {
 	address, err := retry.Do(func() (interface{}, bool, error) {
-		return getAddressInner(c.env, c.namespace, 15029)
+		return c.getAddressInner(c.namespace, 15029)
 	}, retryTimeout, retryDelay)
 	if err != nil {
 		return net.TCPAddr{}
@@ -247,7 +249,7 @@ func (c *kubeComponent) createClient(options CallOptions) (*http.Client, error) 
 				if s := strings.Split(addr, ":"); s[0] == options.Host {
 					addr = options.Address.String()
 				}
-				tc, err := tls.Dial(netw, addr, tlsConfig)
+				tc, err := tls.DialWithDialer(&net.Dialer{Timeout: options.Timeout}, netw, addr, tlsConfig)
 				if err != nil {
 					scopes.Framework.Errorf("TLS dial fail: %v", err)
 					return nil, err
@@ -287,7 +289,7 @@ func (c *kubeComponent) createRequest(options CallOptions) (*http.Request, error
 
 func (c *kubeComponent) Call(options CallOptions) (CallResponse, error) {
 	if err := options.sanitize(); err != nil {
-		scopes.Framework.Fatalf("CallOptions sanitization failure. config: %+v, error:%v", options, err)
+		scopes.Framework.Fatalf("CallOptions sanitization failure, error %v", err)
 	}
 	client, err := c.createClient(options)
 	if err != nil {
@@ -345,14 +347,14 @@ func (c *kubeComponent) ProxyStats() (map[string]int, error) {
 
 // adminRequest makes a call to admin port at ingress gateway proxy and returns error on request failure.
 func (c *kubeComponent) adminRequest(path string) (string, error) {
-	pods, err := c.env.GetPods(c.namespace, "istio=ingressgateway")
+	pods, err := c.env.KubeClusters[0].GetPods(c.namespace, "istio=ingressgateway")
 	if err != nil {
 		return "", fmt.Errorf("unable to get ingress gateway stats: %v", err)
 	}
 	podNs, podName := pods[0].Namespace, pods[0].Name
 	// Exec onto the pod and make a curl request to the admin port
 	command := fmt.Sprintf("curl http://127.0.0.1:%d/%s", proxyAdminPort, path)
-	return c.env.Accessor.Exec(podNs, podName, proxyContainerName, command)
+	return c.env.KubeClusters[0].Exec(podNs, podName, proxyContainerName, command)
 }
 
 type statEntry struct {

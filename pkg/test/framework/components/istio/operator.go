@@ -63,16 +63,16 @@ func (i *operatorComponent) Close() (err error) {
 	scopes.CI.Infof("=== BEGIN: Cleanup Istio ===")
 	defer scopes.CI.Infof("=== DONE: Cleanup Istio ===")
 	if i.settings.DeployIstio {
-		err = i.environment.Accessor.DeleteNamespace(i.settings.SystemNamespace)
+		err = i.environment.KubeClusters[0].DeleteNamespace(i.settings.SystemNamespace)
 		if err == nil {
-			err = i.environment.Accessor.WaitForNamespaceDeletion(i.settings.SystemNamespace)
+			err = i.environment.KubeClusters[0].WaitForNamespaceDeletion(i.settings.SystemNamespace)
 		}
 		// Note: when cleaning up an Istio deployment, ValidatingWebhookConfiguration
 		// and MutatingWebhookConfiguration must be cleaned up. Otherwise, next
 		// Istio deployment in the cluster will be impacted, causing flaky test results.
 		// Clean up ValidatingWebhookConfiguration and MutatingWebhookConfiguration if they exist
-		_ = i.environment.DeleteValidatingWebhook(DefaultValidatingWebhookConfigurationName(i.settings))
-		_ = i.environment.DeleteMutatingWebhook(DefaultMutatingWebhookConfigurationName)
+		_ = i.environment.KubeClusters[0].DeleteValidatingWebhook(DefaultValidatingWebhookConfigurationName(i.settings))
+		_ = i.environment.KubeClusters[0].DeleteMutatingWebhook(DefaultMutatingWebhookConfigurationName)
 	}
 	return
 }
@@ -86,10 +86,10 @@ func (i *operatorComponent) Dump() {
 		return
 	}
 
-	deployment.DumpPodState(d, i.settings.SystemNamespace, i.environment.Accessor)
-	deployment.DumpPodEvents(d, i.settings.SystemNamespace, i.environment.Accessor)
+	deployment.DumpPodState(d, i.settings.SystemNamespace, i.environment.KubeClusters[0].Accessor)
+	deployment.DumpPodEvents(d, i.settings.SystemNamespace, i.environment.KubeClusters[0].Accessor)
 
-	pods, err := i.environment.Accessor.GetPods(i.settings.SystemNamespace)
+	pods, err := i.environment.KubeClusters[0].GetPods(i.settings.SystemNamespace)
 	if err != nil {
 		scopes.CI.Errorf("Unable to get pods from the system namespace: %v", err)
 		return
@@ -97,7 +97,7 @@ func (i *operatorComponent) Dump() {
 
 	for _, pod := range pods {
 		for _, container := range pod.Spec.Containers {
-			l, err := i.environment.Logs(pod.Namespace, pod.Name, container.Name, false /* previousLog */)
+			l, err := i.environment.KubeClusters[0].Logs(pod.Namespace, pod.Name, container.Name, false /* previousLog */)
 			if err != nil {
 				scopes.CI.Errorf("Unable to get logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 				continue
@@ -152,7 +152,6 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		"--skip-confirmation",
 		"--logtostderr",
 		"-f", iopFile,
-		"--set", "values.global.controlPlaneSecurityEnabled=false",
 		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
 		"--wait",
 	}
@@ -171,7 +170,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 
 	if !cfg.SkipWaitForValidationWebhook {
 		// Wait for the validation webhook to come online before continuing.
-		if _, _, err = env.WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istio-pilot"); err != nil {
+		if _, _, err = env.KubeClusters[0].WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istio-pilot"); err != nil {
 			err = fmt.Errorf("error waiting %s/%s service endpoints: %v", cfg.SystemNamespace, "istio-pilot", err)
 			scopes.CI.Info(err.Error())
 			i.Dump()
@@ -179,7 +178,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		}
 
 		// Wait for webhook to come online. The only reliable way to do that is to see if we can submit invalid config.
-		err = waitForValidationWebhook(env.Accessor, cfg)
+		err = waitForValidationWebhook(env.KubeClusters[0].Accessor, cfg)
 		if err != nil {
 			i.Dump()
 			return nil, err

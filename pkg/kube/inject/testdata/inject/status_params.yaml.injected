@@ -38,8 +38,6 @@ spec:
         - status.$(POD_NAMESPACE)
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
-        - --statusPort
-        - "123"
         - --trust-domain=cluster.local
         - --controlPlaneBootstrap=false
         - --concurrency
@@ -110,7 +108,7 @@ spec:
           failureThreshold: 300
           httpGet:
             path: /healthz/ready
-            port: 123
+            port: 15090
           initialDelaySeconds: 100
           periodSeconds: 200
         resources:
@@ -140,7 +138,7 @@ spec:
         - mountPath: /etc/istio/pod
           name: podinfo
       initContainers:
-      - command:
+      - args:
         - istio-iptables
         - -p
         - "15001"

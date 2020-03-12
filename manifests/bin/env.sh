@@ -246,7 +246,6 @@ function localSidecar() {
         --proxyAdminPort 15000 \
         --concurrency 2 \
         --controlPlaneAuthPolicy NONE \
-        --statusPort 15020 \
         --controlPlaneBootstrap=false
 
 }
