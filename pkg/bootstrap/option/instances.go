@@ -247,3 +247,7 @@ func STSPort(value int) Instance {
 func STSEnabled(value bool) Instance {
 	return newOption("sts", value)
 }
+
+func GCPServiceAccountKey(value string) Instance {
+	return newOption("gcp_service_account_key", value)
+}

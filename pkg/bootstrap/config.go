@@ -29,6 +29,7 @@ import (
 
 	"istio.io/istio/pkg/config/constants"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
@@ -95,6 +96,7 @@ type Config struct {
 	DisableReportCalls  bool
 	OutlierLogPath      string
 	PilotCertProvider   string
+	GCPConfigPath       string
 }
 
 // newTemplateParams creates a new template configuration for the given configuration.
@@ -105,7 +107,32 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	if cfg.PilotSubjectAltName == nil {
 		cfg.PilotSubjectAltName = defaultPilotSAN()
 	}
-	if cfg.PlatEnv == nil {
+	if cfg.GCPConfigPath != "" {
+		for {
+			config, err := loadGCPConfig(cfg.GCPConfigPath)
+
+			if err != nil {
+				log.Warnf("Failed to load GCP config at %s: %v", cfg.GCPConfigPath, err)
+				cfg.PlatEnv = &platform.Unknown{}
+				break
+			}
+
+			log.Infof("GCP config: %+v", config)
+
+			if err := validateGCPConfig(config); err != nil {
+				log.Warnf("Invalid GCP Config %+v: %v", config, err)
+				break;
+			}
+
+			key, err := getGCPServiceAccountKeyJSONString(config["key_path"])
+			if err != nil {
+				log.Warnf("Failed to load GCP Service Account key at %s: %v", config["key_path"], err)
+				break;
+			}
+			cfg.PlatEnv = platform.NewGCPOnPremEnv(config["zone"], key)
+			break;
+		}
+	} else if cfg.PlatEnv == nil {
 		cfg.PlatEnv = platform.Discover()
 	}
 
@@ -125,6 +152,9 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.DisableReportCalls(cfg.DisableReportCalls),
 		option.PilotCertProvider(cfg.PilotCertProvider),
 		option.OutlierLogPath(cfg.OutlierLogPath))
+	if cfg.GCPConfigPath != "" {
+		opts = append(opts, option.GCPServiceAccountKey(cfg.PlatEnv.Credentials()))
+	}
 
 	if cfg.STSPort > 0 {
 		opts = append(opts, option.STSEnabled(true),
@@ -237,13 +267,20 @@ func getNodeMetadataOptions(meta *model.NodeMetadata, rawMeta map[string]interfa
 }
 
 func getLocalityOptions(meta *model.NodeMetadata, platEnv platform.Environment) []option.Instance {
-	l := util.ConvertLocality(model.GetLocalityOrDefault(meta.LocalityLabel, ""))
-	if l == nil {
+	var locality *core.Locality
+	localityStr := model.GetLocalityOrDefault(meta.LocalityLabel, "")
+	if localityStr == "" {
 		// Populate the platform locality if available.
-		l = platEnv.Locality()
+		locality = platEnv.Locality()
+	} else {
+		locality = util.ConvertLocality(localityStr)
 	}
 
-	return []option.Instance{option.Region(l.Region), option.Zone(l.Zone), option.SubZone(l.SubZone)}
+	return []option.Instance{
+		option.Region(locality.Region),
+		option.Zone(locality.Zone),
+		option.SubZone(locality.SubZone),
+	}
 }
 
 func getProxyConfigOptions(config *meshAPI.ProxyConfig, metadata *model.NodeMetadata) ([]option.Instance, error) {
@@ -509,4 +546,36 @@ func removeDuplicates(values []string) []string {
 		}
 	}
 	return newValues
+}
+
+func loadGCPConfig(path string) (map[string]string, error) {
+	var config map[string]string
+	configBytes, err := ioutil.ReadFile(path)
+	if err != nil {
+		return config, err
+	}
+	err = json.Unmarshal(configBytes, &config)
+	return config, err
+}
+
+func getGCPServiceAccountKeyJSONString(path string) (string, error) {
+	keyBytes, err := ioutil.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	var keyJSON map[string]interface{}
+	if err := json.Unmarshal(keyBytes, &keyJSON); err != nil {
+		return "", err
+	}
+
+	strKeyJSON, err := json.Marshal(keyJSON)
+	if err != nil {
+		return "", err
+	}
+
+	return strings.ReplaceAll(string(strKeyJSON), "\\n", "\\\\n"), nil
+}
+
+func validateGCPConfig(config map[string]string) error {
+	return nil
 }

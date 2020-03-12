@@ -61,6 +61,7 @@ type ProxyConfig struct {
 	DisableReportCalls  bool
 	OutlierLogPath      string
 	PilotCertProvider   string
+	GCPConfigPath       string
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -168,6 +169,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 			DisableReportCalls:  e.DisableReportCalls,
 			OutlierLogPath:      e.OutlierLogPath,
 			PilotCertProvider:   e.PilotCertProvider,
+			GCPConfigPath:       e.GCPConfigPath,
 		}).CreateFileForEpoch(epoch)
 		if err != nil {
 			log.Errora("Failed to generate bootstrap config: ", err)

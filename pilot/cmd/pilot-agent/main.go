@@ -108,6 +108,7 @@ var (
 	tlsCertsToWatch          []string
 	loggingOptions           = log.DefaultOptions()
 	outlierLogPath           string
+	gcpConfigPath            string
 
 	wg sync.WaitGroup
 
@@ -438,6 +439,7 @@ var (
 				DisableReportCalls:  disableInternalTelemetry,
 				OutlierLogPath:      outlierLogPath,
 				PilotCertProvider:   pilotCertProvider,
+				GCPConfigPath:       gcpConfigPath,
 			})
 
 			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
@@ -715,6 +717,8 @@ func init() {
 		"Process bootstrap provided via templateFile to be used by control plane components.")
 	proxyCmd.PersistentFlags().StringVar(&outlierLogPath, "outlierLogPath", "",
 		"The log path for outlier detection")
+	proxyCmd.PersistentFlags().StringVar(&gcpConfigPath, "gcpConfigPath", "",
+		"The path to a GCP config file, Used by on-premise Envoy managed by Traffic Director.")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

@@ -30,6 +30,8 @@ type Environment interface {
 	// Locality returns the run location for the bootstrap transformed from the
 	// platform-specific representation into the Envoy Locality schema.
 	Locality() *core.Locality
+
+	Credentials() string
 }
 
 // Unknown provides a default platform environment for cases in which the platform
@@ -44,4 +46,8 @@ func (*Unknown) Metadata() map[string]string {
 // Locality returns an empty core.Locality struct.
 func (*Unknown) Locality() *core.Locality {
 	return &core.Locality{}
+}
+
+func (*Unknown) Credentials() string {
+	return ""
 }

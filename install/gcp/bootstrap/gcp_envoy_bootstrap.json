@@ -37,7 +37,14 @@
               }
             },
             "call_credentials": {
+            {{ if .gcp_service_account_key }}
+              "service_account_jwt_access": {
+                "json_key": '{{ .gcp_service_account_key }}',
+                "token_lifetime_seconds": 3600
+              }
+            {{ else }}
               "google_compute_engine": {}
+            {{ end }}
             }
           }
         }
@@ -67,6 +74,11 @@
               "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
               "scope": "https://www.googleapis.com/auth/cloud-platform",
             }
+            {{ else if .gcp_service_account_key }}
+              "service_account_jwt_access": {
+                "json_key": '{{ .gcp_service_account_key }}',
+                "token_lifetime_seconds": 3600
+              }
             {{ else }}
               "google_compute_engine": {}
             {{ end }}

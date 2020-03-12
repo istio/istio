@@ -139,3 +139,7 @@ func (e *gcpEnv) Locality() *core.Locality {
 
 	return &l
 }
+
+func (e *gcpEnv) Credentials() string {
+	return ""
+}
