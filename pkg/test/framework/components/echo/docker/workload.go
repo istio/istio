@@ -121,7 +121,7 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 		// Need NET_ADMIN for iptables.
 		capabilities = []string{"NET_ADMIN"}
 
-		pilotHost := fmt.Sprintf("istio-pilot.%s", e.SystemNamespace)
+		pilotHost := fmt.Sprintf("istiod.%s", e.SystemNamespace)
 
 		pilotAddress := fmt.Sprintf("%s:%d", pilotHost, discoveryPort(cfg.Pilot))
 
