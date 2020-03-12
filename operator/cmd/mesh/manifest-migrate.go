@@ -151,7 +151,7 @@ func migrateFromClusterConfig(rootArgs *rootArgs, mmArgs *manifestMigrateArgs, l
 	c := kubectlcmd.New()
 	opts := &kubectlcmd.Options{
 		Namespace: mmArgs.namespace,
-		ExtraArgs: []string{"jsonpath='{.data.values}'"},
+		Output:    "jsonpath='{.data.values}'",
 	}
 	output, stderr, err := c.GetConfigMap("istio-sidecar-injector", opts)
 	if err != nil {
