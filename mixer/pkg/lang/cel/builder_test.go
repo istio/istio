@@ -626,6 +626,31 @@ var (
 			// note that type lookup is a runtime operation, so the attribute lookup is necessary
 			referenced: []string{"-context.reporter.kind"},
 		},
+		//Taken from cel-go strings readme: https://github.com/google/cel-go/tree/master/ext
+		{
+			text:       `source.name.replace('he', 'we')`,
+			bag:        map[string]interface{}{"source.name": "hello hello"},
+			result:     "wello wello",
+			referenced: []string{"source.name"},
+		},
+		{
+			text:       `source.name.replace('he', 'we', -1)`,
+			bag:        map[string]interface{}{"source.name": "hello hello"},
+			result:     "wello wello",
+			referenced: []string{"source.name"},
+		},
+		{
+			text:       `source.name.replace('he', 'we', 1)`,
+			bag:        map[string]interface{}{"source.name": "hello hello"},
+			result:     "wello hello",
+			referenced: []string{"source.name"},
+		},
+		{
+			text:       `source.name.replace('he', 'we', 0)`,
+			bag:        map[string]interface{}{"source.name": "hello hello"},
+			result:     "hello hello",
+			referenced: []string{"source.name"},
+		},
 	}
 	attrs = map[string]*v1beta1.AttributeManifest_AttributeInfo{
 		"as":                        {ValueType: v1beta1.STRING},

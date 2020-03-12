@@ -104,7 +104,7 @@ func NewBuilder(finder attribute.AttributeDescriptorFinder, mode LanguageMode) *
 }
 
 // Compile the given text and return a pre-compiled expression object.
-func (exb *ExpressionBuilder) check(text string) (checked celgo.Ast, typ descriptor.ValueType, err error) {
+func (exb *ExpressionBuilder) check(text string) (checked *celgo.Ast, typ descriptor.ValueType, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("panic during CEL parsing of expression %q", text)

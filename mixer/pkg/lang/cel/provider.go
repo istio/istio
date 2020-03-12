@@ -26,6 +26,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
+	"github.com/google/cel-go/ext"
 	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/parser"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -133,9 +134,10 @@ func (ap *attributeProvider) newEnvironment() celgo.Env {
 		celgo.CustomTypeProvider(ap),
 		celgo.Declarations(declarations...),
 		celgo.Declarations(standardFunctions...),
+		ext.Strings(),
 		macros)
 
-	return env
+	return *env
 }
 
 func (ap *attributeProvider) newActivation(bag attribute.Bag) interpreter.Activation {
@@ -249,7 +251,7 @@ func (v value) IsSet(index ref.Val) ref.Val {
 	return types.True
 }
 
-func (a attributeActivation) ResolveName(name string) (ref.Val, bool) {
+func (a attributeActivation) ResolveName(name string) (interface{}, bool) {
 	if node, ok := a.provider.root.children[name]; ok {
 		return resolve(node, a.bag), true
 	}

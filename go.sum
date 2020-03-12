@@ -72,8 +72,9 @@ github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6/go.mod h1:SGn
 github.com/alicebob/miniredis v0.0.0-20180201100744-9d52b1fc8da9 h1:wqvIPbcOreD8CAde3cnOydGj2rjUN/awKZcfyccW9hA=
 github.com/alicebob/miniredis v0.0.0-20180201100744-9d52b1fc8da9/go.mod h1:8HZjEj4yU0dwhYHky+DxYx+6BMjkBbe5ONFIF1MXffk=
 github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883/go.mod h1:rCTlJbsFo29Kk6CurOXKm700vrz8f0KW0JNfpkRJY/8=
-github.com/antlr/antlr4 v0.0.0-20190223165740-dade65a895c2 h1:Q1TGw0wvj6lqZQ4/CMfZykGQDnkslNcvuDID+AfNiQE=
 github.com/antlr/antlr4 v0.0.0-20190223165740-dade65a895c2/go.mod h1:T7PbCXFs94rrTttyxjbyT5+/1V8T2TYDejxUfHJjw1Y=
+github.com/antlr/antlr4 v0.0.0-20190819145818-b43a4c3a8015 h1:StuiJFxQUsxSCzcby6NFZRdEhPkXD5vxN7TZ4MD6T84=
+github.com/antlr/antlr4 v0.0.0-20190819145818-b43a4c3a8015/go.mod h1:T7PbCXFs94rrTttyxjbyT5+/1V8T2TYDejxUfHJjw1Y=
 github.com/aokoli/goutils v1.0.1 h1:7fpzNGoJ3VA8qcrm++XEE1QUe0mIwNeLa02Nwq7RDkg=
 github.com/aokoli/goutils v1.0.1/go.mod h1:SijmP0QR8LtwsmDs8Yii5Z/S4trXFGFC2oO5g9DP+DQ=
 github.com/apache/thrift v0.12.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
@@ -299,9 +300,11 @@ github.com/golangplus/testing v0.0.0-20180327235837-af21d9c3145e/go.mod h1:0AA//
 github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c/go.mod h1:lNA+9X1NB3Zf8V7Ke586lFgjr2dZNuvo3lPJSGZ5JPQ=
 github.com/google/btree v1.0.0 h1:0udJVsspx3VBr5FwtLhQQtuAsVc79tTq0ocGIPAU6qo=
 github.com/google/btree v1.0.0/go.mod h1:lNA+9X1NB3Zf8V7Ke586lFgjr2dZNuvo3lPJSGZ5JPQ=
-github.com/google/cel-go v0.2.0 h1:1xQjGc4NQ0Kk0308Om1gfSt7Tkk4hwgVMGEpEEYwf9g=
 github.com/google/cel-go v0.2.0/go.mod h1:fTCVOuSN/Vn6d49zvRpr3fDAKFyfpLViE0gU+9Vtm7g=
+github.com/google/cel-go v0.4.0-beta.1.0.20200310225446-0296b6224317 h1:VDiSpr0cWKvbRIcRV8jSWqgHPxxjEIfHZD/3BSajoEQ=
+github.com/google/cel-go v0.4.0-beta.1.0.20200310225446-0296b6224317/go.mod h1:F0UncVAXNlNjl/4C8hqGdoV6APmuFpetoMJSLIQLBPU=
 github.com/google/cel-spec v0.2.0/go.mod h1:MjQm800JAGhOZXI7vatnVpmIaFTR6L8FHcKk+piiKpI=
+github.com/google/cel-spec v0.3.0/go.mod h1:MjQm800JAGhOZXI7vatnVpmIaFTR6L8FHcKk+piiKpI=
 github.com/google/go-cmp v0.2.0/go.mod h1:oXzfMopK8JAjlY9xF4vHSVASa0yLyX7SntLO5aqRK0M=
 github.com/google/go-cmp v0.3.0/go.mod h1:8QqcDgzrUqlUb/G2PQTWiueGozuR1884gddMywk6iLU=
 github.com/google/go-cmp v0.3.1 h1:Xye71clBPdm5HgqGwUkwhbynsUJZhDbS20FvLhQ2izg=
@@ -945,6 +948,8 @@ istio.io/api v0.0.0-20200305194445-60d7d118d799/go.mod h1:bcY3prusO/6vA6zGHz4PNG
 istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a/go.mod h1:OzpAts7jljZceG4Vqi5/zXy/pOg1b209T3jb7Nv5wIs=
 istio.io/gogo-genproto v0.0.0-20200227125611-d2e4aa9d5634 h1:oG03jmv4QbpBrKEVJmo++h91T1Wk9yV6m9XyqLJRn5o=
 istio.io/gogo-genproto v0.0.0-20200227125611-d2e4aa9d5634/go.mod h1:OzpAts7jljZceG4Vqi5/zXy/pOg1b209T3jb7Nv5wIs=
+istio.io/istio v0.0.0-20200312202801-f111ea44eeb8 h1:XbXdlQcRSVlxpsiFPOznAtQl9b9cfhx/dL36hLvMFY8=
+istio.io/istio v0.0.0-20200312202801-f111ea44eeb8/go.mod h1:futTiu7ACv+c1o7TwuTJyoKpQC2L6H7mRfTmQBTGAsk=
 istio.io/pkg v0.0.0-20200227125209-63966175aa01 h1:aiO57C3tGvBUWKMu1WrM5lUn3cC7ZIgR8YOUXaVPeoQ=
 istio.io/pkg v0.0.0-20200227125209-63966175aa01/go.mod h1:pwGaxLUDLobzL/WvWV94z72LvBbB1dr2UUUyPuasfIU=
 k8s.io/api v0.0.0-20190918155943-95b840bb6a1f/go.mod h1:uWuOHnjmNrtQomJrvEBg0c0HRNyQ+8KTEERVsK0PW48=
