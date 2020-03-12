@@ -17131,9 +17131,6 @@ data:
         "imagePullPolicy": "",
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
-        "istiod": {
-          "enabled": true
-        },
         "jwtPolicy": "third-party-jwt",
         "k8sIngress": {
           "enableHttps": false,
@@ -42324,16 +42321,8 @@ spec:
             {{- end}}
             - --proxyAdminPort
             - "15000"
-              {{- if .Values.global.istiod.enabled }}
             - --controlPlaneAuthPolicy
             - NONE
-              {{- else if .Values.global.controlPlaneSecurityEnabled }}
-            - --controlPlaneAuthPolicy
-            - MUTUAL_TLS
-              {{- else }}
-            - --controlPlaneAuthPolicy
-            - NONE
-              {{- end }}
               {{- if .Values.global.trustDomain }}
             - --trust-domain={{ .Values.global.trustDomain }}
               {{- end }}
@@ -45596,8 +45585,6 @@ spec:
   values:
     global:
       istioNamespace: istio-system
-      istiod:
-        enabled: true
       logging:
         level: "default:info"
       logAsJson: false
@@ -46389,8 +46376,6 @@ spec:
         enabled: false
     global:
       pilotCertProvider: kubernetes
-      istiod:
-        enabled: false
 `)
 
 func profilesSeparateYamlBytes() ([]byte, error) {

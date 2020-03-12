@@ -85,13 +85,8 @@ spec:
             {{- end}}
             - --proxyAdminPort
             - "15000"
-              {{- if .Values.global.controlPlaneSecurityEnabled }}
-            - --controlPlaneAuthPolicy
-            - MUTUAL_TLS
-              {{- else }}
             - --controlPlaneAuthPolicy
             - NONE
-              {{- end }}
               {{- if .Values.global.trustDomain }}
             - --trust-domain={{ .Values.global.trustDomain }}
               {{- end }}
