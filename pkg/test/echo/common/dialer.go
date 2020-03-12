@@ -16,6 +16,7 @@ package common
 
 import (
 	"context"
+	"net"
 	"net/http"
 
 	"github.com/gorilla/websocket"
@@ -34,11 +35,16 @@ var (
 	DefaultHTTPDoFunc = func(client *http.Client, req *http.Request) (*http.Response, error) {
 		return client.Do(req)
 	}
+	// DefaultTCPDialFunc just calls dialer.Dial, with no alterations to the arguments.
+	DefaultTCPDialFunc = func(dialer net.Dialer, ctx context.Context, address string) (net.Conn, error) {
+		return dialer.DialContext(ctx, "tcp", address)
+	}
 	// DefaultDialer is provides defaults for all dial functions.
 	DefaultDialer = Dialer{
 		GRPC:      DefaultGRPCDialFunc,
 		Websocket: DefaultWebsocketDialFunc,
 		HTTP:      DefaultHTTPDoFunc,
+		TCP:       DefaultTCPDialFunc,
 	}
 )
 
@@ -51,12 +57,16 @@ type WebsocketDialFunc func(dialer *websocket.Dialer, urlStr string, requestHead
 // HTTPDoFunc a function for executing an HTTP request.
 type HTTPDoFunc func(client *http.Client, req *http.Request) (*http.Response, error)
 
+// TCPDialFunc a function for establishing a TCP connection.
+type TCPDialFunc func(dialer net.Dialer, ctx context.Context, address string) (net.Conn, error)
+
 // Dialer is a replaceable set of functions for creating client-side connections for various protocols, allowing a test
 // application to intercept the connection creation.
 type Dialer struct {
 	GRPC      GRPCDialFunc
 	Websocket WebsocketDialFunc
 	HTTP      HTTPDoFunc
+	TCP       TCPDialFunc
 }
 
 // FillInDefaults fills in any missing dial functions with defaults
@@ -71,6 +81,9 @@ func (d Dialer) FillInDefaults() Dialer {
 	}
 	if d.HTTP != nil {
 		ret.HTTP = d.HTTP
+	}
+	if d.TCP != nil {
+		ret.TCP = d.TCP
 	}
 	return ret
 }

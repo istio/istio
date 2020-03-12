@@ -50,10 +50,12 @@ type Instance interface {
 func New(cfg Config) (Instance, error) {
 	if cfg.Port != nil {
 		switch cfg.Port.Protocol {
-		case protocol.TCP, protocol.HTTP, protocol.HTTPS:
+		case protocol.HTTP, protocol.HTTPS:
 			return newHTTP(cfg), nil
 		case protocol.HTTP2, protocol.GRPC:
 			return newGRPC(cfg), nil
+		case protocol.TCP:
+			return newTCP(cfg), nil
 		default:
 			return nil, fmt.Errorf("unsupported protocol: %s", cfg.Port.Protocol)
 		}

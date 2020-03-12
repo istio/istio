@@ -126,7 +126,7 @@ func (rc *Context) Run(testCases []TestCase) {
 		},
 		{
 			PortName: "tcp",
-			Scheme:   scheme.HTTP,
+			Scheme:   scheme.TCP,
 		},
 		{
 			PortName: "grpc",
