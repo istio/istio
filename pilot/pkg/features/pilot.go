@@ -291,7 +291,7 @@ var (
 	EnableVirtualServiceDelegate = env.RegisterBoolVar(
 		"PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE",
 		false,
-		"If enabled, Pilot will merge virtual services withe delegates. "+
+		"If enabled, Pilot will merge virtual services with delegates. "+
 			"By default, this is false, and virtualService with delegate will be ignored",
 	)
 
