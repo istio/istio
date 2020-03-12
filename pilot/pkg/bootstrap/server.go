@@ -859,7 +859,7 @@ func (s *Server) initDNSListener(args *PilotArgs) error {
 
 	// Create DNS certificates. This allows injector, validation to work without Citadel, and
 	// allows secure SDS connections to Istiod.
-	err = s.initDNSCerts(host)
+	err = s.initDNSCerts(host, args.Namespace)
 	if err != nil {
 		return err
 	}

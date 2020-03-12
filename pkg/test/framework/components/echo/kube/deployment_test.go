@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	settings *image.Settings = &image.Settings{
+	settings = &image.Settings{
 		Hub:        "testing.hub",
 		Tag:        "latest",
 		PullPolicy: "Always",

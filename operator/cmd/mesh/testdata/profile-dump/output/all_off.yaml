@@ -44,7 +44,7 @@ spec:
           scaleTargetRef:
             apiVersion: apps/v1
             kind: Deployment
-            name: istio-ingressgateway
+            name: istio-egressgateway
         resources:
           limits:
             cpu: 2000m
@@ -224,6 +224,9 @@ spec:
         - name: tcp-pilot-grpc-tls
           port: 15011
           targetPort: 15011
+        - name: tcp-istiod
+          port: 15012
+          targetPort: 15012
         - name: tcp-citadel-grpc-tls
           port: 8060
           targetPort: 8060

@@ -119,7 +119,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 	if err != nil {
 		return err
 	}
-	manifests, _, err := GenManifests(inFilenames, ysf, force, kubeconfig, l)
+	manifests, iop, err := GenManifests(inFilenames, ysf, force, kubeconfig, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate manifest: %v", err)
 	}
@@ -136,7 +136,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 		manifests[cn] = append(manifests[cn], fmt.Sprintf("# %s component has been deprecated.\n", cn))
 	}
 
-	out, err := manifest.ApplyAll(manifests, version.OperatorBinaryVersion, opts)
+	out, err := manifest.ApplyAll(manifests, version.OperatorBinaryVersion, iop.Revision, opts)
 	if err != nil {
 		return fmt.Errorf("failed to apply manifest with kubectl client: %v", err)
 	}

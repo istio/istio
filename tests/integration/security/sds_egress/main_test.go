@@ -52,7 +52,7 @@ func TestMain(m *testing.M) {
 			}); err != nil {
 				return err
 			}
-			if prom, err = prometheus.New(ctx); err != nil {
+			if prom, err = prometheus.New(ctx, prometheus.Config{}); err != nil {
 				return err
 			}
 			return nil

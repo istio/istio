@@ -73,6 +73,9 @@ type Config struct {
 	// This field is ignored on native
 	// TODO(https://github.com/istio/istio/issues/20299) remove this field
 	CreateClient bool
+
+	// Cluster to be used in a multicluster environment
+	Cluster resource.Cluster
 }
 
 // New returns a new instance of echo.

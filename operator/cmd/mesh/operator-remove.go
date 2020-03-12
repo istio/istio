@@ -59,20 +59,20 @@ func operatorRemoveCmd(rootArgs *rootArgs, orArgs *operatorRemoveArgs) *cobra.Co
 func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l *Logger, deleteManifestFunc manifestDeleter) {
 	initLogsOrExit(args)
 
-	installed, err := isControllerInstalled(orArgs.kubeConfigPath, orArgs.context, orArgs.operatorNamespace)
+	installed, err := isControllerInstalled(orArgs.kubeConfigPath, orArgs.context, orArgs.common.operatorNamespace)
 	if installed && err != nil {
 		l.logAndFatal(err)
 	}
 	if !installed {
-		l.logAndPrintf("Operator controller is not installed in %s namespace (no Deployment detected).", orArgs.operatorNamespace)
+		l.logAndPrintf("Operator controller is not installed in %s namespace (no Deployment detected).", orArgs.common.operatorNamespace)
 		if !orArgs.force {
 			l.logAndFatal("Aborting, use --force to override.")
 		}
 	}
 
-	l.logAndPrintf("Using operator Deployment image: %s/operator:%s", orArgs.hub, orArgs.tag)
+	l.logAndPrintf("Using operator Deployment image: %s/operator:%s", orArgs.common.hub, orArgs.common.tag)
 
-	mstr, err := renderOperatorManifest(args, &orArgs.operatorInitArgs, l)
+	_, mstr, err := renderOperatorManifest(args, &orArgs.common, l)
 	if err != nil {
 		l.logAndFatal(err)
 	}

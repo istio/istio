@@ -42,8 +42,6 @@ spec:
         - user-volume.$(POD_NAMESPACE)
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
-        - --statusPort
-        - "15020"
         - --trust-domain=cluster.local
         - --controlPlaneBootstrap=false
         - --concurrency
@@ -110,7 +108,7 @@ spec:
           failureThreshold: 30
           httpGet:
             path: /healthz/ready
-            port: 15020
+            port: 15090
           initialDelaySeconds: 1
           periodSeconds: 2
         resources:
@@ -145,7 +143,7 @@ spec:
         - mountPath: /mnt/volume-2
           name: user-volume-2
       initContainers:
-      - command:
+      - args:
         - istio-iptables
         - -p
         - "15001"

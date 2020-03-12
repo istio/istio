@@ -64,6 +64,9 @@ type Config struct {
 	MeshConfig *meshConfig.MeshConfig
 
 	ServiceArgs bootstrap.ServiceArgs
+
+	// Cluster to be used in a multicluster environment
+	Cluster resource.Cluster
 }
 
 // New returns a new instance of echo.

@@ -281,7 +281,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 		wait := retryWaitDuration
 		retryNum := 0
 		for ; retryNum < maxRetryNum; retryNum++ {
-			time.Sleep(retryWaitDuration)
+			time.Sleep(wait)
 			if sc.rootCert != nil {
 				break
 			}

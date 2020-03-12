@@ -25,7 +25,6 @@ import (
 type AnnotationType string
 
 const (
-	ServiceAnnotation  AnnotationType = "service"
 	WorkloadAnnotation AnnotationType = "workload"
 )
 

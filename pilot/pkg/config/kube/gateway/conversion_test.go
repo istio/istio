@@ -30,7 +30,7 @@ import (
 )
 
 func TestConvertResources(t *testing.T) {
-	cases := []string{"simple"}
+	cases := []string{"simple", "mismatch"}
 	for _, tt := range cases {
 		t.Run(tt, func(t *testing.T) {
 			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt))
@@ -53,7 +53,10 @@ func TestConvertResources(t *testing.T) {
 }
 
 func splitOutput(configs []model.Config) IstioResources {
-	out := IstioResources{}
+	out := IstioResources{
+		Gateway:        []model.Config{},
+		VirtualService: []model.Config{},
+	}
 	for _, c := range configs {
 		switch c.GroupVersionKind() {
 		case gatewayType.GroupVersionKind():

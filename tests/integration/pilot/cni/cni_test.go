@@ -65,7 +65,8 @@ func TestCNIReachability(t *testing.T) {
 				ctx.Fatal(err)
 			}
 			kenv := ctx.Environment().(*kube.Environment)
-			_, err = kenv.WaitUntilPodsAreReady(kenv.NewSinglePodFetch("kube-system", "k8s-app=istio-cni-node"))
+			cluster := kenv.KubeClusters[0]
+			_, err = cluster.WaitUntilPodsAreReady(cluster.NewSinglePodFetch("kube-system", "k8s-app=istio-cni-node"))
 			if err != nil {
 				ctx.Fatal(err)
 			}
