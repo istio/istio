@@ -21,7 +21,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource/environment"
-	"istio.io/istio/tests/integration/pilot/outboundtrafficpolicy"
+	"istio.io/istio/tests/integration/mixer/outboundtrafficpolicy"
 )
 
 func TestMain(m *testing.M) {
