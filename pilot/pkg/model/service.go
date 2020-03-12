@@ -75,6 +75,7 @@ type Service struct {
 
 	// Protect concurrent ClusterVIPs read/write
 	Mutex sync.RWMutex
+
 	// ClusterVIPs specifies the service address of the load balancer
 	// in each of the clusters where the service resides
 	ClusterVIPs map[string]string `json:"cluster-vips,omitempty"`
