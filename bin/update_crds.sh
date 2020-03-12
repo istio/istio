@@ -46,7 +46,7 @@ fi
 git clone  "https://${REPO}" "${API_TMP}" && cd "${API_TMP}"
 git checkout "${SHA}"
 if [ ! -f "${API_TMP}/kubernetes/customresourcedefinitions.gen.yaml" ]; then
-  echo "Generated Custom Resource Definitions file does not exist in the commit SHA. Not updating the CRD file."
+  echo "Generated Custom Resource Definitions file does not exist in the commit SHA ${SHA}. Not updating the CRD file."
   exit
 fi
 rm -f "${ROOTDIR}/manifests/base/files/crd-all.gen.yaml"
