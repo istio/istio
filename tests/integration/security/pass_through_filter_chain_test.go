@@ -65,9 +65,23 @@ func TestPassThroughFilterChain(t *testing.T) {
 						},
 					},
 					// The port 8085/8086 will be defined only in the workload and not in the k8s service.
-					WorkloadOnlyPorts: []int{
-						8085,
-						8086,
+					WorkloadOnlyPorts: []echo.WorkloadPort{
+						{
+							Port:     8085,
+							Protocol: protocol.HTTP,
+						},
+						{
+							Port:     8086,
+							Protocol: protocol.HTTP,
+						},
+						{
+							Port:     8087,
+							Protocol: protocol.TCP,
+						},
+						{
+							Port:     8088,
+							Protocol: protocol.TCP,
+						},
 					},
 				}
 			}
@@ -84,6 +98,7 @@ func TestPassThroughFilterChain(t *testing.T) {
 			cases := []struct {
 				target echo.Instance
 				port   int
+				schema protocol.Instance
 				want   bool
 			}{
 				// For workload a, there is no authN/authZ policy.
@@ -92,11 +107,25 @@ func TestPassThroughFilterChain(t *testing.T) {
 				{
 					target: a,
 					port:   8085,
+					schema: protocol.HTTP,
 					want:   true,
 				},
 				{
 					target: a,
 					port:   8086,
+					schema: protocol.HTTP,
+					want:   true,
+				},
+				{
+					target: a,
+					port:   8087,
+					schema: protocol.TCP,
+					want:   true,
+				},
+				{
+					target: a,
+					port:   8088,
+					schema: protocol.TCP,
 					want:   true,
 				},
 
@@ -105,11 +134,25 @@ func TestPassThroughFilterChain(t *testing.T) {
 				{
 					target: b,
 					port:   8085,
+					schema: protocol.HTTP,
 					want:   true,
 				},
 				{
 					target: b,
 					port:   8086,
+					schema: protocol.HTTP,
+					want:   false,
+				},
+				{
+					target: b,
+					port:   8087,
+					schema: protocol.TCP,
+					want:   true,
+				},
+				{
+					target: b,
+					port:   8088,
+					schema: protocol.TCP,
 					want:   false,
 				},
 
@@ -118,11 +161,25 @@ func TestPassThroughFilterChain(t *testing.T) {
 				{
 					target: c,
 					port:   8085,
+					schema: protocol.HTTP,
 					want:   false,
 				},
 				{
 					target: c,
 					port:   8086,
+					schema: protocol.HTTP,
+					want:   false,
+				},
+				{
+					target: c,
+					port:   8087,
+					schema: protocol.TCP,
+					want:   false,
+				},
+				{
+					target: c,
+					port:   8088,
+					schema: protocol.TCP,
 					want:   false,
 				},
 
@@ -131,11 +188,25 @@ func TestPassThroughFilterChain(t *testing.T) {
 				{
 					target: d,
 					port:   8085,
+					schema: protocol.HTTP,
 					want:   true,
 				},
 				{
 					target: d,
 					port:   8086,
+					schema: protocol.HTTP,
+					want:   true,
+				},
+				{
+					target: d,
+					port:   8087,
+					schema: protocol.TCP,
+					want:   true,
+				},
+				{
+					target: d,
+					port:   8088,
+					schema: protocol.TCP,
 					want:   true,
 				},
 			}
@@ -146,8 +217,9 @@ func TestPassThroughFilterChain(t *testing.T) {
 				// The request should be handled by the pass through filter chain.
 				host := fmt.Sprintf("%s:%d", getWorkload(tc.target, t).Address(), tc.port)
 				request := &epb.ForwardEchoRequest{
-					Url:   fmt.Sprintf("http://%s/", host),
-					Count: 1,
+					Url:     fmt.Sprintf("%s://%s", tc.schema, host),
+					Count:   1,
+					Message: "HelloWorld",
 					Headers: []*epb.Header{
 						{
 							Key:   "Host",
@@ -165,7 +237,7 @@ func TestPassThroughFilterChain(t *testing.T) {
 							if len(responses) < 1 {
 								return fmt.Errorf("received no responses from request to %s", host)
 							}
-							if response.StatusCodeOK != responses[0].Code {
+							if tc.schema == protocol.HTTP && response.StatusCodeOK != responses[0].Code {
 								return fmt.Errorf("want status %s but got %s", response.StatusCodeOK, responses[0].Code)
 							}
 						} else {
