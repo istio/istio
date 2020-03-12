@@ -182,9 +182,8 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType apiv2.C
 
 func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*apiv2.Cluster {
 	// ipv4 and ipv6 feature detection. Envoy cannot ignore a config where the ip version is not supported
-	ipv4, ipv6 := ipv4AndIpv6Support(cb.proxy)
 	clusters := make([]*apiv2.Cluster, 0, 2)
-	if ipv4 {
+	if cb.proxy.SupportsIPv4() {
 		inboundPassthroughClusterIpv4 := cb.buildDefaultPassthroughCluster()
 		inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
 		inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
@@ -197,7 +196,7 @@ func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*apiv2.Cluster {
 		}
 		clusters = append(clusters, inboundPassthroughClusterIpv4)
 	}
-	if ipv6 {
+	if cb.proxy.SupportsIPv6() {
 		inboundPassthroughClusterIpv6 := cb.buildDefaultPassthroughCluster()
 		inboundPassthroughClusterIpv6.Name = util.InboundPassthroughClusterIpv6
 		inboundPassthroughClusterIpv6.UpstreamBindConfig = &core.BindConfig{

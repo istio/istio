@@ -270,7 +270,6 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./mixer/tools/mixgen \
   ./galley/cmd/galley \
   ./security/cmd/node_agent \
-  ./security/cmd/istio_ca \
   ./security/tools/sdsclient \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
@@ -278,7 +277,7 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./operator/cmd/operator
 
 # List of binaries included in releases
-RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen node_agent istio_ca istioctl galley sdsclient
+RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen node_agent istioctl galley sdsclient
 
 .PHONY: build
 build: depend
@@ -351,7 +350,7 @@ refresh-goldens:
 
 update-golden: refresh-goldens
 
-gen: go-gen mirror-licenses format update-crds operator-proto gen-charts update-golden gen-kustomize
+gen: go-gen mirror-licenses format update-crds operator-proto gen-kustomize gen-charts update-golden
 
 gen-check: gen check-clean-repo
 

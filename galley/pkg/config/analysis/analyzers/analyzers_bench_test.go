@@ -74,8 +74,11 @@ type origin struct {
 	friendlyName string
 }
 
+var _ resource.Origin = &origin{}
+
 func (o origin) Namespace() resource.Namespace { return "" }
 func (o origin) FriendlyName() string          { return o.friendlyName }
+func (o origin) Reference() string             { return "" }
 
 // This is a very basic benchmark on unit test data, so it doesn't tell us anything about how an analyzer performs at scale
 func BenchmarkAnalyzers(b *testing.B) {
