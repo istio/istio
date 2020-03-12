@@ -106,7 +106,7 @@ func connectADSS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedRes
 	tlsCfg := &tls.Config{
 		Certificates: []tls.Certificate{clientCert},
 		RootCAs:      serverCAs,
-		ServerName:   "istiod.istio-system.svc",
+		ServerName:   "istio-pilot.istio-system.svc",
 	}
 
 	creds := credentials.NewTLS(tlsCfg)
