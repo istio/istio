@@ -105,7 +105,7 @@ func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
 		option(&cfg)
 	}
 
-	sucesses := 0
+	successes := 0
 	var lasterr error
 	to := time.After(cfg.timeout)
 	for {
@@ -118,15 +118,15 @@ func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
 		result, completed, err := fn()
 		if completed {
 			if err == nil {
-				sucesses++
+				successes++
 			} else {
-				sucesses = 0
+				successes = 0
 			}
-			if sucesses >= cfg.converge {
+			if successes >= cfg.converge {
 				return result, err
 			}
 		} else {
-			sucesses = 0
+			successes = 0
 		}
 		if err != nil {
 			lasterr = err
