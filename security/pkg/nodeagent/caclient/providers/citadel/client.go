@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"strings"
 
+	"istio.io/pkg/env"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -38,6 +40,12 @@ const (
 
 var (
 	citadelClientLog = log.RegisterScope("citadelclient", "citadel client debugging", 0)
+
+	// ProvCert is the environment controlling the use of pre-provisioned certs, for VMs.
+	// May also be used in K8S to use a Secret to bootstrap (as a 'refresh key'), but use short-lived tokens
+	// with extra SAN (labels, etc) in data path.
+	ProvCert = env.RegisterStringVar("PROV_CERT", "",
+		"Set to a directory containing provisioned certs, for VMs").Get()
 )
 
 type citadelClient struct {
@@ -125,6 +133,16 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 	config := tls.Config{}
 	config.RootCAs = certPool
 
+	if ProvCert != "" {
+		// Load the certificate from disk
+		certificate, err := tls.LoadX509KeyPair(ProvCert+"/cert-chain.pem", ProvCert+"/key.pem")
+		if err != nil {
+			return nil, fmt.Errorf("cannot load key pair: %s", err)
+		}
+
+		config.Certificates = []tls.Certificate{certificate}
+	}
+
 	// Initial implementation of citadel hardcoded the SAN to 'istio-citadel'. For backward compat, keep it.
 	// TODO: remove this once istiod replaces citadel.
 	// External CAs will use their normal server names.
@@ -134,7 +152,7 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 	// For debugging on localhost (with port forward)
 	// TODO: remove once istiod is stable and we have a way to validate JWTs locally
 	if strings.Contains(c.caEndpoint, "localhost") {
-		config.ServerName = "istiod.istio-system"
+		config.ServerName = "istiod.istio-system.svc"
 	}
 
 	transportCreds := credentials.NewTLS(&config)

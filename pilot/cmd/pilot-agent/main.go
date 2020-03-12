@@ -57,6 +57,7 @@ import (
 	istio_agent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
+	caclient "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 )
 
 const (
@@ -111,8 +112,9 @@ var (
 		"the provider of Pilot DNS certificate.").Get()
 	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
 		"The JWT validation policy.")
-	outputKeyCertToDir = env.RegisterStringVar("OUTPUT_KEY_CERT_TO_DIRECTORY", "",
-		"The output directory for the key and certificate. If empty, no output of key and certificate.").Get()
+	outputKeyCertToDir = env.RegisterStringVar("OUTPUT_CERTS", "",
+		"The output directory for the key and certificate. If empty, key and certificate will not be saved. "+
+			"Must be set for VMs using provisioning certificates.").Get()
 	meshConfig = env.RegisterStringVar("MESH_CONFIG", "", "The mesh configuration").Get()
 
 	sdsUdsWaitTimeout = time.Minute
@@ -230,11 +232,15 @@ var (
 				log.Info("JWT policy is first-party-jwt")
 				jwtPath = securityModel.K8sSAJwtFileName
 			} else {
-				err := fmt.Errorf("invalid JWT policy %v", jwtPolicy.Get())
-				log.Errorf("%v", err)
-				return err
+				log.Info("Using existing certs")
 			}
-			nodeAgentSDSEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, sdsUDSPath, jwtPath)
+			nodeAgentSDSEnabled := false
+			sdsTokenPath := ""
+			if _, err := os.Stat(caclient.ProvCert + "/key.pem"); err == nil {
+				// Using a provisioning cert - this is not using old SDS NodeAgent, and requires certs.
+			} else {
+				nodeAgentSDSEnabled, sdsTokenPath = detectSds(controlPlaneBootstrap, sdsUDSPath, jwtPath)
+			}
 
 			if !nodeAgentSDSEnabled { // Not using citadel agent - this is either Pilot or Istiod.
 

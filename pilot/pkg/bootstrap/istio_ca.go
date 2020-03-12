@@ -137,8 +137,13 @@ func (s *Server) EnableCA() bool {
 	if s.kubeClient == nil {
 		// No k8s - no self-signed certs.
 		// TODO: implement it using a local directory, for non-k8s env.
-		log.Warn("kubeclient is nil; disable the CA functionality")
-		return false
+		signingKeyFile := path.Join(localCertDir.Get(), "ca-key.pem")
+		if _, err := os.Stat(signingKeyFile); err != nil {
+			log.Warn("kubeclient is nil; disable the K8S CA functionality")
+			return false
+		}
+		log.Info("Using local CA, no K8S Secrets")
+		return true
 	}
 	if _, err := ioutil.ReadFile(s.jwtPath); err != nil {
 		// for debug we may want to override this by setting trustedIssuer explicitly.
@@ -221,15 +226,16 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 	}
 	log.Info("Istiod CA has started")
 
-	nc := NewNamespaceController(func() map[string]string {
-		return map[string]string{
-			constants.CACertNamespaceConfigMapDataName: string(ca.GetCAKeyCertBundle().GetRootCertPem()),
-		}
-	}, s.kubeClient)
-
-	s.leaderElection.AddRunFunction(func(_ <-chan struct{}) {
-		nc.Run(stopCh)
-	})
+	if s.kubeClient != nil {
+		nc := NewNamespaceController(func() map[string]string {
+			return map[string]string{
+				constants.CACertNamespaceConfigMapDataName: string(ca.GetCAKeyCertBundle().GetRootCertPem()),
+			}
+		}, s.kubeClient)
+		s.leaderElection.AddRunFunction(func(_ <-chan struct{}) {
+			nc.Run(stopCh)
+		})
+	}
 
 }
 
@@ -429,6 +435,13 @@ func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) (*ca.I
 
 	if _, err := os.Stat(signingKeyFile); err != nil {
 		// The user-provided certs are missing - create a self-signed cert.
+		// If we are not in K8S - no CA
+		// TODO: generate self-signed files in the /etc/cacert for non-k8s
+		if client == nil {
+			// This is mainly used in testing.
+			log.Warna("Missing root CA key in non-k8s environment. Certificate signing and TLS will be off")
+			return nil, nil
+		}
 
 		log.Info("Use self-signed certificate as the CA certificate")
 		spiffe.SetTrustDomain(opts.TrustDomain)
