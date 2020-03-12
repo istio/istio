@@ -14812,8 +14812,6 @@ spec:
       hosts:
         - "*"
 ---
-
-
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -42344,7 +42342,7 @@ spec:
               {{- end }}
             - --controlPlaneBootstrap=false
           env:
-            - name: OUTPUT_KEY_CERT_TO_DIRECTORY
+            - name: OUTPUT_CERTS
               value: "/etc/istio-certs"
             - name: JWT_POLICY
               value: {{ .Values.global.jwtPolicy }}
