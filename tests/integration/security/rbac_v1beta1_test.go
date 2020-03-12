@@ -578,6 +578,7 @@ func TestV1beta1_EgressGateway(t *testing.T) {
 				With(&b, echo.Config{
 					Service:   "b",
 					Namespace: ns,
+					Subsets:   []echo.SubsetConfig{{}},
 					Ports: []echo.Port{
 						{
 							Name:        "http",
@@ -671,7 +672,7 @@ func TestV1beta1_TCP(t *testing.T) {
 			g.ApplyConfigOrFail(t, nil, policy...)
 			defer g.DeleteConfigOrFail(t, nil, policy...)
 
-			var a, b, c, d, x echo.Instance
+			var a, b, c, d, e, x echo.Instance
 			ports := []echo.Port{
 				{
 					Name:         "http-8090",
@@ -692,6 +693,7 @@ func TestV1beta1_TCP(t *testing.T) {
 			echoboot.NewBuilderOrFail(t, ctx).
 				With(&x, util.EchoConfig("x", ns2, false, nil, g, p)).
 				With(&a, echo.Config{
+					Subsets:        []echo.SubsetConfig{{}},
 					Namespace:      ns,
 					Galley:         g,
 					Pilot:          p,
@@ -701,6 +703,7 @@ func TestV1beta1_TCP(t *testing.T) {
 				}).
 				With(&b, echo.Config{
 					Namespace:      ns,
+					Subsets:        []echo.SubsetConfig{{}},
 					Galley:         g,
 					Pilot:          p,
 					Service:        "b",
@@ -709,6 +712,7 @@ func TestV1beta1_TCP(t *testing.T) {
 				}).
 				With(&c, echo.Config{
 					Namespace:      ns,
+					Subsets:        []echo.SubsetConfig{{}},
 					Galley:         g,
 					Pilot:          p,
 					Service:        "c",
@@ -717,22 +721,31 @@ func TestV1beta1_TCP(t *testing.T) {
 				}).
 				With(&d, echo.Config{
 					Namespace:      ns,
+					Subsets:        []echo.SubsetConfig{{}},
 					Galley:         g,
 					Pilot:          p,
 					Service:        "d",
 					Ports:          ports,
 					ServiceAccount: true,
 				}).
+				With(&e, echo.Config{
+					Namespace:      ns,
+					Galley:         g,
+					Pilot:          p,
+					Service:        "e",
+					Ports:          ports,
+					ServiceAccount: true,
+				}).
 				BuildOrFail(t)
 
-			newTestCase := func(from, target echo.Instance, port string, expectAllowed bool) rbacUtil.TestCase {
+			newTestCase := func(from, target echo.Instance, port string, expectAllowed bool, scheme scheme.Instance) rbacUtil.TestCase {
 				return rbacUtil.TestCase{
 					Request: connection.Checker{
 						From: from,
 						Options: echo.CallOptions{
 							Target:   target,
 							PortName: port,
-							Scheme:   scheme.HTTP,
+							Scheme:   scheme,
 							Path:     "/data",
 						},
 					},
@@ -744,19 +757,18 @@ func TestV1beta1_TCP(t *testing.T) {
 				// The policy on workload b denies request with path "/data" to port 8090:
 				// - request to port http-8090 should be denied because both path and port are matched.
 				// - request to port http-8091 should be allowed because the port is not matched.
-				// - request to port tcp should be denied because a default deny-all policy should
-				//   be generated when HTTP field (i.e. path) is used on TCP port.
-				newTestCase(a, b, "http-8090", false),
-				newTestCase(a, b, "http-8091", true),
-				newTestCase(a, b, "tcp", false),
+				// - request to port tcp should be allowed because the port is not matched.
+				newTestCase(a, b, "http-8090", false, scheme.HTTP),
+				newTestCase(a, b, "http-8091", true, scheme.HTTP),
+				newTestCase(a, b, "tcp", true, scheme.TCP),
 
 				// The policy on workload c denies request to port 8090:
 				// - request to port http-8090 should be denied because the port is matched.
 				// - request to http port 8091 should be allowed because the port is not matched.
 				// - request to tcp port 8092 should be allowed because the port is not matched.
-				newTestCase(a, c, "http-8090", false),
-				newTestCase(a, c, "http-8091", true),
-				newTestCase(a, c, "tcp", true),
+				newTestCase(a, c, "http-8090", false, scheme.HTTP),
+				newTestCase(a, c, "http-8091", true, scheme.HTTP),
+				newTestCase(a, c, "tcp", true, scheme.TCP),
 
 				// The policy on workload d denies request from service account a and workloads in namespace 2:
 				// - request from a to d should be denied because it has service account a.
@@ -764,11 +776,19 @@ func TestV1beta1_TCP(t *testing.T) {
 				// - request from c to d should be allowed.
 				// - request from x to a should be allowed because there is no policy on a.
 				// - request from x to d should be denied because it's in namespace 2.
-				newTestCase(a, d, "tcp", false),
-				newTestCase(b, d, "tcp", true),
-				newTestCase(c, d, "tcp", true),
-				newTestCase(x, a, "tcp", true),
-				newTestCase(x, d, "tcp", false),
+				newTestCase(a, d, "tcp", false, scheme.TCP),
+				newTestCase(b, d, "tcp", true, scheme.TCP),
+				newTestCase(c, d, "tcp", true, scheme.TCP),
+				newTestCase(x, a, "tcp", true, scheme.TCP),
+				newTestCase(x, d, "tcp", false, scheme.TCP),
+
+				// The policy on workload e denies request with path "/other":
+				// - request to port http-8090 should be allowed because the path is not matched.
+				// - request to port http-8091 should be allowed because the path is not matched.
+				// - request to port tcp should be denied because policy uses HTTP fields.
+				newTestCase(a, e, "http-8090", true, scheme.HTTP),
+				newTestCase(a, e, "http-8091", true, scheme.HTTP),
+				newTestCase(a, e, "tcp", false, scheme.TCP),
 			}
 
 			rbacUtil.RunRBACTest(t, cases)
@@ -801,6 +821,7 @@ func TestV1beta1_Conditions(t *testing.T) {
 				With(&c, echo.Config{
 					Service:   "c",
 					Namespace: nsC,
+					Subsets:   []echo.SubsetConfig{{}},
 					Ports: []echo.Port{
 						{
 							Name:         "http",

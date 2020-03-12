@@ -77,40 +77,12 @@ spec:
             - "/usr/local/bin/envoy"
             - --serviceCluster
             - "istio-proxy-prometheus"
-            - --drainDuration
-            - "45s"
-            - --parentShutdownDuration
-            - "1m0s"
-            - --discoveryAddress
-            {{- if .Values.global.configNamespace }}
-            - istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
-            {{- else }}
-            - istio-pilot.istio-system.svc:15012
-            {{- end }}
             {{- if .Values.global.proxy.logLevel }}
             - --proxyLogLevel={{ .Values.global.proxy.logLevel }}
             {{- end}}
             {{- if .Values.global.proxy.componentLogLevel }}
             - --proxyComponentLogLevel={{ .Values.global.proxy.componentLogLevel }}
             {{- end}}
-            - --connectTimeout
-            - "10s"
-              {{- if .Values.global.proxy.envoyStatsd.enabled }}
-            - --statsdUdpAddress
-            - "{{ .ProxyConfig.StatsdUdpAddress }}"
-              {{- end }}
-            {{- if $.Values.global.proxy.envoyMetricsService.enabled }}
-            - --envoyMetricsService
-            {{- with  $.Values.global.proxy.envoyMetricsService }}
-            - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
-            {{- end }}
-            {{- end}}
-            {{- if $.Values.global.proxy.envoyAccessLogService.enabled }}
-            - --envoyAccessLogService
-            {{- with  $.Values.global.proxy.envoyAccessLogService }}
-            - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
-            {{- end }}
-            {{- end }}
             - --proxyAdminPort
             - "15000"
               {{- if .Values.global.istiod.enabled }}
@@ -123,8 +95,6 @@ spec:
             - --controlPlaneAuthPolicy
             - NONE
               {{- end }}
-            - --statusPort
-            - "15020"
               {{- if .Values.global.trustDomain }}
             - --trust-domain={{ .Values.global.trustDomain }}
               {{- end }}
@@ -141,9 +111,11 @@ spec:
               value: {{ .Values.global.pilotCertProvider }}
             # Temp, pending PR to make it default or based on the istiodAddr env
             - name: CA_ADDR
-                {{- if .Values.global.configNamespace }}
+              {{- if .Values.global.caAddress }}
+              value: {{ .Values.global.caAddress }}
+              {{- else if .Values.global.configNamespace }}
               value: istiod.{{ .Values.global.configNamespace }}.svc:15012
-                {{- else }}
+              {{- else }}
               value: istiod.istio-system.svc:15012
               {{- end }}
             - name: POD_NAME
@@ -185,6 +157,8 @@ spec:
             - name: ISTIO_META_MESH_ID
               value: "{{ .Values.global.trustDomain }}"
               {{- end }}
+            - name: ISTIO_META_CLUSTER_ID
+              value: "{{ .Values.global.multiCluster.clusterName | default `Kubernetes` }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           readinessProbe:
             failureThreshold: 30
@@ -209,9 +183,15 @@ spec:
               {{- end }}
             - mountPath: /etc/istio-certs/
               name: istio-certs
+            - name: istio-config-volume
+              mountPath: /etc/istio/config
 {{- end }}
 
       volumes:
+      - name: istio-config-volume
+        configMap:
+          name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+          optional: true
       - name: config-volume
         configMap:
           name: prometheus

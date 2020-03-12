@@ -54,7 +54,12 @@ func CallEcho(c *client.Instance, opts *echo.CallOptions, outboundPortSelector O
 
 	// Forward a request from 'this' service to the destination service.
 	targetHost := net.JoinHostPort(opts.Host, strconv.Itoa(port))
-	targetURL := fmt.Sprintf("%s://%s%s", string(opts.Scheme), targetHost, opts.Path)
+	var targetURL string
+	if opts.Scheme != scheme.TCP {
+		targetURL = fmt.Sprintf("%s://%s%s", string(opts.Scheme), targetHost, opts.Path)
+	} else {
+		targetURL = fmt.Sprintf("%s://%s", string(opts.Scheme), targetHost)
+	}
 	protoHeaders := []*proto.Header{
 		{
 			Key:   "Host",

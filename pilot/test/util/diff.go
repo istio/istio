@@ -17,12 +17,21 @@ package util
 import (
 	"errors"
 	"io/ioutil"
+	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/pmezard/go-difflib/difflib"
 
 	"istio.io/pkg/env"
+)
+
+const (
+	statusReplacement = "sidecar.istio.io/status: '{\"version\":\"\","
+)
+
+var (
+	statusPattern = regexp.MustCompile("sidecar.istio.io/status: '{\"version\":\"([0-9a-f]+)\",")
 )
 
 // Refresh controls whether to update the golden artifacts instead.
@@ -90,6 +99,11 @@ func ReadGoldenFile(content []byte, goldenFile string, t *testing.T) []byte {
 	RefreshGoldenFile(content, goldenFile, t)
 
 	return ReadFile(goldenFile, t)
+}
+
+// StripVersion strips the version fields of a YAML content.
+func StripVersion(yaml []byte) []byte {
+	return statusPattern.ReplaceAllLiteral(yaml, []byte(statusReplacement))
 }
 
 // RefreshGoldenFile updates the golden file with the given content

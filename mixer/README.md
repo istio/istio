@@ -1,5 +1,37 @@
 # Mixer
 
+## Deprecation notice
+
+As of Istio 1.5, Mixer is deprecated. The functionality provided by Mixer is
+being moved into the Envoy proxies. Use of Mixer with Istio will only be
+supported through the 1.7 release of Istio.
+
+## Mixer's future
+
+Because of the extensive feedback we received from the community about the
+difficulties encountered with Mixer, we are making a substantial change to
+Istio's architecture. By taking advantage of the work being done in the
+[WebAssembly](https://webassembly.org) community, we are working to move the
+functionality that formerly lived in Mixer into the Envoy proxy itself.
+
+What will this do for the Istio user? It will greatly reduce complexity, by:
+- Reducing the number of components to install
+- Reducing the number of CRDs Istio installs
+- Making Envoy simpler to run with fewer components to manage and scale
+
+For partners integrating with Istio, it standardizing the method of integrating
+external components with the broader Envoy community.
+
+To read more about the changes (which we're tentatively calling Extensions v2),
+please see
+[this doc](
+https://docs.google.com/document/d/1x5XeKWRdpFPAy7JYxiTz5u-Ux2eoBQ80lXT6XYjvUuQ/edit#heading=h.8kpssnjs5pqw)
+. Note you must follow [these directions](
+https://github.com/istio/community/blob/master/CONTRIBUTING.md#design-documents)
+to get access to Istio design documents.
+
+## Obsolete Mixer Documentation
+
 Mixer enables extensible policy enforcement and control within the Istio service
 mesh. It is responsible for insulating the proxy (Envoy) from details of the
 current execution environment and the intricacies of infrastructure backends.

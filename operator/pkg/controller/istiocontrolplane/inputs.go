@@ -27,7 +27,6 @@ var (
 			name.PolicyComponentName,
 			name.TelemetryComponentName,
 			name.GalleyComponentName,
-			name.CitadelComponentName,
 			name.IngressComponentName,
 			name.EgressComponentName,
 			name.CNIComponentName,

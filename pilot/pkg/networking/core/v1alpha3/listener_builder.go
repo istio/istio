@@ -243,24 +243,6 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 
 	filterChains := buildOutboundCatchAllNetworkFilterChains(configgen, node, push)
 
-	// The virtual listener will handle all traffic that does not match any other listeners, and will
-	// blackhole/passthrough depending on the outbound traffic policy. When passthrough is enabled,
-	// this has the risk of triggering infinite loops when requests are sent to the pod's IP, as it will
-	// send requests to itself. To block this we add an additional filter chain before that will always blackhole.
-	if features.RestrictPodIPTrafficLoops.Get() {
-		var cidrRanges []*core.CidrRange
-		for _, ip := range node.IPAddresses {
-			cidrRanges = append(cidrRanges, util.ConvertAddressToCidr(ip))
-		}
-		filterChains = append([]*listener.FilterChain{{
-			Name: VirtualOutboundTrafficLoopFilterChainName,
-			FilterChainMatch: &listener.FilterChainMatch{
-				PrefixRanges: cidrRanges,
-			},
-			Filters: []*listener.Filter{blackholeFilter},
-		}}, filterChains...)
-	}
-
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect

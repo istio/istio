@@ -241,15 +241,11 @@ function localSidecar() {
         --binaryPath "${BINDIR}"/envoy \
         --templateFile "${TOP}"/src/istio.io/istio/tools/packaging/common/envoy_bootstrap_v2.json \
         --serviceCluster echosrv.simple-micro \
-        --drainDuration 45s --parentShutdownDuration 1m0s \
-        --discoveryAddress localhost:15010 \
         --proxyLogLevel=debug \
         --proxyComponentLogLevel=misc:info \
-        --connectTimeout 10s \
         --proxyAdminPort 15000 \
         --concurrency 2 \
         --controlPlaneAuthPolicy NONE \
-        --statusPort 15020 \
         --controlPlaneBootstrap=false
 
 }

@@ -56,6 +56,7 @@ func TestPassThroughFilterChain(t *testing.T) {
 				return echo.Config{
 					Service:   service,
 					Namespace: ns,
+					Subsets:   []echo.SubsetConfig{{}},
 					Galley:    g,
 					Pilot:     p,
 					Ports: []echo.Port{
@@ -260,7 +261,7 @@ func TestPassThroughFilterChain(t *testing.T) {
 func getWorkload(instance echo.Instance, t *testing.T) echo.Workload {
 	workloads, err := instance.Workloads()
 	if err != nil {
-		t.Fatalf(fmt.Sprintf("failed to get workloads: %v", err))
+		t.Fatalf(fmt.Sprintf("failed to get Subsets: %v", err))
 	}
 	if len(workloads) < 1 {
 		t.Fatalf("want at least 1 workload but found 0")

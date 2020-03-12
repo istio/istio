@@ -33,3 +33,7 @@ func (o origin) FriendlyName() string {
 func (o origin) Namespace() resource.Namespace {
 	return ""
 }
+
+func (o origin) Reference() string {
+	return ""
+}

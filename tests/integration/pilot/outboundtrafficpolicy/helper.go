@@ -239,12 +239,14 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 				With(&client, echo.Config{
 					Service:   "client",
 					Namespace: appsNamespace,
+					Subsets:   []echo.SubsetConfig{{}},
 					Pilot:     p,
 					Galley:    g,
 				}).
 				With(&dest, echo.Config{
 					Service:   "destination",
 					Namespace: appsNamespace,
+					Subsets:   []echo.SubsetConfig{{}},
 					Pilot:     p,
 					Galley:    g,
 					Ports: []echo.Port{
@@ -281,20 +283,24 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 				portName string
 				host     string
 				gateway  bool
+				scheme   scheme.Instance
 			}{
 				{
 					name:     "HTTP Traffic",
 					portName: "http",
+					scheme:   scheme.HTTP,
 				},
 				{
 					name:     "HTTPS Traffic",
 					portName: "https",
+					scheme:   scheme.HTTP,
 				},
 				{
 					name:     "HTTP Traffic Egress",
 					portName: "http",
 					host:     "some-external-site.com",
 					gateway:  true,
+					scheme:   scheme.HTTP,
 				},
 				// TODO add HTTPS through gateway
 			}
@@ -307,7 +313,7 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 						resp, err := client.Call(echo.CallOptions{
 							Target:   dest,
 							PortName: tc.portName,
-							Scheme:   scheme.HTTP,
+							Scheme:   tc.scheme,
 							Headers: map[string][]string{
 								"Host": {tc.host},
 							},

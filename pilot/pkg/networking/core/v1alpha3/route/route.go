@@ -741,9 +741,9 @@ func convertToEnvoyMatch(in []*networking.StringMatch) []*matcher.StringMatcher 
 	for _, istioMatcher := range in {
 		switch m := istioMatcher.MatchType.(type) {
 		case *networking.StringMatch_Exact:
-			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{m.Exact}})
+			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{Exact: m.Exact}})
 		case *networking.StringMatch_Prefix:
-			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Prefix{m.Prefix}})
+			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: m.Prefix}})
 		case *networking.StringMatch_Regex:
 			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_SafeRegex{
 				SafeRegex: &matcher.RegexMatcher{

@@ -26,6 +26,9 @@ type Environment interface {
 
 	EnvironmentName() environment.Name
 
+	// Clusters in this Environment. There will always be at least one.
+	Clusters() []Cluster
+
 	// Case calls the given function if this environment has the given name.
 	Case(e environment.Name, fn func())
 }

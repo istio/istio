@@ -36,8 +36,6 @@ spec:
         - hello.$(POD_NAMESPACE)
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
-        - --statusPort
-        - "15020"
         - --trust-domain=cluster.local
         - --controlPlaneBootstrap=false
         - --concurrency
@@ -91,6 +89,8 @@ spec:
           value: REDIRECT
         - name: ISTIO_META_MESH_ID
           value: cluster.local
+        - name: ISTIO_KUBE_APP_PROBERS
+          value: '{}'
         image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: Always
         name: istio-proxy
@@ -102,7 +102,7 @@ spec:
           failureThreshold: 30
           httpGet:
             path: /healthz/ready
-            port: 15020
+            port: 15090
           initialDelaySeconds: 1
           periodSeconds: 2
         resources:
@@ -132,7 +132,7 @@ spec:
         - mountPath: /etc/istio/pod
           name: podinfo
       initContainers:
-      - command:
+      - args:
         - istio-iptables
         - -p
         - "15001"

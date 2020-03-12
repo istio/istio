@@ -98,37 +98,24 @@ spec:
         {{- if .Values.global.logAsJson }}
           - --log_as_json
         {{- end }}
-          - --drainDuration
-          - '45s' #drainDuration
-          - --parentShutdownDuration
-          - '1m0s' #parentShutdownDuration
-          - --connectTimeout
-          - '10s' #connectTimeout
           - --serviceCluster
           - istio-egressgateway
-          - --zipkinAddress
-        {{- if .Values.global.tracer.zipkin.address }}
-          - {{ .Values.global.tracer.zipkin.address }}
-        {{- else if .Values.global.telemetryNamespace }}
-          - zipkin.{{ .Values.global.telemetryNamespace }}:9411
-        {{- else }}
-          - zipkin:9411
-        {{- end }}
           - --proxyAdminPort
           - "15000"
-          - --statusPort
-          - "15020"
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
         {{- end }}
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
-          {{- if .Values.global.configNamespace }}
-          - istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
-          {{- else }}
-          - istio-pilot.istio-system.svc:15012
-          {{- end }}
+        {{- $namespace := .Values.global.configNamespace | default "istio-system" }}
+        {{- if .Values.global.remotePilotAddress }}
+        # Use the DNS hostname instead of the IP address. The discovery address needs to match the
+        # SAN in istiod's cert. The istiod-remote.<namespace>.svc will resolve to the remotePilotAddress.
+          - istiod-remote.{{ $namespace }}.svc:15012
+        {{- else }}
+          - istio-pilot.{{ $namespace }}.svc:15012
+        {{- end }}
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}

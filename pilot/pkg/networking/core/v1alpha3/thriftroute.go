@@ -69,7 +69,7 @@ func buildDefaultThriftRoute(clusterName, rateLimitClusterName string) *thrift_p
 // We route inbound and outbound identically.
 func (configgen *ConfigGeneratorImpl) buildSidecarThriftRouteConfig(clusterName, rateLimitURL string) *thrift_proxy.RouteConfiguration {
 
-	rlsClusterName, err := thritRLSClusterNameFromAuthority(rateLimitURL)
+	rlsClusterName, err := thriftRLSClusterNameFromAuthority(rateLimitURL)
 	if err != nil {
 		rlsClusterName = ""
 	}
@@ -86,7 +86,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarThriftRouteConfig(clusterName,
 
 // Build a cluster name from an authority (host[:port]) string. If an error is
 // encountered, an empty string is returned as the cluster name.
-func thritRLSClusterNameFromAuthority(authority string) (string, error) {
+func thriftRLSClusterNameFromAuthority(authority string) (string, error) {
 	rlsPort := 8081
 
 	if authority == "" {

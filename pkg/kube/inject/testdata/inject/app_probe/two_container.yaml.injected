@@ -34,8 +34,8 @@ spec:
           name: http
         readinessProbe:
           httpGet:
-            path: /ip
-            port: 8000
+            path: /app-health/hello/readyz
+            port: 15020
         resources: {}
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
         name: world
@@ -44,8 +44,8 @@ spec:
           name: http
         readinessProbe:
           httpGet:
-            path: /ipv6
-            port: 9000
+            path: /app-health/world/readyz
+            port: 15020
         resources: {}
       - args:
         - proxy
@@ -56,8 +56,6 @@ spec:
         - hello.$(POD_NAMESPACE)
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
-        - --statusPort
-        - "15020"
         - --trust-domain=cluster.local
         - --controlPlaneBootstrap=false
         - --concurrency
@@ -116,6 +114,8 @@ spec:
           value: kubernetes://apis/apps/v1/namespaces/default/deployments/hello
         - name: ISTIO_META_MESH_ID
           value: cluster.local
+        - name: ISTIO_KUBE_APP_PROBERS
+          value: '{"/app-health/hello/readyz":{"httpGet":{"path":"/ip","port":8000}},"/app-health/world/readyz":{"httpGet":{"path":"/ipv6","port":9000}}}'
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: Always
         name: istio-proxy
@@ -127,7 +127,7 @@ spec:
           failureThreshold: 30
           httpGet:
             path: /healthz/ready
-            port: 15020
+            port: 15090
           initialDelaySeconds: 1
           periodSeconds: 2
         resources:
@@ -157,7 +157,7 @@ spec:
         - mountPath: /etc/istio/pod
           name: podinfo
       initContainers:
-      - command:
+      - args:
         - istio-iptables
         - -p
         - "15001"

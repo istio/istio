@@ -663,7 +663,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarThriftListenerOptsForPortOrUDS
 		// We use the port name as the subset in the inbound cluster for differentiation. Its fine to use port
 		// names here because the inbound clusters are not referred to anywhere in the API, unlike the outbound
 		// clusters and these are static endpoint clusters used only for sidecar (proxy -> app)
-		clusterName = model.BuildSubsetKey(model.TrafficDirectionInbound, pluginParams.ServiceInstance.Endpoint.ServicePortName,
+		clusterName = model.BuildSubsetKey(model.TrafficDirectionInbound, pluginParams.ServiceInstance.ServicePort.Name,
 			pluginParams.ServiceInstance.Service.Hostname, int(pluginParams.ServiceInstance.Endpoint.EndpointPort))
 	}
 
@@ -1636,18 +1636,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		}
 	}
 
-	// These wildcard listeners are intended for outbound traffic. However, there are cases where inbound traffic can hit these.
-	// This will happen when there is a no more specific inbound listener, either because Pilot hasn't sent it (race condition
-	// at startup), or because it never will (a port not specified in a service but captured by iptables).
-	// When this happens, Envoy will infinite loop sending requests to itself.
-	// To prevent this, we add a filter chain match that will match the pod ip and blackhole the traffic.
-	if listenerOpts.bind == actualWildcard && features.RestrictPodIPTrafficLoops.Get() {
-		listenerOpts.filterChainOpts = append([]*filterChainOpts{{
-			destinationCIDRs: pluginParams.Node.IPAddresses,
-			networkFilters:   []*listener.Filter{blackholeFilter},
-		}}, listenerOpts.filterChainOpts...)
-	}
-
 	// Lets build the new listener with the filter chains. In the end, we will
 	// merge the filter chains with any existing listener on the same port/bind point
 	l := buildListener(listenerOpts)
@@ -2126,7 +2114,7 @@ func buildThriftRatelimit(domain string, thriftconfig *meshconfig.MeshConfig_Thr
 		},
 	}
 
-	rlsClusterName, err := thritRLSClusterNameFromAuthority(thriftconfig.RateLimitUrl)
+	rlsClusterName, err := thriftRLSClusterNameFromAuthority(thriftconfig.RateLimitUrl)
 	if err != nil {
 		log.Errorf("unable to generate thrift rls cluster name: %s\n", rlsClusterName)
 		return nil

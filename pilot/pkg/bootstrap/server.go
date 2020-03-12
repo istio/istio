@@ -781,7 +781,11 @@ func (s *Server) initEventHandlers() error {
 			}
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
 		}
-		for _, schema := range collections.Pilot.All() {
+		schemas := collections.Pilot.All()
+		if features.EnableServiceApis {
+			schemas = collections.PilotServiceApi.All()
+		}
+		for _, schema := range schemas {
 			// This resource type was handled in external/servicediscovery.go, no need to rehandle here.
 			if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Serviceentries.
 				Resource().GroupVersionKind() {
@@ -814,7 +818,7 @@ func (s *Server) initDNSListener(args *PilotArgs) error {
 
 	// Create DNS certificates. This allows injector, validation to work without Citadel, and
 	// allows secure SDS connections to Istiod.
-	err = s.initDNSCerts(host)
+	err = s.initDNSCerts(host, args.Namespace)
 	if err != nil {
 		return err
 	}

@@ -477,7 +477,6 @@ func getUniqueAndSharedDNSDomain(fqdnHostname, proxyDomain string) (string, stri
 }
 
 func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
-	// This needs to be the last virtual host, as routes are evaluated in order.
 	if util.IsAllowAnyOutbound(node) {
 		egressCluster := util.PassthroughCluster
 		notimeout := ptypes.DurationProto(0)

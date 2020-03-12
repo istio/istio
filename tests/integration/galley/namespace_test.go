@@ -19,7 +19,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
@@ -36,12 +35,11 @@ func TestNamespace(t *testing.T) {
 			})
 			namespaceName = ns.Name()
 
-			env := ctx.Environment().(*kube.Environment)
-			if !env.Accessor.NamespaceExists(ns.Name()) {
+			if !cluster.NamespaceExists(ns.Name()) {
 				t.Fatalf("The namespace %q should have existed.", ns.Name())
 			}
 
-			n, err := env.Accessor.GetNamespace(ns.Name())
+			n, err := cluster.GetNamespace(ns.Name())
 			if err != nil {
 				t.Fatalf("Error getting the namespace(%q): %v", ns.Name(), err)
 			}
@@ -54,7 +52,7 @@ func TestNamespace(t *testing.T) {
 
 	if !noCleanup {
 		// Check after run to see that the namespace is gone.
-		if err := env.WaitForNamespaceDeletion(namespaceName); err != nil {
+		if err := cluster.WaitForNamespaceDeletion(namespaceName); err != nil {
 			t.Fatalf("WaitiForNamespaceDeletion failed: %v", err)
 		}
 	}

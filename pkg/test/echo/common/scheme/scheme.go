@@ -24,4 +24,5 @@ const (
 	GRPCS      Instance = "grpcs"
 	WebSocket  Instance = "ws"
 	WebSocketS Instance = "wss"
+	TCP        Instance = "tcp"
 )

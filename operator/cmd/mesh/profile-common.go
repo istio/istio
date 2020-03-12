@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
+	icpv1alpha2 "istio.io/istio/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
@@ -51,21 +52,9 @@ var scope = log.RegisterScope("installer", "installer", 0)
 // In step 3, the remaining fields in the same user overlay are applied on the resulting profile base.
 // The force flag causes validation errors not to abort but only emit log/console warnings.
 func GenerateConfig(inFilenames []string, setOverlayYAML string, force bool, kubeConfig *rest.Config, l *Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
-	profile := name.DefaultProfileName
-
-	// Get the overlay YAML from the list of files passed in. Also get the profile from the overlay files.
-	fy, fp, err := parseYAMLFiles(inFilenames, force, l)
+	fy, profile, err := readYamlProfle(inFilenames, setOverlayYAML, force, l)
 	if err != nil {
 		return "", nil, err
-	}
-	if fp != "" {
-		profile = fp
-	}
-
-	// The profile coming from --set flag has the highest precedence.
-	psf := profileFromSetOverlay(setOverlayYAML)
-	if psf != "" {
-		profile = psf
 	}
 
 	iopsString, iops, err := genIOPSFromProfile(profile, fy, setOverlayYAML, force, kubeConfig, l)
@@ -77,6 +66,24 @@ func GenerateConfig(inFilenames []string, setOverlayYAML string, force bool, kub
 		return "", nil, fmt.Errorf("generated config failed semantic validation: %v", err)
 	}
 	return iopsString, iops, nil
+}
+
+func readYamlProfle(inFilenames []string, setOverlayYAML string, force bool, l *Logger) (string, string, error) {
+	profile := name.DefaultProfileName
+	// Get the overlay YAML from the list of files passed in. Also get the profile from the overlay files.
+	fy, fp, err := parseYAMLFiles(inFilenames, force, l)
+	if err != nil {
+		return "", "", err
+	}
+	if fp != "" {
+		profile = fp
+	}
+	// The profile coming from --set flag has the highest precedence.
+	psf := profileFromSetOverlay(setOverlayYAML)
+	if psf != "" {
+		profile = psf
+	}
+	return fy, profile, nil
 }
 
 // parseYAMLFiles parses the given slice of filenames containing YAML and merges them into a single IstioOperator
@@ -149,6 +156,19 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 		return "", nil, err
 	}
 
+	// if input is in IstioControlPlane format.
+	icp := &icpv1alpha2.IstioControlPlane{}
+	if err := util.UnmarshalWithJSONPB(outYAML, icp, false); err == nil {
+		translations, err := translate.ICPtoIOPTranslations(version.OperatorBinaryVersion)
+		if err != nil {
+			return "", nil, err
+		}
+		outYAML, err = translate.ICPToIOP(outYAML, translations)
+		if err != nil {
+			return "", nil, err
+		}
+	}
+
 	// Hub and tag are only known at build time and must be passed in here during runtime from build stamps.
 	outYAML, err = overlayHubAndTag(outYAML)
 	if err != nil {
@@ -175,7 +195,7 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 	}
 
 	// If enablement came from user values overlay (file or --set), translate into addonComponents paths and overlay that.
-	outYAML, err = overlayValuesEnablement(outYAML, fileOverlayYAML, setOverlayYAML)
+	outYAML, err = translate.OverlayValuesEnablement(outYAML, fileOverlayYAML, setOverlayYAML)
 	if err != nil {
 		return "", nil, err
 	}
@@ -306,17 +326,6 @@ func getJwtTypeOverlay(config *rest.Config, l *Logger) (string, error) {
 			"Falling back to less secure first party JWT. See https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens for details.")
 	}
 	return "values.global.jwtPolicy=" + string(jwtPolicy), nil
-}
-
-// overlayValuesEnablement overlays any enablement in values path from the user file overlay or set flag overlay.
-// The overlay is translated from values to the corresponding addonComponents enablement paths.
-func overlayValuesEnablement(baseYAML, fileOverlayYAML, setOverlayYAML string) (string, error) {
-	overlayYAML, err := util.OverlayYAML(fileOverlayYAML, setOverlayYAML)
-	if err != nil {
-		return "", fmt.Errorf("could not overlay user config over base: %s", err)
-	}
-
-	return translate.YAMLTree(overlayYAML, baseYAML, name.ValuesEnablementPathMap)
 }
 
 // unmarshalAndValidateIOPS unmarshals a string containing IstioOperator YAML, validates it, and returns a struct

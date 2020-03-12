@@ -46,6 +46,7 @@ spec:
             - containerPort: 15032
             - containerPort: 15443
             - containerPort: 15011
+            - containerPort: 15012
             - containerPort: 8060
             - containerPort: 853
             - containerPort: 15090
@@ -59,20 +60,10 @@ spec:
           - --proxyLogLevel=warning
           - --proxyComponentLogLevel=misc:error
           - --log_output_level=default:info
-          - --drainDuration
-          - '45s' #drainDuration
-          - --parentShutdownDuration
-          - '1m0s' #parentShutdownDuration
-          - --connectTimeout
-          - '10s' #connectTimeout
           - --serviceCluster
           - istio-ingressgateway
-          - --zipkinAddress
-          - zipkin.istio-system:9411
           - --proxyAdminPort
           - "15000"
-          - --statusPort
-          - "15020"
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress

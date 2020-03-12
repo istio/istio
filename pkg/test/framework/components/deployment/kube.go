@@ -30,7 +30,7 @@ import (
 type kubeComponent struct {
 	id         resource.ID
 	cfg        Config
-	env        *kube.Environment
+	cluster    kube.Cluster
 	deployment *deployment.Instance
 }
 
@@ -38,8 +38,6 @@ var _ Instance = &kubeComponent{}
 var _ io.Closer = &kubeComponent{}
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
-	e := ctx.Environment().(*kube.Environment)
-
 	ns := ""
 	if cfg.Namespace != nil {
 		ns = cfg.Namespace.Name()
@@ -48,7 +46,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	i := &kubeComponent{
 		cfg:        cfg,
 		deployment: deployment.NewYamlContentDeployment(ns, cfg.Yaml),
-		env:        e,
+		cluster:    kube.ClusterOrDefault(cfg.Cluster, ctx.Environment()),
 	}
 	i.id = ctx.TrackResource(i)
 
@@ -64,7 +62,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		}
 	}()
 
-	if err = i.deployment.Deploy(e.Accessor, true, retry.Timeout(time.Minute*5), retry.Delay(time.Second*5)); err != nil {
+	if err = i.deployment.Deploy(i.cluster.Accessor, true, retry.Timeout(time.Minute*5), retry.Delay(time.Second*5)); err != nil {
 		return nil, err
 	}
 
@@ -85,7 +83,7 @@ func (c *kubeComponent) Namespace() namespace.Instance {
 
 func (c *kubeComponent) Close() (err error) {
 	if c.deployment != nil {
-		err = c.deployment.Delete(c.env.Accessor, true, retry.Timeout(time.Minute*5), retry.Delay(time.Second*5))
+		err = c.deployment.Delete(c.cluster.Accessor, true, retry.Timeout(time.Minute*5), retry.Delay(time.Second*5))
 		c.deployment = nil
 	}
 

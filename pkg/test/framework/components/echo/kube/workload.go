@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"istio.io/istio/pkg/test"
+	kube2 "istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/resource"
 
@@ -45,23 +46,23 @@ type workload struct {
 	pod       kubeCore.Pod
 	forwarder kube.PortForwarder
 	sidecar   *sidecar
-	accessor  *kube.Accessor
+	cluster   kube2.Cluster
 	ctx       resource.Context
 }
 
-func newWorkload(addr kubeCore.EndpointAddress, annotations echo.Annotations, grpcPort uint16,
-	accessor *kube.Accessor, ctx resource.Context) (*workload, error) {
+func newWorkload(addr kubeCore.EndpointAddress, sidecared bool, grpcPort uint16,
+	cluster kube2.Cluster, ctx resource.Context) (*workload, error) {
 	if addr.TargetRef == nil || addr.TargetRef.Kind != "Pod" {
 		return nil, fmt.Errorf("invalid TargetRef for endpoint %s: %v", addr.IP, addr.TargetRef)
 	}
 
-	pod, err := accessor.GetPod(addr.TargetRef.Namespace, addr.TargetRef.Name)
+	pod, err := cluster.GetPod(addr.TargetRef.Namespace, addr.TargetRef.Name)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create a forwarder to the command port of the app.
-	forwarder, err := accessor.NewPortForwarder(pod, 0, grpcPort)
+	forwarder, err := cluster.NewPortForwarder(pod, 0, grpcPort)
 	if err != nil {
 		return nil, err
 	}
@@ -77,8 +78,8 @@ func newWorkload(addr kubeCore.EndpointAddress, annotations echo.Annotations, gr
 	}
 
 	var s *sidecar
-	if annotations.GetBool(echo.SidecarInject) {
-		if s, err = newSidecar(pod, accessor); err != nil {
+	if sidecared {
+		if s, err = newSidecar(pod, cluster); err != nil {
 			return nil, err
 		}
 	}
@@ -89,7 +90,7 @@ func newWorkload(addr kubeCore.EndpointAddress, annotations echo.Annotations, gr
 		forwarder: forwarder,
 		Instance:  c,
 		sidecar:   s,
-		accessor:  accessor,
+		cluster:   cluster,
 		ctx:       ctx,
 	}, nil
 }
@@ -126,7 +127,7 @@ func (w *workload) Sidecar() echo.Sidecar {
 }
 
 func (w *workload) Logs() (string, error) {
-	return w.accessor.Logs(w.pod.Namespace, w.pod.Name, appContainerName, false)
+	return w.cluster.Logs(w.pod.Namespace, w.pod.Name, appContainerName, false)
 }
 
 func (w *workload) LogsOrFail(t test.Failer) string {

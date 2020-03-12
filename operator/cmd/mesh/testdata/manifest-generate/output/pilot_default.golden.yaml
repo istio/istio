@@ -14,8 +14,6 @@
 
 # Base component is disabled.
 
-# Citadel component is disabled.
-
 # Cni component is disabled.
 
 # EgressGateways istio-egressgateway component is disabled.
@@ -295,6 +293,8 @@ spec:
           value: istiod.istio-system.svc:15012
         - name: PILOT_EXTERNAL_GALLEY
           value: "false"
+        - name: CLUSTER_ID
+          value: Kubernetes
         envFrom:
         - configMapRef:
             name: istiod
@@ -569,7 +569,7 @@ data:
           "autoInject": true,
           "enabled": false
         },
-        "rewriteAppHTTPProbe": false
+        "rewriteAppHTTPProbe": true
       }
     }
 
@@ -605,7 +605,7 @@ data:
       {{- else }}
         image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
       {{- end }}
-        command:
+        args:
         - istio-iptables
         - "-p"
         - 15001
@@ -716,10 +716,6 @@ data:
         {{ end -}}
         - --proxyLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel}}
         - --proxyComponentLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel}}
-      {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
-        - --statusPort
-        - "{{ annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort }}"
-      {{- end }}
       {{- if .Values.global.sts.servicePort }}
         - --stsPort={{ .Values.global.sts.servicePort }}
       {{- end }}
@@ -741,7 +737,9 @@ data:
           value: {{ .Values.global.pilotCertProvider }}
         # Temp, pending PR to make it default or based on the istiodAddr env
         - name: CA_ADDR
-        {{- if .Values.global.configNamespace }}
+        {{- if .Values.global.caAddress }}
+          value: {{ .Values.global.caAddress }}
+        {{- else if .Values.global.configNamespace }}
           value: istiod.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
           value: istiod.istio-system.svc:15012
@@ -837,7 +835,7 @@ data:
         readinessProbe:
           httpGet:
             path: /healthz/ready
-            port: {{ annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort }}
+            port: 15090
           initialDelaySeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/initialDelaySeconds` .Values.global.proxy.readinessInitialDelaySeconds }}
           periodSeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/periodSeconds` .Values.global.proxy.readinessPeriodSeconds }}
           failureThreshold: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/failureThreshold` .Values.global.proxy.readinessFailureThreshold }}

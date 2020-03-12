@@ -2781,7 +2781,7 @@ func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting) error
 		for loc, weight := range locality.To {
 			destLocalities = append(destLocalities, loc)
 			if weight == 0 {
-				return fmt.Errorf("locality weight must not be in range [1, 100]")
+				return fmt.Errorf("locality weight must be in range [1, 100]")
 			}
 			totalWeight += weight
 		}

@@ -37,6 +37,7 @@ const (
 	networkLabelValue = "istio-test"
 )
 
+var _ resource.Environment = &Environment{}
 var _ io.Closer = &Environment{}
 
 // Environment for testing natively on the host machine. It implements api.Environment, and also
@@ -93,6 +94,10 @@ func (e *Environment) Case(name environment.Name, fn func()) {
 	if name == e.EnvironmentName() {
 		fn()
 	}
+}
+
+func (e *Environment) Clusters() []resource.Cluster {
+	return []resource.Cluster{Cluster}
 }
 
 // ID implements resource.Instance

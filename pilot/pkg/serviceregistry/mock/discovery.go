@@ -130,10 +130,6 @@ func newServiceInstance(service *model.Service, port *model.Port, version int, l
 			ServicePortName: port.Name,
 			Labels:          map[string]string{"version": fmt.Sprintf("v%d", version)},
 			Locality:        locality,
-			Attributes: model.ServiceAttributes{
-				Name:      service.Attributes.Name,
-				Namespace: service.Attributes.Namespace,
-			},
 		},
 		Service:     service,
 		ServicePort: port,

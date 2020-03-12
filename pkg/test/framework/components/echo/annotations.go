@@ -25,7 +25,6 @@ import (
 type AnnotationType string
 
 const (
-	ServiceAnnotation  AnnotationType = "service"
 	WorkloadAnnotation AnnotationType = "workload"
 )
 
@@ -38,6 +37,7 @@ type Annotation struct {
 var (
 	SidecarInject                = workloadAnnotation(annotation.SidecarInject.Name, "true")
 	SidecarRewriteAppHTTPProbers = workloadAnnotation(annotation.SidecarRewriteAppHTTPProbers.Name, "")
+	SidecarBootstrapOverride     = workloadAnnotation(annotation.SidecarBootstrapOverride.Name, "")
 )
 
 type AnnotationValue struct {

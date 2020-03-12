@@ -17,6 +17,7 @@ package security
 import (
 	"testing"
 
+	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -205,6 +206,123 @@ func TestReachability(t *testing.T) {
 						return true
 					},
 				},
+				{
+					ConfigFile:          "global-mtls-on-no-dr.yaml",
+					Namespace:           systemNM,
+					RequiredEnvironment: environment.Kube,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Exclude calls to the headless service.
+						// Auto mtls does not apply to headless service, because for headless service
+						// the cluster discovery type is ORIGINAL_DST, and it will not apply upstream tls setting
+						return opts.Target != rctx.Headless
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						// When mTLS is in STRICT mode, DR's TLS settings are default to mTLS so the result would
+						// be the same as having global DR rule.
+						if opts.Target == rctx.Naked {
+							// calls to naked should always succeed.
+							return true
+						}
+
+						// If source is naked, and destination is not, expect failure.
+						return !(src == rctx.Naked && opts.Target != rctx.Naked)
+					},
+				},
+				{
+					ConfigFile:          "global-plaintext.yaml",
+					Namespace:           systemNM,
+					RequiredEnvironment: environment.Kube,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Exclude calls to the headless TCP port.
+						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
+							return false
+						}
+
+						return true
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						// When mTLS is disabled, all traffic should work.
+						return true
+					},
+				},
+				// --------start of auto mtls partial test cases ---------------
+				// The follow three consecutive test together ensures the auto mtls works as intended
+				// for sidecar migration scenario.
+				{
+					ConfigFile:          "automtls-partial-sidecar-dr-no-tls.yaml",
+					RequiredEnvironment: environment.Kube,
+					Namespace:           rctx.Namespace,
+					CallOpts: []echo.CallOptions{
+						{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/vistio",
+						},
+						{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/vlegacy",
+						},
+					},
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// We only need one pair.
+						return src == rctx.A && opts.Target == rctx.Multiversion
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+				},
+				{
+					ConfigFile:          "automtls-partial-sidecar-dr-disable.yaml",
+					RequiredEnvironment: environment.Kube,
+					Namespace:           rctx.Namespace,
+					CallOpts: []echo.CallOptions{
+						{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/vistio",
+						},
+						{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/vlegacy",
+						},
+					},
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// We only need one pair.
+						return src == rctx.A && opts.Target == rctx.Multiversion
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Only the request to legacy one succeeds as we disable mtls explicitly.
+						return opts.Path == "/vlegacy"
+					},
+				},
+				{
+					ConfigFile:          "automtls-partial-sidecar-dr-mutual.yaml",
+					RequiredEnvironment: environment.Kube,
+					Namespace:           rctx.Namespace,
+					CallOpts: []echo.CallOptions{
+						{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/vistio",
+						},
+						{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/vlegacy",
+						},
+					},
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// We only need one pair.
+						return src == rctx.A && opts.Target == rctx.Multiversion
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Only the request to vistio one succeeds as we enable mtls explicitly.
+						return opts.Path == "/vistio"
+					},
+				},
+				// ----- end of automtls partial test suites -----
 			}
 			rctx.Run(testCases)
 		})

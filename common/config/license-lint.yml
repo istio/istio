@@ -123,6 +123,27 @@ whitelisted_modules:
   - github.com/xeipuuv/gojsonreference
   - github.com/xi2/xz
 
+  # BSD-3
+  #   fuse.go: ISC
+  #   fuse_kernel.go: BSD-2
+  - bazil.org/fuse
+
+  # BSD-3
+  - github.com/DataDog/zstd
+
+  # BSD-2 / ISC
+  - github.com/emirpasic/gods
+
+  # MIT / MIT
+  - github.com/kevinburke/ssh_config
+
+  # Apache 2.0
+  #   github.com/ghodss/yaml: MIT / BSD-3
+  #   github.com/gogo/protobuf: BSD-3
+  #   github.com/jmespath/go-jmespath: Apache 2.0
+  #   sigs.k8s.io/yaml: MIT / BSD-3
+  - github.com/tektoncd/pipeline
+
   # The core library is MIT licensed, but a submodule imports a BSD-3 license that licensee fails to correctly identify
   - github.com/vektah/gqlparser
 

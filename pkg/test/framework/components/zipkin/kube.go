@@ -46,13 +46,12 @@ type kubeComponent struct {
 	id        resource.ID
 	address   string
 	forwarder testKube.PortForwarder
-	env       *kube.Environment
+	cluster   kube.Cluster
 }
 
-func newKube(ctx resource.Context) (Instance, error) {
-	env := ctx.Environment().(*kube.Environment)
+func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 	c := &kubeComponent{
-		env: env,
+		cluster: kube.ClusterOrDefault(cfgIn.Cluster, ctx.Environment()),
 	}
 	c.id = ctx.TrackResource(c)
 
@@ -62,14 +61,14 @@ func newKube(ctx resource.Context) (Instance, error) {
 		return nil, err
 	}
 
-	fetchFn := env.Accessor.NewSinglePodFetch(cfg.SystemNamespace, fmt.Sprintf("app=%s", appName))
-	pods, err := env.Accessor.WaitUntilPodsAreReady(fetchFn)
+	fetchFn := c.cluster.NewSinglePodFetch(cfg.SystemNamespace, fmt.Sprintf("app=%s", appName))
+	pods, err := c.cluster.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
 	}
 	pod := pods[0]
 
-	forwarder, err := env.Accessor.NewPortForwarder(pod, 0, zipkinPort)
+	forwarder, err := c.cluster.NewPortForwarder(pod, 0, zipkinPort)
 	if err != nil {
 		return nil, err
 	}

@@ -30,7 +30,7 @@ import (
 func DefaultPolicy() *route.RetryPolicy {
 	policy := route.RetryPolicy{
 		NumRetries:           &wrappers.UInt32Value{Value: 2},
-		RetryOn:              "connect-failure,refused-stream,unavailable,cancelled,resource-exhausted,retriable-status-codes",
+		RetryOn:              "connect-failure,refused-stream,unavailable,cancelled,retriable-status-codes",
 		RetriableStatusCodes: []uint32{http.StatusServiceUnavailable},
 		RetryHostPredicate: []*route.RetryPolicy_RetryHostPredicate{
 			{
