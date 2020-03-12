@@ -959,70 +959,70 @@ func datasetMeshIstioIoV1alpha1MeshconfigYaml() (*asset, error) {
 }
 
 var _datasetMeshIstioIoV1alpha1Meshconfig_expectedJson = []byte(`{
-    "istio/mesh/v1alpha1/MeshConfig": [
+    "istio/mesh/v1alpha1/_mesh_config": [
         {
-            "TypeURL": "type.googleapis.com/istio.mesh.v1alpha1.MeshConfig",
-            "Metadata": {
+            "_type_u_r_l": "type.googleapis.com/istio.mesh.v1alpha1._mesh_config",
+            "_metadata": {
                 "name": "istio-system/meshconfig"
             },
-            "Body": {
-                "access_log_file": "/dev/stdout",
-                "connect_timeout": {
+            "_body": {
+                "accessLogFile": "/dev/stdout",
+                "connectTimeout": {
                     "seconds": 10
                 },
-                "default_config": {
-                  "binary_path": "/usr/local/bin/envoy",
-                  "config_path": "/etc/istio/proxy",
-                  "connect_timeout": {
+                "defaultConfig": {
+                  "binaryPath": "/usr/local/bin/envoy",
+                  "configPath": "/etc/istio/proxy",
+                  "connectTimeout": {
                     "seconds": 10
                   },
-                  "discovery_address": "istio-pilot:15010",
-                  "drain_duration": {
+                  "discoveryAddress": "istio-pilot:15010",
+                  "drainDuration": {
                     "seconds": 45
                   },
-                  "envoy_access_log_service": {},
-                  "envoy_metrics_service": {},
-                  "parent_shutdown_duration": {
+                  "envoyAccessLogService": {},
+                  "envoyMetricsService": {},
+                  "parentShutdownDuration": {
                     "seconds": 60
                   },
-                  "proxy_admin_port": 15000,
-                  "service_cluster": "istio-proxy",
-                  "stat_name_length": 189,
-                  "status_port": 15020
+                  "proxyAdminPort": 15000,
+                  "serviceCluster": "istio-proxy",
+                  "statNameLength": 189,
+                  "statusPort": 15020
                 },
-                "default_destination_rule_export_to": [
+                "defaultDestinationRuleExportTo": [
                   "*"
                 ],
-                "default_service_export_to": [
+                "defaultServiceExportTo": [
                   "*"
                 ],
-                "default_virtual_service_export_to": [
+                "defaultVirtualServiceExportTo": [
                   "*"
                 ],
-                "disable_policy_checks": true,
-                "dns_refresh_rate": {
+                "disablePolicyChecks": true,
+                "dnsRefreshRate": {
                   "seconds": 5
                 },
-                "enable_auto_mtls": {},
-                "enable_tracing": true,
-                "ingress_class": "istio",
-                "ingress_controller_mode": 2,
-                "ingress_service": "istio-ingressgateway",
-                "locality_lb_setting": {},
-                "outbound_traffic_policy": {
+                "enableAutoMtls": {},
+                "enableTracing": true,
+                "ingressClass": "istio",
+                "ingressControllerMode": 2,
+                "ingressService": "istio-ingressgateway",
+                "localityLbSetting": {},
+                "outboundTrafficPolicy": {
                     "mode": 1
                 },
-                "protocol_detection_timeout": {
+                "protocolDetectionTimeout": {
                   "nanos": 100000000
                 },
-                "proxy_listen_port": 15001,
-                "report_batch_max_entries": 100,
-                "report_batch_max_time": {
+                "proxyListenPort": 15001,
+                "reportBatchMaxEntries": 100,
+                "reportBatchMaxTime": {
                   "seconds": 1
                 },
-                "root_namespace": "istio-system",
-                "thrift_config": {},
-                "trust_domain": "cluster.local"
+                "rootNamespace": "istio-system",
+                "thriftConfig":{},
+                "trustDomain": "cluster.local"
             }
         }
     ]
