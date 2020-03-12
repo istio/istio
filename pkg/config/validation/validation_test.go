@@ -1852,6 +1852,10 @@ func TestValidateHTTPRetry(t *testing.T) {
 			PerTryTimeout: &types.Duration{Seconds: 2},
 			RetryOn:       "600,connect-failure",
 		}, valid: false},
+		{name: "invalid, retryRemoteLocalities configured but attempts set to zero", in: &networking.HTTPRetry{
+			Attempts:              0,
+			RetryRemoteLocalities: &types.BoolValue{Value: false},
+		}, valid: false},
 	}
 
 	for _, tc := range testCases {
