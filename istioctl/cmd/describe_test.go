@@ -542,8 +542,7 @@ Service: productpage
 Authn: None
 
 
-Exposed on Ingress Gateway http://10.1.2.3:0
-
+Exposed on Ingress Gateway http://10.1.2.3
 VirtualService: bookinfo
    /productpage, /login, /logout, /api/v1/products*
 `,
@@ -671,8 +670,7 @@ Service: productpage
 Pod is STRICT, clients configured automatically
 
 
-Exposed on Ingress Gateway http://10.1.2.3:0
-
+Exposed on Ingress Gateway http://10.1.2.3
 VirtualService: bookinfo
    /productpage, /login, /logout, /api/v1/products*
 `,
@@ -688,8 +686,7 @@ VirtualService: bookinfo
 Pod is STRICT, clients configured automatically
 
 
-Exposed on Ingress Gateway http://10.1.2.3:0
-
+Exposed on Ingress Gateway http://10.1.2.3
 VirtualService: bookinfo
    /productpage, /login, /logout, /api/v1/products*
 `,
