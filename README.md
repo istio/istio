@@ -108,5 +108,8 @@ think the issue should get addressed.
 P0, P1, P2, or >P2. The priority indicates how important it is to address the issue within the milestone. P0 says that the
 milestone cannot be considered achieved if the issue isn't resolved.
 
+To view the project board on ZenHub, we recommend downloading the ZenHub [browser extension](https://www.zenhub.com/extension).
+Please note that this is only supported in Firefox and Chrome at the moment.
+
 We don't annotate issues with Releases; Milestones are used instead. We don't use GitHub projects at all, that
 support is disabled for our organization.
