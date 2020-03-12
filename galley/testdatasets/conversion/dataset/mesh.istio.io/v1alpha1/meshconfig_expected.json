@@ -1,11 +1,11 @@
 {
-    "istio/mesh/v1alpha1/_mesh_config": [
+    "istio/mesh/v1alpha1/MeshConfig": [
         {
-            "_type_u_r_l": "type.googleapis.com/istio.mesh.v1alpha1._mesh_config",
-            "_metadata": {
+            "TypeURL": "type.googleapis.com/istio.mesh.v1alpha1.MeshConfig",
+            "Metadata": {
                 "name": "istio-system/meshconfig"
             },
-            "_body": {
+            "Body": {
                 "accessLogFile": "/dev/stdout",
                 "connectTimeout": {
                     "seconds": 10
