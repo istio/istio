@@ -59,6 +59,10 @@ func requireKubeConfigs(value string) []string {
 }
 
 func parseKubeConfigs(value string) ([]string, error) {
+	if len(value) == 0 {
+		return []string{defaultKubeConfig()}, nil
+	}
+
 	parts := strings.Split(value, ",")
 	out := make([]string, 0, len(parts))
 	for _, f := range parts {
@@ -89,6 +93,14 @@ func checkFileExists(path string) error {
 		return err
 	}
 	return nil
+}
+
+func defaultKubeConfig() string {
+	v := os.Getenv("KUBECONFIG")
+	if len(v) > 0 {
+		return v
+	}
+	return "~/.kube/config"
 }
 
 // init registers the command-line flags that we can exposed for "go test".

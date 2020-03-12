@@ -505,44 +505,6 @@ data:
       - source_labels: [__meta_kubernetes_pod_name]
         action: replace
         target_label: pod_name
-    - job_name: 'kubernetes-pods-istio-secure'
-      scheme: https
-      tls_config:
-        ca_file: /etc/istio-certs/root-cert.pem
-        cert_file: /etc/istio-certs/cert-chain.pem
-        key_file: /etc/istio-certs/key.pem
-        insecure_skip_verify: true  # prometheus does not support secure naming.
-      kubernetes_sd_configs:
-      - role: pod
-      relabel_configs:
-      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
-        action: keep
-        regex: true
-      # sidecar status annotation is added by sidecar injector and
-      # istio_workload_mtls_ability can be specifically placed on a pod to indicate its ability to receive mtls traffic.
-      - source_labels: [__meta_kubernetes_pod_annotation_sidecar_istio_io_status, __meta_kubernetes_pod_annotation_istio_mtls]
-        action: keep
-        regex: (([^;]+);([^;]*))|(([^;]*);(true))
-      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
-        action: replace
-        target_label: __metrics_path__
-        regex: (.+)
-      - source_labels: [__address__]  # Only keep address that is host:port
-        action: keep    # otherwise an extra target with ':443' is added for https scheme
-        regex: ([^:]+):(\d+)
-      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
-        action: replace
-        regex: ([^:]+)(?::\d+)?;(\d+)
-        replacement: $1:$2
-        target_label: __address__
-      - action: labelmap
-        regex: __meta_kubernetes_pod_label_(.+)
-      - source_labels: [__meta_kubernetes_namespace]
-        action: replace
-        target_label: namespace
-      - source_labels: [__meta_kubernetes_pod_name]
-        action: replace
-        target_label: pod_name
 ---
 
 
@@ -659,6 +621,8 @@ spec:
                   fieldPath: metadata.namespace
             - name: ISTIO_META_MESH_ID
               value: "cluster.local"
+            - name: ISTIO_META_CLUSTER_ID
+              value: "Kubernetes"
           imagePullPolicy: Always
           readinessProbe:
             failureThreshold: 30
@@ -6974,194 +6938,6 @@ metadata:
 webhooks:
 ---
 
-# Resources for Citadel component
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-citadel-istio-system
-  labels:
-    app: citadel
-    release: istio
-rules:
-- apiGroups: [""]
-  resources: ["configmaps"]
-  verbs: ["create", "get", "update"]
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["create", "get", "watch", "list", "update", "delete"]
-- apiGroups: [""]
-  resources: ["serviceaccounts", "services", "namespaces"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["authentication.k8s.io"]
-  resources: ["tokenreviews"]
-  verbs: ["create"]
----
-
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-citadel-istio-system
-  labels:
-    release: istio
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-citadel-istio-system
-subjects:
-  - kind: ServiceAccount
-    name: istio-citadel-service-account
-    namespace: istio-system
----
-
-
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    app: security
-    istio: citadel
-    release: istio
-  name: istio-citadel
-  namespace: istio-system
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      istio: citadel
-  strategy:
-    rollingUpdate:
-      maxSurge: 100%
-      maxUnavailable: 25%
-  template:
-    metadata:
-      annotations:
-        sidecar.istio.io/inject: "false"
-      labels:
-        app: citadel
-        istio: citadel
-    spec:
-      affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - ppc64le
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - s390x
-            weight: 2
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-                - ppc64le
-                - s390x
-      containers:
-      - args:
-        - --append-dns-names=true
-        - --grpc-port=8060
-        - --citadel-storage-namespace=istio-system
-        - --custom-dns-names=istio-galley-service-account.istio-config:istio-galley.istio-config.svc,istio-galley-service-account.istio-control:istio-galley.istio-control.svc,istio-galley-service-account.istio-control-master:istio-galley.istio-control-master.svc,istio-galley-service-account.istio-master:istio-galley.istio-master.svc,istio-galley-service-account.istio-pilot11:istio-galley.istio-pilot11.svc,istio-pilot-service-account.istio-control:istio-pilot.istio-control,istio-pilot-service-account.istio-pilot11:istio-pilot.istio-system,istio-sidecar-injector-service-account.istio-control:istio-sidecar-injector.istio-control.svc,istio-sidecar-injector-service-account.istio-control-master:istio-sidecar-injector.istio-control-master.svc,istio-sidecar-injector-service-account.istio-master:istio-sidecar-injector.istio-master.svc,istio-sidecar-injector-service-account.istio-pilot11:istio-sidecar-injector.istio-pilot11.svc,istio-sidecar-injector-service-account.istio-remote:istio-sidecar-injector.istio-remote.svc,
-        - --self-signed-ca=true
-        - --trust-domain=cluster.local
-        - --workload-cert-ttl=2160h
-        env:
-        - name: CITADEL_ENABLE_NAMESPACES_BY_DEFAULT
-          value: "true"
-        image: gcr.io/istio-testing/citadel:latest
-        livenessProbe:
-          httpGet:
-            path: /version
-            port: 15014
-          initialDelaySeconds: 5
-          periodSeconds: 5
-        name: citadel
-        resources:
-          requests:
-            cpu: 10m
-        securityContext:
-          capabilities:
-            drop:
-            - ALL
-          runAsGroup: 1337
-          runAsNonRoot: true
-          runAsUser: 1337
-      serviceAccountName: istio-citadel-service-account
-
----
-
-
-apiVersion: policy/v1beta1
-kind: PodDisruptionBudget
-metadata:
-  name: istio-citadel
-  namespace: istio-system
-  labels:
-    app: security
-    istio: citadel
-    release: istio
-spec:
-  minAvailable: 1
-  selector:
-    matchLabels:
-      app: citadel
-      istio: citadel
----
-
-
-apiVersion: v1
-kind: Service
-metadata:
-  # Must match the certificate, this is used in the node agent in same namespace.
-  name: istio-citadel
-  namespace: istio-system
-  labels:
-    app: security
-    istio: citadel
-    release: istio
-
-spec:
-  ports:
-    - name: grpc-citadel
-      port: 8060
-      targetPort: 8060
-      protocol: TCP
-    - name: http-monitoring
-      port: 15014
-  selector:
-    app: citadel
----
-
-
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-citadel-service-account
-  namespace: istio-system
-  labels:
-    app: security
-    release: istio
----
-
 # Cni component is disabled.
 
 # Resources for EgressGateways component
@@ -7250,6 +7026,8 @@ spec:
           - "15000"
           - --controlPlaneAuthPolicy
           - NONE
+          - --discoveryAddress
+          - istio-pilot.istio-system.svc:15012
           - --trust-domain=cluster.local
           readinessProbe:
             failureThreshold: 30
@@ -8016,6 +7794,7 @@ spec:
             - containerPort: 15032
             - containerPort: 15443
             - containerPort: 15011
+            - containerPort: 15012
             - containerPort: 8060
             - containerPort: 853
             - containerPort: 15090
@@ -8035,6 +7814,8 @@ spec:
           - "15000"
           - --controlPlaneAuthPolicy
           - NONE
+          - --discoveryAddress
+          - istio-pilot.istio-system.svc:15012
           - --trust-domain=cluster.local
           readinessProbe:
             failureThreshold: 30
@@ -8652,6 +8433,8 @@ spec:
           value: istiod.istio-system.svc:15012
         - name: PILOT_EXTERNAL_GALLEY
           value: "false"
+        - name: CLUSTER_ID
+          value: Kubernetes
         envFrom:
         - configMapRef:
             name: istiod
@@ -9193,7 +8976,7 @@ data:
         readinessProbe:
           httpGet:
             path: /healthz/ready
-            port: {{ annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort }}
+            port: 15090
           initialDelaySeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/initialDelaySeconds` .Values.global.proxy.readinessInitialDelaySeconds }}
           periodSeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/periodSeconds` .Values.global.proxy.readinessPeriodSeconds }}
           failureThreshold: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/failureThreshold` .Values.global.proxy.readinessFailureThreshold }}

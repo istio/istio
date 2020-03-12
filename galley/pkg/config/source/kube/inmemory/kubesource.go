@@ -220,7 +220,7 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 		}
 
 		chunk := bytes.TrimSpace(doc)
-		r, err := s.parseChunk(r, chunk)
+		r, err := s.parseChunk(r, name, chunk)
 		if err != nil {
 			var uerr *unknownSchemaError
 			if errors.As(err, &uerr) {
@@ -251,7 +251,7 @@ func (e unknownSchemaError) Error() string {
 	return fmt.Sprintf("failed finding schema for group/version/kind: %s/%s/%s", e.group, e.version, e.kind)
 }
 
-func (s *KubeSource) parseChunk(r *collection.Schemas, yamlChunk []byte) (kubeResource, error) {
+func (s *KubeSource) parseChunk(r *collection.Schemas, name string, yamlChunk []byte) (kubeResource, error) {
 	// Convert to JSON
 	jsonChunk, err := yaml.ToJSON(yamlChunk)
 	if err != nil {
@@ -305,6 +305,6 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, yamlChunk []byte) (kubeRe
 	return kubeResource{
 		schema:   schema,
 		sha:      sha1.Sum(yamlChunk),
-		resource: rt.ToResource(objMeta, schema, item),
+		resource: rt.ToResource(objMeta, schema, item, name),
 	}, nil
 }

@@ -14,8 +14,6 @@
 
 # Base component is disabled.
 
-# Citadel component is disabled.
-
 # Cni component is disabled.
 
 # EgressGateways istio-egressgateway component is disabled.
@@ -94,6 +92,7 @@ spec:
             - containerPort: 15032
             - containerPort: 15443
             - containerPort: 15011
+            - containerPort: 15012
             - containerPort: 8060
             - containerPort: 853
             - containerPort: 15090
@@ -113,6 +112,8 @@ spec:
           - "15000"
           - --controlPlaneAuthPolicy
           - NONE
+          - --discoveryAddress
+          - istio-pilot.istio-system.svc:15012
           - --trust-domain=cluster.local
           readinessProbe:
             failureThreshold: 30
@@ -505,6 +506,7 @@ spec:
             - containerPort: 15032
             - containerPort: 15443
             - containerPort: 15011
+            - containerPort: 15012
             - containerPort: 8060
             - containerPort: 853
             - containerPort: 15090
@@ -524,6 +526,8 @@ spec:
           - "15000"
           - --controlPlaneAuthPolicy
           - NONE
+          - --discoveryAddress
+          - istio-pilot.istio-system.svc:15012
           - --trust-domain=cluster.local
           readinessProbe:
             failureThreshold: 30

@@ -86,15 +86,15 @@ func NewCreateRemoteSecretCommand() *cobra.Command {
 		Example: `
 # Create a secret to access cluster c0's apiserver and install it in cluster c1.
 istioctl --Kubeconfig=c0.yaml x create-remote-secret --name c0 \
-    | kubectl -n istio-system --Kubeconfig=c1.yaml apply -f -
+    | kubectl --Kubeconfig=c1.yaml apply -f -
 
 # Delete a secret that was previously installed in c1
 istioctl --Kubeconfig=c0.yaml x create-remote-secret --name c0 \
-    | kubectl -n istio-system --Kubeconfig=c1.yaml delete -f -
+    | kubectl --Kubeconfig=c1.yaml delete -f -
 
 # Create a secret access a remote cluster with an auth plugin
 istioctl --Kubeconfig=c0.yaml x create-remote-secret --name c0 --auth-type=plugin --auth-plugin-name=gcp \
-    | kubectl -n istio-system --Kubeconfig=c1.yaml apply -f -
+    | kubectl --Kubeconfig=c1.yaml apply -f -
 `,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, args []string) error {
@@ -383,6 +383,8 @@ func createRemoteSecret(opt RemoteSecretOptions, client kubernetes.Interface, en
 	if err != nil {
 		return nil, err
 	}
+
+	remoteSecret.Namespace = opt.Namespace
 	return remoteSecret, nil
 }
 
