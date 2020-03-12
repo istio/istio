@@ -237,7 +237,6 @@ var (
 			nodeAgentSDSEnabled := false
 			sdsTokenPath := ""
 			if _, err := os.Stat(caclient.ProvCert + "/key.pem"); err == nil {
-				controlPlaneAuthEnabled = true
 				// Using a provisioning cert - this is not using old SDS NodeAgent, and requires certs.
 			} else {
 				nodeAgentSDSEnabled, sdsTokenPath = detectSds(controlPlaneBootstrap, sdsUDSPath, jwtPath)
