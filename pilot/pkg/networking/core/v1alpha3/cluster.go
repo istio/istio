@@ -321,9 +321,8 @@ func buildInboundLocalityLbEndpoints(bind string, port uint32) []*endpoint.Local
 
 func generateInboundPassthroughClusters(push *model.PushContext, proxy *model.Proxy) []*apiv2.Cluster {
 	// ipv4 and ipv6 feature detection. Envoy cannot ignore a config where the ip version is not supported
-	ipv4, ipv6 := ipv4AndIpv6Support(proxy)
 	clusters := make([]*apiv2.Cluster, 0, 2)
-	if ipv4 {
+	if proxy.SupportsIPv4() {
 		inboundPassthroughClusterIpv4 := buildDefaultPassthroughCluster(push, proxy)
 		inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
 		inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
@@ -336,7 +335,7 @@ func generateInboundPassthroughClusters(push *model.PushContext, proxy *model.Pr
 		}
 		clusters = append(clusters, inboundPassthroughClusterIpv4)
 	}
-	if ipv6 {
+	if proxy.SupportsIPv6() {
 		inboundPassthroughClusterIpv6 := buildDefaultPassthroughCluster(push, proxy)
 		inboundPassthroughClusterIpv6.Name = util.InboundPassthroughClusterIpv6
 		inboundPassthroughClusterIpv6.UpstreamBindConfig = &core.BindConfig{
