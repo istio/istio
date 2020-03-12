@@ -65,7 +65,7 @@ func TestPassThroughFilterChain(t *testing.T) {
 							Protocol: protocol.GRPC,
 						},
 					},
-					// The port 8085/8086 will be defined only in the workload and not in the k8s service.
+					// The port 8085,8086,8087,8088 will be defined only in the workload and not in the k8s service.
 					WorkloadOnlyPorts: []echo.WorkloadPort{
 						{
 							Port:     8085,
@@ -130,8 +130,8 @@ func TestPassThroughFilterChain(t *testing.T) {
 					want:   true,
 				},
 
-				// For workload b, there is only authZ policy that allows access to port 8085.
-				// Only request to port 8085 should be allowed.
+				// For workload b, there is only authZ policy that allows access to port 8085 and 8087.
+				// Only request to port 8085, 8087 should be allowed.
 				{
 					target: b,
 					port:   8085,

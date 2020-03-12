@@ -501,6 +501,7 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
 			Bind:                       matchingIP,
 			InboundClusterName:         clusterName,
 		}
+		// Call plugins to install authn/authz policies.
 		var allChains []istionetworking.FilterChain
 		for _, p := range configgen.Plugins {
 			chains := p.OnInboundPassthroughFilterChains(in)
