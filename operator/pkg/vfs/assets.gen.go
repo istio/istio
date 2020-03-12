@@ -13277,7 +13277,7 @@ var _chartsGatewaysIstioEgressTemplatesAutoscaleYaml = []byte(`{{ $gateway := in
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: istio-egressgateway
+  name: {{ $gateway.name | default "istio-egressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -13288,7 +13288,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: istio-egressgateway
+    name: {{ $gateway.name | default "istio-egressgateway" }}
   metrics:
     - type: Resource
       resource:
@@ -13317,7 +13317,7 @@ var _chartsGatewaysIstioEgressTemplatesDeploymentYaml = []byte(`{{ $gateway := i
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istio-egressgateway
+  name: {{ $gateway.name | default "istio-egressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -13344,7 +13344,7 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
-        service.istio.io/canonical-name: istio-egressgateway
+        service.istio.io/canonical-name: {{ $gateway.name | default "istio-egressgateway" }}
 {{- if not (eq .Values.revision "") }}
         service.istio.io/canonical-revision: {{ .Values.revision }}
 {{- else}}
@@ -13414,7 +13414,7 @@ spec:
           - --log_as_json
         {{- end }}
           - --serviceCluster
-          - istio-egressgateway
+          - {{ $gateway.name | default "istio-egressgateway" }}
           - --proxyAdminPort
           - "15000"
         {{- if .Values.global.sts.servicePort }}
@@ -13485,9 +13485,9 @@ spec:
               fieldRef:
                 fieldPath: spec.serviceAccountName
           - name: ISTIO_META_WORKLOAD_NAME
-            value: istio-egressgateway
+            value: {{ $gateway.name | default "istio-egressgateway" }}
           - name: ISTIO_META_OWNER
-            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/istio-egressgateway
+            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/{{ $gateway.name | default "istio-egressgateway" }}
           {{- if $.Values.global.meshID }}
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.meshID }}"
@@ -13628,7 +13628,7 @@ var _chartsGatewaysIstioEgressTemplatesPoddisruptionbudgetYaml = []byte(`{{- if 
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istio-egressgateway
+  name: {{ $gateway.name | default "istio-egressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -13760,7 +13760,7 @@ var _chartsGatewaysIstioEgressTemplatesServiceYaml = []byte(`{{ $gateway := inde
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-egressgateway
+  name: {{ $gateway.name | default "istio-egressgateway" }}
   namespace: {{ .Release.Namespace }}
   annotations:
     {{- range $key, $val := $gateway.serviceAnnotations }}
@@ -13834,6 +13834,7 @@ var _chartsGatewaysIstioEgressValuesYaml = []byte(`# Standalone istio egress gat
 # Should be installed in a separate namespace, to minimize access to config
 gateways:
   istio-egressgateway:
+    name: istio-egressgateway
     ports:
     - port: 80
       name: http2
@@ -13854,11 +13855,11 @@ gateways:
       # This can be a real domain name ( istio.example.com )
       suffix: global
       enabled: false
-    
+
     labels:
       app: istio-egressgateway
       istio: egressgateway
-  
+
 
     # Scalability tunning
     # replicaCount: 1
@@ -14240,7 +14241,7 @@ var _chartsGatewaysIstioIngressTemplatesAutoscaleYaml = []byte(`{{ $gateway := i
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: istio-ingressgateway
+  name: {{ $gateway.name | default "istio-ingressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -14251,7 +14252,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: istio-ingressgateway
+    name: {{ $gateway.name | default "istio-ingressgateway" }}
   metrics:
     - type: Resource
       resource:
@@ -14342,7 +14343,7 @@ var _chartsGatewaysIstioIngressTemplatesDeploymentYaml = []byte(`{{- $gateway :=
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istio-ingressgateway
+  name: {{ $gateway.name | default "istio-ingressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -14369,7 +14370,7 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
-        service.istio.io/canonical-name: istio-ingressgateway
+        service.istio.io/canonical-name: {{ $gateway.name | default "istio-ingressgateway" }}
         {{- if not (eq .Values.revision "") }}
         service.istio.io/canonical-revision: {{ .Values.revision }}
         {{- else}}
@@ -14442,7 +14443,7 @@ spec:
           - --log_as_json
         {{- end }}
           - --serviceCluster
-          - istio-ingressgateway
+          - {{ $gateway.name | default "istio-ingressgateway" }}
           - --proxyAdminPort
           - "15000"
         {{- if .Values.global.sts.servicePort }}
@@ -14523,9 +14524,9 @@ spec:
               fieldRef:
                 fieldPath: spec.serviceAccountName
           - name: ISTIO_META_WORKLOAD_NAME
-            value: istio-ingressgateway
+            value: {{ $gateway.name | default "istio-ingressgateway" }}
           - name: ISTIO_META_OWNER
-            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/istio-ingressgateway
+            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/{{ $gateway.name | default "istio-ingressgateway" }}
           {{- if $.Values.global.meshID }}
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.meshID }}"
@@ -15096,7 +15097,7 @@ var _chartsGatewaysIstioIngressTemplatesServiceYaml = []byte(`{{ $gateway := ind
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-ingressgateway
+  name: {{ $gateway.name | default "istio-ingressgateway" }}
   namespace: {{ .Release.Namespace }}
   annotations:
     {{- range $key, $val := $gateway.serviceAnnotations }}
@@ -15225,6 +15226,7 @@ var _chartsGatewaysIstioIngressValuesYaml = []byte(`# A-la-carte istio ingress g
 
 gateways:
   istio-ingressgateway:
+    name: istio-ingressgateway
     labels:
       app: istio-ingressgateway
       istio: ingressgateway
@@ -45842,6 +45844,7 @@ spec:
         type: ClusterIP
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
+        name: istio-egressgateway
         ports:
           - port: 80
             name: http2
@@ -45866,6 +45869,7 @@ spec:
         type: LoadBalancer
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
+        name: istio-ingressgateway
         ports:
           - port: 15020
             targetPort: 15020
