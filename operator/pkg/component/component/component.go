@@ -780,7 +780,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 		return disabledYAMLStr(cf.componentName, cf.resourceName), nil
 	}
 
-	mergedYAML, err := cf.Translator.TranslateHelmValues(cf.InstallSpec, cf.componentName)
+	mergedYAML, err := cf.Translator.TranslateHelmValues(cf.InstallSpec, cf.componentName, cf.resourceName)
 	if err != nil {
 		return "", err
 	}

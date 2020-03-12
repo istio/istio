@@ -63,5 +63,6 @@ components:
     enabled: true
   egressGateways:
   - enabled: true
+    name: istio-egressgateway
 `
 }

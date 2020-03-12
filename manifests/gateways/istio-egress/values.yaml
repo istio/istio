@@ -2,6 +2,7 @@
 # Should be installed in a separate namespace, to minimize access to config
 gateways:
   istio-egressgateway:
+    name: istio-egressgateway
     ports:
     - port: 80
       name: http2
@@ -22,11 +23,11 @@ gateways:
       # This can be a real domain name ( istio.example.com )
       suffix: global
       enabled: false
-    
+
     labels:
       app: istio-egressgateway
       istio: egressgateway
-  
+
 
     # Scalability tunning
     # replicaCount: 1
