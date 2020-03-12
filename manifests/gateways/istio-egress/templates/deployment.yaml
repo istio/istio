@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istio-egressgateway
+  name: {{ $gateway.name | default "istio-egressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -29,7 +29,7 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
-        service.istio.io/canonical-name: istio-egressgateway
+        service.istio.io/canonical-name: {{ $gateway.name | default "istio-egressgateway" }}
 {{- if not (eq .Values.revision "") }}
         service.istio.io/canonical-revision: {{ .Values.revision }}
 {{- else}}
@@ -99,7 +99,7 @@ spec:
           - --log_as_json
         {{- end }}
           - --serviceCluster
-          - istio-egressgateway
+          - {{ $gateway.name | default "istio-egressgateway" }}
           - --proxyAdminPort
           - "15000"
         {{- if .Values.global.sts.servicePort }}
@@ -170,9 +170,9 @@ spec:
               fieldRef:
                 fieldPath: spec.serviceAccountName
           - name: ISTIO_META_WORKLOAD_NAME
-            value: istio-egressgateway
+            value: {{ $gateway.name | default "istio-egressgateway" }}
           - name: ISTIO_META_OWNER
-            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/istio-egressgateway
+            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/{{ $gateway.name | default "istio-egressgateway" }}
           {{- if $.Values.global.meshID }}
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.meshID }}"

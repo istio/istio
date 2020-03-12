@@ -451,6 +451,7 @@ spec:
         type: ClusterIP
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
+        name: istio-egressgateway
         ports:
           - port: 80
             name: http2
@@ -475,6 +476,7 @@ spec:
         type: LoadBalancer
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
+        name: istio-ingressgateway
         ports:
           - port: 15020
             targetPort: 15020
