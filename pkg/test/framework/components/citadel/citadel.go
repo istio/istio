@@ -15,12 +15,12 @@
 package citadel
 
 import (
+	corev1 "k8s.io/api/core/v1"
+
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
-
-	corev1 "k8s.io/api/core/v1"
 )
 
 // Citadel represents a deployed Citadel instance.
@@ -34,7 +34,8 @@ type Instance interface {
 }
 
 type Config struct {
-	Istio istio.Instance
+	Istio   istio.Instance
+	Cluster resource.Cluster
 }
 
 // Deploy returns a new instance of Apps

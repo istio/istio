@@ -207,6 +207,7 @@
   },
   "admin": {
     "access_log_path": "/dev/null",
+    "profile_path": "{{ .config.ConfigPath }}/envoy.prof",
     "address": {
       "socket_address": {
         "address": "{{ .localhost }}",
@@ -249,6 +250,28 @@
                     "protocol": "TCP",
                     "address": "{{ .localhost }}",
                     "port_value": {{ .config.ProxyAdminPort }}
+                  }
+                }
+              }
+            }]
+          }]
+        }
+      },
+      {
+        "name": "agent",
+        "type": "STATIC",
+        "connect_timeout": "0.250s",
+        "lb_policy": "ROUND_ROBIN",
+        "load_assignment": {
+          "cluster_name": "prometheus_stats",
+          "endpoints": [{
+            "lb_endpoints": [{
+              "endpoint": {
+                "address":{
+                  "socket_address": {
+                    "protocol": "TCP",
+                    "address": "{{ .localhost }}",
+                    "port_value": 15020
                   }
                 }
               }
@@ -546,6 +569,14 @@
                             },
                             "route": {
                               "cluster": "prometheus_stats"
+                            }
+                          },
+                          {
+                            "match": {
+                              "prefix": "/healthz/ready"
+                            },
+                            "route": {
+                              "cluster": "agent"
                             }
                           }
                         ]

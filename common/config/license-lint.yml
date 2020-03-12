@@ -124,6 +124,11 @@ whitelisted_modules:
   - github.com/xi2/xz
 
   # BSD-3
+  #   fuse.go: ISC
+  #   fuse_kernel.go: BSD-2
+  - bazil.org/fuse
+
+  # BSD-3
   - github.com/DataDog/zstd
 
   # BSD-2 / ISC

@@ -228,7 +228,6 @@ data:
         "imagePullPolicy": "",
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
-        "istioRemote": false,
         "istiod": {
           "enabled": true
         },
@@ -363,7 +362,6 @@ data:
           }
         },
         "remotePilotAddress": "",
-        "remotePilotCreateSvcEndpoint": false,
         "remotePolicyAddress": "",
         "remoteTelemetryAddress": "",
         "sds": {
@@ -447,7 +445,7 @@ data:
       {{- else }}
         image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
       {{- end }}
-        command:
+        args:
         - istio-iptables
         - "-p"
         - 15001
@@ -677,7 +675,7 @@ data:
         readinessProbe:
           httpGet:
             path: /healthz/ready
-            port: {{ annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort }}
+            port: 15090
           initialDelaySeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/initialDelaySeconds` .Values.global.proxy.readinessInitialDelaySeconds }}
           periodSeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/periodSeconds` .Values.global.proxy.readinessPeriodSeconds }}
           failureThreshold: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/failureThreshold` .Values.global.proxy.readinessFailureThreshold }}
@@ -1037,6 +1035,8 @@ spec:
             value: istiod.istio-system.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
             value: "false"
+          - name: CLUSTER_ID
+            value: "Kubernetes"
           resources:
             requests:
               cpu: 500m
@@ -1890,10 +1890,5 @@ webhooks:
 
 ---
 # Source: istio-discovery/templates/configmap-jwks.yaml
-
-
----
-# Source: istio-discovery/templates/enable-mesh-mtls.yaml
-
 
 
