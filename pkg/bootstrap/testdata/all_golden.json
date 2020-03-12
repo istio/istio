@@ -306,16 +306,27 @@
               "alpn_protocols": [
                 "h2"
               ],
-              "tls_certificates": [
+              "tls_certificate_sds_secret_configs": [
                 {
-                  "certificate_chain": { "filename": "/etc/certs/cert-chain.pem" },
-                  "private_key": { "filename": "/etc/certs/key.pem" }
+                  "name": "default",
+                  "sds_config": {
+                    "api_config_source": {
+                      "api_type": "GRPC",
+                      "grpc_services": [
+                        {
+                          "envoy_grpc": { "cluster_name": "sds-grpc" }
+                        }
+                      ]
+                    }
+                  }
                 }
               ],
               "validation_context": {
-                "trusted_ca": { "filename": "/etc/certs/root-cert.pem" },
+                "trusted_ca": {
+                  "filename": "./var/run/secrets/istio/root-cert.pem"
+                },
                 "verify_subject_alt_name": ["spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"]
-              },
+              }
             }
           }
         },
