@@ -32,9 +32,9 @@ import (
 	"istio.io/pkg/log"
 )
 
-// getTlsCerts returns all file based certificates from mesh config
+// getTLSCerts returns all file based certificates from mesh config
 // TODO(https://github.com/istio/istio/issues/21834) serve over SDS instead of files
-func getTlsCerts(pc meshconfig.ProxyConfig) []string {
+func getTLSCerts(pc meshconfig.ProxyConfig) []string {
 	certs := []string{}
 	appendTLSCerts := func(rs *meshconfig.RemoteService) {
 		if rs.TlsSettings == nil {

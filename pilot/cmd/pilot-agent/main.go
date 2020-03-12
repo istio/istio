@@ -243,7 +243,7 @@ var (
 			}
 
 			// dedupe cert paths so we don't set up 2 watchers for the same file
-			tlsCerts := dedupeStrings(getTlsCerts(proxyConfig))
+			tlsCerts := dedupeStrings(getTLSCerts(proxyConfig))
 
 			// Since Envoy needs the file-mounted certs for mTLS, we wait for them to become available
 			// before starting it.
