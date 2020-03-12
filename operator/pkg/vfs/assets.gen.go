@@ -7990,7 +7990,13 @@ spec:
             value: "true"
 {{- if .Values.global.istiod.enabled }}
           - name: CA_ADDR
+          {{- if .Values.global.caAddress }}
+            value: {{ .Values.global.caAddress }}
+          {{- else if .Values.global.configNamespace }}
             value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+          {{- else }}
+            value: istio-pilot.istio-system.svc:15012
+          {{- end }}
 {{- end }}
 {{- end }}
           - name: NODE_NAME
@@ -12179,7 +12185,9 @@ template: |
       value: {{ .Values.global.pilotCertProvider }}
     # Temp, pending PR to make it default or based on the istiodAddr env
     - name: CA_ADDR
-    {{- if .Values.global.configNamespace }}
+    {{- if .Values.global.caAddress }}
+      value: {{ .Values.global.caAddress }}
+    {{- else if .Values.global.configNamespace }}
       value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
     {{- else }}
       value: istio-pilot.istio-system.svc:15012
@@ -35684,9 +35692,11 @@ spec:
               value: {{ .Values.global.pilotCertProvider }}
             # Temp, pending PR to make it default or based on the istiodAddr env
             - name: CA_ADDR
-                {{- if .Values.global.configNamespace }}
+            {{- if .Values.global.caAddress }}
+              value: {{ .Values.global.caAddress }}
+            {{- else if .Values.global.configNamespace }}
               value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
-                {{- else }}
+            {{- else }}
               value: istio-pilot.istio-system.svc:15012
               {{- end }}
             - name: POD_NAME
