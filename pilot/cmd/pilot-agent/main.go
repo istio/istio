@@ -208,6 +208,13 @@ var (
 				log.Infof("Effective config: %s", out)
 			}
 
+			// Set env for sidecars or gateways to get .ProxyConfig.ProxyMetadata
+			for k, v := range proxyConfig.GetProxyMetadata() {
+				if err = os.Setenv(k, v); err != nil {
+					return fmt.Errorf("failed to set ProxyMetadata as env, error: %v", err)
+				}
+			}
+
 			role.DNSDomain = getDNSDomain(podNamespace, role.DNSDomain)
 			log.Infof("Proxy role: %#v", role)
 
