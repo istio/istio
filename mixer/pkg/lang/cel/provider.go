@@ -116,7 +116,7 @@ func newAttributeProvider(attributes map[string]*v1beta1.AttributeManifest_Attri
 	return out
 }
 
-func (ap *attributeProvider) newEnvironment() celgo.Env {
+func (ap *attributeProvider) newEnvironment() *celgo.Env {
 	var declarations []*exprpb.Decl
 
 	// populate with root-level identifiers
@@ -137,7 +137,7 @@ func (ap *attributeProvider) newEnvironment() celgo.Env {
 		ext.Strings(),
 		macros)
 
-	return *env
+	return env
 }
 
 func (ap *attributeProvider) newActivation(bag attribute.Bag) interpreter.Activation {

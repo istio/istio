@@ -99,7 +99,7 @@ func NewBuilder(finder attribute.AttributeDescriptorFinder, mode LanguageMode) *
 	return &ExpressionBuilder{
 		mode:     mode,
 		provider: provider,
-		env:      env,
+		env:      *env,
 	}
 }
 

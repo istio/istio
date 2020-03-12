@@ -760,6 +760,6 @@ func TestCELExpressions(t *testing.T) {
 	mutex := &sync.Mutex{}
 
 	for _, test := range tests {
-		t.Run(test.text, testExpression(env, provider, test, mutex))
+		t.Run(test.text, testExpression(*env, provider, test, mutex))
 	}
 }
