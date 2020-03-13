@@ -138,8 +138,9 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: istio-pilot;http-monitoring
-
+        regex: istiod;http-monitoring
+      - source_labels: [__meta_kubernetes_service_label_app]
+        target_label: app
     - job_name: 'galley'
       kubernetes_sd_configs:
       - role: endpoints
@@ -8512,6 +8513,8 @@ spec:
     - port: 443
       name: https-webhook # validation and injection
       targetPort: 15017
+    - port: 15014
+      name: http-monitoring # prometheus stats
   selector:
     app: istiod
     # Label used by the 'default' service. For versioned deployments we match with app and version.
