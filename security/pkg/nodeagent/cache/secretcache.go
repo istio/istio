@@ -27,6 +27,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	pilotmodel "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
@@ -258,6 +259,10 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 		sc.keyCertificateExist(sc.existingCertChainFile, sc.existingKeyFile) {
 		sdsFromFile = true
 		ns, err = sc.generateKeyCertFromExistingFiles(sc.existingCertChainFile, sc.existingKeyFile, token, connKey)
+	} else if cfg, ok := pilotmodel.SdsCertificateConfigFromResourceName(connKey.ResourceName); ok {
+		// Based on the resource name, we need to read this secret from a file encoded in the resource name
+		sdsFromFile = true
+		ns, err = sc.generateKeyCertFromExistingFiles(cfg.ClientCertificatePath, cfg.PrivateKeyPath, token, connKey)
 	}
 
 	if sdsFromFile {

@@ -15,6 +15,8 @@
 package model
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"istio.io/api/security/v1beta1"
@@ -251,4 +253,25 @@ func getConfigsForWorkload(configsByNamespace map[string][]Config,
 	}
 
 	return configs
+}
+
+type SdsCertificateConfig struct {
+	ClientCertificatePath string
+	PrivateKeyPath        string
+}
+
+// GetResourceName converts a SdsCertificateConfig to a string to be used as an SDS resource name
+func (s SdsCertificateConfig) GetResourceName() string {
+	return fmt.Sprintf("file:%s~%s", s.ClientCertificatePath, s.PrivateKeyPath)
+}
+
+// SdsCertificateConfigFromResourceName converts the provided resource name into a SdsCertificateConfig
+// If the resource name is not valid, _, false is returned.
+func SdsCertificateConfigFromResourceName(resource string) (SdsCertificateConfig, bool) {
+	filesString := strings.TrimPrefix(resource, "file:")
+	split := strings.Split(filesString, "~")
+	if len(split) != 2 {
+		return SdsCertificateConfig{}, false
+	}
+	return SdsCertificateConfig{split[0], split[1]}, true
 }
