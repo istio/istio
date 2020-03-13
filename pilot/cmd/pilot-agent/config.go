@@ -123,7 +123,12 @@ func applyAnnotations(config meshconfig.ProxyConfig, annos map[string]string) me
 }
 
 func getPilotSan(discoveryAddress string) string {
-	return strings.Split(discoveryAddress, ":")[0]
+	discHost := strings.Split(discoveryAddress, ":")[0]
+	// For local debugging - the discoveryAddress is set to localhost, but the cert issued for normal SA.
+	if discHost == "localhost" {
+		discHost = "istiod.istio-system.svc"
+	}
+	return discHost
 }
 
 func getControlPlaneNamespace(podNamespace string, discoveryAddress string) string {

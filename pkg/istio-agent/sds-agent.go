@@ -224,10 +224,6 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 	// Istiod uses a fixed, defined port for K8S-signed certificates.
 	if discPort == "15012" {
 		ac.RequireCerts = true
-		// For local debugging - the discoveryAddress is set to localhost, but the cert issued for normal SA.
-		if discHost == "localhost" {
-			discHost = "istiod.istio-system.svc"
-		}
 	}
 
 	return ac

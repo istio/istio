@@ -68,7 +68,7 @@ import (
 //   K8S root.
 
 var (
-	// This replaces the "cert-chain", "signing-cert" and "signing-key" flags in citadel - Istio installer is
+	// LocalCertDir replaces the "cert-chain", "signing-cert" and "signing-key" flags in citadel - Istio installer is
 	// requires a secret named "cacerts" with specific files inside.
 	LocalCertDir = env.RegisterStringVar("ROOT_CA_DIR", "./etc/cacerts",
 		"Location of a local or mounted CA root")

@@ -95,7 +95,6 @@ var (
 	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
 	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
-	sdsUdsPathVar        = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
 
 	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
 		"the provider of Pilot DNS certificate.").Get()
@@ -201,9 +200,6 @@ var (
 			log.Infof("PilotSAN %#v", pilotSAN)
 			log.Infof("MixerSAN %#v", mixerSAN)
 
-			// Legacy - so pilot-agent can be used with citadel node agent.
-			// Main will be replaced by istio-agent when we clean up - this code can stay here and be removed with the rest.
-			sdsUDSPath := sdsUdsPathVar.Get()
 			var jwtPath string
 			if jwtPolicy.Get() == jwt.JWTPolicyThirdPartyJWT {
 				log.Info("JWT policy is third-party-jwt")
@@ -217,9 +213,6 @@ var (
 
 			sa := istio_agent.NewSDSAgent(proxyConfig.DiscoveryAddress, proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 				pilotCertProvider, jwtPath, outputKeyCertToDir)
-
-			// If user injected a JWT token for SDS - use SDS.
-			sdsUDSPath = sa.SDSAddress
 
 			// Connection to Istiod secure port
 			if sa.RequireCerts {
@@ -304,7 +297,7 @@ var (
 				PodName:             podName,
 				PodNamespace:        podNamespace,
 				PodIP:               podIP,
-				SDSUDSPath:          sdsUDSPath,
+				SDSUDSPath:          sa.SDSAddress,
 				STSPort:             stsPort,
 				ControlPlaneAuth:    proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 				DisableReportCalls:  disableInternalTelemetry,
