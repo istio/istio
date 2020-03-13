@@ -68,15 +68,7 @@ func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 		proxyConfig = *meshConfig.DefaultConfig
 	}
 
-	// TODO(https://github.com/istio/istio/issues/21222) remove all of these flag overrides
-	proxyConfig.CustomConfigFile = customConfigFile
-	proxyConfig.ProxyBootstrapTemplatePath = templateFile
-	proxyConfig.ConfigPath = configPath
-	proxyConfig.BinaryPath = binaryPath
-	proxyConfig.ServiceCluster = serviceCluster
-	proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
 	proxyConfig.Concurrency = int32(concurrency)
-
 	// resolve statsd address
 	if proxyConfig.StatsdUdpAddress != "" {
 		addr, err := proxy.ResolveAddr(proxyConfig.StatsdUdpAddress)
