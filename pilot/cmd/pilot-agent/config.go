@@ -34,6 +34,9 @@ import (
 
 // getTLSCerts returns all file based certificates from mesh config
 // TODO(https://github.com/istio/istio/issues/21834) serve over SDS instead of files
+// This is used for static configuration in the bootstrap that needs certificates, currently this is
+// Envoy Metrics Service and ALS. In the future this could expand to others like tracing, which currently
+// are using other mechanisms to configure certs.
 func getTLSCerts(pc meshconfig.ProxyConfig) []string {
 	certs := []string{}
 	appendTLSCerts := func(rs *meshconfig.RemoteService) {

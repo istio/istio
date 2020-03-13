@@ -214,7 +214,7 @@ var (
 			} else {
 				log.Info("Using existing certs")
 			}
-			// Istiod and new SDS-only mode doesn't use sdsUdsPathVar - sdsEnabled will be false.
+
 			sa := istio_agent.NewSDSAgent(proxyConfig.DiscoveryAddress, proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 				pilotCertProvider, jwtPath, outputKeyCertToDir)
 
@@ -226,9 +226,7 @@ var (
 				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
 			}
 
-			// For normal Istio - start in process SDS.
-
-			// citadel node-agent not found, but we have a K8S JWT available. Start an in-process SDS.
+			// Start in process SDS.
 			_, err = sa.Start(role.Type == model.SidecarProxy, podNamespaceVar.Get())
 			if err != nil {
 				log.Fatala("Failed to start in-process SDS", err)
@@ -246,11 +244,13 @@ var (
 				}
 			}
 
-			// If the token and path are present - use SDS.
+			// If we are using a custom template file (for control plane proxy, for example), configure this.
 			if templateFile != "" && proxyConfig.CustomConfigFile == "" {
 				proxyConfig.ProxyBootstrapTemplatePath = templateFile
 			}
+
 			ctx, cancel := context.WithCancel(context.Background())
+
 			// If a status port was provided, start handling status probes.
 			if proxyConfig.StatusPort > 0 {
 				localHostAddr := localHostIPv4
