@@ -40,6 +40,7 @@ var (
 	SidecarBootstrapOverride     = workloadAnnotation(annotation.SidecarBootstrapOverride.Name, "")
 	SidecarVolumeMount           = workloadAnnotation(annotation.SidecarUserVolumeMount.Name, "")
 	SidecarVolume                = workloadAnnotation(annotation.SidecarUserVolume.Name, "")
+	BindPodIPPorts               = workloadAnnotation(annotation.SidecarTrafficBindPodIPPorts.Name, "6666,7777")
 )
 
 type AnnotationValue struct {
