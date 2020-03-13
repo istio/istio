@@ -180,7 +180,7 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 	ac.PilotCertProvider = pilotCertProvider
 	ac.OutputKeyCertToDir = outputKeyCertToDir
 
-	discHost, discPort, err := net.SplitHostPort(discAddr)
+	_, discPort, err := net.SplitHostPort(discAddr)
 	if err != nil {
 		log.Fatalf("Invalid discovery address %v %v", discAddr, err)
 	}
@@ -208,6 +208,7 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 			// Can't use in-process SDS.
 			log.Warna("Missing JWT token, can't use in process SDS ", jwtPath, err)
 
+			// TODO do not special case port 15012
 			if discPort == "15012" {
 				log.Fatala("Missing JWT, can't authenticate with control plane. Try using plain text (15010)")
 			}
@@ -222,6 +223,7 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 	}
 
 	// Istiod uses a fixed, defined port for K8S-signed certificates.
+	// TODO do not special case port 15012
 	if discPort == "15012" {
 		ac.RequireCerts = true
 	}
