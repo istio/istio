@@ -249,6 +249,8 @@ message EgressGatewayConfig {
 
   GatewayLabelsConfig labels = 9;
 
+  string name = 25;
+
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
@@ -319,6 +321,8 @@ message EgressGatewayConfig {
   TypeSliceOfMapStringInterface configVolumes = 23;
 
   TypeSliceOfMapStringInterface additionalContainers = 24;
+
+  // Next available 26.
 }
 
 
@@ -711,6 +715,8 @@ message IngressGatewayConfig {
 
   repeated PortsConfig meshExpansionPorts = 18;
 
+  string name = 44;
+
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
@@ -783,6 +789,8 @@ message IngressGatewayConfig {
   TypeSliceOfMapStringInterface hosts = 42;
 
   string telemetry_domain_name = 43;
+
+  // Next available 45.
 }
 
 // Secret Discovery Service (SDS) Configuration for ingress gateway.
