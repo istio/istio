@@ -353,8 +353,8 @@ gen-charts:
 	@operator/scripts/run_update_charts.sh
 
 refresh-goldens:
-	@REFRESH_GOLDEN=true go test ./operator/...
-	@REFRESH_GOLDEN=true go test ./pkg/kube/inject/...
+	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./operator/...
+	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./pkg/kube/inject/...
 
 update-golden: refresh-goldens
 
@@ -391,7 +391,7 @@ ${ISTIO_OUT}/release/_istioctl: istioctl
 
 .PHONY: binaries-test
 binaries-test:
-	go test ./tests/binary/... -v --base-dir ${ISTIO_OUT} --binaries="$(RELEASE_BINARIES)"
+	go test ${GOBUILDFLAGS} ./tests/binary/... -v --base-dir ${ISTIO_OUT} --binaries="$(RELEASE_BINARIES)"
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
@@ -441,7 +441,7 @@ istioctl-test: istioctl-racetest
 
 .PHONY: operator-test
 operator-test:
-	go test ${T} ./operator/...
+	go test ${GOBUILDFLAGS} ${T} ./operator/...
 
 .PHONY: mixer-test
 mixer-test: mixer-racetest
@@ -449,7 +449,7 @@ mixer-test: mixer-racetest
 # Galley test is not using -race yet. See https://github.com/istio/istio/issues/20110
 .PHONY: galley-test
 galley-test:
-	go test ${T} ./galley/...
+	go test ${GOBUILDFLAGS} ${T} ./galley/...
 
 .PHONY: security-test
 security-test: security-racetest
@@ -459,7 +459,7 @@ common-test: common-racetest
 
 .PHONY: selected-pkg-test
 selected-pkg-test:
-	find ${WHAT} -name "*_test.go" | xargs -I {} dirname {} | uniq | xargs -I {} go test ${T} -race ./{}
+	find ${WHAT} -name "*_test.go" | xargs -I {} dirname {} | uniq | xargs -I {} go test ${GOBUILDFLAGS} ${T} -race ./{}
 
 #-----------------------------------------------------------------------------
 # Target: coverage
@@ -511,33 +511,33 @@ racetest: $(JUNIT_REPORT)
 
 .PHONY: pilot-racetest
 pilot-racetest:
-	go test ${T} -race ./pilot/...
+	go test ${GOBUILDFLAGS} ${T} -race ./pilot/...
 
 .PHONY: istioctl-racetest
 istioctl-racetest:
-	go test ${T} -race ./istioctl/...
+	go test ${GOBUILDFLAGS} ${T} -race ./istioctl/...
 
 .PHONY: operator-racetest
 operator-racetest:
-	RACE_TEST=true go test ${T} -race ./operator/...
+	RACE_TEST=true go test ${GOBUILDFLAGS} ${T} -race ./operator/...
 
 .PHONY: mixer-racetest
 mixer-racetest:
-	go test ${T} -race ./mixer/...
+	go test ${GOBUILDFLAGS} ${T} -race ./mixer/...
 
 .PHONY: galley-racetest
 galley-racetest:
-	go test ${T} -race ./galley/...
+	go test ${GOBUILDFLAGS} ${T} -race ./galley/...
 
 .PHONY: security-racetest
 security-racetest:
-	go test ${T} -race ./security/pkg/... ./security/cmd/...
+	go test ${GOBUILDFLAGS} ${T} -race ./security/pkg/... ./security/cmd/...
 
 .PHONY: common-racetest
 common-racetest: ${BUILD_DEPS}
 	# Execute bash shell unit tests scripts
 	LOCAL_OUT=$(LOCAL_OUT) ./tests/scripts/istio-iptables-test.sh
-	go test ${T} -race ./pkg/... ./tests/common/... ./tools/istio-iptables/...
+	go test ${GOBUILDFLAGS} ${T} -race ./pkg/... ./tests/common/... ./tools/istio-iptables/...
 
 #-----------------------------------------------------------------------------
 # Target: clean
