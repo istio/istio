@@ -52,7 +52,7 @@ import (
 // It is mounted in the same location, and if found will be used - creating the secret is sufficient, no need for
 // extra options.
 //
-// In old installer, the localCertDir is hardcoded to /etc/cacerts and mounted from "cacerts" secret.
+// In old installer, the LocalCertDir is hardcoded to /etc/cacerts and mounted from "cacerts" secret.
 //
 // Support for signing other root CA has been removed - too dangerous, no clear use case.
 //
@@ -70,7 +70,7 @@ import (
 var (
 	// This replaces the "cert-chain", "signing-cert" and "signing-key" flags in citadel - Istio installer is
 	// requires a secret named "cacerts" with specific files inside.
-	localCertDir = env.RegisterStringVar("ROOT_CA_DIR", "./etc/cacerts",
+	LocalCertDir = env.RegisterStringVar("ROOT_CA_DIR", "./etc/cacerts",
 		"Location of a local or mounted CA root")
 
 	workloadCertTTL = env.RegisterDurationVar("WORKLOAD_CERT_TTL",
@@ -137,9 +137,9 @@ func (s *Server) EnableCA() bool {
 	if s.kubeClient == nil {
 		// No k8s - no self-signed certs.
 		// TODO: implement it using a local directory, for non-k8s env.
-		signingKeyFile := path.Join(localCertDir.Get(), "ca-key.pem")
+		signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
 		if _, err := os.Stat(signingKeyFile); err != nil {
-			log.Warn("kubeclient is nil; disable the K8S CA functionality")
+			log.Warnf("kubeclient is nil and %v not found; disable the K8S CA functionality", signingKeyFile)
 			return false
 		}
 		log.Info("Using local CA, no K8S Secrets")
@@ -367,7 +367,7 @@ func (s *Server) initPublicKey() error {
 	if features.PilotCertProvider.Get() == KubernetesCAProvider {
 		s.caBundlePath = defaultCACertPath
 	} else if features.PilotCertProvider.Get() == IstiodCAProvider {
-		signingKeyFile := path.Join(localCertDir.Get(), "ca-key.pem")
+		signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
 		if _, err := os.Stat(signingKeyFile); err != nil {
 			// When Citadel is configured to use self-signed certs, keep a local copy so other
 			// components can load it via file (e.g. webhook config controller).
@@ -406,7 +406,7 @@ func (s *Server) initPublicKey() error {
 			})
 
 		} else {
-			s.caBundlePath = path.Join(localCertDir.Get(), "cert-chain.pem")
+			s.caBundlePath = path.Join(LocalCertDir.Get(), "cert-chain.pem")
 		}
 	} else {
 		s.caBundlePath = path.Join(features.PilotCertProvider.Get(), "cert-chain.pem")
@@ -423,10 +423,10 @@ func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) (*ca.I
 		maxCertTTL = SelfSignedCACertTTL.Get()
 	}
 
-	signingKeyFile := path.Join(localCertDir.Get(), "ca-key.pem")
+	signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
 
 	// If not found, will default to ca-cert.pem. May contain multiple roots.
-	rootCertFile := path.Join(localCertDir.Get(), "root-cert.pem")
+	rootCertFile := path.Join(LocalCertDir.Get(), "root-cert.pem")
 	if _, err := os.Stat(rootCertFile); err != nil {
 		// In Citadel, normal self-signed doesn't use a root-cert.pem file for additional roots.
 		// In Istiod, it is possible to provide one via "cacerts" secret in both cases, for consistency.
@@ -469,9 +469,9 @@ func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) (*ca.I
 
 		// The cert corresponding to the key, self-signed or chain.
 		// rootCertFile will be added at the end, if present, to form 'rootCerts'.
-		signingCertFile := path.Join(localCertDir.Get(), "ca-cert.pem")
+		signingCertFile := path.Join(LocalCertDir.Get(), "ca-cert.pem")
 		//
-		certChainFile := path.Join(localCertDir.Get(), "cert-chain.pem")
+		certChainFile := path.Join(LocalCertDir.Get(), "cert-chain.pem")
 		s.caBundlePath = certChainFile
 
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile,

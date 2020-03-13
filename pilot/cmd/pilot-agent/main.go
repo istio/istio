@@ -193,9 +193,10 @@ var (
 			var pilotSAN, mixerSAN []string
 			if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 				setSpiffeTrustDomain(podNamespace, role.DNSDomain)
-				// Obtain the Pilot and Mixer SANs. Used below to create a Envoy proxy.
-				pilotSAN = getSAN(getControlPlaneNamespace(podNamespace, proxyConfig.DiscoveryAddress), envoyDiscovery.PilotSvcAccName, pilotIdentity)
+				// Obtain the Mixer SAN, which uses SPIFFEE certs. Used below to create a Envoy proxy.
 				mixerSAN = getSAN(getControlPlaneNamespace(podNamespace, proxyConfig.DiscoveryAddress), envoyDiscovery.MixerSvcAccName, mixerIdentity)
+				// Obtain Pilot SAN, using DNS.
+				pilotSAN = []string{getPilotSan(proxyConfig.DiscoveryAddress)}
 			}
 			log.Infof("PilotSAN %#v", pilotSAN)
 			log.Infof("MixerSAN %#v", mixerSAN)
@@ -217,29 +218,20 @@ var (
 			sa := istio_agent.NewSDSAgent(proxyConfig.DiscoveryAddress, proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 				pilotCertProvider, jwtPath, outputKeyCertToDir)
 
-			if sa.JWTPath != "" {
-				// If user injected a JWT token for SDS - use SDS.
-				sdsUDSPath = sa.SDSAddress
+			// If user injected a JWT token for SDS - use SDS.
+			sdsUDSPath = sa.SDSAddress
 
-				// Connection to Istiod secure port
-				if sa.RequireCerts {
-					proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
-				}
+			// Connection to Istiod secure port
+			if sa.RequireCerts {
+				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
+			}
 
-				// For normal Istio - start in process SDS.
+			// For normal Istio - start in process SDS.
 
-				// citadel node-agent not found, but we have a K8S JWT available. Start an in-process SDS.
-				_, err := sa.Start(role.Type == model.SidecarProxy, podNamespaceVar.Get())
-				if err != nil {
-					log.Fatala("Failed to start in-process SDS", err)
-				}
-
-				if sa.RequireCerts {
-					proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
-				}
-				if sa.SAN != "" {
-					pilotSAN = append(pilotSAN, sa.SAN)
-				}
+			// citadel node-agent not found, but we have a K8S JWT available. Start an in-process SDS.
+			_, err = sa.Start(role.Type == model.SidecarProxy, podNamespaceVar.Get())
+			if err != nil {
+				log.Fatala("Failed to start in-process SDS", err)
 			}
 
 			// dedupe cert paths so we don't set up 2 watchers for the same file

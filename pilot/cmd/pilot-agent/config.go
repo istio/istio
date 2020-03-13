@@ -119,6 +119,10 @@ func applyAnnotations(config meshconfig.ProxyConfig, annos map[string]string) me
 	return config
 }
 
+func getPilotSan(discoveryAddress string) string {
+	return strings.Split(discoveryAddress, ":")[0]
+}
+
 func getControlPlaneNamespace(podNamespace string, discoveryAddress string) string {
 	ns := ""
 	if registryID == serviceregistry.Kubernetes {
