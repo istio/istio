@@ -12175,6 +12175,7 @@ rules:
     - "certificatesigningrequests"
     - "certificatesigningrequests/approval"
     - "certificatesigningrequests/status"
+  resourceNames: ["kubernetes.io/legacy-unknown"]
   verbs: ["update", "create", "get", "delete", "watch"]
 - apiGroups: ["discovery.k8s.io"]
   resources: ["endpointslices"]
@@ -12247,6 +12248,15 @@ rules:
       - "certificatesigningrequests/approval"
       - "certificatesigningrequests/status"
     verbs: ["update", "create", "get", "delete", "watch"]
+  - apiGroups: ["certificates.k8s.io"]
+    resources:
+      - "signers"
+    resourceNames:
+    # Support legacy versions, before signerName was added
+    - "kubernetes.io/legacy-unknown"
+    - "istio.io/*"
+    verbs: ["approve"]
+
   # Used by Istiod to verify the JWT tokens
   - apiGroups: ["authentication.k8s.io"]
     resources: ["tokenreviews"]
@@ -12474,6 +12484,7 @@ rules:
     - "certificatesigningrequests"
     - "certificatesigningrequests/approval"
     - "certificatesigningrequests/status"
+  resourceNames: ["kubernetes.io/legacy-unknown"]
   verbs: ["update", "create", "get", "delete", "watch"]
 - apiGroups: ["discovery.k8s.io"]
   resources: ["endpointslices"]
@@ -12546,6 +12557,15 @@ rules:
       - "certificatesigningrequests/approval"
       - "certificatesigningrequests/status"
     verbs: ["update", "create", "get", "delete", "watch"]
+  - apiGroups: ["certificates.k8s.io"]
+    resources:
+      - "signers"
+    resourceNames:
+    # Support legacy versions, before signerName was added
+    - "kubernetes.io/legacy-unknown"
+    - "istio.io/*"
+    verbs: ["approve"]
+
   # Used by Istiod to verify the JWT tokens
   - apiGroups: ["authentication.k8s.io"]
     resources: ["tokenreviews"]
