@@ -812,31 +812,10 @@ spec:
 ---
 
 
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: ingressgateway
-  namespace: istio-ingress-ns
-  labels:
-    release: istio
-spec:
-  selector:
-    istio: ingressgateway
-  servers:
-  - port:
-      number: 80
-      name: http
-      protocol: HTTP
-    hosts:
-      - "*"
-    # Additional ports in gateaway for the ingressPorts - apps using dedicated port instead of hostname
----
-
-
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: ingressgateway
+  name: istio-ingress-1
   namespace: istio-ingress-ns
   labels:
     app: istio-ingressgateway
@@ -948,20 +927,6 @@ metadata:
     istio: ingressgateway
     
     release: istio
----
-
-
-apiVersion: networking.istio.io/v1alpha3
-kind: Sidecar
-metadata:
-  name: default
-  namespace: istio-ingress-ns
-  labels:
-    release: istio
-spec:
-  egress:
-    - hosts:
-        - "*/*"
 ---
 
 # Pilot istiod component is disabled.

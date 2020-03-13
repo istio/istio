@@ -14698,6 +14698,7 @@ func chartsGatewaysIstioIngressTemplatesDeploymentYaml() (*asset, error) {
 }
 
 var _chartsGatewaysIstioIngressTemplatesGatewayYaml = []byte(`{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
+  {{- if eq $gateway.name "istio-ingressgateway" }}
 # Main Gateway. Apps must bind to NAMESPACE/ingressgateway
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
@@ -14736,6 +14737,7 @@ spec:
       protocol: HTTP2
     hosts:
     - "*"
+  {{- end }}
 {{- end }}
 `)
 
@@ -14902,7 +14904,7 @@ var _chartsGatewaysIstioIngressTemplatesPoddisruptionbudgetYaml = []byte(`{{- if
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: ingressgateway
+  name: {{ $gateway.name | default "istio-ingressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -15219,7 +15221,9 @@ func chartsGatewaysIstioIngressTemplatesServiceaccountYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsGatewaysIstioIngressTemplatesSidecarYaml = []byte(`apiVersion: networking.istio.io/v1alpha3
+var _chartsGatewaysIstioIngressTemplatesSidecarYaml = []byte(`{{- $gateway := index .Values "gateways" "istio-ingressgateway" }}
+{{- if eq $gateway.name "istio-ingressgateway" }}
+apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar
 metadata:
   name: default
@@ -15230,7 +15234,7 @@ spec:
   egress:
     - hosts:
         - "*/*"
-`)
+{{- end }}`)
 
 func chartsGatewaysIstioIngressTemplatesSidecarYamlBytes() ([]byte, error) {
 	return _chartsGatewaysIstioIngressTemplatesSidecarYaml, nil

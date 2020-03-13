@@ -1,3 +1,5 @@
+{{- $gateway := index .Values "gateways" "istio-ingressgateway" }}
+{{- if eq $gateway.name "istio-ingressgateway" }}
 apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar
 metadata:
@@ -9,3 +11,4 @@ spec:
   egress:
     - hosts:
         - "*/*"
+{{- end }}

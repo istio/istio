@@ -1,4 +1,5 @@
 {{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
+  {{- if eq $gateway.name "istio-ingressgateway" }}
 # Main Gateway. Apps must bind to NAMESPACE/ingressgateway
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
@@ -37,4 +38,5 @@ spec:
       protocol: HTTP2
     hosts:
     - "*"
+  {{- end }}
 {{- end }}
