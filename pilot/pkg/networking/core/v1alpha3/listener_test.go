@@ -1538,13 +1538,12 @@ func verifyInboundEnvoyListenerNumber(t *testing.T, l *xdsapi.Listener) {
 		f := fc.Filters[0]
 		cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 		hf := cfg.Fields["http_filters"].GetListValue()
-		if len(hf.Values) != 4 {
-			t.Fatalf("expected %d http filters, found %d", 4, len(hf.Values))
+		if len(hf.Values) != 3 {
+			t.Fatalf("expected %d http filters, found %d", 3, len(hf.Values))
 		}
-		envoyLua := hf.Values[0].GetStructValue().Fields["name"].GetStringValue()
-		envoyCors := hf.Values[1].GetStructValue().Fields["name"].GetStringValue()
-		if envoyLua != "envoy.lua" || envoyCors != "envoy.cors" {
-			t.Fatalf("expected %q %q http filter, found %q %q", "envoy.lua", "envoy.cors", envoyLua, envoyCors)
+		envoyCors := hf.Values[0].GetStructValue().Fields["name"].GetStringValue()
+		if envoyCors != "envoy.cors" {
+			t.Fatalf("expected %q http filter, found %q", "envoy.cors", envoyCors)
 		}
 	}
 }
