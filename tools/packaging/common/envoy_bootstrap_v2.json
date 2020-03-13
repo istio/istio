@@ -316,7 +316,6 @@
               "alpn_protocols": [
                 "h2"
               ],
-              {{- if .sds_uds_path }}
               "tls_certificate_sds_secret_configs": [
                 {
                   "name": "default",
@@ -342,18 +341,6 @@
                 },
                 "verify_subject_alt_name": {{ toJSON .pilot_SAN }}
               }
-              {{- else }}
-              "tls_certificates": [
-                {
-                  "certificate_chain": { "filename": "/etc/certs/cert-chain.pem" },
-                  "private_key": { "filename": "/etc/certs/key.pem" }
-                }
-              ],
-              "validation_context": {
-                "trusted_ca": { "filename": "/etc/certs/root-cert.pem" },
-                "verify_subject_alt_name": {{ toJSON .pilot_SAN }}
-              },
-              {{- end }}
             }
           }
         },
