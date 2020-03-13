@@ -150,10 +150,10 @@ type Proxy struct {
 	// Istio version associated with the Proxy
 	IstioVersion *IstioVersion
 
-	// Indicates wheteher proxy supports IPv6
+	// Indicates wheteher proxy supports IPv6 addresses
 	ipv6Support bool
 
-	// Indicates wheteher proxy supports IPv6.
+	// Indicates wheteher proxy supports IPv4 addresses
 	ipv4Support bool
 }
 
