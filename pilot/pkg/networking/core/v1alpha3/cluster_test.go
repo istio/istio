@@ -268,14 +268,6 @@ func buildTestClustersWithAuthnPolicy(serviceHostname string, serviceResolution 
 		model.MaxIstioVersion)
 }
 
-func buildTestClustersWithIstioVersion(serviceHostname string, serviceResolution model.Resolution,
-	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message, authnPolicy *authn.Policy, peerAuthn *authn_beta.PeerAuthentication,
-	istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
-	return buildTestClustersWithProxyMetadata(serviceHostname, serviceResolution, false /* externalService */, nodeType, locality, mesh, destRule,
-		authnPolicy, peerAuthn, &model.NodeMetadata{}, istioVersion)
-}
-
 func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolution model.Resolution, externalService bool,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message, authnPolicy *authn.Policy, peerAuthn *authn_beta.PeerAuthentication,
