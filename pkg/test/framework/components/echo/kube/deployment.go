@@ -21,7 +21,7 @@ import (
 	"github.com/Masterminds/sprig"
 
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/core/image"
+	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 

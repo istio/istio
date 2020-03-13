@@ -18,11 +18,11 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 var (
@@ -37,6 +37,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("pilot_test", m).
+		RequireSingleCluster().
 		SetupOnEnv(environment.Kube, istio.Setup(&i, nil)).
 		SetupOnEnv(environment.Kube, istio.Setup(&i, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
