@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	pb "istio.io/istio/security/proto"
 	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 )
 
 // Config for Vault prototyping purpose
@@ -263,7 +262,6 @@ func NewWithGRPC(grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, 
 		}
 	}
 
-	version.Info.RecordComponentBuildTag("citadel")
 	rootCertExpiryTimestamp.Record(extractRootCertExpiryTimestamp(ca))
 
 	server := &Server{
