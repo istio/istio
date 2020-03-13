@@ -214,7 +214,7 @@ func (w *workload) waitForReady() (err error) {
 	}
 
 	// Now create the GRPC client.
-	if w.Instance, err = client.New(fmt.Sprintf("%s:%d", localhost, w.portMap.grpc().hostPort)); err != nil {
+	if w.Instance, err = client.New(fmt.Sprintf("%s:%d", localhost, w.portMap.grpc().hostPort), nil); err != nil {
 		return fmt.Errorf("failed creating GRPC client for Echo container %s: %v", w.container.Name, err)
 	}
 	return nil

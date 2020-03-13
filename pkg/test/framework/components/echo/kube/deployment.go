@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"text/template"
 
+	"github.com/Masterminds/sprig"
+
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/core/image"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -115,6 +117,10 @@ spec:
 {{- end }}
           - --version
           - "{{ $subset.Version }}"
+{{- if $.TLSSettings }}
+          - --crt=/etc/certs/custom/cert-chain.pem
+          - --key=/etc/certs/custom/key.pem
+{{- end }}
         ports:
 {{- range $i, $p := $.ContainerPorts }}
         - containerPort: {{ $p.Port }} 
@@ -135,6 +141,29 @@ spec:
           initialDelaySeconds: 10
           periodSeconds: 10
           failureThreshold: 10
+{{- if $.TLSSettings }}
+        volumeMounts:
+        - mountPath: /etc/certs/custom
+          name: custom-certs
+      volumes:
+      - configMap:
+          name: {{ $.Service }}-certs
+        name: custom-certs
+{{- end}}
+---
+{{- end}}
+{{- if .TLSSettings }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $.Service }}-certs
+data:
+  root-cert.pem: |
+{{ .TLSSettings.RootCert | indent 4 }}
+  cert-chain.pem: |
+{{ .TLSSettings.ClientCert | indent 4 }}
+  key.pem: |
+{{.TLSSettings.Key | indent 4}}
 ---
 {{- end}}
 apiVersion: v1
@@ -164,7 +193,7 @@ var (
 
 func init() {
 	deploymentTemplate = template.New("echo_deployment")
-	if _, err := deploymentTemplate.Parse(deploymentYAML); err != nil {
+	if _, err := deploymentTemplate.Funcs(sprig.TxtFuncMap()).Parse(deploymentYAML); err != nil {
 		panic(fmt.Sprintf("unable to parse echo deployment template: %v", err))
 	}
 }
@@ -209,6 +238,7 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (string
 		"ServiceAnnotations":  cfg.ServiceAnnotations,
 		"IncludeInboundPorts": cfg.IncludeInboundPorts,
 		"Subsets":             cfg.Subsets,
+		"TLSSettings":         cfg.TLSSettings,
 	}
 
 	// Generate the YAML content.
