@@ -1005,7 +1005,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSetting
 
 	// For headless service, discover type will be `Cluster_ORIGINAL_DST`, and corresponding LbPolicy is `Cluster_CLUSTER_PROVIDED`
 	// Apply auto mtls to clusters excluding these kind of headless service
-	if cluster.LbPolicy != apiv2.Cluster_CLUSTER_PROVIDED {
+	if cluster.GetType() != apiv2.Cluster_ORIGINAL_DST {
 		// convert to transport socket matcher if the mode was auto detected
 		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected && util.IsIstioVersionGE14(proxy) {
 			transportSocket := cluster.TransportSocket
