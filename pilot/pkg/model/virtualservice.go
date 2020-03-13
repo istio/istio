@@ -1,4 +1,4 @@
-// Copyright 2010 Istio Authors
+// Copyright 2020 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ import (
 	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
+
+	"istio.io/istio/pilot/pkg/util/sets"
 )
 
 func mergeVirtualServices(vServices []Config) (out []Config) {
@@ -44,7 +46,6 @@ func mergeVirtualServices(vServices []Config) (out []Config) {
 		out = append(out, vs)
 	}
 
-	log.Debugf("root %d, delegate %d", len(rootVses), len(delegatesMap))
 	// 2. merge delegates and root
 	for _, root := range rootVses {
 		rootVs := root.Spec.(*networking.VirtualService)
@@ -69,7 +70,6 @@ func mergeVirtualServices(vServices []Config) (out []Config) {
 			}
 		}
 		if !notFound {
-			log.Infof("found delegate virtual service")
 			rootVs.Http = mergedRoutes
 			out = append(out, root)
 		}
@@ -215,7 +215,9 @@ func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *network
 	for k, v := range delegate.SourceLabels {
 		out.SourceLabels[k] = v
 	}
-
+	if len(out.Gateways) == 0 {
+		out.Gateways = root.Gateways
+	}
 	if out.SourceNamespace == "" {
 		out.SourceNamespace = root.SourceNamespace
 	}
@@ -258,6 +260,15 @@ func hasConflict(root, leaf *networking.HTTPMatchRequest) bool {
 	for key, leafValue := range leaf.SourceLabels {
 		if rootValue, ok := root.SourceLabels[key]; ok && rootValue != leafValue {
 			return true
+		}
+	}
+
+	if len(leaf.Gateways) > 0 {
+		leafGws := sets.NewSet(leaf.Gateways...)
+		for _, gw := range root.Gateways {
+			if leafGws.Contains(gw) {
+				return true
+			}
 		}
 	}
 

@@ -1127,6 +1127,38 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 			},
 			expected: nil,
 		},
+		{
+			name: "gateways",
+			root: []*networking.HTTPMatchRequest{
+				{
+					Gateways: nil,
+				},
+			},
+			delegate: []*networking.HTTPMatchRequest{
+				{
+					Gateways: []string{"mesh", "ingress-gateway"},
+				},
+			},
+			expected: []*networking.HTTPMatchRequest{
+				{
+					Gateways: []string{"mesh", "ingress-gateway"},
+				},
+			},
+		},
+		{
+			name: "gateways conflict",
+			root: []*networking.HTTPMatchRequest{
+				{
+					Gateways: []string{"mesh"},
+				},
+			},
+			delegate: []*networking.HTTPMatchRequest{
+				{
+					Gateways: []string{"mesh", "ingress-gateway"},
+				},
+			},
+			expected: nil,
+		},
 	}
 
 	for _, tc := range cases {
@@ -1415,6 +1447,26 @@ func TestHasConflict(t *testing.T) {
 			},
 			leaf: &networking.HTTPMatchRequest{
 				Port: 8090,
+			},
+			expected: true,
+		},
+		{
+			name: "gateway",
+			root: &networking.HTTPMatchRequest{
+				Gateways: nil,
+			},
+			leaf: &networking.HTTPMatchRequest{
+				Gateways: []string{"mesh"},
+			},
+			expected: false,
+		},
+		{
+			name: "gateway",
+			root: &networking.HTTPMatchRequest{
+				Gateways: []string{"mesh", "ingress-gateway"},
+			},
+			leaf: &networking.HTTPMatchRequest{
+				Gateways: []string{"mesh"},
 			},
 			expected: true,
 		},
