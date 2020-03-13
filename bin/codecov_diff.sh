@@ -62,7 +62,7 @@ if [[ -n "${CIRCLE_PR_NUMBER:-}" ]]; then
   git checkout "${CIRCLE_SHA1}"
 
   # Test that coverage is not dropped
-  go test -v istio.io/istio/tests/codecov/... \
+  go test "${GOBUILDFLAGS}" -v istio.io/istio/tests/codecov/... \
     --report_file="${REPORT_PATH}/coverage.html" \
     --baseline_file="${BASELINE_PATH}/coverage.html" \
     --threshold_files="${THRESHOLD_FILE},${CODECOV_SKIP}" \
