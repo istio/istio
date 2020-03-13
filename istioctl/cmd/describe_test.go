@@ -667,6 +667,8 @@ RBAC policies: ratings-reader
 Service: productpage
    Port:  9080/UnsupportedProtocol targets pod port 9080
    9080 is unnamed which does not follow Istio conventions
+DestinationRule: productpage for "productpage"
+   No Traffic Policy
 Authn: None
 
 
