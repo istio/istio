@@ -427,7 +427,7 @@ ${ISTIO_OUT}/_istioctl: istioctl
 
 .PHONY: binaries-test
 binaries-test:
-	go test ./tests/binary/... -v --base-dir ${ISTIO_OUT} --binaries="$(RELEASE_BINARIES)"
+	go test ${GOBUILDFLAGS} ./tests/binary/... -v --base-dir ${ISTIO_OUT} --binaries="$(RELEASE_BINARIES)"
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
@@ -495,38 +495,38 @@ localTestEnvCleanup: build
 		
 .PHONY: pilot-test
 pilot-test:
-	go test ${T} ./pilot/...
+	go test ${GOBUILDFLAGS} ${T} ./pilot/...
 
 .PHONY: istioctl-test
 istioctl-test:
-	go test ${T} ./istioctl/...
+	go test ${GOBUILDFLAGS} ${T} ./istioctl/...
 
 .PHONY: mixer-test
 MIXER_TEST_T ?= ${T} ${GOTEST_PARALLEL}
 mixer-test:
 	# Some tests use relative path "testdata", must be run from mixer dir
-	(cd mixer; go test ${MIXER_TEST_T} ./...)
+	(cd mixer; go test ${GOBUILDFLAGS} ${MIXER_TEST_T} ./...)
 
 .PHONY: galley-test
 galley-test:
-	go test ${T} ./galley/...
+	go test ${GOBUILDFLAGS} ${T} ./galley/...
 
 .PHONY: security-test
 security-test:
-	go test ${T} ./security/pkg/...
-	go test ${T} ./security/cmd/...
+	go test ${GOBUILDFLAGS} ${T} ./security/pkg/...
+	go test ${GOBUILDFLAGS} ${T} ./security/cmd/...
 
 .PHONY: common-test
 common-test: build
-	go test ${T} ./pkg/...
-	go test ${T} ./tests/common/...
+	go test ${GOBUILDFLAGS} ${T} ./pkg/...
+	go test ${GOBUILDFLAGS} ${T} ./tests/common/...
 	# Execute bash shell unit tests scripts
 	./tests/scripts/scripts_test.sh
 	./tests/scripts/istio-iptables-test.sh
 
 .PHONY: selected-pkg-test
 selected-pkg-test:
-	find ${WHAT} -name "*_test.go" | xargs -I {} dirname {} | uniq | xargs -I {} go test ${T} ./{}
+	find ${WHAT} -name "*_test.go" | xargs -I {} dirname {} | uniq | xargs -I {} go test ${GOBUILDFLAGS} ${T} ./{}
 
 #-----------------------------------------------------------------------------
 # Target: coverage
@@ -579,28 +579,28 @@ racetest: $(JUNIT_REPORT)
 
 .PHONY: pilot-racetest
 pilot-racetest:
-	RACE_TEST=true go test ${T} -race ./pilot/...
+	RACE_TEST=true go test ${GOBUILDFLAGS} ${T} -race ./pilot/...
 
 .PHONY: istioctl-racetest
 istioctl-racetest:
-	RACE_TEST=true go test ${T} -race ./istioctl/...
+	RACE_TEST=true go test ${GOBUILDFLAGS} ${T} -race ./istioctl/...
 
 .PHONY: mixer-racetest
 mixer-racetest:
 	# Some tests use relative path "testdata", must be run from mixer dir
-	(cd mixer; RACE_TEST=true go test ${T} -race ./...)
+	(cd mixer; RACE_TEST=true go test ${GOBUILDFLAGS} ${T} -race ./...)
 
 .PHONY: galley-racetest
 galley-racetest:
-	RACE_TEST=true go test ${T} -race ./galley/...
+	RACE_TEST=true go test ${GOBUILDFLAGS} ${T} -race ./galley/...
 
 .PHONY: security-racetest
 security-racetest:
-	RACE_TEST=true go test ${T} -race ./security/pkg/... ./security/cmd/...
+	RACE_TEST=true go test ${GOBUILDFLAGS} ${T} -race ./security/pkg/... ./security/cmd/...
 
 .PHONY: common-racetest
 common-racetest:
-	RACE_TEST=true go test ${T} -race ./pkg/...
+	RACE_TEST=true go test ${GOBUILDFLAGS} ${T} -race ./pkg/...
 
 #-----------------------------------------------------------------------------
 # Target: clean

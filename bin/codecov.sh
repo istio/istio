@@ -63,7 +63,7 @@ function code_coverage() {
   local filename
   local count=${2:-0}
   filename="$(echo "${1}" | tr '/' '-')"
-  go test \
+  go test "${GOBUILDFLAGS}" \
     -coverpkg=istio.io/istio/... \
     -coverprofile="${COVERAGEDIR}/${filename}.cov" \
     -covermode=atomic "${1}" \
