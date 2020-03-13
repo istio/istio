@@ -19,8 +19,8 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/docker"
 	"istio.io/istio/pkg/test/framework/components/echo/kube"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 // NewBuilder for Echo Instances.

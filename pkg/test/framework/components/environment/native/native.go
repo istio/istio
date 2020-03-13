@@ -23,9 +23,8 @@ import (
 
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test/docker"
-	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/environment/api"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/reserveport"
 )
 
@@ -44,7 +43,7 @@ var _ io.Closer = &Environment{}
 // hosts publicly accessible methods that are specific to local environment.
 type Environment struct {
 	id  resource.ID
-	ctx api.Context
+	ctx resource.Context
 
 	// SystemNamespace is the namespace used for all Istio system components.
 	SystemNamespace string
@@ -64,7 +63,7 @@ type Environment struct {
 var _ resource.Environment = &Environment{}
 
 // New returns a new native environment.
-func New(ctx api.Context) (resource.Environment, error) {
+func New(ctx resource.Context) (resource.Environment, error) {
 	portMgr, err := reserveport.NewPortManager()
 	if err != nil {
 		return nil, err

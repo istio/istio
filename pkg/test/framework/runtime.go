@@ -17,8 +17,6 @@ package framework
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/components/environment/api"
-	"istio.io/istio/pkg/test/framework/core"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 )
@@ -31,7 +29,7 @@ type runtime struct {
 }
 
 // newRuntime returns a new runtime instance.
-func newRuntime(s *core.Settings, fn api.FactoryFn, labels label.Set) (*runtime, error) {
+func newRuntime(s *resource.Settings, fn resource.EnvironmentFactory, labels label.Set) (*runtime, error) {
 	ctx, err := newSuiteContext(s, fn, labels)
 	if err != nil {
 		return nil, err

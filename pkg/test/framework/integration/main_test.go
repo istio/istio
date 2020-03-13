@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 func TestMain(m *testing.M) {

@@ -18,9 +18,9 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus/http"
 )
@@ -37,6 +37,7 @@ func TestWasmStatsFilter(t *testing.T) {
 func TestMain(m *testing.M) {
 	framework.NewSuite("stats_filter_wasm_test", m).
 		RequireEnvironment(environment.Kube).
+		RequireSingleCluster().
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(common.GetIstioInstance(), setupConfig)).
 		Setup(common.TestSetup).

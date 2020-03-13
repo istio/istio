@@ -15,9 +15,8 @@
 package kube
 
 import (
-	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/environment/api"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -27,7 +26,7 @@ import (
 type Environment struct {
 	id resource.ID
 
-	ctx          api.Context
+	ctx          resource.Context
 	KubeClusters []Cluster
 	s            *Settings
 }
@@ -35,7 +34,7 @@ type Environment struct {
 var _ resource.Environment = &Environment{}
 
 // New returns a new Kubernetes environment
-func New(ctx api.Context) (resource.Environment, error) {
+func New(ctx resource.Context) (resource.Environment, error) {
 	s, err := newSettingsFromCommandline()
 	if err != nil {
 		return nil, err
