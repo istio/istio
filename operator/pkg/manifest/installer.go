@@ -115,7 +115,6 @@ var (
 			name.PolicyComponentName,
 			name.TelemetryComponentName,
 			name.GalleyComponentName,
-			name.CitadelComponentName,
 			name.CNIComponentName,
 			name.IngressComponentName,
 			name.EgressComponentName,

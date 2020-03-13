@@ -33,7 +33,7 @@ func TestStateMetrics(t *testing.T) {
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			g := galley.NewOrFail(ctx, ctx, galley.Config{})
-			prom := prometheus.NewOrFail(ctx, ctx)
+			prom := prometheus.NewOrFail(ctx, ctx, prometheus.Config{})
 			bookinfoNs := namespace.NewOrFail(ctx, ctx, namespace.Config{
 				Prefix: "istio-bookinfo",
 				Inject: true,

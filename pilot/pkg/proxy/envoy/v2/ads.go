@@ -32,7 +32,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
@@ -83,7 +82,6 @@ type XdsConnection struct {
 	RouteNonceSent, RouteNonceAcked       string
 	RouteVersionInfoSent                  string
 	EndpointNonceSent, EndpointNonceAcked string
-	EndpointPercent                       int
 
 	// current list of clusters monitored by the client
 	Clusters []string
@@ -341,21 +339,11 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					adsLog.Debugf("ADS:EDS: ACK %s %s %s %s", peerAddr, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
 					if discReq.ResponseNonce != "" {
 						con.mu.Lock()
-						edsClusterMutex.RLock()
 						con.EndpointNonceAcked = discReq.ResponseNonce
-						if len(edsClusters) != 0 {
-							con.EndpointPercent = int((float64(len(clusters)) / float64(len(edsClusters))) * float64(100))
-						}
-						edsClusterMutex.RUnlock()
 						con.mu.Unlock()
 					}
 					continue
 				}
-
-				previous := sets.NewSet(con.Clusters...)
-				current := sets.NewSet(clusters...)
-
-				s.updateEdsClients(current.Difference(previous), previous.Difference(current), con)
 
 				con.Clusters = clusters
 				adsLog.Debugf("ADS:EDS: REQ %s %s clusters:%d", peerAddr, con.ConID, len(con.Clusters))
@@ -429,7 +417,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (f
 	s.addCon(con.ConID, con)
 	con.mu.Unlock()
 
-	return func() { s.removeCon(con.ConID, con) }, nil
+	return func() { s.removeCon(con.ConID) }, nil
 }
 
 // initProxy initializes the Proxy from node.
@@ -461,6 +449,9 @@ func (s *DiscoveryServer) initProxy(node *core.Node) (*model.Proxy, error) {
 	if util.IsLocalityEmpty(proxy.Locality) {
 		proxy.Locality = node.Locality
 	}
+
+	// Discover supported IP Versions of proxy so that appropriate config can be delivered.
+	proxy.DiscoverIPVersions()
 
 	return proxy, nil
 }
@@ -621,7 +612,7 @@ func AdsPushAll(s *DiscoveryServer) {
 // to the model ConfigStorageCache and Controller.
 func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 	if !req.Full {
-		s.edsIncremental(version, req.Push, req)
+		s.edsIncremental(version, req)
 		return
 	}
 
@@ -629,28 +620,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 		version, len(req.Push.Services(nil)), s.adsClientCount())
 	monServices.Record(float64(len(req.Push.Services(nil))))
 
-	t0 := time.Now()
-
-	// First update all cluster load assignments. This is computed for each cluster once per config change
-	// instead of once per endpoint.
-	edsClusterMutex.Lock()
-	// Create a temp map to avoid locking the add/remove
-	cMap := make(map[string]*EdsCluster, len(edsClusters))
-	for k, v := range edsClusters {
-		cMap[k] = v
-	}
-	edsClusterMutex.Unlock()
-
-	// UpdateCluster updates the cluster with a mutex, this code is safe ( but computing
-	// the update may be duplicated if multiple goroutines compute at the same time).
-	// In general this code is called from the 'event' callback that is throttled.
-	for clusterName, edsCluster := range cMap {
-		if err := s.updateCluster(req.Push, clusterName, edsCluster); err != nil {
-			adsLog.Errorf("updateCluster failed with clusterName %s", clusterName)
-			totalXDSInternalErrors.Increment()
-		}
-	}
-	adsLog.Infof("Cluster init time %v %s", time.Since(t0), version)
+	// full push
 	req.EdsUpdates = nil
 	s.startPush(req)
 }
@@ -687,13 +657,9 @@ func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 	xdsClients.Record(float64(len(s.adsClients)))
 }
 
-func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
+func (s *DiscoveryServer) removeCon(conID string) {
 	s.adsClientsMutex.Lock()
 	defer s.adsClientsMutex.Unlock()
-
-	for _, c := range con.Clusters {
-		s.removeEdsCon(c, conID)
-	}
 
 	if _, exist := s.adsClients[conID]; !exist {
 		adsLog.Errorf("ADS: Removing connection for non-existing node:%v.", conID)

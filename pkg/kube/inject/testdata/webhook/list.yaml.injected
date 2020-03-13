@@ -108,7 +108,7 @@ spec:
           failureThreshold: 30
           httpGet:
             path: /healthz/ready
-            port: 15020
+            port: 15090
           initialDelaySeconds: 1
           periodSeconds: 2
         resources:
@@ -138,7 +138,7 @@ spec:
         - mountPath: /etc/istio/pod
           name: podinfo
       initContainers:
-      - command:
+      - args:
         - istio-iptables
         - -p
         - "15001"
@@ -315,7 +315,7 @@ spec:
           failureThreshold: 30
           httpGet:
             path: /healthz/ready
-            port: 15020
+            port: 15090
           initialDelaySeconds: 1
           periodSeconds: 2
         resources:
@@ -345,7 +345,7 @@ spec:
         - mountPath: /etc/istio/pod
           name: podinfo
       initContainers:
-      - command:
+      - args:
         - istio-iptables
         - -p
         - "15001"

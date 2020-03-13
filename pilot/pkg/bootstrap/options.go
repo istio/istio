@@ -17,14 +17,14 @@ package bootstrap
 import (
 	"time"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/env"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
-	"istio.io/pkg/ctrlz"
 )
 
 // MeshArgs provide configuration options for the mesh. If ConfigFile is provided, an attempt will be made to

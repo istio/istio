@@ -32,6 +32,11 @@ ifneq ($(TAG),)
     _INTEGRATION_TEST_FLAGS += --istio.test.tag=$(TAG)
 endif
 
+_INTEGRATION_TEST_SELECT_FLAG = --istio.test.select=-postsubmit,-flaky,-multicluster
+ifneq ($(TEST_SELECT),)
+    _INTEGRATION_TEST_SELECT_FLAGS += --istio.test.select=$(TEST_SELECT)
+endif
+
 # $(INTEGRATION_TEST_KUBECONFIG) specifies the kube config file to be used. If not specified, then
 # ~/.kube/config is used.
 # TODO: This probably needs to be more intelligent and take environment variables into account.
@@ -60,24 +65,22 @@ test.integration.%.local: | $(JUNIT_REPORT)
 # Generate presubmit integration test targets for each component in kubernetes environment
 test.integration.%.kube.presubmit: istioctl | $(JUNIT_REPORT)
 	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
-	--istio.test.select -postsubmit,-flaky \
 	--istio.test.env kube \
-	${_INTEGRATION_TEST_FLAGS} \
+	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # Generate presubmit integration test targets for each component in local environment.
 test.integration.%.local.presubmit: | $(JUNIT_REPORT)
 	$(GO) test -p 1 ${T} -race ./tests/integration/$(subst .,/,$*)/... \
-	--istio.test.env native --istio.test.select -postsubmit,-flaky \
+	--istio.test.env native \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # Presubmit integration tests targeting Kubernetes environment.
 .PHONY: test.integration.kube.presubmit
 test.integration.kube.presubmit: istioctl | $(JUNIT_REPORT)
 	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ${TEST_PACKAGES} -timeout 30m \
-    --istio.test.select -postsubmit,-flaky \
  	--istio.test.env kube \
-	${_INTEGRATION_TEST_FLAGS} \
+	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # Defines a target to run a minimal reachability testing basic traffic

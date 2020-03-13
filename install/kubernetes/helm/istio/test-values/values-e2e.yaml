@@ -20,6 +20,7 @@ prometheus:
 
 gateways:
   istio-ingressgateway:
+    name: istio-ingressgateway
     autoscaleMax: 1
     resources:
       requests:
@@ -60,6 +61,7 @@ gateways:
       name: tls
 
   istio-egressgateway:
+    name: istio-egressgateway
     enabled: true
     autoscaleMax: 1
     resources:

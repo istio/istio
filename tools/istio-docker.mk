@@ -24,24 +24,13 @@ docker: docker.all
 # Add new docker targets to the end of the DOCKER_TARGETS list.
 
 DOCKER_TARGETS ?= docker.pilot docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
-	docker.mixer docker.mixer_codegen docker.citadel docker.galley \
+	docker.mixer docker.mixer_codegen docker.galley \
 	docker.istioctl docker.operator
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
 
 .SECONDEXPANSION: #allow $@ to be used in dependency list
-
-# generated content
-$(ISTIO_DOCKER)/istio_ca.crt $(ISTIO_DOCKER)/istio_ca.key: ${GEN_CERT} | ${ISTIO_DOCKER}
-	${GEN_CERT} --key-size=2048 --out-cert=${ISTIO_DOCKER}/istio_ca.crt \
-                    --out-priv=${ISTIO_DOCKER}/istio_ca.key --organization="k8s.cluster.local" \
-                    --mode=self-signed --ca=true
-$(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(ISTIO_DOCKER)/istio_ca.crt $(ISTIO_DOCKER)/istio_ca.key
-	${GEN_CERT} --key-size=2048 --out-cert=${ISTIO_DOCKER}/node_agent.crt \
-                    --out-priv=${ISTIO_DOCKER}/node_agent.key --organization="NodeAgent" \
-		    --mode=signer --host="nodeagent.google.com" --signer-cert=${ISTIO_DOCKER}/istio_ca.crt \
-                    --signer-priv=${ISTIO_DOCKER}/istio_ca.key
 
 # directives to copy files to docker scratch directory
 
@@ -51,7 +40,7 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 # 	cp $(ISTIO_OUT_LINUX)/$FILE $(ISTIO_DOCKER)/($FILE)
 DOCKER_FILES_FROM_ISTIO_OUT_LINUX:=client server \
                              pilot-discovery pilot-agent mixs mixgen \
-                             istio_ca node_agent node_agent_k8s galley istio-iptables istio-clean-iptables istioctl manager
+                             galley istioctl manager
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT_LINUX), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT_LINUX)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_OUT_LINUX)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
 
@@ -83,7 +72,7 @@ $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/stats-filter.wasm: init
 $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.wasm: init
 
 # Default proxy image.
-docker.proxyv2: BUILD_PRE=&& chmod 755 envoy pilot-agent istio-iptables
+docker.proxyv2: BUILD_PRE=&& chmod 755 envoy pilot-agent
 docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION}
 docker.proxyv2: tools/packaging/common/envoy_bootstrap_v2.json
 docker.proxyv2: install/gcp/bootstrap/gcp_envoy_bootstrap.json
@@ -93,7 +82,6 @@ docker.proxyv2: pilot/docker/Dockerfile.proxyv2
 docker.proxyv2: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
-docker.proxyv2: $(ISTIO_DOCKER)/istio-iptables
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/stats-filter.wasm
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.wasm
 	$(DOCKER_RULE)
@@ -190,34 +178,6 @@ docker.galley: BUILD_PRE=&& chmod 755 galley
 docker.galley: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.galley: galley/docker/Dockerfile.galley
 docker.galley: $(ISTIO_DOCKER)/galley
-	$(DOCKER_RULE)
-
-# security docker images
-
-docker.citadel: BUILD_PRE=&& chmod 755 istio_ca
-docker.citadel: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.citadel: security/docker/Dockerfile.citadel
-docker.citadel: $(ISTIO_DOCKER)/istio_ca
-	$(DOCKER_RULE)
-
-docker.citadel-test: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.citadel-test: security/docker/Dockerfile.citadel-test
-docker.citadel-test: $(ISTIO_DOCKER)/istio_ca
-docker.citadel-test: $(ISTIO_DOCKER)/istio_ca.crt
-docker.citadel-test: $(ISTIO_DOCKER)/istio_ca.key
-	$(DOCKER_RULE)
-
-docker.node-agent: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.node-agent: security/docker/Dockerfile.node-agent
-docker.node-agent: $(ISTIO_DOCKER)/node_agent
-	$(DOCKER_RULE)
-
-docker.node-agent-test: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.node-agent-test: security/docker/Dockerfile.node-agent-test
-docker.node-agent-test: $(ISTIO_DOCKER)/node_agent
-docker.node-agent-test: $(ISTIO_DOCKER)/istio_ca.crt
-docker.node-agent-test: $(ISTIO_DOCKER)/node_agent.crt
-docker.node-agent-test: $(ISTIO_DOCKER)/node_agent.key
 	$(DOCKER_RULE)
 
 docker.base: docker/Dockerfile.base

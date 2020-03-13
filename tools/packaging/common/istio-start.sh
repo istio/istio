@@ -48,7 +48,7 @@ ISTIO_SYSTEM_NAMESPACE=${ISTIO_SYSTEM_NAMESPACE:-istio-system}
 
 # The default matches the default istio.yaml - use sidecar.env to override this if you
 # enable auth. This requires node-agent to be running.
-ISTIO_PILOT_PORT=${ISTIO_PILOT_PORT:-15011}
+ISTIO_PILOT_PORT=${ISTIO_PILOT_PORT:-15012}
 
 # If set, override the default
 CONTROL_PLANE_AUTH_POLICY=${ISTIO_CP_AUTH:-"MUTUAL_TLS"}
@@ -66,21 +66,21 @@ if [ "${ISTIO_CUSTOM_IP_TABLES}" != "true" ] ; then
     if [[ ${1-} == "init" || ${1-} == "-p" ]] ; then
       # clean the previous Istio iptables chains. This part is different from the init image mode,
       # where the init container runs in a fresh environment and there cannot be previous Istio chains
-      "${ISTIO_BIN_BASE}/istio-clean-iptables"
+      "${ISTIO_BIN_BASE}/pilot-agent" istio-clean-iptables
 
       # Update iptables, based on current config. This is for backward compatibility with the init image mode.
       # The sidecar image can replace the k8s init image, to avoid downloading 2 different images.
-      "${ISTIO_BIN_BASE}/istio-iptables" "${@}"
+      "${ISTIO_BIN_BASE}/pilot-agent" istio-iptables "${@}"
       exit 0
     fi
 
     if [[ ${1-} != "run" ]] ; then
       # clean the previous Istio iptables chains. This part is different from the init image mode,
       # where the init container runs in a fresh environment and there cannot be previous Istio chains
-      "${ISTIO_BIN_BASE}/istio-clean-iptables"
+      "${ISTIO_BIN_BASE}/pilot-agent" istio-clean-iptables
 
       # Update iptables, based on config file
-      "${ISTIO_BIN_BASE}/istio-iptables"
+      "${ISTIO_BIN_BASE}/pilot-agent" istio-iptables
     fi
 fi
 
@@ -92,8 +92,14 @@ if [ "${ISTIO_INBOUND_INTERCEPTION_MODE}" = "TPROXY" ] ; then
 fi
 
 if [ -z "${PILOT_ADDRESS:-}" ]; then
-  PILOT_ADDRESS=istio-pilot.${ISTIO_SYSTEM_NAMESPACE}:${ISTIO_PILOT_PORT}
+  PILOT_ADDRESS=istiod.${ISTIO_SYSTEM_NAMESPACE}.svc:${ISTIO_PILOT_PORT}
 fi
+
+ISTIO_CA=${ISTIO_CA:-${PILOT_ADDRESS}}
+
+export ISTIO_CA
+export PROV_CERT
+export OUTPUT_CERTS
 
 # If predefined ISTIO_AGENT_FLAGS is null, make it an empty string.
 ISTIO_AGENT_FLAGS=${ISTIO_AGENT_FLAGS:-}

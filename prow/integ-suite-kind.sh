@@ -33,6 +33,8 @@ set -x
 source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
 
+TOPOLOGY=SINGLE_CLUSTER
+
 while (( "$#" )); do
   case "$1" in
     # Node images can be found at https://github.com/kubernetes-sigs/kind/releases
@@ -52,6 +54,19 @@ while (( "$#" )); do
     --skip-build)
       SKIP_BUILD=true
       shift
+    ;;
+    --topology)
+      case $2 in
+        SINGLE_CLUSTER | MULTICLUSTER_SINGLE_NETWORK)
+          TOPOLOGY=$2
+          echo "Running with topology ${TOPOLOGY}"
+          ;;
+        *)
+          echo "Error: Unsupported topology ${TOPOLOGY}" >&2
+          exit 1
+          ;;
+      esac
+      shift 2
     ;;
     -*)
       echo "Error: Unsupported flag $1" >&2
@@ -75,6 +90,9 @@ export PULL_POLICY=IfNotPresent
 export HUB=${HUB:-"istio-testing"}
 export TAG="${TAG:-"istio-testing"}"
 
+# Default IP family of the cluster is IPv4
+export IP_FAMILY="${IP_FAMILY:-ipv4}"
+
 # Setup junit report and verbose logging
 export T="${T:-"-v"}"
 export CI="true"
@@ -82,12 +100,22 @@ export CI="true"
 make init
 
 if [[ -z "${SKIP_SETUP:-}" ]]; then
-  time setup_kind_cluster "${NODE_IMAGE:-}"
+  if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
+    time setup_kind_cluster "${IP_FAMILY}" "${NODE_IMAGE:-}"
+  else
+    # TODO: Support IPv6 multicluster
+    time setup_kind_multicluster_single_network "${NODE_IMAGE:-}"
+  fi
 fi
 
 if [[ -z "${SKIP_BUILD:-}" ]]; then
   time build_images
-  time kind_load_images ""
+
+  if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
+    time kind_load_images ""
+  else
+    time kind_load_images_multicluster
+  fi
 fi
 
 # If a variant is defined, update the tag accordingly

@@ -1636,18 +1636,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		}
 	}
 
-	// These wildcard listeners are intended for outbound traffic. However, there are cases where inbound traffic can hit these.
-	// This will happen when there is a no more specific inbound listener, either because Pilot hasn't sent it (race condition
-	// at startup), or because it never will (a port not specified in a service but captured by iptables).
-	// When this happens, Envoy will infinite loop sending requests to itself.
-	// To prevent this, we add a filter chain match that will match the pod ip and blackhole the traffic.
-	if listenerOpts.bind == actualWildcard && features.RestrictPodIPTrafficLoops.Get() {
-		listenerOpts.filterChainOpts = append([]*filterChainOpts{{
-			destinationCIDRs: pluginParams.Node.IPAddresses,
-			networkFilters:   []*listener.Filter{blackholeFilter},
-		}}, listenerOpts.filterChainOpts...)
-	}
-
 	// Lets build the new listener with the filter chains. In the end, we will
 	// merge the filter chains with any existing listener on the same port/bind point
 	l := buildListener(listenerOpts)
@@ -2126,7 +2114,7 @@ func buildThriftRatelimit(domain string, thriftconfig *meshconfig.MeshConfig_Thr
 		},
 	}
 
-	rlsClusterName, err := thritRLSClusterNameFromAuthority(thriftconfig.RateLimitUrl)
+	rlsClusterName, err := thriftRLSClusterNameFromAuthority(thriftconfig.RateLimitUrl)
 	if err != nil {
 		log.Errorf("unable to generate thrift rls cluster name: %s\n", rlsClusterName)
 		return nil
@@ -2420,24 +2408,6 @@ func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
 		}
 	}
 	return WildcardIPv6Address, LocalhostIPv6Address
-}
-
-func ipv4AndIpv6Support(node *model.Proxy) (bool, bool) {
-	ipv4, ipv6 := false, false
-	for i := 0; i < len(node.IPAddresses); i++ {
-		addr := net.ParseIP(node.IPAddresses[i])
-		if addr == nil {
-			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
-			// skip it to prevent a panic.
-			continue
-		}
-		if addr.To4() != nil {
-			ipv4 = true
-		} else {
-			ipv6 = true
-		}
-	}
-	return ipv4, ipv6
 }
 
 // getSidecarInboundBindIP returns the IP that the proxy can bind to along with the sidecar specified port.

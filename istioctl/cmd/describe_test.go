@@ -82,6 +82,36 @@ var (
 		},
 	}
 
+	cannedIngressGatewayService7080 = coreV1.Service{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:      "istio-ingressgateway",
+			Namespace: "istio-system",
+			Labels: map[string]string{
+				"istio": "ingressgateway",
+			},
+		},
+		Spec: coreV1.ServiceSpec{
+			Ports: []coreV1.ServicePort{
+				{
+					Port:     7080,
+					NodePort: 31380,
+					Name:     "http2",
+					Protocol: "TCP",
+				},
+			},
+			Selector: map[string]string{"istio": "ingressgateway"},
+		},
+		Status: coreV1.ServiceStatus{
+			LoadBalancer: coreV1.LoadBalancerStatus{
+				Ingress: []coreV1.LoadBalancerIngress{
+					{
+						IP: "10.1.2.3",
+					},
+				},
+			},
+		},
+	}
+
 	cannedIngressGatewayPod = coreV1.Pod{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:      "istio-ingressgateway-5bf6c9887-vvvmj",
@@ -204,213 +234,228 @@ var (
 		},
 	}
 
+	cannedK8sPodList = &coreV1.PodList{Items: []coreV1.Pod{
+		{
+			ObjectMeta: metaV1.ObjectMeta{
+				Name:      "details-v1-5b7f94f9bc-wp5tb",
+				Namespace: "default",
+				Labels: map[string]string{
+					"app": "details",
+				},
+			},
+			Spec: coreV1.PodSpec{
+				NodeName: "foo_node",
+				Containers: []coreV1.Container{
+					{
+						Name: "istio-proxy",
+						Ports: []coreV1.ContainerPort{
+							{
+								Name:          "http-envoy-prom",
+								ContainerPort: 15090,
+								Protocol:      "TCP",
+							},
+						},
+					},
+				},
+			},
+			Status: coreV1.PodStatus{
+				Phase: coreV1.PodRunning,
+			},
+		},
+		{
+			ObjectMeta: metaV1.ObjectMeta{
+				Name:      "ratings-v1-f745cf57b-vfwcv",
+				Namespace: "bookinfo",
+				Labels: map[string]string{
+					"app":     "ratings",
+					"version": "v1",
+				},
+			},
+			Spec: coreV1.PodSpec{
+				NodeName: "foo_node",
+				Containers: []coreV1.Container{
+					{
+						Name: "ratings",
+						Ports: []coreV1.ContainerPort{
+							{
+								ContainerPort: 9080,
+								Protocol:      "TCP",
+							},
+						},
+					},
+					{
+						Name: "istio-proxy",
+						Ports: []coreV1.ContainerPort{
+							{
+								Name:          "http-envoy-prom",
+								ContainerPort: 15090,
+								Protocol:      "TCP",
+							},
+						},
+					},
+				},
+			},
+			Status: coreV1.PodStatus{
+				Phase: coreV1.PodRunning,
+				ContainerStatuses: []coreV1.ContainerStatus{
+					{
+						Name:  "istio-proxy",
+						Ready: true,
+					},
+				},
+			},
+		},
+		{
+			ObjectMeta: metaV1.ObjectMeta{
+				Name:      "productpage-v1-7bbd79f8fd-k6j79",
+				Namespace: "default",
+				Labels: map[string]string{
+					"app":     "productpage",
+					"version": "v1",
+				},
+			},
+			Spec: coreV1.PodSpec{
+				NodeName: "foo_node",
+				Containers: []coreV1.Container{
+					{
+						Name: "productpage",
+						// No container port, but the Envoy data will show 1.3 Istio
+					},
+					{
+						Name: "istio-proxy",
+						Ports: []coreV1.ContainerPort{
+							{
+								Name:          "http-envoy-prom",
+								ContainerPort: 15090,
+								Protocol:      "TCP",
+							},
+						},
+					},
+				},
+			},
+			Status: coreV1.PodStatus{
+				Phase: coreV1.PodRunning,
+				ContainerStatuses: []coreV1.ContainerStatus{
+					{
+						Name:  "istio-proxy",
+						Ready: true,
+					},
+				},
+			},
+		},
+		cannedIngressGatewayPod,
+		{
+			ObjectMeta: metaV1.ObjectMeta{
+				Name:      "productpage-v1-c7765c886-v99jb",
+				Namespace: "default",
+				Labels: map[string]string{
+					"app":     "productpage",
+					"version": "v1",
+				},
+			},
+			Spec: coreV1.PodSpec{
+				NodeName: "foo_node",
+				Containers: []coreV1.Container{
+					{
+						Name: "productpage",
+						// No container port, but the Envoy data will show 1.4 Istio
+					},
+					{
+						Name: "istio-proxy",
+						Ports: []coreV1.ContainerPort{
+							{
+								Name:          "http-envoy-prom",
+								ContainerPort: 15090,
+								Protocol:      "TCP",
+							},
+						},
+					},
+				},
+			},
+			Status: coreV1.PodStatus{
+				Phase: coreV1.PodRunning,
+				ContainerStatuses: []coreV1.ContainerStatus{
+					{
+						Name:  "istio-proxy",
+						Ready: true,
+					},
+				},
+			},
+		},
+	}}
+
+	cannedDetailsSvc = coreV1.Service{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:      "details",
+			Namespace: "default",
+		},
+		Spec: coreV1.ServiceSpec{
+			Ports: []coreV1.ServicePort{
+				{
+					Port: 9080,
+					Name: "http",
+				},
+			},
+			Selector: map[string]string{"app": "details"},
+		},
+	}
+	cannedRatingsSvc = coreV1.Service{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:      "ratings",
+			Namespace: "bookinfo",
+		},
+		Spec: coreV1.ServiceSpec{
+			Ports: []coreV1.ServicePort{
+				{
+					Port: 9080,
+					TargetPort: intstr.IntOrString{
+						Type:   intstr.Int,
+						IntVal: 9080,
+					},
+					Name:     "http",
+					Protocol: "TCP",
+				},
+			},
+			Selector: map[string]string{"app": "ratings"},
+		},
+	}
+	cannedProductpageSvc = coreV1.Service{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:      "productpage",
+			Namespace: "default",
+		},
+		Spec: coreV1.ServiceSpec{
+			Ports: []coreV1.ServicePort{
+				{
+					Port: 9080,
+					TargetPort: intstr.IntOrString{
+						Type:   intstr.Int,
+						IntVal: 9080,
+					},
+					Protocol: "TCP",
+				},
+			},
+			Selector: map[string]string{"app": "productpage"},
+		},
+	}
+
 	cannedK8sEnv = []runtime.Object{
-		&coreV1.PodList{Items: []coreV1.Pod{
-			{
-				ObjectMeta: metaV1.ObjectMeta{
-					Name:      "details-v1-5b7f94f9bc-wp5tb",
-					Namespace: "default",
-					Labels: map[string]string{
-						"app": "details",
-					},
-				},
-				Spec: coreV1.PodSpec{
-					NodeName: "foo_node",
-					Containers: []coreV1.Container{
-						{
-							Name: "istio-proxy",
-							Ports: []coreV1.ContainerPort{
-								{
-									Name:          "http-envoy-prom",
-									ContainerPort: 15090,
-									Protocol:      "TCP",
-								},
-							},
-						},
-					},
-				},
-				Status: coreV1.PodStatus{
-					Phase: coreV1.PodRunning,
-				},
-			},
-			{
-				ObjectMeta: metaV1.ObjectMeta{
-					Name:      "ratings-v1-f745cf57b-vfwcv",
-					Namespace: "bookinfo",
-					Labels: map[string]string{
-						"app":     "ratings",
-						"version": "v1",
-					},
-				},
-				Spec: coreV1.PodSpec{
-					NodeName: "foo_node",
-					Containers: []coreV1.Container{
-						{
-							Name: "ratings",
-							Ports: []coreV1.ContainerPort{
-								{
-									ContainerPort: 9080,
-									Protocol:      "TCP",
-								},
-							},
-						},
-						{
-							Name: "istio-proxy",
-							Ports: []coreV1.ContainerPort{
-								{
-									Name:          "http-envoy-prom",
-									ContainerPort: 15090,
-									Protocol:      "TCP",
-								},
-							},
-						},
-					},
-				},
-				Status: coreV1.PodStatus{
-					Phase: coreV1.PodRunning,
-					ContainerStatuses: []coreV1.ContainerStatus{
-						{
-							Name:  "istio-proxy",
-							Ready: true,
-						},
-					},
-				},
-			},
-			{
-				ObjectMeta: metaV1.ObjectMeta{
-					Name:      "productpage-v1-7bbd79f8fd-k6j79",
-					Namespace: "default",
-					Labels: map[string]string{
-						"app":     "productpage",
-						"version": "v1",
-					},
-				},
-				Spec: coreV1.PodSpec{
-					NodeName: "foo_node",
-					Containers: []coreV1.Container{
-						{
-							Name: "productpage",
-							// No container port, but the Envoy data will show 1.3 Istio
-						},
-						{
-							Name: "istio-proxy",
-							Ports: []coreV1.ContainerPort{
-								{
-									Name:          "http-envoy-prom",
-									ContainerPort: 15090,
-									Protocol:      "TCP",
-								},
-							},
-						},
-					},
-				},
-				Status: coreV1.PodStatus{
-					Phase: coreV1.PodRunning,
-					ContainerStatuses: []coreV1.ContainerStatus{
-						{
-							Name:  "istio-proxy",
-							Ready: true,
-						},
-					},
-				},
-			},
-			cannedIngressGatewayPod,
-			{
-				ObjectMeta: metaV1.ObjectMeta{
-					Name:      "productpage-v1-c7765c886-v99jb",
-					Namespace: "default",
-					Labels: map[string]string{
-						"app":     "productpage",
-						"version": "v1",
-					},
-				},
-				Spec: coreV1.PodSpec{
-					NodeName: "foo_node",
-					Containers: []coreV1.Container{
-						{
-							Name: "productpage",
-							// No container port, but the Envoy data will show 1.4 Istio
-						},
-						{
-							Name: "istio-proxy",
-							Ports: []coreV1.ContainerPort{
-								{
-									Name:          "http-envoy-prom",
-									ContainerPort: 15090,
-									Protocol:      "TCP",
-								},
-							},
-						},
-					},
-				},
-				Status: coreV1.PodStatus{
-					Phase: coreV1.PodRunning,
-					ContainerStatuses: []coreV1.ContainerStatus{
-						{
-							Name:  "istio-proxy",
-							Ready: true,
-						},
-					},
-				},
-			},
-		},
-		},
+		cannedK8sPodList,
 		&coreV1.ServiceList{Items: []coreV1.Service{
-			{
-				ObjectMeta: metaV1.ObjectMeta{
-					Name:      "details",
-					Namespace: "default",
-				},
-				Spec: coreV1.ServiceSpec{
-					Ports: []coreV1.ServicePort{
-						{
-							Port: 9080,
-							Name: "http",
-						},
-					},
-					Selector: map[string]string{"app": "details"},
-				},
-			},
-			{
-				ObjectMeta: metaV1.ObjectMeta{
-					Name:      "ratings",
-					Namespace: "bookinfo",
-				},
-				Spec: coreV1.ServiceSpec{
-					Ports: []coreV1.ServicePort{
-						{
-							Port: 9080,
-							TargetPort: intstr.IntOrString{
-								Type:   intstr.Int,
-								IntVal: 9080,
-							},
-							Name:     "http",
-							Protocol: "TCP",
-						},
-					},
-					Selector: map[string]string{"app": "ratings"},
-				},
-			},
-			{
-				ObjectMeta: metaV1.ObjectMeta{
-					Name:      "productpage",
-					Namespace: "default",
-				},
-				Spec: coreV1.ServiceSpec{
-					Ports: []coreV1.ServicePort{
-						{
-							Port: 9080,
-							TargetPort: intstr.IntOrString{
-								Type:   intstr.Int,
-								IntVal: 9080,
-							},
-							Protocol: "TCP",
-						},
-					},
-					Selector: map[string]string{"app": "productpage"},
-				},
-			},
+			cannedDetailsSvc,
+			cannedRatingsSvc,
+			cannedProductpageSvc,
 			cannedIngressGatewayService,
+		}},
+	}
+
+	cannedK8sEnv7080 = []runtime.Object{
+		cannedK8sPodList,
+		&coreV1.ServiceList{Items: []coreV1.Service{
+			cannedDetailsSvc,
+			cannedRatingsSvc,
+			cannedProductpageSvc,
+			cannedIngressGatewayService7080,
 		}},
 	}
 
@@ -568,8 +613,7 @@ DestinationRule: productpage for "productpage"
 Authn: None
 
 
-Exposed on Ingress Gateway http://10.1.2.3:0
-
+Exposed on Ingress Gateway http://10.1.2.3
 VirtualService: bookinfo
    /productpage, /login, /logout, /api/v1/products*
 `,
@@ -610,6 +654,25 @@ DestinationRule: ratings.bookinfo for "ratings"
    Traffic Policy TLS Mode: ISTIO_MUTUAL
 Pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak mTLS
 RBAC policies: ratings-reader
+`,
+		},
+		{ // case 10 like case 6, but Ingress does not have port 80
+			execClientConfig: cannedConfig,
+			configs:          cannedIstioConfig,
+			k8sConfigs:       cannedK8sEnv7080,
+			args:             strings.Split("-n default experimental describe pod productpage-v1-7bbd79f8fd-k6j79", " "),
+			expectedOutput: `Pod: productpage-v1-7bbd79f8fd-k6j79
+   Pod Ports: 15090 (istio-proxy)
+--------------------
+Service: productpage
+   Port:  9080/UnsupportedProtocol targets pod port 9080
+   9080 is unnamed which does not follow Istio conventions
+Authn: None
+
+
+Exposed on Ingress Gateway http://10.1.2.3:7080
+VirtualService: bookinfo
+   /productpage, /login, /logout, /api/v1/products*
 `,
 		},
 	}
@@ -702,8 +765,7 @@ DestinationRule: productpage for "productpage"
 Pod is Strict mTLS, clients configured automatically
 
 
-Exposed on Ingress Gateway http://10.1.2.3:0
-
+Exposed on Ingress Gateway http://10.1.2.3
 VirtualService: bookinfo
    /productpage, /login, /logout, /api/v1/products*
 `,
@@ -721,8 +783,7 @@ DestinationRule: productpage for "productpage"
 Pod is Strict mTLS, clients configured automatically
 
 
-Exposed on Ingress Gateway http://10.1.2.3:0
-
+Exposed on Ingress Gateway http://10.1.2.3
 VirtualService: bookinfo
    /productpage, /login, /logout, /api/v1/products*
 `,

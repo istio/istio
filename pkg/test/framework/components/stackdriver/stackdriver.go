@@ -19,6 +19,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/resource"
 
+	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 )
 
@@ -27,21 +28,27 @@ type Instance interface {
 	// Gets the namespace in which stackdriver is deployed.
 	GetStackdriverNamespace() string
 	ListTimeSeries() ([]*monitoringpb.TimeSeries, error)
+	ListLogEntries() ([]*loggingpb.LogEntry, error)
+}
+
+type Config struct {
+	// Cluster to be used in a multicluster environment
+	Cluster resource.Cluster
 }
 
 // New returns a new instance of stackdriver.
-func New(ctx resource.Context) (i Instance, err error) {
+func New(ctx resource.Context, c Config) (i Instance, err error) {
 	err = resource.UnsupportedEnvironment(ctx.Environment())
 	ctx.Environment().Case(environment.Kube, func() {
-		i, err = newKube(ctx)
+		i, err = newKube(ctx, c)
 	})
 	return
 }
 
 // NewOrFail returns a new Stackdriver instance or fails test.
-func NewOrFail(t test.Failer, ctx resource.Context) Instance {
+func NewOrFail(t test.Failer, ctx resource.Context, c Config) Instance {
 	t.Helper()
-	i, err := New(ctx)
+	i, err := New(ctx, c)
 	if err != nil {
 		t.Fatalf("stackdriver.NewOrFail: %v", err)
 	}
