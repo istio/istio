@@ -387,7 +387,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 				rootCertPath := path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)
 				if rootCert, err = ioutil.ReadFile(rootCertPath); err != nil {
 					// We may not provide root cert, and can just use public system certificate pool
-					log.Infof("no certs found at %v, using system certs")
+					log.Infof("no certs found at %v, using system certs", rootCertPath)
 				} else {
 					log.Infof("the CA cert of istiod is: %v", string(rootCert))
 				}
