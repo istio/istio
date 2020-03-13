@@ -1772,48 +1772,6 @@ func TestRedisProtocolClusterAtGateway(t *testing.T) {
 	}
 }
 
-func TestPassthroughClustersBuildUponProxyIpVersions(t *testing.T) {
-
-	validation := func(clusters []*apiv2.Cluster) []bool {
-		hasIpv4, hasIpv6 := false, false
-		for _, c := range clusters {
-			hasIpv4 = hasIpv4 || c.Name == util.InboundPassthroughClusterIpv4
-			hasIpv6 = hasIpv6 || c.Name == util.InboundPassthroughClusterIpv6
-		}
-		return []bool{hasIpv4, hasIpv6}
-	}
-	for _, inAndOut := range []struct {
-		ips      []string
-		features []bool
-	}{
-		{[]string{"6.6.6.6", "::1"}, []bool{true, true}},
-		{[]string{"6.6.6.6"}, []bool{true, false}},
-		{[]string{"::1"}, []bool{false, true}},
-	} {
-		clusters, err := buildTestClustersWithProxyMetadataWithIps("*.example.org", 0, false, model.SidecarProxy, nil, testMesh,
-			&networking.DestinationRule{
-				Host: "*.example.org",
-				TrafficPolicy: &networking.TrafficPolicy{
-					ConnectionPool: &networking.ConnectionPoolSettings{
-						Http: &networking.ConnectionPoolSettings_HTTPSettings{
-							Http1MaxPendingRequests: 1,
-							IdleTimeout:             &types.Duration{Seconds: 15},
-						},
-					},
-				},
-			},
-			nil, // authnPolicy
-			nil, // peerAuthn
-			&model.NodeMetadata{},
-			model.MaxIstioVersion,
-			inAndOut.ips,
-		)
-		g := NewGomegaWithT(t)
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(validation(clusters)).To(Equal(inAndOut.features))
-	}
-}
-
 func TestAutoMTLSClusterPlaintextMode(t *testing.T) {
 	g := NewGomegaWithT(t)
 

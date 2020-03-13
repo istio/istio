@@ -134,6 +134,7 @@ func (cb *ClusterBuilder) applyDestinationRule(cluster *apiv2.Cluster, clusterMo
 	return subsetClusters
 }
 
+// buildDefaultCluster builds the default cluster and also applies default traffic policy.
 func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType apiv2.Cluster_DiscoveryType,
 	localityLbEndpoints []*endpoint.LocalityLbEndpoints, direction model.TrafficDirection,
 	port *model.Port, meshExternal bool) *apiv2.Cluster {
@@ -166,7 +167,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType apiv2.C
 	opts := buildClusterOpts{
 		push:            cb.push,
 		cluster:         cluster,
-		policy:          defaultTrafficPolicy(cb.push, discoveryType),
+		policy:          cb.defaultTrafficPolicy(discoveryType),
 		port:            port,
 		serviceAccounts: nil,
 		istioMtlsSni:    "",
@@ -180,6 +181,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType apiv2.C
 	return cluster
 }
 
+// buildInboundPassthroughClusters builds passthrough clusters for inbound.
 func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*apiv2.Cluster {
 	// ipv4 and ipv6 feature detection. Envoy cannot ignore a config where the ip version is not supported
 	clusters := make([]*apiv2.Cluster, 0, 2)
@@ -238,7 +240,8 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *apiv2.Cluster {
 	return cluster
 }
 
-func defaultTrafficPolicy(push *model.PushContext, discoveryType apiv2.Cluster_DiscoveryType) *networking.TrafficPolicy {
+// defaultTrafficPolicy builds a default traffic policy applying default connection timeouts.
+func (cb *ClusterBuilder) defaultTrafficPolicy(discoveryType apiv2.Cluster_DiscoveryType) *networking.TrafficPolicy {
 	lbPolicy := DefaultLbType
 	if discoveryType == apiv2.Cluster_ORIGINAL_DST {
 		lbPolicy = networking.LoadBalancerSettings_PASSTHROUGH
@@ -252,8 +255,8 @@ func defaultTrafficPolicy(push *model.PushContext, discoveryType apiv2.Cluster_D
 		ConnectionPool: &networking.ConnectionPoolSettings{
 			Tcp: &networking.ConnectionPoolSettings_TCPSettings{
 				ConnectTimeout: &types.Duration{
-					Seconds: push.Mesh.ConnectTimeout.Seconds,
-					Nanos:   push.Mesh.ConnectTimeout.Nanos,
+					Seconds: cb.push.Mesh.ConnectTimeout.Seconds,
+					Nanos:   cb.push.Mesh.ConnectTimeout.Nanos,
 				},
 			},
 		},

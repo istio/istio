@@ -20,14 +20,18 @@ import (
 
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	envoy_api_v2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
+	v2Cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 
+	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -291,6 +295,182 @@ func TestApplyEdsConfig(t *testing.T) {
 			maybeApplyEdsConfig(tt.cluster)
 			if !reflect.DeepEqual(tt.cluster.EdsClusterConfig, tt.edsConfig) {
 				t.Errorf("Unexpected Eds config in cluster. want %v, got %v", tt.edsConfig, tt.cluster.EdsClusterConfig)
+			}
+		})
+	}
+}
+
+func TestBuildDefaultCluster(t *testing.T) {
+	servicePort := &model.Port{
+		Name:     "default",
+		Port:     8080,
+		Protocol: protocol.HTTP,
+	}
+
+	cases := []struct {
+		name            string
+		clusterName     string
+		discovery       apiv2.Cluster_DiscoveryType
+		endpoints       []*endpoint.LocalityLbEndpoints
+		direction       model.TrafficDirection
+		external        bool
+		expectedCluster *apiv2.Cluster
+	}{
+		{
+			name:        "default EDS cluster",
+			clusterName: "foo",
+			discovery:   apiv2.Cluster_EDS,
+			endpoints:   nil,
+			direction:   model.TrafficDirectionOutbound,
+			external:    false,
+			expectedCluster: &apiv2.Cluster{
+				Name:                 "foo",
+				ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_EDS},
+				ConnectTimeout:       &duration.Duration{Seconds: 10, Nanos: 1},
+				CircuitBreakers: &v2Cluster.CircuitBreakers{
+					Thresholds: []*v2Cluster.CircuitBreakers_Thresholds{&defaultCircuitBreakerThresholds},
+				},
+			},
+		},
+		{
+			name:            "static cluster with no endpoints",
+			clusterName:     "foo",
+			discovery:       apiv2.Cluster_STATIC,
+			endpoints:       nil,
+			direction:       model.TrafficDirectionOutbound,
+			external:        false,
+			expectedCluster: nil,
+		},
+		{
+			name:            "strict DNS cluster with no endpoints",
+			clusterName:     "foo",
+			discovery:       apiv2.Cluster_STRICT_DNS,
+			endpoints:       nil,
+			direction:       model.TrafficDirectionOutbound,
+			external:        false,
+			expectedCluster: nil,
+		},
+		{
+			name:        "static cluster with endpoints",
+			clusterName: "foo",
+			discovery:   apiv2.Cluster_STATIC,
+			endpoints: []*endpoint.LocalityLbEndpoints{
+				{
+					Locality: &core.Locality{
+						Region:  "region1",
+						Zone:    "zone1",
+						SubZone: "subzone1",
+					},
+					LbEndpoints: []*endpoint.LbEndpoint{},
+					LoadBalancingWeight: &wrappers.UInt32Value{
+						Value: 1,
+					},
+					Priority: 0,
+				},
+			},
+			direction: model.TrafficDirectionOutbound,
+			external:  false,
+			expectedCluster: &apiv2.Cluster{
+				Name:                 "foo",
+				ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_STATIC},
+				ConnectTimeout:       &duration.Duration{Seconds: 10, Nanos: 1},
+				LoadAssignment: &apiv2.ClusterLoadAssignment{
+					ClusterName: "foo",
+					Endpoints: []*endpoint.LocalityLbEndpoints{
+						{
+							Locality: &core.Locality{
+								Region:  "region1",
+								Zone:    "zone1",
+								SubZone: "subzone1",
+							},
+							LbEndpoints: []*endpoint.LbEndpoint{},
+							LoadBalancingWeight: &wrappers.UInt32Value{
+								Value: 1,
+							},
+							Priority: 0,
+						},
+					},
+				},
+				CircuitBreakers: &v2Cluster.CircuitBreakers{
+					Thresholds: []*v2Cluster.CircuitBreakers_Thresholds{&defaultCircuitBreakerThresholds},
+				},
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			serviceDiscovery := &fakes.ServiceDiscovery{}
+			configStore := &fakes.IstioConfigStore{}
+			env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
+
+			proxy.SetSidecarScope(env.PushContext)
+
+			cb := NewClusterBuilder(&model.Proxy{}, env.PushContext)
+
+			defaultCluster := cb.buildDefaultCluster(tt.clusterName, tt.discovery,
+				tt.endpoints, tt.direction, servicePort, tt.external)
+
+			if !reflect.DeepEqual(defaultCluster, tt.expectedCluster) {
+				t.Errorf("Unexpected default cluster, want %v got %v", tt.expectedCluster, defaultCluster)
+			}
+		})
+	}
+}
+
+func TestBuildPassthroughClusters(t *testing.T) {
+	cases := []struct {
+		name         string
+		ips          []string
+		ipv4Expected bool
+		ipv6Expected bool
+	}{
+		{
+			name:         "both ipv4 and ipv6",
+			ips:          []string{"6.6.6.6", "::1"},
+			ipv4Expected: true,
+			ipv6Expected: true,
+		},
+		{
+			name:         "ipv4 only",
+			ips:          []string{"6.6.6.6"},
+			ipv4Expected: true,
+			ipv6Expected: false,
+		},
+		{
+			name:         "ipv6 only",
+			ips:          []string{"::1"},
+			ipv4Expected: false,
+			ipv6Expected: true,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			serviceDiscovery := &fakes.ServiceDiscovery{}
+			configStore := &fakes.IstioConfigStore{}
+			env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
+
+			proxy := &model.Proxy{IPAddresses: tt.ips}
+			proxy.SetSidecarScope(env.PushContext)
+			proxy.DiscoverIPVersions()
+
+			cb := NewClusterBuilder(proxy, env.PushContext)
+
+			clusters := cb.buildInboundPassthroughClusters()
+			var hasIpv4, hasIpv6 bool
+			for _, c := range clusters {
+				hasIpv4 = hasIpv4 || c.Name == util.InboundPassthroughClusterIpv4
+				hasIpv6 = hasIpv6 || c.Name == util.InboundPassthroughClusterIpv6
+			}
+			if hasIpv4 != tt.ipv4Expected {
+				t.Errorf("Unexpected Ipv4 Passthrough Cluster, want %v got %v", tt.ipv4Expected, hasIpv4)
+			}
+			if hasIpv6 != tt.ipv6Expected {
+				t.Errorf("Unexpected Ipv6 Passthrough Cluster, want %v got %v", tt.ipv6Expected, hasIpv6)
+			}
+			// Validate that Passthrough Cluster LB Policy is set correctly.
+			if clusters[0].GetType() != apiv2.Cluster_ORIGINAL_DST || clusters[0].GetLbPolicy() != apiv2.Cluster_CLUSTER_PROVIDED {
+				t.Errorf("Unexpected Discovery type or Lb policy, got Discovery type: %v, Lb Policy: %v", clusters[0].GetType(), clusters[0].GetLbPolicy())
 			}
 		})
 	}
