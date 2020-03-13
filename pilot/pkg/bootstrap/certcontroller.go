@@ -138,7 +138,7 @@ func (s *Server) initDNSCerts(hostname, namespace string) error {
 		log.Infof("Generating istiod-signed cert for %v", names)
 		certChain, keyPEM, err = s.ca.GenKeyCert(names, SelfSignedCACertTTL.Get())
 
-		signingKeyFile := path.Join(localCertDir.Get(), "ca-key.pem")
+		signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
 		// check if signing key file exists the cert dir
 		if _, err := os.Stat(signingKeyFile); err != nil {
 			log.Infof("No plugged-in cert at %v; self-signed cert is used", signingKeyFile)
@@ -180,7 +180,7 @@ func (s *Server) initDNSCerts(hostname, namespace string) error {
 			s.caBundlePath = internalSelfSignedRootPath
 		} else {
 			log.Infof("Use plugged-in cert at %v", signingKeyFile)
-			s.caBundlePath = path.Join(localCertDir.Get(), "root-cert.pem")
+			s.caBundlePath = path.Join(LocalCertDir.Get(), "root-cert.pem")
 		}
 
 	} else {

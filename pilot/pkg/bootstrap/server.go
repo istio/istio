@@ -344,6 +344,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 			if !s.waitForCacheSync(stop) {
 				return
 			}
+			log.Infof("starting secure (DNS) gRPC discovery service at %s", s.GRPCDNSListener.Addr())
 			if err := s.secureGRPCServerDNS.Serve(s.GRPCDNSListener); err != nil {
 				log.Errorf("error from GRPC server: %v", err)
 			}
