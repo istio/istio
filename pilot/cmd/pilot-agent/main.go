@@ -189,17 +189,6 @@ var (
 			role.DNSDomain = getDNSDomain(podNamespace, role.DNSDomain)
 			log.Infof("Proxy role: %#v", role)
 
-			var pilotSAN, mixerSAN []string
-			if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
-				setSpiffeTrustDomain(podNamespace, role.DNSDomain)
-				// Obtain the Mixer SAN, which uses SPIFFEE certs. Used below to create a Envoy proxy.
-				mixerSAN = getSAN(getControlPlaneNamespace(podNamespace, proxyConfig.DiscoveryAddress), envoyDiscovery.MixerSvcAccName, mixerIdentity)
-				// Obtain Pilot SAN, using DNS.
-				pilotSAN = []string{getPilotSan(proxyConfig.DiscoveryAddress)}
-			}
-			log.Infof("PilotSAN %#v", pilotSAN)
-			log.Infof("MixerSAN %#v", mixerSAN)
-
 			var jwtPath string
 			if jwtPolicy.Get() == jwt.JWTPolicyThirdPartyJWT {
 				log.Info("JWT policy is third-party-jwt")
@@ -218,6 +207,17 @@ var (
 			if sa.RequireCerts {
 				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
 			}
+
+			var pilotSAN, mixerSAN []string
+			if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
+				setSpiffeTrustDomain(podNamespace, role.DNSDomain)
+				// Obtain the Mixer SAN, which uses SPIFFEE certs. Used below to create a Envoy proxy.
+				mixerSAN = getSAN(getControlPlaneNamespace(podNamespace, proxyConfig.DiscoveryAddress), envoyDiscovery.MixerSvcAccName, mixerIdentity)
+				// Obtain Pilot SAN, using DNS.
+				pilotSAN = []string{getPilotSan(proxyConfig.DiscoveryAddress)}
+			}
+			log.Infof("PilotSAN %#v", pilotSAN)
+			log.Infof("MixerSAN %#v", mixerSAN)
 
 			// Start in process SDS.
 			_, err = sa.Start(role.Type == model.SidecarProxy, podNamespaceVar.Get())
