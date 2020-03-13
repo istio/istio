@@ -17617,6 +17617,17 @@ data:
             {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
             memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+` }}"
             {{ end }}
+          limits:
+            {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) -}}
+            cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+` }}"
+            {{ else}}
+            cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+` }}"
+            {{ end}}
+            {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) -}}
+            memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+` }}"
+            {{ else}}
+            memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+` }}"
+            {{ end }}
         {{ else -}}
       {{- if .Values.global.proxy.resources }}
           {{ toYaml .Values.global.proxy.resources | indent 4 }}
@@ -19098,6 +19109,17 @@ template: |
         cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+` }}"
         {{ end}}
         {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
+        memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+` }}"
+        {{ end }}
+      limits:
+        {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) -}}
+        cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+` }}"
+        {{ else}}
+        cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+` }}"
+        {{ end}}
+        {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) -}}
+        memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+` }}"
+        {{ else}}
         memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+` }}"
         {{ end }}
     {{ else -}}

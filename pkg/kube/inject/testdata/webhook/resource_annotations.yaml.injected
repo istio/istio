@@ -108,6 +108,9 @@ spec:
           initialDelaySeconds: 1
           periodSeconds: 2
         resources:
+          limits:
+            cpu: 100m
+            memory: 1Gi
           requests:
             cpu: 100m
             memory: 1Gi
