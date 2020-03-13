@@ -28,10 +28,8 @@ import (
 	"strconv"
 
 	yaml2 "github.com/ghodss/yaml"
-
-	"gopkg.in/yaml.v2"
-
 	"github.com/kylelemons/godebug/pretty"
+	"gopkg.in/yaml.v2"
 
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"

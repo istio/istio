@@ -12183,6 +12183,7 @@ rules:
     - "certificatesigningrequests"
     - "certificatesigningrequests/approval"
     - "certificatesigningrequests/status"
+  resourceNames: ["kubernetes.io/legacy-unknown"]
   verbs: ["update", "create", "get", "delete", "watch"]
 - apiGroups: ["discovery.k8s.io"]
   resources: ["endpointslices"]
@@ -12255,6 +12256,15 @@ rules:
       - "certificatesigningrequests/approval"
       - "certificatesigningrequests/status"
     verbs: ["update", "create", "get", "delete", "watch"]
+  - apiGroups: ["certificates.k8s.io"]
+    resources:
+      - "signers"
+    resourceNames:
+    # Support legacy versions, before signerName was added
+    - "kubernetes.io/legacy-unknown"
+    - "istio.io/*"
+    verbs: ["approve"]
+
   # Used by Istiod to verify the JWT tokens
   - apiGroups: ["authentication.k8s.io"]
     resources: ["tokenreviews"]
@@ -12482,6 +12492,7 @@ rules:
     - "certificatesigningrequests"
     - "certificatesigningrequests/approval"
     - "certificatesigningrequests/status"
+  resourceNames: ["kubernetes.io/legacy-unknown"]
   verbs: ["update", "create", "get", "delete", "watch"]
 - apiGroups: ["discovery.k8s.io"]
   resources: ["endpointslices"]
@@ -12554,6 +12565,15 @@ rules:
       - "certificatesigningrequests/approval"
       - "certificatesigningrequests/status"
     verbs: ["update", "create", "get", "delete", "watch"]
+  - apiGroups: ["certificates.k8s.io"]
+    resources:
+      - "signers"
+    resourceNames:
+    # Support legacy versions, before signerName was added
+    - "kubernetes.io/legacy-unknown"
+    - "istio.io/*"
+    verbs: ["approve"]
+
   # Used by Istiod to verify the JWT tokens
   - apiGroups: ["authentication.k8s.io"]
     resources: ["tokenreviews"]
@@ -12697,8 +12717,37 @@ func chartsBaseTemplatesCrdsYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsBaseTemplatesEndpointsYaml = []byte(`{{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
+var _chartsBaseTemplatesEndpointsYaml = []byte(`{{- if .Values.global.remotePilotAddress }}
+  {{- if not .Values.global.istiod.enabled }}
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: istio-pilot
+  namespace: {{ .Values.global.istioNamespace }}
+subsets:
+- addresses:
+  - ip: {{ .Values.global.remotePilotAddress }}
+  ports:
+  - port: 15010
+    name: grpc-xds # direct
+  - port: 15011
+    name: https-xds # mTLS or non-mTLS depending on auth setting
+  {{- else }}
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: istiod-remote
+  namespace: {{ .Release.Namespace }}
+subsets:
+- addresses:
+  - ip: {{ .Values.global.remotePilotAddress }}
+  ports:
+  - port: 15012
+    name: tcp-istiod
+  {{- end }}
 ---
+{{- end }}
+{{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
 apiVersion: v1
 kind: Endpoints
 metadata:
@@ -12823,7 +12872,35 @@ func chartsBaseTemplatesServiceaccountYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsBaseTemplatesServicesYaml = []byte(`{{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
+var _chartsBaseTemplatesServicesYaml = []byte(`{{- if .Values.global.remotePilotAddress }}
+  {{- if not .Values.global.istiod.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-pilot
+  namespace: {{ .Values.global.istioNamespace }}
+spec:
+  ports:
+  - port: 15010
+    name: grpc-xds # direct
+  - port: 15011
+    name: https-xds # mTLS or non-mTLS depending on auth setting
+  clusterIP: None
+  {{- else }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: istiod-remote
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: 15012
+    name: tcp-istiod
+  clusterIP: None
+  {{- end }}
+---
+{{- end }}
+{{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -13228,7 +13305,7 @@ var _chartsGatewaysIstioEgressTemplatesAutoscaleYaml = []byte(`{{ $gateway := in
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: istio-egressgateway
+  name: {{ $gateway.name | default "istio-egressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -13239,7 +13316,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: istio-egressgateway
+    name: {{ $gateway.name | default "istio-egressgateway" }}
   metrics:
     - type: Resource
       resource:
@@ -13268,7 +13345,7 @@ var _chartsGatewaysIstioEgressTemplatesDeploymentYaml = []byte(`{{ $gateway := i
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istio-egressgateway
+  name: {{ $gateway.name | default "istio-egressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -13295,7 +13372,7 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
-        service.istio.io/canonical-name: istio-egressgateway
+        service.istio.io/canonical-name: {{ $gateway.name | default "istio-egressgateway" }}
 {{- if not (eq .Values.revision "") }}
         service.istio.io/canonical-revision: {{ .Values.revision }}
 {{- else}}
@@ -13365,7 +13442,7 @@ spec:
           - --log_as_json
         {{- end }}
           - --serviceCluster
-          - istio-egressgateway
+          - {{ $gateway.name | default "istio-egressgateway" }}
           - --proxyAdminPort
           - "15000"
         {{- if .Values.global.sts.servicePort }}
@@ -13373,6 +13450,15 @@ spec:
         {{- end }}
           - --controlPlaneAuthPolicy
           - NONE
+          - --discoveryAddress
+        {{- $namespace := .Values.global.configNamespace | default "istio-system" }}
+        {{- if .Values.global.remotePilotAddress }}
+        # Use the DNS hostname instead of the IP address. The discovery address needs to match the
+        # SAN in istiod's cert. The istiod-remote.<namespace>.svc will resolve to the remotePilotAddress.
+          - istiod-remote.{{ $namespace }}.svc:15012
+        {{- else }}
+          - istio-pilot.{{ $namespace }}.svc:15012
+        {{- end }}
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
@@ -13427,9 +13513,9 @@ spec:
               fieldRef:
                 fieldPath: spec.serviceAccountName
           - name: ISTIO_META_WORKLOAD_NAME
-            value: istio-egressgateway
+            value: {{ $gateway.name | default "istio-egressgateway" }}
           - name: ISTIO_META_OWNER
-            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/istio-egressgateway
+            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/{{ $gateway.name | default "istio-egressgateway" }}
           {{- if $.Values.global.meshID }}
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.meshID }}"
@@ -13570,7 +13656,7 @@ var _chartsGatewaysIstioEgressTemplatesPoddisruptionbudgetYaml = []byte(`{{- if 
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istio-egressgateway
+  name: {{ $gateway.name | default "istio-egressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -13702,7 +13788,7 @@ var _chartsGatewaysIstioEgressTemplatesServiceYaml = []byte(`{{ $gateway := inde
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-egressgateway
+  name: {{ $gateway.name | default "istio-egressgateway" }}
   namespace: {{ .Release.Namespace }}
   annotations:
     {{- range $key, $val := $gateway.serviceAnnotations }}
@@ -13776,6 +13862,7 @@ var _chartsGatewaysIstioEgressValuesYaml = []byte(`# Standalone istio egress gat
 # Should be installed in a separate namespace, to minimize access to config
 gateways:
   istio-egressgateway:
+    name: istio-egressgateway
     ports:
     - port: 80
       name: http2
@@ -13796,11 +13883,11 @@ gateways:
       # This can be a real domain name ( istio.example.com )
       suffix: global
       enabled: false
-    
+
     labels:
       app: istio-egressgateway
       istio: egressgateway
-  
+
 
     # Scalability tunning
     # replicaCount: 1
@@ -14182,7 +14269,7 @@ var _chartsGatewaysIstioIngressTemplatesAutoscaleYaml = []byte(`{{ $gateway := i
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: istio-ingressgateway
+  name: {{ $gateway.name | default "istio-ingressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -14193,7 +14280,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: istio-ingressgateway
+    name: {{ $gateway.name | default "istio-ingressgateway" }}
   metrics:
     - type: Resource
       resource:
@@ -14284,7 +14371,7 @@ var _chartsGatewaysIstioIngressTemplatesDeploymentYaml = []byte(`{{- $gateway :=
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istio-ingressgateway
+  name: {{ $gateway.name | default "istio-ingressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -14311,7 +14398,7 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
-        service.istio.io/canonical-name: istio-ingressgateway
+        service.istio.io/canonical-name: {{ $gateway.name | default "istio-ingressgateway" }}
         {{- if not (eq .Values.revision "") }}
         service.istio.io/canonical-revision: {{ .Values.revision }}
         {{- else}}
@@ -14384,7 +14471,7 @@ spec:
           - --log_as_json
         {{- end }}
           - --serviceCluster
-          - istio-ingressgateway
+          - {{ $gateway.name | default "istio-ingressgateway" }}
           - --proxyAdminPort
           - "15000"
         {{- if .Values.global.sts.servicePort }}
@@ -14392,6 +14479,15 @@ spec:
         {{- end }}
           - --controlPlaneAuthPolicy
           - NONE
+          - --discoveryAddress
+          {{- $namespace := .Values.global.configNamespace | default "istio-system" }}
+          {{- if .Values.global.remotePilotAddress }}
+          # Use the DNS hostname instead of the IP address. The discovery address needs to match the
+          # SAN in istiod's cert. The istiod-remote.<namespace>.svc will resolve to the remotePilotAddress.
+          - istiod-remote.{{ $namespace }}.svc:15012
+          {{- else }}
+          - istio-pilot.{{ $namespace }}.svc:15012
+          {{- end }}
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
@@ -14456,9 +14552,9 @@ spec:
               fieldRef:
                 fieldPath: spec.serviceAccountName
           - name: ISTIO_META_WORKLOAD_NAME
-            value: istio-ingressgateway
+            value: {{ $gateway.name | default "istio-ingressgateway" }}
           - name: ISTIO_META_OWNER
-            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/istio-ingressgateway
+            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/{{ $gateway.name | default "istio-ingressgateway" }}
           {{- if $.Values.global.meshID }}
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.meshID }}"
@@ -14744,8 +14840,6 @@ spec:
       hosts:
         - "*"
 ---
-
-
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -15029,7 +15123,7 @@ var _chartsGatewaysIstioIngressTemplatesServiceYaml = []byte(`{{ $gateway := ind
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-ingressgateway
+  name: {{ $gateway.name | default "istio-ingressgateway" }}
   namespace: {{ .Release.Namespace }}
   annotations:
     {{- range $key, $val := $gateway.serviceAnnotations }}
@@ -15158,6 +15252,7 @@ var _chartsGatewaysIstioIngressValuesYaml = []byte(`# A-la-carte istio ingress g
 
 gateways:
   istio-ingressgateway:
+    name: istio-ingressgateway
     labels:
       app: istio-ingressgateway
       istio: ingressgateway
@@ -17064,7 +17159,6 @@ data:
         "imagePullPolicy": "",
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
-        "istioRemote": false,
         "istiod": {
           "enabled": true
         },
@@ -17199,7 +17293,6 @@ data:
           }
         },
         "remotePilotAddress": "",
-        "remotePilotCreateSvcEndpoint": false,
         "remotePolicyAddress": "",
         "remoteTelemetryAddress": "",
         "sds": {
@@ -17873,6 +17966,8 @@ spec:
             value: istiod.istio-system.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
             value: "false"
+          - name: CLUSTER_ID
+            value: "Kubernetes"
           resources:
             requests:
               cpu: 500m
@@ -19498,8 +19593,6 @@ data:
 
     enableEnvoyAccessLogService: {{ .Values.global.proxy.envoyAccessLogService.enabled }}
 
-    {{- if .Values.global.istioRemote }}
-
     {{- if .Values.global.remotePolicyAddress }}
     {{- if .Values.global.createRemoteSvcEndpoints }}
     mixerCheckServer: istio-policy.{{ .Release.Namespace }}:15004
@@ -19512,7 +19605,6 @@ data:
     mixerReportServer: istio-telemetry.{{ .Release.Namespace }}:15004
     {{- else }}
     mixerReportServer: {{ .Values.global.remoteTelemetryAddress }}:15004
-    {{- end }}
     {{- end }}
 
     {{- else }}
@@ -19535,7 +19627,7 @@ data:
 
     {{- end }}
 
-    {{- if or .Values.mixer.policy.enabled (and .Values.global.istioRemote .Values.global.remotePolicyAddress) }}
+    {{- if or .Values.mixer.policy.enabled .Values.global.remotePolicyAddress }}
     # policyCheckFailOpen allows traffic in cases when the mixer policy service cannot be reached.
     # Default is false which means the traffic is denied when the client is unable to connect to Mixer.
     policyCheckFailOpen: {{ .Values.global.policyCheckFailOpen }}
@@ -19718,7 +19810,7 @@ data:
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
       {{- if .Values.global.remotePilotAddress }}
-      discoveryAddress: {{ .Values.global.remotePilotAddress }}
+      discoveryAddress: {{ printf "istiod-remote.%s.svc" .Release.Namespace }}:15012
       {{- else }}
       discoveryAddress: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{.Release.Namespace}}.svc:15012
       {{- end }}
@@ -19934,6 +20026,8 @@ spec:
             value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
             value: "false"
+          - name: CLUSTER_ID
+            value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
           resources:
 {{- if .Values.pilot.resources }}
 {{ toYaml .Values.pilot.resources | trim | indent 12 }}
@@ -42276,7 +42370,7 @@ spec:
               {{- end }}
             - --controlPlaneBootstrap=false
           env:
-            - name: OUTPUT_KEY_CERT_TO_DIRECTORY
+            - name: OUTPUT_CERTS
               value: "/etc/istio-certs"
             - name: JWT_POLICY
               value: {{ .Values.global.jwtPolicy }}
@@ -42330,6 +42424,8 @@ spec:
             - name: ISTIO_META_MESH_ID
               value: "{{ .Values.global.trustDomain }}"
               {{- end }}
+            - name: ISTIO_META_CLUSTER_ID
+              value: "{{ .Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           readinessProbe:
             failureThreshold: 30
@@ -45774,6 +45870,7 @@ spec:
         type: ClusterIP
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
+        name: istio-egressgateway
         ports:
           - port: 80
             name: http2
@@ -45798,6 +45895,7 @@ spec:
         type: LoadBalancer
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
+        name: istio-ingressgateway
         ports:
           - port: 15020
             targetPort: 15020
@@ -45827,6 +45925,9 @@ spec:
           - port: 15011
             targetPort: 15011
             name: tcp-pilot-grpc-tls
+          - port: 15012
+            targetPort: 15012
+            name: tcp-istiod
           - port: 8060
             targetPort: 8060
             name: tcp-citadel-grpc-tls
@@ -46277,37 +46378,9 @@ func profilesPreviewYaml() (*asset, error) {
 var _profilesRemoteYaml = []byte(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
-  components:
-    pilot:
-      enabled: true
-    policy:
-      enabled: false
-    telemetry:
-      enabled: false
-    proxy:
-      enabled: false
-    sidecarInjector:
-      enabled: false
-    citadel:
-      enabled: false
-    galley:
-      enabled: false
-    cni:
-      enabled: false
-
   addonComponents:
     prometheus:
-      enabled: false
-
-  values:
-    security:
-      createMeshPolicy: false
-
-    global:
-      istioRemote: true
-      enableTracing: false
-      network: ""
-`)
+      enabled: false`)
 
 func profilesRemoteYamlBytes() ([]byte, error) {
 	return _profilesRemoteYaml, nil

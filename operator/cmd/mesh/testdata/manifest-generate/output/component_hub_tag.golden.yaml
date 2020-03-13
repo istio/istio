@@ -379,7 +379,7 @@ spec:
             - --trust-domain=cluster.local
             - --controlPlaneBootstrap=false
           env:
-            - name: OUTPUT_KEY_CERT_TO_DIRECTORY
+            - name: OUTPUT_CERTS
               value: "/etc/istio-certs"
             - name: JWT_POLICY
               value: third-party-jwt
@@ -418,6 +418,8 @@ spec:
                   fieldPath: metadata.namespace
             - name: ISTIO_META_MESH_ID
               value: "cluster.local"
+            - name: ISTIO_META_CLUSTER_ID
+              value: "Kubernetes"
           imagePullPolicy: Always
           readinessProbe:
             failureThreshold: 30
@@ -575,6 +577,7 @@ rules:
     - "certificatesigningrequests"
     - "certificatesigningrequests/approval"
     - "certificatesigningrequests/status"
+  resourceNames: ["kubernetes.io/legacy-unknown"]
   verbs: ["update", "create", "get", "delete", "watch"]
 - apiGroups: ["discovery.k8s.io"]
   resources: ["endpointslices"]
@@ -647,6 +650,15 @@ rules:
       - "certificatesigningrequests/approval"
       - "certificatesigningrequests/status"
     verbs: ["update", "create", "get", "delete", "watch"]
+  - apiGroups: ["certificates.k8s.io"]
+    resources:
+      - "signers"
+    resourceNames:
+    # Support legacy versions, before signerName was added
+    - "kubernetes.io/legacy-unknown"
+    - "istio.io/*"
+    verbs: ["approve"]
+
   # Used by Istiod to verify the JWT tokens
   - apiGroups: ["authentication.k8s.io"]
     resources: ["tokenreviews"]
@@ -7059,6 +7071,8 @@ spec:
         - "15000"
         - --controlPlaneAuthPolicy
         - NONE
+        - --discoveryAddress
+        - istio-pilot.istio-system.svc:15012
         - --trust-domain=cluster.local
         env:
         - name: JWT_POLICY
@@ -7131,6 +7145,7 @@ spec:
         - containerPort: 15032
         - containerPort: 15443
         - containerPort: 15011
+        - containerPort: 15012
         - containerPort: 8060
         - containerPort: 853
         - containerPort: 15090
@@ -7708,6 +7723,8 @@ spec:
           value: istiod.istio-system.svc:15012
         - name: PILOT_EXTERNAL_GALLEY
           value: "false"
+        - name: CLUSTER_ID
+          value: Kubernetes
         envFrom:
         - configMapRef:
             name: istiod

@@ -450,6 +450,9 @@ func (s *DiscoveryServer) initProxy(node *core.Node) (*model.Proxy, error) {
 		proxy.Locality = node.Locality
 	}
 
+	// Discover supported IP Versions of proxy so that appropriate config can be delivered.
+	proxy.DiscoverIPVersions()
+
 	return proxy, nil
 }
 

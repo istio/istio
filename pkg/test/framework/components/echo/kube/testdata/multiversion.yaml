@@ -47,7 +47,7 @@ spec:
         args:
           - --port
           - "8090"
-          - --port
+          - --tcp
           - "9000"
           - --grpc
           - "9090"
@@ -106,7 +106,7 @@ spec:
         args:
           - --port
           - "8090"
-          - --port
+          - --tcp
           - "9000"
           - --grpc
           - "9090"

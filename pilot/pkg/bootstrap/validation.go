@@ -40,6 +40,9 @@ var (
 )
 
 func (s *Server) initConfigValidation(args *PilotArgs) error {
+	if s.kubeClient == nil {
+		return nil
+	}
 	if features.IstiodService.Get() == "" {
 		return nil
 	}
