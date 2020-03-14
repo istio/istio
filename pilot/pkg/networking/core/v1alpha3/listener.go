@@ -433,7 +433,7 @@ func init() {
 // BuildListeners produces a list of listeners and referenced clusters for all proxies
 func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	push *model.PushContext) []*xdsapi.Listener {
-	builder := NewListenerBuilder(node)
+	builder := NewListenerBuilder(node, push)
 
 	switch node.Type {
 	case model.SidecarProxy:
@@ -442,7 +442,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 		builder = configgen.buildGatewayListeners(node, push, builder)
 	}
 
-	builder.patchListeners(push)
+	builder.patchListeners()
 	return builder.getListeners()
 }
 
@@ -454,11 +454,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(
 
 	if push.Mesh.ProxyListenPort > 0 {
 		// Any build order change need a careful code review
-		builder.buildSidecarInboundListeners(configgen, node, push).
-			buildSidecarOutboundListeners(configgen, node, push).
-			buildManagementListeners(configgen, node, push).
-			buildVirtualOutboundListener(configgen, node, push).
-			buildVirtualInboundListener(configgen, node, push)
+		builder.buildSidecarInboundListeners(configgen).
+			buildSidecarOutboundListeners(configgen).
+			buildManagementListeners(configgen).
+			buildVirtualOutboundListener(configgen).
+			buildVirtualInboundListener(configgen)
 	}
 
 	return builder

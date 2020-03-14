@@ -1658,7 +1658,7 @@ func buildAllListeners(p plugin.Plugin, sidecarConfig *model.Config, services ..
 	} else {
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
-	builder := NewListenerBuilder(&proxy)
+	builder := NewListenerBuilder(&proxy, env.PushContext)
 	return configgen.buildSidecarListeners(&proxy, env.PushContext, builder).getListeners()
 }
 
