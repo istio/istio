@@ -1433,6 +1433,7 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	t.Helper()
 	p := &fakePlugin{}
 	listeners := buildAllListeners(p, nil)
+	found := false
 	for _, l := range listeners {
 		if l.Name == VirtualOutboundListenerName {
 			fc := &tcp_proxy.TcpProxy{}
@@ -1442,7 +1443,12 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 			if fc.AccessLog == nil {
 				t.Fatal("expected access log configuration")
 			}
+			found = true
+			break
 		}
+	}
+	if !found {
+		t.Fatal("expected virtual outbound listener, but not found")
 	}
 }
 
