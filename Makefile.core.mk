@@ -22,7 +22,7 @@ SHELL := /bin/bash -o pipefail
 VERSION ?= 1.4-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= 1.4-dev.7
+BASE_VERSION ?= 1.4-dev.8
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
@@ -492,7 +492,7 @@ localTestEnv: build
 
 localTestEnvCleanup: build
 	bin/testEnvLocalK8S.sh stop
-		
+
 .PHONY: pilot-test
 pilot-test:
 	go test ${GOBUILDFLAGS} ${T} ./pilot/...
