@@ -20,6 +20,7 @@ set -o pipefail
 
 SCRIPTPATH="$(cd "$(dirname "$0")" ; pwd -P)"
 ROOTDIR="$(dirname "${SCRIPTPATH}")"
+GOBUILDFLAGS=${GOBUILDFLAGS:-""}
 
 REPORT_PATH=${GOPATH}/out/codecov/pr
 BASELINE_PATH=${GOPATH}/out/codecov/baseline
@@ -62,7 +63,8 @@ if [[ -n "${CIRCLE_PR_NUMBER:-}" ]]; then
   git checkout "${CIRCLE_SHA1}"
 
   # Test that coverage is not dropped
-  go test "${GOBUILDFLAGS}" -v istio.io/istio/tests/codecov/... \
+  # shellcheck disable=SC2086
+  go test ${GOBUILDFLAGS} -v istio.io/istio/tests/codecov/... \
     --report_file="${REPORT_PATH}/coverage.html" \
     --baseline_file="${BASELINE_PATH}/coverage.html" \
     --threshold_files="${THRESHOLD_FILE},${CODECOV_SKIP}" \
