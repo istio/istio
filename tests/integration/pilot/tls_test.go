@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/env"
+
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework"
@@ -31,7 +33,7 @@ import (
 )
 
 func mustReadFile(t *testing.T, f string) string {
-	b, err := ioutil.ReadFile(path.Join("testdata", f))
+	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs/dns", f))
 	if err != nil {
 		t.Fatalf("failed to read %v: %v", f, err)
 	}
@@ -101,9 +103,11 @@ spec:
 					Pilot:  p,
 					// Set up TLS certs on the server. This will make the server listen with these credentials.
 					TLSSettings: &common.TLSSettings{
-						RootCert:   mustReadFile(t, "root.cert"),
-						ClientCert: mustReadFile(t, "cert.pem"),
-						Key:        mustReadFile(t, "priv.pem"),
+						RootCert:   mustReadFile(t, "root-cert.pem"),
+						ClientCert: mustReadFile(t, "cert-chain.pem"),
+						Key:        mustReadFile(t, "key.pem"),
+						// Override hostname to match the SAN in the cert we are using
+						Hostname: "server.default.svc",
 					},
 					// Do not inject, as we are testing non-Istio TLS here
 					Subsets: []echo.SubsetConfig{{
