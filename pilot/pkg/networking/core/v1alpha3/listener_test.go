@@ -1433,37 +1433,41 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	t.Helper()
 	p := &fakePlugin{}
 	env := buildListenerEnv(nil)
+
 	listeners := buildAllListeners(p, nil, env, nil)
 	for _, l := range listeners {
 		if l.Name == VirtualOutboundListenerName {
-			fc := &tcp_proxy.TcpProxy{}
-			if err := getFilterConfig(l.FilterChains[0].Filters[0], fc); err != nil {
-				t.Fatalf("failed to get TCP Proxy config: %s", err)
-			}
-			if fc.AccessLog == nil {
-				t.Fatal("expected access log configuration")
-			}
+			validateAccessLog(t, l, EnvoyTextLogFormat)
 		}
 	}
 
 	// Update MeshConfig
-	env.Mesh().AccessLogFormat = "fake format"
+	env.Mesh().AccessLogFormat = "format modified"
+
 	// Trigger MeshConfig change and validate that access log is recomputed.
 	rebuildCachedListeners(nil)
+
+	// Validate that access log filter users the new format.
 	listeners = buildAllListeners(p, nil, env, nil)
 	for _, l := range listeners {
 		if l.Name == VirtualOutboundListenerName {
-			fc := &tcp_proxy.TcpProxy{}
-			if err := getFilterConfig(l.FilterChains[0].Filters[0], fc); err != nil {
-				t.Fatalf("failed to get TCP Proxy config: %s", err)
-			}
-			if fc.AccessLog == nil {
-				t.Fatal("expected access log configuration")
-			}
-
-			cfg, _ := conversion.MessageToStruct(fc.AccessLog[0].GetTypedConfig())
-			fmt.Println(cfg)
+			validateAccessLog(t, l, "format modified")
 		}
+	}
+}
+
+func validateAccessLog(t *testing.T, l *xdsapi.Listener, format string) {
+	t.Helper()
+	fc := &tcp_proxy.TcpProxy{}
+	if err := getFilterConfig(l.FilterChains[0].Filters[0], fc); err != nil {
+		t.Fatalf("failed to get TCP Proxy config: %s", err)
+	}
+	if fc.AccessLog == nil {
+		t.Fatal("expected access log configuration")
+	}
+	cfg, _ := conversion.MessageToStruct(fc.AccessLog[0].GetTypedConfig())
+	if cfg.GetFields()["format"].GetStringValue() != format {
+		t.Fatalf("expected format to be %s, but got %s", format, cfg.GetFields()["format"].GetStringValue())
 	}
 }
 

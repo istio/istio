@@ -338,8 +338,9 @@ var (
 func maybeBuildAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 	lmutex.Lock()
 	defer lmutex.Unlock()
+	// Check if cached config is available - Only build if it is not available.
+	// We need to build on first access or when mesh config changes.
 	if cachedAccessLog == nil {
-		fmt.Println("Building access log")
 		fl := &accesslogconfig.FileAccessLog{
 			Path: mesh.AccessLogFile,
 		}
@@ -382,9 +383,6 @@ func maybeBuildAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 			Name:       wellknown.FileAccessLog,
 			ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
 		}
-	} else {
-		fmt.Println("reusing cached access log")
-
 	}
 	return cachedAccessLog
 }
@@ -2622,6 +2620,5 @@ func removeListenerFilterTimeout(listeners []*xdsapi.Listener) {
 func rebuildCachedListeners(mesh *meshconfig.MeshConfig) {
 	lmutex.Lock()
 	defer lmutex.Unlock()
-	fmt.Println("setting cachedAccessLog to nil")
 	cachedAccessLog = nil
 }
