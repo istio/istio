@@ -34,6 +34,9 @@ type ConfigGenerator interface {
 
 	// BuildHTTPRoutes returns the list of HTTP routes for the given proxy. This is the RDS output
 	BuildHTTPRoutes(node *model.Proxy, push *model.PushContext, routeNames []string) []*v2.RouteConfiguration
+
+	// ConfigChanged is invoked when mesh config is changed, giving a chance to rebuild any cached config.
+	MeshConfigChanged()
 }
 
 // NewConfigGenerator creates a new instance of the dataplane configuration generator

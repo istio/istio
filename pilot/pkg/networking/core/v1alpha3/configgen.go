@@ -28,3 +28,8 @@ func NewConfigGenerator(plugins []plugin.Plugin) *ConfigGeneratorImpl {
 		Plugins: plugins,
 	}
 }
+
+// Called when mesh config is changed.
+func (configgen *ConfigGeneratorImpl) MeshConfigChanged() {
+
+}

@@ -434,6 +434,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	// When the mesh config or networks change, do a full push.
 	s.environment.AddMeshHandler(func() {
+		// Inform ConfigGenerator about the mesh config change so that it can rebuild any cached config, before triggering full push.
+		s.EnvoyXdsServer.ConfigGenerator.MeshConfigChanged()
 		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,
 			Reason: []model.TriggerReason{model.GlobalUpdate},
