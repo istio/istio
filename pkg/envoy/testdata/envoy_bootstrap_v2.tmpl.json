@@ -48,6 +48,7 @@
                   "codec_type": "AUTO",
                   "stat_prefix": "stats",
                   "route_config": {
+                    "name": "static-prometheus:{{ .listenerPort }}",
                     "virtual_hosts": [
                       {
                         "name": "backend",

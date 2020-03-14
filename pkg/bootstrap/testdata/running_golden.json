@@ -437,6 +437,7 @@
                   "codec_type": "AUTO",
                   "stat_prefix": "stats",
                   "route_config": {
+                    "name": "static-prometheus:15090",
                     "virtual_hosts": [
                       {
                         "name": "backend",

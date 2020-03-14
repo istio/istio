@@ -40,6 +40,7 @@
                       "name": "envoy.http_connection_manager",
                       "hidden_envoy_deprecated_config": {
                         "route_config": {
+                          "name": "static-prometheus:15090",
                           "virtual_hosts": [
                             {
                               "routes": [
@@ -2458,6 +2459,7 @@
                       },
                       "stat_prefix": "stats",
                       "route_config": {
+                        "name": "static-prometheus:15090",
                         "virtual_hosts": [
                           {
                             "domains": [
