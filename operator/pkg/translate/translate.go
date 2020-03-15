@@ -441,7 +441,8 @@ func (t *Translator) setComponentProperties(root map[string]interface{}, iop *v1
 		}
 
 		tag, found, _ := tpath.GetFromStructPath(iop, "Components."+string(cn)+".Tag")
-		if found && tag.(string) != "" {
+		tagStr, ok := tag.(string)
+		if found && !(ok && tagStr == "") {
 			if err := tpath.WriteNode(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesTagSubpath), tag); err != nil {
 				return err
 			}
