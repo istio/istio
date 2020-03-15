@@ -149,26 +149,9 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 		inPath = strings.Replace(inPath, "gressGateways.", "gressGateways."+fmt.Sprint(index)+".", 1)
 		scope.Debugf("Checking for path %s in IstioOperatorSpec", inPath)
 
-		var found bool
-		var m interface{}
-		if componentName == name.AddonComponentName {
-			inPath = strings.Replace(inPath, "Components.AddonComponents.", "", 1)
-			scope.Debugf("Checking for path %s in K8S Spec of AddonComponents: %s", inPath, addonName)
-			addonMaps := iop.AddonComponents
-			if extSpec, ok := addonMaps[addonName]; ok {
-				m, found, err = tpath.GetFromStructPath(extSpec, inPath)
-				if err != nil {
-					return "", err
-				}
-			} else {
-				scope.Debugf("path %s not found in AddonComponents.%s, skip mapping.", inPath, addonName)
-				continue
-			}
-		} else {
-			m, found, err = tpath.GetFromStructPath(iop, inPath)
-			if err != nil {
-				return "", err
-			}
+		m, found, err := getK8SSpecFromIOP(iop, componentName, inPath, addonName)
+		if err != nil {
+			return "", err
 		}
 		if !found {
 			scope.Debugf("path %s not found in IstioOperatorSpec, skip mapping.", inPath)
@@ -586,6 +569,31 @@ func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentN
 		ContainerName: cmp.ContainerName,
 	}
 	return util.RenderTemplate(tmpl, ts)
+}
+
+// getK8SSpecFromIOP is helper function to get k8s spec from IOP using path
+// 1. if component is not an addonComponent, get the spec directly from IOP
+// 2. otherwise convert the path and the root to point it to the entry of addonComponents map.
+// e.x: path "Components.AddonComponents.K8S.ReplicaCount" and root "Spec" ->
+// "K8S.ReplicaCount" and root "Spec.AddonComponents.Prometheus"
+func getK8SSpecFromIOP(iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName, inPath string,
+	addonName string) (m interface{}, found bool, err error) {
+	if componentName != name.AddonComponentName {
+		return tpath.GetFromStructPath(iop, inPath)
+	}
+	inPath = strings.Replace(inPath, "Components.AddonComponents.", "", 1)
+	scope.Debugf("Checking for path %s in K8S Spec of AddonComponents: %s", inPath, addonName)
+	addonMaps := iop.AddonComponents
+	if extSpec, ok := addonMaps[addonName]; ok {
+		m, found, err = tpath.GetFromStructPath(extSpec, inPath)
+		if err != nil {
+			return nil, false, err
+		}
+	} else {
+		scope.Debugf("path %s not found in AddonComponents.%s, skip mapping.", inPath, addonName)
+		return nil, false, nil
+	}
+	return m, found, nil
 }
 
 // defaultTranslationFunc is the default translation to values. It maps a Go data path into a YAML path.
