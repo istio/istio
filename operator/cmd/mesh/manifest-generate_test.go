@@ -96,7 +96,7 @@ func TestManifestGenerateFlags(t *testing.T) {
 		},
 		{
 			desc:       "flag_output_set_values",
-			diffIgnore: "ConfigMap:*:istio",
+			diffSelect: "Deployment:*:istio-ingressgateway",
 			flags:      "-s values.global.proxy.image=mynewproxy -o " + flagOutputValuesDir,
 			outputDir:  flagOutputValuesDir,
 			noInput:    true,
