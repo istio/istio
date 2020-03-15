@@ -84,8 +84,9 @@ func TestManifestGenerateFlags(t *testing.T) {
 			noInput:    true,
 		},
 		{
-			desc:  "flag_override_values",
-			flags: "-s tag=my-tag",
+			desc:       "flag_override_values",
+			diffSelect: "Deployment:*:istiod",
+			flags:      "-s tag=my-tag",
 		},
 		{
 			desc:      "flag_output",
