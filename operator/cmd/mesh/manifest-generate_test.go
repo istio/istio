@@ -120,13 +120,12 @@ func TestManifestGenerateFlags(t *testing.T) {
 func TestManifestGeneratePilot(t *testing.T) {
 	runTestGroup(t, testGroup{
 		{
-			desc: "pilot_default",
-			// TODO: remove istio ConfigMap (istio/istio#16828)
+			desc:       "pilot_default",
 			diffIgnore: "CustomResourceDefinition:*:*,ConfigMap:*:istio",
 		},
 		{
 			desc:       "pilot_k8s_settings",
-			diffIgnore: "CustomResourceDefinition:*:*,ConfigMap:*:istio",
+			diffSelect: "Deployment:*:istiod,HorizontalPodAutoscaler:*:istiod",
 		},
 		{
 			desc:       "pilot_override_values",
