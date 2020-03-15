@@ -861,7 +861,7 @@ func buildSidecarListenerTLSContext(userTLSOpts *networking.Server_TLSOptions, m
 	}
 
 	// user sds enabled
-	if metadata.UserSds && userTLSOpts.CredentialName != "" {
+	if userTLSOpts.CredentialName != "" {
 		util.ApplyCustomSDSToCommonTLSContext(tls.CommonTlsContext, userTLSOpts, sdsUdsPath)
 	} else {
 		// Fall back to the read-from-file approach when SDS is not enabled or Tls.CredentialName is not specified.

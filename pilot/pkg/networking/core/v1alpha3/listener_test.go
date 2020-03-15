@@ -2321,7 +2321,6 @@ func TestBuildSidecarListenerTlsContext(t *testing.T) {
 				PrivateKey:        "private-key",
 			},
 			nodeMeta: &model.NodeMetadata{
-				UserSds: false,
 			},
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
@@ -2353,7 +2352,6 @@ func TestBuildSidecarListenerTlsContext(t *testing.T) {
 				CaCertificates:    "ca",
 			},
 			nodeMeta: &model.NodeMetadata{
-				UserSds: false,
 			},
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
@@ -2395,7 +2393,6 @@ func TestBuildSidecarListenerTlsContext(t *testing.T) {
 				SubjectAltNames:   []string{"subject.name.a.com", "subject.name.b.com"},
 			},
 			nodeMeta: &model.NodeMetadata{
-				UserSds: false,
 			},
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
@@ -2436,7 +2433,6 @@ func TestBuildSidecarListenerTlsContext(t *testing.T) {
 				SubjectAltNames: []string{"subject.name.a.com", "subject.name.b.com"},
 			},
 			nodeMeta: &model.NodeMetadata{
-				UserSds: true,
 			},
 			sdsUdsPath: "unix:/var/run/sidecar/sds",
 			result: &auth.DownstreamTlsContext{
