@@ -103,7 +103,7 @@ func TestManifestGenerateFlags(t *testing.T) {
 		},
 		{
 			desc:       "flag_force",
-			diffIgnore: "ConfigMap:*:istio",
+			diffSelect: "no:resources:selected",
 			flags:      "--force",
 		},
 		{
