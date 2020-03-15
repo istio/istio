@@ -114,6 +114,28 @@ a:
 `,
 		},
 		{
+			desc:  "ModifyListEntryRegex",
+			path:  `a.b.[name:n2].list.[v3]`,
+			value: `match_v3_regex`,
+			want: `
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-citadel
+  namespace: istio-system
+a:
+  b:
+  - name: n1
+    value: v1
+  - list:
+    - v1
+    - v2
+    - match_v3_regex
+    name: n2
+  c:
+`,
+		},
+		{
 			desc: "DeleteListEntry",
 			path: `a.b.[name:n1]`,
 			want: `
@@ -194,6 +216,29 @@ a:
     - v3_regex
   c:
     d: n3
+`,
+		},
+		{
+			desc: "ADDListEntry",
+			path: `a.b.[name:n2].list`,
+			value: `v4`,
+			want: `
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-citadel
+  namespace: istio-system
+a:
+  b:
+  - name: n1
+    value: v1
+  - name: n2
+    list: 
+    - v1
+    - v2
+    - v3_regex
+    - v4
+  c:
 `,
 		},
 	}
