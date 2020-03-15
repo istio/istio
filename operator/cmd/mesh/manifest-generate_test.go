@@ -89,9 +89,10 @@ func TestManifestGenerateFlags(t *testing.T) {
 			flags:      "-s tag=my-tag",
 		},
 		{
-			desc:      "flag_output",
-			flags:     "-o " + flagOutputDir,
-			outputDir: flagOutputDir,
+			desc:       "flag_output",
+			flags:      "-o " + flagOutputDir,
+			diffSelect: "Deployment:*:istiod",
+			outputDir:  flagOutputDir,
 		},
 		{
 			desc:       "flag_output_set_values",
@@ -286,21 +287,21 @@ func runTestGroup(t *testing.T, tests testGroup) {
 				t.Fatal(err)
 			}
 
-			diffSelect := "*:*:*"
-			if tt.diffSelect != "" {
-				diffSelect = tt.diffSelect
-				got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
-				if err != nil {
-					t.Errorf("error selecting from output manifest: %v", err)
-				}
-			}
-
 			if tt.outputDir != "" {
 				got, err = util.ReadFilesWithFilter(tt.outputDir, func(fileName string) bool {
 					return strings.HasSuffix(fileName, ".yaml")
 				})
 				if err != nil {
 					t.Fatal(err)
+				}
+			}
+
+			diffSelect := "*:*:*"
+			if tt.diffSelect != "" {
+				diffSelect = tt.diffSelect
+				got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
+				if err != nil {
+					t.Errorf("error selecting from output manifest: %v", err)
 				}
 			}
 
