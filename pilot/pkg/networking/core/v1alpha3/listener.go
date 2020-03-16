@@ -335,54 +335,64 @@ var (
 	cachedAccessLog *accesslog.AccessLog
 )
 
+func getCachedAccessLog() *accesslog.AccessLog {
+	lmutex.RLock()
+	defer lmutex.RUnlock()
+	return cachedAccessLog
+}
+
 func maybeBuildAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
+	// Check if cached config is available, and return immediately.
+	if cal := getCachedAccessLog(); cal != nil {
+		return cal
+	}
+
+	// We need to build access log. This is needed either on first access or when mesh config changes.
+
+	fl := &accesslogconfig.FileAccessLog{
+		Path: mesh.AccessLogFile,
+	}
+
+	switch mesh.AccessLogEncoding {
+	case meshconfig.MeshConfig_TEXT:
+		formatString := EnvoyTextLogFormat
+		if mesh.AccessLogFormat != "" {
+			formatString = mesh.AccessLogFormat
+		}
+		fl.AccessLogFormat = &accesslogconfig.FileAccessLog_Format{
+			Format: formatString,
+		}
+	case meshconfig.MeshConfig_JSON:
+		var jsonLog *structpb.Struct
+		if mesh.AccessLogFormat != "" {
+			jsonFields := map[string]string{}
+			err := json.Unmarshal([]byte(mesh.AccessLogFormat), &jsonFields)
+			if err == nil {
+				jsonLog = &structpb.Struct{
+					Fields: make(map[string]*structpb.Value, len(jsonFields)),
+				}
+				for key, value := range jsonFields {
+					jsonLog.Fields[key] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: value}}
+				}
+			} else {
+				log.Errorf("error parsing provided json log format, default log format will be used: %v", err)
+			}
+		}
+		if jsonLog == nil {
+			jsonLog = EnvoyJSONLogFormat
+		}
+		fl.AccessLogFormat = &accesslogconfig.FileAccessLog_JsonFormat{
+			JsonFormat: jsonLog,
+		}
+	default:
+		log.Warnf("unsupported access log format %v", mesh.AccessLogEncoding)
+	}
+
 	lmutex.Lock()
 	defer lmutex.Unlock()
-	// Check if cached config is available - Only build if it is not available.
-	// We need to build on first access or when mesh config changes.
-	if cachedAccessLog == nil {
-		fl := &accesslogconfig.FileAccessLog{
-			Path: mesh.AccessLogFile,
-		}
-
-		switch mesh.AccessLogEncoding {
-		case meshconfig.MeshConfig_TEXT:
-			formatString := EnvoyTextLogFormat
-			if mesh.AccessLogFormat != "" {
-				formatString = mesh.AccessLogFormat
-			}
-			fl.AccessLogFormat = &accesslogconfig.FileAccessLog_Format{
-				Format: formatString,
-			}
-		case meshconfig.MeshConfig_JSON:
-			var jsonLog *structpb.Struct
-			if mesh.AccessLogFormat != "" {
-				jsonFields := map[string]string{}
-				err := json.Unmarshal([]byte(mesh.AccessLogFormat), &jsonFields)
-				if err == nil {
-					jsonLog = &structpb.Struct{
-						Fields: make(map[string]*structpb.Value, len(jsonFields)),
-					}
-					for key, value := range jsonFields {
-						jsonLog.Fields[key] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: value}}
-					}
-				} else {
-					log.Errorf("error parsing provided json log format, default log format will be used: %v", err)
-				}
-			}
-			if jsonLog == nil {
-				jsonLog = EnvoyJSONLogFormat
-			}
-			fl.AccessLogFormat = &accesslogconfig.FileAccessLog_JsonFormat{
-				JsonFormat: jsonLog,
-			}
-		default:
-			log.Warnf("unsupported access log format %v", mesh.AccessLogEncoding)
-		}
-		cachedAccessLog = &accesslog.AccessLog{
-			Name:       wellknown.FileAccessLog,
-			ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
-		}
+	cachedAccessLog = &accesslog.AccessLog{
+		Name:       wellknown.FileAccessLog,
+		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
 	}
 	return cachedAccessLog
 }
