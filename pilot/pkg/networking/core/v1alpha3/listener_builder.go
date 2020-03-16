@@ -41,9 +41,6 @@ import (
 )
 
 var (
-	// Precompute these filters as an optimization
-	blackholeFilter *listener.Filter
-
 	dummyServiceInstance = &model.ServiceInstance{
 		Service:     &model.Service{},
 		ServicePort: &model.Port{},
@@ -52,10 +49,6 @@ var (
 		},
 	}
 )
-
-func init() {
-	blackholeFilter = newBlackholeFilter()
-}
 
 // A stateful listener builder
 // Support the below intentions
@@ -346,21 +339,6 @@ func (builder *ListenerBuilder) getListeners() []*xdsapi.Listener {
 	}
 
 	return builder.gatewayListeners
-}
-
-// Creates a new filter that will always send traffic to the blackhole cluster
-func newBlackholeFilter() *listener.Filter {
-	tcpProxy := &tcp_proxy.TcpProxy{
-		StatPrefix:       util.BlackHoleCluster,
-		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
-	}
-
-	filter := &listener.Filter{
-		Name:       xdsutil.TCPProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
-	}
-
-	return filter
 }
 
 // Create pass through filter chains matching ipv4 address and ipv6 address independently.

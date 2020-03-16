@@ -17,7 +17,7 @@ package images
 import (
 	"fmt"
 
-	"istio.io/istio/pkg/test/framework/core/image"
+	"istio.io/istio/pkg/test/framework/image"
 )
 
 const (

@@ -21,7 +21,7 @@ import (
 	"os"
 	"path"
 
-	"istio.io/istio/pkg/test/framework/core/image"
+	"istio.io/istio/pkg/test/framework/image"
 
 	kubeApiCore "k8s.io/api/core/v1"
 

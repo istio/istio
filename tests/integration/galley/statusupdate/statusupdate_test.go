@@ -22,17 +22,18 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("statusupdate_test", m).
 		Label(label.CustomSetup).
+		RequireSingleCluster().
 		SetupOnEnv(environment.Kube, istio.Setup(nil, setupConfig)).
 		Run()
 }

@@ -17,8 +17,8 @@ package mycomponent
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 // Instance is an example component. Consider implementing your component as an interface, so that others can add

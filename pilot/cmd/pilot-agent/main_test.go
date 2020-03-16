@@ -15,8 +15,6 @@
 package main
 
 import (
-	"os"
-	"strings"
 	"testing"
 
 	"github.com/gogo/protobuf/types"
@@ -109,70 +107,6 @@ func TestPilotDefaultDomainKubernetes(t *testing.T) {
 	domain := getDNSDomain("default", role.DNSDomain)
 
 	g.Expect(domain).To(gomega.Equal("default.svc.cluster.local"))
-}
-
-func TestDetectSds(t *testing.T) {
-	os.Setenv("SDS_ENABLED", "true")
-	defer func() {
-		os.Unsetenv("SDS_ENABLED")
-	}()
-
-	g := gomega.NewGomegaWithT(t)
-	tests := []struct {
-		sdsAddress           string
-		tokenPath            string
-		expectedSdsEnabled   bool
-		expectedSdsTokenPath string
-	}{
-		{
-			expectedSdsEnabled:   false,
-			expectedSdsTokenPath: "",
-		},
-		{
-			sdsAddress:           "/tmp/testtmpuds1.log",
-			tokenPath:            "/tmp/testtmptoken1.log",
-			expectedSdsEnabled:   true,
-			expectedSdsTokenPath: "/tmp/testtmptoken1.log",
-		},
-		{
-			sdsAddress:           "unix:/tmp/testtmpuds1.log",
-			tokenPath:            "/tmp/testtmptoken1.log",
-			expectedSdsEnabled:   true,
-			expectedSdsTokenPath: "/tmp/testtmptoken1.log",
-		},
-		{
-			sdsAddress:           "/tmp/testtmpuds1.log",
-			tokenPath:            "/tmp/testtmptoken1.log",
-			expectedSdsEnabled:   true,
-			expectedSdsTokenPath: "/tmp/testtmptoken1.log",
-		},
-		{
-			tokenPath:          "/tmp/testtmptoken1.log",
-			expectedSdsEnabled: false,
-		},
-		{
-			sdsAddress: "/tmp/testtmpuds1.log",
-		},
-	}
-	for _, tt := range tests {
-		if tt.sdsAddress != "" {
-			addr := strings.TrimPrefix(tt.sdsAddress, "unix:")
-			if _, err := os.Stat(addr); err != nil {
-				os.Create(addr)
-				defer os.Remove(addr)
-			}
-		}
-		if tt.tokenPath != "" {
-			if _, err := os.Stat(tt.tokenPath); err != nil {
-				os.Create(tt.tokenPath)
-				defer os.Remove(tt.tokenPath)
-			}
-		}
-
-		enabled, path := detectSds(tt.sdsAddress, tt.tokenPath)
-		g.Expect(enabled).To(gomega.Equal(tt.expectedSdsEnabled))
-		g.Expect(path).To(gomega.Equal(tt.expectedSdsTokenPath))
-	}
 }
 
 func TestPilotDefaultDomainConsul(t *testing.T) {
