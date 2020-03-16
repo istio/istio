@@ -1433,8 +1433,9 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	t.Helper()
 	p := &fakePlugin{}
 	listeners := buildAllListeners(p, nil)
+	found := false
 	for _, l := range listeners {
-		if l.Name == "virtual" {
+		if l.Name == VirtualOutboundListenerName {
 			fc := &tcp_proxy.TcpProxy{}
 			if err := getFilterConfig(l.FilterChains[0].Filters[0], fc); err != nil {
 				t.Fatalf("failed to get TCP Proxy config: %s", err)
@@ -1442,7 +1443,12 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 			if fc.AccessLog == nil {
 				t.Fatal("expected access log configuration")
 			}
+			found = true
+			break
 		}
+	}
+	if !found {
+		t.Fatal("expected virtual outbound listener, but not found")
 	}
 }
 
