@@ -634,19 +634,19 @@ type buildClusterOpts struct {
 	serviceMTLSMode model.MutualTLSMode
 }
 
-func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {
+func applyTrafficPolicy(opts buildClusterOpts) {
 	connectionPool, outlierDetection, loadBalancer, tls := SelectTrafficPolicyComponents(opts.policy, opts.port)
 
 	applyConnectionPool(opts.push, opts.cluster, connectionPool)
 	applyOutlierDetection(opts.cluster, outlierDetection)
-	applyLoadBalancer(opts.cluster, loadBalancer, opts.port, proxy, opts.push.Mesh)
+	applyLoadBalancer(opts.cluster, loadBalancer, opts.port, opts.proxy, opts.push.Mesh)
 
 	if opts.clusterMode != SniDnatClusterMode && opts.direction != model.TrafficDirectionInbound {
 		autoMTLSEnabled := opts.push.Mesh.GetEnableAutoMtls().Value
 		var mtlsCtxType mtlsContextType
 		tls, mtlsCtxType = conditionallyConvertToIstioMtls(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
 			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
-		applyUpstreamTLSSettings(&opts, tls, mtlsCtxType, proxy)
+		applyUpstreamTLSSettings(&opts, tls, mtlsCtxType, opts.proxy)
 	}
 }
 
@@ -717,11 +717,17 @@ func applyTCPKeepalive(push *model.PushContext, cluster *apiv2.Cluster, settings
 		isTCPKeepaliveSet = true
 	}
 
-	// Apply/Override with DestinationRule TCP keepalive if set.
+	// Apply/Override individual attributes with DestinationRule TCP keepalive if set.
 	if settings.Tcp.TcpKeepalive != nil {
-		keepaliveProbes = settings.Tcp.TcpKeepalive.Probes
-		keepaliveTime = settings.Tcp.TcpKeepalive.Time
-		keepaliveInterval = settings.Tcp.TcpKeepalive.Interval
+		if settings.Tcp.TcpKeepalive.Probes > 0 {
+			keepaliveProbes = settings.Tcp.TcpKeepalive.Probes
+		}
+		if settings.Tcp.TcpKeepalive.Time != nil {
+			keepaliveTime = settings.Tcp.TcpKeepalive.Time
+		}
+		if settings.Tcp.TcpKeepalive.Interval != nil {
+			keepaliveInterval = settings.Tcp.TcpKeepalive.Interval
+		}
 		isTCPKeepaliveSet = true
 	}
 
