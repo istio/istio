@@ -40,6 +40,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
+
 	"istio.io/istio/pkg/jwt"
 
 	"k8s.io/client-go/kubernetes"
@@ -110,7 +111,7 @@ type startFunc func(stop <-chan struct{}) error
 
 // Server contains the runtime configuration for the Pilot discovery service.
 type Server struct {
-	MonitorListeningAddr    net.Addr
+	MonitorListeningAddr net.Addr
 
 	// TODO(nmittler): Consider alternatives to exposing these directly
 	EnvoyXdsServer *envoyv2.DiscoveryServer
@@ -125,8 +126,6 @@ type Server struct {
 	httpsServer         *http.Server // webhooks
 	httpsReadyClient    *http.Client
 	grpcServer          *grpc.Server
-	secureHTTPServer    *http.Server
-	secureGRPCServer    *grpc.Server
 	secureGRPCServerDNS *grpc.Server
 	mux                 *http.ServeMux // debug
 	httpsMux            *http.ServeMux // webhooks
@@ -718,4 +717,3 @@ func (s *Server) initLeaderElection(args *PilotArgs) {
 		s.leaderElection = leaderelection.NewLeaderElection(args.Namespace, args.PodName, s.kubeClient)
 	}
 }
-
