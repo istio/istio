@@ -1088,10 +1088,6 @@ func convertToBytes(ss []string) []byte {
 }
 
 func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
-	testWorkloadAgentGenerateSecretFromFile(t)
-}
-
-func testWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0.1)
 	opt := Options{
 		SecretTTL:                time.Minute,

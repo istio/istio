@@ -67,10 +67,10 @@ var (
 	trustDomainEnv = env.RegisterStringVar(trustDomain, "", "").Get()
 	secretTTLEnv   = env.RegisterDurationVar(secretTTL, 24*time.Hour,
 		"The cert lifetime requested by istio agent").Get()
-	secretRefreshGraceDurationEnv = env.RegisterDurationVar(SecretRefreshGraceDuration, secretTTLEnv/2,
-		"The grace period for the cert rotation, by default it's half of the cert lifetime").Get()
-	secretRotationIntervalEnv = env.RegisterDurationVar(SecretRotationInterval, secretRefreshGraceDurationEnv/10,
-		"The ticker to detect and rotate the certificates, by default it's 1/10 of the grace period").Get()
+	secretRefreshGracePeriodRatioEnv = env.RegisterFloatVar(SecretRefreshGracePeriodRatio, 0.5,
+		"The grace period ratio for the cert rotation, by default 0.5.").Get()
+	secretRotationIntervalEnv = env.RegisterDurationVar(SecretRotationInterval, 5*time.Minute,
+		"The ticker to detect and rotate the certificates, by default 5 minutes").Get()
 	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar(staledConnectionRecycleInterval, 5*time.Minute,
 		"The ticker to detect and close stale connections").Get()
 	initialBackoffInMilliSecEnv = env.RegisterIntVar(InitialBackoffInMilliSec, 0, "").Get()
@@ -106,14 +106,14 @@ const (
 	// example value format like "90m"
 	secretTTL = "SECRET_TTL"
 
-	// The environmental variable name for grace duration that secret is re-generated
-	// before it's expired time.
-	// example value format like "10m"
-	SecretRefreshGraceDuration = "SECRET_GRACE_DURATION"
+	// The environmental variable name for grace period ratio that secret is re-generated before
+	// its expiration.
+	// Example value format like "0.5"
+	secretRefreshGracePeriodRatio = "SECRET_GRACE_PERIOD_RATIO"
 
-	// The environmental variable name for key rotation job running interval.
-	// example value format like "20m"
-	SecretRotationInterval = "SECRET_JOB_RUN_INTERVAL"
+	// The environmental variable name for the interval to check and rotate the key and certs.
+	// Example value format like "20m"
+	secretRotationInterval = "SECRET_ROTATION_CHECK_INTERVAL"
 
 	// The environmental variable name for staled connection recycle job running interval.
 	// example value format like "5m"
@@ -121,7 +121,7 @@ const (
 
 	// The environmental variable name for the initial backoff in milliseconds.
 	// example value format like "10"
-	InitialBackoffInMilliSec = "INITIAL_BACKOFF_MSEC"
+	initialBackoffInMilliSec = "INITIAL_BACKOFF_MSEC"
 
 	pkcs8Key = "PKCS8_KEY"
 )
@@ -448,7 +448,7 @@ func applyEnvVars() {
 	serverOptions.Pkcs8Keys = pkcs8KeysEnv
 	serverOptions.RecycleInterval = staledConnectionRecycleIntervalEnv
 	workloadSdsCacheOptions.SecretTTL = secretTTLEnv
-	workloadSdsCacheOptions.SecretRefreshGraceDuration = secretRefreshGraceDurationEnv
+	workloadSdsCacheOptions.SecretRefreshGracePeriodRatio = secretRefreshGracePeriodRatioEnv
 	workloadSdsCacheOptions.RotationInterval = secretRotationIntervalEnv
 	workloadSdsCacheOptions.InitialBackoffInMilliSec = int64(initialBackoffInMilliSecEnv)
 	// Disable the secret eviction for istio agent.
