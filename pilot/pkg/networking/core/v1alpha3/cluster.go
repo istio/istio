@@ -31,6 +31,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
@@ -704,57 +705,38 @@ func applyConnectionPool(push *model.PushContext, cluster *apiv2.Cluster, settin
 }
 
 func applyTCPKeepalive(push *model.PushContext, cluster *apiv2.Cluster, settings *networking.ConnectionPoolSettings) {
-	var keepaliveProbes uint32
-	var keepaliveTime *types.Duration
-	var keepaliveInterval *types.Duration
-	isTCPKeepaliveSet := false
+	// Apply Keepalive config only if it is configured in mesh config or in destination rule.
+	if push.Mesh.TcpKeepalive != nil || settings.Tcp.TcpKeepalive != nil {
 
-	// Apply mesh wide TCP keepalive.
-	if push.Mesh.TcpKeepalive != nil {
-		keepaliveProbes = push.Mesh.TcpKeepalive.Probes
-		keepaliveTime = push.Mesh.TcpKeepalive.Time
-		keepaliveInterval = push.Mesh.TcpKeepalive.Interval
-		isTCPKeepaliveSet = true
-	}
-
-	// Apply/Override individual attributes with DestinationRule TCP keepalive if set.
-	if settings.Tcp.TcpKeepalive != nil {
-		if settings.Tcp.TcpKeepalive.Probes > 0 {
-			keepaliveProbes = settings.Tcp.TcpKeepalive.Probes
+		// Start with empty tcp_keepalive, which would set SO_KEEPALIVE on the socket with OS default values.
+		cluster.UpstreamConnectionOptions = &apiv2.UpstreamConnectionOptions{
+			TcpKeepalive: &core.TcpKeepalive{},
 		}
-		if settings.Tcp.TcpKeepalive.Time != nil {
-			keepaliveTime = settings.Tcp.TcpKeepalive.Time
+
+		// Apply mesh wide TCP keepalive if available.
+		if push.Mesh.TcpKeepalive != nil {
+			setKeepAliveSettings(cluster, push.Mesh.TcpKeepalive)
 		}
-		if settings.Tcp.TcpKeepalive.Interval != nil {
-			keepaliveInterval = settings.Tcp.TcpKeepalive.Interval
+
+		// Apply/Override individual attributes with DestinationRule TCP keepalive if set.
+		if settings.Tcp.TcpKeepalive != nil {
+			setKeepAliveSettings(cluster, settings.Tcp.TcpKeepalive)
 		}
-		isTCPKeepaliveSet = true
+	}
+}
+
+func setKeepAliveSettings(cluster *apiv2.Cluster, keepalive *v1alpha3.ConnectionPoolSettings_TCPSettings_TcpKeepalive) {
+	if keepalive.Probes > 0 {
+		cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveProbes = &wrappers.UInt32Value{Value: keepalive.Probes}
 	}
 
-	if !isTCPKeepaliveSet {
-		return
+	if keepalive.Time != nil {
+		cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveTime = &wrappers.UInt32Value{Value: uint32(keepalive.Time.Seconds)}
 	}
 
-	// If none of the proto fields are set, then an empty tcp_keepalive is set in Envoy.
-	// That would set SO_KEEPALIVE on the socket with OS default values.
-	upstreamConnectionOptions := &apiv2.UpstreamConnectionOptions{
-		TcpKeepalive: &core.TcpKeepalive{},
+	if keepalive.Interval != nil {
+		cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveInterval = &wrappers.UInt32Value{Value: uint32(keepalive.Interval.Seconds)}
 	}
-
-	// If any of the TCP keepalive options are not set, skip them from the config so that OS defaults are used.
-	if keepaliveProbes > 0 {
-		upstreamConnectionOptions.TcpKeepalive.KeepaliveProbes = &wrappers.UInt32Value{Value: keepaliveProbes}
-	}
-
-	if keepaliveTime != nil {
-		upstreamConnectionOptions.TcpKeepalive.KeepaliveTime = &wrappers.UInt32Value{Value: uint32(keepaliveTime.Seconds)}
-	}
-
-	if keepaliveInterval != nil {
-		upstreamConnectionOptions.TcpKeepalive.KeepaliveInterval = &wrappers.UInt32Value{Value: uint32(keepaliveInterval.Seconds)}
-	}
-
-	cluster.UpstreamConnectionOptions = upstreamConnectionOptions
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
