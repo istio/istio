@@ -105,6 +105,9 @@ func initAuthenticationPolicies(env *Environment) (*AuthenticationPolicies, erro
 
 func (policy *AuthenticationPolicies) addRequestAuthentication(configs []Config) {
 	for _, config := range configs {
+		reqPolicy := config.Spec.(*v1beta1.RequestAuthentication)
+		// Follow OIDC discovery to resolve JwksURI if need to.
+		JwtKeyResolver.ResolveJwksURI(reqPolicy)
 		policy.requestAuthentications[config.Namespace] =
 			append(policy.requestAuthentications[config.Namespace], config)
 	}
