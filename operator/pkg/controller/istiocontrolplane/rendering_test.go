@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/helmreconciler"
-	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
 )
 
@@ -90,7 +89,7 @@ func TestRenderCharts(t *testing.T) {
 		},
 		{
 			desc:       "component_hub_tag",
-			diffIgnore: "ConfigMap:*:istio",
+			diffSelect: "Deployment:*:*",
 		},
 	})
 	removeDirOrFail(t, flagOutputDir)
@@ -106,7 +105,7 @@ func TestManifestGeneratePilot(t *testing.T) {
 		},
 		{
 			desc:       "pilot_k8s_settings",
-			diffIgnore: "CustomResourceDefinition:*:*,ConfigMap:*:istio",
+			diffSelect: "Deployment:*:istiod,HorizontalPodAutoscaler:*:istiod",
 		},
 		{
 			desc:       "pilot_override_values",
@@ -193,15 +192,6 @@ func runTestGroup(t *testing.T, tests testGroup) {
 				got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
 				if err != nil {
 					t.Errorf("error selecting from output manifest: %v", err)
-				}
-			}
-
-			if tt.outputDir != "" {
-				got, err = util.ReadFilesWithFilter(tt.outputDir, func(fileName string) bool {
-					return strings.HasSuffix(fileName, ".yaml")
-				})
-				if err != nil {
-					t.Fatal(err)
 				}
 			}
 
