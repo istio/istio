@@ -29,11 +29,8 @@
 // charts/gateways/istio-ingress/Chart.yaml
 // charts/gateways/istio-ingress/NOTES.txt
 // charts/gateways/istio-ingress/templates/_affinity.tpl
-// charts/gateways/istio-ingress/templates/addongateway.yaml
 // charts/gateways/istio-ingress/templates/autoscale.yaml
-// charts/gateways/istio-ingress/templates/certificate.yaml
 // charts/gateways/istio-ingress/templates/deployment.yaml
-// charts/gateways/istio-ingress/templates/gateway.yaml
 // charts/gateways/istio-ingress/templates/hosts.yaml
 // charts/gateways/istio-ingress/templates/meshexpansion.yaml
 // charts/gateways/istio-ingress/templates/poddisruptionbudget.yaml
@@ -14182,88 +14179,6 @@ func chartsGatewaysIstioIngressTemplates_affinityTpl() (*asset, error) {
 	return a, nil
 }
 
-var _chartsGatewaysIstioIngressTemplatesAddongatewayYaml = []byte(`# Template for telemetry addon gateways
-{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
-{{ range $addon := $gateway.telemetry_addon_gateways }}
-{{ if $addon.enabled }}
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: istio-{{ $addon.name }}-gateway
-  namespace: {{ $.Release.Namespace }}
-  labels:
-    app: {{ $addon.name }}
-    release: {{ $.Release.Name }}
-spec:
-  selector:
-    istio: ingressgateway
-  servers:
-    - port:
-        number: {{ $addon.port }}
-        name: https-{{ $addon.name }}
-        protocol: HTTPS
-      tls:
-        mode: SIMPLE
-        serverCertificate: /etc/istio/ingressgateway-certs/tls.crt
-        privateKey: /etc/istio/ingressgateway-certs/tls.key
-      hosts:
-        - "*"
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: {{ $addon.name }}-virtual-service
-  namespace: {{ $.Release.Namespace }}
-  labels:
-    app: {{ $addon.name }}
-    release: {{ $.Release.Name }}
-spec:
-  hosts:
-    - "*"
-  gateways:
-    - istio-{{ $addon.name }}-gateway
-  http:
-    - match:
-        - port: {{ $addon.port }}
-      route:
-        - destination:
-            host: {{ $addon.name }}.{{ $.Release.Namespace }}.svc.{{ $.Values.global.proxy.clusterDomain }}
-            port:
-              number: {{ $addon.desPort }}
----
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: {{ $addon.name }}
-  namespace: {{ $.Release.Namespace }}
-  labels:
-    app: {{ $addon.name }}
-    release: {{ $.Release.Name }}
-spec:
-  host: {{ $addon.name }}.{{ $.Release.Namespace }}.svc.{{ $.Values.global.proxy.clusterDomain }}
-  trafficPolicy:
-    tls:
-      mode: DISABLE
----
-{{- end }}
-{{- end }}
-`)
-
-func chartsGatewaysIstioIngressTemplatesAddongatewayYamlBytes() ([]byte, error) {
-	return _chartsGatewaysIstioIngressTemplatesAddongatewayYaml, nil
-}
-
-func chartsGatewaysIstioIngressTemplatesAddongatewayYaml() (*asset, error) {
-	bytes, err := chartsGatewaysIstioIngressTemplatesAddongatewayYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/gateways/istio-ingress/templates/addongateway.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _chartsGatewaysIstioIngressTemplatesAutoscaleYaml = []byte(`{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
 {{- if and $gateway.autoscaleEnabled $gateway.autoscaleMin $gateway.autoscaleMax }}
 apiVersion: autoscaling/v2beta1
@@ -14301,68 +14216,6 @@ func chartsGatewaysIstioIngressTemplatesAutoscaleYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "charts/gateways/istio-ingress/templates/autoscale.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsGatewaysIstioIngressTemplatesCertificateYaml = []byte(`{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
-{{ if $gateway.certificates }}
----
-# Auto-generate Certmanager Issuer and certificate requests.
-# Requires 'email' to be set, for Let's Encrypt use.
-
-apiVersion: certmanager.k8s.io/v1alpha1
-kind: Issuer
-metadata:
-  name: letsencrypt
-  namespace: {{ .Release.Namespace }}
-spec:
-  acme:
-    server: https://acme-v02.api.letsencrypt.org/directory
-    email: {{ $gateway.email }}
-    privateKeySecretRef:
-      name: letsencrypt
-    http01: {}
----
-
-apiVersion: certmanager.k8s.io/v1alpha1
-kind: Certificate
-metadata:
-  name: istio-ingressgateway-certs
-  namespace: {{ .Release.Namespace }}
-spec:
-  secretName: istio-ingressgateway-certs
-  issuerRef:
-    name: letsencrypt
-    kind: ClusterIssuer
-  commonName: {{ $gateway.commonName }}
-  dnsNames:
-{{- range $key := $gateway.certificates }}
-  - {{ $key }}
-{{- end }}
-  acme:
-    config:
-    - http01:
-        ingressClass: istio
-      domains:
-{{- range $key := $gateway.certificates }}
-      - {{ $key }}
-{{- end }}
-{{- end }}
-
-`)
-
-func chartsGatewaysIstioIngressTemplatesCertificateYamlBytes() ([]byte, error) {
-	return _chartsGatewaysIstioIngressTemplatesCertificateYaml, nil
-}
-
-func chartsGatewaysIstioIngressTemplatesCertificateYaml() (*asset, error) {
-	bytes, err := chartsGatewaysIstioIngressTemplatesCertificateYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/gateways/istio-ingress/templates/certificate.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -14693,63 +14546,6 @@ func chartsGatewaysIstioIngressTemplatesDeploymentYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "charts/gateways/istio-ingress/templates/deployment.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsGatewaysIstioIngressTemplatesGatewayYaml = []byte(`{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
-# Main Gateway. Apps must bind to NAMESPACE/ingressgateway
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: ingressgateway
-  namespace: {{ .Release.Namespace }}
-  labels:
-    release: {{ .Release.Name }}
-spec:
-  selector:
-    istio: ingressgateway
-  servers:
-{{- if $gateway.tls }}
-  - port:
-      number: 443
-      name: https-default
-      protocol: HTTPS
-    tls:
-      mode: SIMPLE
-      serverCertificate: /etc/istio/ingressgateway-certs/tls.crt
-      privateKey: /etc/istio/ingressgateway-certs/tls.key
-    hosts:
-      - "*"
-  {{- end }}
-  - port:
-      number: 80
-      name: http
-      protocol: HTTP
-    hosts:
-      - "*"
-    # Additional ports in gateaway for the ingressPorts - apps using dedicated port instead of hostname
-{{ range $app := $gateway.ingressPorts }}
-  - port:
-      number: {{ $app.port }}
-      name: {{ $app.name }}
-      protocol: HTTP2
-    hosts:
-    - "*"
-{{- end }}
-`)
-
-func chartsGatewaysIstioIngressTemplatesGatewayYamlBytes() ([]byte, error) {
-	return _chartsGatewaysIstioIngressTemplatesGatewayYaml, nil
-}
-
-func chartsGatewaysIstioIngressTemplatesGatewayYaml() (*asset, error) {
-	bytes, err := chartsGatewaysIstioIngressTemplatesGatewayYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/gateways/istio-ingress/templates/gateway.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -47638,11 +47434,8 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/gateways/istio-ingress/Chart.yaml":                                               chartsGatewaysIstioIngressChartYaml,
 	"charts/gateways/istio-ingress/NOTES.txt":                                                chartsGatewaysIstioIngressNotesTxt,
 	"charts/gateways/istio-ingress/templates/_affinity.tpl":                                  chartsGatewaysIstioIngressTemplates_affinityTpl,
-	"charts/gateways/istio-ingress/templates/addongateway.yaml":                              chartsGatewaysIstioIngressTemplatesAddongatewayYaml,
 	"charts/gateways/istio-ingress/templates/autoscale.yaml":                                 chartsGatewaysIstioIngressTemplatesAutoscaleYaml,
-	"charts/gateways/istio-ingress/templates/certificate.yaml":                               chartsGatewaysIstioIngressTemplatesCertificateYaml,
 	"charts/gateways/istio-ingress/templates/deployment.yaml":                                chartsGatewaysIstioIngressTemplatesDeploymentYaml,
-	"charts/gateways/istio-ingress/templates/gateway.yaml":                                   chartsGatewaysIstioIngressTemplatesGatewayYaml,
 	"charts/gateways/istio-ingress/templates/hosts.yaml":                                     chartsGatewaysIstioIngressTemplatesHostsYaml,
 	"charts/gateways/istio-ingress/templates/meshexpansion.yaml":                             chartsGatewaysIstioIngressTemplatesMeshexpansionYaml,
 	"charts/gateways/istio-ingress/templates/poddisruptionbudget.yaml":                       chartsGatewaysIstioIngressTemplatesPoddisruptionbudgetYaml,
@@ -47904,11 +47697,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"NOTES.txt":  &bintree{chartsGatewaysIstioIngressNotesTxt, map[string]*bintree{}},
 				"templates": &bintree{nil, map[string]*bintree{
 					"_affinity.tpl":            &bintree{chartsGatewaysIstioIngressTemplates_affinityTpl, map[string]*bintree{}},
-					"addongateway.yaml":        &bintree{chartsGatewaysIstioIngressTemplatesAddongatewayYaml, map[string]*bintree{}},
 					"autoscale.yaml":           &bintree{chartsGatewaysIstioIngressTemplatesAutoscaleYaml, map[string]*bintree{}},
-					"certificate.yaml":         &bintree{chartsGatewaysIstioIngressTemplatesCertificateYaml, map[string]*bintree{}},
 					"deployment.yaml":          &bintree{chartsGatewaysIstioIngressTemplatesDeploymentYaml, map[string]*bintree{}},
-					"gateway.yaml":             &bintree{chartsGatewaysIstioIngressTemplatesGatewayYaml, map[string]*bintree{}},
 					"hosts.yaml":               &bintree{chartsGatewaysIstioIngressTemplatesHostsYaml, map[string]*bintree{}},
 					"meshexpansion.yaml":       &bintree{chartsGatewaysIstioIngressTemplatesMeshexpansionYaml, map[string]*bintree{}},
 					"poddisruptionbudget.yaml": &bintree{chartsGatewaysIstioIngressTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
