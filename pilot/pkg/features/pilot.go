@@ -303,5 +303,5 @@ var (
 		"The JWT validation policy.")
 
 	ClusterName = env.RegisterStringVar("CLUSTER_ID", "Kubernetes",
-		"Defines the cluster and service registry that this Istiod instance is belongs to")
+		"Defines the cluster and service registry that this Istiod instance belongs to")
 )
