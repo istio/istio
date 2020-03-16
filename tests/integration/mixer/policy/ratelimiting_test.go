@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -36,6 +35,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/redis"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	util "istio.io/istio/tests/integration/mixer"
 )
 
@@ -256,6 +256,7 @@ func TestMain(m *testing.M) {
 		Skip("https://github.com/istio/istio/issues/15686").
 		Label(label.CustomSetup).
 		RequireEnvironment(environment.Kube).
+		RequireSingleCluster().
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:

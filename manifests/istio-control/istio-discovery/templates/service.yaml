@@ -46,6 +46,8 @@ spec:
     - port: 443
       name: https-webhook # validation and injection
       targetPort: 15017
+    - port: 15014
+      name: http-monitoring # prometheus stats
   selector:
     app: istiod
     {{- if ne .Values.revision ""}}
