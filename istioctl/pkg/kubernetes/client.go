@@ -251,7 +251,7 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 		return nil, err
 	}
 	if len(pods) == 0 {
-		return nil, fmt.Errorf("No running Istio pods in %q", namespace)
+		return nil, fmt.Errorf("no running Istio pods in %q", namespace)
 	}
 
 	labelToPodDetail := map[string]podDetail{
