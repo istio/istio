@@ -144,7 +144,6 @@ var (
 				}
 			}
 
-			//Do we need to get IP from the command line or environment?
 			if len(proxyIP) != 0 {
 				role.IPAddresses = append(role.IPAddresses, proxyIP)
 			} else if podIP != nil {
@@ -162,6 +161,8 @@ var (
 				role.IPAddresses = append(role.IPAddresses, "127.0.0.1")
 				role.IPAddresses = append(role.IPAddresses, "::1")
 			}
+
+			role.IPAddresses = dedupeStrings(role.IPAddresses)
 
 			// Check if proxy runs in ipv4 or ipv6 environment to set Envoy's
 			// operational parameters correctly.
