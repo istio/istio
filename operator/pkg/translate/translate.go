@@ -542,6 +542,9 @@ func renderFeatureComponentPathTemplate(tmpl string, componentName name.Componen
 // renderResourceComponentPathTemplate renders a template of the form <path>{{.ResourceName}}<path>{{.ContainerName}}<path> with
 // the supplied parameters.
 func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentName name.ComponentName, resourceName string) (string, error) {
+	if resourceName == "" {
+		resourceName = t.ComponentMaps[componentName].ResourceName
+	}
 	ts := struct {
 		ResourceType  string
 		ResourceName  string
