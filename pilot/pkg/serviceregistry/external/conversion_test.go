@@ -370,10 +370,6 @@ func makeInstance(cfg *model.Config, address string, port int,
 			ServicePortName: svcPort.Name,
 			Labels:          svcLabels,
 			TLSMode:         tlsMode,
-			Attributes: model.ServiceAttributes{
-				Name:      svc.Attributes.Name,
-				Namespace: svc.Attributes.Namespace,
-			},
 		},
 		ServicePort: &model.Port{
 			Name:     svcPort.Name,

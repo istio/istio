@@ -42,6 +42,7 @@ type Multicluster struct {
 	ResyncPeriod      time.Duration
 	serviceController *aggregate.Controller
 	XDSUpdater        model.XDSUpdater
+	metrics           model.Metrics
 
 	m                     sync.Mutex // protects remoteKubeControllers
 	remoteKubeControllers map[string]*kubeController
@@ -50,28 +51,29 @@ type Multicluster struct {
 
 // NewMulticluster initializes data structure to store multicluster information
 // It also starts the secret controller
-func NewMulticluster(kc kubernetes.Interface, secretNamespace string,
-	watchedNamespace string, domainSuffix string, resyncPeriod time.Duration,
+func NewMulticluster(kc kubernetes.Interface, secretNamespace string, opts Options,
 	serviceController *aggregate.Controller, xds model.XDSUpdater, networksWatcher mesh.NetworksWatcher) (*Multicluster, error) {
 
 	remoteKubeController := make(map[string]*kubeController)
-	if resyncPeriod == 0 {
+	if opts.ResyncPeriod == 0 {
 		// make sure a resync time of 0 wasn't passed in.
-		resyncPeriod = 30 * time.Second
+		opts.ResyncPeriod = 30 * time.Second
 		log.Info("Resync time was configured to 0, resetting to 30")
 	}
 	mc := &Multicluster{
-		WatchedNamespace:      watchedNamespace,
-		DomainSuffix:          domainSuffix,
-		ResyncPeriod:          resyncPeriod,
+		WatchedNamespace:      opts.WatchedNamespace,
+		DomainSuffix:          opts.DomainSuffix,
+		ResyncPeriod:          opts.ResyncPeriod,
 		serviceController:     serviceController,
 		XDSUpdater:            xds,
 		remoteKubeControllers: remoteKubeController,
 		networksWatcher:       networksWatcher,
+		metrics:               opts.Metrics,
 	}
 
 	err := secretcontroller.StartSecretController(kc,
 		mc.AddMemberCluster,
+		mc.UpdateMemberCluster,
 		mc.DeleteMemberCluster,
 		secretNamespace)
 	return mc, err
@@ -93,6 +95,7 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 		XDSUpdater:       m.XDSUpdater,
 		ClusterID:        clusterID,
 		NetworksWatcher:  m.networksWatcher,
+		Metrics:          m.metrics,
 	})
 
 	remoteKubeController.rc = kubectl
@@ -105,6 +108,13 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 	_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { m.updateHandler() })
 	go kubectl.Run(stopCh)
 	return nil
+}
+
+func (m *Multicluster) UpdateMemberCluster(clientset kubernetes.Interface, clusterID string) error {
+	if err := m.DeleteMemberCluster(clusterID); err != nil {
+		return err
+	}
+	return m.AddMemberCluster(clientset, clusterID)
 }
 
 // DeleteMemberCluster is passed to the secret controller as a callback to be called

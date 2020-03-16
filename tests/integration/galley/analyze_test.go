@@ -25,9 +25,9 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/istioctl/cmd"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 const (
@@ -309,7 +309,7 @@ func istioctlSafe(t *testing.T, i istioctl.Instance, ns string, useKube bool, ex
 
 func applyFileOrFail(t *testing.T, ns, filename string) {
 	t.Helper()
-	if err := env.Apply(ns, filename); err != nil {
+	if err := cluster.Apply(ns, filename); err != nil {
 		t.Fatal(err)
 	}
 }

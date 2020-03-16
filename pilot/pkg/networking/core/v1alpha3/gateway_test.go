@@ -874,35 +874,51 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		virtualServices      []pilot_model.Config
 		gateways             []pilot_model.Config
 		routeName            string
-		expectedVirtualHosts []string
+		expectedVirtualHosts map[string][]string
 	}{
 		{
 			"404 when no services",
 			[]pilot_model.Config{},
 			[]pilot_model.Config{httpGateway},
 			"http.80",
-			[]string{"blackhole:80"},
+			map[string][]string{
+				"blackhole:80": {
+					"*",
+				},
+			},
 		},
 		{
 			"add a route for a virtual service",
 			[]pilot_model.Config{virtualService},
 			[]pilot_model.Config{httpGateway},
 			"http.80",
-			[]string{"example.org:80"},
+			map[string][]string{
+				"example.org:80": {
+					"example.org", "example.org:*",
+				},
+			},
 		},
 		{
 			"duplicate virtual service should merge",
 			[]pilot_model.Config{virtualService, virtualServiceCopy},
 			[]pilot_model.Config{httpGateway},
 			"http.80",
-			[]string{"example.org:80"},
+			map[string][]string{
+				"example.org:80": {
+					"example.org", "example.org:*",
+				},
+			},
 		},
 		{
 			"duplicate by wildcard should merge",
 			[]pilot_model.Config{virtualService, virtualServiceWildcard},
 			[]pilot_model.Config{httpGateway},
 			"http.80",
-			[]string{"example.org:80"},
+			map[string][]string{
+				"example.org:80": {
+					"example.org", "example.org:*",
+				},
+			},
 		},
 	}
 	for _, tt := range cases {
@@ -915,9 +931,9 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			if route == nil {
 				t.Fatal("got an empty route configuration")
 			}
-			vh := make([]string, 0)
+			vh := make(map[string][]string)
 			for _, h := range route.VirtualHosts {
-				vh = append(vh, h.Name)
+				vh[h.Name] = h.Domains
 			}
 			if !reflect.DeepEqual(tt.expectedVirtualHosts, vh) {
 				t.Errorf("got unexpected virtual hosts. Expected: %v, Got: %v", tt.expectedVirtualHosts, vh)

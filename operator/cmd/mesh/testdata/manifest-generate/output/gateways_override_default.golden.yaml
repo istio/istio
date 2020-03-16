@@ -138,8 +138,9 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: istio-pilot;http-monitoring
-
+        regex: istiod;http-monitoring
+      - source_labels: [__meta_kubernetes_service_label_app]
+        target_label: app
     - job_name: 'galley'
       kubernetes_sd_configs:
       - role: endpoints
@@ -370,26 +371,16 @@ spec:
             - "/usr/local/bin/envoy"
             - --serviceCluster
             - "istio-proxy-prometheus"
-            - --drainDuration
-            - "45s"
-            - --parentShutdownDuration
-            - "1m0s"
-            - --discoveryAddress
-            - istio-pilot.istio-system.svc:15012
             - --proxyLogLevel=warning
             - --proxyComponentLogLevel=misc:error
-            - --connectTimeout
-            - "10s"
             - --proxyAdminPort
             - "15000"
             - --controlPlaneAuthPolicy
             - NONE
-            - --statusPort
-            - "15020"
             - --trust-domain=cluster.local
             - --controlPlaneBootstrap=false
           env:
-            - name: OUTPUT_KEY_CERT_TO_DIRECTORY
+            - name: OUTPUT_CERTS
               value: "/etc/istio-certs"
             - name: JWT_POLICY
               value: third-party-jwt
@@ -428,6 +419,8 @@ spec:
                   fieldPath: metadata.namespace
             - name: ISTIO_META_MESH_ID
               value: "cluster.local"
+            - name: ISTIO_META_CLUSTER_ID
+              value: "Kubernetes"
           imagePullPolicy: Always
           readinessProbe:
             failureThreshold: 30
@@ -448,8 +441,14 @@ spec:
               name: istio-token
             - mountPath: /etc/istio-certs/
               name: istio-certs
+            - name: istio-config-volume
+              mountPath: /etc/istio/config
 
       volumes:
+      - name: istio-config-volume
+        configMap:
+          name: istio
+          optional: true
       - name: config-volume
         configMap:
           name: prometheus
@@ -543,8 +542,6 @@ metadata:
 
 # Base component is disabled.
 
-# Citadel component is disabled.
-
 # Cni component is disabled.
 
 # EgressGateways istio-egressgateway component is disabled.
@@ -559,7 +556,7 @@ metadata:
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: istio-ingressgateway
+  name: istio-ingress-1
   namespace: istio-ingress-ns
   labels:
     app: istio-ingressgateway
@@ -572,7 +569,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: istio-ingressgateway
+    name: istio-ingress-1
   metrics:
     - type: Resource
       resource:
@@ -588,7 +585,7 @@ metadata:
     app: istio-ingressgateway
     istio: ingressgateway
     release: istio
-  name: istio-ingressgateway
+  name: istio-ingress-1
   namespace: istio-ingress-ns
 spec:
   selector:
@@ -606,7 +603,7 @@ spec:
       labels:
         app: istio-ingressgateway
         istio: ingressgateway
-        service.istio.io/canonical-name: istio-ingressgateway
+        service.istio.io/canonical-name: istio-ingress-1
         service.istio.io/canonical-revision: latest
     spec:
       affinity:
@@ -651,20 +648,10 @@ spec:
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
         - --log_output_level=default:info
-        - --drainDuration
-        - 45s
-        - --parentShutdownDuration
-        - 1m0s
-        - --connectTimeout
-        - 10s
         - --serviceCluster
-        - istio-ingressgateway
-        - --zipkinAddress
-        - zipkin.istio-system:9411
+        - istio-ingress-1
         - --proxyAdminPort
         - "15000"
-        - --statusPort
-        - "15020"
         - --controlPlaneAuthPolicy
         - NONE
         - --discoveryAddress
@@ -709,9 +696,9 @@ spec:
             fieldRef:
               fieldPath: spec.serviceAccountName
         - name: ISTIO_META_WORKLOAD_NAME
-          value: istio-ingressgateway
+          value: istio-ingress-1
         - name: ISTIO_META_OWNER
-          value: kubernetes://apis/apps/v1/namespaces/istio-ingress-ns/deployments/istio-ingressgateway
+          value: kubernetes://apis/apps/v1/namespaces/istio-ingress-ns/deployments/istio-ingress-1
         - name: ISTIO_META_MESH_ID
           value: cluster.local
         - name: ISTIO_AUTO_MTLS_ENABLED
@@ -741,6 +728,7 @@ spec:
         - containerPort: 15032
         - containerPort: 15443
         - containerPort: 15011
+        - containerPort: 15012
         - containerPort: 8060
         - containerPort: 853
         - containerPort: 15090
@@ -820,27 +808,6 @@ spec:
 ---
 
 
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: ingressgateway
-  namespace: istio-ingress-ns
-  labels:
-    release: istio
-spec:
-  selector:
-    istio: ingressgateway
-  servers:
-  - port:
-      number: 80
-      name: http
-      protocol: HTTP
-    hosts:
-      - "*"
-    # Additional ports in gateaway for the ingressPorts - apps using dedicated port instead of hostname
----
-
-
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
@@ -896,7 +863,7 @@ subjects:
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-ingressgateway
+  name: istio-ingress-1
   namespace: istio-ingress-ns
   annotations:
   labels:

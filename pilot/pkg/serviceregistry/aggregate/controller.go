@@ -17,6 +17,8 @@ package aggregate
 import (
 	"sync"
 
+	"istio.io/istio/pilot/pkg/features"
+
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/pkg/log"
@@ -116,7 +118,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 		// may modify one of the service's cluster ID
 		clusterAddressesMutex.Lock()
 		if r.Cluster() == "" { // Should we instead check for registry name to be on safe side?
-			// If the service is does not have a cluster ID (consul, ServiceEntries, CloudFoundry, etc.)
+			// If the service does not have a cluster ID (consul, ServiceEntries, CloudFoundry, etc.)
 			// Do not bother checking for the cluster ID.
 			// DO NOT ASSIGN CLUSTER ID to non-k8s registries. This will prevent service entries with multiple
 			// VIPs or CIDR ranges in the address field
@@ -221,6 +223,32 @@ func (c *Controller) InstancesByPort(svc *model.Service, port int,
 	return instances, errs
 }
 
+func nodeClusterID(node *model.Proxy) string {
+	if node.Metadata == nil || node.Metadata.ClusterID == "" {
+		return ""
+	}
+	return node.Metadata.ClusterID
+}
+
+// Skip the service registry when there won't be a match
+// because the proxy is in a different cluster.
+func skipSearchingRegistryForProxy(nodeClusterID, registryClusterID, selfClusterID string) bool {
+	// We can't trust the default service registry because its always
+	// named `Kubernetes`. Use the `CLUSTER_ID` envvar to find the
+	// local cluster name in these cases.
+	// TODO(https://github.com/istio/istio/issues/22093)
+	if registryClusterID == string(serviceregistry.Kubernetes) {
+		registryClusterID = selfClusterID
+	}
+
+	// We can't be certain either way
+	if registryClusterID == "" || nodeClusterID == "" {
+		return false
+	}
+
+	return registryClusterID != nodeClusterID
+}
+
 // GetProxyServiceInstances lists service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
 	out := make([]*model.ServiceInstance, 0)
@@ -228,12 +256,19 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 	// It doesn't make sense for a single proxy to be found in more than one registry.
 	// TODO: if otherwise, warning or else what to do about it.
 	for _, r := range c.GetRegistries() {
+		nodeClusterID := nodeClusterID(node)
+		if skipSearchingRegistryForProxy(nodeClusterID, r.Cluster(), features.ClusterName.Get()) {
+			log.Debugf("GetProxyServiceInstances(): not searching registry %v: proxy %v CLUSTER_ID is %v",
+				r.Cluster(), node.ID, nodeClusterID)
+			continue
+		}
+
 		instances, err := r.GetProxyServiceInstances(node)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		} else if len(instances) > 0 {
 			out = append(out, instances...)
-			node.ClusterID = r.Cluster()
+			node.ClusterID = instances[0].Endpoint.Locality.ClusterID
 			break
 		}
 	}

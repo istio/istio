@@ -18,9 +18,9 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 )
 
@@ -31,6 +31,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.NewSuite("mixer_test", m).
 		Label(label.CustomSetup).
+		RequireSingleCluster().
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:

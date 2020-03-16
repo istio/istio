@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -32,14 +31,6 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 
 	corev1 "k8s.io/api/core/v1"
-)
-
-const (
-	statusReplacement = "sidecar.istio.io/status: '{\"version\":\"\","
-)
-
-var (
-	statusPattern = regexp.MustCompile("sidecar.istio.io/status: '{\"version\":\"([0-9a-f]+)\",")
 )
 
 func TestIntoResourceFile(t *testing.T) {
@@ -63,11 +54,6 @@ components:
   cni:
     enabled: true
 `,
-		},
-		//verifies that the sidecar will not be injected again for an injected yaml
-		{
-			in:   "hello.yaml.injected",
-			want: "hello.yaml.injected",
 		},
 		{
 			in:   "hello-mtls-not-ready.yaml",
@@ -342,8 +328,8 @@ values:
 			gotBytes := got.Bytes()
 			wantedBytes := util.ReadGoldenFile(gotBytes, wantFilePath, t)
 
-			wantBytes := stripVersion(wantedBytes)
-			gotBytes = stripVersion(gotBytes)
+			wantBytes := util.StripVersion(wantedBytes)
+			gotBytes = util.StripVersion(gotBytes)
 
 			util.CompareBytes(gotBytes, wantBytes, wantFilePath, t)
 
@@ -398,12 +384,12 @@ func TestRewriteAppProbe(t *testing.T) {
 		},
 		{
 			in:                  "hello-probes-with-flag-set-in-annotation.yaml",
-			rewriteAppHTTPProbe: false,
+			rewriteAppHTTPProbe: true,
 			want:                "hello-probes-with-flag-set-in-annotation.yaml.injected",
 		},
 		{
 			in:                  "hello-probes-with-flag-unset-in-annotation.yaml",
-			rewriteAppHTTPProbe: true,
+			rewriteAppHTTPProbe: false,
 			want:                "hello-probes-with-flag-unset-in-annotation.yaml.injected",
 		},
 		{
@@ -434,18 +420,14 @@ func TestRewriteAppProbe(t *testing.T) {
 
 			// The version string is a maintenance pain for this test. Strip the version string before comparing.
 			gotBytes := got.Bytes()
-			gotBytes = stripVersion(gotBytes)
+			gotBytes = util.StripVersion(gotBytes)
 
 			wantedBytes := util.ReadGoldenFile(gotBytes, wantFilePath, t)
-			wantBytes := stripVersion(wantedBytes)
+			wantBytes := util.StripVersion(wantedBytes)
 
 			util.CompareBytes(gotBytes, wantBytes, wantFilePath, t)
 		})
 	}
-}
-
-func stripVersion(yaml []byte) []byte {
-	return statusPattern.ReplaceAllLiteral(yaml, []byte(statusReplacement))
 }
 
 func TestInvalidAnnotations(t *testing.T) {

@@ -21,7 +21,7 @@ import (
 	"sync"
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	multierror "github.com/hashicorp/go-multierror"
@@ -181,8 +181,9 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 				InstancePort: 8090,
 			},
 		},
-		Galley: g,
-		Pilot:  p,
+		Subsets: []echo.SubsetConfig{{}},
+		Galley:  g,
+		Pilot:   p,
 	}
 }
 

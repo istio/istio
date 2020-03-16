@@ -19,12 +19,12 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/tests/integration/security/util/reachability"
 )
 
@@ -32,6 +32,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("cni", m).
 		RequireEnvironment(environment.Kube).
+		RequireSingleCluster().
 		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 components:
@@ -65,7 +66,8 @@ func TestCNIReachability(t *testing.T) {
 				ctx.Fatal(err)
 			}
 			kenv := ctx.Environment().(*kube.Environment)
-			_, err = kenv.WaitUntilPodsAreReady(kenv.NewSinglePodFetch("kube-system", "k8s-app=istio-cni-node"))
+			cluster := kenv.KubeClusters[0]
+			_, err = cluster.WaitUntilPodsAreReady(cluster.NewSinglePodFetch("kube-system", "k8s-app=istio-cni-node"))
 			if err != nil {
 				ctx.Fatal(err)
 			}

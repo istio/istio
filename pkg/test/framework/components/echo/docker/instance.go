@@ -162,7 +162,9 @@ func (i *instance) WaitUntilCallable(instances ...echo.Instance) error {
 		}
 	}
 
-	if !i.cfg.Annotations.GetBool(echo.SidecarInject) {
+	// Note: docker version environment implementation only supports single container.
+	// TODO(https://github.com/istio/istio/issues/21656): investigate proper support of workload.
+	if !i.cfg.Subsets[0].Annotations.GetBool(echo.SidecarInject) {
 		time.Sleep(noSidecarWaitDuration)
 	}
 

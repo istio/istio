@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	appEcho "istio.io/istio/pkg/test/echo/client"
+	echoCommon "istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	kubeEnv "istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -49,10 +50,11 @@ type instance struct {
 	id        resource.ID
 	cfg       echo.Config
 	clusterIP string
-	env       *kubeEnv.Environment
 	workloads []*workload
 	grpcPort  uint16
 	ctx       resource.Context
+	tls       *echoCommon.TLSSettings
+	cluster   kubeEnv.Cluster
 }
 
 func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err error) {
@@ -69,11 +71,10 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 		return nil, errors.New("galley must be provided")
 	}
 
-	env := ctx.Environment().(*kubeEnv.Environment)
 	c := &instance{
-		env: env,
-		cfg: cfg,
-		ctx: ctx,
+		cfg:     cfg,
+		ctx:     ctx,
+		cluster: kubeEnv.ClusterOrDefault(cfg.Cluster, ctx.Environment()),
 	}
 	c.id = ctx.TrackResource(c)
 
@@ -83,7 +84,7 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 		return nil, errors.New("unable fo find GRPC command port")
 	}
 	c.grpcPort = uint16(grpcPort.InstancePort)
-
+	c.tls = cfg.TLSSettings
 	// Generate the deployment YAML.
 	generatedYAML, err := generateYAML(cfg)
 	if err != nil {
@@ -91,12 +92,12 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	}
 
 	// Deploy the YAML.
-	if err = env.ApplyContents(cfg.Namespace.Name(), generatedYAML); err != nil {
+	if _, err = c.cluster.ApplyContents(cfg.Namespace.Name(), generatedYAML); err != nil {
 		return nil, err
 	}
 
 	// Now retrieve the service information to find the ClusterIP
-	s, err := env.GetService(cfg.Namespace.Name(), cfg.Service)
+	s, err := c.cluster.GetService(cfg.Namespace.Name(), cfg.Service)
 	if err != nil {
 		return nil, err
 	}
@@ -208,6 +209,17 @@ func (c *instance) WaitUntilCallableOrFail(t test.Failer, instances ...echo.Inst
 	}
 }
 
+// WorkloadHasSidecar returns true if the input endpoint is deployed with sidecar injected based on the config.
+func workloadHasSidecar(cfg echo.Config, endpoint *kubeCore.ObjectReference) bool {
+	// Match workload first.
+	for _, w := range cfg.Subsets {
+		if strings.HasPrefix(endpoint.Name, fmt.Sprintf("%v-%v", cfg.Service, w.Version)) {
+			return w.Annotations.GetBool(echo.SidecarInject)
+		}
+	}
+	return true
+}
+
 func (c *instance) initialize(endpoints *kubeCore.Endpoints) error {
 	if c.workloads != nil {
 		// Already ready.
@@ -217,7 +229,7 @@ func (c *instance) initialize(endpoints *kubeCore.Endpoints) error {
 	workloads := make([]*workload, 0)
 	for _, subset := range endpoints.Subsets {
 		for _, addr := range subset.Addresses {
-			workload, err := newWorkload(addr, c.cfg.Annotations, c.grpcPort, c.env.Accessor, c.ctx)
+			workload, err := newWorkload(addr, workloadHasSidecar(c.cfg, addr.TargetRef), c.grpcPort, c.cluster, c.tls, c.ctx)
 			if err != nil {
 				return err
 			}

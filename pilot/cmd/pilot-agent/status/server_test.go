@@ -44,56 +44,66 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func TestNewServer(t *testing.T) {
 	testCases := []struct {
-		httpProbe string
-		err       string
+		probe string
+		err   string
 	}{
 		// Json can't be parsed.
 		{
-			httpProbe: "invalid-prober-json-encoding",
-			err:       "failed to decode",
+			probe: "invalid-prober-json-encoding",
+			err:   "failed to decode",
 		},
 		// map key is not well formed.
 		{
-			httpProbe: `{"abc": {"path": "/app-foo/health"}}`,
-			err:       "invalid key",
+			probe: `{"abc": {"path": "/app-foo/health"}}`,
+			err:   "invalid key",
+		},
+		// invalid probe type
+		{
+			probe: `{"/app-health/hello-world/readyz": {"tcpSocket": {"port": "8888"}}}`,
+			err:   "invalid prober type",
 		},
 		// Port is not Int typed.
 		{
-			httpProbe: `{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": "container-port-dontknow"}}`,
-			err:       "must be int type",
+			probe: `{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": "container-port-dontknow"}}}`,
+			err:   "must be int type",
 		},
 		// A valid input.
 		{
-			httpProbe: `{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": 8080},` +
-				`"/app-health/business/livez": {"path": "/buisiness/live", "port": 9090}}`,
+			probe: `{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": 8080}},` +
+				`"/app-health/business/livez": {"httpGet": {"path": "/buisiness/live", "port": 9090}}}`,
+		},
+		// long request timeout
+		{
+			probe: `{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": 8080},` +
+				`"initialDelaySeconds": 120,"timeoutSeconds": 10,"periodSeconds": 20}}`,
 		},
 		// A valid input with empty probing path, which happens when HTTPGetAction.Path is not specified.
 		{
-			httpProbe: `{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": 8080},
-"/app-health/business/livez": {"port": 9090}}`,
+			probe: `{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": 8080}},
+"/app-health/business/livez": {"httpGet": {"port": 9090}}}`,
 		},
 		// A valid input without any prober info.
 		{
-			httpProbe: `{}`,
+			probe: `{}`,
 		},
 	}
 	for _, tc := range testCases {
 		_, err := NewServer(Config{
-			KubeAppHTTPProbers: tc.httpProbe,
+			KubeAppProbers: tc.probe,
 		})
 
 		if err == nil {
 			if tc.err != "" {
-				t.Errorf("test case failed [%v], expect error %v", tc.httpProbe, tc.err)
+				t.Errorf("test case failed [%v], expect error %v", tc.probe, tc.err)
 			}
 			continue
 		}
 		if tc.err == "" {
-			t.Errorf("test case failed [%v], expect no error, got %v", tc.httpProbe, err)
+			t.Errorf("test case failed [%v], expect no error, got %v", tc.probe, err)
 		}
 		// error case, error string should match.
 		if !strings.Contains(err.Error(), tc.err) {
-			t.Errorf("test case failed [%v], expect error %v, got %v", tc.httpProbe, tc.err, err)
+			t.Errorf("test case failed [%v], expect error %v, got %v", tc.probe, tc.err, err)
 		}
 	}
 }
@@ -110,8 +120,8 @@ func TestAppProbe(t *testing.T) {
 	// Starts the pilot agent status server.
 	server, err := NewServer(Config{
 		StatusPort: 0,
-		KubeAppHTTPProbers: fmt.Sprintf(`{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": %v},
-"/app-health/hello-world/livez": {"port": %v}}`, appPort, appPort),
+		KubeAppProbers: fmt.Sprintf(`{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": %v}},
+"/app-health/hello-world/livez": {"httpGet":{"port": %v}}}`, appPort, appPort),
 	})
 	if err != nil {
 		t.Errorf("failed to create status server %v", err)
@@ -175,8 +185,8 @@ func TestHttpsAppProbe(t *testing.T) {
 	// Starts the pilot agent status server.
 	server, err := NewServer(Config{
 		StatusPort: 0,
-		KubeAppHTTPProbers: fmt.Sprintf(`{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": %v, "scheme": "HTTPS"},
-"/app-health/hello-world/livez": {"port": %v, "scheme": "HTTPS"}}`, appPort, appPort),
+		KubeAppProbers: fmt.Sprintf(`{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": %v, "scheme": "HTTPS"}},
+"/app-health/hello-world/livez": {"httpGet": {"port": %v, "scheme": "HTTPS"}}}`, appPort, appPort),
 	})
 	if err != nil {
 		t.Errorf("failed to create status server %v", err)

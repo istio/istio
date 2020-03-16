@@ -29,6 +29,10 @@ import (
 	"sync"
 	"time"
 
+	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
+
+	"istio.io/pkg/env"
+
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/pilot/pkg/leaderelection"
@@ -87,6 +91,10 @@ var (
 		plugin.Health,
 		plugin.Mixer,
 	}
+
+	enableElection = env.RegisterBoolVar("MASTER_ELECTION",
+		true,
+		"Enable master election")
 )
 
 func init() {
@@ -139,8 +147,9 @@ type Server struct {
 
 	serviceEntryStore *external.ServiceEntryStore
 
-	HTTPListener net.Listener
-	GRPCListener net.Listener
+	HTTPListener    net.Listener
+	GRPCListener    net.Listener
+	GRPCDNSListener net.Listener
 
 	// for test
 	forceStop bool
@@ -223,7 +232,13 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 	if s.EnableCA() {
 		var err error
-		s.ca, err = s.createCA(s.kubeClient.CoreV1(), caOpts)
+		var corev1 v1.CoreV1Interface
+		if s.kubeClient != nil {
+			corev1 = s.kubeClient.CoreV1()
+		}
+		// May return nil, if the CA is missing required configs.
+		// This is not an error.
+		s.ca, err = s.createCA(corev1, caOpts)
 		if err != nil {
 			return nil, fmt.Errorf("enableCA: %v", err)
 		}
@@ -271,11 +286,13 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	// 1) CA certificate has been created.
 	// 2) grpc server has been generated.
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		s.RunCA(s.secureGRPCServerDNS, s.ca, caOpts, stop)
+		if s.ca != nil {
+			s.RunCA(s.secureGRPCServerDNS, s.ca, caOpts, stop)
+		}
 		return nil
 	})
 
-	if s.leaderElection != nil {
+	if s.leaderElection != nil && enableElection.Get() {
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			// We mark this as a required termination as an optimization. Without this, when we exit the lock is
 			// still held for some time (30-60s or so). If we allow time for a graceful exit, then we can immediately drop the lock.
@@ -319,6 +336,19 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		if err := fn(stop); err != nil {
 			return err
 		}
+	}
+	// Race condition - if waitForCache is too fast and we run this as a startup function,
+	// the grpc server would be started before CA is registered. Listening should be last.
+	if s.GRPCDNSListener != nil {
+		go func() {
+			if !s.waitForCacheSync(stop) {
+				return
+			}
+			log.Infof("starting secure (DNS) gRPC discovery service at %s", s.GRPCDNSListener.Addr())
+			if err := s.secureGRPCServerDNS.Serve(s.GRPCDNSListener); err != nil {
+				log.Errorf("error from GRPC server: %v", err)
+			}
+		}()
 	}
 
 	// grpcServer is shared by Galley, CA, XDS - must Serve at the end, but before 'wait'
@@ -605,7 +635,7 @@ func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options, namespace
 	}
 	caCert, err := ioutil.ReadFile(ca)
 	if err != nil {
-		return fmt.Errorf("failed to read ca file at %v: %v", ca, err)
+		caCert = s.ca.GetCAKeyCertBundle().GetRootCertPem()
 	}
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
@@ -646,7 +676,22 @@ func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.
 	key := path.Join(certDir, constants.KeyFilename)
 	cert := path.Join(certDir, constants.CertChainFilename)
 
-	tlsCreds, err := credentials.NewServerTLSFromFile(cert, key)
+	certP, err := tls.LoadX509KeyPair(cert, key)
+	if err != nil {
+		return err
+	}
+
+	cp := x509.NewCertPool()
+	rootCertBytes := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+	cp.AppendCertsFromPEM(rootCertBytes)
+
+	cfg := &tls.Config{
+		Certificates: []tls.Certificate{certP},
+		ClientAuth:   tls.VerifyClientCertIfGiven,
+		ClientCAs:    cp,
+	}
+
+	tlsCreds := credentials.NewTLS(cfg)
 	// certs not ready yet.
 	if err != nil {
 		return err
@@ -660,22 +705,15 @@ func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.
 	if err != nil {
 		return err
 	}
+	s.GRPCDNSListener = l
 
 	opts := s.grpcServerOptions(keepalive)
 	opts = append(opts, grpc.Creds(tlsCreds))
+
 	s.secureGRPCServerDNS = grpc.NewServer(opts...)
 	s.EnvoyXdsServer.Register(s.secureGRPCServerDNS)
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		go func() {
-			if !s.waitForCacheSync(stop) {
-				return
-			}
-			if err := s.secureGRPCServerDNS.Serve(l); err != nil {
-				log.Errorf("error from GRPC server: %v", err)
-			}
-		}()
-
 		go func() {
 			<-stop
 			s.secureGRPCServerDNS.Stop()
@@ -781,7 +819,11 @@ func (s *Server) initEventHandlers() error {
 			}
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
 		}
-		for _, schema := range collections.Pilot.All() {
+		schemas := collections.Pilot.All()
+		if features.EnableServiceApis {
+			schemas = collections.PilotServiceApi.All()
+		}
+		for _, schema := range schemas {
 			// This resource type was handled in external/servicediscovery.go, no need to rehandle here.
 			if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Serviceentries.
 				Resource().GroupVersionKind() {
@@ -798,8 +840,12 @@ func (s *Server) initEventHandlers() error {
 // add a GRPC listener using DNS-based certificates. Will be used for Galley, injection and CA signing.
 func (s *Server) initDNSListener(args *PilotArgs) error {
 	istiodAddr := features.IstiodService.Get()
-	if s.ca == nil || istiodAddr == "" || s.kubeClient == nil {
+	if istiodAddr == "" {
 		// Feature disabled
+		return nil
+	}
+	if s.ca == nil {
+		// Running locally without configured certs - no TLS mode
 		return nil
 	}
 
@@ -814,7 +860,7 @@ func (s *Server) initDNSListener(args *PilotArgs) error {
 
 	// Create DNS certificates. This allows injector, validation to work without Citadel, and
 	// allows secure SDS connections to Istiod.
-	err = s.initDNSCerts(host)
+	err = s.initDNSCerts(host, args.Namespace)
 	if err != nil {
 		return err
 	}

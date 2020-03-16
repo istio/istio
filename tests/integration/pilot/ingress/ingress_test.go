@@ -22,7 +22,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -30,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -48,13 +48,21 @@ func TestMain(m *testing.M) {
 		NewSuite("pilot_test", m).
 		Label(label.CustomSetup).
 		RequireEnvironment(environment.Kube).
-		SetupOnEnv(environment.Kube, istio.Setup(&i, func(cfg *istio.Config) {
-			cfg.Values["global.k8sIngress.enabled"] = "true"
-		})).
+		RequireSingleCluster().
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {
 				return err
 			}
+			if err := g.ApplyConfigDir(nil, "testdata"); err != nil {
+				return err
+			}
+			return nil
+		}).
+		SetupOnEnv(environment.Kube, istio.Setup(&i, func(cfg *istio.Config) {
+			cfg.Values["global.k8sIngress.enabled"] = "true"
+			cfg.Values["pilot.env.PILOT_ENABLED_SERVICE_APIS"] = "true"
+		})).
+		Setup(func(ctx resource.Context) (err error) {
 			if p, err = pilot.New(ctx, pilot.Config{
 				Galley: g,
 			}); err != nil {
@@ -68,6 +76,100 @@ func TestMain(m *testing.M) {
 			return nil
 		}).
 		Run()
+}
+
+func TestGateway(t *testing.T) {
+	framework.
+		NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "gateway",
+				Inject: true,
+			})
+			var instance echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&instance, echo.Config{
+					Service:   "server",
+					Namespace: ns,
+					Subsets:   []echo.SubsetConfig{{}},
+					Pilot:     p,
+					Galley:    g,
+					Ports: []echo.Port{
+						{
+							Name:     "http",
+							Protocol: protocol.HTTP,
+							// We use a port > 1024 to not require root
+							InstancePort: 8090,
+						},
+					},
+				}).
+				BuildOrFail(t)
+			instance.Address()
+			if err := g.ApplyConfig(ns, `
+apiVersion: networking.x.k8s.io/v1alpha1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controller: istio.io/gateway-controller
+---
+apiVersion: networking.x.k8s.io/v1alpha1
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  class: istio
+  listeners:
+  - name: primary
+    address:
+      type: NamedAddress
+      value: my.domain.example
+    port: 80
+    protocol: http
+  routes:
+  - group: networking.x-k8s.io/v1alpha1
+    resource: HTTPRoute
+    name: http
+---
+apiVersion: networking.x.k8s.io/v1alpha1
+kind: HTTPRoute
+metadata:
+  name: http
+spec:
+  hosts:
+  - hostname: "my.domain.example"
+    rules:
+    - match:
+        pathType: Prefix
+        path: /get
+      action:
+        forwardTo:
+          group: v1
+          resource: Service
+          name: server`,
+			); err != nil {
+				t.Fatal(err)
+			}
+
+			if err := retry.UntilSuccess(func() error {
+				resp, err := ingr.Call(ingress.CallOptions{
+					Host:     "my.domain.example",
+					Path:     "/get",
+					CallType: ingress.PlainText,
+					Address:  ingr.HTTPAddress(),
+				})
+				if err != nil {
+					return err
+				}
+				if resp.Code != 200 {
+					return fmt.Errorf("got invalid response code %v: %v", resp.Code, resp.Body)
+				}
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+		})
 }
 
 func TestIngress(t *testing.T) {
@@ -84,6 +186,7 @@ func TestIngress(t *testing.T) {
 				With(&instance, echo.Config{
 					Service:   "server",
 					Namespace: ns,
+					Subsets:   []echo.SubsetConfig{{}},
 					Pilot:     p,
 					Galley:    g,
 					Ports: []echo.Port{

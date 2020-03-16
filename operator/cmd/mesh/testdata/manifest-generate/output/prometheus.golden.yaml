@@ -138,8 +138,9 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: istio-pilot;http-monitoring
-
+        regex: istiod;http-monitoring
+      - source_labels: [__meta_kubernetes_service_label_app]
+        target_label: app
     - job_name: 'galley'
       kubernetes_sd_configs:
       - role: endpoints
@@ -370,26 +371,16 @@ spec:
             - "/usr/local/bin/envoy"
             - --serviceCluster
             - "istio-proxy-prometheus"
-            - --drainDuration
-            - "45s"
-            - --parentShutdownDuration
-            - "1m0s"
-            - --discoveryAddress
-            - istio-pilot.istio-system.svc:15012
             - --proxyLogLevel=warning
             - --proxyComponentLogLevel=misc:error
-            - --connectTimeout
-            - "10s"
             - --proxyAdminPort
             - "15000"
             - --controlPlaneAuthPolicy
             - NONE
-            - --statusPort
-            - "15020"
             - --trust-domain=cluster.local
             - --controlPlaneBootstrap=false
           env:
-            - name: OUTPUT_KEY_CERT_TO_DIRECTORY
+            - name: OUTPUT_CERTS
               value: "/etc/istio-certs"
             - name: JWT_POLICY
               value: third-party-jwt
@@ -428,6 +419,8 @@ spec:
                   fieldPath: metadata.namespace
             - name: ISTIO_META_MESH_ID
               value: "cluster.local"
+            - name: ISTIO_META_CLUSTER_ID
+              value: "Kubernetes"
           imagePullPolicy: Always
           readinessProbe:
             failureThreshold: 30
@@ -448,8 +441,14 @@ spec:
               name: istio-token
             - mountPath: /etc/istio-certs/
               name: istio-certs
+            - name: istio-config-volume
+              mountPath: /etc/istio/config
 
       volumes:
+      - name: istio-config-volume
+        configMap:
+          name: istio
+          optional: true
       - name: config-volume
         configMap:
           name: prometheus
@@ -542,8 +541,6 @@ metadata:
 # AddonComponents istio-tracing component is disabled.
 
 # Base component is disabled.
-
-# Citadel component is disabled.
 
 # Cni component is disabled.
 

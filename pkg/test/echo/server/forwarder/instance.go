@@ -121,5 +121,8 @@ func (i *Instance) Run(ctx context.Context) (*proto.ForwardEchoResponse, error) 
 }
 
 func (i *Instance) Close() error {
-	return i.p.Close()
+	if i != nil && i.p != nil {
+		return i.p.Close()
+	}
+	return nil
 }

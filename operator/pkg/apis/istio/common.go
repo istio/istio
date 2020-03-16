@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"istio.io/api/operator/v1alpha1"
+	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
 )
@@ -34,4 +35,13 @@ func UnmarshalAndValidateIOPS(iopsYAML string) (*v1alpha1.IstioOperatorSpec, err
 		return iops, fmt.Errorf(errs.Error())
 	}
 	return iops, nil
+}
+
+// UnmarshalIstioOperator unmarshals a string containing IstioOperator YAML.
+func UnmarshalIstioOperator(iopYAML string) (*operator_v1alpha1.IstioOperator, error) {
+	iop := &operator_v1alpha1.IstioOperator{}
+	if err := util.UnmarshalWithJSONPB(iopYAML, iop, false); err != nil {
+		return nil, fmt.Errorf("could not unmarshal: %s\n\nYAML:\n%s", err, iopYAML)
+	}
+	return iop, nil
 }

@@ -23,9 +23,9 @@ import (
 	uuid "github.com/satori/go.uuid"
 
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/mixer"
@@ -70,6 +70,7 @@ func TestClientTracing(t *testing.T) {
 func TestMain(m *testing.M) {
 	framework.NewSuite("client_tracing_test", m).
 		RequireEnvironment(environment.Kube).
+		RequireSingleCluster().
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(tracing.GetIstioInstance(), setupConfig)).
 		Setup(tracing.TestSetup).
@@ -84,17 +85,4 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["tracing.provider"] = "zipkin"
 	cfg.Values["global.enableTracing"] = "true"
 	cfg.Values["global.disablePolicyChecks"] = "true"
-
-	// TODO not needed once https://github.com/istio/istio/issues/20137 is in
-	cfg.ControlPlaneValues = `
-addonComponents:
-  tracing:
-    enabled: true
-values:
-  tracing:
-    provider: zipkin
-  global:
-    enableTracing: true
-    disablePolicyChecks: true
-`
 }

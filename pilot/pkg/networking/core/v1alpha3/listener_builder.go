@@ -41,9 +41,6 @@ import (
 )
 
 var (
-	// Precompute these filters as an optimization
-	blackholeFilter *listener.Filter
-
 	dummyServiceInstance = &model.ServiceInstance{
 		Service:     &model.Service{},
 		ServicePort: &model.Port{},
@@ -52,10 +49,6 @@ var (
 		},
 	}
 )
-
-func init() {
-	blackholeFilter = newBlackholeFilter()
-}
 
 // A stateful listener builder
 // Support the below intentions
@@ -243,24 +236,6 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 
 	filterChains := buildOutboundCatchAllNetworkFilterChains(configgen, node, push)
 
-	// The virtual listener will handle all traffic that does not match any other listeners, and will
-	// blackhole/passthrough depending on the outbound traffic policy. When passthrough is enabled,
-	// this has the risk of triggering infinite loops when requests are sent to the pod's IP, as it will
-	// send requests to itself. To block this we add an additional filter chain before that will always blackhole.
-	if features.RestrictPodIPTrafficLoops.Get() {
-		var cidrRanges []*core.CidrRange
-		for _, ip := range node.IPAddresses {
-			cidrRanges = append(cidrRanges, util.ConvertAddressToCidr(ip))
-		}
-		filterChains = append([]*listener.FilterChain{{
-			Name: VirtualOutboundTrafficLoopFilterChainName,
-			FilterChainMatch: &listener.FilterChainMatch{
-				PrefixRanges: cidrRanges,
-			},
-			Filters: []*listener.Filter{blackholeFilter},
-		}}, filterChains...)
-	}
-
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
@@ -366,33 +341,17 @@ func (builder *ListenerBuilder) getListeners() []*xdsapi.Listener {
 	return builder.gatewayListeners
 }
 
-// Creates a new filter that will always send traffic to the blackhole cluster
-func newBlackholeFilter() *listener.Filter {
-	tcpProxy := &tcp_proxy.TcpProxy{
-		StatPrefix:       util.BlackHoleCluster,
-		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
-	}
-
-	filter := &listener.Filter{
-		Name:       xdsutil.TCPProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
-	}
-
-	return filter
-}
-
 // Create pass through filter chains matching ipv4 address and ipv6 address independently.
 // This function also returns a boolean indicating whether or not the TLS inspector is needed
 // for the filter chain.
 func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 	node *model.Proxy, push *model.PushContext) ([]*listener.FilterChain, bool) {
-	ipv4, ipv6 := ipv4AndIpv6Support(node)
 	// ipv4 and ipv6 feature detect
 	ipVersions := make([]string, 0, 2)
-	if ipv4 {
+	if node.SupportsIPv4() {
 		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv4)
 	}
-	if ipv6 {
+	if node.SupportsIPv6() {
 		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
 	}
 	filterChains := make([]*listener.FilterChain, 0, 2)
@@ -484,13 +443,12 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 
 func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
 	node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
-	ipv4, ipv6 := ipv4AndIpv6Support(node)
 	// ipv4 and ipv6 feature detect
 	ipVersions := make([]string, 0, 2)
-	if ipv4 {
+	if node.SupportsIPv4() {
 		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv4)
 	}
-	if ipv6 {
+	if node.SupportsIPv6() {
 		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
 	}
 	filterChains := make([]*listener.FilterChain, 0, 2)

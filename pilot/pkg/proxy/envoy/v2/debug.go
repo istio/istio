@@ -153,18 +153,17 @@ func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, path string, help 
 
 // SyncStatus is the synchronization status between Pilot and a given Envoy
 type SyncStatus struct {
-	ProxyID         string `json:"proxy,omitempty"`
-	ProxyVersion    string `json:"proxy_version,omitempty"`
-	IstioVersion    string `json:"istio_version,omitempty"`
-	ClusterSent     string `json:"cluster_sent,omitempty"`
-	ClusterAcked    string `json:"cluster_acked,omitempty"`
-	ListenerSent    string `json:"listener_sent,omitempty"`
-	ListenerAcked   string `json:"listener_acked,omitempty"`
-	RouteSent       string `json:"route_sent,omitempty"`
-	RouteAcked      string `json:"route_acked,omitempty"`
-	EndpointSent    string `json:"endpoint_sent,omitempty"`
-	EndpointAcked   string `json:"endpoint_acked,omitempty"`
-	EndpointPercent int    `json:"endpoint_percent,omitempty"`
+	ProxyID       string `json:"proxy,omitempty"`
+	ProxyVersion  string `json:"proxy_version,omitempty"`
+	IstioVersion  string `json:"istio_version,omitempty"`
+	ClusterSent   string `json:"cluster_sent,omitempty"`
+	ClusterAcked  string `json:"cluster_acked,omitempty"`
+	ListenerSent  string `json:"listener_sent,omitempty"`
+	ListenerAcked string `json:"listener_acked,omitempty"`
+	RouteSent     string `json:"route_sent,omitempty"`
+	RouteAcked    string `json:"route_acked,omitempty"`
+	EndpointSent  string `json:"endpoint_sent,omitempty"`
+	EndpointAcked string `json:"endpoint_acked,omitempty"`
 }
 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
@@ -175,17 +174,16 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 		con.mu.RLock()
 		if con.node != nil {
 			syncz = append(syncz, SyncStatus{
-				ProxyID:         con.node.ID,
-				IstioVersion:    con.node.Metadata.IstioVersion,
-				ClusterSent:     con.ClusterNonceSent,
-				ClusterAcked:    con.ClusterNonceAcked,
-				ListenerSent:    con.ListenerNonceSent,
-				ListenerAcked:   con.ListenerNonceAcked,
-				RouteSent:       con.RouteNonceSent,
-				RouteAcked:      con.RouteNonceAcked,
-				EndpointSent:    con.EndpointNonceSent,
-				EndpointAcked:   con.EndpointNonceAcked,
-				EndpointPercent: con.EndpointPercent,
+				ProxyID:       con.node.ID,
+				IstioVersion:  con.node.Metadata.IstioVersion,
+				ClusterSent:   con.ClusterNonceSent,
+				ClusterAcked:  con.ClusterNonceAcked,
+				ListenerSent:  con.ListenerNonceSent,
+				ListenerAcked: con.ListenerNonceAcked,
+				RouteSent:     con.RouteNonceSent,
+				RouteAcked:    con.RouteNonceAcked,
+				EndpointSent:  con.EndpointNonceSent,
+				EndpointAcked: con.EndpointNonceAcked,
 			})
 		}
 		con.mu.RUnlock()
@@ -669,6 +667,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 			return nil, err
 		}
 		dynamicActiveListeners = append(dynamicActiveListeners, &adminapi.ListenersConfigDump_DynamicListener{
+			Name:        cs.Name,
 			ActiveState: &adminapi.ListenersConfigDump_DynamicListenerState{Listener: listener}})
 	}
 	listenersAny, err := util.MessageToAnyWithError(&adminapi.ListenersConfigDump{
@@ -782,46 +781,28 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance. It may be connected to another instance."))
 			return
 		}
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("You must provide a proxyID in the query string"))
+		return
 	}
 
-	edsClusterMutex.RLock()
-	defer edsClusterMutex.RUnlock()
 	comma := false
-	if con != nil {
-		_, _ = fmt.Fprintln(w, "[")
-		for _, clusterName := range con.Clusters {
-			if comma {
-				_, _ = fmt.Fprint(w, ",\n")
-			} else {
-				comma = true
-			}
-			cla := s.generateEndpoints(clusterName, con.node, s.globalPushContext(), nil)
-			jsonm := &jsonpb.Marshaler{Indent: "  "}
-			dbgString, _ := jsonm.MarshalToString(cla)
-			if _, err := w.Write([]byte(dbgString)); err != nil {
-				return
-			}
+	_, _ = fmt.Fprintln(w, "[")
+	for _, clusterName := range con.Clusters {
+		if comma {
+			_, _ = fmt.Fprint(w, ",\n")
+		} else {
+			comma = true
 		}
-		_, _ = fmt.Fprintln(w, "]")
-	} else if len(edsClusters) > 0 {
-		_, _ = fmt.Fprintln(w, "[")
-		for cluster := range edsClusters {
-			if comma {
-				_, _ = fmt.Fprint(w, ",\n")
-			} else {
-				comma = true
-			}
-			cla := s.loadAssignmentsForClusterLegacy(s.globalPushContext(), cluster)
-			jsonm := &jsonpb.Marshaler{Indent: "  "}
-			dbgString, _ := jsonm.MarshalToString(cla)
-			if _, err := w.Write([]byte(dbgString)); err != nil {
-				return
-			}
+		cla := s.generateEndpoints(clusterName, con.node, s.globalPushContext(), nil)
+		jsonm := &jsonpb.Marshaler{Indent: "  "}
+		dbgString, _ := jsonm.MarshalToString(cla)
+		if _, err := w.Write([]byte(dbgString)); err != nil {
+			return
 		}
-		_, _ = fmt.Fprintln(w, "]")
-	} else {
-		w.WriteHeader(404)
 	}
+	_, _ = fmt.Fprintln(w, "]")
 }
 
 // cdsz implements a status and debug interface for CDS.
@@ -914,6 +895,7 @@ func (s *DiscoveryServer) getProxyConnection(proxyID string) *XdsConnection {
 	defer s.adsClientsMutex.RUnlock()
 
 	for conID := range s.adsClients {
+
 		if strings.Contains(conID, proxyID) {
 			return s.adsClients[conID]
 		}

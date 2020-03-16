@@ -44,7 +44,7 @@ spec:
           scaleTargetRef:
             apiVersion: apps/v1
             kind: Deployment
-            name: istio-ingressgateway
+            name: istio-egressgateway
         resources:
           limits:
             cpu: 2000m
@@ -197,6 +197,7 @@ spec:
         autoscaleEnabled: true
         env:
           ISTIO_META_ROUTER_MODE: sni-dnat
+        name: istio-egressgateway
         ports:
         - name: http2
           port: 80
@@ -224,12 +225,16 @@ spec:
         - name: tcp-pilot-grpc-tls
           port: 15011
           targetPort: 15011
+        - name: tcp-istiod
+          port: 15012
+          targetPort: 15012
         - name: tcp-citadel-grpc-tls
           port: 8060
           targetPort: 8060
         - name: tcp-dns-tls
           port: 853
           targetPort: 8853
+        name: istio-ingressgateway
         ports:
         - name: status-port
           port: 15020
@@ -561,7 +566,7 @@ spec:
       objectSelector:
         autoInject: true
         enabled: false
-      rewriteAppHTTPProbe: false
+      rewriteAppHTTPProbe: true
     telemetry:
       enabled: true
       v1:
@@ -616,15 +621,15 @@ spec:
         maxSpans: 500000
         node:
           cpus: 2
-        probeStartupDelay: 200
+        probeStartupDelay: 10
         queryPort: 9411
         resources:
           limits:
-            cpu: 300m
-            memory: 900Mi
+            cpu: 1000m
+            memory: 2048Mi
           requests:
             cpu: 150m
             memory: 900Mi
-        tag: 2.14.2
+        tag: 2.20.0
     version: ""
 

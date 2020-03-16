@@ -18,9 +18,11 @@ import (
 	"fmt"
 	"time"
 
+	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // Config defines the options for creating an Echo component.
@@ -62,8 +64,8 @@ type Config struct {
 	// This is used to test the inbound pass-through filter chain.
 	WorkloadOnlyPorts []int
 
-	// Annotations provides metadata hints for deployment of the instance.
-	Annotations Annotations
+	// ServiceAnnotations is annotations on service object.
+	ServiceAnnotations Annotations
 
 	// IncludeInboundPorts provides the ports that inbound listener should capture
 	// "*" means capture all.
@@ -72,6 +74,25 @@ type Config struct {
 	// ReadinessTimeout specifies the timeout that we wait the application to
 	// become ready.
 	ReadinessTimeout time.Duration
+
+	// Subsets contains the list of Subsets config belonging to this echo
+	// service instance.
+	Subsets []SubsetConfig
+
+	// Cluster to be used in a multicluster environment
+	Cluster resource.Cluster
+
+	// TLS settings for echo server
+	TLSSettings *common.TLSSettings
+}
+
+// SubsetConfig is the config for a group of Subsets (e.g. Kubernetes deployment).
+type SubsetConfig struct {
+	// The version of the deployment.
+	Version string
+	// Annotations provides metadata hints for deployment of the instance.
+	Annotations Annotations
+	// TODO: port more into workload config.
 }
 
 // String implements the Configuration interface (which implements fmt.Stringer)

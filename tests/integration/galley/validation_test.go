@@ -24,11 +24,10 @@ import (
 
 	"istio.io/istio/galley/testdatasets/validation"
 	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/yml"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
@@ -102,12 +101,11 @@ func TestValidation(t *testing.T) {
 						t.Fatalf("Unable to load test data: %v", err)
 					}
 
-					env := fctx.Environment().(*kube.Environment)
 					ns := namespace.NewOrFail(t, fctx, namespace.Config{
 						Prefix: "validation",
 					})
 
-					err = env.ApplyContentsDryRun(ns.Name(), ym)
+					_, err = cluster.ApplyContentsDryRun(ns.Name(), ym)
 
 					switch {
 					case err != nil && d.isValid():
@@ -124,8 +122,8 @@ func TestValidation(t *testing.T) {
 						}
 					}
 
-					wetRunErr := env.ApplyContents(ns.Name(), ym)
-					defer func() { _ = env.DeleteContents(ns.Name(), ym) }()
+					_, wetRunErr := cluster.ApplyContents(ns.Name(), ym)
+					defer func() { _ = cluster.DeleteContents(ns.Name(), ym) }()
 
 					if err != nil && wetRunErr == nil {
 						t.Fatalf("dry run returned no errors, but wet run returned: %v", wetRunErr)

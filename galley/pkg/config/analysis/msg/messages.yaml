@@ -243,3 +243,15 @@ messages:
     description: "The MeshPolicy resource is deprecated and will be removed in a future Istio release. Migrate to the PeerAuthentication resource."
     template: "The MeshPolicy resource is deprecated and will be removed in a future Istio release. Migrate to the PeerAuthentication resource."
 
+  - name: "InvalidRegexp"
+    code: IST0122
+    level: Warning
+    description: "Invalid Regex"
+    template: "Field %q regular expression invalid: %q (%s)"
+    args:
+      - name: where
+        type: string
+      - name: re
+        type: string
+      - name: problem
+        type: string

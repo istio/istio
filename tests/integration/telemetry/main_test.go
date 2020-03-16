@@ -18,13 +18,13 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 var (
@@ -38,12 +38,17 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("telemetry_test", m).
 		RequireEnvironment(environment.Kube).
+		RequireSingleCluster().
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&i, func(cfg *istio.Config) {
-			cfg.Values["grafana.enabled"] = "true"
-			// TODO remove once https://github.com/istio/istio/issues/20137 is fixed
 			cfg.ControlPlaneValues = `
-addonComponents:
+values:
+  global:
+    proxy:
+      accessLogFile: "/dev/stdout"
+  prometheus:
+    enabled: true
+    scrapeInterval: 5s
   grafana:
     enabled: true`
 		})).

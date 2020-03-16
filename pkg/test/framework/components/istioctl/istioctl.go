@@ -15,11 +15,12 @@
 package istioctl
 
 import (
+	"fmt"
 	"testing"
 
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 // Instance represents "istioctl"
@@ -35,7 +36,8 @@ type Instance interface {
 
 // Config is structured config for the istioctl component
 type Config struct {
-	// currently nothing, we might add stuff like OS env settings later
+	// Cluster to be used in a multicluster environment
+	Cluster resource.Cluster
 }
 
 // New returns a new instance of "istioctl".
@@ -66,4 +68,10 @@ func NewOrFail(_ *testing.T, c resource.Context, config Config) Instance {
 	}
 
 	return i
+}
+
+func (c *Config) String() string {
+	result := ""
+	result += fmt.Sprintf("Cluster:                      %s\n", c.Cluster)
+	return result
 }

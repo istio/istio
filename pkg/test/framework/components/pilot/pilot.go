@@ -22,11 +22,12 @@ import (
 	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
 	meshConfig "istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 // TypeURL for making discovery requests.
@@ -64,6 +65,9 @@ type Config struct {
 	MeshConfig *meshConfig.MeshConfig
 
 	ServiceArgs bootstrap.ServiceArgs
+
+	// Cluster to be used in a multicluster environment
+	Cluster resource.Cluster
 }
 
 // New returns a new instance of echo.

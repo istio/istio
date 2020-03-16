@@ -20,10 +20,10 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	util "istio.io/istio/tests/integration/mixer"
 )
 
@@ -33,7 +33,7 @@ func TestStateMetrics(t *testing.T) {
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			g := galley.NewOrFail(ctx, ctx, galley.Config{})
-			prom := prometheus.NewOrFail(ctx, ctx)
+			prom := prometheus.NewOrFail(ctx, ctx, prometheus.Config{})
 			bookinfoNs := namespace.NewOrFail(ctx, ctx, namespace.Config{
 				Prefix: "istio-bookinfo",
 				Inject: true,

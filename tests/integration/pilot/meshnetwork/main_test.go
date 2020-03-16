@@ -28,13 +28,13 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/structpath"
 )
@@ -71,6 +71,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("meshnetwork_test", m).
+		RequireSingleCluster().
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&i, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
@@ -115,6 +116,7 @@ func TestAsymmetricMeshNetworkWithGatewayIP(t *testing.T) {
 			echoConfig := echo.Config{
 				Service:   "server",
 				Namespace: ns,
+				Subsets:   []echo.SubsetConfig{{}},
 				Pilot:     p,
 				Galley:    g,
 				Ports: []echo.Port{

@@ -29,6 +29,7 @@ type Origin struct {
 	Kind       string
 	FullName   resource.FullName
 	Version    resource.Version
+	Ref        string
 }
 
 var _ resource.Origin = &Origin{}
@@ -52,4 +53,9 @@ func (o *Origin) Namespace() resource.Namespace {
 	}
 
 	return o.FullName.Namespace
+}
+
+// Reference implements resource.Origin
+func (o *Origin) Reference() string {
+	return o.Ref
 }

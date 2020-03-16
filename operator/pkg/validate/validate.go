@@ -20,6 +20,7 @@ import (
 	"reflect"
 
 	"istio.io/api/operator/v1alpha1"
+	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
 )
 
@@ -33,6 +34,16 @@ var (
 	// requiredValues lists all the values that must be non-empty.
 	requiredValues = map[string]bool{}
 )
+
+// CheckIstioOperator validates the operator CR.
+func CheckIstioOperator(iop *operator_v1alpha1.IstioOperator, checkRequiredFields bool) error {
+	if iop == nil || iop.Spec == nil {
+		return nil
+	}
+
+	errs := CheckIstioOperatorSpec(iop.Spec, checkRequiredFields)
+	return errs.ToError()
+}
 
 // CheckIstioOperatorSpec validates the values in the given Installer spec, using the field map defaultValidations to
 // call the appropriate validation function. checkRequiredFields determines whether missing mandatory fields generate
@@ -87,7 +98,13 @@ func validate(validations map[string]ValidatorFunc, structPtr interface{}, path 
 			}
 		case reflect.Slice:
 			for i := 0; i < fieldValue.Len(); i++ {
-				errs = util.AppendErrs(errs, validate(validations, fieldValue.Index(i).Interface(), path, checkRequired))
+				newValue := fieldValue.Index(i).Interface()
+				newPath := append(path, fieldName)
+				if util.IsStruct(newValue) || util.IsPtr(newValue) {
+					errs = util.AppendErrs(errs, validate(validations, newValue, newPath, checkRequired))
+				} else {
+					errs = util.AppendErrs(errs, validateLeaf(validations, newPath, newValue, checkRequired))
+				}
 			}
 		case reflect.Ptr:
 			if util.IsNilOrInvalidValue(fieldValue.Elem()) {

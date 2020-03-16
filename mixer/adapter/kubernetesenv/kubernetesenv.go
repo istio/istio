@@ -388,6 +388,13 @@ func (b *builder) createCacheController(k8sInterface k8s.Interface, clusterID st
 	return b.kubeHandler.env.Logger().Errorf("error on creating remote controller %s err = %v", clusterID, err)
 }
 
+func (b *builder) updateCacheController(k8sInterface k8s.Interface, clusterID string) error {
+	if err := b.deleteCacheController(clusterID); err != nil {
+		return err
+	}
+	return b.createCacheController(k8sInterface, clusterID)
+}
+
 func (b *builder) deleteCacheController(clusterID string) error {
 	b.Lock()
 	delete(b.controllers, clusterID)
@@ -418,7 +425,8 @@ func initMultiClusterSecretController(b *builder, kubeconfig string, env adapter
 		return fmt.Errorf("could not create K8s client: %v", err)
 	}
 
-	err = secretcontroller.StartSecretController(kubeClient, b.createCacheController, b.deleteCacheController, clusterNs)
+	err = secretcontroller.StartSecretController(kubeClient, b.createCacheController,
+		b.updateCacheController, b.deleteCacheController, clusterNs)
 	if err != nil {
 		return fmt.Errorf("could not start secret controller: %v", err)
 	}

@@ -23,8 +23,8 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/common/jwt"
@@ -277,6 +277,7 @@ func TestV1_Path(t *testing.T) {
 				With(&a, echo.Config{
 					Service:   "a",
 					Namespace: ns,
+					Subsets:   []echo.SubsetConfig{{}},
 					Ports:     ports,
 					Galley:    g,
 					Pilot:     p,
@@ -284,6 +285,7 @@ func TestV1_Path(t *testing.T) {
 				With(&b, echo.Config{
 					Service:   "b",
 					Namespace: ns,
+					Subsets:   []echo.SubsetConfig{{}},
 					Ports:     ports,
 					Galley:    g,
 					Pilot:     p,

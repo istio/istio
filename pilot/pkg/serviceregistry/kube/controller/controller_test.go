@@ -141,6 +141,7 @@ type fakeControllerOptions struct {
 	serviceHandler  func(service *model.Service, event model.Event)
 	instanceHandler func(instance *model.ServiceInstance, event model.Event)
 	mode            EndpointMode
+	clusterID       string
 }
 
 func newFakeControllerWithOptions(opts fakeControllerOptions) (*Controller, *FakeXdsUpdater) {
@@ -155,6 +156,7 @@ func newFakeControllerWithOptions(opts fakeControllerOptions) (*Controller, *Fak
 		Metrics:          &model.Environment{},
 		NetworksWatcher:  opts.networksWatcher,
 		EndpointMode:     opts.mode,
+		ClusterID:        opts.clusterID,
 	})
 
 	if opts.instanceHandler != nil {
@@ -411,7 +413,7 @@ func TestController_GetPodLocality(t *testing.T) {
 
 			// Verify expected existing pod AZs
 			for pod, wantAZ := range c.wantAZ {
-				az := controller.GetPodLocality(pod)
+				az := controller.getPodLocality(pod)
 				if wantAZ != "" {
 					if !reflect.DeepEqual(az, wantAZ) {
 						t.Fatalf("Wanted az: %s, got: %s", wantAZ, az)
@@ -428,10 +430,14 @@ func TestController_GetPodLocality(t *testing.T) {
 }
 
 func TestGetProxyServiceInstances(t *testing.T) {
+	clusterID := "fakeCluster"
 	for mode, name := range EndpointModeNames {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
-			controller, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: mode})
+			controller, fx := newFakeControllerWithOptions(fakeControllerOptions{
+				mode:      mode,
+				clusterID: clusterID,
+			})
 			defer controller.Stop()
 			p := generatePod("128.0.0.1", "pod1", "nsa", "foo", "node1", map[string]string{"app": "test-app"}, map[string]string{})
 			addPods(t, controller, p)
@@ -484,19 +490,19 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			svcNode.ID = "pod1.nsa"
 			svcNode.DNSDomain = "nsa.svc.cluster.local"
 			svcNode.Metadata = &model.NodeMetadata{Namespace: "nsa"}
-			services, err := controller.GetProxyServiceInstances(&svcNode)
+			serviceInstances, err := controller.GetProxyServiceInstances(&svcNode)
 			if err != nil {
 				t.Fatalf("client encountered error during GetProxyServiceInstances(): %v", err)
 			}
 
-			if len(services) != 1 {
-				t.Fatalf("GetProxyServiceInstances() returned wrong # of endpoints => %d, want %d", len(services), fakeSvcCounts+1)
+			if len(serviceInstances) != 1 {
+				t.Fatalf("GetProxyServiceInstances() expected 1 instance, got %d", len(serviceInstances))
 			}
 
 			hostname := kube.ServiceHostname("svc1", "nsa", domainSuffix)
-			if services[0].Service.Hostname != hostname {
+			if serviceInstances[0].Service.Hostname != hostname {
 				t.Fatalf("GetProxyServiceInstances() wrong service instance returned => hostname %q, want %q",
-					services[0].Service.Hostname, hostname)
+					serviceInstances[0].Service.Hostname, hostname)
 			}
 
 			// Test that we can look up instances just by Proxy metadata
@@ -506,6 +512,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
 				Metadata: &model.NodeMetadata{ServiceAccount: "account",
+					ClusterID: clusterID,
 					Labels: map[string]string{
 						"app": "prod-app",
 					}},
@@ -533,10 +540,9 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					Address:         "1.1.1.1",
 					EndpointPort:    0,
 					ServicePortName: "tcp-port",
-					Locality:        "r/z",
-					Attributes: model.ServiceAttributes{
-						Name:      "svc1",
-						Namespace: "nsa",
+					Locality: model.Locality{
+						Label:     "r/z",
+						ClusterID: clusterID,
 					},
 				},
 			}
@@ -566,6 +572,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
 				Metadata: &model.NodeMetadata{ServiceAccount: "account",
+					ClusterID: clusterID,
 					Labels: map[string]string{
 						"app": "prod-app",
 					}},
@@ -592,13 +599,13 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					Address:         "129.0.0.1",
 					EndpointPort:    0,
 					ServicePortName: "tcp-port",
-					Locality:        "region1/zone1/subzone1", Labels: labels.Instance{"app": "prod-app"},
+					Locality: model.Locality{
+						Label:     "region1/zone1/subzone1",
+						ClusterID: clusterID,
+					},
+					Labels:         labels.Instance{"app": "prod-app"},
 					ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
 					TLSMode:        model.DisabledTLSModeLabel, UID: "kubernetes://pod2.nsa",
-					Attributes: model.ServiceAttributes{
-						Name:      "svc1",
-						Namespace: "nsa",
-					},
 				},
 			}
 			if len(podServices) != 1 {
@@ -622,6 +629,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
 				Metadata: &model.NodeMetadata{ServiceAccount: "account",
+					ClusterID: clusterID,
 					Labels: map[string]string{
 						"app": "prod-app",
 					}},
@@ -648,13 +656,14 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					Address:         "129.0.0.2",
 					EndpointPort:    0,
 					ServicePortName: "tcp-port",
-					Locality:        "region/zone", Labels: labels.Instance{"app": "prod-app", "istio-locality": "region.zone"},
-					ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
-					TLSMode:        model.DisabledTLSModeLabel, UID: "kubernetes://pod3.nsa",
-					Attributes: model.ServiceAttributes{
-						Name:      "svc1",
-						Namespace: "nsa",
+					Locality: model.Locality{
+						Label:     "region/zone",
+						ClusterID: clusterID,
 					},
+					Labels:         labels.Instance{"app": "prod-app", "istio-locality": "region.zone"},
+					ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
+					TLSMode:        model.DisabledTLSModeLabel,
+					UID:            "kubernetes://pod3.nsa",
 				},
 			}
 			if len(podServices) != 1 {
@@ -1708,8 +1717,10 @@ func TestEndpointUpdate(t *testing.T) {
 				if err := waitForPod(controller, pod.Status.PodIP); err != nil {
 					t.Fatalf("wait for pod err: %v", err)
 				}
-				// pod first time occur will trigger xds push
-				fx.Wait("xds")
+				// pod first time occur will trigger proxy push
+				if ev := fx.Wait("proxy"); ev == nil {
+					t.Fatal("Timeout creating service")
+				}
 			}
 
 			// 1. incremental eds for normal service endpoint update
@@ -1779,8 +1790,16 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 				if err := waitForPod(controller, pod.Status.PodIP); err != nil {
 					t.Fatalf("wait for pod err: %v", err)
 				}
-				// pod first time occur will trigger xds push
-				fx.Wait("xds")
+				// pod first time occur will trigger proxy push
+				if ev := fx.Wait("proxy"); ev == nil {
+					t.Fatal("Timeout creating service")
+				}
+			}
+			// create service
+			createService(controller, "pod1", "nsA", nil,
+				[]int32{8080}, map[string]string{"app": "prod-app"}, t)
+			if ev := fx.Wait("service"); ev == nil {
+				t.Fatal("Timeout creating service")
 			}
 
 			// Create Endpoints for pod1 and validate that EDS is triggered.
@@ -1794,6 +1813,13 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 			// Now delete pod2, from PodCache and send Endpoints. This simulates the case that endpoint comes
 			// when PodCache does not yet have entry for the pod.
 			_ = controller.pods.onEvent(pod2, model.EventDelete)
+
+			// create service
+			createService(controller, "pod2", "nsA", nil,
+				[]int32{8080}, map[string]string{"app": "prod-app"}, t)
+			if ev := fx.Wait("service"); ev == nil {
+				t.Fatal("Timeout creating service")
+			}
 
 			pod2Ips := []string{"172.0.1.2"}
 			createEndpoints(controller, "pod2", "nsA", portNames, pod2Ips, t)

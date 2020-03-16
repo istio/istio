@@ -2546,7 +2546,7 @@ func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 		errs = multierror.Append(errs, errors.New("attempts cannot be negative"))
 	}
 
-	if retries.Attempts == 0 && (retries.PerTryTimeout != nil || retries.RetryOn != "") {
+	if retries.Attempts == 0 && (retries.PerTryTimeout != nil || retries.RetryOn != "" || retries.RetryRemoteLocalities != nil) {
 		errs = appendErrors(errs, errors.New("http retry policy configured when attempts are set to 0 (disabled)"))
 	}
 
@@ -2781,7 +2781,7 @@ func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting) error
 		for loc, weight := range locality.To {
 			destLocalities = append(destLocalities, loc)
 			if weight == 0 {
-				return fmt.Errorf("locality weight must not be in range [1, 100]")
+				return fmt.Errorf("locality weight must be in range [1, 100]")
 			}
 			totalWeight += weight
 		}

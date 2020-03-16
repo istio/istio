@@ -73,6 +73,9 @@ type Service struct {
 	// Address specifies the service IPv4 address of the load balancer
 	Address string `json:"address,omitempty"`
 
+	// Protect concurrent ClusterVIPs read/write
+	Mutex sync.RWMutex
+
 	// ClusterVIPs specifies the service address of the load balancer
 	// in each of the clusters where the service resides
 	ClusterVIPs map[string]string `json:"cluster-vips,omitempty"`
@@ -84,9 +87,6 @@ type Service struct {
 	// or use the passthrough model (i.e. proxy will forward the traffic to the network endpoint requested
 	// by the caller)
 	Resolution Resolution
-
-	// Protect concurrent ClusterVIPs read/write
-	Mutex sync.RWMutex
 
 	// MeshExternal (if true) indicates that the service is external to the mesh.
 	// These services are defined using Istio's ServiceEntry spec.
@@ -222,16 +222,6 @@ type ServiceInstance struct {
 	Endpoint    *IstioEndpoint `json:"endpoint,omitempty"`
 }
 
-// GetLocality returns the availability zone from an instance. If service instance label for locality
-// is set we use this. Otherwise, we use the one set by the registry:
-//   - k8s: region/zone, extracted from node's failure-domain.beta.kubernetes.io/{region,zone}
-// 	 - consul: defaults to 'instance.Datacenter'
-//
-// This is used by CDS/EDS to group the endpoints by locality.
-func (instance *ServiceInstance) GetLocality() string {
-	return GetLocalityOrDefault(instance.Endpoint.Labels[LocalityLabel], instance.Endpoint.Locality)
-}
-
 // DeepCopy creates a copy of ServiceInstance.
 func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
 	return &ServiceInstance{
@@ -245,10 +235,10 @@ func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
 	}
 }
 
-// GetLocalityOrDefault returns the locality from the supplied label, or falls back to
+// GetLocalityLabelOrDefault returns the locality from the supplied label, or falls back to
 // the supplied default locality if the supplied label is empty. Because Kubernetes
 // labels don't support `/`, we replace "." with "/" in the supplied label as a workaround.
-func GetLocalityOrDefault(label, defaultLocality string) string {
+func GetLocalityLabelOrDefault(label, defaultLabel string) string {
 	if len(label) > 0 {
 		// if there are /'s present we don't need to replace
 		if strings.Contains(label, "/") {
@@ -257,7 +247,16 @@ func GetLocalityOrDefault(label, defaultLocality string) string {
 		// replace "." with "/"
 		return strings.Replace(label, k8sSeparator, "/", -1)
 	}
-	return defaultLocality
+	return defaultLabel
+}
+
+// Locality information for an IstioEndpoint
+type Locality struct {
+	// Label for locality on the endpoint. This is a "/" separated string.
+	Label string
+
+	// ClusterID where the endpoint is located
+	ClusterID string
 }
 
 // IstioEndpoint defines a network address (IP:port) associated with an instance of the
@@ -286,11 +285,7 @@ type IstioEndpoint struct {
 	// Address is the address of the endpoint, using envoy proto.
 	Address string
 
-	// ServicePortName tracks the name of the port, to avoid 'eventual consistency' issues.
-	// Sometimes the Endpoint is visible before Service - so looking up the port number would
-	// fail. Instead the mapping to number is made when the clusters are computed. The lazy
-	// computation will also help with 'on-demand' and 'split horizon' - where it will be skipped
-	// for not used clusters or endpoints behind a gate.
+	// ServicePortName tracks the name of the port, this is used to select the IstioEndpoint by service port.
 	ServicePortName string
 
 	// UID identifies the workload, for telemetry purpose.
@@ -306,8 +301,8 @@ type IstioEndpoint struct {
 	// Network holds the network where this endpoint is present
 	Network string
 
-	// The locality where the endpoint is present. / separated string
-	Locality string
+	// The locality where the endpoint is present.
+	Locality Locality
 
 	// EndpointPort is the port where the workload is listening, can be different
 	// from the service port.
@@ -315,10 +310,6 @@ type IstioEndpoint struct {
 
 	// The load balancing weight associated with this endpoint.
 	LbWeight uint32
-
-	// Attributes contains additional attributes associated with the service
-	// used mostly by mixer and RBAC for policy enforcement purposes.
-	Attributes ServiceAttributes
 
 	// TLSMode endpoint is injected with istio sidecar and ready to configure Istio mTLS
 	TLSMode string
@@ -357,7 +348,6 @@ type ServiceDiscovery interface {
 	Services() ([]*Service, error)
 
 	// GetService retrieves a service by host name if it exists
-	// Deprecated - do not use for anything other than tests
 	GetService(hostname host.Name) (*Service, error)
 
 	// InstancesByPort retrieves instances for a service on the given ports with labels that match
