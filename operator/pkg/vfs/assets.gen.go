@@ -17912,7 +17912,6 @@ spec:
           - --log_output_level=default:info
           - --domain
           - cluster.local
-          - --secureGrpcAddr=:15011
           - --trust-domain=cluster.local
           - --keepaliveMaxServerConnectionAge
           - "30m"
@@ -19949,12 +19948,6 @@ spec:
 {{- if .Values.global.oneNamespace }}
           - "-a"
           - {{ .Release.Namespace }}
-{{- end }}
-
-{{- if and .Values.global.controlPlaneSecurityEnabled }}
-          - --secureGrpcAddr=:15011
-{{- else }}
-          - --secureGrpcAddr=
 {{- end }}
 {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
