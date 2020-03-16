@@ -74,7 +74,7 @@ func (cb *ClusterBuilder) applyDestinationRule(cluster *apiv2.Cluster, clusterMo
 	}
 
 	// Apply traffic policy for the main default cluster.
-	applyTrafficPolicy(opts, cb.proxy)
+	applyTrafficPolicy(opts)
 
 	// Apply EdsConfig if needed. This should be called after traffic policy is applied because, traffic policy might change
 	// discovery type.
@@ -118,12 +118,12 @@ func (cb *ClusterBuilder) applyDestinationRule(cluster *apiv2.Cluster, clusterMo
 		opts.cluster = subsetCluster
 		opts.policy = destinationRule.TrafficPolicy
 		opts.istioMtlsSni = defaultSni
-		applyTrafficPolicy(opts, cb.proxy)
+		applyTrafficPolicy(opts)
 
 		// If subset has a traffic policy, apply it so that it overrides the destination rule traffic policy.
 		if subset.TrafficPolicy != nil {
 			opts.policy = subset.TrafficPolicy
-			applyTrafficPolicy(opts, cb.proxy)
+			applyTrafficPolicy(opts)
 		}
 
 		maybeApplyEdsConfig(subsetCluster)
@@ -176,7 +176,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType apiv2.C
 		proxy:           cb.proxy,
 		meshExternal:    meshExternal,
 	}
-	applyTrafficPolicy(opts, cb.proxy)
+	applyTrafficPolicy(opts)
 
 	return cluster
 }
