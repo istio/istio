@@ -122,12 +122,6 @@ spec:
         - --log_output_level=default:info
         - --serviceCluster
         - istio-ingressgateway
-        - --proxyAdminPort
-        - "15000"
-        - --controlPlaneAuthPolicy
-        - NONE
-        - --discoveryAddress
-        - istio-pilot.istio-system.svc:15012
         - --trust-domain=cluster.local
         env:
         - name: JWT_POLICY
@@ -500,12 +494,6 @@ spec:
         - --log_output_level=default:info
         - --serviceCluster
         - user-ingressgateway
-        - --proxyAdminPort
-        - "15000"
-        - --controlPlaneAuthPolicy
-        - NONE
-        - --discoveryAddress
-        - istio-pilot.istio-system.svc:15012
         - --trust-domain=cluster.local
         env:
         - name: JWT_POLICY
@@ -848,12 +836,6 @@ spec:
         - --log_output_level=default:info
         - --serviceCluster
         - ilb-gateway
-        - --proxyAdminPort
-        - "15000"
-        - --controlPlaneAuthPolicy
-        - NONE
-        - --discoveryAddress
-        - istio-pilot.istio-system.svc:15012
         - --trust-domain=cluster.local
         env:
         - name: JWT_POLICY

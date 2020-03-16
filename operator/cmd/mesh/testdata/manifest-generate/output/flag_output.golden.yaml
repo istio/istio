@@ -68,7 +68,6 @@ spec:
         - --trust-domain=cluster.local
         - --keepaliveMaxServerConnectionAge
         - 30m
-        - --disable-install-crds=true
         env:
         - name: JWT_POLICY
           value: third-party-jwt
