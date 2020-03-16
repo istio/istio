@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 Validation errors (continuing because of --force):
 unknown field "badKey" in v1alpha1.GlobalConfig
 # AddonComponents grafana component is disabled.
@@ -1881,3 +1882,5 @@ spec:
 
 # Telemetry component is disabled.
 
+=======
+>>>>>>> upstream/master

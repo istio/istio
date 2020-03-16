@@ -1192,6 +1192,10 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabel
 				dr = configClient.Get(collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(), drName, drNamespace)
 				if dr != nil {
 					matchingSubsets, nonmatchingSubsets = getDestRuleSubsets(*dr, podsLabels)
+				} else {
+					fmt.Fprintf(writer,
+						"WARNING: Proxy is stale; it references to non-existent destination rule %s.%s\n",
+						drName, drNamespace)
 				}
 			}
 
@@ -1207,6 +1211,10 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabel
 
 					printIngressService(writer, &ingressSvcs.Items[0], &pod, ipIngress)
 					printVirtualService(writer, *vs, svc, matchingSubsets, nonmatchingSubsets, dr)
+				} else {
+					fmt.Fprintf(writer,
+						"WARNING: Proxy is stale; it references to non-existent virtual service %s.%s\n",
+						vsName, vsNamespace)
 				}
 			}
 		}
@@ -1235,14 +1243,15 @@ func printIngressService(writer io.Writer, ingressSvc *v1.Service, ingressPod *v
 		}
 
 		// Get port number
-		nport, err := pilotcontroller.FindPort(ingressPod, &port)
+		_, err := pilotcontroller.FindPort(ingressPod, &port)
 		if err == nil {
+			nport := int(port.Port)
 			protocol := string(servicePortProtocol(port.Name))
 
 			scheme := protocolToScheme[protocol]
 			portSuffix := ""
 			if schemePortDefault[scheme] != nport {
-				portSuffix = fmt.Sprintf(":%d\n", nport)
+				portSuffix = fmt.Sprintf(":%d", nport)
 			}
 			fmt.Fprintf(writer, "\nExposed on Ingress Gateway %s://%s%s\n", scheme, ip, portSuffix)
 		}
@@ -1430,6 +1439,10 @@ func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecCl
 					}
 					printDestinationRule(writer, *dr, podsLabels)
 					matchingSubsets, nonmatchingSubsets = getDestRuleSubsets(*dr, podsLabels)
+				} else {
+					fmt.Fprintf(writer,
+						"WARNING: Proxy is stale; it references to non-existent destination rule %s.%s\n",
+						drName, drNamespace)
 				}
 			}
 
@@ -1448,6 +1461,10 @@ func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecCl
 						fmt.Fprintf(writer, "%d ", port.Port)
 					}
 					printVirtualService(writer, *vs, svc, matchingSubsets, nonmatchingSubsets, dr)
+				} else {
+					fmt.Fprintf(writer,
+						"WARNING: Proxy is stale; it references to non-existent virtual service %s.%s\n",
+						vsName, vsNamespace)
 				}
 			}
 

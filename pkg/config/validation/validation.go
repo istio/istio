@@ -2546,7 +2546,7 @@ func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 		errs = multierror.Append(errs, errors.New("attempts cannot be negative"))
 	}
 
-	if retries.Attempts == 0 && (retries.PerTryTimeout != nil || retries.RetryOn != "") {
+	if retries.Attempts == 0 && (retries.PerTryTimeout != nil || retries.RetryOn != "" || retries.RetryRemoteLocalities != nil) {
 		errs = appendErrors(errs, errors.New("http retry policy configured when attempts are set to 0 (disabled)"))
 	}
 

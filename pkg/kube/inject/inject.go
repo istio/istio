@@ -968,6 +968,9 @@ func cleanMeshConfig(v proto.Message) proto.Message {
 	if cpy.TrustDomain == defaults.TrustDomain {
 		cpy.TrustDomain = ""
 	}
+	if cpy.SdsUdsPath == defaults.SdsUdsPath {
+		cpy.SdsUdsPath = ""
+	}
 	return &cpy
 }
 

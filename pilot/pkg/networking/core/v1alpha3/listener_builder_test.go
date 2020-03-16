@@ -43,7 +43,7 @@ func getDefaultLdsEnv() *LdsEnv {
 }
 
 func getDefaultProxy() model.Proxy {
-	return model.Proxy{
+	proxy := model.Proxy{
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
@@ -55,6 +55,9 @@ func getDefaultProxy() model.Proxy {
 		IstioVersion:    model.ParseIstioVersion("1.4"),
 		ConfigNamespace: "not-default",
 	}
+
+	proxy.DiscoverIPVersions()
+	return proxy
 }
 
 func setNilSidecarOnProxy(proxy *model.Proxy, pushContext *model.PushContext) {

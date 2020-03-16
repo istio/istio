@@ -48,7 +48,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
@@ -2380,14 +2379,6 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *istione
 		}
 	}
 
-	if !opts.skipUserFilters {
-		// NOTE: we have constructed the HTTP connection manager filter above and we are passing the whole filter chain
-		// EnvoyFilter crd could choose to replace the HTTP ConnectionManager that we built or can choose to add
-		// more filters to the HTTP filter chain. In the latter case, the deprecatedInsertUserFilters function will
-		// overwrite the HTTP connection manager in the filter chain after inserting the new filters
-		return envoyfilter.DeprecatedInsertUserFilters(pluginParams, mutable.Listener, httpConnectionManagers)
-	}
-
 	return nil
 }
 
@@ -2408,24 +2399,6 @@ func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
 		}
 	}
 	return WildcardIPv6Address, LocalhostIPv6Address
-}
-
-func ipv4AndIpv6Support(node *model.Proxy) (bool, bool) {
-	ipv4, ipv6 := false, false
-	for i := 0; i < len(node.IPAddresses); i++ {
-		addr := net.ParseIP(node.IPAddresses[i])
-		if addr == nil {
-			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
-			// skip it to prevent a panic.
-			continue
-		}
-		if addr.To4() != nil {
-			ipv4 = true
-		} else {
-			ipv6 = true
-		}
-	}
-	return ipv4, ipv6
 }
 
 // getSidecarInboundBindIP returns the IP that the proxy can bind to along with the sidecar specified port.

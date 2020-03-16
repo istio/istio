@@ -268,14 +268,6 @@ func buildTestClustersWithAuthnPolicy(serviceHostname string, serviceResolution 
 		model.MaxIstioVersion)
 }
 
-func buildTestClustersWithIstioVersion(serviceHostname string, serviceResolution model.Resolution,
-	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message, authnPolicy *authn.Policy, peerAuthn *authn_beta.PeerAuthentication,
-	istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
-	return buildTestClustersWithProxyMetadata(serviceHostname, serviceResolution, false /* externalService */, nodeType, locality, mesh, destRule,
-		authnPolicy, peerAuthn, &model.NodeMetadata{}, istioVersion)
-}
-
 func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolution model.Resolution, externalService bool,
 	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
 	destRule proto.Message, authnPolicy *authn.Policy, peerAuthn *authn_beta.PeerAuthentication,
@@ -463,6 +455,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 	proxy.SetSidecarScope(env.PushContext)
 
 	proxy.ServiceInstances, _ = serviceDiscovery.GetProxyServiceInstances(proxy)
+	proxy.DiscoverIPVersions()
 
 	clusters := configgen.BuildClusters(proxy, env.PushContext)
 	var err error
@@ -722,7 +715,8 @@ func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
 	// TcpKeepalive should be present but with nil values.
 	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive).NotTo(BeNil())
 	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveProbes).To(BeNil())
-	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveTime).To(BeNil())
+	// Time should inherit from Mesh config.
+	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveTime.Value).To(Equal(uint32(MeshWideTCPKeepaliveSeconds)))
 	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveInterval).To(BeNil())
 }
 
@@ -1624,33 +1618,6 @@ func TestClusterDiscoveryTypeAndLbPolicyPassthrough(t *testing.T) {
 	g.Expect(clusters[0].EdsClusterConfig).To(BeNil())
 }
 
-func TestClusterDiscoveryTypeAndLbPolicyPassthroughIstioVersion12(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	clusters, err := buildTestClustersWithIstioVersion("*.example.org", model.ClientSideLB, model.SidecarProxy, nil, testMesh,
-		&networking.DestinationRule{
-			Host: "*.example.org",
-			TrafficPolicy: &networking.TrafficPolicy{
-				LoadBalancer: &networking.LoadBalancerSettings{
-					LbPolicy: &networking.LoadBalancerSettings_Simple{
-						Simple: networking.LoadBalancerSettings_PASSTHROUGH,
-					},
-				},
-				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
-				},
-			},
-		},
-		nil, // authnPolicy
-		nil, // peerAuthn
-		&model.IstioVersion{Major: 1, Minor: 2})
-
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_ORIGINAL_DST_LB))
-	g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
-	g.Expect(clusters[0].EdsClusterConfig).To(BeNil())
-}
-
 func TestBuildClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 	g := NewGomegaWithT(t)
 
@@ -1795,48 +1762,6 @@ func TestRedisProtocolClusterAtGateway(t *testing.T) {
 			g.Expect(cluster.GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_EDS}))
 			g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_MAGLEV))
 		}
-	}
-}
-
-func TestPassthroughClustersBuildUponProxyIpVersions(t *testing.T) {
-
-	validation := func(clusters []*apiv2.Cluster) []bool {
-		hasIpv4, hasIpv6 := false, false
-		for _, c := range clusters {
-			hasIpv4 = hasIpv4 || c.Name == util.InboundPassthroughClusterIpv4
-			hasIpv6 = hasIpv6 || c.Name == util.InboundPassthroughClusterIpv6
-		}
-		return []bool{hasIpv4, hasIpv6}
-	}
-	for _, inAndOut := range []struct {
-		ips      []string
-		features []bool
-	}{
-		{[]string{"6.6.6.6", "::1"}, []bool{true, true}},
-		{[]string{"6.6.6.6"}, []bool{true, false}},
-		{[]string{"::1"}, []bool{false, true}},
-	} {
-		clusters, err := buildTestClustersWithProxyMetadataWithIps("*.example.org", 0, false, model.SidecarProxy, nil, testMesh,
-			&networking.DestinationRule{
-				Host: "*.example.org",
-				TrafficPolicy: &networking.TrafficPolicy{
-					ConnectionPool: &networking.ConnectionPoolSettings{
-						Http: &networking.ConnectionPoolSettings_HTTPSettings{
-							Http1MaxPendingRequests: 1,
-							IdleTimeout:             &types.Duration{Seconds: 15},
-						},
-					},
-				},
-			},
-			nil, // authnPolicy
-			nil, // peerAuthn
-			&model.NodeMetadata{},
-			model.MaxIstioVersion,
-			inAndOut.ips,
-		)
-		g := NewGomegaWithT(t)
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(validation(clusters)).To(Equal(inAndOut.features))
 	}
 }
 
@@ -2229,10 +2154,10 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		mtlsCtx  mtlsContextType
-		LbPolicy apiv2.Cluster_LbPolicy
-		tls      *networking.TLSSettings
+		name          string
+		mtlsCtx       mtlsContextType
+		discoveryType apiv2.Cluster_DiscoveryType
+		tls           *networking.TLSSettings
 
 		expectTransportSocket      bool
 		expectTransportSocketMatch bool
@@ -2240,7 +2165,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		{
 			name:                       "user specified without tls",
 			mtlsCtx:                    userSupplied,
-			LbPolicy:                   apiv2.Cluster_ROUND_ROBIN,
+			discoveryType:              apiv2.Cluster_EDS,
 			tls:                        nil,
 			expectTransportSocket:      false,
 			expectTransportSocketMatch: false,
@@ -2248,7 +2173,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		{
 			name:                       "user specified with tls",
 			mtlsCtx:                    userSupplied,
-			LbPolicy:                   apiv2.Cluster_ROUND_ROBIN,
+			discoveryType:              apiv2.Cluster_EDS,
 			tls:                        tlsSettings,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
@@ -2256,7 +2181,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		{
 			name:                       "auto detect with tls",
 			mtlsCtx:                    autoDetected,
-			LbPolicy:                   apiv2.Cluster_ROUND_ROBIN,
+			discoveryType:              apiv2.Cluster_EDS,
 			tls:                        tlsSettings,
 			expectTransportSocket:      false,
 			expectTransportSocketMatch: true,
@@ -2264,7 +2189,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		{
 			name:                       "auto detect with tls",
 			mtlsCtx:                    autoDetected,
-			LbPolicy:                   apiv2.Cluster_CLUSTER_PROVIDED,
+			discoveryType:              apiv2.Cluster_ORIGINAL_DST,
 			tls:                        tlsSettings,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
@@ -2283,7 +2208,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			opts := &buildClusterOpts{
 				cluster: &apiv2.Cluster{
-					LbPolicy: test.LbPolicy,
+					ClusterDiscoveryType: &apiv2.Cluster_Type{Type: test.discoveryType},
 				},
 				proxy: proxy,
 				push:  push,

@@ -232,10 +232,6 @@ func SDSUDSPath(value string) Instance {
 	return newOption("sds_uds_path", value)
 }
 
-func SDSTokenPath(value string) Instance {
-	return newOption("sds_token_path", value)
-}
-
 func PilotCertProvider(value string) Instance {
 	return newOption("pilot_cert_provider", value)
 }

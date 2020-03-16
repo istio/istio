@@ -37,7 +37,6 @@ func TestEnvoyArgs(t *testing.T) {
 		PodNamespace:      "",
 		PodIP:             nil,
 		SDSUDSPath:        "udspath",
-		SDSTokenPath:      "tokenpath",
 	}
 
 	test := &envoy{

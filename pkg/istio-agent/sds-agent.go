@@ -159,9 +159,6 @@ type SDSAgent struct {
 	// - port of discovery server is not 15010 (the plain text default).
 	RequireCerts bool
 
-	// Expected SAN
-	SAN string
-
 	// PilotCertProvider is the provider of the Pilot certificate
 	PilotCertProvider string
 
@@ -183,40 +180,52 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 	ac.PilotCertProvider = pilotCertProvider
 	ac.OutputKeyCertToDir = outputKeyCertToDir
 
-	discHost, discPort, err := net.SplitHostPort(discAddr)
+	_, discPort, err := net.SplitHostPort(discAddr)
 	if err != nil {
-		log.Fatalf("Invalid discovery address (%v): %v", discAddr, err)
+		log.Fatalf("Invalid discovery address %v %v", discAddr, err)
 	}
 
-	if _, err := os.Stat(jwtPath); err == nil {
+	if _, err := os.Stat(jwtPath); err == nil && citadel.ProvCert == "" {
+		// If the JWT file exists, and explicit 'prov cert' is not - use the JWT
 		ac.JWTPath = jwtPath
 	} else {
-		// Can't use in-process SDS.
-		log.Warna("Missing JWT token, can't use in process SDS ", jwtPath, err)
-
-		if discPort == "15012" {
-			log.Fatala("Missing JWT, can't authenticate with control plane. Try using plain text (15010)")
+		// If original /etc/certs or a separate 'provisioning certs' (VM) are present, use them instead of tokens
+		certDir := "./etc/certs"
+		if citadel.ProvCert != "" {
+			certDir = citadel.ProvCert
 		}
-		return ac
+		if _, err := os.Stat(certDir + "/key.pem"); err == nil {
+			ac.CertsPath = certDir
+		}
+		// If the root-cert is in the old location, use it.
+		if _, err := os.Stat(certDir + "/root-cert.pem"); err == nil {
+			CitadelCACertPath = certDir
+		}
+
+		if ac.CertsPath != "" {
+			log.Warna("Using existing certificate ", ac.CertsPath)
+		} else {
+			// Can't use in-process SDS.
+			log.Warna("Missing JWT token, can't use in process SDS ", jwtPath, err)
+
+			// TODO do not special case port 15012
+			if discPort == "15012" {
+				log.Fatala("Missing JWT, can't authenticate with control plane. Try using plain text (15010)")
+			}
+			return ac
+		}
 	}
 
 	ac.SDSAddress = "unix:" + LocalSDS
 
-	if _, err := os.Stat("/etc/certs/key.pem"); err == nil {
-		ac.CertsPath = "/etc/certs"
-	}
 	if tlsRequired {
 		ac.RequireCerts = true
 	}
 
 	// Istiod uses a fixed, defined port for K8S-signed certificates.
+	// TODO do not special case port 15012
 	if discPort == "15012" {
 		ac.RequireCerts = true
-		// For local debugging - the discoveryAddress is set to localhost, but the cert issued for normal SA.
-		if discHost == "localhost" {
-			discHost = "istiod.istio-system.svc"
-		}
-		ac.SAN = discHost
 	}
 
 	return ac
@@ -241,7 +250,8 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 	serverOptions.PilotCertProvider = conf.PilotCertProvider
 	// Next to the envoy config, writeable dir (mounted as mem)
 	serverOptions.WorkloadUDSPath = LocalSDS
-	serverOptions.UseLocalJWT = true
+	serverOptions.UseLocalJWT = conf.CertsPath == "" // true if we don't have a key.pem
+	serverOptions.CertsDir = conf.CertsPath
 	serverOptions.JWTPath = conf.JWTPath
 	serverOptions.OutputKeyCertToDir = conf.OutputKeyCertToDir
 
@@ -311,14 +321,14 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 			// will be a hardcoded default value (e.g., the namespace will be hardcoded
 			// as istio-system).
 			log.Info("Istio Agent uses default istiod CA")
-			serverOptions.CAEndpoint = "istio-pilot.istio-system.svc:15012"
+			serverOptions.CAEndpoint = "istiod.istio-system.svc:15012"
 
 			if serverOptions.PilotCertProvider == "istiod" {
 				log.Info("istiod uses self-issued certificate")
 				if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)); err != nil {
 					certReadErr = true
 				} else {
-					log.Debugf("the CA cert of istiod is: %v", string(rootCert))
+					log.Infof("the CA cert of istiod is: %v", string(rootCert))
 				}
 			} else if serverOptions.PilotCertProvider == "kubernetes" {
 				log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)
@@ -338,7 +348,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 				rootCert = nil
 				// for debugging only
 				log.Warnf("Failed to load root cert, assume IP secure network: %v", err)
-				serverOptions.CAEndpoint = "istio-pilot.istio-system.svc:15010"
+				serverOptions.CAEndpoint = "istiod.istio-system.svc:15010"
 			}
 		} else {
 			// Explicitly configured CA
@@ -352,7 +362,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 					if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)); err != nil {
 						certReadErr = true
 					} else {
-						log.Debugf("the CA cert of istiod is: %v", string(rootCert))
+						log.Infof("the CA cert of istiod is: %v", string(rootCert))
 					}
 				} else if serverOptions.PilotCertProvider == "kubernetes" {
 					log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)
@@ -366,6 +376,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 						certReadErr = true
 					}
 				} else {
+					log.Errorf("unknown cert provider %v", serverOptions.PilotCertProvider)
 					certReadErr = true
 				}
 				if certReadErr {
@@ -373,9 +384,13 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 					log.Fatal("invalid config - port 15012 missing a root certificate")
 				}
 			} else {
-				// It is ok for CA endpoint to have a port that is not 15010 or 15012, e.g.,
-				// meshca.googleapis.com:443
-				log.Info("the port is not 15010 or 15012")
+				rootCertPath := path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)
+				if rootCert, err = ioutil.ReadFile(rootCertPath); err != nil {
+					// We may not provide root cert, and can just use public system certificate pool
+					log.Infof("no certs found at %v, using system certs", rootCertPath)
+				} else {
+					log.Infof("the CA cert of istiod is: %v", string(rootCert))
+				}
 			}
 		}
 

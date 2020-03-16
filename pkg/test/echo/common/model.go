@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright 2020 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,18 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package api
+package common
 
-import (
-	"istio.io/istio/pkg/test/framework/core"
-	"istio.io/istio/pkg/test/framework/resource"
-)
-
-type FactoryFn func(name string, ctx Context) (resource.Environment, error)
-
-type Context interface {
-	TrackResource(r resource.Resource) resource.ID
-	CreateDirectory(name string) (string, error)
-	CreateTmpDirectory(prefix string) (string, error)
-	Settings() *core.Settings
+// TLSSettings defines TLS configuration for Echo server
+type TLSSettings struct {
+	RootCert   string
+	ClientCert string
+	Key        string
 }

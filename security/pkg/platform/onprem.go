@@ -145,7 +145,8 @@ func getTLSCredentials(rootCertFile, keyFile, certChainFile string) (credentials
 		Certificates: []tls.Certificate{certificate},
 	}
 	config.RootCAs = certPool
-	config.ServerName = CitadelDNSSan
+
+	config.ServerName = "istiod.istio-system.svc"
 
 	return credentials.NewTLS(&config), nil
 }

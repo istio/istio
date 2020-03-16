@@ -23,6 +23,8 @@ import (
 	"strings"
 	"time"
 
+	istio_agent "istio.io/istio/pkg/istio-agent"
+
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/google/uuid"
@@ -121,7 +123,7 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 		// Need NET_ADMIN for iptables.
 		capabilities = []string{"NET_ADMIN"}
 
-		pilotHost := fmt.Sprintf("istio-pilot.%s", e.SystemNamespace)
+		pilotHost := fmt.Sprintf("istiod.%s.svc", e.SystemNamespace)
 
 		pilotAddress := fmt.Sprintf("%s:%d", pilotHost, discoveryPort(cfg.Pilot))
 
@@ -148,7 +150,8 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 			"POD_NAME="+hostName,
 			"POD_NAMESPACE="+cfg.Namespace.Name(),
 			"PILOT_ADDRESS="+pilotAddress,
-			"CITADEL_ADDRESS=istio-citadel:8060", // TODO: need local citadel
+			"CA_ADDR="+pilotAddress,
+			"PROV_CERT="+istio_agent.CitadelCACertPath,
 			"ENVOY_PORT=15001",
 			"ENVOY_USER=istio-proxy",
 			"ISTIO_AGENT_FLAGS="+agentArgs,
@@ -214,7 +217,7 @@ func (w *workload) waitForReady() (err error) {
 	}
 
 	// Now create the GRPC client.
-	if w.Instance, err = client.New(fmt.Sprintf("%s:%d", localhost, w.portMap.grpc().hostPort)); err != nil {
+	if w.Instance, err = client.New(fmt.Sprintf("%s:%d", localhost, w.portMap.grpc().hostPort), nil); err != nil {
 		return fmt.Errorf("failed creating GRPC client for Echo container %s: %v", w.container.Name, err)
 	}
 	return nil
