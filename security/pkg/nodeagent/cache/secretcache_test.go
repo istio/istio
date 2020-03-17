@@ -218,8 +218,7 @@ func TestWorkloadAgentGenerateSecretWithPluginProvider(t *testing.T) {
 }
 
 func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
-	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0.1,
-		true)
+	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 2)
 	opt := Options{
 		SecretTTL:                time.Minute,
 		RotationInterval:         300 * time.Microsecond,
@@ -321,8 +320,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 }
 
 func TestWorkloadAgentRefreshSecret(t *testing.T) {
-	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0,
-		true)
+	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 2)
 	opt := Options{
 		SecretTTL:                200 * time.Microsecond,
 		RotationInterval:         200 * time.Microsecond,
@@ -1094,8 +1092,7 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 }
 
 func testWorkloadAgentGenerateSecretFromFile(t *testing.T) {
-	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0.1,
-		true)
+	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 2)
 	opt := Options{
 		SecretTTL:                time.Minute,
 		RotationInterval:         300 * time.Microsecond,
