@@ -32,7 +32,7 @@ require (
 	github.com/census-instrumentation/opencensus-proto v0.2.1
 	github.com/circonus-labs/circonus-gometrics v2.3.1+incompatible
 	github.com/circonus-labs/circonusllhist v0.1.4 // indirect
-	github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f
+	github.com/cncf/udpa/go v0.0.0-20200313221541-5f7e5dd04533
 	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd // indirect
 	github.com/containerd/containerd v1.3.2 // indirect
 	github.com/coreos/etcd v3.3.15+incompatible
@@ -49,7 +49,7 @@ require (
 	github.com/elazarl/goproxy v0.0.0-20190630181448-f1e96bc0f4c5 // indirect
 	github.com/elazarl/goproxy/ext v0.0.0-20190630181448-f1e96bc0f4c5 // indirect
 	github.com/emicklei/go-restful v2.9.6+incompatible // indirect
-	github.com/envoyproxy/go-control-plane v0.9.5-0.20200312132221-1152177914f2
+	github.com/envoyproxy/go-control-plane v0.9.5-0.20200316225419-d560923b20a0
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/fluent/fluent-logger-golang v1.3.0
 	github.com/frankban/quicktest v1.4.1 // indirect
