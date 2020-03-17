@@ -21,8 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/config/visibility"
-
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -36,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config/visibility"
 )
 
 func TestMergeUpdateRequest(t *testing.T) {
