@@ -34,13 +34,13 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -58,7 +58,7 @@ func TestMain(m *testing.M) {
 		NewSuite("bindpodip_test", m).
 		Label(label.CustomSetup).
 		RequireEnvironment(environment.Kube).
-		SetupOnEnv(environment.Kube, istio.Setup(&i, nil)).
+		SetupOnEnv(environment.Kube, istio.Setup(&i, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {
 				return err
@@ -188,6 +188,7 @@ func TestBindPodIPPorts(t *testing.T) {
 				}
 				t.Run(name, func(t *testing.T) {
 					retry.UntilSuccessOrFail(t, func() error {
+
 						responses, err := clientWorkload.ForwardEcho(context.TODO(), request)
 						if err != nil {
 							return fmt.Errorf("want allow but got error: %v", err)
@@ -214,4 +215,17 @@ func getWorkload(instance echo.Instance, t *testing.T) echo.Workload {
 		t.Fatalf("want at least 1 workload but found 0")
 	}
 	return workloads[0]
+}
+
+func setupConfig(cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+	cfg.Values["global.outboundTrafficPolicy.mode"] = "ALLOW_ANY"
+	cfg.ControlPlaneValues = `
+values:
+  global:
+    outboundTrafficPolicy:
+      mode: ALLOW_ANY
+`
 }
