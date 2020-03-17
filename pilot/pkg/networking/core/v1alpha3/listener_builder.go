@@ -116,25 +116,25 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 	// 1. filter chains in this listener
 	// 2. explicit original_dst listener filter
 	// UseOriginalDst: proto.BoolTrue,
-	builder.virtualInboundListener.UseOriginalDst = nil
-	builder.virtualInboundListener.ListenerFilters = append(builder.virtualInboundListener.ListenerFilters,
+	lb.virtualInboundListener.UseOriginalDst = nil
+	lb.virtualInboundListener.ListenerFilters = append(lb.virtualInboundListener.ListenerFilters,
 		&listener.ListenerFilter{
 			Name: xdsutil.OriginalDestination,
 		},
 	)
 	// TODO: Trim the inboundListeners properly. Those that have been added to filter chains should
 	// be removed while those that haven't been added need to remain in the inboundListeners list.
-	filterChains, needTLS := reduceInboundListenerToFilterChains(builder.inboundListeners)
+	filterChains, needTLS := reduceInboundListenerToFilterChains(lb.inboundListeners)
 	sort.SliceStable(filterChains, func(i, j int) bool {
 		return filterChains[i].Name < filterChains[j].Name
 	})
 
-	builder.virtualInboundListener.FilterChains =
-		append(builder.virtualInboundListener.FilterChains, filterChains...)
+	lb.virtualInboundListener.FilterChains =
+		append(lb.virtualInboundListener.FilterChains, filterChains...)
 
 	if needTLS || needTLSForPassThroughFilterChain {
-		builder.virtualInboundListener.ListenerFilters =
-			append(builder.virtualInboundListener.ListenerFilters, &listener.ListenerFilter{
+		lb.virtualInboundListener.ListenerFilters =
+			append(lb.virtualInboundListener.ListenerFilters, &listener.ListenerFilter{
 				Name: xdsutil.TlsInspector,
 			})
 	}
@@ -142,18 +142,18 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 	// Note: the HTTP inspector should be after TLS inspector.
 	// If TLS inspector sets transport protocol to tls, the http inspector
 	// won't inspect the packet.
-	if util.IsProtocolSniffingEnabledForInbound(builder.node) {
-		builder.virtualInboundListener.ListenerFilters =
-			append(builder.virtualInboundListener.ListenerFilters, &listener.ListenerFilter{
+	if util.IsProtocolSniffingEnabledForInbound(lb.node) {
+		lb.virtualInboundListener.ListenerFilters =
+			append(lb.virtualInboundListener.ListenerFilters, &listener.ListenerFilter{
 				Name: xdsutil.HttpInspector,
 			})
 	}
 
 	timeout := features.InboundProtocolDetectionTimeout
-	builder.virtualInboundListener.ListenerFiltersTimeout = ptypes.DurationProto(timeout)
-	builder.virtualInboundListener.ContinueOnListenerFiltersTimeout = true
+	lb.virtualInboundListener.ListenerFiltersTimeout = ptypes.DurationProto(timeout)
+	lb.virtualInboundListener.ContinueOnListenerFiltersTimeout = true
 
-	return builder
+	return lb
 }
 
 func NewListenerBuilder(node *model.Proxy, push *model.PushContext) *ListenerBuilder {
