@@ -1048,7 +1048,7 @@ metadata:
 spec:
   ports:
     - port: 15010
-      name: http-dns # plaintext
+      name: grpc-xds # plaintext
     - port: 15012
       name: https-dns # mTLS with k8s-signed cert
     - port: 443

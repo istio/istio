@@ -191,7 +191,7 @@ metadata:
   namespace: istio-control
 spec:
   ports:
-  - name: http-dns
+  - name: grpc-xds
     port: 15010
   - name: https-dns
     port: 11111
