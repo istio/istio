@@ -73,7 +73,8 @@ const (
 	IstioLabel = "istio"
 
 	// IstioIngressLabelValue is value for IstioLabel that identifies an ingress workload.
-	IstioIngressLabelValue = "ingress"
+	// TODO we should derive this from IngressClass
+	IstioIngressLabelValue = "ingressgateway"
 
 	// IstioSystemNamespace is the namespace where Istio's components are deployed
 	IstioSystemNamespace = "istio-system"
