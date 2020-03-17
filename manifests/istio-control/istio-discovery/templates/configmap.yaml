@@ -1,4 +1,3 @@
-{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
 {{- if .Values.pilot.configMap }}
 apiVersion: v1
 kind: ConfigMap
@@ -290,5 +289,4 @@ data:
     {{- end}}
 
 ---
-{{- end }}
 {{- end }}

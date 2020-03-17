@@ -134,7 +134,8 @@ func renderChart(namespace, values string, chrt *chart.Chart) (string, error) {
 	for i := 0; i < len(keys); i++ {
 		f := files[keys[i]]
 		// add yaml separator if the rendered file doesn't have one at the end
-		if !strings.HasSuffix(strings.TrimSpace(f)+"\n", YAMLSeparator) {
+		f = strings.TrimSpace(f) + "\n"
+		if !strings.HasSuffix(f, YAMLSeparator) {
 			f += YAMLSeparator
 		}
 		_, err := sb.WriteString(f)
