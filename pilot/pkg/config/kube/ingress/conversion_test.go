@@ -42,7 +42,7 @@ import (
 )
 
 func TestGoldenConversion(t *testing.T) {
-	cases := []string{"simple"}
+	cases := []string{"simple", "tls"}
 	for _, tt := range cases {
 		t.Run(tt, func(t *testing.T) {
 			input, err := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt))
@@ -55,11 +55,16 @@ func TestGoldenConversion(t *testing.T) {
 				ingress := obj.(*extensionsv1beta1.Ingress)
 				ConvertIngressVirtualService(*ingress, "mydomain", cfgs)
 			}
-
 			ordered := []model.Config{}
 			for _, v := range cfgs {
 				ordered = append(ordered, *v)
 			}
+			for _, obj := range input {
+				ingress := obj.(*extensionsv1beta1.Ingress)
+				gws := ConvertIngressV1alpha3(*ingress, "mydomain")
+				ordered = append(ordered, gws)
+			}
+
 			sort.Slice(ordered, func(i, j int) bool {
 				return ordered[i].Name < ordered[j].Name
 			})
