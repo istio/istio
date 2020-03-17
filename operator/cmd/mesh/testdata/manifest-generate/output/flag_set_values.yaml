@@ -431,6 +431,8 @@ spec:
                   fieldPath: metadata.namespace
             - name: ISTIO_META_MESH_ID
               value: "cluster.local"
+            - name: ISTIO_META_CLUSTER_ID
+              value: "Kubernetes"
           imagePullPolicy: IfNotPresent
           readinessProbe:
             failureThreshold: 30
@@ -6497,6 +6499,7 @@ spec:
         - containerPort: 15032
         - containerPort: 15443
         - containerPort: 15011
+        - containerPort: 15012
         - containerPort: 8060
         - containerPort: 853
         - containerPort: 15090
@@ -7405,6 +7408,8 @@ spec:
           value: istiod.istio-system.svc:15012
         - name: PILOT_EXTERNAL_GALLEY
           value: "false"
+        - name: CLUSTER_ID
+          value: Kubernetes
         envFrom:
         - configMapRef:
             name: istiod

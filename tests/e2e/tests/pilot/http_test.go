@@ -79,7 +79,7 @@ func TestHttp(t *testing.T) {
 										// t->d:8000 should always be fine.
 										return nil
 									}
-									return errAgain
+									return fmt.Errorf("expected no match: %v", resp)
 								}
 								logEntry := fmt.Sprintf("HTTP request from %s to %s%s:%s", src, dst, domain, port)
 								if len(resp.ID) > 0 {
@@ -96,7 +96,7 @@ func TestHttp(t *testing.T) {
 									// Expected no match for t->t
 									return nil
 								}
-								return errAgain
+								return fmt.Errorf("no match: %v", resp)
 							})
 						}
 					}

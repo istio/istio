@@ -25,5 +25,5 @@ roleRef:
   name: istio-reader
 subjects:
 - kind: ServiceAccount
-  name: istio-reader
+  name: istio-reader-service-account
   namespace: {{ .Release.Namespace }}

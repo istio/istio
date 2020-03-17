@@ -915,6 +915,12 @@ func CheckPodRunning(n, name string, kubeconfig string) error {
 	return nil
 }
 
+// Generate the cluster name from the kubeconfig file path
+func ClusterNameFromKubeConfig(kubeconfig string) string {
+	s := strings.Split(kubeconfig, "/")
+	return s[len(s)-1]
+}
+
 // CreateMultiClusterSecret will create the secret associated with the remote cluster
 func CreateMultiClusterSecret(namespace string, remoteKubeConfig string, localKubeConfig string) error {
 	currentContext, err := ShellMuteOutput("kubectl --kubeconfig=%s config current-context", remoteKubeConfig)
@@ -930,6 +936,7 @@ func CreateMultiClusterSecret(namespace string, remoteKubeConfig string, localKu
 	}
 
 	opts := multicluster.RemoteSecretOptions{
+		ClusterName:        ClusterNameFromKubeConfig(remoteKubeConfig),
 		ServiceAccountName: "istio-multi",
 		AuthType:           multicluster.RemoteSecretAuthTypeBearerToken,
 		KubeOptions: multicluster.KubeOptions{
