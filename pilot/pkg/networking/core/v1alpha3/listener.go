@@ -436,7 +436,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 
 	switch node.Type {
 	case model.SidecarProxy:
-		builder = configgen.buildSidecarListeners(node, push, builder)
+		builder = configgen.buildSidecarListeners(push, builder)
 	case model.Router:
 		builder = configgen.buildGatewayListeners(node, push, builder)
 	}
@@ -446,11 +446,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 }
 
 // buildSidecarListeners produces a list of listeners for sidecar proxies
-func (configgen *ConfigGeneratorImpl) buildSidecarListeners(
-	node *model.Proxy,
-	push *model.PushContext,
-	builder *ListenerBuilder) *ListenerBuilder {
-
+func (configgen *ConfigGeneratorImpl) buildSidecarListeners(push *model.PushContext, builder *ListenerBuilder) *ListenerBuilder {
 	if push.Mesh.ProxyListenPort > 0 {
 		// Any build order change need a careful code review
 		builder.buildSidecarInboundListeners(configgen).

@@ -1664,7 +1664,7 @@ func buildAllListeners(p plugin.Plugin, sidecarConfig *model.Config, services ..
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
 	builder := NewListenerBuilder(&proxy, env.PushContext)
-	return configgen.buildSidecarListeners(&proxy, env.PushContext, builder).getListeners()
+	return configgen.buildSidecarListeners(env.PushContext, builder).getListeners()
 }
 
 func getFilterConfig(filter *listener.Filter, out proto.Message) error {
