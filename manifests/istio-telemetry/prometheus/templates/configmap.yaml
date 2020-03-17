@@ -84,8 +84,9 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: istio-pilot;http-monitoring
-
+        regex: istiod;http-monitoring
+      - source_labels: [__meta_kubernetes_service_label_app]
+        target_label: app
     - job_name: 'galley'
       kubernetes_sd_configs:
       - role: endpoints

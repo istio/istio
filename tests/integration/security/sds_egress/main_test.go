@@ -18,13 +18,13 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 var (
@@ -42,6 +42,7 @@ func TestMain(m *testing.M) {
 		RequireEnvironment(environment.Kube).
 		// SDS requires Kubernetes 1.13
 		RequireEnvironmentVersion("1.13").
+		RequireSingleCluster().
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {

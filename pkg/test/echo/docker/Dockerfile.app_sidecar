@@ -4,7 +4,7 @@ FROM docker.io/istio/base:${BASE_VERSION}
 
 # Install the certs.
 COPY certs/                           /var/lib/istio/
-COPY certs/default/*                  /etc/certs/
+COPY certs/default/*                  /var/run/secrets/istio/
 
 # Install the sidecar components
 COPY istio-sidecar.deb  /tmp/istio-sidecar.deb

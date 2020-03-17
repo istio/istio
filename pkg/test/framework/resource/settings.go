@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package core
+package resource
 
 import (
 	"fmt"
@@ -20,8 +20,7 @@ import (
 	"strings"
 
 	"istio.io/istio/pkg/test/framework/label"
-
-	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 
 	"github.com/google/uuid"
 )
@@ -63,6 +62,10 @@ type Settings struct {
 
 	// The label selector, in parsed form.
 	Selector label.Selector
+
+	// EnvironmentFactory allows caller to override the environment creation. If nil, a default is used based
+	// on the known environment names.
+	EnvironmentFactory EnvironmentFactory
 }
 
 // RunDir is the name of the dir to output, for this particular run.

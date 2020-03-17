@@ -1433,8 +1433,9 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	t.Helper()
 	p := &fakePlugin{}
 	listeners := buildAllListeners(p, nil)
+	found := false
 	for _, l := range listeners {
-		if l.Name == "virtual" {
+		if l.Name == VirtualOutboundListenerName {
 			fc := &tcp_proxy.TcpProxy{}
 			if err := getFilterConfig(l.FilterChains[0].Filters[0], fc); err != nil {
 				t.Fatalf("failed to get TCP Proxy config: %s", err)
@@ -1442,7 +1443,12 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 			if fc.AccessLog == nil {
 				t.Fatal("expected access log configuration")
 			}
+			found = true
+			break
 		}
+	}
+	if !found {
+		t.Fatal("expected virtual outbound listener, but not found")
 	}
 }
 
@@ -1538,13 +1544,12 @@ func verifyInboundEnvoyListenerNumber(t *testing.T, l *xdsapi.Listener) {
 		f := fc.Filters[0]
 		cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 		hf := cfg.Fields["http_filters"].GetListValue()
-		if len(hf.Values) != 4 {
-			t.Fatalf("expected %d http filters, found %d", 4, len(hf.Values))
+		if len(hf.Values) != 3 {
+			t.Fatalf("expected %d http filters, found %d", 3, len(hf.Values))
 		}
-		envoyLua := hf.Values[0].GetStructValue().Fields["name"].GetStringValue()
-		envoyCors := hf.Values[1].GetStructValue().Fields["name"].GetStringValue()
-		if envoyLua != "envoy.lua" || envoyCors != "envoy.cors" {
-			t.Fatalf("expected %q %q http filter, found %q %q", "envoy.lua", "envoy.cors", envoyLua, envoyCors)
+		envoyCors := hf.Values[0].GetStructValue().Fields["name"].GetStringValue()
+		if envoyCors != "envoy.cors" {
+			t.Fatalf("expected %q http filter, found %q", "envoy.cors", envoyCors)
 		}
 	}
 }

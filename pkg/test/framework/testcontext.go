@@ -24,11 +24,10 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/core"
 	"istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -132,7 +131,7 @@ func newTestContext(test *Test, goTest *testing.T, s *suiteContext, parentScope 
 	}
 }
 
-func (c *testContext) Settings() *core.Settings {
+func (c *testContext) Settings() *resource.Settings {
 	return c.suite.settings
 }
 

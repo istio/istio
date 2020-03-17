@@ -175,8 +175,8 @@ github.com/emicklei/go-restful v2.9.6+incompatible/go.mod h1:otzb+WCGbkyDHkqmQmT
 github.com/envoyproxy/go-control-plane v0.6.9/go.mod h1:SBwIajubJHhxtWwsL9s8ss4safvEdbitLhGGK48rN6g=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
-github.com/envoyproxy/go-control-plane v0.9.4 h1:rEvIZUSZ3fx39WIi3JkQqQBitGwpELBIYWeBVh6wn+E=
-github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=
+github.com/envoyproxy/go-control-plane v0.9.5-0.20200312132221-1152177914f2 h1:k8mKs+B8LSjz+hiG7Xw0FfuC2o6Ye/+Lj+ob1LwepZU=
+github.com/envoyproxy/go-control-plane v0.9.5-0.20200312132221-1152177914f2/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=
 github.com/envoyproxy/protoc-gen-validate v0.1.0 h1:EQciDnbrYxy13PgWoY8AqoxGiPrpgBZ1R8UNe3ddc+A=
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/evanphx/json-patch v4.2.0+incompatible/go.mod h1:50XU6AFN0ol/bzJsmQLiYLvXMP4fmwYFNcr97nuDLSk=
@@ -940,8 +940,8 @@ honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWh
 honnef.co/go/tools v0.0.1-2019.2.3 h1:3JgtbtFHMiCmsznwGVTUWbgGov+pVqnlf1dEJTNAXeM=
 honnef.co/go/tools v0.0.1-2019.2.3/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt0JzvZhAg=
 istio.io/api v0.0.0-20190515205759-982e5c3888c6/go.mod h1:hhLFQmpHia8zgaM37vb2ml9iS5NfNfqZGRt1pS9aVEo=
-istio.io/api v0.0.0-20200305194445-60d7d118d799 h1:P/HJk1Qzi/r9ahPkjqj82+U8m/hp7n2xowdQ4mDA32Q=
-istio.io/api v0.0.0-20200305194445-60d7d118d799/go.mod h1:bcY3prusO/6vA6zGHz4PNG2v79clPyTw06Xx3fprJSQ=
+istio.io/api v0.0.0-20200316183217-dc6271ee34e2 h1:PY4qpGnuvNMIaSkKp2oRSl9dFzRw2xNKzWs1ZEGUoSo=
+istio.io/api v0.0.0-20200316183217-dc6271ee34e2/go.mod h1:bcY3prusO/6vA6zGHz4PNG2v79clPyTw06Xx3fprJSQ=
 istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a/go.mod h1:OzpAts7jljZceG4Vqi5/zXy/pOg1b209T3jb7Nv5wIs=
 istio.io/gogo-genproto v0.0.0-20200227125611-d2e4aa9d5634 h1:oG03jmv4QbpBrKEVJmo++h91T1Wk9yV6m9XyqLJRn5o=
 istio.io/gogo-genproto v0.0.0-20200227125611-d2e4aa9d5634/go.mod h1:OzpAts7jljZceG4Vqi5/zXy/pOg1b209T3jb7Nv5wIs=
