@@ -67,13 +67,13 @@ var (
 	trustDomainEnv = env.RegisterStringVar(trustDomain, "", "").Get()
 	secretTTLEnv   = env.RegisterDurationVar(secretTTL, 24*time.Hour,
 		"The cert lifetime requested by istio agent").Get()
-	secretRefreshGracePeriodRatioEnv = env.RegisterFloatVar(SecretRefreshGracePeriodRatio, 0.5,
+	secretRotationGracePeriodRatioEnv = env.RegisterFloatVar(secretRotationGracePeriodRatio, 0.5,
 		"The grace period ratio for the cert rotation, by default 0.5.").Get()
-	secretRotationIntervalEnv = env.RegisterDurationVar(SecretRotationInterval, 5*time.Minute,
+	secretRotationIntervalEnv = env.RegisterDurationVar(secretRotationInterval, 5*time.Minute,
 		"The ticker to detect and rotate the certificates, by default 5 minutes").Get()
 	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar(staledConnectionRecycleInterval, 5*time.Minute,
 		"The ticker to detect and close stale connections").Get()
-	initialBackoffInMilliSecEnv = env.RegisterIntVar(InitialBackoffInMilliSec, 0, "").Get()
+	initialBackoffInMilliSecEnv = env.RegisterIntVar(initialBackoffInMilliSec, 0, "").Get()
 	pkcs8KeysEnv                = env.RegisterBoolVar(pkcs8Key, false, "Whether to generate PKCS#8 private keys").Get()
 
 	// Location of K8S CA root.
@@ -109,7 +109,7 @@ const (
 	// The environmental variable name for grace period ratio that secret is re-generated before
 	// its expiration.
 	// Example value format like "0.5"
-	secretRefreshGracePeriodRatio = "SECRET_GRACE_PERIOD_RATIO"
+	secretRotationGracePeriodRatio = "SECRET_GRACE_PERIOD_RATIO"
 
 	// The environmental variable name for the interval to check and rotate the key and certs.
 	// Example value format like "20m"
@@ -448,7 +448,7 @@ func applyEnvVars() {
 	serverOptions.Pkcs8Keys = pkcs8KeysEnv
 	serverOptions.RecycleInterval = staledConnectionRecycleIntervalEnv
 	workloadSdsCacheOptions.SecretTTL = secretTTLEnv
-	workloadSdsCacheOptions.SecretRefreshGracePeriodRatio = secretRefreshGracePeriodRatioEnv
+	workloadSdsCacheOptions.SecretRotationGracePeriodRatio = secretRotationGracePeriodRatioEnv
 	workloadSdsCacheOptions.RotationInterval = secretRotationIntervalEnv
 	workloadSdsCacheOptions.InitialBackoffInMilliSec = int64(initialBackoffInMilliSecEnv)
 	// Disable the secret eviction for istio agent.
