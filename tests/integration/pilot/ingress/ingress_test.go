@@ -17,6 +17,9 @@ package ingress
 import (
 	"fmt"
 	"testing"
+	"time"
+
+	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
@@ -172,6 +175,7 @@ spec:
 		})
 }
 
+// TestIngress tests that we can route using standard Kubernetes Ingress objects.
 func TestIngress(t *testing.T) {
 	framework.
 		NewTest(t).
@@ -201,6 +205,15 @@ func TestIngress(t *testing.T) {
 				BuildOrFail(t)
 			instance.Address()
 
+			// Set up secret contain some TLS certs for *.example.com
+			// we will define one for foo.example.com and one for bar.example.com, to ensure both can co-exist
+			credName := "k8s-ingress-secret-foo"
+			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName}, ingress.TLS, ingressutil.IngressCredentialA)
+			defer ingressutil.DeleteIngressKubeSecret(t, ctx, []string{credName})
+			credName2 := "k8s-ingress-secret-bar"
+			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName2}, ingress.TLS, ingressutil.IngressCredentialB)
+			defer ingressutil.DeleteIngressKubeSecret(t, ctx, []string{credName2})
+
 			if err := g.ApplyConfig(ns, `
 apiVersion: extensions/v1beta1
 kind: Ingress
@@ -209,6 +222,11 @@ metadata:
     kubernetes.io/ingress.class: istio
   name: ingress
 spec:
+  tls:
+  - hosts: ["foo.example.com"]
+    secretName: k8s-ingress-secret-foo
+  - hosts: ["bar.example.com"]
+    secretName: k8s-ingress-secret-bar
   rules:
     - http:
         paths:
@@ -220,22 +238,56 @@ spec:
 				t.Fatal(err)
 			}
 
-			if err := retry.UntilSuccess(func() error {
-				resp, err := ingr.Call(ingress.CallOptions{
-					Host:     "server",
-					Path:     "/",
-					CallType: ingress.PlainText,
-					Address:  ingr.HTTPAddress(),
+			cases := []struct {
+				name string
+				call ingress.CallOptions
+			}{
+				{
+					// Basic HTTP call
+					name: "http",
+					call: ingress.CallOptions{
+						Host:     "server",
+						Path:     "/",
+						CallType: ingress.PlainText,
+						Address:  ingr.HTTPAddress(),
+					},
+				},
+				{
+					// Basic HTTPS call for foo. CaCert matches the secret
+					name: "https-foo",
+					call: ingress.CallOptions{
+						Host:     "foo.example.com",
+						Path:     "/",
+						CallType: ingress.TLS,
+						Address:  ingr.HTTPSAddress(),
+						CaCert:   ingressutil.IngressCredentialA.CaCert,
+					},
+				},
+				{
+					// Basic HTTPS call for bar. CaCert matches the secret
+					name: "https-bar",
+					call: ingress.CallOptions{
+						Host:     "bar.example.com",
+						Path:     "/",
+						CallType: ingress.TLS,
+						Address:  ingr.HTTPSAddress(),
+						CaCert:   ingressutil.IngressCredentialB.CaCert,
+					},
+				},
+			}
+			for _, tt := range cases {
+				ctx.NewSubTest(tt.name).Run(func(t framework.TestContext) {
+					retry.UntilSuccessOrFail(t, func() error {
+						resp, err := ingr.Call(tt.call)
+						if err != nil {
+							return err
+						}
+						if resp.Code != 200 {
+							return fmt.Errorf("got invalid response code %v: %v", resp.Code, resp.Body)
+						}
+						return nil
+					}, retry.Delay(time.Millisecond*100), retry.Timeout(time.Minute*2))
 				})
-				if err != nil {
-					return err
-				}
-				if resp.Code != 200 {
-					return fmt.Errorf("got invalid response code %v: %v", resp.Code, resp.Body)
-				}
-				return nil
-			}); err != nil {
-				t.Fatal(err)
 			}
 		})
 }
