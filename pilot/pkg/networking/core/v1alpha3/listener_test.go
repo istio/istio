@@ -1434,7 +1434,7 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	p := &fakePlugin{}
 	env := buildListenerEnv(nil)
 
-	listeners := buildAllListeners(p, nil, env, nil)
+	listeners := buildAllListeners(p, nil, env)
 	found := false
 	for _, l := range listeners {
 		if l.Name == VirtualOutboundListenerName {
@@ -1460,7 +1460,7 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	rebuildCachedListeners(nil)
 
 	// Validate that access log filter users the new format.
-	listeners = buildAllListeners(p, nil, env, nil)
+	listeners = buildAllListeners(p, nil, env)
 	for _, l := range listeners {
 		if l.Name == VirtualOutboundListenerName {
 			validateAccessLog(t, l, "format modified")

@@ -347,7 +347,6 @@ func maybeBuildAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 	}
 
 	// We need to build access log. This is needed either on first access or when mesh config changes.
-
 	fl := &accesslogconfig.FileAccessLog{
 		Path: mesh.AccessLogFile,
 	}
@@ -2618,6 +2617,7 @@ func removeListenerFilterTimeout(listeners []*xdsapi.Listener) {
 	}
 }
 
+// nolint: unparam
 func rebuildCachedListeners(mesh *meshconfig.MeshConfig) {
 	lmutex.Lock()
 	defer lmutex.Unlock()
