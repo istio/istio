@@ -19,9 +19,15 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/tests/integration/mixer/outboundtrafficpolicy"
+)
+
+var (
+	prom prometheus.Instance
 )
 
 func TestMain(m *testing.M) {
@@ -31,6 +37,7 @@ func TestMain(m *testing.M) {
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
+		Setup(setupPrometheus).
 		Run()
 }
 
@@ -42,20 +49,49 @@ func setupConfig(cfg *istio.Config) {
 components:
   egressGateways:
   - enabled: true
-    name: istio-egressgateway
+  telemetry:
+    enabled: true
 values:
   global:
     outboundTrafficPolicy:
       mode: REGISTRY_ONLY
-`
+  telemetry:
+    v1:
+      enabled: true
+    v2:
+      enabled: false`
 }
 
-func TestOutboundTrafficPolicyRegistryOnly(t *testing.T) {
+func TestOutboundTrafficPolicyRegistryOnly_NetworkingResponse(t *testing.T) {
 	expected := map[string][]string{
 		"http":        {"502"}, // HTTP will return an error code
 		"http_egress": {"200"}, // We define the virtual service in the namespace, so we should be able to reach it
 		"https":       {},      // HTTPS will direct to blackhole cluster, giving no response
 		"tcp":         {},      // TCP will direct to blackhole cluster, giving no response
 	}
-	outboundtrafficpolicy.RunExternalRequestTest(expected, t)
+	outboundtrafficpolicy.RunExternalRequestResponseCodeTest(expected, t)
+}
+
+func TestOutboundTrafficPolicyRegistryOnly_MetricsResponse(t *testing.T) {
+	expected := map[string]outboundtrafficpolicy.MetricsResponse{
+		"http": {
+			Metric:    "istio_requests_total",
+			PromQuery: `sum(istio_requests_total{destination_service_name="BlackHoleCluster",response_code="502"})`,
+		}, // HTTP will return an error code
+		"http_egress": {
+			Metric:    "istio_requests_total",
+			PromQuery: `sum(istio_requests_total{destination_service_name="istio-egressgateway",response_code="200"})`,
+		}, // we define the virtual service in the namespace, so we should be able to reach it
+		"https": {
+			Metric:    "istio_tcp_connections_closed_total",
+			PromQuery: `sum(istio_tcp_connections_closed_total{destination_service="BlackHoleCluster",destination_service_name="BlackHoleCluster"})`,
+		}, // HTTPS will direct to blackhole cluster, giving no response
+	}
+	// destination_service="BlackHoleCluster" does not get filled in when using sidecar scoping
+	outboundtrafficpolicy.RunExternalRequestMetricsTest(prom, expected, t)
+}
+
+func setupPrometheus(ctx resource.Context) (err error) {
+	prom, err = prometheus.New(ctx, prometheus.Config{})
+	return err
 }

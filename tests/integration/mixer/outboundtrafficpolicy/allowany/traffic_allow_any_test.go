@@ -42,12 +42,17 @@ func setupConfig(cfg *istio.Config) {
 components:
   egressGateways:
   - enabled: true
-    name: istio-egressgateway
+  telemetry:
+    enabled: true
 values:
   global:
     outboundTrafficPolicy:
       mode: ALLOW_ANY
-`
+  telemetry:
+    v1:
+      enabled: true
+    v2:
+      enabled: false`
 }
 
 func TestOutboundTrafficPolicyAllowAny(t *testing.T) {
@@ -57,5 +62,5 @@ func TestOutboundTrafficPolicyAllowAny(t *testing.T) {
 		"https":       {"200"},
 		"tcp":         {"200"},
 	}
-	outboundtrafficpolicy.RunExternalRequestTest(expected, t)
+	outboundtrafficpolicy.RunExternalRequestResponseCodeTest(expected, t)
 }
