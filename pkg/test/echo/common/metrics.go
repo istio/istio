@@ -20,14 +20,14 @@ import (
 )
 
 type EchoMetrics struct {
-	HttpRequests *prometheus.CounterVec
+	HTTPRequests *prometheus.CounterVec
 	GrpcRequests *prometheus.CounterVec
-	TcpRequests  *prometheus.CounterVec
+	TCPRequests  *prometheus.CounterVec
 }
 
 var (
 	Metrics = &EchoMetrics{
-		HttpRequests: promauto.NewCounterVec(prometheus.CounterOpts{
+		HTTPRequests: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "istio_echo_http_requests_total",
 			Help: "The number of http requests total",
 		}, []string{"port"}),
@@ -35,7 +35,7 @@ var (
 			Name: "istio_echo_grpc_requests_total",
 			Help: "The number of http requests total",
 		}, []string{"port"}),
-		TcpRequests: promauto.NewCounterVec(prometheus.CounterOpts{
+		TCPRequests: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "istio_echo_tcp_requests_total",
 			Help: "The number of http requests total",
 		}, []string{"port"}),

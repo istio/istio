@@ -76,7 +76,7 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 
 // Handles incoming connection.
 func (s *tcpInstance) echo(conn io.ReadWriteCloser) {
-	defer common.Metrics.TcpRequests.WithLabelValues(strconv.Itoa(s.Port.Port)).Inc()
+	defer common.Metrics.TCPRequests.WithLabelValues(strconv.Itoa(s.Port.Port)).Inc()
 	defer func() {
 		_ = conn.Close()
 	}()
