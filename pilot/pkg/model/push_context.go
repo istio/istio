@@ -93,7 +93,6 @@ type PushContext struct {
 	// the dest rule based on the most specific host match, and not just any destination rule
 	namespaceLocalDestRules    map[string]*processedDestRules
 	namespaceExportedDestRules map[string]*processedDestRules
-	allExportedDestRules       *processedDestRules
 
 	// sidecars for each namespace
 	sidecarsByNamespace map[string][]*SidecarScope
