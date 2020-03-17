@@ -147,6 +147,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(removeFromMeshCmd())
 	experimentalCmd.AddCommand(softGraduatedCmd(Analyze()))
 	experimentalCmd.AddCommand(waitCmd())
+        experimentalCmd.AddCommand(generateKeyAndCertCmd())
 
 	postInstallCmd.AddCommand(Webhook())
 	experimentalCmd.AddCommand(postInstallCmd)
