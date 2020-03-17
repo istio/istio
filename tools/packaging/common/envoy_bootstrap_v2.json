@@ -334,7 +334,7 @@
               "validation_context": {
                 "trusted_ca": {
                   {{- if .provisioned_cert }}
-                  "filename": {{(printf "%s%s" .provisioned_cert "/root-cert.pem") }}
+                  "filename": "{{(printf "%s%s" .provisioned_cert "/root-cert.pem") }}"
                   {{- else if eq .pilot_cert_provider "kubernetes" }}
                   "filename": "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
                   {{- else if eq .pilot_cert_provider "istiod" }}
