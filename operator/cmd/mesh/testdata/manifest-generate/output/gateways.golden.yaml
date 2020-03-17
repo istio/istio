@@ -397,20 +397,6 @@ metadata:
     release: istio
 ---
 
-
-apiVersion: networking.istio.io/v1alpha3
-kind: Sidecar
-metadata:
-  name: default
-  namespace: istio-system
-  labels:
-    release: istio
-spec:
-  egress:
-    - hosts:
-        - "*/*"
----
-
 ---
 # Resources for IngressGateways component
 
@@ -789,20 +775,6 @@ metadata:
     release: istio
 ---
 
-
-apiVersion: networking.istio.io/v1alpha3
-kind: Sidecar
-metadata:
-  name: default
-  namespace: istio-system
-  labels:
-    release: istio
-spec:
-  egress:
-    - hosts:
-        - "*/*"
----
-
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -1160,18 +1132,6 @@ metadata:
     istio: ingressgateway
     
     release: istio
----
-apiVersion: networking.istio.io/v1alpha3
-kind: Sidecar
-metadata:
-  name: default
-  namespace: user-ingressgateway-ns
-  labels:
-    release: istio
-spec:
-  egress:
-    - hosts:
-        - "*/*"
 ---
 
 # Pilot istiod component is disabled.

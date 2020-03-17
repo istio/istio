@@ -39,7 +39,6 @@
 // charts/gateways/istio-ingress/templates/rolebindings.yaml
 // charts/gateways/istio-ingress/templates/service.yaml
 // charts/gateways/istio-ingress/templates/serviceaccount.yaml
-// charts/gateways/istio-ingress/templates/sidecar.yaml
 // charts/gateways/istio-ingress/values.yaml
 // charts/istio-cni/Chart.yaml
 // charts/istio-cni/templates/clusterrole.yaml
@@ -14912,34 +14911,6 @@ func chartsGatewaysIstioIngressTemplatesServiceaccountYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "charts/gateways/istio-ingress/templates/serviceaccount.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsGatewaysIstioIngressTemplatesSidecarYaml = []byte(`apiVersion: networking.istio.io/v1alpha3
-kind: Sidecar
-metadata:
-  name: default
-  namespace: {{ .Release.Namespace }}
-  labels:
-    release: {{ .Release.Name }}
-spec:
-  egress:
-    - hosts:
-        - "*/*"
-`)
-
-func chartsGatewaysIstioIngressTemplatesSidecarYamlBytes() ([]byte, error) {
-	return _chartsGatewaysIstioIngressTemplatesSidecarYaml, nil
-}
-
-func chartsGatewaysIstioIngressTemplatesSidecarYaml() (*asset, error) {
-	bytes, err := chartsGatewaysIstioIngressTemplatesSidecarYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/gateways/istio-ingress/templates/sidecar.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -47365,7 +47336,6 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/gateways/istio-ingress/templates/rolebindings.yaml":                              chartsGatewaysIstioIngressTemplatesRolebindingsYaml,
 	"charts/gateways/istio-ingress/templates/service.yaml":                                   chartsGatewaysIstioIngressTemplatesServiceYaml,
 	"charts/gateways/istio-ingress/templates/serviceaccount.yaml":                            chartsGatewaysIstioIngressTemplatesServiceaccountYaml,
-	"charts/gateways/istio-ingress/templates/sidecar.yaml":                                   chartsGatewaysIstioIngressTemplatesSidecarYaml,
 	"charts/gateways/istio-ingress/values.yaml":                                              chartsGatewaysIstioIngressValuesYaml,
 	"charts/istio-cni/Chart.yaml":                                                            chartsIstioCniChartYaml,
 	"charts/istio-cni/templates/clusterrole.yaml":                                            chartsIstioCniTemplatesClusterroleYaml,
@@ -47628,7 +47598,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"rolebindings.yaml":        &bintree{chartsGatewaysIstioIngressTemplatesRolebindingsYaml, map[string]*bintree{}},
 					"service.yaml":             &bintree{chartsGatewaysIstioIngressTemplatesServiceYaml, map[string]*bintree{}},
 					"serviceaccount.yaml":      &bintree{chartsGatewaysIstioIngressTemplatesServiceaccountYaml, map[string]*bintree{}},
-					"sidecar.yaml":             &bintree{chartsGatewaysIstioIngressTemplatesSidecarYaml, map[string]*bintree{}},
 				}},
 				"values.yaml": &bintree{chartsGatewaysIstioIngressValuesYaml, map[string]*bintree{}},
 			}},

@@ -8083,20 +8083,6 @@ metadata:
     release: istio
 ---
 
-
-apiVersion: networking.istio.io/v1alpha3
-kind: Sidecar
-metadata:
-  name: default
-  namespace: istio-system
-  labels:
-    release: istio
-spec:
-  egress:
-    - hosts:
-        - "*/*"
----
-
 # Resources for Pilot component
 
 apiVersion: autoscaling/v2beta1
