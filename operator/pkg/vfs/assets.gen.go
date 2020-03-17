@@ -31,7 +31,6 @@
 // charts/gateways/istio-ingress/templates/_affinity.tpl
 // charts/gateways/istio-ingress/templates/autoscale.yaml
 // charts/gateways/istio-ingress/templates/deployment.yaml
-// charts/gateways/istio-ingress/templates/hosts.yaml
 // charts/gateways/istio-ingress/templates/meshexpansion.yaml
 // charts/gateways/istio-ingress/templates/poddisruptionbudget.yaml
 // charts/gateways/istio-ingress/templates/preconfigured.yaml
@@ -14481,73 +14480,6 @@ func chartsGatewaysIstioIngressTemplatesDeploymentYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "charts/gateways/istio-ingress/templates/deployment.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsGatewaysIstioIngressTemplatesHostsYaml = []byte(`{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
-
-# TODO: range TCP ports, add ports
-# {{ $gateway.domain }}
-{{ range $app := $gateway.hosts }}
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: {{ $app.name }}
-  namespace: {{ $.Release.Namespace }}
-  labels:
-    release: {{ $.Release.Name }}
-spec:
-  hosts:
-  - "{{ $app.name }}.{{ $gateway.domain }}"
-  gateways:
-  - ingressgateway
-  http:
-  - route:
-    - destination:
-        host: {{ $app.dest }}
-        port:
-          number: {{ $app.destPort }}
-{{- end }}
-
-{{ range $app := $gateway.ingressPorts }}
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: {{ $app.name }}
-  namespace: {{ $.Release.Namespace }}
-  labels:
-    release: {{ $.Release.Name }}
-spec:
-  hosts:
-  - "*"
-  gateways:
-  - ingressgateway
-  http:
-  -
-    match:
-    - port: {{ $app.port }}
-    route:
-    - destination:
-        host: {{ $app.dest }}
-        port:
-          number: {{ $app.destPort }}
-{{- end }}
-`)
-
-func chartsGatewaysIstioIngressTemplatesHostsYamlBytes() ([]byte, error) {
-	return _chartsGatewaysIstioIngressTemplatesHostsYaml, nil
-}
-
-func chartsGatewaysIstioIngressTemplatesHostsYaml() (*asset, error) {
-	bytes, err := chartsGatewaysIstioIngressTemplatesHostsYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/gateways/istio-ingress/templates/hosts.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -47328,7 +47260,6 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/gateways/istio-ingress/templates/_affinity.tpl":                                  chartsGatewaysIstioIngressTemplates_affinityTpl,
 	"charts/gateways/istio-ingress/templates/autoscale.yaml":                                 chartsGatewaysIstioIngressTemplatesAutoscaleYaml,
 	"charts/gateways/istio-ingress/templates/deployment.yaml":                                chartsGatewaysIstioIngressTemplatesDeploymentYaml,
-	"charts/gateways/istio-ingress/templates/hosts.yaml":                                     chartsGatewaysIstioIngressTemplatesHostsYaml,
 	"charts/gateways/istio-ingress/templates/meshexpansion.yaml":                             chartsGatewaysIstioIngressTemplatesMeshexpansionYaml,
 	"charts/gateways/istio-ingress/templates/poddisruptionbudget.yaml":                       chartsGatewaysIstioIngressTemplatesPoddisruptionbudgetYaml,
 	"charts/gateways/istio-ingress/templates/preconfigured.yaml":                             chartsGatewaysIstioIngressTemplatesPreconfiguredYaml,
@@ -47590,7 +47521,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"_affinity.tpl":            &bintree{chartsGatewaysIstioIngressTemplates_affinityTpl, map[string]*bintree{}},
 					"autoscale.yaml":           &bintree{chartsGatewaysIstioIngressTemplatesAutoscaleYaml, map[string]*bintree{}},
 					"deployment.yaml":          &bintree{chartsGatewaysIstioIngressTemplatesDeploymentYaml, map[string]*bintree{}},
-					"hosts.yaml":               &bintree{chartsGatewaysIstioIngressTemplatesHostsYaml, map[string]*bintree{}},
 					"meshexpansion.yaml":       &bintree{chartsGatewaysIstioIngressTemplatesMeshexpansionYaml, map[string]*bintree{}},
 					"poddisruptionbudget.yaml": &bintree{chartsGatewaysIstioIngressTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
 					"preconfigured.yaml":       &bintree{chartsGatewaysIstioIngressTemplatesPreconfiguredYaml, map[string]*bintree{}},
