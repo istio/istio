@@ -13309,6 +13309,9 @@ spec:
         service.istio.io/canonical-revision: latest
 {{- end }}
       annotations:
+        prometheus.io/port: "15090"
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/stats/prometheus"
         sidecar.istio.io/inject: "false"
 {{- if $gateway.podAnnotations }}
 {{ toYaml $gateway.podAnnotations | indent 8 }}
@@ -14178,6 +14181,9 @@ spec:
         service.istio.io/canonical-revision: latest
         {{- end }}
       annotations:
+        prometheus.io/port: "15090"
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/stats/prometheus"
         sidecar.istio.io/inject: "false"
 {{- if $gateway.podAnnotations }}
 {{ toYaml $gateway.podAnnotations | indent 8 }}
@@ -17386,6 +17392,8 @@ spec:
         # This avoids default deployment picking the canary
         istio: pilot
       annotations:
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: istio-pilot-service-account
@@ -19313,6 +19321,8 @@ spec:
         istio: pilot
         {{- end }}
       annotations:
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
         {{- if .Values.pilot.podAnnotations }}
 {{ toYaml .Values.pilot.podAnnotations | indent 8 }}

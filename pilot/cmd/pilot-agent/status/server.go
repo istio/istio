@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -30,6 +31,7 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/env"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/pkg/log"
@@ -50,6 +52,8 @@ const (
 	// This environment variable should never be set manually.
 	KubeAppProberEnvName = "ISTIO_KUBE_APP_PROBERS"
 )
+
+var PrometheusScrapingConfig = env.RegisterStringVar("ISTIO_PROMETHEUS_ANNOTATIONS", "", "")
 
 var (
 	appProberPattern = regexp.MustCompile(`^/app-health/[^/]+/(livez|readyz)$`)
@@ -80,6 +84,7 @@ type Config struct {
 // Server provides an endpoint for handling status probes.
 type Server struct {
 	ready               *ready.Probe
+	prometheus          *PrometheusScrapeConfiguration
 	mutex               sync.RWMutex
 	appKubeProbers      KubeAppProbers
 	statusPort          uint16
@@ -114,6 +119,16 @@ func NewServer(config Config) (*Server, error) {
 			return nil, fmt.Errorf("invalid prober config for %v, the port must be int type", path)
 		}
 	}
+
+	if cfg, f := PrometheusScrapingConfig.Lookup(); f {
+		var prom PrometheusScrapeConfiguration
+		if err := json.Unmarshal([]byte(cfg), &prom); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal %s: %v", PrometheusScrapingConfig.Name, err)
+		}
+		log.Infof("Prometheus scraping configuration: %v", prom)
+		s.prometheus = &prom
+	}
+
 	return s, nil
 }
 
@@ -132,6 +147,7 @@ func (s *Server) Run(ctx context.Context) {
 
 	// Add the handler for ready probes.
 	mux.HandleFunc(readyPath, s.handleReadyProbe)
+	mux.HandleFunc(`/stats/prometheus`, s.handleStats)
 	mux.HandleFunc(quitPath, s.handleQuit)
 	mux.HandleFunc("/app-health/", s.handleAppProbe)
 
@@ -192,6 +208,47 @@ func isRequestFromLocalhost(r *http.Request) bool {
 
 	userIP := net.ParseIP(ip)
 	return userIP.IsLoopback()
+}
+
+type PrometheusScrapeConfiguration struct {
+	Scheme string `json:"scheme"`
+	Scrape string `json:"scrape"`
+	Path   string `json:"path"`
+	Port   string `json:"port"`
+}
+
+func (s *Server) handleStats(w http.ResponseWriter, _ *http.Request) {
+	if err := s.scrape(w, "http://localhost:15090/stats/prometheus"); err != nil {
+		log.Errora(err)
+		return
+	}
+	if s.prometheus != nil {
+		url := fmt.Sprintf("%s://localhost:%s/%s", s.prometheus.Scheme, s.prometheus.Port, s.prometheus.Path)
+		if err := s.scrape(w, url); err != nil {
+			log.Errora(err)
+			return
+		}
+	}
+}
+
+func (s *Server) scrape(w http.ResponseWriter, url string) error {
+	resp, err := http.Get(url)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return fmt.Errorf("error scraping %s: %v", url, err)
+	}
+	defer resp.Body.Close()
+	metrics, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return fmt.Errorf("error reading %s: %v", url, err)
+	}
+
+	if _, err := w.Write(metrics); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return fmt.Errorf("error writing %s: %v", url, err)
+	}
+	return nil
 }
 
 func (s *Server) handleQuit(w http.ResponseWriter, r *http.Request) {

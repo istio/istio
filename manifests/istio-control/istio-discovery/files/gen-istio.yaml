@@ -882,6 +882,8 @@ spec:
         # This avoids default deployment picking the canary
         istio: pilot
       annotations:
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: istio-pilot-service-account

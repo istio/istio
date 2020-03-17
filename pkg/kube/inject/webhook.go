@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -560,21 +561,32 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	patch = append(patch, removeImagePullSecrets(pod.Spec.ImagePullSecrets, prevStatus.ImagePullSecrets, "/spec/imagePullSecrets")...)
 
 	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, sic)
-	addAppProberCmd := func() {
-		if !rewrite {
-			return
-		}
-		sidecar := FindSidecar(sic.Containers)
-		if sidecar == nil {
-			log.Errorf("sidecar not found in the template, skip addAppProberCmd")
-			return
-		}
-		// We don't have to escape json encoding here when using golang libraries.
+
+	sidecar := FindSidecar(sic.Containers)
+	// We don't have to escape json encoding here when using golang libraries.
+	if rewrite && sidecar != nil {
 		if prober := DumpAppProbers(&pod.Spec); prober != "" {
 			sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: prober})
 		}
 	}
-	addAppProberCmd()
+
+	scrape := status.PrometheusScrapeConfiguration{
+		Scheme: pod.ObjectMeta.Annotations["prometheus.io/scheme"],
+		Scrape: pod.ObjectMeta.Annotations["prometheus.io/scrape"],
+		Path:   pod.ObjectMeta.Annotations["prometheus.io/path"],
+		Port:   pod.ObjectMeta.Annotations["prometheus.io/port"],
+	}
+	empty := status.PrometheusScrapeConfiguration{}
+	if sidecar != nil && scrape != empty {
+		by, err := json.Marshal(scrape)
+		if err != nil {
+			return nil, err
+		}
+		sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.PrometheusScrapingConfig.Name, Value: string(by)})
+	}
+	annotations["prometheus.io/port"] = strconv.Itoa(int(statusPort))
+	annotations["prometheus.io/path"] = "/stats/prometheus"
+	annotations["prometheus.io/scrape"] = "true"
 
 	patch = append(patch, addContainer(pod.Spec.InitContainers, sic.InitContainers, "/spec/initContainers")...)
 	patch = append(patch, addContainer(pod.Spec.Containers, sic.Containers, "/spec/containers")...)

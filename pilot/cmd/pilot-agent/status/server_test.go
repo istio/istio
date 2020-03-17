@@ -108,6 +108,75 @@ func TestNewServer(t *testing.T) {
 	}
 }
 
+func TestStats(t *testing.T) {
+
+	cases := []struct {
+		name   string
+		inputs []string
+		output string
+	}{
+		{
+			name:   "simple string",
+			inputs: []string{"foo"},
+			output: "foo",
+		},
+		{
+			name: "single metric",
+			inputs: []string{
+				`# TYPE my_metric counter
+		my_metric{} 0
+		# TYPE my_other_metric counter
+		my_other_metric{} 0
+`,
+			},
+			output: `# TYPE my_metric counter
+		my_metric{} 0
+		# TYPE my_other_metric counter
+		my_other_metric{} 0
+`,
+		},
+		{
+			name: "multiple metric",
+			inputs: []string{
+				`# TYPE my_metric counter
+my_metric{} 0
+`,
+				`# TYPE my_other_metric counter
+my_other_metric{} 0
+`,
+			},
+			output: `# TYPE my_metric counter
+my_metric{} 0
+# TYPE my_other_metric counter
+my_other_metric{} 0
+`,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			server := &Server{}
+			for _, inp := range tt.inputs {
+				stat := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if _, err := w.Write([]byte(inp)); err != nil {
+						t.Fatalf("write failed: %v", err)
+					}
+				}))
+				defer stat.Close()
+				if err := server.scrape(rec, stat.URL); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if rec.Code != 200 {
+				t.Fatalf("Expected 200 code, got %v", rec.Code)
+			}
+			if rec.Body.String() != tt.output {
+				t.Fatalf("expected \n%v got \n%v", tt.output, rec.Body.String())
+			}
+		})
+	}
+}
+
 func TestAppProbe(t *testing.T) {
 	// Starts the application first.
 	listener, err := net.Listen("tcp", ":0")

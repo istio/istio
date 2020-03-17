@@ -1,0 +1,27 @@
+apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  hub: gcr.io/howardjohn-istio
+  tag: prometheus
+  addonComponents:
+    grafana:
+      enabled: true
+    prometheus:
+      enabled: false
+
+  values:
+    grafana:
+      enabled: true
+      datasources:
+        datasources.yaml:
+          apiVersion: 1
+          datasources:
+          - name: Prometheus
+            type: prometheus
+            orgId: 1
+            url: http://prometheus-server.prometheus
+            access: proxy
+            jsonData:
+              timeInterval: 5s
+            editable: true
+            isDefault: true
