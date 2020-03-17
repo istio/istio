@@ -30,15 +30,18 @@ type CAClient struct {
 	mockCertChain1st    []string
 	mockCertChainRemain []string
 	failureRate         int
+	isDeterministic     bool
 }
 
 // Create a CA client that sends CSR with a default failure rate 0.2. If failureRate
 // is non zero, e.g. [0.1, 0.9], the failure rate is changed.
-func NewMockCAClient(mockCertChain1st, mockCertChainRemain []string, failureRate float32) *CAClient {
+func NewMockCAClient(mockCertChain1st, mockCertChainRemain []string, failureRate float32,
+	isDeterministic bool) *CAClient {
 	cl := CAClient{
 		mockCertChain1st:    mockCertChain1st,
 		mockCertChainRemain: mockCertChainRemain,
 		failureRate:         5,
+		isDeterministic:     isDeterministic,
 	}
 
 	if failureRate > 0 {
@@ -51,9 +54,9 @@ func NewMockCAClient(mockCertChain1st, mockCertChainRemain []string, failureRate
 
 func (c *CAClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, exchangedToken string,
 	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
-	// Mock CSRSign failure errors to force Citadel agent to retry.
-	// 50% chance of failure.
-	if rand.Intn(c.failureRate) == 0 {
+	// When isDeterministic is false, based on the failureRate,
+	// mock CSRSign failure errors to force Citadel agent to retry.
+	if !c.isDeterministic && rand.Intn(c.failureRate) == 0 {
 		return nil, status.Error(codes.Unavailable, "CA is unavailable")
 	}
 
