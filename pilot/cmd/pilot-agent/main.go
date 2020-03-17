@@ -47,6 +47,7 @@ import (
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
+	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	stsserver "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 	cleaniptables "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
@@ -296,6 +297,7 @@ var (
 				DisableReportCalls:  disableInternalTelemetry,
 				OutlierLogPath:      outlierLogPath,
 				PilotCertProvider:   pilotCertProvider,
+				ProvCert:            citadel.ProvCert,
 			})
 
 			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
