@@ -1,4 +1,3 @@
-{{- if or (eq .Values.revision "") (not .Values.clusterResources) }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -58,4 +57,3 @@ spec:
     istio: pilot
     {{- end }}
 ---
-{{- end }}
