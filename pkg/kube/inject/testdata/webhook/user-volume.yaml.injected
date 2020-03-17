@@ -136,7 +136,7 @@ spec:
         - mountPath: /var/run/secrets/tokens
           name: istio-token
         - mountPath: /etc/istio/pod
-          name: podinfo
+          name: istio-podinfo
         - mountPath: /mnt/volume-1
           name: user-volume-1
           readOnly: true
@@ -196,7 +196,7 @@ spec:
           - fieldRef:
               fieldPath: metadata.annotations
             path: annotations
-        name: podinfo
+        name: istio-podinfo
       - name: istio-token
         projected:
           sources:

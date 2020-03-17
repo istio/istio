@@ -17271,7 +17271,7 @@ data:
           name: istio-certs
           readOnly: true
         {{- end }}
-        - name: podinfo
+        - name: istio-podinfo
           mountPath: /etc/istio/pod
         {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
         - mountPath: {{ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}
@@ -17294,7 +17294,7 @@ data:
       - emptyDir:
           medium: Memory
         name: istio-envoy
-      - name: podinfo
+      - name: istio-podinfo
         downwardAPI:
           items:
             - path: "labels"
@@ -18696,7 +18696,7 @@ template: |
       name: istio-certs
       readOnly: true
     {{- end }}
-    - name: podinfo
+    - name: istio-podinfo
       mountPath: /etc/istio/pod
     {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
     - mountPath: {{ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}
@@ -18719,7 +18719,7 @@ template: |
   - emptyDir:
       medium: Memory
     name: istio-envoy
-  - name: podinfo
+  - name: istio-podinfo
     downwardAPI:
       items:
         - path: "labels"

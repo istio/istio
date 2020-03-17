@@ -18,7 +18,7 @@ items:
       metadata:
         annotations:
           sidecar.istio.io/interceptionMode: REDIRECT
-          sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
+          sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
           traffic.sidecar.istio.io/excludeInboundPorts: "15020"
           traffic.sidecar.istio.io/includeInboundPorts: "80"
           traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
@@ -144,7 +144,7 @@ items:
           - mountPath: /var/run/secrets/tokens
             name: istio-token
           - mountPath: /etc/istio/pod
-            name: podinfo
+            name: istio-podinfo
         initContainers:
         - args:
           - istio-iptables
@@ -199,7 +199,7 @@ items:
             - fieldRef:
                 fieldPath: metadata.annotations
               path: annotations
-          name: podinfo
+          name: istio-podinfo
         - name: istio-token
           projected:
             sources:
@@ -229,7 +229,7 @@ items:
       metadata:
         annotations:
           sidecar.istio.io/interceptionMode: REDIRECT
-          sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
+          sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
           traffic.sidecar.istio.io/excludeInboundPorts: "15020"
           traffic.sidecar.istio.io/includeInboundPorts: "81"
           traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
@@ -355,7 +355,7 @@ items:
           - mountPath: /var/run/secrets/tokens
             name: istio-token
           - mountPath: /etc/istio/pod
-            name: podinfo
+            name: istio-podinfo
         initContainers:
         - args:
           - istio-iptables
@@ -410,7 +410,7 @@ items:
             - fieldRef:
                 fieldPath: metadata.annotations
               path: annotations
-          name: podinfo
+          name: istio-podinfo
         - name: istio-token
           projected:
             sources:
