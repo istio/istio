@@ -18274,7 +18274,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: metadata_exchange
+          name: istio.metadata_exchange
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -18303,7 +18303,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: metadata_exchange
+          name: istio.metadata_exchange
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
@@ -18319,7 +18319,7 @@ spec:
         operation: MERGE
         value:
           filters:
-          - name: metadata_exchange
+          - name: istio.metadata_exchange
             typed_config:
               "@type": type.googleapis.com/udpa.type.v1.TypedStruct
               type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
@@ -18335,7 +18335,7 @@ spec:
         operation: MERGE
         value:
           filters:
-          - name: metadata_exchange
+          - name: istio.metadata_exchange
             typed_config:
               "@type": type.googleapis.com/udpa.type.v1.TypedStruct
               type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
@@ -18363,7 +18363,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: stats
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -18395,7 +18395,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: stats
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -18427,7 +18427,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: stats
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -18465,7 +18465,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: stats
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
@@ -18495,7 +18495,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: stats
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
@@ -18525,7 +18525,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: stats
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
@@ -20903,7 +20903,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: metadata_exchange
+          name: istio.metadata_exchange
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -20943,7 +20943,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: metadata_exchange
+          name: istio.metadata_exchange
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
@@ -20959,7 +20959,7 @@ spec:
         operation: MERGE
         value:
           filters:
-          - name: metadata_exchange
+          - name: istio.metadata_exchange
             typed_config:
               "@type": type.googleapis.com/udpa.type.v1.TypedStruct
               type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
@@ -20975,7 +20975,7 @@ spec:
         operation: MERGE
         value:
           filters:
-          - name: metadata_exchange
+          - name: istio.metadata_exchange
             typed_config:
               "@type": type.googleapis.com/udpa.type.v1.TypedStruct
               type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
@@ -21008,7 +21008,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: stats
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -21047,7 +21047,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: stats
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -21086,7 +21086,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: stats
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -21135,7 +21135,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: stats
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
@@ -21172,7 +21172,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: stats
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
@@ -21209,7 +21209,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: stats
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
@@ -21264,7 +21264,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: stackdriver
+          name: istio.stackdriver
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -21296,7 +21296,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: stackdriver
+          name: istio.stackdriver
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -21328,7 +21328,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: stackdriver
+          name: istio.stackdriver
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
