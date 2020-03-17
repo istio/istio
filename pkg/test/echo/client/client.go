@@ -17,6 +17,8 @@ package client
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
+	"fmt"
 	"io"
 
 	"google.golang.org/grpc"
@@ -48,7 +50,17 @@ func New(address string, tlsSettings *common.TLSSettings) (*Instance, error) {
 			return nil, err
 		}
 
-		cfg := credentials.NewTLS(&tls.Config{InsecureSkipVerify: true, Certificates: []tls.Certificate{cert}})
+		certPool := x509.NewCertPool()
+		if !certPool.AppendCertsFromPEM([]byte(tlsSettings.RootCert)) {
+			return nil, fmt.Errorf("failed to create cert pool")
+		}
+		cfg := credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{cert}, RootCAs: certPool})
+		// If provided, override the hostname
+		if tlsSettings.Hostname != "" {
+			if err := cfg.OverrideServerName(tlsSettings.Hostname); err != nil {
+				return nil, err
+			}
+		}
 		dialOptions = append(dialOptions, grpc.WithTransportCredentials(cfg))
 	}
 	conn, err := grpc.DialContext(ctx, address, dialOptions...)

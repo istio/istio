@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config/visibility"
 )
 
 func TestMergeUpdateRequest(t *testing.T) {
@@ -854,4 +855,57 @@ func scopeToSidecar(scope *SidecarScope) string {
 		return ""
 	}
 	return scope.Config.Namespace + "/" + scope.Config.Name
+}
+
+func TestSetDestinationRule(t *testing.T) {
+	ps := NewPushContext()
+	ps.defaultDestinationRuleExportTo = map[visibility.Instance]bool{visibility.Public: true}
+	testhost := "test.test-namespace1.svc.cluster.local"
+	destinationRuleNamespace1 := Config{
+		ConfigMeta: ConfigMeta{
+			Name:      "rule1",
+			Namespace: "test-namespace1",
+		},
+		Spec: &networking.DestinationRule{
+			Host: testhost,
+			Subsets: []*networking.Subset{
+				{
+					Name: "subset1",
+				},
+				{
+					Name: "subset2",
+				},
+			},
+		},
+	}
+	destinationRuleNamespace2 := Config{
+		ConfigMeta: ConfigMeta{
+			Name:      "rule2",
+			Namespace: "istio-system",
+		},
+		Spec: &networking.DestinationRule{
+			Host: testhost,
+			Subsets: []*networking.Subset{
+				{
+					Name: "subset3",
+				},
+				{
+					Name: "subset4",
+				},
+			},
+		},
+	}
+	ps.SetDestinationRules([]Config{destinationRuleNamespace1, destinationRuleNamespace2})
+	subsetsLocal := len(ps.namespaceLocalDestRules["test-namespace1"].destRule[host.Name(testhost)].config.Spec.(*networking.DestinationRule).Subsets)
+	subsetsExport := len(ps.namespaceExportedDestRules["test-namespace1"].destRule[host.Name(testhost)].config.Spec.(*networking.DestinationRule).Subsets)
+	subsetsAll := len(ps.allExportedDestRules.destRule[host.Name(testhost)].config.Spec.(*networking.DestinationRule).Subsets)
+	if subsetsLocal != 2 {
+		t.Fatalf("want %d, but got %d", 2, subsetsLocal)
+	}
+	if subsetsExport != 2 {
+		t.Fatalf("want %d, but got %d", 2, subsetsExport)
+	}
+	if subsetsAll != 4 {
+		t.Fatalf("want %d, but got %d", 4, subsetsAll)
+	}
 }

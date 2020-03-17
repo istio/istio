@@ -15,7 +15,6 @@
   "editable": false,
   "gnetId": null,
   "graphTooltip": 1,
-  "id": 11,
   "links": [],
   "panels": [
     {
@@ -582,6 +581,7 @@
       "bars": true,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "description": "Shows the rate of pilot pushes",
       "fill": 1,
       "gridPos": {
@@ -864,6 +864,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "description": "Shows the total time it takes to push a config update to a proxy",
       "fill": 1,
       "gridPos": {

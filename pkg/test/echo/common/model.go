@@ -19,4 +19,8 @@ type TLSSettings struct {
 	RootCert   string
 	ClientCert string
 	Key        string
+	// If provided, override the host name used for the connection
+	// This needed for integration tests, as we are connecting using a port-forward (127.0.0.1), so
+	// any DNS certs will not validate.
+	Hostname string
 }
