@@ -15,7 +15,6 @@ spec:
   selector:
     matchLabels:
       app: istiod
-      release: istio-base
       istio: pilot
 ---
 
@@ -899,6 +898,7 @@ spec:
       maxUnavailable: 25%
   selector:
     matchLabels:
+      app: istiod
       istio: pilot
   template:
     metadata:
