@@ -7,8 +7,19 @@ spec:
     pilot:
       enabled: true
       hub: component.pilot.hub
-      tag: component.pilot.tag
+      tag: 2
     cni:
       enabled: true
       hub: component.cni.hub
-      tag: component.cni.tag
+      tag: v3.3.3
+  values:
+    prometheus:
+      enabled: true
+      hub: docker.io
+      tag: 1.1.1
+    grafana:
+      enabled: true
+    kiali:
+      enabled: true
+      hub: docker.io/testing
+
