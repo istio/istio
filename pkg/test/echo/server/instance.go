@@ -17,8 +17,11 @@ package server
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"sync"
 	"sync/atomic"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -32,6 +35,7 @@ import (
 // Config for an echo server Instance.
 type Config struct {
 	Ports     model.PortList
+	Metrics   int
 	TLSCert   string
 	TLSKey    string
 	Version   string
@@ -70,6 +74,9 @@ func (s *Instance) Start() (err error) {
 		return err
 	}
 
+	if s.Metrics > 0 {
+		go s.startMetricsServer()
+	}
 	s.endpoints = make([]endpoint.Instance, 0)
 	for _, p := range s.Ports {
 		ep, err := s.newEndpoint(p, "")
@@ -154,4 +161,11 @@ func (s *Instance) validate() error {
 		}
 	}
 	return nil
+}
+
+func (s *Instance) startMetricsServer() {
+	http.Handle("/metrics", promhttp.Handler())
+	if err := http.ListenAndServe(fmt.Sprintf(":%d", s.Metrics), nil); err != nil {
+		log.Errorf("metrics terminated with err: %v", err)
+	}
 }
