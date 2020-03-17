@@ -1679,7 +1679,7 @@ func getOldestService(services ...*model.Service) *model.Service {
 	return oldestService
 }
 
-func buildAllListeners(p plugin.Plugin, sidecarConfig *model.Config, env model.Environment, services ...*model.Service) []*xdsapi.Listener {
+func buildAllListeners(p plugin.Plugin, sidecarConfig *model.Config, env model.Environment) []*xdsapi.Listener {
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
