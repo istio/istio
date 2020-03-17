@@ -67,11 +67,6 @@ const (
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
 	meshConfig := s.environment.Mesh()
-	if args.Config.EnableConfigAnalysis {
-		if err := s.initInprocessAnalysisController(args); err != nil {
-			return err
-		}
-	}
 	if len(meshConfig.ConfigSources) > 0 {
 		// Using MCP for config.
 		if err := s.initMCPConfigController(args); err != nil {
@@ -94,6 +89,11 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		s.ConfigStores = append(s.ConfigStores, configController)
 		if features.EnableServiceApis {
 			s.ConfigStores = append(s.ConfigStores, gateway.NewController(s.kubeClient, configController))
+		}
+		if args.Config.EnableConfigAnalysis {
+			if err := s.initInprocessAnalysisController(args); err != nil {
+				return err
+			}
 		}
 	}
 
