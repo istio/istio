@@ -21,11 +21,11 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"istio.io/istio/istioctl/pkg/genCert"
-
-	"istio.io/istio/security/pkg/pki/util"
 
 	"k8s.io/client-go/kubernetes"
+
+	"istio.io/istio/istioctl/pkg/gencert"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 type genCertkeyArgs struct {
@@ -44,7 +44,8 @@ const (
 
 var args = &genCertkeyArgs{}
 
-//todo: enhance istioctl manifest apply to auto generate root cert, and multiple intermediate certs, keys and plug them into secrets before installation Istio service mesh
+//todo: enhance istioctl manifest apply to auto generate root cert, and multiple intermediate certs, keys
+// and plug them into secrets before installation Istio service mesh
 // This command now only supports citadel as CA and the generated cert, key will be used for workloads
 // The aim is to provide convenient way for generating cert and key for mesh expansion on VM: https://istio.io/docs/examples/virtual-machines/single-network/
 //todo: enhance this command to support k8s as CA when k8s can generate spiffe format cert
@@ -85,18 +86,18 @@ func generateCert(name string, client kubernetes.Interface, writer io.Writer) er
 	workloadHost := "spiffee://cluster.local/" + names[1] + "/" + names[0]
 	opts := util.CertOptions{
 		Host:       workloadHost,
-		NotBefore:  genCert.GetNotBefore(args.validFrom),
+		NotBefore:  gencert.GetNotBefore(args.validFrom),
 		TTL:        args.validFor,
 		Org:        args.org,
 		IsCA:       false,
 		IsClient:   true,
 		RSAKeySize: args.keySize,
 	}
-	certPem, privPem, signerCertBytes, err := genCert.GenerateCertKayAndExtractRootCert(opts, client, istioNamespace)
+	certPem, privPem, signerCertBytes, err := gencert.GenerateCertKayAndExtractRootCert(opts, client, istioNamespace)
 	if err != nil {
 		return err
 	}
-	genCert.SaveCreds(args.outCert, args.outPriv, args.rootCert, certPem, privPem, signerCertBytes)
+	gencert.SaveCreds(args.outCert, args.outPriv, args.rootCert, certPem, privPem, signerCertBytes)
 	_, _ = fmt.Fprintf(writer, "root certificate, Certificate chain and private files successfully saved "+
 		"in %q,%q and %q\n", args.rootCert, args.outCert, args.outPriv)
 	return nil
