@@ -85,12 +85,9 @@ type PushContext struct {
 	privateVirtualServicesByNamespace map[string][]Config
 	publicVirtualServices             []Config
 
-	// destination rules are of three types:
+	// destination rules are of two types:
 	//  namespaceLocalDestRules: all public/private dest rules pertaining to a service defined in a given namespace
 	//  namespaceExportedDestRules: all public dest rules pertaining to a service defined in a namespace
-	//  allExportedDestRules: all (public) dest rules across all namespaces
-	// We need the allExportedDestRules in addition to namespaceExportedDestRules because we select
-	// the dest rule based on the most specific host match, and not just any destination rule
 	namespaceLocalDestRules    map[string]*processedDestRules
 	namespaceExportedDestRules map[string]*processedDestRules
 
