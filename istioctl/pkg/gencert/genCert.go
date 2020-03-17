@@ -1,4 +1,17 @@
-package genCert
+// Copyright 2020 Istio Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package gencert
 
 import (
 	"fmt"
@@ -6,11 +19,11 @@ import (
 	"log"
 	"time"
 
-	"k8s.io/client-go/kubernetes"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
-	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 const (
@@ -18,20 +31,20 @@ const (
 	caCertID = "ca-cert.pem"
 	// caPrivateKeyID is the private key file of CA.
 	caPrivateKeyID = "ca-key.pem"
-	timeLayout   = "Jan 2 15:04:05 2006"
+	timeLayout     = "Jan 2 15:04:05 2006"
 )
 
 // GenerateCertKayAndExtractRootCert will generate key and certificate for workloads using citadel as CA and extract root cert out
-func GenerateCertKayAndExtractRootCert(opts util.CertOptions, client kubernetes.Interface,ns string)([]byte,[]byte, []byte, error) {
+func GenerateCertKayAndExtractRootCert(opts util.CertOptions, client kubernetes.Interface, ns string) ([]byte, []byte, []byte, error) {
 	caSecret, scrtErr := client.CoreV1().Secrets(ns).Get(ca.CASecret, metav1.GetOptions{})
 	if scrtErr != nil {
-		return nil, nil, nil,scrtErr
+		return nil, nil, nil, scrtErr
 	}
 	signerCertBytes := caSecret.Data[caCertID]
 	signerPrivBytes := caSecret.Data[caPrivateKeyID]
 	signerCert, err := util.ParsePemEncodedCertificate(signerCertBytes)
 	if err != nil {
-		return nil, nil, nil,fmt.Errorf("pem encoded cert parsing failure (%v)", err)
+		return nil, nil, nil, fmt.Errorf("pem encoded cert parsing failure (%v)", err)
 	}
 	signerPriv, err := util.ParsePemEncodedKey(signerPrivBytes)
 	if err != nil {
@@ -41,7 +54,7 @@ func GenerateCertKayAndExtractRootCert(opts util.CertOptions, client kubernetes.
 	opts.SignerPriv = signerPriv
 	certPem, privPem, err := util.GenCertKeyFromOptions(opts)
 	if err != nil {
-		return nil,nil,nil,fmt.Errorf("Failed to generate certificate: %v\n", err)
+		return nil, nil, nil, fmt.Errorf("Failed to generate certificate: %v\n", err)
 	}
 	return certPem, privPem, signerCertBytes, nil
 }
