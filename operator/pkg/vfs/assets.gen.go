@@ -12409,10 +12409,10 @@ rules:
 - apiGroups: ["apiextensions.k8s.io"]
   resources: ["customresourcedefinitions"]
   verbs: ["get", "watch", "list"]
-- apiGroups: ["extensions"]
+- apiGroups: ["extensions", "networking.k8s.io"]
   resources: ["ingresses"]
   verbs: ["get", "list", "watch"]
-- apiGroups: ["extensions"]
+- apiGroups: ["extensions", "networking.k8s.io"]
   resources: ["ingresses/status"]
   verbs: ["*"]
   # TODO: remove, too broad permission, should be namespace only
@@ -12478,10 +12478,10 @@ rules:
     verbs: ["get", "list", "watch"]
 
   # ingress controller
-  - apiGroups: ["extensions"]
+  - apiGroups: ["extensions", "networking.k8s.io"]
     resources: ["ingresses"]
     verbs: ["get", "list", "watch"]
-  - apiGroups: ["extensions"]
+  - apiGroups: ["extensions", "networking.k8s.io"]
     resources: ["ingresses/status"]
     verbs: ["*"]
 

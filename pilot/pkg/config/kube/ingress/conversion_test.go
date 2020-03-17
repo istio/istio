@@ -29,8 +29,7 @@ import (
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/schema/collections"
 
-	"k8s.io/api/extensions/v1beta1"
-	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/networking/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -52,7 +51,7 @@ func TestGoldenConversion(t *testing.T) {
 
 			cfgs := map[string]*model.Config{}
 			for _, obj := range input {
-				ingress := obj.(*extensionsv1beta1.Ingress)
+				ingress := obj.(*v1beta1.Ingress)
 				ConvertIngressVirtualService(*ingress, "mydomain", cfgs)
 			}
 			ordered := []model.Config{}
@@ -60,7 +59,7 @@ func TestGoldenConversion(t *testing.T) {
 				ordered = append(ordered, *v)
 			}
 			for _, obj := range input {
-				ingress := obj.(*extensionsv1beta1.Ingress)
+				ingress := obj.(*v1beta1.Ingress)
 				gws := ConvertIngressV1alpha3(*ingress, "mydomain")
 				ordered = append(ordered, gws)
 			}
