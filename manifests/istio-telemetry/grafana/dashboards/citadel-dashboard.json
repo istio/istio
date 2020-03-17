@@ -36,6 +36,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "description": "CPU usage across Citadel instances.",
       "fill": 1,
       "gridPos": {
@@ -130,6 +131,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "description": "Citadel process memory statistics.",
       "fill": 1,
       "gridPos": {
@@ -243,6 +245,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 6,
@@ -340,6 +343,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "description": "Total number of CSR requests made to Citadel.",
       "fill": 1,
       "gridPos": {
@@ -425,6 +429,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "description": "The number of certificates issuances that have succeeded.",
       "fill": 1,
       "gridPos": {
@@ -523,6 +528,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "description": "The number of errors occurred when creating the CSR.",
       "fill": 1,
       "gridPos": {
@@ -610,6 +616,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 5,
@@ -694,6 +701,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "description": "The number of authentication failures.",
       "fill": 1,
       "gridPos": {
@@ -792,6 +800,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "description": "The number of certificates created due to service account creation.",
       "fill": 1,
       "gridPos": {
@@ -878,6 +887,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "description": "The number of certificates deleted due to service account deletion.",
       "fill": 1,
       "gridPos": {
@@ -964,6 +974,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "description": "The number of certificates recreated due to secret deletion (service account still exists).",
       "fill": 1,
       "gridPos": {

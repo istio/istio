@@ -22689,6 +22689,7 @@ var _chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson = []byte(`{
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "description": "CPU usage across Citadel instances.",
       "fill": 1,
       "gridPos": {
@@ -22783,6 +22784,7 @@ var _chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson = []byte(`{
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "description": "Citadel process memory statistics.",
       "fill": 1,
       "gridPos": {
@@ -22896,6 +22898,7 @@ var _chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson = []byte(`{
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 6,
@@ -22993,6 +22996,7 @@ var _chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson = []byte(`{
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "description": "Total number of CSR requests made to Citadel.",
       "fill": 1,
       "gridPos": {
@@ -23078,6 +23082,7 @@ var _chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson = []byte(`{
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "description": "The number of certificates issuances that have succeeded.",
       "fill": 1,
       "gridPos": {
@@ -23176,6 +23181,7 @@ var _chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson = []byte(`{
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "description": "The number of errors occurred when creating the CSR.",
       "fill": 1,
       "gridPos": {
@@ -23263,6 +23269,7 @@ var _chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson = []byte(`{
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 5,
@@ -23347,6 +23354,7 @@ var _chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson = []byte(`{
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "description": "The number of authentication failures.",
       "fill": 1,
       "gridPos": {
@@ -23445,6 +23453,7 @@ var _chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson = []byte(`{
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "description": "The number of certificates created due to service account creation.",
       "fill": 1,
       "gridPos": {
@@ -23531,6 +23540,7 @@ var _chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson = []byte(`{
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "description": "The number of certificates deleted due to service account deletion.",
       "fill": 1,
       "gridPos": {
@@ -23617,6 +23627,7 @@ var _chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson = []byte(`{
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "description": "The number of certificates recreated due to secret deletion (service account still exists).",
       "fill": 1,
       "gridPos": {
@@ -25878,6 +25889,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
         "rgba(237, 129, 40, 0.89)",
         "#d44a3a"
       ],
+      "datasource": "Prometheus",
       "format": "none",
       "gauge": {
         "maxValue": 100,
@@ -25959,6 +25971,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
         "rgba(237, 129, 40, 0.89)",
         "#d44a3a"
       ],
+      "datasource": "Prometheus",
       "format": "none",
       "gauge": {
         "maxValue": 100,
@@ -26040,6 +26053,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
         "rgba(237, 129, 40, 0.89)",
         "#d44a3a"
       ],
+      "datasource": "Prometheus",
       "format": "none",
       "gauge": {
         "maxValue": 100,
@@ -26121,6 +26135,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
         "rgba(237, 129, 40, 0.89)",
         "#d44a3a"
       ],
+      "datasource": "Prometheus",
       "format": "none",
       "gauge": {
         "maxValue": 100,
@@ -26766,7 +26781,6 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
   "editable": false,
   "gnetId": null,
   "graphTooltip": 0,
-  "id": 9,
   "links": [],
   "panels": [
     {
@@ -26818,6 +26832,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 8,
@@ -26925,6 +26940,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 8,
@@ -27043,6 +27059,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 8,
@@ -27148,6 +27165,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 8,
@@ -27266,6 +27284,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 8,
@@ -35368,7 +35387,6 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
   "editable": false,
   "gnetId": null,
   "graphTooltip": 1,
-  "id": 11,
   "links": [],
   "panels": [
     {
@@ -35935,6 +35953,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "bars": true,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "description": "Shows the rate of pilot pushes",
       "fill": 1,
       "gridPos": {
@@ -36217,6 +36236,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "description": "Shows the total time it takes to push a config update to a proxy",
       "fill": 1,
       "gridPos": {
