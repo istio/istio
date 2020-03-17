@@ -569,13 +569,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 
 			instance := configgen.findOrCreateServiceInstance(node.ServiceInstances, ingressListener,
 				sidecarScope.Config.Name, sidecarScope.Config.Namespace)
+
 			listenerOpts := buildListenerOpts{
-				push:        push,
-				proxy:       node,
-				bind:        bind,
-				port:        listenPort.Port,
-				bindToPort:  bindToPort,
-				userTLSOpts: ingressListener.InboundTls,
+				push:       push,
+				proxy:      node,
+				bind:       bind,
+				port:       listenPort.Port,
+				bindToPort: bindToPort,
 			}
 
 			// we don't need to set other fields of the endpoint here as
@@ -707,23 +707,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 
 	tlsInspectorEnabled := false
 	hasTLSContext := false
+allChainsLabel:
 	for _, c := range allChains {
 		for _, lf := range c.ListenerFilters {
 			if lf.Name == wellknown.TlsInspector {
 				tlsInspectorEnabled = true
+				break allChainsLabel
 			}
 		}
 
 		hasTLSContext = hasTLSContext || c.TLSContext != nil
-	}
-
-	// only apply inbound tls options when no authentication applies
-	if !hasTLSContext && listenerOpts.userTLSOpts != nil {
-		downstreamTLSContext := buildSidecarListenerTLSContext(listenerOpts.userTLSOpts, node.Metadata, listenerOpts.push.Mesh.SdsUdsPath)
-		for i := range allChains {
-			// set downstream tls context according to inbound tls options
-			allChains[i].TLSContext = downstreamTLSContext
-		}
 	}
 
 	var filterChainMatchOption []FilterChainMatchOptions
@@ -835,75 +828,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 		instanceHostname: pluginParams.ServiceInstance.Service.Hostname,
 	}
 	return mutable.Listener
-}
-
-func buildSidecarListenerTLSContext(userTLSOpts *networking.Server_TLSOptions, metadata *model.NodeMetadata, sdsUdsPath string) *auth.DownstreamTlsContext {
-	if userTLSOpts == nil ||
-		(userTLSOpts.Mode != networking.Server_TLSOptions_SIMPLE &&
-			userTLSOpts.Mode != networking.Server_TLSOptions_MUTUAL) {
-		return nil
-	}
-
-	tls := &auth.DownstreamTlsContext{
-		CommonTlsContext: &auth.CommonTlsContext{
-			AlpnProtocols: util.ALPNHttp,
-		},
-	}
-
-	if userTLSOpts.Mode == networking.Server_TLSOptions_MUTUAL {
-		tls.RequireClientCertificate = proto.BoolTrue
-	} else {
-		tls.RequireClientCertificate = proto.BoolFalse
-	}
-
-	// user sds enabled
-	if metadata.UserSds && userTLSOpts.CredentialName != "" {
-		util.ApplyCustomSDSToCommonTLSContext(tls.CommonTlsContext, userTLSOpts, sdsUdsPath)
-	} else {
-		// Fall back to the read-from-file approach when SDS is not enabled or Tls.CredentialName is not specified.
-		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
-			{
-				CertificateChain: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: userTLSOpts.ServerCertificate,
-					},
-				},
-				PrivateKey: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: userTLSOpts.PrivateKey,
-					},
-				},
-			},
-		}
-		if len(userTLSOpts.CaCertificates) != 0 {
-			trustedCa := &core.DataSource{
-				Specifier: &core.DataSource_Filename{
-					Filename: userTLSOpts.CaCertificates,
-				},
-			}
-
-			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
-				ValidationContext: &auth.CertificateValidationContext{
-					TrustedCa:            trustedCa,
-					VerifySubjectAltName: userTLSOpts.SubjectAltNames,
-				},
-			}
-		}
-	}
-
-	// Set TLS parameters if they are non-default
-	if len(userTLSOpts.CipherSuites) > 0 ||
-		userTLSOpts.MinProtocolVersion != networking.Server_TLSOptions_TLS_AUTO ||
-		userTLSOpts.MaxProtocolVersion != networking.Server_TLSOptions_TLS_AUTO {
-
-		tls.CommonTlsContext.TlsParams = &auth.TlsParameters{
-			TlsMinimumProtocolVersion: convertTLSProtocol(userTLSOpts.MinProtocolVersion),
-			TlsMaximumProtocolVersion: convertTLSProtocol(userTLSOpts.MaxProtocolVersion),
-			CipherSuites:              userTLSOpts.CipherSuites,
-		}
-	}
-
-	return tls
 }
 
 type inboundListenerEntry struct {
@@ -1928,7 +1852,6 @@ type buildListenerOpts struct {
 	proxy             *model.Proxy
 	bind              string
 	port              int
-	userTLSOpts       *networking.Server_TLSOptions
 	filterChainOpts   []*filterChainOpts
 	bindToPort        bool
 	skipUserFilters   bool
