@@ -54,7 +54,7 @@ func GenerateCertKayAndExtractRootCert(opts util.CertOptions, client kubernetes.
 	opts.SignerPriv = signerPriv
 	certPem, privPem, err := util.GenCertKeyFromOptions(opts)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("Failed to generate certificate: %v\n", err)
+		return nil, nil, nil, fmt.Errorf("failed to generate certificate: %v\n", err)
 	}
 	return certPem, privPem, signerCertBytes, nil
 }
