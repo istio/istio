@@ -27,11 +27,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
-	stsserver "istio.io/istio/security/pkg/stsservice/server"
-	"istio.io/istio/security/pkg/stsservice/tokenmanager"
-	cleaniptables "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
-	iptables "istio.io/istio/tools/istio-iptables/pkg/cmd"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/pkg/collateral"
@@ -46,12 +41,17 @@ import (
 	envoyDiscovery "istio.io/istio/pilot/pkg/proxy/envoy"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/envoy"
 	istio_agent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
+	stsserver "istio.io/istio/security/pkg/stsservice/server"
+	"istio.io/istio/security/pkg/stsservice/tokenmanager"
+	cleaniptables "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
+	iptables "istio.io/istio/tools/istio-iptables/pkg/cmd"
 )
 
 const (
@@ -145,15 +145,23 @@ var (
 			}
 
 			if len(proxyIP) != 0 {
-				role.IPAddresses = append(role.IPAddresses, proxyIP)
+				role.IPAddresses = []string{proxyIP}
 			} else if podIP != nil {
-				role.IPAddresses = append(role.IPAddresses, podIP.String())
+				role.IPAddresses = []string{podIP.String()}
 			}
 
 			// Obtain all the IPs from the node
 			if ipAddrs, ok := proxy.GetPrivateIPs(context.Background()); ok {
 				log.Infof("Obtained private IP %v", ipAddrs)
-				role.IPAddresses = append(role.IPAddresses, ipAddrs...)
+				if len(role.IPAddresses) == 1 {
+					for _, ip := range ipAddrs {
+						if role.IPAddresses[0] != ip {
+							role.IPAddresses = append(role.IPAddresses, ip)
+						}
+					}
+				} else {
+					role.IPAddresses = append(role.IPAddresses, ipAddrs...)
+				}
 			}
 
 			// No IP addresses provided, append 127.0.0.1 for ipv4 and ::1 for ipv6
@@ -161,8 +169,6 @@ var (
 				role.IPAddresses = append(role.IPAddresses, "127.0.0.1")
 				role.IPAddresses = append(role.IPAddresses, "::1")
 			}
-
-			role.IPAddresses = dedupeStrings(role.IPAddresses)
 
 			// Check if proxy runs in ipv4 or ipv6 environment to set Envoy's
 			// operational parameters correctly.
@@ -347,17 +353,8 @@ func getMeshConfig() (meshconfig.MeshConfig, error) {
 
 // dedupes the string array and also ignores the empty string.
 func dedupeStrings(in []string) []string {
-	stringMap := map[string]bool{}
-	for _, c := range in {
-		if len(c) > 0 {
-			stringMap[c] = true
-		}
-	}
-	unique := make([]string, 0)
-	for c := range stringMap {
-		unique = append(unique, c)
-	}
-	return unique
+	set := sets.NewSet(in...)
+	return set.UnsortedList()
 }
 
 func waitForCompletion(ctx context.Context, fn func(context.Context)) {
