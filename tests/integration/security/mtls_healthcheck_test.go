@@ -61,7 +61,7 @@ metadata:
   name: "mtls-strict-for-%v"
 spec:
 	selector:
-	  matchLabels
+	  matchLabels:
 		  app: "%v"
 	mtls:
   	mode: STRICT
