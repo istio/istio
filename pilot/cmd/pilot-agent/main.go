@@ -20,20 +20,13 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
-	stsserver "istio.io/istio/security/pkg/stsservice/server"
-	"istio.io/istio/security/pkg/stsservice/tokenmanager"
-	cleaniptables "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
-	iptables "istio.io/istio/tools/istio-iptables/pkg/cmd"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/jwt"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -46,12 +39,20 @@ import (
 	envoyDiscovery "istio.io/istio/pilot/pkg/proxy/envoy"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/envoy"
 	istio_agent "istio.io/istio/pkg/istio-agent"
+	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
+	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
+	stsserver "istio.io/istio/security/pkg/stsservice/server"
+	"istio.io/istio/security/pkg/stsservice/tokenmanager"
+	cleaniptables "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
+	iptables "istio.io/istio/tools/istio-iptables/pkg/cmd"
 )
 
 const (
@@ -75,11 +76,7 @@ var (
 	meshConfigFile string
 
 	// proxy config flags (named identically)
-	configPath               string
-	binaryPath               string
 	serviceCluster           string
-	proxyAdminPort           uint16
-	customConfigFile         string
 	proxyLogLevel            string
 	proxyComponentLogLevel   string
 	concurrency              int
@@ -87,8 +84,6 @@ var (
 	disableInternalTelemetry bool
 	loggingOptions           = log.DefaultOptions()
 	outlierLogPath           string
-
-	wg sync.WaitGroup
 
 	instanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
 	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
@@ -144,17 +139,26 @@ var (
 				}
 			}
 
-			//Do we need to get IP from the command line or environment?
 			if len(proxyIP) != 0 {
-				role.IPAddresses = append(role.IPAddresses, proxyIP)
+				role.IPAddresses = []string{proxyIP}
 			} else if podIP != nil {
-				role.IPAddresses = append(role.IPAddresses, podIP.String())
+				role.IPAddresses = []string{podIP.String()}
 			}
 
 			// Obtain all the IPs from the node
 			if ipAddrs, ok := proxy.GetPrivateIPs(context.Background()); ok {
 				log.Infof("Obtained private IP %v", ipAddrs)
-				role.IPAddresses = append(role.IPAddresses, ipAddrs...)
+				if len(role.IPAddresses) == 1 {
+					for _, ip := range ipAddrs {
+						// prevent duplicate ips, the first one must be the pod ip
+						// as we pick the first ip as pod ip in istiod
+						if role.IPAddresses[0] != ip {
+							role.IPAddresses = append(role.IPAddresses, ip)
+						}
+					}
+				} else {
+					role.IPAddresses = append(role.IPAddresses, ipAddrs...)
+				}
 			}
 
 			// No IP addresses provided, append 127.0.0.1 for ipv4 and ::1 for ipv6
@@ -253,7 +257,7 @@ var (
 				prober := kubeAppProberNameVar.Get()
 				statusServer, err := status.NewServer(status.Config{
 					LocalHostAddr:  localHostAddr,
-					AdminPort:      proxyAdminPort,
+					AdminPort:      uint16(proxyConfig.ProxyAdminPort),
 					StatusPort:     uint16(proxyConfig.StatusPort),
 					KubeAppProbers: prober,
 					NodeType:       role.Type,
@@ -262,7 +266,7 @@ var (
 					cancel()
 					return err
 				}
-				go waitForCompletion(ctx, statusServer.Run)
+				go statusServer.Run(ctx)
 			}
 
 			// If security token service (STS) port is not zero, start STS server and
@@ -303,6 +307,7 @@ var (
 				DisableReportCalls:  disableInternalTelemetry,
 				OutlierLogPath:      outlierLogPath,
 				PilotCertProvider:   pilotCertProvider,
+				ProvCert:            citadel.ProvCert,
 			})
 
 			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
@@ -346,27 +351,12 @@ func getMeshConfig() (meshconfig.MeshConfig, error) {
 
 // dedupes the string array and also ignores the empty string.
 func dedupeStrings(in []string) []string {
-	stringMap := map[string]bool{}
-	for _, c := range in {
-		if len(c) > 0 {
-			stringMap[c] = true
-		}
-	}
-	unique := make([]string, 0)
-	for c := range stringMap {
-		unique = append(unique, c)
-	}
-	return unique
+	set := sets.NewSet(in...)
+	return set.UnsortedList()
 }
 
-func waitForCompletion(ctx context.Context, fn func(context.Context)) {
-	wg.Add(1)
-	fn(ctx)
-	wg.Done()
-}
-
-//explicitly setting the trustdomain so the pilot and mixer SAN will have same trustdomain
-//and the initialization of the spiffe pkg isn't linked to generating pilot's SAN first
+// explicitly set the trustdomain so the pilot and mixer SAN will have same trustdomain
+// and the initialization of the spiffe pkg isn't linked to generating pilot's SAN first
 func setSpiffeTrustDomain(podNamespace string, domain string) {
 	pilotTrustDomain := trustDomain
 	if len(pilotTrustDomain) == 0 {
@@ -443,26 +433,15 @@ func init() {
 	proxyCmd.PersistentFlags().StringVar(&tokenManagerPlugin, "tokenManagerPlugin", tokenmanager.GoogleTokenExchange,
 		"Token provider specific plugin name.")
 	// Flags for proxy configuration
-	values := mesh.DefaultProxyConfig()
-	proxyCmd.PersistentFlags().StringVar(&configPath, "configPath", values.ConfigPath,
-		"Path to the generated configuration file directory")
-	proxyCmd.PersistentFlags().StringVar(&binaryPath, "binaryPath", values.BinaryPath,
-		"Path to the proxy binary")
-	proxyCmd.PersistentFlags().StringVar(&serviceCluster, "serviceCluster", values.ServiceCluster,
-		"Service cluster")
-	proxyCmd.PersistentFlags().Uint16Var(&proxyAdminPort, "proxyAdminPort", uint16(values.ProxyAdminPort),
-		"Port on which Envoy should listen for administrative commands")
-	proxyCmd.PersistentFlags().StringVar(&customConfigFile, "customConfigFile", values.CustomConfigFile,
-		"Path to the custom configuration file")
+	proxyCmd.PersistentFlags().StringVar(&serviceCluster, "serviceCluster", constants.ServiceClusterName, "Service cluster")
 	// Log levels are provided by the library https://github.com/gabime/spdlog, used by Envoy.
 	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", "warning",
 		fmt.Sprintf("The log level used to start the Envoy proxy (choose from {%s, %s, %s, %s, %s, %s, %s})",
 			"trace", "debug", "info", "warning", "error", "critical", "off"))
+	proxyCmd.PersistentFlags().IntVar(&concurrency, "concurrency", 0, "number of worker threads to run")
 	// See https://www.envoyproxy.io/docs/envoy/latest/operations/cli#cmdoption-component-log-level
 	proxyCmd.PersistentFlags().StringVar(&proxyComponentLogLevel, "proxyComponentLogLevel", "misc:error",
 		"The component log level used to start the Envoy proxy")
-	proxyCmd.PersistentFlags().IntVar(&concurrency, "concurrency", int(values.Concurrency),
-		"number of worker threads to run")
 	proxyCmd.PersistentFlags().StringVar(&templateFile, "templateFile", "",
 		"Go template bootstrap config")
 	proxyCmd.PersistentFlags().BoolVar(&disableInternalTelemetry, "disableInternalTelemetry", false,

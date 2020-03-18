@@ -170,8 +170,8 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 
 	if !cfg.SkipWaitForValidationWebhook {
 		// Wait for the validation webhook to come online before continuing.
-		if _, _, err = env.KubeClusters[0].WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istio-pilot"); err != nil {
-			err = fmt.Errorf("error waiting %s/%s service endpoints: %v", cfg.SystemNamespace, "istio-pilot", err)
+		if _, _, err = env.KubeClusters[0].WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istiod"); err != nil {
+			err = fmt.Errorf("error waiting %s/%s service endpoints: %v", cfg.SystemNamespace, "istiod", err)
 			scopes.CI.Info(err.Error())
 			i.Dump()
 			return nil, err

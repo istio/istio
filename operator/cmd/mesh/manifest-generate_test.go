@@ -69,11 +69,11 @@ func TestManifestGenerateFlags(t *testing.T) {
 		},
 		{
 			desc:       "component_hub_tag",
-			diffIgnore: "ConfigMap:*:istio",
+			diffSelect: "Deployment:*:*",
 		},
 		{
 			desc:       "flag_set_values",
-			diffIgnore: "ConfigMap:*:istio",
+			diffSelect: "Deployment:*:istio-ingressgateway,ConfigMap:*:istio-sidecar-injector",
 			flags:      "-s values.global.proxy.image=myproxy --set values.global.proxy.includeIPRanges=172.30.0.0/16,172.21.0.0/16",
 			noInput:    true,
 		},
@@ -84,24 +84,26 @@ func TestManifestGenerateFlags(t *testing.T) {
 			noInput:    true,
 		},
 		{
-			desc:  "flag_override_values",
-			flags: "-s tag=my-tag",
+			desc:       "flag_override_values",
+			diffSelect: "Deployment:*:istiod",
+			flags:      "-s tag=my-tag",
 		},
 		{
-			desc:      "flag_output",
-			flags:     "-o " + flagOutputDir,
-			outputDir: flagOutputDir,
+			desc:       "flag_output",
+			flags:      "-o " + flagOutputDir,
+			diffSelect: "Deployment:*:istiod",
+			outputDir:  flagOutputDir,
 		},
 		{
 			desc:       "flag_output_set_values",
-			diffIgnore: "ConfigMap:*:istio",
+			diffSelect: "Deployment:*:istio-ingressgateway",
 			flags:      "-s values.global.proxy.image=mynewproxy -o " + flagOutputValuesDir,
 			outputDir:  flagOutputValuesDir,
 			noInput:    true,
 		},
 		{
 			desc:       "flag_force",
-			diffIgnore: "ConfigMap:*:istio",
+			diffSelect: "no:resources:selected",
 			flags:      "--force",
 		},
 		{
@@ -118,13 +120,12 @@ func TestManifestGenerateFlags(t *testing.T) {
 func TestManifestGeneratePilot(t *testing.T) {
 	runTestGroup(t, testGroup{
 		{
-			desc: "pilot_default",
-			// TODO: remove istio ConfigMap (istio/istio#16828)
+			desc:       "pilot_default",
 			diffIgnore: "CustomResourceDefinition:*:*,ConfigMap:*:istio",
 		},
 		{
 			desc:       "pilot_k8s_settings",
-			diffIgnore: "CustomResourceDefinition:*:*,ConfigMap:*:istio",
+			diffSelect: "Deployment:*:istiod,HorizontalPodAutoscaler:*:istiod",
 		},
 		{
 			desc:       "pilot_override_values",
@@ -132,7 +133,7 @@ func TestManifestGeneratePilot(t *testing.T) {
 		},
 		{
 			desc:       "pilot_override_kubernetes",
-			diffSelect: "Deployment:*:istiod, Service:*:istio-pilot",
+			diffSelect: "Deployment:*:istiod, Service:*:istiod",
 		},
 		{
 			desc:       "pilot_merge_meshconfig",
@@ -174,6 +175,8 @@ func TestManifestGenerateGateway(t *testing.T) {
 	})
 }
 
+// TestManifestGenerateHelmValues tests whether enabling components through the values passthrough interface works as
+// expected i.e. without requiring enablement also in IstioOperator API.
 func TestManifestGenerateHelmValues(t *testing.T) {
 	runTestGroup(t, testGroup{
 		{
@@ -285,21 +288,21 @@ func runTestGroup(t *testing.T, tests testGroup) {
 				t.Fatal(err)
 			}
 
-			diffSelect := "*:*:*"
-			if tt.diffSelect != "" {
-				diffSelect = tt.diffSelect
-				got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
-				if err != nil {
-					t.Errorf("error selecting from output manifest: %v", err)
-				}
-			}
-
 			if tt.outputDir != "" {
 				got, err = util.ReadFilesWithFilter(tt.outputDir, func(fileName string) bool {
 					return strings.HasSuffix(fileName, ".yaml")
 				})
 				if err != nil {
 					t.Fatal(err)
+				}
+			}
+
+			diffSelect := "*:*:*"
+			if tt.diffSelect != "" {
+				diffSelect = tt.diffSelect
+				got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
+				if err != nil {
+					t.Errorf("error selecting from output manifest: %v", err)
 				}
 			}
 

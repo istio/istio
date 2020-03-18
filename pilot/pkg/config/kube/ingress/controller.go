@@ -85,6 +85,7 @@ type controller struct {
 	queue                  queue.Instance
 	informer               cache.SharedIndexInformer
 	virtualServiceHandlers []func(model.Config, model.Config, model.Event)
+	gatewayHandlers        []func(model.Config, model.Config, model.Event)
 }
 
 var (
@@ -153,20 +154,23 @@ func (c *controller) onEvent(obj interface{}, event model.Event) error {
 	}
 	log.Infof("ingress event %s for %s/%s", event, ingress.Namespace, ingress.Name)
 
-	// In 1.0, Pilot has a single function, clearCache, which ignores
-	// the inputs.
-	// In future we may do smarter processing - but first we'll do
-	// major refactoring. No need to recompute everything and generate
-	// multiple events.
-
-	// TODO: This works well for Add and Delete events, but not so for Update:
-	// An updated ingress may also trigger an Add or Delete for one of its constituent sub-rules.
+	// Trigger updates for Gateway and VirtualService
+	// TODO: we could be smarter here and only trigger when real changes were found
 	for _, f := range c.virtualServiceHandlers {
 		f(model.Config{}, model.Config{
 			ConfigMeta: model.ConfigMeta{
 				Type:    virtualServiceGvk.Kind,
 				Version: virtualServiceGvk.Version,
 				Group:   virtualServiceGvk.Group,
+			},
+		}, event)
+	}
+	for _, f := range c.gatewayHandlers {
+		f(model.Config{}, model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:    gatewayGvk.Kind,
+				Version: gatewayGvk.Version,
+				Group:   gatewayGvk.Group,
 			},
 		}, event)
 	}
@@ -178,6 +182,8 @@ func (c *controller) RegisterEventHandler(kind resource.GroupVersionKind, f func
 	switch kind {
 	case virtualServiceGvk:
 		c.virtualServiceHandlers = append(c.virtualServiceHandlers, f)
+	case gatewayGvk:
+		c.gatewayHandlers = append(c.gatewayHandlers, f)
 	}
 }
 

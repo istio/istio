@@ -55,9 +55,19 @@ func (ps *PushContext) combineSingleDestinationRule(
 		return combinedDestRuleHosts
 	}
 
+	copyDestRuleConfig := Config{
+		ConfigMeta: destRuleConfig.ConfigMeta,
+		Spec: &networking.DestinationRule{
+			Host:          rule.Host,
+			TrafficPolicy: rule.TrafficPolicy,
+			Subsets:       rule.Subsets,
+			ExportTo:      rule.ExportTo,
+		},
+	}
+
 	combinedDestRuleMap[resolvedHost] = &combinedDestinationRule{
 		subsets: make(map[string]struct{}),
-		config:  &destRuleConfig,
+		config:  &copyDestRuleConfig,
 	}
 	for _, subset := range rule.Subsets {
 		combinedDestRuleMap[resolvedHost].subsets[subset.Name] = struct{}{}

@@ -85,15 +85,11 @@ type PushContext struct {
 	privateVirtualServicesByNamespace map[string][]Config
 	publicVirtualServices             []Config
 
-	// destination rules are of three types:
+	// destination rules are of two types:
 	//  namespaceLocalDestRules: all public/private dest rules pertaining to a service defined in a given namespace
 	//  namespaceExportedDestRules: all public dest rules pertaining to a service defined in a namespace
-	//  allExportedDestRules: all (public) dest rules across all namespaces
-	// We need the allExportedDestRules in addition to namespaceExportedDestRules because we select
-	// the dest rule based on the most specific host match, and not just any destination rule
 	namespaceLocalDestRules    map[string]*processedDestRules
 	namespaceExportedDestRules map[string]*processedDestRules
-	allExportedDestRules       *processedDestRules
 
 	// sidecars for each namespace
 	sidecarsByNamespace map[string][]*SidecarScope
@@ -507,17 +503,13 @@ func NewPushContext() *PushContext {
 		privateVirtualServicesByNamespace: map[string][]Config{},
 		namespaceLocalDestRules:           map[string]*processedDestRules{},
 		namespaceExportedDestRules:        map[string]*processedDestRules{},
-		allExportedDestRules: &processedDestRules{
-			hosts:    make([]host.Name, 0),
-			destRule: map[host.Name]*combinedDestinationRule{},
-		},
-		sidecarsByNamespace:           map[string][]*SidecarScope{},
-		envoyFiltersByNamespace:       map[string][]*EnvoyFilterWrapper{},
-		gatewaysByNamespace:           map[string][]Config{},
-		allGateways:                   []Config{},
-		ServiceByHostnameAndNamespace: map[host.Name]map[string]*Service{},
-		ProxyStatus:                   map[string]map[string]ProxyPushStatus{},
-		ServiceAccounts:               map[host.Name]map[int][]string{},
+		sidecarsByNamespace:               map[string][]*SidecarScope{},
+		envoyFiltersByNamespace:           map[string][]*EnvoyFilterWrapper{},
+		gatewaysByNamespace:               map[string][]Config{},
+		allGateways:                       []Config{},
+		ServiceByHostnameAndNamespace:     map[host.Name]map[string]*Service{},
+		ProxyStatus:                       map[string]map[string]ProxyPushStatus{},
+		ServiceAccounts:                   map[host.Name]map[int][]string{},
 		AuthnPolicies: processedAuthnPolicies{
 			policies: map[host.Name][]*authnPolicyByPort{},
 		},
@@ -767,14 +759,6 @@ func (ps *PushContext) GetAllSidecarScopes() map[string][]*SidecarScope {
 
 // DestinationRule returns a destination rule for a service name in a given domain.
 func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
-	// FIXME: this code should be removed once the EDS issue is fixed
-	if proxy == nil {
-		if hostname, ok := MostSpecificHostMatch(service.Hostname, ps.allExportedDestRules.hosts); ok {
-			return ps.allExportedDestRules.destRule[hostname].config
-		}
-		return nil
-	}
-
 	// If proxy has a sidecar scope that is user supplied, then get the destination rules from the sidecar scope
 	// sidecarScope.config is nil if there is no sidecar scope for the namespace
 	if proxy.SidecarScope != nil && proxy.Type == SidecarProxy {
@@ -1017,7 +1001,6 @@ func (ps *PushContext) updateContext(
 	} else {
 		ps.namespaceLocalDestRules = oldPushContext.namespaceLocalDestRules
 		ps.namespaceExportedDestRules = oldPushContext.namespaceExportedDestRules
-		ps.allExportedDestRules = oldPushContext.allExportedDestRules
 	}
 
 	if authnChanged {
@@ -1499,10 +1482,6 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 	sortConfigByCreationTime(configs)
 	namespaceLocalDestRules := make(map[string]*processedDestRules)
 	namespaceExportedDestRules := make(map[string]*processedDestRules)
-	allExportedDestRules := &processedDestRules{
-		hosts:    make([]host.Name, 0),
-		destRule: map[host.Name]*combinedDestinationRule{},
-	}
 
 	for i := range configs {
 		rule := configs[i].Spec.(*networking.DestinationRule)
@@ -1555,11 +1534,6 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 				namespaceExportedDestRules[configs[i].Namespace].hosts,
 				namespaceExportedDestRules[configs[i].Namespace].destRule,
 				configs[i])
-
-			// Merge this destination rule with any public dest rule for the same host
-			// across all namespaces. If there are no duplicates, the dest rule will be added to the list
-			allExportedDestRules.hosts = ps.combineSingleDestinationRule(
-				allExportedDestRules.hosts, allExportedDestRules.destRule, configs[i])
 		}
 	}
 
@@ -1571,11 +1545,9 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 	for ns := range namespaceExportedDestRules {
 		sort.Sort(host.Names(namespaceExportedDestRules[ns].hosts))
 	}
-	sort.Sort(host.Names(allExportedDestRules.hosts))
 
 	ps.namespaceLocalDestRules = namespaceLocalDestRules
 	ps.namespaceExportedDestRules = namespaceExportedDestRules
-	ps.allExportedDestRules = allExportedDestRules
 }
 
 func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {

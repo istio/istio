@@ -129,7 +129,8 @@ func NewTranslator(minorVersion version.MinorVersion) (*Translator, error) {
 }
 
 // OverlayK8sSettings overlays k8s settings from iop over the manifest objects, based on t's translation mappings.
-func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName, index int) (string, error) {
+func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName,
+	resourceName string, index int) (string, error) {
 	objects, err := object.ParseK8sObjectsFromYAMLManifest(yml)
 	if err != nil {
 		return "", err
@@ -165,7 +166,7 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 			scope.Debugf("path %s is int 0, skip mapping.", inPath)
 			continue
 		}
-		outPath, err := t.renderResourceComponentPathTemplate(v.OutPath, componentName)
+		outPath, err := t.renderResourceComponentPathTemplate(v.OutPath, componentName, resourceName)
 		if err != nil {
 			return "", err
 		}
@@ -434,14 +435,18 @@ func (t *Translator) setComponentProperties(root map[string]interface{}, iop *v1
 		}
 
 		hub, found, _ := tpath.GetFromStructPath(iop, "Components."+string(cn)+".Hub")
-		if found && hub.(string) != "" {
+		// Unmarshal unfortunately creates struct fields with "" for unset values. Skip these cases to avoid
+		// overwriting current value with an empty string.
+		hubStr, ok := hub.(string)
+		if found && !(ok && hubStr == "") {
 			if err := tpath.WriteNode(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesHubSubpath), hub); err != nil {
 				return err
 			}
 		}
 
 		tag, found, _ := tpath.GetFromStructPath(iop, "Components."+string(cn)+".Tag")
-		if found && tag.(string) != "" {
+		tagStr, ok := tag.(string)
+		if found && !(ok && tagStr == "") {
 			if err := tpath.WriteNode(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesTagSubpath), tag); err != nil {
 				return err
 			}
@@ -541,14 +546,17 @@ func renderFeatureComponentPathTemplate(tmpl string, componentName name.Componen
 
 // renderResourceComponentPathTemplate renders a template of the form <path>{{.ResourceName}}<path>{{.ContainerName}}<path> with
 // the supplied parameters.
-func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentName name.ComponentName) (string, error) {
+func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentName name.ComponentName, resourceName string) (string, error) {
+	if resourceName == "" {
+		resourceName = t.ComponentMaps[componentName].ResourceName
+	}
 	ts := struct {
 		ResourceType  string
 		ResourceName  string
 		ContainerName string
 	}{
 		ResourceType:  t.ComponentMaps[componentName].ResourceType,
-		ResourceName:  t.ComponentMaps[componentName].ResourceName,
+		ResourceName:  resourceName,
 		ContainerName: t.ComponentMaps[componentName].ContainerName,
 	}
 	return util.RenderTemplate(tmpl, ts)

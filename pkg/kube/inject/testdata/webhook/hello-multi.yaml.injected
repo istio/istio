@@ -43,7 +43,6 @@ spec:
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
         - --trust-domain=cluster.local
-        - --controlPlaneBootstrap=false
         - --concurrency
         - "2"
         env:
@@ -136,7 +135,7 @@ spec:
         - mountPath: /var/run/secrets/tokens
           name: istio-token
         - mountPath: /etc/istio/pod
-          name: podinfo
+          name: istio-podinfo
       initContainers:
       - args:
         - istio-iptables
@@ -191,7 +190,7 @@ spec:
           - fieldRef:
               fieldPath: metadata.annotations
             path: annotations
-        name: podinfo
+        name: istio-podinfo
       - name: istio-token
         projected:
           sources:
@@ -250,7 +249,6 @@ spec:
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
         - --trust-domain=cluster.local
-        - --controlPlaneBootstrap=false
         - --concurrency
         - "2"
         env:
@@ -343,7 +341,7 @@ spec:
         - mountPath: /var/run/secrets/tokens
           name: istio-token
         - mountPath: /etc/istio/pod
-          name: podinfo
+          name: istio-podinfo
       initContainers:
       - args:
         - istio-iptables
@@ -398,7 +396,7 @@ spec:
           - fieldRef:
               fieldPath: metadata.annotations
             path: annotations
-        name: podinfo
+        name: istio-podinfo
       - name: istio-token
         projected:
           sources:

@@ -37,14 +37,20 @@ ifneq ($(TEST_SELECT),)
     _INTEGRATION_TEST_SELECT_FLAGS += --istio.test.select=$(TEST_SELECT)
 endif
 
-# $(INTEGRATION_TEST_KUBECONFIG) specifies the kube config file to be used. If not specified, then
-# ~/.kube/config is used.
-# TODO: This probably needs to be more intelligent and take environment variables into account.
-ifneq ($(KUBECONFIG),)
-	_INTEGRATION_TEST_FLAGS += --istio.test.kube.config=$(KUBECONFIG)
-else
-	_INTEGRATION_TEST_FLAGS += --istio.test.kube.config=~/.kube/config
+# $(INTEGRATION_TEST_KUBECONFIG) overrides all kube config settings.
+_INTEGRATION_TEST_KUBECONFIG ?= $(INTEGRATION_TEST_KUBECONFIG)
+
+# If $(INTEGRATION_TEST_KUBECONFIG) not specified, use $(KUBECONFIG).
+ifeq ($(_INTEGRATION_TEST_KUBECONFIG),)
+    _INTEGRATION_TEST_KUBECONFIG = $(KUBECONFIG)
 endif
+
+# If neither $(INTEGRATION_TEST_KUBECONFIG) nor $(KUBECONFIG) specified, use default.
+ifeq ($(_INTEGRATION_TEST_KUBECONFIG),)
+    _INTEGRATION_TEST_KUBECONFIG = ~/.kube/config
+endif
+
+_INTEGRATION_TEST_FLAGS += --istio.test.kube.config=$(_INTEGRATION_TEST_KUBECONFIG)
 
 # Generate integration test targets for kubernetes environment.
 test.integration.%.kube: | $(JUNIT_REPORT)
