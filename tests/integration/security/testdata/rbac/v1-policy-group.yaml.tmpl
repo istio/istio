@@ -1,21 +1,19 @@
 # istio-group-list-rbac-rules.yaml to enforce access control based on
 # groups and list claims for http services using Istio RBAC rules.
 
-apiVersion: "authentication.istio.io/v1alpha1"
-kind: "Policy"
+apiVersion: "security.istio.io/v1beta1"
+kind: "RequestAuthentication"
 metadata:
   name: "require-jwt-for-b"
 spec:
-  targets:
-  - name: b
-  origins:
-  - jwt:
-      issuer: "test-issuer-1@istio.io"
-      jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
-  - jwt:
-      issuer: "test-issuer-2@istio.io"
-      jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
-  principalBinding: USE_ORIGIN
+  selector:
+    matchLabels:
+      app: b
+  jwtRules:
+  - issuer: "test-issuer-1@istio.io"
+    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+  - issuer: "test-issuer-2@istio.io"
+    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
 ---
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
@@ -38,20 +36,19 @@ spec:
     kind: ServiceRole
     name: "b-viewer"
 ---
-apiVersion: "authentication.istio.io/v1alpha1"
-kind: "Policy"
+apiVersion: "security.istio.io/v1beta1"
+kind: "RequestAuthentication"
 metadata:
   name: "require-jwt-for-c"
 spec:
-  targets:
-  - name: c
-  origins:
-  - jwt:
-      issuer: "test-issuer-1@istio.io"
-      jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
-  - jwt:
-      issuer: "test-issuer-2@istio.io"
-      jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+  selector:
+    matchLabels:
+      app: c
+  jwtRules
+  - issuer: "test-issuer-1@istio.io"
+    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+  - issuer: "test-issuer-2@istio.io"
+    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
   principalBinding: USE_ORIGIN
 ---
 apiVersion: "rbac.istio.io/v1alpha1"
