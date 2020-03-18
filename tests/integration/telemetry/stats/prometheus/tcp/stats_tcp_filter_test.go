@@ -16,7 +16,6 @@ package tcp
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -33,15 +32,11 @@ import (
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/mixer"
-	util_dir "istio.io/istio/tests/integration/security/util/dir"
 	util_prometheus "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
 
 const (
-	cleanupFilterConfig  = "testdata/cleanup.yaml"
-	prometheusLabel      = "app=prometheus"
-	prometheusContainter = "prometheus"
-	prometheusCertDir    = "/etc/istio-certs/"
+	cleanupFilterConfig = "testdata/cleanup.yaml"
 )
 
 var (
@@ -100,31 +95,6 @@ func TestTcpMetric(t *testing.T) { // nolint:interfacer
 				return nil
 			}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
 		})
-}
-
-func TestPrometheusCert(t *testing.T) {
-	framework.
-		NewTest(t).
-		RequiresEnvironment(environment.Kube).
-		Run(func(ctx framework.TestContext) {
-			systemNs := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
-			util_dir.ListDir(systemNs, t, prometheusLabel, prometheusContainter,
-				prometheusCertDir, validateCertDir)
-		})
-}
-
-func validateCertDir(out string) error {
-	if !strings.Contains(out, "cert-chain.pem") {
-		return fmt.Errorf("the output doesn't contain cert chain file; the output: %v", out)
-	}
-	if !strings.Contains(out, "key.pem") {
-		return fmt.Errorf("the output doesn't contain key file; the output: %v", out)
-	}
-	if !strings.Contains(out, "root-cert.pem") {
-		return fmt.Errorf("the output doesn't contain root cert file; the output: %v", out)
-	}
-
-	return nil
 }
 
 func TestMain(m *testing.M) {
