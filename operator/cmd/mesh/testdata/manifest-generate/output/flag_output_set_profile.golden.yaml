@@ -6455,7 +6455,6 @@ spec:
         - --trust-domain=cluster.local
         - --keepaliveMaxServerConnectionAge
         - 30m
-        - --disable-install-crds=true
         env:
         - name: JWT_POLICY
           value: third-party-jwt
@@ -6923,7 +6922,6 @@ data:
       {{- if .Values.global.logAsJson }}
         - --log_as_json
       {{- end }}
-        - --controlPlaneBootstrap=false
       {{- if .Values.global.proxy.lifecycle }}
         lifecycle:
           {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}

@@ -13373,21 +13373,8 @@ spec:
         {{- end }}
           - --serviceCluster
           - {{ $gateway.name | default "istio-egressgateway" }}
-          - --proxyAdminPort
-          - "15000"
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
-        {{- end }}
-          - --controlPlaneAuthPolicy
-          - NONE
-          - --discoveryAddress
-        {{- $namespace := .Values.global.configNamespace | default "istio-system" }}
-        {{- if .Values.global.remotePilotAddress }}
-        # Use the DNS hostname instead of the IP address. The discovery address needs to match the
-        # SAN in istiod's cert. The istiod-remote.<namespace>.svc will resolve to the remotePilotAddress.
-          - istiod-remote.{{ $namespace }}.svc:15012
-        {{- else }}
-          - istio-pilot.{{ $namespace }}.svc:15012
         {{- end }}
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
@@ -14258,22 +14245,9 @@ spec:
         {{- end }}
           - --serviceCluster
           - {{ $gateway.name | default "istio-ingressgateway" }}
-          - --proxyAdminPort
-          - "15000"
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
         {{- end }}
-          - --controlPlaneAuthPolicy
-          - NONE
-          - --discoveryAddress
-          {{- $namespace := .Values.global.configNamespace | default "istio-system" }}
-          {{- if .Values.global.remotePilotAddress }}
-          # Use the DNS hostname instead of the IP address. The discovery address needs to match the
-          # SAN in istiod's cert. The istiod-remote.<namespace>.svc will resolve to the remotePilotAddress.
-          - istiod-remote.{{ $namespace }}.svc:15012
-          {{- else }}
-          - istio-pilot.{{ $namespace }}.svc:15012
-          {{- end }}
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
@@ -17094,7 +17068,6 @@ data:
       {{- if .Values.global.logAsJson }}
         - --log_as_json
       {{- end }}
-        - --controlPlaneBootstrap=false
       {{- if .Values.global.proxy.lifecycle }}
         lifecycle:
           {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
@@ -17430,8 +17403,6 @@ spec:
           - --trust-domain=cluster.local
           - --keepaliveMaxServerConnectionAge
           - "30m"
-          # TODO: make default
-          - --disable-install-crds=true
           ports:
           - containerPort: 8080
           - containerPort: 15010
@@ -18494,7 +18465,6 @@ template: |
   {{- if .Values.global.logAsJson }}
     - --log_as_json
   {{- end }}
-    - --controlPlaneBootstrap=false
   {{- if .Values.global.proxy.lifecycle }}
     lifecycle:
       {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
@@ -19387,8 +19357,6 @@ spec:
 {{- end }}
           - --keepaliveMaxServerConnectionAge
           - "{{ .Values.pilot.keepaliveMaxServerConnectionAge }}"
-          # TODO: make default
-          - --disable-install-crds=true
           ports:
           - containerPort: 8080
           - containerPort: 15010
@@ -41742,11 +41710,6 @@ spec:
             - sidecar
             - --domain
             - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
-            - --configPath
-            - "/etc/istio/proxy"
-            - --binaryPath
-            - "/usr/local/bin/envoy"
-            - --serviceCluster
             - "istio-proxy-prometheus"
             {{- if .Values.global.proxy.logLevel }}
             - --proxyLogLevel={{ .Values.global.proxy.logLevel }}
@@ -41754,25 +41717,14 @@ spec:
             {{- if .Values.global.proxy.componentLogLevel }}
             - --proxyComponentLogLevel={{ .Values.global.proxy.componentLogLevel }}
             {{- end}}
-            - --proxyAdminPort
-            - "15000"
-              {{- if .Values.global.istiod.enabled }}
             - --controlPlaneAuthPolicy
             - NONE
-              {{- else if .Values.global.controlPlaneSecurityEnabled }}
-            - --controlPlaneAuthPolicy
-            - MUTUAL_TLS
-              {{- else }}
-            - --controlPlaneAuthPolicy
-            - NONE
-              {{- end }}
               {{- if .Values.global.trustDomain }}
             - --trust-domain={{ .Values.global.trustDomain }}
               {{- end }}
               {{- if .Values.global.logAsJson }}
             - --log_as_json
               {{- end }}
-            - --controlPlaneBootstrap=false
           env:
             - name: OUTPUT_CERTS
               value: "/etc/istio-certs"

@@ -137,7 +137,6 @@ template: |
   {{- if .Values.global.logAsJson }}
     - --log_as_json
   {{- end }}
-    - --controlPlaneBootstrap=false
   {{- if .Values.global.proxy.lifecycle }}
     lifecycle:
       {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
