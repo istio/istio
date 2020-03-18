@@ -139,7 +139,7 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 
 		metaJSONLabels := fmt.Sprintf("{\"app\":\"%s\"}", cfg.Service)
 		interceptionMode := "REDIRECT"
-		propCert := "./etc/certs"
+		propCert := "./var/lib/istio/default"
 
 		env = append(env,
 			"ECHO_ARGS="+strings.Join(echoArgs, " "),
