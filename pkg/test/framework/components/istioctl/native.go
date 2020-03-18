@@ -28,12 +28,10 @@ import (
 type nativeComponent struct {
 	config Config
 	id     resource.ID
-	ctx    resource.Context
 }
 
 func newNative(ctx resource.Context, config Config) Instance {
 	n := &nativeComponent{
-		ctx:    ctx,
 		config: config,
 	}
 	n.id = ctx.TrackResource(n)
@@ -50,7 +48,8 @@ func (c *nativeComponent) ID() resource.ID {
 func (c *nativeComponent) Invoke(args []string) (string, error) {
 	var out bytes.Buffer
 	rootCmd := cmd.GetRootCmd(args)
-	rootCmd.SetOutput(&out)
+	rootCmd.SetOut(&out)
+	rootCmd.SetErr(&out)
 	fErr := rootCmd.Execute()
 	return out.String(), fErr
 }
