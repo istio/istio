@@ -105,6 +105,9 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
   else
     # TODO: Support IPv6 multicluster
     time setup_kind_multicluster_single_network "${NODE_IMAGE:-}"
+
+    # Set the kube configs to point to the clusters.
+    export INTEGRATION_TEST_KUBECONFIG="${CLUSTER1_KUBECONFIG},${CLUSTER2_KUBECONFIG}"
   fi
 fi
 
