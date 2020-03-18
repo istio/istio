@@ -571,11 +571,11 @@ func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentN
 	return util.RenderTemplate(tmpl, ts)
 }
 
-// getK8SSpecFromIOP is helper function to get k8s spec from IOP using path
-// 1. if component is not an addonComponent, get the spec directly from IOP
-// 2. otherwise convert the path and the root to point it to the entry of addonComponents map.
-// e.x: path "Components.AddonComponents.K8S.ReplicaCount" and root "Spec" ->
-// "K8S.ReplicaCount" and root "Spec.AddonComponents.Prometheus"
+// getK8SSpecFromIOP is helper function to get k8s spec node from iop using inPath
+// 1. if component is not an addonComponent, get the node directly from iop using the inPath.
+// 2. otherwise convert the inPath and point the root to the entry of addonComponents map with addonName as key.
+// e.x: original inPath: "Components.AddonComponents.K8S.ReplicaCount" and root: iop would be converted to
+// new inPath: "K8S.ReplicaCount" and root: "iop.AddonComponents.addonName"
 func getK8SSpecFromIOP(iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName, inPath string,
 	addonName string) (m interface{}, found bool, err error) {
 	if componentName != name.AddonComponentName {

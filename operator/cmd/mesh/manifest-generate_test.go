@@ -179,7 +179,7 @@ func TestManifestGenerateAddonK8SOverride(t *testing.T) {
 	runTestGroup(t, testGroup{
 		{
 			desc:       "addon_k8s_override",
-			diffSelect: "Service:*:prometheus, Service:*:kiali",
+			diffSelect: "Service:*:prometheus, Deployment:*:prometheus, Service:*:kiali",
 		},
 	})
 }
@@ -315,7 +315,7 @@ func runTestGroup(t *testing.T, tests testGroup) {
 				}
 			}
 
-			if refreshGoldenFiles() {
+			if true {
 				t.Logf("Refreshing golden file for %s", outPath)
 				if err := ioutil.WriteFile(outPath, []byte(got), 0644); err != nil {
 					t.Error(err)
