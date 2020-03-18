@@ -70,12 +70,12 @@ func Deploy(ctx resource.Context, cfg *Config) (Instance, error) {
 	}
 
 	var err error
-	scopes.CI.Info("=== BEGIN: Deploy Istio ===")
+	scopes.CI.Infof("=== BEGIN: Deploy Istio [Suite=%s] ===", ctx.Settings().TestID)
 	defer func() {
 		if err != nil {
-			scopes.CI.Infof("=== FAILED: Deploy Istio ===")
+			scopes.CI.Infof("=== FAILED: Deploy Istio [Suite=%s] ===", ctx.Settings().TestID)
 		} else {
-			scopes.CI.Infof("=== SUCCEEDED: Deploy Istio ===")
+			scopes.CI.Infof("=== SUCCEEDED: Deploy Istio [Suite=%s]===", ctx.Settings().TestID)
 		}
 	}()
 

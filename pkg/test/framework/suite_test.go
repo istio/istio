@@ -495,6 +495,10 @@ type fakeCluster struct {
 	index int
 }
 
+func (f fakeCluster) Index() resource.ClusterIndex {
+	return resource.ClusterIndex(f.index)
+}
+
 func (f fakeCluster) String() string {
 	return fmt.Sprintf("fake_cluster_%d", f.index)
 }
