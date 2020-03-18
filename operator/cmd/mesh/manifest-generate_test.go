@@ -175,6 +175,15 @@ func TestManifestGenerateGateway(t *testing.T) {
 	})
 }
 
+func TestManifestGenerateAddonK8SOverride(t *testing.T) {
+	runTestGroup(t, testGroup{
+		{
+			desc:       "addon_k8s_override",
+			diffSelect: "Service:*:prometheus, Service:*:kiali",
+		},
+	})
+}
+
 // TestManifestGenerateHelmValues tests whether enabling components through the values passthrough interface works as
 // expected i.e. without requiring enablement also in IstioOperator API.
 func TestManifestGenerateHelmValues(t *testing.T) {
