@@ -20,12 +20,12 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	util_dir "istio.io/istio/tests/integration/security/util/dir"
 )
 
@@ -36,11 +36,15 @@ const (
 )
 
 var (
-	ist istio.Instance
+	ist           istio.Instance
+	usingOperator bool
 )
 
 // TestPrometheusCert tests provisioning a certificate to Prometheus.
 func TestPrometheusCert(t *testing.T) {
+	if !usingOperator {
+		t.Skip("TestPrometheusCert only runs with operator")
+	}
 	framework.
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
@@ -69,7 +73,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("cert_provision_prometheus", m).
 		RequireEnvironment(environment.Kube).
-		RequireSingleCluster().
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
 		Setup(testsetup).
@@ -86,10 +89,12 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["telemetry.v1.enabled"] = "false"
 	cfg.Values["telemetry.v2.enabled"] = "true"
 	cfg.Values["prometheus.enabled"] = "true"
+
+	usingOperator = cfg.Operator
 }
 
 func testsetup(ctx resource.Context) error {
-	_, err := prometheus.New(ctx, prometheus.Config{})
+	_, err := prometheus.New(ctx)
 	if err != nil {
 		return err
 	}
