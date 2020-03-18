@@ -24,6 +24,8 @@ spec:
         istio: mixer
         istio-mixer-type: telemetry
       annotations:
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
 {{- with .Values.mixer.telemetry.podAnnotations }}
 {{ toYaml . | indent 8 }}

@@ -571,7 +571,6 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	}
 
 	scrape := status.PrometheusScrapeConfiguration{
-		Scheme: pod.ObjectMeta.Annotations["prometheus.io/scheme"],
 		Scrape: pod.ObjectMeta.Annotations["prometheus.io/scrape"],
 		Path:   pod.ObjectMeta.Annotations["prometheus.io/path"],
 		Port:   pod.ObjectMeta.Annotations["prometheus.io/port"],

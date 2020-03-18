@@ -28,6 +28,8 @@ spec:
         istio: mixer
         istio-mixer-type: policy
       annotations:
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
 {{- with .Values.mixer.policy.podAnnotations }}
 {{ toYaml . | indent 8 }}

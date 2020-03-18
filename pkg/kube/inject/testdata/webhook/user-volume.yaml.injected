@@ -14,6 +14,9 @@ spec:
   template:
     metadata:
       annotations:
+        prometheus.io/path: /stats/prometheus
+        prometheus.io/port: "15020"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/status: '{"version":"unit-test-fake-version","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy"],"imagePullSecrets":null}'
         sidecar.istio.io/userVolume: '{"user-volume-1":{"persistentVolumeClaim":{"claimName":"pvc-claim"}},"user-volume-2":{"configMap":{"name":"configmap-volume","items":[{"key":"some-key","path":"/some-path"}]}}}'
         sidecar.istio.io/userVolumeMount: '{"user-volume-1":{"mountPath":"/mnt/volume-1","readOnly":true},"user-volume-2":{"mountPath":"/mnt/volume-2"}}'

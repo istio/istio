@@ -16013,6 +16013,8 @@ spec:
         chart: galley
 {{- end }}
       annotations:
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
         {{- if .Values.galley.podAnnotations }}
 {{ toYaml .Values.galley.podAnnotations | indent 8 }}
@@ -21863,6 +21865,8 @@ spec:
         istio: mixer
         istio-mixer-type: policy
       annotations:
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
 {{- with .Values.mixer.policy.podAnnotations }}
 {{ toYaml . | indent 8 }}
@@ -39676,6 +39680,8 @@ spec:
         istio: mixer
         istio-mixer-type: telemetry
       annotations:
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
 {{- with .Values.mixer.telemetry.podAnnotations }}
 {{ toYaml . | indent 8 }}
@@ -41362,7 +41368,6 @@ data:
     scrape_configs:
 
     # Mixer scrapping. Defaults to Prometheus and mixer on same namespace.
-    #
     - job_name: 'istio-mesh'
       kubernetes_sd_configs:
       - role: endpoints
@@ -41374,271 +41379,135 @@ data:
         action: keep
         regex: istio-telemetry;prometheus
 
-    # Scrape config for envoy stats
-    - job_name: 'envoy-stats'
-      metrics_path: /stats/prometheus
-      kubernetes_sd_configs:
-      - role: pod
-
-      relabel_configs:
-      - source_labels: [__meta_kubernetes_pod_container_port_name]
-        action: keep
-        regex: '.*-envoy-prom'
-      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
-        action: replace
-        regex: ([^:]+)(?::\d+)?;(\d+)
-        replacement: $1:15090
-        target_label: __address__
-      - action: labeldrop
-        regex: __meta_kubernetes_pod_label_(.+)
-      - source_labels: [__meta_kubernetes_namespace]
-        action: replace
-        target_label: namespace
-      - source_labels: [__meta_kubernetes_pod_name]
-        action: replace
-        target_label: pod_name
-
-    - job_name: 'istio-policy'
-      kubernetes_sd_configs:
-      - role: endpoints
-        namespaces:
-          names:
-          - {{ .Values.global.policyNamespace }}
-
-
-      relabel_configs:
-      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
-        action: keep
-        regex: istio-policy;http-policy-monitoring
-
-    - job_name: 'istio-telemetry'
-      kubernetes_sd_configs:
-      - role: endpoints
-        namespaces:
-          names:
-          - {{ .Values.global.telemetryNamespace }}
-
-      relabel_configs:
-      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
-        action: keep
-        regex: istio-telemetry;http-monitoring
-
-    - job_name: 'pilot'
-      kubernetes_sd_configs:
-      - role: endpoints
-        namespaces:
-          names:
-          - {{ .Values.global.configNamespace }}
-
-      relabel_configs:
-      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
-        action: keep
-        regex: istiod;http-monitoring
-      - source_labels: [__meta_kubernetes_service_label_app]
-        target_label: app
-    - job_name: 'galley'
-      kubernetes_sd_configs:
-      - role: endpoints
-        namespaces:
-          names:
-          - {{ .Values.global.configNamespace }}
-
-      relabel_configs:
-      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
-        action: keep
-        regex: istio-galley;http-monitoring
-
-    - job_name: 'citadel'
-      kubernetes_sd_configs:
-      - role: endpoints
-        namespaces:
-          names:
-          - {{ .Values.global.istioNamespace }}
-
-      relabel_configs:
-      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
-        action: keep
-        regex: istio-citadel;http-monitoring
-
-    - job_name: 'sidecar-injector'
-
-      kubernetes_sd_configs:
-      - role: endpoints
-        namespaces:
-          names:
-          - {{ .Release.Namespace }}
-
-      relabel_configs:
-      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
-        action: keep
-        regex: istio-sidecar-injector;http-monitoring
-
     # scrape config for API servers
-    - job_name: 'kubernetes-apiservers'
+    - bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      job_name: kubernetes-apiservers
       kubernetes_sd_configs:
       - role: endpoints
-        namespaces:
-          names:
-          - default
+      relabel_configs:
+      - action: keep
+        regex: default;kubernetes;https
+        source_labels:
+        - __meta_kubernetes_namespace
+        - __meta_kubernetes_service_name
+        - __meta_kubernetes_endpoint_port_name
       scheme: https
       tls_config:
         ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-      relabel_configs:
-      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
-        action: keep
-        regex: kubernetes;https
+        insecure_skip_verify: true
 
     # scrape config for nodes (kubelet)
-    - job_name: 'kubernetes-nodes'
-      scheme: https
-      tls_config:
-        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    - bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      job_name: kubernetes-nodes
       kubernetes_sd_configs:
       - role: node
       relabel_configs:
       - action: labelmap
         regex: __meta_kubernetes_node_label_(.+)
-      - target_label: __address__
-        replacement: kubernetes.default.svc:443
-      - source_labels: [__meta_kubernetes_node_name]
-        regex: (.+)
+      - replacement: kubernetes.default.svc:443
+        target_label: __address__
+      - regex: (.+)
+        replacement: /api/v1/nodes/$1/proxy/metrics
+        source_labels:
+        - __meta_kubernetes_node_name
         target_label: __metrics_path__
-        replacement: /api/v1/nodes/${1}/proxy/metrics
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        insecure_skip_verify: true
 
     # Scrape config for Kubelet cAdvisor.
-    #
-    # This is required for Kubernetes 1.7.3 and later, where cAdvisor metrics
-    # (those whose names begin with 'container_') have been removed from the
-    # Kubelet metrics endpoint.  This job scrapes the cAdvisor endpoint to
-    # retrieve those metrics.
-    #
-    # In Kubernetes 1.7.0-1.7.2, these metrics are only exposed on the cAdvisor
-    # HTTP endpoint; use "replacement: /api/v1/nodes/${1}:4194/proxy/metrics"
-    # in that case (and ensure cAdvisor's HTTP server hasn't been disabled with
-    # the --cadvisor-port=0 Kubelet flag).
-    #
-    # This job is not necessary and should be removed in Kubernetes 1.6 and
-    # earlier versions, or it will cause the metrics to be scraped twice.
-    - job_name: 'kubernetes-cadvisor'
-      scheme: https
-      tls_config:
-        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    - bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      job_name: kubernetes-nodes-cadvisor
       kubernetes_sd_configs:
       - role: node
       relabel_configs:
       - action: labelmap
         regex: __meta_kubernetes_node_label_(.+)
-      - target_label: __address__
-        replacement: kubernetes.default.svc:443
-      - source_labels: [__meta_kubernetes_node_name]
-        regex: (.+)
+      - replacement: kubernetes.default.svc:443
+        target_label: __address__
+      - regex: (.+)
+        replacement: /api/v1/nodes/$1/proxy/metrics/cadvisor
+        source_labels:
+        - __meta_kubernetes_node_name
         target_label: __metrics_path__
-        replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        insecure_skip_verify: true
 
     # scrape config for service endpoints.
-    - job_name: 'kubernetes-service-endpoints'
+    - job_name: kubernetes-service-endpoints
       kubernetes_sd_configs:
       - role: endpoints
       relabel_configs:
-      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
-        action: keep
+      - action: keep
         regex: true
-      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scheme]
-        action: replace
-        target_label: __scheme__
+        source_labels:
+        - __meta_kubernetes_service_annotation_prometheus_io_scrape
+      - action: replace
         regex: (https?)
-      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
-        action: replace
-        target_label: __metrics_path__
+        source_labels:
+        - __meta_kubernetes_service_annotation_prometheus_io_scheme
+        target_label: __scheme__
+      - action: replace
         regex: (.+)
-      - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
-        action: replace
-        target_label: __address__
+        source_labels:
+        - __meta_kubernetes_service_annotation_prometheus_io_path
+        target_label: __metrics_path__
+      - action: replace
         regex: ([^:]+)(?::\d+)?;(\d+)
         replacement: $1:$2
+        source_labels:
+        - __address__
+        - __meta_kubernetes_service_annotation_prometheus_io_port
+        target_label: __address__
       - action: labelmap
         regex: __meta_kubernetes_service_label_(.+)
-      - source_labels: [__meta_kubernetes_namespace]
-        action: replace
+      - action: replace
+        source_labels:
+        - __meta_kubernetes_namespace
         target_label: kubernetes_namespace
-      - source_labels: [__meta_kubernetes_service_name]
-        action: replace
+      - action: replace
+        source_labels:
+        - __meta_kubernetes_service_name
         target_label: kubernetes_name
+      - action: replace
+        source_labels:
+        - __meta_kubernetes_pod_node_name
+        target_label: kubernetes_node
 
-    - job_name: 'kubernetes-pods'
-      kubernetes_sd_configs:
-      - role: pod
-      relabel_configs:  # If first two labels are present, pod should be scraped  by the istio-secure job.
-      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
-        action: keep
-        regex: true
-      - source_labels: [__meta_kubernetes_pod_annotation_sidecar_istio_io_status]
-        action: drop
-        regex: (.+)
-      - source_labels: [__meta_kubernetes_pod_annotation_istio_mtls]
-        action: drop
-        regex: (true)
-      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
-        action: replace
-        target_label: __metrics_path__
-        regex: (.+)
-      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
-        action: replace
-        regex: ([^:]+)(?::\d+)?;(\d+)
-        replacement: $1:$2
-        target_label: __address__
-      - action: labelmap
-        regex: __meta_kubernetes_pod_label_(.+)
-      - source_labels: [__meta_kubernetes_namespace]
-        action: replace
-        target_label: namespace
-      - source_labels: [__meta_kubernetes_pod_name]
-        action: replace
-        target_label: pod_name
-
-{{- if .Values.security.enabled }}
-    - job_name: 'kubernetes-pods-istio-secure'
-      scheme: https
-      tls_config:
-        ca_file: /etc/istio-certs/root-cert.pem
-        cert_file: /etc/istio-certs/cert-chain.pem
-        key_file: /etc/istio-certs/key.pem
-        insecure_skip_verify: true  # prometheus does not support secure naming.
+    # scrape config for pods
+    - job_name: kubernetes-pods
       kubernetes_sd_configs:
       - role: pod
       relabel_configs:
-      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
-        action: keep
+      - action: keep
         regex: true
-      # sidecar status annotation is added by sidecar injector and
-      # istio_workload_mtls_ability can be specifically placed on a pod to indicate its ability to receive mtls traffic.
-      - source_labels: [__meta_kubernetes_pod_annotation_sidecar_istio_io_status, __meta_kubernetes_pod_annotation_istio_mtls]
-        action: keep
-        regex: (([^;]+);([^;]*))|(([^;]*);(true))
-      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
-        action: replace
-        target_label: __metrics_path__
+        source_labels:
+        - __meta_kubernetes_pod_annotation_prometheus_io_scrape
+      - action: replace
         regex: (.+)
-      - source_labels: [__address__]  # Only keep address that is host:port
-        action: keep    # otherwise an extra target with ':443' is added for https scheme
-        regex: ([^:]+):(\d+)
-      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
-        action: replace
+        source_labels:
+        - __meta_kubernetes_pod_annotation_prometheus_io_path
+        target_label: __metrics_path__
+      - action: replace
         regex: ([^:]+)(?::\d+)?;(\d+)
         replacement: $1:$2
+        source_labels:
+        - __address__
+        - __meta_kubernetes_pod_annotation_prometheus_io_port
         target_label: __address__
       - action: labelmap
         regex: __meta_kubernetes_pod_label_(.+)
-      - source_labels: [__meta_kubernetes_namespace]
-        action: replace
-        target_label: namespace
-      - source_labels: [__meta_kubernetes_pod_name]
-        action: replace
-        target_label: pod_name
-{{- end }}
+      - action: replace
+        source_labels:
+        - __meta_kubernetes_namespace
+        target_label: kubernetes_namespace
+      - action: replace
+        source_labels:
+        - __meta_kubernetes_pod_name
+        target_label: kubernetes_pod_name
 `)
 
 func chartsIstioTelemetryPrometheusTemplatesConfigmapYamlBytes() ([]byte, error) {
@@ -41714,121 +41583,6 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/prometheus
-          - mountPath: /etc/istio-certs
-            name: istio-certs
-
-{{- if .Values.prometheus.provisionPrometheusCert }}
-        - name: istio-proxy
-          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
-          ports:
-            - containerPort: 15090
-              protocol: TCP
-              name: http-envoy-prom
-          args:
-            - proxy
-            - sidecar
-            - --domain
-            - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
-            - "istio-proxy-prometheus"
-            {{- if .Values.global.proxy.logLevel }}
-            - --proxyLogLevel={{ .Values.global.proxy.logLevel }}
-            {{- end}}
-            {{- if .Values.global.proxy.componentLogLevel }}
-            - --proxyComponentLogLevel={{ .Values.global.proxy.componentLogLevel }}
-            {{- end}}
-            - --controlPlaneAuthPolicy
-            - NONE
-              {{- if .Values.global.trustDomain }}
-            - --trust-domain={{ .Values.global.trustDomain }}
-              {{- end }}
-              {{- if .Values.global.logAsJson }}
-            - --log_as_json
-              {{- end }}
-          env:
-            - name: OUTPUT_CERTS
-              value: "/etc/istio-certs"
-            - name: JWT_POLICY
-              value: {{ .Values.global.jwtPolicy }}
-            - name: PILOT_CERT_PROVIDER
-              value: {{ .Values.global.pilotCertProvider }}
-            # Temp, pending PR to make it default or based on the istiodAddr env
-            - name: CA_ADDR
-              {{- if .Values.global.caAddress }}
-              value: {{ .Values.global.caAddress }}
-              {{- else if .Values.global.configNamespace }}
-              value: istiod.{{ .Values.global.configNamespace }}.svc:15012
-              {{- else }}
-              value: istiod.istio-system.svc:15012
-              {{- end }}
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: INSTANCE_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.podIP
-            - name: SERVICE_ACCOUNT
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.serviceAccountName
-            - name: HOST_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.hostIP
-            - name: ISTIO_META_POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: ISTIO_META_CONFIG_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-              {{- if .Values.global.network }}
-            - name: ISTIO_META_NETWORK
-              value: "{{ .Values.global.network }}"
-              {{- end }}
-              {{- if .Values.global.meshID }}
-            - name: ISTIO_META_MESH_ID
-              value: "{{ .Values.global.meshID }}"
-              {{- else if .Values.global.trustDomain }}
-            - name: ISTIO_META_MESH_ID
-              value: "{{ .Values.global.trustDomain }}"
-              {{- end }}
-            - name: ISTIO_META_CLUSTER_ID
-              value: "{{ .Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
-          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
-          readinessProbe:
-            failureThreshold: 30
-            httpGet:
-              path: /healthz/ready
-              port: 15020
-              scheme: HTTP
-            initialDelaySeconds: 1
-            periodSeconds: 2
-            successThreshold: 1
-            timeoutSeconds: 1
-          volumeMounts:
-              {{- if eq .Values.global.pilotCertProvider "istiod" }}
-            - mountPath: /var/run/secrets/istio
-              name: istiod-ca-cert
-              {{- end }}
-            - mountPath: /etc/istio/proxy
-              name: istio-envoy
-              {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-            - mountPath: /var/run/secrets/tokens
-              name: istio-token
-              {{- end }}
-            - mountPath: /etc/istio-certs/
-              name: istio-certs
-            - name: istio-config-volume
-              mountPath: /etc/istio/config
-{{- end }}
-
       volumes:
       - name: istio-config-volume
         configMap:
@@ -41837,49 +41591,6 @@ spec:
       - name: config-volume
         configMap:
           name: prometheus
-
-{{- if .Values.prometheus.provisionPrometheusCert }}
-      - name: istio-certs
-        emptyDir:
-          medium: Memory
-{{- else }}
-      - name: istio-certs
-        secret:
-          defaultMode: 420
-{{- if not .Values.security.enabled }}
-          optional: true
-{{- end }}
-          secretName: istio.default
-{{- end }}
-
-{{- if .Values.prometheus.provisionPrometheusCert }}
-      - emptyDir:
-          medium: Memory
-        name: istio-envoy
-        {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-      - name: istio-token
-        projected:
-          defaultMode: 420
-          sources:
-            - serviceAccountToken:
-                path: istio-token
-                expirationSeconds: 43200
-                audience: {{ .Values.global.sds.token.aud }}
-        {{- end }}
-        {{- if eq .Values.global.pilotCertProvider "istiod" }}
-      - name: istiod-ca-cert
-        configMap:
-          defaultMode: 420
-          name: istio-ca-root-cert
-        {{- end }}
-        {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
-      - name: lightstep-certs
-        secret:
-          optional: true
-        secretName: lightstep.cacert
-        {{- end }}
-{{- end }}
-
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}

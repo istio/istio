@@ -127,6 +127,12 @@ func NewServer(config Config) (*Server, error) {
 		}
 		log.Infof("Prometheus scraping configuration: %v", prom)
 		s.prometheus = &prom
+		if s.prometheus.Path == "" {
+			s.prometheus.Path = "/metrics"
+		}
+		if s.prometheus.Port == "" {
+			s.prometheus.Port = "80"
+		}
 	}
 
 	return s, nil
@@ -211,7 +217,6 @@ func isRequestFromLocalhost(r *http.Request) bool {
 }
 
 type PrometheusScrapeConfiguration struct {
-	Scheme string `json:"scheme"`
 	Scrape string `json:"scrape"`
 	Path   string `json:"path"`
 	Port   string `json:"port"`
@@ -223,7 +228,7 @@ func (s *Server) handleStats(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	if s.prometheus != nil {
-		url := fmt.Sprintf("%s://localhost:%s/%s", s.prometheus.Scheme, s.prometheus.Port, s.prometheus.Path)
+		url := fmt.Sprintf("http://localhost:%s%s", s.prometheus.Port, s.prometheus.Path)
 		if err := s.scrape(w, url); err != nil {
 			log.Errora(err)
 			return
