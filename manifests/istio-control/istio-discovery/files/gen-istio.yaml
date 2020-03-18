@@ -15,7 +15,6 @@ spec:
   selector:
     matchLabels:
       app: istiod
-      release: istio-base
       istio: pilot
 ---
 
@@ -741,7 +740,7 @@ data:
           name: istio-certs
           readOnly: true
         {{- end }}
-        - name: podinfo
+        - name: istio-podinfo
           mountPath: /etc/istio/pod
         {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
         - mountPath: {{ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}
@@ -764,7 +763,7 @@ data:
       - emptyDir:
           medium: Memory
         name: istio-envoy
-      - name: podinfo
+      - name: istio-podinfo
         downwardAPI:
           items:
             - path: "labels"
@@ -829,65 +828,7 @@ data:
         traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
 
 ---
-# Source: istio-discovery/templates/clusterrole-galley-disable-webhook.yaml
-
-
-
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-galley-istio-system
-  labels:
-    release: istio-base
-rules:
-  # For reading Istio resources
-  - apiGroups: [
-    "authentication.istio.io",
-    "config.istio.io",
-    "networking.istio.io",
-    "rbac.istio.io",
-    "security.istio.io"]
-    resources: ["*"]
-    verbs: ["get", "list", "watch"]
-    # For updating Istio resource statuses
-  - apiGroups: [
-    "authentication.istio.io",
-    "config.istio.io",
-    "networking.istio.io",
-    "rbac.istio.io",
-    "security.istio.io"]
-    resources: ["*/status"]
-    verbs: ["update"]
-
-    # Remove galley's permissions to reconcile the validation config when istiod is present.
-    # Notably missing here is the permission to modify webhooks.
-
-  - apiGroups: ["extensions","apps"]
-    resources: ["deployments"]
-    resourceNames: ["istio-galley"]
-    verbs: ["get"]
-  - apiGroups: [""]
-    resources: ["pods", "nodes", "services", "endpoints", "namespaces"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["extensions"]
-    resources: ["ingresses"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["extensions"]
-    resources: ["deployments/finalizers"]
-    resourceNames: ["istio-galley"]
-    verbs: ["update"]
-  - apiGroups: ["apiextensions.k8s.io"]
-    resources: ["customresourcedefinitions"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["rbac.authorization.k8s.io"]
-    resources: ["clusterroles"]
-    verbs: ["get", "list", "watch"]
----
-
----
 # Source: istio-discovery/templates/service.yaml
-
 apiVersion: v1
 kind: Service
 metadata:
@@ -941,7 +882,6 @@ spec:
 
 ---
 # Source: istio-discovery/templates/deployment.yaml
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -958,6 +898,7 @@ spec:
       maxUnavailable: 25%
   selector:
     matchLabels:
+      app: istiod
       istio: pilot
   template:
     metadata:
@@ -1156,7 +1097,6 @@ spec:
       name: cpu
       targetAverageUtilization: 80
 ---
-
 ---
 # Source: istio-discovery/templates/telemetryv2_1.4.yaml
 

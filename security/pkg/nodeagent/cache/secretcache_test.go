@@ -218,7 +218,8 @@ func TestWorkloadAgentGenerateSecretWithPluginProvider(t *testing.T) {
 }
 
 func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
-	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0.1)
+	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0.1,
+		true)
 	opt := Options{
 		SecretTTL:                time.Minute,
 		RotationInterval:         300 * time.Microsecond,
@@ -320,7 +321,8 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 }
 
 func TestWorkloadAgentRefreshSecret(t *testing.T) {
-	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0)
+	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0,
+		false)
 	opt := Options{
 		SecretTTL:                200 * time.Microsecond,
 		RotationInterval:         200 * time.Microsecond,
@@ -860,7 +862,7 @@ func checkBool(t *testing.T, name string, got bool, want bool) {
 }
 
 func TestSetAlwaysValidTokenFlag(t *testing.T) {
-	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0)
+	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0, false)
 	opt := Options{
 		SecretTTL:                200 * time.Microsecond,
 		RotationInterval:         200 * time.Microsecond,
@@ -1088,7 +1090,8 @@ func convertToBytes(ss []string) []byte {
 }
 
 func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
-	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0.1)
+	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0.1,
+		false)
 	opt := Options{
 		SecretTTL:                time.Minute,
 		RotationInterval:         300 * time.Microsecond,

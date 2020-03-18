@@ -1,4 +1,3 @@
-{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -26,8 +25,8 @@ spec:
       maxUnavailable: {{ .Values.pilot.rollingMaxUnavailable }}
   selector:
     matchLabels:
-      {{- if ne .Values.revision ""}}
       app: istiod
+      {{- if ne .Values.revision ""}}
       version: {{ .Values.revision }}
       {{- else }}
       istio: pilot
@@ -240,4 +239,3 @@ spec:
 {{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
 ---
-{{- end }}
