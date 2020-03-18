@@ -62,7 +62,7 @@ metadata:
 spec:
 	selector:
 	  matchLabels
-		- app: "%v"
+		  app: "%v"
 	mtls:
   	mode: STRICT
 `, name, name)

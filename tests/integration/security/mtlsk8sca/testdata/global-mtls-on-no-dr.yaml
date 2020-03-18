@@ -1,8 +1,8 @@
 # mTLS is enabled in strict mode without destination rule.
-apiVersion: authentication.istio.io/v1alpha1
-kind: MeshPolicy
+apiVersion: "security.istio.io/v1beta1"
+kind: "PeerAuthentication"
 metadata:
   name: "default"
-spec:
-  peers:
-  - mtls: {}
+  spec:
+    mtls:
+      mode: STRICT
