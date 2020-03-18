@@ -139,7 +139,7 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 
 		metaJSONLabels := fmt.Sprintf("{\"app\":\"%s\"}", cfg.Service)
 		interceptionMode := "REDIRECT"
-		prop_cert := "./etc/certs"
+		propCert := "./etc/certs"
 
 		env = append(env,
 			"ECHO_ARGS="+strings.Join(echoArgs, " "),
@@ -150,7 +150,7 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 			"POD_NAMESPACE="+cfg.Namespace.Name(),
 			"PILOT_ADDRESS="+pilotAddress,
 			"CA_ADDR="+pilotAddress,
-			"PROV_CERT="+prop_cert,
+			"PROV_CERT="+propCert,
 			"ENVOY_PORT=15001",
 			"ENVOY_USER=istio-proxy",
 			"ISTIO_AGENT_FLAGS="+agentArgs,
