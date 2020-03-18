@@ -61,7 +61,6 @@ items:
           - --proxyLogLevel=warning
           - --proxyComponentLogLevel=misc:error
           - --trust-domain=cluster.local
-          - --controlPlaneBootstrap=false
           - --concurrency
           - "2"
           env:

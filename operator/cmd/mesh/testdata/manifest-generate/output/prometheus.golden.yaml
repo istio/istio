@@ -365,20 +365,12 @@ spec:
             - sidecar
             - --domain
             - $(POD_NAMESPACE).svc.cluster.local
-            - --configPath
-            - "/etc/istio/proxy"
-            - --binaryPath
-            - "/usr/local/bin/envoy"
-            - --serviceCluster
             - "istio-proxy-prometheus"
             - --proxyLogLevel=warning
             - --proxyComponentLogLevel=misc:error
-            - --proxyAdminPort
-            - "15000"
             - --controlPlaneAuthPolicy
             - NONE
             - --trust-domain=cluster.local
-            - --controlPlaneBootstrap=false
           env:
             - name: OUTPUT_CERTS
               value: "/etc/istio-certs"

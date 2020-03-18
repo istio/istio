@@ -568,20 +568,12 @@ spec:
             - sidecar
             - --domain
             - $(POD_NAMESPACE).svc.cluster.local
-            - --configPath
-            - "/etc/istio/proxy"
-            - --binaryPath
-            - "/usr/local/bin/envoy"
-            - --serviceCluster
             - "istio-proxy-prometheus"
             - --proxyLogLevel=warning
             - --proxyComponentLogLevel=misc:error
-            - --proxyAdminPort
-            - "15000"
             - --controlPlaneAuthPolicy
             - NONE
             - --trust-domain=cluster.local
-            - --controlPlaneBootstrap=false
           env:
             - name: OUTPUT_CERTS
               value: "/etc/istio-certs"
@@ -7005,12 +6997,6 @@ spec:
           - --log_output_level=default:info
           - --serviceCluster
           - istio-egressgateway
-          - --proxyAdminPort
-          - "15000"
-          - --controlPlaneAuthPolicy
-          - NONE
-          - --discoveryAddress
-          - istio-pilot.istio-system.svc:15012
           - --trust-domain=cluster.local
           readinessProbe:
             failureThreshold: 30
@@ -7793,12 +7779,6 @@ spec:
           - --log_output_level=default:info
           - --serviceCluster
           - istio-ingressgateway
-          - --proxyAdminPort
-          - "15000"
-          - --controlPlaneAuthPolicy
-          - NONE
-          - --discoveryAddress
-          - istio-pilot.istio-system.svc:15012
           - --trust-domain=cluster.local
           readinessProbe:
             failureThreshold: 30
@@ -8346,7 +8326,6 @@ spec:
         - --trust-domain=cluster.local
         - --keepaliveMaxServerConnectionAge
         - 30m
-        - --disable-install-crds=true
         env:
         - name: JWT_POLICY
           value: third-party-jwt
@@ -8814,7 +8793,6 @@ data:
       {{- if .Values.global.logAsJson }}
         - --log_as_json
       {{- end }}
-        - --controlPlaneBootstrap=false
       {{- if .Values.global.proxy.lifecycle }}
         lifecycle:
           {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}

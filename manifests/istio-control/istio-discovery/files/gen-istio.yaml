@@ -564,7 +564,6 @@ data:
       {{- if .Values.global.logAsJson }}
         - --log_as_json
       {{- end }}
-        - --controlPlaneBootstrap=false
       {{- if .Values.global.proxy.lifecycle }}
         lifecycle:
           {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
@@ -900,8 +899,6 @@ spec:
           - --trust-domain=cluster.local
           - --keepaliveMaxServerConnectionAge
           - "30m"
-          # TODO: make default
-          - --disable-install-crds=true
           ports:
           - containerPort: 8080
           - containerPort: 15010
