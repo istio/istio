@@ -1,0 +1,25 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  addonComponents:
+    prometheus:
+      enabled: true
+      k8s:
+        service:
+          externalTrafficPolicy: Local
+        serviceAnnotations:
+          test.annotation: test
+        resources:
+          requests:
+            cpu: 888m
+            memory: 999Mi
+        env:
+          - name: NEW_VAR
+            value: new_value
+    kiali:
+      enabled: true
+      k8s:
+        serviceAnnotations:
+          test.annotation: test
+        service:
+          type: NodePort
