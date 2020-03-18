@@ -15,8 +15,8 @@
 # limitations under the License.
 
 # Cluster names for multicluster
-export CLUSTER1_NAME=${CLUSTER1_NAME:-"local"}
-export CLUSTER2_NAME=${CLUSTER2_NAME:-"remote"}
+export CLUSTER1_NAME=${CLUSTER1_NAME:-"cluster1"}
+export CLUSTER2_NAME=${CLUSTER2_NAME:-"cluster2"}
 
 function setup_gcloud_credentials() {
   if [[ $(command -v gcloud) ]]; then
@@ -223,8 +223,8 @@ EOF
   kind get kubeconfig --name "${CLUSTER2_NAME}" --internal > "${CLUSTER2_KUBECONFIG}"
 
   # Set up routing rules for inter-cluster direct pod to pod communication
-  CLUSTER1_NODE="${CLUSTER1_NAME}/-control-plane"
-  CLUSTER2_NODE="${CLUSTER2_NAME}/-control-plane"
+  CLUSTER1_NODE="${CLUSTER1_NAME}-control-plane"
+  CLUSTER2_NODE="${CLUSTER2_NAME}-control-plane"
   CLUSTER1_DOCKER_IP=$(docker inspect -f "{{ .NetworkSettings.IPAddress }}" "${CLUSTER1_NODE}")
   CLUSTER2_DOCKER_IP=$(docker inspect -f "{{ .NetworkSettings.IPAddress }}" "${CLUSTER2_NODE}")
   CLUSTER1_POD_CIDR=$(KUBECONFIG="${CLUSTER1_KUBECONFIG}" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
