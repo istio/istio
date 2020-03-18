@@ -332,13 +332,11 @@ func getJwtTypeOverlay(config *rest.Config, l *Logger) (string, error) {
 func unmarshalAndValidateIOPS(iopsYAML string, force bool, l *Logger) (*v1alpha1.IstioOperatorSpec, error) {
 	iops := &v1alpha1.IstioOperatorSpec{}
 	if err := util.UnmarshalWithJSONPB(iopsYAML, iops, false); err != nil {
-		return nil, fmt.Errorf("could not unmarshal the merged YAML: %s\n\nYAML:\n%s", err, iopsYAML)
+		return nil, fmt.Errorf("could not unmarshal merged YAML: %s\n\nYAML:\n%s", err, iopsYAML)
 	}
-	if errs := validate.CheckIstioOperatorSpec(iops, true); len(errs) != 0 {
-		if !force {
-			l.logAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
-			return nil, fmt.Errorf(errs.Error())
-		}
+	if errs := validate.CheckIstioOperatorSpec(iops, true); len(errs) != 0 && !force {
+		l.logAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
+		return iops, fmt.Errorf(errs.Error())
 	}
 	return iops, nil
 }
