@@ -17362,33 +17362,6 @@ data:
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-pilot
-  namespace: istio-system
-  labels:
-    app: pilot
-    release: istio-base
-    istio: pilot
-spec:
-  ports:
-  - port: 15010
-    name: grpc-xds # direct
-  - port: 15011
-    name: https-xds # mTLS
-  - port: 15012
-    name: https-dns # mTLS with k8s-signed cert
-  - port: 8080
-    name: http-legacy-discovery # direct
-  - port: 15014
-    name: http-monitoring
-  - port: 443
-    name: https-webhook # validation and injection
-    targetPort: 15017
-  selector:
-    istio: pilot
----
-apiVersion: v1
-kind: Service
-metadata:
   name: istiod
   namespace: istio-system
   labels:
@@ -17396,6 +17369,8 @@ metadata:
     release: istio-base
 spec:
   ports:
+    - port: 15010
+      name: grpc-xds # plaintext
     - port: 15012
       name: https-dns # mTLS with k8s-signed cert
     - port: 443
@@ -19755,38 +19730,6 @@ func chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml() (*asset,
 var _chartsIstioControlIstioDiscoveryTemplatesServiceYaml = []byte(`apiVersion: v1
 kind: Service
 metadata:
-  name: istio-pilot{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: pilot
-    release: {{ .Release.Name }}
-    istio: pilot
-spec:
-  ports:
-  - port: 15010
-    name: grpc-xds # direct
-  - port: 15011
-    name: https-xds # mTLS
-  - port: 15012
-    name: https-dns # mTLS with k8s-signed cert
-  - port: 8080
-    name: http-legacy-discovery # direct
-  - port: 15014
-    name: http-monitoring
-  - port: 443
-    name: https-webhook # validation and injection
-    targetPort: 15017
-  selector:
-    {{- if ne .Values.revision ""}}
-    app: istiod
-    version: {{ .Values.revision }}
-    {{ else }}
-    istio: pilot
-    {{- end }}
----
-apiVersion: v1
-kind: Service
-metadata:
   name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
@@ -19794,6 +19737,8 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   ports:
+    - port: 15010
+      name: grpc-xds # plaintext
     - port: 15012
       name: https-dns # mTLS with k8s-signed cert
     - port: 443
