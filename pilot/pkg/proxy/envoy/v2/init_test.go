@@ -15,12 +15,9 @@ package v2_test
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"time"
 
@@ -36,10 +33,7 @@ import (
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 
-	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
 
@@ -80,52 +74,6 @@ func connectADS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedReso
 		return nil, nil, fmt.Errorf("stream resources failed: %s", err)
 	}
 
-	return edsstr, func() {
-		_ = edsstr.CloseSend()
-		_ = conn.Close()
-	}, nil
-}
-
-func connectADSS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, util.TearDownFunc, error) {
-	certDir := env.IstioSrc + "/tests/testdata/certs/default/"
-
-	clientCert, err := tls.LoadX509KeyPair(certDir+constants.CertChainFilename, certDir+constants.KeyFilename)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed loading clients certs: %s", err)
-	}
-
-	serverCABytes, err := ioutil.ReadFile(certDir + constants.RootCertFilename)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed loading CA certs: %s", err)
-	}
-	serverCAs := x509.NewCertPool()
-	if ok := serverCAs.AppendCertsFromPEM(serverCABytes); !ok {
-		return nil, nil, fmt.Errorf("failed adding CA certs to pool: %s", err)
-	}
-
-	tlsCfg := &tls.Config{
-		Certificates: []tls.Certificate{clientCert},
-		RootCAs:      serverCAs,
-		ServerName:   "istio-pilot.istio-system.svc",
-	}
-
-	creds := credentials.NewTLS(tlsCfg)
-
-	opts := []grpc.DialOption{
-		// Verify Pilot cert and service account
-		grpc.WithTransportCredentials(creds),
-		grpc.WithBlock(),
-	}
-	conn, err := grpc.Dial(url, opts...)
-	if err != nil {
-		return nil, nil, fmt.Errorf("GRPC dial failed: %s", err)
-	}
-
-	xds := ads.NewAggregatedDiscoveryServiceClient(conn)
-	edsstr, err := xds.StreamAggregatedResources(context.Background())
-	if err != nil {
-		return nil, nil, fmt.Errorf("stream resources failed: %s", err)
-	}
 	return edsstr, func() {
 		_ = edsstr.CloseSend()
 		_ = conn.Close()
