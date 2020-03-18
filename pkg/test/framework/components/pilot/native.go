@@ -85,7 +85,6 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 		HTTPAddr:       ":0",
 		MonitoringAddr: ":0",
 		GrpcAddr:       ":0",
-		SecureGrpcAddr: ":0",
 	}
 
 	tmpMesh := mesh.DefaultMeshConfig()

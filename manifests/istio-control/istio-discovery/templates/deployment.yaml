@@ -79,12 +79,6 @@ spec:
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
-
-{{- if and .Values.global.controlPlaneSecurityEnabled }}
-          - --secureGrpcAddr=:15011
-{{- else }}
-          - --secureGrpcAddr=
-{{- end }}
 {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
 {{- end }}
