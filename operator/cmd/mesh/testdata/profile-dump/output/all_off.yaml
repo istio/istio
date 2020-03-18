@@ -209,6 +209,7 @@ spec:
         autoscaleEnabled: true
         env:
           ISTIO_META_ROUTER_MODE: sni-dnat
+        name: istio-egressgateway
         ports:
         - name: http2
           port: 80
@@ -236,12 +237,16 @@ spec:
         - name: tcp-pilot-grpc-tls
           port: 15011
           targetPort: 15011
+        - name: tcp-istiod
+          port: 15012
+          targetPort: 15012
         - name: tcp-citadel-grpc-tls
           port: 8060
           targetPort: 8060
         - name: tcp-dns-tls
           port: 853
           targetPort: 853
+        name: istio-ingressgateway
         ports:
         - name: status-port
           port: 15020

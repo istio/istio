@@ -470,6 +470,7 @@ spec:
         type: ClusterIP
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
+        name: istio-egressgateway
         ports:
           - port: 80
             name: http2
@@ -507,6 +508,7 @@ spec:
               memory: 1024Mi
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
+        name: istio-ingressgateway
         ports:
           - port: 15020
             targetPort: 15020
@@ -535,6 +537,9 @@ spec:
           - port: 15011
             targetPort: 15011
             name: tcp-pilot-grpc-tls
+          - port: 15012
+            targetPort: 15012
+            name: tcp-istiod
           - port: 8060
             targetPort: 8060
             name: tcp-citadel-grpc-tls

@@ -129,7 +129,8 @@ func NewTranslator(minorVersion version.MinorVersion) (*Translator, error) {
 }
 
 // OverlayK8sSettings overlays k8s settings from iop over the manifest objects, based on t's translation mappings.
-func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName, index int) (string, error) {
+func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName,
+	resourceName string, index int) (string, error) {
 	objects, err := object.ParseK8sObjectsFromYAMLManifest(yml)
 	if err != nil {
 		return "", err
@@ -165,7 +166,7 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 			scope.Debugf("path %s is int 0, skip mapping.", inPath)
 			continue
 		}
-		outPath, err := t.renderResourceComponentPathTemplate(v.OutPath, componentName)
+		outPath, err := t.renderResourceComponentPathTemplate(v.OutPath, componentName, resourceName)
 		if err != nil {
 			return "", err
 		}
@@ -240,7 +241,7 @@ func (t *Translator) ValuesOverlaysToHelmValues(in map[string]interface{}, cname
 }
 
 // TranslateHelmValues creates a Helm values.yaml config data tree from iop using the given translator.
-func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName) (string, error) {
+func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName, resourceName string) (string, error) {
 	globalVals, globalUnvalidatedVals, apiVals := make(map[string]interface{}), make(map[string]interface{}), make(map[string]interface{})
 
 	// First, translate the IstioOperator API to helm Values.
@@ -283,7 +284,60 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 	if err != nil {
 		return "", err
 	}
+
+	mergedYAML, err = writeGatewayName(mergedYAML, componentName, resourceName)
+	if err != nil {
+		return "", err
+	}
+
 	return string(mergedYAML), err
+}
+
+// writeGatewayName writes gateway name gwName at the appropriate values path in iop. It returns the resulting YAML tree.
+func writeGatewayName(iop []byte, componentName name.ComponentName, gwName string) ([]byte, error) {
+	if !componentName.IsGateway() {
+		return iop, nil
+	}
+	iopt := make(map[string]interface{})
+	if err := yaml.Unmarshal(iop, &iopt); err != nil {
+		return nil, err
+	}
+	switch componentName {
+	case name.IngressComponentName:
+		setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.name"), gwName)
+	case name.EgressComponentName:
+		setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-egressgateway.name"), gwName)
+	}
+	return yaml.Marshal(iopt)
+}
+
+// setYAMLNodeByMapPath sets the value at the given path to val in treeNode. The path cannot traverse lists and
+// treeNode must be a YAML tree unmarshaled into a plain map data structure.
+func setYAMLNodeByMapPath(treeNode interface{}, path util.Path, val interface{}) {
+	if len(path) == 0 || treeNode == nil {
+		return
+	}
+	pe := path[0]
+	switch nt := treeNode.(type) {
+	case map[interface{}]interface{}:
+		if len(path) == 1 {
+			nt[pe] = val
+			return
+		}
+		if nt[pe] == nil {
+			return
+		}
+		setYAMLNodeByMapPath(nt[pe], path[1:], val)
+	case map[string]interface{}:
+		if len(path) == 1 {
+			nt[pe] = val
+			return
+		}
+		if nt[pe] == nil {
+			return
+		}
+		setYAMLNodeByMapPath(nt[pe], path[1:], val)
+	}
 }
 
 // ComponentMap returns a ComponentMaps struct ptr for the given component name if one exists.
@@ -488,14 +542,17 @@ func renderFeatureComponentPathTemplate(tmpl string, componentName name.Componen
 
 // renderResourceComponentPathTemplate renders a template of the form <path>{{.ResourceName}}<path>{{.ContainerName}}<path> with
 // the supplied parameters.
-func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentName name.ComponentName) (string, error) {
+func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentName name.ComponentName, resourceName string) (string, error) {
+	if resourceName == "" {
+		resourceName = t.ComponentMaps[componentName].ResourceName
+	}
 	ts := struct {
 		ResourceType  string
 		ResourceName  string
 		ContainerName string
 	}{
 		ResourceType:  t.ComponentMaps[componentName].ResourceType,
-		ResourceName:  t.ComponentMaps[componentName].ResourceName,
+		ResourceName:  resourceName,
 		ContainerName: t.ComponentMaps[componentName].ContainerName,
 	}
 	return util.RenderTemplate(tmpl, ts)

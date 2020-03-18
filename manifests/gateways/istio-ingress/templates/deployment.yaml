@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istio-ingressgateway
+  name: {{ $gateway.name | default "istio-ingressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -29,7 +29,7 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
-        service.istio.io/canonical-name: istio-ingressgateway
+        service.istio.io/canonical-name: {{ $gateway.name | default "istio-ingressgateway" }}
         service.istio.io/canonical-revision: "1.5"
       annotations:
         sidecar.istio.io/inject: "false"
@@ -128,7 +128,7 @@ spec:
           - --connectTimeout
           - '10s' #connectTimeout
           - --serviceCluster
-          - istio-ingressgateway
+          - {{ $gateway.name | default "istio-ingressgateway" }}
           - --zipkinAddress
         {{- if .Values.global.tracer.zipkin.address }}
           - {{ .Values.global.tracer.zipkin.address }}
@@ -160,10 +160,13 @@ spec:
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
-          {{- if .Values.global.configNamespace }}
-          - istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+          {{- $namespace := .Values.global.configNamespace | default "istio-system" }}
+          {{- if .Values.global.remotePilotAddress }}
+          # Use the DNS hostname instead of the IP address. The discovery address needs to match the
+          # SAN in istiod's cert. The istiod-remote.<namespace>.svc will resolve to the remotePilotAddress.
+          - istiod-remote.{{ $namespace }}.svc:15012
           {{- else }}
-          - istio-pilot.istio-system.svc:15012
+          - istio-pilot.{{ $namespace }}.svc:15012
           {{- end }}
           {{- else if .Values.global.controlPlaneSecurityEnabled }}
           - --controlPlaneAuthPolicy
@@ -252,9 +255,9 @@ spec:
               fieldRef:
                 fieldPath: spec.serviceAccountName
           - name: ISTIO_META_WORKLOAD_NAME
-            value: istio-ingressgateway
+            value: {{ $gateway.name | default "istio-ingressgateway" }}
           - name: ISTIO_META_OWNER
-            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/istio-ingressgateway
+            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/{{ $gateway.name | default "istio-ingressgateway" }}
           {{- if $.Values.global.meshID }}
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.meshID }}"

@@ -3,6 +3,7 @@
 
 gateways:
   istio-ingressgateway:
+    name: istio-ingressgateway
     #
     # Secret Discovery Service (SDS) configuration for ingress gateway.
     #
