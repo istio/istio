@@ -19,7 +19,9 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/tests/integration/mixer/outboundtrafficpolicy"
 )
@@ -31,6 +33,7 @@ func TestMain(m *testing.M) {
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
+		Setup(setupPrometheus).
 		Run()
 }
 
@@ -54,8 +57,11 @@ values:
     v2:
       enabled: false`
 }
+var (
+	prom prometheus.Instance
+)
 
-func TestOutboundTrafficPolicyAllowAny(t *testing.T) {
+func TestOutboundTrafficPolicyAllowAny_NetworkingResponse(t *testing.T) {
 	expected := map[string][]string{
 		"http":        {"200"},
 		"http_egress": {"200"},
@@ -63,4 +69,27 @@ func TestOutboundTrafficPolicyAllowAny(t *testing.T) {
 		"tcp":         {"200"},
 	}
 	outboundtrafficpolicy.RunExternalRequestResponseCodeTest(expected, t)
+}
+
+func TestOutboundTrafficPolicyAllowAny_MetricsResponse(t *testing.T) {
+	expected := map[string]outboundtrafficpolicy.MetricsResponse{
+		"http": {
+			Metric:    "istio_requests_total",
+			PromQuery: `sum(istio_requests_total{reporter="source",destination_service_name="PassthroughCluster",response_code="200"})`,
+		}, // HTTP will return an error code
+		"http_egress": {
+			Metric:    "istio_requests_total",
+			PromQuery: `sum(istio_requests_total{reporter="source",destination_service_name="PassthroughCluster",response_code="200"})`,
+		}, // we define the virtual service in the namespace, so we should be able to reach it
+		"https": {
+			Metric:    "istio_tcp_connections_closed_total",
+			PromQuery: `sum(istio_requests_total{reporter="source",destination_service_name="PassthroughCluster",response_code="200"})`,
+		}, // HTTPS will direct to blackhole cluster, giving no response
+	}
+	outboundtrafficpolicy.RunExternalRequestMetricsTest(prom, expected, t)
+}
+
+func setupPrometheus(ctx resource.Context) (err error) {
+	prom, err = prometheus.New(ctx, prometheus.Config{})
+	return err
 }
