@@ -16,16 +16,18 @@ package mesh
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 
-	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
 )
 
 const (
-	valuesGlobal = "values.global."
+	valuesGlobal             = "values.global."
+	traceSamplingMin float64 = 0.0
+	traceSamplingMax float64 = 100.0
 )
 
 var (
@@ -43,9 +45,9 @@ var (
 	setFlagValues = map[string]interface{}{
 		"profile": profile,
 
-		"installPackagePath": validate.CheckIstioOperatorSpec,
-		"hub":                validate.CheckIstioOperatorSpec,
-		"tag":                validate.CheckIstioOperatorSpec,
+		"installPackagePath": validate.InstallPackagePath,
+		"hub":                validate.Hub,
+		"tag":                validate.Tag,
 
 		"sds.enabled":     boolValues,
 		"imagePullPolicy": imagePullPolicy,
@@ -61,6 +63,8 @@ var (
 
 		"telemetry.enabled":                     boolValues,
 		"security.components.nodeAgent.enabled": boolValues,
+
+		"values.pilot.traceSampling": isValidTraceSampling,
 	}
 )
 
@@ -80,9 +84,53 @@ func ValidateSetFlags(setOverlay []string) (errs util.Errors) {
 		flagName, flagValue := splitSetFlags(flags)
 
 		if isFlagNameAvailable(flagName) {
-			errs = verifyValues(flagName, flagValue)
+			errs = append(errs, verifyValues(flagName, flagValue))
 		} else {
 			errs = append(errs, fmt.Errorf("\n Invalid flag: %q", valuesGlobal+flagName))
+		}
+	}
+	return
+}
+
+// verifyValues compares provided values with actual values and throw error if it is invalid
+func verifyValues(flagName, flagValue string) (errs util.Errors) {
+	val := getFlagValue(flagName)
+	valType := reflect.TypeOf(val)
+
+	switch val.(type) {
+	case []string:
+		if !containString(val.([]string), flagValue) {
+			errs = append(errs, fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %q",
+				flagValue, flagName, strings.Join(val.([]string), ", ")))
+		}
+	case []bool:
+		_, err := strconv.ParseBool(flagValue)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %t",
+				flagValue, flagName, boolValues))
+		}
+	}
+
+	if valType == reflect.TypeOf(isValidTraceSampling) {
+		fval, _ := strconv.ParseFloat(flagValue, 64)
+		if !isValidTraceSampling(fval) {
+			errs = append(errs, fmt.Errorf("\n Unsupported value: %q, supported values for: %q is between %.1f to %.1f",
+				flagValue, flagName, traceSamplingMin, traceSamplingMax))
+		}
+	}
+	if flagName == "installPackagePath" {
+		if err := validate.InstallPackagePath([]string{flagName}, flagValue); len(err) != 0 {
+			errs = append(errs, err)
+		}
+	}
+	if flagName == "hub" {
+		if err := validate.Hub([]string{flagName}, flagValue); len(err) != 0 {
+			errs = append(errs, err)
+		}
+	}
+	if flagName == "tag" {
+		if err := validate.Tag([]string{flagName}, flagValue); len(err) != 0 {
+			errs = append(errs, fmt.Errorf("unsupported tag %q", err))
 		}
 	}
 	return
@@ -128,25 +176,10 @@ func containString(s []string, searchterm string) bool {
 	return false
 }
 
-func verifyValues(flagName, flagValue string) (errs util.Errors) {
-	val := getFlagValue(flagName)
-	switch val.(type) {
-	case []string:
-		if !containString(val.([]string), flagValue) {
-			errs = append(errs, fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %q",
-				flagValue, flagName, strings.Join(val.([]string), ", ")))
-		}
-	case []bool:
-		_, err := strconv.ParseBool(flagValue)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %t",
-				flagValue, flagName, boolValues))
-		}
-	case validate.ValidatorFunc:
-		iops := &v1alpha1.IstioOperatorSpec{Tag: flagValue}
-		if err := validate.CheckIstioOperatorSpec(iops, true); len(err) != 0 {
-			errs = append(errs, fmt.Errorf(err.Error()))
-		}
+// isValidTraceSampling validates pilot sampling rate
+func isValidTraceSampling(n float64) bool {
+	if n < traceSamplingMin || n > traceSamplingMax {
+		return false
 	}
-	return
+	return true
 }

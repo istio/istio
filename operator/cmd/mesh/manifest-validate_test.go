@@ -63,10 +63,10 @@ func TestValidateSetFlags(t *testing.T) {
 		{
 			name: "Test Unsupported values",
 			args: []string{
-				"values.global.imagePullPolicy=Occassionally",
+				"values.global.imagePullPolicy=Occasionally",
 			},
 			want: fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %q",
-				"Occassionally", "imagePullPolicy", strings.Join(imagePullPolicy, ", ")),
+				"Occasionally", "imagePullPolicy", strings.Join(imagePullPolicy, ", ")),
 		},
 		{
 			name: "Test supported values",
@@ -74,6 +74,21 @@ func TestValidateSetFlags(t *testing.T) {
 				"values.global.imagePullPolicy=IfNotPresent",
 			},
 			want: nil,
+		},
+		{
+			name: "Test supported traceSampling",
+			args: []string{
+				"values.pilot.traceSampling=10.5",
+			},
+			want: nil,
+		},
+		{
+			name: "Test Unsupported traceSampling",
+			args: []string{
+				"values.pilot.traceSampling=100.5",
+			},
+			want: fmt.Errorf("\n Unsupported value: %q, supported values for: %q is between %.1f to %.1f",
+				"100.5", "values.pilot.traceSampling", traceSamplingMin, traceSamplingMax),
 		},
 	}
 	for _, tt := range tests {

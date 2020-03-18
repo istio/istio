@@ -16,6 +16,7 @@ package validate
 
 import (
 	"fmt"
+	"net/url"
 	"reflect"
 
 	"istio.io/api/operator/v1alpha1"
@@ -27,8 +28,10 @@ import (
 var (
 	// DefaultValidations maps a data path to a validation function.
 	DefaultValidations = map[string]ValidatorFunc{
-		"Hub":                                validateHub,
-		"Tag":                                validateTag,
+
+		"Hub":                                Hub,
+		"Tag":                                Tag,
+		"InstallPackagePath":                 InstallPackagePath,
 		"AddonComponents":                    validateAddonComponents,
 		"Components.IngressGateways[*].Name": validateGatewayName,
 		"Components.EgressGateways[*].Name":  validateGatewayName,
@@ -154,12 +157,30 @@ func validateLeaf(validations map[string]ValidatorFunc, path util.Path, val inte
 	return vf(path, val)
 }
 
-func validateHub(path util.Path, val interface{}) util.Errors {
+func Hub(path util.Path, val interface{}) util.Errors {
 	return validateWithRegex(path, val, ReferenceRegexp)
 }
 
-func validateTag(path util.Path, val interface{}) util.Errors {
+func Tag(path util.Path, val interface{}) util.Errors {
 	return validateWithRegex(path, val, TagRegexp)
+}
+
+func InstallPackagePath(path util.Path, val interface{}) util.Errors {
+	valStr, ok := val.(string)
+	if !ok {
+		return util.NewErrs(fmt.Errorf("validateInstallPackagePath(%s) bad type %T, want string", path, val))
+	}
+
+	if valStr == "" {
+		// compiled-in charts
+		return nil
+	}
+
+	if _, err := url.ParseRequestURI(val.(string)); err != nil {
+		return util.NewErrs(fmt.Errorf("invalid value %s: %s", path, valStr))
+	}
+
+	return nil
 }
 
 func validateAddonComponents(path util.Path, val interface{}) util.Errors {
