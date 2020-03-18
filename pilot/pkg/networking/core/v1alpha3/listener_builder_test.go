@@ -231,8 +231,11 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 	}
 
 	for k, v := range byListenerName {
-		if k == VirtualInboundListenerName && v != 4 {
-			t.Fatalf("expect virtual listener has 4 passthrough listeners, found %d", v)
+		if k == VirtualInboundListenerName && v != 2 {
+			t.Fatalf("expect virtual listener has 2 passthrough filter chains, found %d", v)
+		}
+		if k == virtualInboundCatchAllHTTPFilterChainName && v != 2 {
+			t.Fatalf("expect virtual listener has 2 passthrough filter chains, found %d", v)
 		}
 		if k == listeners[0].Name && v != len(listeners[0].FilterChains) {
 			t.Fatalf("expect virtual listener has %d filter chains from listener %s, found %d", len(listeners[0].FilterChains), l.Name, v)
