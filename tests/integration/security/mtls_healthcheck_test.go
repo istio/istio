@@ -60,11 +60,11 @@ kind: "PeerAuthentication"
 metadata:
   name: "mtls-strict-for-%v"
 spec:
-	selector:
-	  matchLabels:
+  selector:
+    matchLabels:
 		  app: "%v"
-	mtls:
-  	mode: STRICT
+  mtls:
+    mode: STRICT
 `, name, name)
 	g.ApplyConfigOrFail(t, ns, policyYAML)
 	defer g.DeleteConfigOrFail(t, ns, policyYAML)
