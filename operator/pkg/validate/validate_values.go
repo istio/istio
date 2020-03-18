@@ -45,7 +45,7 @@ func CheckValues(root map[string]interface{}) util.Errors {
 	if err := util.UnmarshalValuesWithJSONPB(string(vs), val, false); err != nil {
 		return util.Errors{err}
 	}
-	return ValidateValues(DefaultValuesValidations, root, nil)
+	return ValuesValidate(DefaultValuesValidations, root, nil)
 }
 
 // CheckValues validates the values in the given tree string, which follows the Istio values.yaml schema.
@@ -58,10 +58,10 @@ func CheckValuesString(vs []byte) util.Errors {
 	return CheckValues(yamlTree)
 }
 
-// ValidateValues validates the values of the tree using the supplied Func
-func ValidateValues(validations map[string]ValidatorFunc, node interface{}, path util.Path) (errs util.Errors) {
+// ValuesValidate validates the values of the tree using the supplied Func
+func ValuesValidate(validations map[string]ValidatorFunc, node interface{}, path util.Path) (errs util.Errors) {
 	pstr := path.String()
-	scope.Debugf("ValidateValues %s", pstr)
+	scope.Debugf("ValuesValidate %s", pstr)
 	vf := validations[pstr]
 	if vf != nil {
 		errs = util.AppendErrs(errs, vf(path, node))
@@ -73,7 +73,7 @@ func ValidateValues(validations map[string]ValidatorFunc, node interface{}, path
 		return errs
 	}
 	for k, v := range nn {
-		errs = util.AppendErrs(errs, ValidateValues(validations, v, append(path, k)))
+		errs = util.AppendErrs(errs, ValuesValidate(validations, v, append(path, k)))
 	}
 
 	return errs
