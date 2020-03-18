@@ -898,14 +898,10 @@ func TestSetDestinationRule(t *testing.T) {
 	ps.SetDestinationRules([]Config{destinationRuleNamespace1, destinationRuleNamespace2})
 	subsetsLocal := len(ps.namespaceLocalDestRules["test-namespace1"].destRule[host.Name(testhost)].config.Spec.(*networking.DestinationRule).Subsets)
 	subsetsExport := len(ps.namespaceExportedDestRules["test-namespace1"].destRule[host.Name(testhost)].config.Spec.(*networking.DestinationRule).Subsets)
-	subsetsAll := len(ps.allExportedDestRules.destRule[host.Name(testhost)].config.Spec.(*networking.DestinationRule).Subsets)
 	if subsetsLocal != 2 {
 		t.Fatalf("want %d, but got %d", 2, subsetsLocal)
 	}
 	if subsetsExport != 2 {
 		t.Fatalf("want %d, but got %d", 2, subsetsExport)
-	}
-	if subsetsAll != 4 {
-		t.Fatalf("want %d, but got %d", 4, subsetsAll)
 	}
 }
