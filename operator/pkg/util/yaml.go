@@ -17,6 +17,7 @@ package util
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -71,6 +72,12 @@ func UnmarshalWithJSONPB(y string, out proto.Message, allowUnknownField bool) er
 	if err != nil {
 		return err
 	}
+
+	// Silence stray output to stderr in jsonpb package (issues/22261).
+	stderr := os.Stderr
+	defer func() { os.Stderr = stderr }()
+	_, w, _ := os.Pipe()
+	os.Stderr = w
 
 	u := jsonpb.Unmarshaler{AllowUnknownFields: allowUnknownField}
 	err = u.Unmarshal(bytes.NewReader(jb), out)
