@@ -232,7 +232,8 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  annotations: null
+  annotations:
+    manifest-generate: testserviceAnnotation
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
