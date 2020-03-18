@@ -16545,7 +16545,6 @@ spec:
   selector:
     matchLabels:
       app: istiod
-      release: istio-base
       istio: pilot
 ---
 
@@ -17429,6 +17428,7 @@ spec:
       maxUnavailable: 25%
   selector:
     matchLabels:
+      app: istiod
       istio: pilot
   template:
     metadata:
@@ -19351,8 +19351,8 @@ spec:
       maxUnavailable: {{ .Values.pilot.rollingMaxUnavailable }}
   selector:
     matchLabels:
-      {{- if ne .Values.revision ""}}
       app: istiod
+      {{- if ne .Values.revision ""}}
       version: {{ .Values.revision }}
       {{- else }}
       istio: pilot
@@ -19739,7 +19739,6 @@ spec:
       {{- if ne .Values.revision ""}}
       version: {{ .Values.revision }}
       {{- end }}
-      release: {{ .Release.Name }}
       istio: pilot
 ---
 {{- end }}
