@@ -155,6 +155,8 @@ var (
 				log.Infof("Obtained private IP %v", ipAddrs)
 				if len(role.IPAddresses) == 1 {
 					for _, ip := range ipAddrs {
+						// prevent duplicate ips, the first one must be the pod ip
+						// as we pick the first ip as pod ip in istiod
 						if role.IPAddresses[0] != ip {
 							role.IPAddresses = append(role.IPAddresses, ip)
 						}
