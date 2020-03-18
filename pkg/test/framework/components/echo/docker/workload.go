@@ -151,7 +151,7 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 			"POD_NAMESPACE="+cfg.Namespace.Name(),
 			"PILOT_ADDRESS="+pilotAddress,
 			"CA_ADDR="+pilotAddress,
-			"PROV_CERT="+"./etc/certs",
+			"PROV_CERT=./etc/certs",
 			"ENVOY_PORT=15001",
 			"ENVOY_USER=istio-proxy",
 			"ISTIO_AGENT_FLAGS="+agentArgs,
