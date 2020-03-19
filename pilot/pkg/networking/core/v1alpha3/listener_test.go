@@ -1432,7 +1432,9 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 func TestOutboundListenerAccessLogs(t *testing.T) {
 	t.Helper()
 	p := &fakePlugin{}
-	listeners := buildAllListeners(p, nil)
+	env := buildListenerEnv(nil)
+
+	listeners := buildAllListeners(p, nil, env)
 	found := false
 	for _, l := range listeners {
 		if l.Name == VirtualOutboundListenerName {
@@ -1449,6 +1451,35 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("expected virtual outbound listener, but not found")
+	}
+
+	// Update MeshConfig
+	env.Mesh().AccessLogFormat = "format modified"
+
+	// Trigger MeshConfig change and validate that access log is recomputed.
+	resetCachedListenerConfig(nil)
+
+	// Validate that access log filter users the new format.
+	listeners = buildAllListeners(p, nil, env)
+	for _, l := range listeners {
+		if l.Name == VirtualOutboundListenerName {
+			validateAccessLog(t, l, "format modified")
+		}
+	}
+}
+
+func validateAccessLog(t *testing.T, l *xdsapi.Listener, format string) {
+	t.Helper()
+	fc := &tcp_proxy.TcpProxy{}
+	if err := getFilterConfig(l.FilterChains[0].Filters[0], fc); err != nil {
+		t.Fatalf("failed to get TCP Proxy config: %s", err)
+	}
+	if fc.AccessLog == nil {
+		t.Fatal("expected access log configuration")
+	}
+	cfg, _ := conversion.MessageToStruct(fc.AccessLog[0].GetTypedConfig())
+	if cfg.GetFields()["format"].GetStringValue() != format {
+		t.Fatalf("expected format to be %s, but got %s", format, cfg.GetFields()["format"].GetStringValue())
 	}
 }
 
@@ -1648,10 +1679,8 @@ func getOldestService(services ...*model.Service) *model.Service {
 	return oldestService
 }
 
-func buildAllListeners(p plugin.Plugin, sidecarConfig *model.Config, services ...*model.Service) []*xdsapi.Listener {
+func buildAllListeners(p plugin.Plugin, sidecarConfig *model.Config, env model.Environment) []*xdsapi.Listener {
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
-
-	env := buildListenerEnv(services)
 
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		return nil
