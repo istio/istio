@@ -94,6 +94,7 @@ type Config struct {
 	DisableReportCalls  bool
 	OutlierLogPath      string
 	PilotCertProvider   string
+	ProvCert            string
 }
 
 // newTemplateParams creates a new template configuration for the given configuration.
@@ -122,7 +123,8 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.ControlPlaneAuth(cfg.ControlPlaneAuth),
 		option.DisableReportCalls(cfg.DisableReportCalls),
 		option.PilotCertProvider(cfg.PilotCertProvider),
-		option.OutlierLogPath(cfg.OutlierLogPath))
+		option.OutlierLogPath(cfg.OutlierLogPath),
+		option.ProvCert(cfg.ProvCert))
 
 	if cfg.STSPort > 0 {
 		opts = append(opts, option.STSEnabled(true),

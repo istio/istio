@@ -15,9 +15,21 @@
 package ingress
 
 import (
+	"fmt"
+	"io/ioutil"
+	"sort"
+	"strings"
 	"testing"
 
-	"k8s.io/api/extensions/v1beta1"
+	"github.com/ghodss/yaml"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
+
+	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config/schema/collections"
+
+	"k8s.io/api/networking/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -27,6 +39,94 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 )
+
+func TestGoldenConversion(t *testing.T) {
+	cases := []string{"simple", "tls"}
+	for _, tt := range cases {
+		t.Run(tt, func(t *testing.T) {
+			input, err := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			cfgs := map[string]*model.Config{}
+			for _, obj := range input {
+				ingress := obj.(*v1beta1.Ingress)
+				ConvertIngressVirtualService(*ingress, "mydomain", cfgs)
+			}
+			ordered := []model.Config{}
+			for _, v := range cfgs {
+				ordered = append(ordered, *v)
+			}
+			for _, obj := range input {
+				ingress := obj.(*v1beta1.Ingress)
+				gws := ConvertIngressV1alpha3(*ingress, "mydomain")
+				ordered = append(ordered, gws)
+			}
+
+			sort.Slice(ordered, func(i, j int) bool {
+				return ordered[i].Name < ordered[j].Name
+			})
+			output := marshalYaml(t, ordered)
+			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt)
+			if util.Refresh() {
+				if err := ioutil.WriteFile(goldenFile, output, 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			expected, err := ioutil.ReadFile(goldenFile)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(output) != string(expected) {
+				t.Fatalf("expected %v, got %v", string(expected), string(output))
+			}
+		})
+	}
+}
+
+// Print as YAML
+func marshalYaml(t *testing.T, cl []model.Config) []byte {
+	t.Helper()
+	result := []byte{}
+	separator := []byte("---\n")
+	for _, config := range cl {
+		s, exists := collections.All.FindByGroupVersionKind(config.GroupVersionKind())
+		if !exists {
+			t.Fatalf("Unknown kind %v for %v", config.GroupVersionKind(), config.Name)
+		}
+		obj, err := crd.ConvertConfig(s, config)
+		if err != nil {
+			t.Fatalf("Could not decode %v: %v", config.Name, err)
+		}
+		bytes, err := yaml.Marshal(obj)
+		if err != nil {
+			t.Fatalf("Could not convert %v to YAML: %v", config, err)
+		}
+		result = append(result, bytes...)
+		result = append(result, separator...)
+	}
+	return result
+}
+
+func readConfig(t *testing.T, filename string) ([]runtime.Object, error) {
+	t.Helper()
+
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("failed to read input yaml file: %v", err)
+	}
+	var varr []runtime.Object
+	for _, yml := range strings.Split(string(data), "\n---") {
+		obj, _, err := scheme.Codecs.UniversalDeserializer().Decode([]byte(yml), nil, nil)
+		if err != nil {
+			return nil, err
+		}
+		varr = append(varr, obj)
+	}
+
+	return varr, nil
+}
 
 func TestConversion(t *testing.T) {
 	ingress := v1beta1.Ingress{

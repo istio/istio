@@ -1,9 +1,3 @@
-BundledAddonComponentNames:
-  - "Prometheus"
-  - "Kiali"
-  - "Grafana"
-  - "Tracing"
-  - "Istiocoredns"
 DeprecatedComponentNames:
   - "Injector"
   - "CertManager"

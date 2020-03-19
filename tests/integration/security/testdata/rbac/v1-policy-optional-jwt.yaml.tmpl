@@ -1,20 +1,18 @@
 # Enforce access control based on JWT subject.
 # Request without JWT token should pass authentication, but rejected with 403 by RBAC.
 
-apiVersion: "authentication.istio.io/v1alpha1"
-kind: "Policy"
+apiVersion: "security.istio.io/v1beta1"
+kind: "RequestAuthentication"
 metadata:
   name: "optional-jwt-policy-for-b"
   namespace: {{ .Namespace }}
 spec:
-  targets:
-  - name: b
-  origins:
-  - jwt:
-      issuer: "test-issuer-1@istio.io"
-      jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
-  originIsOptional: true
-  principalBinding: USE_ORIGIN
+  selector:
+    matchLabels:
+      app: b
+  jwtRules:
+  - issuer: "test-issuer-1@istio.io"
+    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
 ---
 apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole

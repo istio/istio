@@ -133,7 +133,7 @@ func TestManifestGeneratePilot(t *testing.T) {
 		},
 		{
 			desc:       "pilot_override_kubernetes",
-			diffSelect: "Deployment:*:istiod, Service:*:istio-pilot",
+			diffSelect: "Deployment:*:istiod, Service:*:istiod",
 		},
 		{
 			desc:       "pilot_merge_meshconfig",
@@ -171,6 +171,15 @@ func TestManifestGenerateGateway(t *testing.T) {
 		{
 			desc:       "ingressgateway_k8s_settings",
 			diffSelect: "Deployment:*:istio-ingressgateway, Service:*:istio-ingressgateway",
+		},
+	})
+}
+
+func TestManifestGenerateAddonK8SOverride(t *testing.T) {
+	runTestGroup(t, testGroup{
+		{
+			desc:       "addon_k8s_override",
+			diffSelect: "Service:*:prometheus, Deployment:*:prometheus, Service:*:kiali",
 		},
 	})
 }

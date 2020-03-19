@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 95
+number_of_entries: 96
 ---
 <h2 id="AddonIngressConfig">AddonIngressConfig</h2>
 <section>
@@ -2998,6 +2998,15 @@ No
 No
 </td>
 </tr>
+<tr id="KialiConfig-service">
+<td><code>service</code></td>
+<td><code><a href="#KialiServiceConfig">KialiServiceConfig</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="KialiConfig-replicaCount" class="deprecated ">
 <td><code>replicaCount</code></td>
 <td><code>uint32</code></td>
@@ -3302,6 +3311,43 @@ No
 <td><code>privateKeyFile</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="KialiServiceConfig">KialiServiceConfig</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="KialiServiceConfig-annotations">
+<td><code>annotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiServiceConfig-type">
+<td><code>type</code></td>
+<td><code>string</code></td>
+<td>
+<p>Service type.</p>
+
+<p>See https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types</p>
+
 </td>
 <td>
 No
@@ -5732,6 +5778,15 @@ No
 <tr id="ProxyConfig-outlierLogPath">
 <td><code>outlierLogPath</code></td>
 <td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="ProxyConfig-lifecycle">
+<td><code>lifecycle</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
 </td>
 <td>

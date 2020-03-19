@@ -122,12 +122,6 @@ spec:
         - --log_output_level=default:info
         - --serviceCluster
         - istio-ingressgateway
-        - --proxyAdminPort
-        - "15000"
-        - --controlPlaneAuthPolicy
-        - NONE
-        - --discoveryAddress
-        - istio-pilot.istio-system.svc:15012
         - --trust-domain=cluster.local
         env:
         - name: JWT_POLICY
@@ -283,7 +277,7 @@ spec:
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: ingressgateway
+  name: istio-ingressgateway
   namespace: istio-system
   labels:
     app: istio-ingressgateway
@@ -397,20 +391,6 @@ metadata:
     release: istio
 ---
 
-
-apiVersion: networking.istio.io/v1alpha3
-kind: Sidecar
-metadata:
-  name: default
-  namespace: istio-system
-  labels:
-    release: istio
-spec:
-  egress:
-    - hosts:
-        - "*/*"
----
-
 ---
 # Resources for IngressGateways component
 
@@ -514,12 +494,6 @@ spec:
         - --log_output_level=default:info
         - --serviceCluster
         - user-ingressgateway
-        - --proxyAdminPort
-        - "15000"
-        - --controlPlaneAuthPolicy
-        - NONE
-        - --discoveryAddress
-        - istio-pilot.istio-system.svc:15012
         - --trust-domain=cluster.local
         env:
         - name: JWT_POLICY
@@ -675,7 +649,7 @@ spec:
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: ingressgateway
+  name: user-ingressgateway
   namespace: istio-system
   labels:
     app: istio-ingressgateway
@@ -789,20 +763,6 @@ metadata:
     release: istio
 ---
 
-
-apiVersion: networking.istio.io/v1alpha3
-kind: Sidecar
-metadata:
-  name: default
-  namespace: istio-system
-  labels:
-    release: istio
-spec:
-  egress:
-    - hosts:
-        - "*/*"
----
-
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -876,12 +836,6 @@ spec:
         - --log_output_level=default:info
         - --serviceCluster
         - ilb-gateway
-        - --proxyAdminPort
-        - "15000"
-        - --controlPlaneAuthPolicy
-        - NONE
-        - --discoveryAddress
-        - istio-pilot.istio-system.svc:15012
         - --trust-domain=cluster.local
         env:
         - name: JWT_POLICY
@@ -1058,7 +1012,7 @@ spec:
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: ingressgateway
+  name: ilb-gateway
   namespace: user-ingressgateway-ns
   labels:
     app: istio-ingressgateway
@@ -1160,18 +1114,6 @@ metadata:
     istio: ingressgateway
     
     release: istio
----
-apiVersion: networking.istio.io/v1alpha3
-kind: Sidecar
-metadata:
-  name: default
-  namespace: user-ingressgateway-ns
-  labels:
-    release: istio
-spec:
-  egress:
-    - hosts:
-        - "*/*"
 ---
 
 # Pilot istiod component is disabled.
