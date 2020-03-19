@@ -1354,6 +1354,8 @@ message TelemetryV2StackDriverConfig {
 
   google.protobuf.BoolValue topology = 4;
 
+  google.protobuf.BoolValue disableOutbound = 6;
+
   TypeMapStringInterface configOverride = 5;
 }
 
