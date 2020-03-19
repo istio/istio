@@ -662,6 +662,6 @@ spec:
           requests:
             cpu: 150m
             memory: 900Mi
-        tag: 2.20.0
+        tag: 2.14.2
     version: ""
 
