@@ -42,57 +42,6 @@ func TestReachability(t *testing.T) {
 
 			testCases := []reachability.TestCase{
 				{
-					ConfigFile:          "global-mtls-on.yaml",
-					Namespace:           systemNM,
-					RequiredEnvironment: environment.Kube,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						if src == rctx.Naked && opts.Target == rctx.Naked {
-							// naked->naked should always succeed.
-							return true
-						}
-
-						// If one of the two endpoints is naked, expect failure.
-						return src != rctx.Naked && opts.Target != rctx.Naked
-					},
-				},
-				{
-					ConfigFile:          "global-mtls-permissive.yaml",
-					Namespace:           systemNM,
-					RequiredEnvironment: environment.Kube,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Exclude calls to the naked app.
-						return opts.Target != rctx.Naked
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
-				},
-				{
-					ConfigFile: "global-mtls-off.yaml",
-					Namespace:  systemNM,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
-				},
-				{
-					ConfigFile:          "single-port-mtls-on.yaml",
-					Namespace:           rctx.Namespace,
-					RequiredEnvironment: environment.Kube,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Include all tests that target app B, which has the single-port config.
-						return opts.Target == rctx.B
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						return opts.PortName != "http"
-					},
-				},
-				{
 					ConfigFile:          "beta-mtls-on.yaml",
 					Namespace:           systemNM,
 					RequiredEnvironment: environment.Kube,
@@ -145,17 +94,6 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile:          "mix-mtls-api.yaml",
-					Namespace:           systemNM,
-					RequiredEnvironment: environment.Kube,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
-				},
-				{
 					ConfigFile:          "beta-mtls-automtls.yaml",
 					Namespace:           rctx.Namespace,
 					RequiredEnvironment: environment.Kube,
@@ -188,44 +126,6 @@ func TestReachability(t *testing.T) {
 						// PeerAuthentication disable mTLS for workload app:b, except http port. Thus, autoMTLS
 						// will fail on all ports on b, except http port.
 						return opts.Target != rctx.B || opts.PortName == "http"
-					},
-				},
-				{
-					ConfigFile:          "alpha-mtls-automtls.yaml",
-					Namespace:           rctx.Namespace,
-					RequiredEnvironment: environment.Kube,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						// autoMtls doesn't work for client that doesn't have proxy, unless target doesn't
-						// have proxy or have mTLS disabled.
-						if src == rctx.Naked {
-							return opts.Target == rctx.Naked || (opts.Target == rctx.B && opts.PortName != "http")
-						}
-						return true
-					},
-				},
-				{
-					ConfigFile:          "global-mtls-on-no-dr.yaml",
-					Namespace:           systemNM,
-					RequiredEnvironment: environment.Kube,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Exclude calls to the headless service.
-						// Auto mtls does not apply to headless service, because for headless service
-						// the cluster discovery type is ORIGINAL_DST, and it will not apply upstream tls setting
-						return opts.Target != rctx.Headless
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						// When mTLS is in STRICT mode, DR's TLS settings are default to mTLS so the result would
-						// be the same as having global DR rule.
-						if opts.Target == rctx.Naked {
-							// calls to naked should always succeed.
-							return true
-						}
-
-						// If source is naked, and destination is not, expect failure.
-						return !(src == rctx.Naked && opts.Target != rctx.Naked)
 					},
 				},
 				{
