@@ -18,13 +18,33 @@ import (
 	"fmt"
 	"testing"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 )
 
+// QueryPrometheus queries prometheus and returns the result once the query stabilizes
 func QueryPrometheus(t *testing.T, query string, promInst prometheus.Instance) error {
 	t.Logf("query prometheus with: %v", query)
 	val, err := promInst.WaitForQuiesce(query)
 	if err != nil {
+		return err
+	}
+	got, err := promInst.Sum(val, nil)
+	if err != nil {
+		t.Logf("value: %s", val.String())
+		return fmt.Errorf("could not find metric value: %v", err)
+	}
+	t.Logf("get value %v", got)
+	return nil
+}
+
+// QueryFirstPrometheus queries prometheus and returns the result once a timeseries exists
+func QueryFirstPrometheus(t *testing.T, query string, promInst prometheus.Instance) error {
+	t.Logf("query prometheus with: %v", query)
+	val, err := promInst.WaitForOneOrMore(query)
+	if err != nil {
+		log.Errorf("howardjohn: err1 %v", err)
 		return err
 	}
 	got, err := promInst.Sum(val, nil)
