@@ -23,8 +23,8 @@ import (
 
 	"istio.io/pkg/ledger"
 
-	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
-	"k8s.io/client-go/informers/extensions/v1beta1"
+	ingress "k8s.io/api/networking/v1beta1"
+	"k8s.io/client-go/informers/networking/v1beta1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
@@ -148,7 +148,7 @@ func (c *controller) onEvent(obj interface{}, event model.Event) error {
 		return errors.New("waiting till full synchronization")
 	}
 
-	ingress, ok := obj.(*extensionsv1beta1.Ingress)
+	ingress, ok := obj.(*ingress.Ingress)
 	if !ok || !shouldProcessIngress(c.mesh, ingress) {
 		return nil
 	}
@@ -240,7 +240,7 @@ func (c *controller) Get(typ resource.GroupVersionKind, name, namespace string) 
 		return nil
 	}
 
-	ingress := obj.(*extensionsv1beta1.Ingress)
+	ingress := obj.(*ingress.Ingress)
 	if !shouldProcessIngress(c.mesh, ingress) {
 		return nil
 	}
@@ -259,7 +259,7 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]mo
 	ingressByHost := map[string]*model.Config{}
 
 	for _, obj := range c.informer.GetStore().List() {
-		ingress := obj.(*extensionsv1beta1.Ingress)
+		ingress := obj.(*ingress.Ingress)
 		if namespace != "" && namespace != ingress.Namespace {
 			continue
 		}

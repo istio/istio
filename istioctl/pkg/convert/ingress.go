@@ -17,7 +17,7 @@ package convert
 import (
 	"strings"
 
-	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/networking/v1beta1"
 
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/model"
