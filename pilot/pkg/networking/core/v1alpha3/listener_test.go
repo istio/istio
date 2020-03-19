@@ -1457,7 +1457,7 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	env.Mesh().AccessLogFormat = "format modified"
 
 	// Trigger MeshConfig change and validate that access log is recomputed.
-	rebuildCachedListeners(nil)
+	resetCachedListenerConfig(nil)
 
 	// Validate that access log filter users the new format.
 	listeners = buildAllListeners(p, nil, env)

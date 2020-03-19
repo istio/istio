@@ -32,5 +32,5 @@ func NewConfigGenerator(plugins []plugin.Plugin) *ConfigGeneratorImpl {
 
 // Called when mesh config is changed.
 func (configgen *ConfigGeneratorImpl) MeshConfigChanged(mesh *meshconfig.MeshConfig) {
-	rebuildCachedListeners(mesh)
+	resetCachedListenerConfig(mesh)
 }

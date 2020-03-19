@@ -2614,7 +2614,7 @@ func removeListenerFilterTimeout(listeners []*xdsapi.Listener) {
 }
 
 // nolint: unparam
-func rebuildCachedListeners(mesh *meshconfig.MeshConfig) {
+func resetCachedListenerConfig(mesh *meshconfig.MeshConfig) {
 	lmutex.Lock()
 	defer lmutex.Unlock()
 	cachedAccessLog = nil
