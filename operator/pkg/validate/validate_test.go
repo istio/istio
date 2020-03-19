@@ -41,6 +41,24 @@ components:
 `,
 		},
 		{
+			desc: "complicated k8s overlay",
+			yamlStr: `
+profile: default
+components:
+  ingressGateways:
+  - enabled: true
+    k8s:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: zone
+                operator: In
+                values:
+                - istio`,
+		},
+		{
 			desc: "CommonConfig",
 			// TODO:        debug: INFO
 			yamlStr: `

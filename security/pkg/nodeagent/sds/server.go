@@ -114,6 +114,9 @@ type Options struct {
 
 	// OutputKeyCertToDir is the directory for output the key and certificate
 	OutputKeyCertToDir string
+
+	// Existing certs, for VM or existing certificates
+	CertsDir string
 }
 
 // Server is the gPRC server that exposes SDS through UDS.

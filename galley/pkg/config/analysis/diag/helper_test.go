@@ -18,14 +18,21 @@ import (
 	"istio.io/istio/pkg/config/resource"
 )
 
-var _ resource.Origin = testOrigin("")
+var _ resource.Origin = &testOrigin{}
 
-type testOrigin string
+type testOrigin struct {
+	name string
+	ref  string
+}
 
 func (o testOrigin) FriendlyName() string {
-	return string(o)
+	return o.name
 }
 
 func (o testOrigin) Namespace() resource.Namespace {
 	return ""
+}
+
+func (o testOrigin) Reference() string {
+	return o.ref
 }

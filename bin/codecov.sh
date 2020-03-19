@@ -27,6 +27,7 @@ DIR="./..."
 CODECOV_SKIP=${CODECOV_SKIP:-"${ROOTDIR}/codecov.skip"}
 SKIPPED_TESTS_GREP_ARGS=
 TEST_RETRY_COUNT=3
+GOBUILDFLAGS=${GOBUILDFLAGS:-""}
 
 # Set GOPATH to match the expected layout
 GO_TOP=$(cd "$(dirname "$0")"/../../../..; pwd)
@@ -57,7 +58,9 @@ function code_coverage() {
   local filename
   local count=${2:-0}
   filename="$(echo "${1}" | tr '/' '-')"
-  go test \
+
+  # shellcheck disable=SC2086
+  go test ${GOBUILDFLAGS} \
     -coverpkg=istio.io/istio/... \
     -coverprofile="${COVERAGEDIR}/${filename}.cov" \
     -covermode=atomic "${1}" \

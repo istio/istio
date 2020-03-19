@@ -127,6 +127,9 @@ spec:
     - name: istio-ingressgateway
       enabled: true
       k8s:
+        env:
+          - name: ISTIO_META_ROUTER_MODE
+            value: "sni-dnat"
         hpaSpec:
           maxReplicas: 5
           minReplicas: 1
@@ -155,13 +158,16 @@ spec:
     - name: istio-egressgateway
       enabled: false
       k8s:
+        env:
+          - name: ISTIO_META_ROUTER_MODE
+            value: "sni-dnat"
         hpaSpec:
           maxReplicas: 5
           minReplicas: 1
           scaleTargetRef:
             apiVersion: apps/v1
             kind: Deployment
-            name: istio-ingressgateway
+            name: istio-egressgateway
           metrics:
             - type: Resource
               resource:
@@ -449,8 +455,8 @@ spec:
       istio-egressgateway:
         autoscaleEnabled: true
         type: ClusterIP
-        env:
-          ISTIO_META_ROUTER_MODE: "sni-dnat"
+        name: istio-egressgateway
+        # Ports must be set here and not in IstioOperator because they also end up in proxy settings.
         ports:
           - port: 80
             name: http2
@@ -473,8 +479,8 @@ spec:
         debug: info
         domain: ""
         type: LoadBalancer
-        env:
-          ISTIO_META_ROUTER_MODE: "sni-dnat"
+        name: istio-ingressgateway
+        # Ports must be set here and not in IstioOperator because they also end up in proxy settings.
         ports:
           - port: 15020
             targetPort: 15020
@@ -504,6 +510,9 @@ spec:
           - port: 15011
             targetPort: 15011
             name: tcp-pilot-grpc-tls
+          - port: 15012
+            targetPort: 15012
+            name: tcp-istiod
           - port: 8060
             targetPort: 8060
             name: tcp-citadel-grpc-tls

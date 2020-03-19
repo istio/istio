@@ -12,6 +12,9 @@ cni:
 egressGateways:
 - enabled: false
   k8s:
+    env:
+    - name: ISTIO_META_ROUTER_MODE
+      value: sni-dnat
     hpaSpec:
       maxReplicas: 5
       metrics:
@@ -23,7 +26,7 @@ egressGateways:
       scaleTargetRef:
         apiVersion: apps/v1
         kind: Deployment
-        name: istio-ingressgateway
+        name: istio-egressgateway
     resources:
       limits:
         cpu: 2000m
@@ -50,6 +53,9 @@ galley:
 ingressGateways:
 - enabled: true
   k8s:
+    env:
+    - name: ISTIO_META_ROUTER_MODE
+      value: sni-dnat
     hpaSpec:
       maxReplicas: 5
       metrics:

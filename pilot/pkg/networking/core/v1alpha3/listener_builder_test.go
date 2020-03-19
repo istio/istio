@@ -43,7 +43,7 @@ func getDefaultLdsEnv() *LdsEnv {
 }
 
 func getDefaultProxy() model.Proxy {
-	return model.Proxy{
+	proxy := model.Proxy{
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
@@ -55,6 +55,9 @@ func getDefaultProxy() model.Proxy {
 		IstioVersion:    model.ParseIstioVersion("1.4"),
 		ConfigNamespace: "not-default",
 	}
+
+	proxy.DiscoverIPVersions()
+	return proxy
 }
 
 func setNilSidecarOnProxy(proxy *model.Proxy, pushContext *model.PushContext) {
@@ -87,8 +90,8 @@ func TestListenerBuilder(t *testing.T) {
 	proxy.ServiceInstances = instances
 	setNilSidecarOnProxy(&proxy, env.PushContext)
 
-	builder := NewListenerBuilder(&proxy)
-	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen, &proxy, env.PushContext).
+	builder := NewListenerBuilder(&proxy, env.PushContext)
+	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen).
 		getListeners()
 
 	// the listener for app
@@ -134,9 +137,9 @@ func TestVirtualListenerBuilder(t *testing.T) {
 	proxy.ServiceInstances = instances
 	setNilSidecarOnProxy(&proxy, env.PushContext)
 
-	builder := NewListenerBuilder(&proxy)
-	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen, &proxy, env.PushContext).
-		buildVirtualOutboundListener(ldsEnv.configgen, &proxy, env.PushContext).
+	builder := NewListenerBuilder(&proxy, env.PushContext)
+	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen).
+		buildVirtualOutboundListener(ldsEnv.configgen).
 		getListeners()
 
 	// app port listener and virtual inbound listener
@@ -185,10 +188,10 @@ func prepareListeners(t *testing.T) []*v2.Listener {
 	setInboundCaptureAllOnThisNode(&proxy)
 	setNilSidecarOnProxy(&proxy, env.PushContext)
 
-	builder := NewListenerBuilder(&proxy)
-	return builder.buildSidecarInboundListeners(ldsEnv.configgen, &proxy, env.PushContext).
-		buildVirtualOutboundListener(ldsEnv.configgen, &proxy, env.PushContext).
-		buildVirtualInboundListener(ldsEnv.configgen, &proxy, env.PushContext).
+	builder := NewListenerBuilder(&proxy, env.PushContext)
+	return builder.buildSidecarInboundListeners(ldsEnv.configgen).
+		buildVirtualOutboundListener(ldsEnv.configgen).
+		buildVirtualInboundListener(ldsEnv.configgen).
 		getListeners()
 }
 

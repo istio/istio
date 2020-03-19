@@ -27,11 +27,12 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
+	"istio.io/istio/pkg/test/framework/resource/environment"
+
 	"istio.io/pkg/log"
 )
 
@@ -82,7 +83,7 @@ func TestIngressLoadBalancing(t *testing.T) {
 		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 	)
 
-	prom := prometheus.NewOrFail(t, ctx)
+	prom := prometheus.NewOrFail(t, ctx, prometheus.Config{})
 	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: ist})
 
 	rangeStart := time.Now()

@@ -138,10 +138,6 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 			},
 			Labels:  svcLabels,
 			TLSMode: tlsMode,
-			Attributes: model.ServiceAttributes{
-				Name:      string(hostname),
-				Namespace: model.IstioDefaultConfigNamespace,
-			},
 		},
 		ServicePort: port,
 		Service: &model.Service{

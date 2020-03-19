@@ -89,12 +89,12 @@ type Config struct {
 	PodNamespace        string
 	PodIP               net.IP
 	SDSUDSPath          string
-	SDSTokenPath        string
 	STSPort             int
 	ControlPlaneAuth    bool
 	DisableReportCalls  bool
 	OutlierLogPath      string
 	PilotCertProvider   string
+	ProvCert            string
 }
 
 // newTemplateParams creates a new template configuration for the given configuration.
@@ -119,12 +119,12 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.PodIP(cfg.PodIP),
 		option.PilotSubjectAltName(cfg.PilotSubjectAltName),
 		option.MixerSubjectAltName(cfg.MixerSubjectAltName),
-		option.SDSTokenPath(cfg.SDSTokenPath),
 		option.SDSUDSPath(cfg.SDSUDSPath),
 		option.ControlPlaneAuth(cfg.ControlPlaneAuth),
 		option.DisableReportCalls(cfg.DisableReportCalls),
 		option.PilotCertProvider(cfg.PilotCertProvider),
-		option.OutlierLogPath(cfg.OutlierLogPath))
+		option.OutlierLogPath(cfg.OutlierLogPath),
+		option.ProvCert(cfg.ProvCert))
 
 	if cfg.STSPort > 0 {
 		opts = append(opts, option.STSEnabled(true),
@@ -132,7 +132,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	}
 
 	// Support passing extra info from node environment as metadata
-	sdsEnabled := cfg.SDSTokenPath != "" && cfg.SDSUDSPath != ""
+	sdsEnabled := cfg.SDSUDSPath != ""
 	meta, rawMeta, err := getNodeMetaData(cfg.LocalEnv, cfg.PlatEnv, cfg.NodeIPs, sdsEnabled, cfg.STSPort)
 	if err != nil {
 		return nil, err

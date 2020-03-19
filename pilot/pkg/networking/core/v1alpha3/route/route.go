@@ -428,6 +428,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 				action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{
 					Cluster:         GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], port),
 					RuntimeFraction: mp,
+					TraceSampled:    &wrappers.BoolValue{Value: false},
 				}
 			}
 		}
@@ -706,7 +707,7 @@ func translateHeaderMatch(name string, in *networking.StringMatch, node *model.P
 	case *networking.StringMatch_Exact:
 		out.HeaderMatchSpecifier = &route.HeaderMatcher_ExactMatch{ExactMatch: m.Exact}
 	case *networking.StringMatch_Prefix:
-		// Envoy regex grammar is ECMA-262 (http://en.cppreference.com/w/cpp/regex/ecmascript)
+		// Envoy regex grammar is RE2 (https://github.com/google/re2/wiki/Syntax)
 		// Golang has a slightly different regex grammar
 		out.HeaderMatchSpecifier = &route.HeaderMatcher_PrefixMatch{PrefixMatch: m.Prefix}
 	case *networking.StringMatch_Regex:
@@ -741,9 +742,9 @@ func convertToEnvoyMatch(in []*networking.StringMatch) []*matcher.StringMatcher 
 	for _, istioMatcher := range in {
 		switch m := istioMatcher.MatchType.(type) {
 		case *networking.StringMatch_Exact:
-			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{m.Exact}})
+			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{Exact: m.Exact}})
 		case *networking.StringMatch_Prefix:
-			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Prefix{m.Prefix}})
+			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: m.Prefix}})
 		case *networking.StringMatch_Regex:
 			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_SafeRegex{
 				SafeRegex: &matcher.RegexMatcher{

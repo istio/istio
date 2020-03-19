@@ -19,10 +19,10 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 func TestK8sDeployment(t *testing.T) {
@@ -40,7 +40,7 @@ func TestK8sDeployment(t *testing.T) {
 			t.Fatalf("Unexpected error: %v", err)
 		}
 
-		env := ctx.Environment().(*kube.Environment)
+		cluster := ctx.Environment().(*kube.Environment).KubeClusters[0]
 
 		time.Sleep(time.Minute * 2) // Sleep for two minutes to account for the initial crash loops during the pod startup.
 
@@ -48,7 +48,7 @@ func TestK8sDeployment(t *testing.T) {
 		var successCount int
 		var lastWasSuccess bool
 		for i := 0; i < tryCount; i++ {
-			if _, err := env.CheckPodsAreReady(env.NewPodFetch(cfg.IstioNamespace)); err != nil {
+			if _, err := cluster.CheckPodsAreReady(cluster.NewPodFetch(cfg.IstioNamespace)); err != nil {
 				lastWasSuccess = false
 				t.Logf("Error waiting for pods: %v", err)
 			} else {
@@ -72,6 +72,7 @@ func TestK8sDeployment(t *testing.T) {
 func TestMain(m *testing.M) {
 	framework.NewSuite("mixer_k8s_test", m).
 		RequireEnvironment(environment.Kube).
+		RequireSingleCluster().
 		Label(label.CustomSetup). // This test deploys without Galley & MCP.
 		Run()
 }

@@ -41,7 +41,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
-	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/queue"
@@ -663,7 +662,6 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 							Label:     util.LocalityToString(proxy.Locality),
 							ClusterID: c.clusterID,
 						},
-						Attributes: model.ServiceAttributes{Name: svc.Name, Namespace: svc.Namespace},
 					},
 				})
 			}
@@ -704,7 +702,6 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 		return out
 	}
 
-	podIP := proxy.IPAddresses[0]
 	tps := make(map[model.Port]*model.Port)
 	for _, port := range service.Spec.Ports {
 		svcPort, exists := svc.Ports.Get(port.Name)
@@ -729,10 +726,16 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 		}
 	}
 
+	builder := NewEndpointBuilder(c, pod)
 	for tp, svcPort := range tps {
 		// consider multiple IP scenarios
 		for _, ip := range proxy.IPAddresses {
-			out = append(out, c.getEndpoints(podIP, ip, int32(tp.Port), svcPort, svc))
+			istioEndpoint := builder.buildIstioEndpoint(ip, int32(tp.Port), svcPort.Name)
+			out = append(out, &model.ServiceInstance{
+				Service:     svc,
+				ServicePort: svcPort,
+				Endpoint:    istioEndpoint,
+			})
 		}
 	}
 	return out
@@ -749,36 +752,6 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collecti
 	return nil, nil
 }
 
-func (c *Controller) getEndpoints(podIP, address string, endpointPort int32, svcPort *model.Port, svc *model.Service) *model.ServiceInstance {
-	podLabels, _ := c.pods.labelsByIP(podIP)
-	pod := c.pods.getPodByIP(podIP)
-	locality, sa, uid := "", "", ""
-	if pod != nil {
-		locality = c.getPodLocality(pod)
-		sa = kube.SecureNamingSAN(pod)
-		uid = createUID(pod.Name, pod.Namespace)
-	}
-	return &model.ServiceInstance{
-		Service:     svc,
-		ServicePort: svcPort,
-		Endpoint: &model.IstioEndpoint{
-			Address:         address,
-			EndpointPort:    uint32(endpointPort),
-			ServicePortName: svcPort.Name,
-			Labels:          podLabels,
-			UID:             uid,
-			ServiceAccount:  sa,
-			Network:         c.endpointNetwork(address),
-			Locality: model.Locality{
-				Label:     locality,
-				ClusterID: c.clusterID,
-			},
-			Attributes: model.ServiceAttributes{Name: svc.Attributes.Name, Namespace: svc.Attributes.Namespace},
-			TLSMode:    kube.PodTLSMode(pod),
-		},
-	}
-}
-
 // GetIstioServiceAccounts returns the Istio service accounts running a serivce
 // hostname. Each service account is encoded according to the SPIFFE VSID spec.
 // For example, a service account named "bar" in namespace "foo" is encoded as
@@ -790,12 +763,12 @@ func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []
 	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
 	// the service is deployed on, and the service accounts of the pods.
 	for _, port := range ports {
-		svcinstances, err := c.InstancesByPort(svc, port, labels.Collection{})
+		svcInstances, err := c.InstancesByPort(svc, port, labels.Collection{})
 		if err != nil {
 			log.Warnf("InstancesByPort(%s:%d) error: %v", svc.Hostname, port, err)
 			return nil
 		}
-		instances = append(instances, svcinstances...)
+		instances = append(instances, svcInstances...)
 	}
 
 	for _, si := range instances {
@@ -831,6 +804,13 @@ func (c *Controller) AppendInstanceHandler(func(*model.ServiceInstance, model.Ev
 func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 	hostname := kube.ServiceHostname(ep.Name, ep.Namespace, c.domainSuffix)
 
+	c.RLock()
+	svc := c.servicesMap[hostname]
+	c.RUnlock()
+	if svc == nil {
+		log.Infof("Handle EDS endpoints: skip updating, service %s/%s has not been populated", ep.Name, ep.Namespace)
+		return
+	}
 	endpoints := make([]*model.IstioEndpoint, 0)
 	if event != model.EventDelete {
 		for _, ss := range ep.Subsets {
@@ -842,7 +822,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 					if ea.TargetRef != nil && ea.TargetRef.Kind == "Pod" {
 						pod = c.pods.getPod(ea.TargetRef.Name, ea.TargetRef.Namespace)
 						if pod == nil {
-							// If pod is still not availalable, this an unuusual case.
+							// If pod is still not available, this an unusual case.
 							endpointsWithNoPods.Increment()
 							log.Errorf("Endpoint without pod %s %s.%s", ea.IP, ep.Name, ep.Namespace)
 							if c.metrics != nil {
@@ -853,41 +833,19 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 					}
 				}
 
-				var labelMap map[string]string
-				locality, sa, uid := "", "", ""
-				if pod != nil {
-					locality = c.getPodLocality(pod)
-					sa = kube.SecureNamingSAN(pod)
-					uid = createUID(pod.Name, pod.Namespace)
-					labelMap = configKube.ConvertLabels(pod.ObjectMeta)
-				}
-
-				tlsMode := kube.PodTLSMode(pod)
+				builder := NewEndpointBuilder(c, pod)
 
 				// EDS and ServiceEntry use name for service port - ADS will need to
 				// map to numbers.
 				for _, port := range ss.Ports {
-					endpoints = append(endpoints, &model.IstioEndpoint{
-						Address:         ea.IP,
-						EndpointPort:    uint32(port.Port),
-						ServicePortName: port.Name,
-						Labels:          labelMap,
-						UID:             uid,
-						ServiceAccount:  sa,
-						Network:         c.endpointNetwork(ea.IP),
-						Locality: model.Locality{
-							Label:     locality,
-							ClusterID: c.clusterID,
-						},
-						Attributes: model.ServiceAttributes{Name: ep.Name, Namespace: ep.Namespace},
-						TLSMode:    tlsMode,
-					})
+					istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, port.Name)
+					endpoints = append(endpoints, istioEndpoint)
 				}
 			}
 		}
 	}
 
-	log.Infof("Handle EDS: %d endpoints for %s in namespace %s", len(endpoints), ep.Name, ep.Namespace)
+	log.Debugf("Handle EDS: %d endpoints for %s in namespace %s", len(endpoints), ep.Name, ep.Namespace)
 
 	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(hostname), ep.Namespace, endpoints)
 }

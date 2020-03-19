@@ -52,7 +52,6 @@ const (
 	GalleyComponentName    ComponentName = "Galley"
 	PolicyComponentName    ComponentName = "Policy"
 	TelemetryComponentName ComponentName = "Telemetry"
-	CitadelComponentName   ComponentName = "Citadel"
 
 	CNIComponentName ComponentName = "Cni"
 
@@ -81,7 +80,6 @@ var (
 		GalleyComponentName,
 		PolicyComponentName,
 		TelemetryComponentName,
-		CitadelComponentName,
 		CNIComponentName,
 	}
 	allComponentNamesMap = make(map[ComponentName]bool)

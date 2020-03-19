@@ -18,8 +18,10 @@ import (
 	"fmt"
 	"text/template"
 
+	"github.com/Masterminds/sprig"
+
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/core/image"
+	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -102,6 +104,8 @@ spec:
 {{- range $i, $p := $.ContainerPorts }}
 {{- if eq .Protocol "GRPC" }}
           - --grpc
+{{- else if eq .Protocol "TCP" }}
+          - --tcp
 {{- else }}
           - --port
 {{- end }}
@@ -113,6 +117,10 @@ spec:
 {{- end }}
           - --version
           - "{{ $subset.Version }}"
+{{- if $.TLSSettings }}
+          - --crt=/etc/certs/custom/cert-chain.pem
+          - --key=/etc/certs/custom/key.pem
+{{- end }}
         ports:
 {{- range $i, $p := $.ContainerPorts }}
         - containerPort: {{ $p.Port }} 
@@ -133,26 +141,31 @@ spec:
           initialDelaySeconds: 10
           periodSeconds: 10
           failureThreshold: 10
+{{- if $.TLSSettings }}
+        volumeMounts:
+        - mountPath: /etc/certs/custom
+          name: custom-certs
+      volumes:
+      - configMap:
+          name: {{ $.Service }}-certs
+        name: custom-certs
+{{- end}}
 ---
 {{- end}}
+{{- if .TLSSettings }}
 apiVersion: v1
-kind: Secret
+kind: ConfigMap
 metadata:
-  name: sdstokensecret
-type: Opaque
-stringData:
-  sdstoken: "eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2\
-VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Ii\
-wia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6InZhdWx0LWNpdGFkZWwtc2\
-EtdG9rZW4tNzR0d3MiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC\
-5uYW1lIjoidmF1bHQtY2l0YWRlbC1zYSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2Vydm\
-ljZS1hY2NvdW50LnVpZCI6IjJhYzAzYmEyLTY5MTUtMTFlOS05NjkwLTQyMDEwYThhMDExNCIsInN1Yi\
-I6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OnZhdWx0LWNpdGFkZWwtc2EifQ.pZ8SiyNeO0p\
-1p8HB9oXvXOAI1XCJZKk2wVHXBsTSzKWxlVD9HrHbAcSbO2dlhFpeCgknt6eZywvhShZJh2F6-iHP_Yo\
-UVoCqQmzjPoB3c3JoYFpJo-9jTN1_mNRtZUcNvYl-tDlTmBlaKEvoC5P2WGVUF3AoLsES66u4FG9Wllm\
-LV92LG1WNqx_ltkT1tahSy9WiHQgyzPqwtwE72T1jAGdgVIoJy1lfSaLam_bo9rqkRlgSg-au9BAjZiD\
-Gtm9tf3lwrcgfbxccdlG4jAsTFa2aNs3dW4NLk7mFnWCJa-iWj-TgFxf9TW-9XPK0g3oYIQ0Id0CIW2S\
-iFxKGPAjB-g"
+  name: {{ $.Service }}-certs
+data:
+  root-cert.pem: |
+{{ .TLSSettings.RootCert | indent 4 }}
+  cert-chain.pem: |
+{{ .TLSSettings.ClientCert | indent 4 }}
+  key.pem: |
+{{.TLSSettings.Key | indent 4}}
+---
+{{- end}}
 `
 )
 
@@ -162,7 +175,7 @@ var (
 
 func init() {
 	deploymentTemplate = template.New("echo_deployment")
-	if _, err := deploymentTemplate.Parse(deploymentYAML); err != nil {
+	if _, err := deploymentTemplate.Funcs(sprig.TxtFuncMap()).Parse(deploymentYAML); err != nil {
 		panic(fmt.Sprintf("unable to parse echo deployment template: %v", err))
 	}
 }
@@ -207,6 +220,7 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (string
 		"ServiceAnnotations":  cfg.ServiceAnnotations,
 		"IncludeInboundPorts": cfg.IncludeInboundPorts,
 		"Subsets":             cfg.Subsets,
+		"TLSSettings":         cfg.TLSSettings,
 	}
 
 	// Generate the YAML content.

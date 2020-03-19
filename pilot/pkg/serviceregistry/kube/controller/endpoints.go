@@ -25,7 +25,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -108,6 +107,10 @@ func (e *endpointsController) proxyServiceInstances(c *Controller, endpoints *v1
 	c.RUnlock()
 
 	if svc != nil {
+		podIP := proxy.IPAddresses[0]
+		pod := c.pods.getPodByIP(podIP)
+		builder := NewEndpointBuilder(c, pod)
+
 		for _, ss := range endpoints.Subsets {
 			for _, port := range ss.Ports {
 				svcPort, exists := svc.Ports.Get(port.Name)
@@ -115,16 +118,18 @@ func (e *endpointsController) proxyServiceInstances(c *Controller, endpoints *v1
 					continue
 				}
 
-				podIP := proxy.IPAddresses[0]
-
 				// consider multiple IP scenarios
 				for _, ip := range proxy.IPAddresses {
-					if hasProxyIP(ss.Addresses, ip) {
-						out = append(out, c.getEndpoints(podIP, ip, port.Port, svcPort, svc))
+					if hasProxyIP(ss.Addresses, ip) || hasProxyIP(ss.NotReadyAddresses, ip) {
+						istioEndpoint := builder.buildIstioEndpoint(ip, port.Port, svcPort.Name)
+						out = append(out, &model.ServiceInstance{
+							Endpoint:    istioEndpoint,
+							ServicePort: svcPort,
+							Service:     svc,
+						})
 					}
 
 					if hasProxyIP(ss.NotReadyAddresses, ip) {
-						out = append(out, c.getEndpoints(podIP, ip, port.Port, svcPort, svc))
 						if c.metrics != nil {
 							c.metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
 						}
@@ -149,7 +154,7 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 	}
 
 	// Locate all ports in the actual service
-	svcPortEntry, exists := svc.Ports.GetByPort(reqSvcPort)
+	svcPort, exists := svc.Ports.GetByPort(reqSvcPort)
 	if !exists {
 		return nil, nil
 	}
@@ -160,7 +165,7 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 			var podLabels labels.Instance
 			pod := c.pods.getPodByIP(ea.IP)
 			if pod != nil {
-				podLabels = configKube.ConvertLabels(pod.ObjectMeta)
+				podLabels = pod.Labels
 			}
 
 			// check that one of the input labels is a subset of the labels
@@ -168,35 +173,16 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 				continue
 			}
 
-			locality, sa, uid := "", "", ""
-			if pod != nil {
-				locality = c.getPodLocality(pod)
-				sa = kube.SecureNamingSAN(pod)
-				uid = createUID(pod.Name, pod.Namespace)
-			}
-			tlsMode := kube.PodTLSMode(pod)
+			builder := NewEndpointBuilder(c, pod)
 
 			// identify the port by name. K8S EndpointPort uses the service port name
 			for _, port := range ss.Ports {
 				if port.Name == "" || // 'name optional if single port is defined'
-					svcPortEntry.Name == port.Name {
-
+					svcPort.Name == port.Name {
+					istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, svcPort.Name)
 					out = append(out, &model.ServiceInstance{
-						Endpoint: &model.IstioEndpoint{
-							Address:         ea.IP,
-							EndpointPort:    uint32(port.Port),
-							ServicePortName: svcPortEntry.Name,
-							UID:             uid,
-							Network:         c.endpointNetwork(ea.IP),
-							Locality: model.Locality{
-								Label:     locality,
-								ClusterID: c.clusterID,
-							},
-							Labels:         podLabels,
-							ServiceAccount: sa,
-							TLSMode:        tlsMode,
-						},
-						ServicePort: svcPortEntry,
+						Endpoint:    istioEndpoint,
+						ServicePort: svcPort,
 						Service:     svc,
 					})
 				}

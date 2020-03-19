@@ -14,10 +14,6 @@
 
 package resource
 
-import (
-	"istio.io/istio/pkg/test/framework/core"
-)
-
 // Context is the core context interface that is used by resources.
 type Context interface {
 	// TrackResource tracks a resource in this context. If the context is closed, then the resource will be
@@ -28,7 +24,7 @@ type Context interface {
 	Environment() Environment
 
 	// Settings returns common settings
-	Settings() *core.Settings
+	Settings() *Settings
 
 	// CreateDirectory creates a new subdirectory within this context.
 	CreateDirectory(name string) (string, error)

@@ -21,8 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/pkg/ledger"
-
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -34,9 +32,9 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config/visibility"
 )
 
 func TestMergeUpdateRequest(t *testing.T) {
@@ -216,7 +214,7 @@ func TestAuthNPolicies(t *testing.T) {
 			}},
 		},
 	}
-	configStore := newFakeStore()
+	configStore := NewFakeStore()
 	for key, value := range authNPolicies {
 		cfg := Config{
 			ConfigMeta: ConfigMeta{
@@ -399,7 +397,7 @@ func TestJwtAuthNPolicy(t *testing.T) {
 		},
 	}
 
-	configStore := newFakeStore()
+	configStore := NewFakeStore()
 	for key, value := range authNPolicies {
 		cfg := Config{
 			ConfigMeta: ConfigMeta{
@@ -595,7 +593,7 @@ func TestSidecarScope(t *testing.T) {
 	ps.ServiceByHostnameAndNamespace[host.Name("svc1.default.cluster.local")] = map[string]*Service{"default": nil}
 	ps.ServiceByHostnameAndNamespace[host.Name("svc2.nosidecar.cluster.local")] = map[string]*Service{"nosidecar": nil}
 
-	configStore := newFakeStore()
+	configStore := NewFakeStore()
 	sidecarWithWorkloadSelector := &networking.Sidecar{
 		WorkloadSelector: &networking.WorkloadSelector{
 			Labels: map[string]string{"app": "foo"},
@@ -716,7 +714,7 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 			}},
 		},
 	}
-	configStore := newFakeStore()
+	configStore := NewFakeStore()
 	for key, value := range authNPolicies {
 		cfg := Config{
 			ConfigMeta: ConfigMeta{
@@ -859,65 +857,51 @@ func scopeToSidecar(scope *SidecarScope) string {
 	return scope.Config.Namespace + "/" + scope.Config.Name
 }
 
-type fakeStore struct {
-	store map[resource.GroupVersionKind]map[string][]Config
-}
-
-func newFakeStore() *fakeStore {
-	f := fakeStore{
-		store: make(map[resource.GroupVersionKind]map[string][]Config),
+func TestSetDestinationRule(t *testing.T) {
+	ps := NewPushContext()
+	ps.defaultDestinationRuleExportTo = map[visibility.Instance]bool{visibility.Public: true}
+	testhost := "test.test-namespace1.svc.cluster.local"
+	destinationRuleNamespace1 := Config{
+		ConfigMeta: ConfigMeta{
+			Name:      "rule1",
+			Namespace: "test-namespace1",
+		},
+		Spec: &networking.DestinationRule{
+			Host: testhost,
+			Subsets: []*networking.Subset{
+				{
+					Name: "subset1",
+				},
+				{
+					Name: "subset2",
+				},
+			},
+		},
 	}
-	return &f
-}
-
-var _ ConfigStore = (*fakeStore)(nil)
-
-func (*fakeStore) Schemas() collection.Schemas {
-	return collections.Pilot
-}
-
-func (*fakeStore) Get(typ resource.GroupVersionKind, name, namespace string) *Config { return nil }
-
-func (s *fakeStore) List(typ resource.GroupVersionKind, namespace string) ([]Config, error) {
-	nsConfigs := s.store[typ]
-	if nsConfigs == nil {
-		return nil, nil
+	destinationRuleNamespace2 := Config{
+		ConfigMeta: ConfigMeta{
+			Name:      "rule2",
+			Namespace: "istio-system",
+		},
+		Spec: &networking.DestinationRule{
+			Host: testhost,
+			Subsets: []*networking.Subset{
+				{
+					Name: "subset3",
+				},
+				{
+					Name: "subset4",
+				},
+			},
+		},
 	}
-	var res []Config
-	if namespace == NamespaceAll {
-		for _, configs := range nsConfigs {
-			res = append(res, configs...)
-		}
-		return res, nil
+	ps.SetDestinationRules([]Config{destinationRuleNamespace1, destinationRuleNamespace2})
+	subsetsLocal := len(ps.namespaceLocalDestRules["test-namespace1"].destRule[host.Name(testhost)].config.Spec.(*networking.DestinationRule).Subsets)
+	subsetsExport := len(ps.namespaceExportedDestRules["test-namespace1"].destRule[host.Name(testhost)].config.Spec.(*networking.DestinationRule).Subsets)
+	if subsetsLocal != 2 {
+		t.Fatalf("want %d, but got %d", 2, subsetsLocal)
 	}
-	return nsConfigs[namespace], nil
-}
-
-func (s *fakeStore) Create(config Config) (revision string, err error) {
-	configs := s.store[config.GroupVersionKind()]
-	if configs == nil {
-		configs = make(map[string][]Config)
+	if subsetsExport != 2 {
+		t.Fatalf("want %d, but got %d", 2, subsetsExport)
 	}
-	configs[config.Namespace] = append(configs[config.Namespace], config)
-	s.store[config.GroupVersionKind()] = configs
-	return "", nil
-}
-
-func (*fakeStore) Update(config Config) (newRevision string, err error) { return "", nil }
-
-func (*fakeStore) Delete(typ resource.GroupVersionKind, name, namespace string) error { return nil }
-
-func (*fakeStore) Version() string {
-	return "not implemented"
-}
-func (*fakeStore) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
-	return "not implemented", nil
-}
-
-func (s *fakeStore) GetLedger() ledger.Ledger {
-	panic("implement me")
-}
-
-func (s *fakeStore) SetLedger(ledger.Ledger) error {
-	panic("implement me")
 }

@@ -17,6 +17,7 @@ package controller
 import (
 	"sync"
 
+	v1 "k8s.io/api/core/v1"
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
@@ -28,7 +29,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
-	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -59,6 +59,15 @@ func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event)
 	svcName := slice.Labels[discoveryv1alpha1.LabelServiceName]
 	hostname := kube.ServiceHostname(svcName, slice.Namespace, esc.c.domainSuffix)
 
+	esc.c.RLock()
+	svc := esc.c.servicesMap[hostname]
+	esc.c.RUnlock()
+
+	if svc == nil {
+		log.Infof("Handle EDS endpoint: skip updating, service %s/%s has mot been populated", svcName, slice.Namespace)
+		return
+	}
+
 	endpoints := make([]*model.IstioEndpoint, 0)
 	if event != model.EventDelete {
 		for _, e := range slice.Endpoints {
@@ -82,43 +91,21 @@ func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event)
 					// For service without selector, maybe there are no related pods
 				}
 
-				var labels map[string]string
-				locality := getLocalityFromTopology(e.Topology)
-				sa, uid := "", ""
-				if pod != nil {
-					sa = kube.SecureNamingSAN(pod)
-					uid = createUID(pod.Name, pod.Namespace)
-					labels = configKube.ConvertLabels(pod.ObjectMeta)
-				}
-
-				tlsMode := kube.PodTLSMode(pod)
-
+				builder := esc.newEndpointBuilder(pod, e)
 				// EDS and ServiceEntry use name for service port - ADS will need to
 				// map to numbers.
 				for _, port := range slice.Ports {
-					var portNum uint32
+					var portNum int32
 					if port.Port != nil {
-						portNum = uint32(*port.Port)
+						portNum = *port.Port
 					}
 					var portName string
 					if port.Name != nil {
 						portName = *port.Name
 					}
-					endpoints = append(endpoints, &model.IstioEndpoint{
-						Address:         a,
-						EndpointPort:    portNum,
-						ServicePortName: portName,
-						Labels:          labels,
-						UID:             uid,
-						ServiceAccount:  sa,
-						Network:         esc.c.endpointNetwork(a),
-						Locality: model.Locality{
-							Label:     locality,
-							ClusterID: esc.c.clusterID,
-						},
-						Attributes: model.ServiceAttributes{Name: svcName, Namespace: slice.Namespace},
-						TLSMode:    tlsMode,
-					})
+
+					istioEndpoint := builder.buildIstioEndpoint(a, portNum, portName)
+					endpoints = append(endpoints, istioEndpoint)
 				}
 			}
 		}
@@ -126,7 +113,7 @@ func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event)
 
 	esc.endpointCache.Update(hostname, slice.Name, endpoints)
 
-	log.Infof("Handle EDS endpoint %s in namespace %s", svcName, slice.Namespace)
+	log.Debugf("Handle EDS endpoint %s in namespace %s", svcName, slice.Namespace)
 
 	_ = esc.c.xdsUpdater.EDSUpdate(esc.c.clusterID, string(hostname), slice.Namespace, esc.endpointCache.Get(hostname))
 }
@@ -182,6 +169,10 @@ func (esc *endpointSliceController) proxyServiceInstances(c *Controller, ep *dis
 		return out
 	}
 
+	podIP := proxy.IPAddresses[0]
+	pod := c.pods.getPodByIP(podIP)
+	builder := NewEndpointBuilder(c, pod)
+
 	for _, port := range ep.Ports {
 		if port.Name == nil || port.Port == nil {
 			continue
@@ -191,14 +182,17 @@ func (esc *endpointSliceController) proxyServiceInstances(c *Controller, ep *dis
 			continue
 		}
 
-		podIP := proxy.IPAddresses[0]
-
 		// consider multiple IP scenarios
 		for _, ip := range proxy.IPAddresses {
 			for _, ep := range ep.Endpoints {
 				for _, a := range ep.Addresses {
 					if a == ip {
-						out = append(out, c.getEndpoints(podIP, ip, *port.Port, svcPort, svc))
+						istioEndpoint := builder.buildIstioEndpoint(ip, *port.Port, svcPort.Name)
+						out = append(out, &model.ServiceInstance{
+							Endpoint:    istioEndpoint,
+							ServicePort: svcPort,
+							Service:     svc,
+						})
 						// If the endpoint isn't ready, report this
 						if ep.Conditions.Ready != nil && !*ep.Conditions.Ready && c.metrics != nil {
 							c.metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
@@ -225,7 +219,7 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 	}
 
 	// Locate all ports in the actual service
-	svcPortEntry, exists := svc.Ports.GetByPort(reqSvcPort)
+	svcPort, exists := svc.Ports.GetByPort(reqSvcPort)
 	if !exists {
 		return nil, nil
 	}
@@ -237,7 +231,7 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 				var podLabels labels.Instance
 				pod := c.pods.getPodByIP(a)
 				if pod != nil {
-					podLabels = configKube.ConvertLabels(pod.ObjectMeta)
+					podLabels = pod.Labels
 				}
 
 				// check that one of the input labels is a subset of the labels
@@ -245,40 +239,20 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 					continue
 				}
 
-				sa, uid := "", ""
-				if pod != nil {
-					sa = kube.SecureNamingSAN(pod)
-					uid = createUID(pod.Name, pod.Namespace)
-				}
-				locality := getLocalityFromTopology(e.Topology)
-				tlsMode := kube.PodTLSMode(pod)
-
+				builder := esc.newEndpointBuilder(pod, e)
 				// identify the port by name. K8S EndpointPort uses the service port name
 				for _, port := range slice.Ports {
-					var portNum uint32
+					var portNum int32
 					if port.Port != nil {
-						portNum = uint32(*port.Port)
+						portNum = *port.Port
 					}
 
 					if port.Name == nil ||
-						svcPortEntry.Name == *port.Name {
-
+						svcPort.Name == *port.Name {
+						istioEndpoint := builder.buildIstioEndpoint(a, portNum, svcPort.Name)
 						out = append(out, &model.ServiceInstance{
-							Endpoint: &model.IstioEndpoint{
-								Address:         a,
-								EndpointPort:    portNum,
-								ServicePortName: svcPortEntry.Name,
-								UID:             uid,
-								Network:         c.endpointNetwork(a),
-								Locality: model.Locality{
-									Label:     locality,
-									ClusterID: esc.c.clusterID,
-								},
-								Labels:         podLabels,
-								ServiceAccount: sa,
-								TLSMode:        tlsMode,
-							},
-							ServicePort: svcPortEntry,
+							Endpoint:    istioEndpoint,
+							ServicePort: svcPort,
 							Service:     svc,
 						})
 					}
@@ -287,6 +261,19 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 		}
 	}
 	return out, nil
+}
+
+func (esc *endpointSliceController) newEndpointBuilder(pod *v1.Pod, endpoint discoveryv1alpha1.Endpoint) *EndpointBuilder {
+	if pod != nil {
+		// Respect pod "istio-locality" label
+		if pod.Labels[model.LocalityLabel] == "" {
+			pod = pod.DeepCopy()
+			// mutate the labels, only need `istio-locality`
+			pod.Labels[model.LocalityLabel] = getLocalityFromTopology(endpoint.Topology)
+		}
+	}
+
+	return NewEndpointBuilder(esc.c, pod)
 }
 
 func getLocalityFromTopology(topology map[string]string) string {

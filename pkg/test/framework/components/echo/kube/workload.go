@@ -18,6 +18,8 @@ import (
 	"fmt"
 
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/echo/common"
+	kube2 "istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/resource"
 
@@ -45,40 +47,40 @@ type workload struct {
 	pod       kubeCore.Pod
 	forwarder kube.PortForwarder
 	sidecar   *sidecar
-	accessor  *kube.Accessor
+	cluster   kube2.Cluster
 	ctx       resource.Context
 }
 
 func newWorkload(addr kubeCore.EndpointAddress, sidecared bool, grpcPort uint16,
-	accessor *kube.Accessor, ctx resource.Context) (*workload, error) {
+	cluster kube2.Cluster, tls *common.TLSSettings, ctx resource.Context) (*workload, error) {
 	if addr.TargetRef == nil || addr.TargetRef.Kind != "Pod" {
 		return nil, fmt.Errorf("invalid TargetRef for endpoint %s: %v", addr.IP, addr.TargetRef)
 	}
 
-	pod, err := accessor.GetPod(addr.TargetRef.Namespace, addr.TargetRef.Name)
+	pod, err := cluster.GetPod(addr.TargetRef.Namespace, addr.TargetRef.Name)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create a forwarder to the command port of the app.
-	forwarder, err := accessor.NewPortForwarder(pod, 0, grpcPort)
+	forwarder, err := cluster.NewPortForwarder(pod, 0, grpcPort)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("new port forwarder: %v", err)
 	}
 	if err = forwarder.Start(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("forwarder start: %v", err)
 	}
 
 	// Create a gRPC client to this workload.
-	c, err := client.New(forwarder.Address())
+	c, err := client.New(forwarder.Address(), tls)
 	if err != nil {
 		_ = forwarder.Close()
-		return nil, err
+		return nil, fmt.Errorf("grpc client: %v", err)
 	}
 
 	var s *sidecar
 	if sidecared {
-		if s, err = newSidecar(pod, accessor); err != nil {
+		if s, err = newSidecar(pod, cluster); err != nil {
 			return nil, err
 		}
 	}
@@ -89,7 +91,7 @@ func newWorkload(addr kubeCore.EndpointAddress, sidecared bool, grpcPort uint16,
 		forwarder: forwarder,
 		Instance:  c,
 		sidecar:   s,
-		accessor:  accessor,
+		cluster:   cluster,
 		ctx:       ctx,
 	}, nil
 }
@@ -126,7 +128,7 @@ func (w *workload) Sidecar() echo.Sidecar {
 }
 
 func (w *workload) Logs() (string, error) {
-	return w.accessor.Logs(w.pod.Namespace, w.pod.Name, appContainerName, false)
+	return w.cluster.Logs(w.pod.Namespace, w.pod.Name, appContainerName, false)
 }
 
 func (w *workload) LogsOrFail(t test.Failer) string {

@@ -22,18 +22,17 @@ import (
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
+	icpv1alpha2 "istio.io/istio/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/operator/version"
 	"istio.io/pkg/log"
-
-	"istio.io/istio/operator/pkg/translate"
 	pkgversion "istio.io/pkg/version"
 )
 
@@ -51,21 +50,9 @@ var scope = log.RegisterScope("installer", "installer", 0)
 // In step 3, the remaining fields in the same user overlay are applied on the resulting profile base.
 // The force flag causes validation errors not to abort but only emit log/console warnings.
 func GenerateConfig(inFilenames []string, setOverlayYAML string, force bool, kubeConfig *rest.Config, l *Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
-	profile := name.DefaultProfileName
-
-	// Get the overlay YAML from the list of files passed in. Also get the profile from the overlay files.
-	fy, fp, err := parseYAMLFiles(inFilenames, force, l)
+	fy, profile, err := readYamlProfle(inFilenames, setOverlayYAML, force, l)
 	if err != nil {
 		return "", nil, err
-	}
-	if fp != "" {
-		profile = fp
-	}
-
-	// The profile coming from --set flag has the highest precedence.
-	psf := profileFromSetOverlay(setOverlayYAML)
-	if psf != "" {
-		profile = psf
 	}
 
 	iopsString, iops, err := genIOPSFromProfile(profile, fy, setOverlayYAML, force, kubeConfig, l)
@@ -77,6 +64,24 @@ func GenerateConfig(inFilenames []string, setOverlayYAML string, force bool, kub
 		return "", nil, fmt.Errorf("generated config failed semantic validation: %v", err)
 	}
 	return iopsString, iops, nil
+}
+
+func readYamlProfle(inFilenames []string, setOverlayYAML string, force bool, l *Logger) (string, string, error) {
+	profile := name.DefaultProfileName
+	// Get the overlay YAML from the list of files passed in. Also get the profile from the overlay files.
+	fy, fp, err := parseYAMLFiles(inFilenames, force, l)
+	if err != nil {
+		return "", "", err
+	}
+	if fp != "" {
+		profile = fp
+	}
+	// The profile coming from --set flag has the highest precedence.
+	psf := profileFromSetOverlay(setOverlayYAML)
+	if psf != "" {
+		profile = psf
+	}
+	return fy, profile, nil
 }
 
 // parseYAMLFiles parses the given slice of filenames containing YAML and merges them into a single IstioOperator
@@ -147,6 +152,19 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 	outYAML, err := getProfileYAML(installPackagePath, profileOrPath)
 	if err != nil {
 		return "", nil, err
+	}
+
+	// if input is in IstioControlPlane format.
+	icp := &icpv1alpha2.IstioControlPlane{}
+	if err := util.UnmarshalWithJSONPB(outYAML, icp, false); err == nil {
+		translations, err := translate.ICPtoIOPTranslations(version.OperatorBinaryVersion)
+		if err != nil {
+			return "", nil, err
+		}
+		outYAML, err = translate.ICPToIOP(outYAML, translations)
+		if err != nil {
+			return "", nil, err
+		}
 	}
 
 	// Hub and tag are only known at build time and must be passed in here during runtime from build stamps.
@@ -312,10 +330,13 @@ func getJwtTypeOverlay(config *rest.Config, l *Logger) (string, error) {
 // representation if successful. If force is set, validation errors are written to logger rather than causing an
 // error.
 func unmarshalAndValidateIOPS(iopsYAML string, force bool, l *Logger) (*v1alpha1.IstioOperatorSpec, error) {
-	iops, err := istio.UnmarshalAndValidateIOPS(iopsYAML)
-	if err != nil && !force {
+	iops := &v1alpha1.IstioOperatorSpec{}
+	if err := util.UnmarshalWithJSONPB(iopsYAML, iops, false); err != nil {
+		return nil, fmt.Errorf("could not unmarshal merged YAML: %s\n\nYAML:\n%s", err, iopsYAML)
+	}
+	if errs := validate.CheckIstioOperatorSpec(iops, true); len(errs) != 0 && !force {
 		l.logAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
-		return nil, err
+		return iops, fmt.Errorf(errs.Error())
 	}
 	return iops, nil
 }

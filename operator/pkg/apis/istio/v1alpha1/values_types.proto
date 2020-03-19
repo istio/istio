@@ -249,6 +249,8 @@ message EgressGatewayConfig {
 
   GatewayLabelsConfig labels = 9;
 
+  string name = 25;
+
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
@@ -319,6 +321,8 @@ message EgressGatewayConfig {
   TypeSliceOfMapStringInterface configVolumes = 23;
 
   TypeSliceOfMapStringInterface additionalContainers = 24;
+
+  // Next available 26.
 }
 
 
@@ -609,6 +613,7 @@ message GlobalConfig {
   // Settings for remote cluster.
   // Controls whether to use the Istio remote control plane
   google.protobuf.BoolValue istioRemote = 44;
+
   google.protobuf.BoolValue createRemoteSvcEndpoints = 45;
   // If set, a selector-less service and endpoint for istio-pilot are created with the remotePilotAddress IP,
   // which ensures the istio-pilot. is DNS resolvable in the remote cluster.
@@ -712,6 +717,8 @@ message IngressGatewayConfig {
 
   repeated PortsConfig meshExpansionPorts = 18;
 
+  string name = 44;
+
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
@@ -784,6 +791,8 @@ message IngressGatewayConfig {
   TypeSliceOfMapStringInterface hosts = 42;
 
   string telemetry_domain_name = 43;
+
+  // Next available 45.
 }
 
 // Secret Discovery Service (SDS) Configuration for ingress gateway.
@@ -2100,6 +2109,15 @@ message KialiSecurityConfig {
   string private_key_file = 3;
 }
 
+message KialiServiceConfig {
+  TypeMapStringInterface annotations = 1;
+
+  // Service type.
+  //
+  // See https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
+  string type = 18;
+}
+
 message KialiDashboardConfig {
   string secretName = 1;
 
@@ -2201,6 +2219,8 @@ message KialiConfig {
   Resources resources = 17 [deprecated=true];
 
   string prometheusAddr = 18 [deprecated=true];
+
+  KialiServiceConfig service = 19;
 }
 
 message Values {

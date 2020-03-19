@@ -67,13 +67,13 @@ var (
 	trustDomainEnv = env.RegisterStringVar(trustDomain, "", "").Get()
 	secretTTLEnv   = env.RegisterDurationVar(secretTTL, 24*time.Hour,
 		"The cert lifetime requested by istio agent").Get()
-	secretRefreshGraceDurationEnv = env.RegisterDurationVar(SecretRefreshGraceDuration, secretTTLEnv/2,
-		"The grace period for the cert rotation, by default it's half of the cert lifetime").Get()
-	secretRotationIntervalEnv = env.RegisterDurationVar(SecretRotationInterval, secretRefreshGraceDurationEnv/10,
-		"The ticker to detect and rotate the certificates, by default it's 1/10 of the grace period").Get()
+	secretRotationGracePeriodRatioEnv = env.RegisterFloatVar(secretRotationGracePeriodRatio, 0.5,
+		"The grace period ratio for the cert rotation, by default 0.5.").Get()
+	secretRotationIntervalEnv = env.RegisterDurationVar(secretRotationInterval, 5*time.Minute,
+		"The ticker to detect and rotate the certificates, by default 5 minutes").Get()
 	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar(staledConnectionRecycleInterval, 5*time.Minute,
 		"The ticker to detect and close stale connections").Get()
-	initialBackoffInMilliSecEnv = env.RegisterIntVar(InitialBackoffInMilliSec, 0, "").Get()
+	initialBackoffInMilliSecEnv = env.RegisterIntVar(initialBackoffInMilliSec, 0, "").Get()
 	pkcs8KeysEnv                = env.RegisterBoolVar(pkcs8Key, false, "Whether to generate PKCS#8 private keys").Get()
 
 	// Location of K8S CA root.
@@ -106,14 +106,14 @@ const (
 	// example value format like "90m"
 	secretTTL = "SECRET_TTL"
 
-	// The environmental variable name for grace duration that secret is re-generated
-	// before it's expired time.
-	// example value format like "10m"
-	SecretRefreshGraceDuration = "SECRET_GRACE_DURATION"
+	// The environmental variable name for grace period ratio that secret is re-generated before
+	// its expiration.
+	// Example value format like "0.5"
+	secretRotationGracePeriodRatio = "SECRET_GRACE_PERIOD_RATIO"
 
-	// The environmental variable name for key rotation job running interval.
-	// example value format like "20m"
-	SecretRotationInterval = "SECRET_JOB_RUN_INTERVAL"
+	// The environmental variable name for the interval to check and rotate the key and certs.
+	// Example value format like "20m"
+	secretRotationInterval = "SECRET_ROTATION_CHECK_INTERVAL"
 
 	// The environmental variable name for staled connection recycle job running interval.
 	// example value format like "5m"
@@ -121,7 +121,7 @@ const (
 
 	// The environmental variable name for the initial backoff in milliseconds.
 	// example value format like "10"
-	InitialBackoffInMilliSec = "INITIAL_BACKOFF_MSEC"
+	initialBackoffInMilliSec = "INITIAL_BACKOFF_MSEC"
 
 	pkcs8Key = "PKCS8_KEY"
 )
@@ -159,9 +159,6 @@ type SDSAgent struct {
 	// - port of discovery server is not 15010 (the plain text default).
 	RequireCerts bool
 
-	// Expected SAN
-	SAN string
-
 	// PilotCertProvider is the provider of the Pilot certificate
 	PilotCertProvider string
 
@@ -183,40 +180,52 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 	ac.PilotCertProvider = pilotCertProvider
 	ac.OutputKeyCertToDir = outputKeyCertToDir
 
-	discHost, discPort, err := net.SplitHostPort(discAddr)
+	_, discPort, err := net.SplitHostPort(discAddr)
 	if err != nil {
-		log.Fatalf("Invalid discovery address (%v): %v", discAddr, err)
+		log.Fatalf("Invalid discovery address %v %v", discAddr, err)
 	}
 
-	if _, err := os.Stat(jwtPath); err == nil {
+	if _, err := os.Stat(jwtPath); err == nil && citadel.ProvCert == "" {
+		// If the JWT file exists, and explicit 'prov cert' is not - use the JWT
 		ac.JWTPath = jwtPath
 	} else {
-		// Can't use in-process SDS.
-		log.Warna("Missing JWT token, can't use in process SDS ", jwtPath, err)
-
-		if discPort == "15012" {
-			log.Fatala("Missing JWT, can't authenticate with control plane. Try using plain text (15010)")
+		// If original /etc/certs or a separate 'provisioning certs' (VM) are present, use them instead of tokens
+		certDir := "./etc/certs"
+		if citadel.ProvCert != "" {
+			certDir = citadel.ProvCert
 		}
-		return ac
+		if _, err := os.Stat(certDir + "/key.pem"); err == nil {
+			ac.CertsPath = certDir
+		}
+		// If the root-cert is in the old location, use it.
+		if _, err := os.Stat(certDir + "/root-cert.pem"); err == nil {
+			CitadelCACertPath = certDir
+		}
+
+		if ac.CertsPath != "" {
+			log.Warna("Using existing certificate ", ac.CertsPath)
+		} else {
+			// Can't use in-process SDS.
+			log.Warna("Missing JWT token, can't use in process SDS ", jwtPath, err)
+
+			// TODO do not special case port 15012
+			if discPort == "15012" {
+				log.Fatala("Missing JWT, can't authenticate with control plane. Try using plain text (15010)")
+			}
+			return ac
+		}
 	}
 
 	ac.SDSAddress = "unix:" + LocalSDS
 
-	if _, err := os.Stat("/etc/certs/key.pem"); err == nil {
-		ac.CertsPath = "/etc/certs"
-	}
 	if tlsRequired {
 		ac.RequireCerts = true
 	}
 
 	// Istiod uses a fixed, defined port for K8S-signed certificates.
+	// TODO do not special case port 15012
 	if discPort == "15012" {
 		ac.RequireCerts = true
-		// For local debugging - the discoveryAddress is set to localhost, but the cert issued for normal SA.
-		if discHost == "localhost" {
-			discHost = "istiod.istio-system.svc"
-		}
-		ac.SAN = discHost
 	}
 
 	return ac
@@ -241,7 +250,8 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 	serverOptions.PilotCertProvider = conf.PilotCertProvider
 	// Next to the envoy config, writeable dir (mounted as mem)
 	serverOptions.WorkloadUDSPath = LocalSDS
-	serverOptions.UseLocalJWT = true
+	serverOptions.UseLocalJWT = conf.CertsPath == "" // true if we don't have a key.pem
+	serverOptions.CertsDir = conf.CertsPath
 	serverOptions.JWTPath = conf.JWTPath
 	serverOptions.OutputKeyCertToDir = conf.OutputKeyCertToDir
 
@@ -311,14 +321,14 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 			// will be a hardcoded default value (e.g., the namespace will be hardcoded
 			// as istio-system).
 			log.Info("Istio Agent uses default istiod CA")
-			serverOptions.CAEndpoint = "istio-pilot.istio-system.svc:15012"
+			serverOptions.CAEndpoint = "istiod.istio-system.svc:15012"
 
 			if serverOptions.PilotCertProvider == "istiod" {
 				log.Info("istiod uses self-issued certificate")
 				if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)); err != nil {
 					certReadErr = true
 				} else {
-					log.Debugf("the CA cert of istiod is: %v", string(rootCert))
+					log.Infof("the CA cert of istiod is: %v", string(rootCert))
 				}
 			} else if serverOptions.PilotCertProvider == "kubernetes" {
 				log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)
@@ -338,7 +348,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 				rootCert = nil
 				// for debugging only
 				log.Warnf("Failed to load root cert, assume IP secure network: %v", err)
-				serverOptions.CAEndpoint = "istio-pilot.istio-system.svc:15010"
+				serverOptions.CAEndpoint = "istiod.istio-system.svc:15010"
 			}
 		} else {
 			// Explicitly configured CA
@@ -352,7 +362,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 					if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)); err != nil {
 						certReadErr = true
 					} else {
-						log.Debugf("the CA cert of istiod is: %v", string(rootCert))
+						log.Infof("the CA cert of istiod is: %v", string(rootCert))
 					}
 				} else if serverOptions.PilotCertProvider == "kubernetes" {
 					log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)
@@ -366,6 +376,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 						certReadErr = true
 					}
 				} else {
+					log.Errorf("unknown cert provider %v", serverOptions.PilotCertProvider)
 					certReadErr = true
 				}
 				if certReadErr {
@@ -373,9 +384,13 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 					log.Fatal("invalid config - port 15012 missing a root certificate")
 				}
 			} else {
-				// It is ok for CA endpoint to have a port that is not 15010 or 15012, e.g.,
-				// meshca.googleapis.com:443
-				log.Info("the port is not 15010 or 15012")
+				rootCertPath := path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)
+				if rootCert, err = ioutil.ReadFile(rootCertPath); err != nil {
+					// We may not provide root cert, and can just use public system certificate pool
+					log.Infof("no certs found at %v, using system certs", rootCertPath)
+				} else {
+					log.Infof("the CA cert of istiod is: %v", string(rootCert))
+				}
 			}
 		}
 
@@ -433,7 +448,7 @@ func applyEnvVars() {
 	serverOptions.Pkcs8Keys = pkcs8KeysEnv
 	serverOptions.RecycleInterval = staledConnectionRecycleIntervalEnv
 	workloadSdsCacheOptions.SecretTTL = secretTTLEnv
-	workloadSdsCacheOptions.SecretRefreshGraceDuration = secretRefreshGraceDurationEnv
+	workloadSdsCacheOptions.SecretRotationGracePeriodRatio = secretRotationGracePeriodRatioEnv
 	workloadSdsCacheOptions.RotationInterval = secretRotationIntervalEnv
 	workloadSdsCacheOptions.InitialBackoffInMilliSec = int64(initialBackoffInMilliSecEnv)
 	// Disable the secret eviction for istio agent.

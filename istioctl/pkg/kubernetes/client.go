@@ -37,7 +37,6 @@ import (
 	"k8s.io/client-go/transport/spdy"
 
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
 
@@ -249,12 +248,10 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 		"fieldSelector": "status.phase=Running",
 	})
 	if err != nil {
-		log.Debugf("will use `--remote=false` to retrieve version info due to %q", err)
-		return nil, nil
+		return nil, err
 	}
 	if len(pods) == 0 {
-		log.Debugf("will use `--remote=false` to retrieve version info due to `no Istio pods in namespace %q`", namespace)
-		return nil, nil
+		return nil, fmt.Errorf("no running Istio pods in %q", namespace)
 	}
 
 	labelToPodDetail := map[string]podDetail{

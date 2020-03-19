@@ -548,7 +548,7 @@ func updateAnnotation(target map[string]string, added map[string]string) (patch 
 }
 
 func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotations map[string]string, sic *SidecarInjectionSpec,
-	workloadName string) ([]byte, error) {
+	workloadName string, statusPort int32) ([]byte, error) {
 
 	var patch []rfc6902PatchOperation
 
@@ -598,7 +598,7 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 		model.IstioCanonicalServiceRevisionLabelName: canonicalRev})...)
 
 	if rewrite {
-		patch = append(patch, createProbeRewritePatch(pod.Annotations, &pod.Spec, sic)...)
+		patch = append(patch, createProbeRewritePatch(pod.Annotations, &pod.Spec, sic, statusPort)...)
 	}
 
 	return json.Marshal(patch)
@@ -779,7 +779,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		annotations[k] = v
 	}
 
-	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec, deployMeta.Name)
+	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec, deployMeta.Name, wh.meshConfig.GetDefaultConfig().GetStatusPort())
 	if err != nil {
 		handleError(fmt.Sprintf("AdmissionResponse: err=%v spec=%v\n", err, spec))
 		return toAdmissionResponse(err)

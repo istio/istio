@@ -82,7 +82,7 @@ func TestEds(t *testing.T) {
 
 	t.Run("TCPEndpoints", func(t *testing.T) {
 		testTCPEndpoints("127.0.0.1", adscConn, t)
-		testEdsz(t)
+		testEdsz(t, "test-1.default")
 	})
 	t.Run("LocalityPrioritizedEndpoints", func(t *testing.T) {
 		testLocalityPrioritizedEndpoints(adscConn, adscConn2, t)
@@ -845,8 +845,8 @@ func addOverlappingEndpoints(server *bootstrap.Server) {
 // TODO: use this in integration tests.
 // TODO: refine the output
 // TODO: dump the ServiceInstances as well
-func testEdsz(t *testing.T) {
-	edszURL := fmt.Sprintf("http://localhost:%d/debug/edsz", testEnv.Ports().PilotHTTPPort)
+func testEdsz(t *testing.T, proxyID string) {
+	edszURL := fmt.Sprintf("http://localhost:%d/debug/edsz?proxyID=%s", testEnv.Ports().PilotHTTPPort, proxyID)
 	res, err := http.Get(edszURL)
 	if err != nil {
 		t.Fatalf("Failed to fetch %s", edszURL)

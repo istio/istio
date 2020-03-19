@@ -149,6 +149,12 @@ type Proxy struct {
 
 	// Istio version associated with the Proxy
 	IstioVersion *IstioVersion
+
+	// Indicates wheteher proxy supports IPv6 addresses
+	ipv6Support bool
+
+	// Indicates wheteher proxy supports IPv4 addresses
+	ipv4Support bool
 }
 
 var (
@@ -573,6 +579,33 @@ func (node *Proxy) SetWorkloadLabels(env *Environment) error {
 		node.Metadata.Labels = l[0]
 	}
 	return nil
+}
+
+// DiscoverIPVersions discovers the IP Versions supported by Proxy based on its IP addresses.
+func (node *Proxy) DiscoverIPVersions() {
+	for i := 0; i < len(node.IPAddresses); i++ {
+		addr := net.ParseIP(node.IPAddresses[i])
+		if addr == nil {
+			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
+			// skip it to prevent a panic.
+			continue
+		}
+		if addr.To4() != nil {
+			node.ipv4Support = true
+		} else {
+			node.ipv6Support = true
+		}
+	}
+}
+
+// SupportsIPv4 returns true if proxy supports IPv4 addresses.
+func (node *Proxy) SupportsIPv4() bool {
+	return node.ipv4Support
+}
+
+// SupportsIPv6 returns true if proxy supports IPv6 addresses.
+func (node *Proxy) SupportsIPv6() bool {
+	return node.ipv6Support
 }
 
 // UnnamedNetwork is the default network that proxies in the mesh

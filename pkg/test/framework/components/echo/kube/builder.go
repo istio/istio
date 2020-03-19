@@ -15,13 +15,13 @@
 package kube
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	kubeEnv "istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 
@@ -51,15 +51,15 @@ func (b *builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 func (b *builder) Build() error {
 	instances, err := b.newInstances()
 	if err != nil {
-		return err
+		return fmt.Errorf("build instance: %v", err)
 	}
 
 	if err := b.initializeInstances(instances); err != nil {
-		return err
+		return fmt.Errorf("initialize instances: %v", err)
 	}
 
 	if err := b.waitUntilAllCallable(instances); err != nil {
-		return err
+		return fmt.Errorf("wait until callable: %v", err)
 	}
 
 	// Success... update the caller's references.
@@ -89,8 +89,6 @@ func (b *builder) newInstances() ([]echo.Instance, error) {
 }
 
 func (b *builder) initializeInstances(instances []echo.Instance) error {
-	env := b.ctx.Environment().(*kubeEnv.Environment)
-
 	// Wait to receive the k8s Endpoints for each Echo Instance.
 	wg := sync.WaitGroup{}
 	instanceEndpoints := make([]*kubeCore.Endpoints, len(instances))
@@ -103,13 +101,14 @@ func (b *builder) initializeInstances(instances []echo.Instance) error {
 		serviceName := inst.Config().Service
 		serviceNamespace := inst.Config().Namespace.Name()
 		timeout := inst.Config().ReadinessTimeout
+		cluster := inst.(*instance).cluster
 
 		// Run the waits in parallel.
 		go func() {
 			defer wg.Done()
 
 			// Wait until all the endpoints are ready for this service
-			_, endpoints, err := env.WaitUntilServiceEndpointsAreReady(
+			_, endpoints, err := cluster.WaitUntilServiceEndpointsAreReady(
 				serviceNamespace, serviceName, retry.Timeout(timeout))
 			if err != nil {
 				aggregateErrMux.Lock()
@@ -130,7 +129,7 @@ func (b *builder) initializeInstances(instances []echo.Instance) error {
 	// Initialize the workloads for each instance.
 	for i, inst := range instances {
 		if err := inst.(*instance).initialize(instanceEndpoints[i]); err != nil {
-			return err
+			return fmt.Errorf("initialize %v: %v", inst.ID(), err)
 		}
 	}
 	return nil

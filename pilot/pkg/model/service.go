@@ -73,6 +73,9 @@ type Service struct {
 	// Address specifies the service IPv4 address of the load balancer
 	Address string `json:"address,omitempty"`
 
+	// Protect concurrent ClusterVIPs read/write
+	Mutex sync.RWMutex
+
 	// ClusterVIPs specifies the service address of the load balancer
 	// in each of the clusters where the service resides
 	ClusterVIPs map[string]string `json:"cluster-vips,omitempty"`
@@ -84,9 +87,6 @@ type Service struct {
 	// or use the passthrough model (i.e. proxy will forward the traffic to the network endpoint requested
 	// by the caller)
 	Resolution Resolution
-
-	// Protect concurrent ClusterVIPs read/write
-	Mutex sync.RWMutex
 
 	// MeshExternal (if true) indicates that the service is external to the mesh.
 	// These services are defined using Istio's ServiceEntry spec.
@@ -285,11 +285,7 @@ type IstioEndpoint struct {
 	// Address is the address of the endpoint, using envoy proto.
 	Address string
 
-	// ServicePortName tracks the name of the port, to avoid 'eventual consistency' issues.
-	// Sometimes the Endpoint is visible before Service - so looking up the port number would
-	// fail. Instead the mapping to number is made when the clusters are computed. The lazy
-	// computation will also help with 'on-demand' and 'split horizon' - where it will be skipped
-	// for not used clusters or endpoints behind a gate.
+	// ServicePortName tracks the name of the port, this is used to select the IstioEndpoint by service port.
 	ServicePortName string
 
 	// UID identifies the workload, for telemetry purpose.
@@ -314,10 +310,6 @@ type IstioEndpoint struct {
 
 	// The load balancing weight associated with this endpoint.
 	LbWeight uint32
-
-	// Attributes contains additional attributes associated with the service
-	// used mostly by mixer and RBAC for policy enforcement purposes.
-	Attributes ServiceAttributes
 
 	// TLSMode endpoint is injected with istio sidecar and ready to configure Istio mTLS
 	TLSMode string
@@ -356,7 +348,6 @@ type ServiceDiscovery interface {
 	Services() ([]*Service, error)
 
 	// GetService retrieves a service by host name if it exists
-	// Deprecated - do not use for anything other than tests
 	GetService(hostname host.Name) (*Service, error)
 
 	// InstancesByPort retrieves instances for a service on the given ports with labels that match

@@ -14,8 +14,6 @@ spec:
       enabled: true
     sidecarInjector:
       enabled: true
-    citadel:
-      enabled: true
     galley:
       enabled: true
     cni:

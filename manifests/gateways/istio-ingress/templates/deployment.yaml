@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istio-ingressgateway
+  name: {{ $gateway.name | default "istio-ingressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -29,7 +29,7 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
-        service.istio.io/canonical-name: istio-ingressgateway
+        service.istio.io/canonical-name: {{ $gateway.name | default "istio-ingressgateway" }}
         {{- if not (eq .Values.revision "") }}
         service.istio.io/canonical-revision: {{ .Values.revision }}
         {{- else}}
@@ -101,49 +101,11 @@ spec:
         {{- if .Values.global.logAsJson }}
           - --log_as_json
         {{- end }}
-          - --drainDuration
-          - '45s' #drainDuration
-          - --parentShutdownDuration
-          - '1m0s' #parentShutdownDuration
-          - --connectTimeout
-          - '10s' #connectTimeout
           - --serviceCluster
-          - istio-ingressgateway
-          - --zipkinAddress
-        {{- if .Values.global.tracer.zipkin.address }}
-          - {{ .Values.global.tracer.zipkin.address }}
-        {{- else if .Values.global.telemetryNamespace }}
-          - zipkin.{{ .Values.global.telemetryNamespace }}:9411
-        {{- else }}
-          - zipkin:9411
-        {{- end }}
-        {{- if $.Values.global.proxy.envoyMetricsService.enabled }}
-          - --envoyMetricsService
-          {{- with  $.Values.global.proxy.envoyMetricsService }}
-          - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
-          {{- end }}
-        {{- end}}
-        {{- if $.Values.global.proxy.envoyAccessLogService.enabled }}
-          - --envoyAccessLogService
-          {{- with  $.Values.global.proxy.envoyAccessLogService }}
-          - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
-          {{- end }}
-        {{- end }}
-          - --proxyAdminPort
-          - "15000"
-          - --statusPort
-          - "15020"
+          - {{ $gateway.name | default "istio-ingressgateway" }}
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
         {{- end }}
-          - --controlPlaneAuthPolicy
-          - NONE
-          - --discoveryAddress
-          {{- if .Values.global.configNamespace }}
-          - istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
-          {{- else }}
-          - istio-pilot.istio-system.svc:15012
-          {{- end }}
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
@@ -208,9 +170,9 @@ spec:
               fieldRef:
                 fieldPath: spec.serviceAccountName
           - name: ISTIO_META_WORKLOAD_NAME
-            value: istio-ingressgateway
+            value: {{ $gateway.name | default "istio-ingressgateway" }}
           - name: ISTIO_META_OWNER
-            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/istio-ingressgateway
+            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/{{ $gateway.name | default "istio-ingressgateway" }}
           {{- if $.Values.global.meshID }}
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.meshID }}"

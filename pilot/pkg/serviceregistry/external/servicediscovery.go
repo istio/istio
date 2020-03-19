@@ -119,11 +119,7 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 									Network:         instance.Endpoint.Network,
 									Locality:        instance.Endpoint.Locality,
 									LbWeight:        instance.Endpoint.LbWeight,
-									Attributes: model.ServiceAttributes{
-										Name:      instance.Service.Attributes.Name,
-										Namespace: instance.Service.Attributes.Namespace,
-									},
-									TLSMode: instance.Endpoint.TLSMode,
+									TLSMode:         instance.Endpoint.TLSMode,
 								})
 						}
 					}

@@ -15,18 +15,22 @@
 package util
 
 import (
+	"bytes"
 	"fmt"
-	"path"
 	"strings"
 	"testing"
+	"text/template"
 	"time"
-
-	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/components/galley"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/galley"
+	"istio.io/istio/pkg/test/util/retry"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -83,52 +87,59 @@ var IngressCredentialServerKeyCertB = IngressCredential{
 	PrivateKey: TLSServerKeyB,
 	ServerCert: TLSServerCertB,
 }
-var IngressCredentialCaCertB = IngressCredential{
-	CaCert: CaCertB,
-}
-
-var (
-	credNames = []string{"bookinfo-credential-1", "bookinfo-credential-2", "bookinfo-credential-3",
-		"bookinfo-credential-4", "bookinfo-credential-5"}
-	hosts = []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com",
-		"bookinfo4.example.com", "bookinfo5.example.com"}
-)
 
 // CreateIngressKubeSecret reads credential names from credNames and key/cert from ingressCred,
 // and creates K8s secrets for ingress gateway.
 // nolint: interfacer
-func CreateIngressKubeSecret(t *testing.T, ctx framework.TestContext, credNames []string,
+func CreateIngressKubeSecret(t test.Failer, ctx framework.TestContext, credNames []string,
 	ingressType ingress.CallType, ingressCred IngressCredential) {
+	t.Helper()
 	// Get namespace for ingress gateway pod.
 	istioCfg := istio.DefaultConfigOrFail(t, ctx)
 	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 
 	if len(credNames) == 0 {
-		t.Log("no credential names are specified, skip creating ingress secret")
+		ctx.Log("no credential names are specified, skip creating ingress secret")
 		return
 	}
 	// Create Kubernetes secret for ingress gateway
-	kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
+	kubeAccessor := ctx.Environment().(*kube.Environment).KubeClusters[0]
 	for _, cn := range credNames {
 		secret := createSecret(ingressType, cn, systemNS.Name(), ingressCred)
 		err := kubeAccessor.CreateSecret(systemNS.Name(), secret)
 		if err != nil {
-			t.Errorf("Failed to create secret (error: %s)", err)
+			t.Fatalf("Failed to create secret (error: %s)", err)
 		}
 	}
 	// Check if Kubernetes secret is ready
-	maxRetryNumber := 5
-	checkRetryInterval := time.Second * 1
-	for _, cn := range credNames {
-		t.Logf("Check ingress Kubernetes secret %s:%s...", systemNS.Name(), cn)
-		for i := 0; i < maxRetryNumber; i++ {
+	retry.UntilSuccessOrFail(t, func() error {
+		for _, cn := range credNames {
 			_, err := kubeAccessor.GetSecret(systemNS.Name()).Get(cn, metav1.GetOptions{})
 			if err != nil {
-				time.Sleep(checkRetryInterval)
-			} else {
-				t.Logf("Secret %s:%s is ready.", systemNS.Name(), cn)
-				break
+				return fmt.Errorf("secret %v not found: %v", cn, err)
 			}
+		}
+		return nil
+	}, retry.Timeout(time.Second*5))
+}
+
+// DeleteIngressKubeSecret deletes a secret
+// nolint: interfacer
+func DeleteIngressKubeSecret(t test.Failer, ctx framework.TestContext, credNames []string) {
+	// Get namespace for ingress gateway pod.
+	istioCfg := istio.DefaultConfigOrFail(t, ctx)
+	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+
+	if len(credNames) == 0 {
+		ctx.Log("no credential names are specified, skip creating ingress secret")
+		return
+	}
+	// Create Kubernetes secret for ingress gateway
+	cluster := ctx.Environment().(*kube.Environment).KubeClusters[0]
+	for _, cn := range credNames {
+		err := cluster.DeleteSecret(systemNS.Name(), cn)
+		if err != nil {
+			t.Fatalf("Failed to create secret (error: %s)", err)
 		}
 	}
 }
@@ -176,24 +187,23 @@ type TLSContext struct {
 	Cert string
 }
 
-// VisitProductPage makes HTTPS request to ingress gateway to visit product page
-func VisitProductPage(ing ingress.Instance, host string, callType ingress.CallType, tlsCtx TLSContext,
-	timeout time.Duration, exRsp ExpectedResponse, t *testing.T) error {
-	start := time.Now()
+// SendRequest makes HTTPS request to ingress gateway to visit product page
+func SendRequest(ing ingress.Instance, host string, path string, callType ingress.CallType, tlsCtx TLSContext, exRsp ExpectedResponse, t test.Failer) error {
+	t.Helper()
 	endpointAddress := ing.HTTPSAddress()
-	for {
+	return retry.UntilSuccess(func() error {
 		response, err := ing.Call(ingress.CallOptions{
 			Host:       host,
-			Path:       "/productpage",
+			Path:       fmt.Sprintf("/%s", path),
 			CaCert:     tlsCtx.CaCert,
 			PrivateKey: tlsCtx.PrivateKey,
 			Cert:       tlsCtx.Cert,
 			CallType:   callType,
 			Address:    endpointAddress,
+			Timeout:    time.Second,
 		})
 		errorMatch := true
 		if err != nil {
-			t.Logf("Unable to connect to product page: %v", err)
 			if !strings.Contains(err.Error(), exRsp.ErrorMessage) {
 				errorMatch = false
 			}
@@ -201,29 +211,24 @@ func VisitProductPage(ing ingress.Instance, host string, callType ingress.CallTy
 
 		status := response.Code
 		if status == exRsp.ResponseCode && errorMatch {
-			t.Logf("Got %d response from product page!", status)
 			return nil
 		} else if status != exRsp.ResponseCode {
-			t.Logf("expected response code %d but got %d", exRsp.ResponseCode, status)
+			return fmt.Errorf("expected response code %d but got %d", exRsp.ResponseCode, status)
 		} else {
-			t.Logf("expected response error message %s but got %s", exRsp.ErrorMessage, err.Error())
+			return fmt.Errorf("expected response error message %s but got %s", exRsp.ErrorMessage, err.Error())
 		}
-
-		if time.Since(start) > timeout {
-			return fmt.Errorf("could not retrieve product page in %v: Last status: %v", timeout, status)
-		}
-
-		time.Sleep(3 * time.Second)
-	}
+		// Certs occasionally take quite a while to become active in Envoy, so retry for a long time (2min)
+	}, retry.Delay(time.Second), retry.Timeout(time.Minute*2))
 }
 
 // RotateSecrets deletes kubernetes secrets by name in credNames and creates same secrets using key/cert
 // from ingressCred.
 func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string, // nolint:interfacer
 	ingressType ingress.CallType, ingressCred IngressCredential) {
+	t.Helper()
 	istioCfg := istio.DefaultConfigOrFail(t, ctx)
 	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
-	kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
+	kubeAccessor := ctx.Environment().(*kube.Environment).KubeClusters[0]
 	for _, cn := range credNames {
 		scrt, err := kubeAccessor.GetSecret(systemNS.Name()).Get(cn, metav1.GetOptions{})
 		if err != nil {
@@ -236,20 +241,15 @@ func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string, 
 		}
 	}
 	// Check if Kubernetes secret is ready
-	maxRetryNumber := 5
-	checkRetryInterval := time.Second * 1
-	for _, cn := range credNames {
-		t.Logf("Check ingress Kubernetes secret %s:%s...", systemNS.Name(), cn)
-		for i := 0; i < maxRetryNumber; i++ {
+	retry.UntilSuccessOrFail(t, func() error {
+		for _, cn := range credNames {
 			_, err := kubeAccessor.GetSecret(systemNS.Name()).Get(cn, metav1.GetOptions{})
 			if err != nil {
-				time.Sleep(checkRetryInterval)
-			} else {
-				t.Logf("Secret %s:%s is ready.", systemNS.Name(), cn)
-				break
+				return fmt.Errorf("secret %v not found: %v", cn, err)
 			}
 		}
-	}
+		return nil
+	}, retry.Timeout(time.Second*5))
 }
 
 // createSecret creates a kubernetes secret which stores private key, server certificate for TLS ingress gateway.
@@ -267,173 +267,124 @@ func updateSecret(ingressType ingress.CallType, scrt *v1.Secret, ic IngressCrede
 	return scrt
 }
 
-// DeleteSecrets deletes kubernetes secrets by name in credNames.
-func DeleteSecrets(t *testing.T, ctx framework.TestContext, credNames []string) { // nolint:interfacer
-	istioCfg := istio.DefaultConfigOrFail(t, ctx)
-	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
-	kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
-	for _, cn := range credNames {
-		err := kubeAccessor.DeleteSecret(systemNS.Name(), cn)
-		if err != nil {
-			t.Errorf("Failed to delete secret (error: %s)", err)
-		}
-	}
-	// Check if Kubernetes secret is deleted
-	maxRetryNumber := 5
-	checkRetryInterval := time.Second * 1
-	for _, cn := range credNames {
-		t.Logf("Check ingress Kubernetes secret %s:%s...", systemNS.Name(), cn)
-		for i := 0; i < maxRetryNumber; i++ {
-			_, err := kubeAccessor.GetSecret(systemNS.Name()).Get(cn, metav1.GetOptions{})
-			if err != nil {
-				t.Logf("Secret %s:%s is deleted", systemNS.Name(), cn)
-				break
-			} else {
-				t.Logf("Secret %s:%s still exists.", systemNS.Name(), cn)
-				time.Sleep(checkRetryInterval)
-			}
-		}
-	}
-}
-
-// DeployBookinfo deploys bookinfo application, and deploys gateway with various type.
-// nolint: interfacer
-func DeployBookinfo(t *testing.T, ctx framework.TestContext, g galley.Instance, gatewayType GatewayType) {
-	bookinfoNs, err := namespace.New(ctx, namespace.Config{
-		Prefix: "istio-bookinfo",
+func SetupTest(ctx framework.TestContext, g galley.Instance) namespace.Instance {
+	serverNs := namespace.NewOrFail(ctx, ctx, namespace.Config{
+		Prefix: "ingress",
 		Inject: true,
 	})
+	var a echo.Instance
+	echoboot.NewBuilderOrFail(ctx, ctx).
+		With(&a, echo.Config{
+			Service:   "server",
+			Namespace: serverNs,
+			Ports: []echo.Port{
+				{
+					Name:     "http",
+					Protocol: protocol.HTTP,
+					// We use a port > 1024 to not require root
+					InstancePort: 8090,
+				},
+			},
+			Galley: g,
+		}).
+		BuildOrFail(ctx)
+	return serverNs
+}
+
+type TestConfig struct {
+	Mode           string
+	CredentialName string
+	Host           string
+}
+
+const vsTemplate = `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: {{.CredentialName}}
+spec:
+  hosts:
+  - "{{.Host}}"
+  gateways:
+  - {{.CredentialName}}
+  http:
+  - match:
+    - uri:
+        exact: /{{.CredentialName}}
+    route:
+    - destination:
+        host: server
+        port:
+          number: 80
+`
+
+const gwTemplate = `
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: {{.CredentialName}}
+spec:
+  selector:
+    istio: ingressgateway # use istio default ingress gateway
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: {{.Mode}}
+      credentialName: "{{.CredentialName}}"
+    hosts:
+    - "{{.Host}}"
+`
+
+func runTemplate(t test.Failer, tmpl string, params interface{}) string {
+	tm, err := template.New("").Parse(tmpl)
 	if err != nil {
-		t.Fatalf("Could not create istio-bookinfo Namespace; err:%v", err)
-	}
-	d := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo})
-
-	// Backup the original bookinfo root.
-	originBookInfoRoot := env.BookInfoRoot
-	env.BookInfoRoot = path.Join(env.IstioSrc, "tests/integration/security/sds_ingress/")
-	var gatewayPath, virtualSvcPath, destRulePath bookinfo.ConfigFile
-	switch gatewayType {
-	case SingleTLSGateway:
-		gatewayPath = "testdata/bookinfo-single-tls-gateway.yaml"
-		virtualSvcPath = "testdata/bookinfo-single-virtualservice.yaml"
-		destRulePath = "testdata/bookinfo-productpage-destinationrule.yaml"
-	case SingleMTLSGateway:
-		gatewayPath = "testdata/bookinfo-single-mtls-gateway.yaml"
-		virtualSvcPath = "testdata/bookinfo-single-virtualservice.yaml"
-		destRulePath = "testdata/bookinfo-productpage-destinationrule.yaml"
-	case MultiTLSGateway:
-		gatewayPath = "testdata/bookinfo-multiple-tls-gateways.yaml"
-		virtualSvcPath = "testdata/bookinfo-multiple-virtualservices.yaml"
-		destRulePath = "testdata/bookinfo-productpage-destinationrule.yaml"
-	case MultiMTLSGateway:
-		gatewayPath = "testdata/bookinfo-multiple-mtls-gateways.yaml"
-		virtualSvcPath = "testdata/bookinfo-multiple-virtualservices.yaml"
-		destRulePath = "testdata/bookinfo-productpage-destinationrule.yaml"
-	default:
-		t.Fatalf("Invalid gateway type for bookinfo")
+		t.Fatalf("failed to render template: %v", err)
 	}
 
-	g.ApplyConfigOrFail(
-		t,
-		d.Namespace(),
-		gatewayPath.LoadGatewayFileWithNamespaceOrFail(t, bookinfoNs.Name()))
-
-	g.ApplyConfigOrFail(
-		t,
-		d.Namespace(),
-		destRulePath.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-		virtualSvcPath.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
-	// Wait for deployment to complete
-	time.Sleep(3 * time.Second)
-	// Restore the bookinfo root to original value.
-	env.BookInfoRoot = originBookInfoRoot
+	var buf bytes.Buffer
+	if err := tm.Execute(&buf, params); err != nil {
+		t.Fatal(err)
+	}
+	return buf.String()
 }
 
-// WaitUntilGatewaySdsStatsGE checks gateway stats server_ssl_socket_factory.ssl_context_update_by_sds
-// and returns if server_ssl_socket_factory.ssl_context_update_by_sds >= expectedUpdates, or timeouts
-// after duration seconds, whichever comes first. Returns an error indicating that stats do not meet
-// expectation but timeout.
-func WaitUntilGatewaySdsStatsGE(t *testing.T, ing ingress.Instance, expectedUpdates int, timeout time.Duration) error {
-	start := time.Now()
-	sdsUpdates := 0
-	var err error
-	for {
-		if time.Since(start) > timeout {
-			return fmt.Errorf("sds stats does not meet expectation in %v: Expected %v, Last stats: %v",
-				timeout, expectedUpdates, sdsUpdates)
-		}
-		sdsUpdates, err = GetStatsByName(t, ing, "listener.0.0.0.0_443.server_ssl_socket_factory.ssl_context_update_by_sds")
-		if err == nil && sdsUpdates >= expectedUpdates {
-			t.Logf("ingress gateway SDS updates meets expectation within %v. got %v vs expected %v",
-				time.Since(start), sdsUpdates, expectedUpdates)
-			return nil
-		}
-		t.Logf("sds stats does not match (get %d vs expected %d), error: %v", sdsUpdates,
-			expectedUpdates, err)
-		time.Sleep(3 * time.Second)
+func SetupConfig(t test.Failer, g galley.Instance, ns namespace.Instance, config ...TestConfig) func() {
+	var apply []string
+	for _, c := range config {
+		apply = append(apply, runTemplate(t, vsTemplate, c), runTemplate(t, gwTemplate, c))
 	}
-}
-
-// WaitUntilGatewayActiveListenerStatsGE checks gateway stats for total number of active listener
-// and returns if listener_manager.total_listeners_active >= expectedListeners
-func WaitUntilGatewayActiveListenerStatsGE(t *testing.T, ing ingress.Instance, expectedListeners int,
-	timeout time.Duration) error {
-	start := time.Now()
-	activeListeners := 0
-	var err error
-	for {
-		if time.Since(start) > timeout {
-			return fmt.Errorf("active listener stats does not meet expectation in %v: Expected %v, "+
-				"Last stats: %v", timeout, expectedListeners, activeListeners)
-		}
-		activeListeners, err = GetStatsByName(t, ing, "listener_manager.total_listeners_active")
-		if err == nil && activeListeners >= expectedListeners {
-			t.Logf("ingress gateway total number active listeners meets expectation within %v. "+
-				"got %v vs expected %v", time.Since(start), activeListeners, expectedListeners)
-			return nil
-		}
-		t.Logf("total active listener stats does not match (get %d vs expected %d), error: %v",
-			activeListeners, expectedListeners, err)
-		time.Sleep(3 * time.Second)
+	g.ApplyConfigOrFail(t, ns, apply...)
+	return func() {
+		g.DeleteConfigOrFail(t, ns, apply...)
 	}
-}
-
-// GetGatewaySdsStats fetches stats from gateway proxy and finds specific stats by name. Returns
-// error on failures.
-func GetStatsByName(t *testing.T, ing ingress.Instance, statsName string) (int, error) {
-	gatewayStats, err := ing.ProxyStats()
-	if err == nil {
-		sdsUpdates, hasSdsStats := gatewayStats[statsName]
-		if hasSdsStats {
-			return sdsUpdates, nil
-		}
-	}
-	return 0, fmt.Errorf("unable to get ingress gateway proxy sds stats: %v", err)
 }
 
 // RunTestMultiMtlsGateways deploys multiple mTLS gateways with SDS enabled, and creates kubernetes that store
 // private key, server certificate and CA certificate for each mTLS gateway. Verifies that all gateways are able to terminate
 // mTLS connections successfully.
-func RunTestMultiMtlsGateways(t *testing.T, ctx framework.TestContext,
+func RunTestMultiMtlsGateways(ctx framework.TestContext,
 	inst istio.Instance, g galley.Instance) { // nolint:interfacer
-	t.Helper()
-
-	CreateIngressKubeSecret(t, ctx, credNames, ingress.Mtls, IngressCredentialA)
-	DeployBookinfo(t, ctx, g, MultiMTLSGateway)
-
-	ing := ingress.NewOrFail(t, ctx, ingress.Config{
+	var credNames []string
+	var tests []TestConfig
+	for i := 1; i < 6; i++ {
+		cred := fmt.Sprintf("runtestmultimtlsgateways-%d", i)
+		tests = append(tests, TestConfig{
+			Mode:           "MUTUAL",
+			CredentialName: cred,
+			Host:           fmt.Sprintf("runtestmultimtlsgateways%d.example.com", i),
+		})
+		credNames = append(credNames, cred)
+	}
+	CreateIngressKubeSecret(ctx, ctx, credNames, ingress.Mtls, IngressCredentialA)
+	defer DeleteIngressKubeSecret(ctx, ctx, credNames)
+	ns := SetupTest(ctx, g)
+	SetupConfig(ctx, g, ns, tests...)
+	ing := ingress.NewOrFail(ctx, ctx, ingress.Config{
 		Istio: inst,
 	})
-	// Expect 2 SDS updates for each listener, one for server key/cert, and one for CA cert.
-	err := WaitUntilGatewaySdsStatsGE(t, ing, 2*len(credNames), 30*time.Second)
-	if err != nil {
-		t.Errorf("sds update stats does not match: %v", err)
-	}
-	// Expect 2 active listeners, one listens on 443 and the other listens on 15090
-	err = WaitUntilGatewayActiveListenerStatsGE(t, ing, 2, 60*time.Second)
-	if err != nil {
-		t.Errorf("total active listener stats does not match: %v", err)
-	}
 	tlsContext := TLSContext{
 		CaCert:     CaCertA,
 		PrivateKey: TLSClientKeyA,
@@ -441,45 +392,52 @@ func RunTestMultiMtlsGateways(t *testing.T, ctx framework.TestContext,
 	}
 	callType := ingress.Mtls
 
-	for _, h := range hosts {
-		err := VisitProductPage(ing, h, callType, tlsContext, 30*time.Second,
-			ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
-		if err != nil {
-			t.Errorf("unable to retrieve 200 from product page at host %s: %v", h, err)
-		}
+	for _, h := range tests {
+		ctx.NewSubTest(h.Host).Run(func(ctx framework.TestContext) {
+			err := SendRequest(ing, h.Host, h.CredentialName, callType, tlsContext,
+				ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, ctx)
+			if err != nil {
+				ctx.Fatalf("unable to retrieve 200 from product page at host %s: %v", h, err)
+			}
+		})
 	}
 }
 
 // RunTestMultiTLSGateways deploys multiple TLS gateways with SDS enabled, and creates kubernetes that store
 // private key and server certificate for each TLS gateway. Verifies that all gateways are able to terminate
 // SSL connections successfully.
-func RunTestMultiTLSGateways(t *testing.T, ctx framework.TestContext,
+func RunTestMultiTLSGateways(ctx framework.TestContext,
 	inst istio.Instance, g galley.Instance) { // nolint:interfacer
-	t.Helper()
-
-	CreateIngressKubeSecret(t, ctx, credNames, ingress.TLS, IngressCredentialA)
-	DeployBookinfo(t, ctx, g, MultiTLSGateway)
-
-	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
-	err := WaitUntilGatewaySdsStatsGE(t, ing, len(credNames), 30*time.Second)
-	if err != nil {
-		t.Errorf("sds update stats does not match: %v", err)
+	var credNames []string
+	var tests []TestConfig
+	for i := 1; i < 6; i++ {
+		cred := fmt.Sprintf("runtestmultitlsgateways-%d", i)
+		tests = append(tests, TestConfig{
+			Mode:           "SIMPLE",
+			CredentialName: cred,
+			Host:           fmt.Sprintf("runtestmultitlsgateways%d.example.com", i),
+		})
+		credNames = append(credNames, cred)
 	}
-	// Expect two active listeners, one listens on 443 and the other listens on 15090
-	err = WaitUntilGatewayActiveListenerStatsGE(t, ing, 2, 60*time.Second)
-	if err != nil {
-		t.Errorf("total active listener stats does not match: %v", err)
-	}
+	CreateIngressKubeSecret(ctx, ctx, credNames, ingress.Mtls, IngressCredentialA)
+	defer DeleteIngressKubeSecret(ctx, ctx, credNames)
+	ns := SetupTest(ctx, g)
+	SetupConfig(ctx, g, ns, tests...)
+	ing := ingress.NewOrFail(ctx, ctx, ingress.Config{
+		Istio: inst,
+	})
 	tlsContext := TLSContext{
 		CaCert: CaCertA,
 	}
 	callType := ingress.TLS
 
-	for _, h := range hosts {
-		err := VisitProductPage(ing, h, callType, tlsContext, 30*time.Second,
-			ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
-		if err != nil {
-			t.Errorf("unable to retrieve 200 from product page at host %s: %v", h, err)
-		}
+	for _, h := range tests {
+		ctx.NewSubTest(h.Host).Run(func(ctx framework.TestContext) {
+			err := SendRequest(ing, h.Host, h.CredentialName, callType, tlsContext,
+				ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, ctx)
+			if err != nil {
+				ctx.Fatalf("unable to retrieve 200 from product page at host %s: %v", h, err)
+			}
+		})
 	}
 }

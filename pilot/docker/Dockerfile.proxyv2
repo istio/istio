@@ -13,19 +13,14 @@ COPY gcp_envoy_bootstrap.json /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json
 
 RUN chown -R istio-proxy /var/lib/istio
 
-COPY istio-iptables /usr/local/bin/istio-iptables
-
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
-# hadolint ignore=DL3007
-FROM gcr.io/distroless/cc:latest as distroless
+FROM gcr.io/distroless/cc@sha256:f81e5db8287d66b012d874a6f7fea8da5b96d9cc509aa5a9b5d095a604d4bca1 as distroless
 
 # TODO(https://github.com/istio/istio/issues/17656) clean up this hack
 COPY --from=default /sbin/xtables-multi /sbin/iptables* /sbin/ip6tables* /sbin/ip /sbin/
 COPY --from=default /usr/lib/x86_64-linux-gnu/xtables/ /usr/lib/x86_64-linux-gnu/xtables
 COPY --from=default /usr/lib/x86_64-linux-gnu/ /usr/lib/x86_64-linux-gnu
 COPY --from=default /etc/iproute2 /etc/iproute2
-
-COPY istio-iptables /usr/local/bin/istio-iptables
 
 # Copy Envoy bootstrap templates used by pilot-agent
 COPY --chown=nonroot:nonroot envoy_bootstrap_v2.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
@@ -50,9 +45,7 @@ ENV ISTIO_META_ISTIO_VERSION $istio_version
 
 COPY pilot-agent /usr/local/bin/pilot-agent
 
-COPY envoy_pilot.yaml.tmpl /etc/istio/proxy/envoy_pilot.yaml.tmpl
 COPY envoy_policy.yaml.tmpl /etc/istio/proxy/envoy_policy.yaml.tmpl
-COPY envoy_telemetry.yaml.tmpl /etc/istio/proxy/envoy_telemetry.yaml.tmpl
 
 COPY stats-filter.wasm /etc/istio/extensions/stats-filter.wasm
 COPY metadata-exchange-filter.wasm /etc/istio/extensions/metadata-exchange-filter.wasm

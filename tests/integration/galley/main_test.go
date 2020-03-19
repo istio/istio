@@ -18,14 +18,14 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 var (
-	env *kube.Environment
+	cluster kube.Cluster
 )
 
 func TestMain(m *testing.M) {
@@ -42,8 +42,9 @@ components:
 `
 		})).
 		SetupOnEnv(environment.Kube, func(ctx resource.Context) error {
-			env = ctx.Environment().(*kube.Environment)
+			cluster = ctx.Environment().Clusters()[0].(kube.Cluster)
 			return nil
 		}).
+		RequireSingleCluster().
 		Run()
 }

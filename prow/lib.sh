@@ -14,6 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Cluster names for multicluster
+export CLUSTER1_NAME=${CLUSTER1_NAME:-"cluster1"}
+export CLUSTER2_NAME=${CLUSTER2_NAME:-"cluster2"}
 
 function setup_gcloud_credentials() {
   if [[ $(command -v gcloud) ]]; then
@@ -65,7 +68,7 @@ function build_images_legacy() {
   # Build just the images needed for the legacy e2e tests that use the install/ directory
   targets="docker.pilot docker.proxyv2 "
   targets+="docker.app docker.test_policybackend "
-  targets+="docker.mixer docker.citadel docker.galley"
+  targets+="docker.mixer docker.galley"
   DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets}" make dockerx
 }
 
@@ -73,7 +76,7 @@ function build_images() {
   # Build just the images needed for tests
   targets="docker.pilot docker.proxyv2 "
   targets+="docker.app docker.test_policybackend "
-  targets+="docker.mixer docker.citadel docker.galley "
+  targets+="docker.mixer docker.galley "
   DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets}" make dockerx
 }
 
@@ -102,6 +105,12 @@ function kind_load_images() {
   fi
 }
 
+# Loads images into both $CLUSTER1_NAME and $CLUSTER2_NAME
+function kind_load_images_multicluster() {
+  time kind_load_images "${CLUSTER1_NAME}"
+  time kind_load_images "${CLUSTER2_NAME}"
+}
+
 function clone_cni() {
   # Clone the CNI repo so the CNI artifacts can be built.
   if [[ "$PWD" == "${GOPATH}/src/istio.io/istio" ]]; then
@@ -122,10 +131,17 @@ function cleanup_kind_cluster() {
   fi
 }
 
+# Cleans up the clusters created by setup_kind_multicluster_single_network
+function cleanup_kind_multicluster() {
+  cleanup_kind_cluster "${CLUSTER1_NAME}"
+  cleanup_kind_cluster "${CLUSTER2_NAME}"
+}
+
 function setup_kind_cluster() {
-  IMAGE="${1:-kindest/node:v1.17.0}"
-  NAME="${2:-istio-testing}"
-  CONFIG="${3:-}"
+  IP_FAMILY="${1:-ipv4}"
+  IMAGE="${2:-kindest/node:v1.17.0}"
+  NAME="${3:-istio-testing}"
+  CONFIG="${4:-}"
   # Delete any previous e2e KinD cluster
   echo "Deleting previous KinD cluster with name=${NAME}"
   if ! (kind delete cluster --name="${NAME}" -v9) > /dev/null; then
@@ -150,6 +166,13 @@ function setup_kind_cluster() {
       # Kubernetes 1.15+
       CONFIG=./prow/config/trustworthy-jwt.yaml
     fi
+      # Configure the cluster IP Family only for default configs
+    if [ "${IP_FAMILY}" = "ipv6" ]; then
+      cat <<EOF >> "${CONFIG}"
+networking:
+  ipFamily: ipv6
+EOF
+    fi
   fi
 
   # Create KinD cluster
@@ -159,6 +182,55 @@ function setup_kind_cluster() {
   fi
 
   kubectl apply -f ./prow/config/metrics
+}
+
+# Sets up 2 kind clusters (named $CLUSTER1_NAME, $CLUSTER2_NAME) configured for direct pod-to-pod traffic across
+# clusters.
+function setup_kind_multicluster_single_network() {
+  IMAGE="${1}"
+  # Create the kind configuration files for the 2 clusters
+  CLUSTER1_YAML="${ARTIFACTS}/config-${CLUSTER1_NAME}.yaml"
+  CLUSTER2_YAML="${ARTIFACTS}/config-${CLUSTER2_NAME}.yaml"
+  cat <<EOF > "${CLUSTER1_YAML}"
+    kind: Cluster
+    apiVersion: kind.sigs.k8s.io/v1alpha3
+    networking:
+      podSubnet: 10.10.0.0/16
+      serviceSubnet: 10.255.10.0/24
+EOF
+  cat <<EOF > "${CLUSTER2_YAML}"
+    kind: Cluster
+    apiVersion: kind.sigs.k8s.io/v1alpha3
+    networking:
+      podSubnet: 10.20.0.0/16
+      serviceSubnet: 10.255.20.0/24
+EOF
+
+  CLUSTERREG_DIR="$(mktemp -d)"
+  export CLUSTER1_KUBECONFIG="${CLUSTERREG_DIR}/${CLUSTER1_NAME}"
+  export CLUSTER2_KUBECONFIG="${CLUSTERREG_DIR}/${CLUSTER2_NAME}"
+
+  # Trap replaces any previous trap's, so we need to explicitly cleanup both clusters here
+  trap cleanup_kind_multicluster EXIT
+
+  # Create two clusters. Explicitly delcare the subnet so we can connect the two later
+  # TODO: add IPv6
+  KUBECONFIG="${CLUSTER1_KUBECONFIG}" setup_kind_cluster "ipv4" "${IMAGE}" "${CLUSTER1_NAME}" "${CLUSTER1_YAML}"
+  KUBECONFIG="${CLUSTER2_KUBECONFIG}" setup_kind_cluster "ipv4" "${IMAGE}" "${CLUSTER2_NAME}" "${CLUSTER2_YAML}"
+
+  # Replace with --internal which allows cross-cluster api server access
+  kind get kubeconfig --name "${CLUSTER1_NAME}" --internal > "${CLUSTER1_KUBECONFIG}"
+  kind get kubeconfig --name "${CLUSTER2_NAME}" --internal > "${CLUSTER2_KUBECONFIG}"
+
+  # Set up routing rules for inter-cluster direct pod to pod communication
+  CLUSTER1_NODE="${CLUSTER1_NAME}-control-plane"
+  CLUSTER2_NODE="${CLUSTER2_NAME}-control-plane"
+  CLUSTER1_DOCKER_IP=$(docker inspect -f "{{ .NetworkSettings.IPAddress }}" "${CLUSTER1_NODE}")
+  CLUSTER2_DOCKER_IP=$(docker inspect -f "{{ .NetworkSettings.IPAddress }}" "${CLUSTER2_NODE}")
+  CLUSTER1_POD_CIDR=$(KUBECONFIG="${CLUSTER1_KUBECONFIG}" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
+  CLUSTER2_POD_CIDR=$(KUBECONFIG="${CLUSTER2_KUBECONFIG}" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
+  docker exec "${CLUSTER1_NODE}" ip route add "${CLUSTER2_POD_CIDR}" via "${CLUSTER2_DOCKER_IP}"
+  docker exec "${CLUSTER2_NODE}" ip route add "${CLUSTER1_POD_CIDR}" via "${CLUSTER1_DOCKER_IP}"
 }
 
 function cni_run_daemon_kind() {

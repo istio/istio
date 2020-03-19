@@ -40,15 +40,56 @@ var (
 	deleteOutput = ""
 )
 
-func TestOperatorInit(t *testing.T) {
+func TestOperatorDump(t *testing.T) {
 	goldenFilepath := filepath.Join(repoRootDir, "cmd/mesh/testdata/operator/output/operator-init.yaml")
 
+	odArgs := &operatorDumpArgs{
+		common: operatorCommonArgs{
+			hub:               "foo.io/istio",
+			tag:               "1.2.3",
+			operatorNamespace: "operator-test-namespace",
+			istioNamespace:    "istio-test-namespace",
+		},
+	}
+
+	cmd := "operator dump --hub " + odArgs.common.hub
+	cmd += " --tag " + odArgs.common.tag
+	cmd += " --operatorNamespace " + odArgs.common.operatorNamespace
+	cmd += " --istioNamespace " + odArgs.common.istioNamespace
+
+	gotYAML, err := runCommand(cmd)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fmt.Println(gotYAML)
+	if refreshGoldenFiles() {
+		t.Logf("Refreshing golden file for %s", goldenFilepath)
+		if err := ioutil.WriteFile(goldenFilepath, []byte(gotYAML), 0644); err != nil {
+			t.Error(err)
+		}
+	}
+
+	wantYAML, err := readFile(goldenFilepath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if diff := util.YAMLDiff(wantYAML, gotYAML); diff != "" {
+		t.Fatalf("diff: %s", diff)
+	}
+}
+
+func TestOperatorInit(t *testing.T) {
+	goldenFilepath := filepath.Join(repoRootDir, "cmd/mesh/testdata/operator/output/operator-init.yaml")
 	rootArgs := &rootArgs{}
 	oiArgs := &operatorInitArgs{
-		hub:               "foo.io/istio",
-		tag:               "1.2.3",
-		operatorNamespace: "operator-test-namespace",
-		istioNamespace:    "istio-test-namespace",
+		common: operatorCommonArgs{
+			hub:               "foo.io/istio",
+			tag:               "1.2.3",
+			operatorNamespace: "operator-test-namespace",
+			istioNamespace:    "istio-test-namespace",
+		},
 	}
 
 	operatorInit(rootArgs, oiArgs, NewLogger(rootArgs.logToStdErr, os.Stdout, os.Stderr), mockApplyManifest)
@@ -116,10 +157,12 @@ func TestOperatorRemove(t *testing.T) {
 	rootArgs := &rootArgs{}
 	orArgs := &operatorRemoveArgs{
 		operatorInitArgs: operatorInitArgs{
-			hub:               "foo.io/istio",
-			tag:               "1.2.3",
-			operatorNamespace: "operator-test-namespace",
-			istioNamespace:    "istio-test-namespace",
+			common: operatorCommonArgs{
+				hub:               "foo.io/istio",
+				tag:               "1.2.3",
+				operatorNamespace: "operator-test-namespace",
+				istioNamespace:    "istio-test-namespace",
+			},
 		},
 		force: true,
 	}

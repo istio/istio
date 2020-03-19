@@ -41,10 +41,7 @@ spec:
         - traffic.$(POD_NAMESPACE)
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
-        - --statusPort
-        - "15020"
         - --trust-domain=cluster.local
-        - --controlPlaneBootstrap=false
         - --concurrency
         - "2"
         env:
@@ -109,7 +106,7 @@ spec:
           failureThreshold: 30
           httpGet:
             path: /healthz/ready
-            port: 15020
+            port: 15090
           initialDelaySeconds: 1
           periodSeconds: 2
         resources:
@@ -137,9 +134,9 @@ spec:
         - mountPath: /var/run/secrets/tokens
           name: istio-token
         - mountPath: /etc/istio/pod
-          name: podinfo
+          name: istio-podinfo
       initContainers:
-      - command:
+      - args:
         - istio-iptables
         - -p
         - "15001"
@@ -194,7 +191,7 @@ spec:
           - fieldRef:
               fieldPath: metadata.annotations
             path: annotations
-        name: podinfo
+        name: istio-podinfo
       - name: istio-token
         projected:
           sources:
