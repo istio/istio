@@ -14855,9 +14855,6 @@ gateways:
     - port: 15032
       targetPort: 15032
       name: tracing
-    - port: 31400
-      targetPort: 31400
-      name: tcp
       # This is the port where sni routing happens
     - port: 15443
       targetPort: 15443
@@ -44926,6 +44923,32 @@ spec:
         env:
           - name: ISTIO_META_ROUTER_MODE
             value: "sni-dnat"
+        service:
+          ports:
+            - port: 15020
+              targetPort: 15020
+              name: status-port
+            - port: 80
+              targetPort: 8080
+              name: http2
+            - port: 443
+              targetPort: 8443
+              name: https
+            - port: 15029
+              targetPort: 15029
+              name: kiali
+            - port: 15030
+              targetPort: 15030
+              name: prometheus
+            - port: 15031
+              targetPort: 15031
+              name: grafana
+            - port: 15032
+              targetPort: 15032
+              name: tracing
+            - port: 15443
+              targetPort: 15443
+              name: tls
         hpaSpec:
           maxReplicas: 5
           minReplicas: 1
@@ -44957,6 +44980,15 @@ spec:
         env:
           - name: ISTIO_META_ROUTER_MODE
             value: "sni-dnat"
+        service:
+          ports:
+            - port: 80
+              name: http2
+            - port: 443
+              name: https
+            - port: 15443
+              targetPort: 15443
+              name: tls
         hpaSpec:
           maxReplicas: 5
           minReplicas: 1
@@ -45252,15 +45284,6 @@ spec:
         autoscaleEnabled: true
         type: ClusterIP
         name: istio-egressgateway
-        # Ports must be set here and not in IstioOperator because they also end up in proxy settings.
-        ports:
-          - port: 80
-            name: http2
-          - port: 443
-            name: https
-          - port: 15443
-            targetPort: 15443
-            name: tls
         secretVolumes:
           - name: egressgateway-certs
             secretName: istio-egressgateway-certs
@@ -45276,32 +45299,6 @@ spec:
         domain: ""
         type: LoadBalancer
         name: istio-ingressgateway
-        # Ports must be set here and not in IstioOperator because they also end up in proxy settings.
-        ports:
-          - port: 15020
-            targetPort: 15020
-            name: status-port
-          - port: 80
-            targetPort: 8080
-            name: http2
-          - port: 443
-            targetPort: 8443
-            name: https
-          - port: 15029
-            targetPort: 15029
-            name: kiali
-          - port: 15030
-            targetPort: 15030
-            name: prometheus
-          - port: 15031
-            targetPort: 15031
-            name: grafana
-          - port: 15032
-            targetPort: 15032
-            name: tracing
-          - port: 15443
-            targetPort: 15443
-            name: tls
         meshExpansionPorts:
           - port: 15011
             targetPort: 15011
