@@ -122,7 +122,7 @@ type grpcHandler struct {
 }
 
 func (h *grpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.EchoResponse, error) {
-	defer common.Metrics.GrpcRequests.WithLabelValues(strconv.Itoa(h.Port.Port)).Inc()
+	defer common.Metrics.GrpcRequests.With(common.Port.Value(strconv.Itoa(h.Port.Port))).Increment()
 	host := "-"
 	body := bytes.Buffer{}
 	md, ok := metadata.FromIncomingContext(ctx)

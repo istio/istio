@@ -15,29 +15,33 @@
 package common
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
+	"istio.io/pkg/monitoring"
 )
 
 type EchoMetrics struct {
-	HTTPRequests *prometheus.CounterVec
-	GrpcRequests *prometheus.CounterVec
-	TCPRequests  *prometheus.CounterVec
+	HTTPRequests monitoring.Metric
+	GrpcRequests monitoring.Metric
+	TCPRequests  monitoring.Metric
 }
 
 var (
+	Port    = monitoring.MustCreateLabel("port")
 	Metrics = &EchoMetrics{
-		HTTPRequests: promauto.NewCounterVec(prometheus.CounterOpts{
-			Name: "istio_echo_http_requests_total",
-			Help: "The number of http requests total",
-		}, []string{"port"}),
-		GrpcRequests: promauto.NewCounterVec(prometheus.CounterOpts{
-			Name: "istio_echo_grpc_requests_total",
-			Help: "The number of http requests total",
-		}, []string{"port"}),
-		TCPRequests: promauto.NewCounterVec(prometheus.CounterOpts{
-			Name: "istio_echo_tcp_requests_total",
-			Help: "The number of http requests total",
-		}, []string{"port"}),
+		HTTPRequests: monitoring.NewSum(
+			"istio_echo_http_requests_total",
+			"The number of http requests total",
+		),
+		GrpcRequests: monitoring.NewSum(
+			"istio_echo_grpc_requests_total",
+			"The number of grpc requests total",
+		),
+		TCPRequests: monitoring.NewSum(
+			"istio_echo_tcp_requests_total",
+			"The number of tcp requests total",
+		),
 	}
 )
+
+func init() {
+	monitoring.MustRegister(Metrics.HTTPRequests, Metrics.GrpcRequests, Metrics.TCPRequests)
+}

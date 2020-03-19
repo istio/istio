@@ -21,9 +21,11 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	ocprom "contrib.go.opencensus.io/exporter/prometheus"
+	"go.opencensus.io/stats/view"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
@@ -49,8 +51,9 @@ var _ io.Closer = &Instance{}
 type Instance struct {
 	Config
 
-	endpoints []endpoint.Instance
-	ready     uint32
+	endpoints     []endpoint.Instance
+	metricsServer *http.Server
+	ready         uint32
 }
 
 // New creates a new server instance.
@@ -164,8 +167,19 @@ func (s *Instance) validate() error {
 }
 
 func (s *Instance) startMetricsServer() {
-	http.Handle("/metrics", promhttp.Handler())
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", s.Metrics), nil); err != nil {
+	mux := http.NewServeMux()
+
+	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: prometheus.DefaultRegisterer.(*prometheus.Registry)})
+	if err != nil {
+		log.Errorf("could not set up prometheus exporter: %v", err)
+		return
+	}
+	view.RegisterExporter(exporter)
+	mux.Handle("/metrics", exporter)
+	s.metricsServer = &http.Server{
+		Handler: mux,
+	}
+	if err := http.ListenAndServe(fmt.Sprintf(":%d", s.Metrics), mux); err != nil {
 		log.Errorf("metrics terminated with err: %v", err)
 	}
 }

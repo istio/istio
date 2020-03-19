@@ -169,7 +169,7 @@ type codeAndSlices struct {
 func (h *httpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Infof("HTTP Request:\n  Method: %s\n  URL: %v,\n  Host: %s\n  Headers: %v",
 		r.Method, r.URL, r.Host, r.Header)
-	defer common.Metrics.HTTPRequests.WithLabelValues(strconv.Itoa(h.Port.Port)).Inc()
+	defer common.Metrics.HTTPRequests.With(common.Port.Value(strconv.Itoa(h.Port.Port))).Increment()
 	if !h.IsServerReady() {
 		// Handle readiness probe failure.
 		log.Infof("HTTP service not ready, returning 503")
