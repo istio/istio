@@ -19,6 +19,9 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
+
+	"istio.io/istio/pkg/test/echo/common"
 
 	"istio.io/istio/pkg/test/echo/common/response"
 
@@ -73,6 +76,7 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 
 // Handles incoming connection.
 func (s *tcpInstance) echo(conn io.ReadWriteCloser) {
+	defer common.Metrics.TCPRequests.With(common.Port.Value(strconv.Itoa(s.Port.Port))).Increment()
 	defer func() {
 		_ = conn.Close()
 	}()
