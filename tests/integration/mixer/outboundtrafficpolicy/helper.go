@@ -71,6 +71,8 @@ spec:
   - hosts:
     - "{{.ImportNamespace}}/*"
     - "istio-system/*"
+  outboundTrafficPolicy:
+    mode: "{{.TrafficPolicyMode}}"
 `
 
 	Gateway = `
@@ -165,16 +167,28 @@ type MetricsResponse struct {
 	PromQuery string
 }
 
+type TrafficPolicy string
+
+const (
+	AllowAny     TrafficPolicy = "ALLOW_ANY"
+	RegistryOnly TrafficPolicy = "REGISTRY_ONLY"
+)
+
+// String implements fmt.Stringer
+func (t TrafficPolicy) String() string {
+	return string(t)
+}
+
 // We want to test "external" traffic. To do this without actually hitting an external endpoint,
 // we can import only the service namespace, so the apps are not known
-func createSidecarScope(t *testing.T, appsNamespace namespace.Instance, serviceNamespace namespace.Instance, g galley.Instance) {
+func createSidecarScope(t *testing.T, tPolicy TrafficPolicy, appsNamespace namespace.Instance, serviceNamespace namespace.Instance, g galley.Instance) {
 	tmpl, err := template.New("SidecarScope").Parse(SidecarScope)
 	if err != nil {
 		t.Errorf("failed to create template: %v", err)
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, map[string]string{"ImportNamespace": serviceNamespace.Name()}); err != nil {
+	if err := tmpl.Execute(&buf, map[string]string{"ImportNamespace": serviceNamespace.Name(), "TrafficPolicyMode": tPolicy.String()}); err != nil {
 		t.Errorf("failed to create template: %v", err)
 	}
 	if err := g.ApplyConfig(appsNamespace, buf.String()); err != nil {
@@ -203,7 +217,7 @@ func createGateway(t *testing.T, appsNamespace namespace.Instance, serviceNamesp
 // routes and this test relies on the dynamic routes sent through pilot to allow external traffic.
 
 // Expected is a map of protocol -> expected response codes
-func RunExternalRequestResponseCodeTest(expected map[string][]string, t *testing.T) {
+func RunExternalRequestResponseCodeTest(mode TrafficPolicy, expected map[string][]string, t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
@@ -257,7 +271,7 @@ func RunExternalRequestResponseCodeTest(expected map[string][]string, t *testing
 				}).BuildOrFail(t)
 
 			// External traffic should work even if we have service entries on the same ports
-			createSidecarScope(t, appsNamespace, serviceNamespace, g)
+			createSidecarScope(t, mode, appsNamespace, serviceNamespace, g)
 			if err := g.ApplyConfig(serviceNamespace, ServiceEntry); err != nil {
 				t.Errorf("failed to apply service entries: %v", err)
 			}
@@ -342,7 +356,7 @@ func RunExternalRequestResponseCodeTest(expected map[string][]string, t *testing
 		})
 }
 
-func RunExternalRequestMetricsTest(prometheus prometheus.Instance, expected map[string]MetricsResponse, t *testing.T) {
+func RunExternalRequestMetricsTest(prometheus prometheus.Instance, mode TrafficPolicy, expected map[string]MetricsResponse, t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
@@ -390,7 +404,7 @@ func RunExternalRequestMetricsTest(prometheus prometheus.Instance, expected map[
 				}).BuildOrFail(t)
 
 			// External traffic should work even if we have service entries on the same ports
-			createSidecarScope(t, appsNamespace, serviceNamespace, g)
+			createSidecarScope(t, mode, appsNamespace, serviceNamespace, g)
 			if err := g.ApplyConfig(serviceNamespace, ServiceEntry); err != nil {
 				t.Errorf("failed to apply service entries: %v", err)
 			}
@@ -450,7 +464,7 @@ func RunExternalRequestMetricsTest(prometheus prometheus.Instance, expected map[
 							}
 						}
 						return nil
-					}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
+					}, retry.Delay(time.Second), retry.Timeout(20*time.Second))
 					util.ValidateMetric(t, prometheus, expected[key].PromQuery, expected[key].Metric, 1)
 				})
 			}

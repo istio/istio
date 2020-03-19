@@ -12,53 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package allowany
+package outboundtrafficpolicy
 
 import (
 	"testing"
-
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
-	"istio.io/istio/tests/integration/mixer/outboundtrafficpolicy"
-)
-
-func TestMain(m *testing.M) {
-	var ist istio.Instance
-	framework.
-		NewSuite("outbound_traffic_policy_allow_any", m).
-		RequireSingleCluster().
-		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
-		Setup(setupPrometheus).
-		Run()
-}
-
-func setupConfig(cfg *istio.Config) {
-	if cfg == nil {
-		return
-	}
-	cfg.ControlPlaneValues = `
-components:
-  egressGateways:
-  - enabled: true
-  telemetry:
-    enabled: true
-values:
-  global:
-    outboundTrafficPolicy:
-      mode: ALLOW_ANY
-  telemetry:
-    v1:
-      enabled: true
-    v2:
-      enabled: false`
-}
-var (
-	prom prometheus.Instance
 )
 
 func TestOutboundTrafficPolicyAllowAny_NetworkingResponse(t *testing.T) {
@@ -68,11 +25,11 @@ func TestOutboundTrafficPolicyAllowAny_NetworkingResponse(t *testing.T) {
 		"https":       {"200"},
 		"tcp":         {"200"},
 	}
-	outboundtrafficpolicy.RunExternalRequestResponseCodeTest(expected, t)
+	RunExternalRequestResponseCodeTest(AllowAny, expected, t)
 }
 
 func TestOutboundTrafficPolicyAllowAny_MetricsResponse(t *testing.T) {
-	expected := map[string]outboundtrafficpolicy.MetricsResponse{
+	expected := map[string]MetricsResponse{
 		"http": {
 			Metric:    "istio_requests_total",
 			PromQuery: `sum(istio_requests_total{reporter="source",destination_service_name="PassthroughCluster",response_code="200"})`,
@@ -86,10 +43,5 @@ func TestOutboundTrafficPolicyAllowAny_MetricsResponse(t *testing.T) {
 			PromQuery: `sum(istio_requests_total{reporter="source",destination_service_name="PassthroughCluster",response_code="200"})`,
 		}, // HTTPS will direct to blackhole cluster, giving no response
 	}
-	outboundtrafficpolicy.RunExternalRequestMetricsTest(prom, expected, t)
-}
-
-func setupPrometheus(ctx resource.Context) (err error) {
-	prom, err = prometheus.New(ctx, prometheus.Config{})
-	return err
+	RunExternalRequestMetricsTest(prom, AllowAny, expected, t)
 }

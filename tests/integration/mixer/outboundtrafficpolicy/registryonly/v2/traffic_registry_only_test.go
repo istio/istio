@@ -55,16 +55,16 @@ values:
       mode: REGISTRY_ONLY`
 }
 
-func TestOutboundTrafficPolicyRegistryOnly_NetworkingResponse(t *testing.T) {
+func TestOutboundTrafficPolicyRegistryOnly_NetworkingResponseV2(t *testing.T) {
 	expected := map[string][]string{
 		"http":        {"502"}, // HTTP will return an error code
 		"http_egress": {"200"}, // We define the virtual service in the namespace, so we should be able to reach it
 		"https":       {},      // HTTPS will direct to blackhole cluster, giving no response
 	}
-	outboundtrafficpolicy.RunExternalRequestResponseCodeTest(expected, t)
+	outboundtrafficpolicy.RunExternalRequestResponseCodeTest(outboundtrafficpolicy.RegistryOnly, expected, t)
 }
 
-func TestOutboundTrafficPolicyRegistryOnly_MetricsResponse(t *testing.T) {
+func TestOutboundTrafficPolicyRegistryOnly_MetricsResponseV2(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/21566 and https://github.com/istio/istio/issues/21385")
 	expected := map[string]outboundtrafficpolicy.MetricsResponse{
 		"http": {
@@ -81,7 +81,7 @@ func TestOutboundTrafficPolicyRegistryOnly_MetricsResponse(t *testing.T) {
 		}, // HTTPS will direct to blackhole cluster, giving no response
 	}
 	// destination_service="BlackHoleCluster" does not get filled in when using sidecar scoping
-	outboundtrafficpolicy.RunExternalRequestMetricsTest(prom, expected, t)
+	outboundtrafficpolicy.RunExternalRequestMetricsTest(prom, outboundtrafficpolicy.RegistryOnly, expected, t)
 }
 
 func setupPrometheus(ctx resource.Context) (err error) {

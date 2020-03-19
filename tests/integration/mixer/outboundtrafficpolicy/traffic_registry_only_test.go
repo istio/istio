@@ -12,55 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package registryonly
+package outboundtrafficpolicy
 
 import (
 	"testing"
-
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
-	"istio.io/istio/tests/integration/mixer/outboundtrafficpolicy"
 )
-
-var (
-	prom prometheus.Instance
-)
-
-func TestMain(m *testing.M) {
-	var ist istio.Instance
-	framework.NewSuite("outbound_traffic_policy_registry_only", m).
-		RequireEnvironment(environment.Kube).
-		RequireSingleCluster().
-		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
-		Setup(setupPrometheus).
-		Run()
-}
-
-func setupConfig(cfg *istio.Config) {
-	if cfg == nil {
-		return
-	}
-	cfg.ControlPlaneValues = `
-components:
-  egressGateways:
-  - enabled: true
-  telemetry:
-    enabled: true
-values:
-  global:
-    outboundTrafficPolicy:
-      mode: REGISTRY_ONLY
-  telemetry:
-    v1:
-      enabled: true
-    v2:
-      enabled: false`
-}
 
 func TestOutboundTrafficPolicyRegistryOnly_NetworkingResponse(t *testing.T) {
 	expected := map[string][]string{
@@ -69,11 +25,11 @@ func TestOutboundTrafficPolicyRegistryOnly_NetworkingResponse(t *testing.T) {
 		"https":       {},      // HTTPS will direct to blackhole cluster, giving no response
 		"tcp":         {},      // TCP will direct to blackhole cluster, giving no response
 	}
-	outboundtrafficpolicy.RunExternalRequestResponseCodeTest(expected, t)
+	RunExternalRequestResponseCodeTest(RegistryOnly, expected, t)
 }
 
 func TestOutboundTrafficPolicyRegistryOnly_MetricsResponse(t *testing.T) {
-	expected := map[string]outboundtrafficpolicy.MetricsResponse{
+	expected := map[string]MetricsResponse{
 		"http": {
 			Metric:    "istio_requests_total",
 			PromQuery: `sum(istio_requests_total{destination_service_name="BlackHoleCluster",response_code="502"})`,
@@ -88,10 +44,5 @@ func TestOutboundTrafficPolicyRegistryOnly_MetricsResponse(t *testing.T) {
 		}, // HTTPS will direct to blackhole cluster, giving no response
 	}
 	// destination_service="BlackHoleCluster" does not get filled in when using sidecar scoping
-	outboundtrafficpolicy.RunExternalRequestMetricsTest(prom, expected, t)
-}
-
-func setupPrometheus(ctx resource.Context) (err error) {
-	prom, err = prometheus.New(ctx, prometheus.Config{})
-	return err
+	RunExternalRequestMetricsTest(prom, RegistryOnly, expected, t)
 }
