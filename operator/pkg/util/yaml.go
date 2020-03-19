@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	yaml2 "github.com/ghodss/yaml"
@@ -66,6 +67,11 @@ func MarshalWithJSONPB(val proto.Message) (string, error) {
 	return string(yb), nil
 }
 
+var (
+	// stdErrMu is used to temporarily divert stderr to silence a bogus warning from external package.
+	stdErrMu sync.Mutex
+)
+
 // UnmarshalWithJSONPB unmarshals y into out using gogo jsonpb (required for many proto defined structs).
 func UnmarshalWithJSONPB(y string, out proto.Message, allowUnknownField bool) error {
 	jb, err := yaml.YAMLToJSON([]byte(y))
@@ -74,6 +80,8 @@ func UnmarshalWithJSONPB(y string, out proto.Message, allowUnknownField bool) er
 	}
 
 	// Silence stray output to stderr in jsonpb package (issues/22261).
+	stdErrMu.Lock()
+	defer stdErrMu.Unlock()
 	stderr := os.Stderr
 	defer func() { os.Stderr = stderr }()
 	_, w, _ := os.Pipe()
