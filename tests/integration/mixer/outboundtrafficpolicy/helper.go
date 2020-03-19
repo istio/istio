@@ -162,17 +162,48 @@ spec:
 `
 )
 
+// MetricsResponse contains the metric and query to run against
+// prometheus to validate that expected telemetry information was gathered
 type MetricsResponse struct {
 	Metric string
 	PromQuery string
 }
 
+// TrafficPolicy is the mode of the outbound traffic policy to use
+// when configuring the sidecar for the client
 type TrafficPolicy string
 
 const (
 	AllowAny     TrafficPolicy = "ALLOW_ANY"
 	RegistryOnly TrafficPolicy = "REGISTRY_ONLY"
 )
+
+var cases = []struct {
+	name     string
+	portName string
+	host     string
+	gateway  bool
+	scheme   scheme.Instance
+}{
+	{
+		name:     "HTTP Traffic",
+		portName: "http",
+		scheme:   scheme.HTTP,
+	},
+	{
+		name:     "HTTPS Traffic",
+		portName: "https",
+		scheme:   scheme.HTTP,
+	},
+	{
+		name:     "HTTP Traffic Egress",
+		portName: "http",
+		host:     "some-external-site.com",
+		gateway:  true,
+		scheme:   scheme.HTTP,
+	},
+	// TODO add HTTPS through gateway
+}
 
 // String implements fmt.Stringer
 func (t TrafficPolicy) String() string {
@@ -221,100 +252,8 @@ func RunExternalRequestResponseCodeTest(mode TrafficPolicy, expected map[string]
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			g := galley.NewOrFail(t, ctx, galley.Config{})
-			p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
+			client, dest := setupEcho(t, ctx, mode)
 
-			appsNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "app",
-				Inject: true,
-			})
-			serviceNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "service",
-				Inject: true,
-			})
-
-			var client, dest echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
-				With(&client, echo.Config{
-					Service:   "client",
-					Namespace: appsNamespace,
-					Subsets:   []echo.SubsetConfig{{}},
-					Pilot:     p,
-					Galley:    g,
-				}).
-				With(&dest, echo.Config{
-					Service:   "destination",
-					Namespace: appsNamespace,
-					Subsets:   []echo.SubsetConfig{{}},
-					Pilot:     p,
-					Galley:    g,
-					Ports: []echo.Port{
-						{
-							Name:         "http",
-							Protocol:     protocol.HTTP,
-							InstancePort: 8090,
-							ServicePort:  80,
-						},
-						{
-							Name:         "https",
-							Protocol:     protocol.HTTPS,
-							InstancePort: 8091,
-							ServicePort:  443,
-						},
-						{
-							Name:         "tcp",
-							Protocol:     protocol.TCP,
-							InstancePort: 8092,
-							ServicePort:  9090,
-						},
-					},
-				}).BuildOrFail(t)
-
-			// External traffic should work even if we have service entries on the same ports
-			createSidecarScope(t, mode, appsNamespace, serviceNamespace, g)
-			if err := g.ApplyConfig(serviceNamespace, ServiceEntry); err != nil {
-				t.Errorf("failed to apply service entries: %v", err)
-			}
-
-			if _, kube := ctx.Environment().(*kube.Environment); kube {
-				createGateway(t, appsNamespace, serviceNamespace, g)
-			}
-			if err := WaitUntilNotCallable(client, dest); err != nil {
-				t.Fatalf("failed to apply sidecar, %v", err)
-			}
-
-			cases := []struct {
-				name     string
-				portName string
-				host     string
-				gateway  bool
-				scheme   scheme.Instance
-			}{
-				{
-					name:     "HTTP Traffic",
-					portName: "http",
-					scheme:   scheme.HTTP,
-				},
-				{
-					name:     "HTTPS Traffic",
-					portName: "https",
-					// TODO: set up TLS here instead of just sending HTTP. We get a false positive here
-					scheme: scheme.HTTP,
-				},
-				{
-					name:     "HTTP Traffic Egress",
-					portName: "http",
-					host:     "some-external-site.com",
-					gateway:  true,
-					scheme:   scheme.HTTP,
-				},
-				{
-					name:     "TCP",
-					portName: "tcp",
-					scheme:   scheme.TCP,
-				},
-				// TODO add HTTPS through gateway
-			}
 			for _, tc := range cases {
 				t.Run(tc.name, func(t *testing.T) {
 					if _, kube := ctx.Environment().(*kube.Environment); !kube && tc.gateway {
@@ -360,115 +299,98 @@ func RunExternalRequestMetricsTest(prometheus prometheus.Instance, mode TrafficP
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			g := galley.NewOrFail(t, ctx, galley.Config{})
-			p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
+		client, dest := setupEcho(t, ctx, mode)
 
-			appsNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "app",
-				Inject: true,
-			})
-			serviceNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "service",
-				Inject: true,
-			})
-
-			var client, dest echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
-				With(&client, echo.Config{
-					Service:   "client",
-					Namespace: appsNamespace,
-					Subsets:   []echo.SubsetConfig{{}},
-					Pilot:     p,
-					Galley:    g,
-				}).
-				With(&dest, echo.Config{
-					Service:   "destination",
-					Namespace: appsNamespace,
-					Subsets:   []echo.SubsetConfig{{}},
-					Pilot:     p,
-					Galley:    g,
-					Ports: []echo.Port{
-						{
-							Name:     "http",
-							Protocol: protocol.HTTP,
-							// We use a port > 1024 to not require root
-							InstancePort: 8090,
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				if _, kube := ctx.Environment().(*kube.Environment); !kube && tc.gateway {
+					t.Skip("Cannot run gateway in native environment.")
+				}
+				key := tc.portName
+				retry.UntilSuccessOrFail(t, func() error {
+					resp, _ := client.Call(echo.CallOptions{
+						Target:   dest,
+						PortName: tc.portName,
+						Scheme:   scheme.HTTP,
+						Headers: map[string][]string{
+							"Host": {tc.host},
 						},
-						{
-							Name:     "https",
-							Protocol: protocol.HTTPS,
-							// We use a port > 1024 to not require root
-							InstancePort: 8091,
-						},
-					},
-				}).BuildOrFail(t)
+					})
 
-			// External traffic should work even if we have service entries on the same ports
-			createSidecarScope(t, mode, appsNamespace, serviceNamespace, g)
-			if err := g.ApplyConfig(serviceNamespace, ServiceEntry); err != nil {
-				t.Errorf("failed to apply service entries: %v", err)
-			}
-
-			if _, kube := ctx.Environment().(*kube.Environment); kube {
-				createGateway(t, appsNamespace, serviceNamespace, g)
-			}
-			if err := WaitUntilNotCallable(client, dest); err != nil {
-				t.Fatalf("failed to apply sidecar, %v", err)
-			}
-
-			cases := []struct {
-				name     string
-				portName string
-				host     string
-				gateway  bool
-			}{
-				{
-					name:     "HTTP Traffic",
-					portName: "http",
-				},
-				{
-					name:     "HTTPS Traffic",
-					portName: "https",
-				},
-				{
-					name:     "HTTP Traffic Egress",
-					portName: "http",
-					host:     "some-external-site.com",
-					gateway:  true,
-				},
-				// TODO add HTTPS through gateway
-			}
-			for _, tc := range cases {
-				t.Run(tc.name, func(t *testing.T) {
-					if _, kube := ctx.Environment().(*kube.Environment); !kube && tc.gateway {
-						t.Skip("Cannot run gateway in native environment.")
+					if tc.gateway {
+						key += "_egress"
 					}
-					key := tc.portName
-					retry.UntilSuccessOrFail(t, func() error {
-						resp, _ := client.Call(echo.CallOptions{
-							Target:   dest,
-							PortName: tc.portName,
-							Scheme:   scheme.HTTP,
-							Headers: map[string][]string{
-								"Host": {tc.host},
-							},
-						})
 
-						if tc.gateway {
-							key += "_egress"
+					for _, r := range resp {
+						if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.gateway && !f {
+							return fmt.Errorf("expected to be handled by gateway. response: %+v", r.RawResponse)
 						}
+					}
+					return nil
+				}, retry.Delay(time.Second), retry.Timeout(20*time.Second))
+				util.ValidateMetric(t, prometheus, expected[key].PromQuery, expected[key].Metric, 1)
+			})
+		}
+	})
+}
 
-						for _, r := range resp {
-							if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.gateway && !f {
-								return fmt.Errorf("expected to be handled by gateway. response: %+v", r.RawResponse)
-							}
-						}
-						return nil
-					}, retry.Delay(time.Second), retry.Timeout(20*time.Second))
-					util.ValidateMetric(t, prometheus, expected[key].PromQuery, expected[key].Metric, 1)
-				})
-			}
-		})
+func setupEcho(t *testing.T, ctx framework.TestContext, mode TrafficPolicy) (echo.Instance, echo.Instance) {
+	g := galley.NewOrFail(t, ctx, galley.Config{})
+	p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
+
+	appsNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
+		Prefix: "app",
+		Inject: true,
+	})
+	serviceNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
+		Prefix: "service",
+		Inject: true,
+	})
+
+	var client, dest echo.Instance
+	echoboot.NewBuilderOrFail(t, ctx).
+		With(&client, echo.Config{
+			Service:   "client",
+			Namespace: appsNamespace,
+			Subsets:   []echo.SubsetConfig{{}},
+			Pilot:     p,
+			Galley:    g,
+		}).
+		With(&dest, echo.Config{
+			Service:   "destination",
+			Namespace: appsNamespace,
+			Subsets:   []echo.SubsetConfig{{}},
+			Pilot:     p,
+			Galley:    g,
+			Ports: []echo.Port{
+				{
+					Name:     "http",
+					Protocol: protocol.HTTP,
+					// We use a port > 1024 to not require root
+					InstancePort: 8090,
+				},
+				{
+					Name:     "https",
+					Protocol: protocol.HTTPS,
+					// We use a port > 1024 to not require root
+					InstancePort: 8091,
+				},
+			},
+		}).BuildOrFail(t)
+
+	// External traffic should work even if we have service entries on the same ports
+	createSidecarScope(t, mode, appsNamespace, serviceNamespace, g)
+	if err := g.ApplyConfig(serviceNamespace, ServiceEntry); err != nil {
+		t.Errorf("failed to apply service entries: %v", err)
+	}
+
+	if _, kube := ctx.Environment().(*kube.Environment); kube {
+		createGateway(t, appsNamespace, serviceNamespace, g)
+	}
+	if err := WaitUntilNotCallable(client, dest); err != nil {
+		t.Fatalf("failed to apply sidecar, %v", err)
+	}
+	return client, dest
 }
 
 func clusterName(target echo.Instance, port echo.Port) string {
