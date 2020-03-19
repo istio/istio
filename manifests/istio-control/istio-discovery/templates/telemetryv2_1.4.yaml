@@ -141,6 +141,7 @@ metadata:
   {{- end }}
 spec:
   configPatches:
+{{- if not .Values.telemetry.v2.stackdriver.disableOutbound }}
     - applyTo: HTTP_FILTER
       match:
         context: SIDECAR_OUTBOUND
@@ -170,6 +171,7 @@ spec:
                 runtime: envoy.wasm.runtime.null
                 code:
                   inline_string: envoy.wasm.null.stackdriver
+{{- end }}
     - applyTo: HTTP_FILTER
       match:
         context: SIDECAR_INBOUND
