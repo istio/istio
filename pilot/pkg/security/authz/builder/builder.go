@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authzModel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/authz/policy"
-	"istio.io/istio/pilot/pkg/security/authz/policy/v1alpha1"
 	"istio.io/istio/pilot/pkg/security/authz/policy/v1beta1"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/config/labels"
@@ -42,34 +41,14 @@ type Builder struct {
 }
 
 // NewBuilder creates a builder instance that can be used to build corresponding RBAC filter config.
-func NewBuilder(trustDomainBundle trustdomain.Bundle, serviceInstance *model.ServiceInstance,
-	workloadLabels labels.Collection, configNamespace string, policies *model.AuthorizationPolicies) *Builder {
+func NewBuilder(trustDomainBundle trustdomain.Bundle, workloadLabels labels.Collection, configNamespace string,
+	policies *model.AuthorizationPolicies) *Builder {
 	var generator policy.Generator
 
 	denyPolicies, allowPolicies := policies.ListAuthorizationPolicies(configNamespace, workloadLabels)
 	if len(denyPolicies) > 0 || len(allowPolicies) > 0 {
 		generator = v1beta1.NewGenerator(trustDomainBundle, denyPolicies, allowPolicies)
-		rbacLog.Debugf("found authorization allow policies for workload %v in %s", workloadLabels, configNamespace)
-	} else {
-		if serviceInstance == nil {
-			return nil
-		}
-		if serviceInstance.Service == nil {
-			rbacLog.Errorf("no service for serviceInstance: %v", serviceInstance)
-			return nil
-		}
-		serviceNamespace := serviceInstance.Service.Attributes.Namespace
-		serviceHostname := string(serviceInstance.Service.Hostname)
-		if policies.IsRBACEnabled(serviceHostname, serviceNamespace) {
-			serviceName := serviceInstance.Service.Attributes.Name
-			serviceMetadata, err := authzModel.NewServiceMetadata(serviceName, serviceNamespace, serviceInstance)
-			if err != nil {
-				rbacLog.Errorf("failed to create ServiceMetadata for %s: %s", serviceName, err)
-				return nil
-			}
-			generator = v1alpha1.NewGenerator(trustDomainBundle, serviceMetadata, policies, policies.IsGlobalPermissiveEnabled())
-			rbacLog.Debugf("v1alpha1 RBAC enabled for service %s", serviceHostname)
-		}
+		rbacLog.Debugf("found authorization policies for workload %v in %s", workloadLabels, configNamespace)
 	}
 
 	if generator == nil {
@@ -136,9 +115,8 @@ func createTCPFilter(config *envoyRbacHttpPb.RBAC) *tcpFilterPb.Filter {
 	// The build function always return the config for HTTP filter, we need to extract the
 	// generated rules and set it in the config for TCP filter.
 	rbacConfig := &envoyRbacTcpPb.RBAC{
-		Rules:       config.Rules,
-		ShadowRules: config.ShadowRules,
-		StatPrefix:  authzModel.RBACTCPFilterStatPrefix,
+		Rules:      config.Rules,
+		StatPrefix: authzModel.RBACTCPFilterStatPrefix,
 	}
 
 	tcpConfig := tcpFilterPb.Filter{

@@ -44,7 +44,6 @@ type Principal struct {
 	NotRequestPrincipals []string
 	Properties           []KeyValues
 	AllowAll             bool
-	v1beta1              bool
 }
 
 // ValidateForTCP checks if the principal is valid for TCP filter. A principal is not valid for TCP
@@ -265,27 +264,14 @@ func (principal *Principal) forKeyValue(key, value string, forTCPFilter bool) *e
 		metadata := matcher.MetadataStringMatcher(authn_model.AuthnFilterName, attrSrcPrincipal, m)
 		return principalMetadata(metadata)
 	case attrSrcPrincipal == key:
-		if !principal.v1beta1 {
-			// Legacy support for the v1alpha1 policy. The v1beta1 doesn't support these.
-			if value == allUsers || value == "*" {
-				return principalAny()
-			}
-			// We don't allow users to use "*" in names or not_names. However, we will use "*" internally to
-			// refer to authenticated users, since existing code using regex to map "*" to all authenticated
-			// users.
-			if value == allAuthenticatedUsers {
-				value = "*"
-			}
-		}
-
 		if forTCPFilter {
-			m := matcher.StringMatcherWithPrefix(value, spiffe.URIPrefix, principal.v1beta1)
+			m := matcher.StringMatcherWithPrefix(value, spiffe.URIPrefix)
 			return principalAuthenticated(m)
 		}
-		metadata := matcher.MetadataStringMatcher(authn_model.AuthnFilterName, key, matcher.StringMatcher(value, principal.v1beta1))
+		metadata := matcher.MetadataStringMatcher(authn_model.AuthnFilterName, key, matcher.StringMatcher(value))
 		return principalMetadata(metadata)
 	case found(key, []string{attrRequestPrincipal, attrRequestAudiences, attrRequestPresenter, attrSrcUser}):
-		m := matcher.MetadataStringMatcher(authn_model.AuthnFilterName, key, matcher.StringMatcher(value, principal.v1beta1))
+		m := matcher.MetadataStringMatcher(authn_model.AuthnFilterName, key, matcher.StringMatcher(value))
 		return principalMetadata(m)
 	case strings.HasPrefix(key, attrRequestHeader):
 		header, err := extractNameInBrackets(strings.TrimPrefix(key, attrRequestHeader))
@@ -302,7 +288,7 @@ func (principal *Principal) forKeyValue(key, value string, forTCPFilter bool) *e
 		}
 		// Generate a metadata list matcher for the given path keys and value.
 		// On proxy side, the value should be of list type.
-		m := matcher.MetadataListMatcher(authn_model.AuthnFilterName, []string{attrRequestClaims, claim}, value, principal.v1beta1)
+		m := matcher.MetadataListMatcher(authn_model.AuthnFilterName, []string{attrRequestClaims, claim}, value)
 		return principalMetadata(m)
 	default:
 		rbacLog.Debugf("generated dynamic metadata matcher for custom property: %s", key)
@@ -310,7 +296,7 @@ func (principal *Principal) forKeyValue(key, value string, forTCPFilter bool) *e
 		if forTCPFilter {
 			filterName = RBACTCPFilterName
 		}
-		metadata := matcher.MetadataStringMatcher(filterName, key, matcher.StringMatcher(value, principal.v1beta1))
+		metadata := matcher.MetadataStringMatcher(filterName, key, matcher.StringMatcher(value))
 		return principalMetadata(metadata)
 	}
 }

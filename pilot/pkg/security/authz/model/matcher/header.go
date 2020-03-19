@@ -59,7 +59,7 @@ func HeaderMatcher(k, v string) *route.HeaderMatcher {
 func PathMatcher(path string) *envoy_matcher.PathMatcher {
 	return &envoy_matcher.PathMatcher{
 		Rule: &envoy_matcher.PathMatcher_Path{
-			Path: StringMatcher(path, true),
+			Path: StringMatcher(path),
 		},
 	}
 }

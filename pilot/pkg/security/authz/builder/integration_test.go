@@ -78,24 +78,9 @@ func TestBuildHTTPFilter(t *testing.T) {
 			wantAllow: getProto("testdata/v1beta1/multiple-policies-out.yaml", t),
 		},
 		{
-			name:      "v1beta1 not override v1alpha1",
-			policies:  getPolicies("testdata/v1beta1/not-override-v1alpha1-in.yaml", t),
-			wantAllow: getProto("testdata/v1beta1/not-override-v1alpha1-out.yaml", t),
-		},
-		{
-			name:      "v1beta1 override v1alpha1",
-			policies:  getPolicies("testdata/v1beta1/override-v1alpha1-in.yaml", t),
-			wantAllow: getProto("testdata/v1beta1/override-v1alpha1-out.yaml", t),
-		},
-		{
 			name:      "v1beta1 single policy",
 			policies:  getPolicies("testdata/v1beta1/single-policy-in.yaml", t),
 			wantAllow: getProto("testdata/v1beta1/single-policy-out.yaml", t),
-		},
-		{
-			name:      "v1alpha1 all fields",
-			policies:  getPolicies("testdata/v1alpha1/all-fields-in.yaml", t),
-			wantAllow: getProto("testdata/v1alpha1/all-fields-out.yaml", t),
 		},
 		{
 			name:              "v1beta1 one trust domain alias",
@@ -110,28 +95,10 @@ func TestBuildHTTPFilter(t *testing.T) {
 			wantAllow:         getProto("testdata/v1beta1/simple-policy-multiple-td-aliases-out.yaml", t),
 		},
 		{
-			name:              "v1alpha1 one trust domain alias",
-			trustDomainBundle: trustdomain.NewTrustDomainBundle("td1", []string{"cluster.local"}),
-			policies:          getPolicies("testdata/v1alpha1/simple-policy-td-aliases-in.yaml", t),
-			wantAllow:         getProto("testdata/v1alpha1/simple-policy-td-aliases-out.yaml", t),
-		},
-		{
-			name:              "v1alpha1 trust domain with * in principal",
-			trustDomainBundle: trustdomain.NewTrustDomainBundle("td1", []string{"foobar"}),
-			policies:          getPolicies("testdata/v1alpha1/simple-policy-user-with-wildcard-in.yaml", t),
-			wantAllow:         getProto("testdata/v1alpha1/simple-policy-user-with-wildcard-out.yaml", t),
-		},
-		{
 			name:              "v1beta1 trust domain with * in principal",
 			trustDomainBundle: trustdomain.NewTrustDomainBundle("td1", []string{"foobar"}),
 			policies:          getPolicies("testdata/v1beta1/simple-policy-principal-with-wildcard-in.yaml", t),
 			wantAllow:         getProto("testdata/v1beta1/simple-policy-principal-with-wildcard-out.yaml", t),
-		},
-		{
-			name:              "v1alpha1 trust domain aliases with source.principal",
-			trustDomainBundle: trustdomain.NewTrustDomainBundle("new-td", []string{"old-td", "some-trustdomain"}),
-			policies:          getPolicies("testdata/v1alpha1/td-aliases-source-principal-in.yaml", t),
-			wantAllow:         getProto("testdata/v1alpha1/td-aliases-source-principal-out.yaml", t),
 		},
 		{
 			name:              "v1beta1 trust domain aliases with source.principal",
@@ -145,10 +112,9 @@ func TestBuildHTTPFilter(t *testing.T) {
 		"app":     "httpbin",
 		"version": "v1",
 	}
-	service := newService("httpbin.foo.svc.cluster.local", httpbinLabels, t)
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			b := NewBuilder(tc.trustDomainBundle, service, labels.Collection{httpbinLabels}, "foo", tc.policies)
+			b := NewBuilder(tc.trustDomainBundle, labels.Collection{httpbinLabels}, "foo", tc.policies)
 			if b == nil {
 				t.Fatalf("failed to create builder")
 			}
