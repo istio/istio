@@ -78,9 +78,6 @@
 // charts/istio-control/istio-discovery/templates/mutatingwebhook.yaml
 // charts/istio-control/istio-discovery/templates/poddisruptionbudget.yaml
 // charts/istio-control/istio-discovery/templates/service.yaml
-// charts/istio-control/istio-discovery/templates/telemetryv2_1.4.yaml
-// charts/istio-control/istio-discovery/templates/telemetryv2_1.5.yaml
-// charts/istio-control/istio-discovery/templates/telemetryv2_1.6.yaml
 // charts/istio-control/istio-discovery/values.yaml
 // charts/istio-policy/Chart.yaml
 // charts/istio-policy/templates/_affinity.tpl
@@ -135,6 +132,9 @@
 // charts/istio-telemetry/mixer-telemetry/templates/service.yaml
 // charts/istio-telemetry/mixer-telemetry/templates/serviceaccount.yaml
 // charts/istio-telemetry/mixer-telemetry/templates/stackdriver.yaml
+// charts/istio-telemetry/mixer-telemetry/templates/telemetryv2_1.4.yaml
+// charts/istio-telemetry/mixer-telemetry/templates/telemetryv2_1.5.yaml
+// charts/istio-telemetry/mixer-telemetry/templates/telemetryv2_1.6.yaml
 // charts/istio-telemetry/mixer-telemetry/values.yaml
 // charts/istio-telemetry/prometheus/Chart.yaml
 // charts/istio-telemetry/prometheus/templates/_affinity.tpl
@@ -19744,1226 +19744,6 @@ func chartsIstioControlIstioDiscoveryTemplatesServiceYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml = []byte(`{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: metadata-exchange-1.4
-  {{- if .Values.global.configRootNamespace }}
-  namespace: {{ .Values.global.configRootNamespace }}
-  {{- else }}
-  namespace: {{ .Release.Namespace }}
-  {{- end }}
-spec:
-  configPatches:
-    - applyTo: HTTP_FILTER
-      match:
-        context: ANY # inbound, outbound, and gateway
-        proxy:
-          proxyVersion: '^1\.4.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.http.wasm
-          config:
-            config:
-              configuration: envoy.wasm.metadata_exchange
-              vm_config:
-                runtime: envoy.wasm.runtime.null
-                code:
-                  inline_string: envoy.wasm.metadata_exchange
----
-{{- if .Values.telemetry.v2.prometheus.enabled }}
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: stats-filter-1.4
-  {{- if .Values.global.configRootNamespace }}
-  namespace: {{ .Values.global.configRootNamespace }}
-  {{- else }}
-  namespace: {{ .Release.Namespace }}
-  {{- end }}
-spec:
-  configPatches:
-    - applyTo: HTTP_FILTER
-      match:
-        context: SIDECAR_OUTBOUND
-        proxy:
-          proxyVersion: '^1\.4.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-              subFilter:
-                name: "envoy.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.http.wasm
-          config:
-            config:
-              root_id: stats_outbound
-              configuration: |
-                {
-                  "debug": "false",
-                  "stat_prefix": "istio",
-                }
-              vm_config:
-                vm_id: stats_outbound
-                runtime: envoy.wasm.runtime.null
-                code:
-                  inline_string: envoy.wasm.stats
-    - applyTo: HTTP_FILTER
-      match:
-        context: SIDECAR_INBOUND
-        proxy:
-          proxyVersion: '^1\.4.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-              subFilter:
-                name: "envoy.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.http.wasm
-          config:
-            config:
-              root_id: stats_inbound
-              configuration: |
-                {
-                  "debug": "false",
-                  "stat_prefix": "istio",
-                }
-              vm_config:
-                vm_id: stats_inbound
-                runtime: envoy.wasm.runtime.null
-                code:
-                  inline_string: envoy.wasm.stats
-    - applyTo: HTTP_FILTER
-      match:
-        context: GATEWAY
-        proxy:
-          proxyVersion: '^1\.4.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-              subFilter:
-                name: "envoy.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.http.wasm
-          config:
-            config:
-              root_id: stats_outbound
-              configuration: |
-                {
-                  "debug": "false",
-                  "stat_prefix": "istio",
-                }
-              vm_config:
-                vm_id: stats_outbound
-                runtime: envoy.wasm.runtime.null
-                code:
-                  inline_string: envoy.wasm.stats
----
-{{- end }}
-{{- if .Values.telemetry.v2.stackdriver.enabled }}
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: stackdriver-filter-1.4
-  {{- if .Values.global.configRootNamespace }}
-  namespace: {{ .Values.global.configRootNamespace }}
-  {{- else }}
-  namespace: {{ .Release.Namespace }}
-  {{- end }}
-spec:
-  configPatches:
-    - applyTo: HTTP_FILTER
-      match:
-        context: SIDECAR_OUTBOUND
-        proxy:
-          proxyVersion: '^1\.4.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-              subFilter:
-                name: "envoy.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.http.wasm
-          config:
-            config:
-              root_id: stackdriver_outbound
-              configuration: |
-                {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
-                {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s"}
-                {{- else }}
-                {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 8 }}
-                {{- end }}
-              vm_config:
-                vm_id: stackdriver_outbound
-                runtime: envoy.wasm.runtime.null
-                code:
-                  inline_string: envoy.wasm.null.stackdriver
-    - applyTo: HTTP_FILTER
-      match:
-        context: SIDECAR_INBOUND
-        proxy:
-          proxyVersion: '^1\.4.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-              subFilter:
-                name: "envoy.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.http.wasm
-          config:
-            config:
-              root_id: stackdriver_inbound
-              configuration: |
-                {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
-                {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s"}
-                {{- else }}
-                {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 16 }}
-                {{- end }}
-              vm_config:
-                vm_id: stackdriver_inbound
-                runtime: envoy.wasm.runtime.null
-                code:
-                  inline_string: envoy.wasm.null.stackdriver
-    - applyTo: HTTP_FILTER
-      match:
-        context: GATEWAY
-        proxy:
-          proxyVersion: '^1\.4.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-              subFilter:
-                name: "envoy.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.http.wasm
-          config:
-            config:
-              root_id: stackdriver_outbound
-              configuration: |
-                {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
-                {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s", "disable_host_header_fallback": true}
-                {{- else }}
-                {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 16 }}
-                {{- end }}
-              vm_config:
-                vm_id: stackdriver_outbound
-                runtime: envoy.wasm.runtime.null
-                code:
-                  inline_string: envoy.wasm.null.stackdriver
----
-{{- end}}
-{{- end}}
-`)
-
-func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14YamlBytes() ([]byte, error) {
-	return _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml, nil
-}
-
-func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml() (*asset, error) {
-	bytes, err := chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14YamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-discovery/templates/telemetryv2_1.4.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml = []byte(`{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: metadata-exchange-1.5
-  {{- if .Values.global.configRootNamespace }}
-  namespace: {{ .Values.global.configRootNamespace }}
-  {{- else }}
-  namespace: {{ .Release.Namespace }}
-  {{- end }}
-spec:
-  configPatches:
-    - applyTo: HTTP_FILTER
-      match:
-        context: ANY # inbound, outbound, and gateway
-        proxy:
-          proxyVersion: '^1\.5.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.http.wasm
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
-            value:
-              config:
-                configuration: envoy.wasm.metadata_exchange
-                vm_config:
-                  {{- if .Values.telemetry.v2.metadataExchange.wasmEnabled }}
-                  runtime: envoy.wasm.runtime.v8
-                  code:
-                    local:
-                      filename: /etc/istio/extensions/metadata-exchange-filter.wasm
-                  {{- else }}
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: envoy.wasm.metadata_exchange
-                  {{- end }}
----
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: tcp-metadata-exchange-1.5
-  {{- if .Values.global.configRootNamespace }}
-  namespace: {{ .Values.global.configRootNamespace }}
-  {{- else }}
-  namespace: {{ .Release.Namespace }}
-  {{- end }}
-spec:
-  configPatches:
-    - applyTo: NETWORK_FILTER
-      match:
-        context: SIDECAR_INBOUND
-        proxy:
-          proxyVersion: '^1\.5.*'
-        listener: {}
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.network.metadata_exchange
-          config:
-            protocol: istio-peer-exchange
-    - applyTo: CLUSTER
-      match:
-        context: SIDECAR_OUTBOUND
-        proxy:
-          proxyVersion: '^1\.5.*'
-        cluster: {}
-      patch:
-        operation: MERGE
-        value:
-          filters:
-          - name: envoy.filters.network.upstream.metadata_exchange
-            typed_config:
-              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
-              value:
-                protocol: istio-peer-exchange
-    - applyTo: CLUSTER
-      match:
-        context: GATEWAY
-        proxy:
-          proxyVersion: '^1\.5.*'
-        cluster: {}
-      patch:
-        operation: MERGE
-        value:
-          filters:
-          - name: envoy.filters.network.upstream.metadata_exchange
-            typed_config:
-              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
-              value:
-                protocol: istio-peer-exchange
----
-{{- if .Values.telemetry.v2.prometheus.enabled }}
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: stats-filter-1.5
-  {{- if .Values.global.configRootNamespace }}
-  namespace: {{ .Values.global.configRootNamespace }}
-  {{- else }}
-  namespace: {{ .Release.Namespace }}
-  {{- end }}
-spec:
-  configPatches:
-    - applyTo: HTTP_FILTER
-      match:
-        context: SIDECAR_OUTBOUND
-        proxy:
-          proxyVersion: '^1\.5.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-              subFilter:
-                name: "envoy.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.http.wasm
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
-            value:
-              config:
-                root_id: stats_outbound
-                configuration: |
-                  {
-                    "debug": "false",
-                    "stat_prefix": "istio",
-                  }
-                vm_config:
-                  vm_id: stats_outbound
-                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
-                  runtime: envoy.wasm.runtime.v8
-                  code:
-                    local:
-                      filename: /etc/istio/extensions/stats-filter.wasm
-                  {{- else }}
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: envoy.wasm.stats
-                  {{- end }}
-    - applyTo: HTTP_FILTER
-      match:
-        context: SIDECAR_INBOUND
-        proxy:
-          proxyVersion: '^1\.5.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-              subFilter:
-                name: "envoy.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.http.wasm
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
-            value:
-              config:
-                root_id: stats_inbound
-                configuration: |
-                  {
-                    "debug": "false",
-                    "stat_prefix": "istio",
-                  }
-                vm_config:
-                  vm_id: stats_inbound
-                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
-                  runtime: envoy.wasm.runtime.v8
-                  code:
-                    local:
-                      filename: /etc/istio/extensions/stats-filter.wasm
-                  {{- else }}
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: envoy.wasm.stats
-                  {{- end }}
-    - applyTo: HTTP_FILTER
-      match:
-        context: GATEWAY
-        proxy:
-          proxyVersion: '^1\.5.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-              subFilter:
-                name: "envoy.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.http.wasm
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
-            value:
-              config:
-                root_id: stats_outbound
-                configuration: |
-                  {
-                    "debug": "false",
-                    "stat_prefix": "istio",
-                  }
-                vm_config:
-                  vm_id: stats_outbound
-                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
-                  runtime: envoy.wasm.runtime.v8
-                  code:
-                    local:
-                      filename: /etc/istio/extensions/stats-filter.wasm
-                  {{- else }}
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: envoy.wasm.stats
-                  {{- end }}
----
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: tcp-stats-filter-1.5
-  {{- if .Values.global.configRootNamespace }}
-  namespace: {{ .Values.global.configRootNamespace }}
-  {{- else }}
-  namespace: {{ .Release.Namespace }}
-  {{- end }}
-spec:
-  configPatches:
-    - applyTo: NETWORK_FILTER
-      match:
-        context: SIDECAR_INBOUND
-        proxy:
-          proxyVersion: '^1\.5.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.tcp_proxy"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.network.wasm
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
-            value:
-              config:
-                root_id: stats_inbound
-                configuration: |
-                  {
-                    "debug": "false",
-                    "stat_prefix": "istio",
-                  }
-                vm_config:
-                  vm_id: stats_inbound
-                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
-                  runtime: envoy.wasm.runtime.v8
-                  code:
-                    local:
-                      filename: /etc/istio/extensions/stats-filter.wasm
-                  {{- else }}
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: "envoy.wasm.stats"
-                  {{- end }}
-    - applyTo: NETWORK_FILTER
-      match:
-        context: SIDECAR_OUTBOUND
-        proxy:
-          proxyVersion: '^1\.5.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.tcp_proxy"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.network.wasm
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
-            value:
-              config:
-                root_id: stats_outbound
-                configuration: |
-                  {
-                    "debug": "false",
-                    "stat_prefix": "istio",
-                  }
-                vm_config:
-                  vm_id: stats_outbound
-                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
-                  runtime: envoy.wasm.runtime.v8
-                  code:
-                    local:
-                      filename: /etc/istio/extensions/stats-filter.wasm
-                  {{- else }}
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: "envoy.wasm.stats"
-                  {{- end }}
-    - applyTo: NETWORK_FILTER
-      match:
-        context: GATEWAY
-        proxy:
-          proxyVersion: '^1\.5.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.tcp_proxy"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.network.wasm
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
-            value:
-              config:
-                root_id: stats_outbound
-                configuration: |
-                  {
-                    "debug": "false",
-                    "stat_prefix": "istio",
-                  }
-                vm_config:
-                  vm_id: stats_outbound
-                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
-                  runtime: envoy.wasm.runtime.v8
-                  code:
-                    local:
-                      filename: /etc/istio/extensions/stats-filter.wasm
-                  {{- else }}
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: "envoy.wasm.stats"
-                  {{- end }}
----
-{{- end }}
-
-{{- if .Values.telemetry.v2.stackdriver.enabled }}
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: stackdriver-filter-1.5
-  {{- if .Values.global.configRootNamespace }}
-  namespace: {{ .Values.global.configRootNamespace }}
-  {{- else }}
-  namespace: {{ .Release.Namespace }}
-  {{- end }}
-spec:
-  configPatches:
-    - applyTo: HTTP_FILTER
-      match:
-        context: SIDECAR_OUTBOUND
-        proxy:
-          proxyVersion: '^1\.5.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-              subFilter:
-                name: "envoy.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.http.wasm
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
-            value:
-              config:
-                root_id: stackdriver_outbound
-                configuration: |
-                  {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
-                  {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s"}
-                  {{- else }}
-                  {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
-                  {{- end }}
-                vm_config:
-                  vm_id: stackdriver_outbound
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local: { inline_string: envoy.wasm.null.stackdriver }
-    - applyTo: HTTP_FILTER
-      match:
-        context: SIDECAR_INBOUND
-        proxy:
-          proxyVersion: '^1\.5.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-              subFilter:
-                name: "envoy.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.http.wasm
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
-            value:
-              config:
-                root_id: stackdriver_inbound
-                configuration: |
-                  {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
-                  {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s"}
-                  {{- else }}
-                  {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
-                  {{- end }}
-                vm_config:
-                  vm_id: stackdriver_inbound
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local: { inline_string: envoy.wasm.null.stackdriver }
-    - applyTo: HTTP_FILTER
-      match:
-        context: GATEWAY
-        proxy:
-          proxyVersion: '^1\.5.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-              subFilter:
-                name: "envoy.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.http.wasm
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
-            value:
-              config:
-                root_id: stackdriver_outbound
-                configuration: |
-                  {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
-                  {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s", "disable_host_header_fallback": true}
-                  {{- else }}
-                  {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
-                  {{- end }}
-                vm_config:
-                  vm_id: stackdriver_outbound
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local: { inline_string: envoy.wasm.null.stackdriver }
----
-{{- end}}
-{{- end}}
-`)
-
-func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15YamlBytes() ([]byte, error) {
-	return _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml, nil
-}
-
-func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml() (*asset, error) {
-	bytes, err := chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15YamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-discovery/templates/telemetryv2_1.5.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml = []byte(`{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: metadata-exchange-1.6
-  {{- if .Values.global.configRootNamespace }}
-  namespace: {{ .Values.global.configRootNamespace }}
-  {{- else }}
-  namespace: {{ .Release.Namespace }}
-  {{- end }}
-spec:
-  configPatches:
-    - applyTo: HTTP_FILTER
-      match:
-        context: ANY # inbound, outbound, and gateway
-        proxy:
-          proxyVersion: '^1\.6.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: istio.metadata_exchange
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
-            value:
-              config:
-                configuration: envoy.wasm.metadata_exchange
-                vm_config:
-                  {{- if .Values.telemetry.v2.metadataExchange.wasmEnabled }}
-                  runtime: envoy.wasm.runtime.v8
-                  code:
-                    local:
-                      filename: /etc/istio/extensions/metadata-exchange-filter.wasm
-                  {{- else }}
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: envoy.wasm.metadata_exchange
-                  {{- end }}
----
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: tcp-metadata-exchange-1.6
-  {{- if .Values.global.configRootNamespace }}
-  namespace: {{ .Values.global.configRootNamespace }}
-  {{- else }}
-  namespace: {{ .Release.Namespace }}
-  {{- end }}
-spec:
-  configPatches:
-    - applyTo: NETWORK_FILTER
-      match:
-        context: SIDECAR_INBOUND
-        proxy:
-          proxyVersion: '^1\.6.*'
-        listener: {}
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: istio.metadata_exchange
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
-            value:
-              protocol: istio-peer-exchange
-    - applyTo: CLUSTER
-      match:
-        context: SIDECAR_OUTBOUND
-        proxy:
-          proxyVersion: '^1\.6.*'
-        cluster: {}
-      patch:
-        operation: MERGE
-        value:
-          filters:
-          - name: istio.metadata_exchange
-            typed_config:
-              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
-              value:
-                protocol: istio-peer-exchange
-    - applyTo: CLUSTER
-      match:
-        context: GATEWAY
-        proxy:
-          proxyVersion: '^1\.6.*'
-        cluster: {}
-      patch:
-        operation: MERGE
-        value:
-          filters:
-          - name: istio.metadata_exchange
-            typed_config:
-              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
-              value:
-                protocol: istio-peer-exchange
----
-{{- if .Values.telemetry.v2.prometheus.enabled }}
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: stats-filter-1.6
-  {{- if .Values.global.configRootNamespace }}
-  namespace: {{ .Values.global.configRootNamespace }}
-  {{- else }}
-  namespace: {{ .Release.Namespace }}
-  {{- end }}
-spec:
-  configPatches:
-    - applyTo: HTTP_FILTER
-      match:
-        context: SIDECAR_OUTBOUND
-        proxy:
-          proxyVersion: '^1\.6.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-              subFilter:
-                name: "envoy.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: istio.stats
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
-            value:
-              config:
-                root_id: stats_outbound
-                configuration: |
-                  {
-                    "debug": "false",
-                    "stat_prefix": "istio",
-                  }
-                vm_config:
-                  vm_id: stats_outbound
-                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
-                  runtime: envoy.wasm.runtime.v8
-                  code:
-                    local:
-                      filename: /etc/istio/extensions/stats-filter.wasm
-                  {{- else }}
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: envoy.wasm.stats
-                  {{- end }}
-    - applyTo: HTTP_FILTER
-      match:
-        context: SIDECAR_INBOUND
-        proxy:
-          proxyVersion: '^1\.6.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-              subFilter:
-                name: "envoy.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: istio.stats
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
-            value:
-              config:
-                root_id: stats_inbound
-                configuration: |
-                  {
-                    "debug": "false",
-                    "stat_prefix": "istio",
-                  }
-                vm_config:
-                  vm_id: stats_inbound
-                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
-                  runtime: envoy.wasm.runtime.v8
-                  code:
-                    local:
-                      filename: /etc/istio/extensions/stats-filter.wasm
-                  {{- else }}
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: envoy.wasm.stats
-                  {{- end }}
-    - applyTo: HTTP_FILTER
-      match:
-        context: GATEWAY
-        proxy:
-          proxyVersion: '^1\.6.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-              subFilter:
-                name: "envoy.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: istio.stats
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
-            value:
-              config:
-                root_id: stats_outbound
-                configuration: |
-                  {
-                    "debug": "false",
-                    "stat_prefix": "istio",
-                  }
-                vm_config:
-                  vm_id: stats_outbound
-                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
-                  runtime: envoy.wasm.runtime.v8
-                  code:
-                    local:
-                      filename: /etc/istio/extensions/stats-filter.wasm
-                  {{- else }}
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: envoy.wasm.stats
-                  {{- end }}
----
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: tcp-stats-filter-1.6
-  {{- if .Values.global.configRootNamespace }}
-  namespace: {{ .Values.global.configRootNamespace }}
-  {{- else }}
-  namespace: {{ .Release.Namespace }}
-  {{- end }}
-spec:
-  configPatches:
-    - applyTo: NETWORK_FILTER
-      match:
-        context: SIDECAR_INBOUND
-        proxy:
-          proxyVersion: '^1\.6.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.tcp_proxy"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: istio.stats
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
-            value:
-              config:
-                root_id: stats_inbound
-                configuration: |
-                  {
-                    "debug": "false",
-                    "stat_prefix": "istio",
-                  }
-                vm_config:
-                  vm_id: stats_inbound
-                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
-                  runtime: envoy.wasm.runtime.v8
-                  code:
-                    local:
-                      filename: /etc/istio/extensions/stats-filter.wasm
-                  {{- else }}
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: "envoy.wasm.stats"
-                  {{- end }}
-    - applyTo: NETWORK_FILTER
-      match:
-        context: SIDECAR_OUTBOUND
-        proxy:
-          proxyVersion: '^1\.6.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.tcp_proxy"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: istio.stats
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
-            value:
-              config:
-                root_id: stats_outbound
-                configuration: |
-                  {
-                    "debug": "false",
-                    "stat_prefix": "istio",
-                  }
-                vm_config:
-                  vm_id: stats_outbound
-                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
-                  runtime: envoy.wasm.runtime.v8
-                  code:
-                    local:
-                      filename: /etc/istio/extensions/stats-filter.wasm
-                  {{- else }}
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: "envoy.wasm.stats"
-                  {{- end }}
-    - applyTo: NETWORK_FILTER
-      match:
-        context: GATEWAY
-        proxy:
-          proxyVersion: '^1\.6.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.tcp_proxy"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: istio.stats
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
-            value:
-              config:
-                root_id: stats_outbound
-                configuration: |
-                  {
-                    "debug": "false",
-                    "stat_prefix": "istio",
-                  }
-                vm_config:
-                  vm_id: stats_outbound
-                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
-                  runtime: envoy.wasm.runtime.v8
-                  code:
-                    local:
-                      filename: /etc/istio/extensions/stats-filter.wasm
-                  {{- else }}
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: "envoy.wasm.stats"
-                  {{- end }}
----
-
-{{- end }}
-
-{{- if .Values.telemetry.v2.stackdriver.enabled }}
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: stackdriver-filter-1.6
-  {{- if .Values.global.configRootNamespace }}
-  namespace: {{ .Values.global.configRootNamespace }}
-  {{- else }}
-  namespace: {{ .Release.Namespace }}
-  {{- end }}
-spec:
-  configPatches:
-    - applyTo: HTTP_FILTER
-      match:
-        context: SIDECAR_OUTBOUND
-        proxy:
-          proxyVersion: '^1\.6.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-              subFilter:
-                name: "envoy.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: istio.stackdriver
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
-            value:
-              config:
-                root_id: stackdriver_outbound
-                configuration: |
-                  {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
-                  {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s"}
-                  {{- else }}
-                  {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
-                  {{- end }}
-                vm_config:
-                  vm_id: stackdriver_outbound
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local: { inline_string: envoy.wasm.null.stackdriver }
-    - applyTo: HTTP_FILTER
-      match:
-        context: SIDECAR_INBOUND
-        proxy:
-          proxyVersion: '^1\.6.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-              subFilter:
-                name: "envoy.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: istio.stackdriver
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
-            value:
-              config:
-                root_id: stackdriver_inbound
-                configuration: |
-                  {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
-                  {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s"}
-                  {{- else }}
-                  {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
-                  {{- end }}
-                vm_config:
-                  vm_id: stackdriver_inbound
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local: { inline_string: envoy.wasm.null.stackdriver }
-    - applyTo: HTTP_FILTER
-      match:
-        context: GATEWAY
-        proxy:
-          proxyVersion: '^1\.6.*'
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-              subFilter:
-                name: "envoy.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: istio.stackdriver
-          typed_config:
-            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
-            value:
-              config:
-                root_id: stackdriver_outbound
-                configuration: |
-                  {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
-                  {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s", "disable_host_header_fallback": true}
-                  {{- else }}
-                  {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
-                  {{- end }}
-                vm_config:
-                  vm_id: stackdriver_outbound
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local: { inline_string: envoy.wasm.null.stackdriver }
----
-{{- end}}
-{{- end}}
-`)
-
-func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16YamlBytes() ([]byte, error) {
-	return _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml, nil
-}
-
-func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml() (*asset, error) {
-	bytes, err := chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16YamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-discovery/templates/telemetryv2_1.6.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _chartsIstioControlIstioDiscoveryValuesYaml = []byte(`#.Values.pilot for discovery and mesh wide config
 
 ## Discovery Settings
@@ -38184,7 +36964,8 @@ func chartsIstioTelemetryMixerTelemetryTemplates_affinityTpl() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioTelemetryMixerTelemetryTemplatesAutoscaleYaml = []byte(`{{ $telemetry := index .Values "mixer" "telemetry" }}
+var _chartsIstioTelemetryMixerTelemetryTemplatesAutoscaleYaml = []byte(`{{- if .Values.telemetry.v1.enabled }}
+{{ $telemetry := index .Values "mixer" "telemetry" }}
 {{- if and $telemetry.autoscaleEnabled $telemetry.autoscaleMin $telemetry.autoscaleMax }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
@@ -38208,6 +36989,7 @@ spec:
         targetAverageUtilization: {{ $telemetry.cpu.targetAverageUtilization }}
 ---
 {{- end }}
+{{- end }}
 `)
 
 func chartsIstioTelemetryMixerTelemetryTemplatesAutoscaleYamlBytes() ([]byte, error) {
@@ -38225,7 +37007,8 @@ func chartsIstioTelemetryMixerTelemetryTemplatesAutoscaleYaml() (*asset, error) 
 	return a, nil
 }
 
-var _chartsIstioTelemetryMixerTelemetryTemplatesClusterroleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
+var _chartsIstioTelemetryMixerTelemetryTemplatesClusterroleYaml = []byte(`{{- if .Values.telemetry.v1.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: istio-mixer-{{ .Release.Namespace }}
@@ -38246,7 +37029,7 @@ rules:
   resources: ["replicasets"]
   verbs: ["get", "list", "watch"]
 ---
-`)
+{{- end }}`)
 
 func chartsIstioTelemetryMixerTelemetryTemplatesClusterroleYamlBytes() ([]byte, error) {
 	return _chartsIstioTelemetryMixerTelemetryTemplatesClusterroleYaml, nil
@@ -38263,7 +37046,8 @@ func chartsIstioTelemetryMixerTelemetryTemplatesClusterroleYaml() (*asset, error
 	return a, nil
 }
 
-var _chartsIstioTelemetryMixerTelemetryTemplatesClusterrolebindingYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
+var _chartsIstioTelemetryMixerTelemetryTemplatesClusterrolebindingYaml = []byte(`{{- if .Values.telemetry.v1.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: istio-mixer-admin-role-binding-{{ .Release.Namespace }}
@@ -38279,7 +37063,7 @@ subjects:
     name: istio-mixer-service-account
     namespace: {{ .Release.Namespace }}
 ---
-`)
+{{- end }}`)
 
 func chartsIstioTelemetryMixerTelemetryTemplatesClusterrolebindingYamlBytes() ([]byte, error) {
 	return _chartsIstioTelemetryMixerTelemetryTemplatesClusterrolebindingYaml, nil
@@ -38296,7 +37080,8 @@ func chartsIstioTelemetryMixerTelemetryTemplatesClusterrolebindingYaml() (*asset
 	return a, nil
 }
 
-var _chartsIstioTelemetryMixerTelemetryTemplatesConfigYaml = []byte(`apiVersion: "config.istio.io/v1alpha2"
+var _chartsIstioTelemetryMixerTelemetryTemplatesConfigYaml = []byte(`{{- if .Values.telemetry.v1.enabled }}
+apiVersion: "config.istio.io/v1alpha2"
 kind: attributemanifest
 metadata:
   name: istioproxy
@@ -39290,7 +38075,7 @@ spec:
         http2MaxRequests: 10000
         maxRequestsPerConnection: 10000
 ---
-`)
+{{- end }}`)
 
 func chartsIstioTelemetryMixerTelemetryTemplatesConfigYamlBytes() ([]byte, error) {
 	return _chartsIstioTelemetryMixerTelemetryTemplatesConfigYaml, nil
@@ -39307,7 +38092,8 @@ func chartsIstioTelemetryMixerTelemetryTemplatesConfigYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioTelemetryMixerTelemetryTemplatesConfigmapEnvoyYaml = []byte(`apiVersion: v1
+var _chartsIstioTelemetryMixerTelemetryTemplatesConfigmapEnvoyYaml = []byte(`{{- if .Values.telemetry.v1.enabled }}
+apiVersion: v1
 kind: ConfigMap
 metadata:
   namespace: {{ .Release.Namespace }}
@@ -39633,7 +38419,7 @@ data:
                               cluster: out.galley.15019
                               timeout: 0.000s
 ---
-`)
+{{- end }}`)
 
 func chartsIstioTelemetryMixerTelemetryTemplatesConfigmapEnvoyYamlBytes() ([]byte, error) {
 	return _chartsIstioTelemetryMixerTelemetryTemplatesConfigmapEnvoyYaml, nil
@@ -39650,7 +38436,8 @@ func chartsIstioTelemetryMixerTelemetryTemplatesConfigmapEnvoyYaml() (*asset, er
 	return a, nil
 }
 
-var _chartsIstioTelemetryMixerTelemetryTemplatesDeploymentYaml = []byte(`apiVersion: apps/v1
+var _chartsIstioTelemetryMixerTelemetryTemplatesDeploymentYaml = []byte(`{{- if .Values.telemetry.v1.enabled }}
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-telemetry
@@ -39912,7 +38699,7 @@ spec:
           mountPath: /sock
 {{- end }}
 ---
-`)
+{{- end }}`)
 
 func chartsIstioTelemetryMixerTelemetryTemplatesDeploymentYamlBytes() ([]byte, error) {
 	return _chartsIstioTelemetryMixerTelemetryTemplatesDeploymentYaml, nil
@@ -39929,7 +38716,8 @@ func chartsIstioTelemetryMixerTelemetryTemplatesDeploymentYaml() (*asset, error)
 	return a, nil
 }
 
-var _chartsIstioTelemetryMixerTelemetryTemplatesPoddisruptionbudgetYaml = []byte(`{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
+var _chartsIstioTelemetryMixerTelemetryTemplatesPoddisruptionbudgetYaml = []byte(`{{- if .Values.telemetry.v1.enabled }}
+{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
@@ -39950,6 +38738,7 @@ spec:
 ---
 
 {{- end }}
+{{- end }}
 `)
 
 func chartsIstioTelemetryMixerTelemetryTemplatesPoddisruptionbudgetYamlBytes() ([]byte, error) {
@@ -39967,7 +38756,8 @@ func chartsIstioTelemetryMixerTelemetryTemplatesPoddisruptionbudgetYaml() (*asse
 	return a, nil
 }
 
-var _chartsIstioTelemetryMixerTelemetryTemplatesServiceYaml = []byte(`apiVersion: v1
+var _chartsIstioTelemetryMixerTelemetryTemplatesServiceYaml = []byte(`{{- if .Values.telemetry.v1.enabled }}
+apiVersion: v1
 kind: Service
 metadata:
   name: istio-telemetry
@@ -39993,7 +38783,7 @@ spec:
   sessionAffinity: ClientIP
 {{- end }}
 ---
-`)
+{{- end }}`)
 
 func chartsIstioTelemetryMixerTelemetryTemplatesServiceYamlBytes() ([]byte, error) {
 	return _chartsIstioTelemetryMixerTelemetryTemplatesServiceYaml, nil
@@ -40010,7 +38800,8 @@ func chartsIstioTelemetryMixerTelemetryTemplatesServiceYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioTelemetryMixerTelemetryTemplatesServiceaccountYaml = []byte(`apiVersion: v1
+var _chartsIstioTelemetryMixerTelemetryTemplatesServiceaccountYaml = []byte(`{{- if .Values.telemetry.v1.enabled }}
+apiVersion: v1
 kind: ServiceAccount
 {{- if .Values.global.imagePullSecrets }}
 imagePullSecrets:
@@ -40025,7 +38816,7 @@ metadata:
     app: istio-telemetry
     release: {{ .Release.Name }}
 ---
-`)
+{{- end }}`)
 
 func chartsIstioTelemetryMixerTelemetryTemplatesServiceaccountYamlBytes() ([]byte, error) {
 	return _chartsIstioTelemetryMixerTelemetryTemplatesServiceaccountYaml, nil
@@ -40042,7 +38833,8 @@ func chartsIstioTelemetryMixerTelemetryTemplatesServiceaccountYaml() (*asset, er
 	return a, nil
 }
 
-var _chartsIstioTelemetryMixerTelemetryTemplatesStackdriverYaml = []byte(`{{- if .Values.mixer.adapters.stackdriver.enabled }}
+var _chartsIstioTelemetryMixerTelemetryTemplatesStackdriverYaml = []byte(`{{- if .Values.telemetry.v1.enabled }}
+{{- if .Values.mixer.adapters.stackdriver.enabled }}
 apiVersion: "config.istio.io/v1alpha2"
 kind: handler
 metadata:
@@ -40997,6 +39789,7 @@ spec:
      - stackdriver-edge
 {{- end }}
 {{- end }}
+{{- end }}
 `)
 
 func chartsIstioTelemetryMixerTelemetryTemplatesStackdriverYamlBytes() ([]byte, error) {
@@ -41010,6 +39803,1226 @@ func chartsIstioTelemetryMixerTelemetryTemplatesStackdriverYaml() (*asset, error
 	}
 
 	info := bindataFileInfo{name: "charts/istio-telemetry/mixer-telemetry/templates/stackdriver.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioTelemetryMixerTelemetryTemplatesTelemetryv2_14Yaml = []byte(`{{- if and .Values.telemetry.v2.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: metadata-exchange-1.4
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: ANY # inbound, outbound, and gateway
+        proxy:
+          proxyVersion: '^1\.4.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          config:
+            config:
+              configuration: envoy.wasm.metadata_exchange
+              vm_config:
+                runtime: envoy.wasm.runtime.null
+                code:
+                  inline_string: envoy.wasm.metadata_exchange
+---
+{{- if .Values.telemetry.v2.prometheus.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: stats-filter-1.4
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '^1\.4.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          config:
+            config:
+              root_id: stats_outbound
+              configuration: |
+                {
+                  "debug": "false",
+                  "stat_prefix": "istio",
+                }
+              vm_config:
+                vm_id: stats_outbound
+                runtime: envoy.wasm.runtime.null
+                code:
+                  inline_string: envoy.wasm.stats
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '^1\.4.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          config:
+            config:
+              root_id: stats_inbound
+              configuration: |
+                {
+                  "debug": "false",
+                  "stat_prefix": "istio",
+                }
+              vm_config:
+                vm_id: stats_inbound
+                runtime: envoy.wasm.runtime.null
+                code:
+                  inline_string: envoy.wasm.stats
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '^1\.4.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          config:
+            config:
+              root_id: stats_outbound
+              configuration: |
+                {
+                  "debug": "false",
+                  "stat_prefix": "istio",
+                }
+              vm_config:
+                vm_id: stats_outbound
+                runtime: envoy.wasm.runtime.null
+                code:
+                  inline_string: envoy.wasm.stats
+---
+{{- end }}
+{{- if .Values.telemetry.v2.stackdriver.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: stackdriver-filter-1.4
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '^1\.4.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          config:
+            config:
+              root_id: stackdriver_outbound
+              configuration: |
+                {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
+                {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s"}
+                {{- else }}
+                {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 8 }}
+                {{- end }}
+              vm_config:
+                vm_id: stackdriver_outbound
+                runtime: envoy.wasm.runtime.null
+                code:
+                  inline_string: envoy.wasm.null.stackdriver
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '^1\.4.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          config:
+            config:
+              root_id: stackdriver_inbound
+              configuration: |
+                {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
+                {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s"}
+                {{- else }}
+                {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 16 }}
+                {{- end }}
+              vm_config:
+                vm_id: stackdriver_inbound
+                runtime: envoy.wasm.runtime.null
+                code:
+                  inline_string: envoy.wasm.null.stackdriver
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '^1\.4.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          config:
+            config:
+              root_id: stackdriver_outbound
+              configuration: |
+                {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
+                {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s", "disable_host_header_fallback": true}
+                {{- else }}
+                {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 16 }}
+                {{- end }}
+              vm_config:
+                vm_id: stackdriver_outbound
+                runtime: envoy.wasm.runtime.null
+                code:
+                  inline_string: envoy.wasm.null.stackdriver
+---
+{{- end}}
+{{- end}}
+`)
+
+func chartsIstioTelemetryMixerTelemetryTemplatesTelemetryv2_14YamlBytes() ([]byte, error) {
+	return _chartsIstioTelemetryMixerTelemetryTemplatesTelemetryv2_14Yaml, nil
+}
+
+func chartsIstioTelemetryMixerTelemetryTemplatesTelemetryv2_14Yaml() (*asset, error) {
+	bytes, err := chartsIstioTelemetryMixerTelemetryTemplatesTelemetryv2_14YamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-telemetry/mixer-telemetry/templates/telemetryv2_1.4.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioTelemetryMixerTelemetryTemplatesTelemetryv2_15Yaml = []byte(`{{- if and .Values.telemetry.v2.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: metadata-exchange-1.5
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: ANY # inbound, outbound, and gateway
+        proxy:
+          proxyVersion: '^1\.5.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                configuration: envoy.wasm.metadata_exchange
+                vm_config:
+                  {{- if .Values.telemetry.v2.metadataExchange.wasmEnabled }}
+                  runtime: envoy.wasm.runtime.v8
+                  code:
+                    local:
+                      filename: /etc/istio/extensions/metadata-exchange-filter.wasm
+                  {{- else }}
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.metadata_exchange
+                  {{- end }}
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: tcp-metadata-exchange-1.5
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+spec:
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '^1\.5.*'
+        listener: {}
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.network.metadata_exchange
+          config:
+            protocol: istio-peer-exchange
+    - applyTo: CLUSTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '^1\.5.*'
+        cluster: {}
+      patch:
+        operation: MERGE
+        value:
+          filters:
+          - name: envoy.filters.network.upstream.metadata_exchange
+            typed_config:
+              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              value:
+                protocol: istio-peer-exchange
+    - applyTo: CLUSTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '^1\.5.*'
+        cluster: {}
+      patch:
+        operation: MERGE
+        value:
+          filters:
+          - name: envoy.filters.network.upstream.metadata_exchange
+            typed_config:
+              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              value:
+                protocol: istio-peer-exchange
+---
+{{- if .Values.telemetry.v2.prometheus.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: stats-filter-1.5
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '^1\.5.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_outbound
+                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
+                  runtime: envoy.wasm.runtime.v8
+                  code:
+                    local:
+                      filename: /etc/istio/extensions/stats-filter.wasm
+                  {{- else }}
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.stats
+                  {{- end }}
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '^1\.5.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_inbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_inbound
+                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
+                  runtime: envoy.wasm.runtime.v8
+                  code:
+                    local:
+                      filename: /etc/istio/extensions/stats-filter.wasm
+                  {{- else }}
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.stats
+                  {{- end }}
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '^1\.5.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_outbound
+                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
+                  runtime: envoy.wasm.runtime.v8
+                  code:
+                    local:
+                      filename: /etc/istio/extensions/stats-filter.wasm
+                  {{- else }}
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.stats
+                  {{- end }}
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: tcp-stats-filter-1.5
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+spec:
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '^1\.5.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.network.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_inbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_inbound
+                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
+                  runtime: envoy.wasm.runtime.v8
+                  code:
+                    local:
+                      filename: /etc/istio/extensions/stats-filter.wasm
+                  {{- else }}
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: "envoy.wasm.stats"
+                  {{- end }}
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '^1\.5.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.network.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_outbound
+                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
+                  runtime: envoy.wasm.runtime.v8
+                  code:
+                    local:
+                      filename: /etc/istio/extensions/stats-filter.wasm
+                  {{- else }}
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: "envoy.wasm.stats"
+                  {{- end }}
+    - applyTo: NETWORK_FILTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '^1\.5.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.network.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_outbound
+                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
+                  runtime: envoy.wasm.runtime.v8
+                  code:
+                    local:
+                      filename: /etc/istio/extensions/stats-filter.wasm
+                  {{- else }}
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: "envoy.wasm.stats"
+                  {{- end }}
+---
+{{- end }}
+
+{{- if .Values.telemetry.v2.stackdriver.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: stackdriver-filter-1.5
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '^1\.5.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stackdriver_outbound
+                configuration: |
+                  {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
+                  {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s"}
+                  {{- else }}
+                  {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
+                  {{- end }}
+                vm_config:
+                  vm_id: stackdriver_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local: { inline_string: envoy.wasm.null.stackdriver }
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '^1\.5.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stackdriver_inbound
+                configuration: |
+                  {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
+                  {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s"}
+                  {{- else }}
+                  {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
+                  {{- end }}
+                vm_config:
+                  vm_id: stackdriver_inbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local: { inline_string: envoy.wasm.null.stackdriver }
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '^1\.5.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stackdriver_outbound
+                configuration: |
+                  {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
+                  {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s", "disable_host_header_fallback": true}
+                  {{- else }}
+                  {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
+                  {{- end }}
+                vm_config:
+                  vm_id: stackdriver_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local: { inline_string: envoy.wasm.null.stackdriver }
+---
+{{- end}}
+{{- end}}
+`)
+
+func chartsIstioTelemetryMixerTelemetryTemplatesTelemetryv2_15YamlBytes() ([]byte, error) {
+	return _chartsIstioTelemetryMixerTelemetryTemplatesTelemetryv2_15Yaml, nil
+}
+
+func chartsIstioTelemetryMixerTelemetryTemplatesTelemetryv2_15Yaml() (*asset, error) {
+	bytes, err := chartsIstioTelemetryMixerTelemetryTemplatesTelemetryv2_15YamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-telemetry/mixer-telemetry/templates/telemetryv2_1.5.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioTelemetryMixerTelemetryTemplatesTelemetryv2_16Yaml = []byte(`{{- if and .Values.telemetry.v2.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: metadata-exchange-1.6
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: ANY # inbound, outbound, and gateway
+        proxy:
+          proxyVersion: '^1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.metadata_exchange
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                configuration: envoy.wasm.metadata_exchange
+                vm_config:
+                  {{- if .Values.telemetry.v2.metadataExchange.wasmEnabled }}
+                  runtime: envoy.wasm.runtime.v8
+                  code:
+                    local:
+                      filename: /etc/istio/extensions/metadata-exchange-filter.wasm
+                  {{- else }}
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.metadata_exchange
+                  {{- end }}
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: tcp-metadata-exchange-1.6
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+spec:
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '^1\.6.*'
+        listener: {}
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.metadata_exchange
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+            value:
+              protocol: istio-peer-exchange
+    - applyTo: CLUSTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '^1\.6.*'
+        cluster: {}
+      patch:
+        operation: MERGE
+        value:
+          filters:
+          - name: istio.metadata_exchange
+            typed_config:
+              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              value:
+                protocol: istio-peer-exchange
+    - applyTo: CLUSTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '^1\.6.*'
+        cluster: {}
+      patch:
+        operation: MERGE
+        value:
+          filters:
+          - name: istio.metadata_exchange
+            typed_config:
+              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+              value:
+                protocol: istio-peer-exchange
+---
+{{- if .Values.telemetry.v2.prometheus.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: stats-filter-1.6
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '^1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.stats
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_outbound
+                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
+                  runtime: envoy.wasm.runtime.v8
+                  code:
+                    local:
+                      filename: /etc/istio/extensions/stats-filter.wasm
+                  {{- else }}
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.stats
+                  {{- end }}
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '^1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.stats
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_inbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_inbound
+                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
+                  runtime: envoy.wasm.runtime.v8
+                  code:
+                    local:
+                      filename: /etc/istio/extensions/stats-filter.wasm
+                  {{- else }}
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.stats
+                  {{- end }}
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '^1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.stats
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_outbound
+                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
+                  runtime: envoy.wasm.runtime.v8
+                  code:
+                    local:
+                      filename: /etc/istio/extensions/stats-filter.wasm
+                  {{- else }}
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.stats
+                  {{- end }}
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: tcp-stats-filter-1.6
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+spec:
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '^1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.stats
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_inbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_inbound
+                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
+                  runtime: envoy.wasm.runtime.v8
+                  code:
+                    local:
+                      filename: /etc/istio/extensions/stats-filter.wasm
+                  {{- else }}
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: "envoy.wasm.stats"
+                  {{- end }}
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '^1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.stats
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_outbound
+                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
+                  runtime: envoy.wasm.runtime.v8
+                  code:
+                    local:
+                      filename: /etc/istio/extensions/stats-filter.wasm
+                  {{- else }}
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: "envoy.wasm.stats"
+                  {{- end }}
+    - applyTo: NETWORK_FILTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '^1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.stats
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stats_outbound
+                configuration: |
+                  {
+                    "debug": "false",
+                    "stat_prefix": "istio",
+                  }
+                vm_config:
+                  vm_id: stats_outbound
+                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
+                  runtime: envoy.wasm.runtime.v8
+                  code:
+                    local:
+                      filename: /etc/istio/extensions/stats-filter.wasm
+                  {{- else }}
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: "envoy.wasm.stats"
+                  {{- end }}
+---
+
+{{- end }}
+
+{{- if .Values.telemetry.v2.stackdriver.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: stackdriver-filter-1.6
+  {{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '^1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.stackdriver
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stackdriver_outbound
+                configuration: |
+                  {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
+                  {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s"}
+                  {{- else }}
+                  {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
+                  {{- end }}
+                vm_config:
+                  vm_id: stackdriver_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local: { inline_string: envoy.wasm.null.stackdriver }
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '^1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.stackdriver
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stackdriver_inbound
+                configuration: |
+                  {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
+                  {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s"}
+                  {{- else }}
+                  {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
+                  {{- end }}
+                vm_config:
+                  vm_id: stackdriver_inbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local: { inline_string: envoy.wasm.null.stackdriver }
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '^1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.stackdriver
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            value:
+              config:
+                root_id: stackdriver_outbound
+                configuration: |
+                  {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
+                  {"enable_mesh_edges_reporting": {{ .Values.telemetry.v2.stackdriver.topology }}, "disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "meshEdgesReportingDuration": "600s", "disable_host_header_fallback": true}
+                  {{- else }}
+                  {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
+                  {{- end }}
+                vm_config:
+                  vm_id: stackdriver_outbound
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local: { inline_string: envoy.wasm.null.stackdriver }
+---
+{{- end}}
+{{- end}}
+`)
+
+func chartsIstioTelemetryMixerTelemetryTemplatesTelemetryv2_16YamlBytes() ([]byte, error) {
+	return _chartsIstioTelemetryMixerTelemetryTemplatesTelemetryv2_16Yaml, nil
+}
+
+func chartsIstioTelemetryMixerTelemetryTemplatesTelemetryv2_16Yaml() (*asset, error) {
+	bytes, err := chartsIstioTelemetryMixerTelemetryTemplatesTelemetryv2_16YamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-telemetry/mixer-telemetry/templates/telemetryv2_1.6.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -41126,7 +41139,39 @@ var _chartsIstioTelemetryMixerTelemetryValuesYaml = []byte(`mixer:
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
 
-revision: ""`)
+revision: ""
+
+telemetry:
+  v1:
+    # Set true to enable Mixer based telemetry
+    enabled: false
+  v2:
+    # For Null VM case now. If enabled, will set disableMixerHttpReports to true and not define mixerReportServer
+    # This also enables metadata exchange.
+    enabled: true
+    metadataExchange:
+      # Indicates whether to enable WebAssembly runtime for metadata exchange filter.
+      wasmEnabled: false
+    # Indicate if prometheus stats filter is enabled or not
+    prometheus:
+      enabled: true
+      # Indicates whether to enable WebAssembly runtime for stats filter.
+      wasmEnabled: false
+    # stackdriver filter settings.
+    stackdriver:
+      enabled: false
+      logging: false
+      monitoring: false
+      topology: false
+      #  configOverride parts give you the ability to override the low level configuration params passed to envoy filter.
+
+      configOverride: {}
+      #  e.g.
+      #  enable_mesh_edges_reporting: true
+      #  disable_server_access_logging: false
+      #  meshEdgesReportingDuration: 500s
+      #  disable_host_header_fallback: true
+`)
 
 func chartsIstioTelemetryMixerTelemetryValuesYamlBytes() ([]byte, error) {
 	return _chartsIstioTelemetryMixerTelemetryValuesYaml, nil
@@ -44867,7 +44912,7 @@ spec:
 
    # Telemetry feature
     telemetry:
-      enabled: false
+      enabled: true
       k8s:
         env:
           - name: POD_NAMESPACE
@@ -45678,6 +45723,8 @@ spec:
     base:
       enabled: false
     pilot:
+      enabled: false
+    telemetry:
       enabled: false
     ingressGateways:
 
@@ -47057,9 +47104,6 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-control/istio-discovery/templates/mutatingwebhook.yaml":                  chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml,
 	"charts/istio-control/istio-discovery/templates/poddisruptionbudget.yaml":              chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml,
 	"charts/istio-control/istio-discovery/templates/service.yaml":                          chartsIstioControlIstioDiscoveryTemplatesServiceYaml,
-	"charts/istio-control/istio-discovery/templates/telemetryv2_1.4.yaml":                  chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml,
-	"charts/istio-control/istio-discovery/templates/telemetryv2_1.5.yaml":                  chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml,
-	"charts/istio-control/istio-discovery/templates/telemetryv2_1.6.yaml":                  chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml,
 	"charts/istio-control/istio-discovery/values.yaml":                                     chartsIstioControlIstioDiscoveryValuesYaml,
 	"charts/istio-policy/Chart.yaml":                                                       chartsIstioPolicyChartYaml,
 	"charts/istio-policy/templates/_affinity.tpl":                                          chartsIstioPolicyTemplates_affinityTpl,
@@ -47114,6 +47158,9 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-telemetry/mixer-telemetry/templates/service.yaml":                        chartsIstioTelemetryMixerTelemetryTemplatesServiceYaml,
 	"charts/istio-telemetry/mixer-telemetry/templates/serviceaccount.yaml":                 chartsIstioTelemetryMixerTelemetryTemplatesServiceaccountYaml,
 	"charts/istio-telemetry/mixer-telemetry/templates/stackdriver.yaml":                    chartsIstioTelemetryMixerTelemetryTemplatesStackdriverYaml,
+	"charts/istio-telemetry/mixer-telemetry/templates/telemetryv2_1.4.yaml":                chartsIstioTelemetryMixerTelemetryTemplatesTelemetryv2_14Yaml,
+	"charts/istio-telemetry/mixer-telemetry/templates/telemetryv2_1.5.yaml":                chartsIstioTelemetryMixerTelemetryTemplatesTelemetryv2_15Yaml,
+	"charts/istio-telemetry/mixer-telemetry/templates/telemetryv2_1.6.yaml":                chartsIstioTelemetryMixerTelemetryTemplatesTelemetryv2_16Yaml,
 	"charts/istio-telemetry/mixer-telemetry/values.yaml":                                   chartsIstioTelemetryMixerTelemetryValuesYaml,
 	"charts/istio-telemetry/prometheus/Chart.yaml":                                         chartsIstioTelemetryPrometheusChartYaml,
 	"charts/istio-telemetry/prometheus/templates/_affinity.tpl":                            chartsIstioTelemetryPrometheusTemplates_affinityTpl,
@@ -47333,9 +47380,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"mutatingwebhook.yaml":           &bintree{chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml, map[string]*bintree{}},
 					"poddisruptionbudget.yaml":       &bintree{chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
 					"service.yaml":                   &bintree{chartsIstioControlIstioDiscoveryTemplatesServiceYaml, map[string]*bintree{}},
-					"telemetryv2_1.4.yaml":           &bintree{chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml, map[string]*bintree{}},
-					"telemetryv2_1.5.yaml":           &bintree{chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml, map[string]*bintree{}},
-					"telemetryv2_1.6.yaml":           &bintree{chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml, map[string]*bintree{}},
 				}},
 				"values.yaml": &bintree{chartsIstioControlIstioDiscoveryValuesYaml, map[string]*bintree{}},
 			}},
@@ -47412,6 +47456,9 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"service.yaml":             &bintree{chartsIstioTelemetryMixerTelemetryTemplatesServiceYaml, map[string]*bintree{}},
 					"serviceaccount.yaml":      &bintree{chartsIstioTelemetryMixerTelemetryTemplatesServiceaccountYaml, map[string]*bintree{}},
 					"stackdriver.yaml":         &bintree{chartsIstioTelemetryMixerTelemetryTemplatesStackdriverYaml, map[string]*bintree{}},
+					"telemetryv2_1.4.yaml":     &bintree{chartsIstioTelemetryMixerTelemetryTemplatesTelemetryv2_14Yaml, map[string]*bintree{}},
+					"telemetryv2_1.5.yaml":     &bintree{chartsIstioTelemetryMixerTelemetryTemplatesTelemetryv2_15Yaml, map[string]*bintree{}},
+					"telemetryv2_1.6.yaml":     &bintree{chartsIstioTelemetryMixerTelemetryTemplatesTelemetryv2_16Yaml, map[string]*bintree{}},
 				}},
 				"values.yaml": &bintree{chartsIstioTelemetryMixerTelemetryValuesYaml, map[string]*bintree{}},
 			}},

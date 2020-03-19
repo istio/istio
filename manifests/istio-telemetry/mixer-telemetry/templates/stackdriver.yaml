@@ -1,3 +1,4 @@
+{{- if .Values.telemetry.v1.enabled }}
 {{- if .Values.mixer.adapters.stackdriver.enabled }}
 apiVersion: "config.istio.io/v1alpha2"
 kind: handler
@@ -951,5 +952,6 @@ spec:
    - handler: stackdriver
      instances:
      - stackdriver-edge
+{{- end }}
 {{- end }}
 {{- end }}

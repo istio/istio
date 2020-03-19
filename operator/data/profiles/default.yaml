@@ -65,7 +65,7 @@ spec:
 
    # Telemetry feature
     telemetry:
-      enabled: false
+      enabled: true
       k8s:
         env:
           - name: POD_NAMESPACE

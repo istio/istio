@@ -1,3 +1,4 @@
+{{- if .Values.telemetry.v1.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -324,3 +325,4 @@ data:
                               cluster: out.galley.15019
                               timeout: 0.000s
 ---
+{{- end }}

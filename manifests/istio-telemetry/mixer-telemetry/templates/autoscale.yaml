@@ -1,3 +1,4 @@
+{{- if .Values.telemetry.v1.enabled }}
 {{ $telemetry := index .Values "mixer" "telemetry" }}
 {{- if and $telemetry.autoscaleEnabled $telemetry.autoscaleMin $telemetry.autoscaleMax }}
 apiVersion: autoscaling/v2beta1
@@ -21,4 +22,5 @@ spec:
         name: cpu
         targetAverageUtilization: {{ $telemetry.cpu.targetAverageUtilization }}
 ---
+{{- end }}
 {{- end }}

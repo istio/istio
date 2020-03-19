@@ -1,3 +1,4 @@
+{{- if .Values.telemetry.v1.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -24,3 +25,4 @@ spec:
   sessionAffinity: ClientIP
 {{- end }}
 ---
+{{- end }}

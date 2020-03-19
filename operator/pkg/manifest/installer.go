@@ -325,6 +325,11 @@ func applyRecursive(manifests name.ManifestMap, version pkgversion.Version, revi
 
 func ApplyManifest(componentName name.ComponentName, manifestStr, version, revision string,
 	opts kubectlcmd.Options) (*ComponentApplyOutput, object.K8sObjects) {
+	if name.PilotComponentName != componentName && revision != "" {
+		// Only pilot component can have revision
+		// Exit early now to ensure we don't try to prune things we shouldn't
+		return &ComponentApplyOutput{}, nil
+	}
 	stdout, stderr := "", ""
 	appliedObjects := object.K8sObjects{}
 	objects, err := object.ParseK8sObjectsFromYAMLManifest(manifestStr)
@@ -332,14 +337,19 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version, revis
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
 	componentLabel := fmt.Sprintf("%s=%s", istioComponentLabelStr, componentName)
-	if revision != "" {
+	// If we have a revision, select only those. If not, select only things without revision label.
+	// This prevents us from deleting things we shouldn't
+	if revision == "" {
+		componentLabel += fmt.Sprintf(",!%s", model.RevisionLabel)
+	} else {
 		componentLabel += fmt.Sprintf(",%s=%s", model.RevisionLabel, revision)
 	}
 
 	// TODO: remove this when `kubectl --prune` supports empty objects
 	//  (https://github.com/kubernetes/kubernetes/issues/40635)
 	// Delete all resources for a disabled component
-	if len(objects) == 0 && !opts.DryRun {
+	// We should not prune if revision is set, as we may prune other revisions
+	if len(objects) == 0 && !opts.DryRun && revision == "" {
 		getOpts := opts
 		getOpts.Output = "yaml"
 		getOpts.ExtraArgs = []string{"--all-namespaces", "--selector", componentLabel}
@@ -381,7 +391,7 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version, revis
 		o.AddLabels(map[string]string{istioComponentLabelStr: string(componentName)})
 		o.AddLabels(map[string]string{operatorLabelStr: operatorReconcileStr})
 		o.AddLabels(map[string]string{istioVersionLabelStr: version})
-		if revision != "" {
+		if name.PilotComponentName == componentName && revision != "" {
 			o.AddLabels(map[string]string{model.RevisionLabel: revision})
 		}
 	}

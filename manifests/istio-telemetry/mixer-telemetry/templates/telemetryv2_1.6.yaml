@@ -1,8 +1,8 @@
-{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
+{{- if and .Values.telemetry.v2.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: metadata-exchange-1.5
+  name: metadata-exchange-1.6
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -14,7 +14,7 @@ spec:
       match:
         context: ANY # inbound, outbound, and gateway
         proxy:
-          proxyVersion: '^1\.5.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -22,7 +22,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.http.wasm
+          name: istio.metadata_exchange
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -45,7 +45,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: tcp-metadata-exchange-1.5
+  name: tcp-metadata-exchange-1.6
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -57,25 +57,28 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '^1\.5.*'
+          proxyVersion: '^1\.6.*'
         listener: {}
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.network.metadata_exchange
-          config:
-            protocol: istio-peer-exchange
+          name: istio.metadata_exchange
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+            value:
+              protocol: istio-peer-exchange
     - applyTo: CLUSTER
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '^1\.5.*'
+          proxyVersion: '^1\.6.*'
         cluster: {}
       patch:
         operation: MERGE
         value:
           filters:
-          - name: envoy.filters.network.upstream.metadata_exchange
+          - name: istio.metadata_exchange
             typed_config:
               "@type": type.googleapis.com/udpa.type.v1.TypedStruct
               type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
@@ -85,13 +88,13 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '^1\.5.*'
+          proxyVersion: '^1\.6.*'
         cluster: {}
       patch:
         operation: MERGE
         value:
           filters:
-          - name: envoy.filters.network.upstream.metadata_exchange
+          - name: istio.metadata_exchange
             typed_config:
               "@type": type.googleapis.com/udpa.type.v1.TypedStruct
               type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
@@ -102,7 +105,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stats-filter-1.5
+  name: stats-filter-1.6
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -114,7 +117,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '^1\.5.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -124,7 +127,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.http.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -153,7 +156,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '^1\.5.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -163,7 +166,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.http.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -192,7 +195,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '^1\.5.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -202,7 +205,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.http.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -231,7 +234,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: tcp-stats-filter-1.5
+  name: tcp-stats-filter-1.6
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -243,7 +246,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '^1\.5.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -251,7 +254,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.network.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
@@ -280,7 +283,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '^1\.5.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -288,7 +291,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.network.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
@@ -317,7 +320,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '^1\.5.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -325,7 +328,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.network.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
@@ -351,13 +354,14 @@ spec:
                       inline_string: "envoy.wasm.stats"
                   {{- end }}
 ---
+
 {{- end }}
 
 {{- if .Values.telemetry.v2.stackdriver.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stackdriver-filter-1.5
+  name: stackdriver-filter-1.6
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -369,7 +373,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '^1\.5.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -379,7 +383,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.http.wasm
+          name: istio.stackdriver
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -401,7 +405,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '^1\.5.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -411,7 +415,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.http.wasm
+          name: istio.stackdriver
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -433,7 +437,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '^1\.5.*'
+          proxyVersion: '^1\.6.*'
         listener:
           filterChain:
             filter:
@@ -443,7 +447,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.http.wasm
+          name: istio.stackdriver
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm

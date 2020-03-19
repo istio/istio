@@ -8,6 +8,8 @@ spec:
       enabled: false
     pilot:
       enabled: false
+    telemetry:
+      enabled: false
     ingressGateways:
 
   addonComponents:

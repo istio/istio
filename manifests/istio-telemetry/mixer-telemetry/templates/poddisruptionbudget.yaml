@@ -1,3 +1,4 @@
+{{- if .Values.telemetry.v1.enabled }}
 {{- if .Values.global.defaultPodDisruptionBudget.enabled }}
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
@@ -18,4 +19,5 @@ spec:
       istio-mixer-type: telemetry
 ---
 
+{{- end }}
 {{- end }}
