@@ -1767,7 +1767,6 @@ func TestBuildInboundClustersWithBindPodIPPorts(t *testing.T) {
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
 
 	for _, cluster := range clusters {
-		g.Expect(cluster.UpstreamBindConfig).NotTo(BeNil())
 		ep, ok := cluster.LoadAssignment.Endpoints[0].LbEndpoints[0].HostIdentifier.(*endpoint.LbEndpoint_Endpoint)
 		if !ok {
 			t.Errorf("failed convert endpoint")
@@ -1784,6 +1783,12 @@ func TestBuildInboundClustersWithBindPodIPPorts(t *testing.T) {
 		if val, exist := expectedPortBindMap[port.PortValue]; exist {
 			g.Expect(val).Should(Equal(sa.SocketAddress.Address))
 			delete(expectedPortBindMap, port.PortValue)
+			// only set UpstreamBindConfig for BindPodIPPorts
+			if val == LocalhostAddress {
+				g.Expect(cluster.UpstreamBindConfig).To(BeNil())
+			} else {
+				g.Expect(cluster.UpstreamBindConfig).NotTo(BeNil())
+			}
 		}
 	}
 	g.Expect(len(expectedPortBindMap)).Should(Equal(0))

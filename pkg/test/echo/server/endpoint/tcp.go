@@ -60,7 +60,7 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 		s.Port.Port = port
 	} else {
 		// Listen on the given port and update the port if it changed from what was passed in.
-		listener, port, err = listenOnTcpAddr(fmt.Sprintf("%s:%d", s.ListenIP, s.Port.Port))
+		listener, port, err = listenOnTCPAddr(fmt.Sprintf("%s:%d", s.ListenIP, s.Port.Port))
 		// Store the actual listening port back to the argument.
 		s.Port.Port = port
 	}

@@ -465,21 +465,23 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 	localityLbEndpoints := buildInboundLocalityLbEndpoints(pluginParams.Bind, instance.Endpoint.EndpointPort)
 	localCluster := cb.buildDefaultCluster(clusterName, apiv2.Cluster_STATIC, localityLbEndpoints,
 		model.TrafficDirectionInbound, nil, false)
-	endpointIP := net.ParseIP(pluginParams.Bind)
-	if endpointIP != nil {
-		localAddr := LocalhostIPv6Address
-		if endpointIP.To4() != nil {
-			localAddr = LocalhostAddress
-		}
-		// specific the bind address for inbound traffic redirect to local service.
-		// this configuration is used to distinguish traffic between inbound traffic to specific podIP and outbound traffic back to itself using VIP.
-		localCluster.UpstreamBindConfig = &core.BindConfig{
-			SourceAddress: &core.SocketAddress{
-				Address: localAddr,
-				PortSpecifier: &core.SocketAddress_PortValue{
-					PortValue: uint32(0),
+	if pluginParams.Bind != LocalhostAddress && pluginParams.Bind != LocalhostIPv6Address {
+		endpointIP := net.ParseIP(pluginParams.Bind)
+		if endpointIP != nil {
+			localAddr := LocalhostIPv6Address
+			if endpointIP.To4() != nil {
+				localAddr = LocalhostAddress
+			}
+			// specific the bind address for inbound traffic redirect to local service.
+			// this configuration is used to distinguish traffic between inbound traffic to specific podIP and outbound traffic back to itself using VIP.
+			localCluster.UpstreamBindConfig = &core.BindConfig{
+				SourceAddress: &core.SocketAddress{
+					Address: localAddr,
+					PortSpecifier: &core.SocketAddress_PortValue{
+						PortValue: uint32(0),
+					},
 				},
-			},
+			}
 		}
 	}
 	// If stat name is configured, build the alt statname.

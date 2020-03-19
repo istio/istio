@@ -41,7 +41,6 @@ import (
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/util"
 	"istio.io/pkg/log"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -194,8 +193,35 @@ func validateCIDRList(cidrs string) error {
 	return nil
 }
 
+func splitPorts(portsString string) []string {
+	return strings.Split(portsString, ",")
+}
+
+func parsePort(portStr string) (int, error) {
+	port, err := strconv.ParseUint(strings.TrimSpace(portStr), 10, 16)
+	if err != nil {
+		return 0, fmt.Errorf("failed parsing port '%d': %v", port, err)
+	}
+	return int(port), nil
+}
+
+func parsePorts(portsString string) ([]int, error) {
+	portsString = strings.TrimSpace(portsString)
+	ports := make([]int, 0)
+	if len(portsString) > 0 {
+		for _, portStr := range splitPorts(portsString) {
+			port, err := parsePort(portStr)
+			if err != nil {
+				return nil, fmt.Errorf("failed parsing port '%d': %v", port, err)
+			}
+			ports = append(ports, port)
+		}
+	}
+	return ports, nil
+}
+
 func validatePortList(parameterName, ports string) error {
-	if _, err := util.ParsePorts(ports); err != nil {
+	if _, err := parsePorts(ports); err != nil {
 		return fmt.Errorf("%s invalid: %v", parameterName, err)
 	}
 	return nil
@@ -256,7 +282,7 @@ func ValidateBindPodIPPorts(ports string) error {
 
 // validateStatusPort validates the statusPort parameter
 func validateStatusPort(port string) error {
-	if _, e := util.ParsePort(port); e != nil {
+	if _, e := parsePort(port); e != nil {
 		return fmt.Errorf("excludeInboundPorts invalid: %v", e)
 	}
 	return nil
@@ -1022,7 +1048,7 @@ func excludeInboundPort(port interface{}, excludedInboundPorts string) string {
 	}
 
 	// Exclude the readiness port if not already excluded.
-	ports := util.SplitPorts(excludedInboundPorts)
+	ports := splitPorts(excludedInboundPorts)
 	outPorts := make([]string, 0, len(ports))
 	for _, port := range ports {
 		if port == portStr {

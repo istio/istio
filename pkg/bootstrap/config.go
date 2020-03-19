@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/spiffe"
-	portutil "istio.io/istio/pkg/util"
 )
 
 const (
@@ -393,11 +392,7 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 			m := jsonStringToMap(val)
 			if len(m) > 0 {
 				if bindPodIPPorts := m[annotation.SidecarTrafficBindPodIPPorts.Name]; len(bindPodIPPorts) > 0 {
-					ports, err := portutil.ParsePorts(bindPodIPPorts)
-					// should never happen because we have checked in injector
-					if err != nil {
-						log.Warnf("invalid value for annotation %s: %s", annotation.SidecarTrafficBindPodIPPorts.Name, bindPodIPPorts)
-					}
+					ports := parsePorts(bindPodIPPorts)
 					meta.BindPodIPPorts = ports
 				}
 			}
@@ -511,4 +506,21 @@ func removeDuplicates(values []string) []string {
 		}
 	}
 	return newValues
+}
+
+func parsePorts(portsString string) []int {
+	portsString = strings.TrimSpace(portsString)
+	ports := make([]int, 0)
+	if len(portsString) > 0 {
+		for _, portStr := range strings.Split(portsString, ",") {
+			port, err := strconv.ParseUint(strings.TrimSpace(portStr), 10, 16)
+			// should not happen because we have checked in injector
+			if err != nil {
+				log.Warnf("failed parsing port '%s': %v", portStr, err)
+				continue
+			}
+			ports = append(ports, int(port))
+		}
+	}
+	return ports
 }
