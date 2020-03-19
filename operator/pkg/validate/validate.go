@@ -27,9 +27,11 @@ import (
 var (
 	// defaultValidations maps a data path to a validation function.
 	defaultValidations = map[string]ValidatorFunc{
-		"Hub":                validateHub,
-		"Tag":                validateTag,
-		"InstallPackagePath": validateInstallPackagePath,
+		"Hub":                                validateHub,
+		"Tag":                                validateTag,
+		"InstallPackagePath":                 validateInstallPackagePath,
+		"Components.IngressGateways[*].Name": validateGatewayName,
+		"Components.EgressGateways[*].Name":  validateGatewayName,
 	}
 	// requiredValues lists all the values that must be non-empty.
 	requiredValues = map[string]bool{}
@@ -99,7 +101,7 @@ func validate(validations map[string]ValidatorFunc, structPtr interface{}, path 
 		case reflect.Slice:
 			for i := 0; i < fieldValue.Len(); i++ {
 				newValue := fieldValue.Index(i).Interface()
-				newPath := append(path, fieldName)
+				newPath := append(path, indexPathForSlice(fieldName, i))
 				if util.IsStruct(newValue) || util.IsPtr(newValue) {
 					errs = util.AppendErrs(errs, validate(validations, newValue, newPath, checkRequired))
 				} else {
@@ -137,7 +139,7 @@ func validateLeaf(validations map[string]ValidatorFunc, path util.Path, val inte
 		return nil
 	}
 
-	vf, ok := validations[pstr]
+	vf, ok := getValidationFuncForPath(validations, path)
 	if !ok {
 		msg += fmt.Sprintf("validate %s: OK (no validation)", pstr)
 		scope.Debug(msg)
@@ -172,4 +174,16 @@ func validateInstallPackagePath(path util.Path, val interface{}) util.Errors {
 	}
 
 	return nil
+}
+
+func validateGatewayName(path util.Path, val interface{}) util.Errors {
+	valStr, ok := val.(string)
+	if !ok {
+		return util.NewErrs(fmt.Errorf("validateGatewayName(%s) bad type %T, want string", path, val))
+	}
+	if valStr == "" {
+		// will fall back to default gateway name: istio-ingressgateway and istio-egressgateway
+		return nil
+	}
+	return validateWithRegex(path, val, ObjectNameRegexp)
 }
