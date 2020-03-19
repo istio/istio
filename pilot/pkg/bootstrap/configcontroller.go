@@ -90,7 +90,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		if features.EnableServiceApis {
 			s.ConfigStores = append(s.ConfigStores, gateway.NewController(s.kubeClient, configController))
 		}
-		if args.Config.EnableConfigAnalysis {
+		if features.EnableAnalysis {
 			if err := s.initInprocessAnalysisController(args); err != nil {
 				return err
 			}
