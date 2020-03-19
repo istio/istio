@@ -654,12 +654,12 @@ spec:
       zipkin:
         hub: docker.io/openzipkin
         tag: 2.14.2
-        probeStartupDelay: 10
+        probeStartupDelay: 200
         queryPort: 9411
         resources:
           limits:
-            cpu: 1000m
-            memory: 2048Mi
+            cpu: 300m
+            memory: 900Mi
           requests:
             cpu: 150m
             memory: 900Mi
