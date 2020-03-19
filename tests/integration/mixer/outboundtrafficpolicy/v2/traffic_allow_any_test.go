@@ -17,53 +17,10 @@ package v2
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/tests/integration/mixer/outboundtrafficpolicy"
 )
 
-func TestMain(m *testing.M) {
-	var ist istio.Instance
-	framework.
-		NewSuite("outbound_traffic_policy_allow_any", m).
-		RequireSingleCluster().
-		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
-		Setup(setupPrometheus).
-		Run()
-}
-
-func setupConfig(cfg *istio.Config) {
-	if cfg == nil {
-		return
-	}
-	cfg.ControlPlaneValues = `
-components:
-  egressGateways:
-  - enabled: true
-values:
-  global:
-    outboundTrafficPolicy:
-      mode: ALLOW_ANY`
-}
-var (
-	prom prometheus.Instance
-)
-
-func TestOutboundTrafficPolicyAllowAny_NetworkingResponse(t *testing.T) {
-	expected := map[string][]string{
-		"http":        {"200"},
-		"http_egress": {"200"},
-		"https":       {"200"},
-	}
-	outboundtrafficpolicy.RunExternalRequestResponseCodeTest(expected, t)
-}
-
-func TestOutboundTrafficPolicyAllowAny_MetricsResponse(t *testing.T) {
+func TestOutboundTrafficPolicyAllowAny_TelemetryV2(t *testing.T) {
 	expected := map[string]outboundtrafficpolicy.MetricsResponse{
 		"http": {
 			Metric:    "istio_requests_total",
@@ -78,10 +35,6 @@ func TestOutboundTrafficPolicyAllowAny_MetricsResponse(t *testing.T) {
 			PromQuery: `sum(istio_requests_total{reporter="source",destination_service_name="PassthroughCluster",response_code="200"})`,
 		}, // HTTPS will direct to blackhole cluster, giving no response
 	}
-	outboundtrafficpolicy.RunExternalRequestMetricsTest(prom, expected, t)
+	outboundtrafficpolicy.RunExternalRequestMetricsTest(prom, outboundtrafficpolicy.AllowAny,expected, t)
 }
 
-func setupPrometheus(ctx resource.Context) (err error) {
-	prom, err = prometheus.New(ctx, prometheus.Config{})
-	return err
-}

@@ -28,7 +28,7 @@ func TestOutboundTrafficPolicyRegistryOnly_NetworkingResponse(t *testing.T) {
 	RunExternalRequestResponseCodeTest(RegistryOnly, expected, t)
 }
 
-func TestOutboundTrafficPolicyRegistryOnly_MetricsResponse(t *testing.T) {
+func TestOutboundTrafficPolicyRegistryOnly_TelemetryV1(t *testing.T) {
 	expected := map[string]MetricsResponse{
 		"http": {
 			Metric:    "istio_requests_total",

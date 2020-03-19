@@ -28,7 +28,7 @@ func TestOutboundTrafficPolicyAllowAny_NetworkingResponse(t *testing.T) {
 	RunExternalRequestResponseCodeTest(AllowAny, expected, t)
 }
 
-func TestOutboundTrafficPolicyAllowAny_MetricsResponse(t *testing.T) {
+func TestOutboundTrafficPolicyAllowAny_TelemetryV1(t *testing.T) {
 	expected := map[string]MetricsResponse{
 		"http": {
 			Metric:    "istio_requests_total",

@@ -17,54 +17,10 @@ package v2
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/tests/integration/mixer/outboundtrafficpolicy"
 )
 
-var (
-	prom prometheus.Instance
-)
-
-func TestMain(m *testing.M) {
-	var ist istio.Instance
-	framework.NewSuite("outbound_traffic_policy_registry_only", m).
-		RequireEnvironment(environment.Kube).
-		RequireSingleCluster().
-		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
-		Setup(setupPrometheus).
-		Run()
-}
-
-func setupConfig(cfg *istio.Config) {
-	if cfg == nil {
-		return
-	}
-	cfg.ControlPlaneValues = `
-components:
-  egressGateways:
-  - enabled: true
-values:
-  global:
-    outboundTrafficPolicy:
-      mode: REGISTRY_ONLY`
-}
-
-func TestOutboundTrafficPolicyRegistryOnly_NetworkingResponseV2(t *testing.T) {
-	expected := map[string][]string{
-		"http":        {"502"}, // HTTP will return an error code
-		"http_egress": {"200"}, // We define the virtual service in the namespace, so we should be able to reach it
-		"https":       {},      // HTTPS will direct to blackhole cluster, giving no response
-	}
-	outboundtrafficpolicy.RunExternalRequestResponseCodeTest(outboundtrafficpolicy.RegistryOnly, expected, t)
-}
-
-func TestOutboundTrafficPolicyRegistryOnly_MetricsResponseV2(t *testing.T) {
+func TestOutboundTrafficPolicyRegistryOnly_TelemetryV2(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/21566 and https://github.com/istio/istio/issues/21385")
 	expected := map[string]outboundtrafficpolicy.MetricsResponse{
 		"http": {
@@ -82,9 +38,4 @@ func TestOutboundTrafficPolicyRegistryOnly_MetricsResponseV2(t *testing.T) {
 	}
 	// destination_service="BlackHoleCluster" does not get filled in when using sidecar scoping
 	outboundtrafficpolicy.RunExternalRequestMetricsTest(prom, outboundtrafficpolicy.RegistryOnly, expected, t)
-}
-
-func setupPrometheus(ctx resource.Context) (err error) {
-	prom, err = prometheus.New(ctx, prometheus.Config{})
-	return err
 }
