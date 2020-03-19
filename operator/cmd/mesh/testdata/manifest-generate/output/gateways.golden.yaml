@@ -277,7 +277,7 @@ spec:
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: ingressgateway
+  name: istio-ingressgateway
   namespace: istio-system
   labels:
     app: istio-ingressgateway
@@ -649,7 +649,7 @@ spec:
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: ingressgateway
+  name: user-ingressgateway
   namespace: istio-system
   labels:
     app: istio-ingressgateway
@@ -1012,7 +1012,7 @@ spec:
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: ingressgateway
+  name: ilb-gateway
   namespace: user-ingressgateway-ns
   labels:
     app: istio-ingressgateway

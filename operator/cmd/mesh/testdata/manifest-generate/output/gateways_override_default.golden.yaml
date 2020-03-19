@@ -794,7 +794,7 @@ spec:
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: ingressgateway
+  name: istio-ingress-1
   namespace: istio-ingress-ns
   labels:
     app: istio-ingressgateway
