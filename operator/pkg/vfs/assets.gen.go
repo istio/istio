@@ -19884,6 +19884,7 @@ metadata:
   {{- end }}
 spec:
   configPatches:
+{{- if not .Values.telemetry.v2.stackdriver.disableOutbound }}
     - applyTo: HTTP_FILTER
       match:
         context: SIDECAR_OUTBOUND
@@ -19913,6 +19914,7 @@ spec:
                 runtime: envoy.wasm.runtime.null
                 code:
                   inline_string: envoy.wasm.null.stackdriver
+{{- end }}
     - applyTo: HTTP_FILTER
       match:
         context: SIDECAR_INBOUND
@@ -20358,6 +20360,7 @@ metadata:
   {{- end }}
 spec:
   configPatches:
+{{- if not .Values.telemetry.v2.stackdriver.disableOutbound }}
     - applyTo: HTTP_FILTER
       match:
         context: SIDECAR_OUTBOUND
@@ -20390,6 +20393,7 @@ spec:
                   runtime: envoy.wasm.runtime.null
                   code:
                     local: { inline_string: envoy.wasm.null.stackdriver }
+{{- end }}
     - applyTo: HTTP_FILTER
       match:
         context: SIDECAR_INBOUND
@@ -20845,6 +20849,7 @@ metadata:
   {{- end }}
 spec:
   configPatches:
+{{- if not .Values.telemetry.v2.stackdriver.disableOutbound }}
     - applyTo: HTTP_FILTER
       match:
         context: SIDECAR_OUTBOUND
@@ -20877,6 +20882,7 @@ spec:
                   runtime: envoy.wasm.runtime.null
                   code:
                     local: { inline_string: envoy.wasm.null.stackdriver }
+{{- end }}
     - applyTo: HTTP_FILTER
       match:
         context: SIDECAR_INBOUND
@@ -21151,6 +21157,7 @@ telemetry:
       logging: false
       monitoring: false
       topology: false
+      disableOutbound: false
       #  configOverride parts give you the ability to override the low level configuration params passed to envoy filter.
 
       configOverride: {}
