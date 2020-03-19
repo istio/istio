@@ -147,11 +147,11 @@
 // charts/istio-telemetry/prometheus/templates/serviceaccount.yaml
 // charts/istio-telemetry/prometheus/templates/tests/test-prometheus-connection.yaml
 // charts/istio-telemetry/prometheus/values.yaml
-// charts/istio-telemetry/prometheus-operator/Chart.yaml
-// charts/istio-telemetry/prometheus-operator/templates/_affinity.tpl
-// charts/istio-telemetry/prometheus-operator/templates/prometheus.yaml
-// charts/istio-telemetry/prometheus-operator/templates/servicemonitors.yaml
-// charts/istio-telemetry/prometheus-operator/values.yaml
+// charts/istio-telemetry/prometheusOperator/Chart.yaml
+// charts/istio-telemetry/prometheusOperator/templates/_affinity.tpl
+// charts/istio-telemetry/prometheusOperator/templates/prometheus.yaml
+// charts/istio-telemetry/prometheusOperator/templates/servicemonitors.yaml
+// charts/istio-telemetry/prometheusOperator/values.yaml
 // charts/istio-telemetry/tracing/Chart.yaml
 // charts/istio-telemetry/tracing/templates/_affinity.tpl
 // charts/istio-telemetry/tracing/templates/deployment-jaeger.yaml
@@ -22284,6 +22284,8 @@ name: grafana
 version: 1.1.0
 appVersion: 1.1.0
 tillerVersion: ">=2.7.2"
+keywords:
+  - istio-addon
 `)
 
 func chartsIstioTelemetryGrafanaChartYamlBytes() ([]byte, error) {
@@ -37319,6 +37321,8 @@ name: kiali
 version: 1.14.0
 appVersion: 1.14.0
 tillerVersion: ">=2.7.2"
+keywords:
+  - istio-addon
 `)
 
 func chartsIstioTelemetryKialiChartYamlBytes() ([]byte, error) {
@@ -41139,6 +41143,8 @@ name: prometheus
 version: 1.1.0
 appVersion: 2.8.0
 tillerVersion: ">=2.7.2"
+keywords:
+  - istio-addon
 `)
 
 func chartsIstioTelemetryPrometheusChartYamlBytes() ([]byte, error) {
@@ -42178,30 +42184,32 @@ func chartsIstioTelemetryPrometheusValuesYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioTelemetryPrometheusOperatorChartYaml = []byte(`apiVersion: v1
+var _chartsIstioTelemetryPrometheusoperatorChartYaml = []byte(`apiVersion: v1
 description: A Helm chart for Kubernetes
-name: prometheus-operator
+name: prometheusOperator
 version: 1.1.0
 appVersion: 2.3.1
 tillerVersion: ">=2.7.2"
+keywords:
+  - istio-addon
 `)
 
-func chartsIstioTelemetryPrometheusOperatorChartYamlBytes() ([]byte, error) {
-	return _chartsIstioTelemetryPrometheusOperatorChartYaml, nil
+func chartsIstioTelemetryPrometheusoperatorChartYamlBytes() ([]byte, error) {
+	return _chartsIstioTelemetryPrometheusoperatorChartYaml, nil
 }
 
-func chartsIstioTelemetryPrometheusOperatorChartYaml() (*asset, error) {
-	bytes, err := chartsIstioTelemetryPrometheusOperatorChartYamlBytes()
+func chartsIstioTelemetryPrometheusoperatorChartYaml() (*asset, error) {
+	bytes, err := chartsIstioTelemetryPrometheusoperatorChartYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "charts/istio-telemetry/prometheus-operator/Chart.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "charts/istio-telemetry/prometheusOperator/Chart.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _chartsIstioTelemetryPrometheusOperatorTemplates_affinityTpl = []byte(`{{/* affinity - https://kubernetes.io/docs/concepts/configuration/assign-pod-node/ */}}
+var _chartsIstioTelemetryPrometheusoperatorTemplates_affinityTpl = []byte(`{{/* affinity - https://kubernetes.io/docs/concepts/configuration/assign-pod-node/ */}}
 
 {{- define "nodeaffinity" }}
   nodeAffinity:
@@ -42296,22 +42304,22 @@ var _chartsIstioTelemetryPrometheusOperatorTemplates_affinityTpl = []byte(`{{/* 
 {{- end }}
 `)
 
-func chartsIstioTelemetryPrometheusOperatorTemplates_affinityTplBytes() ([]byte, error) {
-	return _chartsIstioTelemetryPrometheusOperatorTemplates_affinityTpl, nil
+func chartsIstioTelemetryPrometheusoperatorTemplates_affinityTplBytes() ([]byte, error) {
+	return _chartsIstioTelemetryPrometheusoperatorTemplates_affinityTpl, nil
 }
 
-func chartsIstioTelemetryPrometheusOperatorTemplates_affinityTpl() (*asset, error) {
-	bytes, err := chartsIstioTelemetryPrometheusOperatorTemplates_affinityTplBytes()
+func chartsIstioTelemetryPrometheusoperatorTemplates_affinityTpl() (*asset, error) {
+	bytes, err := chartsIstioTelemetryPrometheusoperatorTemplates_affinityTplBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "charts/istio-telemetry/prometheus-operator/templates/_affinity.tpl", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "charts/istio-telemetry/prometheusOperator/templates/_affinity.tpl", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _chartsIstioTelemetryPrometheusOperatorTemplatesPrometheusYaml = []byte(`{{- if .Values.prometheusOperator.createPrometheusResource }}
+var _chartsIstioTelemetryPrometheusoperatorTemplatesPrometheusYaml = []byte(`{{- if .Values.prometheusOperator.createPrometheusResource }}
 apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
 metadata:
@@ -42450,22 +42458,22 @@ metadata:
 {{- end }}
 `)
 
-func chartsIstioTelemetryPrometheusOperatorTemplatesPrometheusYamlBytes() ([]byte, error) {
-	return _chartsIstioTelemetryPrometheusOperatorTemplatesPrometheusYaml, nil
+func chartsIstioTelemetryPrometheusoperatorTemplatesPrometheusYamlBytes() ([]byte, error) {
+	return _chartsIstioTelemetryPrometheusoperatorTemplatesPrometheusYaml, nil
 }
 
-func chartsIstioTelemetryPrometheusOperatorTemplatesPrometheusYaml() (*asset, error) {
-	bytes, err := chartsIstioTelemetryPrometheusOperatorTemplatesPrometheusYamlBytes()
+func chartsIstioTelemetryPrometheusoperatorTemplatesPrometheusYaml() (*asset, error) {
+	bytes, err := chartsIstioTelemetryPrometheusoperatorTemplatesPrometheusYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "charts/istio-telemetry/prometheus-operator/templates/prometheus.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "charts/istio-telemetry/prometheusOperator/templates/prometheus.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _chartsIstioTelemetryPrometheusOperatorTemplatesServicemonitorsYaml = []byte(`apiVersion: monitoring.coreos.com/v1
+var _chartsIstioTelemetryPrometheusoperatorTemplatesServicemonitorsYaml = []byte(`apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: istio-mesh-monitor
@@ -42787,22 +42795,22 @@ spec:
       k8s-app: kubelet
 `)
 
-func chartsIstioTelemetryPrometheusOperatorTemplatesServicemonitorsYamlBytes() ([]byte, error) {
-	return _chartsIstioTelemetryPrometheusOperatorTemplatesServicemonitorsYaml, nil
+func chartsIstioTelemetryPrometheusoperatorTemplatesServicemonitorsYamlBytes() ([]byte, error) {
+	return _chartsIstioTelemetryPrometheusoperatorTemplatesServicemonitorsYaml, nil
 }
 
-func chartsIstioTelemetryPrometheusOperatorTemplatesServicemonitorsYaml() (*asset, error) {
-	bytes, err := chartsIstioTelemetryPrometheusOperatorTemplatesServicemonitorsYamlBytes()
+func chartsIstioTelemetryPrometheusoperatorTemplatesServicemonitorsYaml() (*asset, error) {
+	bytes, err := chartsIstioTelemetryPrometheusoperatorTemplatesServicemonitorsYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "charts/istio-telemetry/prometheus-operator/templates/servicemonitors.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "charts/istio-telemetry/prometheusOperator/templates/servicemonitors.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _chartsIstioTelemetryPrometheusOperatorValuesYaml = []byte(`prometheusOperator:
+var _chartsIstioTelemetryPrometheusoperatorValuesYaml = []byte(`prometheusOperator:
   # Controls the default scrape interval used in the ServiceMonitors
   scrapeInterval: 15s
 
@@ -42850,17 +42858,17 @@ var _chartsIstioTelemetryPrometheusOperatorValuesYaml = []byte(`prometheusOperat
 security:
   enabled: true`)
 
-func chartsIstioTelemetryPrometheusOperatorValuesYamlBytes() ([]byte, error) {
-	return _chartsIstioTelemetryPrometheusOperatorValuesYaml, nil
+func chartsIstioTelemetryPrometheusoperatorValuesYamlBytes() ([]byte, error) {
+	return _chartsIstioTelemetryPrometheusoperatorValuesYaml, nil
 }
 
-func chartsIstioTelemetryPrometheusOperatorValuesYaml() (*asset, error) {
-	bytes, err := chartsIstioTelemetryPrometheusOperatorValuesYamlBytes()
+func chartsIstioTelemetryPrometheusoperatorValuesYaml() (*asset, error) {
+	bytes, err := chartsIstioTelemetryPrometheusoperatorValuesYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "charts/istio-telemetry/prometheus-operator/values.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "charts/istio-telemetry/prometheusOperator/values.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -42871,6 +42879,8 @@ name: tracing
 version: 1.1.0
 appVersion: 1.5.1
 tillerVersion: ">=2.7.2"
+keywords:
+  - istio-addon
 `)
 
 func chartsIstioTelemetryTracingChartYamlBytes() ([]byte, error) {
@@ -43694,6 +43704,8 @@ name: istiocoredns
 version: 1.1.0
 appVersion: 0.1
 tillerVersion: ">=2.7.2"
+keywords:
+  - istio-addon
 `)
 
 func chartsIstiocorednsChartYamlBytes() ([]byte, error) {
@@ -45807,13 +45819,7 @@ func profilesSeparateYaml() (*asset, error) {
 	return a, nil
 }
 
-var _translateconfigNames15Yaml = []byte(`BundledAddonComponentNames:
-  - "Prometheus"
-  - "Kiali"
-  - "Grafana"
-  - "Tracing"
-  - "Istiocoredns"
-DeprecatedComponentNames:
+var _translateconfigNames15Yaml = []byte(`DeprecatedComponentNames:
   - "Injector"
   - "CertManager"
   - "NodeAgent"
@@ -45836,13 +45842,7 @@ func translateconfigNames15Yaml() (*asset, error) {
 	return a, nil
 }
 
-var _translateconfigNames16Yaml = []byte(`BundledAddonComponentNames:
-  - "Prometheus"
-  - "Kiali"
-  - "Grafana"
-  - "Tracing"
-  - "Istiocoredns"
-DeprecatedComponentNames:
+var _translateconfigNames16Yaml = []byte(`DeprecatedComponentNames:
   - "Injector"
   - "CertManager"
   - "NodeAgent"
@@ -46227,7 +46227,7 @@ componentMaps:
     ResourceType:         "Deployment"
     ResourceName:         "prometheus"
     ContainerName:        "prometheus"
-    HelmSubdir:           "istio-telemetry/prometheus-operator"
+    HelmSubdir:           "istio-telemetry/prometheusOperator"
     ToHelmValuesTreeRoot: "prometheus"
   Kiali:
     ResourceType:         "Deployment"
@@ -46464,7 +46464,7 @@ componentMaps:
     ResourceType:         "Deployment"
     ResourceName:         "prometheus"
     ContainerName:        "prometheus"
-    HelmSubdir:           "istio-telemetry/prometheus-operator"
+    HelmSubdir:           "istio-telemetry/prometheusOperator"
     ToHelmValuesTreeRoot: "prometheus"
   Kiali:
     ResourceType:         "Deployment"
@@ -46641,7 +46641,7 @@ componentMaps:
     ResourceType:         "Deployment"
     ResourceName:         "prometheus"
     ContainerName:        "prometheus"
-    HelmSubdir:           "istio-telemetry/prometheus-operator"
+    HelmSubdir:           "istio-telemetry/prometheusOperator"
     ToHelmValuesTreeRoot: "prometheus"
     SkipReverseTranslate: true
   Kiali:
@@ -46812,7 +46812,7 @@ componentMaps:
     ResourceType:         "Deployment"
     ResourceName:         "prometheus"
     ContainerName:        "prometheus"
-    HelmSubdir:           "istio-telemetry/prometheus-operator"
+    HelmSubdir:           "istio-telemetry/prometheusOperator"
     ToHelmValuesTreeRoot: "prometheus"
     SkipReverseTranslate: true
   Kiali:
@@ -47120,11 +47120,11 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-telemetry/prometheus/templates/serviceaccount.yaml":                      chartsIstioTelemetryPrometheusTemplatesServiceaccountYaml,
 	"charts/istio-telemetry/prometheus/templates/tests/test-prometheus-connection.yaml":    chartsIstioTelemetryPrometheusTemplatesTestsTestPrometheusConnectionYaml,
 	"charts/istio-telemetry/prometheus/values.yaml":                                        chartsIstioTelemetryPrometheusValuesYaml,
-	"charts/istio-telemetry/prometheus-operator/Chart.yaml":                                chartsIstioTelemetryPrometheusOperatorChartYaml,
-	"charts/istio-telemetry/prometheus-operator/templates/_affinity.tpl":                   chartsIstioTelemetryPrometheusOperatorTemplates_affinityTpl,
-	"charts/istio-telemetry/prometheus-operator/templates/prometheus.yaml":                 chartsIstioTelemetryPrometheusOperatorTemplatesPrometheusYaml,
-	"charts/istio-telemetry/prometheus-operator/templates/servicemonitors.yaml":            chartsIstioTelemetryPrometheusOperatorTemplatesServicemonitorsYaml,
-	"charts/istio-telemetry/prometheus-operator/values.yaml":                               chartsIstioTelemetryPrometheusOperatorValuesYaml,
+	"charts/istio-telemetry/prometheusOperator/Chart.yaml":                                 chartsIstioTelemetryPrometheusoperatorChartYaml,
+	"charts/istio-telemetry/prometheusOperator/templates/_affinity.tpl":                    chartsIstioTelemetryPrometheusoperatorTemplates_affinityTpl,
+	"charts/istio-telemetry/prometheusOperator/templates/prometheus.yaml":                  chartsIstioTelemetryPrometheusoperatorTemplatesPrometheusYaml,
+	"charts/istio-telemetry/prometheusOperator/templates/servicemonitors.yaml":             chartsIstioTelemetryPrometheusoperatorTemplatesServicemonitorsYaml,
+	"charts/istio-telemetry/prometheusOperator/values.yaml":                                chartsIstioTelemetryPrometheusoperatorValuesYaml,
 	"charts/istio-telemetry/tracing/Chart.yaml":                                            chartsIstioTelemetryTracingChartYaml,
 	"charts/istio-telemetry/tracing/templates/_affinity.tpl":                               chartsIstioTelemetryTracingTemplates_affinityTpl,
 	"charts/istio-telemetry/tracing/templates/deployment-jaeger.yaml":                      chartsIstioTelemetryTracingTemplatesDeploymentJaegerYaml,
@@ -47426,14 +47426,14 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				}},
 				"values.yaml": &bintree{chartsIstioTelemetryPrometheusValuesYaml, map[string]*bintree{}},
 			}},
-			"prometheus-operator": &bintree{nil, map[string]*bintree{
-				"Chart.yaml": &bintree{chartsIstioTelemetryPrometheusOperatorChartYaml, map[string]*bintree{}},
+			"prometheusOperator": &bintree{nil, map[string]*bintree{
+				"Chart.yaml": &bintree{chartsIstioTelemetryPrometheusoperatorChartYaml, map[string]*bintree{}},
 				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl":        &bintree{chartsIstioTelemetryPrometheusOperatorTemplates_affinityTpl, map[string]*bintree{}},
-					"prometheus.yaml":      &bintree{chartsIstioTelemetryPrometheusOperatorTemplatesPrometheusYaml, map[string]*bintree{}},
-					"servicemonitors.yaml": &bintree{chartsIstioTelemetryPrometheusOperatorTemplatesServicemonitorsYaml, map[string]*bintree{}},
+					"_affinity.tpl":        &bintree{chartsIstioTelemetryPrometheusoperatorTemplates_affinityTpl, map[string]*bintree{}},
+					"prometheus.yaml":      &bintree{chartsIstioTelemetryPrometheusoperatorTemplatesPrometheusYaml, map[string]*bintree{}},
+					"servicemonitors.yaml": &bintree{chartsIstioTelemetryPrometheusoperatorTemplatesServicemonitorsYaml, map[string]*bintree{}},
 				}},
-				"values.yaml": &bintree{chartsIstioTelemetryPrometheusOperatorValuesYaml, map[string]*bintree{}},
+				"values.yaml": &bintree{chartsIstioTelemetryPrometheusoperatorValuesYaml, map[string]*bintree{}},
 			}},
 			"tracing": &bintree{nil, map[string]*bintree{
 				"Chart.yaml": &bintree{chartsIstioTelemetryTracingChartYaml, map[string]*bintree{}},
