@@ -42,7 +42,7 @@ spec:
         securityContext:
           runAsUser: 1
         env:
-        - name: MY_POD_IP
+        - name: INSTANCE_IP
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
@@ -55,7 +55,7 @@ spec:
           - "8080"
           - --port
           - "3333"
-          - --bindpodipport
+          - --bindipport
           - "8091"
           - --version
           - "bar"

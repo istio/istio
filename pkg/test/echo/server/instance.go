@@ -36,15 +36,15 @@ import (
 
 // Config for an echo server Instance.
 type Config struct {
-	Ports             common.PortList
-	Metrics           int
-	TLSCert           string
-	TLSKey            string
-	Version           string
-	UDSServer         string
-	Cluster           string
-	Dialer            common.Dialer
-	BindPodIPPortsMap map[int]bool
+	Ports          common.PortList
+	Metrics        int
+	TLSCert        string
+	TLSKey         string
+	Version        string
+	UDSServer      string
+	Cluster        string
+	Dialer         common.Dialer
+	BindIPPortsMap map[int]bool
 }
 
 var _ io.Closer = &Instance{}
@@ -124,8 +124,8 @@ func (s *Instance) newEndpoint(port *common.Port, udsServer string) (endpoint.In
 		Dialer:        s.Dialer,
 		ListenIP:      "",
 	}
-	if port != nil && s.BindPodIPPortsMap[port.Port] {
-		cfg.ListenIP = os.Getenv("MY_POD_IP")
+	if port != nil && s.BindIPPortsMap[port.Port] {
+		cfg.ListenIP = os.Getenv("INSTANCE_IP")
 	}
 	return endpoint.New(cfg)
 }

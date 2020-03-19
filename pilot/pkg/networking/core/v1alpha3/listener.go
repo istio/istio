@@ -2329,15 +2329,15 @@ func getActualInboundBindAddress(node *model.Proxy, port int) string {
 			break
 		}
 	}
-	for i := 0; i < len(node.IPAddresses); i++ {
-		addr := net.ParseIP(node.IPAddresses[i])
+	for _, address := range node.IPAddresses {
+		addr := net.ParseIP(address)
 		if addr == nil {
 			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
 			// skip it to prevent a panic.
 			continue
 		}
 		if bindPodIP {
-			return node.IPAddresses[i]
+			return address
 		}
 		if addr.To4() != nil {
 			return LocalhostAddress

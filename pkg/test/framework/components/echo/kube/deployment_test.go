@@ -151,7 +151,7 @@ func TestDeploymentYAML(t *testing.T) {
 						ServicePort:  8091,
 					},
 				},
-				BindPodIPPorts: []int{8091},
+				BindIPPorts: []int{8091},
 			},
 		},
 	}

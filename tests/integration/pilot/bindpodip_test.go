@@ -15,14 +15,13 @@
 package pilot
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/response"
-	epb "istio.io/istio/pkg/test/echo/proto"
+	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -70,7 +69,7 @@ func TestBindPodIPPorts(t *testing.T) {
 							InstancePort: 7777,
 						},
 					},
-					BindPodIPPorts: []int{6666, 7777},
+					BindIPPorts: []int{6666, 7777},
 				}).With(&client, echo.Config{
 				Service:   "client",
 				Namespace: ns,
@@ -85,31 +84,22 @@ func TestBindPodIPPorts(t *testing.T) {
 			}).
 				BuildOrFail(t)
 
-			clientWorkload := getWorkload(client, t)
-			serverWorkload := getWorkload(instance, t)
-			expectPorts := []int{5555, 6666, 7777}
+			expectPortNames := []string{"http5", "http6", "http7"}
 
-			for _, port := range expectPorts {
-				name := fmt.Sprintf("client->%s:%d", instance.Config().Service, port)
-				host := fmt.Sprintf("%s:%d", serverWorkload.Address(), port)
-				request := &epb.ForwardEchoRequest{
-					Url:   fmt.Sprintf("http://%s/", host),
-					Count: 1,
-					Headers: []*epb.Header{
-						{
-							Key:   "Host",
-							Value: host,
-						},
-					},
-				}
+			for _, portName := range expectPortNames {
+				name := fmt.Sprintf("client->%s:%s", instance.Address(), portName)
 				t.Run(name, func(t *testing.T) {
 					retry.UntilSuccessOrFail(t, func() error {
-						responses, err := clientWorkload.ForwardEcho(context.TODO(), request)
+						responses, err := client.Call(echo.CallOptions{
+							Target:   instance,
+							Scheme:   scheme.HTTP,
+							PortName: portName,
+						})
 						if err != nil {
 							return fmt.Errorf("want allow but got error: %v", err)
 						}
 						if len(responses) < 1 {
-							return fmt.Errorf("received no responses from request to %s", host)
+							return fmt.Errorf("received no responses from request to %s", instance.Config().Service)
 						}
 						if response.StatusCodeOK != responses[0].Code {
 							return fmt.Errorf("want status %s but got %s", response.StatusCodeOK, responses[0].Code)
@@ -119,15 +109,4 @@ func TestBindPodIPPorts(t *testing.T) {
 				})
 			}
 		})
-}
-
-func getWorkload(instance echo.Instance, t *testing.T) echo.Workload {
-	workloads, err := instance.Workloads()
-	if err != nil {
-		t.Fatalf(fmt.Sprintf("failed to get Subsets: %v", err))
-	}
-	if len(workloads) < 1 {
-		t.Fatalf("want at least 1 workload but found 0")
-	}
-	return workloads[0]
 }

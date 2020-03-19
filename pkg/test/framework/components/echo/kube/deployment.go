@@ -105,7 +105,7 @@ spec:
         securityContext:
           runAsUser: 1
         env:
-        - name: MY_POD_IP
+        - name: INSTANCE_IP
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
@@ -137,8 +137,8 @@ spec:
           - --tls={{ $p.Port }}
 {{- end }}
 {{- end }}
-{{- range $i, $p := $.BindPodIPPorts }}
-          - --bindpodipport
+{{- range $i, $p := $.BindIPPorts }}
+          - --bindipport
           - "{{ $p }}"
 {{- end }}
           - --version
@@ -254,7 +254,7 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (servic
 		"Subsets":             cfg.Subsets,
 		"TLSSettings":         cfg.TLSSettings,
 		"Cluster":             cfg.ClusterIndex(),
-		"BindPodIPPorts":      cfg.BindPodIPPorts,
+		"BindIPPorts":         cfg.BindIPPorts,
 	}
 
 	serviceYAML, err = tmpl.Execute(serviceTemplate, params)

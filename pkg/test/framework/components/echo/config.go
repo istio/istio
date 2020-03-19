@@ -85,8 +85,8 @@ type Config struct {
 	// TLS settings for echo server
 	TLSSettings *common.TLSSettings
 
-	// BindPodIPPorts specific ports bind to pod IP instead of 0.0.0.0
-	BindPodIPPorts []int
+	// BindIPPorts specific ports bind to pod IP instead of 0.0.0.0
+	BindIPPorts []int
 }
 
 // SubsetConfig is the config for a group of Subsets (e.g. Kubernetes deployment).
