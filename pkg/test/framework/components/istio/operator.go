@@ -48,6 +48,8 @@ type operatorComponent struct {
 	settings    Config
 	ctx         resource.Context
 	environment *kube.Environment
+	// installSettings includes all flags used to install
+	installSettings []string
 }
 
 var _ io.Closer = &operatorComponent{}
@@ -88,6 +90,20 @@ func (i *operatorComponent) Close() (err error) {
 	return
 }
 
+func (i *operatorComponent) closeFull() (err error) {
+	err = i.environment.KubeClusters[0].DeleteNamespace(i.settings.SystemNamespace)
+	if err == nil {
+		err = i.environment.KubeClusters[0].WaitForNamespaceDeletion(i.settings.SystemNamespace)
+	}
+	// Note: when cleaning up an Istio deployment, ValidatingWebhookConfiguration
+	// and MutatingWebhookConfiguration must be cleaned up. Otherwise, next
+	// Istio deployment in the cluster will be impacted, causing flaky test results.
+	// Clean up ValidatingWebhookConfiguration and MutatingWebhookConfiguration if they exist
+	_ = i.environment.KubeClusters[0].DeleteValidatingWebhook(DefaultValidatingWebhookConfigurationName(i.settings))
+	_ = i.environment.KubeClusters[0].DeleteMutatingWebhook(DefaultMutatingWebhookConfigurationName)
+	return err
+}
+
 func (i *operatorComponent) Dump() {
 	scopes.CI.Errorf("=== Dumping Istio Deployment State...")
 
@@ -124,6 +140,24 @@ func (i *operatorComponent) Dump() {
 			}
 		}
 	}
+}
+
+func (i *operatorComponent) closePartial() error {
+	istioCtl, err := istioctl.New(i.ctx, istioctl.Config{})
+	if err != nil {
+		return err
+	}
+
+	cmd := []string{
+		"manifest", "generate",
+	}
+	cmd = append(cmd, i.installSettings...)
+	scopes.CI.Infof("Running istioctl %v", cmd)
+	out, err := istioCtl.Invoke(cmd)
+	if err != nil {
+		return fmt.Errorf("manifest generate failed: %v", err)
+	}
+	return i.environment.KubeClusters[0].DeleteContents("", out)
 }
 
 func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, error) {
@@ -203,34 +237,35 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 	if err != nil {
 		return err
 	}
-
 	defaultsIOPFile := cfg.IOPFile
 	if !path.IsAbs(defaultsIOPFile) {
 		defaultsIOPFile = filepath.Join(env.IstioSrc, defaultsIOPFile)
+	}
+
+	i.installSettings = []string{
+		"-f", iopFile,
+		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
+	}
+	// If control plane values set, assume this includes the full set of values, and .Values is
+	// just for helm use case. Otherwise, include all values.
+	if cfg.ControlPlaneValues == "" {
+		for k, v := range cfg.Values {
+			i.installSettings = append(i.installSettings, "--set", fmt.Sprintf("values.%s=%s", k, v))
+		}
+	}
+	if c.environment.IsMulticluster() {
+		// Set the clusterName for the local cluster.
+		// This MUST match the clusterName in the remote secret for this cluster.
+		i.installSettings = append(i.installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
 	}
 
 	cmd := []string{
 		"manifest", "apply",
 		"--skip-confirmation",
 		"--logtostderr",
-		"-f", defaultsIOPFile,
-		"-f", iopFile,
-		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
 		"--wait",
 	}
-	// If control plane values set, assume this includes the full set of values, and .Values is
-	// just for helm use case. Otherwise, include all values.
-	if cfg.ControlPlaneValues == "" {
-		for k, v := range cfg.Values {
-			cmd = append(cmd, "--set", fmt.Sprintf("values.%s=%s", k, v))
-		}
-	}
-
-	if c.environment.IsMulticluster() {
-		// Set the clusterName for the local cluster.
-		// This MUST match the clusterName in the remote secret for this cluster.
-		cmd = append(cmd, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
-	}
+	cmd = append(cmd, i.installSettings...)
 
 	scopes.CI.Infof("Running istio control plane on cluster %s %v", cluster.Name(), cmd)
 	if _, err := istioCtl.Invoke(cmd); err != nil {
