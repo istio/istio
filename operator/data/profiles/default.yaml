@@ -653,7 +653,7 @@ spec:
         accessMode: ReadWriteMany
       zipkin:
         hub: docker.io/openzipkin
-        tag: 2.20.0
+        tag: 2.14.2
         probeStartupDelay: 10
         queryPort: 9411
         resources:
