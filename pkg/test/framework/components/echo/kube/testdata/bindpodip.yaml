@@ -2,36 +2,38 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: healthcheck
+  name: foo
   labels:
-    app: healthcheck
+    app: foo
 spec:
   ports:
-  - name: http-8080
-    port: 8080
-    targetPort: 8080
+  - name: http
+    port: 8090
+    targetPort: 8090
+  - name: http2
+    port: 8091
+    targetPort: 8091
   selector:
-    app: healthcheck
+    app: foo
 ---
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: healthcheck-v1
+  name: foo-bar
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: healthcheck
-      version: v1
+      app: foo
+      version: bar
   template:
     metadata:
       labels:
-        app: healthcheck
-        version: v1
+        app: foo
+        version: bar
       annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "15014"
-        sidecar.istio.io/rewriteAppHTTPProbers: "true"
+        foo: bar
     spec:
       containers:
       - name: app
@@ -45,16 +47,21 @@ spec:
             fieldRef:
               fieldPath: status.podIP
         args:
-          - --metrics=15014
-          - --cluster
-          - "0"
+          - --port
+          - "8090"
+          - --port
+          - "8091"
           - --port
           - "8080"
           - --port
           - "3333"
+          - --bindpodipport
+          - "8091"
           - --version
-          - "v1"
+          - "bar"
         ports:
+        - containerPort: 8090
+        - containerPort: 8091
         - containerPort: 8080
         - containerPort: 3333
           name: tcp-health-port

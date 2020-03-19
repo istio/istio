@@ -131,6 +131,29 @@ func TestDeploymentYAML(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:         "bindpodip",
+			wantFilePath: "testdata/bindpodip.yaml",
+			config: echo.Config{
+				Service: "foo",
+				Version: "bar",
+				Ports: []echo.Port{
+					{
+						Name:         "http",
+						Protocol:     protocol.HTTP,
+						InstancePort: 8090,
+						ServicePort:  8090,
+					},
+					{
+						Name:         "http2",
+						Protocol:     protocol.HTTP,
+						InstancePort: 8091,
+						ServicePort:  8091,
+					},
+				},
+				BindPodIPPorts: []int{8091},
+			},
+		},
 	}
 	for _, tc := range testCase {
 		serviceYAML, deploymentYAML, err := generateYAMLWithSettings(tc.config, settings)

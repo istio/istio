@@ -30,16 +30,17 @@ import (
 )
 
 var (
-	httpPorts   []int
-	grpcPorts   []int
-	tcpPorts    []int
-	tlsPorts    []int
-	metricsPort int
-	uds         string
-	version     string
-	cluster     string
-	crt         string
-	key         string
+	httpPorts      []int
+	grpcPorts      []int
+	tcpPorts       []int
+	tlsPorts       []int
+	metricsPort    int
+	uds            string
+	version        string
+	cluster        string
+	crt            string
+	key            string
+	bindPodIPPorts []int
 
 	loggingOptions = log.DefaultOptions()
 
@@ -84,14 +85,19 @@ var (
 				portIndex++
 			}
 
+			bindPodIPPortsMap := make(map[int]bool, len(bindPodIPPorts))
+			for _, port := range bindPodIPPorts {
+				bindPodIPPortsMap[port] = true
+			}
 			s := server.New(server.Config{
-				Ports:     ports,
+				Ports:             ports,
 				Metrics:   metricsPort,
-				TLSCert:   crt,
-				TLSKey:    key,
-				Version:   version,
-				Cluster:   cluster,
-				UDSServer: uds,
+				TLSCert:           crt,
+				TLSKey:            key,
+				Version:           version,
+				Cluster:           cluster,
+				UDSServer:         uds,
+				BindPodIPPortsMap: bindPodIPPortsMap,
 			})
 
 			if err := s.Start(); err != nil {
@@ -128,6 +134,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cluster, "cluster", "", "Cluster where this server is deployed")
 	rootCmd.PersistentFlags().StringVar(&crt, "crt", "", "gRPC TLS server-side certificate")
 	rootCmd.PersistentFlags().StringVar(&key, "key", "", "gRPC TLS server-side key")
+	rootCmd.PersistentFlags().IntSliceVar(&bindPodIPPorts, "bindpodipport", nil, "only listening pod IP instead of 0.0.0.0")
 
 	loggingOptions.AttachCobraFlags(rootCmd)
 

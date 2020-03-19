@@ -44,6 +44,11 @@ spec:
         imagePullPolicy: Always
         securityContext:
           runAsUser: 1
+        env:
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         args:
           - --metrics=15014
           - --cluster
@@ -107,6 +112,11 @@ spec:
         imagePullPolicy: Always
         securityContext:
           runAsUser: 1
+        env:
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         args:
           - --metrics=15014
           - --cluster

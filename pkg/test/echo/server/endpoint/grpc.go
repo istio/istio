@@ -49,7 +49,7 @@ func newGRPC(config Config) Instance {
 
 func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 	// Listen on the given port and update the port if it changed from what was passed in.
-	listener, p, err := listenOnPort(s.Port.Port)
+	listener, p, err := listenOnTcpAddr(fmt.Sprintf("%s:%d", s.ListenIP, s.Port.Port))
 	if err != nil {
 		return err
 	}

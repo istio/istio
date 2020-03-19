@@ -104,6 +104,11 @@ spec:
         imagePullPolicy: {{ $.PullPolicy }}
         securityContext:
           runAsUser: 1
+        env:
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         args:
           - --metrics=15014
           - --cluster
@@ -131,6 +136,10 @@ spec:
 {{- if $p.TLS }}
           - --tls={{ $p.Port }}
 {{- end }}
+{{- end }}
+{{- range $i, $p := $.BindPodIPPorts }}
+          - --bindpodipport
+          - "{{ $p }}"
 {{- end }}
           - --version
           - "{{ $subset.Version }}"
@@ -245,6 +254,7 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (servic
 		"Subsets":             cfg.Subsets,
 		"TLSSettings":         cfg.TLSSettings,
 		"Cluster":             cfg.ClusterIndex(),
+		"BindPodIPPorts":      cfg.BindPodIPPorts,
 	}
 
 	serviceYAML, err = tmpl.Execute(serviceTemplate, params)

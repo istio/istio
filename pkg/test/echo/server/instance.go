@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"sync"
 	"sync/atomic"
 
@@ -35,14 +36,15 @@ import (
 
 // Config for an echo server Instance.
 type Config struct {
-	Ports     common.PortList
-	Metrics   int
-	TLSCert   string
-	TLSKey    string
-	Version   string
-	UDSServer string
-	Cluster   string
-	Dialer    common.Dialer
+	Ports             common.PortList
+	Metrics           int
+	TLSCert           string
+	TLSKey            string
+	Version           string
+	UDSServer         string
+	Cluster           string
+	Dialer            common.Dialer
+	BindPodIPPortsMap map[int]bool
 }
 
 var _ io.Closer = &Instance{}
@@ -111,7 +113,7 @@ func (s *Instance) Close() (err error) {
 }
 
 func (s *Instance) newEndpoint(port *common.Port, udsServer string) (endpoint.Instance, error) {
-	return endpoint.New(endpoint.Config{
+	cfg := endpoint.Config{
 		Port:          port,
 		UDSServer:     udsServer,
 		IsServerReady: s.isReady,
@@ -120,7 +122,12 @@ func (s *Instance) newEndpoint(port *common.Port, udsServer string) (endpoint.In
 		TLSCert:       s.TLSCert,
 		TLSKey:        s.TLSKey,
 		Dialer:        s.Dialer,
-	})
+		ListenIP:      "",
+	}
+	if port != nil && s.BindPodIPPortsMap[port.Port] {
+		cfg.ListenIP = os.Getenv("MY_POD_IP")
+	}
+	return endpoint.New(cfg)
 }
 
 func (s *Instance) isReady() bool {

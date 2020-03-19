@@ -24,8 +24,8 @@ import (
 	"istio.io/istio/pkg/test/echo/common/response"
 )
 
-func listenOnPort(port int) (net.Listener, int, error) {
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+func listenOnTcpAddr(addr string) (net.Listener, int, error) {
+	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -40,7 +40,7 @@ func listenOnPortTLS(port int, cfg *tls.Config) (net.Listener, int, error) {
 		return nil, 0, err
 	}
 
-	port = ln.Addr().(*net.TCPAddr).Port
+	port := ln.Addr().(*net.TCPAddr).Port
 	return ln, port, nil
 }
 
