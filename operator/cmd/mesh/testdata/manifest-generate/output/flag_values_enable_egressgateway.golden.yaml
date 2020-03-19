@@ -1,29 +1,24 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-egressgateway
-  namespace: istio-system
-  annotations:
+  annotations: null
   labels:
     app: istio-egressgateway
     istio: egressgateway
-    
     release: istio
+  name: istio-egressgateway
+  namespace: istio-system
 spec:
-  type: ClusterIP
+  ports:
+  - name: http2
+    port: 80
+  - name: https
+    port: 443
+  - name: tls
+    port: 15443
+    targetPort: 15443
   selector:
     app: istio-egressgateway
     istio: egressgateway
-    
-  ports:
-    -
-      name: http2
-      port: 80
-    -
-      name: https
-      port: 443
-    -
-      name: tls
-      port: 15443
-      targetPort: 15443
+  type: ClusterIP
 ---

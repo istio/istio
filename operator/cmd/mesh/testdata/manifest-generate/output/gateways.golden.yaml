@@ -899,14 +899,9 @@ spec:
         image: gcr.io/istio-testing/proxyv2:latest
         name: istio-proxy
         ports:
-        - containerPort: 15020
-        - containerPort: 8080
-        - containerPort: 8443
-        - containerPort: 15029
-        - containerPort: 15030
-        - containerPort: 15031
-        - containerPort: 15032
-        - containerPort: 15443
+        - containerPort: 15011
+        - containerPort: 8060
+        - containerPort: 5353
         - containerPort: 15011
         - containerPort: 15012
         - containerPort: 8060
@@ -1075,30 +1070,6 @@ spec:
     targetPort: 8060
   - name: tcp-dns
     port: 5353
-  - name: status-port
-    port: 15020
-    targetPort: 15020
-  - name: http2
-    port: 80
-    targetPort: 8080
-  - name: https
-    port: 443
-    targetPort: 8443
-  - name: kiali
-    port: 15029
-    targetPort: 15029
-  - name: prometheus
-    port: 15030
-    targetPort: 15030
-  - name: grafana
-    port: 15031
-    targetPort: 15031
-  - name: tracing
-    port: 15032
-    targetPort: 15032
-  - name: tls
-    port: 15443
-    targetPort: 15443
   selector:
     app: istio-ingressgateway
     istio: ingressgateway
