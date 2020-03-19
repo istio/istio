@@ -636,7 +636,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 		return disabledYAMLStr(cf.componentName, cf.resourceName), nil
 	}
 
-	mergedYAML, err := cf.Translator.TranslateHelmValues(cf.InstallSpec, cf.componentName, cf.resourceName)
+	mergedYAML, err := cf.Translator.TranslateHelmValues(cf.InstallSpec, getK8sResourceSpec(cf), cf.componentName, cf.resourceName)
 	if err != nil {
 		return "", err
 	}
@@ -717,6 +717,17 @@ func isCoreComponentEnabled(c *CommonComponentFields) bool {
 		return false
 	}
 	return enabled
+}
+
+func getK8sResourceSpec(c *CommonComponentFields) *v1alpha1.KubernetesResourcesSpec {
+	switch t := c.spec.(type) {
+	case *v1alpha1.GatewaySpec:
+		return t.K8S
+	case *v1alpha1.ComponentSpec:
+		return t.K8S
+	default:
+	}
+	return nil
 }
 
 // disabledYAMLStr returns the YAML comment string that the given component is disabled.
