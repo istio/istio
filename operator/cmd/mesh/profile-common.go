@@ -24,7 +24,6 @@ import (
 	"istio.io/api/operator/v1alpha1"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
-	icpv1alpha2 "istio.io/istio/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
@@ -154,9 +153,7 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 		return "", nil, err
 	}
 
-	// if input is in IstioControlPlane format.
-	icp := &icpv1alpha2.IstioControlPlane{}
-	if err := util.UnmarshalWithJSONPB(outYAML, icp, false); err == nil {
+	if err := translate.CheckIstioControlPlane(outYAML); err == nil {
 		translations, err := translate.ICPtoIOPTranslations(version.OperatorBinaryVersion)
 		if err != nil {
 			return "", nil, err
