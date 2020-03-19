@@ -315,7 +315,7 @@ func runTestGroup(t *testing.T, tests testGroup) {
 				}
 			}
 
-			if true {
+			if refreshGoldenFiles() {
 				t.Logf("Refreshing golden file for %s", outPath)
 				if err := ioutil.WriteFile(outPath, []byte(got), 0644); err != nil {
 					t.Error(err)
