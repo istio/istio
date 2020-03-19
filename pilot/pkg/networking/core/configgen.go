@@ -17,6 +17,7 @@ package core
 import (
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/plugin/registry"
@@ -34,6 +35,9 @@ type ConfigGenerator interface {
 
 	// BuildHTTPRoutes returns the list of HTTP routes for the given proxy. This is the RDS output
 	BuildHTTPRoutes(node *model.Proxy, push *model.PushContext, routeNames []string) []*v2.RouteConfiguration
+
+	// ConfigChanged is invoked when mesh config is changed, giving a chance to rebuild any cached config.
+	MeshConfigChanged(mesh *meshconfig.MeshConfig)
 }
 
 // NewConfigGenerator creates a new instance of the dataplane configuration generator

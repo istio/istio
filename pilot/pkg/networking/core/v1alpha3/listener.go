@@ -22,6 +22,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -111,17 +112,8 @@ const (
 	// LocalhostIPv6Address for local binding
 	LocalhostIPv6Address = "::1"
 
-	// EnvoyTextLogFormat12 format for envoy text based access logs for Istio 1.2
-	EnvoyTextLogFormat12 = "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% " +
-		"%PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% \"%DYNAMIC_METADATA(istio.mixer:status)%\" " +
-		"\"%UPSTREAM_TRANSPORT_FAILURE_REASON%\" %BYTES_RECEIVED% %BYTES_SENT% " +
-		"%DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" " +
-		"\"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" " +
-		"%UPSTREAM_CLUSTER% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_LOCAL_ADDRESS% " +
-		"%DOWNSTREAM_REMOTE_ADDRESS% %REQUESTED_SERVER_NAME%\n"
-
-	// EnvoyTextLogFormat13 format for envoy text based access logs for Istio 1.3 onwards
-	EnvoyTextLogFormat13 = "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% " +
+	// EnvoyTextLogFormat format for envoy text based access logs for Istio 1.3 onwards
+	EnvoyTextLogFormat = "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% " +
 		"%PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% \"%DYNAMIC_METADATA(istio.mixer:status)%\" " +
 		"\"%UPSTREAM_TRANSPORT_FAILURE_REASON%\" %BYTES_RECEIVED% %BYTES_SENT% " +
 		"%DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" " +
@@ -309,36 +301,8 @@ var (
 	envoyWasmStateToLog = []string{"envoy.wasm.metadata_exchange.upstream", "envoy.wasm.metadata_exchange.upstream_id",
 		"envoy.wasm.metadata_exchange.downstream", "envoy.wasm.metadata_exchange.downstream_id"}
 
-	// EnvoyJSONLogFormat12 map of values for envoy json based access logs for Istio 1.2
-	EnvoyJSONLogFormat12 = &structpb.Struct{
-		Fields: map[string]*structpb.Value{
-			"start_time":                        {Kind: &structpb.Value_StringValue{StringValue: "%START_TIME%"}},
-			"method":                            {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:METHOD)%"}},
-			"path":                              {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"}},
-			"protocol":                          {Kind: &structpb.Value_StringValue{StringValue: "%PROTOCOL%"}},
-			"response_code":                     {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_CODE%"}},
-			"response_flags":                    {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_FLAGS%"}},
-			"bytes_received":                    {Kind: &structpb.Value_StringValue{StringValue: "%BYTES_RECEIVED%"}},
-			"bytes_sent":                        {Kind: &structpb.Value_StringValue{StringValue: "%BYTES_SENT%"}},
-			"duration":                          {Kind: &structpb.Value_StringValue{StringValue: "%DURATION%"}},
-			"upstream_service_time":             {Kind: &structpb.Value_StringValue{StringValue: "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"}},
-			"x_forwarded_for":                   {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-FORWARDED-FOR)%"}},
-			"user_agent":                        {Kind: &structpb.Value_StringValue{StringValue: "%REQ(USER-AGENT)%"}},
-			"request_id":                        {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-REQUEST-ID)%"}},
-			"authority":                         {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:AUTHORITY)%"}},
-			"upstream_host":                     {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_HOST%"}},
-			"upstream_cluster":                  {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_CLUSTER%"}},
-			"upstream_local_address":            {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_LOCAL_ADDRESS%"}},
-			"downstream_local_address":          {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
-			"downstream_remote_address":         {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_REMOTE_ADDRESS%"}},
-			"requested_server_name":             {Kind: &structpb.Value_StringValue{StringValue: "%REQUESTED_SERVER_NAME%"}},
-			"istio_policy_status":               {Kind: &structpb.Value_StringValue{StringValue: "%DYNAMIC_METADATA(istio.mixer:status)%"}},
-			"upstream_transport_failure_reason": {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_TRANSPORT_FAILURE_REASON%"}},
-		},
-	}
-
 	// EnvoyJSONLogFormat13 map of values for envoy json based access logs for Istio 1.3 onwards
-	EnvoyJSONLogFormat13 = &structpb.Struct{
+	EnvoyJSONLogFormat = &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"start_time":                        {Kind: &structpb.Value_StringValue{StringValue: "%START_TIME%"}},
 			"route_name":                        {Kind: &structpb.Value_StringValue{StringValue: "%ROUTE_NAME%"}},
@@ -365,30 +329,42 @@ var (
 			"upstream_transport_failure_reason": {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_TRANSPORT_FAILURE_REASON%"}},
 		},
 	}
+
+	lmutex          sync.RWMutex
+	cachedAccessLog *accesslog.AccessLog
 )
 
-func buildAccessLog(node *model.Proxy, fl *accesslogconfig.FileAccessLog, push *model.PushContext) {
-	switch push.Mesh.AccessLogEncoding {
-	case meshconfig.MeshConfig_TEXT:
-		formatString := EnvoyTextLogFormat12
-		if util.IsIstioVersionGE13(node) {
-			formatString = EnvoyTextLogFormat13
-		}
+func getCachedAccessLog() *accesslog.AccessLog {
+	lmutex.RLock()
+	defer lmutex.RUnlock()
+	return cachedAccessLog
+}
 
-		if push.Mesh.AccessLogFormat != "" {
-			formatString = push.Mesh.AccessLogFormat
+func maybeBuildAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
+	// Check if cached config is available, and return immediately.
+	if cal := getCachedAccessLog(); cal != nil {
+		return cal
+	}
+
+	// We need to build access log. This is needed either on first access or when mesh config changes.
+	fl := &accesslogconfig.FileAccessLog{
+		Path: mesh.AccessLogFile,
+	}
+
+	switch mesh.AccessLogEncoding {
+	case meshconfig.MeshConfig_TEXT:
+		formatString := EnvoyTextLogFormat
+		if mesh.AccessLogFormat != "" {
+			formatString = mesh.AccessLogFormat
 		}
 		fl.AccessLogFormat = &accesslogconfig.FileAccessLog_Format{
 			Format: formatString,
 		}
 	case meshconfig.MeshConfig_JSON:
 		var jsonLog *structpb.Struct
-		// TODO potential optimization to avoid recomputing the user provided format for every listener
-		// mesh AccessLogFormat field could change so need a way to have a cached value that can be cleared
-		// on changes
-		if push.Mesh.AccessLogFormat != "" {
+		if mesh.AccessLogFormat != "" {
 			jsonFields := map[string]string{}
-			err := json.Unmarshal([]byte(push.Mesh.AccessLogFormat), &jsonFields)
+			err := json.Unmarshal([]byte(mesh.AccessLogFormat), &jsonFields)
 			if err == nil {
 				jsonLog = &structpb.Struct{
 					Fields: make(map[string]*structpb.Value, len(jsonFields)),
@@ -401,18 +377,22 @@ func buildAccessLog(node *model.Proxy, fl *accesslogconfig.FileAccessLog, push *
 			}
 		}
 		if jsonLog == nil {
-			if util.IsIstioVersionGE13(node) {
-				jsonLog = EnvoyJSONLogFormat13
-			} else {
-				jsonLog = EnvoyJSONLogFormat12
-			}
+			jsonLog = EnvoyJSONLogFormat
 		}
 		fl.AccessLogFormat = &accesslogconfig.FileAccessLog_JsonFormat{
 			JsonFormat: jsonLog,
 		}
 	default:
-		log.Warnf("unsupported access log format %v", push.Mesh.AccessLogEncoding)
+		log.Warnf("unsupported access log format %v", mesh.AccessLogEncoding)
 	}
+
+	lmutex.Lock()
+	defer lmutex.Unlock()
+	cachedAccessLog = &accesslog.AccessLog{
+		Name:       wellknown.FileAccessLog,
+		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
+	}
+	return cachedAccessLog
 }
 
 var (
@@ -2043,15 +2023,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	}
 
 	if pluginParams.Push.Mesh.AccessLogFile != "" {
-		fl := &accesslogconfig.FileAccessLog{
-			Path: pluginParams.Push.Mesh.AccessLogFile,
-		}
-		buildAccessLog(pluginParams.Node, fl, pluginParams.Push)
-		acc := &accesslog.AccessLog{
-			Name:       wellknown.FileAccessLog,
-			ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
-		}
-		connectionManager.AccessLog = append(connectionManager.AccessLog, acc)
+		connectionManager.AccessLog = append(connectionManager.AccessLog, maybeBuildAccessLog(pluginParams.Push.Mesh))
 	}
 
 	if pluginParams.Push.Mesh.EnableEnvoyAccessLogService {
@@ -2639,4 +2611,11 @@ func removeListenerFilterTimeout(listeners []*xdsapi.Listener) {
 			l.ContinueOnListenerFiltersTimeout = false
 		}
 	}
+}
+
+// nolint: unparam
+func resetCachedListenerConfig(mesh *meshconfig.MeshConfig) {
+	lmutex.Lock()
+	defer lmutex.Unlock()
+	cachedAccessLog = nil
 }
