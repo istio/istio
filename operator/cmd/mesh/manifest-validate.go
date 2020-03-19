@@ -25,13 +25,12 @@ import (
 )
 
 const (
-	valuesGlobal             = "values.global."
 	traceSamplingMin float64 = 0.0
 	traceSamplingMax float64 = 100.0
 )
 
 var (
-	// Keep bool values as string to avoid type conversion of flags
+	// Boolean values for --set flags
 	boolValues = []bool{true, false}
 
 	// Ref: https://kubernetes.io/docs/concepts/configuration/overview/#container-images
@@ -49,29 +48,46 @@ var (
 		"hub":                validate.Hub,
 		"tag":                validate.Tag,
 
-		"sds.enabled":     boolValues,
-		"imagePullPolicy": imagePullPolicy,
-
-		"k8sIngress.enabled":     boolValues,
-		"k8sIngress.enableHttps": boolValues,
-		"k8sIngress.gatewayName": []string{"ingressgateway"},
-
-		"mtls.auto":    boolValues,
-		"mtls.enabled": boolValues,
-
-		"controlPlaneSecurityEnabled": boolValues,
-
-		"telemetry.enabled":                     boolValues,
 		"security.components.nodeAgent.enabled": boolValues,
 
-		"values.pilot.traceSampling": isValidTraceSampling,
+		// Possible values for Istio components
+		// https://preliminary.istio.io/docs/reference/config/istio.operator.v1alpha1/#IstioComponentSetSpec
+		"components.base.enabled":            boolValues,
+		"components.pilot.enabled":           boolValues,
+		"components.proxy.enabled":           boolValues,
+		"components.sidecarInjector.enabled": boolValues,
+		"components.policy.enabled":          boolValues,
+		"components.telemetry.enabled":       boolValues,
+		"components.citadel.enabled":         boolValues,
+		"components.nodeAgent.enabled":       boolValues,
+		"components.galley.enabled":          boolValues,
+		"components.cni.enabled":             boolValues,
+		"components.ingressGateways.enabled": boolValues,
+		"components.egressGateways.enabled":  boolValues,
+
+		"values.global.controlPlaneSecurityEnabled": boolValues,
+		"values.global.mtls.auto":                   boolValues,
+		"values.global.mtls.enabled":                boolValues,
+		"values.global.k8sIngress.enabled":          boolValues,
+		"values.global.k8sIngress.enableHttps":      boolValues,
+		"values.global.k8sIngress.gatewayName":      []string{"ingressgateway"},
+		"values.global.sds.enabled":                 boolValues,
+		"values.global.imagePullPolicy":             imagePullPolicy,
+
+		"values.telemetry.enabled":                         boolValues,
+		"values.pilot.traceSampling":                       isValidTraceSampling,
+		"values.prometheus.enabled":                        boolValues,
+		"values.mixer.adapters.stackdriver.enabled":        boolValues,
+		"values.gateways.istio-ingressgateway.enabled":     boolValues,
+		"values.gateways.istio-ingressgateway.sds.enabled": boolValues,
+		"values.gateways.enabled":                          boolValues,
 	}
 )
 
 // ValidateSetFlags performs validation for the values provided in --set flags
 func ValidateSetFlags(setOverlay []string) (errs util.Errors) {
 	if len(setOverlay) == 0 {
-		return nil
+		return
 	}
 
 	for _, flags := range setOverlay {
@@ -84,56 +100,60 @@ func ValidateSetFlags(setOverlay []string) (errs util.Errors) {
 		flagName, flagValue := splitSetFlags(flags)
 
 		if isFlagNameAvailable(flagName) {
-			errs = append(errs, verifyValues(flagName, flagValue))
+			if err := verifyValues(flagName, flagValue); err != nil {
+				errs = append(errs, err)
+			}
 		} else {
-			errs = append(errs, fmt.Errorf("\n Invalid flag: %q", valuesGlobal+flagName))
+			// Skip this step until all the possible combination
+			// for flags and its validations are ready
+			// errs = append(errs, fmt.Errorf("\n Invalid flagName: %q", flagName))
 		}
 	}
 	return
 }
 
 // verifyValues compares provided values with actual values and throw error if it is invalid
-func verifyValues(flagName, flagValue string) (errs util.Errors) {
+func verifyValues(flagName, flagValue string) error {
 	val := getFlagValue(flagName)
 	valType := reflect.TypeOf(val)
 
 	switch val.(type) {
 	case []string:
 		if !containString(val.([]string), flagValue) {
-			errs = append(errs, fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %q",
-				flagValue, flagName, strings.Join(val.([]string), ", ")))
+			return fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %q",
+				flagValue, flagName, strings.Join(val.([]string), ", "))
 		}
 	case []bool:
 		_, err := strconv.ParseBool(flagValue)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %t",
-				flagValue, flagName, boolValues))
+		if err != nil || flagValue == "0" || flagValue == "1" {
+			return fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %t",
+				flagValue, flagName, boolValues)
 		}
 	}
 
 	if valType == reflect.TypeOf(isValidTraceSampling) {
 		fval, _ := strconv.ParseFloat(flagValue, 64)
 		if !isValidTraceSampling(fval) {
-			errs = append(errs, fmt.Errorf("\n Unsupported value: %q, supported values for: %q is between %.1f to %.1f",
-				flagValue, flagName, traceSamplingMin, traceSamplingMax))
+			return fmt.Errorf("\n Unsupported value: %q, supported values for: %q is between %.1f to %.1f",
+				flagValue, flagName, traceSamplingMin, traceSamplingMax)
 		}
 	}
 	if flagName == "installPackagePath" {
 		if err := validate.InstallPackagePath([]string{flagName}, flagValue); len(err) != 0 {
-			errs = append(errs, err)
+			return err
 		}
 	}
 	if flagName == "hub" {
 		if err := validate.Hub([]string{flagName}, flagValue); len(err) != 0 {
-			errs = append(errs, err)
+			return err
 		}
 	}
 	if flagName == "tag" {
 		if err := validate.Tag([]string{flagName}, flagValue); len(err) != 0 {
-			errs = append(errs, fmt.Errorf("unsupported tag %q", err))
+			return err
 		}
 	}
-	return
+	return nil
 }
 
 // isValidFlagFormat verifies if the flag have equal sign
@@ -156,14 +176,9 @@ func getFlagValue(flagName string) interface{} {
 }
 
 // splitSetFlags separate flag name and its value
-func splitSetFlags(flags string) (string, string) {
+func splitSetFlags(flags string) (flagName, flagValue string) {
 	flag := strings.Split(flags, "=")
-	flagName, flagValue := flag[0], flag[1]
-
-	if strings.HasPrefix(flagName, valuesGlobal) {
-		flagName = strings.TrimPrefix(flagName, valuesGlobal)
-	}
-	return flagName, flagValue
+	return flag[0], flag[1]
 }
 
 // containString verifies if the flag value is valid string value

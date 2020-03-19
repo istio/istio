@@ -66,7 +66,7 @@ func TestValidateSetFlags(t *testing.T) {
 				"values.global.imagePullPolicy=Occasionally",
 			},
 			want: fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %q",
-				"Occasionally", "imagePullPolicy", strings.Join(imagePullPolicy, ", ")),
+				"Occasionally", "values.global.imagePullPolicy", strings.Join(imagePullPolicy, ", ")),
 		},
 		{
 			name: "Test supported values",
