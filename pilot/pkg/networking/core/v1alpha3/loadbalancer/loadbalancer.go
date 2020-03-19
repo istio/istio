@@ -85,7 +85,7 @@ func applyLocalityWeight(
 	}
 
 	// Support Locality weighted load balancing
-	// (https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight.html)
+	// (https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/locality_weight#locality-weighted-load-balancing)
 	// by providing weights in LocalityLbEndpoints via load_balancing_weight.
 	// By setting weights across different localities, it can allow
 	// Envoy to weight assignments across different zones and geographical locations.
