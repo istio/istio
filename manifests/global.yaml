@@ -41,6 +41,11 @@ global:
   # Default tag for Istio images.
   tag: latest
 
+  # Support dynamic set sidecar in Istio.
+  # Default sidecar for Istio-Agent.
+  sidecar:
+    binaryPath: /usr/local/bin/envoy
+
   # Comma-separated minimum per-scope logging level of messages to output, in the form of <scope>:<level>,<scope>:<level>
   # The control plane has different scopes depending on component, but can configure default log level across all components
   # If empty, default scope and level will be used as configured in code

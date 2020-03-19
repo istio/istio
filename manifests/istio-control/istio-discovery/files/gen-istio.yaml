@@ -243,6 +243,9 @@ data:
         "logging": {
           "level": "default:info"
         },
+        "sidecar": {
+          "binaryPath":"/usr/local/bin/envoy"
+        },
         "meshExpansion": {
           "enabled": false,
           "useILB": false
@@ -547,6 +550,10 @@ data:
         - sidecar
         - --domain
         - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
+        {{- if .Values.global.sidecar.binaryPath }}
+        - --binaryPath
+        - {{ $.Values.global.sidecar.binaryPath }}
+        {{- end }}
         - --serviceCluster
         {{ if ne "" (index .ObjectMeta.Labels "app") -}}
         - "{{ index .ObjectMeta.Labels `app` }}.$(POD_NAMESPACE)"

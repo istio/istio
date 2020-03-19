@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 96
+number_of_entries: 97
 ---
 <h2 id="AddonIngressConfig">AddonIngressConfig</h2>
 <section>
@@ -1796,6 +1796,15 @@ No
 No
 </td>
 </tr>
+<tr id="GlobalConfig-sidecar">
+<td><code>sidecar</code></td>
+<td><code><a href="#GlobalSidecarConfig">GlobalSidecarConfig</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="GlobalConfig-meshExpansion">
 <td><code>meshExpansion</code></td>
 <td><code><a href="#MeshExpansionConfig">MeshExpansionConfig</a></code></td>
@@ -2309,6 +2318,30 @@ No
 The control plane has different scopes depending on component, but can configure default log level across all components
 If empty, default scope and level will be used as configured in code</p>
 
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="GlobalSidecarConfig">GlobalSidecarConfig</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="GlobalSidecarConfig-binaryPath">
+<td><code>binaryPath</code></td>
+<td><code>string</code></td>
+<td>
 </td>
 <td>
 No

@@ -194,6 +194,10 @@ spec:
         - istio-policy
         - --templateFile
         - /etc/istio/proxy/envoy_policy.yaml.tmpl
+      {{- if .Values.global.sidecar.binaryPath }}
+        - --binaryPath
+        - {{ $.Values.global.sidecar.binaryPath }}
+      {{- end }}
       {{- if .Values.global.controlPlaneSecurityEnabled }}
         - --controlPlaneAuthPolicy
         - MUTUAL_TLS

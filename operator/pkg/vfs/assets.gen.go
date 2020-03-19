@@ -13371,6 +13371,10 @@ spec:
         {{- if .Values.global.logAsJson }}
           - --log_as_json
         {{- end }}
+        {{- if .Values.global.sidecar.binaryPath }}
+          - --binaryPath
+          - {{ $.Values.global.sidecar.binaryPath }}
+        {{- end }}
           - --serviceCluster
           - {{ $gateway.name | default "istio-egressgateway" }}
         {{- if .Values.global.sts.servicePort }}
@@ -14242,6 +14246,10 @@ spec:
         {{- end}}
         {{- if .Values.global.logAsJson }}
           - --log_as_json
+        {{- end }}
+        {{- if .Values.global.sidecar.binaryPath }}
+          - --binaryPath
+          - {{ $.Values.global.sidecar.binaryPath }}
         {{- end }}
           - --serviceCluster
           - {{ $gateway.name | default "istio-ingressgateway" }}
@@ -16747,6 +16755,9 @@ data:
         "logging": {
           "level": "default:info"
         },
+        "sidecar": {
+          "binaryPath":"/usr/local/bin/envoy"
+        },
         "meshExpansion": {
           "enabled": false,
           "useILB": false
@@ -17051,6 +17062,10 @@ data:
         - sidecar
         - --domain
         - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
+        {{- if .Values.global.sidecar.binaryPath }}
+        - --binaryPath
+        - {{ $.Values.global.sidecar.binaryPath }}
+        {{- end }}
         - --serviceCluster
         {{ if ne "" (index .ObjectMeta.Labels "app") -}}
         - "{{ index .ObjectMeta.Labels `+"`"+`app`+"`"+` }}.$(POD_NAMESPACE)"
@@ -18448,6 +18463,10 @@ template: |
     - sidecar
     - --domain
     - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
+    {{- if .Values.global.sidecar.binaryPath }}
+    - --binaryPath
+    - {{ $.Values.global.sidecar.binaryPath }}
+    {{- end }}
     - --serviceCluster
     {{ if ne "" (index .ObjectMeta.Labels "app") -}}
     - "{{ index .ObjectMeta.Labels `+"`"+`app`+"`"+` }}.$(POD_NAMESPACE)"
@@ -22019,6 +22038,10 @@ spec:
         - istio-policy
         - --templateFile
         - /etc/istio/proxy/envoy_policy.yaml.tmpl
+      {{- if .Values.global.sidecar.binaryPath }}
+        - --binaryPath
+        - {{ $.Values.global.sidecar.binaryPath }}
+      {{- end }}
       {{- if .Values.global.controlPlaneSecurityEnabled }}
         - --controlPlaneAuthPolicy
         - MUTUAL_TLS
@@ -39831,6 +39854,10 @@ spec:
         - proxy
         - --domain
         - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
+      {{- if .Values.global.sidecar.binaryPath }}
+        - --binaryPath
+        - {{ $.Values.global.sidecar.binaryPath }}
+      {{- end }}
         - --serviceCluster
         - istio-telemetry
         - --templateFile
@@ -41719,6 +41746,10 @@ spec:
             - sidecar
             - --domain
             - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
+            {{- if .Values.global.sidecar.binaryPath }}
+            - --binaryPath
+            - {{ $.Values.global.sidecar.binaryPath }}
+            {{- end }}
             - "istio-proxy-prometheus"
             {{- if .Values.global.proxy.logLevel }}
             - --proxyLogLevel={{ .Values.global.proxy.logLevel }}
@@ -44999,6 +45030,8 @@ spec:
         enabled: true
       logging:
         level: "default:info"
+      sidecar:
+        binaryPath: "/usr/local/bin/envoy"
       logAsJson: false
       k8sIngress:
         enabled: false

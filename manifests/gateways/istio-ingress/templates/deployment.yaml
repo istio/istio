@@ -101,6 +101,10 @@ spec:
         {{- if .Values.global.logAsJson }}
           - --log_as_json
         {{- end }}
+        {{- if .Values.global.sidecar.binaryPath }}
+          - --binaryPath
+          - {{ $.Values.global.sidecar.binaryPath }}
+        {{- end }}
           - --serviceCluster
           - {{ $gateway.name | default "istio-ingressgateway" }}
         {{- if .Values.global.sts.servicePort }}

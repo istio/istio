@@ -215,6 +215,8 @@ spec:
         enabled: true
       logging:
         level: "default:info"
+      sidecar:
+        binaryPath: "/usr/local/bin/envoy"
       logAsJson: false
       k8sIngress:
         enabled: false

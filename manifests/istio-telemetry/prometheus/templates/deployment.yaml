@@ -71,6 +71,10 @@ spec:
             - sidecar
             - --domain
             - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
+            {{- if .Values.global.sidecar.binaryPath }}
+            - --binaryPath
+            - {{ $.Values.global.sidecar.binaryPath }}
+            {{- end }}
             - "istio-proxy-prometheus"
             {{- if .Values.global.proxy.logLevel }}
             - --proxyLogLevel={{ .Values.global.proxy.logLevel }}

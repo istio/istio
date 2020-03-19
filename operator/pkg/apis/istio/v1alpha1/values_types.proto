@@ -647,7 +647,11 @@ message GlobalConfig {
 
   // The address of the CA for CSR.
   string caAddress = 61;
-  // The next available key is 62
+
+  // Specifies the configuration for Istio agent's binaryPath.
+  GlobalSidecarConfig sidecar = 62;
+  // The next available key is 63
+
 }
 
 // Configuration for Security Token Service (STS) server.
@@ -669,6 +673,11 @@ message GlobalLoggingConfig {
   // The control plane has different scopes depending on component, but can configure default log level across all components
   // If empty, default scope and level will be used as configured in code
   string level = 1;
+}
+
+// GlobalSidecarConfig specifies the global binaryPath for the Istio Agent.
+message GlobalSidecarConfig {
+  string binaryPath = 1;
 }
 
 // Configuration for an ingress gateway.
