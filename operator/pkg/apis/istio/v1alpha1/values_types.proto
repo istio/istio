@@ -1589,6 +1589,8 @@ message ProxyConfig {
   string enableCoreDumpImage = 33 [deprecated=true];
 
   string outlierLogPath = 34;
+
+  TypeMapStringInterface lifecycle = 36;
 }
 
 // Specifies which tracer to use.
