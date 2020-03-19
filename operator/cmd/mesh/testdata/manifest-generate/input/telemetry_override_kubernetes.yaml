@@ -17,4 +17,7 @@ spec:
             patches:
               - path: spec.template.spec.containers.[name:mixer].args.[--trace_zipkin_url]
                 value: --trace_zipkin_url=http://zipkin.istio-telemetry:1234/api/v1/spans # OVERRIDDEN
-
+  values:
+    telemetry:
+      v1:
+        enabled: true

@@ -7258,6 +7258,9 @@ spec:
     istio: pilot
 ---
 
+# Policy component is disabled.
+
+# Resources for Telemetry component
 
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -7972,8 +7975,4 @@ spec:
                     local:
                       inline_string: "envoy.wasm.stats"
 ---
-
-# Policy component is disabled.
-
-# Telemetry component is disabled.
 
