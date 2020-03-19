@@ -58,6 +58,8 @@ func CheckValuesString(vs []byte) util.Errors {
 	return CheckValues(yamlTree)
 }
 
+// ValuesValidate function below is used by third party for integrations and has to be public
+
 // ValuesValidate validates the values of the tree using the supplied Func
 func ValuesValidate(validations map[string]ValidatorFunc, node interface{}, path util.Path) (errs util.Errors) {
 	pstr := path.String()

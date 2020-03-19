@@ -57,7 +57,9 @@ func CheckIstioOperatorSpec(is *v1alpha1.IstioOperatorSpec, checkRequiredFields 
 	return util.AppendErrs(errs, Validate(DefaultValidations, is, nil, checkRequiredFields))
 }
 
-// Validate validates the values of the tree using the supplied Func
+// Validate function below is used by third party for integrations and has to be public
+
+// Validate validates the values of the tree using the supplied Func.
 func Validate(validations map[string]ValidatorFunc, structPtr interface{}, path util.Path, checkRequired bool) (errs util.Errors) {
 	scope.Debugf("validate with path %s, %v (%T)", path, structPtr, structPtr)
 	if structPtr == nil {
