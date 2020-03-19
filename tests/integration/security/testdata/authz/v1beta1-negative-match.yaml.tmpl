@@ -56,15 +56,14 @@ spec:
 
 # The following policy enables mTLS with PERMISSIVE mode for all workloads in the namespace
 
-apiVersion: authentication.istio.io/v1alpha1
-kind: Policy
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
 metadata:
-  name: "default"
+  name: default
   namespace: "{{ .Namespace }}"
 spec:
-  peers:
-  - mtls:
-      mode: PERMISSIVE
+  mtls:
+    mode: PERMISSIVE
 ---
 
 # The following destination rule enables mTLS in the namespace

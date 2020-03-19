@@ -1,17 +1,18 @@
 # Enforce access control based on mTLS identities.
 
-# The following policy enables mTLS for service b.
+# The following policy enables mTLS for workload b.
 
-apiVersion: authentication.istio.io/v1alpha1
-kind: Policy
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
 metadata:
-  name: "mtls"
+  name: mtls
   namespace: "{{ .Namespace }}"
 spec:
-  targets:
-  - name: b
-  peers:
-  - mtls: {}
+  selector:
+    matchLabels:
+      app: b
+  mtls:
+    mode: STRICT
 ---
 apiVersion: "networking.istio.io/v1alpha3"
 kind: "DestinationRule"
