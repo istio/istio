@@ -44,7 +44,6 @@ func QueryFirstPrometheus(t *testing.T, query string, promInst prometheus.Instan
 	t.Logf("query prometheus with: %v", query)
 	val, err := promInst.WaitForOneOrMore(query)
 	if err != nil {
-		log.Errorf("howardjohn: err1 %v", err)
 		return err
 	}
 	got, err := promInst.Sum(val, nil)
