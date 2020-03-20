@@ -81,7 +81,8 @@ func (s *tcpInstance) echo(conn net.Conn) {
 		_ = conn.Close()
 	}()
 
-	for initialReply := true; ; {
+	initialReply := true
+	for {
 		buf, err := bufio.NewReader(conn).ReadBytes(byte('\n'))
 		if err != nil {
 			if err != io.EOF {
