@@ -30,3 +30,8 @@ type cluster struct{}
 func (c cluster) String() string {
 	return "nativeCluster"
 }
+
+func (c cluster) Index() resource.ClusterIndex {
+	// Multicluster not supported natively.
+	return 0
+}

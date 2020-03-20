@@ -95,6 +95,11 @@ func (e *Environment) Case(name environment.Name, fn func()) {
 	}
 }
 
+func (e *Environment) IsMulticluster() bool {
+	// Multicluster not supported natively.
+	return false
+}
+
 func (e *Environment) Clusters() []resource.Cluster {
 	return []resource.Cluster{Cluster}
 }
