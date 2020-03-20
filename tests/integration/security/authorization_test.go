@@ -47,8 +47,8 @@ func (i rootNS) Name() string {
 	return rootNamespace
 }
 
-// TestV1beta1_mTLS tests v1beta1 authorization with mTLS.
-func TestV1beta1_mTLS(t *testing.T) {
+// TestAuthorization_mTLS tests v1beta1 authorization with mTLS.
+func TestAuthorization_mTLS(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -103,8 +103,8 @@ func TestV1beta1_mTLS(t *testing.T) {
 		})
 }
 
-// TestV1beta1_JWT tests v1beta1 authorization with JWT token claims.
-func TestV1beta1_JWT(t *testing.T) {
+// TestAuthorization_JWT tests v1beta1 authorization with JWT token claims.
+func TestAuthorization_JWT(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -183,8 +183,8 @@ func TestV1beta1_JWT(t *testing.T) {
 		})
 }
 
-// TestV1beta1_WorkloadSelector tests the workload selector for the v1beta1 policy in two namespaces.
-func TestV1beta1_WorkloadSelector(t *testing.T) {
+// TestAuthorization_WorkloadSelector tests the workload selector for the v1beta1 policy in two namespaces.
+func TestAuthorization_WorkloadSelector(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -269,8 +269,8 @@ func TestV1beta1_WorkloadSelector(t *testing.T) {
 		})
 }
 
-// TestV1beta1_Deny tests the authorization policy with action "DENY".
-func TestV1beta1_Deny(t *testing.T) {
+// TestAuthorization_Deny tests the authorization policy with action "DENY".
+func TestAuthorization_Deny(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -339,8 +339,8 @@ func TestV1beta1_Deny(t *testing.T) {
 		})
 }
 
-// TestV1beta1_Deny tests the authorization policy with negative match.
-func TestV1beta1_NegativeMatch(t *testing.T) {
+// TestAuthorization_Deny tests the authorization policy with negative match.
+func TestAuthorization_NegativeMatch(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -426,8 +426,8 @@ func TestV1beta1_NegativeMatch(t *testing.T) {
 		})
 }
 
-// TestV1beta1_IngressGateway tests the authorization policy on ingress gateway.
-func TestV1beta1_IngressGateway(t *testing.T) {
+// TestAuthorization_IngressGateway tests the authorization policy on ingress gateway.
+func TestAuthorization_IngressGateway(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -511,8 +511,8 @@ func TestV1beta1_IngressGateway(t *testing.T) {
 		})
 }
 
-// TestV1beta1_EgressGateway tests v1beta1 authorization on egress gateway.
-func TestV1beta1_EgressGateway(t *testing.T) {
+// TestAuthorization_EgressGateway tests v1beta1 authorization on egress gateway.
+func TestAuthorization_EgressGateway(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -601,8 +601,8 @@ func TestV1beta1_EgressGateway(t *testing.T) {
 		})
 }
 
-// TestV1beta1_TCP tests the authorization policy on workloads using the raw TCP protocol.
-func TestV1beta1_TCP(t *testing.T) {
+// TestAuthorization_TCP tests the authorization policy on workloads using the raw TCP protocol.
+func TestAuthorization_TCP(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -744,8 +744,8 @@ func TestV1beta1_TCP(t *testing.T) {
 		})
 }
 
-// TestV1beta1_Conditions tests v1beta1 authorization with conditions.
-func TestV1beta1_Conditions(t *testing.T) {
+// TestAuthorization_Conditions tests v1beta1 authorization with conditions.
+func TestAuthorization_Conditions(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -857,8 +857,8 @@ func TestV1beta1_Conditions(t *testing.T) {
 		})
 }
 
-// TestV1beta1_GRPC tests v1beta1 authorization with gRPC protocol.
-func TestV1beta1_GRPC(t *testing.T) {
+// TestAuthorization_GRPC tests v1beta1 authorization with gRPC protocol.
+func TestAuthorization_GRPC(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -921,9 +921,9 @@ func TestV1beta1_GRPC(t *testing.T) {
 		})
 }
 
-// TestV1beta1_Path tests the path is normalized before using in authorization. For example, a request
+// TestAuthorization_Path tests the path is normalized before using in authorization. For example, a request
 // with path "/a/../b" should be normalized to "/b" before using in authorization.
-func TestV1beta1_Path(t *testing.T) {
+func TestAuthorization_Path(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
