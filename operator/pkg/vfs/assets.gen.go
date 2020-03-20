@@ -13544,7 +13544,11 @@ metadata:
     release: {{ .Release.Name }}
 rules:
 - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
+{{- if and .Values.global.istiod.enableAnalysis }}
+  verbs: ["get", "watch", "list", "update"]
+{{- else }}
   verbs: ["get", "watch", "list"]
+{{- end }}
   resources: ["*"]
 - apiGroups: ["apiextensions.k8s.io"]
   resources: ["customresourcedefinitions"]
@@ -20540,6 +20544,8 @@ spec:
             value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
             value: "false"
+          - name: PILOT_ENABLE_ANALYSIS
+            value: {{- .Values.global.istiod.enableAnalysis }}
           - name: CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
           resources:
