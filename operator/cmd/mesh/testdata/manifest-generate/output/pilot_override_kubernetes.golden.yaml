@@ -12,6 +12,7 @@ spec:
   selector:
     matchLabels:
       app: istiod
+      istio: pilot
       version: default
   strategy:
     rollingUpdate:
@@ -23,6 +24,7 @@ spec:
         sidecar.istio.io/inject: "false"
       labels:
         app: istiod
+        istio: pilot
         version: default
     spec:
       affinity:

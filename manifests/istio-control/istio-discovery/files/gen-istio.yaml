@@ -877,8 +877,6 @@ spec:
     metadata:
       labels:
         app: istiod
-        # Label used by the 'default' service. For versioned deployments we match with app and version.
-        # This avoids default deployment picking the canary
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"

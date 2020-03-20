@@ -6268,11 +6268,13 @@ spec:
     matchLabels:
       app: istiod
       version: default
+      istio: pilot
   template:
     metadata:
       labels:
         app: istiod
         version: default
+        istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
     spec:

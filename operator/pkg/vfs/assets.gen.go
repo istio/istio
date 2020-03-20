@@ -17104,8 +17104,6 @@ spec:
     metadata:
       labels:
         app: istiod
-        # Label used by the 'default' service. For versioned deployments we match with app and version.
-        # This avoids default deployment picking the canary
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
@@ -19051,20 +19049,16 @@ spec:
       app: istiod
       {{- if ne .Values.revision ""}}
       version: {{ .Values.revision }}
-      {{- else }}
-      istio: pilot
       {{- end }}
+      istio: pilot
   template:
     metadata:
       labels:
         app: istiod
         {{- if ne .Values.revision ""}}
         version: {{ .Values.revision }}
-        {{- else }}
-        # Label used by the 'default' service. For versioned deployments we match with app and version.
-        # This avoids default deployment picking the canary
-        istio: pilot
         {{- end }}
+        istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
         {{- if .Values.pilot.podAnnotations }}
