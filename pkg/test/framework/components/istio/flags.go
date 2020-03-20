@@ -48,5 +48,4 @@ func init() {
 		"Manual overrides for Helm values file. Only valid when deploying Istio.")
 	flag.StringVar(&settingsFromCommandline.CustomSidecarInjectorNamespace, "istio.test.kube.customSidecarInjectorNamespace",
 		settingsFromCommandline.CustomSidecarInjectorNamespace, "Inject the sidecar from the specified namespace")
-
 }

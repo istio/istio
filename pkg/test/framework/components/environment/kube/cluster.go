@@ -27,8 +27,9 @@ var _ resource.Cluster = Cluster{}
 // Cluster for a Kubernetes cluster. Provides access via a kube.Accessor.
 type Cluster struct {
 	*kube.Accessor
-	filename string
-	index    resource.ClusterIndex
+	filename            string
+	index               resource.ClusterIndex
+	controlPlaneCluster bool
 }
 
 func (c Cluster) String() string {
@@ -36,6 +37,7 @@ func (c Cluster) String() string {
 
 	_, _ = fmt.Fprintf(buf, "Index:               %d\n", c.index)
 	_, _ = fmt.Fprintf(buf, "Filename:            %s\n", c.filename)
+	_, _ = fmt.Fprintf(buf, "ControlPlaneCluster: %t\n", c.controlPlaneCluster)
 
 	return buf.String()
 }
@@ -53,6 +55,11 @@ func (c Cluster) Name() string {
 // Index of this cluster within the Environment.
 func (c Cluster) Index() resource.ClusterIndex {
 	return c.index
+}
+
+// IsControlPlaneCluster indicates whether this cluster contains an instance of the Istio control plane.
+func (c Cluster) IsControlPlaneCluster() bool {
+	return c.controlPlaneCluster
 }
 
 // ClusterOrDefault gets the given cluster as a kube Cluster if available. Otherwise
