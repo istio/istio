@@ -276,6 +276,16 @@ spec:
           port: 853
           targetPort: 853
         name: istio-ingressgateway
+        sds:
+          enabled: false
+          image: node-agent-k8s
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 1024Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
         secretVolumes:
         - mountPath: /etc/istio/ingressgateway-certs
           name: ingressgateway-certs
@@ -284,6 +294,9 @@ spec:
           name: ingressgateway-ca-certs
           secretName: istio-ingressgateway-ca-certs
         type: LoadBalancer
+        zvpn:
+          enabled: false
+          suffix: global
     global:
       arch:
         amd64: 2
@@ -643,15 +656,15 @@ spec:
         maxSpans: 500000
         node:
           cpus: 2
-        probeStartupDelay: 10
+        probeStartupDelay: 200
         queryPort: 9411
         resources:
           limits:
-            cpu: 1000m
-            memory: 2048Mi
+            cpu: 300m
+            memory: 900Mi
           requests:
             cpu: 150m
             memory: 900Mi
-        tag: 2.20.0
+        tag: 2.14.2
     version: ""
 

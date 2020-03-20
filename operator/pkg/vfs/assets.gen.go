@@ -40425,6 +40425,19 @@ spec:
         debug: info
         domain: ""
         type: LoadBalancer
+        zvpn:
+          enabled: false
+          suffix: global
+        sds:
+          enabled: false
+          image: node-agent-k8s
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 2000m
+              memory: 1024Mi
         name: istio-ingressgateway
         meshExpansionPorts:
           - port: 15011
@@ -40541,13 +40554,13 @@ spec:
         accessMode: ReadWriteMany
       zipkin:
         hub: docker.io/openzipkin
-        tag: 2.20.0
-        probeStartupDelay: 10
+        tag: 2.14.2
+        probeStartupDelay: 200
         queryPort: 9411
         resources:
           limits:
-            cpu: 1000m
-            memory: 2048Mi
+            cpu: 300m
+            memory: 900Mi
           requests:
             cpu: 150m
             memory: 900Mi
