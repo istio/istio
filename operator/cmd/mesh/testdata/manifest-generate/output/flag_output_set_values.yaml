@@ -6495,6 +6495,7 @@ spec:
         - containerPort: 15031
         - containerPort: 15032
         - containerPort: 15443
+        - containerPort: 31400
         - containerPort: 15011
         - containerPort: 15012
         - containerPort: 8060
@@ -6646,52 +6647,45 @@ subjects:
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-ingressgateway
-  namespace: istio-system
-  annotations:
+  annotations: null
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
-    
     release: istio
+  name: istio-ingressgateway
+  namespace: istio-system
 spec:
-  type: LoadBalancer
+  ports:
+  - name: status-port
+    port: 15020
+    targetPort: 15020
+  - name: http2
+    port: 80
+    targetPort: 80
+  - name: https
+    port: 443
+  - name: kiali
+    port: 15029
+    targetPort: 15029
+  - name: prometheus
+    port: 15030
+    targetPort: 15030
+  - name: grafana
+    port: 15031
+    targetPort: 15031
+  - name: tracing
+    port: 15032
+    targetPort: 15032
+  - name: tls
+    port: 15443
+    targetPort: 15443
+  - name: tcp
+    port: 31400
   selector:
     app: istio-ingressgateway
     istio: ingressgateway
-    
-  ports:
-    -
-      name: status-port
-      port: 15020
-      targetPort: 15020
-    -
-      name: http2
-      port: 80
-      targetPort: 80
-    -
-      name: https
-      port: 443
-    -
-      name: kiali
-      port: 15029
-      targetPort: 15029
-    -
-      name: prometheus
-      port: 15030
-      targetPort: 15030
-    -
-      name: grafana
-      port: 15031
-      targetPort: 15031
-    -
-      name: tracing
-      port: 15032
-      targetPort: 15032
-    -
-      name: tls
-      port: 15443
-      targetPort: 15443
+  type: LoadBalancer
+
 ---
 
 
