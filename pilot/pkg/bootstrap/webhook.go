@@ -24,7 +24,6 @@ import (
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/webhooks/validation/server"
 )
 
@@ -40,7 +39,7 @@ func (s *Server) getWebhookCertificate(info *tls.ClientHelloInfo) (*tls.Certific
 }
 
 func (s *Server) initHTTPSWebhookServer(args *PilotArgs) error {
-	if features.IstiodService.Get() == "" {
+	if args.ServiceAddress == "" {
 		log.Info("Not starting HTTPS webhook server: istiod address not set")
 		return nil
 	}

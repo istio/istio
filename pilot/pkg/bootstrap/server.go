@@ -408,7 +408,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 // onto the http server readiness check. The "http" portion of the readiness check is satisfied
 // by the fact we've started listening on this handler and everything has already initialized.
 func (s *Server) httpServerReadyHandler(w http.ResponseWriter, _ *http.Request) {
-	if features.IstiodService.Get() != "" {
+	if s.httpsServer != nil {
 		if status := s.checkHTTPSWebhookServerReadiness(); status != http.StatusOK {
 			log.Warnf("https webhook server not ready: %v", status)
 			w.WriteHeader(status)
@@ -417,7 +417,6 @@ func (s *Server) httpServerReadyHandler(w http.ResponseWriter, _ *http.Request) 
 	}
 
 	// TODO check readiness of other secure gRPC and HTTP servers.
-
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -485,7 +484,7 @@ func (s *Server) cleanupOnStop(stop <-chan struct{}) {
 		if s.forceStop {
 			s.grpcServer.Stop()
 			_ = s.httpServer.Close()
-			if features.IstiodService.Get() != "" {
+			if s.httpsServer != nil {
 				_ = s.httpsServer.Close()
 			}
 		} else {
@@ -495,7 +494,7 @@ func (s *Server) cleanupOnStop(stop <-chan struct{}) {
 			if err := s.httpServer.Shutdown(ctx); err != nil {
 				log.Warna(err)
 			}
-			if features.IstiodService.Get() != "" {
+			if s.httpsServer != nil {
 				if err := s.httpsServer.Shutdown(ctx); err != nil {
 					log.Warna(err)
 				}
@@ -680,12 +679,14 @@ func (s *Server) initEventHandlers() error {
 
 // add a GRPC listener using DNS-based certificates. Will be used for Galley, injection and CA signing.
 func (s *Server) initDNSListener(args *PilotArgs) error {
-	istiodAddr := features.IstiodService.Get()
+	istiodAddr := args.ServiceAddress
 	if istiodAddr == "" {
+		log.Infof("Skipping DNS listeners as service address is not set")
 		// Feature disabled
 		return nil
 	}
 	if s.ca == nil {
+		log.Infof("Skipping DNS listeners as CA is not created")
 		// Running locally without configured certs - no TLS mode
 		return nil
 	}

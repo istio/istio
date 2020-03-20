@@ -72,6 +72,7 @@ type PilotArgs struct {
 	Namespace          string
 	Revision           string
 	ServiceAccountName string
+	ServiceAddress     string
 	Mesh               MeshArgs
 	Config             ConfigArgs
 	Service            ServiceArgs
@@ -155,4 +156,5 @@ func (p *PilotArgs) applyDefaults() {
 	p.KeepaliveOptions = istiokeepalive.DefaultOption()
 	p.Config.DistributionTrackingEnabled = features.EnableDistributionTracking
 	p.Config.DistributionCacheRetention = features.DistributionHistoryRetention
+	p.ServiceAddress = features.IstiodService.Get()
 }
