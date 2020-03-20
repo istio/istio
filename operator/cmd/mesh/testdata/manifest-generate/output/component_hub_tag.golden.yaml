@@ -80,14 +80,6 @@ spec:
         volumeMounts:
         - mountPath: /data/grafana
           name: data
-        - mountPath: /var/lib/grafana/dashboards/istio/citadel-dashboard.json
-          name: dashboards-istio-citadel-dashboard
-          readOnly: true
-          subPath: citadel-dashboard.json
-        - mountPath: /var/lib/grafana/dashboards/istio/galley-dashboard.json
-          name: dashboards-istio-galley-dashboard
-          readOnly: true
-          subPath: galley-dashboard.json
         - mountPath: /var/lib/grafana/dashboards/istio/istio-mesh-dashboard.json
           name: dashboards-istio-istio-mesh-dashboard
           readOnly: true
@@ -127,12 +119,6 @@ spec:
         name: config
       - emptyDir: {}
         name: data
-      - configMap:
-          name: istio-grafana-configuration-dashboards-citadel-dashboard
-        name: dashboards-istio-citadel-dashboard
-      - configMap:
-          name: istio-grafana-configuration-dashboards-galley-dashboard
-        name: dashboards-istio-galley-dashboard
       - configMap:
           name: istio-grafana-configuration-dashboards-istio-mesh-dashboard
         name: dashboards-istio-istio-mesh-dashboard
