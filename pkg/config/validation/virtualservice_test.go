@@ -20,6 +20,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+
 	networking "istio.io/api/networking/v1alpha3"
 )
 

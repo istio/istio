@@ -1,4 +1,4 @@
-// Copyright 2010 Istio Authors
+// Copyright 2020 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,22 +15,20 @@
 package model
 
 import (
+	"os"
 	"reflect"
 	"testing"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
-	networking "istio.io/api/networking/v1alpha3"
-	istiolog "istio.io/pkg/log"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
-func init() {
-	log.SetOutputLevel(istiolog.DebugLevel)
-}
-
 func TestMergeVirtualServices(t *testing.T) {
+	os.Setenv("PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE", "true")
+	defer os.Unsetenv("PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE")
 	independentVs := Config{
 		ConfigMeta: ConfigMeta{
 			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
@@ -100,6 +98,33 @@ func TestMergeVirtualServices(t *testing.T) {
 			},
 		},
 	}
+
+	oneRoot := Config{
+		ConfigMeta: ConfigMeta{
+			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
+			Name:      "root-vs",
+			Namespace: "default",
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{"*.org"},
+			Gateways: []string{"gateway"},
+			Http: []*networking.HTTPRoute{
+				{
+					Route: []*networking.HTTPRouteDestination{
+						{
+							Destination: &networking.Destination{
+								Host: "example.org",
+								Port: &networking.PortSelector{
+									Number: 80,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
 	delegateVs := Config{
 		ConfigMeta: ConfigMeta{
 			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
@@ -416,12 +441,12 @@ func TestMergeVirtualServices(t *testing.T) {
 		{
 			name:                    "one root vs",
 			virtualServices:         []Config{rootVs},
-			expectedVirtualServices: nil,
+			expectedVirtualServices: []Config{oneRoot},
 		},
 		{
 			name:                    "one delegate vs",
 			virtualServices:         []Config{delegateVs},
-			expectedVirtualServices: nil,
+			expectedVirtualServices: []Config{},
 		},
 		{
 			name:                    "root and delegate vs",
@@ -437,9 +462,9 @@ func TestMergeVirtualServices(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := mergeVirtualServices(tc.virtualServices)
+			got := mergeVirtualServicesIfNeeded(tc.virtualServices)
 			if !reflect.DeepEqual(got, tc.expectedVirtualServices) {
-				t.Errorf("expected vs %v, but got %v,\n diff: %s ", len(tc.expectedVirtualServices), len(got), cmp.Diff(got, tc.expectedVirtualServices))
+				t.Errorf("expected vs %v, but got %v,\n diff: %s ", len(tc.expectedVirtualServices), len(got), cmp.Diff(tc.expectedVirtualServices, got))
 			}
 		})
 	}
@@ -809,7 +834,7 @@ func TestMergeHttpRoute(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := mergeHttpRoute(tc.root, tc.delegate)
+			got := mergeHTTPRoute(tc.root, tc.delegate)
 			if !reflect.DeepEqual(got, tc.expected) {
 				t.Errorf("got unexpected result, diff: %s", cmp.Diff(tc.expected, got))
 			}
@@ -934,7 +959,7 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 			root: []*networking.HTTPMatchRequest{
 				{
 					Headers: map[string]*networking.StringMatch{
-						"header": &networking.StringMatch{
+						"header": {
 							MatchType: &networking.StringMatch_Exact{Exact: "h1"},
 						},
 					},
@@ -944,7 +969,7 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 			expected: []*networking.HTTPMatchRequest{
 				{
 					Headers: map[string]*networking.StringMatch{
-						"header": &networking.StringMatch{
+						"header": {
 							MatchType: &networking.StringMatch_Exact{Exact: "h1"},
 						},
 					},
@@ -956,7 +981,7 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 			root: []*networking.HTTPMatchRequest{
 				{
 					Headers: map[string]*networking.StringMatch{
-						"header": &networking.StringMatch{
+						"header": {
 							MatchType: &networking.StringMatch_Exact{Exact: "h1"},
 						},
 					},
@@ -965,7 +990,7 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 			delegate: []*networking.HTTPMatchRequest{
 				{
 					Headers: map[string]*networking.StringMatch{
-						"header": &networking.StringMatch{
+						"header": {
 							MatchType: &networking.StringMatch_Exact{Exact: "h2"},
 						},
 					},
@@ -978,7 +1003,7 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 			root: []*networking.HTTPMatchRequest{
 				{
 					Headers: map[string]*networking.StringMatch{
-						"header": &networking.StringMatch{
+						"header": {
 							MatchType: &networking.StringMatch_Exact{Exact: "h1"},
 						},
 					},
@@ -987,7 +1012,7 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 			delegate: []*networking.HTTPMatchRequest{
 				{
 					Headers: map[string]*networking.StringMatch{
-						"header-2": &networking.StringMatch{
+						"header-2": {
 							MatchType: &networking.StringMatch_Exact{Exact: "h2"},
 						},
 					},
@@ -996,10 +1021,10 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 			expected: []*networking.HTTPMatchRequest{
 				{
 					Headers: map[string]*networking.StringMatch{
-						"header": &networking.StringMatch{
+						"header": {
 							MatchType: &networking.StringMatch_Exact{Exact: "h1"},
 						},
-						"header-2": &networking.StringMatch{
+						"header-2": {
 							MatchType: &networking.StringMatch_Exact{Exact: "h2"},
 						},
 					},
@@ -1034,7 +1059,7 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 						MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage"},
 					},
 					Headers: map[string]*networking.StringMatch{
-						"header": &networking.StringMatch{
+						"header": {
 							MatchType: &networking.StringMatch_Exact{Exact: "h1"},
 						},
 					},
@@ -1065,7 +1090,7 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 						MatchType: &networking.StringMatch_Exact{Exact: "/productpage/v1"},
 					},
 					Headers: map[string]*networking.StringMatch{
-						"header": &networking.StringMatch{
+						"header": {
 							MatchType: &networking.StringMatch_Exact{Exact: "h1"},
 						},
 					},
@@ -1080,7 +1105,7 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 						MatchType: &networking.StringMatch_Exact{Exact: "/productpage/v2"},
 					},
 					Headers: map[string]*networking.StringMatch{
-						"header": &networking.StringMatch{
+						"header": {
 							MatchType: &networking.StringMatch_Exact{Exact: "h1"},
 						},
 					},
@@ -1099,7 +1124,7 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 						MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage"},
 					},
 					Headers: map[string]*networking.StringMatch{
-						"header": &networking.StringMatch{
+						"header": {
 							MatchType: &networking.StringMatch_Exact{Exact: "h1"},
 						},
 					},

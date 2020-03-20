@@ -19,10 +19,12 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/sets"
 )
 
-func mergeVirtualServices(vServices []Config) (out []Config) {
+func mergeVirtualServicesIfNeeded(vServices []Config) (out []Config) {
+	out = make([]Config, 0, len(vServices))
 	delegatesMap := map[string]Config{}
 	// root virtualservices with delegate
 	var rootVses []Config
@@ -32,7 +34,7 @@ func mergeVirtualServices(vServices []Config) (out []Config) {
 		rule := vs.Spec.(*networking.VirtualService)
 		// it is delegate, add it to the indexer cache
 		if len(rule.Hosts) == 0 {
-			delegatesMap[vs.Namespace+vs.Name] = vs
+			delegatesMap[key(vs.Name, vs.Namespace)] = vs
 			continue
 		}
 
@@ -46,33 +48,35 @@ func mergeVirtualServices(vServices []Config) (out []Config) {
 		out = append(out, vs)
 	}
 
+	// If `PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE` feature disabled,
+	// filter out invalid vs(root or delegate), this can happen after enable -> disable
+	if !features.EnableVirtualServiceDelegate.Get() {
+		return
+	}
+
 	// 2. merge delegates and root
 	for _, root := range rootVses {
 		rootVs := root.Spec.(*networking.VirtualService)
-		notFound := false
 		mergedRoutes := []*networking.HTTPRoute{}
 		for _, route := range rootVs.Http {
 			// it is root vs with delegate
 			if route.Delegate != nil {
-				delegate, ok := delegatesMap[route.Delegate.Namespace+route.Delegate.Name]
+				delegate, ok := delegatesMap[key(route.Delegate.Name, route.Delegate.Namespace)]
 				if !ok {
 					log.Debugf("delegate virtual service %s/%s of %s/%s not found",
 						route.Delegate.Namespace, route.Delegate.Name, root.Namespace, root.Name)
-					// delegate not found, ignore the root as well
-					notFound = true
-					break
+					// delegate not found, ignore only the current HTTP route
+					continue
 				}
 				vs := delegate.Spec.(*networking.VirtualService)
-				merged := mergeHttpRoute(route, vs.Http)
+				merged := mergeHTTPRoute(route, vs.Http)
 				mergedRoutes = append(mergedRoutes, merged...)
 			} else {
 				mergedRoutes = append(mergedRoutes, route)
 			}
 		}
-		if !notFound {
-			rootVs.Http = mergedRoutes
-			out = append(out, root)
-		}
+		rootVs.Http = mergedRoutes
+		out = append(out, root)
 	}
 
 	return
@@ -80,7 +84,7 @@ func mergeVirtualServices(vServices []Config) (out []Config) {
 
 // merge root's route with delegate's and the merged route number equals the delegate's.
 // if there is a conflict with root, the route is ignored
-func mergeHttpRoute(root *networking.HTTPRoute, delegate []*networking.HTTPRoute) []*networking.HTTPRoute {
+func mergeHTTPRoute(root *networking.HTTPRoute, delegate []*networking.HTTPRoute) []*networking.HTTPRoute {
 	root.Delegate = nil
 
 	out := make([]*networking.HTTPRoute, 0, len(delegate))
@@ -118,9 +122,10 @@ func mergeHttpRoute(root *networking.HTTPRoute, delegate []*networking.HTTPRoute
 		if subRoute.CorsPolicy == nil {
 			subRoute.CorsPolicy = root.CorsPolicy
 		}
+		if subRoute.Headers == nil {
+			subRoute.Headers = root.Headers
+		}
 
-		// merge headers
-		subRoute.Headers = mergeHeaders(root.Headers, subRoute.Headers)
 		out = append(out, subRoute)
 	}
 	return out
@@ -311,30 +316,16 @@ func stringMatchConflict(root, leaf *networking.StringMatch) bool {
 		// leaf is prefix match
 		if leaf.GetPrefix() != "" {
 			// leaf(`/a`) is not subset of root(`/a/b`)
-			if !strings.HasPrefix(leaf.GetPrefix(), prefix) {
-				return true
-			}
-			return false
+			return !strings.HasPrefix(leaf.GetPrefix(), prefix)
 		}
 		// leaf is exact match
 		if leaf.GetExact() != "" {
 			// leaf(`/a`) is not subset of root(`/a/b`)
-			if !strings.HasPrefix(leaf.GetExact(), prefix) {
-				return true
-			}
-			return false
+			return !strings.HasPrefix(leaf.GetExact(), prefix)
 		}
 	}
 
 	return true
-}
-
-func mergeHeaders(root *networking.Headers, leaf *networking.Headers) *networking.Headers {
-	if leaf == nil {
-		return root
-	}
-
-	return leaf
 }
 
 func isRootVs(vs *networking.VirtualService) bool {
