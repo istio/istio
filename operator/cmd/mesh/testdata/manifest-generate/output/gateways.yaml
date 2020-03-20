@@ -207,6 +207,7 @@ spec:
         - containerPort: 15030
         - containerPort: 15031
         - containerPort: 15032
+        - containerPort: 31400
         - containerPort: 15443
         - containerPort: 15011
         - containerPort: 15012
@@ -401,6 +402,10 @@ spec:
       name: tracing
       port: 15032
       targetPort: 15032
+    -
+      name: tcp
+      port: 31400
+      targetPort: 31400
     -
       name: tls
       port: 15443
@@ -622,6 +627,7 @@ spec:
         - containerPort: 15030
         - containerPort: 15031
         - containerPort: 15032
+        - containerPort: 31400
         - containerPort: 15443
         - containerPort: 15011
         - containerPort: 15012
@@ -816,6 +822,10 @@ spec:
       name: tracing
       port: 15032
       targetPort: 15032
+    -
+      name: tcp
+      port: 31400
+      targetPort: 31400
     -
       name: tls
       port: 15443
