@@ -25,8 +25,8 @@ import (
 )
 
 var (
-	// defaultValidations maps a data path to a validation function.
-	defaultValidations = map[string]ValidatorFunc{
+	// DefaultValidations maps a data path to a validation function.
+	DefaultValidations = map[string]ValidatorFunc{
 		"Hub":                                validateHub,
 		"Tag":                                validateTag,
 		"InstallPackagePath":                 validateInstallPackagePath,
@@ -47,7 +47,7 @@ func CheckIstioOperator(iop *operator_v1alpha1.IstioOperator, checkRequiredField
 	return errs.ToError()
 }
 
-// CheckIstioOperatorSpec validates the values in the given Installer spec, using the field map defaultValidations to
+// CheckIstioOperatorSpec validates the values in the given Installer spec, using the field map DefaultValidations to
 // call the appropriate validation function. checkRequiredFields determines whether missing mandatory fields generate
 // errors.
 func CheckIstioOperatorSpec(is *v1alpha1.IstioOperatorSpec, checkRequiredFields bool) (errs util.Errors) {
@@ -56,10 +56,13 @@ func CheckIstioOperatorSpec(is *v1alpha1.IstioOperatorSpec, checkRequiredFields 
 	}
 
 	errs = CheckValues(is.Values)
-	return util.AppendErrs(errs, validate(defaultValidations, is, nil, checkRequiredFields))
+	return util.AppendErrs(errs, Validate(DefaultValidations, is, nil, checkRequiredFields))
 }
 
-func validate(validations map[string]ValidatorFunc, structPtr interface{}, path util.Path, checkRequired bool) (errs util.Errors) {
+// Validate function below is used by third party for integrations and has to be public
+
+// Validate validates the values of the tree using the supplied Func.
+func Validate(validations map[string]ValidatorFunc, structPtr interface{}, path util.Path, checkRequired bool) (errs util.Errors) {
 	scope.Debugf("validate with path %s, %v (%T)", path, structPtr, structPtr)
 	if structPtr == nil {
 		return nil
@@ -91,7 +94,7 @@ func validate(validations map[string]ValidatorFunc, structPtr interface{}, path 
 		scope.Debugf("Checking field %s", fieldName)
 		switch kind {
 		case reflect.Struct:
-			errs = util.AppendErrs(errs, validate(validations, fieldValue.Addr().Interface(), append(path, fieldName), checkRequired))
+			errs = util.AppendErrs(errs, Validate(validations, fieldValue.Addr().Interface(), append(path, fieldName), checkRequired))
 		case reflect.Map:
 			newPath := append(path, fieldName)
 			for _, key := range fieldValue.MapKeys() {
@@ -103,7 +106,7 @@ func validate(validations map[string]ValidatorFunc, structPtr interface{}, path 
 				newValue := fieldValue.Index(i).Interface()
 				newPath := append(path, indexPathForSlice(fieldName, i))
 				if util.IsStruct(newValue) || util.IsPtr(newValue) {
-					errs = util.AppendErrs(errs, validate(validations, newValue, newPath, checkRequired))
+					errs = util.AppendErrs(errs, Validate(validations, newValue, newPath, checkRequired))
 				} else {
 					errs = util.AppendErrs(errs, validateLeaf(validations, newPath, newValue, checkRequired))
 				}
@@ -114,7 +117,7 @@ func validate(validations map[string]ValidatorFunc, structPtr interface{}, path 
 			}
 			newPath := append(path, fieldName)
 			if fieldValue.Elem().Kind() == reflect.Struct {
-				errs = util.AppendErrs(errs, validate(validations, fieldValue.Interface(), newPath, checkRequired))
+				errs = util.AppendErrs(errs, Validate(validations, fieldValue.Interface(), newPath, checkRequired))
 			} else {
 				errs = util.AppendErrs(errs, validateLeaf(validations, newPath, fieldValue, checkRequired))
 			}
