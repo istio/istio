@@ -6705,6 +6705,7 @@ spec:
         - containerPort: 15031
         - containerPort: 15032
         - containerPort: 15443
+        - containerPort: 31400
         - containerPort: 15011
         - containerPort: 15012
         - containerPort: 8060
@@ -6870,10 +6871,9 @@ spec:
     targetPort: 15020
   - name: http2
     port: 80
-    targetPort: 8080
+    targetPort: 80
   - name: https
     port: 443
-    targetPort: 8443
   - name: kiali
     port: 15029
     targetPort: 15029
@@ -6889,6 +6889,8 @@ spec:
   - name: tls
     port: 15443
     targetPort: 15443
+  - name: tcp
+    port: 31400
   selector:
     app: istio-ingressgateway
     istio: ingressgateway

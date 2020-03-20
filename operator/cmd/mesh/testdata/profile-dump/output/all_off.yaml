@@ -112,10 +112,9 @@ spec:
             targetPort: 15020
           - name: http2
             port: 80
-            targetPort: 8080
+            targetPort: 80
           - name: https
             port: 443
-            targetPort: 8443
           - name: kiali
             port: 15029
             targetPort: 15029
@@ -131,6 +130,8 @@ spec:
           - name: tls
             port: 15443
             targetPort: 15443
+          - name: tcp
+            port: 31400
         strategy:
           rollingUpdate:
             maxSurge: 100%
