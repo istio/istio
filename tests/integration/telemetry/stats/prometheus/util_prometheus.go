@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"testing"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 )
 
