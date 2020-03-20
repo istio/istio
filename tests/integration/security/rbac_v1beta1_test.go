@@ -753,7 +753,6 @@ func TestV1beta1_TCP(t *testing.T) {
 				}
 			}
 
-			// TODO(https://github.com/istio/istio/issues/22189) some TCP tests are skipped
 			cases := []rbacUtil.TestCase{
 				// The policy on workload b denies request with path "/data" to port 8090:
 				// - request to port http-8090 should be denied because both path and port are matched.
@@ -761,7 +760,7 @@ func TestV1beta1_TCP(t *testing.T) {
 				// - request to port tcp should be allowed because the port is not matched.
 				newTestCase(a, b, "http-8090", false, scheme.HTTP),
 				newTestCase(a, b, "http-8091", true, scheme.HTTP),
-				//newTestCase(a, b, "tcp", true, scheme.TCP),
+				newTestCase(a, b, "tcp", true, scheme.TCP),
 
 				// The policy on workload c denies request to port 8090:
 				// - request to port http-8090 should be denied because the port is matched.
@@ -769,7 +768,7 @@ func TestV1beta1_TCP(t *testing.T) {
 				// - request to tcp port 8092 should be allowed because the port is not matched.
 				newTestCase(a, c, "http-8090", false, scheme.HTTP),
 				newTestCase(a, c, "http-8091", true, scheme.HTTP),
-				//newTestCase(a, c, "tcp", true, scheme.TCP),
+				newTestCase(a, c, "tcp", true, scheme.TCP),
 
 				// The policy on workload d denies request from service account a and workloads in namespace 2:
 				// - request from a to d should be denied because it has service account a.
@@ -777,11 +776,11 @@ func TestV1beta1_TCP(t *testing.T) {
 				// - request from c to d should be allowed.
 				// - request from x to a should be allowed because there is no policy on a.
 				// - request from x to d should be denied because it's in namespace 2.
-				//newTestCase(a, d, "tcp", false, scheme.TCP),
-				//newTestCase(b, d, "tcp", true, scheme.TCP),
-				//newTestCase(c, d, "tcp", true, scheme.TCP),
-				//newTestCase(x, a, "tcp", true, scheme.TCP),
-				//newTestCase(x, d, "tcp", false, scheme.TCP),
+				newTestCase(a, d, "tcp", false, scheme.TCP),
+				newTestCase(b, d, "tcp", true, scheme.TCP),
+				newTestCase(c, d, "tcp", true, scheme.TCP),
+				newTestCase(x, a, "tcp", true, scheme.TCP),
+				newTestCase(x, d, "tcp", false, scheme.TCP),
 
 				// The policy on workload e denies request with path "/other":
 				// - request to port http-8090 should be allowed because the path is not matched.
@@ -789,7 +788,7 @@ func TestV1beta1_TCP(t *testing.T) {
 				// - request to port tcp should be denied because policy uses HTTP fields.
 				newTestCase(a, e, "http-8090", true, scheme.HTTP),
 				newTestCase(a, e, "http-8091", true, scheme.HTTP),
-				//newTestCase(a, e, "tcp", false, scheme.TCP),
+				newTestCase(a, e, "tcp", false, scheme.TCP),
 			}
 
 			rbacUtil.RunRBACTest(t, cases)
