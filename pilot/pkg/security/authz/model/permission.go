@@ -39,50 +39,6 @@ type Permission struct {
 	NotPorts    []string
 	Constraints []KeyValues
 	AllowAll    bool
-	v1beta1     bool
-}
-
-// Match returns True if the calling service's attributes and/or labels match to the ServiceRole constraints.
-func (permission *Permission) Match(service *ServiceMetadata) bool {
-	if permission == nil {
-		return true
-	}
-
-	// Check if the service name is matched.
-	if len(permission.Services) != 0 {
-		if !stringMatch(service.Name, permission.Services) {
-			return false
-		}
-	}
-
-	// Check if the constraints are matched.
-	for _, constraint := range permission.Constraints {
-		for key, values := range constraint {
-			var constraintValue string
-			var present bool
-			switch {
-			case strings.HasPrefix(key, attrDestLabel):
-				label, err := extractNameInBrackets(strings.TrimPrefix(key, attrDestLabel))
-				if err != nil {
-					rbacLog.Errorf("ignored invalid %s: %v", attrDestLabel, err)
-					continue
-				}
-				constraintValue, present = service.Labels[label]
-			case key == attrDestName || key == attrDestNamespace || key == attrDestUser:
-				constraintValue, present = service.Attributes[key]
-			default:
-				continue
-			}
-
-			// The constraint is not matched if any of the follow condition is true:
-			// a) the constraint is specified but not found in the ServiceMetadata;
-			// b) the constraint value is not matched to the actual value;
-			if !present || !stringMatch(constraintValue, values.Values) {
-				return false
-			}
-		}
-	}
-	return true
 }
 
 // ValidateForTCP checks if the permission is valid for TCP filter. A permission is not valid for TCP
@@ -283,7 +239,7 @@ func (permission *Permission) forKeyValues(key string, values []string) *envoy_r
 		}
 	case key == attrConnSNI:
 		converter = func(v string) (*envoy_rbac.Permission, error) {
-			m := matcher.StringMatcher(v, permission.v1beta1)
+			m := matcher.StringMatcher(v)
 			return permissionRequestedServerName(m), nil
 		}
 	case strings.HasPrefix(key, "experimental.envoy.filters.") && isKeyBinary(key):
@@ -294,9 +250,9 @@ func (permission *Permission) forKeyValues(key string, values []string) *envoy_r
 			// Else, if value is of format v, create a string matcher.
 			var m *envoy_matcher.MetadataMatcher
 			if strings.HasPrefix(v, "[") && strings.HasSuffix(v, "]") {
-				m = matcher.MetadataListMatcher(parts[0], parts[1:], strings.Trim(v, "[]"), permission.v1beta1)
+				m = matcher.MetadataListMatcher(parts[0], parts[1:], strings.Trim(v, "[]"))
 			} else {
-				m = matcher.MetadataStringMatcher(parts[0], parts[1], matcher.StringMatcher(v, permission.v1beta1))
+				m = matcher.MetadataStringMatcher(parts[0], parts[1], matcher.StringMatcher(v))
 			}
 			return permissionMetadata(m), nil
 		}

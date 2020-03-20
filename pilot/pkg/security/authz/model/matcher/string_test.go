@@ -23,22 +23,14 @@ import (
 
 func TestStringMatcherWithPrefix(t *testing.T) {
 	testCases := []struct {
-		name                    string
-		v                       string
-		treatWildcardAsRequired bool
-		want                    *envoy_matcher.StringMatcher
+		name string
+		v    string
+		want *envoy_matcher.StringMatcher
 	}{
 		{
-			name:                    "wildcardAsRequired",
-			v:                       "*",
-			treatWildcardAsRequired: true,
-			want:                    StringMatcherRegex(".+"),
-		},
-		{
-			name:                    "wildcard",
-			v:                       "*",
-			treatWildcardAsRequired: false,
-			want:                    StringMatcherRegex(".*"),
+			name: "wildcardAsRequired",
+			v:    "*",
+			want: StringMatcherRegex(".+"),
 		},
 		{
 			name: "prefix",
@@ -71,7 +63,7 @@ func TestStringMatcherWithPrefix(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actual := StringMatcherWithPrefix(tc.v, "abc", tc.treatWildcardAsRequired)
+			actual := StringMatcherWithPrefix(tc.v, "abc")
 			if !reflect.DeepEqual(*actual, *tc.want) {
 				t.Errorf("want %s but got %s", tc.want.String(), actual.String())
 			}

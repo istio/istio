@@ -41,8 +41,14 @@ import (
 	rbacUtil "istio.io/istio/tests/integration/security/util/rbac_util"
 )
 
-// TestV1beta1_mTLS tests v1beta1 authorization with mTLS.
-func TestV1beta1_mTLS(t *testing.T) {
+type rootNS struct{}
+
+func (i rootNS) Name() string {
+	return rootNamespace
+}
+
+// TestAuthorization_mTLS tests v1beta1 authorization with mTLS.
+func TestAuthorization_mTLS(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -88,7 +94,7 @@ func TestV1beta1_mTLS(t *testing.T) {
 				"Namespace2": ns2.Name(),
 			}
 			policies := tmpl.EvaluateAllOrFail(t, args,
-				file.AsStringOrFail(t, "testdata/rbac/v1beta1-mtls.yaml.tmpl"))
+				file.AsStringOrFail(t, "testdata/authz/v1beta1-mtls.yaml.tmpl"))
 
 			g.ApplyConfigOrFail(t, ns, policies...)
 			defer g.DeleteConfigOrFail(t, ns, policies...)
@@ -97,8 +103,8 @@ func TestV1beta1_mTLS(t *testing.T) {
 		})
 }
 
-// TestV1beta1_JWT tests v1beta1 authorization with JWT token claims.
-func TestV1beta1_JWT(t *testing.T) {
+// TestAuthorization_JWT tests v1beta1 authorization with JWT token claims.
+func TestAuthorization_JWT(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -111,7 +117,7 @@ func TestV1beta1_JWT(t *testing.T) {
 				"Namespace": ns.Name(),
 			}
 			policies := tmpl.EvaluateAllOrFail(t, args,
-				file.AsStringOrFail(t, "testdata/rbac/v1beta1-jwt.yaml.tmpl"))
+				file.AsStringOrFail(t, "testdata/authz/v1beta1-jwt.yaml.tmpl"))
 			g.ApplyConfigOrFail(t, ns, policies...)
 			defer g.DeleteConfigOrFail(t, ns, policies...)
 
@@ -177,65 +183,8 @@ func TestV1beta1_JWT(t *testing.T) {
 		})
 }
 
-// TestV1beta1_OverrideV1alpha1 tests v1beta1 authorization overrides the v1alpha1 RBAC policy for
-// a given workload.
-func TestV1beta1_OverrideV1alpha1(t *testing.T) {
-	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
-		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "v1beta1-override-v1alpha1",
-				Inject: true,
-			})
-
-			var a, b, c echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
-				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
-				BuildOrFail(t)
-
-			newTestCase := func(target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
-				return rbacUtil.TestCase{
-					Request: connection.Checker{
-						From: a,
-						Options: echo.CallOptions{
-							Target:   target,
-							PortName: "http",
-							Scheme:   scheme.HTTP,
-							Path:     path,
-						},
-					},
-					ExpectAllowed: expectAllowed,
-				}
-			}
-			cases := []rbacUtil.TestCase{
-				newTestCase(b, "/path-v1alpha1", false),
-				newTestCase(b, "/path-v1beta1", true),
-				newTestCase(c, "/path-v1alpha1", true),
-				newTestCase(c, "/path-v1beta1", false),
-			}
-
-			args := map[string]string{
-				"Namespace": ns.Name(),
-			}
-			policies := tmpl.EvaluateAllOrFail(t, args,
-				file.AsStringOrFail(t, "testdata/rbac/v1beta1-override-v1alpha1.yaml.tmpl"))
-			g.ApplyConfigOrFail(t, ns, policies...)
-			defer g.DeleteConfigOrFail(t, ns, policies...)
-
-			rbacUtil.RunRBACTest(t, cases)
-		})
-}
-
-type rootNS struct{}
-
-func (i rootNS) Name() string {
-	return rootNamespace
-}
-
-// TestV1beta1_WorkloadSelector tests the workload selector for the v1beta1 policy in two namespaces.
-func TestV1beta1_WorkloadSelector(t *testing.T) {
+// TestAuthorization_WorkloadSelector tests the workload selector for the v1beta1 policy in two namespaces.
+func TestAuthorization_WorkloadSelector(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -309,19 +258,19 @@ func TestV1beta1_WorkloadSelector(t *testing.T) {
 				return policy
 			}
 
-			policyNS1 := applyPolicy("testdata/rbac/v1beta1-workload-ns1.yaml.tmpl", ns1)
+			policyNS1 := applyPolicy("testdata/authz/v1beta1-workload-ns1.yaml.tmpl", ns1)
 			defer g.DeleteConfigOrFail(t, ns1, policyNS1...)
-			policyNS2 := applyPolicy("testdata/rbac/v1beta1-workload-ns2.yaml.tmpl", ns2)
+			policyNS2 := applyPolicy("testdata/authz/v1beta1-workload-ns2.yaml.tmpl", ns2)
 			defer g.DeleteConfigOrFail(t, ns2, policyNS2...)
-			policyNSRoot := applyPolicy("testdata/rbac/v1beta1-workload-ns-root.yaml.tmpl", rootNS{})
+			policyNSRoot := applyPolicy("testdata/authz/v1beta1-workload-ns-root.yaml.tmpl", rootNS{})
 			defer g.DeleteConfigOrFail(t, rootNS{}, policyNSRoot...)
 
 			rbacUtil.RunRBACTest(t, cases)
 		})
 }
 
-// TestV1beta1_Deny tests the authorization policy with action "DENY".
-func TestV1beta1_Deny(t *testing.T) {
+// TestAuthorization_Deny tests the authorization policy with action "DENY".
+func TestAuthorization_Deny(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -381,17 +330,17 @@ func TestV1beta1_Deny(t *testing.T) {
 				return policy
 			}
 
-			policy := applyPolicy("testdata/rbac/v1beta1-deny.yaml.tmpl", ns)
+			policy := applyPolicy("testdata/authz/v1beta1-deny.yaml.tmpl", ns)
 			defer g.DeleteConfigOrFail(t, ns, policy...)
-			policyNSRoot := applyPolicy("testdata/rbac/v1beta1-deny-ns-root.yaml.tmpl", rootNS{})
+			policyNSRoot := applyPolicy("testdata/authz/v1beta1-deny-ns-root.yaml.tmpl", rootNS{})
 			defer g.DeleteConfigOrFail(t, rootNS{}, policyNSRoot...)
 
 			rbacUtil.RunRBACTest(t, cases)
 		})
 }
 
-// TestV1beta1_Deny tests the authorization policy with negative match.
-func TestV1beta1_NegativeMatch(t *testing.T) {
+// TestAuthorization_Deny tests the authorization policy with negative match.
+func TestAuthorization_NegativeMatch(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -415,7 +364,7 @@ func TestV1beta1_NegativeMatch(t *testing.T) {
 				return policy
 			}
 
-			policies := applyPolicy("testdata/rbac/v1beta1-negative-match.yaml.tmpl", nil)
+			policies := applyPolicy("testdata/authz/v1beta1-negative-match.yaml.tmpl", nil)
 			defer g.DeleteConfigOrFail(t, nil, policies...)
 
 			var a, b, c, d, x echo.Instance
@@ -477,8 +426,8 @@ func TestV1beta1_NegativeMatch(t *testing.T) {
 		})
 }
 
-// TestV1beta1_IngressGateway tests the authorization policy on ingress gateway.
-func TestV1beta1_IngressGateway(t *testing.T) {
+// TestAuthorization_IngressGateway tests the authorization policy on ingress gateway.
+func TestAuthorization_IngressGateway(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -496,7 +445,7 @@ func TestV1beta1_IngressGateway(t *testing.T) {
 				g.ApplyConfigOrFail(t, nil, policy...)
 				return policy
 			}
-			policies := applyPolicy("testdata/rbac/v1beta1-ingress-gateway.yaml.tmpl")
+			policies := applyPolicy("testdata/authz/v1beta1-ingress-gateway.yaml.tmpl")
 			defer g.DeleteConfigOrFail(t, nil, policies...)
 
 			var b echo.Instance
@@ -562,8 +511,8 @@ func TestV1beta1_IngressGateway(t *testing.T) {
 		})
 }
 
-// TestV1beta1_EgressGateway tests v1beta1 authorization on egress gateway.
-func TestV1beta1_EgressGateway(t *testing.T) {
+// TestAuthorization_EgressGateway tests v1beta1 authorization on egress gateway.
+func TestAuthorization_EgressGateway(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -596,7 +545,7 @@ func TestV1beta1_EgressGateway(t *testing.T) {
 				"RootNamespace": rootNamespace,
 			}
 			policies := tmpl.EvaluateAllOrFail(t, args,
-				file.AsStringOrFail(t, "testdata/rbac/v1beta1-egress-gateway.yaml.tmpl"))
+				file.AsStringOrFail(t, "testdata/authz/v1beta1-egress-gateway.yaml.tmpl"))
 			g.ApplyConfigOrFail(t, nil, policies...)
 			defer g.DeleteConfigOrFail(t, nil, policies...)
 
@@ -652,8 +601,8 @@ func TestV1beta1_EgressGateway(t *testing.T) {
 		})
 }
 
-// TestV1beta1_TCP tests the authorization policy on workloads using the raw TCP protocol.
-func TestV1beta1_TCP(t *testing.T) {
+// TestAuthorization_TCP tests the authorization policy on workloads using the raw TCP protocol.
+func TestAuthorization_TCP(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -668,7 +617,7 @@ func TestV1beta1_TCP(t *testing.T) {
 			policy := tmpl.EvaluateAllOrFail(t, map[string]string{
 				"Namespace":  ns.Name(),
 				"Namespace2": ns2.Name(),
-			}, file.AsStringOrFail(t, "testdata/rbac/v1beta1-tcp.yaml.tmpl"))
+			}, file.AsStringOrFail(t, "testdata/authz/v1beta1-tcp.yaml.tmpl"))
 			g.ApplyConfigOrFail(t, nil, policy...)
 			defer g.DeleteConfigOrFail(t, nil, policy...)
 
@@ -795,8 +744,8 @@ func TestV1beta1_TCP(t *testing.T) {
 		})
 }
 
-// TestV1beta1_Conditions tests v1beta1 authorization with conditions.
-func TestV1beta1_Conditions(t *testing.T) {
+// TestAuthorization_Conditions tests v1beta1 authorization with conditions.
+func TestAuthorization_Conditions(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -843,7 +792,7 @@ func TestV1beta1_Conditions(t *testing.T) {
 				"IpC":        getWorkload(c, t).Address(),
 				"PortC":      fmt.Sprintf("%d", portC),
 			}
-			policies := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, "testdata/rbac/v1beta1-conditions.yaml.tmpl"))
+			policies := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, "testdata/authz/v1beta1-conditions.yaml.tmpl"))
 			g.ApplyConfigOrFail(t, nil, policies...)
 			defer g.DeleteConfigOrFail(t, nil, policies...)
 
@@ -903,6 +852,150 @@ func TestV1beta1_Conditions(t *testing.T) {
 				newTestCase(a, "/other", nil, false),
 				newTestCase(b, "/other", nil, false),
 			}
+
+			rbacUtil.RunRBACTest(t, cases)
+		})
+}
+
+// TestAuthorization_GRPC tests v1beta1 authorization with gRPC protocol.
+func TestAuthorization_GRPC(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-grpc",
+				Inject: true,
+			})
+			var a, b, c, d echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
+				With(&d, util.EchoConfig("d", ns, false, nil, g, p)).
+				BuildOrFail(t)
+
+			cases := []rbacUtil.TestCase{
+				{
+					Request: connection.Checker{
+						From: b,
+						Options: echo.CallOptions{
+							Target:   a,
+							PortName: "grpc",
+							Scheme:   scheme.GRPC,
+						},
+					},
+					ExpectAllowed: true,
+				},
+				{
+					Request: connection.Checker{
+						From: c,
+						Options: echo.CallOptions{
+							Target:   a,
+							PortName: "grpc",
+							Scheme:   scheme.GRPC,
+						},
+					},
+					ExpectAllowed: false,
+				},
+				{
+					Request: connection.Checker{
+						From: d,
+						Options: echo.CallOptions{
+							Target:   a,
+							PortName: "grpc",
+							Scheme:   scheme.GRPC,
+						},
+					},
+					ExpectAllowed: true,
+				},
+			}
+			namespaceTmpl := map[string]string{
+				"Namespace": ns.Name(),
+			}
+			policies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
+				file.AsStringOrFail(t, "testdata/authz/v1beta1-grpc.yaml.tmpl"))
+			g.ApplyConfigOrFail(t, ns, policies...)
+			defer g.DeleteConfigOrFail(t, ns, policies...)
+
+			rbacUtil.RunRBACTest(t, cases)
+		})
+}
+
+// TestAuthorization_Path tests the path is normalized before using in authorization. For example, a request
+// with path "/a/../b" should be normalized to "/b" before using in authorization.
+func TestAuthorization_Path(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-path",
+				Inject: true,
+			})
+			ports := []echo.Port{
+				{
+					Name:        "http",
+					Protocol:    protocol.HTTP,
+					ServicePort: 80,
+					// We use a port > 1024 to not require root
+					InstancePort: 8090,
+				},
+			}
+
+			var a, b echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&a, echo.Config{
+					Service:   "a",
+					Namespace: ns,
+					Subsets:   []echo.SubsetConfig{{}},
+					Ports:     ports,
+					Galley:    g,
+					Pilot:     p,
+				}).
+				With(&b, echo.Config{
+					Service:   "b",
+					Namespace: ns,
+					Subsets:   []echo.SubsetConfig{{}},
+					Ports:     ports,
+					Galley:    g,
+					Pilot:     p,
+				}).
+				BuildOrFail(t)
+
+			newTestCase := func(path string, expectAllowed bool) rbacUtil.TestCase {
+				return rbacUtil.TestCase{
+					Request: connection.Checker{
+						From: b,
+						Options: echo.CallOptions{
+							Target:   a,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     path,
+						},
+					},
+					ExpectAllowed: expectAllowed,
+				}
+			}
+			cases := []rbacUtil.TestCase{
+				newTestCase("/public", true),
+				newTestCase("/private", false),
+				newTestCase("/public/../private", false),
+				newTestCase("/public/./../private", false),
+				newTestCase("/public/.././private", false),
+				newTestCase("/public/%2E%2E/private", false),
+				newTestCase("/public/%2e%2e/private", false),
+				newTestCase("/public/%2E/%2E%2E/private", false),
+				newTestCase("/public/%2e/%2e%2e/private", false),
+				newTestCase("/public/%2E%2E/%2E/private", false),
+				newTestCase("/public/%2e%2e/%2e/private", false),
+			}
+
+			args := map[string]string{
+				"Namespace": ns.Name(),
+			}
+			policies := tmpl.EvaluateAllOrFail(t, args,
+				file.AsStringOrFail(t, "testdata/authz/v1beta1-path.yaml.tmpl"))
+			g.ApplyConfigOrFail(t, ns, policies...)
+			defer g.DeleteConfigOrFail(t, ns, policies...)
 
 			rbacUtil.RunRBACTest(t, cases)
 		})
