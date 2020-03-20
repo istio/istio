@@ -104,6 +104,8 @@ spec:
               name: istiod
               optional: true
           env:
+          - name: REVISION
+            value: {{ .Values.revision }}
           - name: JWT_POLICY
             value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
@@ -144,7 +146,7 @@ spec:
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
             value: "{{ .Values.pilot.enableProtocolSniffingForInbound }}"
           - name: INJECTION_WEBHOOK_CONFIG_NAME
-            value: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+            value: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}{{- if eq .Values.revision "default" }},istio-sidecar-injector{{- end }}
           - name: ISTIOD_ADDR
             value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
@@ -210,7 +212,7 @@ spec:
       # Optional - image should have
       - name: inject
         configMap:
-          name: istio-sidecar-injector
+          name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
           optional: true
       - name: config-volume
         configMap:

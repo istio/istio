@@ -332,7 +332,7 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version, revis
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
 	componentLabel := fmt.Sprintf("%s=%s", istioComponentLabelStr, componentName)
-	if revision != "" {
+	if revision != "" && componentName == name.PilotComponentName {
 		componentLabel += fmt.Sprintf(",%s=%s", model.RevisionLabel, revision)
 	}
 
@@ -381,7 +381,7 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version, revis
 		o.AddLabels(map[string]string{istioComponentLabelStr: string(componentName)})
 		o.AddLabels(map[string]string{operatorLabelStr: operatorReconcileStr})
 		o.AddLabels(map[string]string{istioVersionLabelStr: version})
-		if revision != "" {
+		if revision != "" && componentName == name.PilotComponentName {
 			o.AddLabels(map[string]string{model.RevisionLabel: revision})
 		}
 	}

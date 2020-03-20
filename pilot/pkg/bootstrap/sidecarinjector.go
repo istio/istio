@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"k8s.io/api/admissionregistration/v1beta1"
@@ -112,71 +113,74 @@ func (s *Server) patchCertLoop(client kubernetes.Interface, stopCh <-chan struct
 		return err
 	}
 
-	var retry bool
-	if err = util.PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
-		injectionWebhookConfigName.Get(), webhookName, caCertPem); err != nil {
-		log.Warna("Error patching Webhook ", err)
-		retry = true
-	}
+	for _, name := range strings.Split(injectionWebhookConfigName.Get(), ",") {
+		log.Infof("Controlling webhook %v", name)
 
-	shouldPatch := make(chan struct{})
+		var retry bool
+		if err = util.PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
+			name, webhookName, caCertPem); err != nil {
+			log.Warna("Error patching Webhook ", err)
+			retry = true
+		}
 
-	watchlist := cache.NewListWatchFromClient(
-		client.AdmissionregistrationV1beta1().RESTClient(),
-		"mutatingwebhookconfigurations",
-		"",
-		fields.ParseSelectorOrDie(fmt.Sprintf("metadata.name=%s", injectionWebhookConfigName.Get())))
+		shouldPatch := make(chan struct{})
 
-	_, controller := cache.NewInformer(
-		watchlist,
-		&v1beta1.MutatingWebhookConfiguration{},
-		0,
-		cache.ResourceEventHandlerFuncs{
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				oldConfig := oldObj.(*v1beta1.MutatingWebhookConfiguration)
-				newConfig := newObj.(*v1beta1.MutatingWebhookConfiguration)
+		watchlist := cache.NewListWatchFromClient(
+			client.AdmissionregistrationV1beta1().RESTClient(),
+			"mutatingwebhookconfigurations",
+			"",
+			fields.ParseSelectorOrDie(fmt.Sprintf("metadata.name=%s", name)))
 
-				if oldConfig.ResourceVersion != newConfig.ResourceVersion {
-					for i, w := range newConfig.Webhooks {
-						if w.Name == webhookName && !bytes.Equal(newConfig.Webhooks[i].ClientConfig.CABundle, caCertPem) {
-							log.Infof("Detected a change in CABundle, patching MutatingWebhookConfiguration again")
-							shouldPatch <- struct{}{}
-							break
+		_, controller := cache.NewInformer(
+			watchlist,
+			&v1beta1.MutatingWebhookConfiguration{},
+			0,
+			cache.ResourceEventHandlerFuncs{
+				UpdateFunc: func(oldObj, newObj interface{}) {
+					oldConfig := oldObj.(*v1beta1.MutatingWebhookConfiguration)
+					newConfig := newObj.(*v1beta1.MutatingWebhookConfiguration)
+
+					if oldConfig.ResourceVersion != newConfig.ResourceVersion {
+						for i, w := range newConfig.Webhooks {
+							if w.Name == webhookName && !bytes.Equal(newConfig.Webhooks[i].ClientConfig.CABundle, caCertPem) {
+								log.Infof("Detected a change in CABundle, patching MutatingWebhookConfiguration again")
+								shouldPatch <- struct{}{}
+								break
+							}
 						}
 					}
-				}
+				},
 			},
-		},
-	)
-	go controller.Run(stopCh)
+		)
+		go controller.Run(stopCh)
 
-	go func() {
-		var delayedRetryC <-chan time.Time
-		if retry {
-			delayedRetryC = time.After(delayedRetryTime)
-		}
+		go func() {
+			var delayedRetryC <-chan time.Time
+			if retry {
+				delayedRetryC = time.After(delayedRetryTime)
+			}
 
-		for {
-			select {
-			case <-delayedRetryC:
-				if retry := doPatch(client, injectionWebhookConfigName.Get(), webhookName, caCertPem); retry {
-					delayedRetryC = time.After(delayedRetryTime)
-				} else {
-					log.Infof("Retried patch succeeded")
-					delayedRetryC = nil
-				}
-			case <-shouldPatch:
-				if retry := doPatch(client, injectionWebhookConfigName.Get(), webhookName, caCertPem); retry {
-					if delayedRetryC == nil {
+			for {
+				select {
+				case <-delayedRetryC:
+					if retry := doPatch(client, name, webhookName, caCertPem); retry {
 						delayedRetryC = time.After(delayedRetryTime)
+					} else {
+						log.Infof("Retried patch succeeded")
+						delayedRetryC = nil
 					}
-				} else {
-					delayedRetryC = nil
+				case <-shouldPatch:
+					if retry := doPatch(client, name, webhookName, caCertPem); retry {
+						if delayedRetryC == nil {
+							delayedRetryC = time.After(delayedRetryTime)
+						}
+					} else {
+						delayedRetryC = nil
+					}
 				}
 			}
-		}
-	}()
-
+		}()
+	}
 	return nil
 }
 

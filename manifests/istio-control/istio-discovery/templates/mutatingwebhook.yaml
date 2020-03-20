@@ -40,22 +40,77 @@ webhooks:
         operator: DoesNotExist
       - key: istio.io/rev
         operator: DoesNotExist
+{{/* Revisions will match just istio.io/rev. If istio-injection=enabled, ignore it, to avoid double injection */}}
+{{/* The "default" webhook will take care of istio-injection=enabled for backwards compatibility */}}
 {{- else if .Values.revision }}
       matchExpressions:
       - key: istio-injection
-        operator: NotIn
-        values:
-        - disabled
+        operator: DoesNotExist
       - key: istio.io/rev
         operator: In
         values:
         - {{ .Values.revision }}
-{{- else if eq .Values.sidecarInjectorWebhook.injectLabel "istio-injection" }}
-      matchLabels:
-        istio-injection: enabled
 {{- else }}
       matchLabels:
-        istio-env: {{ .Release.Namespace }}
+        istio-injection: enabled
+{{- end }}
+{{- if .Values.sidecarInjectorWebhook.objectSelector.enabled }}
+    objectSelector:
+{{- if .Values.sidecarInjectorWebhook.objectSelector.autoInject }}
+      matchExpressions:
+      - key: "sidecar.istio.io/inject"
+        operator: NotIn
+        values:
+        - "false"
+{{- else }}
+      matchLabels:
+        "sidecar.istio.io/inject": "true"
+{{- end }}
+{{- end }}
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+{{- if eq .Release.Namespace "istio-system"}}
+  name: istio-sidecar-injector
+{{ else }}
+  name: istio-sidecar-injector-{{ .Release.Namespace }}
+{{- end }}
+  labels:
+    app: sidecar-injector
+    release: {{ .Release.Name }}
+webhooks:
+  - name: sidecar-injector.istio.io
+    clientConfig:
+      service:
+        name: istiod
+        namespace: {{ .Release.Namespace }}
+        path: "/inject"
+      caBundle: ""
+    rules:
+      - operations: [ "CREATE" ]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+    failurePolicy: Fail
+    namespaceSelector:
+{{- if .Values.sidecarInjectorWebhook.enableNamespacesByDefault }}
+      matchExpressions:
+      - key: name
+        operator: NotIn
+        values:
+        - {{ .Release.Namespace }}
+      - key: istio-injection
+        operator: NotIn
+        values:
+        - disabled
+      - key: istio-env
+        operator: DoesNotExist
+      - key: istio.io/rev
+        operator: DoesNotExist
+{{- else }}
+      matchLabels:
+        istio-injection: enabled
 {{- end }}
 {{- if .Values.sidecarInjectorWebhook.objectSelector.enabled }}
     objectSelector:

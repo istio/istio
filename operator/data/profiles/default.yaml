@@ -5,7 +5,7 @@ metadata:
 spec:
   hub: gcr.io/istio-testing
   tag: latest
-
+  revision: default
   # Traffic management feature
   components:
     base:

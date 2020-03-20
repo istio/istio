@@ -204,6 +204,6 @@ func (s *Server) initDNSCerts(hostname, namespace string) error {
 	if err != nil {
 		return err
 	}
-	log.Infoa("DNS certificates created in ", dnsCertDir)
+	log.Infof("DNS certificates for %v created in %v", names, dnsCertDir)
 	return nil
 }

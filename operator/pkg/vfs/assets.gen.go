@@ -19100,6 +19100,8 @@ spec:
               name: istiod
               optional: true
           env:
+          - name: REVISION
+            value: {{ .Values.revision }}
           - name: JWT_POLICY
             value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
@@ -19140,7 +19142,7 @@ spec:
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
             value: "{{ .Values.pilot.enableProtocolSniffingForInbound }}"
           - name: INJECTION_WEBHOOK_CONFIG_NAME
-            value: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+            value: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}{{- if eq .Values.revision "default" }},istio-sidecar-injector{{- end }}
           - name: ISTIOD_ADDR
             value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
@@ -19206,7 +19208,7 @@ spec:
       # Optional - image should have
       - name: inject
         configMap:
-          name: istio-sidecar-injector
+          name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
           optional: true
       - name: config-volume
         configMap:
@@ -19335,22 +19337,77 @@ webhooks:
         operator: DoesNotExist
       - key: istio.io/rev
         operator: DoesNotExist
+{{/* Revisions will match just istio.io/rev. If istio-injection=enabled, ignore it, to avoid double injection */}}
+{{/* The "default" webhook will take care of istio-injection=enabled for backwards compatibility */}}
 {{- else if .Values.revision }}
       matchExpressions:
       - key: istio-injection
-        operator: NotIn
-        values:
-        - disabled
+        operator: DoesNotExist
       - key: istio.io/rev
         operator: In
         values:
         - {{ .Values.revision }}
-{{- else if eq .Values.sidecarInjectorWebhook.injectLabel "istio-injection" }}
-      matchLabels:
-        istio-injection: enabled
 {{- else }}
       matchLabels:
-        istio-env: {{ .Release.Namespace }}
+        istio-injection: enabled
+{{- end }}
+{{- if .Values.sidecarInjectorWebhook.objectSelector.enabled }}
+    objectSelector:
+{{- if .Values.sidecarInjectorWebhook.objectSelector.autoInject }}
+      matchExpressions:
+      - key: "sidecar.istio.io/inject"
+        operator: NotIn
+        values:
+        - "false"
+{{- else }}
+      matchLabels:
+        "sidecar.istio.io/inject": "true"
+{{- end }}
+{{- end }}
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+{{- if eq .Release.Namespace "istio-system"}}
+  name: istio-sidecar-injector
+{{ else }}
+  name: istio-sidecar-injector-{{ .Release.Namespace }}
+{{- end }}
+  labels:
+    app: sidecar-injector
+    release: {{ .Release.Name }}
+webhooks:
+  - name: sidecar-injector.istio.io
+    clientConfig:
+      service:
+        name: istiod
+        namespace: {{ .Release.Namespace }}
+        path: "/inject"
+      caBundle: ""
+    rules:
+      - operations: [ "CREATE" ]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+    failurePolicy: Fail
+    namespaceSelector:
+{{- if .Values.sidecarInjectorWebhook.enableNamespacesByDefault }}
+      matchExpressions:
+      - key: name
+        operator: NotIn
+        values:
+        - {{ .Release.Namespace }}
+      - key: istio-injection
+        operator: NotIn
+        values:
+        - disabled
+      - key: istio-env
+        operator: DoesNotExist
+      - key: istio.io/rev
+        operator: DoesNotExist
+{{- else }}
+      matchLabels:
+        istio-injection: enabled
 {{- end }}
 {{- if .Values.sidecarInjectorWebhook.objectSelector.enabled }}
     objectSelector:
@@ -19450,7 +19507,30 @@ spec:
     istio: pilot
     {{- end }}
 ---
-`)
+{{- if eq .Values.revision "default" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: istiod
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istiod
+    release: {{ .Release.Name }}
+spec:
+  ports:
+    - port: 15010
+      name: grpc-xds # plaintext
+    - port: 15012
+      name: https-dns # mTLS with k8s-signed cert
+    - port: 443
+      name: https-webhook # validation and injection
+      targetPort: 15017
+    - port: 15014
+      name: http-monitoring # prometheus stats
+  selector:
+    app: istiod
+    version: default
+{{- end }}`)
 
 func chartsIstioControlIstioDiscoveryTemplatesServiceYamlBytes() ([]byte, error) {
 	return _chartsIstioControlIstioDiscoveryTemplatesServiceYaml, nil
@@ -19471,7 +19551,7 @@ var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml = []byte(`{{- i
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: metadata-exchange-1.4
+  name: metadata-exchange-1.4{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -19504,7 +19584,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stats-filter-1.4
+  name: stats-filter-1.4{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -19602,7 +19682,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stackdriver-filter-1.4
+  name: stackdriver-filter-1.4{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -19723,7 +19803,7 @@ var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml = []byte(`{{- i
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: metadata-exchange-1.5
+  name: metadata-exchange-1.5{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -19766,7 +19846,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: tcp-metadata-exchange-1.5
+  name: tcp-metadata-exchange-1.5{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -19823,7 +19903,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stats-filter-1.5
+  name: stats-filter-1.5{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -19952,7 +20032,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: tcp-stats-filter-1.5
+  name: tcp-stats-filter-1.5{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -20208,7 +20288,7 @@ var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml = []byte(`{{- i
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: metadata-exchange-1.6
+  name: metadata-exchange-1.6{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -20251,7 +20331,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: tcp-metadata-exchange-1.6
+  name: tcp-metadata-exchange-1.6{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -20311,7 +20391,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stats-filter-1.6
+  name: stats-filter-1.6{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -20440,7 +20520,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: tcp-stats-filter-1.6
+  name: tcp-stats-filter-1.6{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -20567,7 +20647,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stackdriver-filter-1.6
+  name: stackdriver-filter-1.6{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -44537,7 +44617,7 @@ metadata:
 spec:
   hub: gcr.io/istio-testing
   tag: latest
-
+  revision: default
   # Traffic management feature
   components:
     base:
