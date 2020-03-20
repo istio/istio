@@ -29,6 +29,7 @@ import (
 
 // ReverseTranslator is a set of mappings to translate between values.yaml and API paths, charts, k8s paths.
 type ReverseTranslator struct {
+	// Version is the version of the reverse translator.
 	Version version.MinorVersion
 	// APIMapping is Values.yaml path to API path mapping using longest prefix match. If the path is a non-leaf node,
 	// the output path is the matching portion of the path, plus any remaining output path.
