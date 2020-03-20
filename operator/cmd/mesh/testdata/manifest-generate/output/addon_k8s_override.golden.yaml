@@ -164,7 +164,7 @@ spec:
       serviceAccountName: prometheus
       volumes:
       - configMap:
-          name: istio
+          name: istio-default
           optional: true
         name: istio-config-volume
       - configMap:

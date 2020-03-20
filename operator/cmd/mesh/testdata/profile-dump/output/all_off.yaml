@@ -227,6 +227,7 @@ spec:
             maxUnavailable: 25%
   hub: gcr.io/istio-testing
   profile: default
+  revision: default
   tag: latest
   values:
     clusterResources: true

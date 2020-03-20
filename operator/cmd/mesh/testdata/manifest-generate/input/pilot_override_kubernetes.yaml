@@ -16,7 +16,7 @@ spec:
             cpu: 123m
         overlays:
           - kind: Deployment
-            name: istiod
+            name: istiod-default
             patches:
               - path: spec.template.spec.containers.[name:discovery].args.[30m]
                 value: "60m" # OVERRIDDEN

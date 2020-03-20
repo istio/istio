@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: istio-sidecar-injector
+  name: istio-sidecar-injector-default
   namespace: istio-system
   labels:
     release: istio
@@ -644,7 +644,7 @@ spec:
         istio: ingressgateway
         release: istio
         service.istio.io/canonical-name: istio-ingressgateway
-        service.istio.io/canonical-revision: latest
+        service.istio.io/canonical-revision: default
     spec:
       affinity:
         nodeAffinity:
@@ -827,7 +827,7 @@ spec:
               expirationSeconds: 43200
               path: istio-token
       - configMap:
-          name: istio
+          name: istio-default
           optional: true
         name: config-volume
       - name: ingressgateway-certs

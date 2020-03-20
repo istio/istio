@@ -468,7 +468,7 @@ spec:
       serviceAccountName: prometheus
       volumes:
       - configMap:
-          name: istio
+          name: istio-default
           optional: true
         name: istio-config-volume
       - configMap:
@@ -593,7 +593,7 @@ spec:
         app: istio-ingressgateway
         istio: ingressgateway
         service.istio.io/canonical-name: istio-ingress-1
-        service.istio.io/canonical-revision: latest
+        service.istio.io/canonical-revision: default
     spec:
       affinity:
         nodeAffinity:
@@ -776,7 +776,7 @@ spec:
               expirationSeconds: 43200
               path: istio-token
       - configMap:
-          name: istio
+          name: istio-default
           optional: true
         name: config-volume
       - name: ingressgateway-certs

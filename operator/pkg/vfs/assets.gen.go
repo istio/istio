@@ -17080,7 +17080,6 @@ spec:
     # This avoids default deployment picking the canary
     istio: pilot
 ---
-
 ---
 # Source: istio-discovery/templates/deployment.yaml
 apiVersion: apps/v1
@@ -17143,6 +17142,8 @@ spec:
               name: istiod
               optional: true
           env:
+          - name: REVISION
+            value: ""
           - name: JWT_POLICY
             value: third-party-jwt
           - name: PILOT_CERT_PROVIDER
@@ -18005,6 +18006,32 @@ spec:
 ---
 # Source: istio-discovery/templates/mutatingwebhook.yaml
 # Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds)
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: istio-sidecar-injector
+
+  labels:
+    app: sidecar-injector
+    release: istio-base
+webhooks:
+  - name: sidecar-injector.istio.io
+    clientConfig:
+      service:
+        name: istiod
+        namespace: istio-system
+        path: "/inject"
+      caBundle: ""
+    rules:
+      - operations: [ "CREATE" ]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+    failurePolicy: Fail
+    namespaceSelector:
+      matchLabels:
+        istio-injection: enabled
+---
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
@@ -19101,7 +19128,7 @@ spec:
               optional: true
           env:
           - name: REVISION
-            value: {{ .Values.revision }}
+            value: "{{ .Values.revision }}"
           - name: JWT_POLICY
             value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER

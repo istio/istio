@@ -903,7 +903,7 @@ func loadInjectionConfigMap(t testing.TB, settings string) (template *Config, va
 			if err != nil {
 				t.Fatalf("error decoding object: %v", err)
 			}
-			if out.GetName() == "istio-sidecar-injector" && (out.GroupVersionKind() == schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}) {
+			if out.GetName() == "istio-sidecar-injector-default" && (out.GroupVersionKind() == schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}) {
 				data, ok := out.Object["data"].(map[string]interface{})
 				if !ok {
 					t.Fatalf("failed to convert %v", out)

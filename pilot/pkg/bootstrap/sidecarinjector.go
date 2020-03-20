@@ -154,6 +154,7 @@ func (s *Server) patchCertLoop(client kubernetes.Interface, stopCh <-chan struct
 		)
 		go controller.Run(stopCh)
 
+		name := name
 		go func() {
 			var delayedRetryC <-chan time.Time
 			if retry {

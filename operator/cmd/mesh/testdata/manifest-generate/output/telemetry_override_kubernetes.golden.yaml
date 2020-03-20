@@ -389,7 +389,7 @@ spec:
       serviceAccountName: istio-mixer-service-account
       volumes:
       - configMap:
-          name: istio
+          name: istio-default
           optional: true
         name: config-volume
       - configMap:
