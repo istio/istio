@@ -295,19 +295,17 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 
 	processing := components.NewProcessing(processingArgs)
 
-	s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
+	s.addStartFunc(func(stop <-chan struct{}) error {
 		if err := processing.Start(); err != nil {
-			log.Errorf("error starting galley analysis server: %v", err)
-			// TODO: if we can't start analysis, we should un-elect ourselves, but pilot's API doesn't provide that
-			// should we add an unelect interface to pilot?
+			return err
 		}
 
 		go func() {
 			<-stop
 			processing.Stop()
 		}()
+		return nil
 	})
-
 	return nil
 }
 
