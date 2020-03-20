@@ -14,6 +14,35 @@ system. It depends on a Redis server to store quota values.</p>
 
 <p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/quota/">quota template</a>.</p>
 
+<h2 id="Params-QuotaAlgorithm">Params.QuotaAlgorithm</h2>
+<section>
+<p>Algorithms for rate-limiting:</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params-QuotaAlgorithm-FIXED_WINDOW">
+<td><code>FIXED_WINDOW</code></td>
+<td>
+<p><code>FIXED_WINDOW</code> The fixed window approach can allow 2x peak specified rate, whereas the rolling-window doesn&rsquo;t.</p>
+
+</td>
+</tr>
+<tr id="Params-QuotaAlgorithm-ROLLING_WINDOW">
+<td><code>ROLLING_WINDOW</code></td>
+<td>
+<p><code>ROLLING_WINDOW</code> The rolling window algorithm&rsquo;s additional precision comes at the cost of increased redis resource usage.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="Params">Params</h2>
 <section>
 <p>redisquota adapter supports the rate limit quota using either fixed or
@@ -207,35 +236,6 @@ The first matching override is applied.</p>
 </td>
 <td>
 No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="Params-QuotaAlgorithm">Params.QuotaAlgorithm</h2>
-<section>
-<p>Algorithms for rate-limiting:</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="Params-QuotaAlgorithm-FIXED_WINDOW">
-<td><code>FIXED_WINDOW</code></td>
-<td>
-<p><code>FIXED_WINDOW</code> The fixed window approach can allow 2x peak specified rate, whereas the rolling-window doesn&rsquo;t.</p>
-
-</td>
-</tr>
-<tr id="Params-QuotaAlgorithm-ROLLING_WINDOW">
-<td><code>ROLLING_WINDOW</code></td>
-<td>
-<p><code>ROLLING_WINDOW</code> The rolling window algorithm&rsquo;s additional precision comes at the cost of increased redis resource usage.</p>
-
 </td>
 </tr>
 </tbody>
