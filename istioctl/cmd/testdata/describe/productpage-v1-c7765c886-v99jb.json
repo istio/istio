@@ -2021,7 +2021,11 @@
         ]
        }
       ],
-      "use_original_dst": true
+      "listener_filters": [
+       {
+        "name": "envoy.listener.original_dst"
+       }
+      ]
      },
      "last_updated": "2019-10-21T14:42:45.474Z"
     }},

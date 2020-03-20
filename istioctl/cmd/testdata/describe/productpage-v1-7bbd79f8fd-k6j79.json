@@ -9569,7 +9569,11 @@
         ]
        }
       ],
-      "use_original_dst": true
+      "listener_filters": [
+       {
+        "name": "envoy.listener.original_dst"
+       }
+      ]
      },
      "last_updated": "2019-09-10T20:23:51.671Z"
     }},

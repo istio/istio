@@ -2042,9 +2042,10 @@
           ]
         }
       ],
-      "use_original_dst": {
-        "value": true
-      },
-      "listener_filters": null
+      "listener_filters": [
+       {
+        "name": "envoy.listener.original_dst"
+       }
+      ]
     }
   }

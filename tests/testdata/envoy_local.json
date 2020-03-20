@@ -98,9 +98,6 @@
             "port_value": 17001
           }
         },
-        "use_original_dst": {
-            "value": true
-        },
         "filter_chains": [
           {
             "filters": [
