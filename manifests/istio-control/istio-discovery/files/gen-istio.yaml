@@ -872,7 +872,6 @@ spec:
       maxUnavailable: 25%
   selector:
     matchLabels:
-      app: istiod
       istio: pilot
   template:
     metadata:
