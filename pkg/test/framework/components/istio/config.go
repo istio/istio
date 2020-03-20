@@ -127,10 +127,6 @@ type Config struct {
 	// CustomSidecarInjectorNamespace allows injecting the sidecar from the specified namespace.
 	// if the value is "", use the default sidecar injection instead.
 	CustomSidecarInjectorNamespace string
-
-	// PartialCleanup will only clean up the configurations generate by istioctl. This avoids removing
-	// extra things like the namespace, webhooks, etc. This is useful for multiple control plane
-	PartialCleanup bool
 }
 
 // IsMtlsEnabled checks in Values flag and Values file.

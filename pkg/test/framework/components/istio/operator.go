@@ -70,38 +70,24 @@ func (i *operatorComponent) Close() (err error) {
 	defer scopes.CI.Infof("=== DONE: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
 	if i.settings.DeployIstio {
 		for _, cluster := range i.environment.KubeClusters {
-			if e := cluster.DeleteNamespace(i.settings.SystemNamespace); e != nil {
-				err = multierror.Append(err, fmt.Errorf("failed deleting system namespace %s in cluster %s: %v",
-					i.settings.SystemNamespace, cluster.Name(), e))
-			}
-			if e := cluster.WaitForNamespaceDeletion(i.settings.SystemNamespace); e != nil {
-				err = multierror.Append(err, fmt.Errorf("failed waiting for deletion of system namespace %s in cluster %s: %v",
-					i.settings.SystemNamespace, cluster.Name(), e))
+			istioCtl, e := istioctl.New(i.ctx, istioctl.Config{})
+			if e != nil {
+				err = multierror.Append(err, e)
 			}
 
-			// Note: when cleaning up an Istio deployment, ValidatingWebhookConfiguration
-			// and MutatingWebhookConfiguration must be cleaned up. Otherwise, next
-			// Istio deployment in the cluster will be impacted, causing flaky test results.
-			// Clean up ValidatingWebhookConfiguration and MutatingWebhookConfiguration if they exist
-			_ = cluster.DeleteValidatingWebhook(DefaultValidatingWebhookConfigurationName(i.settings))
-			_ = cluster.DeleteMutatingWebhook(DefaultMutatingWebhookConfigurationName)
+			cmd := []string{"manifest", "generate"}
+			cmd = append(cmd, i.installSettings...)
+			scopes.CI.Infof("Running istioctl %v", cmd)
+			out, e := istioCtl.Invoke(cmd)
+			if err != nil {
+				err = multierror.Append(err, e)
+			}
+			if e := cluster.DeleteContents("", out); e != nil {
+				err = multierror.Append(err, e)
+			}
 		}
 	}
 	return
-}
-
-func (i *operatorComponent) closeFull() (err error) {
-	err = i.environment.KubeClusters[0].DeleteNamespace(i.settings.SystemNamespace)
-	if err == nil {
-		err = i.environment.KubeClusters[0].WaitForNamespaceDeletion(i.settings.SystemNamespace)
-	}
-	// Note: when cleaning up an Istio deployment, ValidatingWebhookConfiguration
-	// and MutatingWebhookConfiguration must be cleaned up. Otherwise, next
-	// Istio deployment in the cluster will be impacted, causing flaky test results.
-	// Clean up ValidatingWebhookConfiguration and MutatingWebhookConfiguration if they exist
-	_ = i.environment.KubeClusters[0].DeleteValidatingWebhook(DefaultValidatingWebhookConfigurationName(i.settings))
-	_ = i.environment.KubeClusters[0].DeleteMutatingWebhook(DefaultMutatingWebhookConfigurationName)
-	return err
 }
 
 func (i *operatorComponent) Dump() {
@@ -140,24 +126,6 @@ func (i *operatorComponent) Dump() {
 			}
 		}
 	}
-}
-
-func (i *operatorComponent) closePartial() error {
-	istioCtl, err := istioctl.New(i.ctx, istioctl.Config{})
-	if err != nil {
-		return err
-	}
-
-	cmd := []string{
-		"manifest", "generate",
-	}
-	cmd = append(cmd, i.installSettings...)
-	scopes.CI.Infof("Running istioctl %v", cmd)
-	out, err := istioCtl.Invoke(cmd)
-	if err != nil {
-		return fmt.Errorf("manifest generate failed: %v", err)
-	}
-	return i.environment.KubeClusters[0].DeleteContents("", out)
 }
 
 func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, error) {

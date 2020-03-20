@@ -43,7 +43,6 @@ components:
   pilot:
     enabled: true
 `
-				cfg.PartialCleanup = true
 			})(ctx); err != nil {
 				t.Fatal(err)
 			}
