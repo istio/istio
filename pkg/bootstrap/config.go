@@ -87,7 +87,6 @@ type Config struct {
 	PodName             string
 	PodNamespace        string
 	PodIP               net.IP
-	SDSUDSPath          string
 	STSPort             int
 	ControlPlaneAuth    bool
 	DisableReportCalls  bool
@@ -118,7 +117,6 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.PodIP(cfg.PodIP),
 		option.PilotSubjectAltName(cfg.PilotSubjectAltName),
 		option.MixerSubjectAltName(cfg.MixerSubjectAltName),
-		option.SDSUDSPath(cfg.SDSUDSPath),
 		option.ControlPlaneAuth(cfg.ControlPlaneAuth),
 		option.DisableReportCalls(cfg.DisableReportCalls),
 		option.PilotCertProvider(cfg.PilotCertProvider),
@@ -131,8 +129,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	}
 
 	// Support passing extra info from node environment as metadata
-	sdsEnabled := cfg.SDSUDSPath != ""
-	meta, rawMeta, err := getNodeMetaData(cfg.LocalEnv, cfg.PlatEnv, cfg.NodeIPs, sdsEnabled, cfg.STSPort)
+	meta, rawMeta, err := getNodeMetaData(cfg.LocalEnv, cfg.PlatEnv, cfg.NodeIPs, cfg.STSPort)
 	if err != nil {
 		return nil, err
 	}
@@ -390,6 +387,7 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 			meta.InstanceName = val
 		case "POD_NAMESPACE":
 			meta.Namespace = val
+			meta.ConfigNamespace = val
 		case "ISTIO_META_OWNER":
 			meta.Owner = val
 		case "ISTIO_META_WORKLOAD_NAME":
@@ -408,8 +406,7 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 // ISTIO_METAJSON_* env variables contain json_string in the value.
 // 					The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
-func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
-	sdsEnabled bool, stsPort int) (*model.NodeMetadata, map[string]interface{}, error) {
+func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string, stsPort int) (*model.NodeMetadata, map[string]interface{}, error) {
 	meta := &model.NodeMetadata{}
 	untypedMeta := map[string]interface{}{}
 
@@ -436,12 +433,9 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 	// Support multiple network interfaces, removing duplicates.
 	meta.InstanceIPs = nodeIPs
 
-	// Set SDS configuration on the metadata, if provided.
-	if sdsEnabled {
-		// sds is enabled
-		meta.SdsEnabled = true
-		meta.SdsTrustJwt = true
-	}
+	// sds is enabled by default
+	meta.SdsEnabled = true
+	meta.SdsTrustJwt = true
 
 	// Add STS port into node metadata if it is not 0.
 	if stsPort != 0 {

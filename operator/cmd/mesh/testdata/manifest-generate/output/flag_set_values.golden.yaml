@@ -407,14 +407,6 @@ data:
             ]
         - name: ISTIO_META_CLUSTER_ID
           value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
-        - name: ISTIO_META_POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: ISTIO_META_CONFIG_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: "{{ or (index .ObjectMeta.Annotations `sidecar.istio.io/interceptionMode`) .ProxyConfig.InterceptionMode.String }}"
         {{- if .Values.global.network }}
@@ -696,8 +688,6 @@ spec:
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: istiod
-        - name: ISTIO_META_USER_SDS
-          value: "true"
         - name: CA_ADDR
           value: istiod.istio-system.svc:15012
         - name: NODE_NAME
@@ -735,17 +725,6 @@ spec:
           value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-ingressgateway
         - name: ISTIO_META_MESH_ID
           value: cluster.local
-        - name: ISTIO_AUTO_MTLS_ENABLED
-          value: "true"
-        - name: ISTIO_META_POD_NAME
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.name
-        - name: ISTIO_META_CONFIG_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
         - name: ISTIO_META_ROUTER_MODE
           value: sni-dnat
         - name: ISTIO_META_CLUSTER_ID
