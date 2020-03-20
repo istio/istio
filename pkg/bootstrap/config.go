@@ -23,7 +23,6 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"time"
 
 	md "cloud.google.com/go/compute/metadata"
 
@@ -214,15 +213,6 @@ func defaultPilotSAN() []string {
 
 func lightstepAccessTokenFile(config string) string {
 	return path.Join(config, lightstepAccessTokenBase)
-}
-
-// convertDuration converts to golang duration and logs errors
-func convertDuration(d *types.Duration) time.Duration {
-	if d == nil {
-		return 0
-	}
-	dur, _ := types.DurationFromProto(d)
-	return dur
 }
 
 func getNodeMetadataOptions(meta *model.NodeMetadata, rawMeta map[string]interface{},
