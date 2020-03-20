@@ -23,13 +23,10 @@ import (
 	envoyRbacPb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 	"github.com/hashicorp/go-multierror"
 
-	istioRbacPb "istio.io/api/rbac/v1alpha1"
 	istioSecurityPb "istio.io/api/security/v1beta1"
 
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	authzModel "istio.io/istio/pilot/pkg/security/authz/model"
-	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
@@ -37,36 +34,6 @@ import (
 type mockTest interface {
 	Fatalf(format string, args ...interface{})
 	Helper()
-}
-
-func NewServiceMetadata(hostname string, labels map[string]string, t mockTest) *authzModel.ServiceMetadata {
-	t.Helper()
-	splits := strings.Split(hostname, ".")
-	if len(splits) < 2 {
-		t.Fatalf("failed to initialize service instance: invalid hostname")
-	}
-	name := splits[0]
-	namespace := splits[1]
-
-	serviceInstance := &model.ServiceInstance{
-		Service: &model.Service{
-			Attributes: model.ServiceAttributes{
-				Name:      name,
-				Namespace: namespace,
-			},
-			Hostname: host.Name(hostname),
-		},
-		Endpoint: &model.IstioEndpoint{
-			Labels: labels,
-		},
-	}
-
-	serviceMetadata, err := authzModel.NewServiceMetadata(name, namespace, serviceInstance)
-	if err != nil {
-		t.Fatalf("failed to initialize service instance: %s", err)
-	}
-
-	return serviceMetadata
 }
 
 func NewAuthzPolicies(policies []*model.Config, t mockTest) *model.AuthorizationPolicies {
@@ -88,110 +55,6 @@ func NewAuthzPolicies(policies []*model.Config, t mockTest) *model.Authorization
 	return authzPolicies
 }
 
-func SimpleClusterRbacConfig() *model.Config {
-	cfg := &model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Kind(),
-			Version:   collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Version(),
-			Group:     collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Group(),
-			Name:      "default",
-			Namespace: "default",
-		},
-		Spec: &istioRbacPb.RbacConfig{
-			Mode: istioRbacPb.RbacConfig_ON,
-		},
-	}
-	return cfg
-}
-
-func RoleTag(name string) string {
-	return fmt.Sprintf("MethodFromRole[%s]", name)
-}
-
-func SimpleRole(name string, namespace string, service string) *model.Config {
-	spec := &istioRbacPb.ServiceRole{
-		Rules: []*istioRbacPb.AccessRule{
-			{
-				Methods: []string{RoleTag(name)},
-			},
-		},
-	}
-	if service != "" {
-		spec.Rules[0].Services = []string{fmt.Sprintf("%s.%s.svc.cluster.local", service, namespace)}
-	}
-	return &model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      collections.IstioRbacV1Alpha1Serviceroles.Resource().Kind(),
-			Version:   collections.IstioRbacV1Alpha1Serviceroles.Resource().Version(),
-			Group:     collections.IstioRbacV1Alpha1Serviceroles.Resource().Group(),
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: spec,
-	}
-}
-
-func CustomPrincipal(trustDomain, namespace, saName string) string {
-	return fmt.Sprintf("%s/ns/%s/sa/%s", trustDomain, namespace, saName)
-}
-
-func BindingTag(name string) string {
-	return fmt.Sprintf("UserFromBinding[%s]", name)
-}
-
-func SimpleBinding(name, namespace, role string) *model.Config {
-	return &model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(),
-			Version:   collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Version(),
-			Group:     collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Group(),
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: &istioRbacPb.ServiceRoleBinding{
-			Subjects: []*istioRbacPb.Subject{
-				{
-					User: BindingTag(name),
-				},
-			},
-			RoleRef: &istioRbacPb.RoleRef{
-				Name: role,
-				Kind: "ServiceRole",
-			},
-		},
-	}
-}
-
-func SimpleBindingWithUser(name, namespace, role, user string) *model.Config {
-	return &model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Kind(),
-			Version:   collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Version(),
-			Group:     collections.IstioRbacV1Alpha1Servicerolebindings.Resource().Group(),
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: &istioRbacPb.ServiceRoleBinding{
-			Subjects: []*istioRbacPb.Subject{
-				{
-					User: user,
-				},
-			},
-			RoleRef: &istioRbacPb.RoleRef{
-				Name: role,
-				Kind: "ServiceRole",
-			},
-		},
-	}
-}
-
-func SimplePermissiveBinding(name string, namespace string, role string) *model.Config {
-	cfg := SimpleBinding(name, namespace, role)
-	binding := cfg.Spec.(*istioRbacPb.ServiceRoleBinding)
-	binding.Mode = istioRbacPb.EnforcementMode_PERMISSIVE
-	return cfg
-}
-
 func AuthzPolicyTag(name string) string {
 	return fmt.Sprintf("UserFromPolicy[%s]", name)
 }
@@ -211,7 +74,7 @@ func SimpleAuthorizationProto(name string, action istioSecurityPb.AuthorizationP
 				To: []*istioSecurityPb.Rule_To{
 					{
 						Operation: &istioSecurityPb.Operation{
-							Methods: []string{"GET"},
+							Ports: []string{"80"},
 						},
 					},
 				},
@@ -220,7 +83,7 @@ func SimpleAuthorizationProto(name string, action istioSecurityPb.AuthorizationP
 	}
 }
 
-func SimpleAllowPolicy(name string, namespace string) *model.Config {
+func AllowPolicy(name string, namespace string) *model.Config {
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind(),
@@ -233,7 +96,7 @@ func SimpleAllowPolicy(name string, namespace string) *model.Config {
 	}
 }
 
-func SimpleDenyPolicy(name string, namespace string) *model.Config {
+func DenyPolicy(name string, namespace string) *model.Config {
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().Kind(),

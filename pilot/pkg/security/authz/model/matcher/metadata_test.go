@@ -15,7 +15,6 @@
 package matcher
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -90,27 +89,20 @@ func TestMetadataListMatcher(t *testing.T) {
 			},
 		}
 	}
-	getActual := func(treatWildcardAsRequired bool) envoy_matcher.MetadataMatcher {
-		return *MetadataListMatcher("istio_authn", []string{"key1", "key2"}, "*", treatWildcardAsRequired)
-	}
 
 	testCases := []struct {
-		treatWildcardAsRequired bool
-		want                    string
+		name string
+		want string
 	}{
 		{
-			treatWildcardAsRequired: false,
-			want:                    ".*",
-		},
-		{
-			treatWildcardAsRequired: true,
-			want:                    ".+",
+			name: "wildcard",
+			want: ".+",
 		},
 	}
 	for _, tc := range testCases {
-		t.Run(fmt.Sprintf("treatWildcardAsRequired[%v]", tc.treatWildcardAsRequired), func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			want := getWant(tc.want)
-			actual := getActual(tc.treatWildcardAsRequired)
+			actual := *MetadataListMatcher("istio_authn", []string{"key1", "key2"}, "*")
 			if !reflect.DeepEqual(want, actual) {
 				t.Errorf("want %s, but got %s", want.String(), actual.String())
 			}

@@ -48,7 +48,7 @@ func NewGenerator(trustDomainBundle trustdomain.Bundle, denyPolicies []model.Aut
 }
 
 func (g *v1beta1Generator) Generate(forTCPFilter bool) (denyConfig *envoyRbacHttpPb.RBAC, allowConfig *envoyRbacHttpPb.RBAC) {
-	rbacLog.Debugf("building v1beta1 policy")
+	rbacLog.Debugf("building authorization policy")
 	denyConfig = g.generatePolicy(g.denyPolicies, envoyRbacPb.RBAC_DENY, forTCPFilter)
 	allowConfig = g.generatePolicy(g.allowPolicies, envoyRbacPb.RBAC_ALLOW, forTCPFilter)
 	return
@@ -71,9 +71,9 @@ func (g *v1beta1Generator) generatePolicy(policies []model.AuthorizationPolicyCo
 			if rule == nil {
 				continue
 			}
-			m := authzModel.NewModelV1beta1(g.trustDomainBundle, rule)
+			m := authzModel.New(g.trustDomainBundle, rule)
 			rbacLog.Debugf("constructed internal model: %+v", m)
-			if p := m.Generate(nil, forTCPFilter, forDenyPolicy); p != nil {
+			if p := m.Generate(forTCPFilter, forDenyPolicy); p != nil {
 				name := fmt.Sprintf("ns[%s]-policy[%s]-rule[%d]", config.Namespace, config.Name, i)
 				rbac.Policies[name] = p
 				rbacLog.Debugf("generated policy %s: %+v", name, p)
