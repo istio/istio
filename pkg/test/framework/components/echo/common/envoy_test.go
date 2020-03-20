@@ -45,6 +45,8 @@ func TestCheckOutboundConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	src := testConfig{}
+
 	cfgs := []testConfig{
 		{
 			protocol:    protocol.HTTP,
@@ -100,7 +102,7 @@ func TestCheckOutboundConfig(t *testing.T) {
 
 	for _, cfg := range cfgs {
 		t.Run(fmt.Sprintf("%s_%d[%s]", cfg.service, cfg.servicePort, cfg.protocol), func(t *testing.T) {
-			if err := common.CheckOutboundConfig(&cfg, cfg.Config().Ports[0], validator); err != nil {
+			if err := common.CheckOutboundConfig(&src, &cfg, cfg.Config().Ports[0], validator); err != nil {
 				t.Fatal(err)
 			}
 		})

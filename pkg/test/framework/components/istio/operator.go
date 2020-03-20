@@ -155,18 +155,52 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		}
 	}
 
-	istioCtl, err := istioctl.New(ctx, istioctl.Config{})
-	if err != nil {
-		return nil, err
-	}
-
+	// Generate the istioctl config file
 	iopFile := filepath.Join(workDir, "iop.yaml")
-	if err := ioutil.WriteFile(iopFile, []byte(cfg.IstioOperator()), os.ModePerm); err != nil {
+	operatorYaml := cfg.IstioOperatorConfigYAML()
+	if err := ioutil.WriteFile(iopFile, []byte(operatorYaml), os.ModePerm); err != nil {
 		return nil, fmt.Errorf("failed to write iop: %v", err)
 	}
+
+	// Deploy the Istio control plane(s)
+	for _, cluster := range env.KubeClusters {
+		if cluster.IsControlPlaneCluster() {
+			if err := deployControlPlane(i, cfg, cluster, iopFile); err != nil {
+				return nil, fmt.Errorf("failed deploying control plane to cluster %d: %v", cluster.Index(), err)
+			}
+		}
+	}
+
+	if env.IsMulticluster() {
+		// For multicluster, configure direct access so each control plane can get endpoints from all
+		// API servers.
+		if err := configureDirectAPIServerAccess(ctx, env, cfg); err != nil {
+			return nil, err
+		}
+	}
+
+	// Wait for all of the control planes to be started.
+	for _, cluster := range env.KubeClusters {
+		if err := waitForControlPlane(i, cluster, cfg); err != nil {
+			return nil, err
+		}
+	}
+
+	return i, nil
+}
+
+func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, iopFile string) error {
+	// Create an istioctl to configure this cluster.
+	istioCtl, err := istioctl.New(c.ctx, istioctl.Config{
+		Cluster: cluster,
+	})
+	if err != nil {
+		return err
+	}
+
 	s, err := image.SettingsFromCommandLine()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	cmd := []string{
 		"manifest", "apply",
@@ -184,31 +218,79 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		}
 	}
 
-	scopes.CI.Infof("Running istioctl %v", cmd)
-	if _, err := istioCtl.Invoke(cmd); err != nil {
-		return nil, fmt.Errorf("manifest apply failed: %v", err)
+	if c.environment.IsMulticluster() {
+		// Set the clusterName for the local cluster.
+		// This MUST match the clusterName in the remote secret for this cluster.
+		cmd = append(cmd, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
 	}
 
-	if !cfg.SkipWaitForValidationWebhook {
-		for _, cluster := range env.KubeClusters {
-			// Wait for the validation webhook to come online before continuing.
-			if _, _, err = cluster.WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istiod"); err != nil {
-				err = fmt.Errorf("error waiting %s/%s service endpoints: %v", cfg.SystemNamespace, "istiod", err)
-				scopes.CI.Info(err.Error())
-				i.Dump()
-				return nil, err
-			}
+	scopes.CI.Infof("Running istio control plane on cluster %s %v", cluster.Name(), cmd)
+	if _, err := istioCtl.Invoke(cmd); err != nil {
+		return fmt.Errorf("manifest apply failed: %v", err)
+	}
 
-			// Wait for webhook to come online. The only reliable way to do that is to see if we can submit invalid config.
-			err = waitForValidationWebhook(cluster.Accessor, cfg)
-			if err != nil {
-				i.Dump()
-				return nil, err
+	return nil
+}
+
+func waitForControlPlane(dumper resource.Dumper, cluster kube.Cluster, cfg Config) error {
+	if !cfg.SkipWaitForValidationWebhook {
+		// Wait for the validation webhook to come online before continuing.
+		if _, _, err := cluster.WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istiod"); err != nil {
+			err = fmt.Errorf("error waiting %s/%s service endpoints: %v", cfg.SystemNamespace, "istiod", err)
+			scopes.CI.Info(err.Error())
+			dumper.Dump()
+			return err
+		}
+
+		// Wait for webhook to come online. The only reliable way to do that is to see if we can submit invalid config.
+		if err := waitForValidationWebhook(cluster.Accessor, cfg); err != nil {
+			dumper.Dump()
+			return err
+		}
+	}
+	return nil
+}
+
+func configureDirectAPIServerAccess(ctx resource.Context, env *kube.Environment, cfg Config) error {
+	// Configure direct access for each control plane to each APIServer. This allows each control plane to
+	// automatically discover endpoints in remote clusters.
+	for _, cluster := range env.KubeClusters {
+		// Create a secret.
+		secret, err := createRemoteSecret(ctx, cluster)
+		if err != nil {
+			return fmt.Errorf("failed creating remote secret for cluster %s: %v", cluster.Name(), err)
+		}
+
+		// Copy this secret to all control plane clusters.
+		for _, remote := range env.ControlPlaneClusters() {
+			if cluster.Index() != remote.Index() {
+				if _, err := remote.ApplyContents(cfg.SystemNamespace, secret); err != nil {
+					return fmt.Errorf("failed applying remote secret to cluster %s: %v", remote.Name(), err)
+				}
 			}
 		}
 	}
+	return nil
+}
 
-	return i, nil
+func createRemoteSecret(ctx resource.Context, cluster kube.Cluster) (string, error) {
+	istioCtl, err := istioctl.New(ctx, istioctl.Config{
+		Cluster: cluster,
+	})
+	if err != nil {
+		return "", err
+	}
+	cmd := []string{
+		"x", "create-remote-secret",
+		"--name", cluster.Name(),
+	}
+
+	scopes.CI.Infof("Creating remote secret for cluster cluster %d %v", cluster.Index(), cmd)
+	out, err := istioCtl.Invoke(cmd)
+	if err != nil {
+		return "", fmt.Errorf("create remote secret failed for cluster %d: %v", cluster.Index(), err)
+	}
+	return out, nil
 }
 
 func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
