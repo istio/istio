@@ -29,6 +29,9 @@ type Environment interface {
 
 	EnvironmentName() environment.Name
 
+	// IsMulticluster is a utility method that indicates whether there are multiple Clusters available.
+	IsMulticluster() bool
+
 	// Clusters in this Environment. There will always be at least one.
 	Clusters() []Cluster
 

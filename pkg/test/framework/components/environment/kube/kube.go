@@ -74,6 +74,10 @@ func (e *Environment) EnvironmentName() environment.Name {
 	return environment.Kube
 }
 
+func (e *Environment) IsMulticluster() bool {
+	return len(e.KubeClusters) > 1
+}
+
 func (e *Environment) Clusters() []resource.Cluster {
 	out := make([]resource.Cluster, 0, len(e.KubeClusters))
 	for _, c := range e.KubeClusters {

@@ -147,32 +147,34 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		return nil, err
 	}
 
-	// Create and push the CA certs to all clusters to establish a shared root of trust.
-	root, err := newSelfSignedRootCA(workDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed creating the root CA: %v", err)
-	}
-	for _, cluster := range env.KubeClusters {
-		ca, err := root.newClusterCA(cluster, cfg)
+	// For multicluster, create and push the CA certs to all clusters to establish a shared root of trust.
+	if env.IsMulticluster() {
+		root, err := newSelfSignedRootCA(workDir)
 		if err != nil {
-			return nil, fmt.Errorf("failed creating intermediate CA for cluster %s: %v", cluster.Name(), err)
+			return nil, fmt.Errorf("failed creating the root CA: %v", err)
 		}
+		for _, cluster := range env.KubeClusters {
+			ca, err := root.newClusterCA(cluster, cfg)
+			if err != nil {
+				return nil, fmt.Errorf("failed creating intermediate CA for cluster %s: %v", cluster.Name(), err)
+			}
 
-		secret, err := ca.NewSecret()
-		if err != nil {
-			return nil, fmt.Errorf("failed creating intermediate CA secret for cluster %s: %v", cluster.Name(), err)
-		}
+			secret, err := ca.NewSecret()
+			if err != nil {
+				return nil, fmt.Errorf("failed creating intermediate CA secret for cluster %s: %v", cluster.Name(), err)
+			}
 
-		// Create the system namespace.
-		if err := cluster.CreateNamespace(cfg.SystemNamespace, ""); err != nil {
-			scopes.CI.Infof("failed creating namespace %s on cluster %s. This can happen when deploying "+
-				"multiple control planes. Error: %v", cfg.SystemNamespace, cluster.Name(), err)
-		}
+			// Create the system namespace.
+			if err := cluster.CreateNamespace(cfg.SystemNamespace, ""); err != nil {
+				scopes.CI.Infof("failed creating namespace %s on cluster %s. This can happen when deploying "+
+					"multiple control planes. Error: %v", cfg.SystemNamespace, cluster.Name(), err)
+			}
 
-		// Create the secret for the cacerts.
-		if err := cluster.CreateSecret(cfg.SystemNamespace, secret); err != nil {
-			scopes.CI.Infof("failed to create CA secrets on cluster %s. This can happen when deploying "+
-				"multiple control planes. Error: %v", cluster.Name(), err)
+			// Create the secret for the cacerts.
+			if err := cluster.CreateSecret(cfg.SystemNamespace, secret); err != nil {
+				scopes.CI.Infof("failed to create CA secrets on cluster %s. This can happen when deploying "+
+					"multiple control planes. Error: %v", cluster.Name(), err)
+			}
 		}
 	}
 
@@ -211,19 +213,21 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 
 	if !cfg.SkipWaitForValidationWebhook {
-		// Wait for the validation webhook to come online before continuing.
-		if _, _, err = env.KubeClusters[0].WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istiod"); err != nil {
-			err = fmt.Errorf("error waiting %s/%s service endpoints: %v", cfg.SystemNamespace, "istiod", err)
-			scopes.CI.Info(err.Error())
-			i.Dump()
-			return nil, err
-		}
+		for _, cluster := range env.KubeClusters {
+			// Wait for the validation webhook to come online before continuing.
+			if _, _, err = cluster.WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istiod"); err != nil {
+				err = fmt.Errorf("error waiting %s/%s service endpoints: %v", cfg.SystemNamespace, "istiod", err)
+				scopes.CI.Info(err.Error())
+				i.Dump()
+				return nil, err
+			}
 
-		// Wait for webhook to come online. The only reliable way to do that is to see if we can submit invalid config.
-		err = waitForValidationWebhook(env.KubeClusters[0].Accessor, cfg)
-		if err != nil {
-			i.Dump()
-			return nil, err
+			// Wait for webhook to come online. The only reliable way to do that is to see if we can submit invalid config.
+			err = waitForValidationWebhook(cluster.Accessor, cfg)
+			if err != nil {
+				i.Dump()
+				return nil, err
+			}
 		}
 	}
 

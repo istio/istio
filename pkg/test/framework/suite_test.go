@@ -463,6 +463,10 @@ type fakeEnvironment struct {
 	numClusters int
 }
 
+func (f fakeEnvironment) IsMulticluster() bool {
+	panic("not implemented")
+}
+
 func (f fakeEnvironment) ID() resource.ID {
 	return fakeID("fake")
 }
