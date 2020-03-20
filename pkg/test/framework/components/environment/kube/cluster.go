@@ -15,6 +15,9 @@
 package kube
 
 import (
+	"bytes"
+	"fmt"
+
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/kube"
 )
@@ -25,10 +28,31 @@ var _ resource.Cluster = Cluster{}
 type Cluster struct {
 	*kube.Accessor
 	filename string
+	index    resource.ClusterIndex
 }
 
 func (c Cluster) String() string {
+	buf := &bytes.Buffer{}
+
+	_, _ = fmt.Fprintf(buf, "Index:               %d\n", c.index)
+	_, _ = fmt.Fprintf(buf, "Filename:            %s\n", c.filename)
+
+	return buf.String()
+}
+
+// Filename of the kubeconfig file for this cluster.
+func (c Cluster) Filename() string {
 	return c.filename
+}
+
+// Name provides the name this cluster used by Istio.
+func (c Cluster) Name() string {
+	return fmt.Sprintf("cluster-%d", c.index)
+}
+
+// Index of this cluster within the Environment.
+func (c Cluster) Index() resource.ClusterIndex {
+	return c.index
 }
 
 // ClusterOrDefault gets the given cluster as a kube Cluster if available. Otherwise

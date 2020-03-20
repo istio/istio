@@ -59,8 +59,10 @@ func New(ctx resource.Context) (resource.Environment, error) {
 		if err != nil {
 			return nil, err
 		}
+		clusterIndex := resource.ClusterIndex(i)
 		e.KubeClusters = append(e.KubeClusters, Cluster{
 			filename: s.KubeConfig[i],
+			index:    clusterIndex,
 			Accessor: a,
 		})
 	}
@@ -70,6 +72,10 @@ func New(ctx resource.Context) (resource.Environment, error) {
 
 func (e *Environment) EnvironmentName() environment.Name {
 	return environment.Kube
+}
+
+func (e *Environment) IsMulticluster() bool {
+	return len(e.KubeClusters) > 1
 }
 
 func (e *Environment) Clusters() []resource.Cluster {

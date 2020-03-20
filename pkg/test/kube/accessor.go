@@ -501,7 +501,7 @@ func (a *Accessor) WaitForNamespaceDeletion(ns string, opts ...retry.Option) err
 			return nil, true, nil
 		}
 
-		return nil, true, err2
+		return nil, false, err2
 	}, newRetryOptions(opts...)...)
 
 	return err
@@ -598,8 +598,10 @@ func CheckPodReady(pod *kubeApiCore.Pod) error {
 
 func deleteOptionsForeground() *kubeApiMeta.DeleteOptions {
 	propagationPolicy := kubeApiMeta.DeletePropagationForeground
+	gracePeriod := int64(0)
 	return &kubeApiMeta.DeleteOptions{
-		PropagationPolicy: &propagationPolicy,
+		PropagationPolicy:  &propagationPolicy,
+		GracePeriodSeconds: &gracePeriod,
 	}
 }
 
