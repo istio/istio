@@ -40046,6 +40046,9 @@ spec:
     - name: istio-ingressgateway
       enabled: true
       k8s:
+        env:
+          - name: ISTIO_META_ROUTER_MODE
+            value: "sni-dnat"
         hpaSpec:
           maxReplicas: 5
           minReplicas: 1
@@ -40074,6 +40077,9 @@ spec:
     - name: istio-egressgateway
       enabled: false
       k8s:
+        env:
+          - name: ISTIO_META_ROUTER_MODE
+            value: "sni-dnat"
         hpaSpec:
           maxReplicas: 5
           minReplicas: 1
@@ -40120,6 +40126,7 @@ spec:
       enabled: false
 
   # Global values passed through to helm global.yaml.
+  # Please keep this in sync with manifests/global.yaml
   values:
     global:
       istioNamespace: istio-system
@@ -40370,9 +40377,8 @@ spec:
       istio-egressgateway:
         autoscaleEnabled: true
         type: ClusterIP
-        env:
-          ISTIO_META_ROUTER_MODE: "sni-dnat"
         name: istio-egressgateway
+        # Ports must be set here and not in IstioOperator because they also end up in proxy settings.
         ports:
           - port: 80
             name: http2
@@ -40408,9 +40414,8 @@ spec:
             limits:
               cpu: 2000m
               memory: 1024Mi
-        env:
-          ISTIO_META_ROUTER_MODE: "sni-dnat"
         name: istio-ingressgateway
+        # Ports must be set here and not in IstioOperator because they also end up in proxy settings.
         ports:
           - port: 15020
             targetPort: 15020

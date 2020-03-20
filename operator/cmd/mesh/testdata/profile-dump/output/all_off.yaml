@@ -33,6 +33,9 @@ spec:
     egressGateways:
     - enabled: false
       k8s:
+        env:
+        - name: ISTIO_META_ROUTER_MODE
+          value: sni-dnat
         hpaSpec:
           maxReplicas: 5
           metrics:
@@ -71,6 +74,9 @@ spec:
     ingressGateways:
     - enabled: true
       k8s:
+        env:
+        - name: ISTIO_META_ROUTER_MODE
+          value: sni-dnat
         hpaSpec:
           maxReplicas: 5
           metrics:
@@ -207,8 +213,6 @@ spec:
     gateways:
       istio-egressgateway:
         autoscaleEnabled: true
-        env:
-          ISTIO_META_ROUTER_MODE: sni-dnat
         name: istio-egressgateway
         ports:
         - name: http2
@@ -231,8 +235,6 @@ spec:
         autoscaleEnabled: true
         debug: info
         domain: ""
-        env:
-          ISTIO_META_ROUTER_MODE: sni-dnat
         meshExpansionPorts:
         - name: tcp-pilot-grpc-tls
           port: 15011
