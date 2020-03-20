@@ -609,7 +609,7 @@ spec:
         fieldRef:
           apiVersion: v1
           fieldPath: metadata.namespace
-    image: gcr.io/google-containers/prometheus-to-sd:v0.2.3
+    image: k8s.gcr.io/prometheus-to-sd:v0.2.3
     imagePullPolicy: IfNotPresent
     name: prometheus-to-sd
     resources: {}
@@ -690,8 +690,8 @@ status:
       running:
         startedAt: 2018-12-03T17:00:10Z
   - containerID: docker://e823b79a0a48af75f2eebb1c89ba4c31e8c1ee67ee0d917ac7b4891b67d2cd0f
-    image: gcr.io/google-containers/prometheus-to-sd:v0.2.3
-    imageID: docker-pullable://gcr.io/google-containers/prometheus-to-sd@sha256:be220ec4a66275442f11d420033c106bb3502a3217a99c806eef3cf9858788a2
+    image: k8s.gcr.io/prometheus-to-sd:v0.2.3
+    imageID: docker-pullable://k8s.gcr.io/prometheus-to-sd@sha256:be220ec4a66275442f11d420033c106bb3502a3217a99c806eef3cf9858788a2
     lastState: {}
     name: prometheus-to-sd
     ready: true
