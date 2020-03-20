@@ -63,13 +63,6 @@ const (
 	// Addon root component
 	AddonComponentName ComponentName = "AddonComponents"
 
-	// Buildin addon components
-	TracingComponentName            = "Tracing"
-	PrometheusComponentName         = "Prometheus"
-	PrometheusOperatorComponentName = "PrometheusOperator"
-	KialiComponentName              = "Kiali"
-	GrafanaComponentName            = "Grafana"
-
 	// Operator components
 	IstioOperatorComponentName      ComponentName = "IstioOperator"
 	IstioOperatorCustomResourceName ComponentName = "IstioOperatorCustomResource"

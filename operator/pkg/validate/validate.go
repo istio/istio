@@ -29,8 +29,7 @@ var (
 	DefaultValidations = map[string]ValidatorFunc{
 		"Hub":                                validateHub,
 		"Tag":                                validateTag,
-		"InstallPackagePath":                 validateInstallPackagePath,
-		"AddonComponents":    validateAddonComponents,
+		"AddonComponents":                    validateAddonComponents,
 		"Components.IngressGateways[*].Name": validateGatewayName,
 		"Components.EgressGateways[*].Name":  validateGatewayName,
 	}
@@ -163,24 +162,6 @@ func validateTag(path util.Path, val interface{}) util.Errors {
 	return validateWithRegex(path, val, TagRegexp)
 }
 
-func validateInstallPackagePath(path util.Path, val interface{}) util.Errors {
-	valStr, ok := val.(string)
-	if !ok {
-		return util.NewErrs(fmt.Errorf("validateInstallPackagePath(%s) bad type %T, want string", path, val))
-	}
-
-	if valStr == "" {
-		// compiled-in charts
-		return nil
-	}
-
-	if _, err := url.ParseRequestURI(val.(string)); err != nil {
-		return util.NewErrs(fmt.Errorf("invalid value %s: %s", path, valStr))
-	}
-
-	return nil
-}
-
 func validateAddonComponents(path util.Path, val interface{}) util.Errors {
 	valMap, ok := val.(map[string]*v1alpha1.ExternalComponentSpec)
 	if !ok {
@@ -198,13 +179,13 @@ func validateAddonComponents(path util.Path, val interface{}) util.Errors {
 }
 
 func validateGatewayName(path util.Path, val interface{}) util.Errors {
-        valStr, ok := val.(string)
-        if !ok {
-                return util.NewErrs(fmt.Errorf("validateGatewayName(%s) bad type %T, want string", path, val))
-        }
-        if valStr == "" {
-                // will fall back to default gateway name: istio-ingressgateway and istio-egressgateway
-                return nil
-        }
-        return validateWithRegex(path, val, ObjectNameRegexp)
+	valStr, ok := val.(string)
+	if !ok {
+		return util.NewErrs(fmt.Errorf("validateGatewayName(%s) bad type %T, want string", path, val))
+	}
+	if valStr == "" {
+		// will fall back to default gateway name: istio-ingressgateway and istio-egressgateway
+		return nil
+	}
+	return validateWithRegex(path, val, ObjectNameRegexp)
 }
