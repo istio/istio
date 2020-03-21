@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/dns"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/pkg/env"
@@ -120,6 +121,7 @@ type Server struct {
 	environment *model.Environment
 
 	configController    model.ConfigStoreCache
+	kubeConfig          *rest.Config
 	kubeClient          kubernetes.Interface
 	startFuncs          []startFunc
 	multicluster        *kubecontroller.Multicluster
@@ -143,6 +145,7 @@ type Server struct {
 	HTTPListener    net.Listener
 	GRPCListener    net.Listener
 	GRPCDNSListener net.Listener
+	DNSListener net.Listener
 
 	// for test
 	forceStop bool
@@ -273,6 +276,17 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, fmt.Errorf("config validation: %v", err)
 	}
 
+	if err := s.initDNSListener(args); err != nil {
+		return nil, fmt.Errorf("dns listener: %v", err)
+	}
+
+	// Respond to CoreDNS gRPC queries.
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		dnsSvc := dns.InitCoreDNS(s.secureGRPCServerDNS, "", s.environment.IstioConfigStore)
+		dnsSvc.StartDNS(s.DNSListener)
+		return nil
+	})
+
 	// Run the SDS signing server.
 	// RunCA() must be called after createCA() and initDNSListener()
 	// because it depends on the following conditions:
@@ -392,6 +406,7 @@ func (s *Server) WaitUntilCompletion() {
 func (s *Server) initKubeClient(args *PilotArgs) error {
 	if hasKubeRegistry(args.Service.Registries) {
 		var err error
+		s.kubeConfig, err = kubelib.BuildClientConfig(args.Config.KubeConfig, "")
 		s.kubeClient, err = kubelib.CreateClientset(args.Config.KubeConfig, "", func(config *rest.Config) {
 			config.QPS = 20
 			config.Burst = 40
@@ -509,6 +524,46 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 	s.EnvoyXdsServer.Register(s.grpcServer)
 }
+
+// initialize DNS server listener - uses the same certs as gRPC
+func (s *Server) initDNSTLSListener(port string, keepalive *istiokeepalive.Options) error {
+	certDir := dnsCertDir
+
+	key := path.Join(certDir, constants.KeyFilename)
+	cert := path.Join(certDir, constants.CertChainFilename)
+
+	certP, err := tls.LoadX509KeyPair(cert, key)
+	if err != nil {
+		return err
+	}
+
+	cp := x509.NewCertPool()
+	rootCertBytes := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+	cp.AppendCertsFromPEM(rootCertBytes)
+
+	// TODO: check if client certs can be used with coredns or others.
+	// If yes - we may require or optionally use them
+	cfg := &tls.Config{
+		Certificates: []tls.Certificate{certP},
+		ClientAuth:   tls.NoClientCert,
+		ClientCAs:    cp,
+	}
+
+	// Default is 15012 - istio-agent relies on this as a default to distinguish what cert auth to expect
+	dns := fmt.Sprintf(":%s", port)
+
+	// create secure grpc listener
+	l, err := net.Listen("tcp", dns)
+	if err != nil {
+		return err
+	}
+
+	tl := tls.NewListener(l, cfg)
+	s.DNSListener = tl
+
+	return nil
+}
+
 
 // initialize secureGRPCServer - using DNS certs
 func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.Options) error {
