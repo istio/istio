@@ -18,6 +18,7 @@ pilot:
 security:
   enabled: true
   createMeshPolicy: false
+  selfSigned: false
 
 prometheus:
   enabled: false

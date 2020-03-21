@@ -95,7 +95,14 @@ func Test_KubeSecretController(t *testing.T) {
 
 	clientset := fake.NewSimpleClientset()
 
-	mc, err := NewMulticluster(clientset, testSecretNameSpace, WatchedNamespace, DomainSuffix, ResyncPeriod, mockserviceController, nil, nil)
+	mc, err := NewMulticluster(clientset,
+		testSecretNameSpace,
+		Options{
+			WatchedNamespace: WatchedNamespace,
+			DomainSuffix:     DomainSuffix,
+			ResyncPeriod:     ResyncPeriod,
+		},
+		mockserviceController, nil, nil)
 
 	if err != nil {
 		t.Fatalf("error creating Multicluster object and startign secret controller: %v", err)

@@ -316,7 +316,7 @@ data:
       controlPlaneAuthPolicy: MUTUAL_TLS
       #
       # Address where istio Pilot service is running
-      {{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
+      {{- if .Values.global.remotePilotAddress }}
       discoveryAddress: {{ $defPilotHostname }}:15011
       {{- else }}
       discoveryAddress: {{ $pilotAddress }}:15011
@@ -327,7 +327,7 @@ data:
       controlPlaneAuthPolicy: NONE
       #
       # Address where istio Pilot service is running
-      {{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
+      {{- if .Values.global.remotePilotAddress }}
       discoveryAddress: {{ $defPilotHostname }}:15010
       {{- else }}
       discoveryAddress: {{ $pilotAddress }}:15010

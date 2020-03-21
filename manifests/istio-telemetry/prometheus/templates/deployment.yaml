@@ -79,10 +79,13 @@ spec:
             - --parentShutdownDuration
             - "1m0s"
             - --discoveryAddress
-            {{- if .Values.global.configNamespace }}
-            - istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+            {{- $namespace := .Values.global.configNamespace | default "istio-system" }}
+            {{- if .Values.global.remotePilotAddress }}
+            # Use the DNS hostname instead of the IP address. The discovery address needs to match the
+            # SAN in istiod's cert. The istiod-remote.<namespace>.svc will resolve to the remotePilotAddress.
+            - istiod-remote.{{ $namespace }}.svc:15012
             {{- else }}
-            - istio-pilot.istio-system.svc:15012
+            - istio-pilot.{{ $namespace }}.svc:15012
             {{- end }}
             {{- if .Values.global.proxy.logLevel }}
             - --proxyLogLevel={{ .Values.global.proxy.logLevel }}
@@ -186,6 +189,8 @@ spec:
             - name: ISTIO_META_MESH_ID
               value: "{{ .Values.global.trustDomain }}"
               {{- end }}
+            - name: ISTIO_META_CLUSTER_ID
+              value: "{{ .Values.global.multiCluster.clusterName | default `Kubernetes` }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           readinessProbe:
             failureThreshold: 30

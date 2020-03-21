@@ -156,6 +156,8 @@ spec:
           - name: PILOT_EXTERNAL_GALLEY
             value: "false"
 {{- end }}
+          - name: CLUSTER_ID
+            value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
           resources:
 {{- if .Values.pilot.resources }}
 {{ toYaml .Values.pilot.resources | trim | indent 12 }}
