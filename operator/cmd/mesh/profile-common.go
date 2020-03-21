@@ -244,8 +244,8 @@ func rewriteURLToLocalInstallPath(installPackagePath, profileOrPath string, skip
 // getProfileYAML returns the YAML for the given profile name, using the given profileOrPath string, which may be either
 // a profile label or a file path.
 func getProfileYAML(installPackagePath, profileOrPath string) (string, error) {
-	// If charts are a file path and profile is a name like default, transform it to the file path.
-	if installPackagePath != "" && helm.IsBuiltinProfileName(profileOrPath) {
+	// If charts are a file path and profile is not build in, transform it to the file path.
+	if installPackagePath != "" && !helm.IsBuiltinProfileName(profileOrPath) {
 		profileOrPath = filepath.Join(installPackagePath, "profiles", profileOrPath+".yaml")
 	}
 	// This contains the IstioOperator CR.
