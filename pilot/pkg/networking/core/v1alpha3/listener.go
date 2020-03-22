@@ -1151,12 +1151,9 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPortOrUDS(node *model.Proxy, listenerMapKey *string,
 	currentListenerEntry **outboundListenerEntry, listenerOpts *buildListenerOpts,
 	pluginParams *plugin.InputParams, listenerMap map[string]*outboundListenerEntry, actualWildcard string) (bool, []*filterChainOpts) {
-	// first identify the bind if its not set. Then construct the key
-	// used to lookup the listener in the conflict map.
-	if len(listenerOpts.bind) == 0 { // no user specified bind. Use 0.0.0.0:Port
-		listenerOpts.bind = actualWildcard
-	}
-	*listenerMapKey = listenerOpts.bind + ":" + strconv.Itoa(pluginParams.Port.Port)
+
+	unusedCIDR := ""
+	_, *listenerMapKey = setDefaultBind(listenerOpts, pluginParams, &unusedCIDR, actualWildcard)
 
 	var exists bool
 
@@ -1244,12 +1241,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundThriftListenerOptsForPortOrUDS(_ *model.Proxy, listenerMapKey *string,
 	currentListenerEntry **outboundListenerEntry, listenerOpts *buildListenerOpts,
 	pluginParams *plugin.InputParams, listenerMap map[string]*outboundListenerEntry, actualWildcard string) (bool, []*filterChainOpts) {
-	// first identify the bind if its not set. Then construct the key
-	// used to lookup the listener in the conflict map.
-	if len(listenerOpts.bind) == 0 { // no user specified bind. Use 0.0.0.0:Port
-		listenerOpts.bind = actualWildcard
-	}
-	*listenerMapKey = fmt.Sprintf("%s:%d", listenerOpts.bind, pluginParams.Port.Port)
+
+	unusedCIDR := ""
+	_, *listenerMapKey = setDefaultBind(listenerOpts, pluginParams, &unusedCIDR, actualWildcard)
 
 	var exists bool
 
