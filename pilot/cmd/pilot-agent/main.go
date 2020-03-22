@@ -301,7 +301,6 @@ var (
 				PodName:             podName,
 				PodNamespace:        podNamespace,
 				PodIP:               podIP,
-				SDSUDSPath:          sa.SDSAddress,
 				STSPort:             stsPort,
 				ControlPlaneAuth:    proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 				DisableReportCalls:  disableInternalTelemetry,

@@ -228,10 +228,6 @@ func EnvoyStatsMatcherInclusionRegexp(value []string) Instance {
 	return newStringArrayOptionOrSkipIfEmpty("inclusionRegexps", value)
 }
 
-func SDSUDSPath(value string) Instance {
-	return newOption("sds_uds_path", value)
-}
-
 func PilotCertProvider(value string) Instance {
 	return newOption("pilot_cert_provider", value)
 }

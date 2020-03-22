@@ -7,7 +7,7 @@
       "zone": "zoneB",
       "sub_zone": "sub_zoneC",
     },
-    "metadata": {"EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,CANONICAL_TELEMETRY_SERVICE,MESH_ID,SERVICE_ACCOUNT","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","INTERCEPTION_MODE":"REDIRECT","ISTIO_PROXY_SHA":"istio-proxy:sha","ISTIO_VERSION":"release-3.1","LABELS":{"app":"test","istio-locality":"regionA.zoneB.sub_zoneC","version":"v1alpha1"},"NAME":"svc-0-0-0-6944fb884d-4pgx8","NAMESPACE":"test","POD_NAME":"svc-0-0-0-6944fb884d-4pgx8","SDS":"true","TRUSTJWT":"true","app":"test","istio-locality":"regionA.zoneB.sub_zoneC","istio.io/insecurepath":"{\"paths\":[\"/metrics\",\"/live\"]}","version":"v1alpha1"}
+    "metadata": {"CONFIG_NAMESPACE":"test","EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,CANONICAL_TELEMETRY_SERVICE,MESH_ID,SERVICE_ACCOUNT","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","INTERCEPTION_MODE":"REDIRECT","ISTIO_PROXY_SHA":"istio-proxy:sha","ISTIO_VERSION":"release-3.1","LABELS":{"app":"test","istio-locality":"regionA.zoneB.sub_zoneC","version":"v1alpha1"},"NAME":"svc-0-0-0-6944fb884d-4pgx8","NAMESPACE":"test","POD_NAME":"svc-0-0-0-6944fb884d-4pgx8","SDS":"true","TRUSTJWT":"true","app":"test","istio-locality":"regionA.zoneB.sub_zoneC","istio.io/insecurepath":"{\"paths\":[\"/metrics\",\"/live\"]}","version":"v1alpha1"}
   },
   "stats_config": {
     "use_all_default_tags": false,
