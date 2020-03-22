@@ -1159,6 +1159,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 	*listenerMapKey = listenerOpts.bind + ":" + strconv.Itoa(pluginParams.Port.Port)
 
 	var exists bool
+	sniffingEnabled := features.EnableProtocolSniffingForOutbound.Get()
 
 	// Have we already generated a listener for this Port based on user
 	// specified listener ports? if so, we should not add any more HTTP
@@ -1187,7 +1188,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 			return false, nil
 		}
 
-		if !features.EnableProtocolSniffingForOutbound.Get() {
+		if !sniffingEnabled {
 			if pluginParams.Service != nil {
 				if !(*currentListenerEntry).servicePort.Protocol.IsHTTP() {
 					outboundListenerConflict{
@@ -1214,7 +1215,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 		rdsName = listenerOpts.bind // use the UDS as a rds name
 	} else {
 		if pluginParams.ListenerProtocol == istionetworking.ListenerProtocolAuto &&
-			features.EnableProtocolSniffingForOutbound.Get() && listenerOpts.bind != actualWildcard && pluginParams.Service != nil {
+			sniffingEnabled && listenerOpts.bind != actualWildcard && pluginParams.Service != nil {
 			rdsName = string(pluginParams.Service.Hostname) + ":" + strconv.Itoa(pluginParams.Port.Port)
 		} else {
 			rdsName = strconv.Itoa(pluginParams.Port.Port)
