@@ -40,21 +40,19 @@ import (
 
 func TestBuildGatewayListenerTlsContext(t *testing.T) {
 	testCases := []struct {
-		name                  string
-		server                *networking.Server
-		enableIngressSdsAgent bool
-		sdsPath               string
-		result                *auth.DownstreamTlsContext
+		name    string
+		server  *networking.Server
+		sdsPath string
+		result  *auth.DownstreamTlsContext
 	}{
 		{
-			name: "ingress sdsagent disabled, mesh SDS disabled, tls mode ISTIO_MUTUAL",
+			name: "mesh SDS disabled, tls mode ISTIO_MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com"},
 				Tls: &networking.Server_TLSOptions{
 					Mode: networking.Server_TLSOptions_ISTIO_MUTUAL,
 				},
 			},
-			enableIngressSdsAgent: false,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -86,15 +84,14 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 		},
 		{
-			name: "ingress sdsagent disabled, mesh SDS enabled, tls mode ISTIO_MUTUAL",
+			name: "mesh SDS enabled, tls mode ISTIO_MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com"},
 				Tls: &networking.Server_TLSOptions{
 					Mode: networking.Server_TLSOptions_ISTIO_MUTUAL,
 				},
 			},
-			enableIngressSdsAgent: false,
-			sdsPath:               "unix:/var/run/sds/uds_path",
+			sdsPath: "unix:/var/run/sds/uds_path",
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -153,7 +150,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					Mode: networking.Server_TLSOptions_SIMPLE,
 				},
 			},
-			enableIngressSdsAgent: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -184,7 +180,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					CredentialName: "ingress-sds-resource-name",
 				},
 			},
-			enableIngressSdsAgent: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -226,7 +221,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					SubjectAltNames: []string{"subject.name.a.com", "subject.name.b.com"},
 				},
 			},
-			enableIngressSdsAgent: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -272,7 +266,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					PrivateKey:        "private-key.key",
 				},
 			},
-			enableIngressSdsAgent: false,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -304,7 +297,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					PrivateKey:        "private-key.key",
 				},
 			},
-			enableIngressSdsAgent: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -339,7 +331,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					SubjectAltNames:   []string{"subject.name.a.com", "subject.name.b.com"},
 				},
 			},
-			enableIngressSdsAgent: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -409,7 +400,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					VerifyCertificateSpki: []string{"abcdef"},
 				},
 			},
-			enableIngressSdsAgent: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -479,7 +469,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					VerifyCertificateHash: []string{"fedcba"},
 				},
 			},
-			enableIngressSdsAgent: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -548,13 +537,12 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					PrivateKey:        "private-key.key",
 				},
 			},
-			enableIngressSdsAgent: true,
-			result:                nil,
+			result: nil,
 		},
 	}
 
 	for _, tc := range testCases {
-		ret := buildGatewayListenerTLSContext(tc.server, tc.enableIngressSdsAgent, tc.sdsPath, &pilot_model.NodeMetadata{SdsEnabled: true})
+		ret := buildGatewayListenerTLSContext(tc.server, tc.sdsPath, &pilot_model.NodeMetadata{SdsEnabled: true})
 		if !reflect.DeepEqual(tc.result, ret) {
 			t.Errorf("test case %s: expecting:\n %v but got:\n %v", tc.name, tc.result, ret)
 		}
