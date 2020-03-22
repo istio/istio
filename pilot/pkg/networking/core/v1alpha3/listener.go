@@ -1290,22 +1290,20 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundThriftListenerOptsForP
 	}}
 }
 
-func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPortOrUDS(node *model.Proxy, destinationCIDR *string, listenerMapKey *string,
-	currentListenerEntry **outboundListenerEntry, listenerOpts *buildListenerOpts,
-	pluginParams *plugin.InputParams, listenerMap map[string]*outboundListenerEntry,
-	virtualServices []model.Config, actualWildcard string) (bool, []*filterChainOpts) {
-
-	// first identify the bind if its not set. Then construct the key
-	// used to lookup the listener in the conflict map.
-
-	// Determine the listener address if bind is empty
-	// we listen on the service VIP if and only
-	// if the address is an IP address. If its a CIDR, we listen on
-	// 0.0.0.0, and setup a filter chain match for the CIDR range.
-	// As a small optimization, CIDRs with /32 prefix will be converted
-	// into listener address so that there is a dedicated listener for this
-	// ip:port. This will reduce the impact of a listener reload
-
+// setDefaultBind first identifies the bind if its not set. Then constructs the
+// key used to lookup the listener in the conflict map.
+//
+// If bind is empty we listen on the service VIP if and only
+// if the address is an IP address. If its a CIDR, we listen on
+// 0.0.0.0, and setup a filter chain match for the CIDR range.
+// As a small optimization, CIDRs with /32 prefix will be converted
+// into listener address so that there is a dedicated listener for this
+// ip:port. This will reduce the impact of a listener reload.
+//
+// This returns the `destinationCIDR` (possibly updated) and the key for the
+// listener in the listener map.
+func setDefaultBind(listenerOpts *buildListenerOpts, pluginParams *plugin.InputParams, destinationCIDR *string, actualWildcard string) (string, string) {
+	newDestinationCIDR := *destinationCIDR
 	if len(listenerOpts.bind) == 0 {
 		svcListenAddress := pluginParams.Service.GetServiceAddressForProxy(pluginParams.Node)
 		// We should never get an empty address.
@@ -1317,14 +1315,23 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 			} else {
 				// Address is a CIDR. Fall back to 0.0.0.0 and
 				// filter chain match
-				*destinationCIDR = svcListenAddress
+				newDestinationCIDR = svcListenAddress
 				listenerOpts.bind = actualWildcard
 			}
 		}
 	}
 
 	// could be a unix domain socket or an IP bind
-	*listenerMapKey = fmt.Sprintf("%s:%d", listenerOpts.bind, pluginParams.Port.Port)
+	listenerMapKey := fmt.Sprintf("%s:%d", listenerOpts.bind, pluginParams.Port.Port)
+	return newDestinationCIDR, listenerMapKey
+}
+
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPortOrUDS(node *model.Proxy, destinationCIDR *string, listenerMapKey *string,
+	currentListenerEntry **outboundListenerEntry, listenerOpts *buildListenerOpts,
+	pluginParams *plugin.InputParams, listenerMap map[string]*outboundListenerEntry,
+	virtualServices []model.Config, actualWildcard string) (bool, []*filterChainOpts) {
+
+	*destinationCIDR, *listenerMapKey = setDefaultBind(listenerOpts, pluginParams, destinationCIDR, actualWildcard)
 
 	var exists bool
 
