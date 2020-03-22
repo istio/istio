@@ -17,21 +17,21 @@ package matcher
 import (
 	"strings"
 
-	envoy_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 )
 
 // StringMatcher creates a string matcher for v.
-func StringMatcher(v string) *envoy_matcher.StringMatcher {
+func StringMatcher(v string) *matcherpb.StringMatcher {
 	return StringMatcherWithPrefix(v, "")
 }
 
 // StringMatcherRegex creates a regex string matcher for regex.
-func StringMatcherRegex(regex string) *envoy_matcher.StringMatcher {
-	return &envoy_matcher.StringMatcher{
-		MatchPattern: &envoy_matcher.StringMatcher_SafeRegex{
-			SafeRegex: &envoy_matcher.RegexMatcher{
-				EngineType: &envoy_matcher.RegexMatcher_GoogleRe2{
-					GoogleRe2: &envoy_matcher.RegexMatcher_GoogleRE2{},
+func StringMatcherRegex(regex string) *matcherpb.StringMatcher {
+	return &matcherpb.StringMatcher{
+		MatchPattern: &matcherpb.StringMatcher_SafeRegex{
+			SafeRegex: &matcherpb.RegexMatcher{
+				EngineType: &matcherpb.RegexMatcher_GoogleRe2{
+					GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
 				},
 				Regex: regex,
 			},
@@ -42,27 +42,27 @@ func StringMatcherRegex(regex string) *envoy_matcher.StringMatcher {
 // StringMatcherWithPrefix creates a string matcher for v with the extra prefix inserted to the
 // created string matcher, note the prefix is ignored if v is wildcard ("*").
 // The wildcard "*" will be generated as ".+" instead of ".*".
-func StringMatcherWithPrefix(v, prefix string) *envoy_matcher.StringMatcher {
+func StringMatcherWithPrefix(v, prefix string) *matcherpb.StringMatcher {
 	switch {
 	// Check if v is "*" first to make sure we won't generate an empty prefix/suffix StringMatcher,
 	// the Envoy StringMatcher doesn't allow empty prefix/suffix.
 	case v == "*":
 		return StringMatcherRegex(".+")
 	case strings.HasPrefix(v, "*"):
-		return &envoy_matcher.StringMatcher{
-			MatchPattern: &envoy_matcher.StringMatcher_Suffix{
+		return &matcherpb.StringMatcher{
+			MatchPattern: &matcherpb.StringMatcher_Suffix{
 				Suffix: prefix + strings.TrimPrefix(v, "*"),
 			},
 		}
 	case strings.HasSuffix(v, "*"):
-		return &envoy_matcher.StringMatcher{
-			MatchPattern: &envoy_matcher.StringMatcher_Prefix{
+		return &matcherpb.StringMatcher{
+			MatchPattern: &matcherpb.StringMatcher_Prefix{
 				Prefix: prefix + strings.TrimSuffix(v, "*"),
 			},
 		}
 	default:
-		return &envoy_matcher.StringMatcher{
-			MatchPattern: &envoy_matcher.StringMatcher_Exact{
+		return &matcherpb.StringMatcher{
+			MatchPattern: &matcherpb.StringMatcher_Exact{
 				Exact: prefix + v,
 			},
 		}

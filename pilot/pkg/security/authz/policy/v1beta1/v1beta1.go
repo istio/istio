@@ -49,12 +49,12 @@ func NewGenerator(trustDomainBundle trustdomain.Bundle, denyPolicies []model.Aut
 
 func (g *v1beta1Generator) Generate(forTCPFilter bool) (denyConfig *envoyRbacHttpPb.RBAC, allowConfig *envoyRbacHttpPb.RBAC) {
 	rbacLog.Debugf("building authorization policy")
-	denyConfig = g.generatePolicy(g.denyPolicies, envoyRbacPb.RBAC_DENY, forTCPFilter)
-	allowConfig = g.generatePolicy(g.allowPolicies, envoyRbacPb.RBAC_ALLOW, forTCPFilter)
+	denyConfig = g.generate(g.denyPolicies, envoyRbacPb.RBAC_DENY, forTCPFilter)
+	allowConfig = g.generate(g.allowPolicies, envoyRbacPb.RBAC_ALLOW, forTCPFilter)
 	return
 }
 
-func (g *v1beta1Generator) generatePolicy(policies []model.AuthorizationPolicyConfig, action envoyRbacPb.RBAC_Action,
+func (g *v1beta1Generator) generate(policies []model.AuthorizationPolicyConfig, action envoyRbacPb.RBAC_Action,
 	forTCPFilter bool) *envoyRbacHttpPb.RBAC {
 	if len(policies) == 0 {
 		return nil
@@ -71,9 +71,19 @@ func (g *v1beta1Generator) generatePolicy(policies []model.AuthorizationPolicyCo
 			if rule == nil {
 				continue
 			}
-			m := authzModel.New(g.trustDomainBundle, rule)
+			m, err := authzModel.New(rule)
+			if err != nil {
+				rbacLog.Errorf("failed to construct model: %v", err)
+				continue
+			}
+			m.MigrateTrustDomain(g.trustDomainBundle)
 			rbacLog.Debugf("constructed internal model: %+v", m)
-			if p := m.Generate(forTCPFilter, forDenyPolicy); p != nil {
+			p, err := m.Generate(forTCPFilter, forDenyPolicy)
+			if err != nil {
+				rbacLog.Errorf("failed to generate policy: %v", err)
+				continue
+			}
+			if p != nil {
 				name := fmt.Sprintf("ns[%s]-policy[%s]-rule[%d]", config.Namespace, config.Name, i)
 				rbac.Policies[name] = p
 				rbacLog.Debugf("generated policy %s: %+v", name, p)

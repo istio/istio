@@ -17,48 +17,48 @@ package matcher
 import (
 	"strings"
 
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	envoy_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	routepb "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 )
 
 // HeaderMatcher converts a key, value string pair to a corresponding HeaderMatcher.
-func HeaderMatcher(k, v string) *route.HeaderMatcher {
+func HeaderMatcher(k, v string) *routepb.HeaderMatcher {
 	// We must check "*" first to make sure we'll generate a non empty value in the prefix/suffix case.
 	// Empty prefix/suffix value is invalid in HeaderMatcher.
 	if v == "*" {
-		return &route.HeaderMatcher{
+		return &routepb.HeaderMatcher{
 			Name: k,
-			HeaderMatchSpecifier: &route.HeaderMatcher_PresentMatch{
+			HeaderMatchSpecifier: &routepb.HeaderMatcher_PresentMatch{
 				PresentMatch: true,
 			},
 		}
 	} else if strings.HasPrefix(v, "*") {
-		return &route.HeaderMatcher{
+		return &routepb.HeaderMatcher{
 			Name: k,
-			HeaderMatchSpecifier: &route.HeaderMatcher_SuffixMatch{
+			HeaderMatchSpecifier: &routepb.HeaderMatcher_SuffixMatch{
 				SuffixMatch: v[1:],
 			},
 		}
 	} else if strings.HasSuffix(v, "*") {
-		return &route.HeaderMatcher{
+		return &routepb.HeaderMatcher{
 			Name: k,
-			HeaderMatchSpecifier: &route.HeaderMatcher_PrefixMatch{
+			HeaderMatchSpecifier: &routepb.HeaderMatcher_PrefixMatch{
 				PrefixMatch: v[:len(v)-1],
 			},
 		}
 	}
-	return &route.HeaderMatcher{
+	return &routepb.HeaderMatcher{
 		Name: k,
-		HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
+		HeaderMatchSpecifier: &routepb.HeaderMatcher_ExactMatch{
 			ExactMatch: v,
 		},
 	}
 }
 
 // PathMatcher creates a path matcher for a path.
-func PathMatcher(path string) *envoy_matcher.PathMatcher {
-	return &envoy_matcher.PathMatcher{
-		Rule: &envoy_matcher.PathMatcher_Path{
+func PathMatcher(path string) *matcherpb.PathMatcher {
+	return &matcherpb.PathMatcher{
+		Rule: &matcherpb.PathMatcher_Path{
 			Path: StringMatcher(path),
 		},
 	}

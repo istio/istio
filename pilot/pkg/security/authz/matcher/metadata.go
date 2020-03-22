@@ -15,23 +15,23 @@
 package matcher
 
 import (
-	envoy_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 )
 
 // MetadataStringMatcher creates a metadata string matcher for the given filter, key and the
 // string matcher.
-func MetadataStringMatcher(filter, key string, m *envoy_matcher.StringMatcher) *envoy_matcher.MetadataMatcher {
-	return &envoy_matcher.MetadataMatcher{
+func MetadataStringMatcher(filter, key string, m *matcherpb.StringMatcher) *matcherpb.MetadataMatcher {
+	return &matcherpb.MetadataMatcher{
 		Filter: filter,
-		Path: []*envoy_matcher.MetadataMatcher_PathSegment{
+		Path: []*matcherpb.MetadataMatcher_PathSegment{
 			{
-				Segment: &envoy_matcher.MetadataMatcher_PathSegment_Key{
+				Segment: &matcherpb.MetadataMatcher_PathSegment_Key{
 					Key: key,
 				},
 			},
 		},
-		Value: &envoy_matcher.ValueMatcher{
-			MatchPattern: &envoy_matcher.ValueMatcher_StringMatch{
+		Value: &matcherpb.ValueMatcher{
+			MatchPattern: &matcherpb.ValueMatcher_StringMatch{
 				StringMatch: m,
 			},
 		},
@@ -39,31 +39,31 @@ func MetadataStringMatcher(filter, key string, m *envoy_matcher.StringMatcher) *
 }
 
 // MetadataListMatcher creates a metadata list matcher for the given path keys and value.
-func MetadataListMatcher(filter string, keys []string, value string) *envoy_matcher.MetadataMatcher {
-	listMatcher := &envoy_matcher.ListMatcher{
-		MatchPattern: &envoy_matcher.ListMatcher_OneOf{
-			OneOf: &envoy_matcher.ValueMatcher{
-				MatchPattern: &envoy_matcher.ValueMatcher_StringMatch{
+func MetadataListMatcher(filter string, keys []string, value string) *matcherpb.MetadataMatcher {
+	listMatcher := &matcherpb.ListMatcher{
+		MatchPattern: &matcherpb.ListMatcher_OneOf{
+			OneOf: &matcherpb.ValueMatcher{
+				MatchPattern: &matcherpb.ValueMatcher_StringMatch{
 					StringMatch: StringMatcher(value),
 				},
 			},
 		},
 	}
 
-	paths := make([]*envoy_matcher.MetadataMatcher_PathSegment, 0)
+	paths := make([]*matcherpb.MetadataMatcher_PathSegment, 0)
 	for _, k := range keys {
-		paths = append(paths, &envoy_matcher.MetadataMatcher_PathSegment{
-			Segment: &envoy_matcher.MetadataMatcher_PathSegment_Key{
+		paths = append(paths, &matcherpb.MetadataMatcher_PathSegment{
+			Segment: &matcherpb.MetadataMatcher_PathSegment_Key{
 				Key: k,
 			},
 		})
 	}
 
-	return &envoy_matcher.MetadataMatcher{
+	return &matcherpb.MetadataMatcher{
 		Filter: filter,
 		Path:   paths,
-		Value: &envoy_matcher.ValueMatcher{
-			MatchPattern: &envoy_matcher.ValueMatcher_ListMatch{
+		Value: &matcherpb.ValueMatcher{
+			MatchPattern: &matcherpb.ValueMatcher_ListMatch{
 				ListMatch: listMatcher,
 			},
 		},
