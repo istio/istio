@@ -142,7 +142,7 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 	// Note: the HTTP inspector should be after TLS inspector.
 	// If TLS inspector sets transport protocol to tls, the http inspector
 	// won't inspect the packet.
-	if util.IsProtocolSniffingEnabledForInbound(lb.node) {
+	if features.EnableProtocolSniffingForInbound.Get() {
 		lb.virtualInboundListener.ListenerFilters =
 			append(lb.virtualInboundListener.ListenerFilters, &listener.ListenerFilter{
 				Name: xdsutil.HttpInspector,
@@ -260,7 +260,7 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 	actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	filterChains, needTLSForPassThroughFilterChain := buildInboundCatchAllNetworkFilterChains(configgen, lb.node, lb.push)
-	if util.IsProtocolSniffingEnabledForInbound(lb.node) {
+	if features.EnableProtocolSniffingForInbound.Get() {
 		filterChains = append(filterChains, buildInboundCatchAllHTTPFilterChains(configgen, lb.node, lb.push)...)
 	}
 	lb.virtualInboundListener = &xdsapi.Listener{
