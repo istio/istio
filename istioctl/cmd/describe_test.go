@@ -82,36 +82,6 @@ var (
 		},
 	}
 
-	cannedIngressGatewayService7080 = coreV1.Service{
-		ObjectMeta: metaV1.ObjectMeta{
-			Name:      "istio-ingressgateway",
-			Namespace: "istio-system",
-			Labels: map[string]string{
-				"istio": "ingressgateway",
-			},
-		},
-		Spec: coreV1.ServiceSpec{
-			Ports: []coreV1.ServicePort{
-				{
-					Port:     7080,
-					NodePort: 31380,
-					Name:     "http2",
-					Protocol: "TCP",
-				},
-			},
-			Selector: map[string]string{"istio": "ingressgateway"},
-		},
-		Status: coreV1.ServiceStatus{
-			LoadBalancer: coreV1.LoadBalancerStatus{
-				Ingress: []coreV1.LoadBalancerIngress{
-					{
-						IP: "10.1.2.3",
-					},
-				},
-			},
-		},
-	}
-
 	cannedIngressGatewayPod = coreV1.Pod{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:      "istio-ingressgateway-5bf6c9887-vvvmj",
