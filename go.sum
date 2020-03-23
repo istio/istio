@@ -390,6 +390,8 @@ github.com/imdario/mergo v0.3.7 h1:Y+UAYTZ7gDEuOfhxKWy+dvb5dRQ6rJjFSdX2HZY1/gI=
 github.com/imdario/mergo v0.3.7/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=
 github.com/inconshreveable/mousetrap v1.0.0 h1:Z8tu5sraLXCXIcARxBp/8cbvlwVa7Z1NHg9XEKhtSvM=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
+github.com/istio-private/operator v0.0.0-20200322202304-52622ecf9ec2 h1:tE7+/2Wj09bOb/HnngCiIuyQdBd6nRcn1xn09L9iBbk=
+github.com/istio-private/operator v0.0.0-20200322202304-52622ecf9ec2/go.mod h1:dLssahRjoKKYFosavVSViIqf5xZ00BN0pOfXyWumiI0=
 github.com/istio/glog v0.0.0-20190424172949-d7cfb6fa2ccd h1:AJnLAbRpHRy2stiICRI1hcp0f8EExPEiZLgeOmCGnuE=
 github.com/istio/glog v0.0.0-20190424172949-d7cfb6fa2ccd/go.mod h1:gF8UB8w1Mqkddo9AqNOPkiduBosB3HHkpC5ra96cDzw=
 github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf h1:AshFubsUWsHMYfGoz5XLZOOF87wnop5O/Fjjnqjk8lY=
@@ -843,8 +845,6 @@ istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a h1:w7zILua2dnYo9CxImhp
 istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a/go.mod h1:OzpAts7jljZceG4Vqi5/zXy/pOg1b209T3jb7Nv5wIs=
 istio.io/gogo-genproto v0.0.0-20191029161641-f7d19ec0141d h1:OCJTcFsWtB/2RBM8iZa5Bb8YnHpCUUSgnQBggCbJH4w=
 istio.io/gogo-genproto v0.0.0-20191029161641-f7d19ec0141d/go.mod h1:OzpAts7jljZceG4Vqi5/zXy/pOg1b209T3jb7Nv5wIs=
-istio.io/operator v0.0.0-20200303144355-24c645ddc310 h1:oDWp6bQW8r9brIjhr25VOXfUoFt2UfZy7ki2bA0sTZg=
-istio.io/operator v0.0.0-20200303144355-24c645ddc310/go.mod h1:dLssahRjoKKYFosavVSViIqf5xZ00BN0pOfXyWumiI0=
 istio.io/pkg v0.0.0-20191030005435-10d06b6b315e h1:xOrrel2PBjAFHPLvF2tRty6Z/jZ/FF4+LdKv93Z8T+I=
 istio.io/pkg v0.0.0-20191030005435-10d06b6b315e/go.mod h1:O7Uqtzc1w7+NiEV2TUeO2yPoR+4GlwlDgSocYZMjBfs=
 k8s.io/api v0.0.0-20191003000013-35e20aa79eb8 h1:cJZ/+fVFIFQDkUewZeim5OhZ8X+h48lMtMsZgQMdxOo=

@@ -16,7 +16,7 @@
 
 # this repo is not yet on the container plan by default
 BUILD_WITH_CONTAINER ?= 0
-
+export GOPRIVATE=github.com/istio-private/operator
 # create phony targets for the top-level items in the repo
 PHONYS := $(shell ls | grep -v Makefile)
 .PHONY: $(PHONYS)
