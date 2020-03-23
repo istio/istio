@@ -42,20 +42,6 @@ const (
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
-  name: https-service
-spec:
-  hosts:
-  - istio.io
-  location: MESH_EXTERNAL
-  ports:
-  - name: https
-    number: 90
-    protocol: HTTPS
-  resolution: DNS
----
-apiVersion: networking.istio.io/v1alpha3
-kind: ServiceEntry
-metadata:
   name: http
 spec:
   hosts:
@@ -65,19 +51,11 @@ spec:
   - name: http
     number: 80
     protocol: HTTP
-  resolution: DNS
----
-apiVersion: networking.istio.io/v1alpha3
-kind: ServiceEntry
-metadata:
-  name: http-on-443
-spec:
-  hosts:
-  - c.istio.io
-  location: MESH_EXTERNAL
-  ports:
-  - name: http
+  - name: http-for-https
     number: 443
+    protocol: HTTP
+  - name: http-tcp
+    number: 9090
     protocol: HTTP
   resolution: DNS
 `
@@ -253,14 +231,20 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 						{
 							Name:     "http",
 							Protocol: protocol.HTTP,
-							// We use a port > 1024 to not require root
 							InstancePort: 8090,
+							ServicePort: 80,
 						},
 						{
-							Name:     "https",
-							Protocol: protocol.HTTPS,
-							// We use a port > 1024 to not require root
+							Name:         "https",
+							Protocol:     protocol.HTTPS,
 							InstancePort: 8091,
+							ServicePort:  443,
+						},
+						{
+							Name:     "tcp",
+							Protocol: protocol.TCP,
+							InstancePort: 8092,
+							ServicePort: 9090,
 						},
 					},
 				}).BuildOrFail(t)
@@ -293,6 +277,7 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 				{
 					name:     "HTTPS Traffic",
 					portName: "https",
+					// TODO: set up TLS here instead of just sending HTTP. We get a false positive here
 					scheme:   scheme.HTTP,
 				},
 				{
@@ -301,6 +286,11 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 					host:     "some-external-site.com",
 					gateway:  true,
 					scheme:   scheme.HTTP,
+				},
+				{
+					name:     "TCP",
+					portName: "tcp",
+					scheme:   scheme.TCP,
 				},
 				// TODO add HTTPS through gateway
 			}
@@ -331,7 +321,7 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 							codes = append(codes, r.Code)
 						}
 						if !reflect.DeepEqual(codes, expected[key]) {
-							return fmt.Errorf("got codes %v, expected %v", codes, expected[key])
+							return fmt.Errorf("got codes %q, expected %q", codes, expected[key])
 						}
 						for _, r := range resp {
 							if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.gateway && !f {
