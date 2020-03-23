@@ -13544,7 +13544,7 @@ metadata:
     release: {{ .Release.Name }}
 rules:
 - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
-{{- if and .Values.global.istiod.enableAnalysis }}
+{{- if .Values.global.istiod.enableAnalysis }}
   verbs: ["get", "watch", "list", "update"]
 {{- else }}
   verbs: ["get", "watch", "list"]
@@ -14104,7 +14104,9 @@ var _chartsBaseValuesYaml = []byte(`global:
   # It is assumed that istio-system is running either 1.0 or an upgraded version of 1.1, but only security components are
   # used (citadel generating the secrets).
   istioNamespace: istio-system
-`)
+
+  istiod:
+    enableAnalysis: false`)
 
 func chartsBaseValuesYamlBytes() ([]byte, error) {
 	return _chartsBaseValuesYaml, nil
@@ -17845,6 +17847,7 @@ data:
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
         "istiod": {
+          "enableAnalysis": false,
           "enabled": true
         },
         "jwtPolicy": "third-party-jwt",
@@ -18569,6 +18572,8 @@ spec:
           - name: ISTIOD_ADDR
             value: istiod.istio-system.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
+            value: "false"
+          - name: PILOT_ENABLE_ANALYSIS
             value: "false"
           - name: CLUSTER_ID
             value: "Kubernetes"
