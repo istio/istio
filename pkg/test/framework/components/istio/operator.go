@@ -210,7 +210,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 		defaultsIOPFile = filepath.Join(env.IstioSrc, defaultsIOPFile)
 	}
 
-	i.installSettings = []string{
+	c.installSettings = []string{
 		"-f", iopFile,
 		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
 	}
@@ -218,13 +218,13 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 	// just for helm use case. Otherwise, include all values.
 	if cfg.ControlPlaneValues == "" {
 		for k, v := range cfg.Values {
-			i.installSettings = append(i.installSettings, "--set", fmt.Sprintf("values.%s=%s", k, v))
+			c.installSettings = append(c.installSettings, "--set", fmt.Sprintf("values.%s=%s", k, v))
 		}
 	}
 	if c.environment.IsMulticluster() {
 		// Set the clusterName for the local cluster.
 		// This MUST match the clusterName in the remote secret for this cluster.
-		i.installSettings = append(i.installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
+		c.installSettings = append(c.installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
 	}
 
 	cmd := []string{
@@ -233,7 +233,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 		"--logtostderr",
 		"--wait",
 	}
-	cmd = append(cmd, i.installSettings...)
+	cmd = append(cmd, c.installSettings...)
 
 	scopes.CI.Infof("Running istio control plane on cluster %s %v", cluster.Name(), cmd)
 	if _, err := istioCtl.Invoke(cmd); err != nil {
