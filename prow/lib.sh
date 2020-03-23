@@ -14,9 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Cluster names for multicluster
+# Cluster names for multicluster configurations.
 export CLUSTER1_NAME=${CLUSTER1_NAME:-"cluster1"}
 export CLUSTER2_NAME=${CLUSTER2_NAME:-"cluster2"}
+export CLUSTER3_NAME=${CLUSTER3_NAME:-"cluster3"}
+
+export CLUSTER_NAMES=("${CLUSTER1_NAME}" "${CLUSTER2_NAME}" "${CLUSTER3_NAME}")
+export CLUSTER_POD_SUBNETS=(10.10.0.0/16 10.20.0.0/16 10.30.0.0/16)
 
 function setup_gcloud_credentials() {
   if [[ $(command -v gcloud) ]]; then
@@ -97,10 +101,11 @@ function kind_load_images() {
   fi
 }
 
-# Loads images into both $CLUSTER1_NAME and $CLUSTER2_NAME
-function kind_load_images_multicluster() {
-  time kind_load_images "${CLUSTER1_NAME}"
-  time kind_load_images "${CLUSTER2_NAME}"
+# Loads images into all clusters.
+function kind_load_images_on_clusters() {
+  for c in "${CLUSTER_NAMES[@]}"; do
+     time kind_load_images "${c}"
+  done
 }
 
 function clone_cni() {
@@ -123,10 +128,11 @@ function cleanup_kind_cluster() {
   fi
 }
 
-# Cleans up the clusters created by setup_kind_multicluster_single_network
-function cleanup_kind_multicluster() {
-  cleanup_kind_cluster "${CLUSTER1_NAME}"
-  cleanup_kind_cluster "${CLUSTER2_NAME}"
+# Cleans up the clusters created by setup_kind_clusters
+function cleanup_kind_clusters() {
+  for c in "${CLUSTER_NAMES[@]}"; do
+     cleanup_kind_cluster "${c}"
+  done
 }
 
 function setup_kind_cluster() {
@@ -176,53 +182,79 @@ EOF
   kubectl apply -f ./prow/config/metrics
 }
 
-# Sets up 2 kind clusters (named $CLUSTER1_NAME, $CLUSTER2_NAME) configured for direct pod-to-pod traffic across
-# clusters.
-function setup_kind_multicluster_single_network() {
-  IMAGE="${1}"
-  # Create the kind configuration files for the 2 clusters
-  CLUSTER1_YAML="${ARTIFACTS}/config-${CLUSTER1_NAME}.yaml"
-  CLUSTER2_YAML="${ARTIFACTS}/config-${CLUSTER2_NAME}.yaml"
-  cat <<EOF > "${CLUSTER1_YAML}"
-    kind: Cluster
-    apiVersion: kind.sigs.k8s.io/v1alpha3
-    networking:
-      podSubnet: 10.10.0.0/16
-      serviceSubnet: 10.255.10.0/24
-EOF
-  cat <<EOF > "${CLUSTER2_YAML}"
-    kind: Cluster
-    apiVersion: kind.sigs.k8s.io/v1alpha3
-    networking:
-      podSubnet: 10.20.0.0/16
-      serviceSubnet: 10.255.20.0/24
-EOF
+# Sets up 3 kind clusters. Clusters 1 and 2 are configured for direct pod-to-pod traffic across
+# clusters, while cluster 3 is left on a separate network.
+function setup_kind_clusters() {
+  TOPOLOGY="${1}"
+  IMAGE="${2}"
 
-  CLUSTERREG_DIR="$(mktemp -d)"
-  export CLUSTER1_KUBECONFIG="${CLUSTERREG_DIR}/${CLUSTER1_NAME}"
-  export CLUSTER2_KUBECONFIG="${CLUSTERREG_DIR}/${CLUSTER2_NAME}"
+  KUBECONFIG_DIR="$(mktemp -d)"
 
   # Trap replaces any previous trap's, so we need to explicitly cleanup both clusters here
-  trap cleanup_kind_multicluster EXIT
+  trap cleanup_kind_clusters EXIT
 
-  # Create two clusters. Explicitly delcare the subnet so we can connect the two later
-  # TODO: add IPv6
-  KUBECONFIG="${CLUSTER1_KUBECONFIG}" setup_kind_cluster "ipv4" "${IMAGE}" "${CLUSTER1_NAME}" "${CLUSTER1_YAML}"
-  KUBECONFIG="${CLUSTER2_KUBECONFIG}" setup_kind_cluster "ipv4" "${IMAGE}" "${CLUSTER2_NAME}" "${CLUSTER2_YAML}"
+  for i in "${!CLUSTER_NAMES[@]}"; do
+    CLUSTER_NAME="${CLUSTER_NAMES[$i]}"
+    CLUSTER_POD_SUBNET="${CLUSTER_POD_SUBNETS[$i]}"
+    CLUSTER_YAML="${ARTIFACTS}/config-${CLUSTER_NAME}.yaml"
+    cat <<EOF > "${CLUSTER_YAML}"
+      kind: Cluster
+      apiVersion: kind.sigs.k8s.io/v1alpha3
+      networking:
+        podSubnet: ${CLUSTER_POD_SUBNET}
+        serviceSubnet: 10.255.10.0/24
+EOF
 
-  # Replace with --internal which allows cross-cluster api server access
-  kind get kubeconfig --name "${CLUSTER1_NAME}" --internal > "${CLUSTER1_KUBECONFIG}"
-  kind get kubeconfig --name "${CLUSTER2_NAME}" --internal > "${CLUSTER2_KUBECONFIG}"
+    CLUSTER_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER_NAME}"
+
+    # Create the clusters.
+    # TODO: add IPv6
+    KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "ipv4" "${IMAGE}" "${CLUSTER_NAME}" "${CLUSTER_YAML}"
+  done
+
+  # Export variables for the kube configs for the clusters.
+  export CLUSTER1_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER1_NAME}"
+  export CLUSTER2_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER2_NAME}"
+  export CLUSTER3_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER3_NAME}"
+  CLUSTER_KUBECONFIGS=("$CLUSTER1_KUBECONFIG" "$CLUSTER2_KUBECONFIG" "$CLUSTER3_KUBECONFIG")
+
+  if [[ "${TOPOLOGY}" == "MULTICLUSTER_SINGLE_NETWORK" ]]; then
+    # Allow direct access between all clusters.
+    for i in "${!CLUSTER_NAMES[@]}"; do
+      CLUSTERI_NAME="${CLUSTER_NAMES[$i]}"
+      CLUSTERI_KUBECONFIG="${CLUSTER_KUBECONFIGS[$i]}"
+
+      for j in "${!CLUSTER_NAMES[@]}"; do
+        CLUSTERJ_NAME="${CLUSTER_NAMES[$j]}"
+        CLUSTERJ_KUBECONFIG="${CLUSTER_KUBECONFIGS[$j]}"
+
+        if [ "$j" -gt "$i" ]; then
+          connect_kind_clusters "${CLUSTERI_NAME}" "${CLUSTERI_KUBECONFIG}" "${CLUSTERJ_NAME}" "${CLUSTERJ_KUBECONFIG}"
+        fi
+      done
+    done
+  else
+    # Connect clusters 1 and 2, but leave cluster 3 on a separate network.
+    connect_kind_clusters "${CLUSTER1_NAME}" "${CLUSTER1_KUBECONFIG}" "${CLUSTER2_NAME}" "${CLUSTER2_KUBECONFIG}"
+  fi
+
+}
+
+function connect_kind_clusters() {
+  C1="${1}"
+  C1_KUBECONFIG="${2}"
+  C2="${3}"
+  C2_KUBECONFIG="${4}"
 
   # Set up routing rules for inter-cluster direct pod to pod communication
-  CLUSTER1_NODE="${CLUSTER1_NAME}-control-plane"
-  CLUSTER2_NODE="${CLUSTER2_NAME}-control-plane"
-  CLUSTER1_DOCKER_IP=$(docker inspect -f "{{ .NetworkSettings.IPAddress }}" "${CLUSTER1_NODE}")
-  CLUSTER2_DOCKER_IP=$(docker inspect -f "{{ .NetworkSettings.IPAddress }}" "${CLUSTER2_NODE}")
-  CLUSTER1_POD_CIDR=$(KUBECONFIG="${CLUSTER1_KUBECONFIG}" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
-  CLUSTER2_POD_CIDR=$(KUBECONFIG="${CLUSTER2_KUBECONFIG}" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
-  docker exec "${CLUSTER1_NODE}" ip route add "${CLUSTER2_POD_CIDR}" via "${CLUSTER2_DOCKER_IP}"
-  docker exec "${CLUSTER2_NODE}" ip route add "${CLUSTER1_POD_CIDR}" via "${CLUSTER1_DOCKER_IP}"
+  C1_NODE="${C1}-control-plane"
+  C2_NODE="${C2}-control-plane"
+  C1_DOCKER_IP=$(docker inspect -f "{{ .NetworkSettings.IPAddress }}" "${C1_NODE}")
+  C2_DOCKER_IP=$(docker inspect -f "{{ .NetworkSettings.IPAddress }}" "${C2_NODE}")
+  C1_POD_CIDR=$(KUBECONFIG="${C1_KUBECONFIG}" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
+  C2_POD_CIDR=$(KUBECONFIG="${C2_KUBECONFIG}" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
+  docker exec "${C1_NODE}" ip route add "${C2_POD_CIDR}" via "${C2_DOCKER_IP}"
+  docker exec "${C2_NODE}" ip route add "${C1_POD_CIDR}" via "${C1_DOCKER_IP}"
 }
 
 function cni_run_daemon_kind() {
