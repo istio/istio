@@ -1159,6 +1159,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 	*listenerMapKey = listenerOpts.bind + ":" + strconv.Itoa(pluginParams.Port.Port)
 
 	var exists bool
+	sniffingEnabled := features.EnableProtocolSniffingForOutbound.Get()
 
 	// Have we already generated a listener for this Port based on user
 	// specified listener ports? if so, we should not add any more HTTP
@@ -1187,7 +1188,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 			return false, nil
 		}
 
-		if !util.IsProtocolSniffingEnabledForOutbound(node) {
+		if !sniffingEnabled {
 			if pluginParams.Service != nil {
 				if !(*currentListenerEntry).servicePort.Protocol.IsHTTP() {
 					outboundListenerConflict{
@@ -1214,7 +1215,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 		rdsName = listenerOpts.bind // use the UDS as a rds name
 	} else {
 		if pluginParams.ListenerProtocol == istionetworking.ListenerProtocolAuto &&
-			util.IsProtocolSniffingEnabledForOutbound(node) && listenerOpts.bind != actualWildcard && pluginParams.Service != nil {
+			sniffingEnabled && listenerOpts.bind != actualWildcard && pluginParams.Service != nil {
 			rdsName = string(pluginParams.Service.Hostname) + ":" + strconv.Itoa(pluginParams.Port.Port)
 		} else {
 			rdsName = strconv.Itoa(pluginParams.Port.Port)
@@ -1349,7 +1350,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 			return false, nil
 		}
 
-		if !util.IsProtocolSniffingEnabledForOutbound(node) {
+		if !features.EnableProtocolSniffingForOutbound.Get() {
 			// Check for port collisions between TCP/TLS and HTTP (or unknown). If
 			// configured correctly, TCP/TLS ports may not collide. We'll
 			// need to do additional work to find out if there is a
@@ -1422,6 +1423,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 
 	conflictType := NoConflict
 
+	outboundSniffingEnabled := features.EnableProtocolSniffingForOutbound.Get()
+
 	// For HTTP_PROXY protocol defined by sidecars, just create the HTTP listener right away.
 	if pluginParams.Port.Protocol == protocol.HTTP_PROXY {
 		if ret, opts = configgen.buildSidecarOutboundHTTPListenerOptsForPortOrUDS(node, &listenerMapKey, &currentListenerEntry,
@@ -1438,7 +1441,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 			}
 
 			// Check if conflict happens
-			if util.IsProtocolSniffingEnabledForOutbound(node) && currentListenerEntry != nil {
+			if outboundSniffingEnabled && currentListenerEntry != nil {
 				// Build HTTP listener. If current listener entry is using HTTP or protocol sniffing,
 				// append the service. Otherwise (TCP), change current listener to use protocol sniffing.
 				if currentListenerEntry.protocol.IsHTTP() {
@@ -1461,7 +1464,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 			}
 
 			// Protocol sniffing for thrift is not supported.
-			if util.IsProtocolSniffingEnabledForOutbound(node) && currentListenerEntry != nil {
+			if outboundSniffingEnabled && currentListenerEntry != nil {
 				// We should not ever end up here, but log a line just in case.
 				log.Errorf(
 					"Protocol sniffing is not enabled for thrift, but there was a port collision. Debug info: Node: %v, ListenerEntry: %v",
@@ -1478,7 +1481,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 			}
 
 			// Check if conflict happens
-			if util.IsProtocolSniffingEnabledForOutbound(node) && currentListenerEntry != nil {
+			if outboundSniffingEnabled && currentListenerEntry != nil {
 				// Build TCP listener. If current listener entry is using HTTP, add a new TCP filter chain
 				// If current listener is using protocol sniffing, merge the TCP filter chains.
 				if currentListenerEntry.protocol.IsHTTP() {
@@ -2127,9 +2130,8 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		DeprecatedV1:    deprecatedV1,
 	}
 
-	if util.IsIstioVersionGE13(opts.proxy) && opts.proxy.Type != model.Router {
+	if opts.proxy.Type != model.Router {
 		listener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(opts.push.Mesh.ProtocolDetectionTimeout)
-
 		if listener.ListenerFiltersTimeout != nil {
 			listener.ContinueOnListenerFiltersTimeout = true
 		}
