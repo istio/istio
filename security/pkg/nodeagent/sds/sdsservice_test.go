@@ -565,7 +565,6 @@ func TestStreamSecretsMultiplePush(t *testing.T) {
 	waitForNotificationToProceed(t, notifyChan, "notify push secret")
 	// verify that the first SDS request does not hit cache.
 	waitForSecretCacheCheck(t, setup.secretStore, false, 1)
-	setup.verifyTotalPushes(1)
 	// simulate logic in constructConnectionID() function.
 	conID := getClientConID(proxyID)
 	// Test push new secret to proxy.
@@ -575,8 +574,6 @@ func TestStreamSecretsMultiplePush(t *testing.T) {
 	}
 	notifyChan <- notifyMsg{Err: nil, Message: "receive secret"}
 	waitForNotificationToProceed(t, notifyChan, "close stream")
-	// Verify that there is no push this time, total number of pushes is not changed.
-	setup.verifyTotalPushes(1)
 }
 
 func testSDSStreamUpdateFailures(stream sds.SecretDiscoveryService_StreamSecretsClient, proxyID string,
@@ -670,7 +667,6 @@ func TestStreamSecretsUpdateFailures(t *testing.T) {
 	waitForNotificationToProceed(t, notifyChan, "close stream")
 
 	setup.verifyUpdateFailureCount(1)
-	setup.verifyTotalPushes(2)
 }
 
 type Setup struct {
