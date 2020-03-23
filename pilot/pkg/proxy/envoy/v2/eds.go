@@ -481,7 +481,8 @@ func getDestinationRule(push *model.PushContext, proxy *model.Proxy, hostname ho
 	return nil, nil
 }
 
-func outlierDetectionStatusAndLoadBalancerSettings(push *model.PushContext, proxy *model.Proxy, clusterName string) (bool, *networkingapi.LoadBalancerSettings) {
+func outlierDetectionStatusAndLoadBalancerSettings(push *model.PushContext, proxy *model.Proxy,
+	clusterName string) (bool, *networkingapi.LoadBalancerSettings) {
 	_, subsetName, hostname, portNumber := model.ParseSubsetKey(clusterName)
 	var outlierDetectionEnabled = false
 	var lbSettings *networkingapi.LoadBalancerSettings
