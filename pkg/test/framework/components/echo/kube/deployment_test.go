@@ -140,13 +140,13 @@ func TestDeploymentYAML(t *testing.T) {
 		gotBytes := []byte(serviceYAML + "---" + deploymentYAML)
 		wantedBytes := testutil.ReadGoldenFile(gotBytes, tc.wantFilePath, t)
 
-			wantBytes := testutil.StripVersion(wantedBytes)
-			gotBytes = testutil.StripVersion(gotBytes)
+		wantBytes := testutil.StripVersion(wantedBytes)
+		gotBytes = testutil.StripVersion(gotBytes)
 
-			if testutil.Refresh() {
-				testutil.RefreshGoldenFile(gotBytes, tc.wantFilePath, t)
-			}
+		if testutil.Refresh() {
+			testutil.RefreshGoldenFile(gotBytes, tc.wantFilePath, t)
+		}
 
-			testutil.CompareBytes(gotBytes, wantBytes, tc.wantFilePath, t)
+		testutil.CompareBytes(gotBytes, wantBytes, tc.wantFilePath, t)
 	}
 }
