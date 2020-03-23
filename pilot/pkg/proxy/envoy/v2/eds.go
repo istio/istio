@@ -405,7 +405,7 @@ func (s *DiscoveryServer) generateEndpoints(
 	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
 	// Failover should only be enabled when there is an outlier detection, otherwise Envoy
 	// will never detect the hosts are unhealthy and redirect traffic.
-	enableFailover, lb := outlierDetectionStatusAndLoadBalancerSettings(push, proxy, clusterName)
+	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(push, proxy, clusterName)
 	lbSetting := loadbalancer.GetLocalityLbSetting(push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
 	if lbSetting != nil {
 		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
@@ -481,8 +481,7 @@ func getDestinationRule(push *model.PushContext, proxy *model.Proxy, hostname ho
 	return nil, nil
 }
 
-func outlierDetectionStatusAndLoadBalancerSettings(push *model.PushContext, proxy *model.Proxy,
-	clusterName string) (bool, *networkingapi.LoadBalancerSettings) {
+func getOutlierDetectionAndLoadBalancerSettings(push *model.PushContext, proxy *model.Proxy, clusterName string) (bool, *networkingapi.LoadBalancerSettings) {
 	_, subsetName, hostname, portNumber := model.ParseSubsetKey(clusterName)
 	var outlierDetectionEnabled = false
 	var lbSettings *networkingapi.LoadBalancerSettings
