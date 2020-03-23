@@ -339,7 +339,7 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version, revis
 	// so it doesn't get duplicated between a revision and the default revision.
 	// The motivation behind this is to support the legacy single control plane workflow - if this
 	// is no longer needed, this can be removed.
-	if revision == "" && componentName == name.PilotComponentName{
+	if revision == "" && componentName == name.PilotComponentName {
 		revision = "default"
 	}
 	// Only pilot component uses revisions
