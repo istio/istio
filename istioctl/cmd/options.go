@@ -15,8 +15,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -33,19 +31,27 @@ var (
 	}
 )
 
-func logHelpCommand(rootCmd *cobra.Command) *cobra.Command {
-	return &cobra.Command{
-		Use:   "log-help",
-		Short: "Displays istioctl logging options",
+func optionsCommand(rootCmd *cobra.Command) *cobra.Command {
+	retval := &cobra.Command{
+		Use:   "options",
+		Short: "Displays istioctl global options",
 		Args:  cobra.ExactArgs(0),
-		Run: func(c *cobra.Command, args []string) {
-			fmt.Printf("Help Flags:\n")
-			rootCmd.PersistentFlags().VisitAll(func(flag *pflag.Flag) {
-				if _, ok := helpFlags[flag.Name]; ok {
-					// "20" is the widthof the largest flag, "log_stacktrace_level"
-					fmt.Fprintf(c.OutOrStdout(), "--%-20s %s\n", flag.Name, flag.Usage)
-				}
-			})
-		},
 	}
+
+	retval.SetHelpFunc(func(c *cobra.Command, args []string) {
+		c.Printf("The following options can be passed to any command:\n")
+		// (Currently the only global options we show are help options)
+		rootCmd.PersistentFlags().VisitAll(func(flag *pflag.Flag) {
+			if _, ok := helpFlags[flag.Name]; ok {
+				// Currently every flag.Shorthand is "", so there is no point in showing shorthands
+				shorthand := "   "
+				if flag.Shorthand != "" {
+					shorthand = "-" + flag.Shorthand + ","
+				}
+				c.Printf("  %s --%s: %s\n", shorthand, flag.Name, flag.Usage)
+			}
+		})
+	})
+
+	return retval
 }

@@ -173,7 +173,7 @@ debug and diagnose their Istio mesh.
 	}))
 
 	rootCmd.AddCommand(validate.NewValidateCommand(&istioNamespace))
-	rootCmd.AddCommand(logHelpCommand(rootCmd))
+	rootCmd.AddCommand(optionsCommand(rootCmd))
 
 	// BFS apply the flag error function to all subcommands
 	seenCommands := make(map[*cobra.Command]bool)
