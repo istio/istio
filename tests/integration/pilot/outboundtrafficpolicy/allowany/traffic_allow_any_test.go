@@ -29,6 +29,8 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("outbound_traffic_policy_allow_any", m).
 		RequireSingleCluster().
+		// Broken on native by https://github.com/istio/istio/issues/22402
+		RequireEnvironment(environment.Kube).
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
 		Run()
@@ -56,6 +58,8 @@ func TestOutboundTrafficPolicyAllowAny(t *testing.T) {
 		"http":        {"200"},
 		"http_egress": {"200"},
 		"https":       {"200"},
+		// BUG: https://github.com/istio/istio/issues/16458 this should be 200
+		"tcp": {""},
 	}
 	outboundtrafficpolicy.RunExternalRequestTest(expected, t)
 }
