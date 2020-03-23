@@ -577,7 +577,6 @@ func TestDescribe13(t *testing.T) {
 Suggestion: add 'version' label to pod for Istio telemetry.
 --------------------
 Service: details
-Pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak HTTP
 `,
 		},
 		{ // case 5 has recent data including RBAC
@@ -593,7 +592,6 @@ Service: ratings
 DestinationRule: ratings for "ratings"
    Matching subsets: v1
    Traffic Policy TLS Mode: ISTIO_MUTUAL
-Pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak mTLS
 RBAC policies: ratings-reader
 `,
 		},
@@ -610,7 +608,6 @@ Service: productpage
    9080 is unnamed which does not follow Istio conventions
 DestinationRule: productpage for "productpage"
    No Traffic Policy
-Authn: None
 
 
 Exposed on Ingress Gateway http://10.1.2.3
@@ -633,7 +630,6 @@ Service: ratings
 DestinationRule: ratings for "ratings"
    Matching subsets: v1
    Traffic Policy TLS Mode: ISTIO_MUTUAL
-Pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak mTLS
 RBAC policies: ratings-reader
 `,
 		},
@@ -652,7 +648,6 @@ RBAC policies: ratings-reader
 DestinationRule: ratings.bookinfo for "ratings"
    Matching subsets: v1
    Traffic Policy TLS Mode: ISTIO_MUTUAL
-Pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak mTLS
 RBAC policies: ratings-reader
 `,
 		},
@@ -669,7 +664,6 @@ Service: productpage
    9080 is unnamed which does not follow Istio conventions
 DestinationRule: productpage for "productpage"
    No Traffic Policy
-Authn: None
 
 
 Exposed on Ingress Gateway http://10.1.2.3:7080
@@ -764,7 +758,6 @@ Service: productpage
    Port:  9080/auto-detect targets pod port 9080
 DestinationRule: productpage for "productpage"
    No Traffic Policy
-Pod is Strict mTLS, clients configured automatically
 
 
 Exposed on Ingress Gateway http://10.1.2.3
@@ -782,7 +775,6 @@ VirtualService: bookinfo
    Port:  9080/auto-detect targets pod port 9080
 DestinationRule: productpage for "productpage"
    No Traffic Policy
-Pod is Strict mTLS, clients configured automatically
 
 
 Exposed on Ingress Gateway http://10.1.2.3
