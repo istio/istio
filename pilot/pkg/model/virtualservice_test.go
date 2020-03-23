@@ -1263,14 +1263,14 @@ func TestHasConflict(t *testing.T) {
 			name: "headers not equal",
 			root: &networking.HTTPMatchRequest{
 				Headers: map[string]*networking.StringMatch{
-					"header": &networking.StringMatch{
+					"header": {
 						MatchType: &networking.StringMatch_Exact{Exact: "h1"},
 					},
 				},
 			},
 			leaf: &networking.HTTPMatchRequest{
 				Headers: map[string]*networking.StringMatch{
-					"header": &networking.StringMatch{
+					"header": {
 						MatchType: &networking.StringMatch_Exact{Exact: "h2"},
 					},
 				},
@@ -1281,14 +1281,14 @@ func TestHasConflict(t *testing.T) {
 			name: "headers equal",
 			root: &networking.HTTPMatchRequest{
 				Headers: map[string]*networking.StringMatch{
-					"header": &networking.StringMatch{
+					"header": {
 						MatchType: &networking.StringMatch_Exact{Exact: "h1"},
 					},
 				},
 			},
 			leaf: &networking.HTTPMatchRequest{
 				Headers: map[string]*networking.StringMatch{
-					"header": &networking.StringMatch{
+					"header": {
 						MatchType: &networking.StringMatch_Exact{Exact: "h1"},
 					},
 				},
@@ -1299,14 +1299,14 @@ func TestHasConflict(t *testing.T) {
 			name: "headers match",
 			root: &networking.HTTPMatchRequest{
 				Headers: map[string]*networking.StringMatch{
-					"header": &networking.StringMatch{
+					"header": {
 						MatchType: &networking.StringMatch_Prefix{Prefix: "h1"},
 					},
 				},
 			},
 			leaf: &networking.HTTPMatchRequest{
 				Headers: map[string]*networking.StringMatch{
-					"header": &networking.StringMatch{
+					"header": {
 						MatchType: &networking.StringMatch_Exact{Exact: "h1-v1"},
 					},
 				},
@@ -1317,14 +1317,14 @@ func TestHasConflict(t *testing.T) {
 			name: "headers mismatch",
 			root: &networking.HTTPMatchRequest{
 				Headers: map[string]*networking.StringMatch{
-					"header": &networking.StringMatch{
+					"header": {
 						MatchType: &networking.StringMatch_Prefix{Prefix: "h1"},
 					},
 				},
 			},
 			leaf: &networking.HTTPMatchRequest{
 				Headers: map[string]*networking.StringMatch{
-					"header": &networking.StringMatch{
+					"header": {
 						MatchType: &networking.StringMatch_Exact{Exact: "h2"},
 					},
 				},
@@ -1335,14 +1335,14 @@ func TestHasConflict(t *testing.T) {
 			name: "headers prefix mismatch",
 			root: &networking.HTTPMatchRequest{
 				Headers: map[string]*networking.StringMatch{
-					"header": &networking.StringMatch{
+					"header": {
 						MatchType: &networking.StringMatch_Prefix{Prefix: "h1"},
 					},
 				},
 			},
 			leaf: &networking.HTTPMatchRequest{
 				Headers: map[string]*networking.StringMatch{
-					"header": &networking.StringMatch{
+					"header": {
 						MatchType: &networking.StringMatch_Prefix{Prefix: "h2"},
 					},
 				},
@@ -1353,14 +1353,14 @@ func TestHasConflict(t *testing.T) {
 			name: "diff headers",
 			root: &networking.HTTPMatchRequest{
 				Headers: map[string]*networking.StringMatch{
-					"header": &networking.StringMatch{
+					"header": {
 						MatchType: &networking.StringMatch_Exact{Exact: "h1"},
 					},
 				},
 			},
 			leaf: &networking.HTTPMatchRequest{
 				Headers: map[string]*networking.StringMatch{
-					"header-2": &networking.StringMatch{
+					"header-2": {
 						MatchType: &networking.StringMatch_Exact{Exact: "h2"},
 					},
 				},
