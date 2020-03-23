@@ -7,7 +7,7 @@ metadata:
     release: {{ .Release.Name }}
 rules:
 - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
-{{- if and .Values.global.istiod.enableAnalysis }}
+{{- if .Values.global.istiod.enableAnalysis }}
   verbs: ["get", "watch", "list", "update"]
 {{- else }}
   verbs: ["get", "watch", "list"]
