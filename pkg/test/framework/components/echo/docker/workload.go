@@ -260,6 +260,7 @@ func (w *workload) Dump() {
 		srcFiles := []string{
 			"/var/log/istio/istio.log",
 			"/var/log/istio/istio.err.log",
+			"/var/log/istio/access.log",
 		}
 
 		for _, srcFile := range srcFiles {
