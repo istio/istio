@@ -57,7 +57,7 @@ func TestOutboundTrafficPolicyAllowAny(t *testing.T) {
 		"http_egress": {"200"},
 		"https":       {"200"},
 		// BUG: https://github.com/istio/istio/issues/16458 this should be 200
-		"tcp":       {""},
+		"tcp": {""},
 	}
 	outboundtrafficpolicy.RunExternalRequestTest(expected, t)
 }

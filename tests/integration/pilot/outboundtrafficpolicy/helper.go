@@ -229,10 +229,10 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 					Galley:    g,
 					Ports: []echo.Port{
 						{
-							Name:     "http",
-							Protocol: protocol.HTTP,
+							Name:         "http",
+							Protocol:     protocol.HTTP,
 							InstancePort: 8090,
-							ServicePort: 80,
+							ServicePort:  80,
 						},
 						{
 							Name:         "https",
@@ -241,10 +241,10 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 							ServicePort:  443,
 						},
 						{
-							Name:     "tcp",
-							Protocol: protocol.TCP,
+							Name:         "tcp",
+							Protocol:     protocol.TCP,
 							InstancePort: 8092,
-							ServicePort: 9090,
+							ServicePort:  9090,
 						},
 					},
 				}).BuildOrFail(t)
@@ -278,7 +278,7 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 					name:     "HTTPS Traffic",
 					portName: "https",
 					// TODO: set up TLS here instead of just sending HTTP. We get a false positive here
-					scheme:   scheme.HTTP,
+					scheme: scheme.HTTP,
 				},
 				{
 					name:     "HTTP Traffic Egress",
