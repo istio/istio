@@ -96,6 +96,7 @@ require (
 	github.com/lestrrat-go/jwx v0.9.0
 	github.com/mattn/go-isatty v0.0.12
 	github.com/mholt/archiver v3.1.1+incompatible
+	github.com/miekg/dns v1.0.14
 	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/reflectwalk v1.0.1 // indirect
