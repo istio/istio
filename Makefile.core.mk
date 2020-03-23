@@ -371,7 +371,7 @@ RELEASE_LDFLAGS='-extldflags -static -s -w'
 DEBUG_LDFLAGS='-extldflags "-static"'
 
 # Non-static istioctl targets. These are typically a build artifact.
-${ISTIO_OUT}/release/istioctl-linux-amd64: depend
+${ISTIO_OUT}/release/istioctl-linux: depend
 	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/release/istioctl-linux-armv7: depend
 	STATIC=0 GOOS=linux GOARCH=arm GOARM=7 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
@@ -397,7 +397,7 @@ binaries-test:
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
-istioctl-all: ${ISTIO_OUT}/release/istioctl-linux-armv7 ${ISTIO_OUT}/release/istioctl-linux-arm64 ${ISTIO_OUT}/release/istioctl-linux-amd64 \
+istioctl-all: ${ISTIO_OUT}/release/istioctl-linux ${ISTIO_OUT}/release/istioctl-linux-armv7 ${ISTIO_OUT}/release/istioctl-linux-arm64 \
 	${ISTIO_OUT}/release/istioctl-osx \
 	${ISTIO_OUT}/release/istioctl-win.exe
 
