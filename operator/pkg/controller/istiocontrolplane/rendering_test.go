@@ -224,7 +224,7 @@ func runManifestGenerate(iopStr string) (string, error) {
 		return "", err
 	}
 
-	testReconciler := helmreconciler.NewHelmReconciler(iop)
+	testReconciler := helmreconciler.NewHelmReconciler(iop, nil, nil)
 	testInput := NewIstioRenderingInput(iop)
 
 	mm, err := testReconciler.RenderCharts(testInput)

@@ -37,14 +37,14 @@ type HelmReconciler struct {
 	needUpdateAndPrune bool
 }
 
+// NewHelmReconciler creates a HelmReconciler and returns a ptr to it
 func NewHelmReconciler(instance runtime.Object, customizer RenderingCustomizer, client client.Client) *HelmReconciler {
 	return &HelmReconciler{
-		instance: instance,
-		client: client,
+		instance:   instance,
+		client:     client,
 		customizer: customizer,
 	}
 }
-
 
 // Factory is a factory for creating HelmReconciler objects using the specified CustomizerFactory.
 type Factory struct {
