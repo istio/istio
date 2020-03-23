@@ -7062,7 +7062,7 @@ spec:
         - name: PILOT_EXTERNAL_GALLEY
           value: "false"
         - name: PILOT_ENABLE_ANALYSIS
-          value: null
+          value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
         envFrom:
@@ -7182,6 +7182,7 @@ data:
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
         "istiod": {
+          "enableAnalysis": false,
           "enabled": true
         },
         "jwtPolicy": "third-party-jwt",

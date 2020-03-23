@@ -20545,7 +20545,7 @@ spec:
           - name: PILOT_EXTERNAL_GALLEY
             value: "false"
           - name: PILOT_ENABLE_ANALYSIS
-            value: {{- .Values.global.istiod.enableAnalysis }}
+            value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
           resources:
@@ -46145,6 +46145,7 @@ spec:
       istioNamespace: istio-system
       istiod:
         enabled: true
+        enableAnalysis: false
       logging:
         level: "default:info"
       logAsJson: false
