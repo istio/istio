@@ -408,7 +408,7 @@ func (r *JwksResolver) refresh() {
 				lastRefreshedTime: now,            // update the lastRefreshedTime if we get a success response from the network.
 				lastUsedTime:      e.lastUsedTime, // keep original lastUsedTime.
 			})
-			if oldPubKey != newPubKey {
+			if compareJWKSResponse(oldPubKey, newPubKey) {
 				hasChange = true
 				log.Infof("Updated cached JWT public key from %q", jwksURI)
 			}
@@ -434,4 +434,42 @@ func (r *JwksResolver) refresh() {
 // (right now calls it from initDiscoveryService in pkg/bootstrap/server.go).
 func (r *JwksResolver) Close() {
 	closeChan <- true
+}
+
+func compareJWKSResponse(oldKeyString string, newKeyString string) bool {
+	var oldJWKs map[string]interface{}
+	var newJWKs map[string]interface{}
+	e := json.Unmarshal([]byte(oldKeyString), &oldJWKs)
+	if e != nil {
+		log.Warnf("Previous JWKs public key JSON is not parseable: %s", oldKeyString)
+		return true
+	}
+	e = json.Unmarshal([]byte(newKeyString), &newJWKs)
+	if e != nil {
+		log.Warnf("New JWKs public key JSON is not parseable: %s", newKeyString)
+		return true
+	}
+
+	if oldJWKs == nil || newJWKs == nil {
+		return true
+	}
+
+	oldKeys := make(map[string]map[string]interface{})
+	for _, oldKey := range oldJWKs["keys"].([]interface{}) {
+		oldKeys[oldKey.(map[string]interface{})["kid"].(string)] = oldKey.(map[string]interface{})
+	}
+	for _, newKey := range newJWKs["keys"].([]interface{}) {
+		matchingOldKey := oldKeys[newKey.(map[string]interface{})["kid"].(string)]
+		if nil == matchingOldKey {
+			return true
+		}
+		for oldKeyJSONKey, oldKeyJSONValue := range matchingOldKey {
+			newKeyJSONValue := newKey.(map[string]interface{})[oldKeyJSONKey]
+			if newKeyJSONValue == nil || newKeyJSONValue != oldKeyJSONValue {
+				return true
+			}
+		}
+	}
+
+	return false
 }

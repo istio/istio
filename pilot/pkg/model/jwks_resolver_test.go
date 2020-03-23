@@ -317,6 +317,49 @@ func TestGetPublicKey(t *testing.T) {
 	}
 }
 
+func TestGetPublicKeyReorderedKey(t *testing.T) {
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, time.Millisecond*20)
+	defer r.Close()
+
+	ms, err := test.StartNewServer()
+	defer ms.Stop()
+	if err != nil {
+		t.Fatal("failed to start a mock server")
+	}
+	ms.ReturnReorderedKeyAfterFirstNumHits = 1
+
+	mockCertURL := ms.URL + "/oauth2/v3/certs"
+
+	cases := []struct {
+		in                string
+		expectedJwtPubkey string
+	}{
+		{
+			in:                mockCertURL,
+			expectedJwtPubkey: test.JwtPubKey1,
+		},
+		{
+			in:                mockCertURL, // Send two same request, mock server is expected to hit only once because of the cache.
+			expectedJwtPubkey: test.JwtPubKey1Reordered,
+		},
+	}
+	for _, c := range cases {
+		pk, err := r.GetPublicKey(c.in)
+		if err != nil {
+			t.Errorf("GetPublicKey(%+v) fails: expected no error, got (%v)", c.in, err)
+		}
+		if c.expectedJwtPubkey != pk {
+			t.Errorf("GetPublicKey(%+v): expected (%s), got (%s)", c.in, c.expectedJwtPubkey, pk)
+		}
+		time.Sleep(30 * time.Millisecond)
+	}
+
+	// Verify mock server http://localhost:9999/oauth2/v3/certs was only called once because of the cache.
+	if got, want := r.refreshJobKeyChangedCount, uint64(0); got != want {
+		t.Errorf("JWKs Resolver Refreshed Key Count => expected %d but got %d", want, got)
+	}
+}
+
 func TestGetPublicKeyUsingTLS(t *testing.T) {
 	r := newJwksResolverWithCABundlePaths(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, []string{"./test/testcert/cert.pem"})
 	defer r.Close()
