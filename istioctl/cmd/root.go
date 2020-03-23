@@ -111,7 +111,6 @@ debug and diagnose their Istio mesh.
 	cmd.AddFlags(rootCmd)
 
 	rootCmd.AddCommand(newVersionCommand())
-	rootCmd.AddCommand(AuthN())
 	rootCmd.AddCommand(register())
 	rootCmd.AddCommand(deregisterCmd)
 	rootCmd.AddCommand(injectCommand())

@@ -15,7 +15,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"regexp"
@@ -40,7 +39,6 @@ import (
 
 	mixerclient "istio.io/api/mixer/v1/config/client"
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
 
 	istioctl_kubernetes "istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/configdump"
@@ -48,7 +46,6 @@ import (
 	istio_envoy_configdump "istio.io/istio/istioctl/pkg/writer/envoy/configdump"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	envoy_v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/host"
@@ -584,104 +581,6 @@ func contains(slice []string, s string) bool {
 	return false
 }
 
-func getAuthenticationz(kubeClient istioctl_kubernetes.ExecClient, podName, ns string) (*[]envoy_v2.AuthenticationDebug, error) {
-	results, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET",
-		fmt.Sprintf("/debug/authenticationz?proxyID=%s.%s", podName, ns), nil)
-	if err != nil {
-		return nil, err
-	}
-	var debug []envoy_v2.AuthenticationDebug
-	for i := range results {
-		if err := json.Unmarshal(results[i], &debug); err == nil {
-			if len(debug) > 0 {
-				break
-			}
-		}
-		// Ignore invalid responses from /debug/authenticationz
-	}
-	if len(debug) == 0 {
-		return nil, fmt.Errorf("checked %d pilot instances and found no authentication info for %s.%s, check proxy status",
-			len(results), podName, ns)
-	}
-
-	return &debug, nil
-}
-
-func authnMatchSvc(debug envoy_v2.AuthenticationDebug, svc v1.Service, port v1.ServicePort) bool {
-	return debug.Host == svcFQDN(svc) && debug.Port == int(port.Port)
-}
-
-func printAuthn(writer io.Writer, pod *v1.Pod, debug envoy_v2.AuthenticationDebug) {
-	log.Debugf("AuthenticationDebug is %#v\n", debug)
-
-	mTLSType15 := map[string]string{
-		"DISABLE":    "unencrypted",
-		"PERMISSIVE": "Permissive (mTLS and plain)",
-		"STRICT":     "Strict mTLS",
-	}
-	serverProtocol, ok := mTLSType15[debug.ServerProtocol]
-	if !ok {
-		serverProtocol = debug.ServerProtocol
-	}
-
-	clientMTLSType15 := map[string]string{
-		"None":         "unencrypted",
-		"ISTIO_MUTUAL": "Istio mTLS",
-	}
-	clientProtocol, ok := clientMTLSType15[debug.ClientProtocol]
-	if !ok {
-		clientProtocol = debug.ClientProtocol
-	}
-
-	if debug.TLSConflictStatus != "OK" && debug.TLSConflictStatus != "AUTO" {
-		fmt.Fprintf(writer, "WARNING TLS Conflict on %s port %d (pod enforces %s, clients speak %s)\n",
-			kname(pod.ObjectMeta),
-			debug.Port, serverProtocol, clientProtocol)
-		if debug.DestinationRuleName != "-" {
-			if debug.AuthenticationPolicyName != "None" {
-				fmt.Fprintf(writer, "  Check DestinationRule %s and AuthenticationPolicy %s\n", debug.DestinationRuleName, debug.AuthenticationPolicyName)
-			} else {
-				fmt.Fprintf(writer, "  Check DestinationRule %s.  There is no AuthenticationPolicy\n", debug.DestinationRuleName)
-			}
-		} else {
-			fmt.Fprintf(writer, "  There is no DestinationRule.  Check AuthenticationPolicy %s\n", debug.AuthenticationPolicyName)
-		}
-		return
-	}
-
-	if debug.TLSConflictStatus == "AUTO" {
-		fmt.Fprintf(writer, "Pod is %s, clients configured automatically\n",
-			serverProtocol)
-		return
-	}
-
-	mTLSType13 := map[string]string{
-		"HTTP":        "HTTP",
-		"mTLS":        "STRICT",
-		"HTTP/mTLS":   "PERMISSIVE",
-		"TLS":         "SIMPLE",
-		"custom mTLS": "custom mTLS",
-		"UNKNOWN":     "Unknown",
-	}
-	tlsType, ok := mTLSType13[debug.ServerProtocol]
-	if ok {
-		// If we survive the lookup, we are on a pre-1.4 Pilot.
-		fmt.Fprintf(writer, "Pod is %s (enforces %s) and clients speak %s\n",
-			tlsType, debug.ServerProtocol, debug.ClientProtocol)
-		return
-	}
-
-	// If we couldn't find the type in the 1.3 known types, we must be on Istio 1.4+
-	if debug.ClientProtocol != "-" {
-		fmt.Fprintf(writer, "Pod is %s and clients are %s\n",
-			serverProtocol, clientProtocol)
-		return
-	}
-
-	fmt.Fprintf(writer, "Pod is %s, client protocol unspecified\n",
-		serverProtocol)
-}
-
 func isMeshed(pod *v1.Pod) bool {
 	var sidecar bool
 
@@ -1082,28 +981,6 @@ func printVirtualService(writer io.Writer, virtualSvc model.Config, svc v1.Servi
 
 }
 
-func printAuthnFromAuthenticationz(writer io.Writer, debug *[]envoy_v2.AuthenticationDebug, pod *v1.Pod, svc v1.Service, port v1.ServicePort) {
-	if debug == nil {
-		return
-	}
-
-	count := 0
-	matchingAuthns := []envoy_v2.AuthenticationDebug{}
-	for _, authn := range *debug {
-		if authnMatchSvc(authn, svc, port) {
-			matchingAuthns = append(matchingAuthns, authn)
-		}
-	}
-	for _, matchingAuthn := range matchingAuthns {
-		printAuthn(writer, pod, matchingAuthn)
-		count++
-	}
-
-	if count == 0 {
-		fmt.Fprintf(writer, "Authn: None\n")
-	}
-}
-
 // getIstioVirtualServicePathForSvcFromListener returns something like "/apis/networking/v1alpha3/namespaces/default/virtual-service/reviews"
 func getIstioVirtualServicePathForSvcFromListener(cd *configdump.Wrapper, svc v1.Service, port int32) (string, error) {
 
@@ -1390,16 +1267,6 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 
 func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecClient, configClient model.ConfigStore, pod *v1.Pod, matchingServices []v1.Service, podsLabels []k8s_labels.Set) error { // nolint: lll
 	var err error
-	var authnDebug *[]envoy_v2.AuthenticationDebug
-	if isMeshed(pod) {
-		// Use the mechanism of "istioctl authn tls-check" to look for CONFLICT
-		// for this pod and show it.
-		authnDebug, err = getAuthenticationz(kubeClient, pod.ObjectMeta.Name, pod.ObjectMeta.Namespace)
-		if err != nil {
-			// Keep going on error
-			fmt.Fprintf(writer, "%s\n", err)
-		}
-	}
 
 	byConfigDump, err := kubeClient.EnvoyDo(pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, "GET", "config_dump", nil)
 	if err != nil {
@@ -1450,7 +1317,6 @@ func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecCl
 				// If there is more than one port, prefix each DR by the port it applies to
 				fmt.Fprintf(writer, "%d ", port.Port)
 			}
-			printAuthnFromAuthenticationz(writer, authnDebug, pod, svc, port)
 
 			vsName, vsNamespace, err := getIstioVirtualServiceNameForSvc(&cd, svc, port.Port)
 			if err == nil && vsName != "" && vsNamespace != "" {
