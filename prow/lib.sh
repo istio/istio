@@ -64,14 +64,6 @@ function download_untar_istio_release() {
   tar -xzf "${dir}/istio-${tag}-linux.tar.gz" -C "${dir}"
 }
 
-function build_images_legacy() {
-  # Build just the images needed for the legacy e2e tests that use the install/ directory
-  targets="docker.pilot docker.proxyv2 "
-  targets+="docker.app docker.test_policybackend "
-  targets+="docker.mixer docker.galley"
-  DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets}" make dockerx
-}
-
 function build_images() {
   # Build just the images needed for tests
   targets="docker.pilot docker.proxyv2 "
@@ -142,7 +134,7 @@ function setup_kind_cluster() {
   IMAGE="${2:-kindest/node:v1.17.0}"
   NAME="${3:-istio-testing}"
   CONFIG="${4:-}"
-  # Delete any previous e2e KinD cluster
+  # Delete any previous KinD cluster
   echo "Deleting previous KinD cluster with name=${NAME}"
   if ! (kind delete cluster --name="${NAME}" -v9) > /dev/null; then
     echo "No existing kind cluster with name ${NAME}. Continue..."
