@@ -405,7 +405,7 @@ func (s *DiscoveryServer) generateEndpoints(
 	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
 	// Failover should only be enabled when there is an outlier detection, otherwise Envoy
 	// will never detect the hosts are unhealthy and redirect traffic.
-	enableFailover, lb := failoverSettings(push, proxy, clusterName)
+	enableFailover, lb := outlierDetectionStatusAndLoadBalancerSettings(push, proxy, clusterName)
 	lbSetting := loadbalancer.GetLocalityLbSetting(push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
 	if lbSetting != nil {
 		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
@@ -466,33 +466,31 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 // getDestinationRule gets the DestinationRule for a given hostname. As an optimization, this also gets the service port,
 // which is needed to access the traffic policy from the destination rule.
 func getDestinationRule(push *model.PushContext, proxy *model.Proxy, hostname host.Name, clusterPort int) (*networkingapi.DestinationRule, *model.Port) {
-	for _, service := range push.Services(proxy) {
-		if service.Hostname == hostname {
-			cfg := push.DestinationRule(proxy, service)
-			if cfg == nil {
-				continue
-			}
-			for _, p := range service.Ports {
-				if p.Port == clusterPort {
-					return cfg.Spec.(*networkingapi.DestinationRule), p
-				}
-			}
+	cfg := push.DestinationRule(proxy, &model.Service{Hostname: hostname})
+	// If we do not find a destination rule, return early.
+	if cfg == nil {
+		return nil, nil
+	}
+	// Find a service with the host name and see if we have a matching port.
+	service := proxy.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
+	for _, p := range service.Ports {
+		if p.Port == clusterPort {
+			return cfg.Spec.(*networkingapi.DestinationRule), p
 		}
 	}
 	return nil, nil
 }
 
-func failoverSettings(push *model.PushContext, proxy *model.Proxy, clusterName string) (bool, *networkingapi.LoadBalancerSettings) {
+func outlierDetectionStatusAndLoadBalancerSettings(push *model.PushContext, proxy *model.Proxy, clusterName string) (bool, *networkingapi.LoadBalancerSettings) {
 	_, subsetName, hostname, portNumber := model.ParseSubsetKey(clusterName)
 	var outlierDetectionEnabled = false
 	var lbSettings *networkingapi.LoadBalancerSettings
-	destinationRuleCfg := proxy.SidecarScope.DestinationRule(hostname)
-	if destinationRuleCfg == nil {
+
+	destinationRule, port := getDestinationRule(push, proxy, hostname, portNumber)
+	if destinationRule == nil || port == nil {
 		return false, nil
 	}
 
-	destinationRule := destinationRuleCfg.Spec.(*networkingapi.DestinationRule)
-	port := &model.Port{Port: portNumber}
 	_, outlierDetection, loadBalancerSettings, _ := networking.SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, port)
 	lbSettings = loadBalancerSettings
 	if outlierDetection != nil {
