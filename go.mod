@@ -149,7 +149,7 @@ require (
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.2.7
-	istio.io/api v0.0.0-20200322030109-fefdc2c66190
+	istio.io/api v0.0.0-20200323195549-6bfc9cb1f41e
 	istio.io/gogo-genproto v0.0.0-20200227125611-d2e4aa9d5634
 	istio.io/pkg v0.0.0-20200227125209-63966175aa01
 	k8s.io/api v0.17.2
