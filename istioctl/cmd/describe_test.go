@@ -519,8 +519,8 @@ var (
 	}
 )
 
-// Tests Pilot returning 1.3 style /debug
-func TestDescribe13(t *testing.T) {
+// Tests Pilot /debug
+func TestDescribe(t *testing.T) {
 	cannedConfig := map[string][]byte{
 		"details-v1-5b7f94f9bc-wp5tb":     util.ReadFile("../pkg/writer/compare/testdata/envoyconfigdump.json", t),
 		"ratings-v1-f745cf57b-vfwcv":      util.ReadFile("testdata/describe/ratings-v1-f745cf57b-vfwcv.json", t),
@@ -628,7 +628,6 @@ VirtualService: bookinfo
 --------------------
 Service: ratings
    Port:  9080/UnsupportedProtocol targets pod port 9080
-   Warning: Pod ratings-v1-f745cf57b-vfwcv port 9080 not exposed by Container
    9080 is unnamed which does not follow Istio conventions
 DestinationRule: ratings for "ratings"
    Matching subsets: v1

@@ -193,10 +193,6 @@ func getIstioVersion(cd *configdump.Wrapper) string {
 	return "undetected"
 }
 
-func containerPortOptional(istioVersion *model.IstioVersion) bool {
-	return util.IsIstioVersionGE13(&model.Proxy{IstioVersion: istioVersion})
-}
-
 func supportsProtocolDetection(istioVersion *model.IstioVersion) bool {
 	return util.IsIstioVersionGE14(&model.Proxy{IstioVersion: istioVersion})
 }
@@ -213,17 +209,9 @@ func validatePort(port v1.ServicePort, pod *v1.Pod, istioVersion *model.IstioVer
 	}
 
 	// Get port number used by the service port being validated
-	nport, err := pilotcontroller.FindPort(pod, &port)
+	_, err := pilotcontroller.FindPort(pod, &port)
 	if err != nil {
 		retval = append(retval, err.Error())
-	} else {
-		_, ok := containerPorts[nport]
-		if !ok {
-			if !containerPortOptional(istioVersion) {
-				retval = append(retval,
-					fmt.Sprintf("Warning: Pod %s port %d not exposed by Container", kname(pod.ObjectMeta), nport))
-			}
-		}
 	}
 
 	if servicePortProtocol(port.Name) == protocol.Unsupported {
