@@ -85,7 +85,8 @@ spec:
         istio-locality: {{ $.Locality }}
 {{- end }}
       annotations:
-        foo: bar
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "15014"
 {{- range $name, $value := $subset.Annotations }}
         {{ $name.Name }}: {{ printf "%q" $value.Value }}
 {{- end }}
@@ -103,6 +104,7 @@ spec:
         securityContext:
           runAsUser: 1
         args:
+          - --metrics=15014
 {{- range $i, $p := $.ContainerPorts }}
 {{- if eq .Protocol "GRPC" }}
           - --grpc
