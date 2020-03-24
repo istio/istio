@@ -54,7 +54,6 @@ type ProxyConfig struct {
 	PodName             string
 	PodNamespace        string
 	PodIP               net.IP
-	SDSUDSPath          string
 	STSPort             int
 	ControlPlaneAuth    bool
 	DisableReportCalls  bool
@@ -161,7 +160,6 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 			PodName:             e.PodName,
 			PodNamespace:        e.PodNamespace,
 			PodIP:               e.PodIP,
-			SDSUDSPath:          e.SDSUDSPath,
 			STSPort:             e.STSPort,
 			ControlPlaneAuth:    e.ControlPlaneAuth,
 			DisableReportCalls:  e.DisableReportCalls,

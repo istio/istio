@@ -67,7 +67,7 @@ metadata:
 spec:
   rules:
     # There is one service in default namespace, should not result in a validation error
-    # If set to [“*”], it refers to all services in the namespace
+    # If set to ["*"], it refers to all services in the namespace
     - services: ["*"]
       methods: ["GET", "HEAD"]
 ---

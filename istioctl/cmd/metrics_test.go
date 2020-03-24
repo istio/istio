@@ -46,6 +46,10 @@ type mockPromAPI struct {
 	cannedResponse map[string]prometheus_model.Value
 }
 
+func mockExecClientAuthNoPilot(_, _ string) (kubernetes.ExecClient, error) {
+	return &mockExecConfig{}, nil
+}
+
 func TestMetricsNoPrometheus(t *testing.T) {
 	clientExecFactory = mockExecClientAuthNoPilot
 

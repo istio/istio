@@ -30,7 +30,8 @@ spec:
         app: foo
         version: v1
       annotations:
-        foo: bar
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "15014"
     spec:
       containers:
       - name: app
@@ -39,6 +40,7 @@ spec:
         securityContext:
           runAsUser: 1
         args:
+          - --metrics=15014
           - --port
           - "8090"
           - --port
@@ -82,7 +84,8 @@ spec:
         app: foo
         version: nosidecar
       annotations:
-        foo: bar
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "15014"
         sidecar.istio.io/inject: "false"
     spec:
       containers:
@@ -92,6 +95,7 @@ spec:
         securityContext:
           runAsUser: 1
         args:
+          - --metrics=15014
           - --port
           - "8090"
           - --port

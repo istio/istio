@@ -56,6 +56,7 @@ func TestOutboundTrafficPolicyRegistryOnly(t *testing.T) {
 		"http":        {"502"}, // HTTP will return an error code
 		"http_egress": {"200"}, // We define the virtual service in the namespace, so we should be able to reach it
 		"https":       {},      // HTTPS will direct to blackhole cluster, giving no response
+		"tcp":         {},      // TCP will direct to blackhole cluster, giving no response
 	}
 	outboundtrafficpolicy.RunExternalRequestTest(expected, t)
 }

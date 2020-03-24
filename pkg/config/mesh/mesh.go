@@ -62,6 +62,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 	proxyConfig := DefaultProxyConfig()
 	return meshconfig.MeshConfig{
 		IngressClass:                      "istio",
+		IngressControllerMode:             meshconfig.MeshConfig_STRICT,
 		ReportBatchMaxTime:                types.DurationProto(1 * time.Second),
 		ReportBatchMaxEntries:             100,
 		MixerCheckServer:                  "",

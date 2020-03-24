@@ -519,8 +519,8 @@ var (
 	}
 )
 
-// Tests Pilot returning 1.3 style /debug
-func TestDescribe13(t *testing.T) {
+// Tests Pilot /debug
+func TestDescribe(t *testing.T) {
 	cannedConfig := map[string][]byte{
 		"details-v1-5b7f94f9bc-wp5tb":     util.ReadFile("../pkg/writer/compare/testdata/envoyconfigdump.json", t),
 		"ratings-v1-f745cf57b-vfwcv":      util.ReadFile("testdata/describe/ratings-v1-f745cf57b-vfwcv.json", t),
@@ -577,7 +577,6 @@ func TestDescribe13(t *testing.T) {
 Suggestion: add 'version' label to pod for Istio telemetry.
 --------------------
 Service: details
-Pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak HTTP
 `,
 		},
 		{ // case 5 has recent data including RBAC
@@ -593,7 +592,6 @@ Service: ratings
 DestinationRule: ratings for "ratings"
    Matching subsets: v1
    Traffic Policy TLS Mode: ISTIO_MUTUAL
-Pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak mTLS
 RBAC policies: ratings-reader
 `,
 		},
@@ -610,7 +608,6 @@ Service: productpage
    9080 is unnamed which does not follow Istio conventions
 DestinationRule: productpage for "productpage"
    No Traffic Policy
-Authn: None
 
 
 Exposed on Ingress Gateway http://10.1.2.3
@@ -628,12 +625,10 @@ VirtualService: bookinfo
 --------------------
 Service: ratings
    Port:  9080/UnsupportedProtocol targets pod port 9080
-   Warning: Pod ratings-v1-f745cf57b-vfwcv port 9080 not exposed by Container
    9080 is unnamed which does not follow Istio conventions
 DestinationRule: ratings for "ratings"
    Matching subsets: v1
    Traffic Policy TLS Mode: ISTIO_MUTUAL
-Pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak mTLS
 RBAC policies: ratings-reader
 `,
 		},
@@ -652,7 +647,6 @@ RBAC policies: ratings-reader
 DestinationRule: ratings.bookinfo for "ratings"
    Matching subsets: v1
    Traffic Policy TLS Mode: ISTIO_MUTUAL
-Pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak mTLS
 RBAC policies: ratings-reader
 `,
 		},
@@ -669,7 +663,6 @@ Service: productpage
    9080 is unnamed which does not follow Istio conventions
 DestinationRule: productpage for "productpage"
    No Traffic Policy
-Authn: None
 
 
 Exposed on Ingress Gateway http://10.1.2.3:7080
@@ -764,7 +757,6 @@ Service: productpage
    Port:  9080/auto-detect targets pod port 9080
 DestinationRule: productpage for "productpage"
    No Traffic Policy
-Pod is Strict mTLS, clients configured automatically
 
 
 Exposed on Ingress Gateway http://10.1.2.3
@@ -782,7 +774,6 @@ VirtualService: bookinfo
    Port:  9080/auto-detect targets pod port 9080
 DestinationRule: productpage for "productpage"
    No Traffic Policy
-Pod is Strict mTLS, clients configured automatically
 
 
 Exposed on Ingress Gateway http://10.1.2.3

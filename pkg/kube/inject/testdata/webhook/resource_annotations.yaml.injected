@@ -13,7 +13,9 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/proxyCPU: 100m
+        sidecar.istio.io/proxyCPULimit: 1000m
         sidecar.istio.io/proxyMemory: 1Gi
+        sidecar.istio.io/proxyMemoryLimit: 2Gi
         sidecar.istio.io/status: '{"version":"unit-test-fake-version","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
@@ -78,14 +80,6 @@ spec:
             ]
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
-        - name: ISTIO_META_POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: ISTIO_META_CONFIG_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_META_MESH_ID
@@ -107,6 +101,9 @@ spec:
           initialDelaySeconds: 1
           periodSeconds: 2
         resources:
+          limits:
+            cpu: "1"
+            memory: 2Gi
           requests:
             cpu: 100m
             memory: 1Gi

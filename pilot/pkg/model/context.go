@@ -344,9 +344,8 @@ type NodeMetadata struct {
 
 	// SdsTokenPath specifies the path of the SDS token used by the Envoy proxy.
 	// If not set, Pilot uses the default SDS token path.
-	SdsTokenPath string     `json:"SDS_TOKEN_PATH,omitempty"`
-	UserSds      StringBool `json:"USER_SDS,omitempty"`
-	SdsBase      string     `json:"BASE,omitempty"`
+	SdsTokenPath string `json:"SDS_TOKEN_PATH,omitempty"`
+	SdsBase      string `json:"BASE,omitempty"`
 	// SdsEnabled indicates if SDS is enabled or not. This is are set to "1" if true
 	SdsEnabled StringBool `json:"SDS,omitempty"`
 	// SdsTrustJwt indicates if SDS trust jwt is enabled or not. This is are set to "1" if true
