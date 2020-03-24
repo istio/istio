@@ -174,6 +174,7 @@ func describe() *cobra.Command {
 	return describeCmd
 }
 
+// nolint:deadcode
 func getIstioVersion(cd *configdump.Wrapper) string {
 	bootstrapDump, err := cd.GetBootstrapConfigDump()
 	if err == nil {
