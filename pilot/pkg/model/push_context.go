@@ -142,7 +142,7 @@ type processedDestRules struct {
 	// List of dest rule hosts. We match with the most specific host first
 	hosts []host.Name
 	// Map of dest rule host and the merged destination rules for that host
-	destRule map[host.Name]*combinedDestinationRule
+	destRule map[host.Name]*Config
 }
 
 // XDSUpdater is used for direct updates of the xDS model and incremental push.
@@ -303,12 +303,6 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 type ProxyPushStatus struct {
 	Proxy   string `json:"proxy,omitempty"`
 	Message string `json:"message,omitempty"`
-}
-
-type combinedDestinationRule struct {
-	subsets map[string]struct{} // list of subsets seen so far
-	// We are not doing ports
-	config *Config
 }
 
 // IsMixerEnabled returns true if mixer is enabled in the Mesh config.
@@ -754,16 +748,19 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 	// proxies like the istio-ingressgateway or istio-egressgateway.
 	// If there are no service specific dest rules, we will end up picking up the same
 	// rules anyway, later in the code
+
+	// 1. select destination rule from proxy config namespace
 	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
 		// search through the DestinationRules in proxy's namespace first
 		if ps.namespaceLocalDestRules[proxy.ConfigNamespace] != nil {
 			if hostname, ok := MostSpecificHostMatch(service.Hostname,
 				ps.namespaceLocalDestRules[proxy.ConfigNamespace].hosts); ok {
-				return ps.namespaceLocalDestRules[proxy.ConfigNamespace].destRule[hostname].config
+				return ps.namespaceLocalDestRules[proxy.ConfigNamespace].destRule[hostname]
 			}
 		}
 	}
 
+	// 2. select destination rule from service namespace
 	svcNs := service.Attributes.Namespace
 
 	// This can happen when finding the subset labels for a proxy in root namespace.
@@ -778,22 +775,22 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 		}
 	}
 
-	// if no private/public rule matched in the calling proxy's namespace,
+	// 3. if no private/public rule matched in the calling proxy's namespace,
 	// check the target service's namespace for public rules
 	if svcNs != "" && ps.namespaceExportedDestRules[svcNs] != nil {
 		if hostname, ok := MostSpecificHostMatch(service.Hostname,
 			ps.namespaceExportedDestRules[svcNs].hosts); ok {
-			return ps.namespaceExportedDestRules[svcNs].destRule[hostname].config
+			return ps.namespaceExportedDestRules[svcNs].destRule[hostname]
 		}
 	}
 
-	// if no public/private rule in calling proxy's namespace matched, and no public rule in the
+	// 4. if no public/private rule in calling proxy's namespace matched, and no public rule in the
 	// target service's namespace matched, search for any public destination rule in the config root namespace
 	// NOTE: This does mean that we are effectively ignoring private dest rules in the config root namespace
 	if ps.namespaceExportedDestRules[ps.Mesh.RootNamespace] != nil {
 		if hostname, ok := MostSpecificHostMatch(service.Hostname,
 			ps.namespaceExportedDestRules[ps.Mesh.RootNamespace].hosts); ok {
-			return ps.namespaceExportedDestRules[ps.Mesh.RootNamespace].destRule[hostname].config
+			return ps.namespaceExportedDestRules[ps.Mesh.RootNamespace].destRule[hostname]
 		}
 	}
 
@@ -1370,16 +1367,12 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 		if _, exist := namespaceLocalDestRules[configs[i].Namespace]; !exist {
 			namespaceLocalDestRules[configs[i].Namespace] = &processedDestRules{
 				hosts:    make([]host.Name, 0),
-				destRule: map[host.Name]*combinedDestinationRule{},
+				destRule: map[host.Name]*Config{},
 			}
 		}
 		// Merge this destination rule with any public/private dest rules for same host in the same namespace
 		// If there are no duplicates, the dest rule will be added to the list
-		namespaceLocalDestRules[configs[i].Namespace].hosts = ps.combineSingleDestinationRule(
-			namespaceLocalDestRules[configs[i].Namespace].hosts,
-			namespaceLocalDestRules[configs[i].Namespace].destRule,
-			configs[i])
-
+		ps.combineSingleDestinationRule(namespaceLocalDestRules[configs[i].Namespace], configs[i])
 		isPubliclyExported := false
 		if len(rule.ExportTo) == 0 {
 			// No exportTo in destinationRule. Use the global default
@@ -1401,15 +1394,12 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 			if _, exist := namespaceExportedDestRules[configs[i].Namespace]; !exist {
 				namespaceExportedDestRules[configs[i].Namespace] = &processedDestRules{
 					hosts:    make([]host.Name, 0),
-					destRule: map[host.Name]*combinedDestinationRule{},
+					destRule: map[host.Name]*Config{},
 				}
 			}
 			// Merge this destination rule with any public dest rule for the same host in the same namespace
 			// If there are no duplicates, the dest rule will be added to the list
-			namespaceExportedDestRules[configs[i].Namespace].hosts = ps.combineSingleDestinationRule(
-				namespaceExportedDestRules[configs[i].Namespace].hosts,
-				namespaceExportedDestRules[configs[i].Namespace].destRule,
-				configs[i])
+			ps.combineSingleDestinationRule(namespaceExportedDestRules[configs[i].Namespace], configs[i])
 		}
 	}
 

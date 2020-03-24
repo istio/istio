@@ -18,8 +18,6 @@ import (
 	"fmt"
 
 	networking "istio.io/api/networking/v1alpha3"
-
-	"istio.io/istio/pkg/config/host"
 )
 
 // This function merges one or more destination rules for a given host string
@@ -27,52 +25,42 @@ import (
 // IOW, given three dest rules (*.foo.com, *.foo.com, *.com), calling this function for
 // each config will result in a final dest rule set (*.foo.com, and *.com).
 func (ps *PushContext) combineSingleDestinationRule(
-	combinedDestRuleHosts []host.Name,
-	combinedDestRuleMap map[host.Name]*combinedDestinationRule,
-	destRuleConfig Config) []host.Name {
+	p *processedDestRules,
+	destRuleConfig Config) {
 	rule := destRuleConfig.Spec.(*networking.DestinationRule)
 	resolvedHost := ResolveShortnameToFQDN(rule.Host, destRuleConfig.ConfigMeta)
-
-	if mdr, exists := combinedDestRuleMap[resolvedHost]; exists {
-		combinedRule := mdr.config.Spec.(*networking.DestinationRule)
+	if mdr, exists := p.destRule[resolvedHost]; exists {
+		// Deep copy destination rule, to prevent mutate it later when merge with a new one.
+		// This can happen when there are more than one destination rule of same host in one namespace.
+		copied := mdr.DeepCopy()
+		p.destRule[resolvedHost] = &copied
+		combinedRule := copied.Spec.(*networking.DestinationRule)
+		existingSubset := map[string]struct{}{}
+		for _, subset := range combinedRule.Subsets {
+			existingSubset[subset.Name] = struct{}{}
+		}
 		// we have an another destination rule for same host.
 		// concatenate both of them -- essentially add subsets from one to other.
 		for _, subset := range rule.Subsets {
-			if _, subsetExists := mdr.subsets[subset.Name]; !subsetExists {
-				mdr.subsets[subset.Name] = struct{}{}
+			if _, ok := existingSubset[subset.Name]; !ok {
+				// if not duplicated, append
 				combinedRule.Subsets = append(combinedRule.Subsets, subset)
 			} else {
+				// duplicate subset
 				ps.AddMetric(DuplicatedSubsets, string(resolvedHost), nil,
 					fmt.Sprintf("Duplicate subset %s found while merging destination rules for %s",
 						subset.Name, string(resolvedHost)))
 			}
 		}
+
 		// If there is no top level policy and the incoming rule has top level
 		// traffic policy, use the one from the incoming rule.
 		if combinedRule.TrafficPolicy == nil && rule.TrafficPolicy != nil {
 			combinedRule.TrafficPolicy = rule.TrafficPolicy
 		}
-		return combinedDestRuleHosts
+		return
 	}
 
-	copyDestRuleConfig := Config{
-		ConfigMeta: destRuleConfig.ConfigMeta,
-		Spec: &networking.DestinationRule{
-			Host:          rule.Host,
-			TrafficPolicy: rule.TrafficPolicy,
-			Subsets:       rule.Subsets,
-			ExportTo:      rule.ExportTo,
-		},
-	}
-
-	combinedDestRuleMap[resolvedHost] = &combinedDestinationRule{
-		subsets: make(map[string]struct{}),
-		config:  &copyDestRuleConfig,
-	}
-	for _, subset := range rule.Subsets {
-		combinedDestRuleMap[resolvedHost].subsets[subset.Name] = struct{}{}
-	}
-	combinedDestRuleHosts = append(combinedDestRuleHosts, resolvedHost)
-
-	return combinedDestRuleHosts
+	p.hosts = append(p.hosts, resolvedHost)
+	p.destRule[resolvedHost] = &destRuleConfig
 }
