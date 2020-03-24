@@ -1457,17 +1457,19 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 			// Since application protocol filter chain match has been added to the http filter chain, a fail through filter chain will be
 			// appended to the listener later to allow arbitrary egress TCP traffic pass through when its port is conflicted with existing
 			// HTTP services, which can happen when a pod accesses an services that is out of the service mesh.
-			if listenerOpts.bind == actualWildcard {
-				for _, opt := range opts {
-					if opt.match == nil {
-						opt.match = &listener.FilterChainMatch{}
+			if outboundSniffingEnabled {
+				if listenerOpts.bind == actualWildcard {
+					for _, opt := range opts {
+						if opt.match == nil {
+							opt.match = &listener.FilterChainMatch{}
+						}
+
+						// Support HTTP/1.0, HTTP/1.1 and HTTP/2
+						opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, plaintextHTTPALPNs...)
 					}
 
-					// Support HTTP/1.0, HTTP/1.1 and HTTP/2
-					opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, plaintextHTTPALPNs...)
+					listenerOpts.needHTTPInspector = true
 				}
-
-				listenerOpts.needHTTPInspector = true
 			}
 			listenerOpts.filterChainOpts = opts
 
@@ -2436,19 +2438,27 @@ func mergeFilterChains(httpFilterChain, tcpFilterChain []*listener.FilterChain) 
 			fc.FilterChainMatch = &listener.FilterChainMatch{}
 		}
 
-		httpMatch := false
-		for _, p := range fc.FilterChainMatch.ApplicationProtocols {
-			if p == plaintextHTTPALPNs[0] {
-				httpMatch = true
-				break
+		var missingHTTPALPNs []string
+		for _, p := range plaintextHTTPALPNs {
+			if ! contains(fc.FilterChainMatch.ApplicationProtocols, p) {
+				missingHTTPALPNs = append(missingHTTPALPNs, p)
 			}
 		}
-		if !httpMatch {
-			fc.FilterChainMatch.ApplicationProtocols = append(fc.FilterChainMatch.ApplicationProtocols, plaintextHTTPALPNs...)
-		}
+
+		fc.FilterChainMatch.ApplicationProtocols = append(fc.FilterChainMatch.ApplicationProtocols, missingHTTPALPNs...)
 		newFilterChan = append(newFilterChan, fc)
 	}
 	return append(tcpFilterChain, newFilterChan...)
+}
+
+// It's fine to use this naive implementation for searching in a very short list like ApplicationProtocols
+func contains(s []string, e string) bool {
+	for _, a := range s{
+		if a == e{
+			return true
+		}
+	}
+	return false
 }
 
 func getPluginFilterChain(opts buildListenerOpts) []istionetworking.FilterChain {
