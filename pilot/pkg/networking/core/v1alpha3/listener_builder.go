@@ -523,7 +523,7 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
 
 			filterChain := &listener.FilterChain{
 				FilterChainMatch: chain.FilterChainMatch,
-				Filters:          append(chain.TCP, filter),
+				Filters:          []*listener.Filter{filter},
 			}
 			if chain.TLSContext != nil {
 				filterChain.FilterChainMatch.TransportProtocol = "tls"
