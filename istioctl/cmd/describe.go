@@ -510,7 +510,7 @@ func kname(meta metav1.ObjectMeta) string {
 	return fmt.Sprintf("%s.%s", meta.Name, meta.Namespace)
 }
 
-func printService(writer io.Writer, svc v1.Service, pod *v1.Pod, istioVersion *model.IstioVersion) {
+func printService(writer io.Writer, svc v1.Service, pod *v1.Pod) {
 	fmt.Fprintf(writer, "Service: %s\n", kname(svc.ObjectMeta))
 	for _, port := range svc.Spec.Ports {
 		if port.Protocol != "TCP" {
@@ -1248,14 +1248,11 @@ func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecCl
 		return fmt.Errorf("can't parse sidecar config_dump for %v: %v", err, pod.ObjectMeta.Name)
 	}
 
-	// If the sidecar is on Envoy 1.3 or higher, don't complain about empty K8s Svc Port name
-	istioVersion := model.ParseIstioVersion(getIstioVersion(&cd))
-
 	for row, svc := range matchingServices {
 		if row != 0 {
 			fmt.Fprintf(writer, "--------------------\n")
 		}
-		printService(writer, svc, pod, istioVersion)
+		printService(writer, svc, pod)
 
 		for _, port := range svc.Spec.Ports {
 			matchingSubsets := []string{}

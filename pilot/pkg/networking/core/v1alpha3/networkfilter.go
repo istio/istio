@@ -61,12 +61,12 @@ func buildInboundNetworkFilters(push *model.PushContext, node *model.Proxy, inst
 		StatPrefix:       statPrefix,
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
 	}
-	tcpFilter := setAccessLogAndBuildTCPFilter(push, node, tcpProxy)
+	tcpFilter := setAccessLogAndBuildTCPFilter(push, tcpProxy)
 	return buildNetworkFiltersStack(node, instance.ServicePort, tcpFilter, statPrefix, clusterName)
 }
 
 // setAccessLog sets the AccessLog configuration in the given TcpProxy instance.
-func setAccessLog(push *model.PushContext, node *model.Proxy, config *tcp_proxy.TcpProxy) {
+func setAccessLog(push *model.PushContext, config *tcp_proxy.TcpProxy) {
 	if push.Mesh.AccessLogFile != "" {
 		config.AccessLog = append(config.AccessLog, maybeBuildAccessLog(push.Mesh))
 	}
@@ -78,8 +78,8 @@ func setAccessLog(push *model.PushContext, node *model.Proxy, config *tcp_proxy.
 
 // setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given
 // TcpProxy instance and builds a TCP filter out of it.
-func setAccessLogAndBuildTCPFilter(push *model.PushContext, node *model.Proxy, config *tcp_proxy.TcpProxy) *listener.Filter {
-	setAccessLog(push, node, config)
+func setAccessLogAndBuildTCPFilter(push *model.PushContext, config *tcp_proxy.TcpProxy) *listener.Filter {
+	setAccessLog(push, config)
 
 	tcpFilter := &listener.Filter{
 		Name:       wellknown.TCPProxy,
@@ -104,7 +104,7 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 		tcpProxy.IdleTimeout = ptypes.DurationProto(idleTimeout)
 	}
 
-	tcpFilter := setAccessLogAndBuildTCPFilter(push, node, tcpProxy)
+	tcpFilter := setAccessLogAndBuildTCPFilter(push, tcpProxy)
 	return buildNetworkFiltersStack(node, port, tcpFilter, statPrefix, clusterName)
 }
 
@@ -142,7 +142,7 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 
 	// TODO: Need to handle multiple cluster names for Redis
 	clusterName := clusterSpecifier.WeightedClusters.Clusters[0].Name
-	tcpFilter := setAccessLogAndBuildTCPFilter(push, node, proxyConfig)
+	tcpFilter := setAccessLogAndBuildTCPFilter(push, proxyConfig)
 	return buildNetworkFiltersStack(node, port, tcpFilter, statPrefix, clusterName)
 }
 
