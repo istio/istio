@@ -19,85 +19,6 @@ as data is generated.</p>
 <p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/logentry/">logentry template</a>.
 and the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/">metric template</a>.</p>
 
-<h2 id="Params-Stream">Params.Stream</h2>
-<section>
-<p>Stream is used to select between different log output sinks.</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="Params-Stream-STDOUT">
-<td><code>STDOUT</code></td>
-<td>
-<p>Output to the Mixer process&rsquo; standard output stream. This is the default value.</p>
-
-</td>
-</tr>
-<tr id="Params-Stream-STDERR">
-<td><code>STDERR</code></td>
-<td>
-<p>Output to the Mixer process&rsquo; standard error stream.</p>
-
-</td>
-</tr>
-<tr id="Params-Stream-FILE">
-<td><code>FILE</code></td>
-<td>
-<p>Output to a specific file.</p>
-
-</td>
-</tr>
-<tr id="Params-Stream-ROTATED_FILE">
-<td><code>ROTATED_FILE</code></td>
-<td>
-<p>Output to a specific rotating file, controlled by the various file rotation options.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="Params-Level">Params.Level</h2>
-<section>
-<p>Importance level for individual items output by this adapter.</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="Params-Level-INFO">
-<td><code>INFO</code></td>
-<td>
-<p>informational, warning, and error log messages are included</p>
-
-</td>
-</tr>
-<tr id="Params-Level-WARNING">
-<td><code>WARNING</code></td>
-<td>
-<p>warning and error log messages are included</p>
-
-</td>
-</tr>
-<tr id="Params-Level-ERROR">
-<td><code>ERROR</code></td>
-<td>
-<p>only error log messages are included</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="Params">Params</h2>
 <section>
 <p>Configuration format for the <code>stdio</code> adapter</p>
@@ -238,6 +159,85 @@ is to retain at most 1000 logs. 0 indicates no limit.</p>
 </td>
 <td>
 No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params-Stream">Params.Stream</h2>
+<section>
+<p>Stream is used to select between different log output sinks.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params-Stream-STDOUT">
+<td><code>STDOUT</code></td>
+<td>
+<p>Output to the Mixer process&rsquo; standard output stream. This is the default value.</p>
+
+</td>
+</tr>
+<tr id="Params-Stream-STDERR">
+<td><code>STDERR</code></td>
+<td>
+<p>Output to the Mixer process&rsquo; standard error stream.</p>
+
+</td>
+</tr>
+<tr id="Params-Stream-FILE">
+<td><code>FILE</code></td>
+<td>
+<p>Output to a specific file.</p>
+
+</td>
+</tr>
+<tr id="Params-Stream-ROTATED_FILE">
+<td><code>ROTATED_FILE</code></td>
+<td>
+<p>Output to a specific rotating file, controlled by the various file rotation options.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params-Level">Params.Level</h2>
+<section>
+<p>Importance level for individual items output by this adapter.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params-Level-INFO">
+<td><code>INFO</code></td>
+<td>
+<p>informational, warning, and error log messages are included</p>
+
+</td>
+</tr>
+<tr id="Params-Level-WARNING">
+<td><code>WARNING</code></td>
+<td>
+<p>warning and error log messages are included</p>
+
+</td>
+</tr>
+<tr id="Params-Level-ERROR">
+<td><code>ERROR</code></td>
+<td>
+<p>only error log messages are included</p>
+
 </td>
 </tr>
 </tbody>
