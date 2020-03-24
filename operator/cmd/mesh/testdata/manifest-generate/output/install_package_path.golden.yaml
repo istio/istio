@@ -10,6 +10,7 @@ metadata:
 spec:
   selector:
     matchLabels:
+      app: istiod
       istio: pilot
   strategy:
     rollingUpdate:
@@ -63,11 +64,9 @@ spec:
         - --log_output_level=default:info
         - --domain
         - cluster.local
-        - --secureGrpcAddr=
         - --trust-domain=cluster.local
         - --keepaliveMaxServerConnectionAge
         - 30m
-        - --disable-install-crds=true
         env:
         - name: JWT_POLICY
           value: third-party-jwt
@@ -102,12 +101,13 @@ spec:
           value: istiod.istio-system.svc:15012
         - name: PILOT_EXTERNAL_GALLEY
           value: "false"
+        - name: CLUSTER_ID
+          value: Kubernetes
         envFrom:
         - configMapRef:
             name: istiod
             optional: true
-        image: gcr.io/istio-testing/pilot:latest
-        imagePullPolicy: IfNotPresent
+        image: docker.io/istio/pilot:1.1.4
         name: discovery
         ports:
         - containerPort: 8080
@@ -150,7 +150,7 @@ spec:
           readOnly: true
       securityContext:
         fsGroup: 1337
-      serviceAccountName: istiod-service-account
+      serviceAccountName: istio-pilot-service-account
       volumes:
       - emptyDir:
           medium: Memory
@@ -177,7 +177,4 @@ spec:
       - configMap:
           name: istio
         name: config-volume
-      - configMap:
-          name: pilot-envoy-config
-        name: pilot-envoy-config
 ---

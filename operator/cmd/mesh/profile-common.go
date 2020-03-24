@@ -215,8 +215,11 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 // installation charts and profile file.
 // If installPackagePath is not a URL, it returns installPackagePath and profileOrPath unmodified.
 func rewriteURLToLocalInstallPath(installPackagePath, profileOrPath string, skipValidation bool) (string, string, error) {
-	var err error
-	if util.IsHTTPURL(installPackagePath) {
+	isURL, err := util.IsHTTPURL(installPackagePath)
+	if err != nil && !skipValidation {
+		return "", "", err
+	}
+	if isURL {
 		if !skipValidation {
 			_, ver, err := helm.URLToDirname(installPackagePath)
 			if err != nil {
