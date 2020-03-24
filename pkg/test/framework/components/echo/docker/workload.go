@@ -153,6 +153,8 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 			"PROV_CERT="+propCert,
 			"ENVOY_PORT=15001",
 			"ENVOY_USER=istio-proxy",
+			"PROXY_UID=1337",
+			"PROXY_GID=1337",
 			"ISTIO_AGENT_FLAGS="+agentArgs,
 			"ISTIO_INBOUND_INTERCEPTION_MODE="+interceptionMode,
 			"ISTIO_SERVICE_CIDR=*",
