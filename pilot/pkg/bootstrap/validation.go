@@ -18,9 +18,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"k8s.io/client-go/dynamic"
+
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
-	"k8s.io/client-go/dynamic"
 
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/mixer/pkg/validate"

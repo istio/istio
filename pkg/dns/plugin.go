@@ -61,7 +61,7 @@ type IstioServiceEntries struct {
 }
 
 var (
-	// DnsPort is the env controlling the DNS-over-TLS server.
+	// DNSAdd is the env controlling the DNS-over-TLS server.
 	// By default will be active, set to empty string to disable DNS functionality.
 	DNSAddr = env.RegisterStringVar("dnsAddr", ":15053", "DNS listen address")
 )
@@ -205,7 +205,10 @@ func (h *IstioServiceEntries) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		response.Rcode = dns.RcodeNameError
 	}
 
-	w.WriteMsg(response)
+	err = w.WriteMsg(response)
+	if err != nil {
+		log.Debuga("DNS write error ", r, err)
+	}
 }
 
 func (h *IstioServiceEntries) handle(request *dns.Msg) *dns.Msg {
