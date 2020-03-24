@@ -41,7 +41,6 @@ const (
 7070 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
-7070 Pod is .*, clients configured automatically
 7070 VirtualService: a\..*
    when headers are end-user=jason
 80 DestinationRule: a\..* for "a"
@@ -60,7 +59,6 @@ Service: a\..*
 7070 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
-7070 Pod is .*, clients configured automatically
 7070 VirtualService: a\..*
    when headers are end-user=jason
 80 DestinationRule: a\..* for "a"
