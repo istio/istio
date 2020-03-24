@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 
 	"cloud.google.com/go/compute/metadata"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -128,9 +129,15 @@ func (e *gcpEnv) Metadata() map[string]string {
 	return md
 }
 
+var once sync.Once
+
 func parseGCPMetadata() (pid, npid, cluster, location string) {
 	gcpmd := gcpMetadataVar.Get()
-	log.Infof("Extract GCP metadata from env variable GCP_METADATA: %v", gcpmd)
+	if len(gcpmd) > 0 {
+		once.Do(func() {
+			log.Infof("Extract GCP metadata from env variable GCP_METADATA: %v", gcpmd)
+		})
+	}
 	parts := strings.Split(gcpmd, "|")
 	if len(parts) != 4 {
 		return
