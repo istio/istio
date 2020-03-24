@@ -25,6 +25,8 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pilot/pkg/networking/util"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
@@ -312,8 +314,15 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 
 	for _, l := range ll {
 		ldsSize += proto.Size(l)
-		// The last filter will be the actual destination we care about
+
+		// The last filter is the actual destination for inbound listener
 		filter := l.FilterChains[len(l.FilterChains)-1].Filters[0]
+
+		// The actual destination will be the next to the last if the last filter is a passthrough filter
+		if l.FilterChains[len(l.FilterChains)-1].GetName() == util.PassthroughFilterChain {
+			filter = l.FilterChains[len(l.FilterChains)-2].Filters[0]
+		}
+
 		if filter.Name == "mixer" {
 			filter = l.FilterChains[len(l.FilterChains)-1].Filters[1]
 		}
