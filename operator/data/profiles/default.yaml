@@ -7,7 +7,9 @@ spec:
   tag: latest
 
   meshConfig:
-    h2_upgrade_policy: UPGRADE
+    # Opt-out of global http2 upgrades.
+    # Destination rule is used to opt-in.
+    h2_upgrade_policy: DO_NOT_UPGRADE
 
   # Traffic management feature
   components:
