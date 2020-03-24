@@ -288,3 +288,12 @@ messages:
         type: string
       - name: network
         type: string
+
+  - name: "NoMatchingWorkloadsFound"
+    code: IST0127
+    level: Warning
+    description: "There aren't workloads matching this the resource labels"
+    template: "No matching workloads for this resource with the following labels: %s"
+    args:
+      - name: labels
+        type: string

@@ -28,6 +28,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/annotations"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/authz"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deployment"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
@@ -292,6 +293,16 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.UnknownMeshNetworksServiceRegistry, "MeshNetworks meshnetworks.istio-system"},
 			{msg.UnknownMeshNetworksServiceRegistry, "MeshNetworks meshnetworks.istio-system"},
+		},
+	},
+	{
+		name: "authorizationpolicies",
+		inputFiles: []string{
+			"testdata/authorizationpolicies.yaml",
+		},
+		analyzer: &authz.AuthorizationPoliciesAnalyzer{},
+		expected: []message{
+			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy httpbin-nopods"},
 		},
 	},
 }

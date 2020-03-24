@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: httpbin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: httpbin
+        version: v1
+    spec:
+      serviceAccountName: httpbin
+      containers:
+      - image: docker.io/kennethreitz/httpbin
+        imagePullPolicy: IfNotPresent
+        name: httpbin
+        ports:
+        - containerPort: 80
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+ name: httpbin-nopods
+spec:
+ selector:
+   matchLabels:
+     app: bogus-label
+     version: v1
+ rules:
+ - from:
+   - source:
+       principals: ["cluster.local/ns/default/sa/sleep"]
+   - source:
+       namespaces: ["test"]
+   to:
+   - operation:
+       methods: ["GET"]
+       paths: ["/info*"]
+   - operation:
+       methods: ["POST"]
+       paths: ["/data"]
+   when:
+   - key: request.auth.claims[iss]
+     values: ["https://accounts.google.com"]
