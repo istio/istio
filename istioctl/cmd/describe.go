@@ -259,10 +259,6 @@ func extendFQDN(host string) string {
 	return host + k8sSuffix
 }
 
-func svcFQDN(svc v1.Service) string {
-	return fmt.Sprintf("%s.%s.svc.cluster.local", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace)
-}
-
 // getDestRuleSubsets gets names of subsets that match any pod labels (also, ones that don't match).
 func getDestRuleSubsets(destRule model.Config, podsLabels []k8s_labels.Set) ([]string, []string) {
 	drSpec, ok := destRule.Spec.(*v1alpha3.DestinationRule)

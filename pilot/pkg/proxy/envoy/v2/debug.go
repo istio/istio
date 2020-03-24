@@ -83,16 +83,6 @@ var indexTmpl = template.Must(template.New("index").Parse(`<html>
 </html>
 `))
 
-const (
-	// configNameNotApplicable is used to represent the name of the authentication policy or
-	// destination rule when they are not specified and AutoMTLS is enabled
-	configNameNotApplicable = "-"
-
-	// noConfigConfigured is used when the authentication policy or destination rule
-	// are not specified
-	noConfigConfigured = "None"
-)
-
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
 func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool, webhook *inject.Webhook) {
 	// For debugging and load testing v2 we add an memory registry.
