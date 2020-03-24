@@ -18,11 +18,13 @@ import (
 	"fmt"
 	"net/url"
 	"reflect"
+	"strings"
 
 	"istio.io/api/operator/v1alpha1"
 	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/config/labels"
 )
 
 var (
@@ -209,4 +211,24 @@ func validateGatewayName(path util.Path, val interface{}) util.Errors {
 		return nil
 	}
 	return validateWithRegex(path, val, ObjectNameRegexp)
+}
+
+// CheckNamespaceName validates namespace name
+func CheckNamespaceName(name string, prefix bool) bool {
+	if prefix {
+		name = maskTrailingDash(name)
+	}
+	return labels.IsDNS1123Label(name)
+}
+
+// CheckRevision validates revision flag
+var CheckRevision = CheckNamespaceName
+
+// maskTrailingDash replaces the final character of a string with a subdomain safe
+// value if is a dash.
+func maskTrailingDash(name string) string {
+	if strings.HasSuffix(name, "-") {
+		return name[:len(name)-2] + "a"
+	}
+	return name
 }

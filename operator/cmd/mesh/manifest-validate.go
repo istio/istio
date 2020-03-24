@@ -48,6 +48,9 @@ var (
 		"hub":                validate.Hub,
 		"tag":                validate.Tag,
 
+		"namespace": validate.CheckNamespaceName,
+		"revision":  validate.CheckRevision,
+
 		"security.components.nodeAgent.enabled": boolValues,
 
 		// Possible values for Istio components
@@ -151,6 +154,16 @@ func verifyValues(flagName, flagValue string) error {
 	if flagName == "tag" {
 		if err := validate.Tag([]string{flagName}, flagValue); len(err) != 0 {
 			return err
+		}
+	}
+	if valType == reflect.TypeOf(validate.CheckNamespaceName) && flagName == "namespace" {
+		if !validate.CheckNamespaceName(flagValue, false) {
+			return fmt.Errorf("\n Unsupported format: %q for flag %q", flagValue, flagName)
+		}
+	}
+	if valType == reflect.TypeOf(validate.CheckRevision) && flagName == "revision" {
+		if !validate.CheckRevision(flagValue, false) {
+			return fmt.Errorf("\n Unsupported format: %q for flag %q", flagValue, flagName)
 		}
 	}
 	return nil

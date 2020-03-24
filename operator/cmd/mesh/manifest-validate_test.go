@@ -90,6 +90,34 @@ func TestValidateSetFlags(t *testing.T) {
 			want: fmt.Errorf("\n Unsupported value: %q, supported values for: %q is between %.1f to %.1f",
 				"100.5", "values.pilot.traceSampling", traceSamplingMin, traceSamplingMax),
 		},
+		{
+			name: "Test valid namespace",
+			args: []string{
+				"namespace=istio-system",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid namespace",
+			args: []string{
+				"namespace=foo.bar",
+			},
+			want: fmt.Errorf("\n Unsupported format: %q for flag %q", "foo.bar", "namespace"),
+		},
+		{
+			name: "Test valid revision",
+			args: []string{
+				"revision=canary",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid revision",
+			args: []string{
+				"revision=v1.2.3",
+			},
+			want: fmt.Errorf("\n Unsupported format: %q for flag %q", "v1.2.3", "revision"),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
