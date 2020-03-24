@@ -1,4 +1,3 @@
-{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
 {{- if .Values.global.defaultPodDisruptionBudget.enabled }}
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
@@ -17,8 +16,6 @@ spec:
       {{- if ne .Values.revision ""}}
       version: {{ .Values.revision }}
       {{- end }}
-      release: {{ .Release.Name }}
       istio: pilot
 ---
-{{- end }}
 {{- end }}

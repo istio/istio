@@ -35,6 +35,60 @@ spec:
         version: destination.labels[version] | &quot;&quot;
 </code></pre>
 
+<h2 id="Subject">Subject</h2>
+<section>
+<p>A subject contains a list of attributes that identify
+the caller identity.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Subject-user">
+<td><code>user</code></td>
+<td><code>string</code></td>
+<td>
+<p>The user name/ID that the subject represents.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Subject-groups">
+<td><code>groups</code></td>
+<td><code>string</code></td>
+<td>
+<p>Groups the subject belongs to depending on the authentication mechanism,
+&ldquo;groups&rdquo; are normally populated from JWT claim or client certificate.
+The operator can define how it is populated when creating an instance of
+the template.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Subject-properties">
+<td><code>properties</code></td>
+<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#Value">Value</a>&gt;</code></td>
+<td>
+<p>Additional attributes about the subject.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="Action">Action</h2>
 <section>
 <p>An action defines &ldquo;how a resource is accessed&rdquo;.</p>
@@ -98,60 +152,6 @@ No
 <td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#Value">Value</a>&gt;</code></td>
 <td>
 <p>Additional data about the action for use in policy.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="Subject">Subject</h2>
-<section>
-<p>A subject contains a list of attributes that identify
-the caller identity.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="Subject-user">
-<td><code>user</code></td>
-<td><code>string</code></td>
-<td>
-<p>The user name/ID that the subject represents.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="Subject-groups">
-<td><code>groups</code></td>
-<td><code>string</code></td>
-<td>
-<p>Groups the subject belongs to depending on the authentication mechanism,
-&ldquo;groups&rdquo; are normally populated from JWT claim or client certificate.
-The operator can define how it is populated when creating an instance of
-the template.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="Subject-properties">
-<td><code>properties</code></td>
-<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#Value">Value</a>&gt;</code></td>
-<td>
-<p>Additional attributes about the subject.</p>
 
 </td>
 <td>

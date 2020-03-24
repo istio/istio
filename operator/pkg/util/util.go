@@ -16,46 +16,16 @@ package util
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"html/template"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
-)
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
-var (
-	letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 )
 
 type FileFilter func(fileName string) bool
-
-// RandomString returns a random string of length n.
-func RandomString(n int) string {
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
-	}
-	return string(b)
-}
-
-// PrettyJSON returns a pretty printed version of the JSON string b.
-func PrettyJSON(b []byte) []byte {
-	var out bytes.Buffer
-	err := json.Indent(&out, b, "", "  ")
-	if err != nil {
-		return []byte(fmt.Sprint(err))
-	}
-	return out.Bytes()
-}
 
 // StringBoolMapToSlice creates and returns a slice of all the map keys with true.
 func StringBoolMapToSlice(m map[string]bool) []string {

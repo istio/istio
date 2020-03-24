@@ -251,6 +251,13 @@ var (
 			"that do not have galley installed.",
 	)
 
+	EnableAnalysis = env.RegisterBoolVar(
+		"PILOT_ENABLE_ANALYSIS",
+		false,
+		"If enabled, pilot will run istio analyzers and write analysis errors to the Status field of any "+
+			"Istio Resources",
+	).Get()
+
 	// IstiodService controls the istiod address - used for injection and as default value injected into pods
 	// if istiod is used. The name must be part of the DNS certificate served by pilot/istiod. The '.svc' is
 	// imposed by K8S - that's how the names for webhooks are defined, based on webhook service (which will be

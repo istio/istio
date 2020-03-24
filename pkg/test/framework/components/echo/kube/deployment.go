@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	deploymentYAML = `
+	serviceYAML = `
 {{- if .ServiceAccount }}
 apiVersion: v1
 kind: ServiceAccount
@@ -58,7 +58,9 @@ spec:
 {{- end }}
   selector:
     app: {{ .Service }}
----
+`
+
+	deploymentYAML = `
 {{$subsets := .Subsets }}
 {{- range $i, $subset := $subsets }}
 apiVersion: apps/v1
@@ -83,7 +85,8 @@ spec:
         istio-locality: {{ $.Locality }}
 {{- end }}
       annotations:
-        foo: bar
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "15014"
 {{- range $name, $value := $subset.Annotations }}
         {{ $name.Name }}: {{ printf "%q" $value.Value }}
 {{- end }}
@@ -101,6 +104,7 @@ spec:
         securityContext:
           runAsUser: 1
         args:
+          - --metrics=15014
 {{- range $i, $p := $.ContainerPorts }}
 {{- if eq .Protocol "GRPC" }}
           - --grpc
@@ -174,26 +178,32 @@ data:
 )
 
 var (
+	serviceTemplate    *template.Template
 	deploymentTemplate *template.Template
 )
 
 func init() {
+	serviceTemplate = template.New("echo_service")
+	if _, err := serviceTemplate.Funcs(sprig.TxtFuncMap()).Parse(serviceYAML); err != nil {
+		panic(fmt.Sprintf("unable to parse echo service template: %v", err))
+	}
+
 	deploymentTemplate = template.New("echo_deployment")
 	if _, err := deploymentTemplate.Funcs(sprig.TxtFuncMap()).Parse(deploymentYAML); err != nil {
 		panic(fmt.Sprintf("unable to parse echo deployment template: %v", err))
 	}
 }
 
-func generateYAML(cfg echo.Config) (string, error) {
+func generateYAML(cfg echo.Config) (serviceYAML string, deploymentYAML string, err error) {
 	// Create the parameters for the YAML template.
 	settings, err := image.SettingsFromCommandLine()
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	return generateYAMLWithSettings(cfg, settings)
 }
 
-func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (string, error) {
+func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (serviceYAML string, deploymentYAML string, err error) {
 	// Convert legacy config to workload oritended.
 	if cfg.Subsets == nil {
 		cfg.Subsets = []echo.SubsetConfig{
@@ -227,6 +237,12 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (string
 		"TLSSettings":         cfg.TLSSettings,
 	}
 
+	serviceYAML, err = tmpl.Execute(serviceTemplate, params)
+	if err != nil {
+		return
+	}
+
 	// Generate the YAML content.
-	return tmpl.Execute(deploymentTemplate, params)
+	deploymentYAML, err = tmpl.Execute(deploymentTemplate, params)
+	return
 }

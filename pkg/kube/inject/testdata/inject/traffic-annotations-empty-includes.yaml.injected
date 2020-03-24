@@ -13,7 +13,7 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: 4,5,6,15020
         traffic.sidecar.istio.io/excludeOutboundIPRanges: 10.96.0.2/24,10.96.0.3/24
         traffic.sidecar.istio.io/includeInboundPorts: ""
@@ -40,7 +40,6 @@ spec:
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
         - --trust-domain=cluster.local
-        - --controlPlaneBootstrap=false
         - --concurrency
         - "2"
         env:
@@ -80,14 +79,6 @@ spec:
             ]
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
-        - name: ISTIO_META_POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: ISTIO_META_CONFIG_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_METAJSON_ANNOTATIONS
@@ -140,7 +131,7 @@ spec:
         - mountPath: /var/run/secrets/tokens
           name: istio-token
         - mountPath: /etc/istio/pod
-          name: podinfo
+          name: istio-podinfo
       initContainers:
       - args:
         - istio-iptables
@@ -195,7 +186,7 @@ spec:
           - fieldRef:
               fieldPath: metadata.annotations
             path: annotations
-        name: podinfo
+        name: istio-podinfo
       - name: istio-token
         projected:
           sources:

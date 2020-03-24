@@ -73,9 +73,10 @@ var (
 	LocalCertDir = env.RegisterStringVar("ROOT_CA_DIR", "./etc/cacerts",
 		"Location of a local or mounted CA root")
 
-	workloadCertTTL = env.RegisterDurationVar("WORKLOAD_CERT_TTL",
+	workloadCertTTL = env.RegisterDurationVar("DEFAULT_WORKLOAD_CERT_TTL",
 		cmd.DefaultWorkloadCertTTL,
-		"The TTL of issued workload certificates.")
+		"The default TTL of issued workload certificates. Applied when the client sets a "+
+			"non-positive TTL in the CSR.")
 
 	maxWorkloadCertTTL = env.RegisterDurationVar("MAX_WORKLOAD_CERT_TTL",
 		cmd.DefaultMaxWorkloadCertTTL,

@@ -34,8 +34,8 @@ type Instance interface {
 	WaitForQuiesceOrFail(t test.Failer, fmt string, args ...interface{}) prom.Value
 
 	// WaitForOneOrMore runs the provided query and waits until one (or more for vector) values are available.
-	WaitForOneOrMore(fmt string, args ...interface{}) error
-	WaitForOneOrMoreOrFail(t test.Failer, fmt string, args ...interface{})
+	WaitForOneOrMore(fmt string, args ...interface{}) (prom.Value, error)
+	WaitForOneOrMoreOrFail(t test.Failer, fmt string, args ...interface{}) prom.Value
 
 	// Sum all the samples that has the given labels in the given vector value.
 	Sum(val prom.Value, labels map[string]string) (float64, error)

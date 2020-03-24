@@ -51,8 +51,6 @@ addonComponents:
   prometheus:
     enabled: false
 revision: canary
-values:
-  clusterResources: false
 `
 		})).
 		Setup(func(ctx resource.Context) (err error) {

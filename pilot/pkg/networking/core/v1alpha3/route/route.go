@@ -130,7 +130,7 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 	for fqdn := range missing {
 		svc := serviceRegistry[fqdn]
 		for _, port := range svc.Ports {
-			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(node, port) {
+			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
 				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
 				traceOperation := fmt.Sprintf("%s:%d/*", svc.Hostname, port.Port)
 				httpRoute := BuildDefaultHTTPOutboundRoute(node, cluster, traceOperation)
@@ -197,7 +197,7 @@ func buildSidecarVirtualHostsForVirtualService(
 	serviceByPort := make(map[int][]*model.Service)
 	for _, svc := range servicesInVirtualService {
 		for _, port := range svc.Ports {
-			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(node, port) {
+			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
 				serviceByPort[port.Port] = append(serviceByPort[port.Port], svc)
 			}
 		}
@@ -349,14 +349,13 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		Metadata: util.BuildConfigInfoMetadata(virtualService.ConfigMeta),
 	}
 
-	if util.IsIstioVersionGE13(node) {
-		routeName := in.Name
-		if match != nil && match.Name != "" {
-			routeName = routeName + "." + match.Name
-		}
-		out.Name = routeName
-		// add a name to the route
+	routeName := in.Name
+	if match != nil && match.Name != "" {
+		routeName = routeName + "." + match.Name
 	}
+	// add a name to the route
+	out.Name = routeName
+
 	out.TypedPerFilterConfig = make(map[string]*any.Any)
 	if redirect := in.Redirect; redirect != nil {
 		action := &route.Route_Redirect{
@@ -428,6 +427,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 				action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{
 					Cluster:         GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], port),
 					RuntimeFraction: mp,
+					TraceSampled:    &wrappers.BoolValue{Value: false},
 				}
 			}
 		}
@@ -840,9 +840,7 @@ func BuildDefaultHTTPInboundRoute(node *model.Proxy, clusterName string, operati
 		},
 	}
 
-	if util.IsIstioVersionGE13(node) {
-		val.Name = DefaultRouteName
-	}
+	val.Name = DefaultRouteName
 	return val
 }
 

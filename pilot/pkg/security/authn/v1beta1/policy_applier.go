@@ -25,7 +25,6 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/golang/protobuf/ptypes/empty"
 
-	authn_alpha_api "istio.io/api/authentication/v1alpha1"
 	"istio.io/api/security/v1beta1"
 	"istio.io/pkg/log"
 	istiolog "istio.io/pkg/log"
@@ -36,7 +35,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
 	authn_utils "istio.io/istio/pilot/pkg/security/authn/utils"
-	alpha_applier "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	authn_alpha "istio.io/istio/security/proto/authentication/v1alpha1"
 	authn_filter_policy "istio.io/istio/security/proto/authentication/v1alpha1"
@@ -57,16 +55,11 @@ type v1beta1PolicyApplier struct {
 	processedJwtRules []*v1beta1.JWTRule
 
 	consolidatedPeerPolicy *v1beta1.PeerAuthentication
-
-	hasAlphaMTLSPolicy bool
-	alphaMTLSMode      model.MutualTLSMode
-	alphaApplier       authn.PolicyApplier
 }
 
 func (a *v1beta1PolicyApplier) JwtFilter() *http_conn.HttpFilter {
 	if len(a.processedJwtRules) == 0 {
-		authnLog.Debug("JwtFilter: RequestAuthentication (beta policy) not found, fallback to alpha if available")
-		return a.alphaApplier.JwtFilter()
+		return nil
 	}
 
 	filterConfigProto := convertToEnvoyJwtConfig(a.processedJwtRules)
@@ -80,10 +73,6 @@ func (a *v1beta1PolicyApplier) JwtFilter() *http_conn.HttpFilter {
 	}
 }
 
-func (a *v1beta1PolicyApplier) shouldUseAlphaMtlsPolicy() bool {
-	return a.consolidatedPeerPolicy == nil && a.hasAlphaMTLSPolicy
-}
-
 func defaultAuthnFilter() *authn_filter.FilterConfig {
 	return &authn_filter.FilterConfig{
 		Policy: &authn_filter_policy.Policy{},
@@ -95,11 +84,6 @@ func defaultAuthnFilter() *authn_filter.FilterConfig {
 func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeType, port uint32, config *authn_filter.FilterConfig) *authn_filter.FilterConfig {
 	if proxyType != model.SidecarProxy {
 		authnLog.Debugf("AuthnFilter: skip setting peer for type %v", proxyType)
-		return config
-	}
-	if a.shouldUseAlphaMtlsPolicy() {
-		// (beta) PeerAuthentication is not set for workload, do nothing.
-		authnLog.Debug("AuthnFilter: PeerAuthentication (beta policy) not found, keep settings with alpha API")
 		return config
 	}
 
@@ -164,13 +148,11 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForRequestAuthn(config *authn_filte
 }
 
 // AuthNFilter returns the Istio authn filter config:
-// - If only alpha policy is used, it returns the same one output by v1alpha1 policy applier.
 // - If PeerAuthentication is used, it overwrite the settings for peer principal validation and extraction based on the new API.
 // - If RequestAuthentication is used, it overwrite the settings for request principal validation and extraction based on the new API.
 // - If RequestAuthentication is used, principal binding is always set to ORIGIN.
 func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32) *http_conn.HttpFilter {
-	// Use the authn filter config from alpha API as base.
-	filterConfigProto := alpha_applier.AuthNFilterConfigForBackwarding(a.alphaApplier, proxyType)
+	var filterConfigProto *authn_filter.FilterConfig
 
 	// Override the config with peer authentication, if applicable.
 	filterConfigProto = a.setAuthnFilterForPeerAuthn(proxyType, port, filterConfigProto)
@@ -188,11 +170,6 @@ func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32
 }
 
 func (a *v1beta1PolicyApplier) InboundFilterChain(endpointPort uint32, sdsUdsPath string, node *model.Proxy) []networking.FilterChain {
-	// If beta mTLS policy (PeerAuthentication) is not used for this workload, fallback to alpha policy.
-	if a.shouldUseAlphaMtlsPolicy() {
-		authnLog.Debugf("InboundFilterChain [%v:%d]: fallback to alpha policy applier", node.ID, endpointPort)
-		return a.alphaApplier.InboundFilterChain(endpointPort, sdsUdsPath, node)
-	}
 	effectiveMTLSMode := a.getMutualTLSModeForPort(endpointPort)
 	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v:%d in %s mode", node.ID, endpointPort, effectiveMTLSMode)
 	return authn_utils.BuildInboundFilterChain(effectiveMTLSMode, sdsUdsPath, node)
@@ -201,8 +178,7 @@ func (a *v1beta1PolicyApplier) InboundFilterChain(endpointPort uint32, sdsUdsPat
 // NewPolicyApplier returns new applier for v1beta1 authentication policies.
 func NewPolicyApplier(rootNamespace string,
 	jwtPolicies []*model.Config,
-	peerPolicies []*model.Config,
-	policy *authn_alpha_api.Policy) authn.PolicyApplier {
+	peerPolicies []*model.Config) authn.PolicyApplier {
 	processedJwtRules := []*v1beta1.JWTRule{}
 
 	// TODO(diemtvu) should we need to deduplicate JWT with the same issuer.
@@ -219,18 +195,11 @@ func NewPolicyApplier(rootNamespace string,
 			processedJwtRules[i].GetIssuer(), processedJwtRules[j].GetIssuer()) < 0
 	})
 
-	alphaMTLSMode := model.MTLSUnknown
-	if policy != nil {
-		alphaMTLSMode = alpha_applier.GetMutualTLSMode(policy)
-	}
 	return &v1beta1PolicyApplier{
 		jwtPolicies:            jwtPolicies,
 		peerPolices:            peerPolicies,
 		processedJwtRules:      processedJwtRules,
 		consolidatedPeerPolicy: composePeerAuthentication(rootNamespace, peerPolicies),
-		alphaApplier:           alpha_applier.NewPolicyApplier(policy),
-		hasAlphaMTLSPolicy:     policy != nil,
-		alphaMTLSMode:          alphaMTLSMode,
 	}
 }
 

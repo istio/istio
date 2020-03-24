@@ -130,10 +130,15 @@ func (c *controller) addInformer(schema collection.Schema, namespace string, res
 			if !ok {
 				return nil, fmt.Errorf("client not initialized %s", kind)
 			}
+			var timeout time.Duration
+			if opts.TimeoutSeconds != nil {
+				timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
+			}
 			opts.Watch = true
 			req := rc.dynamic.Get().
 				Resource(schema.Resource().Plural()).
-				VersionedParams(&opts, meta_v1.ParameterCodec)
+				VersionedParams(&opts, meta_v1.ParameterCodec).
+				Timeout(timeout)
 			if !schema.Resource().IsClusterScoped() {
 				req = req.Namespace(namespace)
 			}

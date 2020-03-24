@@ -46,7 +46,7 @@
                 "enableAutoMtls": {},
                 "enableTracing": true,
                 "ingressClass": "istio",
-                "ingressControllerMode": 2,
+                "ingressControllerMode": 3,
                 "ingressService": "istio-ingressgateway",
                 "localityLbSetting": {},
                 "outboundTrafficPolicy": {

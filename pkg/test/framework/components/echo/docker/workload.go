@@ -23,8 +23,6 @@ import (
 	"strings"
 	"time"
 
-	istio_agent "istio.io/istio/pkg/istio-agent"
-
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/google/uuid"
@@ -141,6 +139,7 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 
 		metaJSONLabels := fmt.Sprintf("{\"app\":\"%s\"}", cfg.Service)
 		interceptionMode := "REDIRECT"
+		propCert := "./var/lib/istio/default"
 
 		env = append(env,
 			"ECHO_ARGS="+strings.Join(echoArgs, " "),
@@ -151,7 +150,7 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 			"POD_NAMESPACE="+cfg.Namespace.Name(),
 			"PILOT_ADDRESS="+pilotAddress,
 			"CA_ADDR="+pilotAddress,
-			"PROV_CERT="+istio_agent.CitadelCACertPath,
+			"PROV_CERT="+propCert,
 			"ENVOY_PORT=15001",
 			"ENVOY_USER=istio-proxy",
 			"ISTIO_AGENT_FLAGS="+agentArgs,
@@ -261,6 +260,7 @@ func (w *workload) Dump() {
 		srcFiles := []string{
 			"/var/log/istio/istio.log",
 			"/var/log/istio/istio.err.log",
+			"/var/log/istio/access.log",
 		}
 
 		for _, srcFile := range srcFiles {

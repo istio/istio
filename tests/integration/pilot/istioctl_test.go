@@ -41,13 +41,11 @@ const (
 7070 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
-7070 Pod is .*, clients configured automatically
 7070 VirtualService: a\..*
    when headers are end-user=jason
 80 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
-80 Pod is .*, clients configured automatically
 80 VirtualService: a\..*
    when headers are end-user=jason
 `
@@ -61,13 +59,11 @@ Service: a\..*
 7070 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
-7070 Pod is .*, clients configured automatically
 7070 VirtualService: a\..*
    when headers are end-user=jason
 80 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
-80 Pod is .*, clients configured automatically
 80 VirtualService: a\..*
    when headers are end-user=jason
 `
@@ -89,7 +85,7 @@ func TestVersion(t *testing.T) {
 			_ = pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 			cfg := i.Settings()
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			args := []string{"version", "--remote=true", fmt.Sprintf("--istioNamespace=%s", cfg.SystemNamespace)}
 
@@ -144,7 +140,7 @@ func TestDescribe(t *testing.T) {
 			if err := a.WaitUntilCallable(a); err != nil {
 				t.Fatal(err)
 			}
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			podID, err := getPodID(a)
 			if err != nil {
@@ -199,7 +195,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 				With(&a, echoConfig(ns, "a")).
 				BuildOrFail(ctx)
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			var output string
 			var args []string
@@ -238,7 +234,7 @@ func TestProxyConfig(t *testing.T) {
 				With(&a, echoConfig(ns, "a")).
 				BuildOrFail(ctx)
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			podID, err := getPodID(a)
 			if err != nil {

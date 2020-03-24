@@ -182,7 +182,7 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	}
 
 	caCertTTL := time.Hour
-	certTTL := 30 * time.Minute
+	defaultCertTTL := 30 * time.Minute
 	maxCertTTL := time.Hour
 	org := "test.ca.Org"
 	caNamespace := "default"
@@ -190,7 +190,7 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	rootCertCheckInverval := time.Hour
 
 	caopts, err := NewSelfSignedIstioCAOptions(context.Background(),
-		0, caCertTTL, rootCertCheckInverval, certTTL, maxCertTTL,
+		0, caCertTTL, rootCertCheckInverval, defaultCertTTL, maxCertTTL,
 		org, false, caNamespace, -1, client.CoreV1(),
 		rootCertFile, false)
 	if err != nil {
@@ -247,7 +247,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	signingKeyPem := []byte(key1Pem)
 
 	caCertTTL := time.Hour
-	certTTL := 30 * time.Minute
+	defaultCertTTL := 30 * time.Minute
 	maxCertTTL := time.Hour
 	org := "test.ca.Org"
 	caNamespace := "default"
@@ -261,7 +261,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	ctx0, cancel0 := context.WithTimeout(context.Background(), time.Millisecond*50)
 	defer cancel0()
 	_, err := NewSelfSignedIstioCAOptions(ctx0, 0,
-		caCertTTL, certTTL, rootCertCheckInverval, maxCertTTL, org, false,
+		caCertTTL, defaultCertTTL, rootCertCheckInverval, maxCertTTL, org, false,
 		caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile, false)
 	if err == nil {
 		t.Errorf("Expected error, but succeeded.")
@@ -280,7 +280,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	ctx1, cancel1 := context.WithCancel(context.Background())
 	defer cancel1()
 	caopts, err := NewSelfSignedIstioCAOptions(ctx1, 0,
-		caCertTTL, certTTL, rootCertCheckInverval, maxCertTTL, org, false,
+		caCertTTL, defaultCertTTL, rootCertCheckInverval, maxCertTTL, org, false,
 		caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile, false)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -677,9 +677,9 @@ func createCA(maxTTL time.Duration) (*IstioCA, error) {
 	// Disable root cert rotator by setting root cert check interval to 0ns.
 	rootCertCheckInverval := time.Duration(0)
 	caOpts := &IstioCAOptions{
-		CertTTL:       time.Hour,
-		MaxCertTTL:    maxTTL,
-		KeyCertBundle: bundle,
+		DefaultCertTTL: time.Hour,
+		MaxCertTTL:     maxTTL,
+		KeyCertBundle:  bundle,
 		RotatorConfig: &SelfSignedCARootCertRotatorConfig{
 			CheckInterval: rootCertCheckInverval,
 		},

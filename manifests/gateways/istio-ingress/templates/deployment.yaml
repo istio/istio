@@ -103,22 +103,9 @@ spec:
         {{- end }}
           - --serviceCluster
           - {{ $gateway.name | default "istio-ingressgateway" }}
-          - --proxyAdminPort
-          - "15000"
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
         {{- end }}
-          - --controlPlaneAuthPolicy
-          - NONE
-          - --discoveryAddress
-          {{- $namespace := .Values.global.configNamespace | default "istio-system" }}
-          {{- if .Values.global.remotePilotAddress }}
-          # Use the DNS hostname instead of the IP address. The discovery address needs to match the
-          # SAN in istiod's cert. The istiod-remote.<namespace>.svc will resolve to the remotePilotAddress.
-          - istiod-remote.{{ $namespace }}.svc:15012
-          {{- else }}
-          - istio-pilot.{{ $namespace }}.svc:15012
-          {{- end }}
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
@@ -143,8 +130,6 @@ spec:
             value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
             value: {{ .Values.global.pilotCertProvider }}
-          - name: "ISTIO_META_USER_SDS"
-            value: "true"
           - name: CA_ADDR
           {{- if .Values.global.caAddress }}
             value: {{ .Values.global.caAddress }}
@@ -193,19 +178,6 @@ spec:
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.trustDomain }}"
           {{- end }}
-          {{- if $.Values.global.mtls.auto }}
-          - name: ISTIO_AUTO_MTLS_ENABLED
-            value: "true"
-          {{- end }}
-          - name: ISTIO_META_POD_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.name
-          - name: ISTIO_META_CONFIG_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
           {{- range $key, $val := $gateway.env }}
           - name: {{ $key }}
             value: {{ $val }}

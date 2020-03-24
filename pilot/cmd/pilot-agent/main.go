@@ -39,6 +39,7 @@ import (
 	envoyDiscovery "istio.io/istio/pilot/pkg/proxy/envoy"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
@@ -47,6 +48,7 @@ import (
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
+	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	stsserver "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 	cleaniptables "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
@@ -137,17 +139,26 @@ var (
 				}
 			}
 
-			//Do we need to get IP from the command line or environment?
 			if len(proxyIP) != 0 {
-				role.IPAddresses = append(role.IPAddresses, proxyIP)
+				role.IPAddresses = []string{proxyIP}
 			} else if podIP != nil {
-				role.IPAddresses = append(role.IPAddresses, podIP.String())
+				role.IPAddresses = []string{podIP.String()}
 			}
 
 			// Obtain all the IPs from the node
 			if ipAddrs, ok := proxy.GetPrivateIPs(context.Background()); ok {
 				log.Infof("Obtained private IP %v", ipAddrs)
-				role.IPAddresses = append(role.IPAddresses, ipAddrs...)
+				if len(role.IPAddresses) == 1 {
+					for _, ip := range ipAddrs {
+						// prevent duplicate ips, the first one must be the pod ip
+						// as we pick the first ip as pod ip in istiod
+						if role.IPAddresses[0] != ip {
+							role.IPAddresses = append(role.IPAddresses, ip)
+						}
+					}
+				} else {
+					role.IPAddresses = append(role.IPAddresses, ipAddrs...)
+				}
 			}
 
 			// No IP addresses provided, append 127.0.0.1 for ipv4 and ::1 for ipv6
@@ -290,12 +301,12 @@ var (
 				PodName:             podName,
 				PodNamespace:        podNamespace,
 				PodIP:               podIP,
-				SDSUDSPath:          sa.SDSAddress,
 				STSPort:             stsPort,
 				ControlPlaneAuth:    proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 				DisableReportCalls:  disableInternalTelemetry,
 				OutlierLogPath:      outlierLogPath,
 				PilotCertProvider:   pilotCertProvider,
+				ProvCert:            citadel.ProvCert,
 			})
 
 			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
@@ -339,17 +350,8 @@ func getMeshConfig() (meshconfig.MeshConfig, error) {
 
 // dedupes the string array and also ignores the empty string.
 func dedupeStrings(in []string) []string {
-	stringMap := map[string]bool{}
-	for _, c := range in {
-		if len(c) > 0 {
-			stringMap[c] = true
-		}
-	}
-	unique := make([]string, 0)
-	for c := range stringMap {
-		unique = append(unique, c)
-	}
-	return unique
+	set := sets.NewSet(in...)
+	return set.UnsortedList()
 }
 
 // explicitly set the trustdomain so the pilot and mixer SAN will have same trustdomain
