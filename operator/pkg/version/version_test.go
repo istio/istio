@@ -131,6 +131,17 @@ supportedIstioVersions: "> 1.1, < 1.4.0"
 `,
 		},
 		{
+			desc: "k8s client and server version provided",
+			yamlStr: `
+operatorVersion: 1.3.0
+operatorVersionRange: 1.3.0
+recommendedIstioVersions: 1.3.0
+supportedIstioVersions: 1.3.0
+k8sClientVersionRange: 1.15.0
+k8sServerVersionRange: 1.15.0
+`,
+		},
+		{
 			desc: "missing operatorVersion",
 			yamlStr: `
 supportedIstioVersions: 1.3.0
@@ -145,6 +156,70 @@ operatorVersion: 1.3.0
 recommendedIstioVersions: 1.3.0
 `,
 			wantErr: `supportedIstioVersions must be set`,
+		},
+		{
+			desc: "incorrect operatorVersion provided",
+			yamlStr: `
+operatorVersion: .X.3.0
+operatorVersionRange: 1.3.0
+recommendedIstioVersions: 1.3.0
+supportedIstioVersions: 1.3.0
+`,
+			wantErr: `Malformed version: .X.3.0`,
+		},
+		{
+			desc: "incorrect operatorVersionRange provided",
+			yamlStr: `
+operatorVersion: 1.3.0
+operatorVersionRange: .Y.3.0
+recommendedIstioVersions: 1.3.0
+supportedIstioVersions: 1.3.0
+`,
+			wantErr: `Malformed constraint: .Y.3.0`,
+		},
+		{
+			desc: "incorrect recommendedIstioVersions provided",
+			yamlStr: `
+operatorVersion: 1.3.0
+operatorVersionRange: 1.3.0
+recommendedIstioVersions: .Z.3.0
+supportedIstioVersions: 1.3.0
+`,
+			wantErr: `Malformed constraint: .Z.3.0`,
+		},
+		{
+			desc: "incorrect supportedIstioVersions provided",
+			yamlStr: `
+operatorVersion: 1.3.0
+operatorVersionRange: 1.3.0
+recommendedIstioVersions: 1.3.0
+supportedIstioVersions: .A.3.0
+`,
+			wantErr: `Malformed constraint: .A.3.0`,
+		},
+		{
+			desc: "incorrect k8sClientVersionRange provided",
+			yamlStr: `
+operatorVersion: 1.3.0
+operatorVersionRange: 1.3.0
+recommendedIstioVersions: 1.3.0
+supportedIstioVersions: 1.3.0
+k8sClientVersionRange: .8.15.0
+k8sServerVersionRange: 1.15.0
+`,
+			wantErr: `Malformed constraint: .8.15.0`,
+		},
+		{
+			desc: "incorrect k8sServerVersionRange provided",
+			yamlStr: `
+operatorVersion: 1.3.0
+operatorVersionRange: 1.3.0
+recommendedIstioVersions: 1.3.0
+supportedIstioVersions: 1.3.0
+k8sClientVersionRange: 1.15.0
+k8sServerVersionRange: .9.15.0
+`,
+			wantErr: `Malformed constraint: .9.15.0`,
 		},
 		{
 			desc: "unknown field",
