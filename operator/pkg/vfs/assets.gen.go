@@ -16319,7 +16319,7 @@ data:
     #  The trust domain aliases represent the aliases of trust_domain.
     #  For example, if we have
     #  trustDomain: td1
-    #  trustDomainAliases: [“td2”, "td3"]
+    #  trustDomainAliases: ["td2", "td3"]
     #  Any service with the identity "td1/ns/foo/sa/a-service-account", "td2/ns/foo/sa/a-service-account",
     #  or "td3/ns/foo/sa/a-service-account" will be treated the same in the Istio mesh.
     trustDomainAliases:
@@ -16895,19 +16895,30 @@ data:
           runAsUser: 1337
           {{- end }}
         resources:
-          {{ if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
+      {{- if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) }}
+        {{- if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) }}
           requests:
             {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) -}}
             cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+` }}"
-            {{ end}}
+            {{ end }}
             {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
             memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+` }}"
             {{ end }}
-        {{ else -}}
-      {{- if .Values.global.proxy.resources }}
+        {{- end }}
+        {{- if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) }}
+          limits:
+            {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) -}}
+            cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+` }}"
+            {{ end }}
+            {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) -}}
+            memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+` }}"
+            {{ end }}
+        {{- end }}
+      {{- else }}
+        {{- if .Values.global.proxy.resources }}
           {{ toYaml .Values.global.proxy.resources | indent 4 }}
+        {{- end }}
       {{- end }}
-        {{  end -}}
         volumeMounts:
         {{- if eq .Values.global.pilotCertProvider "istiod" }}
         - mountPath: /var/run/secrets/istio
@@ -17063,7 +17074,6 @@ spec:
       maxUnavailable: 25%
   selector:
     matchLabels:
-      app: istiod
       istio: pilot
   template:
     metadata:
@@ -18287,19 +18297,30 @@ template: |
       runAsUser: 1337
       {{- end }}
     resources:
-      {{ if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
+  {{- if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) }}
+    {{- if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) }}
       requests:
         {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) -}}
         cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+` }}"
-        {{ end}}
+        {{ end }}
         {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
         memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+` }}"
         {{ end }}
-    {{ else -}}
-  {{- if .Values.global.proxy.resources }}
+    {{- end }}
+    {{- if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) }}
+      limits:
+        {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) -}}
+        cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+` }}"
+        {{ end }}
+        {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) -}}
+        memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+` }}"
+        {{ end }}
+    {{- end }}
+  {{- else }}
+    {{- if .Values.global.proxy.resources }}
       {{ toYaml .Values.global.proxy.resources | indent 4 }}
+    {{- end }}
   {{- end }}
-    {{  end -}}
     volumeMounts:
     {{- if eq .Values.global.pilotCertProvider "istiod" }}
     - mountPath: /var/run/secrets/istio
@@ -18774,7 +18795,7 @@ data:
     #  The trust domain aliases represent the aliases of trust_domain.
     #  For example, if we have
     #  trustDomain: td1
-    #  trustDomainAliases: [“td2”, "td3"]
+    #  trustDomainAliases: ["td2", "td3"]
     #  Any service with the identity "td1/ns/foo/sa/a-service-account", "td2/ns/foo/sa/a-service-account",
     #  or "td3/ns/foo/sa/a-service-account" will be treated the same in the Istio mesh.
     trustDomainAliases:
@@ -18977,8 +18998,8 @@ spec:
       maxUnavailable: {{ .Values.pilot.rollingMaxUnavailable }}
   selector:
     matchLabels:
-      app: istiod
       {{- if ne .Values.revision ""}}
+      app: istiod
       version: {{ .Values.revision }}
       {{- else }}
       istio: pilot
@@ -44508,8 +44529,8 @@ spec:
           httpGet:
             path: /ready
             port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
+          initialDelaySeconds: 1
+          periodSeconds: 3
           timeoutSeconds: 5
         strategy:
           rollingUpdate:

@@ -10,7 +10,6 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: istiod
       istio: pilot
   strategy:
     rollingUpdate:
@@ -122,7 +121,7 @@ spec:
             path: /ready
             port: 8080
           initialDelaySeconds: 555
-          periodSeconds: 5
+          periodSeconds: 3
           timeoutSeconds: 5
         resources:
           requests:

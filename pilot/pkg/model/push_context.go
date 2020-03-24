@@ -1419,7 +1419,6 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 	// values returned from ConfigStore.List are immutable.
 	// Therefore, we make a copy
 	destRules := make([]Config, len(configs))
-
 	for i := range destRules {
 		destRules[i] = configs[i].DeepCopy()
 	}

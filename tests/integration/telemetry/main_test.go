@@ -50,6 +50,8 @@ values:
     enabled: true
     scrapeInterval: 5s
   grafana:
+    enabled: true
+  prometheus:
     enabled: true`
 		})).
 		Setup(func(ctx resource.Context) (err error) {

@@ -853,4 +853,12 @@ func TestDeepCopy(t *testing.T) {
 		t.Fatalf("cloned config is not identical")
 	}
 
+	// change the copied gateway to see if the original config is not effected
+	copiedGateway := copied.Spec.(*networking.Gateway)
+	copiedGateway.Selector = map[string]string{"app": "test"}
+
+	gateway := cfg.Spec.(*networking.Gateway)
+	if gateway.Selector != nil {
+		t.Errorf("Original gateway is mutated")
+	}
 }
