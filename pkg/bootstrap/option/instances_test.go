@@ -663,18 +663,6 @@ func TestOptions(t *testing.T) {
 			expected: []string{"fake"},
 		},
 		{
-			testName: "sds uds path",
-			key:      "sds_uds_path",
-			option:   option.SDSUDSPath("fake"),
-			expected: "fake",
-		},
-		{
-			testName: "sds token path",
-			key:      "sds_token_path",
-			option:   option.SDSTokenPath("fake"),
-			expected: "fake",
-		},
-		{
 			testName: "pilot_cert_provider kubernetes",
 			key:      "pilot_cert_provider",
 			option:   option.PilotCertProvider("kubernetes"),

@@ -718,16 +718,6 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 					}
 				}
 			}
-
-			errs = appendErrors(errs, validateSidecarIngressTLS(i.InboundTls))
-
-			// If inbound TLS defined, the port must be either TLS or HTTPS
-			if i.InboundTls != nil {
-				p := protocol.Parse(i.Port.Protocol)
-				if !p.IsTLS() {
-					errs = appendErrors(errs, fmt.Errorf("sidecar: ingress cannot have TLS settings for non HTTPS/TLS ports"))
-				}
-			}
 		}
 
 		portMap = make(map[uint32]struct{})
@@ -780,23 +770,6 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 
 		return
 	})
-
-func validateSidecarIngressTLS(tls *networking.Server_TLSOptions) (errs error) {
-	if tls == nil {
-		return nil
-	}
-
-	if tls.HttpsRedirect {
-		errs = appendErrors(errs, fmt.Errorf("sidecar: inbound tls must not set 'httpsRedirect'"))
-	}
-
-	if tls.Mode == networking.Server_TLSOptions_AUTO_PASSTHROUGH ||
-		tls.Mode == networking.Server_TLSOptions_ISTIO_MUTUAL {
-		errs = appendErrors(errs, fmt.Errorf("sidecar: inbound tls mode must not be %s", tls.Mode.String()))
-	}
-	errs = appendErrors(errs, validateTLSOptions(tls))
-	return
-}
 
 func validateSidecarOutboundTrafficPolicy(tp *networking.OutboundTrafficPolicy) (errs error) {
 	if tp == nil {
@@ -2546,7 +2519,7 @@ func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 		errs = multierror.Append(errs, errors.New("attempts cannot be negative"))
 	}
 
-	if retries.Attempts == 0 && (retries.PerTryTimeout != nil || retries.RetryOn != "") {
+	if retries.Attempts == 0 && (retries.PerTryTimeout != nil || retries.RetryOn != "" || retries.RetryRemoteLocalities != nil) {
 		errs = appendErrors(errs, errors.New("http retry policy configured when attempts are set to 0 (disabled)"))
 	}
 

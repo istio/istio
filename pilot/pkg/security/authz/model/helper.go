@@ -17,19 +17,11 @@ package model
 import (
 	"fmt"
 
-	istio_rbac "istio.io/api/rbac/v1alpha1"
 	security "istio.io/api/security/v1beta1"
 )
 
 func permissionTag(tag string) string {
 	return fmt.Sprintf("MethodFromPermission[%s]", tag)
-}
-
-func simplePermission(service string, tag string) Permission {
-	return Permission{
-		Services: []string{service},
-		Methods:  []string{permissionTag(tag)},
-	}
 }
 
 func principalTag(tag string) string {
@@ -39,87 +31,6 @@ func principalTag(tag string) string {
 func simplePrincipal(tag string) Principal {
 	return Principal{
 		Users: []string{principalTag(tag)},
-	}
-}
-
-func fullPermission(tag string) Permission {
-	return Permission{
-		Services:   []string{"svc-" + tag},
-		Hosts:      []string{"host-" + tag},
-		NotHosts:   []string{"not-host-" + tag},
-		Paths:      []string{"paths-" + tag},
-		NotPaths:   []string{"not-paths-" + tag},
-		Methods:    []string{"methods-" + tag},
-		NotMethods: []string{"not-methods-" + tag},
-		Ports:      []string{"1"},
-		NotPorts:   []string{"2"},
-		Constraints: []KeyValues{
-			{
-				"constraint-" + tag: Values{
-					Values: []string{"value1-" + tag, "value2-" + tag},
-				},
-			},
-		},
-	}
-}
-
-func fullPrincipal(tag string) Principal {
-	return Principal{
-		Users:         []string{"users-" + tag},
-		Names:         []string{"names-" + tag},
-		NotNames:      []string{"not-names-" + tag},
-		Group:         "group-" + tag,
-		Groups:        []string{"groups-" + tag},
-		NotGroups:     []string{"not-groups-" + tag},
-		Namespaces:    []string{"namespaces-" + tag},
-		NotNamespaces: []string{"not-namespaces-" + tag},
-		IPs:           []string{"ips-" + tag},
-		NotIPs:        []string{"not-ips-" + tag},
-		Properties: []KeyValues{
-			{
-				"property-" + tag: Values{
-					Values: []string{"value-" + tag},
-				},
-			},
-		},
-	}
-}
-
-func fullRule(tag string) *istio_rbac.AccessRule {
-	return &istio_rbac.AccessRule{
-		Services:   []string{"svc-" + tag},
-		Hosts:      []string{"host-" + tag},
-		NotHosts:   []string{"not-host-" + tag},
-		Paths:      []string{"paths-" + tag},
-		NotPaths:   []string{"not-paths-" + tag},
-		Methods:    []string{"methods-" + tag},
-		NotMethods: []string{"not-methods-" + tag},
-		Ports:      []int32{1},
-		NotPorts:   []int32{2},
-		Constraints: []*istio_rbac.AccessRule_Constraint{
-			{
-				Key:    "constraint-" + tag,
-				Values: []string{"value1-" + tag, "value2-" + tag},
-			},
-		},
-	}
-}
-
-func fullSubject(tag string) *istio_rbac.Subject {
-	return &istio_rbac.Subject{
-		User:          "users-" + tag,
-		Names:         []string{"names-" + tag},
-		NotNames:      []string{"not-names-" + tag},
-		Group:         "group-" + tag,
-		Groups:        []string{"groups-" + tag},
-		NotGroups:     []string{"not-groups-" + tag},
-		Namespaces:    []string{"namespaces-" + tag},
-		NotNamespaces: []string{"not-namespaces-" + tag},
-		Ips:           []string{"ips-" + tag},
-		NotIps:        []string{"not-ips-" + tag},
-		Properties: map[string]string{
-			"property-" + tag: "value-" + tag,
-		},
 	}
 }
 

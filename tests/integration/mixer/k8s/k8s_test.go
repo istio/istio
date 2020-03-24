@@ -19,10 +19,10 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 func TestK8sDeployment(t *testing.T) {
@@ -72,6 +72,7 @@ func TestK8sDeployment(t *testing.T) {
 func TestMain(m *testing.M) {
 	framework.NewSuite("mixer_k8s_test", m).
 		RequireEnvironment(environment.Kube).
+		RequireSingleCluster().
 		Label(label.CustomSetup). // This test deploys without Galley & MCP.
 		Run()
 }

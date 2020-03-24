@@ -10,6 +10,7 @@ metadata:
 spec:
   selector:
     matchLabels:
+      app: istiod
       istio: pilot
   strategy:
     rollingUpdate:
@@ -63,11 +64,9 @@ spec:
         - --log_output_level=default:info
         - --domain
         - cluster.local
-        - --secureGrpcAddr=:15011
         - --trust-domain=cluster.local
         - --keepaliveMaxServerConnectionAge
         - 30m
-        - --disable-install-crds=true
         env:
         - name: JWT_POLICY
           value: third-party-jwt
@@ -102,6 +101,8 @@ spec:
           value: istiod.istio-control.svc:15012
         - name: PILOT_EXTERNAL_GALLEY
           value: "false"
+        - name: CLUSTER_ID
+          value: Kubernetes
         envFrom:
         - configMapRef:
             name: istiod

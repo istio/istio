@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/echo/common"
 	kube2 "istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -51,7 +52,7 @@ type workload struct {
 }
 
 func newWorkload(addr kubeCore.EndpointAddress, sidecared bool, grpcPort uint16,
-	cluster kube2.Cluster, ctx resource.Context) (*workload, error) {
+	cluster kube2.Cluster, tls *common.TLSSettings, ctx resource.Context) (*workload, error) {
 	if addr.TargetRef == nil || addr.TargetRef.Kind != "Pod" {
 		return nil, fmt.Errorf("invalid TargetRef for endpoint %s: %v", addr.IP, addr.TargetRef)
 	}
@@ -64,17 +65,17 @@ func newWorkload(addr kubeCore.EndpointAddress, sidecared bool, grpcPort uint16,
 	// Create a forwarder to the command port of the app.
 	forwarder, err := cluster.NewPortForwarder(pod, 0, grpcPort)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("new port forwarder: %v", err)
 	}
 	if err = forwarder.Start(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("forwarder start: %v", err)
 	}
 
 	// Create a gRPC client to this workload.
-	c, err := client.New(forwarder.Address())
+	c, err := client.New(forwarder.Address(), tls)
 	if err != nil {
 		_ = forwarder.Close()
-		return nil, err
+		return nil, fmt.Errorf("grpc client: %v", err)
 	}
 
 	var s *sidecar

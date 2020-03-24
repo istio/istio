@@ -277,8 +277,6 @@ func TestGolden(t *testing.T) {
 					"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"},
 				LocalEnv:          localEnv,
 				NodeIPs:           []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6", "10.4.4.4"},
-				SDSUDSPath:        c.sdsUDSPath,
-				SDSTokenPath:      c.sdsTokenPath,
 				OutlierLogPath:    "/dev/stdout",
 				PilotCertProvider: "istiod",
 			}).CreateFileForEpoch(0)
@@ -576,7 +574,7 @@ func TestNodeMetadataEncodeEnvWithIstioMetaPrefix(t *testing.T) {
 		notIstioMetaKey + "=bar",
 		anIstioMetaKey + "=baz",
 	}
-	nm, _, err := getNodeMetaData(envs, nil, nil, false, 0)
+	nm, _, err := getNodeMetaData(envs, nil, nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -599,7 +597,7 @@ func TestNodeMetadata(t *testing.T) {
 		"ISTIO_META_ISTIO_VERSION=1.0.0",
 		`ISTIO_METAJSON_LABELS={"foo":"bar"}`,
 	}
-	nm, _, err := getNodeMetaData(envs, nil, nil, false, 0)
+	nm, _, err := getNodeMetaData(envs, nil, nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -20,9 +20,9 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 )
@@ -37,6 +37,7 @@ func TestMain(m *testing.M) {
 		NewSuite("istioctl_webhook_test", m).
 		Label(label.CustomSetup).
 		RequireEnvironment(environment.Kube).
+		RequireSingleCluster().
 		// Deploy Istio
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
 		Run()
@@ -62,7 +63,7 @@ func TestWebhookManagement(t *testing.T) {
 			args := []string{"experimental", "post-install", "webhook", "enable", "--validation", "--webhook-secret",
 				"dns.istio-galley-service-account", "--namespace", "istio-system", "--validation-path", "./config/galley-webhook.yaml",
 				"--injection-path", "./config/sidecar-injector-webhook.yaml"}
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 			output, fErr := istioCtl.Invoke(args)
 			if fErr != nil {
 				t.Fatalf("error returned for 'istioctl %s': %v", strings.Join(args, " "), fErr)
@@ -84,7 +85,7 @@ func TestWebhookManagement(t *testing.T) {
 
 			// Test that webhook statuses returned by running istioctl are as expected.
 			args = []string{"experimental", "post-install", "webhook", "status"}
-			istioCtl = istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl = istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 			output, fErr = istioCtl.Invoke(args)
 			if fErr != nil {
 				t.Fatalf("error returned for 'istioctl %s': %v", strings.Join(args, " "), fErr)

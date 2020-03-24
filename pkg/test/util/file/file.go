@@ -53,6 +53,15 @@ func AsBytesOrFail(t test.Failer, filename string) []byte {
 	return content
 }
 
+// AsBytesOrPanic calls AsBytes and panics if any errors occurred.
+func AsBytesOrPanic(filename string) []byte {
+	content, err := AsBytes(filename)
+	if err != nil {
+		panic(err)
+	}
+	return content
+}
+
 // AsString is a convenience wrapper around ioutil.ReadFile that converts the content to a string.
 func AsString(filename string) (string, error) {
 	bytes, err := AsBytes(filename)

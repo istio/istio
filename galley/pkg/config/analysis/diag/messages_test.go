@@ -119,6 +119,6 @@ func testResource(name string) *resource.Instance {
 		Metadata: resource.Metadata{
 			FullName: resource.NewShortOrFullName("default", name),
 		},
-		Origin: testOrigin(name),
+		Origin: testOrigin{name: name},
 	}
 }

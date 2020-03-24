@@ -270,7 +270,6 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./mixer/tools/mixgen \
   ./galley/cmd/galley \
   ./security/cmd/node_agent \
-  ./security/cmd/istio_ca \
   ./security/tools/sdsclient \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
@@ -278,7 +277,7 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./operator/cmd/operator
 
 # List of binaries included in releases
-RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen node_agent istio_ca istioctl galley sdsclient
+RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen node_agent istioctl galley sdsclient
 
 .PHONY: build
 build: depend
@@ -346,12 +345,12 @@ gen-charts:
 	@operator/scripts/run_update_charts.sh
 
 refresh-goldens:
-	@REFRESH_GOLDEN=true go test ./operator/...
-	@REFRESH_GOLDEN=true go test ./pkg/kube/inject/...
+	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./operator/...
+	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./pkg/kube/inject/...
 
 update-golden: refresh-goldens
 
-gen: go-gen mirror-licenses format update-crds operator-proto gen-charts update-golden gen-kustomize
+gen: go-gen mirror-licenses format update-crds operator-proto gen-kustomize gen-charts update-golden
 
 gen-check: gen check-clean-repo
 
@@ -390,7 +389,7 @@ ${ISTIO_OUT}/release/_istioctl: istioctl
 
 .PHONY: binaries-test
 binaries-test:
-	go test ./tests/binary/... -v --base-dir ${ISTIO_OUT} --binaries="$(RELEASE_BINARIES)"
+	go test ${GOBUILDFLAGS} ./tests/binary/... -v --base-dir ${ISTIO_OUT} --binaries="$(RELEASE_BINARIES)"
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
@@ -440,7 +439,7 @@ istioctl-test: istioctl-racetest
 
 .PHONY: operator-test
 operator-test:
-	go test ${T} ./operator/...
+	go test ${GOBUILDFLAGS} ${T} ./operator/...
 
 .PHONY: mixer-test
 mixer-test: mixer-racetest
@@ -456,7 +455,7 @@ common-test: common-racetest
 
 .PHONY: selected-pkg-test
 selected-pkg-test:
-	find ${WHAT} -name "*_test.go" | xargs -I {} dirname {} | uniq | xargs -I {} go test ${T} -race ./{}
+	find ${WHAT} -name "*_test.go" | xargs -I {} dirname {} | uniq | xargs -I {} go test ${GOBUILDFLAGS} ${T} -race ./{}
 
 #-----------------------------------------------------------------------------
 # Target: coverage
@@ -508,31 +507,31 @@ racetest: $(JUNIT_REPORT)
 
 .PHONY: pilot-racetest
 pilot-racetest:
-	go test ${T} -race ./pilot/...
+	go test ${GOBUILDFLAGS} ${T} -race ./pilot/...
 
 .PHONY: istioctl-racetest
 istioctl-racetest:
-	go test ${T} -race ./istioctl/...
+	go test ${GOBUILDFLAGS} ${T} -race ./istioctl/...
 
 .PHONY: operator-racetest
 operator-racetest:
-	RACE_TEST=true go test ${T} -race ./operator/...
+	RACE_TEST=true go test ${GOBUILDFLAGS} ${T} -race ./operator/...
 
 .PHONY: mixer-racetest
 mixer-racetest:
-	go test ${T} -race ./mixer/...
+	go test ${GOBUILDFLAGS} ${T} -race ./mixer/...
 
 .PHONY: galley-racetest
 galley-racetest:
-	go test ${T} -race ./galley/...
+	go test ${GOBUILDFLAGS} ${T} -race ./galley/...
 
 .PHONY: security-racetest
 security-racetest:
-	go test ${T} -race ./security/pkg/... ./security/cmd/...
+	go test ${GOBUILDFLAGS} ${T} -race ./security/pkg/... ./security/cmd/...
 
 .PHONY: common-racetest
 common-racetest: ${BUILD_DEPS}
-	go test ${T} -race ./pkg/... ./tests/common/... ./tools/istio-iptables/...
+	go test ${GOBUILDFLAGS} ${T} -race ./pkg/... ./tests/common/... ./tools/istio-iptables/...
 
 #-----------------------------------------------------------------------------
 # Target: clean
@@ -581,20 +580,6 @@ istio-demo.yaml istio-remote.yaml istio-minimal.yaml: $(HOME)/.helm
 		${EXTRA_HELM_SETTINGS} \
 		--values install/kubernetes/helm/istio/values-$@ \
 		install/kubernetes/helm/istio >> install/kubernetes/$@
-
-e2e_files = istio-auth-non-mcp.yaml \
-		istio-auth-sds.yaml \
-		istio-non-mcp.yaml \
-		istio.yaml \
-		istio-auth.yaml \
-		istio-auth-mcp.yaml \
-		istio-auth-multicluster.yaml \
-		istio-mcp.yaml \
-		istio-one-namespace.yaml \
-		istio-one-namespace-auth.yaml \
-		istio-one-namespace-trust-domain.yaml \
-		istio-multicluster.yaml \
-		istio-multicluster-split-horizon.yaml
 
 FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/istio-auth.yaml \

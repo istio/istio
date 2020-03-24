@@ -15,7 +15,6 @@
 package manifest
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -27,7 +26,9 @@ import (
 	"time" // For kubeclient GCP auth
 
 	"github.com/ghodss/yaml"
+	"github.com/hashicorp/go-multierror"
 	goversion "github.com/hashicorp/go-version"
+	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -115,7 +116,6 @@ var (
 			name.PolicyComponentName,
 			name.TelemetryComponentName,
 			name.GalleyComponentName,
-			name.CitadelComponentName,
 			name.CNIComponentName,
 			name.IngressComponentName,
 			name.EgressComponentName,
@@ -427,25 +427,22 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version, revis
 	// We sort them by namespace so that we can pass the `-n` to the apply command. This is required for prune to work
 	// See https://github.com/kubernetes/kubernetes/issues/87756 for details
 	namespaces, nonNsCrdObjectsByNamespace := splitByNamespace(objectsNotInLists(objects, nsObjects, crdObjects))
-	var applyErr error
+	var applyErrors *multierror.Error
 	for _, ns := range namespaces {
 		nonNsCrdObjects := nonNsCrdObjectsByNamespace[ns]
 		nsOpts := opts
 		nsOpts.Namespace = ns
 		stdout, stderr, err = applyObjects(nonNsCrdObjects, &nsOpts, stdout, stderr)
 		if err != nil {
-			applyErr = fmt.Errorf("error applying object to %v: %v: %v", ns, err, applyErr)
+			applyErrors = multierror.Append(applyErrors, errors.Wrapf(err, "error applying object to namespace %s", ns))
 		}
 		appliedObjects = append(appliedObjects, nonNsCrdObjects...)
 	}
 	mark := "✔"
-	if applyErr != nil {
+	if err = applyErrors.ErrorOrNil(); err != nil {
 		mark = "✘"
 	}
 	logAndPrint("%s Finished applying manifest for component %s.", mark, componentName)
-	if applyErr != nil {
-		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
-	}
 	return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 }
 

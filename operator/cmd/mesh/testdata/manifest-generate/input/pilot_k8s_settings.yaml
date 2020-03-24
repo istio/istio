@@ -23,10 +23,7 @@ spec:
             value: new_value
         hpaSpec:
           maxReplicas: 333
-          minReplicas: 222
           scaleTargetRef:
-            apiVersion: apps/v1
-            kind: Deployment
             name: istio-pilot
           metrics:
             - type: Resource
@@ -38,11 +35,8 @@ spec:
             path: /ready
             port: 8080
           initialDelaySeconds: 555
-          periodSeconds: 666
-          timeoutSeconds: 777
         resources:
           requests:
-            cpu: 888m
             memory: 999Mi
         nodeSelector:
           master: "true"

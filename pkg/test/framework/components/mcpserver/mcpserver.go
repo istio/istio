@@ -17,8 +17,8 @@ package mcpserver
 import (
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 // Instance is a new mcpserver instance. MCP Server is a generic MCP server implementation for testing purposes.

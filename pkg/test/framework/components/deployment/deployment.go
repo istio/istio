@@ -15,9 +15,9 @@
 package deployment
 
 import (
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 // Instance of a deployment. Wraps over pkg/test/deployment instances for test framework integration purposes.

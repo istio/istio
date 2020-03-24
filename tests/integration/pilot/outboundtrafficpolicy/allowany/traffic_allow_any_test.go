@@ -18,9 +18,9 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/tests/integration/pilot/outboundtrafficpolicy"
 )
 
@@ -28,6 +28,9 @@ func TestMain(m *testing.M) {
 	var ist istio.Instance
 	framework.
 		NewSuite("outbound_traffic_policy_allow_any", m).
+		RequireSingleCluster().
+		// Broken on native by https://github.com/istio/istio/issues/22402
+		RequireEnvironment(environment.Kube).
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
 		Run()
@@ -42,6 +45,7 @@ func setupConfig(cfg *istio.Config) {
 components:
   egressGateways:
   - enabled: true
+    name: istio-egressgateway
 values:
   global:
     outboundTrafficPolicy:
@@ -54,6 +58,8 @@ func TestOutboundTrafficPolicyAllowAny(t *testing.T) {
 		"http":        {"200"},
 		"http_egress": {"200"},
 		"https":       {"200"},
+		// BUG: https://github.com/istio/istio/issues/16458 this should be 200
+		"tcp": {""},
 	}
 	outboundtrafficpolicy.RunExternalRequestTest(expected, t)
 }

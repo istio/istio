@@ -21,8 +21,8 @@ import (
 )
 
 // StringMatcher creates a string matcher for v.
-func StringMatcher(v string, treatWildcardAsRequired bool) *envoy_matcher.StringMatcher {
-	return StringMatcherWithPrefix(v, "", treatWildcardAsRequired)
+func StringMatcher(v string) *envoy_matcher.StringMatcher {
+	return StringMatcherWithPrefix(v, "")
 }
 
 // StringMatcherRegex creates a regex string matcher for regex.
@@ -41,16 +41,13 @@ func StringMatcherRegex(regex string) *envoy_matcher.StringMatcher {
 
 // StringMatcherWithPrefix creates a string matcher for v with the extra prefix inserted to the
 // created string matcher, note the prefix is ignored if v is wildcard ("*").
-// If treatWildcardAsRequired is true, the wildcard "*" will be generated as ".+" instead of ".*".
-func StringMatcherWithPrefix(v, prefix string, treatWildcardAsRequired bool) *envoy_matcher.StringMatcher {
+// The wildcard "*" will be generated as ".+" instead of ".*".
+func StringMatcherWithPrefix(v, prefix string) *envoy_matcher.StringMatcher {
 	switch {
 	// Check if v is "*" first to make sure we won't generate an empty prefix/suffix StringMatcher,
 	// the Envoy StringMatcher doesn't allow empty prefix/suffix.
 	case v == "*":
-		if treatWildcardAsRequired {
-			return StringMatcherRegex(".+")
-		}
-		return StringMatcherRegex(".*")
+		return StringMatcherRegex(".+")
 	case strings.HasPrefix(v, "*"):
 		return &envoy_matcher.StringMatcher{
 			MatchPattern: &envoy_matcher.StringMatcher_Suffix{
