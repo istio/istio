@@ -114,9 +114,10 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	scopes.CI.Infof("================================")
 
 	i := &operatorComponent{
-		environment: env,
-		settings:    cfg,
-		ctx:         ctx,
+		environment:     env,
+		settings:        cfg,
+		ctx:             ctx,
+		installManifest: map[string]string{},
 	}
 	i.id = ctx.TrackResource(i)
 
