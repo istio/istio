@@ -1203,7 +1203,11 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	vservices := make([]Config, len(virtualServices))
 
 	for i := range vservices {
-		vservices[i] = virtualServices[i].DeepCopy()
+		var tmpCopy networking.VirtualService
+		vs := virtualServices[i].Spec.(*networking.VirtualService)
+		vs.DeepCopyInto(&tmpCopy)
+		vservices[i].ConfigMeta = virtualServices[i].ConfigMeta
+		vservices[i].Spec = &tmpCopy
 	}
 
 	totalVirtualServices.Record(float64(len(virtualServices)))
@@ -1421,7 +1425,11 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 	destRules := make([]Config, len(configs))
 
 	for i := range destRules {
-		destRules[i] = configs[i].DeepCopy()
+		var tmpCopy networking.DestinationRule
+		dr := configs[i].Spec.(*networking.DestinationRule)
+		dr.DeepCopyInto(&tmpCopy)
+		destRules[i].ConfigMeta = configs[i].ConfigMeta
+		destRules[i].Spec = &tmpCopy
 	}
 
 	ps.SetDestinationRules(destRules)
