@@ -428,6 +428,134 @@ func TestMergeVirtualServices(t *testing.T) {
 		},
 	}
 
+	// multiple routes delegate to one single sub VS
+	multiRoutes := Config{
+		ConfigMeta: ConfigMeta{
+			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
+			Name:      "root-vs",
+			Namespace: "default",
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{"*.org"},
+			Gateways: []string{"gateway"},
+			Http: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage"},
+							},
+						},
+					},
+					Delegate: &networking.Delegate{
+						Name:      "productpage-vs",
+						Namespace: "default",
+					},
+				},
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{Prefix: "/legacy/path"},
+							},
+						},
+					},
+					Rewrite: &networking.HTTPRewrite{
+						Uri: "/productpage",
+					},
+					Delegate: &networking.Delegate{
+						Name:      "productpage-vs",
+						Namespace: "default",
+					},
+				},
+			},
+		},
+	}
+
+	singleDelegate := Config{
+		ConfigMeta: ConfigMeta{
+			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
+			Name:      "productpage-vs",
+			Namespace: "default",
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{},
+			Gateways: []string{"gateway"},
+			Http: []*networking.HTTPRoute{
+				{
+					Route: []*networking.HTTPRouteDestination{
+						{
+							Destination: &networking.Destination{
+								Host: "productpage.org",
+								Port: &networking.PortSelector{
+									Number: 80,
+								},
+								Subset: "v1",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	mergedVs3 := Config{
+		ConfigMeta: ConfigMeta{
+			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
+			Name:      "root-vs",
+			Namespace: "default",
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{"*.org"},
+			Gateways: []string{"gateway"},
+			Http: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage"},
+							},
+						},
+					},
+					Route: []*networking.HTTPRouteDestination{
+						{
+							Destination: &networking.Destination{
+								Host: "productpage.org",
+								Port: &networking.PortSelector{
+									Number: 80,
+								},
+								Subset: "v1",
+							},
+						},
+					},
+				},
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{Prefix: "/legacy/path"},
+							},
+						},
+					},
+					Rewrite: &networking.HTTPRewrite{
+						Uri: "/productpage",
+					},
+					Route: []*networking.HTTPRouteDestination{
+						{
+							Destination: &networking.Destination{
+								Host: "productpage.org",
+								Port: &networking.PortSelector{
+									Number: 80,
+								},
+								Subset: "v1",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
 	cases := []struct {
 		name                    string
 		virtualServices         []Config
@@ -457,6 +585,11 @@ func TestMergeVirtualServices(t *testing.T) {
 			name:                    "root and conflicted delegate vs",
 			virtualServices:         []Config{rootVs.DeepCopy(), delegateVs2},
 			expectedVirtualServices: []Config{mergedVs2},
+		},
+		{
+			name:                    "multiple routes delegate to one",
+			virtualServices:         []Config{multiRoutes.DeepCopy(), singleDelegate},
+			expectedVirtualServices: []Config{mergedVs3},
 		},
 	}
 

@@ -17,6 +17,7 @@ package model
 import (
 	"strings"
 
+	"github.com/gogo/protobuf/jsonpb"
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -68,7 +69,10 @@ func mergeVirtualServicesIfNeeded(vServices []Config) (out []Config) {
 					// delegate not found, ignore only the current HTTP route
 					continue
 				}
-				vs := delegate.Spec.(*networking.VirtualService)
+				// DeepCopy to prevent mutate the original delegate, it can conflict
+				// when multiple routes delegate to one single VS.
+				copiedDelegate := delegate.DeepCopy()
+				vs := copiedDelegate.Spec.(*networking.VirtualService)
 				merged := mergeHTTPRoute(route, vs.Http)
 				mergedRoutes = append(mergedRoutes, merged...)
 			} else {
@@ -76,6 +80,11 @@ func mergeVirtualServicesIfNeeded(vServices []Config) (out []Config) {
 			}
 		}
 		rootVs.Http = mergedRoutes
+		if log.DebugEnabled() {
+			jsonm := &jsonpb.Marshaler{Indent: "   "}
+			vsString, _ := jsonm.MarshalToString(rootVs)
+			log.Infof("merged virtualService: %s", vsString)
+		}
 		out = append(out, root)
 	}
 
