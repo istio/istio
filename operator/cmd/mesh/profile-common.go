@@ -235,7 +235,7 @@ func rewriteURLToLocalInstallPath(installPackagePath, profileOrPath string, skip
 		// /tmp/istio-install-packages/istio-1.5.1/install/kubernetes/operator/profiles/default.yaml.
 		profileOrPath = filepath.Join(installPackagePath, helm.OperatorSubdirFilePath, "profiles", profileOrPath+".yaml")
 		// Rewrite installPackagePath to the local file path for further processing.
-		installPackagePath = filepath.Join(installPackagePath, helm.OperatorSubdirFilePath, "charts")
+		installPackagePath = filepath.Join(installPackagePath, helm.OperatorSubdirFilePath)
 	}
 
 	return installPackagePath, profileOrPath, nil

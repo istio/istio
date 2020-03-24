@@ -1,0 +1,8 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  profile: empty
+  installPackagePath: https://github.com/istio/istio/releases/download/1.5.0/istio-1.5.0-linux.tar.gz
+  components:
+    pilot:
+      enabled: true

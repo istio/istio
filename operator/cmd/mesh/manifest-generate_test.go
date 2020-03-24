@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -253,6 +254,54 @@ func TestBareSpec(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+	})
+}
+
+func TestLocalFilesystem(t *testing.T) {
+	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
+	releaseDir, err := ioutil.TempDir(os.TempDir(), "istio-test-release-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(releaseDir)
+	cmd := exec.Command("../../release/create_release_charts.sh", "-o", releaseDir)
+	if stdo, err := cmd.Output(); err != nil {
+		t.Fatalf("%s: \n%s", err, string(stdo))
+	}
+	runTestGroup(t, testGroup{
+		{
+			// Use some arbitrary small test input (pilot only) since we are testing the local filesystem code here, not
+			// manifest generation.
+			desc:       "pilot_default",
+			diffSelect: "Deployment:*:istiod",
+			flags:      "--set installPackagePath=" + releaseDir,
+		},
+		{
+			// Specify both charts and profile from local filesystem.
+			desc:       "pilot_default",
+			diffSelect: "Deployment:*:istiod",
+			flags:      fmt.Sprintf("--set installPackagePath=%s --set profile=%s/profiles/default.yaml", releaseDir, releaseDir),
+		},
+	})
+
+}
+
+// TestGithub does a live fetch from github. Alternative is the use a local server but this is would not be an e2e test.
+func TestGithub(t *testing.T) {
+	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
+	runTestGroup(t, testGroup{
+		{
+			// --force is needed for version mismatch.
+			desc:       "github_1.5",
+			diffSelect: "Deployment:*:istiod",
+			flags:      "--force",
+		},
+		{
+			// Same path, using --set.
+			desc:       "github_1.5",
+			diffSelect: "Deployment:*:istiod",
+			flags:      "--force --set installPackagePath=https://github.com/istio/istio/releases/download/1.5.0/istio-1.5.0-linux.tar.gz",
+		},
 	})
 }
 

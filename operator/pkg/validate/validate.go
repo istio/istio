@@ -29,7 +29,6 @@ var (
 	DefaultValidations = map[string]ValidatorFunc{
 		"Hub":                                validateHub,
 		"Tag":                                validateTag,
-		"InstallPackagePath":                 validateInstallPackagePath,
 		"Components.IngressGateways[*].Name": validateGatewayName,
 		"Components.EgressGateways[*].Name":  validateGatewayName,
 	}
