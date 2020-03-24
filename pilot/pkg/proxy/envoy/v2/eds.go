@@ -471,14 +471,7 @@ func getDestinationRule(push *model.PushContext, proxy *model.Proxy, hostname ho
 	if cfg == nil {
 		return nil, nil
 	}
-	// Find a service with the host name and see if we have a matching port.
-	service := proxy.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
-	for _, p := range service.Ports {
-		if p.Port == clusterPort {
-			return cfg.Spec.(*networkingapi.DestinationRule), p
-		}
-	}
-	return nil, nil
+	return cfg.Spec.(*networkingapi.DestinationRule), &model.Port{Port: clusterPort}
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(push *model.PushContext, proxy *model.Proxy, clusterName string) (bool, *networkingapi.LoadBalancerSettings) {
