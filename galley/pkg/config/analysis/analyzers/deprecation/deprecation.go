@@ -42,7 +42,6 @@ func (*FieldAnalyzer) Metadata() analysis.Metadata {
 		Description: "Checks for deprecated Istio types and fields",
 		Inputs: collection.Names{
 			collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-			collections.IstioNetworkingV1Alpha3Envoyfilters.Name(),
 			collections.IstioRbacV1Alpha1Servicerolebindings.Name(),
 			collections.IstioAuthenticationV1Alpha1Policies.Name(),
 		},
