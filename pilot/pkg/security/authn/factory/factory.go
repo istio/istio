@@ -15,8 +15,6 @@
 package factory
 
 import (
-	"istio.io/api/authentication/v1alpha1"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pilot/pkg/security/authn/v1beta1"
@@ -27,15 +25,8 @@ import (
 // for the given service instance.
 func NewPolicyApplier(push *model.PushContext,
 	serviceInstance *model.ServiceInstance, namespace string, labels labels.Collection) authn.PolicyApplier {
-	var authnPolicy *v1alpha1.Policy
-	if serviceInstance != nil {
-		service := serviceInstance.Service
-		port := serviceInstance.ServicePort
-		authnPolicy, _ = push.AuthenticationPolicyForWorkload(service, port)
-	}
 	return v1beta1.NewPolicyApplier(
 		push.AuthnBetaPolicies.GetRootNamespace(),
 		push.AuthnBetaPolicies.GetJwtPoliciesForWorkload(namespace, labels),
-		push.AuthnBetaPolicies.GetPeerAuthenticationsForWorkload(namespace, labels),
-		authnPolicy)
+		push.AuthnBetaPolicies.GetPeerAuthenticationsForWorkload(namespace, labels))
 }

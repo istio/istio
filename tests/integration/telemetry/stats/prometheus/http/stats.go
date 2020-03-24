@@ -19,25 +19,29 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/pilot"
+
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
-	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/mixer"
 	promUtil "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
 
 var (
+	client, server echo.Instance
 	ist            istio.Instance
-	bookinfoNsInst namespace.Instance
+	appNsInst      namespace.Instance
 	galInst        galley.Instance
-	ingInst        ingress.Instance
+	pilotInst      pilot.Instance
 	promInst       prometheus.Instance
 )
 
@@ -46,14 +50,9 @@ func GetIstioInstance() *istio.Instance {
 	return &ist
 }
 
-// GetBookinfoNamespaceInstance gets bookinfo instance.
-func GetBookinfoNamespaceInstance() namespace.Instance {
-	return bookinfoNsInst
-}
-
-// GetIngressInstance gets ingress instance.
-func GetIngressInstance() ingress.Instance {
-	return ingInst
+// GetAppNamespace gets bookinfo instance.
+func GetAppNamespace() namespace.Instance {
+	return appNsInst
 }
 
 // GetPromInstance gets prometheus instance.
@@ -67,12 +66,14 @@ func TestStatsFilter(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			ingress := GetIngressInstance()
-			addr := ingress.HTTPAddress()
-			url := fmt.Sprintf("http://%s/productpage", addr.String())
-			sourceQuery, destinationQuery := buildQuery()
+			sourceQuery, destinationQuery, appQuery := buildQuery()
 			retry.UntilSuccessOrFail(t, func() error {
-				util.SendTraffic(ingress, t, "Sending traffic", url, "", 200)
+				if _, err := client.Call(echo.CallOptions{
+					Target:   server,
+					PortName: "http",
+				}); err != nil {
+					return err
+				}
 				// Query client side metrics
 				if err := promUtil.QueryPrometheus(t, sourceQuery, GetPromInstance()); err != nil {
 					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
@@ -80,6 +81,11 @@ func TestStatsFilter(t *testing.T) {
 				}
 				if err := promUtil.QueryPrometheus(t, destinationQuery, GetPromInstance()); err != nil {
 					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
+					return err
+				}
+				// This query will continue to increase due to readiness probe; don't wait for it to converge
+				if err := promUtil.QueryFirstPrometheus(t, appQuery, GetPromInstance()); err != nil {
+					t.Logf("prometheus values for istio_echo_http_requests_total: \n%s", util.PromDump(promInst, "istio_echo_http_requests_total"))
 					return err
 				}
 				return nil
@@ -93,55 +99,86 @@ func TestSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	bookinfoNsInst, err = namespace.New(ctx, namespace.Config{
-		Prefix: "istio-bookinfo",
+	appNsInst, err = namespace.New(ctx, namespace.Config{
+		Prefix: "echo",
 		Inject: true,
 	})
 	if err != nil {
 		return
 	}
-	if _, err = bookinfo.Deploy(ctx, bookinfo.Config{Namespace: bookinfoNsInst, Cfg: bookinfo.BookInfo}); err != nil {
-		return
+	if pilotInst, err = pilot.New(ctx, pilot.Config{
+		Galley: galInst,
+	}); err != nil {
+		return err
 	}
-	ingInst, err = ingress.New(ctx, ingress.Config{Istio: ist})
+
+	b, err := echoboot.NewBuilder(ctx)
 	if err != nil {
 		return
 	}
-	promInst, err = prometheus.New(ctx)
+	err = b.
+		With(&client, echo.Config{
+			Service:   "client",
+			Namespace: appNsInst,
+			Ports:     nil,
+			Subsets:   []echo.SubsetConfig{{}},
+			Galley:    galInst,
+			Pilot:     pilotInst,
+		}).
+		With(&server, echo.Config{
+			Service:   "server",
+			Namespace: appNsInst,
+			Subsets:   []echo.SubsetConfig{{}},
+			Ports: []echo.Port{
+				{
+					Name:         "http",
+					Protocol:     protocol.HTTP,
+					InstancePort: 8090,
+				},
+			},
+			Galley: galInst,
+			Pilot:  pilotInst,
+		}).
+		Build()
+	if err != nil {
+		return err
+	}
+	promInst, err = prometheus.New(ctx, prometheus.Config{})
 	if err != nil {
 		return
 	}
-	bookingfoGatewayFile, err := bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespace(bookinfoNsInst.Name())
-	if err != nil {
-		return
-	}
-	err = galInst.ApplyConfig(
-		bookinfoNsInst,
-		bookingfoGatewayFile,
-	)
-	if err != nil {
-		return
+	// Application scraping will not work with permissive mode
+	if err = galInst.ApplyConfig(appNsInst, fmt.Sprintf(`
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: %s
+spec:
+  mtls:
+    mode: STRICT`, appNsInst.Name())); err != nil {
+		return err
 	}
 	return nil
 }
 
-func buildQuery() (sourceQuery, destinationQuery string) {
-	bookinfoNsInst := GetBookinfoNamespaceInstance()
+func buildQuery() (sourceQuery, destinationQuery, appQuery string) {
+	ns := GetAppNamespace()
 	sourceQuery = `istio_requests_total{reporter="source",`
 	destinationQuery = `istio_requests_total{reporter="destination",`
 	labels := map[string]string{
 		"request_protocol":               "http",
 		"response_code":                  "200",
-		"destination_app":                "reviews",
+		"destination_app":                "server",
 		"destination_version":            "v1",
-		"destination_service":            "reviews." + bookinfoNsInst.Name() + ".svc.cluster.local",
-		"destination_service_name":       "reviews",
-		"destination_workload_namespace": bookinfoNsInst.Name(),
-		"destination_service_namespace":  bookinfoNsInst.Name(),
-		"source_app":                     "productpage",
+		"destination_service":            "server." + ns.Name() + ".svc.cluster.local",
+		"destination_service_name":       "server",
+		"destination_workload_namespace": ns.Name(),
+		"destination_service_namespace":  ns.Name(),
+		"source_app":                     "client",
 		"source_version":                 "v1",
-		"source_workload":                "productpage-v1",
-		"source_workload_namespace":      bookinfoNsInst.Name(),
+		"source_workload":                "client-v1",
+		"source_workload_namespace":      ns.Name(),
 	}
 	for k, v := range labels {
 		sourceQuery += fmt.Sprintf(`%s=%q,`, k, v)
@@ -149,5 +186,6 @@ func buildQuery() (sourceQuery, destinationQuery string) {
 	}
 	sourceQuery += "}"
 	destinationQuery += "}"
+	appQuery += `istio_echo_http_requests_total{namespace="` + ns.Name() + `"}`
 	return
 }

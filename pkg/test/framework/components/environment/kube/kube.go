@@ -15,10 +15,8 @@
 package kube
 
 import (
-	"istio.io/istio/pkg/test/deployment"
-	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/environment/api"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -28,15 +26,15 @@ import (
 type Environment struct {
 	id resource.ID
 
-	ctx api.Context
-	*kube.Accessor
-	s *Settings
+	ctx          resource.Context
+	KubeClusters []Cluster
+	s            *Settings
 }
 
 var _ resource.Environment = &Environment{}
 
 // New returns a new Kubernetes environment
-func New(ctx api.Context) (resource.Environment, error) {
+func New(ctx resource.Context) (resource.Environment, error) {
 	s, err := newSettingsFromCommandline()
 	if err != nil {
 		return nil, err
@@ -55,19 +53,52 @@ func New(ctx api.Context) (resource.Environment, error) {
 	}
 	e.id = ctx.TrackResource(e)
 
-	if e.Accessor, err = kube.NewAccessor(s.KubeConfig, workDir); err != nil {
-		return nil, err
+	controlPlaneClusters := s.GetControlPlaneClusters()
+
+	e.KubeClusters = make([]Cluster, 0, len(s.KubeConfig))
+	for i := range s.KubeConfig {
+		a, err := kube.NewAccessor(s.KubeConfig[i], workDir)
+		if err != nil {
+			return nil, err
+		}
+		clusterIndex := resource.ClusterIndex(i)
+		e.KubeClusters = append(e.KubeClusters, Cluster{
+			filename:            s.KubeConfig[i],
+			index:               clusterIndex,
+			controlPlaneCluster: controlPlaneClusters[clusterIndex],
+			Accessor:            a,
+		})
 	}
 
 	return e, nil
 }
 
-// EnvironmentName implements environment.Instance
 func (e *Environment) EnvironmentName() environment.Name {
 	return environment.Kube
 }
 
-// EnvironmentName implements environment.Instance
+func (e *Environment) IsMulticluster() bool {
+	return len(e.KubeClusters) > 1
+}
+
+func (e *Environment) Clusters() []resource.Cluster {
+	out := make([]resource.Cluster, 0, len(e.KubeClusters))
+	for _, c := range e.KubeClusters {
+		out = append(out, c)
+	}
+	return out
+}
+
+func (e *Environment) ControlPlaneClusters() []Cluster {
+	out := make([]Cluster, 0, len(e.KubeClusters))
+	for _, c := range e.KubeClusters {
+		if c.IsControlPlaneCluster() {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
 func (e *Environment) Case(name environment.Name, fn func()) {
 	if name == e.EnvironmentName() {
 		fn()
@@ -81,46 +112,4 @@ func (e *Environment) ID() resource.ID {
 
 func (e *Environment) Settings() *Settings {
 	return e.s.clone()
-}
-
-// ApplyContents applies the given yaml contents to the namespace.
-func (e *Environment) ApplyContents(namespace, yml string) error {
-	_, err := e.Accessor.ApplyContents(namespace, yml)
-	return err
-}
-
-// ApplyContentsDryRun applies the given yaml contents to the namespace in DryRun mode.
-func (e *Environment) ApplyContentsDryRun(namespace, yml string) error {
-	_, err := e.Accessor.ApplyContentsDryRun(namespace, yml)
-	return err
-}
-
-// Apply applies the config in the given filename to the namespace.
-func (e *Environment) Apply(namespace, ymlFile string) error {
-	return e.Accessor.Apply(namespace, ymlFile)
-}
-
-// ApplyDryRun applies the config in the given filename to the namespace in DryRun mode.
-func (e *Environment) ApplyDryRun(namespace, ymlFile string) error {
-	return e.Accessor.ApplyDryRun(namespace, ymlFile)
-}
-
-// Deletes the given yaml contents from the namespace.
-func (e *Environment) DeleteContents(namespace, yml string) error {
-	return e.Accessor.DeleteContents(namespace, yml)
-}
-
-// Deletes the config in the given filename from the namespace.
-func (e *Environment) Delete(namespace, ymlFile string) error {
-	return e.Accessor.Delete(namespace, ymlFile)
-}
-
-func (e *Environment) DeployYaml(namespace, yamlFile string) (*deployment.Instance, error) {
-	i := deployment.NewYamlDeployment(namespace, yamlFile)
-
-	err := i.Deploy(e.Accessor, true)
-	if err != nil {
-		return nil, err
-	}
-	return i, nil
 }

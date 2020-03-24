@@ -26,11 +26,11 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/file"
 )
 
@@ -89,7 +89,7 @@ func TestVersion(t *testing.T) {
 			_ = pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 			cfg := i.Settings()
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			args := []string{"version", "--remote=true", fmt.Sprintf("--istioNamespace=%s", cfg.SystemNamespace)}
 
@@ -144,7 +144,7 @@ func TestDescribe(t *testing.T) {
 			if err := a.WaitUntilCallable(a); err != nil {
 				t.Fatal(err)
 			}
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			podID, err := getPodID(a)
 			if err != nil {
@@ -199,7 +199,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 				With(&a, echoConfig(ns, "a")).
 				BuildOrFail(ctx)
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			var output string
 			var args []string
@@ -238,7 +238,7 @@ func TestProxyConfig(t *testing.T) {
 				With(&a, echoConfig(ns, "a")).
 				BuildOrFail(ctx)
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			podID, err := getPodID(a)
 			if err != nil {

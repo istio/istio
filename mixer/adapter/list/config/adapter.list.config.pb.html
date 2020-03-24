@@ -16,6 +16,49 @@ IP addresses, or regex patterns.</p>
 
 <p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/listentry/">listentry template</a>.</p>
 
+<h2 id="Params-ListEntryType">Params.ListEntryType</h2>
+<section>
+<p>Determines the type of list that the adapter is consulting.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params-ListEntryType-STRINGS">
+<td><code>STRINGS</code></td>
+<td>
+<p>List entries are treated as plain strings.</p>
+
+</td>
+</tr>
+<tr id="Params-ListEntryType-CASE_INSENSITIVE_STRINGS">
+<td><code>CASE_INSENSITIVE_STRINGS</code></td>
+<td>
+<p>List entries are treated as case-insensitive strings.</p>
+
+</td>
+</tr>
+<tr id="Params-ListEntryType-IP_ADDRESSES">
+<td><code>IP_ADDRESSES</code></td>
+<td>
+<p>List entries are treated as IP addresses and ranges.</p>
+
+</td>
+</tr>
+<tr id="Params-ListEntryType-REGEX">
+<td><code>REGEX</code></td>
+<td>
+<p>List entries are treated as re2 regexp. See <a href="https://github.com/google/re2/wiki/Syntax">here</a> for the supported syntax.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="Params">Params</h2>
 <section>
 <p>Configuration format for the <code>list</code> adapter.</p>
@@ -122,49 +165,6 @@ No
 </td>
 <td>
 No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="Params-ListEntryType">Params.ListEntryType</h2>
-<section>
-<p>Determines the type of list that the adapter is consulting.</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="Params-ListEntryType-STRINGS">
-<td><code>STRINGS</code></td>
-<td>
-<p>List entries are treated as plain strings.</p>
-
-</td>
-</tr>
-<tr id="Params-ListEntryType-CASE_INSENSITIVE_STRINGS">
-<td><code>CASE_INSENSITIVE_STRINGS</code></td>
-<td>
-<p>List entries are treated as case-insensitive strings.</p>
-
-</td>
-</tr>
-<tr id="Params-ListEntryType-IP_ADDRESSES">
-<td><code>IP_ADDRESSES</code></td>
-<td>
-<p>List entries are treated as IP addresses and ranges.</p>
-
-</td>
-</tr>
-<tr id="Params-ListEntryType-REGEX">
-<td><code>REGEX</code></td>
-<td>
-<p>List entries are treated as re2 regexp. See <a href="https://github.com/google/re2/wiki/Syntax">here</a> for the supported syntax.</p>
-
 </td>
 </tr>
 </tbody>

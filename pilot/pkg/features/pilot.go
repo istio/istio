@@ -153,14 +153,6 @@ var (
 		"UseRemoteAddress sets useRemoteAddress to true for side car outbound listeners.",
 	)
 
-	// UseIstioJWTFilter enables to use Istio JWT filter as a fall back. Pilot injects the Istio JWT
-	// filter to the filter chains if this is set to true.
-	// TODO(yangminzhu): Remove after fully migrate to Envoy JWT filter.
-	UseIstioJWTFilter = env.RegisterBoolVar(
-		"USE_ISTIO_JWT_FILTER",
-		false,
-		"Use the Istio JWT filter for JWT token verification.")
-
 	// EnableThriftFilter enables injection of `envoy.filters.network.thrift_proxy` in the filter chain.
 	// Pilot injects this outbound filter if the service port name is `thrift`.
 	EnableThriftFilter = env.RegisterBoolVar(
@@ -175,14 +167,6 @@ var (
 		"PILOT_SKIP_VALIDATE_TRUST_DOMAIN",
 		false,
 		"Skip validating the peer is from the same trust domain when mTLS is enabled in authentication policy")
-
-	RestrictPodIPTrafficLoops = env.RegisterBoolVar(
-		"PILOT_RESTRICT_POD_UP_TRAFFIC_LOOP",
-		true,
-		"If enabled, this will block inbound traffic from matching outbound listeners, which "+
-			"could result in an infinite loop of traffic. This option is only provided for backward compatibility purposes "+
-			"and will be removed in the near future.",
-	)
 
 	EnableProtocolSniffingForOutbound = env.RegisterBoolVar(
 		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND",
@@ -267,6 +251,13 @@ var (
 			"that do not have galley installed.",
 	)
 
+	EnableAnalysis = env.RegisterBoolVar(
+		"PILOT_ENABLE_ANALYSIS",
+		false,
+		"If enabled, pilot will run istio analyzers and write analysis errors to the Status field of any "+
+			"Istio Resources",
+	).Get()
+
 	// IstiodService controls the istiod address - used for injection and as default value injected into pods
 	// if istiod is used. The name must be part of the DNS certificate served by pilot/istiod. The '.svc' is
 	// imposed by K8S - that's how the names for webhooks are defined, based on webhook service (which will be
@@ -296,4 +287,7 @@ var (
 	EnableServiceApis = env.RegisterBoolVar("PILOT_ENABLED_SERVICE_APIS", false,
 		"If this is set to true, support for Kubernetes service-apis (github.com/kubernetes-sigs/service-apis) will "+
 			" be enabled. This feature is currently experimental, and is off by default.").Get()
+
+	ClusterName = env.RegisterStringVar("CLUSTER_ID", "Kubernetes",
+		"Defines the cluster and service registry that this Istiod instance is belongs to")
 )

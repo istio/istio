@@ -193,10 +193,6 @@ func getIstioVersion(cd *configdump.Wrapper) string {
 	return "undetected"
 }
 
-func containerPortOptional(istioVersion *model.IstioVersion) bool {
-	return util.IsIstioVersionGE13(&model.Proxy{IstioVersion: istioVersion})
-}
-
 func supportsProtocolDetection(istioVersion *model.IstioVersion) bool {
 	return util.IsIstioVersionGE14(&model.Proxy{IstioVersion: istioVersion})
 }
@@ -213,17 +209,9 @@ func validatePort(port v1.ServicePort, pod *v1.Pod, istioVersion *model.IstioVer
 	}
 
 	// Get port number used by the service port being validated
-	nport, err := pilotcontroller.FindPort(pod, &port)
+	_, err := pilotcontroller.FindPort(pod, &port)
 	if err != nil {
 		retval = append(retval, err.Error())
-	} else {
-		_, ok := containerPorts[nport]
-		if !ok {
-			if !containerPortOptional(istioVersion) {
-				retval = append(retval,
-					fmt.Sprintf("Warning: Pod %s port %d not exposed by Container", kname(pod.ObjectMeta), nport))
-			}
-		}
 	}
 
 	if servicePortProtocol(port.Name) == protocol.Unsupported {
@@ -613,12 +601,36 @@ func authnMatchSvc(debug envoy_v2.AuthenticationDebug, svc v1.Service, port v1.S
 
 func printAuthn(writer io.Writer, pod *v1.Pod, debug envoy_v2.AuthenticationDebug) {
 	log.Debugf("AuthenticationDebug is %#v\n", debug)
+
+	mTLSType15 := map[string]string{
+		"DISABLE":    "unencrypted",
+		"PERMISSIVE": "Permissive (mTLS and plain)",
+		"STRICT":     "Strict mTLS",
+	}
+	serverProtocol, ok := mTLSType15[debug.ServerProtocol]
+	if !ok {
+		serverProtocol = debug.ServerProtocol
+	}
+
+	clientMTLSType15 := map[string]string{
+		"None":         "unencrypted",
+		"ISTIO_MUTUAL": "Istio mTLS",
+	}
+	clientProtocol, ok := clientMTLSType15[debug.ClientProtocol]
+	if !ok {
+		clientProtocol = debug.ClientProtocol
+	}
+
 	if debug.TLSConflictStatus != "OK" && debug.TLSConflictStatus != "AUTO" {
 		fmt.Fprintf(writer, "WARNING TLS Conflict on %s port %d (pod enforces %s, clients speak %s)\n",
 			kname(pod.ObjectMeta),
-			debug.Port, debug.ServerProtocol, debug.ClientProtocol)
+			debug.Port, serverProtocol, clientProtocol)
 		if debug.DestinationRuleName != "-" {
-			fmt.Fprintf(writer, "  Check DestinationRule %s and AuthenticationPolicy %s\n", debug.DestinationRuleName, debug.AuthenticationPolicyName)
+			if debug.AuthenticationPolicyName != "None" {
+				fmt.Fprintf(writer, "  Check DestinationRule %s and AuthenticationPolicy %s\n", debug.DestinationRuleName, debug.AuthenticationPolicyName)
+			} else {
+				fmt.Fprintf(writer, "  Check DestinationRule %s.  There is no AuthenticationPolicy\n", debug.DestinationRuleName)
+			}
 		} else {
 			fmt.Fprintf(writer, "  There is no DestinationRule.  Check AuthenticationPolicy %s\n", debug.AuthenticationPolicyName)
 		}
@@ -627,7 +639,7 @@ func printAuthn(writer io.Writer, pod *v1.Pod, debug envoy_v2.AuthenticationDebu
 
 	if debug.TLSConflictStatus == "AUTO" {
 		fmt.Fprintf(writer, "Pod is %s, clients configured automatically\n",
-			debug.ServerProtocol)
+			serverProtocol)
 		return
 	}
 
@@ -650,12 +662,12 @@ func printAuthn(writer io.Writer, pod *v1.Pod, debug envoy_v2.AuthenticationDebu
 	// If we couldn't find the type in the 1.3 known types, we must be on Istio 1.4+
 	if debug.ClientProtocol != "-" {
 		fmt.Fprintf(writer, "Pod is %s and clients are %s\n",
-			debug.ServerProtocol, debug.ClientProtocol)
+			serverProtocol, clientProtocol)
 		return
 	}
 
 	fmt.Fprintf(writer, "Pod is %s, client protocol unspecified\n",
-		debug.ServerProtocol)
+		serverProtocol)
 }
 
 func isMeshed(pod *v1.Pod) bool {
@@ -1168,6 +1180,10 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabel
 				dr = configClient.Get(collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(), drName, drNamespace)
 				if dr != nil {
 					matchingSubsets, nonmatchingSubsets = getDestRuleSubsets(*dr, podsLabels)
+				} else {
+					fmt.Fprintf(writer,
+						"WARNING: Proxy is stale; it references to non-existent destination rule %s.%s\n",
+						drName, drNamespace)
 				}
 			}
 
@@ -1183,6 +1199,10 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabel
 
 					printIngressService(writer, &ingressSvcs.Items[0], &pod, ipIngress)
 					printVirtualService(writer, *vs, svc, matchingSubsets, nonmatchingSubsets, dr)
+				} else {
+					fmt.Fprintf(writer,
+						"WARNING: Proxy is stale; it references to non-existent virtual service %s.%s\n",
+						vsName, vsNamespace)
 				}
 			}
 		}
@@ -1211,14 +1231,15 @@ func printIngressService(writer io.Writer, ingressSvc *v1.Service, ingressPod *v
 		}
 
 		// Get port number
-		nport, err := pilotcontroller.FindPort(ingressPod, &port)
+		_, err := pilotcontroller.FindPort(ingressPod, &port)
 		if err == nil {
+			nport := int(port.Port)
 			protocol := string(servicePortProtocol(port.Name))
 
 			scheme := protocolToScheme[protocol]
 			portSuffix := ""
 			if schemePortDefault[scheme] != nport {
-				portSuffix = fmt.Sprintf(":%d\n", nport)
+				portSuffix = fmt.Sprintf(":%d", nport)
 			}
 			fmt.Fprintf(writer, "\nExposed on Ingress Gateway %s://%s%s\n", scheme, ip, portSuffix)
 		}
@@ -1406,6 +1427,10 @@ func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecCl
 					}
 					printDestinationRule(writer, *dr, podsLabels)
 					matchingSubsets, nonmatchingSubsets = getDestRuleSubsets(*dr, podsLabels)
+				} else {
+					fmt.Fprintf(writer,
+						"WARNING: Proxy is stale; it references to non-existent destination rule %s.%s\n",
+						drName, drNamespace)
 				}
 			}
 
@@ -1424,6 +1449,10 @@ func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecCl
 						fmt.Fprintf(writer, "%d ", port.Port)
 					}
 					printVirtualService(writer, *vs, svc, matchingSubsets, nonmatchingSubsets, dr)
+				} else {
+					fmt.Fprintf(writer,
+						"WARNING: Proxy is stale; it references to non-existent virtual service %s.%s\n",
+						vsName, vsNamespace)
 				}
 			}
 

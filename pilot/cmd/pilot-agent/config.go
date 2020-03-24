@@ -16,9 +16,10 @@ package main
 
 import (
 	"io/ioutil"
+	"strconv"
 	"strings"
 
-	"github.com/gogo/protobuf/types"
+	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -31,6 +32,32 @@ import (
 	"istio.io/pkg/log"
 )
 
+// getTLSCerts returns all file based certificates from mesh config
+// TODO(https://github.com/istio/istio/issues/21834) serve over SDS instead of files
+// This is used for static configuration in the bootstrap that needs certificates, currently this is
+// Envoy Metrics Service and ALS. In the future this could expand to others like tracing, which currently
+// are using other mechanisms to configure certs.
+func getTLSCerts(pc meshconfig.ProxyConfig) []string {
+	certs := []string{}
+	appendTLSCerts := func(rs *meshconfig.RemoteService) {
+		if rs.TlsSettings == nil {
+			return
+		}
+		if rs.TlsSettings.Mode == networking.TLSSettings_DISABLE {
+			return
+		}
+		certs = append(certs, rs.TlsSettings.CaCertificates, rs.TlsSettings.ClientCertificate,
+			rs.TlsSettings.PrivateKey)
+	}
+	if pc.EnvoyMetricsService != nil {
+		appendTLSCerts(pc.EnvoyMetricsService)
+	}
+	if pc.EnvoyAccessLogService != nil {
+		appendTLSCerts(pc.EnvoyAccessLogService)
+	}
+	return certs
+}
+
 func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 	meshConfig, err := getMeshConfig()
 	if err != nil {
@@ -41,35 +68,8 @@ func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 		proxyConfig = *meshConfig.DefaultConfig
 	}
 
-	// TODO(https://github.com/istio/istio/issues/21222) remove all of these flag overrides
-	proxyConfig.CustomConfigFile = customConfigFile
-	proxyConfig.ProxyBootstrapTemplatePath = templateFile
-	proxyConfig.ConfigPath = configPath
-	proxyConfig.BinaryPath = binaryPath
-	proxyConfig.ServiceCluster = serviceCluster
-	proxyConfig.DrainDuration = types.DurationProto(drainDuration)
-	proxyConfig.ParentShutdownDuration = types.DurationProto(parentShutdownDuration)
-	if discoveryAddress != "" {
-		proxyConfig.DiscoveryAddress = discoveryAddress
-	}
-	proxyConfig.ConnectTimeout = types.DurationProto(connectTimeout)
-	proxyConfig.StatsdUdpAddress = statsdUDPAddress
-
-	if envoyMetricsService != "" {
-		if ms := fromJSON(envoyMetricsService); ms != nil {
-			proxyConfig.EnvoyMetricsService = ms
-			appendTLSCerts(ms)
-		}
-	}
-	if envoyAccessLogService != "" {
-		if rs := fromJSON(envoyAccessLogService); rs != nil {
-			proxyConfig.EnvoyAccessLogService = rs
-			appendTLSCerts(rs)
-		}
-	}
-	proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
 	proxyConfig.Concurrency = int32(concurrency)
-
+	proxyConfig.ServiceCluster = serviceCluster
 	// resolve statsd address
 	if proxyConfig.StatsdUdpAddress != "" {
 		addr, err := proxy.ResolveAddr(proxyConfig.StatsdUdpAddress)
@@ -82,54 +82,6 @@ func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 			proxyConfig.StatsdUdpAddress = addr
 		}
 	}
-
-	// set tracing config
-	if lightstepAddress != "" {
-		proxyConfig.Tracing = &meshconfig.Tracing{
-			Tracer: &meshconfig.Tracing_Lightstep_{
-				Lightstep: &meshconfig.Tracing_Lightstep{
-					Address:     lightstepAddress,
-					AccessToken: lightstepAccessToken,
-					Secure:      lightstepSecure,
-					CacertPath:  lightstepCacertPath,
-				},
-			},
-		}
-	} else if zipkinAddress != "" {
-		proxyConfig.Tracing = &meshconfig.Tracing{
-			Tracer: &meshconfig.Tracing_Zipkin_{
-				Zipkin: &meshconfig.Tracing_Zipkin{
-					Address: zipkinAddress,
-				},
-			},
-		}
-	} else if datadogAgentAddress != "" {
-		proxyConfig.Tracing = &meshconfig.Tracing{
-			Tracer: &meshconfig.Tracing_Datadog_{
-				Datadog: &meshconfig.Tracing_Datadog{
-					Address: datadogAgentAddress,
-				},
-			},
-		}
-	} else if stackdriverTracingEnabled.Get() {
-		proxyConfig.Tracing = &meshconfig.Tracing{
-			Tracer: &meshconfig.Tracing_Stackdriver_{
-				Stackdriver: &meshconfig.Tracing_Stackdriver{
-					Debug: stackdriverTracingDebug.Get(),
-					MaxNumberOfAnnotations: &types.Int64Value{
-						Value: int64(stackdriverTracingMaxNumberOfAnnotations.Get()),
-					},
-					MaxNumberOfAttributes: &types.Int64Value{
-						Value: int64(stackdriverTracingMaxNumberOfAttributes.Get()),
-					},
-					MaxNumberOfMessageEvents: &types.Int64Value{
-						Value: int64(stackdriverTracingMaxNumberOfMessageEvents.Get()),
-					},
-				},
-			},
-		}
-	}
-
 	if err := validation.ValidateProxyConfig(&proxyConfig); err != nil {
 		return meshconfig.ProxyConfig{}, err
 	}
@@ -153,7 +105,23 @@ func applyAnnotations(config meshconfig.ProxyConfig, annos map[string]string) me
 	if v, f := annos[annotation.SidecarDiscoveryAddress.Name]; f {
 		config.DiscoveryAddress = v
 	}
+	if v, f := annos[annotation.SidecarStatusPort.Name]; f {
+		p, err := strconv.Atoi(v)
+		if err != nil {
+			log.Errorf("Invalid annotation %v=%v: %v", annotation.SidecarStatusPort, p, err)
+		}
+		config.StatusPort = int32(p)
+	}
 	return config
+}
+
+func getPilotSan(discoveryAddress string) string {
+	discHost := strings.Split(discoveryAddress, ":")[0]
+	// For local debugging - the discoveryAddress is set to localhost, but the cert issued for normal SA.
+	if discHost == "localhost" {
+		discHost = "istiod.istio-system.svc"
+	}
+	return discHost
 }
 
 func getControlPlaneNamespace(podNamespace string, discoveryAddress string) string {

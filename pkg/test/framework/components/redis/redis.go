@@ -16,8 +16,8 @@ package redis
 
 import (
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 // Redis represents a deployed Redis app instance in a Kubernetes cluster.
@@ -26,19 +26,24 @@ type Instance interface {
 	GetRedisNamespace() string
 }
 
+type Config struct {
+	// Which KubeConfig should be used in a multicluster environment
+	Cluster resource.Cluster
+}
+
 // New returns a new instance of redis.
-func New(ctx resource.Context) (i Instance, err error) {
+func New(ctx resource.Context, c Config) (i Instance, err error) {
 	err = resource.UnsupportedEnvironment(ctx.Environment())
 	ctx.Environment().Case(environment.Kube, func() {
-		i, err = newKube(ctx)
+		i, err = newKube(ctx, c)
 	})
 	return
 }
 
 // NewOrFail returns a new Redis instance or fails test.
-func NewOrFail(t test.Failer, ctx resource.Context) Instance {
+func NewOrFail(t test.Failer, ctx resource.Context, c Config) Instance {
 	t.Helper()
-	i, err := New(ctx)
+	i, err := New(ctx, c)
 	if err != nil {
 		t.Fatalf("redis.NewOrFail: %v", err)
 	}

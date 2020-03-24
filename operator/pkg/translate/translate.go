@@ -129,7 +129,8 @@ func NewTranslator(minorVersion version.MinorVersion) (*Translator, error) {
 }
 
 // OverlayK8sSettings overlays k8s settings from iop over the manifest objects, based on t's translation mappings.
-func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName, index int) (string, error) {
+func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName,
+	resourceName string, addonName string, index int) (string, error) {
 	objects, err := object.ParseK8sObjectsFromYAMLManifest(yml)
 	if err != nil {
 		return "", err
@@ -147,7 +148,8 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 		}
 		inPath = strings.Replace(inPath, "gressGateways.", "gressGateways."+fmt.Sprint(index)+".", 1)
 		scope.Debugf("Checking for path %s in IstioOperatorSpec", inPath)
-		m, found, err := tpath.GetFromStructPath(iop, inPath)
+
+		m, found, err := getK8SSpecFromIOP(iop, componentName, inPath, addonName)
 		if err != nil {
 			return "", err
 		}
@@ -165,7 +167,7 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 			scope.Debugf("path %s is int 0, skip mapping.", inPath)
 			continue
 		}
-		outPath, err := t.renderResourceComponentPathTemplate(v.OutPath, componentName)
+		outPath, err := t.renderResourceComponentPathTemplate(v.OutPath, componentName, resourceName, addonName)
 		if err != nil {
 			return "", err
 		}
@@ -206,7 +208,7 @@ func (t *Translator) ProtoToValues(ii *v1alpha1.IstioOperatorSpec) (string, erro
 		return "", errs.ToError()
 	}
 
-	// Enabled and namespace fields require special handling because of inheritance rules.
+	// Special additional handling not covered by simple translation rules.
 	if err := t.setComponentProperties(root, ii); err != nil {
 		return "", err
 	}
@@ -240,7 +242,8 @@ func (t *Translator) ValuesOverlaysToHelmValues(in map[string]interface{}, cname
 }
 
 // TranslateHelmValues creates a Helm values.yaml config data tree from iop using the given translator.
-func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName) (string, error) {
+func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, k8s *v1alpha1.KubernetesResourcesSpec,
+	componentName name.ComponentName, resourceName string) (string, error) {
 	globalVals, globalUnvalidatedVals, apiVals := make(map[string]interface{}), make(map[string]interface{}), make(map[string]interface{})
 
 	// First, translate the IstioOperator API to helm Values.
@@ -283,7 +286,67 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 	if err != nil {
 		return "", err
 	}
+
+	mergedYAML, err = applyGatewayTranslations(mergedYAML, componentName, resourceName, k8s)
+	if err != nil {
+		return "", err
+	}
+
 	return string(mergedYAML), err
+}
+
+// applyGatewayTranslations writes gateway name gwName at the appropriate values path in iop and maps k8s.service.ports
+// to values. It returns the resulting YAML tree.
+func applyGatewayTranslations(iop []byte, componentName name.ComponentName, gwName string, k8s *v1alpha1.KubernetesResourcesSpec) ([]byte, error) {
+	if !componentName.IsGateway() {
+		return iop, nil
+	}
+	iopt := make(map[string]interface{})
+	if err := yaml.Unmarshal(iop, &iopt); err != nil {
+		return nil, err
+	}
+	switch componentName {
+	case name.IngressComponentName:
+		setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.name"), gwName)
+		if k8s != nil && k8s.Service != nil {
+			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.ports"), k8s.Service.Ports)
+		}
+	case name.EgressComponentName:
+		setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-egressgateway.name"), gwName)
+		if k8s != nil && k8s.Service != nil {
+			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-egressgateway.ports"), k8s.Service.Ports)
+		}
+	}
+	return yaml.Marshal(iopt)
+}
+
+// setYAMLNodeByMapPath sets the value at the given path to val in treeNode. The path cannot traverse lists and
+// treeNode must be a YAML tree unmarshaled into a plain map data structure.
+func setYAMLNodeByMapPath(treeNode interface{}, path util.Path, val interface{}) {
+	if len(path) == 0 || treeNode == nil {
+		return
+	}
+	pe := path[0]
+	switch nt := treeNode.(type) {
+	case map[interface{}]interface{}:
+		if len(path) == 1 {
+			nt[pe] = val
+			return
+		}
+		if nt[pe] == nil {
+			return
+		}
+		setYAMLNodeByMapPath(nt[pe], path[1:], val)
+	case map[string]interface{}:
+		if len(path) == 1 {
+			nt[pe] = val
+			return
+		}
+		if nt[pe] == nil {
+			return
+		}
+		setYAMLNodeByMapPath(nt[pe], path[1:], val)
+	}
 }
 
 // ComponentMap returns a ComponentMaps struct ptr for the given component name if one exists.
@@ -381,14 +444,18 @@ func (t *Translator) setComponentProperties(root map[string]interface{}, iop *v1
 		}
 
 		hub, found, _ := tpath.GetFromStructPath(iop, "Components."+string(cn)+".Hub")
-		if found && hub.(string) != "" {
+		// Unmarshal unfortunately creates struct fields with "" for unset values. Skip these cases to avoid
+		// overwriting current value with an empty string.
+		hubStr, ok := hub.(string)
+		if found && !(ok && hubStr == "") {
 			if err := tpath.WriteNode(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesHubSubpath), hub); err != nil {
 				return err
 			}
 		}
 
 		tag, found, _ := tpath.GetFromStructPath(iop, "Components."+string(cn)+".Tag")
-		if found && tag.(string) != "" {
+		tagStr, ok := tag.(string)
+		if found && !(ok && tagStr == "") {
 			if err := tpath.WriteNode(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesTagSubpath), tag); err != nil {
 				return err
 			}
@@ -488,17 +555,53 @@ func renderFeatureComponentPathTemplate(tmpl string, componentName name.Componen
 
 // renderResourceComponentPathTemplate renders a template of the form <path>{{.ResourceName}}<path>{{.ContainerName}}<path> with
 // the supplied parameters.
-func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentName name.ComponentName) (string, error) {
+func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentName name.ComponentName, resourceName string, addonName string) (string, error) {
+	cn := string(componentName)
+	if componentName == name.AddonComponentName {
+		cn = addonName
+	}
+	cmp := t.ComponentMap(cn)
+	if cmp == nil {
+		return "", fmt.Errorf("component: %s does not exist in the componentMap", addonName)
+	}
+	if resourceName == "" {
+		resourceName = cmp.ResourceName
+	}
 	ts := struct {
 		ResourceType  string
 		ResourceName  string
 		ContainerName string
 	}{
-		ResourceType:  t.ComponentMaps[componentName].ResourceType,
-		ResourceName:  t.ComponentMaps[componentName].ResourceName,
-		ContainerName: t.ComponentMaps[componentName].ContainerName,
+		ResourceType:  cmp.ResourceType,
+		ResourceName:  resourceName,
+		ContainerName: cmp.ContainerName,
 	}
 	return util.RenderTemplate(tmpl, ts)
+}
+
+// getK8SSpecFromIOP is helper function to get k8s spec node from iop using inPath
+// 1. if component is not an addonComponent, get the node directly from iop using the inPath.
+// 2. otherwise convert the inPath and point the root to the entry of addonComponents map with addonName as key.
+// e.x: original inPath: "Components.AddonComponents.K8S.ReplicaCount" and root: iop would be converted to
+// new inPath: "K8S.ReplicaCount" and root: "iop.AddonComponents.addonName"
+func getK8SSpecFromIOP(iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName, inPath string,
+	addonName string) (m interface{}, found bool, err error) {
+	if componentName != name.AddonComponentName {
+		return tpath.GetFromStructPath(iop, inPath)
+	}
+	inPath = strings.Replace(inPath, "Components.AddonComponents.", "", 1)
+	scope.Debugf("Checking for path %s in K8S Spec of AddonComponents: %s", inPath, addonName)
+	addonMaps := iop.AddonComponents
+	if extSpec, ok := addonMaps[addonName]; ok {
+		m, found, err = tpath.GetFromStructPath(extSpec, inPath)
+		if err != nil {
+			return nil, false, err
+		}
+	} else {
+		scope.Debugf("path %s not found in AddonComponents.%s, skip mapping.", inPath, addonName)
+		return nil, false, nil
+	}
+	return m, found, nil
 }
 
 // defaultTranslationFunc is the default translation to values. It maps a Go data path into a YAML path.

@@ -8,7 +8,7 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
       creationTimestamp: null
@@ -36,10 +36,7 @@ spec:
             - hellocron.default
             - --proxyLogLevel=warning
             - --proxyComponentLogLevel=misc:error
-            - --statusPort
-            - "15020"
             - --trust-domain=cluster.local
-            - --controlPlaneBootstrap=false
             - --concurrency
             - "2"
             env:
@@ -78,14 +75,6 @@ spec:
                 ]
             - name: ISTIO_META_CLUSTER_ID
               value: Kubernetes
-            - name: ISTIO_META_POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: ISTIO_META_CONFIG_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
             - name: ISTIO_META_INTERCEPTION_MODE
               value: REDIRECT
             - name: ISTIO_META_WORKLOAD_NAME
@@ -107,7 +96,7 @@ spec:
               failureThreshold: 30
               httpGet:
                 path: /healthz/ready
-                port: 15020
+                port: 15090
               initialDelaySeconds: 1
               periodSeconds: 2
             resources:
@@ -135,9 +124,9 @@ spec:
             - mountPath: /var/run/secrets/tokens
               name: istio-token
             - mountPath: /etc/istio/pod
-              name: podinfo
+              name: istio-podinfo
           initContainers:
-          - command:
+          - args:
             - istio-iptables
             - -p
             - "15001"
@@ -191,7 +180,7 @@ spec:
               - fieldRef:
                   fieldPath: metadata.annotations
                 path: annotations
-            name: podinfo
+            name: istio-podinfo
           - name: istio-token
             projected:
               sources:

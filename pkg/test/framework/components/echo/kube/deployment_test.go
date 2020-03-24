@@ -19,11 +19,11 @@ import (
 	testutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/core/image"
+	"istio.io/istio/pkg/test/framework/image"
 )
 
 var (
-	settings *image.Settings = &image.Settings{
+	settings = &image.Settings{
 		Hub:        "testing.hub",
 		Tag:        "latest",
 		PullPolicy: "Always",
@@ -133,20 +133,20 @@ func TestDeploymentYAML(t *testing.T) {
 		},
 	}
 	for _, tc := range testCase {
-		yaml, err := generateYAMLWithSettings(tc.config, settings)
+		serviceYAML, deploymentYAML, err := generateYAMLWithSettings(tc.config, settings)
 		if err != nil {
 			t.Errorf("failed to generate yaml %v", err)
 		}
-		gotBytes := []byte(yaml)
+		gotBytes := []byte(serviceYAML + "---" + deploymentYAML)
 		wantedBytes := testutil.ReadGoldenFile(gotBytes, tc.wantFilePath, t)
 
 		wantBytes := testutil.StripVersion(wantedBytes)
 		gotBytes = testutil.StripVersion(gotBytes)
 
-		testutil.CompareBytes(gotBytes, wantBytes, tc.wantFilePath, t)
-
 		if testutil.Refresh() {
 			testutil.RefreshGoldenFile(gotBytes, tc.wantFilePath, t)
 		}
+
+		testutil.CompareBytes(gotBytes, wantBytes, tc.wantFilePath, t)
 	}
 }

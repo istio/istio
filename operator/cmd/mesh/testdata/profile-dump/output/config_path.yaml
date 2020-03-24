@@ -12,6 +12,9 @@ cni:
 egressGateways:
 - enabled: false
   k8s:
+    env:
+    - name: ISTIO_META_ROUTER_MODE
+      value: sni-dnat
     hpaSpec:
       maxReplicas: 5
       metrics:
@@ -23,7 +26,7 @@ egressGateways:
       scaleTargetRef:
         apiVersion: apps/v1
         kind: Deployment
-        name: istio-ingressgateway
+        name: istio-egressgateway
     resources:
       limits:
         cpu: 2000m
@@ -31,6 +34,15 @@ egressGateways:
       requests:
         cpu: 100m
         memory: 128Mi
+    service:
+      ports:
+      - name: http2
+        port: 80
+      - name: https
+        port: 443
+      - name: tls
+        port: 15443
+        targetPort: 15443
     strategy:
       rollingUpdate:
         maxSurge: 100%
@@ -50,6 +62,9 @@ galley:
 ingressGateways:
 - enabled: true
   k8s:
+    env:
+    - name: ISTIO_META_ROUTER_MODE
+      value: sni-dnat
     hpaSpec:
       maxReplicas: 5
       metrics:
@@ -69,6 +84,32 @@ ingressGateways:
       requests:
         cpu: 100m
         memory: 128Mi
+    service:
+      ports:
+      - name: status-port
+        port: 15020
+        targetPort: 15020
+      - name: http2
+        port: 80
+        targetPort: 8080
+      - name: https
+        port: 443
+        targetPort: 8443
+      - name: kiali
+        port: 15029
+        targetPort: 15029
+      - name: prometheus
+        port: 15030
+        targetPort: 15030
+      - name: grafana
+        port: 15031
+        targetPort: 15031
+      - name: tracing
+        port: 15032
+        targetPort: 15032
+      - name: tls
+        port: 15443
+        targetPort: 15443
     strategy:
       rollingUpdate:
         maxSurge: 100%

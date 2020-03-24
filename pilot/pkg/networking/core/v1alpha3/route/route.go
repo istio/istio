@@ -130,7 +130,7 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 	for fqdn := range missing {
 		svc := serviceRegistry[fqdn]
 		for _, port := range svc.Ports {
-			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(node, port) {
+			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
 				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
 				traceOperation := fmt.Sprintf("%s:%d/*", svc.Hostname, port.Port)
 				httpRoute := BuildDefaultHTTPOutboundRoute(node, cluster, traceOperation)
@@ -197,7 +197,7 @@ func buildSidecarVirtualHostsForVirtualService(
 	serviceByPort := make(map[int][]*model.Service)
 	for _, svc := range servicesInVirtualService {
 		for _, port := range svc.Ports {
-			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(node, port) {
+			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
 				serviceByPort[port.Port] = append(serviceByPort[port.Port], svc)
 			}
 		}
@@ -349,14 +349,13 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		Metadata: util.BuildConfigInfoMetadata(virtualService.ConfigMeta),
 	}
 
-	if util.IsIstioVersionGE13(node) {
-		routeName := in.Name
-		if match != nil && match.Name != "" {
-			routeName = routeName + "." + match.Name
-		}
-		out.Name = routeName
-		// add a name to the route
+	routeName := in.Name
+	if match != nil && match.Name != "" {
+		routeName = routeName + "." + match.Name
 	}
+	// add a name to the route
+	out.Name = routeName
+
 	out.TypedPerFilterConfig = make(map[string]*any.Any)
 	if redirect := in.Redirect; redirect != nil {
 		action := &route.Route_Redirect{
@@ -428,6 +427,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 				action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{
 					Cluster:         GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], port),
 					RuntimeFraction: mp,
+					TraceSampled:    &wrappers.BoolValue{Value: false},
 				}
 			}
 		}
@@ -706,7 +706,7 @@ func translateHeaderMatch(name string, in *networking.StringMatch, node *model.P
 	case *networking.StringMatch_Exact:
 		out.HeaderMatchSpecifier = &route.HeaderMatcher_ExactMatch{ExactMatch: m.Exact}
 	case *networking.StringMatch_Prefix:
-		// Envoy regex grammar is ECMA-262 (http://en.cppreference.com/w/cpp/regex/ecmascript)
+		// Envoy regex grammar is RE2 (https://github.com/google/re2/wiki/Syntax)
 		// Golang has a slightly different regex grammar
 		out.HeaderMatchSpecifier = &route.HeaderMatcher_PrefixMatch{PrefixMatch: m.Prefix}
 	case *networking.StringMatch_Regex:
@@ -741,9 +741,9 @@ func convertToEnvoyMatch(in []*networking.StringMatch) []*matcher.StringMatcher 
 	for _, istioMatcher := range in {
 		switch m := istioMatcher.MatchType.(type) {
 		case *networking.StringMatch_Exact:
-			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{m.Exact}})
+			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{Exact: m.Exact}})
 		case *networking.StringMatch_Prefix:
-			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Prefix{m.Prefix}})
+			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: m.Prefix}})
 		case *networking.StringMatch_Regex:
 			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_SafeRegex{
 				SafeRegex: &matcher.RegexMatcher{
@@ -840,9 +840,7 @@ func BuildDefaultHTTPInboundRoute(node *model.Proxy, clusterName string, operati
 		},
 	}
 
-	if util.IsIstioVersionGE13(node) {
-		val.Name = DefaultRouteName
-	}
+	val.Name = DefaultRouteName
 	return val
 }
 

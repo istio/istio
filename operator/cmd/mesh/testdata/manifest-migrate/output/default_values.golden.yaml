@@ -4,6 +4,16 @@ metadata:
   creationTimestamp: null
 spec:
   addonComponents:
+    citadel:
+      enabled: true
+      k8s:
+        nodeSelector: {}
+        replicaCount: 1
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
+        tolerations: []
     grafana:
       enabled: false
     istiocoredns:
@@ -17,16 +27,6 @@ spec:
         replicaCount: 1
         tolerations: []
   components:
-    citadel:
-      enabled: true
-      k8s:
-        nodeSelector: {}
-        replicaCount: 1
-        strategy:
-          rollingUpdate:
-            maxSurge: 100%
-            maxUnavailable: 25%
-        tolerations: []
     egressGateways:
     - enabled: true
       k8s:

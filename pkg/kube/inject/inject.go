@@ -738,7 +738,7 @@ func IntoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 
 	// Modify application containers' HTTP probe after appending injected containers.
 	// Because we need to extract istio-proxy's statusPort.
-	rewriteAppHTTPProbe(metadata.Annotations, podSpec, spec)
+	rewriteAppHTTPProbe(metadata.Annotations, podSpec, spec, meshconfig.DefaultConfig.GetStatusPort())
 
 	// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
 	// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).
@@ -876,6 +876,9 @@ func cleanProxyConfig(pc meshconfig.ProxyConfig) *meshconfig.ProxyConfig {
 	if pc.StatNameLength == defaults.StatNameLength {
 		pc.StatNameLength = 0
 	}
+	if pc.StatusPort == defaults.StatusPort {
+		pc.StatusPort = 0
+	}
 	return &pc
 }
 
@@ -964,6 +967,12 @@ func cleanMeshConfig(v proto.Message) proto.Message {
 	}
 	if cpy.TrustDomain == defaults.TrustDomain {
 		cpy.TrustDomain = ""
+	}
+	if cpy.SdsUdsPath == defaults.SdsUdsPath {
+		cpy.SdsUdsPath = ""
+	}
+	if cpy.IngressControllerMode == defaults.IngressControllerMode {
+		cpy.IngressControllerMode = meshconfig.MeshConfig_UNSPECIFIED
 	}
 	return &cpy
 }

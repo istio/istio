@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/hooks"
 	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/tpath"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	"istio.io/pkg/log"
 )
@@ -46,6 +47,9 @@ const (
 		"    kubectl rollout restart deployment --namespace <namespace with auto injection>\n" +
 		"If you’re using manual injection, you can upgrade the sidecar by executing:\n" +
 		"    kubectl apply -f < (istioctl kube-inject -f <original application deployment yaml>)"
+
+	// installationPathTemplate is used to construct installation url based on version
+	installationPathTemplate = "https://github.com/istio/istio/releases/download/%s/istio-%s-linux.tar.gz"
 )
 
 type upgradeArgs struct {
@@ -87,6 +91,7 @@ func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 			upgradeWaitCheckVerMaxAttempts).String())
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false,
 		"Apply the upgrade without eligibility checks")
+	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, SetFlagHelpStr)
 }
 
 // UpgradeCmd upgrades Istio control plane in-place with eligibility checks
@@ -167,17 +172,30 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 		if err != nil {
 			return fmt.Errorf("failed to read override IOPS from file: %v, error: %v", args.inFilenames, err)
 		}
+		// Grab the IstioOperatorSpec subtree.
+		overrideIOPSYaml, err = tpath.GetSpecSubtree(overrideIOPSYaml)
+		if err != nil {
+			return fmt.Errorf("failed to get spec subtree from IOPS yaml, error: %v", err)
+		}
 	}
 
-	// Generates IOPS for args.inFilenames IOP specs yaml. Param force is set to true to
-	// skip the validation because the code only has the validation proto for the
-	// target version.
-	currentIOPSYaml, _, err := GenerateConfig(args.inFilenames, "", true, nil, l)
+	// Read the current installation's profile IOPS yaml to check the changed profile settings between versions.
+	currentSets := args.set
+	if currentVersion != "" {
+		currentSets = append(currentSets, "installPackagePath="+installURLFromVersion(currentVersion))
+	}
+	if targetIOPS.Profile != "" {
+		currentSets = append(currentSets, "profile="+targetIOPS.Profile)
+	}
+	if ysf, err = yamlFromSetFlags(currentSets, args.force, l); err != nil {
+		return err
+	}
+	currentProfileIOPSYaml, _, err := GenerateConfig(nil, ysf, args.force, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate IOPS from file: %s for the current version: %s, error: %v",
 			args.inFilenames, currentVersion, err)
 	}
-	checkUpgradeIOPS(currentIOPSYaml, targetIOPSYaml, overrideIOPSYaml, l)
+	checkUpgradeIOPS(currentProfileIOPSYaml, targetIOPSYaml, overrideIOPSYaml, l)
 
 	waitForConfirmation(args.skipConfirmation, l)
 
@@ -228,6 +246,11 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 	l.logAndPrintf("Success. Now the Istio control plane is running at version %v.\n", upgradeVer)
 	l.logAndPrintf(upgradeSidecarMessage)
 	return nil
+}
+
+// installURLFromVersion generates default installation url from version number.
+func installURLFromVersion(version string) string {
+	return fmt.Sprintf(installationPathTemplate, version, version)
 }
 
 // checkUpgradeIOPS checks the upgrade eligibility by comparing the current IOPS with the target IOPS

@@ -19,13 +19,12 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
-
-	"time"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 // CallType defines ingress gateway type
@@ -107,6 +106,8 @@ type Config struct {
 	Istio istio.Instance
 	// IngressType specifies the type of ingress gateway.
 	IngressType CallType
+	// Cluster to be used in a multicluster environment
+	Cluster resource.Cluster
 }
 
 // CallResponse is the result of a call made through Istio Ingress.

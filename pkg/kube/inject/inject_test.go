@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/api/mesh/v1alpha1"
+
 	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 
@@ -54,11 +56,6 @@ components:
   cni:
     enabled: true
 `,
-		},
-		//verifies that the sidecar will not be injected again for an injected yaml
-		{
-			in:   "hello.yaml.injected",
-			want: "hello.yaml.injected",
 		},
 		{
 			in:   "hello-mtls-not-ready.yaml",
@@ -568,6 +565,7 @@ func TestCleanMeshConfig(t *testing.T) {
 	explicit.DefaultConfig.DrainDuration = types.DurationProto(45 * time.Second)
 	overrides := mesh.DefaultMeshConfig()
 	overrides.TrustDomain = "foo.bar"
+	overrides.IngressControllerMode = v1alpha1.MeshConfig_OFF
 	cases := []struct {
 		name   string
 		mesh   meshapi.MeshConfig
@@ -586,7 +584,7 @@ func TestCleanMeshConfig(t *testing.T) {
 		{
 			"overrides",
 			overrides,
-			`{"trustDomain":"foo.bar"}`,
+			`{"ingressControllerMode":"OFF","trustDomain":"foo.bar"}`,
 		},
 	}
 	for _, tt := range cases {

@@ -19,115 +19,13 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/pkg/config/labels"
-
 	"github.com/davecgh/go-spew/spew"
 
-	istio_rbac "istio.io/api/rbac/v1alpha1"
 	security "istio.io/api/security/v1beta1"
-
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
-	"istio.io/istio/pkg/config/host"
 )
 
-func TestNewServiceMetadata(t *testing.T) {
-	testCases := []struct {
-		name            string
-		namespace       string
-		serviceInstance *model.ServiceInstance
-		want            ServiceMetadata
-		wantError       string
-	}{
-		{
-			name:            "empty-namespace",
-			serviceInstance: &model.ServiceInstance{},
-			wantError:       "found empty namespace",
-		},
-		{
-			name:      "svc-name",
-			namespace: "test-ns",
-			serviceInstance: &model.ServiceInstance{
-				Service: &model.Service{
-					Hostname: host.Name("svc-name.test-ns"),
-				},
-				Endpoint: &model.IstioEndpoint{
-					Labels:         labels.Instance{"version": "v1"},
-					ServiceAccount: "spiffe://xyz.com/sa/service-account/ns/test-ns",
-				},
-			},
-			want: ServiceMetadata{
-				Name:   "svc-name.test-ns",
-				Labels: map[string]string{"version": "v1"},
-				Attributes: map[string]string{
-					attrDestName:      "svc-name",
-					attrDestNamespace: "test-ns",
-					attrDestUser:      "service-account",
-				},
-			},
-		},
-	}
-
-	for _, tc := range testCases {
-		got, err := NewServiceMetadata(tc.name, tc.namespace, tc.serviceInstance)
-
-		if tc.wantError != "" {
-			if err == nil || !strings.Contains(err.Error(), tc.wantError) {
-				t.Fatalf("got error %q but want %q", err, tc.wantError)
-			}
-		} else {
-			if err != nil {
-				t.Fatalf("unexpected error %q", err)
-			}
-			if !reflect.DeepEqual(*got, tc.want) {
-				t.Fatalf("got %v but want %v", *got, tc.want)
-			}
-			if got.GetNamespace() != tc.namespace {
-				t.Fatalf("got namespace %s but want %s", got.GetNamespace(), tc.namespace)
-			}
-		}
-	}
-}
-
-func TestNewModelV1alpha1(t *testing.T) {
-	role := &istio_rbac.ServiceRole{
-		Rules: []*istio_rbac.AccessRule{
-			fullRule("perm-1"),
-			fullRule("perm-2"),
-		},
-	}
-	binding1 := &istio_rbac.ServiceRoleBinding{
-		Subjects: []*istio_rbac.Subject{
-			fullSubject("id-1"),
-			fullSubject("id-2"),
-		},
-	}
-	binding2 := &istio_rbac.ServiceRoleBinding{
-		Subjects: []*istio_rbac.Subject{
-			fullSubject("id-3"),
-			fullSubject("id-4"),
-		},
-	}
-
-	got := NewModelV1alpha1(trustdomain.NewTrustDomainBundle("", nil), role, []*istio_rbac.ServiceRoleBinding{binding1, binding2})
-	want := Model{
-		Permissions: []Permission{
-			fullPermission("perm-1"),
-			fullPermission("perm-2"),
-		},
-		Principals: []Principal{
-			fullPrincipal("id-1"),
-			fullPrincipal("id-2"),
-			fullPrincipal("id-3"),
-			fullPrincipal("id-4"),
-		},
-	}
-	if !reflect.DeepEqual(*got, want) {
-		t.Errorf("got %v but want %v", *got, want)
-	}
-}
-
-func TestNewModelV1beta1(t *testing.T) {
+func TestNew(t *testing.T) {
 	testCases := []struct {
 		name string
 		rule *security.Rule
@@ -149,13 +47,11 @@ func TestNewModelV1beta1(t *testing.T) {
 					{
 						Names:      []string{"principal"},
 						Properties: []KeyValues{},
-						v1beta1:    true,
 					},
 				},
 				Permissions: []Permission{
 					{
 						AllowAll: true,
-						v1beta1:  true,
 					},
 				},
 			},
@@ -175,14 +71,12 @@ func TestNewModelV1beta1(t *testing.T) {
 				Principals: []Principal{
 					{
 						AllowAll: true,
-						v1beta1:  true,
 					},
 				},
 				Permissions: []Permission{
 					{
 						Hosts:       []string{"host"},
 						Constraints: []KeyValues{},
-						v1beta1:     true,
 					},
 				},
 			},
@@ -205,13 +99,11 @@ func TestNewModelV1beta1(t *testing.T) {
 								},
 							},
 						},
-						v1beta1: true,
 					},
 				},
 				Principals: []Principal{
 					{
 						AllowAll: true,
-						v1beta1:  true,
 					},
 				},
 			},
@@ -227,7 +119,6 @@ func TestNewModelV1beta1(t *testing.T) {
 				Permissions: []Permission{
 					{
 						AllowAll: true,
-						v1beta1:  true,
 					},
 				},
 				Principals: []Principal{
@@ -240,7 +131,6 @@ func TestNewModelV1beta1(t *testing.T) {
 								},
 							},
 						},
-						v1beta1: true,
 					},
 				},
 			},
@@ -339,7 +229,6 @@ func TestNewModelV1beta1(t *testing.T) {
 								},
 							},
 						},
-						v1beta1: true,
 					},
 					{
 						Hosts:    []string{"h3"},
@@ -364,7 +253,6 @@ func TestNewModelV1beta1(t *testing.T) {
 								},
 							},
 						},
-						v1beta1: true,
 					},
 				},
 				Principals: []Principal{
@@ -439,7 +327,6 @@ func TestNewModelV1beta1(t *testing.T) {
 								},
 							},
 						},
-						v1beta1: true,
 					},
 					{
 						Names:    []string{"p3"},
@@ -506,7 +393,6 @@ func TestNewModelV1beta1(t *testing.T) {
 								},
 							},
 						},
-						v1beta1: true,
 					},
 				},
 			},
@@ -515,7 +401,7 @@ func TestNewModelV1beta1(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := NewModelV1beta1(trustdomain.NewTrustDomainBundle("", nil), tc.rule)
+			got := New(trustdomain.NewTrustDomainBundle("", nil), tc.rule)
 			if !reflect.DeepEqual(*got, tc.want) {
 				t.Errorf("\n got %+v\nwant %+v", *got, tc.want)
 			}
@@ -524,14 +410,12 @@ func TestNewModelV1beta1(t *testing.T) {
 }
 
 func TestModel_Generate(t *testing.T) {
-	serviceFoo := "foo.default.svc.cluster.local"
-	serviceInstance := &model.ServiceInstance{
-		Service: &model.Service{
-			Hostname: host.Name(serviceFoo),
-		},
-		Endpoint: &model.IstioEndpoint{},
+	simplePermission := func(tag string) Permission {
+		return Permission{
+			Services: []string{"foo.default.svc.cluster.local"},
+			Methods:  []string{permissionTag(tag)},
+		}
 	}
-	serviceMetadata, _ := NewServiceMetadata("foo", "default", serviceInstance)
 	testCases := []struct {
 		name           string
 		permissions    []Permission
@@ -549,30 +433,17 @@ func TestModel_Generate(t *testing.T) {
 			},
 		},
 		{
-			name: "permission not matched",
-			permissions: []Permission{
-				simplePermission("bar-not-matched", "perm-1"),
-				simplePermission("baz-not-matched", "perm-2"),
-			},
-			principals: []Principal{
-				simplePrincipal("id-1"),
-				simplePrincipal("id-2"),
-			},
-		},
-		{
 			name: "principal list empty",
 			permissions: []Permission{
-				simplePermission(serviceFoo, "perm-1"),
-				simplePermission(serviceFoo, "perm-2"),
+				simplePermission("perm-1"),
+				simplePermission("perm-2"),
 			},
 		},
 		{
 			name: "permission and principal",
 			permissions: []Permission{
-				simplePermission(serviceFoo, "perm-1"),
-				simplePermission("bar-not-matched", "perm-2"),
-				simplePermission(serviceFoo, "perm-3"),
-				simplePermission("baz-not-matched", "perm-4"),
+				simplePermission("perm-1"),
+				simplePermission("perm-3"),
 			},
 			principals: []Principal{
 				simplePrincipal("id-1"),
@@ -590,8 +461,8 @@ func TestModel_Generate(t *testing.T) {
 		{
 			name: "forTCPFilter: permission and principal",
 			permissions: []Permission{
-				simplePermission(serviceFoo, "perm-1"),
-				simplePermission(serviceFoo, "perm-2"),
+				simplePermission("perm-1"),
+				simplePermission("perm-2"),
 			},
 			principals: []Principal{
 				simplePrincipal("id-1"),
@@ -602,7 +473,7 @@ func TestModel_Generate(t *testing.T) {
 		{
 			name: "forTCPFilter and forDeny: permission and principal",
 			permissions: []Permission{
-				simplePermission(serviceFoo, "perm-1"),
+				simplePermission("perm-1"),
 			},
 			principals: []Principal{
 				simplePrincipal("id-1"),
@@ -623,7 +494,7 @@ func TestModel_Generate(t *testing.T) {
 			Permissions: tc.permissions,
 			Principals:  tc.principals,
 		}
-		got := m.Generate(serviceMetadata, tc.forTCPFilter, tc.forDeny)
+		got := m.Generate(tc.forTCPFilter, tc.forDeny)
 		if len(tc.wantPermission) == 0 || len(tc.wantPrincipal) == 0 {
 			if got != nil {
 				t.Errorf("%s: got %v but want nil", tc.name, *got)

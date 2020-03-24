@@ -33,11 +33,11 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -70,17 +70,22 @@ var (
 			"istio-mesh-dashboard.json",
 			[]string{
 				"galley_",
+				"istio_tcp_",
 			},
 		},
 		{
 			"istio-grafana-configuration-dashboards-istio-service-dashboard",
 			"istio-service-dashboard.json",
-			[]string{},
+			[]string{
+				"istio_tcp_",
+			},
 		},
 		{
 			"istio-grafana-configuration-dashboards-istio-workload-dashboard",
 			"istio-workload-dashboard.json",
-			[]string{},
+			[]string{
+				"istio_tcp_",
+			},
 		},
 		{
 			"istio-grafana-configuration-dashboards-istio-performance-dashboard",
@@ -125,14 +130,14 @@ func TestDashboard(t *testing.T) {
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
-			p := prometheus.NewOrFail(ctx, ctx)
+			p := prometheus.NewOrFail(ctx, ctx, prometheus.Config{})
 			kenv := ctx.Environment().(*kube.Environment)
 			setupDashboardTest(ctx)
 			waitForMetrics(ctx, p)
 			for _, d := range dashboards {
 				d := d
 				ctx.NewSubTest(d.name).RunParallel(func(t framework.TestContext) {
-					cm, err := kenv.Accessor.GetConfigMap(d.configmap, i.Settings().TelemetryNamespace)
+					cm, err := kenv.KubeClusters[0].GetConfigMap(d.configmap, i.Settings().TelemetryNamespace)
 					if err != nil {
 						t.Fatalf("Failed to find dashboard %v: %v", d.configmap, err)
 					}

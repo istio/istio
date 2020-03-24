@@ -489,51 +489,15 @@ func TestPrincipal_Generate(t *testing.T) {
                           regex: .*/ns/ns-2/.*`,
 		},
 		{
-			name: "principal with property attrSrcPrincipal v1alpha1",
+			name: "principal with property attrSrcPrincipal",
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
 						attrSrcPrincipal: Values{
-							Values: []string{"id-1", "*", allAuthenticatedUsers, allUsers},
+							Values: []string{"id-1", "*", "allAuthenticatedUsers", "allUsers"},
 						},
 					},
 				},
-			},
-			wantYAML: `
-            andIds:
-              ids:
-              - orIds:
-                  ids:
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: source.principal
-                      value:
-                        stringMatch:
-                          exact: id-1
-                  - any: true
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: source.principal
-                      value:
-                        stringMatch:
-                          safeRegex:
-                            googleRe2: {}
-                            regex: .*
-                  - any: true`,
-		},
-		{
-			name: "principal with property attrSrcPrincipal v1beta1",
-			principal: &Principal{
-				Properties: []KeyValues{
-					{
-						attrSrcPrincipal: Values{
-							Values: []string{"id-1", "*", allAuthenticatedUsers, allUsers},
-						},
-					},
-				},
-				v1beta1: true,
 			},
 			wantYAML: `
             andIds:
@@ -572,44 +536,15 @@ func TestPrincipal_Generate(t *testing.T) {
                           exact: allUsers`,
 		},
 		{
-			name: "principal with property attrSrcPrincipal for TCP filter v1alpha1",
+			name: "principal with property attrSrcPrincipal for TCP filter",
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
 						attrSrcPrincipal: Values{
-							Values: []string{"id-1", "*", allAuthenticatedUsers, allUsers},
+							Values: []string{"id-1", "*", "allAuthenticatedUsers", "allUsers"},
 						},
 					},
 				},
-			},
-			forTCPFilter: true,
-			wantYAML: `
-            andIds:
-              ids:
-              - orIds:
-                  ids:
-                  - authenticated:
-                      principalName:
-                        exact: spiffe://id-1
-                  - any: true
-                  - authenticated:
-                      principalName:
-                        safeRegex:
-                          googleRe2: {}
-                          regex: .*
-                  - any: true`,
-		},
-		{
-			name: "principal with property attrSrcPrincipal for TCP filter v1beta1",
-			principal: &Principal{
-				Properties: []KeyValues{
-					{
-						attrSrcPrincipal: Values{
-							Values: []string{"id-1", "*", allAuthenticatedUsers, allUsers},
-						},
-					},
-				},
-				v1beta1: true,
 			},
 			forTCPFilter: true,
 			wantYAML: `

@@ -110,8 +110,6 @@ func NewCoreComponent(cn name.ComponentName, opts *Options) IstioComponent {
 		component = NewPolicyComponent(opts)
 	case name.TelemetryComponentName:
 		component = NewTelemetryComponent(opts)
-	case name.CitadelComponentName:
-		component = NewCitadelComponent(opts)
 	case name.CNIComponentName:
 		component = NewCNIComponent(opts)
 	default:
@@ -278,52 +276,6 @@ func (c *PilotComponent) Namespace() string {
 
 // Enabled implements the IstioComponent interface.
 func (c *PilotComponent) Enabled() bool {
-	return isCoreComponentEnabled(c.CommonComponentFields)
-}
-
-// CitadelComponent is the pilot component.
-type CitadelComponent struct {
-	*CommonComponentFields
-}
-
-// NewCitadelComponent creates a new PilotComponent and returns a pointer to it.
-func NewCitadelComponent(opts *Options) *CitadelComponent {
-	cn := name.CitadelComponentName
-	return &CitadelComponent{
-		&CommonComponentFields{
-			Options:       opts,
-			componentName: cn,
-		},
-	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *CitadelComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *CitadelComponent) RenderManifest() (string, error) {
-	return renderManifest(c, c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *CitadelComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *CitadelComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
-}
-
-// Namespace implements the IstioComponent interface.
-func (c *CitadelComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// Enabled implements the IstioComponent interface.
-func (c *CitadelComponent) Enabled() bool {
 	return isCoreComponentEnabled(c.CommonComponentFields)
 }
 
@@ -684,7 +636,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 		return disabledYAMLStr(cf.componentName, cf.resourceName), nil
 	}
 
-	mergedYAML, err := cf.Translator.TranslateHelmValues(cf.InstallSpec, cf.componentName)
+	mergedYAML, err := cf.Translator.TranslateHelmValues(cf.InstallSpec, getK8sResourceSpec(cf), cf.componentName, cf.resourceName)
 	if err != nil {
 		return "", err
 	}
@@ -701,7 +653,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 		scope.Infof("Initial manifest with merged values:\n%s\n", my)
 	}
 	// Add the k8s resources from IstioOperatorSpec.
-	my, err = cf.Translator.OverlayK8sSettings(my, cf.InstallSpec, cf.componentName, cf.index)
+	my, err = cf.Translator.OverlayK8sSettings(my, cf.InstallSpec, cf.componentName, cf.resourceName, cf.addonName, cf.index)
 	if err != nil {
 		log.Errorf("Error in OverlayK8sSettings: %s", err)
 		return "", err
@@ -765,6 +717,17 @@ func isCoreComponentEnabled(c *CommonComponentFields) bool {
 		return false
 	}
 	return enabled
+}
+
+func getK8sResourceSpec(c *CommonComponentFields) *v1alpha1.KubernetesResourcesSpec {
+	switch t := c.spec.(type) {
+	case *v1alpha1.GatewaySpec:
+		return t.K8S
+	case *v1alpha1.ComponentSpec:
+		return t.K8S
+	default:
+	}
+	return nil
 }
 
 // disabledYAMLStr returns the YAML comment string that the given component is disabled.

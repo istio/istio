@@ -27,18 +27,23 @@ const (
 
 	// DefaultDelay the default delay between successive retry attempts
 	DefaultDelay = time.Millisecond * 10
+
+	// DefaultConverge the default converge, requiring something to succeed one time
+	DefaultConverge = 1
 )
 
 var (
 	defaultConfig = config{
-		timeout: DefaultTimeout,
-		delay:   DefaultDelay,
+		timeout:  DefaultTimeout,
+		delay:    DefaultDelay,
+		converge: DefaultConverge,
 	}
 )
 
 type config struct {
-	timeout time.Duration
-	delay   time.Duration
+	timeout  time.Duration
+	delay    time.Duration
+	converge int
 }
 
 // Option for a retry opteration.
@@ -55,6 +60,15 @@ func Timeout(timeout time.Duration) Option {
 func Delay(delay time.Duration) Option {
 	return func(cfg *config) {
 		cfg.delay = delay
+	}
+}
+
+// Converge sets the number of successes in a row needed to count a success.
+// This is useful to avoid the case where tests like `coin.Flip() == HEADS` will always
+// return success due to random variance.
+func Converge(successes int) Option {
+	return func(cfg *config) {
+		cfg.converge = successes
 	}
 }
 
@@ -91,6 +105,7 @@ func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
 		option(&cfg)
 	}
 
+	successes := 0
 	var lasterr error
 	to := time.After(cfg.timeout)
 	for {
@@ -102,7 +117,16 @@ func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
 
 		result, completed, err := fn()
 		if completed {
-			return result, err
+			if err == nil {
+				successes++
+			} else {
+				successes = 0
+			}
+			if successes >= cfg.converge {
+				return result, err
+			}
+		} else {
+			successes = 0
 		}
 		if err != nil {
 			lasterr = err

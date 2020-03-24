@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/galley"
@@ -38,7 +38,7 @@ func TestCheck_Allow(t *testing.T) {
 			mxr := mixer.NewOrFail(t, ctx, mixer.Config{
 				Galley: gal,
 			})
-			be := policybackend.NewOrFail(t, ctx)
+			be := policybackend.NewOrFail(t, ctx, policybackend.Config{})
 
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "testcheck-allow",
@@ -85,7 +85,7 @@ func TestCheck_Deny(t *testing.T) {
 			mxr := mixer.NewOrFail(t, ctx, mixer.Config{
 				Galley: gal,
 			})
-			be := policybackend.NewOrFail(t, ctx)
+			be := policybackend.NewOrFail(t, ctx, policybackend.Config{})
 
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "testcheck-deny",

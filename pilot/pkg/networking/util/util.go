@@ -251,12 +251,6 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	})
 }
 
-// IsIstioVersionGE13 checks whether the given Istio version is greater than or equals 1.3.
-func IsIstioVersionGE13(node *model.Proxy) bool {
-	return node.IstioVersion == nil ||
-		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 3, Patch: -1}) >= 0
-}
-
 // IsIstioVersionGE14 checks whether the given Istio version is greater than or equals 1.4.
 func IsIstioVersionGE14(node *model.Proxy) bool {
 	return node.IstioVersion == nil ||
@@ -269,25 +263,16 @@ func IsIstioVersionGE15(node *model.Proxy) bool {
 		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 5, Patch: -1}) >= 0
 }
 
-// IsProtocolSniffingEnabled checks whether protocol sniffing is enabled.
-func IsProtocolSniffingEnabledForOutbound(node *model.Proxy) bool {
-	return features.EnableProtocolSniffingForOutbound.Get() && IsIstioVersionGE13(node)
+func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
+	return features.EnableProtocolSniffingForOutbound.Get() && port.Protocol.IsUnsupported()
 }
 
-func IsProtocolSniffingEnabledForInbound(node *model.Proxy) bool {
-	return features.EnableProtocolSniffingForInbound.Get() && IsIstioVersionGE14(node)
+func IsProtocolSniffingEnabledForInboundPort(port *model.Port) bool {
+	return features.EnableProtocolSniffingForInbound.Get() && port.Protocol.IsUnsupported()
 }
 
-func IsProtocolSniffingEnabledForPort(node *model.Proxy, port *model.Port) bool {
-	return IsProtocolSniffingEnabledForOutbound(node) && port.Protocol.IsUnsupported()
-}
-
-func IsProtocolSniffingEnabledForInboundPort(node *model.Proxy, port *model.Port) bool {
-	return IsProtocolSniffingEnabledForInbound(node) && port.Protocol.IsUnsupported()
-}
-
-func IsProtocolSniffingEnabledForOutboundPort(node *model.Proxy, port *model.Port) bool {
-	return IsProtocolSniffingEnabledForOutbound(node) && port.Protocol.IsUnsupported()
+func IsProtocolSniffingEnabledForOutboundPort(port *model.Port) bool {
+	return features.EnableProtocolSniffingForOutbound.Get() && port.Protocol.IsUnsupported()
 }
 
 // IsTCPMetadataExchangeEnabled checks whether Metadata Exchanged enabled for TCP using ALPN.
@@ -411,6 +396,21 @@ func cloneLocalityLbEndpoints(endpoints []*endpoint.LocalityLbEndpoints) []*endp
 		out = append(out, &clone)
 	}
 	return out
+}
+
+// return a shallow copy LbEndpoint
+func CloneLbEndpoint(endpoint *endpoint.LbEndpoint) *endpoint.LbEndpoint {
+	if endpoint == nil {
+		return nil
+	}
+
+	clone := *endpoint
+	if endpoint.LoadBalancingWeight != nil {
+		clone.LoadBalancingWeight = &wrappers.UInt32Value{
+			Value: endpoint.GetLoadBalancingWeight().GetValue(),
+		}
+	}
+	return &clone
 }
 
 // BuildConfigInfoMetadata builds core.Metadata struct containing the

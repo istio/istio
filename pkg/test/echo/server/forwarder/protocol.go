@@ -128,6 +128,21 @@ func newProtocol(cfg Config) (protocol, error) {
 		return &websocketProtocol{
 			dialer: dialer,
 		}, nil
+	case scheme.TCP:
+		dialer := net.Dialer{
+			Timeout: timeout,
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout)
+		defer cancel()
+
+		address := rawURL[len(u.Scheme+"://"):]
+		tcpConn, err := cfg.Dialer.TCP(dialer, ctx, address)
+		if err != nil {
+			return nil, err
+		}
+		return &tcpProtocol{
+			conn: tcpConn,
+		}, nil
 	}
 
 	return nil, fmt.Errorf("unrecognized protocol %q", u.String())

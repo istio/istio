@@ -16,13 +16,12 @@ package ingress
 
 import (
 	"fmt"
-	"path"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
-	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -71,12 +70,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.
 		Selector: labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue},
 	}
 
-	// FIXME this is a temporary hack until all test templates are updated
-	//for _, tls := range ingress.Spec.TLS {
-
-	// TODO: add secretName (converted to sdsName)
-	if len(ingress.Spec.TLS) > 0 {
-		tls := ingress.Spec.TLS[0] // FIXME
+	for i, tls := range ingress.Spec.TLS {
 		// TODO validation when multiple wildcard tls secrets are given
 		if len(tls.Hosts) == 0 {
 			tls.Hosts = []string{"*"}
@@ -85,19 +79,13 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.
 			Port: &networking.Port{
 				Number:   443,
 				Protocol: string(protocol.HTTPS),
-				Name:     fmt.Sprintf("https-443-ingress-%s-%s", ingress.Name, ingress.Namespace),
+				Name:     fmt.Sprintf("https-443-ingress-%s-%s-%d", ingress.Name, ingress.Namespace, i),
 			},
 			Hosts: tls.Hosts,
-			// While we accept multiple certs, we expect them to be mounted in
-			// /etc/istio/ingress-certs/tls.crt|tls.key|root-cert.pem
 			Tls: &networking.Server_TLSOptions{
-				HttpsRedirect: false,
-				Mode:          networking.Server_TLSOptions_SIMPLE,
-				// TODO this is no longer valid for the new v2 stuff
-				PrivateKey:        path.Join(constants.IngressCertsPath, constants.IngressKeyFilename),
-				ServerCertificate: path.Join(constants.IngressCertsPath, constants.IngressCertFilename),
-				// TODO: make sure this is mounted
-				CaCertificates: path.Join(constants.IngressCertsPath, constants.RootCertFilename),
+				HttpsRedirect:  false,
+				Mode:           networking.Server_TLSOptions_SIMPLE,
+				CredentialName: tls.SecretName,
 			},
 		})
 	}
@@ -148,10 +136,8 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 			host = "*"
 		}
 		virtualService := &networking.VirtualService{
-			Hosts: []string{},
-			// Note the name of the gateway is fixed - this is the Gateway that needs to be created by user (via helm
-			// or manually) with TLS secrets and explicit namespace (for security).
-			Gateways: []string{ingressNamespace + "/" + constants.IstioIngressGatewayName},
+			Hosts:    []string{},
+			Gateways: []string{fmt.Sprintf("%s/%s-%s", ingressNamespace, ingress.Name, constants.IstioIngressGatewayName)},
 		}
 
 		virtualService.Hosts = []string{host}

@@ -535,3 +535,33 @@ func TestGetRegistries(t *testing.T) {
 		}
 	}
 }
+
+func TestSkipSearchingRegistryForProxy(t *testing.T) {
+	cases := []struct {
+		node     string
+		registry string
+		self     string
+		want     bool
+	}{
+		{"main", "remote", "main", true},
+		{"remote", "main", "main", true},
+		{"remote", "Kubernetes", "main", true},
+
+		{"main", "Kubernetes", "main", false},
+		{"main", "main", "main", false},
+		{"remote", "remote", "main", false},
+		{"", "main", "main", false},
+		{"main", "", "main", false},
+		{"main", "Kubernetes", "", false},
+		{"", "", "", false},
+	}
+
+	for i, c := range cases {
+		got := skipSearchingRegistryForProxy(c.node, c.registry, c.self)
+		if got != c.want {
+			t.Errorf("%s: got %v want %v",
+				fmt.Sprintf("[%v] registry=%v node=%v", i, c.registry, c.node),
+				got, c.want)
+		}
+	}
+}

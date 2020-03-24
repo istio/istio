@@ -23,14 +23,12 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/environment/api"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
-	"istio.io/istio/pkg/test/framework/core"
 	ferrors "istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -49,27 +47,33 @@ var (
 )
 
 // mRunFn abstracts testing.M.run, so that the framework itself can be tested.
-type mRunFn func() int
+type mRunFn func(ctx *suiteContext) int
 
 // Suite allows the test author to specify suite-related metadata and do setup in a fluent-style, before commencing execution.
 type Suite struct {
-	testID string
-	skip   string
-	mRun   mRunFn
-	osExit func(int)
-	labels label.Set
+	testID      string
+	skipMessage string
+	mRun        mRunFn
+	osExit      func(int)
+	labels      label.Set
 
-	setupFns []resource.SetupFn
+	requireFns []resource.SetupFn
+	setupFns   []resource.SetupFn
 
-	getSettingsFn func(string) (*core.Settings, error)
+	getSettingsFn func(string) (*resource.Settings, error)
 }
 
 // NewSuite returns a new suite instance.
 func NewSuite(testID string, m *testing.M) *Suite {
-	return newSuite(testID, m.Run, os.Exit, getSettings)
+	return newSuite(testID,
+		func(_ *suiteContext) int {
+			return m.Run()
+		},
+		os.Exit,
+		getSettings)
 }
 
-func newSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn func(string) (*core.Settings, error)) *Suite {
+func newSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn func(string) (*resource.Settings, error)) *Suite {
 	s := &Suite{
 		testID:        testID,
 		mRun:          fn,
@@ -89,57 +93,88 @@ func (s *Suite) Label(labels ...label.Instance) *Suite {
 
 // Skip marks a suite as skipped with the given reason. This will prevent any setup functions from occurring.
 func (s *Suite) Skip(reason string) *Suite {
-	s.skip = reason
+	s.skipMessage = reason
 	return s
 }
 
 // RequireEnvironment ensures that the current environment matches what the suite expects. Otherwise it
 // stops test execution. This also applies the appropriate label to the suite implicitly.
 func (s *Suite) RequireEnvironment(name environment.Name) *Suite {
-	setupFn := func(ctx resource.Context) error {
+	fn := func(ctx resource.Context) error {
 		if name != ctx.Environment().EnvironmentName() {
-			scopes.Framework.Infof("Skipping suite %q: Required environment (%v) does not match current: %v",
-				ctx.Settings().TestID, name, ctx.Environment().EnvironmentName())
-			s.osExit(0)
-
-			// Adding this for testing purposes.
-			return fmt.Errorf("failed setup: Required environment not found")
+			s.Skip(fmt.Sprintf("Required environment (%v) does not match current: %v",
+				name, ctx.Environment().EnvironmentName()))
 		}
 		return nil
 	}
 
-	// Prepend the function, so that it runs as the first thing.
-	fns := []resource.SetupFn{setupFn}
-	fns = append(fns, s.setupFns...)
-	s.setupFns = fns
+	s.requireFns = append(s.requireFns, fn)
 	return s
+}
+
+// RequireMinClusters ensures that the current environment contains at least the given number of clusters.
+// Otherwise it stops test execution.
+func (s *Suite) RequireMinClusters(minClusters int) *Suite {
+	if minClusters <= 0 {
+		minClusters = 1
+	}
+
+	fn := func(ctx resource.Context) error {
+		if len(ctx.Environment().Clusters()) < minClusters {
+			s.Skip(fmt.Sprintf("Number of clusters %d does not exceed minimum %d",
+				len(ctx.Environment().Clusters()), minClusters))
+		}
+		return nil
+	}
+
+	s.requireFns = append(s.requireFns, fn)
+	return s
+}
+
+// RequireMaxClusters ensures that the current environment contains at least the given number of clusters.
+// Otherwise it stops test execution.
+func (s *Suite) RequireMaxClusters(maxClusters int) *Suite {
+	if maxClusters <= 0 {
+		maxClusters = 1
+	}
+
+	fn := func(ctx resource.Context) error {
+		if len(ctx.Environment().Clusters()) > maxClusters {
+			s.Skip(fmt.Sprintf("Number of clusters %d exceeds maximum %d",
+				len(ctx.Environment().Clusters()), maxClusters))
+		}
+		return nil
+	}
+
+	s.requireFns = append(s.requireFns, fn)
+	return s
+}
+
+// RequireSingleCluster is a utility method that requires that there be exactly 1 cluster in the environment.
+func (s *Suite) RequireSingleCluster() *Suite {
+	return s.RequireMinClusters(1).RequireMaxClusters(1)
 }
 
 // RequireEnvironmentVersion validates the environment meets a minimum version
 func (s *Suite) RequireEnvironmentVersion(version string) *Suite {
-	setupFn := func(ctx resource.Context) error {
+	fn := func(ctx resource.Context) error {
 
 		if ctx.Environment().EnvironmentName() == environment.Kube {
 			kenv := ctx.Environment().(*kube.Environment)
-			ver, err := kenv.GetKubernetesVersion()
+			ver, err := kenv.KubeClusters[0].GetKubernetesVersion()
 			if err != nil {
 				return fmt.Errorf("failed to get Kubernetes version: %v", err)
 			}
 			serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
 			if serverVersion < version {
-				scopes.Framework.Infof("Skipping suite %q: Required Kubernetes version (%v) is greater than current: %v",
-					ctx.Settings().TestID, version, serverVersion)
-				s.osExit(0)
-
+				s.Skip(fmt.Sprintf("Required Kubernetes version (%v) is greater than current: %v",
+					version, serverVersion))
 			}
 		}
 		return nil
 	}
 
-	// Prepend the function, so that it runs as the first thing.
-	fns := []resource.SetupFn{setupFn}
-	fns = append(fns, s.setupFns...)
-	s.setupFns = fns
+	s.requireFns = append(s.requireFns, fn)
 	return s
 }
 
@@ -177,6 +212,24 @@ func (s *Suite) Run() {
 	s.osExit(s.run())
 }
 
+func (s *Suite) isSkipped() bool {
+	return s.skipMessage != ""
+}
+
+func (s *Suite) doSkip(ctx *suiteContext) int {
+	scopes.Framework.Infof("Skipping suite %q: %s", ctx.Settings().TestID, s.skipMessage)
+
+	// Mark this suite as skipped in the context.
+	ctx.skipped = true
+
+	// Run the tests so that the golang test framework exits normally. The tests will not run because
+	// they see that this suite has been skipped.
+	_ = s.mRun(ctx)
+
+	// Return success.
+	return 0
+}
+
 func (s *Suite) run() (errLevel int) {
 	if err := initRuntime(s.testID, s.labels, s.getSettingsFn); err != nil {
 		scopes.Framework.Errorf("Error during test framework init: %v", err)
@@ -186,19 +239,17 @@ func (s *Suite) run() (errLevel int) {
 	ctx := rt.suiteContext()
 
 	// Skip the test if its explicitly skipped
-	if s.skip != "" {
-		scopes.Framework.Infof("Skipping suite %q: %s", ctx.Settings().TestID, s.skip)
-		return 0
+	if s.isSkipped() {
+		return s.doSkip(ctx)
 	}
 
 	// Before starting, check whether the current set of labels & label selectors will ever allow us to run tests.
 	// if not, simply exit now.
 	if ctx.Settings().Selector.Excludes(s.labels) {
-		scopes.Framework.Infof("Skipping suite %q due to label mismatch: labels=%v, selector=%v",
-			ctx.Settings().TestID,
+		s.Skip(fmt.Sprintf("Label mismatch: labels=%v, selector=%v",
 			s.labels,
-			ctx.Settings().Selector)
-		return 0
+			ctx.Settings().Selector))
+		return s.doSkip(ctx)
 	}
 
 	start := time.Now()
@@ -224,6 +275,11 @@ func (s *Suite) run() (errLevel int) {
 		return exitCodeSetupError
 	}
 
+	// Check if one of the setup functions ended up skipping the suite.
+	if s.isSkipped() {
+		return s.doSkip(ctx)
+	}
+
 	defer func() {
 		end := time.Now()
 		scopes.CI.Infof("=== Suite %q run time: %v ===", ctx.Settings().TestID, end.Sub(start))
@@ -233,7 +289,7 @@ func (s *Suite) run() (errLevel int) {
 	for attempt <= ctx.settings.Retries {
 		attempt++
 		scopes.CI.Infof("=== BEGIN: Test Run: '%s' ===", ctx.Settings().TestID)
-		errLevel = s.mRun()
+		errLevel = s.mRun(ctx)
 		if errLevel == 0 {
 			scopes.CI.Infof("=== DONE: Test Run: '%s' ===", ctx.Settings().TestID)
 			break
@@ -252,19 +308,26 @@ func (s *Suite) run() (errLevel int) {
 func (s *Suite) runSetupFns(ctx SuiteContext) (err error) {
 	scopes.CI.Infof("=== BEGIN: Setup: '%s' ===", ctx.Settings().TestID)
 
-	for _, fn := range s.setupFns {
+	// Run all the require functions first, then the setup functions.
+	setupFns := append(append([]resource.SetupFn{}, s.requireFns...), s.setupFns...)
+
+	for _, fn := range setupFns {
 		err := s.runSetupFn(fn, ctx)
 		if err != nil {
 			scopes.Framework.Errorf("Test setup error: %v", err)
 			scopes.CI.Infof("=== FAILED: Setup: '%s' (%v) ===", ctx.Settings().TestID, err)
 			return err
 		}
+
+		if s.isSkipped() {
+			return nil
+		}
 	}
 	scopes.CI.Infof("=== DONE: Setup: '%s' ===", ctx.Settings().TestID)
 	return nil
 }
 
-func initRuntime(testID string, labels label.Set, getSettingsFn func(string) (*core.Settings, error)) error {
+func initRuntime(testID string, labels label.Set, getSettingsFn func(string) (*resource.Settings, error)) error {
 	rtMu.Lock()
 	defer rtMu.Unlock()
 
@@ -275,6 +338,10 @@ func initRuntime(testID string, labels label.Set, getSettingsFn func(string) (*c
 	s, err := getSettingsFn(testID)
 	if err != nil {
 		return err
+	}
+	environmentFactory := s.EnvironmentFactory
+	if environmentFactory == nil {
+		environmentFactory = newEnvironment
 	}
 
 	if err := configureLogging(s.CIMode); err != nil {
@@ -291,11 +358,11 @@ func initRuntime(testID string, labels label.Set, getSettingsFn func(string) (*c
 	}
 	scopes.Framework.Infof("Test run dir: %v", s.RunDir())
 
-	rt, err = newRuntime(s, newEnvironment, labels)
+	rt, err = newRuntime(s, environmentFactory, labels)
 	return err
 }
 
-func newEnvironment(name string, ctx api.Context) (resource.Environment, error) {
+func newEnvironment(name string, ctx resource.Context) (resource.Environment, error) {
 	switch name {
 	case environment.Native.String():
 		return native.New(ctx)
@@ -306,11 +373,11 @@ func newEnvironment(name string, ctx api.Context) (resource.Environment, error) 
 	}
 }
 
-func getSettings(testID string) (*core.Settings, error) {
+func getSettings(testID string) (*resource.Settings, error) {
 	// Parse flags and init logging.
 	if !flag.Parsed() {
 		flag.Parse()
 	}
 
-	return core.SettingsFromCommandLine(testID)
+	return resource.SettingsFromCommandLine(testID)
 }

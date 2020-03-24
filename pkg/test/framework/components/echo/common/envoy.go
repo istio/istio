@@ -86,14 +86,14 @@ func WaitForConfig(fetch ConfigFetchFunc, accept ConfigAcceptFunc, options ...re
 
 // OutboundConfigAcceptFunc returns a function that accepts Envoy configuration if it contains
 // outbound configuration for all of the given instances.
-func OutboundConfigAcceptFunc(outboundInstances ...echo.Instance) ConfigAcceptFunc {
+func OutboundConfigAcceptFunc(source echo.Instance, targets ...echo.Instance) ConfigAcceptFunc {
 	return func(cfg *envoyAdmin.ConfigDump) (bool, error) {
 		validator := structpath.ForProto(cfg)
 
-		for _, target := range outboundInstances {
+		for _, target := range targets {
 			for _, port := range target.Config().Ports {
 				// Ensure that we have an outbound configuration for the target port.
-				if err := CheckOutboundConfig(target, port, validator); err != nil {
+				if err := CheckOutboundConfig(source, target, port, validator); err != nil {
 					return false, err
 				}
 			}
@@ -104,7 +104,7 @@ func OutboundConfigAcceptFunc(outboundInstances ...echo.Instance) ConfigAcceptFu
 }
 
 // CheckOutboundConfig checks the Envoy config dump for outbound configuration to the given target.
-func CheckOutboundConfig(target echo.Instance, port echo.Port, validator *structpath.Instance) error {
+func CheckOutboundConfig(source echo.Instance, target echo.Instance, port echo.Port, validator *structpath.Instance) error {
 	// Verify that we have an outbound cluster for the target.
 	clusterName := clusterName(target, port)
 	if err := validator.
@@ -126,7 +126,7 @@ func CheckOutboundConfig(target echo.Instance, port echo.Port, validator *struct
 			Check()
 	}
 
-	if !target.Config().Headless {
+	if !target.Config().Headless && source.Config().ClusterIndex() == target.Config().ClusterIndex() {
 		// TCP case: Make sure we have an outbound listener configured.
 		listenerName := listenerName(target.Address(), port)
 		return validator.

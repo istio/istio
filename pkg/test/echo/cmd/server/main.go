@@ -30,12 +30,14 @@ import (
 )
 
 var (
-	httpPorts []int
-	grpcPorts []int
-	uds       string
-	version   string
-	crt       string
-	key       string
+	httpPorts   []int
+	grpcPorts   []int
+	tcpPorts    []int
+	metricsPort int
+	uds         string
+	version     string
+	crt         string
+	key         string
 
 	loggingOptions = log.DefaultOptions()
 
@@ -46,7 +48,7 @@ var (
 		Long:              `Echo application for testing Istio E2E`,
 		PersistentPreRunE: configureLogging,
 		Run: func(cmd *cobra.Command, args []string) {
-			ports := make(model.PortList, len(httpPorts)+len(grpcPorts))
+			ports := make(model.PortList, len(httpPorts)+len(grpcPorts)+len(tcpPorts))
 			portIndex := 0
 			for i, p := range httpPorts {
 				ports[portIndex] = &model.Port{
@@ -64,9 +66,18 @@ var (
 				}
 				portIndex++
 			}
+			for i, p := range tcpPorts {
+				ports[portIndex] = &model.Port{
+					Name:     "tcp-" + strconv.Itoa(i),
+					Protocol: protocol.TCP,
+					Port:     p,
+				}
+				portIndex++
+			}
 
 			s := server.New(server.Config{
 				Ports:     ports,
+				Metrics:   metricsPort,
 				TLSCert:   crt,
 				TLSKey:    key,
 				Version:   version,
@@ -99,6 +110,8 @@ func configureLogging(_ *cobra.Command, _ []string) error {
 func init() {
 	rootCmd.PersistentFlags().IntSliceVar(&httpPorts, "port", []int{8080}, "HTTP/1.1 ports")
 	rootCmd.PersistentFlags().IntSliceVar(&grpcPorts, "grpc", []int{7070}, "GRPC ports")
+	rootCmd.PersistentFlags().IntSliceVar(&tcpPorts, "tcp", []int{9090}, "TCP ports")
+	rootCmd.PersistentFlags().IntVar(&metricsPort, "metrics", 0, "Metrics port")
 	rootCmd.PersistentFlags().StringVar(&uds, "uds", "", "HTTP server on unix domain socket")
 	rootCmd.PersistentFlags().StringVar(&version, "version", "", "Version string")
 	rootCmd.PersistentFlags().StringVar(&crt, "crt", "", "gRPC TLS server-side certificate")

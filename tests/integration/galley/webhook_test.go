@@ -22,8 +22,8 @@ import (
 	kubeApiAdmission "k8s.io/api/admissionregistration/v1beta1"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -41,7 +41,7 @@ func TestWebhook(t *testing.T) {
 			// clear the updated fields and verify istiod updates them
 
 			retry.UntilSuccessOrFail(t, func() error {
-				got, err := env.GetValidatingWebhookConfiguration(vwcName)
+				got, err := env.KubeClusters[0].GetValidatingWebhookConfiguration(vwcName)
 				if err != nil {
 					return fmt.Errorf("error getting initial webhook: %v", err)
 				}
@@ -54,11 +54,11 @@ func TestWebhook(t *testing.T) {
 				ignore := kubeApiAdmission.Ignore // can't take the address of a constant
 				updated.Webhooks[0].FailurePolicy = &ignore
 
-				return env.UpdateValidatingWebhookConfiguration(updated)
+				return env.KubeClusters[0].UpdateValidatingWebhookConfiguration(updated)
 			})
 
 			retry.UntilSuccessOrFail(t, func() error {
-				got, err := env.GetValidatingWebhookConfiguration(vwcName)
+				got, err := env.KubeClusters[0].GetValidatingWebhookConfiguration(vwcName)
 				if err != nil {
 					t.Fatalf("error getting initial webhook: %v", err)
 				}

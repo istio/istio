@@ -19,4 +19,6 @@ type Origin interface {
 	FriendlyName() string
 
 	Namespace() Namespace
+
+	Reference() string
 }

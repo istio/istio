@@ -22,7 +22,7 @@ Makefile*                                                        @istio/wg-test-
 /pilot/pkg/networking/core                                       @istio/wg-networking-maintainers-pilot
 /pilot/pkg/proxy                                                 @istio/wg-networking-maintainers-pilot
 /pkg/adsc/                                                       @istio/wg-networking-maintainers
-/pkg/bootstrap/                                                  @istio/wg-environments-maintainers
+/pkg/bootstrap/                                                  @istio/wg-networking-maintainers
 /pkg/config/                                                     @istio/wg-networking-maintainers
 /pkg/envoy/                                                      @istio/wg-networking-maintainers
 /pkg/istio-agent/                                                @istio/wg-networking-maintainers
@@ -39,9 +39,6 @@ Makefile*                                                        @istio/wg-test-
 /samples/                                                        @istio/wg-docs-maintainers
 /security/                                                       @istio/wg-security-maintainers
 /tests/                                                          @istio/wg-test-and-release-maintainers
-/tests/e2e/local/                                                @istio/wg-test-and-release-maintainers
-/tests/e2e/tests/mixer/                                          @istio/wg-policies-and-telemetry-maintainers
-/tests/e2e/tests/pilot/                                          @istio/wg-networking-maintainers
 /tests/integration/conformance/                                  @istio/wg-test-and-release-maintainers
 /tests/integration/framework/                                    @istio/wg-test-and-release-maintainers
 /tests/integration/galley/                                       @istio/wg-networking-maintainers
@@ -52,5 +49,6 @@ Makefile*                                                        @istio/wg-test-
 /tests/integration/security/                                     @istio/wg-security-maintainers
 /tests/integration/istioctl/                                     @istio/wg-user-experience-maintainers
 /tools/                                                          @istio/wg-test-and-release-maintainers
+/tools/packaging/common/envoy_bootstrap_v2.json                  @istio/wg-networking-maintainers
 /tools/istio-iptables/                                           @istio/wg-networking-maintainers
 /tools/istio-clean-iptables/                                     @istio/wg-networking-maintainers

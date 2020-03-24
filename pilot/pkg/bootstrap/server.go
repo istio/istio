@@ -19,23 +19,20 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
-	"os"
 	"path"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
+
+	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
+
+	"istio.io/pkg/env"
 
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/pilot/pkg/leaderelection"
-
-	"istio.io/istio/pkg/jwt"
-	"istio.io/istio/pkg/spiffe"
-	"istio.io/istio/security/pkg/pki/util"
 
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -43,6 +40,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
+
+	"istio.io/istio/pkg/jwt"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -87,6 +86,10 @@ var (
 		plugin.Health,
 		plugin.Mixer,
 	}
+
+	enableElection = env.RegisterBoolVar("MASTER_ELECTION",
+		true,
+		"Enable master election")
 )
 
 func init() {
@@ -108,14 +111,14 @@ type startFunc func(stop <-chan struct{}) error
 
 // Server contains the runtime configuration for the Pilot discovery service.
 type Server struct {
-	SecureGRPCListeningAddr net.Addr
-	MonitorListeningAddr    net.Addr
+	MonitorListeningAddr net.Addr
 
 	// TODO(nmittler): Consider alternatives to exposing these directly
 	EnvoyXdsServer *envoyv2.DiscoveryServer
 
-	clusterID           string
-	environment         *model.Environment
+	clusterID   string
+	environment *model.Environment
+
 	configController    model.ConfigStoreCache
 	kubeClient          kubernetes.Interface
 	startFuncs          []startFunc
@@ -124,8 +127,6 @@ type Server struct {
 	httpsServer         *http.Server // webhooks
 	httpsReadyClient    *http.Client
 	grpcServer          *grpc.Server
-	secureHTTPServer    *http.Server
-	secureGRPCServer    *grpc.Server
 	secureGRPCServerDNS *grpc.Server
 	mux                 *http.ServeMux // debug
 	httpsMux            *http.ServeMux // webhooks
@@ -139,8 +140,9 @@ type Server struct {
 
 	serviceEntryStore *external.ServiceEntryStore
 
-	HTTPListener net.Listener
-	GRPCListener net.Listener
+	HTTPListener    net.Listener
+	GRPCListener    net.Listener
+	GRPCDNSListener net.Listener
 
 	// for test
 	forceStop bool
@@ -223,7 +225,13 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 	if s.EnableCA() {
 		var err error
-		s.ca, err = s.createCA(s.kubeClient.CoreV1(), caOpts)
+		var corev1 v1.CoreV1Interface
+		if s.kubeClient != nil {
+			corev1 = s.kubeClient.CoreV1()
+		}
+		// May return nil, if the CA is missing required configs.
+		// This is not an error.
+		s.ca, err = s.createCA(corev1, caOpts)
 		if err != nil {
 			return nil, fmt.Errorf("enableCA: %v", err)
 		}
@@ -271,11 +279,13 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	// 1) CA certificate has been created.
 	// 2) grpc server has been generated.
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		s.RunCA(s.secureGRPCServerDNS, s.ca, caOpts, stop)
+		if s.ca != nil {
+			s.RunCA(s.secureGRPCServerDNS, s.ca, caOpts, stop)
+		}
 		return nil
 	})
 
-	if s.leaderElection != nil {
+	if s.leaderElection != nil && enableElection.Get() {
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			// We mark this as a required termination as an optimization. Without this, when we exit the lock is
 			// still held for some time (30-60s or so). If we allow time for a graceful exit, then we can immediately drop the lock.
@@ -319,6 +329,19 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		if err := fn(stop); err != nil {
 			return err
 		}
+	}
+	// Race condition - if waitForCache is too fast and we run this as a startup function,
+	// the grpc server would be started before CA is registered. Listening should be last.
+	if s.GRPCDNSListener != nil {
+		go func() {
+			if !s.waitForCacheSync(stop) {
+				return
+			}
+			log.Infof("starting secure (DNS) gRPC discovery service at %s", s.GRPCDNSListener.Addr())
+			if err := s.secureGRPCServerDNS.Serve(s.GRPCDNSListener); err != nil {
+				log.Errorf("error from GRPC server: %v", err)
+			}
+		}()
 	}
 
 	// grpcServer is shared by Galley, CA, XDS - must Serve at the end, but before 'wait'
@@ -405,6 +428,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	// When the mesh config or networks change, do a full push.
 	s.environment.AddMeshHandler(func() {
+		// Inform ConfigGenerator about the mesh config change so that it can rebuild any cached config, before triggering full push.
+		s.EnvoyXdsServer.ConfigGenerator.MeshConfigChanged(s.environment.Mesh())
 		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,
 			Reason: []model.TriggerReason{model.GlobalUpdate},
@@ -448,56 +473,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	}
 	s.GRPCListener = grpcListener
 
-	// run grpc server using the Citadel secrets. New installer uses a sidecar for this.
-	// Will be deprecated once Istiod mode is stable.
-	if args.DiscoveryOptions.SecureGrpcAddr != "" {
-		// create secure grpc server
-		if err := s.initSecureGrpcServer(args.KeepaliveOptions, args.Namespace, args.ServiceAccountName); err != nil {
-			return fmt.Errorf("secure grpc server: %s", err)
-		}
-		// create secure grpc listener
-		secureGrpcListener, err := net.Listen("tcp", args.DiscoveryOptions.SecureGrpcAddr)
-		if err != nil {
-			return err
-		}
-		s.SecureGRPCListeningAddr = secureGrpcListener.Addr()
-
-		s.addStartFunc(func(stop <-chan struct{}) error {
-			go func() {
-				if !s.waitForCacheSync(stop) {
-					return
-				}
-
-				log.Infof("starting discovery service at secure grpc=%s", secureGrpcListener.Addr())
-				go func() {
-					// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
-					// on a listener
-					err := s.secureHTTPServer.ServeTLS(secureGrpcListener, "", "")
-					msg := fmt.Sprintf("Stopped listening on %s", secureGrpcListener.Addr().String())
-					select {
-					case <-stop:
-						log.Info(msg)
-					default:
-						panic(fmt.Sprintf("%s due to error: %v", msg, err))
-					}
-				}()
-				go func() {
-					<-stop
-					if args.ForceStop {
-						s.grpcServer.Stop()
-					} else {
-						s.grpcServer.GracefulStop()
-					}
-					ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-					defer cancel()
-					_ = s.secureHTTPServer.Shutdown(ctx)
-					s.secureGRPCServer.Stop()
-				}()
-			}()
-			return nil
-		})
-	}
-
 	return nil
 }
 
@@ -535,110 +510,6 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	s.EnvoyXdsServer.Register(s.grpcServer)
 }
 
-func (s *Server) generateKeyAndCert(saName string, saNamespace string) ([]byte, []byte, error) {
-	id := spiffe.MustGenSpiffeURI(saNamespace, saName)
-
-	options := util.CertOptions{
-		Host:       id,
-		RSAKeySize: 2048,
-	}
-
-	csrPEM, keyPEM, err := util.GenCSR(options)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	certChainPEM := s.ca.GetCAKeyCertBundle().GetCertChainPem()
-	certPEM, signErr := s.ca.Sign(csrPEM, strings.Split(id, ","), time.Hour, false)
-	if signErr != nil {
-		return nil, nil, fmt.Errorf("CSR signing error (%v)", signErr)
-	}
-	certPEM = append(certPEM, certChainPEM...)
-
-	return certPEM, keyPEM, nil
-}
-
-func (s *Server) getSpiffeeCert(namespace, san string) (*tls.Certificate, *credentials.TransportCredentials, string, error) {
-	certDir := features.CertDir
-	if certDir == "" {
-		certDir = PilotCertDir
-	}
-	ca := path.Join(certDir, constants.RootCertFilename)
-	key := path.Join(certDir, constants.KeyFilename)
-	cert := path.Join(certDir, constants.CertChainFilename)
-
-	// Use existing file mounted certificates
-	if fileExists(ca) && fileExists(key) && fileExists(cert) {
-		log.Infof("Using file mounted certificates")
-		tlsCreds, err := credentials.NewServerTLSFromFile(cert, key)
-		if err != nil {
-			return nil, nil, "", fmt.Errorf("failed to load %s and %s: %v", cert, key, err)
-		}
-
-		// TODO: parse the file to determine expiration date. Restart listener before expiration
-		certificate, err := tls.LoadX509KeyPair(cert, key)
-		if err != nil {
-			return nil, nil, "", fmt.Errorf("failed to load certificate: %v", err)
-		}
-		return &certificate, &tlsCreds, ca, nil
-	}
-	log.Infof("Generating a certificate for secure gRPC (%s/%s)", san, namespace)
-
-	genCert, genKey, err := s.generateKeyAndCert(san, namespace)
-	if err != nil {
-		return nil, nil, "", fmt.Errorf("failed to generate certificate: %v", err)
-	}
-
-	certificate, err := tls.X509KeyPair(genCert, genKey)
-	if err != nil {
-		return nil, nil, "", fmt.Errorf("failed to load certificate: %v", err)
-	}
-	tlsCreds := credentials.NewServerTLSFromCert(&certificate)
-	return &certificate, &tlsCreds, s.caBundlePath, nil
-}
-
-// initialize secureGRPCServer
-func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options, namespace string, san string) error {
-	certificate, tlsCreds, ca, err := s.getSpiffeeCert(namespace, san)
-	if err != nil {
-		return fmt.Errorf("failed to get certs for secure listener: %v", err)
-	}
-	caCert, err := ioutil.ReadFile(ca)
-	if err != nil {
-		return fmt.Errorf("failed to read ca file at %v: %v", ca, err)
-	}
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCert)
-
-	opts := s.grpcServerOptions(options)
-	opts = append(opts, grpc.Creds(*tlsCreds))
-	s.secureGRPCServer = grpc.NewServer(opts...)
-	s.EnvoyXdsServer.Register(s.secureGRPCServer)
-	s.secureHTTPServer = &http.Server{
-		TLSConfig: &tls.Config{
-			Certificates: []tls.Certificate{*certificate},
-			VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-				// For now accept any certs - pilot is not authenticating the caller, TLS used for
-				// privacy
-				return nil
-			},
-			NextProtos: []string{"h2", "http/1.1"},
-			ClientAuth: tls.RequireAndVerifyClientCert,
-			ClientCAs:  caCertPool,
-		},
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.ProtoMajor == 2 && strings.HasPrefix(
-				r.Header.Get("Content-Type"), "application/grpc") {
-				s.secureGRPCServer.ServeHTTP(w, r)
-			} else {
-				s.mux.ServeHTTP(w, r)
-			}
-		}),
-	}
-
-	return nil
-}
-
 // initialize secureGRPCServer - using DNS certs
 func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.Options) error {
 	certDir := dnsCertDir
@@ -646,7 +517,22 @@ func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.
 	key := path.Join(certDir, constants.KeyFilename)
 	cert := path.Join(certDir, constants.CertChainFilename)
 
-	tlsCreds, err := credentials.NewServerTLSFromFile(cert, key)
+	certP, err := tls.LoadX509KeyPair(cert, key)
+	if err != nil {
+		return err
+	}
+
+	cp := x509.NewCertPool()
+	rootCertBytes := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+	cp.AppendCertsFromPEM(rootCertBytes)
+
+	cfg := &tls.Config{
+		Certificates: []tls.Certificate{certP},
+		ClientAuth:   tls.VerifyClientCertIfGiven,
+		ClientCAs:    cp,
+	}
+
+	tlsCreds := credentials.NewTLS(cfg)
 	// certs not ready yet.
 	if err != nil {
 		return err
@@ -660,22 +546,15 @@ func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.
 	if err != nil {
 		return err
 	}
+	s.GRPCDNSListener = l
 
 	opts := s.grpcServerOptions(keepalive)
 	opts = append(opts, grpc.Creds(tlsCreds))
+
 	s.secureGRPCServerDNS = grpc.NewServer(opts...)
 	s.EnvoyXdsServer.Register(s.secureGRPCServerDNS)
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		go func() {
-			if !s.waitForCacheSync(stop) {
-				return
-			}
-			if err := s.secureGRPCServerDNS.Serve(l); err != nil {
-				log.Errorf("error from GRPC server: %v", err)
-			}
-		}()
-
 		go func() {
 			<-stop
 			s.secureGRPCServerDNS.Stop()
@@ -781,7 +660,11 @@ func (s *Server) initEventHandlers() error {
 			}
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
 		}
-		for _, schema := range collections.Pilot.All() {
+		schemas := collections.Pilot.All()
+		if features.EnableServiceApis {
+			schemas = collections.PilotServiceApi.All()
+		}
+		for _, schema := range schemas {
 			// This resource type was handled in external/servicediscovery.go, no need to rehandle here.
 			if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Serviceentries.
 				Resource().GroupVersionKind() {
@@ -798,8 +681,12 @@ func (s *Server) initEventHandlers() error {
 // add a GRPC listener using DNS-based certificates. Will be used for Galley, injection and CA signing.
 func (s *Server) initDNSListener(args *PilotArgs) error {
 	istiodAddr := features.IstiodService.Get()
-	if s.ca == nil || istiodAddr == "" || s.kubeClient == nil {
+	if istiodAddr == "" {
 		// Feature disabled
+		return nil
+	}
+	if s.ca == nil {
+		// Running locally without configured certs - no TLS mode
 		return nil
 	}
 
@@ -814,7 +701,7 @@ func (s *Server) initDNSListener(args *PilotArgs) error {
 
 	// Create DNS certificates. This allows injector, validation to work without Citadel, and
 	// allows secure SDS connections to Istiod.
-	err = s.initDNSCerts(host)
+	err = s.initDNSCerts(host, args.Namespace)
 	if err != nil {
 		return err
 	}
@@ -832,14 +719,4 @@ func (s *Server) initLeaderElection(args *PilotArgs) {
 	if s.kubeClient != nil {
 		s.leaderElection = leaderelection.NewLeaderElection(args.Namespace, args.PodName, s.kubeClient)
 	}
-}
-
-func fileExists(path string) bool {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return false
-	} else if err != nil {
-		log.Errorf("error checking file path %v", path)
-		return false
-	}
-	return true
 }

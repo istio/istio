@@ -156,7 +156,7 @@ func (i *instance) WaitUntilCallable(instances ...echo.Instance) error {
 	// Wait for the outbound config to be received by each workload from Pilot.
 	for _, w := range i.workloads {
 		if w.sidecar != nil {
-			if err := w.sidecar.WaitForConfig(common.OutboundConfigAcceptFunc(instances...)); err != nil {
+			if err := w.sidecar.WaitForConfig(common.OutboundConfigAcceptFunc(i, instances...)); err != nil {
 				return err
 			}
 		}

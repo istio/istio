@@ -18,9 +18,13 @@ import (
 	"errors"
 	"io"
 	"net"
+	"os"
+	"path"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"istio.io/istio/pilot/pkg/features"
+
+	"github.com/hashicorp/go-multierror"
 
 	meshapi "istio.io/api/mesh/v1alpha1"
 
@@ -81,7 +85,6 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 		HTTPAddr:       ":0",
 		MonitoringAddr: ":0",
 		GrpcAddr:       ":0",
-		SecureGrpcAddr: ":0",
 	}
 
 	tmpMesh := mesh.DefaultMeshConfig()
@@ -89,6 +92,10 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 	if cfg.MeshConfig != nil {
 		m = cfg.MeshConfig
 	}
+	m.AccessLogFile = "/var/log/istio/access.log"
+	// The local tests will use SDS, so we need to override the mesh to specify the UDS path
+	// TODO(howardjohn) should we make this mesh wide default?
+	m.SdsUdsPath = "unix:/etc/istio/proxy/SDS"
 
 	if cfg.ServiceArgs.Registries == nil {
 		cfg.ServiceArgs = bootstrap.ServiceArgs{
@@ -128,6 +135,14 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 
 	bootstrapArgs.MCPOptions.MaxMessageSize = 1024 * 1024 * 4
 
+	// Use testing certs
+	if err := os.Setenv(bootstrap.LocalCertDir.Name, path.Join(env.IstioSrc, "tests/testdata/certs/pilot")); err != nil {
+		return nil, err
+	}
+	// TODO make this the default instead of feature flag, replace with standard configuration for address/port
+	if err := os.Setenv(features.IstiodService.Name, "istiod.istio-system.svc:0"); err != nil {
+		return nil, err
+	}
 	var err error
 	// Create the server for the discovery service.
 	if instance.server, err = bootstrap.NewServer(bootstrapArgs); err != nil {
@@ -174,5 +189,5 @@ func (c *nativeComponent) GetDiscoveryAddress() *net.TCPAddr {
 
 // GetSecureDiscoveryAddress gets the discovery address for pilot.
 func (c *nativeComponent) GetSecureDiscoveryAddress() *net.TCPAddr {
-	return c.server.SecureGRPCListeningAddr.(*net.TCPAddr)
+	return c.server.GRPCDNSListener.Addr().(*net.TCPAddr)
 }

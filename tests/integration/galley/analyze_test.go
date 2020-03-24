@@ -25,9 +25,9 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/istioctl/cmd"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 const (
@@ -51,7 +51,7 @@ func TestEmptyCluster(t *testing.T) {
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			// For a clean istio install with injection enabled, expect no validation errors
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), true)
@@ -72,7 +72,7 @@ func TestFileOnly(t *testing.T) {
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			// Validation error if we have a service role binding without a service role
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, serviceRoleBindingFile)
@@ -97,7 +97,7 @@ func TestDirectoryWithoutRecursion(t *testing.T) {
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			// Recursive is false, so we should only analyze
 			// testdata/some-dir/missing-gateway.yaml and get a
@@ -120,7 +120,7 @@ func TestDirectoryWithRecursion(t *testing.T) {
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			// Recursive is true, so we should see two errors (SchemaValidationError and UnknownAnnotation).
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, "--recursive=true", dirWithConfig)
@@ -140,7 +140,7 @@ func TestFileParseError(t *testing.T) {
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			// Parse error as the yaml file itself is not valid yaml.
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, invalidFile)
@@ -165,7 +165,7 @@ func TestKubeOnly(t *testing.T) {
 
 			applyFileOrFail(t, ns.Name(), serviceRoleBindingFile)
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			// Validation error if we have a service role binding without a service role
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), true)
@@ -194,7 +194,7 @@ func TestFileAndKubeCombined(t *testing.T) {
 
 			applyFileOrFail(t, ns.Name(), serviceRoleBindingFile)
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			// Simulating applying the service role to a cluster that already has the binding, we should
 			// fix the error and thus see no message
@@ -223,7 +223,7 @@ func TestAllNamespaces(t *testing.T) {
 			applyFileOrFail(t, ns1.Name(), serviceRoleBindingFile)
 			applyFileOrFail(t, ns2.Name(), serviceRoleBindingFile)
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			// If we look at one namespace, we should successfully run and see one message (and not anything from any other namespace)
 			output, _ := istioctlSafe(t, istioCtl, ns1.Name(), true)
@@ -258,7 +258,7 @@ func TestTimeout(t *testing.T) {
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			// We should time out immediately.
 			_, err := istioctlSafe(t, istioCtl, ns.Name(), true, "--timeout=0s")
@@ -309,7 +309,7 @@ func istioctlSafe(t *testing.T, i istioctl.Instance, ns string, useKube bool, ex
 
 func applyFileOrFail(t *testing.T, ns, filename string) {
 	t.Helper()
-	if err := env.Apply(ns, filename); err != nil {
+	if err := cluster.Apply(ns, filename); err != nil {
 		t.Fatal(err)
 	}
 }

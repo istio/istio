@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	pilotService = "istio-pilot"
+	pilotService = "istiod"
 	grpcPortName = "grpc-xds"
 )
 
@@ -37,11 +37,11 @@ var (
 	_ io.Closer = &kubeComponent{}
 )
 
-func newKube(ctx resource.Context, _ Config) (Instance, error) {
-	c := &kubeComponent{}
+func newKube(ctx resource.Context, cfg Config) (Instance, error) {
+	c := &kubeComponent{
+		cluster: kube.ClusterOrDefault(cfg.Cluster, ctx.Environment()),
+	}
 	c.id = ctx.TrackResource(c)
-
-	env := ctx.Environment().(*kube.Environment)
 
 	// TODO: This should be obtained from an Istio deployment.
 	icfg, err := istio.DefaultConfig(ctx)
@@ -50,14 +50,14 @@ func newKube(ctx resource.Context, _ Config) (Instance, error) {
 	}
 	ns := icfg.ConfigNamespace
 
-	fetchFn := env.NewSinglePodFetch(ns, "istio=pilot")
-	pods, err := env.WaitUntilPodsAreReady(fetchFn)
+	fetchFn := c.cluster.NewSinglePodFetch(ns, "istio=pilot")
+	pods, err := c.cluster.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
 	}
 	pod := pods[0]
 
-	port, err := getGrpcPort(env, ns)
+	port, err := c.getGrpcPort(ns)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func newKube(ctx resource.Context, _ Config) (Instance, error) {
 	}()
 
 	// Start port-forwarding for pilot.
-	c.forwarder, err = env.NewPortForwarder(pod, 0, port)
+	c.forwarder, err = c.cluster.NewPortForwarder(pod, 0, port)
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +97,8 @@ type kubeComponent struct {
 	*client
 
 	forwarder testKube.PortForwarder
+
+	cluster kube.Cluster
 }
 
 func (c *kubeComponent) ID() resource.ID {
@@ -122,8 +124,8 @@ func (c *kubeComponent) Close() (err error) {
 	return
 }
 
-func getGrpcPort(e *kube.Environment, ns string) (uint16, error) {
-	svc, err := e.Accessor.GetService(ns, pilotService)
+func (c *kubeComponent) getGrpcPort(ns string) (uint16, error) {
+	svc, err := c.cluster.GetService(ns, pilotService)
 	if err != nil {
 		return 0, fmt.Errorf("failed to retrieve service %s: %v", pilotService, err)
 	}
