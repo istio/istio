@@ -28,14 +28,15 @@ func TestEnvoyArgs(t *testing.T) {
 	proxyConfig.Concurrency = 8
 
 	cfg := ProxyConfig{
-		Config:            proxyConfig,
-		Node:              "my-node",
-		LogLevel:          "trace",
-		ComponentLogLevel: "misc:error",
-		NodeIPs:           []string{"10.75.2.9", "192.168.11.18"},
-		PodName:           "",
-		PodNamespace:      "",
-		PodIP:             nil,
+		Config:             proxyConfig,
+		Node:               "my-node",
+		LogLevel:           "trace",
+		ComponentLogLevel:  "misc:error",
+		NodeIPs:            []string{"10.75.2.9", "192.168.11.18"},
+		PodName:            "",
+		PodNamespace:       "",
+		PodIP:              nil,
+		UseFakeSymbolTable: false,
 	}
 
 	test := &envoy{
@@ -63,6 +64,7 @@ func TestEnvoyArgs(t *testing.T) {
 		"--component-log-level", "misc:error",
 		"--config-yaml", `{"key": "value"}`,
 		"--concurrency", "8",
+		"--use-fake-symbol-table", "0",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("envoyArgs() => got:\n%v,\nwant:\n%v", got, want)

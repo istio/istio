@@ -95,6 +95,8 @@ var (
 		"the provider of Pilot DNS certificate.").Get()
 	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
 		"The JWT validation policy.")
+	useFakeSymbolTableVar = env.RegisterBoolVar("USE_FAKE_SYMBOL_TABLE", true,
+		"use fake symbol table implementation")
 	outputKeyCertToDir = env.RegisterStringVar("OUTPUT_CERTS", "",
 		"The output directory for the key and certificate. If empty, key and certificate will not be saved. "+
 			"Must be set for VMs using provisioning certificates.").Get()
@@ -307,6 +309,7 @@ var (
 				OutlierLogPath:      outlierLogPath,
 				PilotCertProvider:   pilotCertProvider,
 				ProvCert:            citadel.ProvCert,
+				UseFakeSymbolTable:  useFakeSymbolTableVar.Get(),
 			})
 
 			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())

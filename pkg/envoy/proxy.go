@@ -60,6 +60,7 @@ type ProxyConfig struct {
 	OutlierLogPath      string
 	PilotCertProvider   string
 	ProvCert            string
+	UseFakeSymbolTable  bool
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -134,6 +135,10 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 
 	if e.Config.Concurrency > 0 {
 		startupArgs = append(startupArgs, "--concurrency", fmt.Sprint(e.Config.Concurrency))
+	}
+
+	if !e.UseFakeSymbolTable {
+		startupArgs = append(startupArgs, "--use-fake-symbol-table", fmt.Sprint(0))
 	}
 
 	return startupArgs
