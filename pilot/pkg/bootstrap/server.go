@@ -278,7 +278,9 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	if err := s.initDNSTLSListener(dns.DNSAddr.Get()); err != nil {
-		return nil, fmt.Errorf("dns listener: %v", err)
+		// TODO: will be made an error before launching. Tests are currently
+		// failing since TLS is not initialized in some configs.
+		log.Warna("Failed to start DNS-over-TLS listener", err)
 	}
 
 	// Respond to CoreDNS gRPC queries.
@@ -533,8 +535,8 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 }
 
 // initialize DNS server listener - uses the same certs as gRPC
-func (s *Server) initDNSTLSListener(port string) error {
-	if port == "" {
+func (s *Server) initDNSTLSListener(dns string) error {
+	if dns == "" {
 		return nil
 	}
 	certDir := dnsCertDir
@@ -558,9 +560,6 @@ func (s *Server) initDNSTLSListener(port string) error {
 		ClientAuth:   tls.NoClientCert,
 		ClientCAs:    cp,
 	}
-
-	// Default is 15012 - istio-agent relies on this as a default to distinguish what cert auth to expect
-	dns := fmt.Sprintf(":%s", port)
 
 	// create secure grpc listener
 	l, err := net.Listen("tcp", dns)
