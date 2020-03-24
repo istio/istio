@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -166,7 +167,7 @@ func (pc *PodCache) getPodByIP(addr string) *v1.Pod {
 
 // getPod loads the pod from k8s.
 func (pc *PodCache) getPod(name string, namespace string) *v1.Pod {
-	pod, err := pc.c.client.CoreV1().Pods(namespace).Get(name, metav1.GetOptions{})
+	pod, err := pc.c.client.CoreV1().Pods(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		log.Warnf("failed to get pod %s/%s from kube-apiserver: %v", namespace, name, err)
 		return nil

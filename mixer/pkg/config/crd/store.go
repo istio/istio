@@ -17,6 +17,7 @@
 package crd
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -135,7 +136,7 @@ func (s *Store) checkAndCreateCaches(
 			informer := cache.NewSharedInformer(
 				&cache.ListWatch{
 					ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-						return cl.List(options)
+						return cl.List(context.TODO(), options)
 					},
 					WatchFunc: cl.Watch,
 				},

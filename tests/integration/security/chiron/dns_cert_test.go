@@ -16,6 +16,8 @@ package chiron_test
 
 import (
 	"bytes"
+	"context"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 	"time"
 
@@ -131,7 +133,7 @@ func TestDNSCertificate(t *testing.T) {
 			ctx.NewSubTest("rotateDNSCertificatesWhenCAUpdated").
 				Run(func(ctx framework.TestContext) {
 					galleySecret.Data[controller.RootCertID] = []byte(caCertUpdated)
-					if _, err := cluster.GetSecret(istioNs).Update(galleySecret); err != nil {
+					if _, err := cluster.GetSecret(istioNs).Update(context.TODO(), galleySecret, metav1.UpdateOptions{}); err != nil {
 						ctx.Fatalf("failed to update secret (%s:%s), error: %s", istioNs, galleySecret.Name, err)
 					}
 					// Sleep 5 seconds for the certificate rotation to take place.
@@ -150,7 +152,7 @@ func TestDNSCertificate(t *testing.T) {
 			ctx.NewSubTest("rotateDNSCertificatesWhenCertExpired").
 				Run(func(ctx framework.TestContext) {
 					sidecarInjectorSecret.Data[controller.CertChainID] = []byte(certExpired)
-					if _, err := cluster.GetSecret(istioNs).Update(sidecarInjectorSecret); err != nil {
+					if _, err := cluster.GetSecret(istioNs).Update(context.TODO(), sidecarInjectorSecret, metav1.UpdateOptions{}); err != nil {
 						ctx.Fatalf("failed to update secret (%s:%s), error: %s", istioNs, sidecarInjectorSecret.Name, err)
 					}
 					// Sleep 5 seconds for the certificate rotation to take place.

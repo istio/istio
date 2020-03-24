@@ -239,13 +239,13 @@ func getAndWatchResource(ictx context.Context) *watcher {
 		version := targetSchema.Resource().Version()
 		resource := collectionParts[3]
 		r := dclient.Resource(schema.GroupVersionResource{Group: group, Version: version, Resource: resource}).Namespace(namespace)
-		obj, err := r.Get(nameflag, metav1.GetOptions{})
+		obj, err := r.Get(context.TODO(), nameflag, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
 		localResourceVersion := obj.GetResourceVersion()
 		result <- localResourceVersion
-		watch, err := r.Watch(metav1.ListOptions{ResourceVersion: localResourceVersion})
+		watch, err := r.Watch(context.TODO(), metav1.ListOptions{ResourceVersion: localResourceVersion})
 		if err != nil {
 			return err
 		}

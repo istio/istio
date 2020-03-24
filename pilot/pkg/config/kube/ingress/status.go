@@ -15,6 +15,7 @@
 package ingress
 
 import (
+	"context"
 	"net"
 	"sort"
 	"strings"
@@ -80,10 +81,10 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 	informer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(opts metaV1.ListOptions) (runtime.Object, error) {
-				return client.NetworkingV1beta1().Ingresses(options.WatchedNamespace).List(opts)
+				return client.NetworkingV1beta1().Ingresses(options.WatchedNamespace).List(context.TODO(), opts)
 			},
 			WatchFunc: func(opts metaV1.ListOptions) (watch.Interface, error) {
-				return client.NetworkingV1beta1().Ingresses(options.WatchedNamespace).Watch(opts)
+				return client.NetworkingV1beta1().Ingresses(options.WatchedNamespace).Watch(context.TODO(), opts)
 			},
 		},
 		&v1beta1.Ingress{}, options.ResyncPeriod, cache.Indexers{},
@@ -163,7 +164,7 @@ func (s *StatusSyncer) updateStatus(status []coreV1.LoadBalancerIngress) error {
 		currIng.Status.LoadBalancer.Ingress = status
 
 		ingClient := s.client.NetworkingV1beta1().Ingresses(currIng.Namespace)
-		_, err := ingClient.UpdateStatus(currIng)
+		_, err := ingClient.UpdateStatus(context.TODO(), currIng, metaV1.UpdateOptions{})
 		if err != nil {
 			log.Warnf("error updating ingress status: %v", err)
 		}
@@ -178,7 +179,7 @@ func (s *StatusSyncer) runningAddresses(ingressNs string) ([]string, error) {
 	addrs := make([]string, 0)
 
 	if s.ingressService != "" {
-		svc, err := s.client.CoreV1().Services(ingressNs).Get(s.ingressService, metaV1.GetOptions{})
+		svc, err := s.client.CoreV1().Services(ingressNs).Get(context.TODO(), s.ingressService, metaV1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -201,7 +202,7 @@ func (s *StatusSyncer) runningAddresses(ingressNs string) ([]string, error) {
 	}
 
 	// get information about all the pods running the ingress controller (gateway)
-	pods, err := s.client.CoreV1().Pods(ingressNamespace).List(metaV1.ListOptions{
+	pods, err := s.client.CoreV1().Pods(ingressNamespace).List(context.TODO(), metaV1.ListOptions{
 		// TODO: make it a const or maybe setting ( unless we remove k8s ingress support first)
 		LabelSelector: labels.SelectorFromSet(map[string]string{"app": "ingressgateway"}).String(),
 	})
@@ -216,7 +217,7 @@ func (s *StatusSyncer) runningAddresses(ingressNs string) ([]string, error) {
 		}
 
 		// Find node external IP
-		node, err := s.client.CoreV1().Nodes().Get(pod.Spec.NodeName, metaV1.GetOptions{})
+		node, err := s.client.CoreV1().Nodes().Get(context.TODO(), pod.Spec.NodeName, metaV1.GetOptions{})
 		if err != nil {
 			continue
 		}

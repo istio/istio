@@ -15,6 +15,7 @@
 package secretcontroller
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -138,13 +139,13 @@ func Test_SecretController(t *testing.T) {
 
 			switch {
 			case step.add != nil:
-				_, err := clientset.CoreV1().Secrets(secretNamespace).Create(step.add)
+				_, err := clientset.CoreV1().Secrets(secretNamespace).Create(context.TODO(), step.add, metav1.CreateOptions{})
 				g.Expect(err).Should(BeNil())
 			case step.update != nil:
-				_, err := clientset.CoreV1().Secrets(secretNamespace).Update(step.update)
+				_, err := clientset.CoreV1().Secrets(secretNamespace).Update(context.TODO(), step.update, metav1.UpdateOptions{})
 				g.Expect(err).Should(BeNil())
 			case step.delete != nil:
-				g.Expect(clientset.CoreV1().Secrets(secretNamespace).Delete(step.delete.Name, &metav1.DeleteOptions{})).
+				g.Expect(clientset.CoreV1().Secrets(secretNamespace).Delete(context.TODO(), step.delete.Name, metav1.DeleteOptions{})).
 					Should(Succeed())
 			}
 

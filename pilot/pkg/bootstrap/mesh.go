@@ -15,6 +15,7 @@
 package bootstrap
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -106,7 +107,7 @@ func getMeshConfig(kube kubernetes.Interface, namespace, name string) (*meshconf
 		return &defaultMesh, nil
 	}
 
-	cfg, err := kube.CoreV1().ConfigMaps(namespace).Get(name, metav1.GetOptions{})
+	cfg, err := kube.CoreV1().ConfigMaps(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			defaultMesh := mesh.DefaultMeshConfig()

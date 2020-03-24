@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -322,7 +323,7 @@ func getNamespaceToServiceToSelector(files, namespaces []string) (map[string]con
 		}
 	} else {
 		for _, ns := range namespaces {
-			rets, err := k8sClient.CoreV1().Services(ns).List(metav1.ListOptions{})
+			rets, err := k8sClient.CoreV1().Services(ns).List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
 				return nil, err
 			}
