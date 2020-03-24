@@ -33,7 +33,8 @@ spec:
         app: foo
         version: bar
       annotations:
-        foo: bar
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "15014"
     spec:
       containers:
       - name: app
@@ -47,6 +48,7 @@ spec:
             fieldRef:
               fieldPath: status.podIP
         args:
+          - --metrics=15014
           - --port
           - "8090"
           - --port
