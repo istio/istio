@@ -379,7 +379,6 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: istiod
       istio: pilot
   strategy:
     rollingUpdate:
