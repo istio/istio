@@ -1203,11 +1203,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	vservices := make([]Config, len(virtualServices))
 
 	for i := range vservices {
-		var tmpCopy networking.VirtualService
-		vs := virtualServices[i].Spec.(*networking.VirtualService)
-		vs.DeepCopyInto(&tmpCopy)
-		vservices[i].ConfigMeta = virtualServices[i].ConfigMeta
-		vservices[i].Spec = &tmpCopy
+		vservices[i] = virtualServices[i].DeepCopy()
 	}
 
 	totalVirtualServices.Record(float64(len(virtualServices)))
@@ -1423,13 +1419,8 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 	// values returned from ConfigStore.List are immutable.
 	// Therefore, we make a copy
 	destRules := make([]Config, len(configs))
-
 	for i := range destRules {
-		var tmpCopy networking.DestinationRule
-		dr := configs[i].Spec.(*networking.DestinationRule)
-		dr.DeepCopyInto(&tmpCopy)
-		destRules[i].ConfigMeta = configs[i].ConfigMeta
-		destRules[i].Spec = &tmpCopy
+		destRules[i] = configs[i].DeepCopy()
 	}
 
 	ps.SetDestinationRules(destRules)
