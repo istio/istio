@@ -37,19 +37,7 @@ func TestMain(m *testing.M) {
 		NewSuite("pilot_analysis_test", m).
 		RequireSingleCluster().
 		RequireEnvironment(environment.Kube).
-		SetupOnEnv(environment.Kube, istio.Setup(&i, nil)).
 		SetupOnEnv(environment.Kube, istio.Setup(&i, func(cfg *istio.Config) {
-			cfg.ControlPlaneValues = `
-components:
-  base:
-    enabled: false
-  pilot:
-    enabled: true
-  ingressGateways:
-addonComponents:
-  prometheus:
-    enabled: false
-revision: canary
 values:
   global:
     istiod:
