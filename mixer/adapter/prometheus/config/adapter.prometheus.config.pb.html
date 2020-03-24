@@ -14,41 +14,6 @@ number_of_entries: 8
 
 <p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/">metric template</a>.</p>
 
-<h2 id="Params-MetricInfo-Kind">Params.MetricInfo.Kind</h2>
-<section>
-<p>Describes what kind of metric this is.</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="Params-MetricInfo-Kind-UNSPECIFIED">
-<td><code>UNSPECIFIED</code></td>
-<td>
-</td>
-</tr>
-<tr id="Params-MetricInfo-Kind-GAUGE">
-<td><code>GAUGE</code></td>
-<td>
-</td>
-</tr>
-<tr id="Params-MetricInfo-Kind-COUNTER">
-<td><code>COUNTER</code></td>
-<td>
-</td>
-</tr>
-<tr id="Params-MetricInfo-Kind-DISTRIBUTION">
-<td><code>DISTRIBUTION</code></td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="Params">Params</h2>
 <section>
 <p>Configuration format for the <code>prometheus</code> adapter.</p>
@@ -274,7 +239,7 @@ No
 
 </td>
 <td>
-Yes
+No
 </td>
 </tr>
 <tr id="Params-MetricInfo-BucketsDefinition-exponential_buckets" class="oneof">
@@ -285,7 +250,7 @@ Yes
 
 </td>
 <td>
-Yes
+No
 </td>
 </tr>
 <tr id="Params-MetricInfo-BucketsDefinition-explicit_buckets" class="oneof">
@@ -296,7 +261,7 @@ Yes
 
 </td>
 <td>
-Yes
+No
 </td>
 </tr>
 </tbody>
@@ -461,6 +426,41 @@ element is the common boundary of the overflow and underflow buckets.</p>
 </td>
 <td>
 No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params-MetricInfo-Kind">Params.MetricInfo.Kind</h2>
+<section>
+<p>Describes what kind of metric this is.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params-MetricInfo-Kind-UNSPECIFIED">
+<td><code>UNSPECIFIED</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params-MetricInfo-Kind-GAUGE">
+<td><code>GAUGE</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params-MetricInfo-Kind-COUNTER">
+<td><code>COUNTER</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params-MetricInfo-Kind-DISTRIBUTION">
+<td><code>DISTRIBUTION</code></td>
+<td>
 </td>
 </tr>
 </tbody>
