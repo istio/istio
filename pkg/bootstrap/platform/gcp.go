@@ -129,20 +129,27 @@ func (e *gcpEnv) Metadata() map[string]string {
 	return md
 }
 
-var once sync.Once
+var (
+	once        sync.Once
+	envPid      string
+	envNpid     string
+	envCluster  string
+	envLocation string
+)
 
 func parseGCPMetadata() (pid, npid, cluster, location string) {
-	gcpmd := gcpMetadataVar.Get()
-	if len(gcpmd) > 0 {
-		once.Do(func() {
-			log.Infof("Extract GCP metadata from env variable GCP_METADATA: %v", gcpmd)
-		})
-	}
-	parts := strings.Split(gcpmd, "|")
-	if len(parts) != 4 {
-		return
-	}
-	return parts[0], parts[1], parts[2], parts[3]
+	once.Do(func() {
+		gcpmd := gcpMetadataVar.Get()
+		log.Infof("Extract GCP metadata from env variable GCP_METADATA: %v", gcpmd)
+		parts := strings.Split(gcpmd, "|")
+		if len(parts) == 4 {
+			envPid = parts[0]
+			envNpid = parts[1]
+			envCluster = parts[2]
+			envLocation = parts[3]
+		}
+	})
+	return envPid, envNpid, envCluster, envLocation
 }
 
 // Converts a GCP zone into a region.
