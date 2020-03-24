@@ -61,8 +61,8 @@ type IstioServiceEntries struct {
 }
 
 var (
-	// DnsPort is the env controlling the DNS server. If empty, DNS will be disabled.
-	// By default will be active.
+	// DnsPort is the env controlling the DNS-over-TLS server.
+	// By default will be active, set to empty string to disable DNS functionality.
 	DNSAddr = env.RegisterStringVar("dnsAddr", ":15053", "DNS listen address")
 )
 

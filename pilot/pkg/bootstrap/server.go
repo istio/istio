@@ -29,8 +29,6 @@ import (
 	"istio.io/istio/pkg/dns"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	"istio.io/istio/pkg/dns"
-
 	"istio.io/pkg/env"
 
 	"k8s.io/client-go/rest"
