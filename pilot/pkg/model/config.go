@@ -23,8 +23,6 @@ import (
 	"istio.io/pkg/ledger"
 
 	udpa "github.com/cncf/udpa/go/udpa/type/v1"
-	"github.com/mitchellh/copystructure"
-
 	"github.com/gogo/protobuf/proto"
 
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -653,13 +651,8 @@ func SortQuotaSpec(specs []Config) {
 }
 
 func (c Config) DeepCopy() Config {
-	copied, err := copystructure.Copy(c)
-	if err != nil {
-		// There are 2 locations where errors are generated in copystructure.Copy:
-		//  * The reflection walk over the structure fails, which should never happen
-		//  * A configurable copy function returns an error. This is only used for copying times, which never returns an error.
-		// Therefore, this should never happen
-		panic(err)
-	}
-	return copied.(Config)
+	var clone Config
+	clone.ConfigMeta = c.ConfigMeta
+	clone.Spec = proto.Clone(c.Spec)
+	return clone
 }
