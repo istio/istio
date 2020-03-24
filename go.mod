@@ -2,7 +2,7 @@ module istio.io/istio
 
 go 1.13
 
-replace istio.io/operator => github.com/istio-private/operator v0.0.0-20200322202304-52622ecf9ec2
+replace istio.io/operator => github.com/istio-private/operator v0.0.0-20200323204721-49487c6ada25
 
 replace github.com/golang/glog => github.com/istio/glog v0.0.0-20190424172949-d7cfb6fa2ccd
 
