@@ -15,13 +15,16 @@
 package version
 
 import (
+	"fmt"
+	"io/ioutil"
 	"reflect"
 	"testing"
 
-	"istio.io/istio/operator/pkg/util"
-
+	goversion "github.com/hashicorp/go-version"
 	"github.com/kr/pretty"
 	"gopkg.in/yaml.v2"
+
+	"istio.io/istio/operator/pkg/util"
 )
 
 func TestVersion(t *testing.T) {
@@ -433,4 +436,162 @@ func TestTagToVersionString(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetVersionCompatibleMap(t *testing.T) {
+	tests := []struct {
+		name        string
+		httpuri     string
+		filecontent string
+		goversion   *goversion.Version
+		want        *CompatibilityMapping
+		wantErr     error
+	}{
+		{
+			name: "version match with content",
+			filecontent: `
+- operatorVersion: 1.4.4
+  operatorVersionRange: ">=1.4.4,<1.5.0"
+  supportedIstioVersions: ">=1.3.3, <1.6"
+  recommendedIstioVersions: 1.4.4
+- operatorVersion: 1.5.0
+  operatorVersionRange: ">=1.5.0,<1.6.0"
+  supportedIstioVersions: ">=1.4.0, <1.6"
+  recommendedIstioVersions: 1.5.0
+  k8sClientVersionRange: ">=1.14"
+  k8sServerVersionRange: ">=1.14"`,
+			goversion: goversionVersionForTest(t, "1.4.4"),
+			want: &CompatibilityMapping{
+				OperatorVersion:          goversionVersionForTest(t, "1.4.4"),
+				OperatorVersionRange:     goversionConstraintsForTest(t, ">=1.4.4,<1.5.0"),
+				SupportedIstioVersions:   goversionConstraintsForTest(t, ">=1.3.3, <1.6"),
+				RecommendedIstioVersions: goversionConstraintsForTest(t, "1.4.4"),
+			},
+		},
+		{
+			name: "version in the operator version range",
+			filecontent: `
+- operatorVersion: 1.4.4
+  operatorVersionRange: ">=1.4.4,<1.5.0"
+  supportedIstioVersions: ">=1.3.3, <1.6"
+  recommendedIstioVersions: 1.4.4
+- operatorVersion: 1.5.0
+  operatorVersionRange: ">=1.5.0,<1.6.0"
+  supportedIstioVersions: ">=1.4.0, <1.6"
+  recommendedIstioVersions: 1.5.0
+  k8sClientVersionRange: ">=1.14"
+  k8sServerVersionRange: ">=1.14"`,
+			goversion: goversionVersionForTest(t, "1.5.1"),
+			want: &CompatibilityMapping{
+				OperatorVersion:          goversionVersionForTest(t, "1.5.0"),
+				OperatorVersionRange:     goversionConstraintsForTest(t, ">=1.5.0,<1.6.0"),
+				SupportedIstioVersions:   goversionConstraintsForTest(t, ">=1.4.0, <1.6"),
+				RecommendedIstioVersions: goversionConstraintsForTest(t, "1.5.0"),
+				K8sClientVersionRange:    goversionConstraintsForTest(t, ">=1.14"),
+				K8sServerVersionRange:    goversionConstraintsForTest(t, ">=1.14"),
+			},
+		},
+		{
+			name: "version not found",
+			filecontent: `
+- operatorVersion: 1.4.4
+  operatorVersionRange: ">=1.4.4,<1.5.0"
+  supportedIstioVersions: ">=1.3.3, <1.6"
+  recommendedIstioVersions: 1.4.4
+- operatorVersion: 1.5.0
+  operatorVersionRange: ">=1.5.0,<1.6.0"
+  supportedIstioVersions: ">=1.4.0, <1.6"
+  recommendedIstioVersions: 1.5.0
+  k8sClientVersionRange: ">=1.14"
+  k8sServerVersionRange: ">=1.14"`,
+			goversion: goversionVersionForTest(t, "1.2.9"),
+			wantErr:   fmt.Errorf("this operator version %s was not found in the version map", "1.2.9"),
+		},
+		{
+			name:      "version uri missing",
+			goversion: goversionVersionForTest(t, "1.2.0"),
+			wantErr:   fmt.Errorf("this operator version %s was not found in the version map", "1.2.0"),
+		},
+		{
+			name:      "invalid uri",
+			httpuri:   "http://invalid.istio.io",
+			goversion: goversionVersionForTest(t, "1.2.0"),
+			wantErr:   fmt.Errorf("this operator version %s was not found in the version map", "1.2.0"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			uri := ""
+			if tt.filecontent != "" {
+				filePath, close := tempFile(t, tt.filecontent)
+				uri = filePath
+				defer close()
+			}
+			if tt.httpuri != "" {
+				uri = tt.httpuri
+			}
+			got, err := GetVersionCompatibleMap(uri, tt.goversion)
+			if err != nil {
+				if !reflect.DeepEqual(err, tt.wantErr) {
+					t.Fatalf("error mismatch GetVersionCompatibleMap() error = %v, wantErr = %v", err, tt.wantErr)
+				}
+				return
+			}
+			if !compare(got, tt.want) {
+				t.Errorf("result mismatch GetVersionCompatibleMap() got = %v, want = %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func goversionVersionForTest(t *testing.T, s string) *goversion.Version {
+	t.Helper()
+	result, err := goversion.NewVersion(s)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	return result
+}
+func goversionConstraintsForTest(t *testing.T, s string) goversion.Constraints {
+	t.Helper()
+	result, err := goversion.NewConstraint(s)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	return result
+}
+
+func tempFile(t *testing.T, content string) (string, func()) {
+	t.Helper()
+	tmpfile, err := ioutil.TempFile("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = tmpfile.WriteString(content)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = tmpfile.Sync()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = tmpfile.Seek(0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// return tmpfile
+
+	clean := func() {
+		_ = tmpfile.Close()
+	}
+	return tmpfile.Name(), clean
+}
+
+func compare(l, r *CompatibilityMapping) bool {
+	return l.OperatorVersion.Equal(r.OperatorVersion) &&
+		l.OperatorVersionRange.String() == r.OperatorVersionRange.String() &&
+		l.SupportedIstioVersions.String() == r.SupportedIstioVersions.String() &&
+		l.RecommendedIstioVersions.String() == r.RecommendedIstioVersions.String() &&
+		l.K8sClientVersionRange.String() == r.K8sClientVersionRange.String() &&
+		l.K8sServerVersionRange.String() == r.K8sServerVersionRange.String()
 }
