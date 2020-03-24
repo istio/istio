@@ -140,13 +140,15 @@ var (
 func parseGCPMetadata() (pid, npid, cluster, location string) {
 	once.Do(func() {
 		gcpmd := gcpMetadataVar.Get()
-		log.Infof("Extract GCP metadata from env variable GCP_METADATA: %v", gcpmd)
-		parts := strings.Split(gcpmd, "|")
-		if len(parts) == 4 {
-			envPid = parts[0]
-			envNpid = parts[1]
-			envCluster = parts[2]
-			envLocation = parts[3]
+		if len(gcpmd) > 0 {
+			log.Infof("Extract GCP metadata from env variable GCP_METADATA: %v", gcpmd)
+			parts := strings.Split(gcpmd, "|")
+			if len(parts) == 4 {
+				envPid = parts[0]
+				envNpid = parts[1]
+				envCluster = parts[2]
+				envLocation = parts[3]
+			}
 		}
 	})
 	return envPid, envNpid, envCluster, envLocation
