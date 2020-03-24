@@ -29,6 +29,8 @@ import (
 	"istio.io/istio/pkg/dns"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	"istio.io/istio/pkg/dns"
+
 	"istio.io/pkg/env"
 
 	"k8s.io/client-go/rest"
@@ -145,7 +147,7 @@ type Server struct {
 	HTTPListener    net.Listener
 	GRPCListener    net.Listener
 	GRPCDNSListener net.Listener
-	DNSListener net.Listener
+	DNSListener     net.Listener
 
 	// for test
 	forceStop bool
@@ -276,14 +278,16 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, fmt.Errorf("config validation: %v", err)
 	}
 
-	if err := s.initDNSListener(args); err != nil {
+	if err := s.initDNSTLSListener(dns.DNSAddr.Get()); err != nil {
 		return nil, fmt.Errorf("dns listener: %v", err)
 	}
 
 	// Respond to CoreDNS gRPC queries.
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		dnsSvc := dns.InitCoreDNS(s.secureGRPCServerDNS, "", s.environment.IstioConfigStore)
-		dnsSvc.StartDNS(s.DNSListener)
+		if s.DNSListener != nil {
+			dnsSvc := dns.InitCoreDNS(s.secureGRPCServerDNS, "", s.environment.IstioConfigStore)
+			dnsSvc.StartDNS(s.DNSListener)
+		}
 		return nil
 	})
 
@@ -406,7 +410,11 @@ func (s *Server) WaitUntilCompletion() {
 func (s *Server) initKubeClient(args *PilotArgs) error {
 	if hasKubeRegistry(args.Service.Registries) {
 		var err error
+		// Used by validation
 		s.kubeConfig, err = kubelib.BuildClientConfig(args.Config.KubeConfig, "")
+		if err != nil {
+			return fmt.Errorf("failed creating kube config: %v", err)
+		}
 		s.kubeClient, err = kubelib.CreateClientset(args.Config.KubeConfig, "", func(config *rest.Config) {
 			config.QPS = 20
 			config.Burst = 40
@@ -526,7 +534,10 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 }
 
 // initialize DNS server listener - uses the same certs as gRPC
-func (s *Server) initDNSTLSListener(port string, keepalive *istiokeepalive.Options) error {
+func (s *Server) initDNSTLSListener(port string) error {
+	if port == "" {
+		return nil
+	}
 	certDir := dnsCertDir
 
 	key := path.Join(certDir, constants.KeyFilename)
@@ -563,7 +574,6 @@ func (s *Server) initDNSTLSListener(port string, keepalive *istiokeepalive.Optio
 
 	return nil
 }
-
 
 // initialize secureGRPCServer - using DNS certs
 func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.Options) error {

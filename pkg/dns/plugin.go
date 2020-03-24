@@ -23,9 +23,11 @@ import (
 	"time"
 
 	"github.com/miekg/dns"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	dnsapi "istio.io/istio/pkg/dns/coredns/pb"
+	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 
 	"google.golang.org/grpc"
@@ -38,7 +40,6 @@ import (
 // - removed "log" - switching to istio log.
 // - refactored Query, so both DNS native interface and coredns grpc plugin are implemented
 // - added parts of istio-ecosystem/dns-discovery, to provide in process DNS
-
 
 // IstioServiceEntries exposes a DNS interface to internal Istiod service database.
 // This can be used:
@@ -53,11 +54,17 @@ import (
 type IstioServiceEntries struct {
 	configStore model.IstioConfigStore
 	mapMutex    sync.RWMutex
-	mux            *dns.ServeMux
+	mux         *dns.ServeMux
 	dnsEntries  map[string][]net.IP
-	client *dns.Client
-	server *dns.Server
+	client      *dns.Client
+	server      *dns.Server
 }
+
+var (
+	// DnsPort is the env controlling the DNS server. If empty, DNS will be disabled.
+	// By default will be active.
+	DNSAddr = env.RegisterStringVar("dnsAddr", ":15053", "DNS listen address")
+)
 
 // Initialize the CoreDNS gRPC plugin.
 // vip is the default IP to assign to entries that are not found.
@@ -65,7 +72,7 @@ func InitCoreDNS(grpcServer *grpc.Server, vip string, cfgStore model.IstioConfig
 
 	h := &IstioServiceEntries{
 		configStore: cfgStore,
-		mux: dns.NewServeMux(),
+		mux:         dns.NewServeMux(),
 	}
 	h.readServiceEntries(vip)
 	stop := make(chan bool)
@@ -92,20 +99,20 @@ func InitCoreDNS(grpcServer *grpc.Server, vip string, cfgStore model.IstioConfig
 	return h
 }
 
-// TODO: make it an env var - or remove after initial testing
-// May not be needed once we have all the pieces.
-var DnsDebugPort = ":15053"
-
 // StartDNS starts the DNS-over-TLS, using a pre-configured listener.
 // Also creates a normal DNS on UDP port 15053, for local debugging
 func (h *IstioServiceEntries) StartDNS(tlsListener net.Listener) {
 	h.server.Listener = tlsListener
 	var err error
-	h.server.PacketConn, err = net.ListenPacket("udp", DnsDebugPort)
+	// UDP - on same port as the MTLS.
+	h.server.PacketConn, err = net.ListenPacket("udp", DNSAddr.Get())
 	if err != nil {
 		log.Warna("Failed to start debugging DNS port", err)
 	}
-	h.server.ActivateAndServe()
+	err = h.server.ActivateAndServe()
+	if err != nil {
+		log.Warna("Failed to start debugging DNS", err)
+	}
 }
 
 // Sync the entries from store to the serving map.
@@ -179,14 +186,19 @@ func convertToVIPs(addresses []string) []net.IP {
 }
 
 // ServerDNS is the implementation of DNS interface, when serving directly DNS-over-TLS
-func (h *IstioServiceEntries) ServeDNS(w dns.ResponseWriter, r *dns.Msg)  {
+func (h *IstioServiceEntries) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	response := h.handle(r)
+	var err error
 
 	if len(response.Answer) == 0 {
 		// Nothing found - forward to upstream DNS.
 		// TODO: this is NOT secured - pilot to k8s will need to use TLS or run a local coredns
 		// replica, using k8s plugin ( so this is over localhost )
-		response, _, _ = h.client.Exchange(r, "")
+		response, _, err = h.client.Exchange(r, "")
+		if err != nil {
+			log.Debuga("DNS error ", r, err)
+			// TODO: increment counter - not clear if DNS client has metrics.
+		}
 	}
 
 	if len(response.Answer) == 0 {
@@ -196,7 +208,7 @@ func (h *IstioServiceEntries) ServeDNS(w dns.ResponseWriter, r *dns.Msg)  {
 	w.WriteMsg(response)
 }
 
-func (h *IstioServiceEntries) handle(request *dns.Msg) (*dns.Msg)  {
+func (h *IstioServiceEntries) handle(request *dns.Msg) *dns.Msg {
 	response := new(dns.Msg)
 	response.SetReply(request)
 	response.Authoritative = true
