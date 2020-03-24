@@ -1869,11 +1869,12 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	}
 
 	if util.IsIstioVersionGE14(pluginParams.Node) &&
+		pluginParams.Node.Type == model.SidecarProxy &&
 		pluginParams.ServiceInstance != nil &&
 		pluginParams.ServiceInstance.ServicePort != nil &&
 		pluginParams.ServiceInstance.ServicePort.Protocol == protocol.GRPC {
 		filters = append(filters, &http_conn.HttpFilter{
-			Name: "envoy.filters.http.grpc_stats",
+			Name: wellknown.HTTPGRPCStats,
 			ConfigType: &http_conn.HttpFilter_TypedConfig{
 				TypedConfig: util.MessageToAny(&grpc_stats.FilterConfig{
 					EmitFilterState: true,
