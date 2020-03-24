@@ -55,10 +55,6 @@ func (fa *FieldAnalyzer) Analyze(ctx analysis.Context) {
 		fa.analyzeVirtualService(r, ctx)
 		return true
 	})
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), func(r *resource.Instance) bool {
-		fa.analyzeEnvoyFilter(r, ctx)
-		return true
-	})
 	ctx.ForEach(collections.IstioRbacV1Alpha1Servicerolebindings.Name(), func(r *resource.Instance) bool {
 		fa.analyzeServiceRoleBinding(r, ctx)
 		return true
@@ -83,21 +79,6 @@ func (*FieldAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.C
 				}
 			}
 		}
-	}
-}
-
-func (*FieldAnalyzer) analyzeEnvoyFilter(r *resource.Instance, ctx analysis.Context) {
-
-	ef := r.Message.(*v1alpha3.EnvoyFilter)
-
-	if len(ef.WorkloadLabels) > 0 {
-		ctx.Report(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(),
-			msg.NewDeprecated(r, replacedMessage("EnvoyFilter.workloadLabels", "EnvoyFilter.workload_selector")))
-	}
-
-	if len(ef.Filters) > 0 {
-		ctx.Report(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(),
-			msg.NewDeprecated(r, uncertainFixMessage("EnvoyFilter.filters")))
 	}
 }
 
