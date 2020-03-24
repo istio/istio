@@ -38,10 +38,13 @@ func TestMain(m *testing.M) {
 		RequireSingleCluster().
 		RequireEnvironment(environment.Kube).
 		SetupOnEnv(environment.Kube, istio.Setup(&i, func(cfg *istio.Config) {
+
+	cfg.ControlPlaneValues = `
 values:
   global:
     istiod:
-      enableAnalysis: true
+      enabled: true
+      enableAnalysis: false
 `
 		})).
 		Setup(func(ctx resource.Context) (err error) {

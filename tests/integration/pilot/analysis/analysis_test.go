@@ -53,6 +53,7 @@ func setupModifiedBookinfo(t *testing.T, ctx framework.TestContext) namespace.In
 		t.Fatalf("TODO: make a better failure message: %v", err)
 	}
 	vsYaml := bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, ns.Name())
+	// mutate the virtual service to trigger an analyzer message
 	vsYaml = strings.Replace(vsYaml, "old", "new", -1)
 	_, err = deployment.New(ctx, deployment.Config{
 		Name:      "bookinfo-virtualservice",
