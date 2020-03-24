@@ -74,9 +74,8 @@ var (
 		DNSDomain:   "default.example.org",
 		Metadata: &model.NodeMetadata{
 			ConfigNamespace: "not-default",
-			IstioVersion:    "1.1",
+			IstioVersion:    "1.4",
 		},
-		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 3},
 		ConfigNamespace: "not-default",
 	}
 	proxyHTTP10 = model.Proxy{
@@ -258,9 +257,6 @@ func TestOutboundListenerRouteV14(t *testing.T) {
 }
 
 func TestOutboundListenerConfig_WithSidecarV14(t *testing.T) {
-	_ = os.Setenv(features.EnableProtocolSniffingForOutbound.Name, "true")
-	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForOutbound.Name) }()
-
 	// Add a service and verify it's config
 	services := []*model.Service{
 		buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
@@ -541,7 +537,10 @@ func TestInboundListenerConfig_HTTP(t *testing.T) {
 	}
 }
 
-func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
+func TestOutboundListenerConfig_WithDisabledSniffing_WithSidecar(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffingForOutbound.Name, "false")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForOutbound.Name) }()
+
 	// Add a service and verify it's config
 	services := []*model.Service{
 		buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
@@ -694,10 +693,13 @@ func TestGetActualWildcardAndLocalHost(t *testing.T) {
 func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 	t.Helper()
 
+	_ = os.Setenv(features.EnableProtocolSniffingForOutbound.Name, "false")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForOutbound.Name) }()
+
 	oldestService := getOldestService(services...)
 
 	p := &fakePlugin{}
-	listeners := buildOutboundListeners(p, &proxy, nil, nil, services...)
+	listeners := buildOutboundListeners(p, &proxy14, nil, nil, services...)
 	if len(listeners) != 1 {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
@@ -1309,7 +1311,7 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 					// Bind + Port
 					CaptureMode: networking.CaptureMode_NONE,
 					Port: &networking.Port{
-						Number:   9090,
+						Number:   9000,
 						Protocol: "HTTP",
 						Name:     "grpc",
 					},
@@ -1326,7 +1328,7 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 					// Port Only
 					CaptureMode: networking.CaptureMode_NONE,
 					Port: &networking.Port{
-						Number:   9090,
+						Number:   9000,
 						Protocol: "HTTP",
 						Name:     "grpc",
 					},
@@ -1340,7 +1342,7 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 			},
 		},
 	}
-	listeners := buildOutboundListeners(p, &proxy, sidecarConfig, nil, services...)
+	listeners := buildOutboundListeners(p, &proxy14, sidecarConfig, nil, services...)
 	if len(listeners) != 4 {
 		t.Fatalf("expected %d listeners, found %d", 4, len(listeners))
 	}
@@ -1455,6 +1457,37 @@ func TestHttpProxyListener(t *testing.T) {
 	}
 	if !strings.HasPrefix(cfg.Fields["stat_prefix"].GetStringValue(), "outbound_") {
 		t.Fatalf("expected http proxy stat prefix to have outbound, %s", cfg.Fields["stat_prefix"].GetStringValue())
+	}
+}
+
+func TestOutboundListenerConfig_TCPFailThrough(t *testing.T) {
+	// Add a service and verify it's config
+	services := []*model.Service{
+		buildService("test1.com", wildcardIP, protocol.HTTP, tnow)}
+	listeners := buildOutboundListeners(&fakePlugin{}, &proxy14, nil, nil, services...)
+
+	if len(listeners[0].FilterChains) != 2 {
+		t.Fatalf("expectd %d filter chains, found %d", 2, len(listeners[0].FilterChains))
+	}
+
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0], model.TrafficDirectionOutbound, false)
+	verifyPassThroughTCPFilterChain(t, listeners[0].FilterChains[1])
+
+	if len(listeners[0].ListenerFilters) != 2 ||
+		listeners[0].ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
+		listeners[0].ListenerFilters[1].Name != "envoy.listener.http_inspector" {
+		t.Fatalf("expected %d listener filter, found %d", 2, len(listeners[0].ListenerFilters))
+	}
+}
+
+func verifyPassThroughTCPFilterChain(t *testing.T, fc *listener.FilterChain) {
+	t.Helper()
+	f := fc.Filters[0]
+	expectedStatPrefix := util.PassthroughCluster
+	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
+	statPrefix := cfg.Fields["stat_prefix"].GetStringValue()
+	if statPrefix != expectedStatPrefix {
+		t.Fatalf("expected listener to contain stat_prefix %s, found %s", expectedStatPrefix, statPrefix)
 	}
 }
 

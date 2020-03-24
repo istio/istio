@@ -1006,7 +1006,7 @@ var _datasetMeshIstioIoV1alpha1Meshconfig_expectedJson = []byte(`{
                 "enableAutoMtls": {},
                 "enableTracing": true,
                 "ingressClass": "istio",
-                "ingressControllerMode": 2,
+                "ingressControllerMode": 3,
                 "ingressService": "istio-ingressgateway",
                 "localityLbSetting": {},
                 "outboundTrafficPolicy": {
