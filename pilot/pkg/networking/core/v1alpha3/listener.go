@@ -1869,7 +1869,6 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	}
 
 	if util.IsIstioVersionGE14(pluginParams.Node) &&
-		pluginParams.Node.Type == model.SidecarProxy &&
 		pluginParams.ServiceInstance != nil &&
 		pluginParams.ServiceInstance.ServicePort != nil &&
 		pluginParams.ServiceInstance.ServicePort.Protocol == protocol.GRPC {
