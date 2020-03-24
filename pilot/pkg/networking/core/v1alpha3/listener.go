@@ -1868,8 +1868,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 		filters = append(filters, &http_conn.HttpFilter{Name: wellknown.GRPCWeb})
 	}
 
-	if util.IsIstioVersionGE14(pluginParams.Node) &&
-		pluginParams.ServiceInstance != nil &&
+	if pluginParams.ServiceInstance != nil &&
 		pluginParams.ServiceInstance.ServicePort != nil &&
 		pluginParams.ServiceInstance.ServicePort.Protocol == protocol.GRPC {
 		filters = append(filters, &http_conn.HttpFilter{
@@ -1883,9 +1882,8 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	}
 
 	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
-	if util.IsIstioVersionGE14(pluginParams.Node) &&
-		(pluginParams.ListenerCategory == networking.EnvoyFilter_SIDECAR_OUTBOUND ||
-			pluginParams.DeprecatedListenerCategory == networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND) {
+	if pluginParams.ListenerCategory == networking.EnvoyFilter_SIDECAR_OUTBOUND ||
+		pluginParams.DeprecatedListenerCategory == networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND {
 		filters = append(filters, &http_conn.HttpFilter{
 			Name: AlpnFilterName,
 			ConfigType: &http_conn.HttpFilter_TypedConfig{
@@ -1937,12 +1935,8 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 
 	idleTimeout, err := time.ParseDuration(pluginParams.Node.Metadata.IdleTimeout)
 	if idleTimeout > 0 && err == nil {
-		if util.IsIstioVersionGE14(pluginParams.Node) {
-			connectionManager.CommonHttpProtocolOptions = &core.HttpProtocolOptions{
-				IdleTimeout: ptypes.DurationProto(idleTimeout),
-			}
-		} else {
-			connectionManager.IdleTimeout = ptypes.DurationProto(idleTimeout)
+		connectionManager.CommonHttpProtocolOptions = &core.HttpProtocolOptions{
+			IdleTimeout: ptypes.DurationProto(idleTimeout),
 		}
 	}
 
@@ -1984,9 +1978,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 			},
 		}
 
-		if util.IsIstioVersionGE14(pluginParams.Node) {
-			fl.CommonConfig.FilterStateObjectsToLog = envoyWasmStateToLog
-		}
+		fl.CommonConfig.FilterStateObjectsToLog = envoyWasmStateToLog
 
 		acc := &accesslog.AccessLog{
 			Name:       wellknown.HTTPGRPCAccessLog,

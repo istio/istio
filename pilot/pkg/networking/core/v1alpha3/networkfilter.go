@@ -71,7 +71,7 @@ func setAccessLog(push *model.PushContext, node *model.Proxy, config *tcp_proxy.
 		config.AccessLog = append(config.AccessLog, maybeBuildAccessLog(push.Mesh))
 	}
 
-	if push.Mesh.EnableEnvoyAccessLogService && util.IsIstioVersionGE14(node) {
+	if push.Mesh.EnableEnvoyAccessLogService {
 		config.AccessLog = append(config.AccessLog, grpcAccessLog)
 	}
 }

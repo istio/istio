@@ -45,7 +45,6 @@ import (
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	istio_envoy_configdump "istio.io/istio/istioctl/pkg/writer/envoy/configdump"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/host"
@@ -190,11 +189,7 @@ func getIstioVersion(cd *configdump.Wrapper) string {
 	return "undetected"
 }
 
-func supportsProtocolDetection(istioVersion *model.IstioVersion) bool {
-	return util.IsIstioVersionGE14(&model.Proxy{IstioVersion: istioVersion})
-}
-
-func validatePort(port v1.ServicePort, pod *v1.Pod, istioVersion *model.IstioVersion) []string {
+func validatePort(port v1.ServicePort, pod *v1.Pod) []string {
 	retval := []string{}
 
 	// Build list of ports exposed by pod
@@ -209,20 +204,6 @@ func validatePort(port v1.ServicePort, pod *v1.Pod, istioVersion *model.IstioVer
 	_, err := pilotcontroller.FindPort(pod, &port)
 	if err != nil {
 		retval = append(retval, err.Error())
-	}
-
-	if servicePortProtocol(port.Name) == protocol.Unsupported {
-		if !supportsProtocolDetection(istioVersion) {
-			if port.Name == "" {
-				retval = append(retval,
-					fmt.Sprintf("%s is unnamed which does not follow Istio conventions",
-						port.TargetPort.String()))
-			} else {
-				retval = append(retval,
-					fmt.Sprintf("%s is named %q which does not follow Istio conventions",
-						port.TargetPort.String(), port.Name))
-			}
-		}
 	}
 
 	return retval
@@ -540,7 +521,7 @@ func printService(writer io.Writer, svc v1.Service, pod *v1.Pod, istioVersion *m
 		nport, err := pilotcontroller.FindPort(pod, &port)
 		if err == nil {
 			var protocol string
-			if port.Name == "" && supportsProtocolDetection(istioVersion) {
+			if port.Name == "" {
 				protocol = "auto-detect"
 			} else {
 				protocol = string(servicePortProtocol(port.Name))
@@ -548,7 +529,7 @@ func printService(writer io.Writer, svc v1.Service, pod *v1.Pod, istioVersion *m
 
 			fmt.Fprintf(writer, "   Port: %s %d/%s targets pod port %d\n", port.Name, port.Port, protocol, nport)
 		}
-		msgs := validatePort(port, pod, istioVersion)
+		msgs := validatePort(port, pod)
 		for _, msg := range msgs {
 			fmt.Fprintf(writer, "   %s\n", msg)
 		}

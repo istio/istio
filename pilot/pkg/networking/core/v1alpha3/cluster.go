@@ -997,7 +997,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSetting
 	// Apply auto mtls to clusters excluding these kind of headless service
 	if cluster.GetType() != apiv2.Cluster_ORIGINAL_DST {
 		// convert to transport socket matcher if the mode was auto detected
-		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected && util.IsIstioVersionGE14(proxy) {
+		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected {
 			transportSocket := cluster.TransportSocket
 			cluster.TransportSocket = nil
 			cluster.TransportSocketMatches = []*apiv2.Cluster_TransportSocketMatch{
