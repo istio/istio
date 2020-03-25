@@ -19,15 +19,16 @@ import (
 	"strings"
 	"testing"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/golang/protobuf/ptypes/wrappers"
+
+	corepb "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 )
 
 func TestCidrRange(t *testing.T) {
 	testCases := []struct {
 		Name   string
 		V      string
-		Expect *core.CidrRange
+		Expect *corepb.CidrRange
 		Err    string
 	}{
 		{
@@ -48,7 +49,7 @@ func TestCidrRange(t *testing.T) {
 		{
 			Name: "valid cidr range",
 			V:    "192.168.0.0/16",
-			Expect: &core.CidrRange{
+			Expect: &corepb.CidrRange{
 				AddressPrefix: "192.168.0.0",
 				PrefixLen:     &wrappers.UInt32Value{Value: 16},
 			},
@@ -61,7 +62,7 @@ func TestCidrRange(t *testing.T) {
 		{
 			Name: "valid ipv4 address",
 			V:    "192.168.0.0",
-			Expect: &core.CidrRange{
+			Expect: &corepb.CidrRange{
 				AddressPrefix: "192.168.0.0",
 				PrefixLen:     &wrappers.UInt32Value{Value: 32},
 			},
@@ -69,7 +70,7 @@ func TestCidrRange(t *testing.T) {
 		{
 			Name: "valid ipv6 address",
 			V:    "2001:abcd:85a3::8a2e:370:1234",
-			Expect: &core.CidrRange{
+			Expect: &corepb.CidrRange{
 				AddressPrefix: "2001:abcd:85a3::8a2e:370:1234",
 				PrefixLen:     &wrappers.UInt32Value{Value: 128},
 			},
