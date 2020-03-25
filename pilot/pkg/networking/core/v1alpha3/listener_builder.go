@@ -463,14 +463,13 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
 		}
 
 		in := &plugin.InputParams{
-			ListenerProtocol:           istionetworking.ListenerProtocolHTTP,
-			DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
-			Node:                       node,
-			ServiceInstance:            dummyServiceInstance,
-			Port:                       port,
-			Push:                       push,
-			Bind:                       matchingIP,
-			InboundClusterName:         clusterName,
+			ListenerProtocol:   istionetworking.ListenerProtocolHTTP,
+			Node:               node,
+			ServiceInstance:    dummyServiceInstance,
+			Port:               port,
+			Push:               push,
+			Bind:               matchingIP,
+			InboundClusterName: clusterName,
 		}
 		mutable := &istionetworking.MutableObjects{
 			FilterChains: []istionetworking.FilterChain{

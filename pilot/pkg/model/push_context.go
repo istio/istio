@@ -21,7 +21,6 @@ import (
 	"sync"
 	"time"
 
-	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/monitoring"
@@ -119,9 +118,6 @@ type PushContext struct {
 	// Config interface for listing routing rules
 	IstioConfigStore `json:"-"`
 
-	// AuthNPolicies contains a map of hostname and port to authentication policy
-	AuthnPolicies processedAuthnPolicies `json:"-"`
-
 	// AuthnBetaPolicies contains (beta) Authn policies by namespace.
 	AuthnBetaPolicies *AuthenticationPolicies `json:"-"`
 
@@ -147,20 +143,6 @@ type processedDestRules struct {
 	hosts []host.Name
 	// Map of dest rule host and the merged destination rules for that host
 	destRule map[host.Name]*combinedDestinationRule
-}
-
-type processedAuthnPolicies struct {
-	policies map[host.Name][]*authnPolicyByPort
-	// default cluster-scoped (global) policy to be used if no other authn policy is found
-	defaultMeshPolicy     *authn.Policy
-	defaultMeshPolicyMeta *ConfigMeta
-}
-
-type authnPolicyByPort struct {
-	portSelector *authn.PortSelector
-	policy       *authn.Policy
-	// store the config metadata for debugging purposes.
-	configMeta *ConfigMeta
 }
 
 // XDSUpdater is used for direct updates of the xDS model and incremental push.
@@ -510,9 +492,6 @@ func NewPushContext() *PushContext {
 		ServiceByHostnameAndNamespace:     map[host.Name]map[string]*Service{},
 		ProxyStatus:                       map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:                   map[host.Name]map[int][]string{},
-		AuthnPolicies: processedAuthnPolicies{
-			policies: map[host.Name][]*authnPolicyByPort{},
-		},
 	}
 }
 
@@ -1008,7 +987,6 @@ func (ps *PushContext) updateContext(
 			return err
 		}
 	} else {
-		ps.AuthnPolicies = oldPushContext.AuthnPolicies
 		ps.AuthnBetaPolicies = oldPushContext.AuthnBetaPolicies
 	}
 
@@ -1129,64 +1107,7 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 		return initBetaPolicyErro
 	}
 
-	// Processing alpha policy. This will be removed after beta API released.
-	authNPolicies, err := env.List(collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind(), NamespaceAll)
-	if err != nil {
-		return err
-	}
-
-	sortConfigByCreationTime(authNPolicies)
-	ps.AuthnPolicies = processedAuthnPolicies{
-		policies: map[host.Name][]*authnPolicyByPort{},
-	}
-
-	for idx := range authNPolicies {
-		// golang pass every thing by value, so do this to access to the config object by pointer.
-		spec := &authNPolicies[idx]
-		policy := spec.Spec.(*authn.Policy)
-		// Fill JwksURI if missing. Ignoring error, as when it happens, jwksURI will be left empty
-		// and result in rejecting all request. This is acceptable behavior when JWT spec is not complete
-		// to run Jwt validation.
-		_ = JwtKeyResolver.SetAuthenticationPolicyJwksURIs(policy)
-
-		if len(policy.Targets) > 0 {
-			for _, dest := range policy.Targets {
-				hostName := ResolveShortnameToFQDN(dest.Name, spec.ConfigMeta)
-				if len(dest.Ports) > 0 {
-					for _, port := range dest.Ports {
-						ps.addAuthnPolicy(hostName, port, policy, &spec.ConfigMeta)
-					}
-				} else {
-					ps.addAuthnPolicy(hostName, nil, policy, &spec.ConfigMeta)
-				}
-
-			}
-		} else {
-			// if no targets provided, store at namespace level
-			// TODO GregHanson possible refactor so namespace is not cast to host.Name
-			ps.addAuthnPolicy(host.Name(spec.Namespace), nil, policy, &spec.ConfigMeta)
-		}
-	}
-
-	if specs, err := env.List(collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().GroupVersionKind(), NamespaceAll); err == nil {
-		for _, spec := range specs {
-			if spec.Name == constants.DefaultAuthenticationPolicyName {
-				ps.AuthnPolicies.defaultMeshPolicy = spec.Spec.(*authn.Policy)
-				ps.AuthnPolicies.defaultMeshPolicyMeta = &spec.ConfigMeta
-				break
-			}
-		}
-	}
-
 	return nil
-}
-
-func (ps *PushContext) addAuthnPolicy(hostname host.Name, selector *authn.PortSelector, policy *authn.Policy, configMeta *ConfigMeta) {
-	ps.AuthnPolicies.policies[hostname] = append(ps.AuthnPolicies.policies[hostname], &authnPolicyByPort{
-		policy:       policy,
-		configMeta:   configMeta,
-		portSelector: selector,
-	})
 }
 
 // Caches list of virtual services
@@ -1419,57 +1340,12 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 	// values returned from ConfigStore.List are immutable.
 	// Therefore, we make a copy
 	destRules := make([]Config, len(configs))
-
 	for i := range destRules {
 		destRules[i] = configs[i].DeepCopy()
 	}
 
 	ps.SetDestinationRules(destRules)
 	return nil
-}
-
-// AuthenticationPolicyForWorkload returns the matching auth policy for a given service
-// This replaces store.AuthenticationPolicyForWorkload
-func (ps *PushContext) AuthenticationPolicyForWorkload(service *Service, port *Port) (*authn.Policy, *ConfigMeta) {
-	// Match by Service hostname
-	if workloadPolicy, configMeta := authenticationPolicyForWorkload(
-		ps.AuthnPolicies.policies[service.Hostname], port); workloadPolicy != nil {
-		return workloadPolicy, configMeta
-	}
-
-	// Match by namespace
-	if workloadPolicy, configMeta := authenticationPolicyForWorkload(
-		ps.AuthnPolicies.policies[host.Name(service.Attributes.Namespace)], port); workloadPolicy != nil {
-		return workloadPolicy, configMeta
-	}
-
-	// Use default global authentication policy if no others found
-	return ps.AuthnPolicies.defaultMeshPolicy, ps.AuthnPolicies.defaultMeshPolicyMeta
-}
-
-func authenticationPolicyForWorkload(policiesByPort []*authnPolicyByPort, port *Port) (*authn.Policy, *ConfigMeta) {
-	var matchedPolicy *authn.Policy
-	var matchedMeta *ConfigMeta
-	if policiesByPort == nil {
-		return nil, nil
-	}
-
-	for i, policyByPort := range policiesByPort {
-		// TODO GregHanson correct default behavior if no port specified?
-		// issue #17278
-		if policyByPort.portSelector == nil && matchedPolicy == nil {
-			matchedPolicy = policiesByPort[i].policy
-			matchedMeta = policiesByPort[i].configMeta
-		}
-
-		if port != nil && policyByPort.portSelector != nil && port.Match(policyByPort.portSelector) {
-			matchedPolicy = policiesByPort[i].policy
-			matchedMeta = policiesByPort[i].configMeta
-			break
-		}
-	}
-
-	return matchedPolicy, matchedMeta
 }
 
 // SetDestinationRules is updates internal structures using a set of configs.
@@ -1637,7 +1513,6 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 				}
 			}
 		}
-		out.DeprecatedFilters = append(out.DeprecatedFilters, efw.DeprecatedFilters...)
 	}
 
 	return out
@@ -1809,13 +1684,6 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(service *Service, port *Po
 	// If the mode is not unknown, use it.
 	if serviceMTLSMode := ps.AuthnBetaPolicies.GetNamespaceMutualTLSMode(service.Attributes.Namespace); serviceMTLSMode != MTLSUnknown {
 		return serviceMTLSMode
-	}
-
-	// Namespace/Mesh PeerAuthentication does not exist, check alpha authN policy.
-	policy, _ := ps.AuthenticationPolicyForWorkload(service, port)
-	if policy != nil {
-		// If alpha authN policy exist, used the mode defined by the policy.
-		return v1alpha1PolicyToMutualTLSMode(policy)
 	}
 
 	// When all are failed, default to permissive.

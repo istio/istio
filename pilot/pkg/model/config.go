@@ -23,8 +23,6 @@ import (
 	"istio.io/pkg/ledger"
 
 	udpa "github.com/cncf/udpa/go/udpa/type/v1"
-	"github.com/mitchellh/copystructure"
-
 	"github.com/gogo/protobuf/proto"
 
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -231,9 +229,6 @@ type IstioConfigStore interface {
 	// Gateways lists all gateways bound to the specified workload labels
 	Gateways(workloadLabels labels.Collection) []Config
 
-	// EnvoyFilter lists the envoy filter configuration bound to the specified workload labels
-	EnvoyFilter(workloadLabels labels.Collection) *Config
-
 	// QuotaSpecByDestination selects Mixerclient quota specifications
 	// associated with destination service instances.
 	QuotaSpecByDestination(instance *ServiceInstance) []Config
@@ -426,34 +421,6 @@ func (store *istioConfigStore) Gateways(workloadLabels labels.Collection) []Conf
 		}
 	}
 	return out
-}
-
-func (store *istioConfigStore) EnvoyFilter(workloadLabels labels.Collection) *Config {
-	configs, err := store.List(collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind(), NamespaceAll)
-	if err != nil {
-		return nil
-	}
-
-	sortConfigByCreationTime(configs)
-
-	// When there are multiple envoy filter configurations for a workload
-	// merge them instead of randomly picking one
-	mergedFilterConfig := &networking.EnvoyFilter{}
-
-	for _, cfg := range configs {
-		filter := cfg.Spec.(*networking.EnvoyFilter)
-		// if there is no workload selector, the filter applies to all workloads
-		// if there is a workload selector, check for matching workload labels
-		if filter.WorkloadLabels != nil {
-			workloadSelector := labels.Instance(filter.WorkloadLabels)
-			if !workloadLabels.IsSupersetOf(workloadSelector) {
-				continue
-			}
-		}
-		mergedFilterConfig.Filters = append(mergedFilterConfig.Filters, filter.Filters...)
-	}
-
-	return &Config{Spec: mergedFilterConfig}
 }
 
 // matchWildcardService matches destinationHost to a wildcarded svc.
@@ -653,13 +620,8 @@ func SortQuotaSpec(specs []Config) {
 }
 
 func (c Config) DeepCopy() Config {
-	copied, err := copystructure.Copy(c)
-	if err != nil {
-		// There are 2 locations where errors are generated in copystructure.Copy:
-		//  * The reflection walk over the structure fails, which should never happen
-		//  * A configurable copy function returns an error. This is only used for copying times, which never returns an error.
-		// Therefore, this should never happen
-		panic(err)
-	}
-	return copied.(Config)
+	var clone Config
+	clone.ConfigMeta = c.ConfigMeta
+	clone.Spec = proto.Clone(c.Spec)
+	return clone
 }

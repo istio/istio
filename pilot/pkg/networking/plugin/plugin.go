@@ -46,9 +46,6 @@ type InputParams struct {
 	// ListenerCategory is the type of listener (sidecar_inbound, sidecar_outbound, gateway). Must be set
 	ListenerCategory networking.EnvoyFilter_PatchContext
 
-	// TODO: Remove me when listener match is in place
-	DeprecatedListenerCategory networking.EnvoyFilter_DeprecatedListenerMatch_ListenerType
-
 	// Node is the node the response is for.
 	Node *model.Proxy
 	// ServiceInstance is the service instance colocated with the listener (applies to sidecar).

@@ -18,8 +18,6 @@ import (
 	"sort"
 	"strings"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pkg/config/constants"
@@ -79,15 +77,6 @@ type SidecarScope struct {
 	// destination rule.
 	destinationRules map[host.Name]*Config
 
-	// A given hostname should only be considered in a single namespace. This mapping determines which
-	// namespace a hostname exists in
-	NamespaceForHostname map[host.Name]string
-
-	// CDSOutboundClusters is the CDS output for sidecars that map to this
-	// sidecarScope object. Contains the outbound clusters only, indexed
-	// by localities
-	CDSOutboundClusters map[string][]*xdsapi.Cluster
-
 	// OutboundTrafficPolicy defines the outbound traffic policy for this sidecar.
 	// If OutboundTrafficPolicy is ALLOW_ANY traffic to unknown destinations will
 	// be forwarded.
@@ -138,18 +127,6 @@ type IstioEgressListenerWrapper struct {
 	virtualServices []Config
 }
 
-func createNamespaceForHostname(egress []*IstioEgressListenerWrapper) map[host.Name]string {
-	var namespaceForHostname = make(map[host.Name]string)
-	for _, egress := range egress {
-		for _, svc := range egress.Services() {
-			if _, f := namespaceForHostname[svc.Hostname]; !f {
-				namespaceForHostname[svc.Hostname] = svc.Attributes.Namespace
-			}
-		}
-	}
-	return namespaceForHostname
-}
-
 // DefaultSidecarScope is a sidecar scope object with a default catch all egress listener
 // that matches the default Istio behavior: a sidecar has listeners for all services in the mesh
 // We use this scope when the user has not set any sidecar Config for a given config namespace.
@@ -172,8 +149,6 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		destinationRules:      make(map[host.Name]*Config),
 		namespaceDependencies: make(map[string]struct{}),
 	}
-	out.NamespaceForHostname = createNamespaceForHostname(out.EgressListeners)
-
 	// Now that we have all the services that sidecars using this scope (in
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
@@ -205,7 +180,6 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 		out.EgressListeners = append(out.EgressListeners,
 			convertIstioListenerToWrapper(ps, configNamespace, e))
 	}
-	out.NamespaceForHostname = createNamespaceForHostname(out.EgressListeners)
 
 	// Now collect all the imported services across all egress listeners in
 	// this sidecar crd. This is needed to generate CDS output

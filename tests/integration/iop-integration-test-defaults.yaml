@@ -1,0 +1,70 @@
+# This file provides some defaults for integration testing.
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  components:
+    egressGateways:
+    - name: istio-egressgateway
+      enabled: false
+  addonComponents:
+    prometheus:
+      enabled: false
+  values:
+    global:
+      proxy:
+        concurrency: 0
+        resources:
+          requests:
+            cpu: 10m
+            memory: 40Mi
+
+        accessLogFile: "/dev/stdout"
+
+    prometheus:
+      scrapeInterval: 5s
+
+    gateways:
+      istio-ingressgateway:
+        autoscaleMax: 1
+        resources:
+          requests:
+            cpu: 10m
+            memory: 40Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+
+      istio-egressgateway:
+        autoscaleMax: 1
+        resources:
+          requests:
+            cpu: 10m
+            memory: 40Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+
+    mixer:
+      policy:
+        replicaCount: 2
+        autoscaleEnabled: false
+        resources:
+          requests:
+            cpu: 10m
+            memory: 100Mi
+          limits:
+            cpu: 100m
+            memory: 100Mi
+      telemetry:
+        loadshedding:
+          mode: disabled
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
+          limits:
+            cpu: 100m
+            memory: 100Mi
+      adapters:
+        stdio:
+          enabled: true
