@@ -287,7 +287,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		if s.DNSListener != nil {
 			dnsSvc := dns.InitCoreDNS(s.secureGRPCServerDNS, "", s.environment.IstioConfigStore)
-			dnsSvc.StartDNS(s.DNSListener)
+			go dnsSvc.StartDNS(s.DNSListener)
 		}
 		return nil
 	})
