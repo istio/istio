@@ -24,6 +24,8 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/test/cert/ca"
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/env"
@@ -173,19 +175,8 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	return i, nil
 }
 
-func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, iopFile string) error {
-	// Create an istioctl to configure this cluster.
-	istioCtl, err := istioctl.New(c.ctx, istioctl.Config{
-		Cluster: cluster,
-	})
-	if err != nil {
-		return err
-	}
-
-	s, err := image.SettingsFromCommandLine()
-	if err != nil {
-		return err
-	}
+func deployWithIstioCtl(c *operatorComponent, cfg Config, cluster kube.Cluster, iopFile string,
+						istioCtl istioctl.Instance, s *image.Settings) error {
 	defaultsIOPFile := cfg.IOPFile
 	if !path.IsAbs(defaultsIOPFile) {
 		defaultsIOPFile = filepath.Join(env.IstioSrc, defaultsIOPFile)
@@ -232,6 +223,106 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 	}
 
 	return nil
+}
+
+// mergedToCRFile is a helper function to convert different overlay files and set overlays into IstioOperator CR file.
+func mergedToCRFile(c *operatorComponent, cfg Config, cluster kube.Cluster, defaultsIOPFile string, iopFile string) (string, error){
+	defaultIOP, err := ioutil.ReadFile(defaultsIOPFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to read default IOP file: %v", err)
+	}
+	iopFileOverlay, err := ioutil.ReadFile(iopFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to read IOP overlay file: %v", err)
+	}
+    mergedIOP, err := util.OverlayYAML(string(defaultIOP), string(iopFileOverlay))
+    if err != nil {
+		return "", fmt.Errorf("failed to overlay IOP with default file: %v", err)
+	}
+	var setOverlay []string
+	if cfg.ControlPlaneValues == "" {
+		for k, v := range cfg.Values {
+			setOverlay = append(setOverlay, fmt.Sprintf("values.%s=%s", k, v))
+		}
+	}
+	if c.environment.IsMulticluster() {
+		setOverlay = append(setOverlay, "values.global.multiCluster.clusterName="+cluster.Name())
+	}
+	setYAMLTree, err := tpath.MakeTreeFromSetList(setOverlay)
+	if err != nil {
+		return "", err
+	}
+	mergedIOP, err = util.OverlayYAML(mergedIOP, setYAMLTree)
+	if err != nil {
+		return "", fmt.Errorf("failed to overlay set yaml tree: %v", err)
+	}
+
+	metadataYAML := `
+metadata:
+  name: test-istiocontrolplane
+  namespace: istio-system
+`
+	mergedIOP, err = util.OverlayYAML(mergedIOP, metadataYAML)
+	if err != nil {
+		return "", fmt.Errorf("failed to overlay metadata: %v", err)
+	}
+	workDir := filepath.Dir(iopFile)
+	outCRFile := filepath.Join(workDir, "iop_cr.yaml")
+	if err := ioutil.WriteFile(outCRFile, []byte(mergedIOP), os.ModePerm); err != nil {
+		return "", fmt.Errorf("failed to write iop: %v", err)
+	}
+    return outCRFile, nil
+}
+
+func deployWithController(c *operatorComponent, cfg Config, cluster kube.Cluster, iopFile string,
+				istioCtl istioctl.Instance, s *image.Settings) error {
+    //TODO: combine different overlay files, set overlay into one CR
+	defaultsIOPFile := cfg.IOPFile
+	if !path.IsAbs(defaultsIOPFile) {
+		defaultsIOPFile = filepath.Join(env.IstioSrc, defaultsIOPFile)
+	}
+	mergedCRFile, err := mergedToCRFile(c, cfg, cluster, defaultsIOPFile, iopFile)
+
+	s, err = image.SettingsFromCommandLine()
+	if err != nil {
+		return err
+	}
+	cmd := []string{
+		"operator", "init",
+		"--wait",
+		"-f", mergedCRFile,
+		"--hub=" + s.Hub,
+		"--tag=" + s.Tag,
+	}
+
+	scopes.CI.Infof("Running operator controller: %v to install Istio Control Plane", cmd)
+	_, err = istioCtl.Invoke(cmd)
+	if err != nil {
+		return fmt.Errorf("operator init failed: %v", err)
+	}
+
+	return nil
+}
+
+func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, iopFile string) error {
+	// Create an istioctl to configure this cluster.
+	istioCtl, err := istioctl.New(c.ctx, istioctl.Config{
+		Cluster: cluster,
+	})
+	if err != nil {
+		return err
+	}
+
+	s, err := image.SettingsFromCommandLine()
+	if err != nil {
+		return err
+	}
+
+	if cfg.OperatorController {
+		return deployWithController(c, cfg, cluster, iopFile, istioCtl, s)
+	} else {
+		return deployWithIstioCtl(c, cfg, cluster, iopFile, istioCtl, s)
+	}
 }
 
 func waitForControlPlane(dumper resource.Dumper, cluster kube.Cluster, cfg Config) error {

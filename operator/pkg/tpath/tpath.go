@@ -26,11 +26,13 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
+	"strings"
 
 	yaml2 "github.com/ghodss/yaml"
 	"github.com/kylelemons/godebug/pretty"
 	"gopkg.in/yaml.v2"
 
+	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
 )
@@ -640,4 +642,37 @@ func GetConfigSubtree(manifest, path string) (string, error) {
 		return "", err
 	}
 	return string(out), nil
+}
+
+// MakeTreeFromSetList creates a YAML tree from a string slice containing key-value pairs in the format key=value.
+func MakeTreeFromSetList(setOverlay []string) (string, error) {
+	if len(setOverlay) == 0 {
+		return "", nil
+	}
+	tree := make(map[string]interface{})
+	for _, kv := range setOverlay {
+		kvv := strings.Split(kv, "=")
+		if len(kvv) != 2 {
+			return "", fmt.Errorf("bad argument %s: expect format key=value", kv)
+		}
+		k := kvv[0]
+		v := util.ParseValue(kvv[1])
+		if err := WriteNode(tree, util.PathFromString(k), v); err != nil {
+			return "", err
+		}
+		// To make errors more user friendly, test the path and error out immediately if we cannot unmarshal.
+		testTree, err := yaml.Marshal(tree)
+		if err != nil {
+			return "", err
+		}
+		iops := &v1alpha1.IstioOperatorSpec{}
+		if err := util.UnmarshalWithJSONPB(string(testTree), iops, false); err != nil {
+			return "", fmt.Errorf("bad path=value: %s", kv)
+		}
+	}
+	out, err := yaml.Marshal(tree)
+	if err != nil {
+		return "", err
+	}
+	return AddSpecRoot(string(out))
 }

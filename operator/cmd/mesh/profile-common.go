@@ -306,7 +306,7 @@ func getClusterSpecificValues(config *rest.Config, force bool, l *Logger) (strin
 		overlays = append(overlays, jwt)
 	}
 
-	return makeTreeFromSetList(overlays)
+	return tpath.MakeTreeFromSetList(overlays)
 
 }
 

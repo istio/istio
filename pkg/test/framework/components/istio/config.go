@@ -65,6 +65,7 @@ var (
 		IngressNamespace:               DefaultSystemNamespace,
 		EgressNamespace:                DefaultSystemNamespace,
 		DeployIstio:                    true,
+		OperatorController:             false,
 		DeployTimeout:                  0,
 		UndeployTimeout:                0,
 		IOPFile:                        IntegrationTestDefaultsIOP,
@@ -119,6 +120,9 @@ type Config struct {
 	// ControlPlaneTopology maps each cluster to the cluster that runs its control plane. For replicated control
 	// plane cases (where each cluster has its own control plane), the cluster will map to itself (e.g. 0->0).
 	ControlPlaneTopology map[resource.ClusterIndex]resource.ClusterIndex
+
+	// Indicates whether to deploy Istio using standalone operator
+	OperatorController bool
 
 	// Do not wait for the validation webhook before completing the deployment. This is useful for
 	// doing deployments without Galley.
