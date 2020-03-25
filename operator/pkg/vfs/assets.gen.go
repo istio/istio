@@ -151,7 +151,6 @@
 // charts/istio-telemetry/prometheus/templates/clusterrolebindings.yaml
 // charts/istio-telemetry/prometheus/templates/configmap.yaml
 // charts/istio-telemetry/prometheus/templates/deployment.yaml
-// charts/istio-telemetry/prometheus/templates/ingress.yaml
 // charts/istio-telemetry/prometheus/templates/service.yaml
 // charts/istio-telemetry/prometheus/templates/serviceaccount.yaml
 // charts/istio-telemetry/prometheus/templates/tests/test-prometheus-connection.yaml
@@ -41883,61 +41882,6 @@ func chartsIstioTelemetryPrometheusTemplatesDeploymentYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioTelemetryPrometheusTemplatesIngressYaml = []byte(`{{- if .Values.prometheus.ingress.enabled -}}
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  name: prometheus
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: prometheus
-    release: {{ .Release.Name }}
-  annotations:
-    {{- range $key, $value := .Values.prometheus.ingress.annotations }}
-      {{ $key }}: {{ $value | quote }}
-    {{- end }}
-spec:
-  rules:
-{{- if .Values.prometheus.ingress.hosts }}
-    {{- range $host := .Values.prometheus.ingress.hosts }}
-    - host: {{ $host }}
-      http:
-        paths:
-          - path: {{ if $.Values.prometheus.contextPath }} {{ $.Values.prometheus.contextPath }} {{ else }} / {{ end }}
-            backend:
-              serviceName: prometheus
-              servicePort: 9090
-    {{- end -}}
-{{- else }}
-    - http:
-        paths:
-          - path: {{ if .Values.prometheus.contextPath }} {{ .Values.prometheus.contextPath }} {{ else }} / {{ end }}
-            backend:
-              serviceName: prometheus
-              servicePort: 9090
-{{- end }}
-  {{- if .Values.prometheus.ingress.tls }}
-  tls:
-{{ toYaml .Values.prometheus.ingress.tls | indent 4 }}
-  {{- end -}}
-{{- end -}}
-`)
-
-func chartsIstioTelemetryPrometheusTemplatesIngressYamlBytes() ([]byte, error) {
-	return _chartsIstioTelemetryPrometheusTemplatesIngressYaml, nil
-}
-
-func chartsIstioTelemetryPrometheusTemplatesIngressYaml() (*asset, error) {
-	bytes, err := chartsIstioTelemetryPrometheusTemplatesIngressYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-telemetry/prometheus/templates/ingress.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _chartsIstioTelemetryPrometheusTemplatesServiceYaml = []byte(`apiVersion: v1
 kind: Service
 metadata:
@@ -46721,7 +46665,6 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-telemetry/prometheus/templates/clusterrolebindings.yaml":                 chartsIstioTelemetryPrometheusTemplatesClusterrolebindingsYaml,
 	"charts/istio-telemetry/prometheus/templates/configmap.yaml":                           chartsIstioTelemetryPrometheusTemplatesConfigmapYaml,
 	"charts/istio-telemetry/prometheus/templates/deployment.yaml":                          chartsIstioTelemetryPrometheusTemplatesDeploymentYaml,
-	"charts/istio-telemetry/prometheus/templates/ingress.yaml":                             chartsIstioTelemetryPrometheusTemplatesIngressYaml,
 	"charts/istio-telemetry/prometheus/templates/service.yaml":                             chartsIstioTelemetryPrometheusTemplatesServiceYaml,
 	"charts/istio-telemetry/prometheus/templates/serviceaccount.yaml":                      chartsIstioTelemetryPrometheusTemplatesServiceaccountYaml,
 	"charts/istio-telemetry/prometheus/templates/tests/test-prometheus-connection.yaml":    chartsIstioTelemetryPrometheusTemplatesTestsTestPrometheusConnectionYaml,
@@ -47028,7 +46971,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"clusterrolebindings.yaml": &bintree{chartsIstioTelemetryPrometheusTemplatesClusterrolebindingsYaml, map[string]*bintree{}},
 					"configmap.yaml":           &bintree{chartsIstioTelemetryPrometheusTemplatesConfigmapYaml, map[string]*bintree{}},
 					"deployment.yaml":          &bintree{chartsIstioTelemetryPrometheusTemplatesDeploymentYaml, map[string]*bintree{}},
-					"ingress.yaml":             &bintree{chartsIstioTelemetryPrometheusTemplatesIngressYaml, map[string]*bintree{}},
 					"service.yaml":             &bintree{chartsIstioTelemetryPrometheusTemplatesServiceYaml, map[string]*bintree{}},
 					"serviceaccount.yaml":      &bintree{chartsIstioTelemetryPrometheusTemplatesServiceaccountYaml, map[string]*bintree{}},
 					"tests": &bintree{nil, map[string]*bintree{
