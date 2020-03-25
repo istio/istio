@@ -560,9 +560,9 @@ func TestGetVersionCompatibleMap(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			uri := ""
 			if tt.filecontent != "" {
-				filePath, close := tempFile(t, tt.filecontent)
+				filePath, clean := tempFile(t, tt.filecontent)
 				uri = filePath
-				defer close()
+				defer clean()
 			}
 			if tt.httpuri != "" {
 				uri = tt.httpuri
@@ -616,7 +616,6 @@ func tempFile(t *testing.T, content string) (string, func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// return tmpfile
 
 	clean := func() {
 		_ = tmpfile.Close()
