@@ -30,7 +30,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 
 	"istio.io/api/policy/v1beta1"
-	ilt "istio.io/istio/mixer/pkg/il/testing"
+	"istio.io/istio/mixer/pkg/il/testing"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/pkg/attribute"
 )
@@ -267,15 +267,15 @@ var (
 			referenced: []string{"context.reporter.kind"},
 		},
 		{
-			text:       `as`,
+			text:       `abc`,
 			result:     "",
-			referenced: []string{"-as"},
+			referenced: []string{"-abc"},
 		},
 		{
-			text:       `as`,
-			bag:        map[string]interface{}{"as": "test"},
+			text:       `abc`,
+			bag:        map[string]interface{}{"abc": "test"},
 			result:     "test",
-			referenced: []string{"as"},
+			referenced: []string{"abc"},
 		},
 		{
 			text:       `context.reporter.kind`,
@@ -474,7 +474,7 @@ var (
 			result: "ab",
 		},
 		{
-			text:       `conditional(context.reporter.kind == "client", pick(as, "test"), "inbound")`,
+			text:       `conditional(context.reporter.kind == "client", pick(abc, "test"), "inbound")`,
 			result:     "inbound",
 			referenced: []string{"-context.reporter.kind"},
 		},
@@ -596,7 +596,7 @@ var (
 		},
 		{
 			text:   `{}.a`,
-			result: errors.New("no such key: 'a'"),
+			result: errors.New("no such key: a"),
 		},
 		{
 			text:   `{'a':'b'}["a"]`,
@@ -615,7 +615,7 @@ var (
 			result: int64(1),
 		},
 		{
-			text:       `request.size + google.protobuf.Int64Value{value: 1}.value`,
+			text:       `request.size + google.protobuf.Int64Value{value: 1}`,
 			bag:        map[string]interface{}{"request.size": int64(123)},
 			result:     int64(124),
 			referenced: []string{"request.size"},
@@ -653,7 +653,7 @@ var (
 		},
 	}
 	attrs = map[string]*v1beta1.AttributeManifest_AttributeInfo{
-		"as":                        {ValueType: v1beta1.STRING},
+		"abc":                       {ValueType: v1beta1.STRING},
 		"connection.duration":       {ValueType: v1beta1.DURATION},
 		"connection.id":             {ValueType: v1beta1.STRING},
 		"connection.received.bytes": {ValueType: v1beta1.INT64},
