@@ -1513,7 +1513,6 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 				}
 			}
 		}
-		out.DeprecatedFilters = append(out.DeprecatedFilters, efw.DeprecatedFilters...)
 	}
 
 	return out
