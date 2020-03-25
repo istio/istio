@@ -17,12 +17,13 @@ package mesh
 import (
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/test/env"
 	"os"
 	"path"
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"istio.io/istio/pkg/test/env"
 
 	"github.com/kr/pretty"
 

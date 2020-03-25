@@ -21,8 +21,9 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"istio.io/istio/pkg/kube"
 	"os"
+
+	"istio.io/istio/pkg/kube"
 
 	"github.com/spf13/cobra"
 
