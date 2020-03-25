@@ -504,12 +504,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			pluginParams := &plugin.InputParams{
 				ListenerProtocol: istionetworking.ModelProtocolToListenerProtocol(node, instance.ServicePort.Protocol,
 					core.TrafficDirection_INBOUND),
-				DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
-				Node:                       node,
-				ServiceInstance:            instance,
-				Port:                       instance.ServicePort,
-				Push:                       push,
-				Bind:                       bind,
+				ListenerCategory: networking.EnvoyFilter_SIDECAR_INBOUND,
+				Node:             node,
+				ServiceInstance:  instance,
+				Port:             instance.ServicePort,
+				Push:             push,
+				Bind:             bind,
 			}
 
 			if l := configgen.buildSidecarInboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap); l != nil {
@@ -568,12 +568,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			pluginParams := &plugin.InputParams{
 				ListenerProtocol: istionetworking.ModelProtocolToListenerProtocol(node, listenPort.Protocol,
 					core.TrafficDirection_INBOUND),
-				DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
-				Node:                       node,
-				ServiceInstance:            instance,
-				Port:                       listenPort,
-				Push:                       push,
-				Bind:                       bind,
+				ListenerCategory: networking.EnvoyFilter_SIDECAR_INBOUND,
+				Node:             node,
+				ServiceInstance:  instance,
+				Port:             listenPort,
+				Push:             push,
+				Bind:             bind,
 			}
 
 			if l := configgen.buildSidecarInboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap); l != nil {
@@ -961,12 +961,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 				pluginParams := &plugin.InputParams{
 					ListenerProtocol: istionetworking.ModelProtocolToListenerProtocol(node, listenPort.Protocol,
 						core.TrafficDirection_OUTBOUND),
-					DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
-					Node:                       node,
-					Push:                       push,
-					Bind:                       bind,
-					Port:                       listenPort,
-					Service:                    service,
+					ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+					Node:             node,
+					Push:             push,
+					Bind:             bind,
+					Port:             listenPort,
+					Service:          service,
 				}
 
 				configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
@@ -1018,12 +1018,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 					pluginParams := &plugin.InputParams{
 						ListenerProtocol: istionetworking.ModelProtocolToListenerProtocol(node, servicePort.Protocol,
 							core.TrafficDirection_OUTBOUND),
-						DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
-						Node:                       node,
-						Push:                       push,
-						Bind:                       bind,
-						Port:                       servicePort,
-						Service:                    service,
+						ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+						Node:             node,
+						Push:             push,
+						Bind:             bind,
+						Port:             servicePort,
+						Service:          service,
 					}
 
 					// Support Kubernetes statefulsets/headless services with TCP ports only.
@@ -1709,13 +1709,13 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(
 	}
 
 	pluginParams := &plugin.InputParams{
-		ListenerProtocol:           istionetworking.ListenerProtocolTCP,
-		DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
-		Node:                       node,
-		Push:                       push,
-		Bind:                       "",
-		Port:                       redirectPort,
-		Service:                    svc,
+		ListenerProtocol: istionetworking.ListenerProtocolTCP,
+		ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+		Node:             node,
+		Push:             push,
+		Bind:             "",
+		Port:             redirectPort,
+		Service:          svc,
 	}
 
 	mutable := &istionetworking.MutableObjects{
@@ -1787,11 +1787,11 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, push *model.PushContext
 				FilterChains: []istionetworking.FilterChain{{}},
 			}
 			pluginParams := &plugin.InputParams{
-				ListenerProtocol:           istionetworking.ListenerProtocolTCP,
-				DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
-				Push:                       push,
-				Node:                       node,
-				Port:                       mPort,
+				ListenerProtocol: istionetworking.ListenerProtocolTCP,
+				ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				Push:             push,
+				Node:             node,
+				Port:             mPort,
 			}
 			// TODO: should we call plugins for the admin port listeners too? We do everywhere else we construct listeners.
 			if err := buildCompleteFilterChain(pluginParams, mutable, listenerOpts); err != nil {
@@ -1884,8 +1884,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 
 	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
 	if util.IsIstioVersionGE14(pluginParams.Node) &&
-		(pluginParams.ListenerCategory == networking.EnvoyFilter_SIDECAR_OUTBOUND ||
-			pluginParams.DeprecatedListenerCategory == networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND) {
+		(pluginParams.ListenerCategory == networking.EnvoyFilter_SIDECAR_OUTBOUND) {
 		filters = append(filters, &http_conn.HttpFilter{
 			Name: AlpnFilterName,
 			ConfigType: &http_conn.HttpFilter_TypedConfig{

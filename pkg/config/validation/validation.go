@@ -483,38 +483,9 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 			return fmt.Errorf("cannot cast to Envoy filter")
 		}
 
-		if len(rule.Filters) > 0 {
-			scope.Warn("Envoy filter: Filters is deprecated. use configPatches instead") // nolint: golint,stylecheck
-		}
-
-		if rule.WorkloadLabels != nil {
-			scope.Warn("Envoy filter: workloadLabels is deprecated. use workloadSelector instead") // nolint: golint,stylecheck
-		}
-
 		if rule.WorkloadSelector != nil {
 			if rule.WorkloadSelector.GetLabels() == nil {
 				errs = appendErrors(errs, fmt.Errorf("Envoy filter: workloadSelector cannot have empty labels")) // nolint: golint,stylecheck
-			}
-		}
-
-		for _, f := range rule.Filters {
-			if f.InsertPosition != nil {
-				if f.InsertPosition.Index == networking.EnvoyFilter_InsertPosition_BEFORE ||
-					f.InsertPosition.Index == networking.EnvoyFilter_InsertPosition_AFTER {
-					if f.InsertPosition.RelativeTo == "" {
-						errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing relativeTo filter with BEFORE/AFTER index")) // nolint: golint,stylecheck
-					}
-				}
-			}
-			if f.FilterType == networking.EnvoyFilter_Filter_INVALID {
-				errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing filter type")) // nolint: golint,stylecheck
-			}
-			if len(f.FilterName) == 0 {
-				errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing filter name")) // nolint: golint,stylecheck
-			}
-
-			if f.FilterConfig == nil {
-				errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing filter config")) // nolint: golint,stylecheck
 			}
 		}
 

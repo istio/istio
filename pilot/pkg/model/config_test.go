@@ -22,7 +22,6 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
@@ -781,55 +780,6 @@ func TestIstioConfigStore_Gateway(t *testing.T) {
 	cfgs := ii.Gateways(workloadLabels)
 
 	if !reflect.DeepEqual(expectedConfig, cfgs) {
-		t.Errorf("Got different Config, Excepted:\n%v\n, Got: \n%v\n", expectedConfig, cfgs)
-	}
-}
-
-func TestIstioConfigStore_EnvoyFilter(t *testing.T) {
-	ns := "ns1"
-	workloadLabels := labels.Collection{}
-
-	l := &fakeStore{
-		cfg: map[resource.GroupVersionKind][]model.Config{
-			collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind(): {
-				{
-					ConfigMeta: model.ConfigMeta{
-						Name:      "request-count",
-						Namespace: ns,
-					},
-					Spec: &networking.EnvoyFilter{
-						Filters: []*networking.EnvoyFilter_Filter{
-							{
-								InsertPosition: &networking.EnvoyFilter_InsertPosition{
-									Index: networking.EnvoyFilter_InsertPosition_FIRST,
-								},
-								FilterType:   networking.EnvoyFilter_Filter_NETWORK,
-								FilterName:   "envoy.foo",
-								FilterConfig: &types.Struct{},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	ii := model.MakeIstioStore(l)
-	mergedFilterConfig := &networking.EnvoyFilter{
-		Filters: []*networking.EnvoyFilter_Filter{
-			{
-				InsertPosition: &networking.EnvoyFilter_InsertPosition{
-					Index: networking.EnvoyFilter_InsertPosition_FIRST,
-				},
-				FilterType:   networking.EnvoyFilter_Filter_NETWORK,
-				FilterName:   "envoy.foo",
-				FilterConfig: &types.Struct{},
-			},
-		},
-	}
-	expectedConfig := &model.Config{Spec: mergedFilterConfig}
-	cfgs := ii.EnvoyFilter(workloadLabels)
-
-	if !reflect.DeepEqual(*expectedConfig, *cfgs) {
 		t.Errorf("Got different Config, Excepted:\n%v\n, Got: \n%v\n", expectedConfig, cfgs)
 	}
 }
