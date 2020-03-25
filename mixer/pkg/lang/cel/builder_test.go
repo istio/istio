@@ -30,7 +30,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 
 	"istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/il/testing"
+	ilt "istio.io/istio/mixer/pkg/il/testing"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/pkg/attribute"
 )
@@ -687,7 +687,7 @@ var (
 	}
 )
 
-func testExpression(env celgo.Env, provider *attributeProvider, test testCase, mutex sync.Locker) func(t *testing.T) {
+func testExpression(env *celgo.Env, provider *attributeProvider, test testCase, mutex sync.Locker) func(t *testing.T) {
 	return func(t *testing.T) {
 		t.Parallel()
 
@@ -760,6 +760,6 @@ func TestCELExpressions(t *testing.T) {
 	mutex := &sync.Mutex{}
 
 	for _, test := range tests {
-		t.Run(test.text, testExpression(*env, provider, test, mutex))
+		t.Run(test.text, testExpression(env, provider, test, mutex))
 	}
 }

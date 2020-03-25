@@ -40,7 +40,7 @@ const (
 type ExpressionBuilder struct {
 	mode     LanguageMode
 	provider *attributeProvider
-	env      celgo.Env
+	env      *celgo.Env
 }
 
 type expression struct {
@@ -99,7 +99,7 @@ func NewBuilder(finder attribute.AttributeDescriptorFinder, mode LanguageMode) *
 	return &ExpressionBuilder{
 		mode:     mode,
 		provider: provider,
-		env:      *env,
+		env:      env,
 	}
 }
 

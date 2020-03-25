@@ -7,7 +7,7 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "abc IS" BabcIS,
+// distributed under the License is distributed on an "as IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -38,7 +38,7 @@ var t2, _ = time.Parse(time.RFC3339, "2015-01-02T15:04:34Z")
 // TestData contains the common set of tests that is used by various components of il.
 var TestData = []TestInfo{
 
-	// Benchmark test cabces
+	// Benchmark test cases
 	{
 		name:  `ExprBench/ok_1st`,
 		Bench: true,
@@ -151,7 +151,7 @@ end`,
 		// top-level idents do not support presence
 		CEL:        true,
 		Err:        "lookup failed: 'a'",
-		astErr:     "unresolved attribute",
+		AstErr:     "unresolved attribute",
 		Referenced: []string{"-a"},
 		conf:       exprEvalAttrs,
 	},
@@ -164,7 +164,7 @@ end`,
 		// top-level idents do not support presence
 		CEL:        true,
 		Err:        "lookup failed: 'a'",
-		astErr:     "unresolved attribute",
+		AstErr:     "unresolved attribute",
 		Referenced: []string{"-a"},
 		conf:       exprEvalAttrs,
 	},
@@ -300,7 +300,7 @@ end`,
 		// top-level idents do not support presence
 		CEL:    false,
 		Err:    "lookup failed: 'x'",
-		astErr: "unresolved attribute",
+		AstErr: "unresolved attribute",
 		conf:   exprEvalAttrs,
 	},
 	{
@@ -438,7 +438,7 @@ end
 			"y": int64(10),
 		},
 		CompileErr: "unknown function: QUO",
-		astErr:     "unknown function: QUO",
+		AstErr:     "unknown function: QUO",
 		conf:       exprEvalAttrs,
 	},
 	{
@@ -463,7 +463,7 @@ end
 		},
 		Referenced: []string{"-request.header"},
 		Err:        "lookup failed: 'request.header'",
-		astErr:     "unresolved attribute",
+		AstErr:     "unresolved attribute",
 		conf:       exprEvalAttrs,
 	},
 	{
@@ -475,7 +475,7 @@ end
 			},
 		},
 		Err:    "lookup failed: 'headername'",
-		astErr: "unresolved attribute",
+		AstErr: "unresolved attribute",
 		conf:   exprEvalAttrs,
 	},
 	{
@@ -516,7 +516,7 @@ end
 			"service.name": 20,
 		},
 		Err:    "error converting value to string: '20'", // runtime error
-		astErr: "input 'str' to 'match' func wabc not a string",
+		AstErr: "input 'str' to 'match' func was not a string",
 		conf:   exprEvalAttrs,
 	},
 	{
@@ -529,7 +529,7 @@ end
 		Err: "lookup failed: 'service.name'",
 		// CEL always resolves attributes
 		CEL:        false,
-		astErr:     "unresolved attribute",
+		AstErr:     "unresolved attribute",
 		Referenced: []string{"-service.name"},
 		// CEL evaluates all arguments to a function since it does not error out on the first lookup failure
 		ReferencedCEL: []string{"-service.name", "servicename"},
@@ -544,7 +544,7 @@ end
 		Err: "lookup failed: 'servicename'",
 		// CEL always resolves attributes
 		CEL:    false,
-		astErr: "unresolved attribute",
+		AstErr: "unresolved attribute",
 		conf:   exprEvalAttrs,
 	},
 	{
@@ -553,7 +553,7 @@ end
 			"service.name": "svc1.ns2.cluster",
 		},
 		CompileErr: "match($service.name, 1) arg 2 (1) typeError got INT64, expected STRING",
-		astErr:     "input 'pattern' to 'match' func wabc not a string",
+		AstErr:     "input 'pattern' to 'match' func was not a string",
 		conf:       exprEvalAttrs,
 	},
 	{
@@ -571,7 +571,7 @@ end
 			"destination.ip": "",
 		},
 		CompileErr: "ip(2) arg 1 (2) typeError got INT64, expected STRING",
-		astErr:     "input to 'ip' func wabc not a string",
+		AstErr:     "input to 'ip' func was not a string",
 		conf:       exprEvalAttrs,
 	},
 	{
@@ -579,7 +579,7 @@ end
 		Type:   descriptor.IP_ADDRESS,
 		I:      map[string]interface{}{},
 		Err:    "could not convert 10.1.12 to IP_ADDRESS",
-		astErr: "could not convert '10.1.12' to IP_ADDRESS",
+		AstErr: "could not convert '10.1.12' to IP_ADDRESS",
 		conf:   exprEvalAttrs,
 	},
 	{
@@ -597,7 +597,7 @@ end
 			"request.time": "",
 		},
 		CompileErr: "timestamp(2) arg 1 (2) typeError got INT64, expected STRING",
-		astErr:     "input to 'timestamp' func wabc not a string",
+		AstErr:     "input to 'timestamp' func was not a string",
 		conf:       exprEvalAttrs,
 	},
 	{
@@ -605,7 +605,7 @@ end
 		Type:   descriptor.TIMESTAMP,
 		I:      map[string]interface{}{},
 		Err:    "could not convert '242233' to TIMESTAMP. expected format: '" + time.RFC3339 + "'",
-		astErr: "could not convert '242233' to TIMESTAMP. expected format: '" + time.RFC3339 + "'",
+		AstErr: "could not convert '242233' to TIMESTAMP. expected format: '" + time.RFC3339 + "'",
 		conf:   exprEvalAttrs,
 	},
 	{
@@ -647,7 +647,7 @@ end
 			"a": int64(2),
 		},
 		CompileErr: "unable to parse expression 'a = 2': 1:3: expected '==', found '='",
-		astErr:     "unable to parse",
+		AstErr:     "unable to parse",
 		conf:       exprEvalAttrs,
 	},
 	{
@@ -684,7 +684,7 @@ end
 		Err:  "lookup failed: 'a'",
 		// CEL always resolves attributes
 		CEL:    false,
-		astErr: "unresolved attribute",
+		AstErr: "unresolved attribute",
 		conf:   exprEvalAttrs,
 	},
 	{
@@ -701,7 +701,7 @@ end
 		Err:  "lookup failed: 'a'",
 		// CEL always resolves attributes
 		CEL:    false,
-		astErr: "unresolved attribute",
+		AstErr: "unresolved attribute",
 		conf:   exprEvalAttrs,
 	},
 
@@ -1734,9 +1734,9 @@ end`,
 	},
 
 	{
-		E:    `uri(abc | bs | "ftp://ftp.istio.io/releabces")`,
+		E:    `uri(abc | bs | "ftp://ftp.istio.io/releases")`,
 		Type: descriptor.URI,
-		R:    "ftp://ftp.istio.io/releabces",
+		R:    "ftp://ftp.istio.io/releases",
 		// CEL does not support top-level ident presence
 		CEL: errors.New("error converting"),
 		IL: `
@@ -1745,7 +1745,7 @@ end`,
   jnz L0
   tresolve_s "bs"
   jnz L0
-  apush_s "ftp://ftp.istio.io/releabces"
+  apush_s "ftp://ftp.istio.io/releases"
 L0:
   call uri
   ret
@@ -1753,7 +1753,7 @@ end`,
 	},
 
 	{
-		E:    `uri(abc | bs | "ftp://ftp.istio.io/releabces")`,
+		E:    `uri(abc | bs | "ftp://ftp.istio.io/releases")`,
 		Type: descriptor.URI,
 		I: map[string]interface{}{
 			"abc": "http://istio.io",
@@ -2941,12 +2941,12 @@ end`,
 	{
 		E:          `@23`,
 		CompileErr: "unable to parse expression '@23': 1:1: illegal character U+0040 '@'",
-		astErr:     "unable to parse expression '@23': 1:1: illegal character U+0040 '@'",
+		AstErr:     "unable to parse expression '@23': 1:1: illegal character U+0040 '@'",
 	},
 	{
 		E:          `ai == true`,
 		CompileErr: "EQ($ai, true) arg 2 (true) typeError got BOOL, expected INT64",
-		astErr:     "unresolved attribute ai",
+		AstErr:     "unresolved attribute ai",
 	},
 
 	{
@@ -5228,7 +5228,7 @@ end
 // expression => IL conversion, interpreter can use IL and I, R&Err for evaluation
 // tests and the evaluator can use expression and I, R&Err to test evaluation.
 type TestInfo struct {
-	// name is the explicit name supplied for the test. If it is not supplied, then the expression will be used abc name.
+	// name is the explicit name supplied for the test. If it is not supplied, then the expression will be used as name.
 	name string
 
 	// E contains the expression that is being tested.
@@ -5256,8 +5256,8 @@ type TestInfo struct {
 	// Err contains the expected error message prefix of a failed evaluation.
 	Err string
 
-	// astErr contains the expected error message of a failed evaluation, during ast evaluation.
-	astErr string
+	// AstErr contains the expected error message of a failed evaluation, during AST evaluation.
+	AstErr string
 
 	// CompileErr contains the expected error message for a failed compilation.
 	CompileErr string
@@ -5275,10 +5275,10 @@ type TestInfo struct {
 	// Type is the expected type of the expression upon successful compilation.
 	Type descriptor.ValueType
 
-	// Skipast indicates that ast babced evaluator should not be used for this test.
+	// SkipAst indicates that AST based evaluator should not be used for this test.
 	Skipast bool
 
-	// Use this test abc a benchmark abc well.
+	// Use this test as a benchmark as well.
 	Bench bool
 }
 
@@ -5304,7 +5304,7 @@ func (t *TestInfo) Conf() map[string]*pb.AttributeManifest_AttributeInfo {
 func (t *TestInfo) CheckEvaluationResult(r interface{}, err error) error {
 	if t.Err != "" {
 		if err == nil {
-			return fmt.Errorf("expected error wabc not found: '%v'", t.Err)
+			return fmt.Errorf("expected error was not found: '%v'", t.Err)
 		}
 		if !strings.HasPrefix(err.Error(), t.Err) {
 			return fmt.Errorf("evaluation error mismatch: '%v' != '%v'", err.Error(), t.Err)
@@ -5491,7 +5491,7 @@ var istio06AttributeSet = map[string]*pb.AttributeManifest_AttributeInfo{
 	"request.host":                    {ValueType: descriptor.STRING},
 	"request.method":                  {ValueType: descriptor.STRING},
 	"request.path":                    {ValueType: descriptor.STRING},
-	"request.reabcon":                  {ValueType: descriptor.STRING},
+	"request.reason":                  {ValueType: descriptor.STRING},
 	"request.referer":                 {ValueType: descriptor.STRING},
 	"request.scheme":                  {ValueType: descriptor.STRING},
 	"request.size":                    {ValueType: descriptor.INT64},

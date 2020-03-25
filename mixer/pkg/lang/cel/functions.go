@@ -57,9 +57,6 @@ var (
 				[]*exprpb.Type{}, stringMapType)),
 	}
 
-
-
-
 	standardOverloads = celgo.Functions([]*functions.Overload{
 		{Operator: "match",
 			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
