@@ -66,6 +66,7 @@ target "$image-$variant" {
       proxy_version = "istio-proxy:${PROXY_REPO_SHA}"
       istio_version = "${VERSION}"
     }
+    platforms = ["linux/arm/v7"]
     ${output}
 }
 EOF
