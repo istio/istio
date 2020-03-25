@@ -466,12 +466,20 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 // getDestinationRule gets the DestinationRule for a given hostname. As an optimization, this also gets the service port,
 // which is needed to access the traffic policy from the destination rule.
 func getDestinationRule(push *model.PushContext, proxy *model.Proxy, hostname host.Name, clusterPort int) (*networkingapi.DestinationRule, *model.Port) {
-	cfg := push.DestinationRule(proxy, &model.Service{Hostname: hostname})
-	// If we do not find a destination rule, return early.
-	if cfg == nil {
-		return nil, nil
+	for _, service := range push.Services(proxy) {
+		if service.Hostname == hostname {
+			cfg := push.DestinationRule(proxy, service)
+			if cfg == nil {
+				continue
+			}
+			for _, p := range service.Ports {
+				if p.Port == clusterPort {
+					return cfg.Spec.(*networkingapi.DestinationRule), p
+				}
+			}
+		}
 	}
-	return cfg.Spec.(*networkingapi.DestinationRule), &model.Port{Port: clusterPort}
+	return nil, nil
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(push *model.PushContext, proxy *model.Proxy, clusterName string) (bool, *networkingapi.LoadBalancerSettings) {
