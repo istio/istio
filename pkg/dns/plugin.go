@@ -41,6 +41,9 @@ import (
 // - refactored Query, so both DNS native interface and coredns grpc plugin are implemented
 // - added parts of istio-ecosystem/dns-discovery, to provide in process DNS
 
+// K8S DNS uses container port 10053, and appears to have a dnsmasq container
+// alongside.
+
 // IstioServiceEntries exposes a DNS interface to internal Istiod service database.
 // This can be used:
 // - as a CoreDNS gRPC plugin
@@ -61,7 +64,7 @@ type IstioServiceEntries struct {
 }
 
 var (
-	// DNSAdd is the env controlling the DNS-over-TLS server.
+	// DNSAddr is the env controlling the DNS-over-TLS server.
 	// By default will be active, set to empty string to disable DNS functionality.
 	DNSAddr = env.RegisterStringVar("dnsAddr", ":15053", "DNS listen address")
 )
