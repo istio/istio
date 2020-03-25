@@ -221,7 +221,7 @@ func (h *IstioServiceEntries) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		// Nothing found - forward to upstream DNS.
 		// TODO: this is NOT secured - pilot to k8s will need to use TLS or run a local coredns
 		// replica, using k8s plugin ( so this is over localhost )
-		cResponse, _, err := h.client.Exchange(r, h.resolvConf.Servers[0] + ":53")
+		cResponse, _, err := h.client.Exchange(r, h.resolvConf.Servers[0]+":53")
 		if err != nil {
 			log.Debuga("DNS error ", r, err)
 			// cResponse will be nil - leave the original response object
