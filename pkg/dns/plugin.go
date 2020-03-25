@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2020 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,8 +41,13 @@ import (
 // - refactored Query, so both DNS native interface and coredns grpc plugin are implemented
 // - added parts of istio-ecosystem/dns-discovery, to provide in process DNS
 
-// K8S DNS uses container port 10053, and appears to have a dnsmasq container
-// alongside.
+// Troubleshooting - on the pod/VM where the library is running, i.e. istiod or
+// in next phase on each pod:
+//
+// - recursive resolver ( external names ):
+//     dig @127.0.0.1 -p 15053 www.google.com
+//
+// -
 
 // IstioServiceEntries exposes a DNS interface to internal Istiod service database.
 // This can be used:
@@ -61,6 +66,7 @@ type IstioServiceEntries struct {
 	dnsEntries  map[string][]net.IP
 	client      *dns.Client
 	server      *dns.Server
+	resolvConf  *dns.ClientConfig
 }
 
 var (
@@ -71,7 +77,7 @@ var (
 
 // Initialize the CoreDNS gRPC plugin.
 // vip is the default IP to assign to entries that are not found.
-func InitCoreDNS(grpcServer *grpc.Server, vip string, cfgStore model.IstioConfigStore) *IstioServiceEntries {
+func InitCoreDNS(grpcServer []*grpc.Server, vip string, cfgStore model.IstioConfigStore) *IstioServiceEntries {
 
 	h := &IstioServiceEntries{
 		configStore: cfgStore,
@@ -95,10 +101,27 @@ func InitCoreDNS(grpcServer *grpc.Server, vip string, cfgStore model.IstioConfig
 
 	h.mux.Handle(".", h)
 
-	if grpcServer != nil {
+	for _, g := range grpcServer {
 		// Will be nil on tests, when only subsets of the server are started.
-		dnsapi.RegisterDnsServiceServer(grpcServer, h)
+		dnsapi.RegisterDnsServiceServer(g, h)
 	}
+
+	// Attempt to find the 'upstream' DNS server, used for entries not known by Istiod
+	// That includes external names, may also include stateful sets (not clear we want
+	// to cache the entire database if dns is running in agent). Istiod does have all
+	// endpoints, including stateful sets - and could resolve over TLS - but not
+	// in the initial implementation.
+	// TODO: allow env override
+	dnsConfig, err := dns.ClientConfigFromFile("/etc/resolv.conf")
+	if err != nil {
+		// K8S provides one, as well as most VMs.
+		log.Warna("Unexpected missing resolv.conf - no upstream DNS", err)
+		return h
+	}
+	if dnsConfig != nil && len(dnsConfig.Servers) > 0 {
+		h.resolvConf = dnsConfig
+	}
+	log.Infoa("Started CoreDNS grpc service")
 	return h
 }
 
@@ -110,11 +133,12 @@ func (h *IstioServiceEntries) StartDNS(tlsListener net.Listener) {
 	// UDP - on same port as the MTLS.
 	h.server.PacketConn, err = net.ListenPacket("udp", DNSAddr.Get())
 	if err != nil {
-		log.Warna("Failed to start debugging DNS port", err)
+		log.Warna("Failed to start DNS UDP", DNSAddr.Get(), err)
 	}
+	log.Infoa("Started DNS", DNSAddr.Get())
 	err = h.server.ActivateAndServe()
 	if err != nil {
-		log.Warna("Failed to start debugging DNS", err)
+		log.Warna("Failed to start DNS", DNSAddr.Get(), err)
 	}
 }
 
@@ -193,14 +217,17 @@ func (h *IstioServiceEntries) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	response := h.handle(r)
 	var err error
 
-	if len(response.Answer) == 0 {
+	if len(response.Answer) == 0 && h.resolvConf != nil {
 		// Nothing found - forward to upstream DNS.
 		// TODO: this is NOT secured - pilot to k8s will need to use TLS or run a local coredns
 		// replica, using k8s plugin ( so this is over localhost )
-		response, _, err = h.client.Exchange(r, "")
+		cResponse, _, err := h.client.Exchange(r, h.resolvConf.Servers[0] + ":53")
 		if err != nil {
 			log.Debuga("DNS error ", r, err)
+			// cResponse will be nil - leave the original response object
 			// TODO: increment counter - not clear if DNS client has metrics.
+		} else {
+			response = cResponse
 		}
 	}
 
@@ -251,6 +278,7 @@ func (h *IstioServiceEntries) handle(request *dns.Msg) *dns.Msg {
 // Query is used when acting as a coredns grpc plugin
 // code based on https://github.com/ahmetb/coredns-grpc-backend-sample
 func (h *IstioServiceEntries) Query(ctx context.Context, in *dnsapi.DnsPacket) (*dnsapi.DnsPacket, error) {
+	log.Infoa("Serving gRPC ", in)
 	request := new(dns.Msg)
 	if err := request.Unpack(in.Msg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshall dns query: %v", err)

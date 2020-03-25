@@ -286,7 +286,9 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	// Respond to CoreDNS gRPC queries.
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		if s.DNSListener != nil {
-			dnsSvc := dns.InitCoreDNS(s.secureGRPCServerDNS, "", s.environment.IstioConfigStore)
+			dnsSvc := dns.InitCoreDNS([]*grpc.Server{
+				s.secureGRPCServerDNS,
+				s.grpcServer}, "", s.environment.IstioConfigStore)
 			go dnsSvc.StartDNS(s.DNSListener)
 		}
 		return nil
