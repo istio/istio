@@ -200,59 +200,63 @@ func TestManifestGenerateOrdered(t *testing.T) {
 	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
 	// Since this is testing the special case of stable YAML output order, it
 	// does not use the established test group pattern
-	t.Run("stable_manifest", func(t *testing.T) {
-		inPath := filepath.Join(testDataDir, "input/all_on.yaml")
-		got1, err := runManifestGenerate([]string{inPath}, "")
-		if err != nil {
-			t.Fatal(err)
-		}
-		got2, err := runManifestGenerate([]string{inPath}, "")
-		if err != nil {
-			t.Fatal(err)
-		}
+	inPath := filepath.Join(testDataDir, "input/all_on.yaml")
+	got1, err := runManifestGenerate([]string{inPath}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got2, err := runManifestGenerate([]string{inPath}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
 
-		if got1 != got2 {
-			fmt.Printf("%s", util.YAMLDiff(got1, got2))
-			t.Errorf("stable_manifest: Manifest generation is not producing stable text output.")
-		}
-	})
+	if got1 != got2 {
+		fmt.Printf("%s", util.YAMLDiff(got1, got2))
+		t.Errorf("stable_manifest: Manifest generation is not producing stable text output.")
+	}
 }
 
 func TestMultiICPSFiles(t *testing.T) {
 	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
-	t.Run("multi-ICPS files", func(t *testing.T) {
-		inPathBase := filepath.Join(testDataDir, "input/all_off.yaml")
-		inPathOverride := filepath.Join(testDataDir, "input/telemetry_override_only.yaml")
-		got, err := runManifestGenerate([]string{inPathBase, inPathOverride}, "")
-		if err != nil {
-			t.Fatal(err)
-		}
-		outPath := filepath.Join(testDataDir, "output/telemetry_override_values"+goldenFileSuffixHideChangesInReview)
+	inPathBase := filepath.Join(testDataDir, "input/all_off.yaml")
+	inPathOverride := filepath.Join(testDataDir, "input/telemetry_override_only.yaml")
+	got, err := runManifestGenerate([]string{inPathBase, inPathOverride}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	outPath := filepath.Join(testDataDir, "output/telemetry_override_values"+goldenFileSuffixHideChangesInReview)
 
-		want, err := readFile(outPath)
-		if err != nil {
-			t.Fatal(err)
-		}
-		diffSelect := "handler:*:prometheus"
-		got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
-		if err != nil {
-			t.Errorf("error selecting from output manifest: %v", err)
-		}
-		diff := compare.YAMLCmp(got, want)
-		if diff != "" {
-			t.Errorf("`manifest generate` diff = %s", diff)
-		}
-	})
+	want, err := readFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	diffSelect := "handler:*:prometheus"
+	got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
+	if err != nil {
+		t.Errorf("error selecting from output manifest: %v", err)
+	}
+	diff := compare.YAMLCmp(got, want)
+	if diff != "" {
+		t.Errorf("`manifest generate` diff = %s", diff)
+	}
 }
 
 func TestBareSpec(t *testing.T) {
 	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
-	t.Run("multi-ICPS files", func(t *testing.T) {
-		inPathBase := filepath.Join(testDataDir, "input/bare_spec.yaml")
-		_, err := runManifestGenerate([]string{inPathBase}, "")
-		if err != nil {
-			t.Fatal(err)
-		}
+	inPathBase := filepath.Join(testDataDir, "input/bare_spec.yaml")
+	_, err := runManifestGenerate([]string{inPathBase}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestIstioControlPlaneInput(t *testing.T) {
+	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
+	runTestGroup(t, testGroup{
+		{
+			desc:       "icp_input",
+			diffSelect: "Deployment:*:istiod,Service:*:istiod",
+		},
 	})
 }
 
