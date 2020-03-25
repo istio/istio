@@ -2065,7 +2065,7 @@ end`,
 		Type: descriptor.STRING,
 		I: map[string]interface{}{
 			"abc": "a2",
-			"bs": "b2",
+			"bs":  "b2",
 		},
 		R:          "a2",
 		Referenced: []string{"abc"},
@@ -2332,7 +2332,7 @@ end`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"abc": "ABC",
-			"bs": "ABC",
+			"bs":  "ABC",
 		},
 		R: true,
 		IL: `
@@ -2427,7 +2427,7 @@ end`,
 		Type: descriptor.STRING,
 		I: map[string]interface{}{
 			"abc": "foo",
-			"sm": map[string]string{"foo": "bar"},
+			"sm":  map[string]string{"foo": "bar"},
 		},
 		R:          "bar",
 		Referenced: []string{"abc", "sm", "sm[foo]"},
@@ -2520,7 +2520,7 @@ end`,
 		E:    `ar[abc] | "foo"`,
 		Type: descriptor.STRING,
 		I: map[string]interface{}{
-			"ar": map[string]string{"abc": "bar"},
+			"ar":  map[string]string{"abc": "bar"},
 			"abc": "!!!!",
 		},
 		R:          "foo",
@@ -2530,7 +2530,7 @@ end`,
 		E:    `ar[abc] | "foo"`,
 		Type: descriptor.STRING,
 		I: map[string]interface{}{
-			"ar": map[string]string{"abcval": "bar"},
+			"ar":  map[string]string{"abcval": "bar"},
 			"abc": "abcval",
 		},
 		R:          "bar",
@@ -3068,7 +3068,7 @@ end
 		Type: descriptor.IP_ADDRESS,
 		I: map[string]interface{}{
 			"abc": "1.2.3.4",
-			"bs": "5.6.7.8",
+			"bs":  "5.6.7.8",
 		},
 		IL: `
 fn eval() interface
@@ -4135,7 +4135,7 @@ end`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"abc": "a",
-			"bs": "b",
+			"bs":  "b",
 		},
 		R: true,
 		IL: `fn eval() bool
@@ -4150,7 +4150,7 @@ end`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"abc": "a",
-			"bs": "b",
+			"bs":  "b",
 		},
 		R: false,
 		IL: `fn eval() bool
@@ -4179,7 +4179,7 @@ end`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"abc": "a",
-			"bs": "b",
+			"bs":  "b",
 		},
 		R: true,
 		IL: `fn eval() bool
@@ -4194,7 +4194,7 @@ end`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"abc": "a",
-			"bs": "b",
+			"bs":  "b",
 		},
 		R: false,
 		IL: `fn eval() bool
@@ -4223,7 +4223,7 @@ end`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"abc": "a",
-			"bs": "b",
+			"bs":  "b",
 		},
 		R: false,
 		IL: `fn eval() bool
@@ -4238,7 +4238,7 @@ end`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"abc": "a",
-			"bs": "b",
+			"bs":  "b",
 		},
 		R: true,
 		IL: `fn eval() bool
@@ -4267,7 +4267,7 @@ end`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"abc": "a",
-			"bs": "b",
+			"bs":  "b",
 		},
 		R: false,
 		IL: `fn eval() bool
@@ -4282,7 +4282,7 @@ end`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"abc": "a",
-			"bs": "b",
+			"bs":  "b",
 		},
 		R: true,
 		IL: `fn eval() bool
@@ -4355,7 +4355,7 @@ end`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"abc": "a",
-			"bs": "b",
+			"bs":  "b",
 		},
 		R: true,
 		IL: `fn eval() bool
@@ -4370,7 +4370,7 @@ end`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"abc": "a",
-			"bs": "b",
+			"bs":  "b",
 		},
 		R: false,
 		IL: `fn eval() bool
@@ -4468,7 +4468,7 @@ fn eval() bool
 end`,
 		I: map[string]interface{}{
 			"abc": "st.*",
-			"bs": "str1",
+			"bs":  "str1",
 		},
 		R: true,
 		// CEL reverse the arguments of matches overload
@@ -4479,7 +4479,7 @@ end`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"abc": "st.*",
-			"bs": "sqr1",
+			"bs":  "sqr1",
 		},
 		R: false,
 		// CEL reverse the arguments of matches overload
@@ -4541,7 +4541,7 @@ fn eval() bool
 end`,
 		I: map[string]interface{}{
 			"abc": "abcd",
-			"bs": "ab",
+			"bs":  "ab",
 		},
 		R: true,
 	},
@@ -4550,7 +4550,7 @@ end`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"abc": "bcda",
-			"bs": "abc",
+			"bs":  "abc",
 		},
 		R: false,
 	},
@@ -4610,7 +4610,7 @@ fn eval() bool
 end`,
 		I: map[string]interface{}{
 			"abc": "abcd",
-			"bs": "cd",
+			"bs":  "cd",
 		},
 		R: true,
 	},
@@ -4619,7 +4619,7 @@ end`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"abc": "bcda",
-			"bs": "abc",
+			"bs":  "abc",
 		},
 		R: false,
 	},
@@ -4888,7 +4888,7 @@ end
 		R:    "foo",
 		I: map[string]interface{}{
 			"abc": "boo",
-			"ab": true,
+			"ab":  true,
 		},
 	},
 	{
@@ -4906,8 +4906,8 @@ end
 		R:    "foo",
 		I: map[string]interface{}{
 			"abc": "boo",
-			"bs": "zoo",
-			"ab": true,
+			"bs":  "zoo",
+			"ab":  true,
 		},
 	},
 	{
@@ -4924,7 +4924,7 @@ end
 		R:    "bar",
 		I: map[string]interface{}{
 			"abc": "boo",
-			"ab": false,
+			"ab":  false,
 		},
 	},
 	{
@@ -4942,8 +4942,8 @@ end
 		R:    "bar",
 		I: map[string]interface{}{
 			"abc": "boo",
-			"bs": "zoo",
-			"ab": false,
+			"bs":  "zoo",
+			"ab":  false,
 		},
 	},
 	{
@@ -4952,7 +4952,7 @@ end
 		R:    "ab",
 		I: map[string]interface{}{
 			"abc": "a",
-			"bs": "b",
+			"bs":  "b",
 		},
 		IL: `
 fn eval() string

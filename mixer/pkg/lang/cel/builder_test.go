@@ -814,7 +814,6 @@ var (
 			result:     "foo",
 			referenced: []string{"source.name"},
 		},
-
 	}
 	attrs = map[string]*v1beta1.AttributeManifest_AttributeInfo{
 		"abc":                       {ValueType: v1beta1.STRING},
