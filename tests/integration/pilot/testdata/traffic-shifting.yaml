@@ -17,6 +17,3 @@ spec:
         - destination:
             host: {{.Host2}}
           weight: {{.Weight2}}
-        - destination:
-            host: {{.Host3}}
-          weight: {{.Weight3}}

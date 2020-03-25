@@ -1,7 +1,0 @@
-global:
-  mtls:
-    enabled: true
-
-  controlPlaneSecurityEnabled: true
-
-  useMCP: false

@@ -17074,7 +17074,6 @@ spec:
       maxUnavailable: 25%
   selector:
     matchLabels:
-      app: istiod
       istio: pilot
   template:
     metadata:
@@ -18999,8 +18998,8 @@ spec:
       maxUnavailable: {{ .Values.pilot.rollingMaxUnavailable }}
   selector:
     matchLabels:
-      app: istiod
       {{- if ne .Values.revision ""}}
+      app: istiod
       version: {{ .Values.revision }}
       {{- else }}
       istio: pilot
@@ -44530,8 +44529,8 @@ spec:
           httpGet:
             path: /ready
             port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
+          initialDelaySeconds: 1
+          periodSeconds: 3
           timeoutSeconds: 5
         strategy:
           rollingUpdate:
