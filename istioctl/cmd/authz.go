@@ -161,7 +161,7 @@ PLEASE ALWAYS REVIEW THE CONVERTED POLICIES BEFORE APPLYING.
 			var namespaceToServiceToSelector map[string]converter.ServiceToWorkloadLabels
 			namespaceToServiceToSelector, err = getNamespaceToServiceToSelector(serviceFiles, authorizationPolicies.ListV1alpha1Namespaces())
 			if err != nil {
-				return fmt.Errorf("failed to get the k8s service definitions: %v", err)
+				return fmt.Errorf("failed to get the Kubernetes service definitions: %v", err)
 			}
 
 			out, err := converter.Convert(authorizationPolicies, namespaceToServiceToSelector, allowNoClusterRbacConfig)
