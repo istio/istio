@@ -22,7 +22,6 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/policy"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/schema"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/service"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/sidecar"
@@ -43,7 +42,6 @@ func All() []analysis.Analyzer {
 		&gateway.SecretAnalyzer{},
 		&injection.Analyzer{},
 		&injection.ImageAnalyzer{},
-		&policy.DeprecatedAnalyzer{},
 		&service.PortNameAnalyzer{},
 		&sidecar.DefaultSelectorAnalyzer{},
 		&sidecar.SelectorAnalyzer{},

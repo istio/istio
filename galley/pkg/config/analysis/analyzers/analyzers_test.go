@@ -22,8 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/policy"
-
 	. "github.com/onsi/gomega"
 
 	"istio.io/pkg/log"
@@ -305,23 +303,6 @@ var testGrid = []testCase{
 			{msg.DeploymentAssociatedToMultipleServices, "Deployment multiple-without-port.bookinfo"},
 			{msg.DeploymentRequiresServiceAssociated, "Deployment no-services.bookinfo"},
 			{msg.DeploymentRequiresServiceAssociated, "Deployment ann-enabled-ns-disabled.injection-disabled-ns"},
-		},
-	},
-	{
-		name:       "deprecatedPolicyProducesMessageWhenCRDExists",
-		inputFiles: []string{"testdata/policy-with-peerauthentication-crd.yaml"},
-		analyzer:   &policy.DeprecatedAnalyzer{},
-		expected: []message{
-			{msg.PolicyResourceIsDeprecated, "Policy namespace-level-policy.foobar"},
-			{msg.MeshPolicyResourceIsDeprecated, "MeshPolicy default"},
-		},
-	},
-	{
-		name:       "deprecatedPolicyProducesNoMessageWhenNoCRDExists",
-		inputFiles: []string{"testdata/policy-without-peerauthentication-crd.yaml"},
-		analyzer:   &policy.DeprecatedAnalyzer{},
-		expected:   []message{
-			// no messages, this test case verifies no false positives
 		},
 	},
 	{
