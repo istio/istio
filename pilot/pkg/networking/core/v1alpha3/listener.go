@@ -504,12 +504,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			pluginParams := &plugin.InputParams{
 				ListenerProtocol: istionetworking.ModelProtocolToListenerProtocol(node, instance.ServicePort.Protocol,
 					core.TrafficDirection_INBOUND),
-				DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
-				Node:                       node,
-				ServiceInstance:            instance,
-				Port:                       instance.ServicePort,
-				Push:                       push,
-				Bind:                       bind,
+				ListenerCategory: networking.EnvoyFilter_SIDECAR_INBOUND,
+				Node:             node,
+				ServiceInstance:  instance,
+				Port:             instance.ServicePort,
+				Push:             push,
+				Bind:             bind,
 			}
 
 			if l := configgen.buildSidecarInboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap); l != nil {
@@ -568,12 +568,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			pluginParams := &plugin.InputParams{
 				ListenerProtocol: istionetworking.ModelProtocolToListenerProtocol(node, listenPort.Protocol,
 					core.TrafficDirection_INBOUND),
-				DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
-				Node:                       node,
-				ServiceInstance:            instance,
-				Port:                       listenPort,
-				Push:                       push,
-				Bind:                       bind,
+				ListenerCategory: networking.EnvoyFilter_SIDECAR_INBOUND,
+				Node:             node,
+				ServiceInstance:  instance,
+				Port:             listenPort,
+				Push:             push,
+				Bind:             bind,
 			}
 
 			if l := configgen.buildSidecarInboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap); l != nil {
@@ -961,12 +961,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 				pluginParams := &plugin.InputParams{
 					ListenerProtocol: istionetworking.ModelProtocolToListenerProtocol(node, listenPort.Protocol,
 						core.TrafficDirection_OUTBOUND),
-					DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
-					Node:                       node,
-					Push:                       push,
-					Bind:                       bind,
-					Port:                       listenPort,
-					Service:                    service,
+					ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+					Node:             node,
+					Push:             push,
+					Bind:             bind,
+					Port:             listenPort,
+					Service:          service,
 				}
 
 				configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
@@ -1018,12 +1018,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 					pluginParams := &plugin.InputParams{
 						ListenerProtocol: istionetworking.ModelProtocolToListenerProtocol(node, servicePort.Protocol,
 							core.TrafficDirection_OUTBOUND),
-						DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
-						Node:                       node,
-						Push:                       push,
-						Bind:                       bind,
-						Port:                       servicePort,
-						Service:                    service,
+						ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+						Node:             node,
+						Push:             push,
+						Bind:             bind,
+						Port:             servicePort,
+						Service:          service,
 					}
 
 					// Support Kubernetes statefulsets/headless services with TCP ports only.
@@ -1453,6 +1453,24 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 				}
 			}
 
+			// Add application protocol filter chain match to the http filter chain. The application protocol will be set by http inspector
+			// Since application protocol filter chain match has been added to the http filter chain, a fail through filter chain will be
+			// appended to the listener later to allow arbitrary egress TCP traffic pass through when its port is conflicted with existing
+			// HTTP services, which can happen when a pod accesses an services that is out of the service mesh.
+			if outboundSniffingEnabled {
+				if listenerOpts.bind == actualWildcard {
+					for _, opt := range opts {
+						if opt.match == nil {
+							opt.match = &listener.FilterChainMatch{}
+						}
+
+						// Support HTTP/1.0, HTTP/1.1 and HTTP/2
+						opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, plaintextHTTPALPNs...)
+					}
+
+					listenerOpts.needHTTPInspector = true
+				}
+			}
 			listenerOpts.filterChainOpts = opts
 
 		case istionetworking.ListenerProtocolThrift:
@@ -1691,13 +1709,13 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(
 	}
 
 	pluginParams := &plugin.InputParams{
-		ListenerProtocol:           istionetworking.ListenerProtocolTCP,
-		DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
-		Node:                       node,
-		Push:                       push,
-		Bind:                       "",
-		Port:                       redirectPort,
-		Service:                    svc,
+		ListenerProtocol: istionetworking.ListenerProtocolTCP,
+		ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+		Node:             node,
+		Push:             push,
+		Bind:             "",
+		Port:             redirectPort,
+		Service:          svc,
 	}
 
 	mutable := &istionetworking.MutableObjects{
@@ -1769,11 +1787,11 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, push *model.PushContext
 				FilterChains: []istionetworking.FilterChain{{}},
 			}
 			pluginParams := &plugin.InputParams{
-				ListenerProtocol:           istionetworking.ListenerProtocolTCP,
-				DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND,
-				Push:                       push,
-				Node:                       node,
-				Port:                       mPort,
+				ListenerProtocol: istionetworking.ListenerProtocolTCP,
+				ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				Push:             push,
+				Node:             node,
+				Port:             mPort,
 			}
 			// TODO: should we call plugins for the admin port listeners too? We do everywhere else we construct listeners.
 			if err := buildCompleteFilterChain(pluginParams, mutable, listenerOpts); err != nil {
@@ -1855,7 +1873,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 		pluginParams.ServiceInstance.ServicePort != nil &&
 		pluginParams.ServiceInstance.ServicePort.Protocol == protocol.GRPC {
 		filters = append(filters, &http_conn.HttpFilter{
-			Name: "envoy.filters.http.grpc_stats",
+			Name: wellknown.HTTPGRPCStats,
 			ConfigType: &http_conn.HttpFilter_TypedConfig{
 				TypedConfig: util.MessageToAny(&grpc_stats.FilterConfig{
 					EmitFilterState: true,
@@ -1866,8 +1884,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 
 	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
 	if util.IsIstioVersionGE14(pluginParams.Node) &&
-		(pluginParams.ListenerCategory == networking.EnvoyFilter_SIDECAR_OUTBOUND ||
-			pluginParams.DeprecatedListenerCategory == networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND) {
+		(pluginParams.ListenerCategory == networking.EnvoyFilter_SIDECAR_OUTBOUND) {
 		filters = append(filters, &http_conn.HttpFilter{
 			Name: AlpnFilterName,
 			ConfigType: &http_conn.HttpFilter_TypedConfig{
@@ -2168,8 +2185,9 @@ func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts,
 	fallthroughNetworkFilters := buildOutboundCatchAllNetworkFiltersOnly(opts.push, node)
 
 	opts.filterChainOpts = append(opts.filterChainOpts, &filterChainOpts{
-		networkFilters: fallthroughNetworkFilters,
-		isFallThrough:  true,
+		filterChainName: util.PassthroughFilterChain,
+		networkFilters:  fallthroughNetworkFilters,
+		isFallThrough:   true,
 	})
 	l.FilterChains = append(l.FilterChains, &listener.FilterChain{FilterChainMatch: wildcardMatch})
 }
@@ -2419,11 +2437,27 @@ func mergeFilterChains(httpFilterChain, tcpFilterChain []*listener.FilterChain) 
 			fc.FilterChainMatch = &listener.FilterChainMatch{}
 		}
 
-		fc.FilterChainMatch.ApplicationProtocols = append(fc.FilterChainMatch.ApplicationProtocols, plaintextHTTPALPNs...)
-		newFilterChan = append(newFilterChan, fc)
+		var missingHTTPALPNs []string
+		for _, p := range plaintextHTTPALPNs {
+			if !contains(fc.FilterChainMatch.ApplicationProtocols, p) {
+				missingHTTPALPNs = append(missingHTTPALPNs, p)
+			}
+		}
 
+		fc.FilterChainMatch.ApplicationProtocols = append(fc.FilterChainMatch.ApplicationProtocols, missingHTTPALPNs...)
+		newFilterChan = append(newFilterChan, fc)
 	}
 	return append(tcpFilterChain, newFilterChan...)
+}
+
+// It's fine to use this naive implementation for searching in a very short list like ApplicationProtocols
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }
 
 func getPluginFilterChain(opts buildListenerOpts) []istionetworking.FilterChain {

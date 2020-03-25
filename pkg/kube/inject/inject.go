@@ -971,6 +971,9 @@ func cleanMeshConfig(v proto.Message) proto.Message {
 	if cpy.SdsUdsPath == defaults.SdsUdsPath {
 		cpy.SdsUdsPath = ""
 	}
+	if cpy.IngressControllerMode == defaults.IngressControllerMode {
+		cpy.IngressControllerMode = meshconfig.MeshConfig_UNSPECIFIED
+	}
 	return &cpy
 }
 

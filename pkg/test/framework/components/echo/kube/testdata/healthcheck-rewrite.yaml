@@ -30,7 +30,8 @@ spec:
         app: healthcheck
         version: v1
       annotations:
-        foo: bar
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "15014"
         sidecar.istio.io/rewriteAppHTTPProbers: "true"
     spec:
       containers:
@@ -40,6 +41,7 @@ spec:
         securityContext:
           runAsUser: 1
         args:
+          - --metrics=15014
           - --port
           - "8080"
           - --port

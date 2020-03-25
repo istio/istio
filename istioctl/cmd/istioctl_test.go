@@ -80,7 +80,7 @@ func TestBadParse(t *testing.T) {
 	}
 
 	// all of the subcommands
-	rootCmd = GetRootCmd([]string{"authn", "tls-check", "--unknown-flag"})
+	rootCmd = GetRootCmd([]string{"authz", "tls-check", "--unknown-flag"})
 	fErr = rootCmd.Execute()
 
 	switch fErr.(type) {
