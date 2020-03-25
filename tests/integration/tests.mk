@@ -50,6 +50,10 @@ ifeq ($(_INTEGRATION_TEST_KUBECONFIG),)
     _INTEGRATION_TEST_KUBECONFIG = ~/.kube/config
 endif
 
+ifneq ($(TEST_USE_OPERATOR_CONTROLLER),)
+    _INTEGRATION_TEST_FLAGS += --istio.test.kube.controller=true
+endif
+
 _INTEGRATION_TEST_FLAGS += --istio.test.kube.config=$(_INTEGRATION_TEST_KUBECONFIG)
 
 # Generate integration test targets for kubernetes environment.

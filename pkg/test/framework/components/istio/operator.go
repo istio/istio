@@ -176,7 +176,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 }
 
 func deployWithIstioCtl(c *operatorComponent, cfg Config, cluster kube.Cluster, iopFile string,
-						istioCtl istioctl.Instance, s *image.Settings) error {
+	istioCtl istioctl.Instance, s *image.Settings) error {
 	defaultsIOPFile := cfg.IOPFile
 	if !path.IsAbs(defaultsIOPFile) {
 		defaultsIOPFile = filepath.Join(env.IstioSrc, defaultsIOPFile)
@@ -205,7 +205,7 @@ func deployWithIstioCtl(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 	genCmd = append(genCmd, installSettings...)
 	out, e := istioCtl.Invoke(genCmd)
 	if e != nil {
-		return err
+		return e
 	}
 	c.installManifest[cluster.Name()] = out
 
@@ -226,7 +226,7 @@ func deployWithIstioCtl(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 }
 
 // mergedToCRFile is a helper function to convert different overlay files and set overlays into IstioOperator CR file.
-func mergedToCRFile(c *operatorComponent, cfg Config, cluster kube.Cluster, defaultsIOPFile string, iopFile string) (string, error){
+func mergedToCRFile(c *operatorComponent, cfg Config, cluster kube.Cluster, defaultsIOPFile string, iopFile string) (string, error) {
 	defaultIOP, err := ioutil.ReadFile(defaultsIOPFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to read default IOP file: %v", err)
@@ -235,8 +235,8 @@ func mergedToCRFile(c *operatorComponent, cfg Config, cluster kube.Cluster, defa
 	if err != nil {
 		return "", fmt.Errorf("failed to read IOP overlay file: %v", err)
 	}
-    mergedIOP, err := util.OverlayYAML(string(defaultIOP), string(iopFileOverlay))
-    if err != nil {
+	mergedIOP, err := util.OverlayYAML(string(defaultIOP), string(iopFileOverlay))
+	if err != nil {
 		return "", fmt.Errorf("failed to overlay IOP with default file: %v", err)
 	}
 	var setOverlay []string
@@ -271,12 +271,12 @@ metadata:
 	if err := ioutil.WriteFile(outCRFile, []byte(mergedIOP), os.ModePerm); err != nil {
 		return "", fmt.Errorf("failed to write iop: %v", err)
 	}
-    return outCRFile, nil
+	return outCRFile, nil
 }
 
 func deployWithController(c *operatorComponent, cfg Config, cluster kube.Cluster, iopFile string,
-				istioCtl istioctl.Instance, s *image.Settings) error {
-    //TODO: combine different overlay files, set overlay into one CR
+	istioCtl istioctl.Instance, s *image.Settings) error {
+	//TODO: combine different overlay files, set overlay into one CR
 	defaultsIOPFile := cfg.IOPFile
 	if !path.IsAbs(defaultsIOPFile) {
 		defaultsIOPFile = filepath.Join(env.IstioSrc, defaultsIOPFile)
