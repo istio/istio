@@ -5241,6 +5241,10 @@ spec:
       lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
     name: Age
     type: date
+  - JSONPath: .spec.address
+    description: Address associated with the network endpoint.
+    name: Address
+    type: string
   group: networking.istio.io
   names:
     categories:
@@ -5297,7 +5301,7 @@ spec:
     storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
@@ -11735,6 +11739,10 @@ spec:
       lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
     name: Age
     type: date
+  - JSONPath: .spec.address
+    description: Address associated with the network endpoint.
+    name: Address
+    type: string
   group: networking.istio.io
   names:
     categories:
@@ -11791,7 +11799,7 @@ spec:
     storage: true
   - name: v1beta1
     served: true
-    storage: true
+    storage: false
 
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
