@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"istio.io/istio/pkg/kube"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -41,7 +42,6 @@ import (
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/security/authz/converter"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/kube"
 )
 
 var (
@@ -296,10 +296,6 @@ func getAuthorizationPoliciesFromCluster() (*model.AuthorizationPolicies, error)
 }
 
 func getNamespaceToServiceToSelector(files, namespaces []string) (map[string]converter.ServiceToWorkloadLabels, error) {
-	k8sClient, err := kube.CreateClientset("", "")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create the Kubernetes client: %v", err)
-	}
 	var services []v1.Service
 	if len(files) != 0 {
 		for _, filename := range files {
@@ -322,6 +318,10 @@ func getNamespaceToServiceToSelector(files, namespaces []string) (map[string]con
 			}
 		}
 	} else {
+		k8sClient, err := kube.CreateClientset("", "")
+		if err != nil {
+			return nil, fmt.Errorf("failed to create the Kubernetes client: %v", err)
+		}
 		for _, ns := range namespaces {
 			rets, err := k8sClient.CoreV1().Services(ns).List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
