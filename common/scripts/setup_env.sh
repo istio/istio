@@ -26,13 +26,13 @@ set -e
 LOCAL_ARCH=$(uname -m)
 export LOCAL_ARCH
 if [[ ${LOCAL_ARCH} == x86_64 ]]; then
-    export TARGET_ARCH=amd64
+    export TARGET_ARCH=${TARGET_ARCH:-amd64}
 elif [[ ${LOCAL_ARCH} == armv8* ]]; then
-    export TARGET_ARCH=arm64
+    export TARGET_ARCH=${TARGET_ARCH:-arm64}
 elif [[ ${LOCAL_ARCH} == aarch64* ]]; then
-    export TARGET_ARCH=arm64
+    export TARGET_ARCH=${TARGET_ARCH:-arm64}
 elif [[ ${LOCAL_ARCH} == armv* ]]; then
-    export TARGET_ARCH=arm
+    export TARGET_ARCH=${TARGET_ARCH:-arm}
 else
     echo "This system's architecture, ${LOCAL_ARCH}, isn't supported"
     exit 1
@@ -41,10 +41,10 @@ fi
 LOCAL_OS=$(uname)
 export LOCAL_OS
 if [[ $LOCAL_OS == Linux ]]; then
-    export TARGET_OS=linux
+    export TARGET_OS=${TARGET_OS:-linux}
     readlink_flags="-f"
 elif [[ $LOCAL_OS == Darwin ]]; then
-    export TARGET_OS=darwin
+    export TARGET_OS=${TARGET_OS:-darwin}
     readlink_flags=""
 else
     echo "This system's OS, $LOCAL_OS, isn't supported"
