@@ -284,7 +284,7 @@ build: depend
 	STATIC=0 GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT)/ $(BINARIES)
 
 # The build-linux target is responsible for building binaries used within containers.
-# This target should be expanded upon as we add more Linux architectures: i.e. buld-arm64.
+# This target should be expanded upon as we add more Linux architectures: i.e. build-arm64.
 # Then a new build target can be created such as build-container-bin that builds these
 # various platform images.
 .PHONY: build-linux
