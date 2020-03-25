@@ -438,6 +438,19 @@ func TestTagToVersionString(t *testing.T) {
 	}
 }
 
+func TestUnmarshalYAML(t *testing.T) {
+	v := &Version{}
+	expectedErr := fmt.Errorf("test error")
+	errReturn := func(interface{}) error { return expectedErr }
+	gotErr := v.UnmarshalYAML(errReturn)
+	if gotErr == nil {
+		t.Errorf("expected error but got nil")
+	}
+	if gotErr != expectedErr {
+		t.Errorf("error mismatch")
+	}
+}
+
 func TestGetVersionCompatibleMap(t *testing.T) {
 	tests := []struct {
 		name        string
