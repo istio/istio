@@ -267,6 +267,10 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	sawIpv4PsssthroughFilterChainMatchAlpnFromFakePlugin := false
 	sawIpv4PsssthroughFilterChainMatchTLSFromFakePlugin := false
 	for _, fc := range l.FilterChains {
+		if fc.TransportSocket != nil && fc.FilterChainMatch.TransportProtocol != "tls" {
+			t.Fatalf("expect passthrough filter chain sets transport protocol to tls if transport socket is set")
+		}
+
 		if len(fc.Filters) == 2 && fc.Filters[1].Name == xdsutil.TCPProxy &&
 			fc.Name == VirtualInboundListenerName {
 			if fc.Filters[0].Name == fakePluginTCPFilter {
@@ -299,7 +303,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 		}
 
 		if len(fc.Filters) == 1 && fc.Filters[0].Name == xdsutil.HTTPConnectionManager &&
-			fc.Name == VirtualInboundListenerName {
+			fc.Name == virtualInboundCatchAllHTTPFilterChainName {
 			if fc.TransportSocket != nil && !reflect.DeepEqual(fc.FilterChainMatch.ApplicationProtocols, append(plaintextHTTPALPNs, mtlsHTTPALPNs...)) {
 				t.Fatalf("expect %v application protocols, found %v", append(plaintextHTTPALPNs, mtlsHTTPALPNs...), fc.FilterChainMatch.ApplicationProtocols)
 			}
