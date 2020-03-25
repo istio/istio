@@ -235,8 +235,6 @@ spec:
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: istiod
-        - name: ISTIO_META_USER_SDS
-          value: "true"
         - name: CA_ADDR
           value: istiod.istio-system.svc:15012
         - name: NODE_NAME
@@ -274,17 +272,6 @@ spec:
           value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-ingressgateway
         - name: ISTIO_META_MESH_ID
           value: cluster.local
-        - name: ISTIO_AUTO_MTLS_ENABLED
-          value: "true"
-        - name: ISTIO_META_POD_NAME
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.name
-        - name: ISTIO_META_CONFIG_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
         - name: ISTIO_META_ROUTER_MODE
           value: sni-dnat
         - name: ISTIO_META_CLUSTER_ID
@@ -392,7 +379,6 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: istiod
       istio: pilot
   strategy:
     rollingUpdate:
@@ -450,6 +436,8 @@ spec:
         - --keepaliveMaxServerConnectionAge
         - 30m
         env:
+        - name: REVISION
+          value: default
         - name: JWT_POLICY
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
@@ -499,8 +487,8 @@ spec:
           httpGet:
             path: /ready
             port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
+          initialDelaySeconds: 1
+          periodSeconds: 3
           timeoutSeconds: 5
         resources:
           requests:
@@ -794,14 +782,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
-        - name: ISTIO_META_POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: ISTIO_META_CONFIG_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
         - name: ISTIO_META_MESH_ID
           value: cluster.local
         - name: ISTIO_META_CLUSTER_ID

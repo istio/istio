@@ -581,20 +581,6 @@ istio-demo.yaml istio-remote.yaml istio-minimal.yaml: $(HOME)/.helm
 		--values install/kubernetes/helm/istio/values-$@ \
 		install/kubernetes/helm/istio >> install/kubernetes/$@
 
-e2e_files = istio-auth-non-mcp.yaml \
-		istio-auth-sds.yaml \
-		istio-non-mcp.yaml \
-		istio.yaml \
-		istio-auth.yaml \
-		istio-auth-mcp.yaml \
-		istio-auth-multicluster.yaml \
-		istio-mcp.yaml \
-		istio-one-namespace.yaml \
-		istio-one-namespace-auth.yaml \
-		istio-one-namespace-trust-domain.yaml \
-		istio-multicluster.yaml \
-		istio-multicluster-split-horizon.yaml
-
 FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/istio-auth.yaml \
                 install/kubernetes/istio-citadel-plugin-certs.yaml \

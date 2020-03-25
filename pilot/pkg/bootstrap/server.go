@@ -116,8 +116,9 @@ type Server struct {
 	// TODO(nmittler): Consider alternatives to exposing these directly
 	EnvoyXdsServer *envoyv2.DiscoveryServer
 
-	clusterID           string
-	environment         *model.Environment
+	clusterID   string
+	environment *model.Environment
+
 	configController    model.ConfigStoreCache
 	kubeClient          kubernetes.Interface
 	startFuncs          []startFunc
@@ -427,6 +428,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	// When the mesh config or networks change, do a full push.
 	s.environment.AddMeshHandler(func() {
+		// Inform ConfigGenerator about the mesh config change so that it can rebuild any cached config, before triggering full push.
+		s.EnvoyXdsServer.ConfigGenerator.MeshConfigChanged(s.environment.Mesh())
 		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,
 			Reason: []model.TriggerReason{model.GlobalUpdate},

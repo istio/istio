@@ -16,6 +16,8 @@ package kube
 
 import (
 	"fmt"
+
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // Settings provide kube-specific Settings from flags.
@@ -26,6 +28,10 @@ type Settings struct {
 	// Indicates that the Ingress Gateway is not available. This typically happens in Minikube. The Ingress
 	// component will fall back to node-port in this case.
 	Minikube bool
+
+	// ControlPlaneTopology maps each cluster to the cluster that runs its control plane. For replicated control
+	// plane cases (where each cluster has its own control plane), the cluster will map to itself (e.g. 0->0).
+	ControlPlaneTopology map[resource.ClusterIndex]resource.ClusterIndex
 }
 
 func (s *Settings) clone() *Settings {
@@ -33,12 +39,22 @@ func (s *Settings) clone() *Settings {
 	return &c
 }
 
+// GetControlPlaneClusters returns a set containing just the cluster indexes that contain control planes.
+func (s *Settings) GetControlPlaneClusters() map[resource.ClusterIndex]bool {
+	out := make(map[resource.ClusterIndex]bool)
+	for _, controlPlaneClusterIndex := range s.ControlPlaneTopology {
+		out[controlPlaneClusterIndex] = true
+	}
+	return out
+}
+
 // String implements fmt.Stringer
 func (s *Settings) String() string {
 	result := ""
 
-	result += fmt.Sprintf("KubeConfig:      %s\n", s.KubeConfig)
-	result += fmt.Sprintf("MiniKubeIngress: %v\n", s.Minikube)
+	result += fmt.Sprintf("KubeConfig:           %s\n", s.KubeConfig)
+	result += fmt.Sprintf("MiniKubeIngress:      %v\n", s.Minikube)
+	result += fmt.Sprintf("ControlPlaneTopology: %v\n", s.ControlPlaneTopology)
 
 	return result
 }

@@ -133,20 +133,20 @@ func TestDeploymentYAML(t *testing.T) {
 		},
 	}
 	for _, tc := range testCase {
-		yaml, err := generateYAMLWithSettings(tc.config, settings)
+		serviceYAML, deploymentYAML, err := generateYAMLWithSettings(tc.config, settings)
 		if err != nil {
 			t.Errorf("failed to generate yaml %v", err)
 		}
-		gotBytes := []byte(yaml)
+		gotBytes := []byte(serviceYAML + "---" + deploymentYAML)
 		wantedBytes := testutil.ReadGoldenFile(gotBytes, tc.wantFilePath, t)
 
 		wantBytes := testutil.StripVersion(wantedBytes)
 		gotBytes = testutil.StripVersion(gotBytes)
 
-		testutil.CompareBytes(gotBytes, wantBytes, tc.wantFilePath, t)
-
 		if testutil.Refresh() {
 			testutil.RefreshGoldenFile(gotBytes, tc.wantFilePath, t)
 		}
+
+		testutil.CompareBytes(gotBytes, wantBytes, tc.wantFilePath, t)
 	}
 }

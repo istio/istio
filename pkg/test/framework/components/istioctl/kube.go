@@ -50,7 +50,7 @@ func (c *kubeComponent) ID() resource.ID {
 func (c *kubeComponent) Invoke(args []string) (string, error) {
 	var cmdArgs = append([]string{
 		"--kubeconfig",
-		c.cluster.String(),
+		c.cluster.Filename(),
 	}, args...)
 
 	var out bytes.Buffer

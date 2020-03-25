@@ -40,8 +40,13 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 )
 
-// redisOpTimeout is the default operation timeout for the Redis proxy filter.
-var redisOpTimeout = 5 * time.Second
+var (
+	// redisOpTimeout is the default operation timeout for the Redis proxy filter.
+	redisOpTimeout = 5 * time.Second
+
+	// grpcAccessLog is used when access log service is enabled in mesh config.
+	grpcAccessLog = buildGrpcAccessLog()
+)
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
 func buildInboundNetworkFilters(push *model.PushContext, node *model.Proxy, instance *model.ServiceInstance) []*listener.Filter {
@@ -63,46 +68,12 @@ func buildInboundNetworkFilters(push *model.PushContext, node *model.Proxy, inst
 // setAccessLog sets the AccessLog configuration in the given TcpProxy instance.
 func setAccessLog(push *model.PushContext, node *model.Proxy, config *tcp_proxy.TcpProxy) {
 	if push.Mesh.AccessLogFile != "" {
-		fl := &accesslogconfig.FileAccessLog{
-			Path: push.Mesh.AccessLogFile,
-		}
-
-		acc := &accesslog.AccessLog{
-			Name: wellknown.FileAccessLog,
-		}
-		buildAccessLog(node, fl, push)
-
-		acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
-
-		config.AccessLog = append(config.AccessLog, acc)
+		config.AccessLog = append(config.AccessLog, maybeBuildAccessLog(push.Mesh))
 	}
 
 	if push.Mesh.EnableEnvoyAccessLogService && util.IsIstioVersionGE14(node) {
-		fl := &accesslogconfig.TcpGrpcAccessLogConfig{
-			CommonConfig: &accesslogconfig.CommonGrpcAccessLogConfig{
-				LogName: tcpEnvoyAccessLogFriendlyName,
-				GrpcService: &core.GrpcService{
-					TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-						EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-							ClusterName: EnvoyAccessLogCluster,
-						},
-					},
-				},
-			},
-		}
-
-		if util.IsIstioVersionGE14(node) {
-			fl.CommonConfig.FilterStateObjectsToLog = envoyWasmStateToLog
-		}
-
-		acc := &accesslog.AccessLog{
-			Name:       tcpEnvoyALSName,
-			ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
-		}
-
-		config.AccessLog = append(config.AccessLog, acc)
+		config.AccessLog = append(config.AccessLog, grpcAccessLog)
 	}
-
 }
 
 // setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given
@@ -312,4 +283,26 @@ func buildMySQLFilter(statPrefix string) *listener.Filter {
 	}
 
 	return out
+}
+
+func buildGrpcAccessLog() *accesslog.AccessLog {
+	fl := &accesslogconfig.TcpGrpcAccessLogConfig{
+		CommonConfig: &accesslogconfig.CommonGrpcAccessLogConfig{
+			LogName: tcpEnvoyAccessLogFriendlyName,
+			GrpcService: &core.GrpcService{
+				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+						ClusterName: EnvoyAccessLogCluster,
+					},
+				},
+			},
+		},
+	}
+
+	fl.CommonConfig.FilterStateObjectsToLog = envoyWasmStateToLog
+
+	return &accesslog.AccessLog{
+		Name:       tcpEnvoyALSName,
+		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
+	}
 }

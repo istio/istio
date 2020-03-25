@@ -21,6 +21,7 @@ import (
 
 	"github.com/ghodss/yaml"
 
+	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/vfs"
 	"istio.io/istio/operator/version"
 
@@ -69,8 +70,7 @@ const (
 
 // ComponentNamesConfig is used for unmarshaling legacy and addon naming data.
 type ComponentNamesConfig struct {
-	BundledAddonComponentNames []string
-	DeprecatedComponentNames   []string
+	DeprecatedComponentNames []string
 }
 
 var (
@@ -102,6 +102,9 @@ func init() {
 		allComponentNamesMap[n] = true
 	}
 	if err := loadComponentNamesConfig(); err != nil {
+		panic(err)
+	}
+	if err := scanBundledAddonComponents(); err != nil {
 		panic(err)
 	}
 	generateValuesEnablementMap()
@@ -181,9 +184,6 @@ func loadComponentNamesConfig() error {
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal naming config file: %v", err)
 	}
-	for _, an := range namesConfig.BundledAddonComponentNames {
-		BundledAddonComponentNamesMap[ComponentName(an)] = true
-	}
 	for _, n := range namesConfig.DeprecatedComponentNames {
 		DeprecatedComponentNamesMap[ComponentName(n)] = true
 	}
@@ -191,12 +191,21 @@ func loadComponentNamesConfig() error {
 }
 
 func generateValuesEnablementMap() {
-	for n := range BundledAddonComponentNamesMap {
-		cn := strings.ToLower(string(n))
-		valuePath := fmt.Sprintf("spec.values.%s.enabled", cn)
-		iopPath := fmt.Sprintf("spec.addonComponents.%s.enabled", cn)
-		ValuesEnablementPathMap[valuePath] = iopPath
-	}
 	ValuesEnablementPathMap["spec.values.gateways.istio-ingressgateway.enabled"] = "spec.components.ingressGateways.[name:istio-ingressgateway].enabled"
 	ValuesEnablementPathMap["spec.values.gateways.istio-egressgateway.enabled"] = "spec.components.egressGateways.[name:istio-egressgateway].enabled"
+}
+
+func scanBundledAddonComponents() error {
+	addonComponentNames, err := helm.GetAddonNamesFromCharts("", true)
+	if err != nil {
+		return fmt.Errorf("failed to scan bundled addon components: %v", err)
+	}
+	for _, an := range addonComponentNames {
+		BundledAddonComponentNamesMap[ComponentName(an)] = true
+		enablementName := strings.ToLower(an[:1]) + an[1:]
+		valuePath := fmt.Sprintf("spec.values.%s.enabled", enablementName)
+		iopPath := fmt.Sprintf("spec.addonComponents.%s.enabled", enablementName)
+		ValuesEnablementPathMap[valuePath] = iopPath
+	}
+	return nil
 }

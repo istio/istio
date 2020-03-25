@@ -62,7 +62,6 @@ func TestMain(m *testing.M) {
 			return nil
 		}).
 		SetupOnEnv(environment.Kube, istio.Setup(&i, func(cfg *istio.Config) {
-			cfg.Values["global.k8sIngress.enabled"] = "true"
 			cfg.Values["pilot.env.PILOT_ENABLED_SERVICE_APIS"] = "true"
 		})).
 		Setup(func(ctx resource.Context) (err error) {

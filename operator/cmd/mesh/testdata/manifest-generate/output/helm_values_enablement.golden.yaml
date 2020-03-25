@@ -114,17 +114,6 @@ spec:
           value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-egressgateway
         - name: ISTIO_META_MESH_ID
           value: cluster.local
-        - name: ISTIO_AUTO_MTLS_ENABLED
-          value: "true"
-        - name: ISTIO_META_POD_NAME
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.name
-        - name: ISTIO_META_CONFIG_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
         - name: ISTIO_META_ROUTER_MODE
           value: sni-dnat
         - name: ISTIO_META_CLUSTER_ID
@@ -323,31 +312,26 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-egressgateway
-  namespace: istio-system
-  annotations:
+  annotations: null
   labels:
     app: istio-egressgateway
     istio: egressgateway
-    
     release: istio
+  name: istio-egressgateway
+  namespace: istio-system
 spec:
-  type: ClusterIP
+  ports:
+  - name: http2
+    port: 80
+  - name: https
+    port: 443
+  - name: tls
+    port: 15443
+    targetPort: 15443
   selector:
     app: istio-egressgateway
     istio: egressgateway
-    
-  ports:
-    -
-      name: http2
-      port: 80
-    -
-      name: https
-      port: 443
-    -
-      name: tls
-      port: 15443
-      targetPort: 15443
+  type: ClusterIP
 ---
 
 

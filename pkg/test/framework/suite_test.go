@@ -463,6 +463,10 @@ type fakeEnvironment struct {
 	numClusters int
 }
 
+func (f fakeEnvironment) IsMulticluster() bool {
+	panic("not implemented")
+}
+
 func (f fakeEnvironment) ID() resource.ID {
 	return fakeID("fake")
 }
@@ -493,6 +497,14 @@ var _ resource.Cluster = fakeCluster{}
 
 type fakeCluster struct {
 	index int
+}
+
+func (f fakeCluster) Index() resource.ClusterIndex {
+	return resource.ClusterIndex(f.index)
+}
+
+func (f fakeCluster) IsControlPlaneCluster() bool {
+	panic("not implemented")
 }
 
 func (f fakeCluster) String() string {

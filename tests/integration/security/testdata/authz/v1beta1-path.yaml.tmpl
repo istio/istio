@@ -1,0 +1,19 @@
+# For workload a:
+# * Allow GET requests at path with prefix "/public".
+# * Deny any other requests by default.
+
+apiVersion: "security.istio.io/v1beta1"
+kind: AuthorizationPolicy
+metadata:
+  name: policy-a
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "a"
+  rules:
+  - to:
+    - operation:
+        paths: ["/public*"]
+        methods: ["GET"]
+---

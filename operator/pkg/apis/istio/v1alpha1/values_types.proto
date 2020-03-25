@@ -1354,6 +1354,8 @@ message TelemetryV2StackDriverConfig {
 
   google.protobuf.BoolValue topology = 4;
 
+  google.protobuf.BoolValue disableOutbound = 6;
+
   TypeMapStringInterface configOverride = 5;
 }
 
@@ -1589,6 +1591,8 @@ message ProxyConfig {
   string enableCoreDumpImage = 33 [deprecated=true];
 
   string outlierLogPath = 34;
+
+  TypeMapStringInterface lifecycle = 36;
 }
 
 // Specifies which tracer to use.

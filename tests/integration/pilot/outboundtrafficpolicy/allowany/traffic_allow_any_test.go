@@ -38,7 +38,6 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	cfg.Values["global.outboundTrafficPolicy.mode"] = "ALLOW_ANY"
 	cfg.ControlPlaneValues = `
 components:
   egressGateways:
@@ -56,6 +55,7 @@ func TestOutboundTrafficPolicyAllowAny(t *testing.T) {
 		"http":        {"200"},
 		"http_egress": {"200"},
 		"https":       {"200"},
+		"tcp":         {"200"},
 	}
 	outboundtrafficpolicy.RunExternalRequestTest(expected, t)
 }
