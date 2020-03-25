@@ -44510,6 +44510,13 @@ spec:
   hub: gcr.io/istio-testing
   tag: latest
 
+  # You may override parts of meshconfig by uncommenting the following lines.
+  # meshConfig:
+    #
+    # Opt-out of global http2 upgrades.
+    # Destination rule is used to opt-in.
+    # h2_upgrade_policy: DO_NOT_UPGRADE
+
   # Traffic management feature
   components:
     base:
