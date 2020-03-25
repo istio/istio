@@ -124,8 +124,13 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.ProvCert(cfg.ProvCert))
 
 	if cfg.STSPort > 0 {
-		opts = append(opts, option.STSEnabled(true),
+		opts = append(opts,
+			option.STSEnabled(true),
 			option.STSPort(cfg.STSPort))
+		md := cfg.PlatEnv.Metadata()
+		if projectID, found := md[platform.GCPProject]; found {
+			opts = append(opts, option.GCPProjectID(projectID))
+		}
 	}
 
 	// Support passing extra info from node environment as metadata
