@@ -18,13 +18,22 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"istio.io/istio/operator/pkg/compare"
+	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/httpserver"
+	"istio.io/istio/operator/pkg/util/tgz"
 	"istio.io/pkg/version"
+)
+
+const (
+	istioTestVersion = "istio-1.5.0"
+	testTGZFilename  = istioTestVersion + "-linux.tar.gz"
 )
 
 type testGroup []struct {
@@ -260,6 +269,47 @@ func TestIstioControlPlaneInput(t *testing.T) {
 	})
 }
 
+func TestInstallPackagePath(t *testing.T) {
+	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
+	releaseDir, err := createLocalReleaseCharts()
+	defer os.RemoveAll(releaseDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	operatorArtifactDir := filepath.Join(releaseDir, istioTestVersion, helm.OperatorSubdirFilePath)
+	serverDir, err := ioutil.TempDir(os.TempDir(), "istio-test-server-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(serverDir)
+	if err := tgz.Create(releaseDir, filepath.Join(serverDir, testTGZFilename)); err != nil {
+		t.Fatal(err)
+	}
+	srv := httpserver.NewServer(serverDir)
+	runTestGroup(t, testGroup{
+		{
+			// Use some arbitrary small test input (pilot only) since we are testing the local filesystem code here, not
+			// manifest generation.
+			desc:       "install_package_path",
+			diffSelect: "Deployment:*:istiod",
+			flags:      "--set installPackagePath=" + operatorArtifactDir,
+		},
+		{
+			// Specify both charts and profile from local filesystem.
+			desc:       "install_package_path",
+			diffSelect: "Deployment:*:istiod",
+			flags:      fmt.Sprintf("--set installPackagePath=%s --set profile=%s/profiles/default.yaml", operatorArtifactDir, operatorArtifactDir),
+		},
+		{
+			// --force is needed for version mismatch.
+			desc:       "install_package_path",
+			diffSelect: "Deployment:*:istiod",
+			flags:      "--force --set installPackagePath=" + srv.URL() + "/" + testTGZFilename,
+		},
+	})
+
+}
+
 // TestLDFlags checks whether building mesh command with
 // -ldflags "-X istio.io/pkg/version.buildHub=myhub -X istio.io/pkg/version.buildVersion=mytag"
 // results in these values showing up in a generated manifest.
@@ -372,4 +422,17 @@ func removeDirOrFail(t *testing.T, path string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func createLocalReleaseCharts() (string, error) {
+	releaseDir, err := ioutil.TempDir(os.TempDir(), "istio-test-release-*")
+	if err != nil {
+		return "", err
+	}
+	releaseSubDir := filepath.Join(releaseDir, istioTestVersion, helm.OperatorSubdirFilePath)
+	cmd := exec.Command("../../release/create_release_charts.sh", "-o", releaseSubDir)
+	if stdo, err := cmd.Output(); err != nil {
+		return "", fmt.Errorf("%s: \n%s", err, string(stdo))
+	}
+	return releaseDir, nil
 }
