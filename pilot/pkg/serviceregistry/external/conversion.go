@@ -128,7 +128,7 @@ func convertServices(cfg model.Config) []*model.Service {
 }
 
 func convertEndpoint(service *model.Service, servicePort *networking.Port,
-	endpoint *networking.ServiceEntry_Endpoint) *model.ServiceInstance {
+	endpoint *networking.WorkloadEntry) *model.ServiceInstance {
 	var instancePort uint32
 	addr := endpoint.GetAddress()
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {

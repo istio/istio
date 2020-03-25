@@ -281,6 +281,24 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
+	// IstioNetworkingV1Alpha3Workloadentries describes the collection
+	// istio/networking/v1alpha3/workloadentries
+	IstioNetworkingV1Alpha3Workloadentries = collection.Builder{
+		Name:         "istio/networking/v1alpha3/workloadentries",
+		VariableName: "IstioNetworkingV1Alpha3Workloadentries",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "networking.istio.io",
+			Kind:          "WorkloadEntry",
+			Plural:        "workloadentries",
+			Version:       "v1alpha3",
+			Proto:         "istio.networking.v1alpha3.WorkloadEntry",
+			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
 	// IstioPolicyV1Beta1Attributemanifests describes the collection
 	// istio/policy/v1beta1/attributemanifests
 	IstioPolicyV1Beta1Attributemanifests = collection.Builder{
@@ -975,6 +993,24 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
+	// K8SNetworkingIstioIoV1Alpha3Workloadentries describes the collection
+	// k8s/networking.istio.io/v1alpha3/workloadentries
+	K8SNetworkingIstioIoV1Alpha3Workloadentries = collection.Builder{
+		Name:         "k8s/networking.istio.io/v1alpha3/workloadentries",
+		VariableName: "K8SNetworkingIstioIoV1Alpha3Workloadentries",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "networking.istio.io",
+			Kind:          "WorkloadEntry",
+			Plural:        "workloadentries",
+			Version:       "v1alpha3",
+			Proto:         "istio.networking.v1alpha3.WorkloadEntry",
+			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
 	// K8SRbacIstioIoV1Alpha1Clusterrbacconfigs describes the collection
 	// k8s/rbac.istio.io/v1alpha1/clusterrbacconfigs
 	K8SRbacIstioIoV1Alpha1Clusterrbacconfigs = collection.Builder{
@@ -1208,6 +1244,7 @@ var (
 		MustAdd(IstioNetworkingV1Alpha3Serviceentries).
 		MustAdd(IstioNetworkingV1Alpha3Sidecars).
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
+		MustAdd(IstioNetworkingV1Alpha3Workloadentries).
 		MustAdd(IstioPolicyV1Beta1Attributemanifests).
 		MustAdd(IstioPolicyV1Beta1Handlers).
 		MustAdd(IstioPolicyV1Beta1Instances).
@@ -1247,6 +1284,7 @@ var (
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Serviceentries).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Sidecars).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Virtualservices).
+		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadentries).
 		MustAdd(K8SRbacIstioIoV1Alpha1Clusterrbacconfigs).
 		MustAdd(K8SRbacIstioIoV1Alpha1Policy).
 		MustAdd(K8SRbacIstioIoV1Alpha1Rbacconfigs).
@@ -1278,6 +1316,7 @@ var (
 		MustAdd(IstioNetworkingV1Alpha3Serviceentries).
 		MustAdd(IstioNetworkingV1Alpha3Sidecars).
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
+		MustAdd(IstioNetworkingV1Alpha3Workloadentries).
 		MustAdd(IstioPolicyV1Beta1Attributemanifests).
 		MustAdd(IstioPolicyV1Beta1Handlers).
 		MustAdd(IstioPolicyV1Beta1Instances).
@@ -1321,6 +1360,7 @@ var (
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Serviceentries).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Sidecars).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Virtualservices).
+		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadentries).
 		MustAdd(K8SRbacIstioIoV1Alpha1Clusterrbacconfigs).
 		MustAdd(K8SRbacIstioIoV1Alpha1Policy).
 		MustAdd(K8SRbacIstioIoV1Alpha1Rbacconfigs).
@@ -1349,6 +1389,7 @@ var (
 		MustAdd(IstioNetworkingV1Alpha3Serviceentries).
 		MustAdd(IstioNetworkingV1Alpha3Sidecars).
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
+		MustAdd(IstioNetworkingV1Alpha3Workloadentries).
 		MustAdd(IstioRbacV1Alpha1Clusterrbacconfigs).
 		MustAdd(IstioRbacV1Alpha1Rbacconfigs).
 		MustAdd(IstioRbacV1Alpha1Servicerolebindings).
@@ -1372,6 +1413,7 @@ var (
 			MustAdd(IstioNetworkingV1Alpha3Serviceentries).
 			MustAdd(IstioNetworkingV1Alpha3Sidecars).
 			MustAdd(IstioNetworkingV1Alpha3Virtualservices).
+			MustAdd(IstioNetworkingV1Alpha3Workloadentries).
 			MustAdd(IstioRbacV1Alpha1Clusterrbacconfigs).
 			MustAdd(IstioRbacV1Alpha1Rbacconfigs).
 			MustAdd(IstioRbacV1Alpha1Servicerolebindings).

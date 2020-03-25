@@ -82,6 +82,11 @@ collections:
     group: "networking.istio.io"
     pilot: true
 
+  - name: "istio/networking/v1alpha3/workloadentries"
+    kind: "WorkloadEntry"
+    group: "networking.istio.io"
+    pilot: true
+
   - name: "istio/networking/v1alpha3/sidecars"
     kind: "Sidecar"
     group: "networking.istio.io"
@@ -266,6 +271,10 @@ collections:
 
   - name: "k8s/networking.istio.io/v1alpha3/serviceentries"
     kind: "ServiceEntry"
+    group: "networking.istio.io"
+
+  - name: "k8s/networking.istio.io/v1alpha3/workloadentries"
+    kind: "WorkloadEntry"
     group: "networking.istio.io"
 
   - name: "k8s/networking.istio.io/v1alpha3/sidecars"
@@ -494,6 +503,14 @@ resources:
     proto: "istio.networking.v1alpha3.ServiceEntry"
     protoPackage: "istio.io/api/networking/v1alpha3"
     description: "describes service entries"
+
+  - kind: "WorkloadEntry"
+    plural: "workloadentries"
+    group: "networking.istio.io"
+    version: "v1alpha3"
+    proto: "istio.networking.v1alpha3.WorkloadEntry"
+    protoPackage: "istio.io/api/networking/v1alpha3"
+    description: "describes workload entries"
 
   - kind: "DestinationRule"
     plural: "destinationrules"
