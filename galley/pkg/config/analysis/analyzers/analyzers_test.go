@@ -302,7 +302,10 @@ var testGrid = []testCase{
 		},
 		analyzer: &authz.AuthorizationPoliciesAnalyzer{},
 		expected: []message{
-			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy httpbin-nopods"},
+			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy httpbin-nopods.httpbin"},
+			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-ns.httpbin"},
+			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-svc.httpbin"},
+			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-se.httpbin"},
 		},
 	},
 }

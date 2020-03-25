@@ -1,7 +1,31 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: httpbin
+  labels:
+    istio-injection: "enabled"
+spec: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpbin
+  namespace: httpbin
+  labels:
+    app: httpbin
+spec:
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 80
+  selector:
+    app: httpbin
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: httpbin
+  namespace: httpbin
 spec:
   replicas: 1
   selector:
@@ -14,7 +38,6 @@ spec:
         app: httpbin
         version: v1
     spec:
-      serviceAccountName: httpbin
       containers:
       - image: docker.io/kennethreitz/httpbin
         imagePullPolicy: IfNotPresent
@@ -22,28 +45,155 @@ spec:
         ports:
         - containerPort: 80
 ---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: istio
+  namespace: httpbin
+spec:
+  hosts:
+  - subsystem.istio.io
+  location: MESH_EXTERNAL
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: DNS
+---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
- name: httpbin-nopods
+  name: httpbin # This is a correct scenario
+  namespace: httpbin
 spec:
- selector:
-   matchLabels:
-     app: bogus-label
-     version: v1
- rules:
- - from:
-   - source:
-       principals: ["cluster.local/ns/default/sa/sleep"]
-   - source:
-       namespaces: ["test"]
-   to:
-   - operation:
-       methods: ["GET"]
-       paths: ["/info*"]
-   - operation:
-       methods: ["POST"]
-       paths: ["/data"]
-   when:
-   - key: request.auth.claims[iss]
-     values: ["https://accounts.google.com"]
+  selector: # There are workloads matching this selector
+    matchLabels:
+      app: httpbin
+      version: v1
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/default/sa/sleep"]
+        - source:
+            namespaces: ["httpbin"] # Namespace exists
+      to:
+        - operation:
+            hosts: ["subsystem.istio.io"] # Service Entry exists
+            methods: ["GET"]
+            paths: ["/info*"]
+        - operation:
+            methods: ["POST"]
+            paths: ["/data"]
+      when:
+        - key: request.auth.claims[iss]
+          values: ["https://accounts.google.com"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-nopods # Invalid: there aren't matching workloads for this selector
+  namespace: httpbin
+spec:
+  selector:
+    matchLabels:
+      app: bogus-label # Bogus label. No matching workloads
+      version: v1
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/default/sa/sleep"]
+        - source:
+            namespaces: ["httpbin"]
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/info*"]
+        - operation:
+            methods: ["POST"]
+            paths: ["/data"]
+      when:
+        - key: request.auth.claims[iss]
+          values: ["https://accounts.google.com"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-bogus-ns # Invalid: there is one namespace listed that doesn't exist
+  namespace: httpbin
+spec:
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/default/sa/sleep"]
+        - source:
+            namespaces: ["bogus-ns"] # This namespace doesn't exist in the mesh
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/info*"]
+        - operation:
+            methods: ["POST"]
+            paths: ["/data"]
+      when:
+        - key: request.auth.claims[iss]
+          values: ["https://accounts.google.com"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-bogus-svc # Invalid: referenced service not found
+  namespace: httpbin
+spec:
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/default/sa/sleep"]
+        - source:
+            namespaces: ["httpbin"]
+      to:
+        - operation:
+            hosts: ["bogus-svc.httpbin.svc.cluster.local"] # Host not found: service not present
+            methods: ["GET"]
+            paths: ["/info*"]
+        - operation:
+            methods: ["POST"]
+            paths: ["/data"]
+      when:
+        - key: request.auth.claims[iss]
+          values: ["https://accounts.google.com"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-bogus-se # Invalid: referenced service entry not found
+  namespace: httpbin
+spec:
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/default/sa/sleep"]
+        - source:
+            namespaces: ["httpbin"]
+      to:
+        - operation:
+            hosts: ["bogus.istio.io"] # Host not found: service entry not present
+            methods: ["GET"]
+            paths: ["/info*"]
+        - operation:
+            methods: ["POST"]
+            paths: ["/data"]
+      when:
+        - key: request.auth.claims[iss]
+          values: ["https://accounts.google.com"]

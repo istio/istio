@@ -40,18 +40,20 @@ func (a *AuthorizationPoliciesAnalyzer) Metadata() analysis.Metadata {
 		Inputs: collection.Names{
 			collections.IstioSecurityV1Beta1Authorizationpolicies.Name(),
 			collections.K8SAppsV1Deployments.Name(),
+			collections.K8SCoreV1Namespaces.Name(),
 		},
 	}
 }
 
 func (a *AuthorizationPoliciesAnalyzer) Analyze(c analysis.Context) {
 	c.ForEach(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), func(r *resource.Instance) bool {
-		a.analyzeAuthPolicy(r, c)
+		a.analyzeNoMatchingWorkloads(r, c)
+		a.analyzeNamespaceNotFound(r,c)
 		return true
 	})
 }
 
-func (a *AuthorizationPoliciesAnalyzer) analyzeAuthPolicy(r *resource.Instance, c analysis.Context) {
+func (a *AuthorizationPoliciesAnalyzer) analyzeNoMatchingWorkloads(r *resource.Instance, c analysis.Context) {
 	ap := r.Message.(*v1beta1.AuthorizationPolicy)
 	ns := r.Metadata.FullName.Namespace
 	apSelector := k8s_labels.SelectorFromSet(ap.Selector.MatchLabels)
@@ -71,7 +73,20 @@ func (a *AuthorizationPoliciesAnalyzer) analyzeAuthPolicy(r *resource.Instance, 
 	})
 
 	if !hasMatchingPods {
-		c.Report(collections.K8SAppsV1Deployments.Name(), msg.NewNoMatchingWorkloadsFound(r, apSelector.String()))
+		c.Report(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), msg.NewNoMatchingWorkloadsFound(r, apSelector.String()))
 	}
+}
 
+func (a *AuthorizationPoliciesAnalyzer) analyzeNamespaceNotFound(r *resource.Instance, c analysis.Context) {
+	ap := r.Message.(*v1beta1.AuthorizationPolicy)
+
+	for _, rule := range ap.Rules {
+		for _, from := range rule.From {
+			for _, ns := range from.Source.Namespaces {
+				if !c.Exists(collections.K8SCoreV1Namespaces.Name(), resource.NewFullName("", resource.LocalName(ns))) {
+					c.Report(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), msg.NewReferencedResourceNotFound(r, "namespace", ns))
+				}
+			}
+		}
+	}
 }
