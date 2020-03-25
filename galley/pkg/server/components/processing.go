@@ -220,7 +220,6 @@ func (p *Processing) Start() (err error) {
 	mcp.RegisterResourceSourceServer(p.grpcServer, p.mcpSource)
 
 	var startWG sync.WaitGroup
-	startWG.Add(1)
 
 	p.serveWG.Add(1)
 	go func() {
@@ -229,6 +228,7 @@ func (p *Processing) Start() (err error) {
 
 		l := p.getListener()
 		if l != nil && p.args.EnableServer {
+			startWG.Add(1)
 			// start serving
 			gs := p.grpcServer
 			startWG.Done()

@@ -44,7 +44,7 @@ values:
   global:
     istiod:
       enabled: true
-      enableAnalysis: false
+      enableAnalysis: true
 `
 		})).
 		Setup(func(ctx resource.Context) (err error) {
