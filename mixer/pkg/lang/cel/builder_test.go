@@ -627,6 +627,7 @@ var (
 			referenced: []string{"-context.reporter.kind"},
 		},
 		//Taken from cel-go strings readme: https://github.com/google/cel-go/tree/master/ext
+		//Replace
 		{
 			text:       `source.name.replace('he', 'we')`,
 			bag:        map[string]interface{}{"source.name": "hello hello"},
@@ -651,6 +652,169 @@ var (
 			result:     "hello hello",
 			referenced: []string{"source.name"},
 		},
+		//CharAt
+		{
+			text:       `source.name.charAt(4)`,
+			bag:        map[string]interface{}{"source.name": "hello"},
+			result:     "o",
+			referenced: []string{"source.name"},
+		},
+		{
+			text:       `source.name.charAt(5)`,
+			bag:        map[string]interface{}{"source.name": "hello"},
+			result:     "",
+			referenced: []string{"source.name"},
+		},
+		{
+			text:       `source.name.charAt(-1)`,
+			bag:        map[string]interface{}{"source.name": "hello"},
+			result:     errors.New("index out of range: -1"),
+			referenced: []string{"source.name"},
+		},
+		//index of
+		{
+			text:       `source.name.indexOf('')`,
+			bag:        map[string]interface{}{"source.name": "hello mellow"},
+			result:     int64(0),
+			referenced: []string{"source.name"},
+		},
+		{
+			text:       `source.name.indexOf('ello')`,
+			bag:        map[string]interface{}{"source.name": "hello mellow"},
+			result:     int64(1),
+			referenced: []string{"source.name"},
+		},
+		{
+			text:       `source.name.indexOf('jello')`,
+			bag:        map[string]interface{}{"source.name": "hello mellow"},
+			result:     int64(-1),
+			referenced: []string{"source.name"},
+		},
+		{
+			text:       `source.name.indexOf('', 2)`,
+			bag:        map[string]interface{}{"source.name": "hello mellow"},
+			result:     int64(2),
+			referenced: []string{"source.name"},
+		},
+		{
+			text:       `source.name.indexOf('ello', 2)`,
+			bag:        map[string]interface{}{"source.name": "hello mellow"},
+			result:     int64(7),
+			referenced: []string{"source.name"},
+		},
+		{
+			text:       `source.name.indexOf('ello', 20)`,
+			bag:        map[string]interface{}{"source.name": "hello mellow"},
+			result:     errors.New("index out of range: 20"),
+			referenced: []string{"source.name"},
+		},
+		//LastIndexOf
+		{
+			text:       `source.name.lastIndexOf('')`,
+			bag:        map[string]interface{}{"source.name": "hello mellow"},
+			result:     int64(12),
+			referenced: []string{"source.name"},
+		},
+		{
+			text:       `source.name.lastIndexOf('ello')`,
+			bag:        map[string]interface{}{"source.name": "hello mellow"},
+			result:     int64(7),
+			referenced: []string{"source.name"},
+		},
+		{
+			text:       `source.name.lastIndexOf('jello')`,
+			bag:        map[string]interface{}{"source.name": "hello mellow"},
+			result:     int64(-1),
+			referenced: []string{"source.name"},
+		},
+		{
+			text:       `source.name.lastIndexOf('ello', 6)`,
+			bag:        map[string]interface{}{"source.name": "hello mellow"},
+			result:     int64(1),
+			referenced: []string{"source.name"},
+		},
+		{
+			text:       `source.name.lastIndexOf('ello', -1)`,
+			bag:        map[string]interface{}{"source.name": "hello mellow"},
+			result:     errors.New("index out of range: -1"),
+			referenced: []string{"source.name"},
+		},
+		//Split
+		{
+			text:       `source.name.split(' ')`,
+			bag:        map[string]interface{}{"source.name": "hello hello hello"},
+			result:     []string{"hello", "hello", "hello"},
+			referenced: []string{"source.name"},
+		},
+		{
+			text:       `source.name.split(' ', 0)`,
+			bag:        map[string]interface{}{"source.name": "hello hello hello"},
+			result:     []string{},
+			referenced: []string{"source.name"},
+		},
+		{
+			text:       `source.name.split(' ', 1)`,
+			bag:        map[string]interface{}{"source.name": "hello hello hello"},
+			result:     []string{"hello hello hello"},
+			referenced: []string{"source.name"},
+		},
+		{
+			text:       `source.name.split(' ', 2)`,
+			bag:        map[string]interface{}{"source.name": "hello hello hello"},
+			result:     []string{"hello", "hello hello"},
+			referenced: []string{"source.name"},
+		},
+		{
+			text:       `source.name.split(' ', -1)`,
+			bag:        map[string]interface{}{"source.name": "hello hello hello"},
+			result:     []string{"hello", "hello", "hello"},
+			referenced: []string{"source.name"},
+		},
+		//substring
+		{
+			text:       `source.name.substring(4)`,
+			bag:        map[string]interface{}{"source.name": "tacocat"},
+			result:     "cat",
+			referenced: []string{"source.name"},
+		},
+		{
+			text:       `source.name.substring(0, 4)`,
+			bag:        map[string]interface{}{"source.name": "tacocat"},
+			result:     "taco",
+			referenced: []string{"source.name"},
+		},
+		{
+			text:       `source.name.substring(-1)`,
+			bag:        map[string]interface{}{"source.name": "tacocat"},
+			result:     errors.New("index out of range: -1"),
+			referenced: []string{"source.name"},
+		},
+		{
+			text:       `source.name.substring(2, 1)`,
+			bag:        map[string]interface{}{"source.name": "tacocat"},
+			result:     errors.New("invalid substring range. start: 2, end: 1"),
+			referenced: []string{"source.name"},
+		},
+		//trim
+		{
+			text:       `source.name.trim()`,
+			bag:        map[string]interface{}{"source.name": "  foo  "},
+			result:     "foo",
+			referenced: []string{"source.name"},
+		},
+		{
+			text:       `source.name.trim()`,
+			bag:        map[string]interface{}{"source.name": "foo \n"},
+			result:     "foo",
+			referenced: []string{"source.name"},
+		},
+		{
+			text:       `source.name.trim()`,
+			bag:        map[string]interface{}{"source.name": "foo"},
+			result:     "foo",
+			referenced: []string{"source.name"},
+		},
+
 	}
 	attrs = map[string]*v1beta1.AttributeManifest_AttributeInfo{
 		"abc":                       {ValueType: v1beta1.STRING},
