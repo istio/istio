@@ -136,8 +136,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -168,8 +167,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -200,8 +198,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -232,8 +229,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -269,8 +265,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -301,8 +296,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -333,8 +327,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -365,8 +358,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -458,8 +450,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -490,8 +481,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -522,8 +512,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -554,8 +543,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -591,8 +579,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -623,8 +610,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -655,8 +641,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -687,8 +672,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -859,8 +843,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -891,8 +874,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -923,8 +905,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -955,8 +936,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -992,8 +972,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1024,8 +1003,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1056,8 +1034,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1088,8 +1065,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1181,8 +1157,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1213,8 +1188,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1245,8 +1219,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1277,8 +1250,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1314,8 +1286,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1346,8 +1317,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1378,8 +1348,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1410,8 +1379,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1837,6 +1805,7 @@ spec:
                                 format: string
                                 type: string
                               regex:
+                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                 format: string
                                 type: string
                             type: object
@@ -3144,76 +3113,6 @@ spec:
                     type: object
                 type: object
               type: array
-            filters:
-              items:
-                properties:
-                  filterConfig:
-                    type: object
-                  filterName:
-                    description: The name of the filter to instantiate.
-                    format: string
-                    type: string
-                  filterType:
-                    description: The type of filter to instantiate.
-                    enum:
-                    - INVALID
-                    - HTTP
-                    - NETWORK
-                    type: string
-                  insertPosition:
-                    description: Insert position in the filter chain.
-                    properties:
-                      index:
-                        description: Position of this filter in the filter chain.
-                        enum:
-                        - FIRST
-                        - LAST
-                        - BEFORE
-                        - AFTER
-                        type: string
-                      relativeTo:
-                        format: string
-                        type: string
-                    type: object
-                  listenerMatch:
-                    properties:
-                      address:
-                        description: One or more IP addresses to which the listener
-                          is bound.
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      listenerProtocol:
-                        description: Selects a class of listeners for the same protocol.
-                        enum:
-                        - ALL
-                        - HTTP
-                        - TCP
-                        type: string
-                      listenerType:
-                        description: Inbound vs outbound sidecar listener or gateway
-                          listener.
-                        enum:
-                        - ANY
-                        - SIDECAR_INBOUND
-                        - SIDECAR_OUTBOUND
-                        - GATEWAY
-                        type: string
-                      portNamePrefix:
-                        format: string
-                        type: string
-                      portNumber:
-                        type: integer
-                    type: object
-                type: object
-              type: array
-            workloadLabels:
-              additionalProperties:
-                format: string
-                type: string
-              description: Deprecated.
-              type: object
             workloadSelector:
               properties:
                 labels:
@@ -3594,74 +3493,6 @@ spec:
                     type: object
                 type: object
               type: array
-            inboundTls:
-              properties:
-                caCertificates:
-                  description: REQUIRED if mode is `MUTUAL`.
-                  format: string
-                  type: string
-                cipherSuites:
-                  description: 'Optional: If specified, only support the specified
-                    cipher list.'
-                  items:
-                    format: string
-                    type: string
-                  type: array
-                credentialName:
-                  format: string
-                  type: string
-                httpsRedirect:
-                  type: boolean
-                maxProtocolVersion:
-                  description: 'Optional: Maximum TLS protocol version.'
-                  enum:
-                  - TLS_AUTO
-                  - TLSV1_0
-                  - TLSV1_1
-                  - TLSV1_2
-                  - TLSV1_3
-                  type: string
-                minProtocolVersion:
-                  description: 'Optional: Minimum TLS protocol version.'
-                  enum:
-                  - TLS_AUTO
-                  - TLSV1_0
-                  - TLSV1_1
-                  - TLSV1_2
-                  - TLSV1_3
-                  type: string
-                mode:
-                  enum:
-                  - PASSTHROUGH
-                  - SIMPLE
-                  - MUTUAL
-                  - AUTO_PASSTHROUGH
-                  - ISTIO_MUTUAL
-                  type: string
-                privateKey:
-                  description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
-                  format: string
-                  type: string
-                serverCertificate:
-                  description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
-                  format: string
-                  type: string
-                subjectAltNames:
-                  items:
-                    format: string
-                    type: string
-                  type: array
-                verifyCertificateHash:
-                  items:
-                    format: string
-                    type: string
-                  type: array
-                verifyCertificateSpki:
-                  items:
-                    format: string
-                    type: string
-                  type: array
-              type: object
             ingress:
               items:
                 properties:
@@ -3678,75 +3509,6 @@ spec:
                   defaultEndpoint:
                     format: string
                     type: string
-                  inboundTls:
-                    description: Overrides Sidecar level `inboundTls` settings.
-                    properties:
-                      caCertificates:
-                        description: REQUIRED if mode is `MUTUAL`.
-                        format: string
-                        type: string
-                      cipherSuites:
-                        description: 'Optional: If specified, only support the specified
-                          cipher list.'
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      credentialName:
-                        format: string
-                        type: string
-                      httpsRedirect:
-                        type: boolean
-                      maxProtocolVersion:
-                        description: 'Optional: Maximum TLS protocol version.'
-                        enum:
-                        - TLS_AUTO
-                        - TLSV1_0
-                        - TLSV1_1
-                        - TLSV1_2
-                        - TLSV1_3
-                        type: string
-                      minProtocolVersion:
-                        description: 'Optional: Minimum TLS protocol version.'
-                        enum:
-                        - TLS_AUTO
-                        - TLSV1_0
-                        - TLSV1_1
-                        - TLSV1_2
-                        - TLSV1_3
-                        type: string
-                      mode:
-                        enum:
-                        - PASSTHROUGH
-                        - SIMPLE
-                        - MUTUAL
-                        - AUTO_PASSTHROUGH
-                        - ISTIO_MUTUAL
-                        type: string
-                      privateKey:
-                        description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
-                        format: string
-                        type: string
-                      serverCertificate:
-                        description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
-                        format: string
-                        type: string
-                      subjectAltNames:
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      verifyCertificateHash:
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      verifyCertificateSpki:
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                    type: object
                   port:
                     description: The port associated with the listener.
                     properties:
@@ -3923,6 +3685,7 @@ spec:
                               format: string
                               type: string
                             regex:
+                              description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                               format: string
                               type: string
                           type: object
@@ -4057,6 +3820,7 @@ spec:
                               format: string
                               type: string
                             regex:
+                              description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                               format: string
                               type: string
                           type: object
@@ -4084,6 +3848,7 @@ spec:
                                 format: string
                                 type: string
                               regex:
+                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                 format: string
                                 type: string
                             type: object
@@ -4108,6 +3873,7 @@ spec:
                               format: string
                               type: string
                             regex:
+                              description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                               format: string
                               type: string
                           type: object
@@ -4136,6 +3902,7 @@ spec:
                                 format: string
                                 type: string
                               regex:
+                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                 format: string
                                 type: string
                             type: object
@@ -4157,6 +3924,7 @@ spec:
                               format: string
                               type: string
                             regex:
+                              description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                               format: string
                               type: string
                           type: object
@@ -4186,6 +3954,7 @@ spec:
                               format: string
                               type: string
                             regex:
+                              description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                               format: string
                               type: string
                           type: object
@@ -4206,6 +3975,7 @@ spec:
                                 format: string
                                 type: string
                               regex:
+                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                 format: string
                                 type: string
                             type: object
@@ -5691,6 +5461,8 @@ spec:
     kind: PeerAuthentication
     listKind: PeerAuthenticationList
     plural: peerauthentications
+    shortNames:
+    - pa
     singular: peerauthentication
   scope: Namespaced
   subresources:
@@ -5767,6 +5539,8 @@ spec:
     kind: RequestAuthentication
     listKind: RequestAuthenticationList
     plural: requestauthentications
+    shortNames:
+    - ra
     singular: requestauthentication
   scope: Namespaced
   subresources:
@@ -5930,10 +5704,10 @@ rules:
 - apiGroups: ["apiextensions.k8s.io"]
   resources: ["customresourcedefinitions"]
   verbs: ["get", "watch", "list"]
-- apiGroups: ["extensions"]
+- apiGroups: ["networking.k8s.io"]
   resources: ["ingresses"]
   verbs: ["get", "list", "watch"]
-- apiGroups: ["extensions"]
+- apiGroups: ["networking.k8s.io"]
   resources: ["ingresses/status"]
   verbs: ["*"]
   # TODO: remove, too broad permission, should be namespace only
@@ -5947,12 +5721,6 @@ rules:
 - apiGroups: [""]
   resources: ["secrets"]
   verbs: ["create", "get", "watch", "list", "update", "delete"]
-- apiGroups: ["certificates.k8s.io"]
-  resources:
-    - "certificatesigningrequests"
-    - "certificatesigningrequests/approval"
-    - "certificatesigningrequests/status"
-  verbs: ["update", "create", "get", "delete", "watch"]
 - apiGroups: ["discovery.k8s.io"]
   resources: ["endpointslices"]
   verbs: ["get", "list", "watch"]
@@ -6005,10 +5773,10 @@ rules:
     verbs: ["get", "list", "watch"]
 
   # ingress controller
-  - apiGroups: ["extensions"]
+  - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses"]
     verbs: ["get", "list", "watch"]
-  - apiGroups: ["extensions"]
+  - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses/status"]
     verbs: ["*"]
 
@@ -6024,6 +5792,13 @@ rules:
       - "certificatesigningrequests/approval"
       - "certificatesigningrequests/status"
     verbs: ["update", "create", "get", "delete", "watch"]
+  - apiGroups: ["certificates.k8s.io"]
+    resources:
+      - "signers"
+    resourceNames:
+    - "kubernetes.io/legacy-unknown"
+    verbs: ["approve"]
+
   # Used by Istiod to verify the JWT tokens
   - apiGroups: ["authentication.k8s.io"]
     resources: ["tokenreviews"]

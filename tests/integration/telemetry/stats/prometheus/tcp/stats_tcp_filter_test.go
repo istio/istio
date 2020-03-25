@@ -15,14 +15,12 @@
 package tcp
 
 import (
-	"testing"
-
 	"fmt"
+	"testing"
 	"time"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -30,6 +28,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/mixer"
@@ -102,6 +101,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("stats_tcp_filter", m).
 		RequireEnvironment(environment.Kube).
+		RequireSingleCluster().
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
 		Setup(testsetup).

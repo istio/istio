@@ -22,9 +22,9 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
@@ -55,16 +55,16 @@ func runHealthCheckDeployment(t *testing.T, ctx framework.TestContext, ns namesp
 	name string, rewrite bool) {
 	t.Helper()
 	wantSuccess := rewrite
-	policyYAML := fmt.Sprintf(`apiVersion: "authentication.istio.io/v1alpha1"
-kind: "Policy"
+	policyYAML := fmt.Sprintf(`apiVersion: "security.istio.io/v1beta1"
+kind: "PeerAuthentication"
 metadata:
   name: "mtls-strict-for-%v"
 spec:
-  targets:
-  - name: "%v"
-  peers:
-    - mtls:
-        mode: STRICT
+  selector:
+    matchLabels:
+      app: "%v"
+  mtls:
+    mode: STRICT
 `, name, name)
 	g.ApplyConfigOrFail(t, ns, policyYAML)
 	defer g.DeleteConfigOrFail(t, ns, policyYAML)

@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	appEcho "istio.io/istio/pkg/test/echo/client"
+	echoCommon "istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	kubeEnv "istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -52,6 +53,7 @@ type instance struct {
 	workloads []*workload
 	grpcPort  uint16
 	ctx       resource.Context
+	tls       *echoCommon.TLSSettings
 	cluster   kubeEnv.Cluster
 }
 
@@ -82,16 +84,26 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 		return nil, errors.New("unable fo find GRPC command port")
 	}
 	c.grpcPort = uint16(grpcPort.InstancePort)
+	c.tls = cfg.TLSSettings
 
-	// Generate the deployment YAML.
-	generatedYAML, err := generateYAML(cfg)
+	// Generate the service and deployment YAML.
+	serviceYAML, deploymentYAML, err := generateYAML(cfg)
 	if err != nil {
 		return nil, err
 	}
 
+	// Apply the service definition to all clusters.
+	for _, cluster := range ctx.Environment().(*kubeEnv.Environment).KubeClusters {
+		if _, err = cluster.ApplyContents(cfg.Namespace.Name(), serviceYAML); err != nil {
+			return nil, fmt.Errorf("failed deploying echo service %s to cluster %d: %v",
+				cfg.FQDN(), cluster.Index(), err)
+		}
+	}
+
 	// Deploy the YAML.
-	if _, err = c.cluster.ApplyContents(cfg.Namespace.Name(), generatedYAML); err != nil {
-		return nil, err
+	if _, err = c.cluster.ApplyContents(cfg.Namespace.Name(), deploymentYAML); err != nil {
+		return nil, fmt.Errorf("failed deploying echo %s to cluster %d: %v",
+			cfg.FQDN(), c.cluster.Index(), err)
 	}
 
 	// Now retrieve the service information to find the ClusterIP
@@ -191,7 +203,7 @@ func (c *instance) WaitUntilCallable(instances ...echo.Instance) error {
 	// Wait for the outbound config to be received by each workload from Pilot.
 	for _, w := range c.workloads {
 		if w.sidecar != nil {
-			if err := w.sidecar.WaitForConfig(common.OutboundConfigAcceptFunc(instances...)); err != nil {
+			if err := w.sidecar.WaitForConfig(common.OutboundConfigAcceptFunc(c, instances...)); err != nil {
 				return err
 			}
 		}
@@ -227,7 +239,7 @@ func (c *instance) initialize(endpoints *kubeCore.Endpoints) error {
 	workloads := make([]*workload, 0)
 	for _, subset := range endpoints.Subsets {
 		for _, addr := range subset.Addresses {
-			workload, err := newWorkload(addr, workloadHasSidecar(c.cfg, addr.TargetRef), c.grpcPort, c.cluster, c.ctx)
+			workload, err := newWorkload(addr, workloadHasSidecar(c.cfg, addr.TargetRef), c.grpcPort, c.cluster, c.tls, c.ctx)
 			if err != nil {
 				return err
 			}

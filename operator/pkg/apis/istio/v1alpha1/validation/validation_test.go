@@ -43,25 +43,6 @@ func TestValidate(t *testing.T) {
 			},
 			validated: true,
 		},
-		{
-			name: "With Slice",
-			toValidate: &v1alpha1.Values{
-				Gateways: &v1alpha1.GatewaysConfig{
-					Enabled: &types.BoolValue{Value: true},
-					IstioEgressgateway: &v1alpha1.EgressGatewayConfig{
-						Ports: []*v1alpha1.PortsConfig{
-							{
-								Name: "port1",
-							},
-							{
-								Name: "port2",
-							},
-						},
-					},
-				},
-			},
-			validated: true,
-		},
 	}
 
 	for _, tt := range tests {

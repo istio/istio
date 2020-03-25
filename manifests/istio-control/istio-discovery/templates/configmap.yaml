@@ -1,4 +1,3 @@
-{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
 {{- if .Values.pilot.configMap }}
 apiVersion: v1
 kind: ConfigMap
@@ -36,8 +35,6 @@ data:
 
     enableEnvoyAccessLogService: {{ .Values.global.proxy.envoyAccessLogService.enabled }}
 
-    {{- if .Values.global.istioRemote }}
-
     {{- if .Values.global.remotePolicyAddress }}
     {{- if .Values.global.createRemoteSvcEndpoints }}
     mixerCheckServer: istio-policy.{{ .Release.Namespace }}:15004
@@ -50,7 +47,6 @@ data:
     mixerReportServer: istio-telemetry.{{ .Release.Namespace }}:15004
     {{- else }}
     mixerReportServer: {{ .Values.global.remoteTelemetryAddress }}:15004
-    {{- end }}
     {{- end }}
 
     {{- else }}
@@ -73,7 +69,7 @@ data:
 
     {{- end }}
 
-    {{- if or .Values.mixer.policy.enabled (and .Values.global.istioRemote .Values.global.remotePolicyAddress) }}
+    {{- if or .Values.mixer.policy.enabled .Values.global.remotePolicyAddress }}
     # policyCheckFailOpen allows traffic in cases when the mixer policy service cannot be reached.
     # Default is false which means the traffic is denied when the client is unable to connect to Mixer.
     policyCheckFailOpen: {{ .Values.global.policyCheckFailOpen }}
@@ -135,7 +131,7 @@ data:
     #  The trust domain aliases represent the aliases of trust_domain.
     #  For example, if we have
     #  trustDomain: td1
-    #  trustDomainAliases: [“td2”, "td3"]
+    #  trustDomainAliases: ["td2", "td3"]
     #  Any service with the identity "td1/ns/foo/sa/a-service-account", "td2/ns/foo/sa/a-service-account",
     #  or "td3/ns/foo/sa/a-service-account" will be treated the same in the Istio mesh.
     trustDomainAliases:
@@ -256,7 +252,7 @@ data:
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
       {{- if .Values.global.remotePilotAddress }}
-      discoveryAddress: {{ .Values.global.remotePilotAddress }}
+      discoveryAddress: {{ printf "istiod-remote.%s.svc" .Release.Namespace }}:15012
       {{- else }}
       discoveryAddress: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{.Release.Namespace}}.svc:15012
       {{- end }}
@@ -293,5 +289,4 @@ data:
     {{- end}}
 
 ---
-{{- end }}
 {{- end }}

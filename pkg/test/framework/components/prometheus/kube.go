@@ -161,11 +161,11 @@ func (c *kubeComponent) WaitForQuiesceOrFail(t test.Failer, format string, args 
 	return v
 }
 
-func (c *kubeComponent) WaitForOneOrMore(format string, args ...interface{}) error {
+func (c *kubeComponent) WaitForOneOrMore(format string, args ...interface{}) (model.Value, error) {
 
 	time.Sleep(time.Second * 5)
 
-	_, err := retry.Do(func() (interface{}, bool, error) {
+	value, err := retry.Do(func() (interface{}, bool, error) {
 		query, err := tmpl.Evaluate(fmt.Sprintf(format, args...), map[string]string{})
 		if err != nil {
 			return nil, true, err
@@ -181,7 +181,7 @@ func (c *kubeComponent) WaitForOneOrMore(format string, args ...interface{}) err
 
 		switch v.Type() {
 		case model.ValScalar, model.ValString:
-			return nil, true, nil
+			return v, true, nil
 
 		case model.ValVector:
 			value := v.(model.Vector)
@@ -189,20 +189,26 @@ func (c *kubeComponent) WaitForOneOrMore(format string, args ...interface{}) err
 			if len(value) == 0 {
 				return nil, false, fmt.Errorf("value not found (query: %q)", query)
 			}
-			return nil, true, nil
+			return v, true, nil
 
 		default:
 			return nil, true, fmt.Errorf("unhandled value type: %v", v.Type())
 		}
 	}, retryTimeout, retryDelay)
 
-	return err
+	var v model.Value
+	if value != nil {
+		v = value.(model.Value)
+	}
+	return v, err
 }
 
-func (c *kubeComponent) WaitForOneOrMoreOrFail(t test.Failer, format string, args ...interface{}) {
-	if err := c.WaitForOneOrMore(format, args...); err != nil {
+func (c *kubeComponent) WaitForOneOrMoreOrFail(t test.Failer, format string, args ...interface{}) model.Value {
+	val, err := c.WaitForOneOrMore(format, args...)
+	if err != nil {
 		t.Fatal(err)
 	}
+	return val
 }
 
 func reduce(v model.Vector, labels map[string]string) model.Vector {

@@ -20,7 +20,7 @@ require (
 	github.com/Azure/go-autorest/autorest v0.9.4 // indirect
 	github.com/DataDog/datadog-go v2.2.0+incompatible
 	github.com/Masterminds/semver v1.4.2
-	github.com/Masterminds/sprig v2.14.1+incompatible // indirect
+	github.com/Masterminds/sprig v2.14.1+incompatible
 	github.com/Microsoft/go-winio v0.4.14 // indirect
 	github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6 // indirect
 	github.com/alicebob/miniredis v0.0.0-20180201100744-9d52b1fc8da9
@@ -65,12 +65,10 @@ require (
 	github.com/gogo/protobuf v1.3.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
-	github.com/golang/protobuf v1.3.2
+	github.com/golang/protobuf v1.3.5
 	github.com/golang/sync v0.0.0-20180314180146-1d60e4601c6f
 	github.com/google/cel-go v0.4.0
 	github.com/google/go-cmp v0.3.1
-	github.com/google/go-github v17.0.0+incompatible
-	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/googleapis/gax-go v2.0.2+incompatible
 	github.com/googleapis/gax-go/v2 v2.0.5
@@ -149,7 +147,7 @@ require (
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.2.7
-	istio.io/api v0.0.0-20200323195549-6bfc9cb1f41e
+	istio.io/api v0.0.0-20200324155120-32b3c4255353
 	istio.io/gogo-genproto v0.0.0-20200227125611-d2e4aa9d5634
 	istio.io/pkg v0.0.0-20200227125209-63966175aa01
 	k8s.io/api v0.17.2

@@ -483,38 +483,9 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 			return fmt.Errorf("cannot cast to Envoy filter")
 		}
 
-		if len(rule.Filters) > 0 {
-			scope.Warn("Envoy filter: Filters is deprecated. use configPatches instead") // nolint: golint,stylecheck
-		}
-
-		if rule.WorkloadLabels != nil {
-			scope.Warn("Envoy filter: workloadLabels is deprecated. use workloadSelector instead") // nolint: golint,stylecheck
-		}
-
 		if rule.WorkloadSelector != nil {
 			if rule.WorkloadSelector.GetLabels() == nil {
 				errs = appendErrors(errs, fmt.Errorf("Envoy filter: workloadSelector cannot have empty labels")) // nolint: golint,stylecheck
-			}
-		}
-
-		for _, f := range rule.Filters {
-			if f.InsertPosition != nil {
-				if f.InsertPosition.Index == networking.EnvoyFilter_InsertPosition_BEFORE ||
-					f.InsertPosition.Index == networking.EnvoyFilter_InsertPosition_AFTER {
-					if f.InsertPosition.RelativeTo == "" {
-						errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing relativeTo filter with BEFORE/AFTER index")) // nolint: golint,stylecheck
-					}
-				}
-			}
-			if f.FilterType == networking.EnvoyFilter_Filter_INVALID {
-				errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing filter type")) // nolint: golint,stylecheck
-			}
-			if len(f.FilterName) == 0 {
-				errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing filter name")) // nolint: golint,stylecheck
-			}
-
-			if f.FilterConfig == nil {
-				errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing filter config")) // nolint: golint,stylecheck
 			}
 		}
 
@@ -718,16 +689,6 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 					}
 				}
 			}
-
-			errs = appendErrors(errs, validateSidecarIngressTLS(i.InboundTls))
-
-			// If inbound TLS defined, the port must be either TLS or HTTPS
-			if i.InboundTls != nil {
-				p := protocol.Parse(i.Port.Protocol)
-				if !p.IsTLS() {
-					errs = appendErrors(errs, fmt.Errorf("sidecar: ingress cannot have TLS settings for non HTTPS/TLS ports"))
-				}
-			}
 		}
 
 		portMap = make(map[uint32]struct{})
@@ -780,23 +741,6 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 
 		return
 	})
-
-func validateSidecarIngressTLS(tls *networking.Server_TLSOptions) (errs error) {
-	if tls == nil {
-		return nil
-	}
-
-	if tls.HttpsRedirect {
-		errs = appendErrors(errs, fmt.Errorf("sidecar: inbound tls must not set 'httpsRedirect'"))
-	}
-
-	if tls.Mode == networking.Server_TLSOptions_AUTO_PASSTHROUGH ||
-		tls.Mode == networking.Server_TLSOptions_ISTIO_MUTUAL {
-		errs = appendErrors(errs, fmt.Errorf("sidecar: inbound tls mode must not be %s", tls.Mode.String()))
-	}
-	errs = appendErrors(errs, validateTLSOptions(tls))
-	return
-}
 
 func validateSidecarOutboundTrafficPolicy(tp *networking.OutboundTrafficPolicy) (errs error) {
 	if tp == nil {
@@ -2546,7 +2490,7 @@ func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 		errs = multierror.Append(errs, errors.New("attempts cannot be negative"))
 	}
 
-	if retries.Attempts == 0 && (retries.PerTryTimeout != nil || retries.RetryOn != "") {
+	if retries.Attempts == 0 && (retries.PerTryTimeout != nil || retries.RetryOn != "" || retries.RetryRemoteLocalities != nil) {
 		errs = appendErrors(errs, errors.New("http retry policy configured when attempts are set to 0 (disabled)"))
 	}
 

@@ -28,13 +28,11 @@ import (
 type kubeComponent struct {
 	config  Config
 	id      resource.ID
-	ctx     resource.Context
 	cluster kube.Cluster
 }
 
 func newKube(ctx resource.Context, config Config) Instance {
 	n := &kubeComponent{
-		ctx:     ctx,
 		config:  config,
 		cluster: kube.ClusterOrDefault(config.Cluster, ctx.Environment()),
 	}
@@ -50,13 +48,15 @@ func (c *kubeComponent) ID() resource.ID {
 
 // Invoke implements Instance
 func (c *kubeComponent) Invoke(args []string) (string, error) {
-	var envArgs = []string{
+	var cmdArgs = append([]string{
 		"--kubeconfig",
-		c.cluster.String(),
-	}
+		c.cluster.Filename(),
+	}, args...)
+
 	var out bytes.Buffer
-	rootCmd := cmd.GetRootCmd(append(envArgs, args...))
-	rootCmd.SetOutput(&out)
+	rootCmd := cmd.GetRootCmd(cmdArgs)
+	rootCmd.SetOut(&out)
+	rootCmd.SetErr(&out)
 	fErr := rootCmd.Execute()
 	return out.String(), fErr
 }

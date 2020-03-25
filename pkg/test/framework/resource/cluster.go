@@ -18,7 +18,16 @@ import (
 	"fmt"
 )
 
+// ClusterIndex is the index of a cluster within the Environment
+type ClusterIndex int
+
 // Cluster in a multicluster environment.
 type Cluster interface {
 	fmt.Stringer
+
+	// Index of this Cluster within the Environment
+	Index() ClusterIndex
+
+	// IsControlPlaneCluster indicates whether or not a control plane has/should have a control plane deployed.
+	IsControlPlaneCluster() bool
 }

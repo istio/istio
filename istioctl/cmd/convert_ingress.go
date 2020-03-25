@@ -24,7 +24,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/networking/v1beta1"
 
 	"istio.io/pkg/log"
 
@@ -97,7 +97,8 @@ func readConfigs(readers []io.Reader) ([]model.Config, []*v1beta1.Ingress, error
 		recognized := 0
 		for _, nonIstio := range kinds {
 			if nonIstio.Kind == "Ingress" &&
-				nonIstio.APIVersion == "extensions/v1beta1" {
+				(nonIstio.APIVersion == "extensions/v1beta1" ||
+					nonIstio.APIVersion == "networking.k8s.io/v1beta1") {
 
 				ingress, err := parseIngress(nonIstio)
 				if err != nil {

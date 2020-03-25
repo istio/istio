@@ -1,4 +1,3 @@
-{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -80,12 +79,6 @@ spec:
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
-
-{{- if and .Values.global.controlPlaneSecurityEnabled }}
-          - --secureGrpcAddr=:15011
-{{- else }}
-          - --secureGrpcAddr=
-{{- end }}
 {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
 {{- end }}
@@ -94,8 +87,6 @@ spec:
 {{- end }}
           - --keepaliveMaxServerConnectionAge
           - "{{ .Values.pilot.keepaliveMaxServerConnectionAge }}"
-          # TODO: make default
-          - --disable-install-crds=true
           ports:
           - containerPort: 8080
           - containerPort: 15010
@@ -113,6 +104,8 @@ spec:
               name: istiod
               optional: true
           env:
+          - name: REVISION
+            value: "{{ .Values.revision | default `default` }}"
           - name: JWT_POLICY
             value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
@@ -158,6 +151,8 @@ spec:
             value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
             value: "false"
+          - name: CLUSTER_ID
+            value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
           resources:
 {{- if .Values.pilot.resources }}
 {{ toYaml .Values.pilot.resources | trim | indent 12 }}
@@ -238,4 +233,3 @@ spec:
 {{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
 ---
-{{- end }}

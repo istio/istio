@@ -55,13 +55,13 @@ func addManifestDiffFlags(cmd *cobra.Command, diffArgs *manifestDiffArgs) {
 			"The format of each list item is \"::\" and the items are comma separated. The \"*\" character represents wildcard selection.\n"+
 			"e.g.\n"+
 			"    Deployment:istio-system:* - compare all deployments in istio-system namespace\n"+
-			"    Service:*:istio-pilot - compare Services called \"istio-pilot\" in all namespaces")
+			"    Service:*:istiod - compare Services called \"istiod\" in all namespaces")
 	cmd.PersistentFlags().StringVar(&diffArgs.ignoreResources, "ignore", "",
 		"ignoreResources ignores all listed items during comparison. It uses the same list format as selectResources")
 	cmd.PersistentFlags().StringVar(&diffArgs.renameResources, "rename", "",
 		"renameResources identifies renamed resources before comparison.\n"+
 			"The format of each renaming pair is A->B, all renaming pairs are comma separated.\n"+
-			"e.g. Service:*:istio-pilot->Service:*:istio-control - rename istio-pilot service into istio-control")
+			"e.g. Service:*:istiod->Service:*:istio-control - rename istiod service into istio-control")
 }
 
 func manifestDiffCmd(rootArgs *rootArgs, diffArgs *manifestDiffArgs) *cobra.Command {

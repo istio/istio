@@ -137,7 +137,6 @@ template: |
   {{- if .Values.global.logAsJson }}
     - --log_as_json
   {{- end }}
-    - --controlPlaneBootstrap=false
   {{- if .Values.global.proxy.lifecycle }}
     lifecycle:
       {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
@@ -194,14 +193,6 @@ template: |
         ]
     - name: ISTIO_META_CLUSTER_ID
       value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
-    - name: ISTIO_META_POD_NAME
-      valueFrom:
-        fieldRef:
-          fieldPath: metadata.name
-    - name: ISTIO_META_CONFIG_NAMESPACE
-      valueFrom:
-        fieldRef:
-          fieldPath: metadata.namespace
     - name: ISTIO_META_INTERCEPTION_MODE
       value: "{{ or (index .ObjectMeta.Annotations `sidecar.istio.io/interceptionMode`) .ProxyConfig.InterceptionMode.String }}"
     {{- if .Values.global.network }}
@@ -234,8 +225,8 @@ template: |
     {{- end }}
     {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
     {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
-      - name: {{ $key }}
-        value: "{{ $value }}"
+    - name: {{ $key }}
+      value: "{{ $value }}"
     {{- end }}
     {{- end }}
     {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
@@ -278,19 +269,30 @@ template: |
       runAsUser: 1337
       {{- end }}
     resources:
-      {{ if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) -}}
+  {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) }}
+    {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) }}
       requests:
         {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) -}}
         cpu: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU` }}"
-        {{ end}}
+        {{ end }}
         {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) -}}
         memory: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory` }}"
         {{ end }}
-    {{ else -}}
-  {{- if .Values.global.proxy.resources }}
+    {{- end }}
+    {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) }}
+      limits:
+        {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) -}}
+        cpu: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit` }}"
+        {{ end }}
+        {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) -}}
+        memory: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit` }}"
+        {{ end }}
+    {{- end }}
+  {{- else }}
+    {{- if .Values.global.proxy.resources }}
       {{ toYaml .Values.global.proxy.resources | indent 4 }}
+    {{- end }}
   {{- end }}
-    {{  end -}}
     volumeMounts:
     {{- if eq .Values.global.pilotCertProvider "istiod" }}
     - mountPath: /var/run/secrets/istio
@@ -313,7 +315,7 @@ template: |
       name: istio-certs
       readOnly: true
     {{- end }}
-    - name: podinfo
+    - name: istio-podinfo
       mountPath: /etc/istio/pod
     {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
     - mountPath: {{ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}
@@ -336,7 +338,7 @@ template: |
   - emptyDir:
       medium: Memory
     name: istio-envoy
-  - name: podinfo
+  - name: istio-podinfo
     downwardAPI:
       items:
         - path: "labels"

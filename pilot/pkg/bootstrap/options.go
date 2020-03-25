@@ -17,14 +17,14 @@ package bootstrap
 import (
 	"time"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/env"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
-	"istio.io/pkg/ctrlz"
 )
 
 // MeshArgs provide configuration options for the mesh. If ConfigFile is provided, an attempt will be made to
@@ -99,11 +99,6 @@ type DiscoveryServiceOptions struct {
 	// The listening address for GRPC. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
 	// a port number is automatically chosen.
 	GrpcAddr string
-
-	// The listening address for secure GRPC. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
-	// a port number is automatically chosen.
-	// "" means disabling secure GRPC, used in test.
-	SecureGrpcAddr string
 
 	// The listening address for the monitoring port. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
 	// a port number is automatically chosen.

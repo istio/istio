@@ -33,6 +33,10 @@ kiali:
   podAntiAffinityLabelSelector: []
   podAntiAffinityTermLabelSelector: []
 
+  service:
+    annotations: {}
+    type: ClusterIP
+
   ingress:
     enabled: false
     ## Used to create an Ingress record.
