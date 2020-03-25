@@ -11,7 +11,9 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/proxyCPU: "100m"
+        sidecar.istio.io/proxyCPULimit: "1000m"
         sidecar.istio.io/proxyMemory: "1Gi"
+        sidecar.istio.io/proxyMemoryLimit: "2Gi"
       labels:
         app: resource
     spec:

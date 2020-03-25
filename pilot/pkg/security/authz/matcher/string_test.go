@@ -18,14 +18,14 @@ import (
 	"reflect"
 	"testing"
 
-	envoy_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 )
 
 func TestStringMatcherWithPrefix(t *testing.T) {
 	testCases := []struct {
 		name string
 		v    string
-		want *envoy_matcher.StringMatcher
+		want *matcherpb.StringMatcher
 	}{
 		{
 			name: "wildcardAsRequired",
@@ -35,8 +35,8 @@ func TestStringMatcherWithPrefix(t *testing.T) {
 		{
 			name: "prefix",
 			v:    "-prefix-*",
-			want: &envoy_matcher.StringMatcher{
-				MatchPattern: &envoy_matcher.StringMatcher_Prefix{
+			want: &matcherpb.StringMatcher{
+				MatchPattern: &matcherpb.StringMatcher_Prefix{
 					Prefix: "abc-prefix-",
 				},
 			},
@@ -44,8 +44,8 @@ func TestStringMatcherWithPrefix(t *testing.T) {
 		{
 			name: "suffix",
 			v:    "*-suffix",
-			want: &envoy_matcher.StringMatcher{
-				MatchPattern: &envoy_matcher.StringMatcher_Suffix{
+			want: &matcherpb.StringMatcher{
+				MatchPattern: &matcherpb.StringMatcher_Suffix{
 					Suffix: "abc-suffix",
 				},
 			},
@@ -53,8 +53,8 @@ func TestStringMatcherWithPrefix(t *testing.T) {
 		{
 			name: "exact",
 			v:    "-exact",
-			want: &envoy_matcher.StringMatcher{
-				MatchPattern: &envoy_matcher.StringMatcher_Exact{
+			want: &matcherpb.StringMatcher{
+				MatchPattern: &matcherpb.StringMatcher_Exact{
 					Exact: "abc-exact",
 				},
 			},
