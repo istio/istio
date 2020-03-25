@@ -438,6 +438,30 @@ func TestTagToVersionString(t *testing.T) {
 	}
 }
 
+func TestVersionString(t *testing.T) {
+	tests := map[string]struct {
+		version Version
+		want    string
+	}{
+		"with suffix": {
+			version: NewVersion(1, 2, 3, "xyz"),
+			want:    "1.2.3-xyz",
+		},
+		"without suffix": {
+			version: NewVersion(1, 5, 0, ""),
+			want:    "1.5.0",
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			got := tt.version.String()
+			if got != tt.want {
+				t.Errorf("Version.String(): got: %s, want: %s", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestUnmarshalYAML(t *testing.T) {
 	v := &Version{}
 	expectedErr := fmt.Errorf("test error")
