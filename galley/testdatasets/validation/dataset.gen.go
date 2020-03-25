@@ -36,6 +36,8 @@
 // dataset/networking-v1alpha3-Sidecar-valid.yaml
 // dataset/networking-v1alpha3-VirtualService-invalid.yaml
 // dataset/networking-v1alpha3-VirtualService-valid.yaml
+// dataset/networking-v1alpha3-WorkloadEntry-invalid.yaml
+// dataset/networking-v1alpha3-WorkloadEntry-valid.yaml
 // dataset/networking-v1beta-DestinationRule-invalid.yaml
 // dataset/networking-v1beta-DestinationRule-valid.yaml
 // dataset/networking-v1beta-Gateway-invalid.yaml
@@ -44,6 +46,8 @@
 // dataset/networking-v1beta-Sidecar-valid.yaml
 // dataset/networking-v1beta-VirtualService-invalid.yaml
 // dataset/networking-v1beta-VirtualService-valid.yaml
+// dataset/networking-v1beta1-WorkloadEntry-invalid.yaml
+// dataset/networking-v1beta1-WorkloadEntry-valid.yaml
 // dataset/rbac-v1alpha1-ClusterRbacConfig-invalid.yaml
 // dataset/rbac-v1alpha1-ClusterRbacConfig-valid.yaml
 // dataset/rbac-v1alpha1-RBacConfig-invalid.yaml
@@ -1272,6 +1276,52 @@ func datasetNetworkingV1alpha3VirtualserviceValidYaml() (*asset, error) {
 	return a, nil
 }
 
+var _datasetNetworkingV1alpha3WorkloadentryInvalidYaml = []byte(`apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadEntry
+metadata:
+  name: valid-workload-entry
+spec:
+  address: 1.2.3.4
+`)
+
+func datasetNetworkingV1alpha3WorkloadentryInvalidYamlBytes() ([]byte, error) {
+	return _datasetNetworkingV1alpha3WorkloadentryInvalidYaml, nil
+}
+
+func datasetNetworkingV1alpha3WorkloadentryInvalidYaml() (*asset, error) {
+	bytes, err := datasetNetworkingV1alpha3WorkloadentryInvalidYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "dataset/networking-v1alpha3-WorkloadEntry-invalid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _datasetNetworkingV1alpha3WorkloadentryValidYaml = []byte(`apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadEntry
+metadata:
+  name: invalid-workload-entry
+spec:
+  address: ""
+`)
+
+func datasetNetworkingV1alpha3WorkloadentryValidYamlBytes() ([]byte, error) {
+	return _datasetNetworkingV1alpha3WorkloadentryValidYaml, nil
+}
+
+func datasetNetworkingV1alpha3WorkloadentryValidYaml() (*asset, error) {
+	bytes, err := datasetNetworkingV1alpha3WorkloadentryValidYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "dataset/networking-v1alpha3-WorkloadEntry-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _datasetNetworkingV1betaDestinationruleInvalidYaml = []byte(`apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
 metadata:
@@ -1504,6 +1554,52 @@ func datasetNetworkingV1betaVirtualserviceValidYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "dataset/networking-v1beta-VirtualService-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _datasetNetworkingV1beta1WorkloadentryInvalidYaml = []byte(`apiVersion: networking.istio.io/v1beta1
+kind: WorkloadEntry
+metadata:
+  name: valid-workload-entry
+spec:
+  address: ""
+`)
+
+func datasetNetworkingV1beta1WorkloadentryInvalidYamlBytes() ([]byte, error) {
+	return _datasetNetworkingV1beta1WorkloadentryInvalidYaml, nil
+}
+
+func datasetNetworkingV1beta1WorkloadentryInvalidYaml() (*asset, error) {
+	bytes, err := datasetNetworkingV1beta1WorkloadentryInvalidYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "dataset/networking-v1beta1-WorkloadEntry-invalid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _datasetNetworkingV1beta1WorkloadentryValidYaml = []byte(`apiVersion: networking.istio.io/v1beta1
+kind: WorkloadEntry
+metadata:
+  name: valid-workload-entry
+spec:
+  address: 1.2.3.4
+`)
+
+func datasetNetworkingV1beta1WorkloadentryValidYamlBytes() ([]byte, error) {
+	return _datasetNetworkingV1beta1WorkloadentryValidYaml, nil
+}
+
+func datasetNetworkingV1beta1WorkloadentryValidYaml() (*asset, error) {
+	bytes, err := datasetNetworkingV1beta1WorkloadentryValidYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "dataset/networking-v1beta1-WorkloadEntry-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1986,6 +2082,8 @@ var _bindata = map[string]func() (*asset, error){
 	"dataset/networking-v1alpha3-Sidecar-valid.yaml":              datasetNetworkingV1alpha3SidecarValidYaml,
 	"dataset/networking-v1alpha3-VirtualService-invalid.yaml":     datasetNetworkingV1alpha3VirtualserviceInvalidYaml,
 	"dataset/networking-v1alpha3-VirtualService-valid.yaml":       datasetNetworkingV1alpha3VirtualserviceValidYaml,
+	"dataset/networking-v1alpha3-WorkloadEntry-invalid.yaml":      datasetNetworkingV1alpha3WorkloadentryInvalidYaml,
+	"dataset/networking-v1alpha3-WorkloadEntry-valid.yaml":        datasetNetworkingV1alpha3WorkloadentryValidYaml,
 	"dataset/networking-v1beta-DestinationRule-invalid.yaml":      datasetNetworkingV1betaDestinationruleInvalidYaml,
 	"dataset/networking-v1beta-DestinationRule-valid.yaml":        datasetNetworkingV1betaDestinationruleValidYaml,
 	"dataset/networking-v1beta-Gateway-invalid.yaml":              datasetNetworkingV1betaGatewayInvalidYaml,
@@ -1994,6 +2092,8 @@ var _bindata = map[string]func() (*asset, error){
 	"dataset/networking-v1beta-Sidecar-valid.yaml":                datasetNetworkingV1betaSidecarValidYaml,
 	"dataset/networking-v1beta-VirtualService-invalid.yaml":       datasetNetworkingV1betaVirtualserviceInvalidYaml,
 	"dataset/networking-v1beta-VirtualService-valid.yaml":         datasetNetworkingV1betaVirtualserviceValidYaml,
+	"dataset/networking-v1beta1-WorkloadEntry-invalid.yaml":       datasetNetworkingV1beta1WorkloadentryInvalidYaml,
+	"dataset/networking-v1beta1-WorkloadEntry-valid.yaml":         datasetNetworkingV1beta1WorkloadentryValidYaml,
 	"dataset/rbac-v1alpha1-ClusterRbacConfig-invalid.yaml":        datasetRbacV1alpha1ClusterrbacconfigInvalidYaml,
 	"dataset/rbac-v1alpha1-ClusterRbacConfig-valid.yaml":          datasetRbacV1alpha1ClusterrbacconfigValidYaml,
 	"dataset/rbac-v1alpha1-RBacConfig-invalid.yaml":               datasetRbacV1alpha1RbacconfigInvalidYaml,
@@ -2088,6 +2188,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"networking-v1alpha3-Sidecar-valid.yaml":              &bintree{datasetNetworkingV1alpha3SidecarValidYaml, map[string]*bintree{}},
 		"networking-v1alpha3-VirtualService-invalid.yaml":     &bintree{datasetNetworkingV1alpha3VirtualserviceInvalidYaml, map[string]*bintree{}},
 		"networking-v1alpha3-VirtualService-valid.yaml":       &bintree{datasetNetworkingV1alpha3VirtualserviceValidYaml, map[string]*bintree{}},
+		"networking-v1alpha3-WorkloadEntry-invalid.yaml":      &bintree{datasetNetworkingV1alpha3WorkloadentryInvalidYaml, map[string]*bintree{}},
+		"networking-v1alpha3-WorkloadEntry-valid.yaml":        &bintree{datasetNetworkingV1alpha3WorkloadentryValidYaml, map[string]*bintree{}},
 		"networking-v1beta-DestinationRule-invalid.yaml":      &bintree{datasetNetworkingV1betaDestinationruleInvalidYaml, map[string]*bintree{}},
 		"networking-v1beta-DestinationRule-valid.yaml":        &bintree{datasetNetworkingV1betaDestinationruleValidYaml, map[string]*bintree{}},
 		"networking-v1beta-Gateway-invalid.yaml":              &bintree{datasetNetworkingV1betaGatewayInvalidYaml, map[string]*bintree{}},
@@ -2096,6 +2198,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"networking-v1beta-Sidecar-valid.yaml":                &bintree{datasetNetworkingV1betaSidecarValidYaml, map[string]*bintree{}},
 		"networking-v1beta-VirtualService-invalid.yaml":       &bintree{datasetNetworkingV1betaVirtualserviceInvalidYaml, map[string]*bintree{}},
 		"networking-v1beta-VirtualService-valid.yaml":         &bintree{datasetNetworkingV1betaVirtualserviceValidYaml, map[string]*bintree{}},
+		"networking-v1beta1-WorkloadEntry-invalid.yaml":       &bintree{datasetNetworkingV1beta1WorkloadentryInvalidYaml, map[string]*bintree{}},
+		"networking-v1beta1-WorkloadEntry-valid.yaml":         &bintree{datasetNetworkingV1beta1WorkloadentryValidYaml, map[string]*bintree{}},
 		"rbac-v1alpha1-ClusterRbacConfig-invalid.yaml":        &bintree{datasetRbacV1alpha1ClusterrbacconfigInvalidYaml, map[string]*bintree{}},
 		"rbac-v1alpha1-ClusterRbacConfig-valid.yaml":          &bintree{datasetRbacV1alpha1ClusterrbacconfigValidYaml, map[string]*bintree{}},
 		"rbac-v1alpha1-RBacConfig-invalid.yaml":               &bintree{datasetRbacV1alpha1RbacconfigInvalidYaml, map[string]*bintree{}},

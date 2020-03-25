@@ -2532,6 +2532,21 @@ func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 	return nil
 }
 
+// ValidateWorkloadEntry validates a workload entry.
+var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
+	func(_, _ string, config proto.Message) (errs error) {
+		we, ok := config.(*networking.WorkloadEntry)
+		if !ok {
+			return fmt.Errorf("cannot cast to workload entry")
+		}
+		if we.Address == "" {
+			return fmt.Errorf("address must be set")
+		}
+		// TODO: add better validation. The tricky thing is that we don't know if its meant to be
+		// DNS or STATIC type without association with a ServiceEntry
+		return nil
+	})
+
 // ValidateServiceEntry validates a service entry.
 var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 	func(_, _ string, config proto.Message) (errs error) {

@@ -295,7 +295,7 @@ var (
 			Proto:         "istio.networking.v1alpha3.WorkloadEntry",
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
+			ValidateProto: validation.ValidateWorkloadEntry,
 		}.MustBuild(),
 	}.MustBuild()
 
@@ -1007,7 +1007,7 @@ var (
 			Proto:         "istio.networking.v1alpha3.WorkloadEntry",
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
+			ValidateProto: validation.ValidateWorkloadEntry,
 		}.MustBuild(),
 	}.MustBuild()
 
