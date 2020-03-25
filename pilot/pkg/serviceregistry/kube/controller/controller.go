@@ -17,13 +17,14 @@ package controller
 import (
 	"errors"
 	"fmt"
-	klabels "k8s.io/apimachinery/pkg/labels"
 	"net"
 	"reflect"
 	"sort"
 	"strconv"
 	"sync"
 	"time"
+
+	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"

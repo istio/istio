@@ -466,10 +466,12 @@ func disableWebhookConfig(k8sClient kubernetes.Interface, opt *disableCliOptions
 	var validationErr error
 	var injectionErr error
 	if opt.disableValidationWebhook {
-		validationErr = k8sClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(context.TODO(), opt.validatingWebhookConfigName, metav1.DeleteOptions{})
+		validationErr = k8sClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().
+			Delete(context.TODO(), opt.validatingWebhookConfigName, metav1.DeleteOptions{})
 	}
 	if opt.disableInjectionWebhook {
-		injectionErr = k8sClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Delete(context.TODO(), opt.mutatingWebhookConfigName, metav1.DeleteOptions{})
+		injectionErr = k8sClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().
+			Delete(context.TODO(), opt.mutatingWebhookConfigName, metav1.DeleteOptions{})
 	}
 	return validationErr, injectionErr
 }
