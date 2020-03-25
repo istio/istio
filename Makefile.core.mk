@@ -382,7 +382,7 @@ ${ISTIO_OUT}/release/istioctl-osx: depend
 ${ISTIO_OUT}/release/istioctl-win.exe: depend
 	STATIC=0 GOOS=windows LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 
-# istioctl-linux (duplicate of istioctl-linux-amd64 remaining until istio/release-builder is updated, at which point it can be removed
+# legacy istioctl-linux (duplicate of istioctl-linux-amd64) remaining until istio/release-builder is updated, at which point it can be removed
 ${ISTIO_OUT}/release/istioctl-linux: depend
 	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 
@@ -400,7 +400,7 @@ binaries-test:
 	go test ${GOBUILDFLAGS} ./tests/binary/... -v --base-dir ${ISTIO_OUT} --binaries="$(RELEASE_BINARIES)"
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
-# istioctl-linux (duplicate of istioctl-linux-amd64 remaining until istio/release-builder is updated, at which point it can be removed
+# legacy istioctl-linux (duplicate of istioctl-linux-amd64) remaining until istio/release-builder is updated, at which point it can be removed
 .PHONY: istioctl-all
 istioctl-all: ${ISTIO_OUT}/release/istioctl-linux-amd64 ${ISTIO_OUT}/release/istioctl-linux-armv7 ${ISTIO_OUT}/release/istioctl-linux-arm64 \
 	${ISTIO_OUT}/release/istioctl-osx \
