@@ -19,6 +19,7 @@ package crd
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/watch"
 	"sync"
 	"time"
 
@@ -138,7 +139,9 @@ func (s *Store) checkAndCreateCaches(
 					ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 						return cl.List(context.TODO(), options)
 					},
-					WatchFunc: cl.Watch,
+					WatchFunc: func(options metav1.ListOptions) (w watch.Interface, err error) {
+						return cl.Watch(context.TODO(), options)
+					},
 				},
 				&unstructured.Unstructured{}, 0)
 			s.caches[res.Kind] = informer.GetStore()
