@@ -100,7 +100,7 @@ require (
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/nwaples/rardecode v1.0.0 // indirect
-	github.com/onsi/gomega v1.7.1
+	github.com/onsi/gomega v1.8.1
 	github.com/open-policy-agent/opa v0.8.2
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/openshift/api v3.9.1-0.20191008181517-e4fd21196097+incompatible
@@ -158,7 +158,7 @@ require (
 	k8s.io/helm v2.14.3+incompatible
 	k8s.io/kubectl v0.17.2
 	k8s.io/utils v0.0.0-20191114184206-e782cd3c129f
-	sigs.k8s.io/controller-runtime v0.4.0
+	sigs.k8s.io/controller-runtime v0.5.1
 	sigs.k8s.io/service-apis v0.0.0-20200227172328-b9010cfacdbe
 	sigs.k8s.io/yaml v1.1.0
 )
