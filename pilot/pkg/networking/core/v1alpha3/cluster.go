@@ -577,20 +577,16 @@ func SelectTrafficPolicyComponents(policy *networking.TrafficPolicy, port *model
 	if policy == nil {
 		return nil, nil, nil, nil
 	}
+	// Default to traffic policy's settings.
 	connectionPool := policy.ConnectionPool
 	outlierDetection := policy.OutlierDetection
 	loadBalancer := policy.LoadBalancer
 	tls := policy.Tls
 
+	// Check if port level overrides exist, if yes override with them.
 	if port != nil && len(policy.PortLevelSettings) > 0 {
-		foundPort := false
 		for _, p := range policy.PortLevelSettings {
-			if p.Port != nil {
-				if uint32(port.Port) == p.Port.Number {
-					foundPort = true
-				}
-			}
-			if foundPort {
+			if p.Port != nil && uint32(port.Port) == p.Port.Number {
 				connectionPool = p.ConnectionPool
 				outlierDetection = p.OutlierDetection
 				loadBalancer = p.LoadBalancer
