@@ -21,7 +21,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -ex
+set -e
 
 LOCAL_ARCH=$(uname -m)
 export LOCAL_ARCH
