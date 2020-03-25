@@ -90,6 +90,7 @@
 // charts/istio-operator/templates/namespace.yaml
 // charts/istio-operator/templates/service.yaml
 // charts/istio-operator/templates/service_account.yaml
+// charts/istio-operator/values.yaml
 // charts/istio-policy/Chart.yaml
 // charts/istio-policy/templates/_affinity.tpl
 // charts/istio-policy/templates/_helpers.tpl
@@ -20749,15 +20750,15 @@ func chartsIstioControlIstioDiscoveryValuesYaml() (*asset, error) {
 }
 
 var _chartsIstioOperatorChartYaml = []byte(`apiVersion: v1
-name: operator
-version: 1.5.0
+name: istio-operator
+version: 1.6.0
 tillerVersion: ">=2.7.2"
 description: Helm chart for deploying Istio operator
 keywords:
   - istio
   - operator
 sources:
-  - http://github.com/istio/operator
+  - http://github.com/istio/istio/operator
 engine: gotpl
 icon: https://istio.io/favicons/android-192x192.png
 `)
@@ -21134,6 +21135,27 @@ func chartsIstioOperatorTemplatesService_accountYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "charts/istio-operator/templates/service_account.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorValuesYaml = []byte(`hub: gcr.io/istio-testing
+tag: 1.6-dev
+operatorNamespace: istio-operator
+istioNamespace: istio-system
+`)
+
+func chartsIstioOperatorValuesYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorValuesYaml, nil
+}
+
+func chartsIstioOperatorValuesYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorValuesYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/values.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -46638,6 +46660,7 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-operator/templates/namespace.yaml":                                       chartsIstioOperatorTemplatesNamespaceYaml,
 	"charts/istio-operator/templates/service.yaml":                                         chartsIstioOperatorTemplatesServiceYaml,
 	"charts/istio-operator/templates/service_account.yaml":                                 chartsIstioOperatorTemplatesService_accountYaml,
+	"charts/istio-operator/values.yaml":                                                    chartsIstioOperatorValuesYaml,
 	"charts/istio-policy/Chart.yaml":                                                       chartsIstioPolicyChartYaml,
 	"charts/istio-policy/templates/_affinity.tpl":                                          chartsIstioPolicyTemplates_affinityTpl,
 	"charts/istio-policy/templates/_helpers.tpl":                                           chartsIstioPolicyTemplates_helpersTpl,
@@ -46920,6 +46943,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"service.yaml":             &bintree{chartsIstioOperatorTemplatesServiceYaml, map[string]*bintree{}},
 				"service_account.yaml":     &bintree{chartsIstioOperatorTemplatesService_accountYaml, map[string]*bintree{}},
 			}},
+			"values.yaml": &bintree{chartsIstioOperatorValuesYaml, map[string]*bintree{}},
 		}},
 		"istio-policy": &bintree{nil, map[string]*bintree{
 			"Chart.yaml": &bintree{chartsIstioPolicyChartYaml, map[string]*bintree{}},
