@@ -20,7 +20,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/gomega"
-	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/networking/v1beta1"
 
 	"istio.io/istio/pkg/config/schema/resource"
 
@@ -66,7 +66,7 @@ func TestParse(t *testing.T) {
 		g := NewGomegaWithT(t)
 		input := data.GetIngress()
 
-		objMeta, objResource := parse(t, []byte(input), "extensions", "Ingress", "v1beta1")
+		objMeta, objResource := parse(t, []byte(input), "networking", "Ingress", "v1beta1")
 
 		// Just validate a couple of things...
 		_, ok := objResource.(*v1beta1.IngressSpec)

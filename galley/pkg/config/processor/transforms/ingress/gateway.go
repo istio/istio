@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"path"
 
-	ingress "k8s.io/api/extensions/v1beta1"
+	ingress "k8s.io/api/networking/v1beta1"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -42,7 +42,7 @@ type gatewayXform struct {
 var _ event.Transformer = &gatewayXform{}
 
 func getGatewayXformProvider() transformer.Provider {
-	inputs := collection.NewSchemasBuilder().MustAdd(collections.K8SExtensionsV1Beta1Ingresses).Build()
+	inputs := collection.NewSchemasBuilder().MustAdd(collections.K8SNetworkingV1Beta1Ingresses).Build()
 	outputs := collection.NewSchemasBuilder().MustAdd(collections.IstioNetworkingV1Alpha3Gateways).Build()
 
 	createFn := func(o processing.ProcessorOptions) event.Transformer {

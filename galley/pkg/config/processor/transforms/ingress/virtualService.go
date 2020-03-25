@@ -19,8 +19,8 @@ import (
 	"strings"
 	"sync"
 
-	"k8s.io/api/extensions/v1beta1"
-	ingress "k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/networking/v1beta1"
+	ingress "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -47,7 +47,7 @@ type virtualServiceXform struct {
 }
 
 func getVirtualServiceXformProvider() transformer.Provider {
-	inputs := collection.NewSchemasBuilder().MustAdd(collections.K8SExtensionsV1Beta1Ingresses).Build()
+	inputs := collection.NewSchemasBuilder().MustAdd(collections.K8SNetworkingV1Beta1Ingresses).Build()
 	outputs := collection.NewSchemasBuilder().MustAdd(collections.IstioNetworkingV1Alpha3Virtualservices).Build()
 
 	createFn := func(o processing.ProcessorOptions) event.Transformer {

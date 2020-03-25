@@ -21,7 +21,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/networking/v1beta1"
 	v1beta12 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -229,7 +229,7 @@ func (p *Provider) initKnownAdapters() {
 			isDefaultExcluded:             true,
 			isRequiredForServiceDiscovery: true,
 		},
-		asTypesKey("extensions", "Ingress"): {
+		asTypesKey("networking", "Ingress"): {
 			extractObject: defaultExtractObject,
 			extractResource: func(o interface{}) (proto.Message, error) {
 				if obj, ok := o.(*v1beta1.Ingress); ok {
@@ -243,7 +243,7 @@ func (p *Provider) initKnownAdapters() {
 					return nil, err
 				}
 
-				return informer.Extensions().V1beta1().Ingresses().Informer(), nil
+				return informer.Networking().V1beta1().Ingresses().Informer(), nil
 			},
 			parseJSON: func(input []byte) (interface{}, error) {
 				out := &v1beta1.Ingress{}

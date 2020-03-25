@@ -43,7 +43,7 @@ var (
 		{Group: "apps", Version: "v1", Kind: "StatefulSet"},
 		{Group: "apps", Version: "v1", Kind: "Deployment"},
 		{Group: "apps", Version: "v1", Kind: "DaemonSet"},
-		{Group: "extensions", Version: "v1beta1", Kind: "Ingress"},
+		{Group: "networking", Version: "v1beta1", Kind: "Ingress"},
 		{Group: "", Version: "v1", Kind: "Service"},
 		// {Group: "", Version: "v1", Kind: "Endpoints"},
 		{Group: "", Version: "v1", Kind: "ConfigMap"},
@@ -69,7 +69,7 @@ var (
 		{Group: "apps", Version: "v1", Kind: "StatefulSet"},
 		{Group: "apps", Version: "v1", Kind: "Deployment"},
 		{Group: "apps", Version: "v1", Kind: "DaemonSet"},
-		{Group: "extensions", Version: "v1beta1", Kind: "Ingress"},
+		{Group: "networking", Version: "v1beta1", Kind: "Ingress"},
 		{Group: "", Version: "v1", Kind: "Service"},
 		// Endpoints are dynamically created, never from charts.
 		// {Group: "", Version: "v1", Kind: "Endpoints"},

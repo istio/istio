@@ -43,7 +43,8 @@ func TestGateway_Input_Output(t *testing.T) {
 
 	xform, _, _ := setupGW(g, processing.ProcessorOptions{})
 
-	g.Expect(xform.Inputs()).To(Equal(collection.NewSchemasBuilder().MustAdd(collections.K8SExtensionsV1Beta1Ingresses).Build()))
+	g.Expect(xform.Inputs()).To(Equal(collection.NewSchemasBuilder().MustAdd(collections.K8SNetworkingV1Beta1Ingresses).Build()))
+	g.Expect(xform.Inputs()).To(Equal(collection.NewSchemasBuilder().MustAdd(collections.k8snetworkin).Build()))
 	g.Expect(xform.Outputs()).To(Equal(collection.NewSchemasBuilder().MustAdd(collections.IstioNetworkingV1Alpha3Gateways).Build()))
 }
 
@@ -60,8 +61,8 @@ func TestGateway_AddSync(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.AddFor(collections.K8SExtensionsV1Beta1Ingresses, ingress1()))
-	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses))
+	src.Handlers.Handle(event.AddFor(collections.K8SNetworkingV1Beta1Ingresses, ingress1()))
+	src.Handlers.Handle(event.FullSyncFor(collections.K8SNetworkingV1Beta1Ingresses))
 
 	g.Eventually(acc.Events).Should(ConsistOf(
 		event.AddFor(collections.IstioNetworkingV1Alpha3Gateways, gw1()),
@@ -81,8 +82,8 @@ func TestGateway_SyncAdd(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.AddFor(collections.K8SExtensionsV1Beta1Ingresses, ingress1()))
-	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses))
+	src.Handlers.Handle(event.AddFor(collections.K8SNetworkingV1Beta1Ingresses, ingress1()))
+	src.Handlers.Handle(event.FullSyncFor(collections.K8SNetworkingV1Beta1Ingresses))
 
 	g.Eventually(acc.Events).Should(ConsistOf(
 		event.FullSyncFor(collections.IstioNetworkingV1Alpha3Gateways),
@@ -101,10 +102,10 @@ func TestGateway_AddUpdateDelete(t *testing.T) {
 
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses))
-	src.Handlers.Handle(event.AddFor(collections.K8SExtensionsV1Beta1Ingresses, ingress1()))
-	src.Handlers.Handle(event.UpdateFor(collections.K8SExtensionsV1Beta1Ingresses, ingress1v2()))
-	src.Handlers.Handle(event.DeleteForResource(collections.K8SExtensionsV1Beta1Ingresses, ingress1v2()))
+	src.Handlers.Handle(event.FullSyncFor(collections.K8SNetworkingV1Beta1Ingresses))
+	src.Handlers.Handle(event.AddFor(collections.K8SNetworkingV1Beta1Ingresses, ingress1()))
+	src.Handlers.Handle(event.UpdateFor(collections.K8SNetworkingV1Beta1Ingresses, ingress1v2()))
+	src.Handlers.Handle(event.DeleteForResource(collections.K8SNetworkingV1Beta1Ingresses, ingress1v2()))
 
 	g.Eventually(acc.Events).Should(ConsistOf(
 		event.FullSyncFor(collections.IstioNetworkingV1Alpha3Gateways),
@@ -127,7 +128,7 @@ func TestGateway_SyncReset(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses))
+	src.Handlers.Handle(event.FullSyncFor(collections.K8SNetworkingV1Beta1Ingresses))
 	src.Handlers.Handle(event.Event{Kind: event.Reset})
 
 	g.Eventually(acc.Events).Should(ConsistOf(
@@ -149,7 +150,7 @@ func TestGateway_InvalidEventKind(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses))
+	src.Handlers.Handle(event.FullSyncFor(collections.K8SNetworkingV1Beta1Ingresses))
 	src.Handlers.Handle(event.Event{Kind: 55})
 
 	g.Eventually(acc.Events).Should(ConsistOf(
@@ -175,9 +176,9 @@ func TestGateway_NoListeners(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses))
+	src.Handlers.Handle(event.FullSyncFor(collections.K8SNetworkingV1Beta1Ingresses))
 	src.Handlers.Handle(event.Event{Kind: event.Reset})
-	src.Handlers.Handle(event.AddFor(collections.K8SExtensionsV1Beta1Ingresses, ingress1()))
+	src.Handlers.Handle(event.AddFor(collections.K8SNetworkingV1Beta1Ingresses, ingress1()))
 
 	// No crash
 }
@@ -196,8 +197,8 @@ func TestGateway_DoubleStart(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses))
-	src.Handlers.Handle(event.AddFor(collections.K8SExtensionsV1Beta1Ingresses, ingress1()))
+	src.Handlers.Handle(event.FullSyncFor(collections.K8SNetworkingV1Beta1Ingresses))
+	src.Handlers.Handle(event.AddFor(collections.K8SNetworkingV1Beta1Ingresses, ingress1()))
 
 	g.Eventually(acc.Events).Should(ConsistOf(
 		event.AddFor(collections.IstioNetworkingV1Alpha3Gateways, gw1()),
@@ -217,8 +218,8 @@ func TestGateway_DoubleStop(t *testing.T) {
 
 	xform.Start()
 
-	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses))
-	src.Handlers.Handle(event.AddFor(collections.K8SExtensionsV1Beta1Ingresses, ingress1()))
+	src.Handlers.Handle(event.FullSyncFor(collections.K8SNetworkingV1Beta1Ingresses))
+	src.Handlers.Handle(event.AddFor(collections.K8SNetworkingV1Beta1Ingresses, ingress1()))
 
 	g.Eventually(acc.Events).Should(ConsistOf(
 		event.AddFor(collections.IstioNetworkingV1Alpha3Gateways, gw1()),
@@ -245,8 +246,8 @@ func TestGateway_StartStopStartStop(t *testing.T) {
 
 	xform.Start()
 
-	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses))
-	src.Handlers.Handle(event.AddFor(collections.K8SExtensionsV1Beta1Ingresses, ingress1()))
+	src.Handlers.Handle(event.FullSyncFor(collections.K8SNetworkingV1Beta1Ingresses))
+	src.Handlers.Handle(event.AddFor(collections.K8SNetworkingV1Beta1Ingresses, ingress1()))
 
 	g.Eventually(acc.Events).Should(ConsistOf(
 		event.AddFor(collections.IstioNetworkingV1Alpha3Gateways, gw1()),
@@ -258,8 +259,8 @@ func TestGateway_StartStopStartStop(t *testing.T) {
 	g.Consistently(acc.Events).Should(BeEmpty())
 
 	xform.Start()
-	src.Handlers.Handle(event.FullSyncFor(collections.K8SExtensionsV1Beta1Ingresses))
-	src.Handlers.Handle(event.AddFor(collections.K8SExtensionsV1Beta1Ingresses, ingress1()))
+	src.Handlers.Handle(event.FullSyncFor(collections.K8SNetworkingV1Beta1Ingresses))
+	src.Handlers.Handle(event.AddFor(collections.K8SNetworkingV1Beta1Ingresses, ingress1()))
 
 	g.Eventually(acc.Events).Should(ConsistOf(
 		event.AddFor(collections.IstioNetworkingV1Alpha3Gateways, gw1()),

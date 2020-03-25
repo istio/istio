@@ -18,11 +18,11 @@ import (
 	"fmt"
 	"sync"
 
-	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/networking/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
-	extensionsv1 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
+	extensionsv1 "k8s.io/client-go/kubernetes/typed/networking/v1beta1"
 )
 
 var _ extensionsv1.IngressInterface = &ingressImpl{}

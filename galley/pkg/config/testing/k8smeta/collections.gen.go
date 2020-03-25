@@ -113,19 +113,19 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
-	// K8SExtensionsV1Beta1Ingresses describes the collection
-	// k8s/extensions/v1beta1/ingresses
-	K8SExtensionsV1Beta1Ingresses = collection.Builder{
-		Name:         "k8s/extensions/v1beta1/ingresses",
-		VariableName: "K8SExtensionsV1Beta1Ingresses",
+	// K8SNetworkingV1Beta1Ingresses describes the collection
+	// k8s/networking/v1beta1/ingresses
+	K8SNetworkingV1Beta1Ingresses = collection.Builder{
+		Name:         "k8s/networking/v1beta1/ingresses",
+		VariableName: "K8SNetworkingV1Beta1Ingresses",
 		Disabled:     false,
 		Resource: resource.Builder{
 			Group:         "extensions",
 			Kind:          "Ingress",
 			Plural:        "ingresses",
 			Version:       "v1beta1",
-			Proto:         "k8s.io.api.extensions.v1beta1.IngressSpec",
-			ProtoPackage:  "k8s.io/api/extensions/v1beta1",
+			Proto:         "k8s.io.api.networking.v1beta1.IngressSpec",
+			ProtoPackage:  "k8s.io/api/networking/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -139,7 +139,7 @@ var (
 		MustAdd(K8SCoreV1Nodes).
 		MustAdd(K8SCoreV1Pods).
 		MustAdd(K8SCoreV1Services).
-		MustAdd(K8SExtensionsV1Beta1Ingresses).
+		MustAdd(K8SNetworkingV1Beta1Ingresses).
 		Build()
 
 	// Istio contains only Istio collections.
@@ -154,7 +154,7 @@ var (
 		MustAdd(K8SCoreV1Nodes).
 		MustAdd(K8SCoreV1Pods).
 		MustAdd(K8SCoreV1Services).
-		MustAdd(K8SExtensionsV1Beta1Ingresses).
+		MustAdd(K8SNetworkingV1Beta1Ingresses).
 		Build()
 
 	// Pilot contains only collections used by Pilot.

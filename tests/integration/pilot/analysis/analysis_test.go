@@ -15,14 +15,16 @@
 package analysis
 
 import (
+	"strings"
+	"testing"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
 	"istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"strings"
-	"testing"
 )
 
 func TestAnalysisWritesStatus(t *testing.T) {
@@ -63,7 +65,7 @@ func setupModifiedBookinfo(t *testing.T, ctx framework.TestContext) namespace.In
 	return ns
 }
 
-func doTest(t *testing.T, ctx framework.TestContext, ns namespace.Instance){
+func doTest(t *testing.T, ctx framework.TestContext, ns namespace.Instance) {
 	x, err := kube.ClusterOrDefault(nil, ctx.Environment()).GetUnstructured(schema.GroupVersionResource{
 		Group:    "networking.istio.io",
 		Version:  "v1alpha3",
@@ -77,4 +79,3 @@ func doTest(t *testing.T, ctx framework.TestContext, ns namespace.Instance){
 		t.Fatalf("Object is missing expected status field.  Actual object is: %v", x)
 	}
 }
-

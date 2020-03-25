@@ -39,7 +39,7 @@ func TestMain(m *testing.M) {
 		RequireEnvironment(environment.Kube).
 		SetupOnEnv(environment.Kube, istio.Setup(&i, func(cfg *istio.Config) {
 
-	cfg.ControlPlaneValues = `
+			cfg.ControlPlaneValues = `
 values:
   global:
     istiod:
@@ -48,8 +48,7 @@ values:
 `
 		})).
 		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{
-			}); err != nil {
+			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
 				return err
 			}
 			return nil
