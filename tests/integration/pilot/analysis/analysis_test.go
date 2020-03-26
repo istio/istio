@@ -15,7 +15,6 @@
 package analysis
 
 import (
-	"strings"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/resource"
@@ -23,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/bookinfo"
 	"istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -43,26 +41,26 @@ func setupModifiedBookinfo(t *testing.T, ctx resource.Context) namespace.Instanc
 		Revision: "",
 		Labels:   nil,
 	})
-	bookinfo.DeployOrFail(t, ctx, bookinfo.Config{
-		Namespace: ns,
-		Cfg:       bookinfo.BookinfoRatingsv2,
-	})
-	gatewayYaml := bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespaceOrFail(t, ns.Name())
+	badVS := `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews
+spec:
+  hosts:
+  - reviews
+  gateways:
+  - httpbin-gateway-bogus
+  http:
+  - route:
+    - destination:
+        host: reviews
+        subset: v1
+`
 	_, err := deployment.New(ctx, deployment.Config{
-		Name:      "bookinfo-gateway",
-		Namespace: ns,
-		Yaml:      gatewayYaml,
-	})
-	if err != nil {
-		t.Fatalf("TODO: make a better failure message: %v", err)
-	}
-	vsYaml := bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, ns.Name())
-	// mutate the virtual service to trigger an analyzer message
-	vsYaml = strings.Replace(vsYaml, "old", "new", -1)
-	_, err = deployment.New(ctx, deployment.Config{
 		Name:      "bookinfo-virtualservice",
 		Namespace: ns,
-		Yaml:      vsYaml,
+		Yaml:      badVS,
 	})
 	if err != nil {
 		t.Fatalf("TODO: make a better failure message: %v", err)

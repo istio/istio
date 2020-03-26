@@ -13551,9 +13551,12 @@ rules:
 {{- end }}
   resources: ["*"]
 {{- if .Values.global.istiod.enableAnalysis }}
-- apiGroups: ["extensions.k8s.io"]
-  resources: ["ingresses"]
-  verbs: ["get", "watch", "list"]
+  - apiGroups: ["extensions", "networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["extensions", "networking.k8s.io"]
+    resources: ["ingresses/status"]
+    verbs: ["*"]
 {{- end}}
 - apiGroups: ["apiextensions.k8s.io"]
   resources: ["customresourcedefinitions"]
@@ -13627,6 +13630,14 @@ rules:
     verbs: ["get", "list", "watch"]
 
   # ingress controller
+{{- if .Values.global.istiod.enableAnalysis }}
+  - apiGroups: ["extensions", "networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["extensions", "networking.k8s.io"]
+    resources: ["ingresses/status"]
+    verbs: ["*"]
+{{- end}}
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses"]
     verbs: ["get", "list", "watch"]
