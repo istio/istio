@@ -350,8 +350,11 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version, revis
 	// TODO: remove this when `kubectl --prune` supports empty objects
 	//  (https://github.com/kubernetes/kubernetes/issues/40635)
 	// Delete all resources for a disabled component
-	// We should not prune if revision is set, as we may prune other revisions
-	if len(objects) == 0 && !opts.DryRun && revision == "" {
+	if len(objects) == 0 && !opts.DryRun {
+		if revision != "" {
+			// We should not prune if revision is set, as we may prune other revisions
+			return &ComponentApplyOutput{}, nil
+		}
 		getOpts := opts
 		getOpts.Output = "yaml"
 		getOpts.ExtraArgs = []string{"--all-namespaces", "--selector", componentLabel}
