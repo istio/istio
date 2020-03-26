@@ -8,6 +8,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -41,6 +43,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -139,6 +143,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
 {{- if not .Values.telemetry.v2.stackdriver.disableOutbound }}

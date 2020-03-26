@@ -86,6 +86,7 @@ data:
 kind: ConfigMap
 metadata:
   labels:
+    istio.io/rev: default
     release: istio
   name: istio
   namespace: istio-system
