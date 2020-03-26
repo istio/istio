@@ -21,8 +21,11 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 
 	"github.com/hashicorp/go-multierror"
+
+	"istio.io/istio/pkg/test/util/yml"
 
 	"istio.io/istio/pkg/test/cert/ca"
 	"istio.io/istio/pkg/test/deployment"
@@ -57,12 +60,30 @@ func (i *operatorComponent) Settings() Config {
 	return i.settings
 }
 
+// When we cleanup, we should not delete CRDs. This will filter out all the crds
+func removeCRDs(istioYaml string) string {
+	allParts := yml.SplitString(istioYaml)
+	nonCrds := make([]string, 0, len(allParts))
+
+	// Make the regular expression multi-line and anchor to the beginning of the line.
+	r := regexp.MustCompile(`(?m)^kind: CustomResourceDefinition$`)
+
+	for _, p := range allParts {
+		if r.Match([]byte(p)) {
+			continue
+		}
+		nonCrds = append(nonCrds, p)
+	}
+
+	return yml.JoinString(nonCrds...)
+}
+
 func (i *operatorComponent) Close() (err error) {
 	scopes.CI.Infof("=== BEGIN: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
 	defer scopes.CI.Infof("=== DONE: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
 	if i.settings.DeployIstio {
 		for _, cluster := range i.environment.KubeClusters {
-			if e := cluster.DeleteContents("", i.installManifest[cluster.Name()]); e != nil {
+			if e := cluster.DeleteContents("", removeCRDs(i.installManifest[cluster.Name()])); e != nil {
 				err = multierror.Append(err, e)
 			}
 		}
