@@ -16,6 +16,13 @@
 
 set -eu
 
+# 
+DOCKER_PLATFORMS=${${DOCKER_PLATFORMS}:-"linux/amd64,linux/arm64,linux/arm/v7"}
+if ! docker buildx ls | grep -q container-builder; then
+  docker buildx create --driver-opt network=host  --platform ${DOCKER_PLATFORMS} --name container-builder --use
+fi
+docker buildx use container-builder
+
 out="${1}"
 config="${out}/docker-bake.hcl"
 shift
