@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	liveTimeout = 10 * time.Second
-	waitTimeout = 3 * time.Second
+	liveTimeout = 30 * time.Second
+	waitTimeout = 15 * time.Second
 )
 
 // newEnvoy creates a new Envoy struct and starts envoy.

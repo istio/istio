@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 var (
@@ -373,6 +374,10 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 			proxiesQueueTime.Record(time.Since(info.Start).Seconds())
 
 			go func() {
+				if info.ConfigsUpdated == nil {
+					info.ConfigsUpdated = make(map[resource.GroupVersionKind]map[string]struct{})
+				}
+
 				if info.Full {
 					// Setting this to nil will trigger a full push
 					info.ConfigsUpdated[model.ServiceEntryKind] = nil

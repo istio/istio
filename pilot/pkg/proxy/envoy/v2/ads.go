@@ -612,10 +612,6 @@ func AdsPushAll(s *DiscoveryServer) {
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
 func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
-	if req.ConfigsUpdated == nil {
-		req.ConfigsUpdated = make(map[resource.GroupVersionKind]map[string]struct{})
-	}
-
 	if !req.Full {
 		s.edsIncremental(version, req)
 		return
@@ -626,7 +622,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 	monServices.Record(float64(len(req.Push.Services(nil))))
 
 	// full push
-	req.ConfigsUpdated[model.ServiceEntryKind] = nil
+	req.Full = true
 	s.startPush(req)
 }
 
