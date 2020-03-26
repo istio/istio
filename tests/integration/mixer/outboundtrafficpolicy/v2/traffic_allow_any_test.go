@@ -20,21 +20,28 @@ import (
 	"istio.io/istio/tests/integration/mixer/outboundtrafficpolicy"
 )
 
-func TestOutboundTrafficPolicyAllowAny_TelemetryV2(t *testing.T) {
-	expected := map[string]outboundtrafficpolicy.MetricsResponse{
+func TestOutboundTrafficPolicy_AllowAny_TelemetryV2(t *testing.T) {
+	expected := map[string]outboundtrafficpolicy.Response{
 		"http": {
 			Metric:    "istio_requests_total",
 			PromQuery: `sum(istio_requests_total{reporter="source",destination_service_name="PassthroughCluster",response_code="200"})`,
-		}, // HTTP will return an error code
+			Code:      []string{"200"},
+		},
 		"http_egress": {
 			Metric:    "istio_requests_total",
-			PromQuery: `sum(istio_requests_total{reporter="source",destination_service_name="PassthroughCluster",response_code="200"})`,
-		}, // we define the virtual service in the namespace, so we should be able to reach it
+			PromQuery: `sum(istio_requests_total{reporter="source",destination_service_name="destination",response_code="200"})`,
+			Code:      []string{"200"},
+		},
 		"https": {
-			Metric:    "istio_tcp_connections_closed_total",
-			PromQuery: `sum(istio_requests_total{reporter="source",destination_service_name="PassthroughCluster",response_code="200"})`,
-		}, // HTTPS will direct to blackhole cluster, giving no response
+			Metric:    "istio_tcp_connections_opened_total",
+			PromQuery: `sum(istio_tcp_connections_opened_total{reporter="source",destination_service_name="PassthroughCluster"})`,
+			Code:      []string{"200"},
+		},
+		"tcp": {
+			Metric:    "istio_tcp_connections_opened_total",
+			PromQuery: `sum(istio_tcp_connections_opened_total{reporter="source",destination_service_name="PassthroughCluster",source_workload="client-v1"})`,
+			Code:      []string{"200"},
+		},
 	}
-	outboundtrafficpolicy.RunExternalRequestMetricsTest(prom, outboundtrafficpolicy.AllowAny,expected, t)
+	outboundtrafficpolicy.RunExternalRequest(prom, outboundtrafficpolicy.AllowAny, expected, t)
 }
-

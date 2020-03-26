@@ -162,11 +162,13 @@ spec:
 `
 )
 
-// MetricsResponse contains the metric and query to run against
+// Response contains the metric and query to run against
 // prometheus to validate that expected telemetry information was gathered
-type MetricsResponse struct {
-	Metric string
+// as well as the http response code
+type Response struct {
+	Metric    string
 	PromQuery string
+	Code      []string
 }
 
 // TrafficPolicy is the mode of the outbound traffic policy to use
@@ -177,33 +179,6 @@ const (
 	AllowAny     TrafficPolicy = "ALLOW_ANY"
 	RegistryOnly TrafficPolicy = "REGISTRY_ONLY"
 )
-
-var cases = []struct {
-	name     string
-	portName string
-	host     string
-	gateway  bool
-	scheme   scheme.Instance
-}{
-	{
-		name:     "HTTP Traffic",
-		portName: "http",
-		scheme:   scheme.HTTP,
-	},
-	{
-		name:     "HTTPS Traffic",
-		portName: "https",
-		scheme:   scheme.HTTP,
-	},
-	{
-		name:     "HTTP Traffic Egress",
-		portName: "http",
-		host:     "some-external-site.com",
-		gateway:  true,
-		scheme:   scheme.HTTP,
-	},
-	// TODO add HTTPS through gateway
-}
 
 // String implements fmt.Stringer
 func (t TrafficPolicy) String() string {
@@ -247,8 +222,40 @@ func createGateway(t *testing.T, appsNamespace namespace.Instance, serviceNamesp
 // TODO support native environment for registry only/gateway. Blocked by #13177 because the listeners for native use static
 // routes and this test relies on the dynamic routes sent through pilot to allow external traffic.
 
-// Expected is a map of protocol -> expected response codes
-func RunExternalRequestResponseCodeTest(mode TrafficPolicy, expected map[string][]string, t *testing.T) {
+func RunExternalRequest(prometheus prometheus.Instance, mode TrafficPolicy, expected map[string]Response, t *testing.T) {
+	var cases = []struct {
+		name     string
+		portName string
+		host     string
+		gateway  bool
+		scheme   scheme.Instance
+	}{
+		{
+			name:     "HTTP Traffic",
+			portName: "http",
+			scheme:   scheme.HTTP,
+		},
+		{
+			name:     "HTTPS Traffic",
+			portName: "https",
+			// TODO: set up TLS here instead of just sending HTTP. We get a false positive here
+			scheme: scheme.HTTP,
+		},
+		{
+			name:     "HTTP Traffic Egress",
+			portName: "http",
+			host:     "some-external-site.com",
+			gateway:  true,
+			scheme:   scheme.HTTP,
+		},
+		// TODO add HTTPS through gateway
+		{
+			name:     "TCP",
+			portName: "tcp",
+			scheme:   scheme.TCP,
+		},
+	}
+
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
@@ -259,6 +266,7 @@ func RunExternalRequestResponseCodeTest(mode TrafficPolicy, expected map[string]
 					if _, kube := ctx.Environment().(*kube.Environment); !kube && tc.gateway {
 						t.Skip("Cannot run gateway in native environment.")
 					}
+					key := tc.portName
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := client.Call(echo.CallOptions{
 							Target:   dest,
@@ -269,69 +277,36 @@ func RunExternalRequestResponseCodeTest(mode TrafficPolicy, expected map[string]
 							},
 						})
 
-						key := tc.portName
 						if tc.gateway {
 							key += "_egress"
 						}
-						if err != nil && len(expected[key]) != 0 {
+
+						if err != nil && len(expected[key].Code) != 0 {
 							return fmt.Errorf("request failed: %v", err)
 						}
+
 						codes := make([]string, 0, len(resp))
 						for _, r := range resp {
 							codes = append(codes, r.Code)
 						}
-						if !reflect.DeepEqual(codes, expected[key]) {
+						if !reflect.DeepEqual(codes, expected[key].Code) {
 							return fmt.Errorf("got codes %q, expected %q", codes, expected[key])
 						}
+
 						for _, r := range resp {
 							if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.gateway && !f {
 								return fmt.Errorf("expected to be handled by gateway. response: %+v", r.RawResponse)
 							}
 						}
 						return nil
-					}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
+					}, retry.Delay(time.Second), retry.Timeout(20*time.Second))
+
+					if expected[key].Metric != "" {
+						util.ValidateMetric(t, prometheus, expected[key].PromQuery, expected[key].Metric, 1)
+					}
 				})
 			}
 		})
-}
-
-func RunExternalRequestMetricsTest(prometheus prometheus.Instance, mode TrafficPolicy, expected map[string]MetricsResponse, t *testing.T) {
-	framework.
-		NewTest(t).
-		Run(func(ctx framework.TestContext) {
-		client, dest := setupEcho(t, ctx, mode)
-
-		for _, tc := range cases {
-			t.Run(tc.name, func(t *testing.T) {
-				if _, kube := ctx.Environment().(*kube.Environment); !kube && tc.gateway {
-					t.Skip("Cannot run gateway in native environment.")
-				}
-				key := tc.portName
-				retry.UntilSuccessOrFail(t, func() error {
-					resp, _ := client.Call(echo.CallOptions{
-						Target:   dest,
-						PortName: tc.portName,
-						Scheme:   scheme.HTTP,
-						Headers: map[string][]string{
-							"Host": {tc.host},
-						},
-					})
-
-					if tc.gateway {
-						key += "_egress"
-					}
-
-					for _, r := range resp {
-						if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.gateway && !f {
-							return fmt.Errorf("expected to be handled by gateway. response: %+v", r.RawResponse)
-						}
-					}
-					return nil
-				}, retry.Delay(time.Second), retry.Timeout(20*time.Second))
-				util.ValidateMetric(t, prometheus, expected[key].PromQuery, expected[key].Metric, 1)
-			})
-		}
-	})
 }
 
 func setupEcho(t *testing.T, ctx framework.TestContext, mode TrafficPolicy) (echo.Instance, echo.Instance) {
@@ -364,16 +339,22 @@ func setupEcho(t *testing.T, ctx framework.TestContext, mode TrafficPolicy) (ech
 			Galley:    g,
 			Ports: []echo.Port{
 				{
-					Name:     "http",
-					Protocol: protocol.HTTP,
-					// We use a port > 1024 to not require root
+					Name:         "http",
+					Protocol:     protocol.HTTP,
 					InstancePort: 8090,
+					ServicePort:  80,
 				},
 				{
-					Name:     "https",
-					Protocol: protocol.HTTPS,
-					// We use a port > 1024 to not require root
+					Name:         "https",
+					Protocol:     protocol.HTTPS,
 					InstancePort: 8091,
+					ServicePort:  443,
+				},
+				{
+					Name:         "tcp",
+					Protocol:     protocol.TCP,
+					InstancePort: 8092,
+					ServicePort:  9090,
 				},
 			},
 		}).BuildOrFail(t)

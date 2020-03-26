@@ -18,30 +18,28 @@ import (
 	"testing"
 )
 
-func TestOutboundTrafficPolicyAllowAny_NetworkingResponse(t *testing.T) {
-	expected := map[string][]string{
-		"http":        {"200"},
-		"http_egress": {"200"},
-		"https":       {"200"},
-		"tcp":         {"200"},
-	}
-	RunExternalRequestResponseCodeTest(AllowAny, expected, t)
-}
-
-func TestOutboundTrafficPolicyAllowAny_TelemetryV1(t *testing.T) {
-	expected := map[string]MetricsResponse{
+func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
+	expected := map[string]Response{
 		"http": {
 			Metric:    "istio_requests_total",
 			PromQuery: `sum(istio_requests_total{reporter="source",destination_service_name="PassthroughCluster",response_code="200"})`,
-		}, // HTTP will return an error code
+			Code:      []string{"200"},
+		},
 		"http_egress": {
 			Metric:    "istio_requests_total",
-			PromQuery: `sum(istio_requests_total{reporter="source",destination_service_name="PassthroughCluster",response_code="200"})`,
-		}, // we define the virtual service in the namespace, so we should be able to reach it
+			PromQuery: `sum(istio_requests_total{reporter="source",destination_service_name="destination",response_code="200"})`,
+			Code:      []string{"200"},
+		},
 		"https": {
-			Metric:    "istio_tcp_connections_closed_total",
-			PromQuery: `sum(istio_requests_total{reporter="source",destination_service_name="PassthroughCluster",response_code="200"})`,
-		}, // HTTPS will direct to blackhole cluster, giving no response
+			Metric:    "istio_tcp_connections_opened_total",
+			PromQuery: `sum(istio_tcp_connections_opened_total{reporter="source",destination_service_name="PassthroughCluster"})`,
+			Code:      []string{"200"},
+		},
+		"tcp": {
+			Metric:    "istio_tcp_connections_opened_total",
+			PromQuery: `sum(istio_tcp_connections_closed_total{reporter="destination",source_workload="client-v1",destination_workload="destination-v1"})`,
+			Code:      []string{"200"},
+		},
 	}
-	RunExternalRequestMetricsTest(prom, AllowAny, expected, t)
+	RunExternalRequest(prom, AllowAny, expected, t)
 }

@@ -18,31 +18,30 @@ import (
 	"testing"
 )
 
-func TestOutboundTrafficPolicyRegistryOnly_NetworkingResponse(t *testing.T) {
-	expected := map[string][]string{
-		"http":        {"502"}, // HTTP will return an error code
-		"http_egress": {"200"}, // We define the virtual service in the namespace, so we should be able to reach it
-		"https":       {},      // HTTPS will direct to blackhole cluster, giving no response
-		"tcp":         {},      // TCP will direct to blackhole cluster, giving no response
-	}
-	RunExternalRequestResponseCodeTest(RegistryOnly, expected, t)
-}
-
-func TestOutboundTrafficPolicyRegistryOnly_TelemetryV1(t *testing.T) {
-	expected := map[string]MetricsResponse{
+func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
+	expected := map[string]Response{
 		"http": {
 			Metric:    "istio_requests_total",
 			PromQuery: `sum(istio_requests_total{destination_service_name="BlackHoleCluster",response_code="502"})`,
+			Code:      []string{"502"},
 		}, // HTTP will return an error code
 		"http_egress": {
 			Metric:    "istio_requests_total",
 			PromQuery: `sum(istio_requests_total{destination_service_name="istio-egressgateway",response_code="200"})`,
+			Code:      []string{"200"},
 		}, // we define the virtual service in the namespace, so we should be able to reach it
 		"https": {
 			Metric:    "istio_tcp_connections_closed_total",
 			PromQuery: `sum(istio_tcp_connections_closed_total{destination_service="BlackHoleCluster",destination_service_name="BlackHoleCluster"})`,
+			Code:      []string{},
 		}, // HTTPS will direct to blackhole cluster, giving no response
+		"tcp": {
+			Metric:    "",
+			PromQuery: "",
+			Code:      []string{},
+		}, // TCP will direct to blackhole cluster
 	}
-	// destination_service="BlackHoleCluster" does not get filled in when using sidecar scoping
-	RunExternalRequestMetricsTest(prom, RegistryOnly, expected, t)
+
+	RunExternalRequest(prom, RegistryOnly, expected, t)
+
 }

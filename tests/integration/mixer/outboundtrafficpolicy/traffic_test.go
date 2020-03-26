@@ -50,6 +50,9 @@ components:
   - enabled: true
   telemetry:
     enabled: true
+addonComponents:
+  prometheus:
+    enabled: true
 values:
   telemetry:
     v1:

@@ -20,22 +20,30 @@ import (
 	"istio.io/istio/tests/integration/mixer/outboundtrafficpolicy"
 )
 
-func TestOutboundTrafficPolicyRegistryOnly_TelemetryV2(t *testing.T) {
+func TestOutboundTrafficPolicy_RegistryOnly_TelemetryV2(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/21566 and https://github.com/istio/istio/issues/21385")
-	expected := map[string]outboundtrafficpolicy.MetricsResponse{
+	expected := map[string]outboundtrafficpolicy.Response{
 		"http": {
 			Metric:    "istio_requests_total",
 			PromQuery: `sum(istio_requests_total{destination_service_name="BlackHoleCluster",response_code="502"})`,
+			Code:      []string{"502"},
 		}, // HTTP will return an error code
 		"http_egress": {
 			Metric:    "istio_requests_total",
 			PromQuery: `sum(istio_requests_total{destination_service_name="istio-egressgateway",response_code="200"})`,
+			Code:      []string{"200"},
 		}, // we define the virtual service in the namespace, so we should be able to reach it
 		"https": {
 			Metric:    "istio_tcp_connections_closed_total",
 			PromQuery: `sum(istio_tcp_connections_closed_total{destination_service="BlackHoleCluster",destination_service_name="BlackHoleCluster"})`,
+			Code:      []string{},
 		}, // HTTPS will direct to blackhole cluster, giving no response
+		"tcp": {
+			Metric:    "",
+			PromQuery: "",
+			Code:      []string{},
+		}, // TCP will direct to blackhole cluster
 	}
 	// destination_service="BlackHoleCluster" does not get filled in when using sidecar scoping
-	outboundtrafficpolicy.RunExternalRequestMetricsTest(prom, outboundtrafficpolicy.RegistryOnly, expected, t)
+	outboundtrafficpolicy.RunExternalRequest(prom, outboundtrafficpolicy.RegistryOnly, expected, t)
 }
