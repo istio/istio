@@ -100,13 +100,13 @@ type XdsConnection struct {
 
 // XdsEvent represents a config or registry event that results in a push.
 type XdsEvent struct {
-	// If not empty, it is used to indicate the event is caused by a change in the clusters.
-	// Only EDS for the listed clusters will be sent.
-	edsUpdatedServices map[string]struct{}
-
 	namespacesUpdated map[string]struct{}
 
 	configTypesUpdated map[resource.GroupVersionKind]struct{}
+
+	// If GroupVersionKind is service entry and not empty, it is used to indicate the event
+	// is caused by a change in the clusters. Only EDS for the listed clusters will be sent.
+	configsUpdated map[resource.GroupVersionKind]map[string]struct{}
 
 	// Push context to use for the push.
 	push *model.PushContext
@@ -499,7 +499,8 @@ func (s *DiscoveryServer) DeltaAggregatedResources(stream ads.AggregatedDiscover
 func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) error {
 	// TODO: update the service deps based on NetworkScope
 
-	if pushEv.edsUpdatedServices != nil {
+	edsUpdatedServices := pushEv.configsUpdated[model.ServiceEntryKind]
+	if edsUpdatedServices != nil {
 		if !ProxyNeedsPush(con.node, pushEv) {
 			adsLog.Debugf("Skipping EDS push to %v, no updates required", con.ConID)
 			return nil
@@ -507,7 +508,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)
 		if len(con.Clusters) > 0 {
-			if err := s.pushEds(pushEv.push, con, versionInfo(), pushEv.edsUpdatedServices); err != nil {
+			if err := s.pushEds(pushEv.push, con, versionInfo(), edsUpdatedServices); err != nil {
 				return err
 			}
 		}
@@ -621,7 +622,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 	monServices.Record(float64(len(req.Push.Services(nil))))
 
 	// full push
-	req.EdsUpdates = nil
+	req.ConfigsUpdated[model.ServiceEntryKind] = nil
 	s.startPush(req)
 }
 

@@ -89,27 +89,43 @@ func TestMergeUpdateRequest(t *testing.T) {
 		},
 		{
 			"incremental eds merge",
-			&PushRequest{Full: false, EdsUpdates: map[string]struct{}{"svc-1": {}}},
-			&PushRequest{Full: false, EdsUpdates: map[string]struct{}{"svc-2": {}}},
-			PushRequest{Full: false, EdsUpdates: map[string]struct{}{"svc-1": {}, "svc-2": {}}},
+			&PushRequest{Full: false,
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+					ServiceEntryKind: {"svc-1": {}}}},
+			&PushRequest{Full: false,
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+					ServiceEntryKind: {"svc-2": {}}}},
+			PushRequest{Full: false,
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+					ServiceEntryKind: {"svc-1": {}, "svc-2": {}}}},
 		},
 		{
 			"skip eds merge: left full",
 			&PushRequest{Full: true},
-			&PushRequest{Full: false, EdsUpdates: map[string]struct{}{"svc-2": {}}},
+			&PushRequest{Full: false,
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+					ServiceEntryKind: {"svc-2": {}}}},
 			PushRequest{Full: true},
 		},
 		{
 			"skip eds merge: right full",
-			&PushRequest{Full: false, EdsUpdates: map[string]struct{}{"svc-1": {}}},
+			&PushRequest{Full: false,
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+					ServiceEntryKind: {"svc-1": {}}}},
 			&PushRequest{Full: true},
 			PushRequest{Full: true},
 		},
 		{
 			"incremental merge",
-			&PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns1": {}}, EdsUpdates: map[string]struct{}{"svc-1": {}}},
-			&PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns2": {}}, EdsUpdates: map[string]struct{}{"svc-2": {}}},
-			PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns1": {}, "ns2": {}}, EdsUpdates: map[string]struct{}{"svc-1": {}, "svc-2": {}}},
+			&PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns1": {}},
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+					ServiceEntryKind: {"svc-1": {}}}},
+			&PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns2": {}},
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+					ServiceEntryKind: {"svc-2": {}}}},
+			PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns1": {}, "ns2": {}},
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+					ServiceEntryKind: {"svc-1": {}, "svc-2": {}}}},
 		},
 		{
 			"skip namespace merge: one empty",

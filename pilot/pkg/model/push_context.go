@@ -197,10 +197,10 @@ type PushRequest struct {
 	// Applicable only when Full is set to true.
 	ConfigTypesUpdated map[resource.GroupVersionKind]struct{}
 
-	// EdsUpdates keeps track of all service updated since last full push.
-	// Key is the hostname (serviceName).
-	// This is used by incremental eds.
-	EdsUpdates map[string]struct{}
+	// ServiceEntry:
+	// keeps track of all service updated since last full push.
+	// Key is the hostname (serviceName). This is used by incremental eds.
+	ConfigsUpdated map[resource.GroupVersionKind]map[string]struct{}
 
 	// Push stores the push context to use for the update. This may initially be nil, as we will
 	// debounce changes before a PushContext is eventually created.
@@ -236,6 +236,10 @@ const (
 	DebugTrigger TriggerReason = "debug"
 )
 
+var (
+	ServiceEntryKind = collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind()
+)
+
 // Merge two update requests together
 func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 	if first == nil {
@@ -259,39 +263,30 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		Reason: append(first.Reason, other.Reason...),
 	}
 
-	// Only merge EdsUpdates when incremental eds push needed.
-	if !merged.Full {
-		merged.EdsUpdates = make(map[string]struct{})
-		// Merge the updates
-		for update := range first.EdsUpdates {
-			merged.EdsUpdates[update] = struct{}{}
-		}
-		for update := range other.EdsUpdates {
-			merged.EdsUpdates[update] = struct{}{}
-		}
-	} else {
-		merged.EdsUpdates = nil
+	// Merge the ConfigsUpdated map keys first
+	merged.ConfigsUpdated = make(map[resource.GroupVersionKind]map[string]struct{})
+	for update := range first.ConfigsUpdated {
+		merged.ConfigsUpdated[update] = nil
+	}
+	for update := range other.ConfigsUpdated {
+		merged.ConfigsUpdated[update] = nil
 	}
 
-	// Merge the target namespaces
-	if len(first.NamespacesUpdated) > 0 && len(other.NamespacesUpdated) > 0 {
-		merged.NamespacesUpdated = make(map[string]struct{})
-		for update := range first.NamespacesUpdated {
-			merged.NamespacesUpdated[update] = struct{}{}
+	// Merge the configs updated
+	for kind := range merged.ConfigsUpdated {
+		// Do not merge when full push on EDS updates
+		if kind == ServiceEntryKind && merged.Full {
+			merged.ConfigsUpdated[kind] = nil
 		}
-		for update := range other.NamespacesUpdated {
-			merged.NamespacesUpdated[update] = struct{}{}
-		}
-	}
 
-	// Merge the config updates
-	if len(first.ConfigTypesUpdated) > 0 && len(other.ConfigTypesUpdated) > 0 {
-		merged.ConfigTypesUpdated = make(map[resource.GroupVersionKind]struct{})
-		for update := range first.ConfigTypesUpdated {
-			merged.ConfigTypesUpdated[update] = struct{}{}
-		}
-		for update := range other.ConfigTypesUpdated {
-			merged.ConfigTypesUpdated[update] = struct{}{}
+		if len(first.ConfigsUpdated[kind]) > 0 && len(other.ConfigsUpdated[kind]) > 0 {
+			merged.ConfigsUpdated[kind] = make(map[string]struct{})
+			for update := range first.ConfigsUpdated[kind] {
+				merged.ConfigsUpdated[kind][update] = struct{}{}
+			}
+			for update := range other.ConfigsUpdated[kind] {
+				merged.ConfigsUpdated[kind][update] = struct{}{}
+			}
 		}
 	}
 
