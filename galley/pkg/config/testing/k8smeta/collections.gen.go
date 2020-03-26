@@ -120,7 +120,7 @@ var (
 		VariableName: "K8SNetworkingV1Beta1Ingresses",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "extensions",
+			Group:         "networking",
 			Kind:          "Ingress",
 			Plural:        "ingresses",
 			Version:       "v1beta1",
