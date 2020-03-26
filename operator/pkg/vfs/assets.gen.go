@@ -18463,6 +18463,14 @@ spec:
       targetPort: 15017
     - port: 15014
       name: http-monitoring # prometheus stats
+    - name: dns
+      port: 53
+      targetPort: 15053
+      protocol: UDP
+    - name: dns-tls
+      port: 853
+      targetPort: 15053
+      protocol: TCP
   selector:
     app: istiod
     # Label used by the 'default' service. For versioned deployments we match with app and version.
@@ -18518,6 +18526,7 @@ spec:
           - containerPort: 8080
           - containerPort: 15010
           - containerPort: 15017
+          - containerPort: 15053
           readinessProbe:
             httpGet:
               path: /ready
@@ -18596,6 +18605,42 @@ spec:
           - name: istiod
             mountPath: /var/lib/istio/local
             readOnly: true
+
+        # CoreDNS sidecar. Ports are used internally, to run as non-root.
+        # This is a short-term solution - the code in istiod can also be used
+        # directly. The plan is to move coreDNS on the agent.
+        - name: dns
+          image: coredns/coredns:1.1.2
+          imagePullPolicy: IfNotPresent
+          args: [ "-conf", "/var/lib/istio/coredns/Corefile" ]
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: local-certs
+              mountPath: /var/run/secrets/istio-dns
+          ports:
+            - containerPort: 15054
+              name: dns
+              protocol: UDP
+            - containerPort: 15055
+              name: metrics
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 15056
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 5
+
+
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
@@ -20480,6 +20525,7 @@ spec:
           - containerPort: 8080
           - containerPort: 15010
           - containerPort: 15017
+          - containerPort: 15053
           readinessProbe:
             httpGet:
               path: /ready
@@ -20574,6 +20620,42 @@ spec:
           - name: istiod
             mountPath: /var/lib/istio/local
             readOnly: true
+
+        # CoreDNS sidecar. Ports are used internally, to run as non-root.
+        # This is a short-term solution - the code in istiod can also be used
+        # directly. The plan is to move coreDNS on the agent.
+        - name: dns
+          image: coredns/coredns:1.1.2
+          imagePullPolicy: IfNotPresent
+          args: [ "-conf", "/var/lib/istio/coredns/Corefile" ]
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: local-certs
+              mountPath: /var/run/secrets/istio-dns
+          ports:
+            - containerPort: 15054
+              name: dns
+              protocol: UDP
+            - containerPort: 15055
+              name: metrics
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 15056
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 5
+
+
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
@@ -20601,7 +20683,7 @@ spec:
       # Optional - image should have
       - name: inject
         configMap:
-          name: istio-sidecar-injector
+          name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
           optional: true
       - name: config-volume
         configMap:
@@ -20830,6 +20912,14 @@ spec:
       targetPort: 15017
     - port: 15014
       name: http-monitoring # prometheus stats
+    - name: dns
+      port: 53
+      targetPort: 15053
+      protocol: UDP
+    - name: dns-tls
+      port: 853
+      targetPort: 15053
+      protocol: TCP
   selector:
     app: istiod
     {{- if ne .Values.revision ""}}

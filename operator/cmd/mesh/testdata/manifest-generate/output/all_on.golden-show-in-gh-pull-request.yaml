@@ -8947,6 +8947,7 @@ spec:
         - containerPort: 8080
         - containerPort: 15010
         - containerPort: 15017
+        - containerPort: 15053
         readinessProbe:
           httpGet:
             path: /ready
@@ -8982,6 +8983,38 @@ spec:
         - mountPath: /var/lib/istio/local
           name: istiod
           readOnly: true
+      - args:
+        - -conf
+        - /var/lib/istio/coredns/Corefile
+        image: coredns/coredns:1.1.2
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /health
+            port: 15056
+            scheme: HTTP
+          initialDelaySeconds: 60
+          successThreshold: 1
+          timeoutSeconds: 5
+        name: dns
+        ports:
+        - containerPort: 15054
+          name: dns
+          protocol: UDP
+        - containerPort: 15055
+          name: metrics
+          protocol: TCP
+        securityContext:
+          capabilities:
+            drop:
+            - ALL
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
+        volumeMounts:
+        - mountPath: /var/run/secrets/istio-dns
+          name: local-certs
       securityContext:
         fsGroup: 1337
       serviceAccountName: istio-pilot-service-account
@@ -9700,6 +9733,14 @@ spec:
       targetPort: 15017
     - port: 15014
       name: http-monitoring # prometheus stats
+    - name: dns
+      port: 53
+      targetPort: 15053
+      protocol: UDP
+    - name: dns-tls
+      port: 853
+      targetPort: 15053
+      protocol: TCP
   selector:
     app: istiod
     # Label used by the 'default' service. For versioned deployments we match with app and version.
