@@ -150,74 +150,6 @@ No
 </tbody>
 </table>
 </section>
-<h2 id="Params-MetricInfo">Params.MetricInfo</h2>
-<section>
-<p>Describes how to represent an Istio metric in Stackdriver.
-See https://github.com/googleapis/googleapis/blob/master/google/api/metric.proto</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="Params-MetricInfo-kind">
-<td><code>kind</code></td>
-<td><code><a href="#google-api-MetricDescriptor-MetricKind">MetricKind</a></code></td>
-<td>
-<p>The kind of measurement for a metric, which describes how the data is reported. Ex: Gauge.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="Params-MetricInfo-value">
-<td><code>value</code></td>
-<td><code><a href="#google-api-MetricDescriptor-ValueType">ValueType</a></code></td>
-<td>
-<p>The type of the metric&rsquo;s value. Ex: Distribution.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="Params-MetricInfo-buckets">
-<td><code>buckets</code></td>
-<td><code><a href="#Params-MetricInfo-BucketsDefinition">BucketsDefinition</a></code></td>
-<td>
-<p>For metrics with a metric value of DISTRIBUTION, this provides a mechanism
-for configuring the buckets that will be used to store the aggregated values.
-This field must be provided for metrics declared to be of type DISTRIBUTION.
-This field will be ignored for non-distribution metric kinds.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="Params-MetricInfo-metric_type">
-<td><code>metricType</code></td>
-<td><code>string</code></td>
-<td>
-<p>Stackdriver metric type name, e.g.
-istio.io/service/server/request_count. If this is not provided, a
-concantenation of custom metric prefix (custom.googleapis.com/) and
-Istio metric name will be used.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="Params-LogInfo">Params.LogInfo</h2>
 <section>
 <p>Describes how to represent an Istio Log in Stackdriver.</p>
@@ -273,250 +205,6 @@ No
 <td><code><a href="#Params-LogInfo-SinkInfo">SinkInfo</a></code></td>
 <td>
 <p>If SinkInfo is provided, Stackriver logs would be exported to that sink.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="Params-Trace">Params.Trace</h2>
-<section>
-<p>Details of Stackdriver Trace configuration for tracespan template.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="Params-Trace-sample_probability">
-<td><code>sampleProbability</code></td>
-<td><code>double</code></td>
-<td>
-<p>Proability that a particular trace ID will be sampled.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="Params-MetricInfo-BucketsDefinition">Params.MetricInfo.BucketsDefinition</h2>
-<section>
-<p>Describes buckets for DISTRIBUTION valued metrics.
-TODO: look into using google.api.distribution.proto instead - we would pull it in but it has a ton of
-dependencies it doesn&rsquo;t actually use.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="Params-MetricInfo-BucketsDefinition-linear_buckets" class="oneof oneof-start">
-<td><code>linearBuckets</code></td>
-<td><code><a href="#Params-MetricInfo-BucketsDefinition-Linear">Linear (oneof)</a></code></td>
-<td>
-<p>The linear buckets.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="Params-MetricInfo-BucketsDefinition-exponential_buckets" class="oneof">
-<td><code>exponentialBuckets</code></td>
-<td><code><a href="#Params-MetricInfo-BucketsDefinition-Exponential">Exponential (oneof)</a></code></td>
-<td>
-<p>The exponential buckets.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="Params-MetricInfo-BucketsDefinition-explicit_buckets" class="oneof">
-<td><code>explicitBuckets</code></td>
-<td><code><a href="#Params-MetricInfo-BucketsDefinition-Explicit">Explicit (oneof)</a></code></td>
-<td>
-<p>The explicit buckets.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="Params-MetricInfo-BucketsDefinition-Linear">Params.MetricInfo.BucketsDefinition.Linear</h2>
-<section>
-<p>Specifies a linear sequence of buckets that all have the same width
-(except overflow and underflow). Each bucket represents a constant
-absolute uncertainty on the specific value in the bucket.</p>
-
-<p>There are <code>num_finite_buckets + 2</code> (= <code>N</code>) buckets. The two additional
-buckets are the underflow and overflow buckets.</p>
-
-<p>Bucket <code>i</code> has the following boundaries:</p>
-
-<ul>
-<li>Upper bound (<code>0 &lt;= i &lt; N-1</code>): <code>offset + (width * i)</code></li>
-<li>Lower bound (<code>1 &lt;= i &lt; N</code>): <code>offset + (width * (i - 1))</code></li>
-</ul>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="Params-MetricInfo-BucketsDefinition-Linear-num_finite_buckets">
-<td><code>numFiniteBuckets</code></td>
-<td><code>int32</code></td>
-<td>
-<p>Must be greater than 0.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="Params-MetricInfo-BucketsDefinition-Linear-width">
-<td><code>width</code></td>
-<td><code>double</code></td>
-<td>
-<p>Must be greater than 0.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="Params-MetricInfo-BucketsDefinition-Linear-offset">
-<td><code>offset</code></td>
-<td><code>double</code></td>
-<td>
-<p>Lower bound of the first bucket.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="Params-MetricInfo-BucketsDefinition-Exponential">Params.MetricInfo.BucketsDefinition.Exponential</h2>
-<section>
-<p>Specifies an exponential sequence of buckets that have a width that is
-proportional to the value of the lower bound. Each bucket represents a
-constant relative uncertainty on a specific value in the bucket.</p>
-
-<p>There are <code>num_finite_buckets + 2</code> (= <code>N</code>) buckets. The two additional
-buckets are the underflow and overflow buckets.</p>
-
-<p>Bucket <code>i</code> has the following boundaries:</p>
-
-<ul>
-<li>Upper bound (0 &lt;= i &lt; N-1): <code>scale * (growth_factor ^ i)</code></li>
-<li>Lower bound (1 &lt;= i &lt; N): <code>scale * (growth_factor ^ (i - 1))</code></li>
-</ul>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="Params-MetricInfo-BucketsDefinition-Exponential-num_finite_buckets">
-<td><code>numFiniteBuckets</code></td>
-<td><code>int32</code></td>
-<td>
-<p>Must be greater than 0.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="Params-MetricInfo-BucketsDefinition-Exponential-growth_factor">
-<td><code>growthFactor</code></td>
-<td><code>double</code></td>
-<td>
-<p>Must be greater than 1.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="Params-MetricInfo-BucketsDefinition-Exponential-scale">
-<td><code>scale</code></td>
-<td><code>double</code></td>
-<td>
-<p>Must be greater than 0.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="Params-MetricInfo-BucketsDefinition-Explicit">Params.MetricInfo.BucketsDefinition.Explicit</h2>
-<section>
-<p>Specifies a set of buckets with arbitrary widths.</p>
-
-<p>There are <code>size(bounds) + 1</code> (= <code>N</code>) buckets. Bucket <code>i</code> has the following
-boundaries:</p>
-
-<ul>
-<li>Upper bound (<code>0 &lt;= i &lt; N-1</code>): <code>bounds[i]</code></li>
-<li>Lower bound (<code>1 &lt;= i &lt; N</code>): <code>bounds[i - 1]</code></li>
-</ul>
-
-<p>The <code>bounds</code> field must contain at least one element. If <code>bounds</code> has
-only one element, then there are no finite buckets, and that single
-element is the common boundary of the overflow and underflow buckets.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="Params-MetricInfo-BucketsDefinition-Explicit-bounds">
-<td><code>bounds</code></td>
-<td><code>double[]</code></td>
-<td>
-<p>The values must be monotonically increasing.</p>
 
 </td>
 <td>
@@ -759,6 +447,318 @@ No
 <td><code>bool</code></td>
 <td>
 <p>Update includes children.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params-MetricInfo">Params.MetricInfo</h2>
+<section>
+<p>Describes how to represent an Istio metric in Stackdriver.
+See https://github.com/googleapis/googleapis/blob/master/google/api/metric.proto</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params-MetricInfo-kind">
+<td><code>kind</code></td>
+<td><code><a href="#google-api-MetricDescriptor-MetricKind">MetricKind</a></code></td>
+<td>
+<p>The kind of measurement for a metric, which describes how the data is reported. Ex: Gauge.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Params-MetricInfo-value">
+<td><code>value</code></td>
+<td><code><a href="#google-api-MetricDescriptor-ValueType">ValueType</a></code></td>
+<td>
+<p>The type of the metric&rsquo;s value. Ex: Distribution.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Params-MetricInfo-buckets">
+<td><code>buckets</code></td>
+<td><code><a href="#Params-MetricInfo-BucketsDefinition">BucketsDefinition</a></code></td>
+<td>
+<p>For metrics with a metric value of DISTRIBUTION, this provides a mechanism
+for configuring the buckets that will be used to store the aggregated values.
+This field must be provided for metrics declared to be of type DISTRIBUTION.
+This field will be ignored for non-distribution metric kinds.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Params-MetricInfo-metric_type">
+<td><code>metricType</code></td>
+<td><code>string</code></td>
+<td>
+<p>Stackdriver metric type name, e.g.
+istio.io/service/server/request_count. If this is not provided, a
+concantenation of custom metric prefix (custom.googleapis.com/) and
+Istio metric name will be used.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params-MetricInfo-BucketsDefinition">Params.MetricInfo.BucketsDefinition</h2>
+<section>
+<p>Describes buckets for DISTRIBUTION valued metrics.
+TODO: look into using google.api.distribution.proto instead - we would pull it in but it has a ton of
+dependencies it doesn&rsquo;t actually use.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params-MetricInfo-BucketsDefinition-linear_buckets" class="oneof oneof-start">
+<td><code>linearBuckets</code></td>
+<td><code><a href="#Params-MetricInfo-BucketsDefinition-Linear">Linear (oneof)</a></code></td>
+<td>
+<p>The linear buckets.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Params-MetricInfo-BucketsDefinition-exponential_buckets" class="oneof">
+<td><code>exponentialBuckets</code></td>
+<td><code><a href="#Params-MetricInfo-BucketsDefinition-Exponential">Exponential (oneof)</a></code></td>
+<td>
+<p>The exponential buckets.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Params-MetricInfo-BucketsDefinition-explicit_buckets" class="oneof">
+<td><code>explicitBuckets</code></td>
+<td><code><a href="#Params-MetricInfo-BucketsDefinition-Explicit">Explicit (oneof)</a></code></td>
+<td>
+<p>The explicit buckets.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params-MetricInfo-BucketsDefinition-Explicit">Params.MetricInfo.BucketsDefinition.Explicit</h2>
+<section>
+<p>Specifies a set of buckets with arbitrary widths.</p>
+
+<p>There are <code>size(bounds) + 1</code> (= <code>N</code>) buckets. Bucket <code>i</code> has the following
+boundaries:</p>
+
+<ul>
+<li>Upper bound (<code>0 &lt;= i &lt; N-1</code>): <code>bounds[i]</code></li>
+<li>Lower bound (<code>1 &lt;= i &lt; N</code>): <code>bounds[i - 1]</code></li>
+</ul>
+
+<p>The <code>bounds</code> field must contain at least one element. If <code>bounds</code> has
+only one element, then there are no finite buckets, and that single
+element is the common boundary of the overflow and underflow buckets.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params-MetricInfo-BucketsDefinition-Explicit-bounds">
+<td><code>bounds</code></td>
+<td><code>double[]</code></td>
+<td>
+<p>The values must be monotonically increasing.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params-MetricInfo-BucketsDefinition-Exponential">Params.MetricInfo.BucketsDefinition.Exponential</h2>
+<section>
+<p>Specifies an exponential sequence of buckets that have a width that is
+proportional to the value of the lower bound. Each bucket represents a
+constant relative uncertainty on a specific value in the bucket.</p>
+
+<p>There are <code>num_finite_buckets + 2</code> (= <code>N</code>) buckets. The two additional
+buckets are the underflow and overflow buckets.</p>
+
+<p>Bucket <code>i</code> has the following boundaries:</p>
+
+<ul>
+<li>Upper bound (0 &lt;= i &lt; N-1): <code>scale * (growth_factor ^ i)</code></li>
+<li>Lower bound (1 &lt;= i &lt; N): <code>scale * (growth_factor ^ (i - 1))</code></li>
+</ul>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params-MetricInfo-BucketsDefinition-Exponential-num_finite_buckets">
+<td><code>numFiniteBuckets</code></td>
+<td><code>int32</code></td>
+<td>
+<p>Must be greater than 0.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Params-MetricInfo-BucketsDefinition-Exponential-growth_factor">
+<td><code>growthFactor</code></td>
+<td><code>double</code></td>
+<td>
+<p>Must be greater than 1.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Params-MetricInfo-BucketsDefinition-Exponential-scale">
+<td><code>scale</code></td>
+<td><code>double</code></td>
+<td>
+<p>Must be greater than 0.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params-MetricInfo-BucketsDefinition-Linear">Params.MetricInfo.BucketsDefinition.Linear</h2>
+<section>
+<p>Specifies a linear sequence of buckets that all have the same width
+(except overflow and underflow). Each bucket represents a constant
+absolute uncertainty on the specific value in the bucket.</p>
+
+<p>There are <code>num_finite_buckets + 2</code> (= <code>N</code>) buckets. The two additional
+buckets are the underflow and overflow buckets.</p>
+
+<p>Bucket <code>i</code> has the following boundaries:</p>
+
+<ul>
+<li>Upper bound (<code>0 &lt;= i &lt; N-1</code>): <code>offset + (width * i)</code></li>
+<li>Lower bound (<code>1 &lt;= i &lt; N</code>): <code>offset + (width * (i - 1))</code></li>
+</ul>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params-MetricInfo-BucketsDefinition-Linear-num_finite_buckets">
+<td><code>numFiniteBuckets</code></td>
+<td><code>int32</code></td>
+<td>
+<p>Must be greater than 0.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Params-MetricInfo-BucketsDefinition-Linear-width">
+<td><code>width</code></td>
+<td><code>double</code></td>
+<td>
+<p>Must be greater than 0.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Params-MetricInfo-BucketsDefinition-Linear-offset">
+<td><code>offset</code></td>
+<td><code>double</code></td>
+<td>
+<p>Lower bound of the first bucket.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params-Trace">Params.Trace</h2>
+<section>
+<p>Details of Stackdriver Trace configuration for tracespan template.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params-Trace-sample_probability">
+<td><code>sampleProbability</code></td>
+<td><code>double</code></td>
+<td>
+<p>Proability that a particular trace ID will be sampled.</p>
 
 </td>
 <td>
