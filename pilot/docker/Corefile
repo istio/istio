@@ -1,0 +1,54 @@
+# Used when running CoreDNS along Istiod.
+# Ideally the K8S native CoreDNS can be configured to add DNS-over-TLS and
+# the grpc call to istiod. Until we find a good way to do this we need a way
+# to resolve recursive calls without an un-encrypted call to kube dns.
+#
+# WIP: deciding if DNS-over-TLS will be handled directly by Istiod or by the CoreDNS.
+# Not clear if we need an option, or just testing for both alternatives.
+#
+# Will connect to the local istiod using gRPC
+# TODO: instead of proxy, use the k8s config directly
+# TODO: add tls://, https:// and grpc:// listeners with same config
+
+# Based on default k8s config, with changes:
+# - different ports - not running as root, Service translates
+# - log - for debugging
+
+global:15054 {
+    errors
+    log
+    proxy . 127.0.0.1:15053 {
+    }
+
+}
+
+.:15054 {
+    errors
+    log
+    health :15056 {
+      lameduck 5s
+    }
+
+    #proxy global 127.0.0.1:15010 {
+    #  protocol grpc insecure
+    #}
+    proxy global 127.0.0.1:15053 {
+    }
+    proxy svc 127.0.0.1:15053 {
+    }
+    proxy example.com 127.0.0.1:15053 {
+    }
+    kubernetes cluster.local in-addr.arpa ip6.arpa {
+        pods insecure
+        fallthrough in-addr.arpa ip6.arpa
+        ttl 30
+    }
+    prometheus :9153
+
+    forward . /etc/resolv.conf
+    cache 30
+    reload
+    loadbalance
+}
+
+
