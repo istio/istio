@@ -39320,7 +39320,7 @@ spec:
       containers:
       - image: "{{ .Values.kiali.hub }}/{{ .Values.kiali.image }}:{{ .Values.kiali.tag }}"
 {{- if .Values.global.imagePullPolicy }}
-      imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
 {{- end }}
         name: kiali
         command:
