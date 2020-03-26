@@ -4,328 +4,6 @@ layout: protoc-gen-docs
 generator: protoc-gen-docs
 number_of_entries: 101
 ---
-<h2 id="OutboundTrafficPolicyConfig-Mode">OutboundTrafficPolicyConfig.Mode</h2>
-<section>
-<p>Specifies the sidecar&rsquo;s default behavior when handling outbound traffic from the application.</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="OutboundTrafficPolicyConfig-Mode-ALLOW_ANY">
-<td><code>ALLOW_ANY</code></td>
-<td>
-<p>Outbound traffic to unknown destinations will be allowed, in case there are no services or ServiceEntries for the destination port</p>
-
-</td>
-</tr>
-<tr id="OutboundTrafficPolicyConfig-Mode-REGISTRY_ONLY">
-<td><code>REGISTRY_ONLY</code></td>
-<td>
-<p>Restrict outbound traffic to services defined in the service registry as well as those defined through ServiceEntries</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="mode">mode</h2>
-<section>
-<p>Throttling behavior for mixer.</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="mode-disabled">
-<td><code>disabled</code></td>
-<td>
-<p>Removes throttling behavior for mixer.</p>
-
-</td>
-</tr>
-<tr id="mode-log_only">
-<td><code>log_only</code></td>
-<td>
-<p>Enables an advisory mode for throttling behavior for mixer.</p>
-
-</td>
-</tr>
-<tr id="mode-enforce">
-<td><code>enforce</code></td>
-<td>
-<p>Turn on throttling behavior for mixer.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="ingressControllerMode">ingressControllerMode</h2>
-<section>
-<p>Mode for the ingress controller.</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="ingressControllerMode-DEFAULT">
-<td><code>DEFAULT</code></td>
-<td>
-<p>Selects all Ingress resources, with or without Istio annotation.</p>
-
-</td>
-</tr>
-<tr id="ingressControllerMode-STRICT">
-<td><code>STRICT</code></td>
-<td>
-<p>Selects only resources with istio annotation.</p>
-
-</td>
-</tr>
-<tr id="ingressControllerMode-OFF">
-<td><code>OFF</code></td>
-<td>
-<p>No ingress or sync.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="accessLogEncoding">accessLogEncoding</h2>
-<section>
-<p>Configures the access log for sidecar to JSON or TEXT</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="accessLogEncoding-JSON">
-<td><code>JSON</code></td>
-<td>
-</td>
-</tr>
-<tr id="accessLogEncoding-TEXT">
-<td><code>TEXT</code></td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="tracer">tracer</h2>
-<section>
-<p>Specifies which tracer to use.</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="tracer-zipkin">
-<td><code>zipkin</code></td>
-<td>
-</td>
-</tr>
-<tr id="tracer-lightstep">
-<td><code>lightstep</code></td>
-<td>
-</td>
-</tr>
-<tr id="tracer-datadog">
-<td><code>datadog</code></td>
-<td>
-</td>
-</tr>
-<tr id="tracer-stackdriver">
-<td><code>stackdriver</code></td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="mode">mode</h2>
-<section>
-<p>Throttling behavior for mixer.</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="mode-disabled">
-<td><code>disabled</code></td>
-<td>
-<p>Removes throttling behavior for mixer.</p>
-
-</td>
-</tr>
-<tr id="mode-log_only">
-<td><code>log_only</code></td>
-<td>
-<p>Enables an advisory mode for throttling behavior for mixer.</p>
-
-</td>
-</tr>
-<tr id="mode-enforce">
-<td><code>enforce</code></td>
-<td>
-<p>Turn on throttling behavior for mixer.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="OutboundTrafficPolicyConfig-Mode">OutboundTrafficPolicyConfig.Mode</h2>
-<section>
-<p>Specifies the sidecar&rsquo;s default behavior when handling outbound traffic from the application.</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="OutboundTrafficPolicyConfig-Mode-ALLOW_ANY">
-<td><code>ALLOW_ANY</code></td>
-<td>
-<p>Outbound traffic to unknown destinations will be allowed, in case there are no services or ServiceEntries for the destination port</p>
-
-</td>
-</tr>
-<tr id="OutboundTrafficPolicyConfig-Mode-REGISTRY_ONLY">
-<td><code>REGISTRY_ONLY</code></td>
-<td>
-<p>Restrict outbound traffic to services defined in the service registry as well as those defined through ServiceEntries</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="ingressControllerMode">ingressControllerMode</h2>
-<section>
-<p>Mode for the ingress controller.</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="ingressControllerMode-DEFAULT">
-<td><code>DEFAULT</code></td>
-<td>
-<p>Selects all Ingress resources, with or without Istio annotation.</p>
-
-</td>
-</tr>
-<tr id="ingressControllerMode-STRICT">
-<td><code>STRICT</code></td>
-<td>
-<p>Selects only resources with istio annotation.</p>
-
-</td>
-</tr>
-<tr id="ingressControllerMode-OFF">
-<td><code>OFF</code></td>
-<td>
-<p>No ingress or sync.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="accessLogEncoding">accessLogEncoding</h2>
-<section>
-<p>Configures the access log for sidecar to JSON or TEXT</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="accessLogEncoding-JSON">
-<td><code>JSON</code></td>
-<td>
-</td>
-</tr>
-<tr id="accessLogEncoding-TEXT">
-<td><code>TEXT</code></td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="tracer">tracer</h2>
-<section>
-<p>Specifies which tracer to use.</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="tracer-zipkin">
-<td><code>zipkin</code></td>
-<td>
-</td>
-</tr>
-<tr id="tracer-lightstep">
-<td><code>lightstep</code></td>
-<td>
-</td>
-</tr>
-<tr id="tracer-datadog">
-<td><code>datadog</code></td>
-<td>
-</td>
-</tr>
-<tr id="tracer-stackdriver">
-<td><code>stackdriver</code></td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="AddonIngressConfig">AddonIngressConfig</h2>
 <section>
 <p>Configuration for the addon ingress.</p>
@@ -8551,6 +8229,328 @@ No
 </td>
 <td>
 No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="OutboundTrafficPolicyConfig-Mode">OutboundTrafficPolicyConfig.Mode</h2>
+<section>
+<p>Specifies the sidecar&rsquo;s default behavior when handling outbound traffic from the application.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="OutboundTrafficPolicyConfig-Mode-ALLOW_ANY">
+<td><code>ALLOW_ANY</code></td>
+<td>
+<p>Outbound traffic to unknown destinations will be allowed, in case there are no services or ServiceEntries for the destination port</p>
+
+</td>
+</tr>
+<tr id="OutboundTrafficPolicyConfig-Mode-REGISTRY_ONLY">
+<td><code>REGISTRY_ONLY</code></td>
+<td>
+<p>Restrict outbound traffic to services defined in the service registry as well as those defined through ServiceEntries</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="mode">mode</h2>
+<section>
+<p>Throttling behavior for mixer.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="mode-disabled">
+<td><code>disabled</code></td>
+<td>
+<p>Removes throttling behavior for mixer.</p>
+
+</td>
+</tr>
+<tr id="mode-log_only">
+<td><code>log_only</code></td>
+<td>
+<p>Enables an advisory mode for throttling behavior for mixer.</p>
+
+</td>
+</tr>
+<tr id="mode-enforce">
+<td><code>enforce</code></td>
+<td>
+<p>Turn on throttling behavior for mixer.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ingressControllerMode">ingressControllerMode</h2>
+<section>
+<p>Mode for the ingress controller.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ingressControllerMode-DEFAULT">
+<td><code>DEFAULT</code></td>
+<td>
+<p>Selects all Ingress resources, with or without Istio annotation.</p>
+
+</td>
+</tr>
+<tr id="ingressControllerMode-STRICT">
+<td><code>STRICT</code></td>
+<td>
+<p>Selects only resources with istio annotation.</p>
+
+</td>
+</tr>
+<tr id="ingressControllerMode-OFF">
+<td><code>OFF</code></td>
+<td>
+<p>No ingress or sync.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="accessLogEncoding">accessLogEncoding</h2>
+<section>
+<p>Configures the access log for sidecar to JSON or TEXT</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="accessLogEncoding-JSON">
+<td><code>JSON</code></td>
+<td>
+</td>
+</tr>
+<tr id="accessLogEncoding-TEXT">
+<td><code>TEXT</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="tracer">tracer</h2>
+<section>
+<p>Specifies which tracer to use.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="tracer-zipkin">
+<td><code>zipkin</code></td>
+<td>
+</td>
+</tr>
+<tr id="tracer-lightstep">
+<td><code>lightstep</code></td>
+<td>
+</td>
+</tr>
+<tr id="tracer-datadog">
+<td><code>datadog</code></td>
+<td>
+</td>
+</tr>
+<tr id="tracer-stackdriver">
+<td><code>stackdriver</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="mode">mode</h2>
+<section>
+<p>Throttling behavior for mixer.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="mode-disabled">
+<td><code>disabled</code></td>
+<td>
+<p>Removes throttling behavior for mixer.</p>
+
+</td>
+</tr>
+<tr id="mode-log_only">
+<td><code>log_only</code></td>
+<td>
+<p>Enables an advisory mode for throttling behavior for mixer.</p>
+
+</td>
+</tr>
+<tr id="mode-enforce">
+<td><code>enforce</code></td>
+<td>
+<p>Turn on throttling behavior for mixer.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="OutboundTrafficPolicyConfig-Mode">OutboundTrafficPolicyConfig.Mode</h2>
+<section>
+<p>Specifies the sidecar&rsquo;s default behavior when handling outbound traffic from the application.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="OutboundTrafficPolicyConfig-Mode-ALLOW_ANY">
+<td><code>ALLOW_ANY</code></td>
+<td>
+<p>Outbound traffic to unknown destinations will be allowed, in case there are no services or ServiceEntries for the destination port</p>
+
+</td>
+</tr>
+<tr id="OutboundTrafficPolicyConfig-Mode-REGISTRY_ONLY">
+<td><code>REGISTRY_ONLY</code></td>
+<td>
+<p>Restrict outbound traffic to services defined in the service registry as well as those defined through ServiceEntries</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ingressControllerMode">ingressControllerMode</h2>
+<section>
+<p>Mode for the ingress controller.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ingressControllerMode-DEFAULT">
+<td><code>DEFAULT</code></td>
+<td>
+<p>Selects all Ingress resources, with or without Istio annotation.</p>
+
+</td>
+</tr>
+<tr id="ingressControllerMode-STRICT">
+<td><code>STRICT</code></td>
+<td>
+<p>Selects only resources with istio annotation.</p>
+
+</td>
+</tr>
+<tr id="ingressControllerMode-OFF">
+<td><code>OFF</code></td>
+<td>
+<p>No ingress or sync.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="accessLogEncoding">accessLogEncoding</h2>
+<section>
+<p>Configures the access log for sidecar to JSON or TEXT</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="accessLogEncoding-JSON">
+<td><code>JSON</code></td>
+<td>
+</td>
+</tr>
+<tr id="accessLogEncoding-TEXT">
+<td><code>TEXT</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="tracer">tracer</h2>
+<section>
+<p>Specifies which tracer to use.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="tracer-zipkin">
+<td><code>zipkin</code></td>
+<td>
+</td>
+</tr>
+<tr id="tracer-lightstep">
+<td><code>lightstep</code></td>
+<td>
+</td>
+</tr>
+<tr id="tracer-datadog">
+<td><code>datadog</code></td>
+<td>
+</td>
+</tr>
+<tr id="tracer-stackdriver">
+<td><code>stackdriver</code></td>
+<td>
 </td>
 </tr>
 </tbody>

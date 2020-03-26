@@ -59,17 +59,6 @@ type IstioConfigStore struct {
 	deleteReturnsOnCall map[int]struct {
 		result1 error
 	}
-	EnvoyFilterStub        func(labels.Collection) *model.Config
-	envoyFilterMutex       sync.RWMutex
-	envoyFilterArgsForCall []struct {
-		arg1 labels.Collection
-	}
-	envoyFilterReturns struct {
-		result1 *model.Config
-	}
-	envoyFilterReturnsOnCall map[int]struct {
-		result1 *model.Config
-	}
 	GatewaysStub        func(labels.Collection) []model.Config
 	gatewaysMutex       sync.RWMutex
 	gatewaysArgsForCall []struct {
@@ -467,66 +456,6 @@ func (fake *IstioConfigStore) DeleteReturnsOnCall(i int, result1 error) {
 	}
 	fake.deleteReturnsOnCall[i] = struct {
 		result1 error
-	}{result1}
-}
-
-func (fake *IstioConfigStore) EnvoyFilter(arg1 labels.Collection) *model.Config {
-	fake.envoyFilterMutex.Lock()
-	ret, specificReturn := fake.envoyFilterReturnsOnCall[len(fake.envoyFilterArgsForCall)]
-	fake.envoyFilterArgsForCall = append(fake.envoyFilterArgsForCall, struct {
-		arg1 labels.Collection
-	}{arg1})
-	fake.recordInvocation("EnvoyFilter", []interface{}{arg1})
-	fake.envoyFilterMutex.Unlock()
-	if fake.EnvoyFilterStub != nil {
-		return fake.EnvoyFilterStub(arg1)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	fakeReturns := fake.envoyFilterReturns
-	return fakeReturns.result1
-}
-
-func (fake *IstioConfigStore) EnvoyFilterCallCount() int {
-	fake.envoyFilterMutex.RLock()
-	defer fake.envoyFilterMutex.RUnlock()
-	return len(fake.envoyFilterArgsForCall)
-}
-
-func (fake *IstioConfigStore) EnvoyFilterCalls(stub func(labels.Collection) *model.Config) {
-	fake.envoyFilterMutex.Lock()
-	defer fake.envoyFilterMutex.Unlock()
-	fake.EnvoyFilterStub = stub
-}
-
-func (fake *IstioConfigStore) EnvoyFilterArgsForCall(i int) labels.Collection {
-	fake.envoyFilterMutex.RLock()
-	defer fake.envoyFilterMutex.RUnlock()
-	argsForCall := fake.envoyFilterArgsForCall[i]
-	return argsForCall.arg1
-}
-
-func (fake *IstioConfigStore) EnvoyFilterReturns(result1 *model.Config) {
-	fake.envoyFilterMutex.Lock()
-	defer fake.envoyFilterMutex.Unlock()
-	fake.EnvoyFilterStub = nil
-	fake.envoyFilterReturns = struct {
-		result1 *model.Config
-	}{result1}
-}
-
-func (fake *IstioConfigStore) EnvoyFilterReturnsOnCall(i int, result1 *model.Config) {
-	fake.envoyFilterMutex.Lock()
-	defer fake.envoyFilterMutex.Unlock()
-	fake.EnvoyFilterStub = nil
-	if fake.envoyFilterReturnsOnCall == nil {
-		fake.envoyFilterReturnsOnCall = make(map[int]struct {
-			result1 *model.Config
-		})
-	}
-	fake.envoyFilterReturnsOnCall[i] = struct {
-		result1 *model.Config
 	}{result1}
 }
 
@@ -1354,8 +1283,6 @@ func (fake *IstioConfigStore) Invocations() map[string][][]interface{} {
 	defer fake.createMutex.RUnlock()
 	fake.deleteMutex.RLock()
 	defer fake.deleteMutex.RUnlock()
-	fake.envoyFilterMutex.RLock()
-	defer fake.envoyFilterMutex.RUnlock()
 	fake.gatewaysMutex.RLock()
 	defer fake.gatewaysMutex.RUnlock()
 	fake.getMutex.RLock()

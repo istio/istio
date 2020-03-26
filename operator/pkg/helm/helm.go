@@ -62,16 +62,15 @@ type TemplateRenderer interface {
 // NewHelmRenderer creates a new helm renderer with the given parameters and returns an interface to it.
 // The format of helmBaseDir and profile strings determines the type of helm renderer returned (compiled-in, file,
 // HTTP etc.)
-func NewHelmRenderer(chartsRootDir, helmBaseDir, componentName, namespace string) (TemplateRenderer, error) {
-	// filepath would remove leading slash here if chartsRootDir is empty.
-	dir := chartsRootDir + "/" + helmBaseDir
+func NewHelmRenderer(operatorDataDir, helmSubdir, componentName, namespace string) (TemplateRenderer, error) {
+	dir := filepath.Join(ChartsSubdirName, helmSubdir)
 	switch {
-	case chartsRootDir == "":
-		return NewVFSRenderer(helmBaseDir, componentName, namespace), nil
-	case util.IsFilePath(dir):
-		return NewFileTemplateRenderer(dir, componentName, namespace), nil
+	case operatorDataDir == "":
+		return NewVFSRenderer(dir, componentName, namespace), nil
+	case util.IsFilePath(operatorDataDir):
+		return NewFileTemplateRenderer(filepath.Join(operatorDataDir, dir), componentName, namespace), nil
 	default:
-		return nil, fmt.Errorf("unknown helm renderer with chartsRoot=%s", chartsRootDir)
+		return nil, fmt.Errorf("unknown helm renderer with ChartsSubdirName=%s", operatorDataDir)
 	}
 }
 
@@ -208,7 +207,7 @@ func readFile(path string) (string, error) {
 func GetAddonNamesFromCharts(chartsRootDir string, capitalize bool) (addonChartNames []string, err error) {
 	if chartsRootDir == "" {
 		// VFS
-		fnames, err := vfs.GetFilesRecursive(chartsRoot)
+		fnames, err := vfs.GetFilesRecursive(ChartsSubdirName)
 		if err != nil {
 			return nil, err
 		}

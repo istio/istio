@@ -82,6 +82,15 @@
 // charts/istio-control/istio-discovery/templates/telemetryv2_1.5.yaml
 // charts/istio-control/istio-discovery/templates/telemetryv2_1.6.yaml
 // charts/istio-control/istio-discovery/values.yaml
+// charts/istio-operator/Chart.yaml
+// charts/istio-operator/templates/clusterrole.yaml
+// charts/istio-operator/templates/clusterrole_binding.yaml
+// charts/istio-operator/templates/crd.yaml
+// charts/istio-operator/templates/deployment.yaml
+// charts/istio-operator/templates/namespace.yaml
+// charts/istio-operator/templates/service.yaml
+// charts/istio-operator/templates/service_account.yaml
+// charts/istio-operator/values.yaml
 // charts/istio-policy/Chart.yaml
 // charts/istio-policy/templates/_affinity.tpl
 // charts/istio-policy/templates/_helpers.tpl
@@ -142,7 +151,6 @@
 // charts/istio-telemetry/prometheus/templates/clusterrolebindings.yaml
 // charts/istio-telemetry/prometheus/templates/configmap.yaml
 // charts/istio-telemetry/prometheus/templates/deployment.yaml
-// charts/istio-telemetry/prometheus/templates/ingress.yaml
 // charts/istio-telemetry/prometheus/templates/service.yaml
 // charts/istio-telemetry/prometheus/templates/serviceaccount.yaml
 // charts/istio-telemetry/prometheus/templates/tests/test-prometheus-connection.yaml
@@ -176,14 +184,6 @@
 // examples/user-gateway/ingress-gateway-only.yaml
 // examples/vm/values-istio-meshexpansion-gateways.yaml
 // examples/vm/values-istio-meshexpansion.yaml
-// operator-chart/Chart.yaml
-// operator-chart/templates/clusterrole.yaml
-// operator-chart/templates/clusterrole_binding.yaml
-// operator-chart/templates/crd.yaml
-// operator-chart/templates/deployment.yaml
-// operator-chart/templates/namespace.yaml
-// operator-chart/templates/service.yaml
-// operator-chart/templates/service_account.yaml
 // profiles/default.yaml
 // profiles/demo.yaml
 // profiles/empty.yaml
@@ -3383,76 +3383,6 @@ spec:
                     type: object
                 type: object
               type: array
-            filters:
-              items:
-                properties:
-                  filterConfig:
-                    type: object
-                  filterName:
-                    description: The name of the filter to instantiate.
-                    format: string
-                    type: string
-                  filterType:
-                    description: The type of filter to instantiate.
-                    enum:
-                    - INVALID
-                    - HTTP
-                    - NETWORK
-                    type: string
-                  insertPosition:
-                    description: Insert position in the filter chain.
-                    properties:
-                      index:
-                        description: Position of this filter in the filter chain.
-                        enum:
-                        - FIRST
-                        - LAST
-                        - BEFORE
-                        - AFTER
-                        type: string
-                      relativeTo:
-                        format: string
-                        type: string
-                    type: object
-                  listenerMatch:
-                    properties:
-                      address:
-                        description: One or more IP addresses to which the listener
-                          is bound.
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      listenerProtocol:
-                        description: Selects a class of listeners for the same protocol.
-                        enum:
-                        - ALL
-                        - HTTP
-                        - TCP
-                        type: string
-                      listenerType:
-                        description: Inbound vs outbound sidecar listener or gateway
-                          listener.
-                        enum:
-                        - ANY
-                        - SIDECAR_INBOUND
-                        - SIDECAR_OUTBOUND
-                        - GATEWAY
-                        type: string
-                      portNamePrefix:
-                        format: string
-                        type: string
-                      portNumber:
-                        type: integer
-                    type: object
-                type: object
-              type: array
-            workloadLabels:
-              additionalProperties:
-                format: string
-                type: string
-              description: Deprecated.
-              type: object
             workloadSelector:
               properties:
                 labels:
@@ -9174,76 +9104,6 @@ spec:
                     type: object
                 type: object
               type: array
-            filters:
-              items:
-                properties:
-                  filterConfig:
-                    type: object
-                  filterName:
-                    description: The name of the filter to instantiate.
-                    format: string
-                    type: string
-                  filterType:
-                    description: The type of filter to instantiate.
-                    enum:
-                    - INVALID
-                    - HTTP
-                    - NETWORK
-                    type: string
-                  insertPosition:
-                    description: Insert position in the filter chain.
-                    properties:
-                      index:
-                        description: Position of this filter in the filter chain.
-                        enum:
-                        - FIRST
-                        - LAST
-                        - BEFORE
-                        - AFTER
-                        type: string
-                      relativeTo:
-                        format: string
-                        type: string
-                    type: object
-                  listenerMatch:
-                    properties:
-                      address:
-                        description: One or more IP addresses to which the listener
-                          is bound.
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      listenerProtocol:
-                        description: Selects a class of listeners for the same protocol.
-                        enum:
-                        - ALL
-                        - HTTP
-                        - TCP
-                        type: string
-                      listenerType:
-                        description: Inbound vs outbound sidecar listener or gateway
-                          listener.
-                        enum:
-                        - ANY
-                        - SIDECAR_INBOUND
-                        - SIDECAR_OUTBOUND
-                        - GATEWAY
-                        type: string
-                      portNamePrefix:
-                        format: string
-                        type: string
-                      portNumber:
-                        type: integer
-                    type: object
-                type: object
-              type: array
-            workloadLabels:
-              additionalProperties:
-                format: string
-                type: string
-              description: Deprecated.
-              type: object
             workloadSelector:
               properties:
                 labels:
@@ -16895,19 +16755,30 @@ data:
           runAsUser: 1337
           {{- end }}
         resources:
-          {{ if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
+      {{- if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) }}
+        {{- if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) }}
           requests:
             {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) -}}
             cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+` }}"
-            {{ end}}
+            {{ end }}
             {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
             memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+` }}"
             {{ end }}
-        {{ else -}}
-      {{- if .Values.global.proxy.resources }}
+        {{- end }}
+        {{- if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) }}
+          limits:
+            {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) -}}
+            cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+` }}"
+            {{ end }}
+            {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) -}}
+            memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+` }}"
+            {{ end }}
+        {{- end }}
+      {{- else }}
+        {{- if .Values.global.proxy.resources }}
           {{ toYaml .Values.global.proxy.resources | indent 4 }}
+        {{- end }}
       {{- end }}
-        {{  end -}}
         volumeMounts:
         {{- if eq .Values.global.pilotCertProvider "istiod" }}
         - mountPath: /var/run/secrets/istio
@@ -17063,7 +16934,6 @@ spec:
       maxUnavailable: 25%
   selector:
     matchLabels:
-      app: istiod
       istio: pilot
   template:
     metadata:
@@ -17107,6 +16977,8 @@ spec:
               name: istiod
               optional: true
           env:
+          - name: REVISION
+            value: "default"
           - name: JWT_POLICY
             value: third-party-jwt
           - name: PILOT_CERT_PROVIDER
@@ -18287,19 +18159,30 @@ template: |
       runAsUser: 1337
       {{- end }}
     resources:
-      {{ if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
+  {{- if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) }}
+    {{- if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) }}
       requests:
         {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) -}}
         cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+` }}"
-        {{ end}}
+        {{ end }}
         {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
         memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+` }}"
         {{ end }}
-    {{ else -}}
-  {{- if .Values.global.proxy.resources }}
+    {{- end }}
+    {{- if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) }}
+      limits:
+        {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) -}}
+        cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+` }}"
+        {{ end }}
+        {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) -}}
+        memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+` }}"
+        {{ end }}
+    {{- end }}
+  {{- else }}
+    {{- if .Values.global.proxy.resources }}
       {{ toYaml .Values.global.proxy.resources | indent 4 }}
+    {{- end }}
   {{- end }}
-    {{  end -}}
     volumeMounts:
     {{- if eq .Values.global.pilotCertProvider "istiod" }}
     - mountPath: /var/run/secrets/istio
@@ -18977,8 +18860,8 @@ spec:
       maxUnavailable: {{ .Values.pilot.rollingMaxUnavailable }}
   selector:
     matchLabels:
-      app: istiod
       {{- if ne .Values.revision ""}}
+      app: istiod
       version: {{ .Values.revision }}
       {{- else }}
       istio: pilot
@@ -19056,6 +18939,8 @@ spec:
               name: istiod
               optional: true
           env:
+          - name: REVISION
+            value: "{{ .Values.revision | default `+"`"+`default`+"`"+` }}"
           - name: JWT_POLICY
             value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
@@ -19294,19 +19179,14 @@ webhooks:
 {{- else if .Values.revision }}
       matchExpressions:
       - key: istio-injection
-        operator: NotIn
-        values:
-        - disabled
+        operator: DoesNotExist
       - key: istio.io/rev
         operator: In
         values:
         - {{ .Values.revision }}
-{{- else if eq .Values.sidecarInjectorWebhook.injectLabel "istio-injection" }}
-      matchLabels:
-        istio-injection: enabled
 {{- else }}
       matchLabels:
-        istio-env: {{ .Release.Namespace }}
+        istio-injection: enabled
 {{- end }}
 {{- if .Values.sidecarInjectorWebhook.objectSelector.enabled }}
     objectSelector:
@@ -19427,7 +19307,7 @@ var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml = []byte(`{{- i
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: metadata-exchange-1.4
+  name: metadata-exchange-1.4{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -19460,7 +19340,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stats-filter-1.4
+  name: stats-filter-1.4{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -19558,7 +19438,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stackdriver-filter-1.4
+  name: stackdriver-filter-1.4{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -19679,7 +19559,7 @@ var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml = []byte(`{{- i
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: metadata-exchange-1.5
+  name: metadata-exchange-1.5{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -19722,7 +19602,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: tcp-metadata-exchange-1.5
+  name: tcp-metadata-exchange-1.5{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -19779,7 +19659,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stats-filter-1.5
+  name: stats-filter-1.5{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -19908,7 +19788,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: tcp-stats-filter-1.5
+  name: tcp-stats-filter-1.5{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -20034,7 +19914,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stackdriver-filter-1.5
+  name: stackdriver-filter-1.5{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -20164,7 +20044,7 @@ var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml = []byte(`{{- i
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: metadata-exchange-1.6
+  name: metadata-exchange-1.6{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -20207,7 +20087,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: tcp-metadata-exchange-1.6
+  name: tcp-metadata-exchange-1.6{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -20267,7 +20147,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stats-filter-1.6
+  name: stats-filter-1.6{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -20396,7 +20276,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: tcp-stats-filter-1.6
+  name: tcp-stats-filter-1.6{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -20523,7 +20403,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stackdriver-filter-1.6
+  name: stackdriver-filter-1.6{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
@@ -20864,6 +20744,417 @@ func chartsIstioControlIstioDiscoveryValuesYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "charts/istio-control/istio-discovery/values.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorChartYaml = []byte(`apiVersion: v1
+name: istio-operator
+version: 1.6.0
+tillerVersion: ">=2.7.2"
+description: Helm chart for deploying Istio operator
+keywords:
+  - istio
+  - operator
+sources:
+  - http://github.com/istio/istio/operator
+engine: gotpl
+icon: https://istio.io/favicons/android-192x192.png
+`)
+
+func chartsIstioOperatorChartYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorChartYaml, nil
+}
+
+func chartsIstioOperatorChartYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorChartYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/Chart.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesClusterroleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: istio-operator
+rules:
+# istio groups
+- apiGroups:
+  - authentication.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - config.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - install.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - networking.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - rbac.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - security.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+# k8s groups
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  - validatingwebhookconfigurations
+  verbs:
+  - '*'
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions.apiextensions.k8s.io
+  - customresourcedefinitions
+  verbs:
+  - '*'
+- apiGroups:
+  - apps
+  - extensions
+  resources:
+  - daemonsets
+  - deployments
+  - deployments/finalizers
+  - ingresses
+  - replicasets
+  - statefulsets
+  verbs:
+  - '*'
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - '*'
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - get
+  - create
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - '*'
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  - roles
+  - rolebindings
+  verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - endpoints
+  - events
+  - namespaces
+  - pods
+  - persistentvolumeclaims
+  - secrets
+  - services
+  - serviceaccounts
+  verbs:
+  - '*'
+---
+`)
+
+func chartsIstioOperatorTemplatesClusterroleYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesClusterroleYaml, nil
+}
+
+func chartsIstioOperatorTemplatesClusterroleYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesClusterroleYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/clusterrole.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesClusterrole_bindingYaml = []byte(`kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: istio-operator
+subjects:
+- kind: ServiceAccount
+  name: istio-operator
+  namespace: {{.Values.operatorNamespace}}
+roleRef:
+  kind: ClusterRole
+  name: istio-operator
+  apiGroup: rbac.authorization.k8s.io
+---
+`)
+
+func chartsIstioOperatorTemplatesClusterrole_bindingYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesClusterrole_bindingYaml, nil
+}
+
+func chartsIstioOperatorTemplatesClusterrole_bindingYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesClusterrole_bindingYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/clusterrole_binding.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesCrdYaml = []byte(`apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: istiooperators.install.istio.io
+spec:
+  group: install.istio.io
+  names:
+    kind: IstioOperator
+    plural: istiooperators
+    singular: istiooperator
+    shortNames:
+    - iop
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        spec:
+          description: 'Specification of the desired state of the istio control plane resource.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+        status:
+          description: 'Status describes each of istio control plane component status at the current time.
+            0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
+            More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
+            https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+---
+`)
+
+func chartsIstioOperatorTemplatesCrdYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesCrdYaml, nil
+}
+
+func chartsIstioOperatorTemplatesCrdYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesCrdYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/crd.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesDeploymentYaml = []byte(`apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{.Values.operatorNamespace}}
+  name: istio-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: istio-operator
+  template:
+    metadata:
+      labels:
+        name: istio-operator
+    spec:
+      serviceAccountName: istio-operator
+      containers:
+        - name: istio-operator
+          image: {{.Values.hub}}/operator:{{.Values.tag}}
+          command:
+          - operator
+          - server
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          env:
+            - name: WATCH_NAMESPACE
+              value: {{.Values.istioNamespace}}
+            - name: LEADER_ELECTION_NAMESPACE
+              value: {{.Values.operatorNamespace}}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: {{.Values.operatorNamespace}}
+---
+`)
+
+func chartsIstioOperatorTemplatesDeploymentYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesDeploymentYaml, nil
+}
+
+func chartsIstioOperatorTemplatesDeploymentYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesDeploymentYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/deployment.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesNamespaceYaml = []byte(`apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-operator
+  labels:
+    istio-operator-managed: Reconcile
+    istio-injection: disabled
+---
+`)
+
+func chartsIstioOperatorTemplatesNamespaceYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesNamespaceYaml, nil
+}
+
+func chartsIstioOperatorTemplatesNamespaceYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesNamespaceYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/namespace.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesServiceYaml = []byte(`apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{.Values.operatorNamespace}}
+  labels:
+    name: istio-operator
+  name: istio-operator
+spec:
+  ports:
+  - name: http-metrics
+    port: 8383
+    targetPort: 8383
+  selector:
+    name: istio-operator
+---
+`)
+
+func chartsIstioOperatorTemplatesServiceYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesServiceYaml, nil
+}
+
+func chartsIstioOperatorTemplatesServiceYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesServiceYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/service.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesService_accountYaml = []byte(`apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: {{.Values.operatorNamespace}}
+  name: istio-operator
+---
+`)
+
+func chartsIstioOperatorTemplatesService_accountYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesService_accountYaml, nil
+}
+
+func chartsIstioOperatorTemplatesService_accountYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesService_accountYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/service_account.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorValuesYaml = []byte(`hub: gcr.io/istio-testing
+tag: 1.6-dev
+operatorNamespace: istio-operator
+istioNamespace: istio-system
+`)
+
+func chartsIstioOperatorValuesYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorValuesYaml, nil
+}
+
+func chartsIstioOperatorValuesYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorValuesYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/values.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -41407,7 +41698,11 @@ spec:
 
 {{- if .Values.prometheus.provisionPrometheusCert }}
         - name: istio-proxy
-          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+{{- if contains "/" .Values.global.proxy.image }}
+          image: "{{ .Values.global.proxy.image }}"
+{{- else }}
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.global.tag }}"
+{{- end }}
           ports:
             - containerPort: 15090
               protocol: TCP
@@ -41583,61 +41878,6 @@ func chartsIstioTelemetryPrometheusTemplatesDeploymentYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "charts/istio-telemetry/prometheus/templates/deployment.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioTelemetryPrometheusTemplatesIngressYaml = []byte(`{{- if .Values.prometheus.ingress.enabled -}}
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  name: prometheus
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: prometheus
-    release: {{ .Release.Name }}
-  annotations:
-    {{- range $key, $value := .Values.prometheus.ingress.annotations }}
-      {{ $key }}: {{ $value | quote }}
-    {{- end }}
-spec:
-  rules:
-{{- if .Values.prometheus.ingress.hosts }}
-    {{- range $host := .Values.prometheus.ingress.hosts }}
-    - host: {{ $host }}
-      http:
-        paths:
-          - path: {{ if $.Values.prometheus.contextPath }} {{ $.Values.prometheus.contextPath }} {{ else }} / {{ end }}
-            backend:
-              serviceName: prometheus
-              servicePort: 9090
-    {{- end -}}
-{{- else }}
-    - http:
-        paths:
-          - path: {{ if .Values.prometheus.contextPath }} {{ .Values.prometheus.contextPath }} {{ else }} / {{ end }}
-            backend:
-              serviceName: prometheus
-              servicePort: 9090
-{{- end }}
-  {{- if .Values.prometheus.ingress.tls }}
-  tls:
-{{ toYaml .Values.prometheus.ingress.tls | indent 4 }}
-  {{- end -}}
-{{- end -}}
-`)
-
-func chartsIstioTelemetryPrometheusTemplatesIngressYamlBytes() ([]byte, error) {
-	return _chartsIstioTelemetryPrometheusTemplatesIngressYaml, nil
-}
-
-func chartsIstioTelemetryPrometheusTemplatesIngressYaml() (*asset, error) {
-	bytes, err := chartsIstioTelemetryPrometheusTemplatesIngressYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-telemetry/prometheus/templates/ingress.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -44088,396 +44328,6 @@ func examplesVmValuesIstioMeshexpansionYaml() (*asset, error) {
 	return a, nil
 }
 
-var _operatorChartChartYaml = []byte(`apiVersion: v1
-name: operator
-version: 1.5.0
-tillerVersion: ">=2.7.2"
-description: Helm chart for deploying Istio operator
-keywords:
-  - istio
-  - operator
-sources:
-  - http://github.com/istio/operator
-engine: gotpl
-icon: https://istio.io/favicons/android-192x192.png
-`)
-
-func operatorChartChartYamlBytes() ([]byte, error) {
-	return _operatorChartChartYaml, nil
-}
-
-func operatorChartChartYaml() (*asset, error) {
-	bytes, err := operatorChartChartYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "operator-chart/Chart.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _operatorChartTemplatesClusterroleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  creationTimestamp: null
-  name: istio-operator
-rules:
-# istio groups
-- apiGroups:
-  - authentication.istio.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
-  - config.istio.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
-  - install.istio.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
-  - networking.istio.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
-  - rbac.istio.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
-  - security.istio.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-# k8s groups
-- apiGroups:
-  - admissionregistration.k8s.io
-  resources:
-  - mutatingwebhookconfigurations
-  - validatingwebhookconfigurations
-  verbs:
-  - '*'
-- apiGroups:
-  - apiextensions.k8s.io
-  resources:
-  - customresourcedefinitions.apiextensions.k8s.io
-  - customresourcedefinitions
-  verbs:
-  - '*'
-- apiGroups:
-  - apps
-  - extensions
-  resources:
-  - daemonsets
-  - deployments
-  - deployments/finalizers
-  - ingresses
-  - replicasets
-  - statefulsets
-  verbs:
-  - '*'
-- apiGroups:
-  - autoscaling
-  resources:
-  - horizontalpodautoscalers
-  verbs:
-  - '*'
-- apiGroups:
-  - monitoring.coreos.com
-  resources:
-  - servicemonitors
-  verbs:
-  - get
-  - create
-- apiGroups:
-  - policy
-  resources:
-  - poddisruptionbudgets
-  verbs:
-  - '*'
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - clusterrolebindings
-  - clusterroles
-  - roles
-  - rolebindings
-  verbs:
-  - '*'
-- apiGroups:
-  - ""
-  resources:
-  - configmaps
-  - endpoints
-  - events
-  - namespaces
-  - pods
-  - persistentvolumeclaims
-  - secrets
-  - services
-  - serviceaccounts
-  verbs:
-  - '*'
----
-`)
-
-func operatorChartTemplatesClusterroleYamlBytes() ([]byte, error) {
-	return _operatorChartTemplatesClusterroleYaml, nil
-}
-
-func operatorChartTemplatesClusterroleYaml() (*asset, error) {
-	bytes, err := operatorChartTemplatesClusterroleYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "operator-chart/templates/clusterrole.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _operatorChartTemplatesClusterrole_bindingYaml = []byte(`kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: istio-operator
-subjects:
-- kind: ServiceAccount
-  name: istio-operator
-  namespace: {{.Values.operatorNamespace}}
-roleRef:
-  kind: ClusterRole
-  name: istio-operator
-  apiGroup: rbac.authorization.k8s.io
----
-`)
-
-func operatorChartTemplatesClusterrole_bindingYamlBytes() ([]byte, error) {
-	return _operatorChartTemplatesClusterrole_bindingYaml, nil
-}
-
-func operatorChartTemplatesClusterrole_bindingYaml() (*asset, error) {
-	bytes, err := operatorChartTemplatesClusterrole_bindingYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "operator-chart/templates/clusterrole_binding.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _operatorChartTemplatesCrdYaml = []byte(`apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  name: istiooperators.install.istio.io
-spec:
-  group: install.istio.io
-  names:
-    kind: IstioOperator
-    plural: istiooperators
-    singular: istiooperator
-    shortNames:
-    - iop
-  scope: Namespaced
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      properties:
-        apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values.
-            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources'
-          type: string
-        kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase.
-            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-          type: string
-        spec:
-          description: 'Specification of the desired state of the istio control plane resource.
-            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
-          type: object
-        status:
-          description: 'Status describes each of istio control plane component status at the current time.
-            0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
-            More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
-            https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
-          type: object
-  versions:
-  - name: v1alpha1
-    served: true
-    storage: true
----
-`)
-
-func operatorChartTemplatesCrdYamlBytes() ([]byte, error) {
-	return _operatorChartTemplatesCrdYaml, nil
-}
-
-func operatorChartTemplatesCrdYaml() (*asset, error) {
-	bytes, err := operatorChartTemplatesCrdYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "operator-chart/templates/crd.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _operatorChartTemplatesDeploymentYaml = []byte(`apiVersion: apps/v1
-kind: Deployment
-metadata:
-  namespace: {{.Values.operatorNamespace}}
-  name: istio-operator
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      name: istio-operator
-  template:
-    metadata:
-      labels:
-        name: istio-operator
-    spec:
-      serviceAccountName: istio-operator
-      containers:
-        - name: istio-operator
-          image: {{.Values.hub}}/operator:{{.Values.tag}}
-          command:
-          - operator
-          - server
-          imagePullPolicy: IfNotPresent
-          resources:
-            limits:
-              cpu: 200m
-              memory: 256Mi
-            requests:
-              cpu: 50m
-              memory: 128Mi
-          env:
-            - name: WATCH_NAMESPACE
-              value: {{.Values.istioNamespace}}
-            - name: LEADER_ELECTION_NAMESPACE
-              value: {{.Values.operatorNamespace}}
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: OPERATOR_NAME
-              value: {{.Values.operatorNamespace}}
----
-`)
-
-func operatorChartTemplatesDeploymentYamlBytes() ([]byte, error) {
-	return _operatorChartTemplatesDeploymentYaml, nil
-}
-
-func operatorChartTemplatesDeploymentYaml() (*asset, error) {
-	bytes, err := operatorChartTemplatesDeploymentYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "operator-chart/templates/deployment.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _operatorChartTemplatesNamespaceYaml = []byte(`apiVersion: v1
-kind: Namespace
-metadata:
-  name: istio-operator
-  labels:
-    istio-operator-managed: Reconcile
-    istio-injection: disabled
----
-`)
-
-func operatorChartTemplatesNamespaceYamlBytes() ([]byte, error) {
-	return _operatorChartTemplatesNamespaceYaml, nil
-}
-
-func operatorChartTemplatesNamespaceYaml() (*asset, error) {
-	bytes, err := operatorChartTemplatesNamespaceYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "operator-chart/templates/namespace.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _operatorChartTemplatesServiceYaml = []byte(`apiVersion: v1
-kind: Service
-metadata:
-  namespace: {{.Values.operatorNamespace}}
-  labels:
-    name: istio-operator
-  name: istio-operator
-spec:
-  ports:
-  - name: http-metrics
-    port: 8383
-    targetPort: 8383
-  selector:
-    name: istio-operator
----
-`)
-
-func operatorChartTemplatesServiceYamlBytes() ([]byte, error) {
-	return _operatorChartTemplatesServiceYaml, nil
-}
-
-func operatorChartTemplatesServiceYaml() (*asset, error) {
-	bytes, err := operatorChartTemplatesServiceYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "operator-chart/templates/service.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _operatorChartTemplatesService_accountYaml = []byte(`apiVersion: v1
-kind: ServiceAccount
-metadata:
-  namespace: {{.Values.operatorNamespace}}
-  name: istio-operator
----
-`)
-
-func operatorChartTemplatesService_accountYamlBytes() ([]byte, error) {
-	return _operatorChartTemplatesService_accountYaml, nil
-}
-
-func operatorChartTemplatesService_accountYaml() (*asset, error) {
-	bytes, err := operatorChartTemplatesService_accountYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "operator-chart/templates/service_account.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _profilesDefaultYaml = []byte(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 metadata:
@@ -44485,6 +44335,13 @@ metadata:
 spec:
   hub: gcr.io/istio-testing
   tag: latest
+
+  # You may override parts of meshconfig by uncommenting the following lines.
+  # meshConfig:
+    #
+    # Opt-out of global http2 upgrades.
+    # Destination rule is used to opt-in.
+    # h2_upgrade_policy: DO_NOT_UPGRADE
 
   # Traffic management feature
   components:
@@ -44508,8 +44365,8 @@ spec:
           httpGet:
             path: /ready
             port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
+          initialDelaySeconds: 1
+          periodSeconds: 3
           timeoutSeconds: 5
         strategy:
           rollingUpdate:
@@ -46739,6 +46596,15 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-control/istio-discovery/templates/telemetryv2_1.5.yaml":                  chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml,
 	"charts/istio-control/istio-discovery/templates/telemetryv2_1.6.yaml":                  chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml,
 	"charts/istio-control/istio-discovery/values.yaml":                                     chartsIstioControlIstioDiscoveryValuesYaml,
+	"charts/istio-operator/Chart.yaml":                                                     chartsIstioOperatorChartYaml,
+	"charts/istio-operator/templates/clusterrole.yaml":                                     chartsIstioOperatorTemplatesClusterroleYaml,
+	"charts/istio-operator/templates/clusterrole_binding.yaml":                             chartsIstioOperatorTemplatesClusterrole_bindingYaml,
+	"charts/istio-operator/templates/crd.yaml":                                             chartsIstioOperatorTemplatesCrdYaml,
+	"charts/istio-operator/templates/deployment.yaml":                                      chartsIstioOperatorTemplatesDeploymentYaml,
+	"charts/istio-operator/templates/namespace.yaml":                                       chartsIstioOperatorTemplatesNamespaceYaml,
+	"charts/istio-operator/templates/service.yaml":                                         chartsIstioOperatorTemplatesServiceYaml,
+	"charts/istio-operator/templates/service_account.yaml":                                 chartsIstioOperatorTemplatesService_accountYaml,
+	"charts/istio-operator/values.yaml":                                                    chartsIstioOperatorValuesYaml,
 	"charts/istio-policy/Chart.yaml":                                                       chartsIstioPolicyChartYaml,
 	"charts/istio-policy/templates/_affinity.tpl":                                          chartsIstioPolicyTemplates_affinityTpl,
 	"charts/istio-policy/templates/_helpers.tpl":                                           chartsIstioPolicyTemplates_helpersTpl,
@@ -46799,7 +46665,6 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-telemetry/prometheus/templates/clusterrolebindings.yaml":                 chartsIstioTelemetryPrometheusTemplatesClusterrolebindingsYaml,
 	"charts/istio-telemetry/prometheus/templates/configmap.yaml":                           chartsIstioTelemetryPrometheusTemplatesConfigmapYaml,
 	"charts/istio-telemetry/prometheus/templates/deployment.yaml":                          chartsIstioTelemetryPrometheusTemplatesDeploymentYaml,
-	"charts/istio-telemetry/prometheus/templates/ingress.yaml":                             chartsIstioTelemetryPrometheusTemplatesIngressYaml,
 	"charts/istio-telemetry/prometheus/templates/service.yaml":                             chartsIstioTelemetryPrometheusTemplatesServiceYaml,
 	"charts/istio-telemetry/prometheus/templates/serviceaccount.yaml":                      chartsIstioTelemetryPrometheusTemplatesServiceaccountYaml,
 	"charts/istio-telemetry/prometheus/templates/tests/test-prometheus-connection.yaml":    chartsIstioTelemetryPrometheusTemplatesTestsTestPrometheusConnectionYaml,
@@ -46833,14 +46698,6 @@ var _bindata = map[string]func() (*asset, error){
 	"examples/user-gateway/ingress-gateway-only.yaml":                                      examplesUserGatewayIngressGatewayOnlyYaml,
 	"examples/vm/values-istio-meshexpansion-gateways.yaml":                                 examplesVmValuesIstioMeshexpansionGatewaysYaml,
 	"examples/vm/values-istio-meshexpansion.yaml":                                          examplesVmValuesIstioMeshexpansionYaml,
-	"operator-chart/Chart.yaml":                                                            operatorChartChartYaml,
-	"operator-chart/templates/clusterrole.yaml":                                            operatorChartTemplatesClusterroleYaml,
-	"operator-chart/templates/clusterrole_binding.yaml":                                    operatorChartTemplatesClusterrole_bindingYaml,
-	"operator-chart/templates/crd.yaml":                                                    operatorChartTemplatesCrdYaml,
-	"operator-chart/templates/deployment.yaml":                                             operatorChartTemplatesDeploymentYaml,
-	"operator-chart/templates/namespace.yaml":                                              operatorChartTemplatesNamespaceYaml,
-	"operator-chart/templates/service.yaml":                                                operatorChartTemplatesServiceYaml,
-	"operator-chart/templates/service_account.yaml":                                        operatorChartTemplatesService_accountYaml,
 	"profiles/default.yaml":                                                                profilesDefaultYaml,
 	"profiles/demo.yaml":                                                                   profilesDemoYaml,
 	"profiles/empty.yaml":                                                                  profilesEmptyYaml,
@@ -47018,6 +46875,19 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"values.yaml": &bintree{chartsIstioControlIstioDiscoveryValuesYaml, map[string]*bintree{}},
 			}},
 		}},
+		"istio-operator": &bintree{nil, map[string]*bintree{
+			"Chart.yaml": &bintree{chartsIstioOperatorChartYaml, map[string]*bintree{}},
+			"templates": &bintree{nil, map[string]*bintree{
+				"clusterrole.yaml":         &bintree{chartsIstioOperatorTemplatesClusterroleYaml, map[string]*bintree{}},
+				"clusterrole_binding.yaml": &bintree{chartsIstioOperatorTemplatesClusterrole_bindingYaml, map[string]*bintree{}},
+				"crd.yaml":                 &bintree{chartsIstioOperatorTemplatesCrdYaml, map[string]*bintree{}},
+				"deployment.yaml":          &bintree{chartsIstioOperatorTemplatesDeploymentYaml, map[string]*bintree{}},
+				"namespace.yaml":           &bintree{chartsIstioOperatorTemplatesNamespaceYaml, map[string]*bintree{}},
+				"service.yaml":             &bintree{chartsIstioOperatorTemplatesServiceYaml, map[string]*bintree{}},
+				"service_account.yaml":     &bintree{chartsIstioOperatorTemplatesService_accountYaml, map[string]*bintree{}},
+			}},
+			"values.yaml": &bintree{chartsIstioOperatorValuesYaml, map[string]*bintree{}},
+		}},
 		"istio-policy": &bintree{nil, map[string]*bintree{
 			"Chart.yaml": &bintree{chartsIstioPolicyChartYaml, map[string]*bintree{}},
 			"templates": &bintree{nil, map[string]*bintree{
@@ -47101,7 +46971,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"clusterrolebindings.yaml": &bintree{chartsIstioTelemetryPrometheusTemplatesClusterrolebindingsYaml, map[string]*bintree{}},
 					"configmap.yaml":           &bintree{chartsIstioTelemetryPrometheusTemplatesConfigmapYaml, map[string]*bintree{}},
 					"deployment.yaml":          &bintree{chartsIstioTelemetryPrometheusTemplatesDeploymentYaml, map[string]*bintree{}},
-					"ingress.yaml":             &bintree{chartsIstioTelemetryPrometheusTemplatesIngressYaml, map[string]*bintree{}},
 					"service.yaml":             &bintree{chartsIstioTelemetryPrometheusTemplatesServiceYaml, map[string]*bintree{}},
 					"serviceaccount.yaml":      &bintree{chartsIstioTelemetryPrometheusTemplatesServiceaccountYaml, map[string]*bintree{}},
 					"tests": &bintree{nil, map[string]*bintree{
@@ -47161,18 +47030,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"vm": &bintree{nil, map[string]*bintree{
 			"values-istio-meshexpansion-gateways.yaml": &bintree{examplesVmValuesIstioMeshexpansionGatewaysYaml, map[string]*bintree{}},
 			"values-istio-meshexpansion.yaml":          &bintree{examplesVmValuesIstioMeshexpansionYaml, map[string]*bintree{}},
-		}},
-	}},
-	"operator-chart": &bintree{nil, map[string]*bintree{
-		"Chart.yaml": &bintree{operatorChartChartYaml, map[string]*bintree{}},
-		"templates": &bintree{nil, map[string]*bintree{
-			"clusterrole.yaml":         &bintree{operatorChartTemplatesClusterroleYaml, map[string]*bintree{}},
-			"clusterrole_binding.yaml": &bintree{operatorChartTemplatesClusterrole_bindingYaml, map[string]*bintree{}},
-			"crd.yaml":                 &bintree{operatorChartTemplatesCrdYaml, map[string]*bintree{}},
-			"deployment.yaml":          &bintree{operatorChartTemplatesDeploymentYaml, map[string]*bintree{}},
-			"namespace.yaml":           &bintree{operatorChartTemplatesNamespaceYaml, map[string]*bintree{}},
-			"service.yaml":             &bintree{operatorChartTemplatesServiceYaml, map[string]*bintree{}},
-			"service_account.yaml":     &bintree{operatorChartTemplatesService_accountYaml, map[string]*bintree{}},
 		}},
 	}},
 	"profiles": &bintree{nil, map[string]*bintree{
