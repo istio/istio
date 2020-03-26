@@ -15,20 +15,39 @@
 package mock
 
 import (
-	networkingv1 "k8s.io/client-go/kubernetes/typed/networking/v1beta1"
+	extensionsv1 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
 	"k8s.io/client-go/rest"
 )
 
-type networkingv1Impl struct {
-	ingresses networkingv1.IngressInterface
+type extensionsv1Impl struct {
+	ingresses extensionsv1.IngressInterface
 }
 
-var _ networkingv1.NetworkingV1beta1Interface = &networkingv1Impl{}
+var _ extensionsv1.ExtensionsV1beta1Interface = &extensionsv1Impl{}
 
-func (e *networkingv1Impl) Ingresses(namespace string) networkingv1.IngressInterface {
+func (e *extensionsv1Impl) Ingresses(namespace string) extensionsv1.IngressInterface {
 	return e.ingresses
 }
 
-func (e *networkingv1Impl) RESTClient() rest.Interface {
-	panic("fhqwgads not implemented")
+func (e *extensionsv1Impl) RESTClient() rest.Interface {
+	panic("not implemented")
+}
+
+func (e *extensionsv1Impl) DaemonSets(namespace string) extensionsv1.DaemonSetInterface {
+	panic("not implemented")
+}
+
+func (e *extensionsv1Impl) Deployments(namespace string) extensionsv1.DeploymentInterface {
+	panic("not implemented")
+}
+func (e *extensionsv1Impl) PodSecurityPolicies() extensionsv1.PodSecurityPolicyInterface {
+	panic("not implemented")
+}
+
+func (e *extensionsv1Impl) ReplicaSets(namespace string) extensionsv1.ReplicaSetInterface {
+	panic("not implemented")
+}
+
+func (e *extensionsv1Impl) NetworkPolicies(namespace string) extensionsv1.NetworkPolicyInterface {
+	panic("not implemented")
 }

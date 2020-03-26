@@ -32,7 +32,7 @@ import (
 
 var (
 	ingressAdapter = rt.DefaultProvider().GetAdapter(schema.MustGet().KubeCollections().MustFindByGroupVersionKind(resource.GroupVersionKind{
-		Group:   "networking",
+		Group:   "extensions",
 		Version: "v1beta1",
 		Kind:    "Ingress",
 	}).Resource())
