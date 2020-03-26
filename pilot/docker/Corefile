@@ -1,4 +1,8 @@
 # Used when running CoreDNS along Istiod.
+#
+# Will be placed in /var/lib/istio/coredns - contains default values.
+# For customization, mount a configmap in the directory.
+#
 # Ideally the K8S native CoreDNS can be configured to add DNS-over-TLS and
 # the grpc call to istiod. Until we find a good way to do this we need a way
 # to resolve recursive calls without an un-encrypted call to kube dns.

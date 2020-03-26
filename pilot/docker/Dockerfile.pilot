@@ -19,4 +19,5 @@ FROM ${BASE_DISTRIBUTION}
 
 COPY pilot-discovery /usr/local/bin/
 COPY cacert.pem /cacert.pem
+COPY Corefile /var/lib/istio/coredns/
 ENTRYPOINT ["/usr/local/bin/pilot-discovery"]
