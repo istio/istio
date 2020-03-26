@@ -3345,7 +3345,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
@@ -3359,7 +3359,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}, Labels: map[string]string{"security.istio.io/tlsMode": "istio"}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}, Labels: map[string]string{"security.istio.io/tlsMode": "istio"}},
 			},
@@ -3373,7 +3373,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
@@ -3385,7 +3385,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
 			Resolution: networking.ServiceEntry_DNS,
@@ -3397,7 +3397,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
 			Resolution: networking.ServiceEntry_DNS,
@@ -3408,7 +3408,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
 			Resolution: networking.ServiceEntry_DNS,
@@ -3419,7 +3419,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid1": 9080}},
 			},
 			Resolution: networking.ServiceEntry_DNS,
@@ -3431,7 +3431,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 80, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-dne": 9080}},
 			},
@@ -3445,7 +3445,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "*.lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-dne": 9080}},
 			},
@@ -3480,7 +3480,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "unix:///lon/google/com"},
 			},
 			Resolution: networking.ServiceEntry_DNS,
@@ -3503,7 +3503,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 			},
 			Resolution: networking.ServiceEntry_NONE,
@@ -3528,7 +3528,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "2.2.2.2", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
@@ -3543,7 +3543,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "2.2.2.2", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
@@ -3558,7 +3558,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "2.2.2.2", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
@@ -3584,7 +3584,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "2.2.2.2", Ports: map[string]uint32{"http-dne": 9080}},
 			},
@@ -3618,7 +3618,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
 			},
 			Resolution: networking.ServiceEntry_STATIC,
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "unix:///path/to/socket"},
 			},
 		},
@@ -3630,7 +3630,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
 			},
 			Resolution: networking.ServiceEntry_STATIC,
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "unix://./relative/path.sock"},
 			},
 		},
@@ -3642,7 +3642,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
 			},
 			Resolution: networking.ServiceEntry_STATIC,
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "unix:///path/to/socket", Ports: map[string]uint32{"grpc-service1": 6553}},
 			},
 		},
@@ -3655,7 +3655,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-service2"},
 			},
 			Resolution: networking.ServiceEntry_STATIC,
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "unix:///path/to/socket"},
 			},
 		},
