@@ -31,9 +31,9 @@ import (
 )
 
 const (
-	// installedSpecCRName is the name of the IstioOperator CR stored in the cluster which is a copy of the CR used
-	// in the last manifest apply operation. It is used to store the current installed cluster state.
-	installedSpecCRName = "installed"
+	// installedSpecCRPrefix is the prefix of any IstioOperator CR stored in the cluster that is a copy of the CR used
+	// in the last manifest apply operation.
+	installedSpecCRPrefix = "installed-state-"
 )
 
 type manifestApplyArgs struct {
@@ -171,7 +171,9 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 	}
 	l.logAndPrint("\n\n✔ Installation complete\n")
 
-	if err := saveClusterState(iops, installedSpecCRName, opts); err != nil {
+	// TODO: modify this to the passed-in revision.
+	revision := version.OperatorBinaryVersion.String()
+	if err := saveClusterState(iops, installedSpecCRPrefix+revision, opts); err != nil {
 		l.logAndPrintf("Failed to save install state in the cluster: %s", err)
 		return err
 	}

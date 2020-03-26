@@ -56,7 +56,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	binversion "istio.io/istio/operator/version"
-	"istio.io/istio/pilot/pkg/model" // For GCP auth functionality.
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/log"
 )
 
