@@ -30,8 +30,8 @@ const (
 	// DefaultProfileFilename is the name of the default profile yaml file.
 	DefaultProfileFilename = "default.yaml"
 
-	chartsRoot   = "charts"
-	profilesRoot = "profiles"
+	ChartsSubdirName = "charts"
+	profilesRoot     = "profiles"
 )
 
 var (
@@ -106,7 +106,7 @@ func IsBuiltinProfileName(name string) bool {
 
 // loadChart implements the TemplateRenderer interface.
 func (h *VFSRenderer) loadChart() error {
-	prefix := filepath.Join(chartsRoot, h.helmChartDirPath)
+	prefix := h.helmChartDirPath
 	fnames, err := vfs.GetFilesRecursive(prefix)
 	if err != nil {
 		return err
