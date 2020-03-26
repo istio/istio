@@ -436,9 +436,9 @@ func generateServiceEntry(u *unstructured.Unstructured, o *vmServiceOpts) error 
 			Name:     p.Name,
 		})
 	}
-	eps := make([]*v1alpha3.ServiceEntry_Endpoint, 0)
+	eps := make([]*v1alpha3.WorkloadEntry, 0)
 	for _, ip := range o.IP {
-		eps = append(eps, &v1alpha3.ServiceEntry_Endpoint{
+		eps = append(eps, &v1alpha3.WorkloadEntry{
 			Address: ip,
 			Labels:  o.Labels,
 		})
