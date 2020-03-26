@@ -88,6 +88,7 @@ docker.pilot: BUILD_PRE=&& chmod 755 pilot-discovery cacert.pem
 docker.pilot: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.pilot: $(ISTIO_OUT_LINUX)/pilot-discovery
 docker.pilot: tests/testdata/certs/cacert.pem
+docker.pilot: pilot/docker/Corefile
 docker.pilot: pilot/docker/Dockerfile.pilot
 	$(DOCKER_RULE)
 
