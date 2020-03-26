@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
+	"github.com/gogo/protobuf/proto"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes/scheme"
 
@@ -742,7 +743,7 @@ func createPatchObjectFromPath(node interface{}, path util.Path) (map[string]int
 }
 
 // IOPStoIOP takes an IstioOperatorSpec and returns a corresponding IstioOperator with the given name and namespace.
-func IOPStoIOP(iops *v1alpha1.IstioOperatorSpec, name, namespace string) (string, error) {
+func IOPStoIOP(iops proto.Message, name, namespace string) (string, error) {
 	iopsStr, err := util.MarshalWithJSONPB(iops)
 	if err != nil {
 		return "", err

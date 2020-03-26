@@ -168,9 +168,8 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 	if gotError {
 		l.logAndPrint("\n\n✘ Errors were logged during apply operation. Please check component installation logs above.\n")
 		return fmt.Errorf("errors were logged during apply operation")
-	} else {
-		l.logAndPrint("\n\n✔ Installation complete\n")
 	}
+	l.logAndPrint("\n\n✔ Installation complete\n")
 
 	if err := saveClusterState(iops, installedSpecCRName, opts); err != nil {
 		l.logAndPrintf("Failed to save install state in the cluster: %s", err)
@@ -186,7 +185,6 @@ func saveClusterState(iops *v1alpha1.IstioOperatorSpec, name string, opts *kubec
 	iopStr, err := translate.IOPStoIOP(iops, name, iopv1alpha1.Namespace(iops))
 	if err != nil {
 		return fmt.Errorf("failed to apply manifest with kubectl client: %v", err)
-		return err
 	}
 	return manifest.Apply(iopStr, opts)
 }
