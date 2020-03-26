@@ -15401,9 +15401,9 @@ spec:
           {{- if .Values.global.caAddress }}
             value: {{ .Values.global.caAddress }}
           {{- else if .Values.global.configNamespace }}
-            value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
           {{- else }}
-            value: istiod.istio-system.svc:15012
+            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
           {{- end }}
           - name: NODE_NAME
             valueFrom:
@@ -17250,9 +17250,9 @@ spec:
             {{- if .Values.global.caAddress }}
             value: {{ .Values.global.caAddress }}
             {{- else if .Values.global.configNamespace }}
-            value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
             {{- else }}
-            value: istiod.istio-system.svc:15012
+            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
             {{- end }}
           resources:
 {{- if .Values.global.proxy.resources }}
@@ -17541,6 +17541,8 @@ var _chartsIstioControlIstioConfigValuesYaml = []byte(`galley:
 
   # Enable analysis and status update in Galley
   enableAnalysis: false
+
+revision: ""
 `)
 
 func chartsIstioControlIstioConfigValuesYamlBytes() ([]byte, error) {
@@ -18010,6 +18012,7 @@ data:
         "trustDomainAliases": [],
         "useMCP": false
       },
+      "revision": "",
       "sidecarInjectorWebhook": {
         "alwaysInjectSelector": [],
         "enableNamespacesByDefault": false,
@@ -18189,9 +18192,9 @@ data:
         {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
         {{- else if .Values.global.configNamespace }}
-          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
-          value: istiod.istio-system.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -19593,9 +19596,9 @@ template: |
     {{- if .Values.global.caAddress }}
       value: {{ .Values.global.caAddress }}
     {{- else if .Values.global.configNamespace }}
-      value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+      value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
     {{- else }}
-      value: istiod.istio-system.svc:15012
+      value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
     {{- end }}
     - name: POD_NAME
       valueFrom:
@@ -20599,7 +20602,7 @@ spec:
       # Optional - image should have
       - name: inject
         configMap:
-          name: istio-sidecar-injector
+          name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
           optional: true
       - name: config-volume
         configMap:
@@ -20648,7 +20651,7 @@ metadata:
 data:
 {{/* Scope the values to just top level fields used in the template, to reduce the size. */}}
   values: |-
-{{ pick .Values "global" "istio_cni" "sidecarInjectorWebhook" | toPrettyJson | indent 4 }}
+{{ pick .Values "global" "istio_cni" "sidecarInjectorWebhook" "revision" | toPrettyJson | indent 4 }}
 
   # To disable injection: use omitSidecarInjectorConfigMap, which disables the webhook patching
   # and istiod webhook functionality.
@@ -38753,9 +38756,9 @@ spec:
           {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
           {{- else if .Values.global.configNamespace }}
-          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
           {{- else }}
-          value: istiod.istio-system.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
       {{- end }}
         resources:
 {{- if .Values.global.proxy.resources }}
@@ -40631,9 +40634,9 @@ spec:
               {{- if .Values.global.caAddress }}
               value: {{ .Values.global.caAddress }}
               {{- else if .Values.global.configNamespace }}
-              value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
               {{- else }}
-              value: istiod.istio-system.svc:15012
+              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
               {{- end }}
             - name: POD_NAME
               valueFrom:

@@ -257,14 +257,6 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 
 func waitForControlPlane(dumper resource.Dumper, cluster kube.Cluster, cfg Config) error {
 	if !cfg.SkipWaitForValidationWebhook {
-		// Wait for the validation webhook to come online before continuing.
-		if _, _, err := cluster.WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istiod"); err != nil {
-			err = fmt.Errorf("error waiting %s/%s service endpoints: %v", cfg.SystemNamespace, "istiod", err)
-			scopes.CI.Info(err.Error())
-			dumper.Dump()
-			return err
-		}
-
 		// Wait for webhook to come online. The only reliable way to do that is to see if we can submit invalid config.
 		if err := waitForValidationWebhook(cluster.Accessor, cfg); err != nil {
 			dumper.Dump()

@@ -64,13 +64,6 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 		return nil, err
 	}
 
-	// Validate the configuration.
-	if cfg.Galley == nil {
-		// Galley is not actually required currently, but it will be once Pilot gets
-		// all resources from Galley. Requiring now for forward-compatibility.
-		return nil, errors.New("galley must be provided")
-	}
-
 	c := &instance{
 		cfg:     cfg,
 		ctx:     ctx,

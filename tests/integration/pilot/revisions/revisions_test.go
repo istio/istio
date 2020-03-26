@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pilot
+package revisions
 
 import (
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/config/protocol"
 
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource/environment"
@@ -28,27 +30,41 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-// TestMultiRevision Sets up a simple client -> server call, where the client and server
-// belong to different control planes.
-func TestMultiRevision(t *testing.T) {
-	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
-		Run(func(ctx framework.TestContext) {
-
-			if err := istio.Setup(&i, func(cfg *istio.Config) {
-				cfg.ControlPlaneValues = `
+// TestMain defines the entrypoint for pilot tests using a standard Istio installation.
+// If a test requires a custom install it should go into its own package, otherwise it should go
+// here to reuse a single install across tests.
+func TestMain(m *testing.M) {
+	framework.
+		NewSuite("pilot_test", m).
+		RequireSingleCluster().
+		RequireEnvironment(environment.Kube).
+		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
+			cfg.ControlPlaneValues = `
+revision: stable
+`
+		})).
+		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
+			cfg.ControlPlaneValues = `
 profile: empty
 revision: canary
 components:
   pilot:
     enabled: true
 `
-			})(ctx); err != nil {
-				t.Fatal(err)
-			}
+		})).
+		Run()
+}
+
+// TestMultiRevision Sets up a simple client -> server call, where the client and server
+// belong to different control planes.
+func TestMultiRevision(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
 			stable := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "stable",
-				Inject: true,
+				Prefix:   "stable",
+				Inject:   true,
+				Revision: "stable",
 			})
 			canary := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix:   "canary",
@@ -58,8 +74,21 @@ components:
 
 			var client, server echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&client, echoConfig(stable, "client")).
-				With(&server, echoConfig(canary, "server")).
+				With(&client, echo.Config{
+					Service:   "client",
+					Namespace: stable,
+					Ports:     []echo.Port{},
+				}).
+				With(&server, echo.Config{
+					Service:   "server",
+					Namespace: canary,
+					Ports: []echo.Port{
+						{
+							Name:         "http",
+							Protocol:     protocol.HTTP,
+							InstancePort: 8090,
+						}},
+				}).
 				BuildOrFail(t)
 			retry.UntilSuccessOrFail(t, func() error {
 				resp, err := client.Call(echo.CallOptions{
