@@ -18,7 +18,7 @@ import (
 	"sort"
 	"strings"
 
-	"k8s.io/api/networking/v1beta1"
+	"k8s.io/api/extensions/v1beta1"
 
 	"istio.io/api/annotation"
 	"istio.io/api/networking/v1alpha3"

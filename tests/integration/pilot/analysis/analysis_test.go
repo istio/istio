@@ -27,6 +27,9 @@ import (
 	"istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"strings"
+	"testing"
 )
 
 func TestAnalysisWritesStatus(t *testing.T) {

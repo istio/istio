@@ -30,7 +30,7 @@ var ignoredCollections = []string{
 	"k8s/core/v1/services",
 	"k8s/core/v1/namespaces",
 	"k8s/core/v1/endpoints",
-	"k8s/networking/v1beta1/ingresses",
+	"k8s/extensions/v1beta1/ingresses",
 }
 
 func TestMissingMCPTests(t *testing.T) {

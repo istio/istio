@@ -226,7 +226,7 @@ func TestAddUpdateDelete_K8sResources(t *testing.T) {
 
 	fixtures.ExpectEventsWithoutOriginsEventually(t, acc,
 		event.FullSyncFor(k8smeta.K8SCoreV1Endpoints),
-		event.FullSyncFor(k8smeta.K8SNetworkingV1Beta1Ingresses),
+		event.FullSyncFor(k8smeta.K8SExtensionsV1Beta1Ingresses),
 		event.FullSyncFor(k8smeta.K8SCoreV1Namespaces),
 		event.FullSyncFor(k8smeta.K8SCoreV1Nodes),
 		event.FullSyncFor(k8smeta.K8SCoreV1Pods),

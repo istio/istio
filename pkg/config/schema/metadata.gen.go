@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 )
+
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -242,9 +243,9 @@ collections:
     kind: "ConfigMap"
     group: ""
 
-  - name: "k8s/networking/v1beta1/ingresses"
+  - name: "k8s/extensions/v1beta1/ingresses"
     kind: "Ingress"
-    group: "networking"
+    group: "extensions"
 
   - kind: "GatewayClass"
     name: "k8s/service_apis/v1alpha1/gatewayclasses"
@@ -494,10 +495,10 @@ resources:
 
   - kind: "Ingress"
     plural: "ingresses"
-    group: "networking"
+    group: "extensions"
     version: "v1beta1"
-    proto: "k8s.io.api.networking.v1beta1.IngressSpec"
-    protoPackage: "k8s.io/api/networking/v1beta1"
+    proto: "k8s.io.api.extensions.v1beta1.IngressSpec"
+    protoPackage: "k8s.io/api/extensions/v1beta1"
 
   - Kind: "GatewayClass"
     plural: "gatewayclasses"

@@ -867,6 +867,24 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
+	// K8SExtensionsV1Beta1Ingresses describes the collection
+	// k8s/extensions/v1beta1/ingresses
+	K8SExtensionsV1Beta1Ingresses = collection.Builder{
+		Name:         "k8s/extensions/v1beta1/ingresses",
+		VariableName: "K8SExtensionsV1Beta1Ingresses",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "extensions",
+			Kind:          "Ingress",
+			Plural:        "ingresses",
+			Version:       "v1beta1",
+			Proto:         "k8s.io.api.extensions.v1beta1.IngressSpec",
+			ProtoPackage:  "k8s.io/api/extensions/v1beta1",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
 	// K8SNetworkingIstioIoV1Alpha3Destinationrules describes the collection
 	// k8s/networking.istio.io/v1alpha3/destinationrules
 	K8SNetworkingIstioIoV1Alpha3Destinationrules = collection.Builder{
@@ -990,24 +1008,6 @@ var (
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateWorkloadEntry,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SNetworkingV1Beta1Ingresses describes the collection
-	// k8s/networking/v1beta1/ingresses
-	K8SNetworkingV1Beta1Ingresses = collection.Builder{
-		Name:         "k8s/networking/v1beta1/ingresses",
-		VariableName: "K8SNetworkingV1Beta1Ingresses",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "networking",
-			Kind:          "Ingress",
-			Plural:        "ingresses",
-			Version:       "v1beta1",
-			Proto:         "k8s.io.api.networking.v1beta1.IngressSpec",
-			ProtoPackage:  "k8s.io/api/networking/v1beta1",
-			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
 	}.MustBuild()
 
@@ -1277,6 +1277,7 @@ var (
 		MustAdd(K8SCoreV1Pods).
 		MustAdd(K8SCoreV1Secrets).
 		MustAdd(K8SCoreV1Services).
+		MustAdd(K8SExtensionsV1Beta1Ingresses).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Destinationrules).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Envoyfilters).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Gateways).
@@ -1284,7 +1285,6 @@ var (
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Sidecars).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Virtualservices).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadentries).
-		MustAdd(K8SNetworkingV1Beta1Ingresses).
 		MustAdd(K8SRbacIstioIoV1Alpha1Clusterrbacconfigs).
 		MustAdd(K8SRbacIstioIoV1Alpha1Policy).
 		MustAdd(K8SRbacIstioIoV1Alpha1Rbacconfigs).
@@ -1353,6 +1353,7 @@ var (
 		MustAdd(K8SCoreV1Pods).
 		MustAdd(K8SCoreV1Secrets).
 		MustAdd(K8SCoreV1Services).
+		MustAdd(K8SExtensionsV1Beta1Ingresses).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Destinationrules).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Envoyfilters).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Gateways).
@@ -1360,7 +1361,6 @@ var (
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Sidecars).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Virtualservices).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadentries).
-		MustAdd(K8SNetworkingV1Beta1Ingresses).
 		MustAdd(K8SRbacIstioIoV1Alpha1Clusterrbacconfigs).
 		MustAdd(K8SRbacIstioIoV1Alpha1Policy).
 		MustAdd(K8SRbacIstioIoV1Alpha1Rbacconfigs).
