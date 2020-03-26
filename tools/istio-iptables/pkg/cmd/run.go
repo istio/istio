@@ -163,8 +163,6 @@ func (iptConfigurator *IptablesConfigurator) handleInboundPortsInclude() {
 				if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
 					iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP,
 						"--dport", port, "-m", "socket", "-j", constants.ISTIODIVERT)
-					iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP, "--dport", port, "-m",
-						"socket", "-j", constants.ISTIODIVERT)
 					iptConfigurator.iptables.AppendRuleV4(
 						constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOTPROXY)
 				} else {
