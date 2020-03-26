@@ -69,10 +69,12 @@ func EndpointsByNetworkFilter(endpoints []*endpoint.LocalityLbEndpoints, conn *X
 			epNetwork := istioMetadata(lbEp, "network")
 			if epNetwork == network {
 				// This is a local endpoint
-				lbEp.LoadBalancingWeight = &wrappers.UInt32Value{
+				// shallow lbEndpoint to prevent data race
+				clonedLbEp := util.CloneLbEndpoint(lbEp)
+				clonedLbEp.LoadBalancingWeight = &wrappers.UInt32Value{
 					Value: uint32(multiples),
 				}
-				lbEndpoints = append(lbEndpoints, lbEp)
+				lbEndpoints = append(lbEndpoints, clonedLbEp)
 			} else {
 				// Remote endpoint. Increase the weight counter
 				remoteEps[epNetwork]++
