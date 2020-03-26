@@ -171,9 +171,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 	}
 	l.logAndPrint("\n\n✔ Installation complete\n")
 
-	// TODO: modify this to the passed-in revision.
-	revision := version.OperatorBinaryVersion.String()
-	if err := saveClusterState(iops, installedSpecCRPrefix+revision, opts); err != nil {
+	if err := saveClusterState(iops, installedSpecCRPrefix+iops.Revision, opts); err != nil {
 		l.logAndPrintf("Failed to save install state in the cluster: %s", err)
 		return err
 	}

@@ -86,7 +86,7 @@
 // charts/istio-operator/Chart.yaml
 // charts/istio-operator/templates/clusterrole.yaml
 // charts/istio-operator/templates/clusterrole_binding.yaml
-// charts/istio-operator/templates/crd.yaml
+// charts/istio-operator/templates/crd-operator.yaml
 // charts/istio-operator/templates/deployment.yaml
 // charts/istio-operator/templates/namespace.yaml
 // charts/istio-operator/templates/service.yaml
@@ -5990,7 +5990,8 @@ func chartsBaseFilesCrdMixerYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsBaseFilesCrdOperatorYaml = []byte(`apiVersion: apiextensions.k8s.io/v1beta1
+var _chartsBaseFilesCrdOperatorYaml = []byte(`# SYNC WITH manifests/istio-operator/templates
+apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: istiooperators.install.istio.io
@@ -12324,8 +12325,8 @@ func chartsBaseTemplatesClusterrolebindingYaml() (*asset, error) {
 }
 
 var _chartsBaseTemplatesCrdsYaml = []byte(`{{ .Files.Get "files/crd-all.gen.yaml" }}
-  {{ .Files.Get "files/crd-mixer.yaml" }}
-  {{ .Files.Get "files/crd-operator.yaml" }}
+{{ .Files.Get "files/crd-mixer.yaml" }}
+{{ .Files.Get "files/crd-operator.yaml" }}
 `)
 
 func chartsBaseTemplatesCrdsYamlBytes() ([]byte, error) {
@@ -21047,7 +21048,8 @@ func chartsIstioOperatorTemplatesClusterrole_bindingYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioOperatorTemplatesCrdYaml = []byte(`apiVersion: apiextensions.k8s.io/v1beta1
+var _chartsIstioOperatorTemplatesCrdOperatorYaml = []byte(`# SYNC WITH manifests/base/files
+apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: istiooperators.install.istio.io
@@ -21094,17 +21096,17 @@ spec:
 ---
 `)
 
-func chartsIstioOperatorTemplatesCrdYamlBytes() ([]byte, error) {
-	return _chartsIstioOperatorTemplatesCrdYaml, nil
+func chartsIstioOperatorTemplatesCrdOperatorYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesCrdOperatorYaml, nil
 }
 
-func chartsIstioOperatorTemplatesCrdYaml() (*asset, error) {
-	bytes, err := chartsIstioOperatorTemplatesCrdYamlBytes()
+func chartsIstioOperatorTemplatesCrdOperatorYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesCrdOperatorYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "charts/istio-operator/templates/crd.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "charts/istio-operator/templates/crd-operator.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -46710,7 +46712,7 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-operator/Chart.yaml":                                                     chartsIstioOperatorChartYaml,
 	"charts/istio-operator/templates/clusterrole.yaml":                                     chartsIstioOperatorTemplatesClusterroleYaml,
 	"charts/istio-operator/templates/clusterrole_binding.yaml":                             chartsIstioOperatorTemplatesClusterrole_bindingYaml,
-	"charts/istio-operator/templates/crd.yaml":                                             chartsIstioOperatorTemplatesCrdYaml,
+	"charts/istio-operator/templates/crd-operator.yaml":                                    chartsIstioOperatorTemplatesCrdOperatorYaml,
 	"charts/istio-operator/templates/deployment.yaml":                                      chartsIstioOperatorTemplatesDeploymentYaml,
 	"charts/istio-operator/templates/namespace.yaml":                                       chartsIstioOperatorTemplatesNamespaceYaml,
 	"charts/istio-operator/templates/service.yaml":                                         chartsIstioOperatorTemplatesServiceYaml,
@@ -46992,7 +46994,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"templates": &bintree{nil, map[string]*bintree{
 				"clusterrole.yaml":         &bintree{chartsIstioOperatorTemplatesClusterroleYaml, map[string]*bintree{}},
 				"clusterrole_binding.yaml": &bintree{chartsIstioOperatorTemplatesClusterrole_bindingYaml, map[string]*bintree{}},
-				"crd.yaml":                 &bintree{chartsIstioOperatorTemplatesCrdYaml, map[string]*bintree{}},
+				"crd-operator.yaml":        &bintree{chartsIstioOperatorTemplatesCrdOperatorYaml, map[string]*bintree{}},
 				"deployment.yaml":          &bintree{chartsIstioOperatorTemplatesDeploymentYaml, map[string]*bintree{}},
 				"namespace.yaml":           &bintree{chartsIstioOperatorTemplatesNamespaceYaml, map[string]*bintree{}},
 				"service.yaml":             &bintree{chartsIstioOperatorTemplatesServiceYaml, map[string]*bintree{}},
