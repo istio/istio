@@ -1372,7 +1372,7 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 		}
 		// Merge this destination rule with any public/private dest rules for same host in the same namespace
 		// If there are no duplicates, the dest rule will be added to the list
-		ps.combineSingleDestinationRule(namespaceLocalDestRules[configs[i].Namespace], configs[i])
+		ps.mergeDestinationRule(namespaceLocalDestRules[configs[i].Namespace], configs[i])
 		isPubliclyExported := false
 		if len(rule.ExportTo) == 0 {
 			// No exportTo in destinationRule. Use the global default
@@ -1399,7 +1399,7 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 			}
 			// Merge this destination rule with any public dest rule for the same host in the same namespace
 			// If there are no duplicates, the dest rule will be added to the list
-			ps.combineSingleDestinationRule(namespaceExportedDestRules[configs[i].Namespace], configs[i])
+			ps.mergeDestinationRule(namespaceExportedDestRules[configs[i].Namespace], configs[i])
 		}
 	}
 

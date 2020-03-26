@@ -24,9 +24,7 @@ import (
 // into a single destination rule. Note that it does not perform inheritance style merging.
 // IOW, given three dest rules (*.foo.com, *.foo.com, *.com), calling this function for
 // each config will result in a final dest rule set (*.foo.com, and *.com).
-func (ps *PushContext) combineSingleDestinationRule(
-	p *processedDestRules,
-	destRuleConfig Config) {
+func (ps *PushContext) mergeDestinationRule(p *processedDestRules, destRuleConfig Config) {
 	rule := destRuleConfig.Spec.(*networking.DestinationRule)
 	resolvedHost := ResolveShortnameToFQDN(rule.Host, destRuleConfig.ConfigMeta)
 	if mdr, exists := p.destRule[resolvedHost]; exists {
@@ -34,9 +32,9 @@ func (ps *PushContext) combineSingleDestinationRule(
 		// This can happen when there are more than one destination rule of same host in one namespace.
 		copied := mdr.DeepCopy()
 		p.destRule[resolvedHost] = &copied
-		combinedRule := copied.Spec.(*networking.DestinationRule)
+		mergedRule := copied.Spec.(*networking.DestinationRule)
 		existingSubset := map[string]struct{}{}
-		for _, subset := range combinedRule.Subsets {
+		for _, subset := range mergedRule.Subsets {
 			existingSubset[subset.Name] = struct{}{}
 		}
 		// we have an another destination rule for same host.
@@ -44,7 +42,7 @@ func (ps *PushContext) combineSingleDestinationRule(
 		for _, subset := range rule.Subsets {
 			if _, ok := existingSubset[subset.Name]; !ok {
 				// if not duplicated, append
-				combinedRule.Subsets = append(combinedRule.Subsets, subset)
+				mergedRule.Subsets = append(mergedRule.Subsets, subset)
 			} else {
 				// duplicate subset
 				ps.AddMetric(DuplicatedSubsets, string(resolvedHost), nil,
@@ -55,12 +53,13 @@ func (ps *PushContext) combineSingleDestinationRule(
 
 		// If there is no top level policy and the incoming rule has top level
 		// traffic policy, use the one from the incoming rule.
-		if combinedRule.TrafficPolicy == nil && rule.TrafficPolicy != nil {
-			combinedRule.TrafficPolicy = rule.TrafficPolicy
+		if mergedRule.TrafficPolicy == nil && rule.TrafficPolicy != nil {
+			mergedRule.TrafficPolicy = rule.TrafficPolicy
 		}
 		return
 	}
 
+	// DestinationRule does not exist for the resolved host so add it
 	p.hosts = append(p.hosts, resolvedHost)
 	p.destRule[resolvedHost] = &destRuleConfig
 }
