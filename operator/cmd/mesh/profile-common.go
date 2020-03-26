@@ -59,7 +59,11 @@ func GenerateConfig(inFilenames []string, setOverlayYAML string, force bool, kub
 		return "", nil, err
 	}
 
-	if err := validation.ValidateConfig(false, iops.Values, iops).ToError(); err != nil {
+	errs, warning := validation.ValidateConfig(false, iops.Values, iops)
+	if warning != "" {
+		l.logAndError(warning)
+	}
+	if errs.ToError() != nil {
 		return "", nil, fmt.Errorf("generated config failed semantic validation: %v", err)
 	}
 	return iopsString, iops, nil
