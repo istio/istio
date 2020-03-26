@@ -1,0 +1,98 @@
+admin:
+  access_log_path: {{.AccessLogPath}}
+  address:
+    socket_address:
+      address: 127.0.0.1
+      port_value: {{.Ports.AdminPort}}
+node:
+  id: id
+  cluster: sds-test
+static_resources:
+  clusters:
+    - name: backend
+      connect_timeout: 5s
+      hosts:
+        - socket_address:
+            address: 127.0.0.1
+            port_value: {{.Ports.BackendPort}}
+      type: STATIC
+    - name: outbound_cluster_tls
+      connect_timeout: 5s
+      hosts:
+        - socket_address:
+            address: 127.0.0.1
+            port_value: {{.Ports.ServerProxyPort}}
+      type: STATIC
+      tls_context:
+        common_tls_context:
+          tls_certificate_sds_secret_configs:
+            - name: "SPKI"
+              sds_config:
+                api_config_source:
+                  api_type: GRPC
+                  grpc_services:
+                    - envoy_grpc:
+                        cluster_name: "sds-grpc"
+                  refresh_delay: 60s
+  listeners:
+    - name: outbound_listener
+      address:
+        socket_address:
+          address: 127.0.0.1
+          port_value: {{.Ports.ClientProxyPort}}
+      filter_chains:
+        filters:
+          - name: envoy.http_connection_manager
+          - config:
+              codec_type: auto
+              stat_prefix: outbound
+              http_filters:
+                - config: {}
+                  name: envoy.router
+              route_config:
+                name: outbound_cluster_tls
+                virtual_hosts:
+                  - domains:
+                      - "*"
+                    name: service
+                    routes:
+                      - match:
+                          prefix: "/"
+                        route:
+                          cluster: outbound_cluster_tls
+    - name: inbound_listener_tls
+      address:
+        socket_address:
+          address: 127.0.0.1
+          port_value: {{.Ports.ServerProxyPort}}
+      filter_chains:
+        tls_context:
+          common_tls_context:
+            tls_certificate_sds_secret_configs:
+              - name: "SPKI"
+                sds_config:
+                  api_config_source:
+                    api_type: GRPC
+                    grpc_services:
+                      - envoy_grpc:
+                          cluster_name: "sds-grpc"
+                    refresh_delay: 60s
+        filters:
+          - config:
+              codec_type: auto
+              stat_prefix: inbound
+              http_filters:
+                - config: {}
+                  name: envoy.router
+              route_config:
+                name: backend
+                virtual_hosts:
+                  - domains:
+                      - "*"
+                    name: service
+                    routes:
+                      - match:
+                          prefix: "/"
+                        route:
+                          cluster: backend
+            name: envoy.http_connection_manager
