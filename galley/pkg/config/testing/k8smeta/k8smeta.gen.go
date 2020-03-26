@@ -88,7 +88,7 @@ collections:
 
   - name: "k8s/extensions/v1beta1/ingresses"
     kind: "Ingress"
-    group: "networking"
+    group: "extensions"
 
   - name: "k8s/apps/v1/deployments"
     kind: "Deployment"
@@ -98,7 +98,7 @@ resources:
   - collection: "k8s/extensions/v1beta1/ingresses"
     kind: "Ingress"
     plural: "ingresses"
-    group: "networking"
+    group: "extensions"
     version: "v1beta1"
     proto: "k8s.io.api.extensions.v1beta1.IngressSpec"
     protoPackage: "k8s.io/api/extensions/v1beta1"
