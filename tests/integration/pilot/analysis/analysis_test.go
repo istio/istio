@@ -22,14 +22,15 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"strings"
+	"testing"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
 	"istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"strings"
-	"testing"
 )
 
 func TestAnalysisWritesStatus(t *testing.T) {
