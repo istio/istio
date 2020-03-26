@@ -63,7 +63,7 @@ var _ kubernetes.Interface = &kubeInterface{}
 
 type kubeInterface struct {
 	core            corev1.CoreV1Interface
-	extensions      extensionsv1beta1.ExtensionsV1beta1Interface
+	networking      networkingv1beta1.NetworkingV1beta1Interface
 	appsv1          appsv1.AppsV1Interface
 	authorizationv1 authorizationv1.AuthorizationV1Interface
 }
@@ -83,7 +83,7 @@ func newKubeInterface() kubernetes.Interface {
 			configmaps: newConfigMapInterface(),
 		},
 
-		extensions: &extensionsv1Impl{
+		networking: &networkingv1Impl{
 			ingresses: newIngressInterface(),
 		},
 
@@ -198,7 +198,7 @@ func (c *kubeInterface) EventsV1beta1() eventsv1beta1.EventsV1beta1Interface {
 }
 
 func (c *kubeInterface) ExtensionsV1beta1() extensionsv1beta1.ExtensionsV1beta1Interface {
-	return c.extensions
+	panic("not implemented")
 }
 
 func (c *kubeInterface) FlowcontrolV1alpha1() flowcontrolv1alpha1.FlowcontrolV1alpha1Interface {
@@ -210,7 +210,7 @@ func (c *kubeInterface) NetworkingV1() networkingv1.NetworkingV1Interface {
 }
 
 func (c *kubeInterface) NetworkingV1beta1() networkingv1beta1.NetworkingV1beta1Interface {
-	panic("not implemented")
+	return c.networking
 }
 
 func (c *kubeInterface) NodeV1alpha1() nodev1alpha1.NodeV1alpha1Interface {

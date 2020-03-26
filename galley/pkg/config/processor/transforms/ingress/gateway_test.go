@@ -32,7 +32,7 @@ import (
 
 var (
 	ingressAdapter = rt.DefaultProvider().GetAdapter(schema.MustGet().KubeCollections().MustFindByGroupVersionKind(resource.GroupVersionKind{
-		Group:   "extensions",
+		Group:   "networking",
 		Version: "v1beta1",
 		Kind:    "Ingress",
 	}).Resource())
@@ -44,7 +44,6 @@ func TestGateway_Input_Output(t *testing.T) {
 	xform, _, _ := setupGW(g, processing.ProcessorOptions{})
 
 	g.Expect(xform.Inputs()).To(Equal(collection.NewSchemasBuilder().MustAdd(collections.K8SNetworkingV1Beta1Ingresses).Build()))
-	g.Expect(xform.Inputs()).To(Equal(collection.NewSchemasBuilder().MustAdd(collections.k8snetworkin).Build()))
 	g.Expect(xform.Outputs()).To(Equal(collection.NewSchemasBuilder().MustAdd(collections.IstioNetworkingV1Alpha3Gateways).Build()))
 }
 
