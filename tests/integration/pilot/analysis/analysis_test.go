@@ -16,9 +16,10 @@ package analysis
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/util/retry"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/util/retry"
 
 	"istio.io/istio/pkg/test/framework/resource"
 
@@ -33,7 +34,7 @@ import (
 func TestAnalysisWritesStatus(t *testing.T) {
 	framework.NewTest(t).Run(func(ctx framework.TestContext) {
 		ns := setupModifiedBookinfo(t, ctx)
-		retry.UntilSuccessOrFail(t, func()error{return doTest(t, ctx, ns)},
+		retry.UntilSuccessOrFail(t, func() error { return doTest(t, ctx, ns) },
 			retry.Delay(250*time.Millisecond), retry.Timeout(10*time.Second))
 	})
 }
