@@ -13,6 +13,11 @@ rules:
   verbs: ["get", "watch", "list"]
 {{- end }}
   resources: ["*"]
+{{- if .Values.global.istiod.enableAnalysis }}
+- apiGroups: ["extensions.k8s.io"]
+  resources: ["ingresses"]
+  verbs: ["get", "watch", "list"]
+{{- end}}
 - apiGroups: ["apiextensions.k8s.io"]
   resources: ["customresourcedefinitions"]
   verbs: ["get", "watch", "list"]
