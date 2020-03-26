@@ -6,7 +6,7 @@ metadata:
     istio: pilot
     release: istio
   name: istiod
-  namespace: istio-control
+  namespace: istio-system
 spec:
   selector:
     matchLabels:
@@ -77,11 +77,7 @@ spec:
           valueFrom:
             fieldRef:
               apiVersion: v1
-              fieldPath: new.path
-        - name: GODEBUG
-          value: gctrace=111
-        - name: NEW_VAR
-          value: new_value
+              fieldPath: metadata.name
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
@@ -103,7 +99,7 @@ spec:
         - name: INJECTION_WEBHOOK_CONFIG_NAME
           value: istio-sidecar-injector
         - name: ISTIOD_ADDR
-          value: istiod.istio-control.svc:15012
+          value: istiod.istio-system.svc:15012
         - name: PILOT_EXTERNAL_GALLEY
           value: "false"
         - name: CLUSTER_ID
@@ -123,13 +119,13 @@ spec:
           httpGet:
             path: /ready
             port: 8080
-          initialDelaySeconds: 555
-          periodSeconds: 666
-          timeoutSeconds: 777
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 5
         resources:
           requests:
-            cpu: 888m
-            memory: 999Mi
+            cpu: 500m
+            memory: 2048Mi
         securityContext:
           capabilities:
             drop:
@@ -154,8 +150,6 @@ spec:
         - mountPath: /var/lib/istio/local
           name: istiod
           readOnly: true
-      nodeSelector:
-        master: "true"
       securityContext:
         fsGroup: 1337
       serviceAccountName: istiod-service-account
@@ -188,27 +182,4 @@ spec:
       - configMap:
           name: pilot-envoy-config
         name: pilot-envoy-config
----
-
-
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
-metadata:
-  labels:
-    app: istiod
-    release: istio
-  name: istiod
-  namespace: istio-control
-spec:
-  maxReplicas: 333
-  metrics:
-  - resource:
-      name: cpu
-      targetAverageUtilization: 444
-    type: Resource
-  minReplicas: 222
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: istio-pilot
 ---

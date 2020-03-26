@@ -188,27 +188,21 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  labels:
-    app: pilot
-    istio: pilot
-    release: istio
-  name: istio-pilot
+  name: istiod
   namespace: istio-control
+  labels:
+    app: istiod
+    release: istio
 spec:
   ports:
-  - name: grpc-xds
-    port: 11111
-  - name: https-xds
-    port: 15011
-  - name: https-dns
-    port: 15012
-  - name: http-legacy-discovery
-    port: 8080
-  - name: http-monitoring
-    port: 15014
-  - name: https-webhook
-    port: 443
-    targetPort: 15017
+    - port: 15012
+      name: https-dns # mTLS with k8s-signed cert
+    - port: 443
+      name: https-webhook # validation and injection
+      targetPort: 15017
   selector:
+    app: istiod
+    # Label used by the 'default' service. For versioned deployments we match with app and version.
+    # This avoids default deployment picking the canary
     istio: pilot
 ---

@@ -318,7 +318,11 @@ func loadCompatibleMapFile(versionsURI string) ([]byte, error) {
 	if versionsURI == "" {
 		return vfs.ReadFile("versions.yaml")
 	}
-	if util.IsHTTPURL(versionsURI) {
+	isURL, err := util.IsHTTPURL(versionsURI)
+	if err != nil {
+		return nil, err
+	}
+	if isURL {
 		if b, err := httprequest.Get(versionsURI); err == nil {
 			return b, nil
 		}

@@ -18,22 +18,36 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"istio.io/istio/operator/pkg/compare"
+	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/version"
 )
 
+const (
+	istioTestVersion = "istio-1.5.0"
+	testTGZFilename  = istioTestVersion + "-linux.tar.gz"
+)
+
 type testGroup []struct {
-	desc       string
-	flags      string
-	noInput    bool
-	outputDir  string
-	diffSelect string
-	diffIgnore string
+	desc string
+	// Small changes to the input profile produce large changes to the golden output
+	// files. This makes it difficult to spot meaningful changes in pull requests.
+	// By default we hide these changes to make developers life's a bit easier. However,
+	// it is still useful to sometimes override this behavior and show the full diff.
+	// When this flag is true, use an alternative file suffix that is not hidden by
+	// default github in pull requests.
+	showOutputFileInPullRequest bool
+	flags                       string
+	noInput                     bool
+	outputDir                   string
+	diffSelect                  string
+	diffIgnore                  string
 }
 
 func TestManifestGenerateFlags(t *testing.T) {
@@ -44,8 +58,9 @@ func TestManifestGenerateFlags(t *testing.T) {
 			desc: "all_off",
 		},
 		{
-			desc:       "all_on",
-			diffIgnore: "ConfigMap:*:istio",
+			desc:                        "all_on",
+			diffIgnore:                  "ConfigMap:*:istio",
+			showOutputFileInPullRequest: true,
 		},
 		{
 			desc:       "prometheus",
@@ -61,11 +76,11 @@ func TestManifestGenerateFlags(t *testing.T) {
 		},
 		{
 			desc:       "component_hub_tag",
-			diffIgnore: "ConfigMap:*:istio",
+			diffSelect: "Deployment:*:*",
 		},
 		{
 			desc:       "flag_set_values",
-			diffIgnore: "ConfigMap:*:istio",
+			diffSelect: "Deployment:*:istio-ingressgateway,ConfigMap:*:istio-sidecar-injector",
 			flags:      "-s values.global.proxy.image=myproxy --set values.global.proxy.includeIPRanges=172.30.0.0/16,172.21.0.0/16",
 			noInput:    true,
 		},
@@ -76,24 +91,26 @@ func TestManifestGenerateFlags(t *testing.T) {
 			noInput:    true,
 		},
 		{
-			desc:  "flag_override_values",
-			flags: "-s tag=my-tag",
+			desc:       "flag_override_values",
+			diffSelect: "Deployment:*:istiod",
+			flags:      "-s tag=my-tag",
 		},
 		{
-			desc:      "flag_output",
-			flags:     "-o " + flagOutputDir,
-			outputDir: flagOutputDir,
+			desc:       "flag_output",
+			flags:      "-o " + flagOutputDir,
+			diffSelect: "Deployment:*:istiod",
+			outputDir:  flagOutputDir,
 		},
 		{
 			desc:       "flag_output_set_values",
-			diffIgnore: "ConfigMap:*:istio",
+			diffSelect: "Deployment:*:istio-ingressgateway",
 			flags:      "-s values.global.proxy.image=mynewproxy -o " + flagOutputValuesDir,
 			outputDir:  flagOutputValuesDir,
 			noInput:    true,
 		},
 		{
 			desc:       "flag_force",
-			diffIgnore: "ConfigMap:*:istio",
+			diffSelect: "no:resources:selected",
 			flags:      "--force",
 		},
 		{
@@ -110,13 +127,12 @@ func TestManifestGenerateFlags(t *testing.T) {
 func TestManifestGeneratePilot(t *testing.T) {
 	runTestGroup(t, testGroup{
 		{
-			desc: "pilot_default",
-			// TODO: remove istio ConfigMap (istio/istio#16828)
+			desc:       "pilot_default",
 			diffIgnore: "CustomResourceDefinition:*:*,ConfigMap:*:istio",
 		},
 		{
 			desc:       "pilot_k8s_settings",
-			diffIgnore: "CustomResourceDefinition:*:*,ConfigMap:*:istio",
+			diffSelect: "Deployment:*:istiod,HorizontalPodAutoscaler:*:istiod",
 		},
 		{
 			desc:       "pilot_override_values",
@@ -124,7 +140,7 @@ func TestManifestGeneratePilot(t *testing.T) {
 		},
 		{
 			desc:       "pilot_override_kubernetes",
-			diffSelect: "Deployment:*:istiod, Service:*:istio-pilot",
+			diffSelect: "Deployment:*:istiod, Service:*:istiod",
 		},
 		{
 			desc:       "pilot_merge_meshconfig",
@@ -191,60 +207,54 @@ func TestManifestGenerateOrdered(t *testing.T) {
 	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
 	// Since this is testing the special case of stable YAML output order, it
 	// does not use the established test group pattern
-	t.Run("stable_manifest", func(t *testing.T) {
-		inPath := filepath.Join(testDataDir, "input/all_on.yaml")
-		got1, err := runManifestGenerate([]string{inPath}, "")
-		if err != nil {
-			t.Fatal(err)
-		}
-		got2, err := runManifestGenerate([]string{inPath}, "")
-		if err != nil {
-			t.Fatal(err)
-		}
+	inPath := filepath.Join(testDataDir, "input/all_on.yaml")
+	got1, err := runManifestGenerate([]string{inPath}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got2, err := runManifestGenerate([]string{inPath}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
 
-		if got1 != got2 {
-			fmt.Printf("%s", util.YAMLDiff(got1, got2))
-			t.Errorf("stable_manifest: Manifest generation is not producing stable text output.")
-		}
-	})
+	if got1 != got2 {
+		fmt.Printf("%s", util.YAMLDiff(got1, got2))
+		t.Errorf("stable_manifest: Manifest generation is not producing stable text output.")
+	}
 }
 
 func TestMultiICPSFiles(t *testing.T) {
 	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
-	t.Run("multi-ICPS files", func(t *testing.T) {
-		inPathBase := filepath.Join(testDataDir, "input/all_off.yaml")
-		inPathOverride := filepath.Join(testDataDir, "input/telemetry_override_only.yaml")
-		got, err := runManifestGenerate([]string{inPathBase, inPathOverride}, "")
-		if err != nil {
-			t.Fatal(err)
-		}
-		outPath := filepath.Join(testDataDir, "output/telemetry_override_values.yaml")
+	inPathBase := filepath.Join(testDataDir, "input/all_off.yaml")
+	inPathOverride := filepath.Join(testDataDir, "input/telemetry_override_only.yaml")
+	got, err := runManifestGenerate([]string{inPathBase, inPathOverride}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	outPath := filepath.Join(testDataDir, "output/telemetry_override_values.yaml")
 
-		want, err := readFile(outPath)
-		if err != nil {
-			t.Fatal(err)
-		}
-		diffSelect := "handler:*:prometheus"
-		got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
-		if err != nil {
-			t.Errorf("error selecting from output manifest: %v", err)
-		}
-		diff := compare.YAMLCmp(got, want)
-		if diff != "" {
-			t.Errorf("`manifest generate` diff = %s", diff)
-		}
-	})
+	want, err := readFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	diffSelect := "handler:*:prometheus"
+	got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
+	if err != nil {
+		t.Errorf("error selecting from output manifest: %v", err)
+	}
+	diff := compare.YAMLCmp(got, want)
+	if diff != "" {
+		t.Errorf("`manifest generate` diff = %s", diff)
+	}
 }
 
 func TestBareSpec(t *testing.T) {
 	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
-	t.Run("multi-ICPS files", func(t *testing.T) {
-		inPathBase := filepath.Join(testDataDir, "input/bare_spec.yaml")
-		_, err := runManifestGenerate([]string{inPathBase}, "")
-		if err != nil {
-			t.Fatal(err)
-		}
-	})
+	inPathBase := filepath.Join(testDataDir, "input/bare_spec.yaml")
+	_, err := runManifestGenerate([]string{inPathBase}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 // TestLDFlags checks whether building mesh command with
@@ -284,21 +294,21 @@ func runTestGroup(t *testing.T, tests testGroup) {
 				t.Fatal(err)
 			}
 
-			diffSelect := "*:*:*"
-			if tt.diffSelect != "" {
-				diffSelect = tt.diffSelect
-				got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
-				if err != nil {
-					t.Errorf("error selecting from output manifest: %v", err)
-				}
-			}
-
 			if tt.outputDir != "" {
 				got, err = util.ReadFilesWithFilter(tt.outputDir, func(fileName string) bool {
 					return strings.HasSuffix(fileName, ".yaml")
 				})
 				if err != nil {
 					t.Fatal(err)
+				}
+			}
+
+			diffSelect := "*:*:*"
+			if tt.diffSelect != "" {
+				diffSelect = tt.diffSelect
+				got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
+				if err != nil {
+					t.Errorf("error selecting from output manifest: %v", err)
 				}
 			}
 
@@ -355,4 +365,17 @@ func removeDirOrFail(t *testing.T, path string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func createLocalReleaseCharts() (string, error) {
+	releaseDir, err := ioutil.TempDir(os.TempDir(), "istio-test-release-*")
+	if err != nil {
+		return "", err
+	}
+	releaseSubDir := filepath.Join(releaseDir, istioTestVersion, helm.OperatorSubdirFilePath)
+	cmd := exec.Command("../../release/create_release_charts.sh", "-o", releaseSubDir)
+	if stdo, err := cmd.Output(); err != nil {
+		return "", fmt.Errorf("%s: \n%s", err, string(stdo))
+	}
+	return releaseDir, nil
 }
