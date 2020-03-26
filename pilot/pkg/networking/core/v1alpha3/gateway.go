@@ -136,11 +136,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 		}
 
 		pluginParams := &plugin.InputParams{
-			ListenerProtocol:           listenerProtocol,
-			DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_GATEWAY,
-			Node:                       node,
-			Push:                       push,
-			ServiceInstance:            si,
+			ListenerProtocol: listenerProtocol,
+			Node:             node,
+			Push:             push,
+			ServiceInstance:  si,
 			Port: &model.Port{
 				Name:     servers[0].Port.Name,
 				Port:     int(portNumber),

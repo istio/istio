@@ -686,6 +686,12 @@ func TestOptions(t *testing.T) {
 			option:   option.STSPort(5555),
 			expected: 5555,
 		},
+		{
+			testName: "project id",
+			key:      "gcp_project_id",
+			option:   option.GCPProjectID("project"),
+			expected: "project",
+		},
 	}
 
 	for _, c := range cases {

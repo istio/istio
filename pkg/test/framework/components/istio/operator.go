@@ -34,20 +34,14 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 )
 
-func DefaultValidatingWebhookConfigurationName(config Config) string {
-	return fmt.Sprintf("istiod-%v", config.SystemNamespace)
-
-}
-
-const (
-	DefaultMutatingWebhookConfigurationName = "istio-sidecar-injector"
-)
-
 type operatorComponent struct {
 	id          resource.ID
 	settings    Config
 	ctx         resource.Context
 	environment *kube.Environment
+	// installManifest includes the yamls use to install Istio. These can be deleted on cleanup
+	// The key is the cluster name
+	installManifest map[string]string
 }
 
 var _ io.Closer = &operatorComponent{}
@@ -68,21 +62,9 @@ func (i *operatorComponent) Close() (err error) {
 	defer scopes.CI.Infof("=== DONE: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
 	if i.settings.DeployIstio {
 		for _, cluster := range i.environment.KubeClusters {
-			if e := cluster.DeleteNamespace(i.settings.SystemNamespace); e != nil {
-				err = multierror.Append(err, fmt.Errorf("failed deleting system namespace %s in cluster %s: %v",
-					i.settings.SystemNamespace, cluster.Name(), e))
+			if e := cluster.DeleteContents("", i.installManifest[cluster.Name()]); e != nil {
+				err = multierror.Append(err, e)
 			}
-			if e := cluster.WaitForNamespaceDeletion(i.settings.SystemNamespace); e != nil {
-				err = multierror.Append(err, fmt.Errorf("failed waiting for deletion of system namespace %s in cluster %s: %v",
-					i.settings.SystemNamespace, cluster.Name(), e))
-			}
-
-			// Note: when cleaning up an Istio deployment, ValidatingWebhookConfiguration
-			// and MutatingWebhookConfiguration must be cleaned up. Otherwise, next
-			// Istio deployment in the cluster will be impacted, causing flaky test results.
-			// Clean up ValidatingWebhookConfiguration and MutatingWebhookConfiguration if they exist
-			_ = cluster.DeleteValidatingWebhook(DefaultValidatingWebhookConfigurationName(i.settings))
-			_ = cluster.DeleteMutatingWebhook(DefaultMutatingWebhookConfigurationName)
 		}
 	}
 	return
@@ -132,9 +114,10 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	scopes.CI.Infof("================================")
 
 	i := &operatorComponent{
-		environment: env,
-		settings:    cfg,
-		ctx:         ctx,
+		environment:     env,
+		settings:        cfg,
+		ctx:             ctx,
+		installManifest: map[string]string{},
 	}
 	i.id = ctx.TrackResource(i)
 
@@ -203,35 +186,46 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 	if err != nil {
 		return err
 	}
-
 	defaultsIOPFile := cfg.IOPFile
 	if !path.IsAbs(defaultsIOPFile) {
 		defaultsIOPFile = filepath.Join(env.IstioSrc, defaultsIOPFile)
 	}
 
-	cmd := []string{
-		"manifest", "apply",
-		"--skip-confirmation",
-		"--logtostderr",
+	installSettings := []string{
 		"-f", defaultsIOPFile,
 		"-f", iopFile,
 		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
-		"--wait",
 	}
 	// If control plane values set, assume this includes the full set of values, and .Values is
 	// just for helm use case. Otherwise, include all values.
 	if cfg.ControlPlaneValues == "" {
 		for k, v := range cfg.Values {
-			cmd = append(cmd, "--set", fmt.Sprintf("values.%s=%s", k, v))
+			installSettings = append(installSettings, "--set", fmt.Sprintf("values.%s=%s", k, v))
 		}
 	}
-
 	if c.environment.IsMulticluster() {
 		// Set the clusterName for the local cluster.
 		// This MUST match the clusterName in the remote secret for this cluster.
-		cmd = append(cmd, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
+		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
 	}
 
+	// Save the manifest generate output so we can later cleanup
+	genCmd := []string{"manifest", "generate"}
+	genCmd = append(genCmd, installSettings...)
+	out, err := istioCtl.Invoke(genCmd)
+	if err != nil {
+		return err
+	}
+	c.installManifest[cluster.Name()] = out
+
+	// Actually run the manifest apply command
+	cmd := []string{
+		"manifest", "apply",
+		"--skip-confirmation",
+		"--logtostderr",
+		"--wait",
+	}
+	cmd = append(cmd, installSettings...)
 	scopes.CI.Infof("Running istio control plane on cluster %s %v", cluster.Name(), cmd)
 	if _, err := istioCtl.Invoke(cmd); err != nil {
 		return fmt.Errorf("manifest apply failed: %v", err)

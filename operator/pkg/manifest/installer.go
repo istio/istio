@@ -332,7 +332,18 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version, revis
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
 	componentLabel := fmt.Sprintf("%s=%s", istioComponentLabelStr, componentName)
-	if revision != "" {
+
+	// If there is no revision set, define it as "default". This avoids having any control plane
+	// installed without an istio.io/rev label, which makes simplifies some of the logic around handling
+	// a control plane without a revision set. For example, we can scope the telemetry v2 filters
+	// so it doesn't get duplicated between a revision and the default revision.
+	// The motivation behind this is to support the legacy single control plane workflow - if this
+	// is no longer needed, this can be removed.
+	if revision == "" && componentName == name.PilotComponentName {
+		revision = "default"
+	}
+	// Only pilot component uses revisions
+	if componentName == name.PilotComponentName {
 		componentLabel += fmt.Sprintf(",%s=%s", model.RevisionLabel, revision)
 	}
 
@@ -340,6 +351,10 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version, revis
 	//  (https://github.com/kubernetes/kubernetes/issues/40635)
 	// Delete all resources for a disabled component
 	if len(objects) == 0 && !opts.DryRun {
+		if revision != "" {
+			// We should not prune if revision is set, as we may prune other revisions
+			return &ComponentApplyOutput{}, nil
+		}
 		getOpts := opts
 		getOpts.Output = "yaml"
 		getOpts.ExtraArgs = []string{"--all-namespaces", "--selector", componentLabel}
@@ -381,7 +396,7 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version, revis
 		o.AddLabels(map[string]string{istioComponentLabelStr: string(componentName)})
 		o.AddLabels(map[string]string{operatorLabelStr: operatorReconcileStr})
 		o.AddLabels(map[string]string{istioVersionLabelStr: version})
-		if revision != "" {
+		if componentName == name.PilotComponentName {
 			o.AddLabels(map[string]string{model.RevisionLabel: revision})
 		}
 	}

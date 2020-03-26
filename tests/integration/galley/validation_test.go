@@ -173,6 +173,7 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 				"networking.istio.io/v1beta1/Gateway",
 				"networking.istio.io/v1beta1/DestinationRule",
 				"networking.istio.io/v1beta1/VirtualService",
+				"networking.istio.io/v1beta1/WorkloadEntry",
 				"networking.istio.io/v1beta1/Sidecar",
 			} {
 				recognized[gvk] = struct{}{}

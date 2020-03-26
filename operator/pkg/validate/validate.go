@@ -16,7 +16,6 @@ package validate
 
 import (
 	"fmt"
-	"net/url"
 	"reflect"
 
 	"istio.io/api/operator/v1alpha1"
@@ -29,7 +28,6 @@ var (
 	DefaultValidations = map[string]ValidatorFunc{
 		"Hub":                                validateHub,
 		"Tag":                                validateTag,
-		"InstallPackagePath":                 validateInstallPackagePath,
 		"Components.IngressGateways[*].Name": validateGatewayName,
 		"Components.EgressGateways[*].Name":  validateGatewayName,
 	}
@@ -159,24 +157,6 @@ func validateHub(path util.Path, val interface{}) util.Errors {
 
 func validateTag(path util.Path, val interface{}) util.Errors {
 	return validateWithRegex(path, val, TagRegexp)
-}
-
-func validateInstallPackagePath(path util.Path, val interface{}) util.Errors {
-	valStr, ok := val.(string)
-	if !ok {
-		return util.NewErrs(fmt.Errorf("validateInstallPackagePath(%s) bad type %T, want string", path, val))
-	}
-
-	if valStr == "" {
-		// compiled-in charts
-		return nil
-	}
-
-	if _, err := url.ParseRequestURI(val.(string)); err != nil {
-		return util.NewErrs(fmt.Errorf("invalid value %s: %s", path, valStr))
-	}
-
-	return nil
 }
 
 func validateGatewayName(path util.Path, val interface{}) util.Errors {

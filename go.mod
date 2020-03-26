@@ -65,7 +65,7 @@ require (
 	github.com/gogo/protobuf v1.3.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
-	github.com/golang/protobuf v1.3.2
+	github.com/golang/protobuf v1.3.5
 	github.com/golang/sync v0.0.0-20180314180146-1d60e4601c6f
 	github.com/google/cel-go v0.2.0
 	github.com/google/go-cmp v0.3.1
@@ -148,7 +148,7 @@ require (
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.2.7
-	istio.io/api v0.0.0-20200323195549-6bfc9cb1f41e
+	istio.io/api v0.0.0-20200325202443-3f88ef9cac2e
 	istio.io/gogo-genproto v0.0.0-20200227125611-d2e4aa9d5634
 	istio.io/pkg v0.0.0-20200227125209-63966175aa01
 	k8s.io/api v0.17.2
