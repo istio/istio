@@ -165,6 +165,10 @@ dockerx:
 		BASE_VERSION=$(BASE_VERSION) \
 		DOCKERX_PUSH=$(DOCKERX_PUSH) \
 		./tools/buildx-gen.sh $(DOCKERX_BUILD_TOP) $(DOCKER_TARGETS)
+	@if ! docker buildx ls | grep -q container-builder; then\
+		DOCKER_CLI_EXPERIMENTAL=enabled docker buildx create --platform "linux/amd64,linux/arm64,linux/arm/v7" --name container-builder;\
+	fi
+	DOCKER_CLI_EXPERIMENTAL=enabled docker buildx use container-builder
 	DOCKER_CLI_EXPERIMENTAL=enabled docker buildx bake -f $(DOCKERX_BUILD_TOP)/docker-bake.hcl $(DOCKER_BUILD_VARIANTS)
 
 # Support individual images like `dockerx.pilot`

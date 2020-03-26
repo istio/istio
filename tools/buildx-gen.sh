@@ -16,12 +16,6 @@
 
 set -eu
 
-export DOCKER_CLI_EXPERIMENTAL=enabled
-if ! docker buildx ls | grep -q container-builder; then
-  docker buildx create --driver-opt network=host  --platform "linux/amd64,linux/arm64,linux/arm/v7" --name container-builder --use
-fi
-docker buildx use container-builder
-
 out="${1}"
 config="${out}/docker-bake.hcl"
 shift
