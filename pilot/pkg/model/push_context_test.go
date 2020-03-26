@@ -427,11 +427,11 @@ func scopeToSidecar(scope *SidecarScope) string {
 func TestSetDestinationRule(t *testing.T) {
 	ps := NewPushContext()
 	ps.defaultDestinationRuleExportTo = map[visibility.Instance]bool{visibility.Public: true}
-	testhost := "test.test-namespace1.svc.cluster.local"
+	testhost := "httpbin.org"
 	destinationRuleNamespace1 := Config{
 		ConfigMeta: ConfigMeta{
 			Name:      "rule1",
-			Namespace: "test-namespace1",
+			Namespace: "test",
 		},
 		Spec: &networking.DestinationRule{
 			Host: testhost,
@@ -448,7 +448,7 @@ func TestSetDestinationRule(t *testing.T) {
 	destinationRuleNamespace2 := Config{
 		ConfigMeta: ConfigMeta{
 			Name:      "rule2",
-			Namespace: "istio-system",
+			Namespace: "test",
 		},
 		Spec: &networking.DestinationRule{
 			Host: testhost,
@@ -463,12 +463,13 @@ func TestSetDestinationRule(t *testing.T) {
 		},
 	}
 	ps.SetDestinationRules([]Config{destinationRuleNamespace1, destinationRuleNamespace2})
-	subsetsLocal := len(ps.namespaceLocalDestRules["test-namespace1"].destRule[host.Name(testhost)].config.Spec.(*networking.DestinationRule).Subsets)
-	subsetsExport := len(ps.namespaceExportedDestRules["test-namespace1"].destRule[host.Name(testhost)].config.Spec.(*networking.DestinationRule).Subsets)
-	if subsetsLocal != 2 {
-		t.Fatalf("want %d, but got %d", 2, subsetsLocal)
+	subsetsLocal := ps.namespaceLocalDestRules["test"].destRule[host.Name(testhost)].Spec.(*networking.DestinationRule).Subsets
+	subsetsExport := ps.namespaceExportedDestRules["test"].destRule[host.Name(testhost)].Spec.(*networking.DestinationRule).Subsets
+	if len(subsetsLocal) != 4 {
+		t.Errorf("want %d, but got %d", 4, len(subsetsLocal))
 	}
-	if subsetsExport != 2 {
-		t.Fatalf("want %d, but got %d", 2, subsetsExport)
+
+	if len(subsetsExport) != 4 {
+		t.Errorf("want %d, but got %d", 4, len(subsetsExport))
 	}
 }
