@@ -52,21 +52,13 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	}
 
 	node := &model.Proxy{
-		Type:         model.SidecarProxy,
-		IPAddresses:  []string{"1.1.1.1"},
-		ID:           "someID",
-		DNSDomain:    "foo.com",
-		Metadata:     &model.NodeMetadata{IstioVersion: "1.4.0"},
-		IstioVersion: &model.IstioVersion{Major: 1, Minor: 4},
+		Type:        model.SidecarProxy,
+		IPAddresses: []string{"1.1.1.1"},
+		ID:          "someID",
+		DNSDomain:   "foo.com",
+		Metadata:    &model.NodeMetadata{},
 	}
-	node13version := &model.Proxy{
-		Type:         model.SidecarProxy,
-		IPAddresses:  []string{"1.1.1.1"},
-		ID:           "someID",
-		DNSDomain:    "foo.com",
-		Metadata:     &model.NodeMetadata{IstioVersion: "1.3.0"},
-		IstioVersion: &model.IstioVersion{Major: 1, Minor: 3},
-	}
+
 	gatewayNames := map[string]bool{"some-gateway": true}
 
 	t.Run("for virtual service", func(t *testing.T) {
@@ -152,16 +144,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 	})
 
-	t.Run("for virtual service with unsafe regex matching on URI", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
-
-		routes, err := route.BuildHTTPRoutesForVirtualService(node13version, nil, virtualServiceWithRegexMatchingOnURI, serviceRegistry, 8080, gatewayNames)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect(len(routes)).To(gomega.Equal(1))
-		//nolint: staticcheck
-		g.Expect(routes[0].GetMatch().GetRegex()).To(gomega.Equal("\\/(.?)\\/status"))
-	})
-
 	t.Run("for virtual service with regex matching on header", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
@@ -216,16 +198,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			g.Expect(routes[0].GetMatch().GetHeaders()[0].GetPresentMatch()).To(gomega.Equal(true))
 			g.Expect(routes[0].GetMatch().GetHeaders()[0].GetInvertMatch()).To(gomega.Equal(false))
 		}
-	})
-
-	t.Run("for virtual service with unsafe regex matching on header", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
-
-		routes, err := route.BuildHTTPRoutesForVirtualService(node13version, nil, virtualServiceWithRegexMatchingOnHeader, serviceRegistry, 8080, gatewayNames)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect(len(routes)).To(gomega.Equal(1))
-		//nolint: staticcheck
-		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetRegexMatch()).To(gomega.Equal("Bearer .+?\\..+?\\..+?"))
 	})
 
 	t.Run("for virtual service with source namespace matching", func(t *testing.T) {

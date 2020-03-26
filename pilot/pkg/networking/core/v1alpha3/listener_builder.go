@@ -365,7 +365,7 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 			matchingIP = "::0/0"
 		}
 
-		setAccessLog(push, node, tcpProxy)
+		setAccessLog(push, tcpProxy)
 		tcpProxyFilter := &listener.Filter{
 			Name:       xdsutil.TCPProxy,
 			ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
@@ -538,7 +538,7 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 		StatPrefix:       egressCluster,
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: egressCluster},
 	}
-	setAccessLog(push, node, tcpProxy)
+	setAccessLog(push, tcpProxy)
 	filterStack = append(filterStack, &listener.Filter{
 		Name:       xdsutil.TCPProxy,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
