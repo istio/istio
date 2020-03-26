@@ -192,7 +192,10 @@ type PushRequest struct {
 	// If this is present, then only proxies that import this namespace will get an update
 	NamespacesUpdated map[string]struct{}
 
-	// ServiceEntry:
+	// ConfigsUpdated keeps track of configs that have changed.
+	// The config types are those defined in pkg/config/schemas. Below are some commonly used:
+	//
+	// ServiceEntryKind:
 	// keeps track of all service updated since last full push.
 	// Key is the hostname (serviceName). This is used by incremental eds.
 	ConfigsUpdated map[resource.GroupVersionKind]map[string]struct{}
