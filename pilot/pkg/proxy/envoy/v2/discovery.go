@@ -384,13 +384,12 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 				}
 
 				pushEv := &XdsEvent{
-					push:               info.Push,
-					done:               doneFunc,
-					start:              info.Start,
-					namespacesUpdated:  info.NamespacesUpdated,
-					configTypesUpdated: info.ConfigTypesUpdated,
-					configsUpdated:     info.ConfigsUpdated,
-					noncePrefix:        info.Push.Version,
+					push:              info.Push,
+					done:              doneFunc,
+					start:             info.Start,
+					namespacesUpdated: info.NamespacesUpdated,
+					configsUpdated:    info.ConfigsUpdated,
+					noncePrefix:       info.Push.Version,
 				}
 
 				select {

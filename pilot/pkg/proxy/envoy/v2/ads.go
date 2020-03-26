@@ -102,8 +102,6 @@ type XdsConnection struct {
 type XdsEvent struct {
 	namespacesUpdated map[string]struct{}
 
-	configTypesUpdated map[resource.GroupVersionKind]struct{}
-
 	// If GroupVersionKind is service entry and not empty, it is used to indicate the event
 	// is caused by a change in the clusters. Only EDS for the listed clusters will be sent.
 	configsUpdated map[resource.GroupVersionKind]map[string]struct{}

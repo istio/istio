@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
@@ -273,9 +272,8 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 		}
 
 		s.ConfigUpdate(&model.PushRequest{
-			Full:               requireFull,
-			NamespacesUpdated:  map[string]struct{}{namespace: {}},
-			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
+			Full:              requireFull,
+			NamespacesUpdated: map[string]struct{}{namespace: {}},
 			ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
 				model.ServiceEntryKind: edsUpdates,
 			},

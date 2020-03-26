@@ -192,11 +192,6 @@ type PushRequest struct {
 	// If this is present, then only proxies that import this namespace will get an update
 	NamespacesUpdated map[string]struct{}
 
-	// ConfigTypesUpdated contains the types of configs that have changed.
-	// The config types are those defined in pkg/config/schemas
-	// Applicable only when Full is set to true.
-	ConfigTypesUpdated map[resource.GroupVersionKind]struct{}
-
 	// ServiceEntry:
 	// keeps track of all service updated since last full push.
 	// Key is the hostname (serviceName). This is used by incremental eds.
@@ -267,19 +262,14 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 	if len(first.ConfigsUpdated) > 0 && len(other.ConfigsUpdated) > 0 {
 		merged.ConfigsUpdated = make(map[resource.GroupVersionKind]map[string]struct{})
 		for update := range first.ConfigsUpdated {
-			merged.ConfigsUpdated[update] = nil
+			merged.ConfigsUpdated[update] = make(map[string]struct{})
 		}
 		for update := range other.ConfigsUpdated {
-			merged.ConfigsUpdated[update] = nil
+			merged.ConfigsUpdated[update] = make(map[string]struct{})
 		}
 
 		// Merge the configs updated
 		for kind := range merged.ConfigsUpdated {
-			// Do not merge when full push on EDS updates
-			if kind == ServiceEntryKind && merged.Full {
-				merged.ConfigsUpdated[kind] = nil
-			}
-
 			if len(first.ConfigsUpdated[kind]) > 0 && len(other.ConfigsUpdated[kind]) > 0 {
 				merged.ConfigsUpdated[kind] = make(map[string]struct{})
 				for update := range first.ConfigsUpdated[kind] {
@@ -300,17 +290,6 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		}
 		for update := range other.NamespacesUpdated {
 			merged.NamespacesUpdated[update] = struct{}{}
-		}
-	}
-
-	// Merge the config updates
-	if len(first.ConfigTypesUpdated) > 0 && len(other.ConfigTypesUpdated) > 0 {
-		merged.ConfigTypesUpdated = make(map[resource.GroupVersionKind]struct{})
-		for update := range first.ConfigTypesUpdated {
-			merged.ConfigTypesUpdated[update] = struct{}{}
-		}
-		for update := range other.ConfigTypesUpdated {
-			merged.ConfigTypesUpdated[update] = struct{}{}
 		}
 	}
 
@@ -863,7 +842,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	ps.initDefaultExportMaps()
 
 	// create new or incremental update
-	if pushReq == nil || oldPushContext == nil || !oldPushContext.initDone || len(pushReq.ConfigTypesUpdated) == 0 {
+	if pushReq == nil || oldPushContext == nil || !oldPushContext.initDone || len(pushReq.ConfigsUpdated) == 0 {
 		if err := ps.createNewContext(env); err != nil {
 			return err
 		}
@@ -933,7 +912,7 @@ func (ps *PushContext) updateContext(
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, quotasChanged bool
 
-	for k := range pushReq.ConfigTypesUpdated {
+	for k := range pushReq.ConfigsUpdated {
 		switch k {
 		case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind():
 			servicesChanged = true
