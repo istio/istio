@@ -90,8 +90,7 @@ management services, and monitoring services.
 
     - [operator](operator/). This directory contains code for
 [_istio operator_](https://istio.io/docs/reference/commands/operator/). You can read operator installation instructions
-[here](https://istio.io/docs/setup/install/standalone-operator/). If you have a bug backport for istio operator 1.4
-please submit a pull request to the [istio/operator](https://github.com/istio/operator) repo.
+[here](https://istio.io/docs/setup/install/standalone-operator/).
 
 - [istio/api](https://github.com/istio/api). This repository defines
 component-level APIs and common configuration formats for the Istio platform.
