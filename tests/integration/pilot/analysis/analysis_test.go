@@ -15,9 +15,10 @@
 package analysis
 
 import (
-	"istio.io/istio/pkg/test/framework/resource"
 	"strings"
 	"testing"
+
+	"istio.io/istio/pkg/test/framework/resource"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -35,7 +36,7 @@ func TestAnalysisWritesStatus(t *testing.T) {
 	})
 }
 
-func setupModifiedBookinfo(t *testing.T, ctx framework.TestContext) namespace.Instance {
+func setupModifiedBookinfo(t *testing.T, ctx resource.Context) namespace.Instance {
 	ns := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix:   "default",
 		Inject:   true,
