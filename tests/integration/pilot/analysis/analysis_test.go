@@ -15,7 +15,10 @@
 package analysis
 
 import (
+	"fmt"
+	"istio.io/istio/pkg/test/util/retry"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/framework/resource"
 
@@ -30,7 +33,8 @@ import (
 func TestAnalysisWritesStatus(t *testing.T) {
 	framework.NewTest(t).Run(func(ctx framework.TestContext) {
 		ns := setupModifiedBookinfo(t, ctx)
-		doTest(t, ctx, ns)
+		retry.UntilSuccessOrFail(t, func()error{return doTest(t, ctx, ns)},
+			retry.Delay(250*time.Millisecond), retry.Timeout(10*time.Second))
 	})
 }
 
@@ -68,7 +72,8 @@ spec:
 	return ns
 }
 
-func doTest(t *testing.T, ctx resource.Context, ns namespace.Instance) {
+func doTest(t *testing.T, ctx resource.Context, ns namespace.Instance) error {
+
 	x, err := kube.ClusterOrDefault(nil, ctx.Environment()).GetUnstructured(schema.GroupVersionResource{
 		Group:    "networking.istio.io",
 		Version:  "v1alpha3",
@@ -79,6 +84,7 @@ func doTest(t *testing.T, ctx resource.Context, ns namespace.Instance) {
 	}
 
 	if x.Object["status"] == nil {
-		t.Fatalf("Object is missing expected status field.  Actual object is: %v", x)
+		return fmt.Errorf("Object is missing expected status field.  Actual object is: %v", x)
 	}
+	return nil
 }
