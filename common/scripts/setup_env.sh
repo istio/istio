@@ -34,7 +34,7 @@ elif [[ ${LOCAL_ARCH} == x86_64 ]]; then
 elif [[ ${LOCAL_ARCH} == armv8* ]]; then
     export TARGET_ARCH=arm64
 elif [[ ${LOCAL_ARCH} == aarch64* ]]; then
-    export TARGET_ARCH=amd64
+    export TARGET_ARCH=arm64
 elif [[ ${LOCAL_ARCH} == armv* ]]; then
     export TARGET_ARCH=arm
 else
