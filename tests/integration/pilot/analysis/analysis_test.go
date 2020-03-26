@@ -15,6 +15,7 @@
 package analysis
 
 import (
+	"istio.io/istio/pkg/test/framework/resource"
 	"strings"
 	"testing"
 
@@ -62,10 +63,13 @@ func setupModifiedBookinfo(t *testing.T, ctx framework.TestContext) namespace.In
 		Namespace: ns,
 		Yaml:      vsYaml,
 	})
+	if err != nil {
+		t.Fatalf("TODO: make a better failure message: %v", err)
+	}
 	return ns
 }
 
-func doTest(t *testing.T, ctx framework.TestContext, ns namespace.Instance) {
+func doTest(t *testing.T, ctx resource.Context, ns namespace.Instance) {
 	x, err := kube.ClusterOrDefault(nil, ctx.Environment()).GetUnstructured(schema.GroupVersionResource{
 		Group:    "networking.istio.io",
 		Version:  "v1alpha3",
