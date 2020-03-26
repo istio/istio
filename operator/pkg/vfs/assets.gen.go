@@ -4,6 +4,7 @@
 // charts/base/NOTES.txt
 // charts/base/files/crd-all.gen.yaml
 // charts/base/files/crd-mixer.yaml
+// charts/base/files/crd-operator.yaml
 // charts/base/files/gen-istio-cluster.yaml
 // charts/base/kustomization.yaml
 // charts/base/templates/clusterrole.yaml
@@ -5985,6 +5986,68 @@ func chartsBaseFilesCrdMixerYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "charts/base/files/crd-mixer.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsBaseFilesCrdOperatorYaml = []byte(`apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: istiooperators.install.istio.io
+spec:
+  group: install.istio.io
+  names:
+    kind: IstioOperator
+    plural: istiooperators
+    singular: istiooperator
+    shortNames:
+    - iop
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        spec:
+          description: 'Specification of the desired state of the istio control plane resource.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+        status:
+          description: 'Status describes each of istio control plane component status at the current time.
+            0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
+            More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
+            https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+---
+`)
+
+func chartsBaseFilesCrdOperatorYamlBytes() ([]byte, error) {
+	return _chartsBaseFilesCrdOperatorYaml, nil
+}
+
+func chartsBaseFilesCrdOperatorYaml() (*asset, error) {
+	bytes, err := chartsBaseFilesCrdOperatorYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/base/files/crd-operator.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -12215,7 +12278,8 @@ func chartsBaseTemplatesClusterrolebindingYaml() (*asset, error) {
 }
 
 var _chartsBaseTemplatesCrdsYaml = []byte(`{{ .Files.Get "files/crd-all.gen.yaml" }}
-{{ .Files.Get "files/crd-mixer.yaml" }}
+  {{ .Files.Get "files/crd-mixer.yaml" }}
+  {{ .Files.Get "files/crd-operator.yaml" }}
 `)
 
 func chartsBaseTemplatesCrdsYamlBytes() ([]byte, error) {
@@ -46552,6 +46616,7 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/base/NOTES.txt":                                                                chartsBaseNotesTxt,
 	"charts/base/files/crd-all.gen.yaml":                                                   chartsBaseFilesCrdAllGenYaml,
 	"charts/base/files/crd-mixer.yaml":                                                     chartsBaseFilesCrdMixerYaml,
+	"charts/base/files/crd-operator.yaml":                                                  chartsBaseFilesCrdOperatorYaml,
 	"charts/base/files/gen-istio-cluster.yaml":                                             chartsBaseFilesGenIstioClusterYaml,
 	"charts/base/kustomization.yaml":                                                       chartsBaseKustomizationYaml,
 	"charts/base/templates/clusterrole.yaml":                                               chartsBaseTemplatesClusterroleYaml,
@@ -46801,6 +46866,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"files": &bintree{nil, map[string]*bintree{
 				"crd-all.gen.yaml":       &bintree{chartsBaseFilesCrdAllGenYaml, map[string]*bintree{}},
 				"crd-mixer.yaml":         &bintree{chartsBaseFilesCrdMixerYaml, map[string]*bintree{}},
+				"crd-operator.yaml":      &bintree{chartsBaseFilesCrdOperatorYaml, map[string]*bintree{}},
 				"gen-istio-cluster.yaml": &bintree{chartsBaseFilesGenIstioClusterYaml, map[string]*bintree{}},
 			}},
 			"kustomization.yaml": &bintree{chartsBaseKustomizationYaml, map[string]*bintree{}},

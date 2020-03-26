@@ -41,10 +41,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
-
-	"istio.io/istio/pilot/pkg/model"
-
-	// For GCP auth functionality.
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -60,6 +56,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	binversion "istio.io/istio/operator/version"
+	"istio.io/istio/pilot/pkg/model" // For GCP auth functionality.
 	"istio.io/pkg/log"
 )
 
@@ -276,6 +273,19 @@ func ApplyAll(manifests name.ManifestMap, version pkgversion.Version, revision s
 		return nil, err
 	}
 	return applyRecursive(manifests, version, revision, opts)
+}
+
+// Apply applies all given manifest using kubectl client.
+func Apply(manifest string, opts *kubectlcmd.Options) error {
+	if _, err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
+		return err
+	}
+
+	stdoutApply, stderrApply, err := kubectl.Apply(manifest, opts)
+	if err != nil {
+		return fmt.Errorf("%s\n%s\n%s", err, stdoutApply, stderrApply)
+	}
+	return nil
 }
 
 func applyRecursive(manifests name.ManifestMap, version pkgversion.Version, revision string, opts *kubectlcmd.Options) (CompositeOutput, error) {

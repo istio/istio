@@ -740,3 +740,35 @@ func createPatchObjectFromPath(node interface{}, path util.Path) (map[string]int
 	}
 	return patchObj, nil
 }
+
+// IOPStoIOP takes an IstioOperatorSpec and returns a corresponding IstioOperator with the given name and namespace.
+func IOPStoIOP(iops *v1alpha1.IstioOperatorSpec, name, namespace string) (string, error) {
+	iopsStr, err := util.MarshalWithJSONPB(iops)
+	if err != nil {
+		return "", err
+	}
+	spec, err := tpath.AddSpecRoot(iopsStr)
+	if err != nil {
+		return "", err
+	}
+
+	tmpl := `
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: {{ .Namespace }}
+  name: {{ .Name }} 
+`
+	// Passing into template causes reformatting, use simple concatenation instead.
+	tmpl += spec
+
+	type Temp struct {
+		Namespace string
+		Name      string
+	}
+	ts := Temp{
+		Namespace: namespace,
+		Name:      name,
+	}
+	return util.RenderTemplate(tmpl, ts)
+}
