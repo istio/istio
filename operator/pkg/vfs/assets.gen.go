@@ -10486,7 +10486,7 @@ func chartsIstioControlIstioAutoinjectTemplatesDeploymentYaml() (*asset, error) 
 }
 
 var _chartsIstioControlIstioAutoinjectTemplatesMutatingwebhookYaml = []byte(`{{- $ca := genCA "istio-sidecar-injector-ca-{{ .Release.Namespace }}" 3650 }}
-{{- if not .Values.global.operatorManageWebhooks }}
+{{- if and (not .Values.global.operatorManageWebhooks) (not .Values.global.istiod.enabled) }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
@@ -15319,7 +15319,7 @@ func chartsIstioControlIstioDiscoveryValuesYaml() (*asset, error) {
 
 var _chartsIstioOperatorChartYaml = []byte(`apiVersion: v1
 name: istio-operator
-version: 1.6.0
+version: 1.5
 tillerVersion: ">=2.7.2"
 description: Helm chart for deploying Istio operator
 keywords:
