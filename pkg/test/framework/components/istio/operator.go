@@ -212,8 +212,8 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 	// Save the manifest generate output so we can later cleanup
 	genCmd := []string{"manifest", "generate"}
 	genCmd = append(genCmd, installSettings...)
-	out, e := istioCtl.Invoke(genCmd)
-	if e != nil {
+	out, err := istioCtl.Invoke(genCmd)
+	if err != nil {
 		return err
 	}
 	c.installManifest[cluster.Name()] = out
