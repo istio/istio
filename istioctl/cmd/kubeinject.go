@@ -89,7 +89,7 @@ func getValuesFromConfigMap(kubeconfig string) (string, error) {
 	meshConfigMap, err := client.CoreV1().ConfigMaps(istioNamespace).Get(injectConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("could not find valid configmap %q from namespace  %q: %v - "+
-			"Use --injectConfigFile or re-run kube-inject with `-i <istioSystemNamespace> and ensure istio-inject configmap exists",
+			"Use --valuesFile or re-run kube-inject with `-i <istioSystemNamespace> and ensure istio-inject configmap exists",
 			injectConfigMapName, istioNamespace, err)
 	}
 
