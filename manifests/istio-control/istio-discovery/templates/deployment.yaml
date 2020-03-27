@@ -204,6 +204,8 @@ spec:
           volumeMounts:
             - name: local-certs
               mountPath: /var/run/secrets/istio-dns
+            - name: config-volume
+              mountPath: /var/lib/istio/coredns
           ports:
             - containerPort: 15054
               name: dns

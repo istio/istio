@@ -79,6 +79,7 @@ docker.proxyv2: install/gcp/bootstrap/gcp_envoy_bootstrap.json
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
 docker.proxyv2: $(ISTIO_OUT_LINUX)/pilot-agent
 docker.proxyv2: pilot/docker/Dockerfile.proxyv2
+docker.proxyv2: pilot/docker/Corefile
 docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/stats-filter.wasm
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.wasm
@@ -88,7 +89,6 @@ docker.pilot: BUILD_PRE=&& chmod 755 pilot-discovery cacert.pem
 docker.pilot: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.pilot: $(ISTIO_OUT_LINUX)/pilot-discovery
 docker.pilot: tests/testdata/certs/cacert.pem
-docker.pilot: pilot/docker/Corefile
 docker.pilot: pilot/docker/Dockerfile.pilot
 	$(DOCKER_RULE)
 
