@@ -145,7 +145,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 		manifests[cn] = append(manifests[cn], fmt.Sprintf("# %s component has been deprecated.\n", cn))
 	}
 
-	out, err := manifest.ApplyAll(manifests, version.OperatorBinaryVersion, iop, opts)
+	out, err := manifest.ApplyAll(manifests, version.OperatorBinaryVersion, iops, opts)
 	if err != nil {
 		return fmt.Errorf("failed to apply manifest with kubectl client: %v", err)
 	}
