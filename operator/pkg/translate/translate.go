@@ -167,7 +167,7 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 			scope.Debugf("path %s is int 0, skip mapping.", inPath)
 			continue
 		}
-		outPath, err := t.renderResourceComponentPathTemplate(v.OutPath, componentName, resourceName, addonName)
+		outPath, err := t.renderResourceComponentPathTemplate(v.OutPath, componentName, resourceName, addonName, iop.Revision)
 		if err != nil {
 			return "", err
 		}
@@ -555,7 +555,8 @@ func renderFeatureComponentPathTemplate(tmpl string, componentName name.Componen
 
 // renderResourceComponentPathTemplate renders a template of the form <path>{{.ResourceName}}<path>{{.ContainerName}}<path> with
 // the supplied parameters.
-func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentName name.ComponentName, resourceName string, addonName string) (string, error) {
+func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentName name.ComponentName,
+	resourceName, addonName, revision string) (string, error) {
 	cn := string(componentName)
 	if componentName == name.AddonComponentName {
 		cn = addonName
@@ -566,6 +567,10 @@ func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentN
 	}
 	if resourceName == "" {
 		resourceName = cmp.ResourceName
+	}
+	// The istiod resource will be istiod-<REVISION>, so we need to append the revision suffix
+	if revision != "" && resourceName == "istiod" {
+		resourceName += "-" + revision
 	}
 	ts := struct {
 		ResourceType  string

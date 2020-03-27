@@ -99,26 +99,10 @@ var (
 			},
 		},
 		{
-			"istio-grafana-configuration-dashboards-galley-dashboard",
-			"galley-dashboard.json",
-			[]string{
-				// Exclude all metrics -- galley is disabled by default
-				"_",
-			},
-		},
-		{
 			"istio-grafana-configuration-dashboards-mixer-dashboard",
 			"mixer-dashboard.json",
 			[]string{
 				// Exclude all metrics -- mixer is disabled by default
-				"_",
-			},
-		},
-		{
-			"istio-grafana-configuration-dashboards-citadel-dashboard",
-			"citadel-dashboard.json",
-			[]string{
-				// Exclude all metrics -- citadel is disabled by default
 				"_",
 			},
 		},

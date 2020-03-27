@@ -44,8 +44,8 @@ var (
 	// redisOpTimeout is the default operation timeout for the Redis proxy filter.
 	redisOpTimeout = 5 * time.Second
 
-	// grpcAccessLog is used when access log service is enabled in mesh config.
-	grpcAccessLog = buildGrpcAccessLog()
+	// tcpGrpcAccessLog is used when access log service is enabled in mesh config.
+	tcpGrpcAccessLog = buildTCPGrpcAccessLog()
 )
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
@@ -72,7 +72,7 @@ func setAccessLog(push *model.PushContext, config *tcp_proxy.TcpProxy) {
 	}
 
 	if push.Mesh.EnableEnvoyAccessLogService {
-		config.AccessLog = append(config.AccessLog, grpcAccessLog)
+		config.AccessLog = append(config.AccessLog, tcpGrpcAccessLog)
 	}
 }
 
@@ -285,7 +285,7 @@ func buildMySQLFilter(statPrefix string) *listener.Filter {
 	return out
 }
 
-func buildGrpcAccessLog() *accesslog.AccessLog {
+func buildTCPGrpcAccessLog() *accesslog.AccessLog {
 	fl := &accesslogconfig.TcpGrpcAccessLogConfig{
 		CommonConfig: &accesslogconfig.CommonGrpcAccessLogConfig{
 			LogName: tcpEnvoyAccessLogFriendlyName,

@@ -53,11 +53,6 @@ const (
 	genericScrtKey = "key"
 	// The ID/name for the CA certificate in kubernetes generic secret.
 	genericScrtCaCert = "cacert"
-
-	SingleTLSGateway  GatewayType = 0
-	SingleMTLSGateway GatewayType = 1
-	MultiTLSGateway   GatewayType = 2
-	MultiMTLSGateway  GatewayType = 3
 )
 
 type IngressCredential struct {

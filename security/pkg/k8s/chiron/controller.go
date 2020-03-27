@@ -43,11 +43,6 @@ import (
 
 type WebhookType int
 
-const (
-	MutatingWebhook WebhookType = iota
-	ValidatingWebhook
-)
-
 /* #nosec: disable gas linter */
 const (
 	// The Istio DNS secret annotation type
