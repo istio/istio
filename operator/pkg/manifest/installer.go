@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"istio.io/api/operator/v1alpha1"
 	"os"
 	"path/filepath"
 	"sort"
@@ -25,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 	goversion "github.com/hashicorp/go-version"
@@ -263,7 +265,7 @@ func parseKubectlVersion(kubectlStdout string) (*goversion.Version, *goversion.V
 }
 
 // ApplyAll applies all given manifests using kubectl client.
-func ApplyAll(manifests name.ManifestMap, version pkgversion.Version, revision string, opts *kubectlcmd.Options) (CompositeOutput, error) {
+func ApplyAll(manifests name.ManifestMap, version pkgversion.Version, iop *v1alpha1.IstioOperatorSpec, opts *kubectlcmd.Options) (CompositeOutput, error) {
 	scope.Infof("Preparing manifests for these components:")
 	for c := range manifests {
 		scope.Infof("- %s", c)
@@ -272,7 +274,29 @@ func ApplyAll(manifests name.ManifestMap, version pkgversion.Version, revision s
 	if _, err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
 		return nil, err
 	}
-	return applyRecursive(manifests, version, revision, opts)
+	// Set up the namespace for installation
+	if err := createNamespace(iop.Namespace); err != nil {
+		return nil, err
+	}
+	return applyRecursive(manifests, version, iop.Revision, opts)
+}
+
+func createNamespace(namespace string) error {
+	if namespace == "" {
+		// Setup default namespace
+		namespace = "istio-system"
+	}
+
+	// TODO we need to stop creating configs in every function that needs them. One client should be used.
+	cs, e := kubernetes.NewForConfig(k8sRESTConfig)
+	if e != nil {
+		return fmt.Errorf("k8s client error: %s", e)
+	}
+	_, err := cs.CoreV1().Namespaces().Create(&v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}})
+	if err != nil && !kerrors.IsNotFound(err) {
+		return fmt.Errorf("failed to create namespace %v: %v", namespace, err)
+	}
+	return nil
 }
 
 // Apply applies all given manifest using kubectl client.
