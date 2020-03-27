@@ -95,33 +95,6 @@ No
 </tbody>
 </table>
 </section>
-<h2 id="Params-LogInfo">Params.LogInfo</h2>
-<section>
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="Params-LogInfo-payload_template">
-<td><code>payloadTemplate</code></td>
-<td><code>string</code></td>
-<td>
-<p>A golang text/template template that will be executed to construct the payload for this log entry.
-It will be given the full set of variables for the log to use to construct its result.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="Params-MetricDatum">Params.MetricDatum</h2>
 <section>
 <p>CloudWatch metric format.</p>
@@ -142,6 +115,33 @@ No
 <td>
 <p>The unit of the metric. Must be valid cloudwatch unit value.
 <a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_MetricDatum.html">CloudWatch docs</a></p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params-LogInfo">Params.LogInfo</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params-LogInfo-payload_template">
+<td><code>payloadTemplate</code></td>
+<td><code>string</code></td>
+<td>
+<p>A golang text/template template that will be executed to construct the payload for this log entry.
+It will be given the full set of variables for the log to use to construct its result.</p>
 
 </td>
 <td>
