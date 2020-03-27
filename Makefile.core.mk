@@ -552,35 +552,6 @@ include tools/istio-docker.mk
 
 push: docker.push
 
-$(HOME)/.helm:
-	$(HELM) init --client-only
-
-# create istio-init.yaml
-istio-init.yaml: $(HOME)/.helm
-	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
-	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
-	$(HELM) template --name=istio --namespace=istio-system \
-		--set-string global.tag=${TAG_VARIANT} \
-		--set-string global.hub=${HUB} \
-		install/kubernetes/helm/istio-init >> install/kubernetes/$@
-
-# creates istio-demo.yaml istio-remote.yaml
-# Ensure that values-$filename is present in install/kubernetes/helm/istio
-istio-demo.yaml istio-remote.yaml istio-minimal.yaml: $(HOME)/.helm
-	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
-	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
-	$(HELM) template \
-		--name=istio \
-		--namespace=istio-system \
-		--set-string global.tag=${TAG_VARIANT} \
-		--set-string global.hub=${HUB} \
-		--set-string global.imagePullPolicy=$(PULL_POLICY) \
-		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
-		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
-		${EXTRA_HELM_SETTINGS} \
-		--values install/kubernetes/helm/istio/values-$@ \
-		install/kubernetes/helm/istio >> install/kubernetes/$@
-
 FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/istio-auth.yaml \
                 install/kubernetes/istio-citadel-plugin-certs.yaml \
