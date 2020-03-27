@@ -19,12 +19,21 @@ import (
 	"os"
 	"time"
 
+	"github.com/spf13/cobra"
+
+	"istio.io/api/operator/v1alpha1"
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/version"
+)
 
-	"github.com/spf13/cobra"
+const (
+	// installedSpecCRPrefix is the prefix of any IstioOperator CR stored in the cluster that is a copy of the CR used
+	// in the last manifest apply operation.
+	installedSpecCRPrefix = "installed-state"
 )
 
 type manifestApplyArgs struct {
@@ -119,7 +128,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 	if err != nil {
 		return err
 	}
-	manifests, iop, err := GenManifests(inFilenames, ysf, force, kubeconfig, l)
+	manifests, iops, err := GenManifests(inFilenames, ysf, force, kubeconfig, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate manifest: %v", err)
 	}
@@ -136,7 +145,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 		manifests[cn] = append(manifests[cn], fmt.Sprintf("# %s component has been deprecated.\n", cn))
 	}
 
-	out, err := manifest.ApplyAll(manifests, version.OperatorBinaryVersion, iop.Revision, opts)
+	out, err := manifest.ApplyAll(manifests, version.OperatorBinaryVersion, iops.Revision, opts)
 	if err != nil {
 		return fmt.Errorf("failed to apply manifest with kubectl client: %v", err)
 	}
@@ -160,7 +169,26 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 		l.logAndPrint("\n\n✘ Errors were logged during apply operation. Please check component installation logs above.\n")
 		return fmt.Errorf("errors were logged during apply operation")
 	}
-
 	l.logAndPrint("\n\n✔ Installation complete\n")
+
+	crName := installedSpecCRPrefix
+	if iops.Revision != "" {
+		crName += "-" + iops.Revision
+	}
+	if err := saveClusterState(iops, crName, opts); err != nil {
+		l.logAndPrintf("Failed to save install state in the cluster: %s", err)
+		return err
+	}
+
 	return nil
+}
+
+// saveClusterState stores the given IstioOperatorSpec in the cluster as an IstioOperator CR with the given name and
+// namespace.
+func saveClusterState(iops *v1alpha1.IstioOperatorSpec, name string, opts *kubectlcmd.Options) error {
+	iopStr, err := translate.IOPStoIOP(iops, name, iopv1alpha1.Namespace(iops))
+	if err != nil {
+		return fmt.Errorf("failed to apply manifest with kubectl client: %v", err)
+	}
+	return manifest.Apply(iopStr, opts)
 }

@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
+	"github.com/gogo/protobuf/proto"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes/scheme"
 
@@ -744,4 +745,36 @@ func createPatchObjectFromPath(node interface{}, path util.Path) (map[string]int
 		nextNode = currentNode[pe]
 	}
 	return patchObj, nil
+}
+
+// IOPStoIOP takes an IstioOperatorSpec and returns a corresponding IstioOperator with the given name and namespace.
+func IOPStoIOP(iops proto.Message, name, namespace string) (string, error) {
+	iopsStr, err := util.MarshalWithJSONPB(iops)
+	if err != nil {
+		return "", err
+	}
+	spec, err := tpath.AddSpecRoot(iopsStr)
+	if err != nil {
+		return "", err
+	}
+
+	tmpl := `
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: {{ .Namespace }}
+  name: {{ .Name }} 
+`
+	// Passing into template causes reformatting, use simple concatenation instead.
+	tmpl += spec
+
+	type Temp struct {
+		Namespace string
+		Name      string
+	}
+	ts := Temp{
+		Namespace: namespace,
+		Name:      name,
+	}
+	return util.RenderTemplate(tmpl, ts)
 }
