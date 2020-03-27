@@ -64,7 +64,6 @@ var (
 	// DNSUp controls the upstream DNS.
 	DNSUp = env.RegisterStringVar("dnsUp", "istiod.istio-system.svc:853",
 		"DNS-over-TLS upstream server")
-
 )
 
 // InitDNS will create the IstioDNS struct.
