@@ -31,11 +31,12 @@ import (
 )
 
 const (
-	serviceRoleBindingFile = "testdata/servicerolebinding.yaml"
-	serviceRoleFile        = "testdata/servicerole.yaml"
-	invalidFile            = "testdata/invalid.yaml"
-	invalidExtensionFile   = "testdata/invalid.md"
-	dirWithConfig          = "testdata/some-dir/"
+	serviceRoleBindingFile     = "testdata/servicerolebinding.yaml"
+	serviceRoleFile            = "testdata/servicerole.yaml"
+	invalidFile                = "testdata/invalid.yaml"
+	invalidExtensionFile       = "testdata/invalid.md"
+	jsonServiceRoleBindingFile = "testdata/servicerolebinding.json"
+	dirWithConfig              = "testdata/some-dir/"
 )
 
 var analyzerFoundIssuesError = cmd.AnalyzerFoundIssuesError{}
@@ -154,6 +155,27 @@ func TestInvalidFileError(t *testing.T) {
 			g.Expect(output[1]).To(ContainSubstring(fmt.Sprintf("errors parsing content \"%s\"", invalidFile)))
 
 			g.Expect(err).To(MatchError(cmd.FileParseError{}))
+		})
+}
+
+func TestJsonInputFile(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			g := NewGomegaWithT(t)
+
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+
+			// Validation error if we have a service role binding without a service role
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, jsonServiceRoleBindingFile)
+			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
+			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
+
 		})
 }
 
