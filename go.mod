@@ -62,10 +62,10 @@ require (
 	github.com/go-openapi/swag v0.19.6 // indirect
 	github.com/go-redis/redis v6.10.2+incompatible
 	github.com/gobwas/glob v0.2.3 // indirect
-	github.com/gogo/protobuf v1.3.1
+	github.com/gogo/protobuf v1.3.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
-	github.com/golang/protobuf v1.3.5
+	github.com/golang/protobuf v1.3.2
 	github.com/golang/sync v0.0.0-20180314180146-1d60e4601c6f
 	github.com/google/cel-go v0.2.0
 	github.com/google/go-cmp v0.3.1

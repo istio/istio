@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 101
+number_of_entries: 96
 ---
 <h2 id="AddonIngressConfig">AddonIngressConfig</h2>
 <section>
@@ -570,41 +570,6 @@ No
 </tbody>
 </table>
 </section>
-<h2 id="Resources">Resources</h2>
-<section>
-<p>Mirrors Resources for unmarshaling.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="Resources-limits">
-<td><code>limits</code></td>
-<td><code>map&lt;string,&nbsp;string&gt;</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="Resources-requests">
-<td><code>requests</code></td>
-<td><code>map&lt;string,&nbsp;string&gt;</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="CoreDNSConfig">CoreDNSConfig</h2>
 <section>
 <p>Configuration for Core DNS.</p>
@@ -1122,6 +1087,135 @@ No
 <td>
 <p>K8s rolling update strategy</p>
 
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="EnvoyAccessLogConfig">EnvoyAccessLogConfig</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="EnvoyAccessLogConfig-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="EnvoyAccessLogConfig-host">
+<td><code>host</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="EnvoyAccessLogConfig-port">
+<td><code>port</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="EnvoyAccessLogConfig-tlsSettings">
+<td><code>tlsSettings</code></td>
+<td><code><a href="#EnvoyAccessLogtlsSettings">EnvoyAccessLogtlsSettings</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="EnvoyAccessLogConfig-tcpKeepalive">
+<td><code>tcpKeepalive</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="EnvoyAccessLogtlsSettings">EnvoyAccessLogtlsSettings</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="EnvoyAccessLogtlsSettings-mode">
+<td><code>mode</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="EnvoyAccessLogtlsSettings-clientCertificate">
+<td><code>clientCertificate</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="EnvoyAccessLogtlsSettings-privateKey">
+<td><code>privateKey</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="EnvoyAccessLogtlsSettings-caCertificates">
+<td><code>caCertificates</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="EnvoyAccessLogtlsSettings-sni">
+<td><code>sni</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="EnvoyAccessLogtlsSettings-subjectAltNames">
+<td><code>subjectAltNames</code></td>
+<td><code>string[]</code></td>
+<td>
 </td>
 <td>
 No
@@ -2193,60 +2287,6 @@ No
 </tbody>
 </table>
 </section>
-<h2 id="STSConfig">STSConfig</h2>
-<section>
-<p>Configuration for Security Token Service (STS) server.</p>
-
-<p>See https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="STSConfig-servicePort">
-<td><code>servicePort</code></td>
-<td><code>uint32</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="IstiodConfig">IstiodConfig</h2>
-<section>
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="IstiodConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>If enabled, all control plane functionality will be handled by a single deployment.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="GlobalLoggingConfig">GlobalLoggingConfig</h2>
 <section>
 <p>GlobalLoggingConfig specifies the global logging level settings for the Istio control plane components.</p>
@@ -2832,6 +2872,489 @@ No
 </tbody>
 </table>
 </section>
+<h2 id="IstiodConfig">IstiodConfig</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="IstiodConfig-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>If enabled, all control plane functionality will be handled by a single deployment.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="KialiConfig">KialiConfig</h2>
+<section>
+<p>Configuration for Kiali addon.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="KialiConfig-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-createDemoSecret">
+<td><code>createDemoSecret</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-hub">
+<td><code>hub</code></td>
+<td><code>string</code></td>
+<td>
+<p>Image hub for kiali deployment.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-tag">
+<td><code>tag</code></td>
+<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
+<td>
+<p>Image tag for kiali deployment.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-prometheusNamespace">
+<td><code>prometheusNamespace</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-security">
+<td><code>security</code></td>
+<td><code><a href="#KialiSecurityConfig">KialiSecurityConfig</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-dashboard">
+<td><code>dashboard</code></td>
+<td><code><a href="#KialiDashboardConfig">KialiDashboardConfig</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-ingress">
+<td><code>ingress</code></td>
+<td><code><a href="#KialiIngressConfig">KialiIngressConfig</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-contextPath">
+<td><code>contextPath</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-service">
+<td><code>service</code></td>
+<td><code><a href="#KialiServiceConfig">KialiServiceConfig</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-replicaCount" class="deprecated ">
+<td><code>replicaCount</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>Number of replicas for Kiali.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-nodeSelector" class="deprecated ">
+<td><code>nodeSelector</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s node selector.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-podAnnotations" class="deprecated ">
+<td><code>podAnnotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s annotations for pods.</p>
+
+<p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-podAntiAffinityLabelSelector" class="deprecated ">
+<td><code>podAntiAffinityLabelSelector</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+<p>Pod anti-affinity label selector.</p>
+
+<p>Specify the pod anti-affinity that allows you to constrain which nodes
+your pod is eligible to be scheduled based on labels on pods that are
+already running on the node rather than based on labels on nodes.
+There are currently two types of anti-affinity:
+   &ldquo;requiredDuringSchedulingIgnoredDuringExecution&rdquo;
+   &ldquo;preferredDuringSchedulingIgnoredDuringExecution&rdquo;
+which denote “hard” vs. “soft” requirements, you can define your values
+in &ldquo;podAntiAffinityLabelSelector&rdquo; and &ldquo;podAntiAffinityTermLabelSelector&rdquo;
+correspondingly.
+See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity</p>
+
+<p>Examples:
+podAntiAffinityLabelSelector:
+ - key: security
+   operator: In
+   values: S1,S2
+   topologyKey: &ldquo;kubernetes.io/hostname&rdquo;
+ This pod anti-affinity rule says that the pod requires not to be scheduled
+ onto a node if that node is already running a pod with label having key
+ “security” and value “S1”.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-podAntiAffinityTermLabelSelector" class="deprecated ">
+<td><code>podAntiAffinityTermLabelSelector</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+<p>See PodAntiAffinityLabelSelector.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-tolerations" class="deprecated ">
+<td><code>tolerations</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-image" class="deprecated ">
+<td><code>image</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-resources" class="deprecated ">
+<td><code>resources</code></td>
+<td><code><a href="#Resources">Resources</a></code></td>
+<td>
+<p>K8s resources settings.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-prometheusAddr" class="deprecated ">
+<td><code>prometheusAddr</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="KialiDashboardConfig">KialiDashboardConfig</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="KialiDashboardConfig-secretName">
+<td><code>secretName</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiDashboardConfig-usernameKey">
+<td><code>usernameKey</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiDashboardConfig-passphraseKey">
+<td><code>passphraseKey</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiDashboardConfig-viewOnlyMode">
+<td><code>viewOnlyMode</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiDashboardConfig-grafanaURL">
+<td><code>grafanaURL</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiDashboardConfig-jaegerURL">
+<td><code>jaegerURL</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiDashboardConfig-auth">
+<td><code>auth</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiDashboardConfig-grafanaInClusterURL">
+<td><code>grafanaInClusterURL</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiDashboardConfig-jaegerInClusterURL">
+<td><code>jaegerInClusterURL</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="KialiIngressConfig">KialiIngressConfig</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="KialiIngressConfig-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiIngressConfig-annotations">
+<td><code>annotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiIngressConfig-tls">
+<td><code>tls</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiIngressConfig-hosts">
+<td><code>hosts</code></td>
+<td><code>string[]</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="KialiSecurityConfig">KialiSecurityConfig</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="KialiSecurityConfig-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiSecurityConfig-cert_file">
+<td><code>certFile</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiSecurityConfig-private_key_file">
+<td><code>privateKeyFile</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="KialiServiceConfig">KialiServiceConfig</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="KialiServiceConfig-annotations">
+<td><code>annotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiServiceConfig-type">
+<td><code>type</code></td>
+<td><code>string</code></td>
+<td>
+<p>Service type.</p>
+
+<p>See https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="KubernetesEnvMixerAdapterConfig">KubernetesEnvMixerAdapterConfig</h2>
 <section>
 <p>Configuration for Kubernetes environment adapter in mixer.</p>
@@ -3023,9 +3546,9 @@ No
 </tbody>
 </table>
 </section>
-<h2 id="MixerTelemetryAdaptersConfig">MixerTelemetryAdaptersConfig</h2>
+<h2 id="MixerConfig">MixerConfig</h2>
 <section>
-<p>Configuration for Mixer Telemetry adapters.</p>
+<p>Configuration for Mixer.</p>
 
 <table class="message-fields">
 <thead>
@@ -3037,54 +3560,33 @@ No
 </tr>
 </thead>
 <tbody>
-<tr id="MixerTelemetryAdaptersConfig-kubernetesenv">
-<td><code>kubernetesenv</code></td>
-<td><code><a href="#KubernetesEnvMixerAdapterConfig">KubernetesEnvMixerAdapterConfig</a></code></td>
+<tr id="MixerConfig-policy">
+<td><code>policy</code></td>
+<td><code><a href="#MixerPolicyConfig">MixerPolicyConfig</a></code></td>
 <td>
-<p>Configuration for Kubernetes environment adapter in mixer.</p>
+<p>MixerPolicyConfig is set of configurations for Mixer Policy</p>
 
 </td>
 <td>
 No
 </td>
 </tr>
-<tr id="MixerTelemetryAdaptersConfig-prometheus">
-<td><code>prometheus</code></td>
-<td><code><a href="#PrometheusMixerAdapterConfig">PrometheusMixerAdapterConfig</a></code></td>
+<tr id="MixerConfig-telemetry">
+<td><code>telemetry</code></td>
+<td><code><a href="#MixerTelemetryConfig">MixerTelemetryConfig</a></code></td>
 <td>
-<p>Configuration for Prometheus adapter in mixer.</p>
+<p>MixerTelemetryConfig is set of configurations for Mixer Telemetry</p>
 
 </td>
 <td>
 No
 </td>
 </tr>
-<tr id="MixerTelemetryAdaptersConfig-stdio">
-<td><code>stdio</code></td>
-<td><code><a href="#StdioMixerAdapterConfig">StdioMixerAdapterConfig</a></code></td>
+<tr id="MixerConfig-adapters">
+<td><code>adapters</code></td>
+<td><code><a href="#MixerTelemetryAdaptersConfig">MixerTelemetryAdaptersConfig</a></code></td>
 <td>
-<p>Configuration for stdio adapter in mixer, recommended for debug usage only.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="MixerTelemetryAdaptersConfig-stackdriver">
-<td><code>stackdriver</code></td>
-<td><code><a href="#StackdriverMixerAdapterConfig">StackdriverMixerAdapterConfig</a></code></td>
-<td>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="MixerTelemetryAdaptersConfig-useAdapterCRDs">
-<td><code>useAdapterCRDs</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Sets the &ndash;useAdapterCRDs mixer startup argument.</p>
+<p>Configuration for different mixer adapters.</p>
 
 </td>
 <td>
@@ -3156,56 +3658,6 @@ No
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
 <td>
 <p>Sets the &ndash;useAdapterCRDs mixer startup argument.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="MixerConfig">MixerConfig</h2>
-<section>
-<p>Configuration for Mixer.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="MixerConfig-policy">
-<td><code>policy</code></td>
-<td><code><a href="#MixerPolicyConfig">MixerPolicyConfig</a></code></td>
-<td>
-<p>MixerPolicyConfig is set of configurations for Mixer Policy</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="MixerConfig-telemetry">
-<td><code>telemetry</code></td>
-<td><code><a href="#MixerTelemetryConfig">MixerTelemetryConfig</a></code></td>
-<td>
-<p>MixerTelemetryConfig is set of configurations for Mixer Telemetry</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="MixerConfig-adapters">
-<td><code>adapters</code></td>
-<td><code><a href="#MixerTelemetryAdaptersConfig">MixerTelemetryAdaptersConfig</a></code></td>
-<td>
-<p>Configuration for different mixer adapters.</p>
 
 </td>
 <td>
@@ -3451,6 +3903,77 @@ No
 <td><code>tolerations</code></td>
 <td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
 <td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MixerTelemetryAdaptersConfig">MixerTelemetryAdaptersConfig</h2>
+<section>
+<p>Configuration for Mixer Telemetry adapters.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MixerTelemetryAdaptersConfig-kubernetesenv">
+<td><code>kubernetesenv</code></td>
+<td><code><a href="#KubernetesEnvMixerAdapterConfig">KubernetesEnvMixerAdapterConfig</a></code></td>
+<td>
+<p>Configuration for Kubernetes environment adapter in mixer.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="MixerTelemetryAdaptersConfig-prometheus">
+<td><code>prometheus</code></td>
+<td><code><a href="#PrometheusMixerAdapterConfig">PrometheusMixerAdapterConfig</a></code></td>
+<td>
+<p>Configuration for Prometheus adapter in mixer.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="MixerTelemetryAdaptersConfig-stdio">
+<td><code>stdio</code></td>
+<td><code><a href="#StdioMixerAdapterConfig">StdioMixerAdapterConfig</a></code></td>
+<td>
+<p>Configuration for stdio adapter in mixer, recommended for debug usage only.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="MixerTelemetryAdaptersConfig-stackdriver">
+<td><code>stackdriver</code></td>
+<td><code><a href="#StackdriverMixerAdapterConfig">StackdriverMixerAdapterConfig</a></code></td>
+<td>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="MixerTelemetryAdaptersConfig-useAdapterCRDs">
+<td><code>useAdapterCRDs</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Sets the &ndash;useAdapterCRDs mixer startup argument.</p>
+
 </td>
 <td>
 No
@@ -3922,6 +4445,35 @@ No
 </tbody>
 </table>
 </section>
+<h2 id="OutboundTrafficPolicyConfig-Mode">OutboundTrafficPolicyConfig.Mode</h2>
+<section>
+<p>Specifies the sidecar&rsquo;s default behavior when handling outbound traffic from the application.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="OutboundTrafficPolicyConfig-Mode-ALLOW_ANY">
+<td><code>ALLOW_ANY</code></td>
+<td>
+<p>Outbound traffic to unknown destinations will be allowed, in case there are no services or ServiceEntries for the destination port</p>
+
+</td>
+</tr>
+<tr id="OutboundTrafficPolicyConfig-Mode-REGISTRY_ONLY">
+<td><code>REGISTRY_ONLY</code></td>
+<td>
+<p>Restrict outbound traffic to services defined in the service registry as well as those defined through ServiceEntries</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="PilotConfig">PilotConfig</h2>
 <section>
 <p>Configuration for Pilot.</p>
@@ -4338,6 +4890,36 @@ No
 </tbody>
 </table>
 </section>
+<h2 id="PilotConfigSource">PilotConfigSource</h2>
+<section>
+<p>PilotConfigSource describes information about a configuration store inside a
+mesh. A single control plane instance can interact with one or more data
+sources.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="PilotConfigSource-subscribedResources">
+<td><code>subscribedResources</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Describes the source of configuration, if nothing is specified default is MCP.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="PilotIngressConfig">PilotIngressConfig</h2>
 <section>
 <p>Controls legacy k8s ingress. Only one pilot profile should enable ingress support.</p>
@@ -4409,296 +4991,6 @@ No
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
 <td>
 <p>Controls whether Istio policy is applied to Pilot.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="TelemetryConfig">TelemetryConfig</h2>
-<section>
-<p>Controls telemetry configuration</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="TelemetryConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Controls whether telemetry is exported for Pilot.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="TelemetryConfig-v1">
-<td><code>v1</code></td>
-<td><code><a href="#TelemetryV1Config">TelemetryV1Config</a></code></td>
-<td>
-<p>Use telemetry v1.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="TelemetryConfig-v2">
-<td><code>v2</code></td>
-<td><code><a href="#TelemetryV2Config">TelemetryV2Config</a></code></td>
-<td>
-<p>Use telemetry v2.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="TelemetryV1Config">TelemetryV1Config</h2>
-<section>
-<p>Controls whether pilot will configure telemetry v1.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="TelemetryV1Config-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Controls whether pilot will configure telemetry v1.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="TelemetryV2Config">TelemetryV2Config</h2>
-<section>
-<p>Controls whether pilot will configure telemetry v2.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="TelemetryV2Config-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Controls whether pilot will configure telemetry v2.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="TelemetryV2Config-prometheus">
-<td><code>prometheus</code></td>
-<td><code><a href="#TelemetryV2PrometheusConfig">TelemetryV2PrometheusConfig</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="TelemetryV2Config-stackdriver">
-<td><code>stackdriver</code></td>
-<td><code><a href="#TelemetryV2StackDriverConfig">TelemetryV2StackDriverConfig</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="TelemetryV2Config-metadata_exchange">
-<td><code>metadataExchange</code></td>
-<td><code><a href="#TelemetryV2MetadataExchangeConfig">TelemetryV2MetadataExchangeConfig</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="TelemetryV2MetadataExchangeConfig">TelemetryV2MetadataExchangeConfig</h2>
-<section>
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="TelemetryV2MetadataExchangeConfig-wasmEnabled">
-<td><code>wasmEnabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Controls whether enabled WebAssembly runtime for metadata exchange filter.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="TelemetryV2PrometheusConfig">TelemetryV2PrometheusConfig</h2>
-<section>
-<p>Conrols telemetry v2 prometheus settings.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="TelemetryV2PrometheusConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Controls whether stats envoyfilter would be enabled or not.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="TelemetryV2PrometheusConfig-wasmEnabled">
-<td><code>wasmEnabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Controls whether enabled WebAssembly runtime for stats filter.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="TelemetryV2StackDriverConfig">TelemetryV2StackDriverConfig</h2>
-<section>
-<p>Conrols telemetry v2 stackdriver settings.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="TelemetryV2StackDriverConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="TelemetryV2StackDriverConfig-logging">
-<td><code>logging</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="TelemetryV2StackDriverConfig-monitoring">
-<td><code>monitoring</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="TelemetryV2StackDriverConfig-topology">
-<td><code>topology</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="TelemetryV2StackDriverConfig-configOverride">
-<td><code>configOverride</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="PilotConfigSource">PilotConfigSource</h2>
-<section>
-<p>PilotConfigSource describes information about a configuration store inside a
-mesh. A single control plane instance can interact with one or more data
-sources.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="PilotConfigSource-subscribedResources">
-<td><code>subscribedResources</code></td>
-<td><code>string[]</code></td>
-<td>
-<p>Describes the source of configuration, if nothing is specified default is MCP.</p>
 
 </td>
 <td>
@@ -5516,135 +5808,6 @@ No
 </tbody>
 </table>
 </section>
-<h2 id="EnvoyAccessLogConfig">EnvoyAccessLogConfig</h2>
-<section>
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="EnvoyAccessLogConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="EnvoyAccessLogConfig-host">
-<td><code>host</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="EnvoyAccessLogConfig-port">
-<td><code>port</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="EnvoyAccessLogConfig-tlsSettings">
-<td><code>tlsSettings</code></td>
-<td><code><a href="#EnvoyAccessLogtlsSettings">EnvoyAccessLogtlsSettings</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="EnvoyAccessLogConfig-tcpKeepalive">
-<td><code>tcpKeepalive</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="EnvoyAccessLogtlsSettings">EnvoyAccessLogtlsSettings</h2>
-<section>
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="EnvoyAccessLogtlsSettings-mode">
-<td><code>mode</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="EnvoyAccessLogtlsSettings-clientCertificate">
-<td><code>clientCertificate</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="EnvoyAccessLogtlsSettings-privateKey">
-<td><code>privateKey</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="EnvoyAccessLogtlsSettings-caCertificates">
-<td><code>caCertificates</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="EnvoyAccessLogtlsSettings-sni">
-<td><code>sni</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="EnvoyAccessLogtlsSettings-subjectAltNames">
-<td><code>subjectAltNames</code></td>
-<td><code>string[]</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="ProxyInitConfig">ProxyInitConfig</h2>
 <section>
 <p>Configuration for proxy_init container which sets the pods&rsquo; networking to intercept the inbound/outbound traffic.</p>
@@ -5678,6 +5841,41 @@ No
 
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Resources">Resources</h2>
+<section>
+<p>Mirrors Resources for unmarshaling.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Resources-limits">
+<td><code>limits</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Resources-requests">
+<td><code>requests</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
 </td>
 <td>
 No
@@ -5782,6 +5980,34 @@ No
 <tr id="SDSConfig-token" class="deprecated ">
 <td><code>token</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="STSConfig">STSConfig</h2>
+<section>
+<p>Configuration for Security Token Service (STS) server.</p>
+
+<p>See https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="STSConfig-servicePort">
+<td><code>servicePort</code></td>
+<td><code>uint32</code></td>
 <td>
 </td>
 <td>
@@ -6393,10 +6619,8 @@ No
 </tbody>
 </table>
 </section>
-<h2 id="StdioMixerAdapterConfig">StdioMixerAdapterConfig</h2>
+<h2 id="StackdriverAuthConfig">StackdriverAuthConfig</h2>
 <section>
-<p>Configuration for stdio adapter in mixer, recommended for debug usage only.</p>
-
 <table class="message-fields">
 <thead>
 <tr>
@@ -6407,23 +6631,52 @@ No
 </tr>
 </thead>
 <tbody>
-<tr id="StdioMixerAdapterConfig-enabled">
-<td><code>enabled</code></td>
+<tr id="StackdriverAuthConfig-appCredentials">
+<td><code>appCredentials</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
 <td>
-<p>Enable stdio adapter to output logs and metrics to local machine.</p>
-
 </td>
 <td>
 No
 </td>
 </tr>
-<tr id="StdioMixerAdapterConfig-outputAsJson">
-<td><code>outputAsJson</code></td>
+<tr id="StackdriverAuthConfig-apiKey">
+<td><code>apiKey</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="StackdriverAuthConfig-serviceAccountPath">
+<td><code>serviceAccountPath</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="StackdriverContextGraph">StackdriverContextGraph</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="StackdriverContextGraph-enabled">
+<td><code>enabled</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
 <td>
-<p>Whether to output a console-friendly or json-friendly format.</p>
-
 </td>
 <td>
 No
@@ -6503,7 +6756,7 @@ No
 </tbody>
 </table>
 </section>
-<h2 id="StackdriverAuthConfig">StackdriverAuthConfig</h2>
+<h2 id="StackdriverMixerAdapterConfig-EnabledConfig">StackdriverMixerAdapterConfig.EnabledConfig</h2>
 <section>
 <table class="message-fields">
 <thead>
@@ -6515,27 +6768,9 @@ No
 </tr>
 </thead>
 <tbody>
-<tr id="StackdriverAuthConfig-appCredentials">
-<td><code>appCredentials</code></td>
+<tr id="StackdriverMixerAdapterConfig-EnabledConfig-enabled">
+<td><code>enabled</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="StackdriverAuthConfig-apiKey">
-<td><code>apiKey</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="StackdriverAuthConfig-serviceAccountPath">
-<td><code>serviceAccountPath</code></td>
-<td><code>string</code></td>
 <td>
 </td>
 <td>
@@ -6578,7 +6813,179 @@ No
 </tbody>
 </table>
 </section>
-<h2 id="StackdriverContextGraph">StackdriverContextGraph</h2>
+<h2 id="StdioMixerAdapterConfig">StdioMixerAdapterConfig</h2>
+<section>
+<p>Configuration for stdio adapter in mixer, recommended for debug usage only.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="StdioMixerAdapterConfig-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Enable stdio adapter to output logs and metrics to local machine.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="StdioMixerAdapterConfig-outputAsJson">
+<td><code>outputAsJson</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Whether to output a console-friendly or json-friendly format.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TelemetryConfig">TelemetryConfig</h2>
+<section>
+<p>Controls telemetry configuration</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TelemetryConfig-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Controls whether telemetry is exported for Pilot.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryConfig-v1">
+<td><code>v1</code></td>
+<td><code><a href="#TelemetryV1Config">TelemetryV1Config</a></code></td>
+<td>
+<p>Use telemetry v1.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryConfig-v2">
+<td><code>v2</code></td>
+<td><code><a href="#TelemetryV2Config">TelemetryV2Config</a></code></td>
+<td>
+<p>Use telemetry v2.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TelemetryV1Config">TelemetryV1Config</h2>
+<section>
+<p>Controls whether pilot will configure telemetry v1.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TelemetryV1Config-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Controls whether pilot will configure telemetry v1.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TelemetryV2Config">TelemetryV2Config</h2>
+<section>
+<p>Controls whether pilot will configure telemetry v2.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TelemetryV2Config-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Controls whether pilot will configure telemetry v2.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2Config-prometheus">
+<td><code>prometheus</code></td>
+<td><code><a href="#TelemetryV2PrometheusConfig">TelemetryV2PrometheusConfig</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2Config-stackdriver">
+<td><code>stackdriver</code></td>
+<td><code><a href="#TelemetryV2StackDriverConfig">TelemetryV2StackDriverConfig</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2Config-metadata_exchange">
+<td><code>metadataExchange</code></td>
+<td><code><a href="#TelemetryV2MetadataExchangeConfig">TelemetryV2MetadataExchangeConfig</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TelemetryV2MetadataExchangeConfig">TelemetryV2MetadataExchangeConfig</h2>
 <section>
 <table class="message-fields">
 <thead>
@@ -6590,9 +6997,112 @@ No
 </tr>
 </thead>
 <tbody>
-<tr id="StackdriverContextGraph-enabled">
+<tr id="TelemetryV2MetadataExchangeConfig-wasmEnabled">
+<td><code>wasmEnabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Controls whether enabled WebAssembly runtime for metadata exchange filter.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TelemetryV2PrometheusConfig">TelemetryV2PrometheusConfig</h2>
+<section>
+<p>Conrols telemetry v2 prometheus settings.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TelemetryV2PrometheusConfig-enabled">
 <td><code>enabled</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Controls whether stats envoyfilter would be enabled or not.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2PrometheusConfig-wasmEnabled">
+<td><code>wasmEnabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Controls whether enabled WebAssembly runtime for stats filter.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TelemetryV2StackDriverConfig">TelemetryV2StackDriverConfig</h2>
+<section>
+<p>Conrols telemetry v2 stackdriver settings.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TelemetryV2StackDriverConfig-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-logging">
+<td><code>logging</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-monitoring">
+<td><code>monitoring</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-topology">
+<td><code>topology</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-configOverride">
+<td><code>configOverride</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
 </td>
 <td>
@@ -6752,36 +7262,6 @@ No
 </tbody>
 </table>
 </section>
-<h2 id="TracerZipkinConfig">TracerZipkinConfig</h2>
-<section>
-<p>Configuration for the zipkin tracing service.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="TracerZipkinConfig-address">
-<td><code>address</code></td>
-<td><code>string</code></td>
-<td>
-<p>Address of zipkin instance in host:port format for reporting trace data.</p>
-
-<p>Example: <zipkin-collector-service>.<zipkin-collector-namespace>:941</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="TracerStackdriverConfig">TracerStackdriverConfig</h2>
 <section>
 <p>Configuration for the stackdriver tracing service.</p>
@@ -6834,6 +7314,36 @@ No
 <td><code>uint32</code></td>
 <td>
 <p>The global default max number of message events per span.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TracerZipkinConfig">TracerZipkinConfig</h2>
+<section>
+<p>Configuration for the zipkin tracing service.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TracerZipkinConfig-address">
+<td><code>address</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of zipkin instance in host:port format for reporting trace data.</p>
+
+<p>Example: <zipkin-collector-service>.<zipkin-collector-namespace>:941</p>
 
 </td>
 <td>
@@ -6979,102 +7489,6 @@ No
 <tr id="TracingConfig-tolerations" class="deprecated ">
 <td><code>tolerations</code></td>
 <td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="TracingOpencensusConfig">TracingOpencensusConfig</h2>
-<section>
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="TracingOpencensusConfig-hub">
-<td><code>hub</code></td>
-<td><code>string</code></td>
-<td>
-<p>Image hub for Opencensus tracing deployment.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="TracingOpencensusConfig-tag">
-<td><code>tag</code></td>
-<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
-<td>
-<p>Image tag for Opencensus tracing deployment.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="TracingOpencensusConfig-exporters">
-<td><code>exporters</code></td>
-<td><code><a href="#TracingOpencensusExportersConfig">TracingOpencensusExportersConfig</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="TracingOpencensusConfig-resources" class="deprecated ">
-<td><code>resources</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-<p>K8s resources settings.</p>
-
-<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="TracingOpencensusConfig-podAnnotations" class="deprecated ">
-<td><code>podAnnotations</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-<p>K8s annotations for pods.</p>
-
-<p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="TracingOpencensusExportersConfig">TracingOpencensusExportersConfig</h2>
-<section>
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="TracingOpencensusExportersConfig-stackdriver">
-<td><code>stackdriver</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
 </td>
 <td>
@@ -7288,6 +7702,102 @@ No
 </tbody>
 </table>
 </section>
+<h2 id="TracingOpencensusConfig">TracingOpencensusConfig</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TracingOpencensusConfig-hub">
+<td><code>hub</code></td>
+<td><code>string</code></td>
+<td>
+<p>Image hub for Opencensus tracing deployment.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TracingOpencensusConfig-tag">
+<td><code>tag</code></td>
+<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
+<td>
+<p>Image tag for Opencensus tracing deployment.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TracingOpencensusConfig-exporters">
+<td><code>exporters</code></td>
+<td><code><a href="#TracingOpencensusExportersConfig">TracingOpencensusExportersConfig</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TracingOpencensusConfig-resources" class="deprecated ">
+<td><code>resources</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s resources settings.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TracingOpencensusConfig-podAnnotations" class="deprecated ">
+<td><code>podAnnotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s annotations for pods.</p>
+
+<p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TracingOpencensusExportersConfig">TracingOpencensusExportersConfig</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TracingOpencensusExportersConfig-stackdriver">
+<td><code>stackdriver</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="TracingZipkinConfig">TracingZipkinConfig</h2>
 <section>
 <p>Configuration for Zipkin.</p>
@@ -7447,462 +7957,25 @@ No
 </tbody>
 </table>
 </section>
-<h2 id="KialiSecurityConfig">KialiSecurityConfig</h2>
+<h2 id="TypeIntOrStringForPB">TypeIntOrStringForPB</h2>
 <section>
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="KialiSecurityConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiSecurityConfig-cert_file">
-<td><code>certFile</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiSecurityConfig-private_key_file">
-<td><code>privateKeyFile</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
+<p>GOTYPE: *IntOrStringForPB</p>
+
 </section>
-<h2 id="KialiServiceConfig">KialiServiceConfig</h2>
+<h2 id="TypeInterface">TypeInterface</h2>
 <section>
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="KialiServiceConfig-annotations">
-<td><code>annotations</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiServiceConfig-type">
-<td><code>type</code></td>
-<td><code>string</code></td>
-<td>
-<p>Service type.</p>
+<p>GOTYPE: interface{}</p>
 
-<p>See https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
 </section>
-<h2 id="KialiDashboardConfig">KialiDashboardConfig</h2>
+<h2 id="TypeMapStringInterface">TypeMapStringInterface</h2>
 <section>
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="KialiDashboardConfig-secretName">
-<td><code>secretName</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiDashboardConfig-usernameKey">
-<td><code>usernameKey</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiDashboardConfig-passphraseKey">
-<td><code>passphraseKey</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiDashboardConfig-viewOnlyMode">
-<td><code>viewOnlyMode</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiDashboardConfig-grafanaURL">
-<td><code>grafanaURL</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiDashboardConfig-jaegerURL">
-<td><code>jaegerURL</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiDashboardConfig-auth">
-<td><code>auth</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiDashboardConfig-grafanaInClusterURL">
-<td><code>grafanaInClusterURL</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiDashboardConfig-jaegerInClusterURL">
-<td><code>jaegerInClusterURL</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
+<p>GOTYPE: map[string]interface{}</p>
+
 </section>
-<h2 id="KialiIngressConfig">KialiIngressConfig</h2>
+<h2 id="TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</h2>
 <section>
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="KialiIngressConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiIngressConfig-annotations">
-<td><code>annotations</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiIngressConfig-tls">
-<td><code>tls</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiIngressConfig-hosts">
-<td><code>hosts</code></td>
-<td><code>string[]</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="KialiConfig">KialiConfig</h2>
-<section>
-<p>Configuration for Kiali addon.</p>
+<p>GOTYPE: []map[string]interface{}</p>
 
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="KialiConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiConfig-createDemoSecret">
-<td><code>createDemoSecret</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiConfig-hub">
-<td><code>hub</code></td>
-<td><code>string</code></td>
-<td>
-<p>Image hub for kiali deployment.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiConfig-tag">
-<td><code>tag</code></td>
-<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
-<td>
-<p>Image tag for kiali deployment.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiConfig-prometheusNamespace">
-<td><code>prometheusNamespace</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiConfig-security">
-<td><code>security</code></td>
-<td><code><a href="#KialiSecurityConfig">KialiSecurityConfig</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiConfig-dashboard">
-<td><code>dashboard</code></td>
-<td><code><a href="#KialiDashboardConfig">KialiDashboardConfig</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiConfig-ingress">
-<td><code>ingress</code></td>
-<td><code><a href="#KialiIngressConfig">KialiIngressConfig</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiConfig-contextPath">
-<td><code>contextPath</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiConfig-service">
-<td><code>service</code></td>
-<td><code><a href="#KialiServiceConfig">KialiServiceConfig</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiConfig-replicaCount" class="deprecated ">
-<td><code>replicaCount</code></td>
-<td><code>uint32</code></td>
-<td>
-<p>Number of replicas for Kiali.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiConfig-nodeSelector" class="deprecated ">
-<td><code>nodeSelector</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-<p>K8s node selector.</p>
-
-<p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiConfig-podAnnotations" class="deprecated ">
-<td><code>podAnnotations</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-<p>K8s annotations for pods.</p>
-
-<p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiConfig-podAntiAffinityLabelSelector" class="deprecated ">
-<td><code>podAntiAffinityLabelSelector</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-<p>Pod anti-affinity label selector.</p>
-
-<p>Specify the pod anti-affinity that allows you to constrain which nodes
-your pod is eligible to be scheduled based on labels on pods that are
-already running on the node rather than based on labels on nodes.
-There are currently two types of anti-affinity:
-   &ldquo;requiredDuringSchedulingIgnoredDuringExecution&rdquo;
-   &ldquo;preferredDuringSchedulingIgnoredDuringExecution&rdquo;
-which denote “hard” vs. “soft” requirements, you can define your values
-in &ldquo;podAntiAffinityLabelSelector&rdquo; and &ldquo;podAntiAffinityTermLabelSelector&rdquo;
-correspondingly.
-See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity</p>
-
-<p>Examples:
-podAntiAffinityLabelSelector:
- - key: security
-   operator: In
-   values: S1,S2
-   topologyKey: &ldquo;kubernetes.io/hostname&rdquo;
- This pod anti-affinity rule says that the pod requires not to be scheduled
- onto a node if that node is already running a pod with label having key
- “security” and value “S1”.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiConfig-podAntiAffinityTermLabelSelector" class="deprecated ">
-<td><code>podAntiAffinityTermLabelSelector</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-<p>See PodAntiAffinityLabelSelector.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiConfig-tolerations" class="deprecated ">
-<td><code>tolerations</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiConfig-image" class="deprecated ">
-<td><code>image</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiConfig-resources" class="deprecated ">
-<td><code>resources</code></td>
-<td><code><a href="#Resources">Resources</a></code></td>
-<td>
-<p>K8s resources settings.</p>
-
-<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiConfig-prometheusAddr" class="deprecated ">
-<td><code>prometheusAddr</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
 </section>
 <h2 id="Values">Values</h2>
 <section>
@@ -8123,21 +8196,6 @@ No
 </tbody>
 </table>
 </section>
-<h2 id="TypeMapStringInterface">TypeMapStringInterface</h2>
-<section>
-<p>GOTYPE: map[string]interface{}</p>
-
-</section>
-<h2 id="TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</h2>
-<section>
-<p>GOTYPE: []map[string]interface{}</p>
-
-</section>
-<h2 id="TypeIntOrStringForPB">TypeIntOrStringForPB</h2>
-<section>
-<p>GOTYPE: *IntOrStringForPB</p>
-
-</section>
 <h2 id="ZeroVPNConfig">ZeroVPNConfig</h2>
 <section>
 <p>ZeroVPNConfig enables cross-cluster access using SNI matching.</p>
@@ -8175,38 +8233,9 @@ No
 </tbody>
 </table>
 </section>
-<h2 id="TypeInterface">TypeInterface</h2>
+<h2 id="accessLogEncoding">accessLogEncoding</h2>
 <section>
-<p>GOTYPE: interface{}</p>
-
-</section>
-<h2 id="StackdriverMixerAdapterConfig-EnabledConfig">StackdriverMixerAdapterConfig.EnabledConfig</h2>
-<section>
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="StackdriverMixerAdapterConfig-EnabledConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="OutboundTrafficPolicyConfig-Mode">OutboundTrafficPolicyConfig.Mode</h2>
-<section>
-<p>Specifies the sidecar&rsquo;s default behavior when handling outbound traffic from the application.</p>
+<p>Configures the access log for sidecar to JSON or TEXT</p>
 
 <table class="enum-values">
 <thead>
@@ -8216,54 +8245,14 @@ No
 </tr>
 </thead>
 <tbody>
-<tr id="OutboundTrafficPolicyConfig-Mode-ALLOW_ANY">
-<td><code>ALLOW_ANY</code></td>
+<tr id="accessLogEncoding-JSON">
+<td><code>JSON</code></td>
 <td>
-<p>Outbound traffic to unknown destinations will be allowed, in case there are no services or ServiceEntries for the destination port</p>
-
 </td>
 </tr>
-<tr id="OutboundTrafficPolicyConfig-Mode-REGISTRY_ONLY">
-<td><code>REGISTRY_ONLY</code></td>
+<tr id="accessLogEncoding-TEXT">
+<td><code>TEXT</code></td>
 <td>
-<p>Restrict outbound traffic to services defined in the service registry as well as those defined through ServiceEntries</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="mode">mode</h2>
-<section>
-<p>Throttling behavior for mixer.</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="mode-disabled">
-<td><code>disabled</code></td>
-<td>
-<p>Removes throttling behavior for mixer.</p>
-
-</td>
-</tr>
-<tr id="mode-log_only">
-<td><code>log_only</code></td>
-<td>
-<p>Enables an advisory mode for throttling behavior for mixer.</p>
-
-</td>
-</tr>
-<tr id="mode-enforce">
-<td><code>enforce</code></td>
-<td>
-<p>Turn on throttling behavior for mixer.</p>
-
 </td>
 </tr>
 </tbody>
@@ -8305,66 +8294,6 @@ No
 </tbody>
 </table>
 </section>
-<h2 id="accessLogEncoding">accessLogEncoding</h2>
-<section>
-<p>Configures the access log for sidecar to JSON or TEXT</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="accessLogEncoding-JSON">
-<td><code>JSON</code></td>
-<td>
-</td>
-</tr>
-<tr id="accessLogEncoding-TEXT">
-<td><code>TEXT</code></td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="tracer">tracer</h2>
-<section>
-<p>Specifies which tracer to use.</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="tracer-zipkin">
-<td><code>zipkin</code></td>
-<td>
-</td>
-</tr>
-<tr id="tracer-lightstep">
-<td><code>lightstep</code></td>
-<td>
-</td>
-</tr>
-<tr id="tracer-datadog">
-<td><code>datadog</code></td>
-<td>
-</td>
-</tr>
-<tr id="tracer-stackdriver">
-<td><code>stackdriver</code></td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="mode">mode</h2>
 <section>
 <p>Throttling behavior for mixer.</p>
@@ -8396,96 +8325,6 @@ No
 <td>
 <p>Turn on throttling behavior for mixer.</p>
 
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="OutboundTrafficPolicyConfig-Mode">OutboundTrafficPolicyConfig.Mode</h2>
-<section>
-<p>Specifies the sidecar&rsquo;s default behavior when handling outbound traffic from the application.</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="OutboundTrafficPolicyConfig-Mode-ALLOW_ANY">
-<td><code>ALLOW_ANY</code></td>
-<td>
-<p>Outbound traffic to unknown destinations will be allowed, in case there are no services or ServiceEntries for the destination port</p>
-
-</td>
-</tr>
-<tr id="OutboundTrafficPolicyConfig-Mode-REGISTRY_ONLY">
-<td><code>REGISTRY_ONLY</code></td>
-<td>
-<p>Restrict outbound traffic to services defined in the service registry as well as those defined through ServiceEntries</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="ingressControllerMode">ingressControllerMode</h2>
-<section>
-<p>Mode for the ingress controller.</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="ingressControllerMode-DEFAULT">
-<td><code>DEFAULT</code></td>
-<td>
-<p>Selects all Ingress resources, with or without Istio annotation.</p>
-
-</td>
-</tr>
-<tr id="ingressControllerMode-STRICT">
-<td><code>STRICT</code></td>
-<td>
-<p>Selects only resources with istio annotation.</p>
-
-</td>
-</tr>
-<tr id="ingressControllerMode-OFF">
-<td><code>OFF</code></td>
-<td>
-<p>No ingress or sync.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="accessLogEncoding">accessLogEncoding</h2>
-<section>
-<p>Configures the access log for sidecar to JSON or TEXT</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="accessLogEncoding-JSON">
-<td><code>JSON</code></td>
-<td>
-</td>
-</tr>
-<tr id="accessLogEncoding-TEXT">
-<td><code>TEXT</code></td>
-<td>
 </td>
 </tr>
 </tbody>

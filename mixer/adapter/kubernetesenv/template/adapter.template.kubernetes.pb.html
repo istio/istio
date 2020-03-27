@@ -37,82 +37,6 @@ spec:
     destination.serviceAccount: $out.destination_service_account_name
 </code></pre>
 
-<h2 id="Template">Template</h2>
-<section>
-<p>The <code>kubernetes</code> template represents data used to generate kubernetes-derived attributes.</p>
-
-<p>The values provided controls the manner in which the kubernetesenv adapter discovers and
-generates values related to pod information.
-Next ID: 8</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="Template-source_uid">
-<td><code>sourceUid</code></td>
-<td><code>string</code></td>
-<td>
-<p>Source pod&rsquo;s uid. Must be of the form: &ldquo;kubernetes://pod.namespace&rdquo;</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="Template-source_ip">
-<td><code>sourceIp</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#IPAddress">IPAddress</a></code></td>
-<td>
-<p>Source pod&rsquo;s ip.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="Template-destination_uid">
-<td><code>destinationUid</code></td>
-<td><code>string</code></td>
-<td>
-<p>Destination pod&rsquo;s uid. Must be of the form: &ldquo;kubernetes://pod.namespace&rdquo;</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="Template-destination_ip">
-<td><code>destinationIp</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#IPAddress">IPAddress</a></code></td>
-<td>
-<p>Destination pod&rsquo;s ip.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="Template-destination_port">
-<td><code>destinationPort</code></td>
-<td><code>int64</code></td>
-<td>
-<p>Destination container&rsquo;s port number.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="OutputTemplate">OutputTemplate</h2>
 <section>
 <p>OutputTemplate refers to the output from the adapter. It is used inside the attribute_binding section of the config
@@ -378,6 +302,82 @@ No
 <td><code>string</code></td>
 <td>
 <p>Refers to the Istio workload name for the destination pod. Attribute<em>bindings can refer to this field using $out.destination</em>workload_namespace</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Template">Template</h2>
+<section>
+<p>The <code>kubernetes</code> template represents data used to generate kubernetes-derived attributes.</p>
+
+<p>The values provided controls the manner in which the kubernetesenv adapter discovers and
+generates values related to pod information.
+Next ID: 8</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Template-source_uid">
+<td><code>sourceUid</code></td>
+<td><code>string</code></td>
+<td>
+<p>Source pod&rsquo;s uid. Must be of the form: &ldquo;kubernetes://pod.namespace&rdquo;</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Template-source_ip">
+<td><code>sourceIp</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#IPAddress">IPAddress</a></code></td>
+<td>
+<p>Source pod&rsquo;s ip.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Template-destination_uid">
+<td><code>destinationUid</code></td>
+<td><code>string</code></td>
+<td>
+<p>Destination pod&rsquo;s uid. Must be of the form: &ldquo;kubernetes://pod.namespace&rdquo;</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Template-destination_ip">
+<td><code>destinationIp</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#IPAddress">IPAddress</a></code></td>
+<td>
+<p>Destination pod&rsquo;s ip.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Template-destination_port">
+<td><code>destinationPort</code></td>
+<td><code>int64</code></td>
+<td>
+<p>Destination container&rsquo;s port number.</p>
 
 </td>
 <td>

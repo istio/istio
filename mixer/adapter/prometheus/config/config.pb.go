@@ -228,13 +228,13 @@ type isParams_MetricInfo_BucketsDefinition_Definition interface {
 }
 
 type Params_MetricInfo_BucketsDefinition_LinearBuckets struct {
-	LinearBuckets *Params_MetricInfo_BucketsDefinition_Linear `protobuf:"bytes,1,opt,name=linear_buckets,json=linearBuckets,proto3,oneof" json:"linear_buckets,omitempty"`
+	LinearBuckets *Params_MetricInfo_BucketsDefinition_Linear `protobuf:"bytes,1,opt,name=linear_buckets,json=linearBuckets,proto3,oneof"`
 }
 type Params_MetricInfo_BucketsDefinition_ExponentialBuckets struct {
-	ExponentialBuckets *Params_MetricInfo_BucketsDefinition_Exponential `protobuf:"bytes,2,opt,name=exponential_buckets,json=exponentialBuckets,proto3,oneof" json:"exponential_buckets,omitempty"`
+	ExponentialBuckets *Params_MetricInfo_BucketsDefinition_Exponential `protobuf:"bytes,2,opt,name=exponential_buckets,json=exponentialBuckets,proto3,oneof"`
 }
 type Params_MetricInfo_BucketsDefinition_ExplicitBuckets struct {
-	ExplicitBuckets *Params_MetricInfo_BucketsDefinition_Explicit `protobuf:"bytes,3,opt,name=explicit_buckets,json=explicitBuckets,proto3,oneof" json:"explicit_buckets,omitempty"`
+	ExplicitBuckets *Params_MetricInfo_BucketsDefinition_Explicit `protobuf:"bytes,3,opt,name=explicit_buckets,json=explicitBuckets,proto3,oneof"`
 }
 
 func (*Params_MetricInfo_BucketsDefinition_LinearBuckets) isParams_MetricInfo_BucketsDefinition_Definition() {
@@ -721,8 +721,7 @@ func (m *Params_MetricInfo_BucketsDefinition) MarshalToSizedBuffer(dAtA []byte) 
 }
 
 func (m *Params_MetricInfo_BucketsDefinition_LinearBuckets) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
 }
 
 func (m *Params_MetricInfo_BucketsDefinition_LinearBuckets) MarshalToSizedBuffer(dAtA []byte) (int, error) {
@@ -742,8 +741,7 @@ func (m *Params_MetricInfo_BucketsDefinition_LinearBuckets) MarshalToSizedBuffer
 	return len(dAtA) - i, nil
 }
 func (m *Params_MetricInfo_BucketsDefinition_ExponentialBuckets) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
 }
 
 func (m *Params_MetricInfo_BucketsDefinition_ExponentialBuckets) MarshalToSizedBuffer(dAtA []byte) (int, error) {
@@ -763,8 +761,7 @@ func (m *Params_MetricInfo_BucketsDefinition_ExponentialBuckets) MarshalToSizedB
 	return len(dAtA) - i, nil
 }
 func (m *Params_MetricInfo_BucketsDefinition_ExplicitBuckets) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
 }
 
 func (m *Params_MetricInfo_BucketsDefinition_ExplicitBuckets) MarshalToSizedBuffer(dAtA []byte) (int, error) {
@@ -2209,7 +2206,6 @@ func (m *Params_MetricsExpirationPolicy) Unmarshal(dAtA []byte) error {
 func skipConfig(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
-	depth := 0
 	for iNdEx < l {
 		var wire uint64
 		for shift := uint(0); ; shift += 7 {
@@ -2241,8 +2237,10 @@ func skipConfig(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
+			return iNdEx, nil
 		case 1:
 			iNdEx += 8
+			return iNdEx, nil
 		case 2:
 			var length int
 			for shift := uint(0); ; shift += 7 {
@@ -2263,30 +2261,55 @@ func skipConfig(dAtA []byte) (n int, err error) {
 				return 0, ErrInvalidLengthConfig
 			}
 			iNdEx += length
-		case 3:
-			depth++
-		case 4:
-			if depth == 0 {
-				return 0, ErrUnexpectedEndOfGroupConfig
+			if iNdEx < 0 {
+				return 0, ErrInvalidLengthConfig
 			}
-			depth--
+			return iNdEx, nil
+		case 3:
+			for {
+				var innerWire uint64
+				var start int = iNdEx
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return 0, ErrIntOverflowConfig
+					}
+					if iNdEx >= l {
+						return 0, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					innerWire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				innerWireType := int(innerWire & 0x7)
+				if innerWireType == 4 {
+					break
+				}
+				next, err := skipConfig(dAtA[start:])
+				if err != nil {
+					return 0, err
+				}
+				iNdEx = start + next
+				if iNdEx < 0 {
+					return 0, ErrInvalidLengthConfig
+				}
+			}
+			return iNdEx, nil
+		case 4:
+			return iNdEx, nil
 		case 5:
 			iNdEx += 4
+			return iNdEx, nil
 		default:
 			return 0, fmt.Errorf("proto: illegal wireType %d", wireType)
 		}
-		if iNdEx < 0 {
-			return 0, ErrInvalidLengthConfig
-		}
-		if depth == 0 {
-			return iNdEx, nil
-		}
 	}
-	return 0, io.ErrUnexpectedEOF
+	panic("unreachable")
 }
 
 var (
-	ErrInvalidLengthConfig        = fmt.Errorf("proto: negative length found during unmarshaling")
-	ErrIntOverflowConfig          = fmt.Errorf("proto: integer overflow")
-	ErrUnexpectedEndOfGroupConfig = fmt.Errorf("proto: unexpected end of group")
+	ErrInvalidLengthConfig = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrIntOverflowConfig   = fmt.Errorf("proto: integer overflow")
 )
