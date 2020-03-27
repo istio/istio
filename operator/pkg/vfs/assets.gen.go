@@ -26910,13 +26910,6 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
   "uid": "vu8e0VWZk",
   "version": 22
 }
-
-var _chartsIstioTelemetryKialiChartYaml = []byte(`apiVersion: v1
-description: Kiali is an open source project for service mesh observability, refer to https://www.kiali.io for details.
-name: kiali
-version: 1.15.0
-appVersion: 1.15.0
-tillerVersion: ">=2.7.2"
 `)
 
 func chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJsonBytes() ([]byte, error) {
@@ -31855,60 +31848,6 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioWorkloadDashboardJson = []byte(`{
   "uid": "UbsSZTDik",
   "version": 1
 }
-
-var _chartsIstioTelemetryKialiTemplatesConfigmapYaml = []byte(`apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: kiali
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: kiali
-    release: {{ .Release.Name }}
-data:
-  config.yaml: |
-    istio_component_namespaces:
-      grafana: {{ .Values.global.telemetryNamespace }}
-      tracing: {{ .Values.global.telemetryNamespace }}
-      pilot: {{ .Values.global.configNamespace }}
-      prometheus: {{ .Values.global.prometheusNamespace }}
-    istio_namespace: {{ .Values.global.istioNamespace }}
-    auth:
-      strategy: {{ .Values.kiali.dashboard.auth.strategy }}
-{{- if eq .Values.kiali.dashboard.auth.strategy "ldap" }}
-      ldap:
-{{- with .Values.kiali.dashboard.auth.strategy.ldap }}
-{{ toYaml . | indent 8 }}
-{{- end }}
-{{- end }}
-    deployment:
-      accessible_namespaces: ['**']
-    login_token:
-      signing_key: {{ randAlphaNum 10 | quote }}
-    server:
-      port: 20001
-{{- if .Values.kiali.contextPath }}
-      web_root: {{ .Values.kiali.contextPath }}
-{{- end }}
-    external_services:
-      istio:
-        url_service_version: http://istio-pilot.{{ .Values.global.configNamespace }}:8080/version
-      tracing:
-        url: {{ .Values.kiali.dashboard.jaegerURL }}
-        in_cluster_url: {{ .Values.kiali.dashboard.jaegerInClusterURL }}
-      grafana:
-        url: {{ .Values.kiali.dashboard.grafanaURL }}
-        in_cluster_url: {{ .Values.kiali.dashboard.grafanaInClusterURL }}
-      prometheus:
-{{- if .Values.global.prometheusNamespace }}
-        url: http://prometheus.{{ .Values.global.prometheusNamespace }}:9090
-{{ else }}
-        url: http://prometheus:9090
-{{- end }}
-{{- if .Values.kiali.security.enabled }}
-    identity:
-      cert_file: {{ .Values.kiali.security.cert_file }}
-      private_key_file: {{ .Values.kiali.security.private_key_file }}
-{{- end}}
 `)
 
 func chartsIstioTelemetryGrafanaDashboardsIstioWorkloadDashboardJsonBytes() ([]byte, error) {
@@ -35569,93 +35508,17 @@ var _chartsIstioTelemetryGrafanaFix_datasourcesSh = []byte(`#!/bin/bash
 
 # Copyright Istio Authors
 #
-kiali:
-  enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `+"`"+`true`+"`"+`.
-  replicaCount: 1
-  hub: quay.io/kiali
-  tag: v1.15
-  image: kiali
-  contextPath: /kiali # The root context path to access the Kiali UI.
-  nodeSelector: {}
-  tolerations: []
-  podAnnotations: {}
-
-  # Specify the pod anti-affinity that allows you to constrain which nodes
-  # your pod is eligible to be scheduled based on labels on pods that are
-  # already running on the node rather than based on labels on nodes.
-  # There are currently two types of anti-affinity:
-  #    "requiredDuringSchedulingIgnoredDuringExecution"
-  #    "preferredDuringSchedulingIgnoredDuringExecution"
-  # which denote "hard" vs. "soft" requirements, you can define your values
-  # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
-  # correspondingly.
-  # For example:
-  # podAntiAffinityLabelSelector:
-  # - key: security
-  #   operator: In
-  #   values: S1,S2
-  #   topologyKey: "kubernetes.io/hostname"
-  # This pod anti-affinity rule says that the pod requires not to be scheduled
-  # onto a node if that node is already running a pod with label having key
-  # "security" and value "S1".
-  podAntiAffinityLabelSelector: []
-  podAntiAffinityTermLabelSelector: []
-
-  ingress:
-    enabled: false
-    ## Used to create an Ingress record.
-    hosts:
-      - kiali.local
-    annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-    tls:
-    # Secrets must be manually created in the namespace.
-    # - secretName: kiali-tls
-    #   hosts:
-    #     - kiali.local
-
-  dashboard:
-    auth:
-      strategy: login # Can be anonymous, login, openshift, or ldap
-      # ldap: # This is required to use the ldap strategy
-      #   ldap_base: "DC=example,DC=com"
-      #   ldap_bind_dn: "CN={USERID},OU=xyz,OU=Users,OU=Accounts,DC=example,DC=com"
-      #   ldap_group_filter: "(cn=%s)"
-      #   ldap_host: "ldap-service.ldap-namespace"
-      #   ldap_insecure_skip_verify: true
-      #   ldap_mail_id_key: "mail"
-      #   ldap_member_of_key: "memberOf"
-      #   ldap_port: 123
-      #   ldap_role_filter: ".*xyz.*"
-      #   ldap_search_filter: "(&(name={USERID}))"
-      #   ldap_use_ssl: false
-      #   ldap_user_filter: "(cn=%s)"
-      #   ldap_user_id_key: "cn"
-
-    secretName: kiali # You must create a secret with this name - one is not provided out-of-box unless you've chose to create a demo secret.
-    usernameKey: username # This is the key name within the secret whose value is the actual username.
-    passphraseKey: passphrase # This is the key name within the secret whose value is the actual passphrase.
-
-    viewOnlyMode: false # Bind the service account to a role with only read access
-
-    grafanaURL: "" # If you have Grafana installed and it is accessible to client browsers, then set this to its external URL. Kiali will redirect users to this URL when Grafana metrics are to be shown.
-    grafanaInClusterURL: "http://grafana:3000" # In Kubernetes cluster with ELB in front this option is needed, since public IP of ELB is not reachable from inside the cluster
-    jaegerURL: "" # If you have Jaeger installed and it is accessible to client browsers, then set this property to its external URL. Kiali will redirect users to this URL when Jaeger tracing is to be shown.
-    jaegerInClusterURL: "http://tracing/jaeger" # If you have Jaeger installed and accessible from Kiali pod (typically in cluster), then set this property to enable more tracing charts within Kiali.
-
-  createDemoSecret: true # When true, a secret will be created with a default username and password. Useful for demos.
-
-  resources: {}
-  security:
-    enabled: false
-    cert_file: /kiali-cert/cert-chain.pem
-    private_key_file: /kiali-cert/key.pem
-`)
-
-func chartsIstioTelemetryKialiValuesYamlBytes() ([]byte, error) {
-	return _chartsIstioTelemetryKialiValuesYaml, nil
-}
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
 
 set -e
 
@@ -36330,8 +36193,8 @@ func chartsIstioTelemetryGrafanaValuesYaml() (*asset, error) {
 var _chartsIstioTelemetryKialiChartYaml = []byte(`apiVersion: v1
 description: Kiali is an open source project for service mesh observability, refer to https://www.kiali.io for details.
 name: kiali
-version: 1.14.0
-appVersion: 1.14.0
+version: 1.15.0
+appVersion: 1.15.0
 tillerVersion: ">=2.7.2"
 keywords:
   - istio-addon
@@ -36685,6 +36548,8 @@ data:
 {{- end }}
     deployment:
       accessible_namespaces: ['**']
+    login_token:
+      signing_key: {{ randAlphaNum 10 | quote }}
     server:
       port: 20001
 {{- if .Values.kiali.contextPath }}
@@ -36951,7 +36816,7 @@ kiali:
   enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `+"`"+`true`+"`"+`.
   replicaCount: 1
   hub: quay.io/kiali
-  tag: v1.14
+  tag: v1.15
   image: kiali
   contextPath: /kiali # The root context path to access the Kiali UI.
   nodeSelector: {}

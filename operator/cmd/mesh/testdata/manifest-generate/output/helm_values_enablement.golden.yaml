@@ -268,7 +268,6 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         image: quay.io/kiali/kiali:v1.15
-        imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
             path: /kiali/healthz
