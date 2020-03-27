@@ -21,7 +21,6 @@ import (
 	"sync"
 	"time"
 
-	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/monitoring"
@@ -119,9 +118,6 @@ type PushContext struct {
 	// Config interface for listing routing rules
 	IstioConfigStore `json:"-"`
 
-	// AuthNPolicies contains a map of hostname and port to authentication policy
-	AuthnPolicies processedAuthnPolicies `json:"-"`
-
 	// AuthnBetaPolicies contains (beta) Authn policies by namespace.
 	AuthnBetaPolicies *AuthenticationPolicies `json:"-"`
 
@@ -146,21 +142,7 @@ type processedDestRules struct {
 	// List of dest rule hosts. We match with the most specific host first
 	hosts []host.Name
 	// Map of dest rule host and the merged destination rules for that host
-	destRule map[host.Name]*combinedDestinationRule
-}
-
-type processedAuthnPolicies struct {
-	policies map[host.Name][]*authnPolicyByPort
-	// default cluster-scoped (global) policy to be used if no other authn policy is found
-	defaultMeshPolicy     *authn.Policy
-	defaultMeshPolicyMeta *ConfigMeta
-}
-
-type authnPolicyByPort struct {
-	portSelector *authn.PortSelector
-	policy       *authn.Policy
-	// store the config metadata for debugging purposes.
-	configMeta *ConfigMeta
+	destRule map[host.Name]*Config
 }
 
 // XDSUpdater is used for direct updates of the xDS model and incremental push.
@@ -321,12 +303,6 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 type ProxyPushStatus struct {
 	Proxy   string `json:"proxy,omitempty"`
 	Message string `json:"message,omitempty"`
-}
-
-type combinedDestinationRule struct {
-	subsets map[string]struct{} // list of subsets seen so far
-	// We are not doing ports
-	config *Config
 }
 
 // IsMixerEnabled returns true if mixer is enabled in the Mesh config.
@@ -510,9 +486,6 @@ func NewPushContext() *PushContext {
 		ServiceByHostnameAndNamespace:     map[host.Name]map[string]*Service{},
 		ProxyStatus:                       map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:                   map[host.Name]map[int][]string{},
-		AuthnPolicies: processedAuthnPolicies{
-			policies: map[host.Name][]*authnPolicyByPort{},
-		},
 	}
 }
 
@@ -775,16 +748,19 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 	// proxies like the istio-ingressgateway or istio-egressgateway.
 	// If there are no service specific dest rules, we will end up picking up the same
 	// rules anyway, later in the code
+
+	// 1. select destination rule from proxy config namespace
 	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
 		// search through the DestinationRules in proxy's namespace first
 		if ps.namespaceLocalDestRules[proxy.ConfigNamespace] != nil {
 			if hostname, ok := MostSpecificHostMatch(service.Hostname,
 				ps.namespaceLocalDestRules[proxy.ConfigNamespace].hosts); ok {
-				return ps.namespaceLocalDestRules[proxy.ConfigNamespace].destRule[hostname].config
+				return ps.namespaceLocalDestRules[proxy.ConfigNamespace].destRule[hostname]
 			}
 		}
 	}
 
+	// 2. select destination rule from service namespace
 	svcNs := service.Attributes.Namespace
 
 	// This can happen when finding the subset labels for a proxy in root namespace.
@@ -799,22 +775,22 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 		}
 	}
 
-	// if no private/public rule matched in the calling proxy's namespace,
+	// 3. if no private/public rule matched in the calling proxy's namespace,
 	// check the target service's namespace for public rules
 	if svcNs != "" && ps.namespaceExportedDestRules[svcNs] != nil {
 		if hostname, ok := MostSpecificHostMatch(service.Hostname,
 			ps.namespaceExportedDestRules[svcNs].hosts); ok {
-			return ps.namespaceExportedDestRules[svcNs].destRule[hostname].config
+			return ps.namespaceExportedDestRules[svcNs].destRule[hostname]
 		}
 	}
 
-	// if no public/private rule in calling proxy's namespace matched, and no public rule in the
+	// 4. if no public/private rule in calling proxy's namespace matched, and no public rule in the
 	// target service's namespace matched, search for any public destination rule in the config root namespace
 	// NOTE: This does mean that we are effectively ignoring private dest rules in the config root namespace
 	if ps.namespaceExportedDestRules[ps.Mesh.RootNamespace] != nil {
 		if hostname, ok := MostSpecificHostMatch(service.Hostname,
 			ps.namespaceExportedDestRules[ps.Mesh.RootNamespace].hosts); ok {
-			return ps.namespaceExportedDestRules[ps.Mesh.RootNamespace].destRule[hostname].config
+			return ps.namespaceExportedDestRules[ps.Mesh.RootNamespace].destRule[hostname]
 		}
 	}
 
@@ -1008,7 +984,6 @@ func (ps *PushContext) updateContext(
 			return err
 		}
 	} else {
-		ps.AuthnPolicies = oldPushContext.AuthnPolicies
 		ps.AuthnBetaPolicies = oldPushContext.AuthnBetaPolicies
 	}
 
@@ -1129,64 +1104,7 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 		return initBetaPolicyErro
 	}
 
-	// Processing alpha policy. This will be removed after beta API released.
-	authNPolicies, err := env.List(collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind(), NamespaceAll)
-	if err != nil {
-		return err
-	}
-
-	sortConfigByCreationTime(authNPolicies)
-	ps.AuthnPolicies = processedAuthnPolicies{
-		policies: map[host.Name][]*authnPolicyByPort{},
-	}
-
-	for idx := range authNPolicies {
-		// golang pass every thing by value, so do this to access to the config object by pointer.
-		spec := &authNPolicies[idx]
-		policy := spec.Spec.(*authn.Policy)
-		// Fill JwksURI if missing. Ignoring error, as when it happens, jwksURI will be left empty
-		// and result in rejecting all request. This is acceptable behavior when JWT spec is not complete
-		// to run Jwt validation.
-		_ = JwtKeyResolver.SetAuthenticationPolicyJwksURIs(policy)
-
-		if len(policy.Targets) > 0 {
-			for _, dest := range policy.Targets {
-				hostName := ResolveShortnameToFQDN(dest.Name, spec.ConfigMeta)
-				if len(dest.Ports) > 0 {
-					for _, port := range dest.Ports {
-						ps.addAuthnPolicy(hostName, port, policy, &spec.ConfigMeta)
-					}
-				} else {
-					ps.addAuthnPolicy(hostName, nil, policy, &spec.ConfigMeta)
-				}
-
-			}
-		} else {
-			// if no targets provided, store at namespace level
-			// TODO GregHanson possible refactor so namespace is not cast to host.Name
-			ps.addAuthnPolicy(host.Name(spec.Namespace), nil, policy, &spec.ConfigMeta)
-		}
-	}
-
-	if specs, err := env.List(collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().GroupVersionKind(), NamespaceAll); err == nil {
-		for _, spec := range specs {
-			if spec.Name == constants.DefaultAuthenticationPolicyName {
-				ps.AuthnPolicies.defaultMeshPolicy = spec.Spec.(*authn.Policy)
-				ps.AuthnPolicies.defaultMeshPolicyMeta = &spec.ConfigMeta
-				break
-			}
-		}
-	}
-
 	return nil
-}
-
-func (ps *PushContext) addAuthnPolicy(hostname host.Name, selector *authn.PortSelector, policy *authn.Policy, configMeta *ConfigMeta) {
-	ps.AuthnPolicies.policies[hostname] = append(ps.AuthnPolicies.policies[hostname], &authnPolicyByPort{
-		policy:       policy,
-		configMeta:   configMeta,
-		portSelector: selector,
-	})
 }
 
 // Caches list of virtual services
@@ -1427,50 +1345,6 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 	return nil
 }
 
-// AuthenticationPolicyForWorkload returns the matching auth policy for a given service
-// This replaces store.AuthenticationPolicyForWorkload
-func (ps *PushContext) AuthenticationPolicyForWorkload(service *Service, port *Port) (*authn.Policy, *ConfigMeta) {
-	// Match by Service hostname
-	if workloadPolicy, configMeta := authenticationPolicyForWorkload(
-		ps.AuthnPolicies.policies[service.Hostname], port); workloadPolicy != nil {
-		return workloadPolicy, configMeta
-	}
-
-	// Match by namespace
-	if workloadPolicy, configMeta := authenticationPolicyForWorkload(
-		ps.AuthnPolicies.policies[host.Name(service.Attributes.Namespace)], port); workloadPolicy != nil {
-		return workloadPolicy, configMeta
-	}
-
-	// Use default global authentication policy if no others found
-	return ps.AuthnPolicies.defaultMeshPolicy, ps.AuthnPolicies.defaultMeshPolicyMeta
-}
-
-func authenticationPolicyForWorkload(policiesByPort []*authnPolicyByPort, port *Port) (*authn.Policy, *ConfigMeta) {
-	var matchedPolicy *authn.Policy
-	var matchedMeta *ConfigMeta
-	if policiesByPort == nil {
-		return nil, nil
-	}
-
-	for i, policyByPort := range policiesByPort {
-		// TODO GregHanson correct default behavior if no port specified?
-		// issue #17278
-		if policyByPort.portSelector == nil && matchedPolicy == nil {
-			matchedPolicy = policiesByPort[i].policy
-			matchedMeta = policiesByPort[i].configMeta
-		}
-
-		if port != nil && policyByPort.portSelector != nil && port.Match(policyByPort.portSelector) {
-			matchedPolicy = policiesByPort[i].policy
-			matchedMeta = policiesByPort[i].configMeta
-			break
-		}
-	}
-
-	return matchedPolicy, matchedMeta
-}
-
 // SetDestinationRules is updates internal structures using a set of configs.
 // Split out of DestinationRule expensive conversions, computed once per push.
 // This also allows tests to inject a config without having the mock.
@@ -1493,16 +1367,12 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 		if _, exist := namespaceLocalDestRules[configs[i].Namespace]; !exist {
 			namespaceLocalDestRules[configs[i].Namespace] = &processedDestRules{
 				hosts:    make([]host.Name, 0),
-				destRule: map[host.Name]*combinedDestinationRule{},
+				destRule: map[host.Name]*Config{},
 			}
 		}
 		// Merge this destination rule with any public/private dest rules for same host in the same namespace
 		// If there are no duplicates, the dest rule will be added to the list
-		namespaceLocalDestRules[configs[i].Namespace].hosts = ps.combineSingleDestinationRule(
-			namespaceLocalDestRules[configs[i].Namespace].hosts,
-			namespaceLocalDestRules[configs[i].Namespace].destRule,
-			configs[i])
-
+		ps.mergeDestinationRule(namespaceLocalDestRules[configs[i].Namespace], configs[i])
 		isPubliclyExported := false
 		if len(rule.ExportTo) == 0 {
 			// No exportTo in destinationRule. Use the global default
@@ -1524,15 +1394,12 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 			if _, exist := namespaceExportedDestRules[configs[i].Namespace]; !exist {
 				namespaceExportedDestRules[configs[i].Namespace] = &processedDestRules{
 					hosts:    make([]host.Name, 0),
-					destRule: map[host.Name]*combinedDestinationRule{},
+					destRule: map[host.Name]*Config{},
 				}
 			}
 			// Merge this destination rule with any public dest rule for the same host in the same namespace
 			// If there are no duplicates, the dest rule will be added to the list
-			namespaceExportedDestRules[configs[i].Namespace].hosts = ps.combineSingleDestinationRule(
-				namespaceExportedDestRules[configs[i].Namespace].hosts,
-				namespaceExportedDestRules[configs[i].Namespace].destRule,
-				configs[i])
+			ps.mergeDestinationRule(namespaceExportedDestRules[configs[i].Namespace], configs[i])
 		}
 	}
 
@@ -1636,7 +1503,6 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 				}
 			}
 		}
-		out.DeprecatedFilters = append(out.DeprecatedFilters, efw.DeprecatedFilters...)
 	}
 
 	return out
@@ -1808,13 +1674,6 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(service *Service, port *Po
 	// If the mode is not unknown, use it.
 	if serviceMTLSMode := ps.AuthnBetaPolicies.GetNamespaceMutualTLSMode(service.Attributes.Namespace); serviceMTLSMode != MTLSUnknown {
 		return serviceMTLSMode
-	}
-
-	// Namespace/Mesh PeerAuthentication does not exist, check alpha authN policy.
-	policy, _ := ps.AuthenticationPolicyForWorkload(service, port)
-	if policy != nil {
-		// If alpha authN policy exist, used the mode defined by the policy.
-		return v1alpha1PolicyToMutualTLSMode(policy)
 	}
 
 	// When all are failed, default to permissive.

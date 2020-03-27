@@ -53,7 +53,7 @@ fi
 
 # Build image to use
 if [[ "${IMAGE_VERSION:-}" == "" ]]; then
-  export IMAGE_VERSION=master-2020-03-18T15-19-34
+  export IMAGE_VERSION=master-2020-03-24T16-16-03
 fi
 if [[ "${IMAGE_NAME:-}" == "" ]]; then
   export IMAGE_NAME=build-tools
@@ -96,6 +96,9 @@ if [[ -d "${HOME}/.kube" ]]; then
   CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.kube,destination=/home/.kube "
 fi
 
+# Avoid recursive calls to make from attempting to start an additional container
+export BUILD_WITH_CONTAINER=0
+
 # For non container build, we need to write env to file
 if [[ "${1}" == "envfile" ]]; then
   echo "TARGET_OUT_LINUX=${TARGET_OUT_LINUX}"
@@ -105,4 +108,5 @@ if [[ "${1}" == "envfile" ]]; then
   echo "TARGET_OS=${TARGET_OS}"
   echo "LOCAL_ARCH=${LOCAL_ARCH}"
   echo "TARGET_ARCH=${TARGET_ARCH}"
+  echo "BUILD_WITH_CONTAINER=0"
 fi

@@ -18,6 +18,9 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/resource/environment"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -29,7 +32,20 @@ import (
 // belong to different control planes.
 func TestMultiRevision(t *testing.T) {
 	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
+
+			if err := istio.Setup(&i, func(cfg *istio.Config) {
+				cfg.ControlPlaneValues = `
+profile: empty
+revision: canary
+components:
+  pilot:
+    enabled: true
+`
+			})(ctx); err != nil {
+				t.Fatal(err)
+			}
 			stable := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "stable",
 				Inject: true,

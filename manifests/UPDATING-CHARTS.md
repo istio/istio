@@ -29,7 +29,7 @@ the schema must be added here, otherwise istioctl users will see errors.
 Once the schema file is updated, run:
 
 ```bash
-$ BUILD_WITH_CONTAINER=1 make operator-proto
+$ make operator-proto
 ```
 
 This will regenerate the Go structs used for schema validation.
@@ -40,7 +40,7 @@ Tests of istioctl use the compiled-in charts to ensure that the istioctl binary 
 To regenerate the charts package, run:
 
 ```bash
-$ BUILD_WITH_CONTAINER=1 make gen-charts
+$ make gen-charts
 ```
 
 ## Step 5. Update golden files

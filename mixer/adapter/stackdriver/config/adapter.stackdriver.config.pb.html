@@ -16,119 +16,6 @@ number_of_entries: 12
 the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/logentry/">logentry template</a>,
 and the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/tracespan/">tracespan template</a>.</p>
 
-<h2 id="google-api-MetricDescriptor-MetricKind">google.api.MetricDescriptor.MetricKind</h2>
-<section>
-<p>The kind of measurement. It describes how the data is reported.</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="google-api-MetricDescriptor-MetricKind-METRIC_KIND_UNSPECIFIED">
-<td><code>METRIC_KIND_UNSPECIFIED</code></td>
-<td>
-<p>Do not use this default value.</p>
-
-</td>
-</tr>
-<tr id="google-api-MetricDescriptor-MetricKind-GAUGE">
-<td><code>GAUGE</code></td>
-<td>
-<p>An instantaneous measurement of a value.</p>
-
-</td>
-</tr>
-<tr id="google-api-MetricDescriptor-MetricKind-DELTA">
-<td><code>DELTA</code></td>
-<td>
-<p>The change in a value during a time interval.</p>
-
-</td>
-</tr>
-<tr id="google-api-MetricDescriptor-MetricKind-CUMULATIVE">
-<td><code>CUMULATIVE</code></td>
-<td>
-<p>A value accumulated over a time interval.  Cumulative
-measurements in a time series should have the same start time
-and increasing end times, until an event resets the cumulative
-value to zero and sets a new start time for the following
-points.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="google-api-MetricDescriptor-ValueType">google.api.MetricDescriptor.ValueType</h2>
-<section>
-<p>The value type of a metric.</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="google-api-MetricDescriptor-ValueType-VALUE_TYPE_UNSPECIFIED">
-<td><code>VALUE_TYPE_UNSPECIFIED</code></td>
-<td>
-<p>Do not use this default value.</p>
-
-</td>
-</tr>
-<tr id="google-api-MetricDescriptor-ValueType-BOOL">
-<td><code>BOOL</code></td>
-<td>
-<p>The value is a boolean.
-This value type can be used only if the metric kind is <code>GAUGE</code>.</p>
-
-</td>
-</tr>
-<tr id="google-api-MetricDescriptor-ValueType-INT64">
-<td><code>INT64</code></td>
-<td>
-<p>The value is a signed 64-bit integer.</p>
-
-</td>
-</tr>
-<tr id="google-api-MetricDescriptor-ValueType-DOUBLE">
-<td><code>DOUBLE</code></td>
-<td>
-<p>The value is a double precision floating point number.</p>
-
-</td>
-</tr>
-<tr id="google-api-MetricDescriptor-ValueType-STRING">
-<td><code>STRING</code></td>
-<td>
-<p>The value is a text string.
-This value type can be used only if the metric kind is <code>GAUGE</code>.</p>
-
-</td>
-</tr>
-<tr id="google-api-MetricDescriptor-ValueType-DISTRIBUTION">
-<td><code>DISTRIBUTION</code></td>
-<td>
-<p>The value is a <em><code>Distribution</code></em>.</p>
-
-</td>
-</tr>
-<tr id="google-api-MetricDescriptor-ValueType-MONEY">
-<td><code>MONEY</code></td>
-<td>
-<p>The value is money.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="Params">Params</h2>
 <section>
 <p>Configuration format for the <code>stackdriver</code> adapter.</p>
@@ -200,7 +87,7 @@ by the StackDriver SDK.</p>
 
 </td>
 <td>
-Yes
+No
 </td>
 </tr>
 <tr id="Params-api_key" class="oneof">
@@ -211,7 +98,7 @@ Yes
 
 </td>
 <td>
-Yes
+No
 </td>
 </tr>
 <tr id="Params-service_account_path" class="oneof">
@@ -224,7 +111,7 @@ or <code>./testdata/my-test-account-creds.json</code>.</p>
 
 </td>
 <td>
-Yes
+No
 </td>
 </tr>
 <tr id="Params-metric_info">
@@ -447,7 +334,7 @@ dependencies it doesn&rsquo;t actually use.</p>
 
 </td>
 <td>
-Yes
+No
 </td>
 </tr>
 <tr id="Params-MetricInfo-BucketsDefinition-exponential_buckets" class="oneof">
@@ -458,7 +345,7 @@ Yes
 
 </td>
 <td>
-Yes
+No
 </td>
 </tr>
 <tr id="Params-MetricInfo-BucketsDefinition-explicit_buckets" class="oneof">
@@ -469,7 +356,7 @@ Yes
 
 </td>
 <td>
-Yes
+No
 </td>
 </tr>
 </tbody>
@@ -876,6 +763,119 @@ No
 </td>
 <td>
 No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="google-api-MetricDescriptor-MetricKind">google.api.MetricDescriptor.MetricKind</h2>
+<section>
+<p>The kind of measurement. It describes how the data is reported.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="google-api-MetricDescriptor-MetricKind-METRIC_KIND_UNSPECIFIED">
+<td><code>METRIC_KIND_UNSPECIFIED</code></td>
+<td>
+<p>Do not use this default value.</p>
+
+</td>
+</tr>
+<tr id="google-api-MetricDescriptor-MetricKind-GAUGE">
+<td><code>GAUGE</code></td>
+<td>
+<p>An instantaneous measurement of a value.</p>
+
+</td>
+</tr>
+<tr id="google-api-MetricDescriptor-MetricKind-DELTA">
+<td><code>DELTA</code></td>
+<td>
+<p>The change in a value during a time interval.</p>
+
+</td>
+</tr>
+<tr id="google-api-MetricDescriptor-MetricKind-CUMULATIVE">
+<td><code>CUMULATIVE</code></td>
+<td>
+<p>A value accumulated over a time interval.  Cumulative
+measurements in a time series should have the same start time
+and increasing end times, until an event resets the cumulative
+value to zero and sets a new start time for the following
+points.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="google-api-MetricDescriptor-ValueType">google.api.MetricDescriptor.ValueType</h2>
+<section>
+<p>The value type of a metric.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="google-api-MetricDescriptor-ValueType-VALUE_TYPE_UNSPECIFIED">
+<td><code>VALUE_TYPE_UNSPECIFIED</code></td>
+<td>
+<p>Do not use this default value.</p>
+
+</td>
+</tr>
+<tr id="google-api-MetricDescriptor-ValueType-BOOL">
+<td><code>BOOL</code></td>
+<td>
+<p>The value is a boolean.
+This value type can be used only if the metric kind is <code>GAUGE</code>.</p>
+
+</td>
+</tr>
+<tr id="google-api-MetricDescriptor-ValueType-INT64">
+<td><code>INT64</code></td>
+<td>
+<p>The value is a signed 64-bit integer.</p>
+
+</td>
+</tr>
+<tr id="google-api-MetricDescriptor-ValueType-DOUBLE">
+<td><code>DOUBLE</code></td>
+<td>
+<p>The value is a double precision floating point number.</p>
+
+</td>
+</tr>
+<tr id="google-api-MetricDescriptor-ValueType-STRING">
+<td><code>STRING</code></td>
+<td>
+<p>The value is a text string.
+This value type can be used only if the metric kind is <code>GAUGE</code>.</p>
+
+</td>
+</tr>
+<tr id="google-api-MetricDescriptor-ValueType-DISTRIBUTION">
+<td><code>DISTRIBUTION</code></td>
+<td>
+<p>The value is a <em><code>Distribution</code></em>.</p>
+
+</td>
+</tr>
+<tr id="google-api-MetricDescriptor-ValueType-MONEY">
+<td><code>MONEY</code></td>
+<td>
+<p>The value is money.</p>
+
 </td>
 </tr>
 </tbody>

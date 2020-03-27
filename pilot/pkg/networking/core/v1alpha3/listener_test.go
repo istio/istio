@@ -1940,14 +1940,13 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 			Namespace: "not-default",
 		},
 		Spec: &networking.EnvoyFilter{
-			Filters: []*networking.EnvoyFilter_Filter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
-					InsertPosition: &networking.EnvoyFilter_InsertPosition{
-						Index: networking.EnvoyFilter_InsertPosition_FIRST,
+					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_INSERT_BEFORE,
+						Value:     &types.Struct{},
 					},
-					FilterType:   networking.EnvoyFilter_Filter_HTTP,
-					FilterName:   "envoy.lua",
-					FilterConfig: &types.Struct{},
 				},
 			},
 		},

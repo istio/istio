@@ -486,6 +486,7 @@ func getOutlierDetectionAndLoadBalancerSettings(push *model.PushContext, proxy *
 	_, subsetName, hostname, portNumber := model.ParseSubsetKey(clusterName)
 	var outlierDetectionEnabled = false
 	var lbSettings *networkingapi.LoadBalancerSettings
+
 	destinationRule, port := getDestinationRule(push, proxy, hostname, portNumber)
 	if destinationRule == nil || port == nil {
 		return false, nil
@@ -504,6 +505,7 @@ func getOutlierDetectionAndLoadBalancerSettings(push *model.PushContext, proxy *
 			if outlierDetection != nil {
 				outlierDetectionEnabled = true
 			}
+			break
 		}
 	}
 	return outlierDetectionEnabled, lbSettings

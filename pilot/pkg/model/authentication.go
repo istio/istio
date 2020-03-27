@@ -17,7 +17,6 @@ package model
 import (
 	"time"
 
-	"istio.io/api/authentication/v1alpha1"
 	"istio.io/api/security/v1beta1"
 
 	"istio.io/istio/pkg/config/labels"
@@ -252,25 +251,4 @@ func getConfigsForWorkload(configsByNamespace map[string][]Config,
 	}
 
 	return configs
-}
-
-func v1alpha1PolicyToMutualTLSMode(policy *v1alpha1.Policy) MutualTLSMode {
-	if policy == nil {
-		return MTLSDisable
-	}
-
-	for _, method := range policy.Peers {
-		switch method.GetParams().(type) {
-		case *v1alpha1.PeerAuthenticationMethod_Mtls:
-			if method.GetMtls() == nil ||
-				method.GetMtls().Mode == v1alpha1.MutualTls_STRICT {
-				return MTLSStrict
-			}
-			return MTLSPermissive
-		default:
-			continue
-		}
-	}
-
-	return MTLSDisable
 }
