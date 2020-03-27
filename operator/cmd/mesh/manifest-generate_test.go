@@ -27,10 +27,6 @@ import (
 	"istio.io/pkg/version"
 )
 
-const (
-	istioTestVersion = "istio-1.5.0"
-)
-
 type testGroup []struct {
 	desc string
 	// Small changes to the input profile produce large changes to the golden output
