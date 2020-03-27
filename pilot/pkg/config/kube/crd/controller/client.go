@@ -51,6 +51,8 @@ type Client struct {
 	// Map of apiVersion to restClient.
 	clientset map[string]*restClient
 
+	crdClient *apiextensionsclient.Clientset
+
 	schemas collection.Schemas
 
 	// domainSuffix for the config metadata
@@ -175,8 +177,14 @@ func NewForConfig(cfg *rest.Config, schemas collection.Schemas, domainSuffix str
 		return nil, err
 	}
 
+	crdClient, err := apiextensionsclient.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	out := &Client{
 		clientset:    cs,
+		crdClient:    crdClient,
 		domainSuffix: domainSuffix,
 		configLedger: configLedger,
 		schemas:      schemas,
@@ -408,6 +416,22 @@ func (cl *Client) objectInEnvironment(o *model.Config) bool {
 	}
 	// Otherwise, only return if the
 	return configEnv == cl.revision
+}
+
+// CRDExists checks if a CRD exists in the cluster or not.
+func (cl *Client) CRDExists(schema collection.Schema) (bool, error) {
+	// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
+	name := fmt.Sprintf("%s.%s", schema.Resource().Plural(), schema.Resource().Group())
+	_, err := cl.crdClient.ApiextensionsV1beta1().CustomResourceDefinitions().Get(name, meta_v1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		// Not found, return false
+		return false, nil
+	}
+	if err != nil {
+		// If there is another error, return that so the clients can distinguish between not found and an error
+		return false, err
+	}
+	return true, nil
 }
 
 // deprecated - only used for CRD controller unit tests

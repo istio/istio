@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sync"
 	"time"
 
 	"istio.io/pkg/ledger"
@@ -51,10 +52,12 @@ type controller struct {
 }
 
 type cacheHandler struct {
-	c        *controller
-	schema   collection.Schema
-	informer cache.SharedIndexInformer
-	handlers []func(model.Config, model.Config, model.Event)
+	c         *controller
+	schema    collection.Schema
+	informer  cache.SharedIndexInformer
+	handlers  []func(model.Config, model.Config, model.Event)
+	runningMu sync.Mutex
+	running   bool
 }
 
 type ValidateFunc func(interface{}) error
@@ -283,6 +286,13 @@ func (c *controller) SetLedger(l ledger.Ledger) error {
 
 func (c *controller) HasSynced() bool {
 	for kind, ctl := range c.kinds {
+		// Skip informers that are not running
+		ctl.runningMu.Lock()
+		if !ctl.running {
+			ctl.runningMu.Unlock()
+			continue
+		}
+		ctl.runningMu.Unlock()
 		if !ctl.informer.HasSynced() {
 			log.Infof("controller %q is syncing...", kind)
 			return false
@@ -293,13 +303,48 @@ func (c *controller) HasSynced() bool {
 
 func (c *controller) Run(stop <-chan struct{}) {
 	log.Infoa("Starting Pilot K8S CRD controller")
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(c.kinds))
+
 	go func() {
+		// We wait for each kind to either start or determine the CRD does not exist
+		wg.Wait()
 		cache.WaitForCacheSync(stop, c.HasSynced)
 		c.queue.Run(stop)
 	}()
 
 	for _, ctl := range c.kinds {
-		go ctl.informer.Run(stop)
+		ctl := ctl
+		go func() {
+			if found, _ := c.client.CRDExists(ctl.schema); found {
+				ctl.runningMu.Lock()
+				ctl.running = true
+				ctl.runningMu.Unlock()
+				wg.Done()
+				ctl.informer.Run(stop)
+			} else {
+				log.Warnf("CRD %v not found; waiting for it to be created", ctl.schema.Name())
+				wg.Done()
+				delay := time.Second
+				maxDelay := time.Minute
+				for {
+					if found, _ := c.client.CRDExists(ctl.schema); found {
+						break
+					}
+					time.Sleep(delay)
+					delay *= 2
+					if delay > maxDelay {
+						delay = maxDelay
+					}
+				}
+				log.Infof("CRD %v found; starting informer", ctl.schema.Name())
+				ctl.runningMu.Lock()
+				ctl.running = true
+				ctl.runningMu.Unlock()
+				ctl.informer.Run(stop)
+			}
+		}()
 	}
 
 	<-stop

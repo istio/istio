@@ -407,7 +407,10 @@ func (c *Controller) isEndpointReady() (ready bool, reason string, err error) {
 	return ready, reason, nil
 }
 
-const deniedRequestMessageFragment = `admission webhook "validation.istio.io" denied the request`
+const (
+	deniedRequestMessageFragment   = `admission webhook "validation.istio.io" denied the request`
+	missingResourceMessageFragment = `the server could not find the requested resource`
+)
 
 // Confirm invalid configuration is successfully rejected before switching to FAIL-CLOSE.
 func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason string) {
@@ -426,7 +429,7 @@ func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason st
 	if err == nil {
 		return false, fmt.Sprintf("dummy invalid config not rejected")
 	}
-	if !strings.Contains(err.Error(), deniedRequestMessageFragment) {
+	if !(strings.Contains(err.Error(), deniedRequestMessageFragment) || strings.Contains(err.Error(), missingResourceMessageFragment)) {
 		return false, fmt.Sprintf("dummy invalid rejected for the wrong reason: %v", err)
 	}
 	return true, ""
