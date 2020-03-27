@@ -31749,11 +31749,15 @@ data:
         url: {{ .Values.kiali.dashboard.grafanaURL }}
         in_cluster_url: {{ .Values.kiali.dashboard.grafanaInClusterURL }}
       prometheus:
+{{- if .Values.kiali.prometheusAddr}}
+        url: {{ .Values.kiali.prometheusAddr}}
+{{- else }}
 {{- if .Values.global.prometheusNamespace }}
         url: http://prometheus.{{ .Values.global.prometheusNamespace }}:9090
 {{ else }}
         url: http://prometheus:9090
 {{- end }}
+{{- end}}
 {{- if .Values.kiali.security.enabled }}
     identity:
       cert_file: {{ .Values.kiali.security.cert_file }}
