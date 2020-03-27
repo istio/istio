@@ -9247,6 +9247,7 @@ data:
       "istio_cni": {
         "enabled": false
       },
+      "revision": "",
       "sidecarInjectorWebhook": {
         "alwaysInjectSelector": [],
         "enableNamespacesByDefault": false,
@@ -9429,9 +9430,9 @@ data:
         {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
         {{- else if .Values.global.configNamespace }}
-          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
-          value: istiod.istio-system.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
