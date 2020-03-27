@@ -1,2 +1,4 @@
-rules:
-  policies: {}
+name: envoy.filters.http.rbac
+typedConfig:
+  '@type': type.googleapis.com/envoy.config.filter.http.rbac.v2.RBAC
+  rules: {}
