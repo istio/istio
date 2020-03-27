@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"istio.io/api/operator/v1alpha1"
 	"os"
 	"path/filepath"
 	"sort"
@@ -26,7 +25,8 @@ import (
 	"sync"
 	"time"
 
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"istio.io/api/operator/v1alpha1"
+
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 	goversion "github.com/hashicorp/go-version"
@@ -35,6 +35,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
