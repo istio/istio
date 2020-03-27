@@ -150,20 +150,18 @@ require (
 	istio.io/api v0.0.0-20200326193317-ce1b8dd24c91
 	istio.io/gogo-genproto v0.0.0-20200227125611-d2e4aa9d5634
 	istio.io/pkg v0.0.0-20200227125209-63966175aa01
-	k8s.io/api v0.18.0-rc.1
-	k8s.io/apiextensions-apiserver v0.18.0-rc.1
-	k8s.io/apimachinery v0.18.0-rc.1
-	k8s.io/cli-runtime v0.18.0-rc.1
-	k8s.io/client-go v0.18.0-rc.1
+	k8s.io/api v0.18.0
+	k8s.io/apiextensions-apiserver v0.18.0
+	k8s.io/apimachinery v0.18.0
+	k8s.io/cli-runtime v0.18.0
+	k8s.io/client-go v0.18.0
 	k8s.io/helm v2.14.3+incompatible
-	k8s.io/kubectl v0.18.0-rc.1
-	k8s.io/utils v0.0.0-20200229041039-0a110f9eb7ab
-	sigs.k8s.io/controller-runtime v0.4.0
+	k8s.io/kubectl v0.18.0
+	k8s.io/utils v0.0.0-20200324210504-a9aa75ae1b89
+	sigs.k8s.io/controller-runtime v0.5.1-0.20200327213554-2d4c4877f906
 	sigs.k8s.io/service-apis v0.0.0-20200227172328-b9010cfacdbe
 	sigs.k8s.io/yaml v1.2.0
 )
-
-replace sigs.k8s.io/controller-runtime => github.com/munnerz/controller-runtime v0.1.8-0.20200318092001-e22ac1073450
 
 replace github.com/Azure/go-autorest/autorest => github.com/Azure/go-autorest/autorest v0.9.0
 
