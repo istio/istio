@@ -17793,6 +17793,43 @@ data:
       controlPlaneAuthPolicy: NONE
       discoveryAddress: istiod.istio-system.svc:15012
 
+  Corefile: |-
+    global:15054 {
+        errors
+        log
+        proxy . 127.0.0.1:15053 {
+        }
+
+    }
+
+    .:15054 {
+        errors
+        log
+        health :15056 {
+          lameduck 5s
+        }
+
+        #proxy global 127.0.0.1:15010 {
+        #  protocol grpc insecure
+        #}
+        proxy global 127.0.0.1:15053 {
+        }
+        proxy svc 127.0.0.1:15053 {
+        }
+        proxy example.com 127.0.0.1:15053 {
+        }
+        kubernetes cluster.local in-addr.arpa ip6.arpa {
+            pods insecure
+            fallthrough in-addr.arpa ip6.arpa
+            ttl 30
+        }
+        prometheus :9153
+
+        forward . /etc/resolv.conf
+        cache 30
+        reload
+        loadbalance
+    }
 ---
 
 ---
@@ -18623,6 +18660,8 @@ spec:
           volumeMounts:
             - name: local-certs
               mountPath: /var/run/secrets/istio-dns
+            - name: config-volume
+              mountPath: /var/lib/istio/coredns
           ports:
             - containerPort: 15054
               name: dns
@@ -20413,6 +20452,43 @@ data:
       {{- end}}
     {{- end}}
 
+  Corefile: |-
+    global:15054 {
+        errors
+        log
+        proxy . 127.0.0.1:15053 {
+        }
+
+    }
+
+    .:15054 {
+        errors
+        log
+        health :15056 {
+          lameduck 5s
+        }
+
+        #proxy global 127.0.0.1:15010 {
+        #  protocol grpc insecure
+        #}
+        proxy global 127.0.0.1:15053 {
+        }
+        proxy svc 127.0.0.1:15053 {
+        }
+        proxy example.com 127.0.0.1:15053 {
+        }
+        kubernetes cluster.local in-addr.arpa ip6.arpa {
+            pods insecure
+            fallthrough in-addr.arpa ip6.arpa
+            ttl 30
+        }
+        prometheus :9153
+
+        forward . /etc/resolv.conf
+        cache 30
+        reload
+        loadbalance
+    }
 ---
 {{- end }}
 `)
@@ -20638,6 +20714,8 @@ spec:
           volumeMounts:
             - name: local-certs
               mountPath: /var/run/secrets/istio-dns
+            - name: config-volume
+              mountPath: /var/lib/istio/coredns
           ports:
             - containerPort: 15054
               name: dns
