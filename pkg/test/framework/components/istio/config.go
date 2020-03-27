@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 
 	kubeCore "k8s.io/api/core/v1"
 )
@@ -209,7 +210,7 @@ func DefaultConfig(ctx resource.Context) (Config, error) {
 	}
 
 	if err := checkFileExists(iopFile); err != nil {
-		return Config{}, err
+		scopes.Framework.Warnf("Default IOPFile missing: %v", err)
 	}
 
 	deps, err := image.SettingsFromCommandLine()
