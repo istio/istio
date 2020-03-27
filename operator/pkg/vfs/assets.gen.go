@@ -13233,7 +13233,7 @@ spec:
 
 ---
 
-  kind: CustomResourceDefinition
+kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: adapters.config.istio.io
@@ -13294,7 +13294,8 @@ spec:
       storage: true
 ---
 
-  apiVersion: apiextensions.k8s.io/v1beta1
+# SYNC WITH manifests/istio-operator/templates
+apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: istiooperators.install.istio.io
