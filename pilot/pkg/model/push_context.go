@@ -265,10 +265,10 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 	if len(first.ConfigsUpdated) > 0 && len(other.ConfigsUpdated) > 0 {
 		merged.ConfigsUpdated = make(map[resource.GroupVersionKind]map[string]struct{})
 		for update := range first.ConfigsUpdated {
-			merged.ConfigsUpdated[update] = make(map[string]struct{})
+			merged.ConfigsUpdated[update] = nil
 		}
 		for update := range other.ConfigsUpdated {
-			merged.ConfigsUpdated[update] = make(map[string]struct{})
+			merged.ConfigsUpdated[update] = nil
 		}
 
 		// Merge the configs updated
