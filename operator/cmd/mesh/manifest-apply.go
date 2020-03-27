@@ -172,7 +172,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 	l.logAndPrint("\n\n✔ Installation complete\n")
 
 	crName := installedSpecCRPrefix
-	if iops.Revision == "" {
+	if iops.Revision != "" {
 		crName += "-" + iops.Revision
 	}
 	if err := saveClusterState(iops, crName, opts); err != nil {
