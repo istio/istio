@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/metadata"
 
 	"istio.io/pkg/log"
 
@@ -70,7 +71,8 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string, opts Optio
 		metrics:               opts.Metrics,
 	}
 
-	err := secretcontroller.StartSecretController(kc,
+	err := secretcontroller.StartSecretController(
+		kc,
 		mc.AddMemberCluster,
 		mc.UpdateMemberCluster,
 		mc.DeleteMemberCluster,
@@ -81,13 +83,13 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string, opts Optio
 // AddMemberCluster is passed to the secret controller as a callback to be called
 // when a remote cluster is added.  This function needs to set up all the handlers
 // to watch for resources being added, deleted or changed on remote clusters.
-func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterID string) error {
+func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, metadataClient metadata.Interface, clusterID string) error {
 	// stopCh to stop controller created here when cluster removed.
 	stopCh := make(chan struct{})
 	var remoteKubeController kubeController
 	remoteKubeController.stopCh = stopCh
 	m.m.Lock()
-	kubectl := NewController(clientset, Options{
+	kubectl := NewController(clientset, metadataClient, Options{
 		WatchedNamespace: m.WatchedNamespace,
 		ResyncPeriod:     m.ResyncPeriod,
 		DomainSuffix:     m.DomainSuffix,
@@ -109,11 +111,11 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 	return nil
 }
 
-func (m *Multicluster) UpdateMemberCluster(clientset kubernetes.Interface, clusterID string) error {
+func (m *Multicluster) UpdateMemberCluster(clientset kubernetes.Interface, metadataClient metadata.Interface, clusterID string) error {
 	if err := m.DeleteMemberCluster(clusterID); err != nil {
 		return err
 	}
-	return m.AddMemberCluster(clientset, clusterID)
+	return m.AddMemberCluster(clientset, metadataClient, clusterID)
 }
 
 // DeleteMemberCluster is passed to the secret controller as a callback to be called
