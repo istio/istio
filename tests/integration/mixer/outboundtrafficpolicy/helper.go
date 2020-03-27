@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/structpath"
 	util "istio.io/istio/tests/integration/mixer"
@@ -309,7 +310,7 @@ func RunExternalRequest(prometheus prometheus.Instance, mode TrafficPolicy, expe
 		})
 }
 
-func setupEcho(t *testing.T, ctx framework.TestContext, mode TrafficPolicy) (echo.Instance, echo.Instance) {
+func setupEcho(t *testing.T, ctx resource.Context, mode TrafficPolicy) (echo.Instance, echo.Instance) {
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 	p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 
