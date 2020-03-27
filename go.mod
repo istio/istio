@@ -67,7 +67,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
 	github.com/golang/protobuf v1.3.5
 	github.com/golang/sync v0.0.0-20180314180146-1d60e4601c6f
-	github.com/google/cel-go v0.2.0
+	github.com/google/cel-go v0.4.1
 	github.com/google/go-cmp v0.3.1
 	github.com/google/uuid v1.1.1
 	github.com/googleapis/gax-go v2.0.2+incompatible
