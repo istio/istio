@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright 2020 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,12 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package policy
+package builder
 
 import (
-	envoyRbacHttpPb "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
+	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
-type Generator interface {
-	Generate(forTCPFilter bool) (denyConfig *envoyRbacHttpPb.RBAC, allowConfig *envoyRbacHttpPb.RBAC)
+func NewAuthzPolicies(policies []*model.Config) (*model.AuthorizationPolicies, error) {
+	store := model.MakeIstioStore(memory.Make(collections.Pilot))
+	for _, p := range policies {
+		if _, err := store.Create(*p); err != nil {
+			return nil, err
+		}
+	}
+
+	authzPolicies, err := model.GetAuthorizationPolicies(&model.Environment{
+		IstioConfigStore: store,
+	})
+	return authzPolicies, err
 }
