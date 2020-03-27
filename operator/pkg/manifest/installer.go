@@ -300,7 +300,7 @@ func createNamespace(namespace string) error {
 			"istio-injection": "disabled",
 		},
 	}}
-	_, err := cs.CoreV1().Namespaces().Create(ns)
+	_, err := cs.CoreV1().Namespaces().Create(context2.TODO(), ns, metav1.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return fmt.Errorf("failed to create namespace %v: %v", namespace, err)
 	}
