@@ -62,7 +62,6 @@ type ListenerBuilder struct {
 	outboundListeners       []*xdsapi.Listener
 	virtualOutboundListener *xdsapi.Listener
 	virtualInboundListener  *xdsapi.Listener
-	useInboundFilterChain   bool
 }
 
 // Setup the filter chain match so that the match should work under both
@@ -160,8 +159,6 @@ func NewListenerBuilder(node *model.Proxy, push *model.PushContext) *ListenerBui
 	builder := &ListenerBuilder{
 		node: node,
 		push: push,
-		// The extra inbound listener has no side effect for iptables that doesn't redirect to 15006
-		useInboundFilterChain: true,
 	}
 	return builder
 }
@@ -271,9 +268,7 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 		TrafficDirection: core.TrafficDirection_INBOUND,
 		FilterChains:     filterChains,
 	}
-	if lb.useInboundFilterChain {
-		lb.aggregateVirtualInboundListener(needTLSForPassThroughFilterChain)
-	}
+	lb.aggregateVirtualInboundListener(needTLSForPassThroughFilterChain)
 	return lb
 }
 
