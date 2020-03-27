@@ -274,32 +274,17 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		for kind := range merged.ConfigsUpdated {
 			m1, f1 := first.ConfigsUpdated[kind]
 			m2, f2 := other.ConfigsUpdated[kind]
-			if f1 && f2 {
-				// If kind presents in both, do not merge when any one is nil because the nil value
-				// has special meanings
-				if m1 != nil && m2 != nil {
-					merged.ConfigsUpdated[kind] = make(map[string]struct{})
+			// If kind presents in both, do not merge when any one is nil because the nil value
+			// has special meanings, else only merge non nil config maps
+			if (f1 && f2 && (m1 != nil && m2 != nil)) || (!f1 || !f2 && (m1 != nil || m2 != nil)) {
+				merged.ConfigsUpdated[kind] = make(map[string]struct{})
 
-					for update := range m1 {
-						merged.ConfigsUpdated[kind][update] = struct{}{}
-					}
-
-					for update := range m2 {
-						merged.ConfigsUpdated[kind][update] = struct{}{}
-					}
+				for update := range m1 {
+					merged.ConfigsUpdated[kind][update] = struct{}{}
 				}
-			} else {
-				// If kind presents only in one, merge non nil config maps
-				if m1 != nil || m2 != nil {
-					merged.ConfigsUpdated[kind] = make(map[string]struct{})
 
-					for update := range m1 {
-						merged.ConfigsUpdated[kind][update] = struct{}{}
-					}
-
-					for update := range m2 {
-						merged.ConfigsUpdated[kind][update] = struct{}{}
-					}
+				for update := range m2 {
+					merged.ConfigsUpdated[kind][update] = struct{}{}
 				}
 			}
 		}
