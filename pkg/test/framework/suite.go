@@ -23,8 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
 	ferrors "istio.io/istio/pkg/test/framework/errors"
@@ -200,7 +198,6 @@ func (s *Suite) runSetupFn(fn resource.SetupFn, ctx SuiteContext) (err error) {
 // SetupOnEnv runs the given setup function conditionally, based on the current environment.
 func (s *Suite) SetupOnEnv(e environment.Name, fn resource.SetupFn) *Suite {
 	s.Setup(func(ctx resource.Context) error {
-		log.Errorf("howardjohn: setup")
 		if ctx.Environment().EnvironmentName() != e {
 			return nil
 		}
