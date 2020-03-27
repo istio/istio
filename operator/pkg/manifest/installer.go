@@ -293,8 +293,14 @@ func createNamespace(namespace string) error {
 	if e != nil {
 		return fmt.Errorf("k8s client error: %s", e)
 	}
-	_, err := cs.CoreV1().Namespaces().Create(&v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}})
-	if err != nil && !kerrors.IsNotFound(err) {
+	ns := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+		Name: namespace,
+		Labels: map[string]string{
+			"istio-injection": "disabled",
+		},
+	}}
+	_, err := cs.CoreV1().Namespaces().Create(ns)
+	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return fmt.Errorf("failed to create namespace %v: %v", namespace, err)
 	}
 	return nil
