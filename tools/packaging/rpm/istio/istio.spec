@@ -37,9 +37,7 @@ Source0:        istio.tar.gz
 #Source1:        istiorc
 #Source2:        buildinfo
 Source3:        istio-start.sh
-Source4:        istio-node-agent-start.sh
 Source5:        istio.service
-Source6:        istio-auth-node-agent.service
 
 # e.g. el6 has ppc64 arch without gcc-go, so EA tag is required
 ExclusiveArch:  %{?go_arches:%{go_arches}}%{!?go_arches:%{ix86} x86_64 aarch64 %{arm}}
@@ -231,14 +229,12 @@ install -d -m755 $RPM_BUILD_ROOT/%{_bindir}
 install -d -m755 $RPM_BUILD_ROOT/%{_unitdir}
 
 install -m755 %{SOURCE3} $RPM_BUILD_ROOT/%{_bindir}/istio-start.sh
-install -m755 %{SOURCE4} $RPM_BUILD_ROOT/%{_bindir}/istio-node-agent-start.sh
 
 install -m644 %{SOURCE5} $RPM_BUILD_ROOT/%{_unitdir}/istio.service
-install -m644 %{SOURCE6} $RPM_BUILD_ROOT/%{_unitdir}/istio-auth-node-agent.service
 
 binaries=(pilot-discovery pilot-agent istioctl sidecar-injector mixs mixc istio_ca galley node_agent istio-iptables istio-clean-iptables)
 pushd .
-cd ISTIO/out/linux_amd64/release
+cd ISTIO/src/istio.io/istio/out/linux_amd64
 %if 0%{?with_debug}
     for i in "${binaries[@]}"; do
         cp -pav $i $RPM_BUILD_ROOT%{_bindir}/
@@ -337,8 +333,6 @@ ln -s -T /var/lib/istio /etc/istio 2> /dev/null || :
 
 %files node-agent
 %attr(0755,root,root) %{_bindir}/node_agent
-%attr(0755,root,root) %{_bindir}/istio-node-agent-start.sh
-%attr(0644,root,root) %{_unitdir}/istio-auth-node-agent.service
 
 %if 0%{?with_test_binaries}
 %files pilot-tests

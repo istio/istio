@@ -2,7 +2,8 @@ rpm: rpm/builder-image rpm/istio rpm/proxy
 
 rpm/istio:
 	docker run --rm -it \
-				-v ${GO_TOP}:${GO_TOP} \
+			-v ${GO_TOP}:${GO_TOP}\
+			-v ${ISTIO_GO}:${ISTIO_GO} \
         -w ${PWD} \
         -e USER=${USER} \
 				-e TAG=${TAG} \
@@ -16,7 +17,7 @@ rpm/istio:
 
 rpm/proxy:
 	docker run --rm -it \
-        -v ${GO_TOP}:${GO_TOP} \
+        -v ${ISTIO_GO}:${ISTIO_GO} \
 				-w /builder \
         -e USER=${USER} \
 				-e ISTIO_ENVOY_VERSION=${ISTIO_ENVOY_VERSION} \
