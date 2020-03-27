@@ -273,7 +273,7 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 
 		// Merge the configs updated
 		for kind := range merged.ConfigsUpdated {
-			if len(first.ConfigsUpdated[kind]) > 0 && len(other.ConfigsUpdated[kind]) > 0 {
+			if first.ConfigsUpdated[kind] != nil && other.ConfigsUpdated[kind] != nil {
 				merged.ConfigsUpdated[kind] = make(map[string]struct{})
 				for update := range first.ConfigsUpdated[kind] {
 					merged.ConfigsUpdated[kind][update] = struct{}{}
