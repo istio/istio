@@ -68,7 +68,7 @@ spec:
 		Yaml:      badVS,
 	})
 	if err != nil {
-		t.Fatalf("TODO: make a better failure message: %v", err)
+		t.Fatalf("test setup failure: failed to create bogus virtualservice: %v", err)
 	}
 	return ns
 }
@@ -81,7 +81,7 @@ func doTest(t *testing.T, ctx resource.Context, ns namespace.Instance) error {
 		Resource: "virtualservices",
 	}, ns.Name(), "reviews")
 	if err != nil {
-		t.Fatalf("TODO: another error message here: %v", err)
+		t.Fatalf("unexpected test failure: can't get bogus virtualservice: %v", err)
 	}
 
 	if x.Object["status"] == nil {
