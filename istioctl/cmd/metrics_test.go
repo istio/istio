@@ -136,7 +136,7 @@ func (client mockPortForwardConfig) PodsForSelector(namespace, labelSelector str
 	return podsForLabel, nil
 }
 
-func (client mockPortForwardConfig) BuildPortForwarder(podName string, ns string, localPort int, podPort int) (*kubernetes.PortForward, error) {
+func (client mockPortForwardConfig) BuildPortForwarder(podName string, ns string, localAddr, localPort int, podPort int) (*kubernetes.PortForward, error) {
 	// TODO make istioctl/pkg/kubernetes/client.go use pkg/test/kube/port_forwarder.go
 	// so that the port forward can be mocked.
 	return nil, fmt.Errorf("TODO mockPortForwardConfig doesn't mock port forward")

@@ -95,6 +95,6 @@ func (client mockExecVersionConfig) PodsForSelector(namespace, labelSelector str
 	return &v1.PodList{}, nil
 }
 
-func (client mockExecVersionConfig) BuildPortForwarder(podName string, ns string, localPort int, podPort int) (*kubernetes.PortForward, error) {
+func (client mockExecVersionConfig) BuildPortForwarder(podName string, ns string, localAddr string, localPort int, podPort int) (*kubernetes.PortForward, error) {
 	return nil, fmt.Errorf("mock k8s does not forward")
 }
