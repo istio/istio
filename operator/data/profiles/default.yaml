@@ -409,7 +409,7 @@ spec:
       podAntiAffinityTermLabelSelector: []
       keepaliveMaxServerConnectionAge: 30m
       enableProtocolSniffingForOutbound: true
-      enableProtocolSniffingForInbound: false
+      enableProtocolSniffingForInbound: true
       deploymentLabels:
       meshNetworks:
         networks: {}
