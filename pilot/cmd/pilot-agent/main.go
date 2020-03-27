@@ -25,6 +25,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
+	"istio.io/istio/pkg/dns"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/collateral"
@@ -289,6 +290,11 @@ var (
 				}
 				defer stsServer.Stop()
 			}
+
+			// Start a local DNS server on 15053, forwarding to DNS-over-TLS server
+			// This will not have any impact on app unless interception is enabled
+			dnsSrv := dns.InitDNS()
+			dnsSrv.StartDNS(nil)
 
 			envoyProxy := envoy.NewProxy(envoy.ProxyConfig{
 				Config:              proxyConfig,

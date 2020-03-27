@@ -37,7 +37,6 @@ ARG istio_version
 
 # Install Envoy.
 COPY envoy /usr/local/bin/envoy
-COPY Corefile /var/lib/istio/coredns/
 
 # Environment variable indicating the exact proxy sha - for debugging or version-specific configs 
 ENV ISTIO_META_ISTIO_PROXY_SHA $proxy_version

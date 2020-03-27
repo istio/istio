@@ -60,6 +60,11 @@ var (
 	// DNSAddr is the env controlling the DNS-over-TLS server.
 	// By default will be active, set to empty string to disable DNS functionality.
 	DNSAddr = env.RegisterStringVar("dnsAddr", ":15053", "DNS listen address")
+
+	// DNSUp controls the upstream DNS.
+	DNSUp = env.RegisterStringVar("dnsUp", "istiod.istio-system.svc:853",
+		"DNS-over-TLS upstream server")
+
 )
 
 // InitDNS will create the IstioDNS struct.
@@ -88,7 +93,6 @@ func InitDNS() *IstioDNS {
 	if dnsConfig != nil && len(dnsConfig.Servers) > 0 {
 		h.resolvConf = dnsConfig
 	}
-	log.Infoa("Started CoreDNS grpc service")
 	return h
 }
 
