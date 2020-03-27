@@ -94,9 +94,9 @@ func SetupDiscoveryServer(t testing.TB, cfgs ...model.Config) *DiscoveryServer {
 func createEndpoints(numEndpoints int, numServices int) []model.Config {
 	result := make([]model.Config, 0, numServices)
 	for s := 0; s < numServices; s++ {
-		endpoints := make([]*networking.ServiceEntry_Endpoint, 0, numEndpoints)
+		endpoints := make([]*networking.WorkloadEntry, 0, numEndpoints)
 		for e := 0; e < numEndpoints; e++ {
-			endpoints = append(endpoints, &networking.ServiceEntry_Endpoint{Address: fmt.Sprintf("111.%d.%d.%d", e/(256*256), (e/256)%256, e%256)})
+			endpoints = append(endpoints, &networking.WorkloadEntry{Address: fmt.Sprintf("111.%d.%d.%d", e/(256*256), (e/256)%256, e%256)})
 		}
 		result = append(result, model.Config{
 			ConfigMeta: model.ConfigMeta{
