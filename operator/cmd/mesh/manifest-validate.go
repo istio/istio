@@ -19,9 +19,12 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/gogo/protobuf/types"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
+	"istio.io/istio/pkg/config/validation"
 )
 
 const (
@@ -51,6 +54,22 @@ var (
 		"namespace": validate.CheckNamespaceName,
 		"revision":  validate.CheckRevision,
 
+		// MeshConfig related flags
+		// https://preliminary.istio.io/docs/reference/config/istio.mesh.v1alpha1.html#MeshConfig
+		"values.global.disablePolicyChecks":                 boolValues,
+		"values.global.policyCheckFailOpen":                 boolValues,
+		"values.global.disableReportBatch":                  boolValues,
+		"values.global.enableClientSidePolicyCheck":         boolValues,
+		"values.global.enableTracing":                       boolValues,
+		"values.global.mtls.auto":                           boolValues,
+		"values.global.mtls.enabled":                        boolValues,
+		"values.mixer.telemetry.sessionAffinityEnabled":     boolValues,
+		"values.global.proxy.envoyAccessLogService.enabled": boolValues,
+		"values.global.proxy.protocolDetectionTimeout":      validateDuration,
+		"values.global.proxy.dnsRefreshRate":                validateDuration,
+		"values.global.connectTimeout":                      validateDuration,
+		"values.mixer.telemetry.reportBatchMaxTime":         validateDuration,
+
 		"security.components.nodeAgent.enabled": boolValues,
 
 		// Possible values for Istio components
@@ -69,18 +88,18 @@ var (
 		"components.egressGateways.enabled":  boolValues,
 
 		"values.global.controlPlaneSecurityEnabled": boolValues,
-		"values.global.mtls.auto":                   boolValues,
-		"values.global.mtls.enabled":                boolValues,
 		"values.global.k8sIngress.enabled":          boolValues,
 		"values.global.k8sIngress.enableHttps":      boolValues,
 		"values.global.k8sIngress.gatewayName":      []string{"ingressgateway"},
 		"values.global.sds.enabled":                 boolValues,
 		"values.global.imagePullPolicy":             imagePullPolicy,
 
-		"values.telemetry.enabled":                         boolValues,
-		"values.pilot.traceSampling":                       isValidTraceSampling,
-		"values.prometheus.enabled":                        boolValues,
-		"values.mixer.adapters.stackdriver.enabled":        boolValues,
+		"values.telemetry.enabled":                  boolValues,
+		"values.pilot.traceSampling":                isValidTraceSampling,
+		"values.pilot.policy.enabled":               boolValues,
+		"values.prometheus.enabled":                 boolValues,
+		"values.mixer.adapters.stackdriver.enabled": boolValues,
+
 		"values.gateways.istio-ingressgateway.enabled":     boolValues,
 		"values.gateways.istio-ingressgateway.sds.enabled": boolValues,
 		"values.gateways.enabled":                          boolValues,
@@ -166,6 +185,12 @@ func verifyValues(flagName, flagValue string) error {
 			return fmt.Errorf("\n Unsupported format: %q for flag %q", flagValue, flagName)
 		}
 	}
+	if valType == reflect.TypeOf(validateDuration) {
+		if err := validateDuration(flagName, flagValue); err != nil {
+			return fmt.Errorf("\n Unsupported value: %q for %q. \n Error: %v",
+				flagValue, flagName, err)
+		}
+	}
 	return nil
 }
 
@@ -210,4 +235,34 @@ func isValidTraceSampling(n float64) bool {
 		return false
 	}
 	return true
+}
+
+// validateDuration verifies valid time duration for different flags
+func validateDuration(flagName, duration string) (err error) {
+	d, err := convertDuration(duration)
+	if err != nil {
+		return err
+	}
+	flag := strings.Split(flagName, ".")
+
+	// extract the last part of the flag to match with cases
+	switch flag[len(flag)-1] {
+	case "protocolDetectionTimeout":
+		return validation.ValidateProtocolDetectionTimeout(d)
+	case "connectTimeout":
+		return validation.ValidateConnectTimeout(d)
+	case "dnsRefreshRate":
+		return validation.ValidateDNSRefreshRate(d)
+	case "reportBatchMaxTime":
+		return validation.ValidateDuration(d)
+	}
+	return nil
+}
+
+func convertDuration(duration string) (*types.Duration, error) {
+	dur, err := time.ParseDuration(duration)
+	if err != nil {
+		return nil, fmt.Errorf("Invalid duration format %q", duration)
+	}
+	return types.DurationProto(dur), nil
 }

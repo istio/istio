@@ -2825,3 +2825,15 @@ func validateLocalities(localities []string) error {
 
 	return nil
 }
+
+// ValidateDNSRefreshRate checks if the durations is in seconds
+func ValidateDNSRefreshRate(drr *types.Duration) error {
+	if err := ValidateDuration(drr); err != nil {
+		return err
+	}
+	refreshRate, _ := types.DurationFromProto(drr)
+	if refreshRate%time.Second != 0 {
+		return errors.New("DNS refresh rate only supports durations to seconds precision")
+	}
+	return nil
+}
