@@ -37712,6 +37712,7 @@ kiali:
 
   createDemoSecret: true # When true, a secret will be created with a default username and password. Useful for demos.
 
+  prometheusAddr: ""
   resources: {}
   security:
     enabled: false
