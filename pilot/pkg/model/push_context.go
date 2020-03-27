@@ -261,7 +261,7 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		Reason: append(first.Reason, other.Reason...),
 	}
 
-	// Do not merge when any one is empty
+	// Do not merge when any one is nil
 	if first.ConfigsUpdated != nil && other.ConfigsUpdated != nil {
 		merged.ConfigsUpdated = make(map[resource.GroupVersionKind]map[string]struct{})
 		for update := range first.ConfigsUpdated {
@@ -274,9 +274,9 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		for kind := range merged.ConfigsUpdated {
 			m1, f1 := first.ConfigsUpdated[kind]
 			m2, f2 := other.ConfigsUpdated[kind]
-			// If kind presents in both, do not merge when any one is nil because the nil value
-			// has special meanings, else only merge non nil config maps
-			if (f1 && f2 && (m1 != nil && m2 != nil)) || (!f1 || !f2 && (m1 != nil || m2 != nil)) {
+			// If kind presents in both, do not merge when any one is nil or empty because values
+			// has special meanings(for example, full push), else only merge non nil config maps
+			if (f1 && f2 && (len(m1) > 0 && len(m2) > 0)) || (!f1 || !f2 && (m1 != nil || m2 != nil)) {
 				merged.ConfigsUpdated[kind] = make(map[string]struct{})
 
 				for update := range m1 {
