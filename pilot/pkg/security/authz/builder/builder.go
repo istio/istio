@@ -129,6 +129,7 @@ func build(policies []model.AuthorizationPolicyConfig, tdBundle trustdomain.Bund
 	return &rbachttppb.RBAC{Rules: rules}
 }
 
+// nolint: interfacer
 func createHTTPFilter(config *rbachttppb.RBAC) *httppb.HttpFilter {
 	if config == nil {
 		return nil
