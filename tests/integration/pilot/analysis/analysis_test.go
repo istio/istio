@@ -35,7 +35,7 @@ func TestAnalysisWritesStatus(t *testing.T) {
 	framework.NewTest(t).Run(func(ctx framework.TestContext) {
 		ns := setupModifiedBookinfo(t, ctx)
 		retry.UntilSuccessOrFail(t, func() error { return doTest(t, ctx, ns) },
-			retry.Delay(250*time.Millisecond), retry.Timeout(10*time.Second))
+			retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
 	})
 }
 
