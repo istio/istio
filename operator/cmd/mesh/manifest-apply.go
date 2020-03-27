@@ -17,6 +17,7 @@ package mesh
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -33,7 +34,7 @@ import (
 const (
 	// installedSpecCRPrefix is the prefix of any IstioOperator CR stored in the cluster that is a copy of the CR used
 	// in the last manifest apply operation.
-	installedSpecCRPrefix = "installed-state-"
+	installedSpecCRPrefix = "installed-state"
 )
 
 type manifestApplyArgs struct {
@@ -171,7 +172,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 	}
 	l.logAndPrint("\n\n✔ Installation complete\n")
 
-	if err := saveClusterState(iops, installedSpecCRPrefix+iops.Revision, opts); err != nil {
+	if err := saveClusterState(iops, strings.Join([]string{installedSpecCRPrefix, iops.Revision}, "-"), opts); err != nil {
 		l.logAndPrintf("Failed to save install state in the cluster: %s", err)
 		return err
 	}
