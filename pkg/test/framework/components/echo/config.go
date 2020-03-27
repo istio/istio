@@ -62,7 +62,7 @@ type Config struct {
 
 	// WorkloadOnlyPorts for ports only defined in the workload but not in the k8s service.
 	// This is used to test the inbound pass-through filter chain.
-	WorkloadOnlyPorts []int
+	WorkloadOnlyPorts []WorkloadPort
 
 	// ServiceAnnotations is annotations on service object.
 	ServiceAnnotations Annotations
