@@ -85,7 +85,7 @@ func doTest(t *testing.T, ctx resource.Context, ns namespace.Instance) error {
 	}
 
 	if x.Object["status"] == nil {
-		return fmt.Errorf("Object is missing expected status field.  Actual object is: %v", x)
+		return fmt.Errorf("object is missing expected status field.  Actual object is: %v", x)
 	}
 	return nil
 }
