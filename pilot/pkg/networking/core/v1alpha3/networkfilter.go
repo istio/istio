@@ -45,7 +45,7 @@ var (
 	redisOpTimeout = 5 * time.Second
 
 	// tcpGrpcAccessLog is used when access log service is enabled in mesh config.
-	tcpGrpcAccessLog = buildTcpGrpcAccessLog()
+	tcpGrpcAccessLog = buildTCPGrpcAccessLog()
 )
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
@@ -285,7 +285,7 @@ func buildMySQLFilter(statPrefix string) *listener.Filter {
 	return out
 }
 
-func buildTcpGrpcAccessLog() *accesslog.AccessLog {
+func buildTCPGrpcAccessLog() *accesslog.AccessLog {
 	fl := &accesslogconfig.TcpGrpcAccessLogConfig{
 		CommonConfig: &accesslogconfig.CommonGrpcAccessLogConfig{
 			LogName: tcpEnvoyAccessLogFriendlyName,
