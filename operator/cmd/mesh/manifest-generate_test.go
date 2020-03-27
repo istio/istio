@@ -18,20 +18,17 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"istio.io/istio/operator/pkg/compare"
-	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/version"
 )
 
 const (
 	istioTestVersion = "istio-1.5.0"
-	testTGZFilename  = istioTestVersion + "-linux.tar.gz"
 )
 
 type testGroup []struct {
@@ -365,17 +362,4 @@ func removeDirOrFail(t *testing.T, path string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-}
-
-func createLocalReleaseCharts() (string, error) {
-	releaseDir, err := ioutil.TempDir(os.TempDir(), "istio-test-release-*")
-	if err != nil {
-		return "", err
-	}
-	releaseSubDir := filepath.Join(releaseDir, istioTestVersion, helm.OperatorSubdirFilePath)
-	cmd := exec.Command("../../release/create_release_charts.sh", "-o", releaseSubDir)
-	if stdo, err := cmd.Output(); err != nil {
-		return "", fmt.Errorf("%s: \n%s", err, string(stdo))
-	}
-	return releaseDir, nil
 }
