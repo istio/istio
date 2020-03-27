@@ -63,7 +63,7 @@ spec:
         subset: v1
 `
 	_, err := deployment.New(ctx, deployment.Config{
-		Name:      "bookinfo-virtualservice",
+		Name:      "bogus-virtualservice",
 		Namespace: ns,
 		Yaml:      badVS,
 	})
