@@ -11,7 +11,6 @@
 // charts/base/templates/clusterrolebinding.yaml
 // charts/base/templates/crds.yaml
 // charts/base/templates/endpoints.yaml
-// charts/base/templates/namespaces.yaml
 // charts/base/templates/serviceaccount.yaml
 // charts/base/templates/services.yaml
 // charts/base/templates/validatingwebhookconfiguration.yaml
@@ -6829,16 +6828,6 @@ func chartsBaseFilesCrdOperatorYaml() (*asset, error) {
 }
 
 var _chartsBaseFilesGenIstioClusterYaml = []byte(`---
-# Source: base/templates/namespaces.yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: istio-system
-  labels:
-    istio-operator-managed: Reconcile
-    istio-injection: disabled
-
----
 # Source: base/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
@@ -14006,30 +13995,6 @@ func chartsBaseTemplatesEndpointsYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsBaseTemplatesNamespacesYaml = []byte(`apiVersion: v1
-kind: Namespace
-metadata:
-  name: {{ .Values.global.istioNamespace }}
-  labels:
-    istio-operator-managed: Reconcile
-    istio-injection: disabled
-`)
-
-func chartsBaseTemplatesNamespacesYamlBytes() ([]byte, error) {
-	return _chartsBaseTemplatesNamespacesYaml, nil
-}
-
-func chartsBaseTemplatesNamespacesYaml() (*asset, error) {
-	bytes, err := chartsBaseTemplatesNamespacesYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/base/templates/namespaces.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _chartsBaseTemplatesServiceaccountYaml = []byte(`apiVersion: v1
 kind: ServiceAccount
 {{- if .Values.global.imagePullSecrets }}
@@ -14226,14 +14191,10 @@ var _chartsBaseValuesYaml = []byte(`global:
 
   # ImagePullSecrets for control plane ServiceAccount, list of secrets in the same namespace
   # to use for pulling any images in pods that reference this ServiceAccount.
-  # Must be set for any clustser configured with private docker registry.
+  # Must be set for any cluster configured with private docker registry.
   imagePullSecrets: []
 
-  # Used to locate istio-pilot.
-  # Default is to install pilot in a dedicated namespace, istio-pilot11. You can use multiple namespaces, but
-  # for each 'profile' you need to match the control plane namespace and the value of istioNamespace
-  # It is assumed that istio-system is running either 1.0 or an upgraded version of 1.1, but only security components are
-  # used (citadel generating the secrets).
+  # Used to locate istiod.
   istioNamespace: istio-system
 
   istiod:
@@ -45573,7 +45534,6 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/base/templates/clusterrolebinding.yaml":                                        chartsBaseTemplatesClusterrolebindingYaml,
 	"charts/base/templates/crds.yaml":                                                      chartsBaseTemplatesCrdsYaml,
 	"charts/base/templates/endpoints.yaml":                                                 chartsBaseTemplatesEndpointsYaml,
-	"charts/base/templates/namespaces.yaml":                                                chartsBaseTemplatesNamespacesYaml,
 	"charts/base/templates/serviceaccount.yaml":                                            chartsBaseTemplatesServiceaccountYaml,
 	"charts/base/templates/services.yaml":                                                  chartsBaseTemplatesServicesYaml,
 	"charts/base/templates/validatingwebhookconfiguration.yaml":                            chartsBaseTemplatesValidatingwebhookconfigurationYaml,
@@ -45823,7 +45783,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"clusterrolebinding.yaml":             &bintree{chartsBaseTemplatesClusterrolebindingYaml, map[string]*bintree{}},
 				"crds.yaml":                           &bintree{chartsBaseTemplatesCrdsYaml, map[string]*bintree{}},
 				"endpoints.yaml":                      &bintree{chartsBaseTemplatesEndpointsYaml, map[string]*bintree{}},
-				"namespaces.yaml":                     &bintree{chartsBaseTemplatesNamespacesYaml, map[string]*bintree{}},
 				"serviceaccount.yaml":                 &bintree{chartsBaseTemplatesServiceaccountYaml, map[string]*bintree{}},
 				"services.yaml":                       &bintree{chartsBaseTemplatesServicesYaml, map[string]*bintree{}},
 				"validatingwebhookconfiguration.yaml": &bintree{chartsBaseTemplatesValidatingwebhookconfigurationYaml, map[string]*bintree{}},

@@ -1,14 +1,4 @@
 ---
-# Source: base/templates/namespaces.yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: istio-system
-  labels:
-    istio-operator-managed: Reconcile
-    istio-injection: disabled
-
----
 # Source: base/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount

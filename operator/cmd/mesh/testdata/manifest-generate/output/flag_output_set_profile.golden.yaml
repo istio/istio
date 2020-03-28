@@ -6728,16 +6728,6 @@ spec:
 
 
 apiVersion: v1
-kind: Namespace
-metadata:
-  name: istio-system
-  labels:
-    istio-operator-managed: Reconcile
-    istio-injection: disabled
----
-
-
-apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-reader-service-account

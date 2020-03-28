@@ -25,6 +25,8 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/api/operator/v1alpha1"
+
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 	goversion "github.com/hashicorp/go-version"
@@ -33,6 +35,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -263,7 +266,7 @@ func parseKubectlVersion(kubectlStdout string) (*goversion.Version, *goversion.V
 }
 
 // ApplyAll applies all given manifests using kubectl client.
-func ApplyAll(manifests name.ManifestMap, version pkgversion.Version, revision string, opts *kubectlcmd.Options) (CompositeOutput, error) {
+func ApplyAll(manifests name.ManifestMap, version pkgversion.Version, iop *v1alpha1.IstioOperatorSpec, opts *kubectlcmd.Options) (CompositeOutput, error) {
 	scope.Infof("Preparing manifests for these components:")
 	for c := range manifests {
 		scope.Infof("- %s", c)
@@ -272,7 +275,35 @@ func ApplyAll(manifests name.ManifestMap, version pkgversion.Version, revision s
 	if _, err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
 		return nil, err
 	}
-	return applyRecursive(manifests, version, revision, opts)
+	// Set up the namespace for installation
+	if err := createNamespace(iop.Namespace); err != nil {
+		return nil, err
+	}
+	return applyRecursive(manifests, version, iop.Revision, opts)
+}
+
+func createNamespace(namespace string) error {
+	if namespace == "" {
+		// Setup default namespace
+		namespace = "istio-system"
+	}
+
+	// TODO we need to stop creating configs in every function that needs them. One client should be used.
+	cs, e := kubernetes.NewForConfig(k8sRESTConfig)
+	if e != nil {
+		return fmt.Errorf("k8s client error: %s", e)
+	}
+	ns := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+		Name: namespace,
+		Labels: map[string]string{
+			"istio-injection": "disabled",
+		},
+	}}
+	_, err := cs.CoreV1().Namespaces().Create(ns)
+	if err != nil && !kerrors.IsAlreadyExists(err) {
+		return fmt.Errorf("failed to create namespace %v: %v", namespace, err)
+	}
+	return nil
 }
 
 // Apply applies all given manifest using kubectl client.
