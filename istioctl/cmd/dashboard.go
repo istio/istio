@@ -358,7 +358,7 @@ func dashboard() *cobra.Command {
 	}
 
 	dashboardCmd.PersistentFlags().StringVar(&bindAddress, "address", "localhost",
-		"Addresse to listen on. Only accepts IP address or localhost as a value. "+
+		"Address to listen on. Only accepts IP address or localhost as a value. "+
 			"When localhost is supplied, istioctl will try to bind on both 127.0.0.1 and ::1 "+
 			"and will fail if neither of these address are available to bind.")
 
