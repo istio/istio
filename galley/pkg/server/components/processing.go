@@ -247,7 +247,9 @@ func (p *Processing) Start() (err error) {
 		}()
 	}
 
-	startWG.Wait()
+	if p.args.EnableServer {
+		startWG.Wait()
+	}
 
 	return nil
 }

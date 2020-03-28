@@ -241,6 +241,8 @@ spec:
           value: istiod.istio-system.svc:15012
         - name: PILOT_EXTERNAL_GALLEY
           value: "false"
+        - name: PILOT_ENABLE_ANALYSIS
+          value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
         envFrom:
@@ -359,6 +361,7 @@ data:
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
         "istiod": {
+          "enableAnalysis": false,
           "enabled": true
         },
         "jwtPolicy": "third-party-jwt",
