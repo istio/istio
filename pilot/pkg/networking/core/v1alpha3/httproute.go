@@ -130,7 +130,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 	listenerPort := 0
 	useSniffing := false
 	var err error
-	if features.EnableProtocolSniffingForOutbound.Get() &&
+	if features.EnableProtocolSniffingForOutbound &&
 		!strings.HasPrefix(routeName, model.UnixAddressPrefix) {
 		index := strings.IndexRune(routeName, ':')
 		if index != -1 {

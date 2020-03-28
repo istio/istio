@@ -260,15 +260,15 @@ func IsIstioVersionGE15(node *model.Proxy) bool {
 }
 
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
-	return features.EnableProtocolSniffingForOutbound.Get() && port.Protocol.IsUnsupported()
+	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
 }
 
 func IsProtocolSniffingEnabledForInboundPort(port *model.Port) bool {
-	return features.EnableProtocolSniffingForInbound.Get() && port.Protocol.IsUnsupported()
+	return features.EnableProtocolSniffingForInbound && port.Protocol.IsUnsupported()
 }
 
 func IsProtocolSniffingEnabledForOutboundPort(port *model.Port) bool {
-	return features.EnableProtocolSniffingForOutbound.Get() && port.Protocol.IsUnsupported()
+	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
 }
 
 // IsTCPMetadataExchangeEnabled checks whether Metadata Exchanged enabled for TCP using ALPN.

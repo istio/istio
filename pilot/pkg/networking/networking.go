@@ -50,11 +50,11 @@ func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance,
 	if p == protocol.Unsupported {
 		switch trafficDirection {
 		case core.TrafficDirection_INBOUND:
-			if !features.EnableProtocolSniffingForInbound.Get() {
+			if !features.EnableProtocolSniffingForInbound {
 				p = protocol.TCP
 			}
 		case core.TrafficDirection_OUTBOUND:
-			if !features.EnableProtocolSniffingForOutbound.Get() {
+			if !features.EnableProtocolSniffingForOutbound {
 				p = protocol.TCP
 			}
 		default:
