@@ -627,11 +627,6 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 		req.ConfigsUpdated = make(map[resource.GroupVersionKind]map[string]struct{})
 	}
 
-	// Setting this to nil will trigger a full push
-	if _, f := req.ConfigsUpdated[model.ServiceEntryKind]; f {
-		req.ConfigsUpdated[model.ServiceEntryKind] = nil
-	}
-
 	s.startPush(req)
 }
 
