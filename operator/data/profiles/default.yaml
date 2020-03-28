@@ -255,6 +255,7 @@ spec:
       istioNamespace: istio-system
       istiod:
         enabled: true
+        enableAnalysis: false
       logging:
         level: "default:info"
       logAsJson: false
