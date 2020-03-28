@@ -108,6 +108,20 @@ func TestMergeUpdateRequest(t *testing.T) {
 			PushRequest{Full: true},
 		},
 		{
+			"two kinds of resources: left full",
+			&PushRequest{Full: true,
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+					{Kind: "cfg1"}: {}}},
+			&PushRequest{Full: false,
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+					ServiceEntryKind: {"svc-2": {}}}},
+			PushRequest{Full: true,
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+					ServiceEntryKind: {},
+					{Kind: "cfg1"}:   {},
+				}},
+		},
+		{
 			"skip eds merge: right full",
 			&PushRequest{Full: false,
 				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{

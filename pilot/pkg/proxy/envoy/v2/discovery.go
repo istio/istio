@@ -374,6 +374,7 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 
 			go func() {
 				pushEv := &XdsEvent{
+					full:              info.Full,
 					push:              info.Push,
 					done:              doneFunc,
 					start:             info.Start,

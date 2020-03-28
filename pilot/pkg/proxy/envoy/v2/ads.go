@@ -100,6 +100,9 @@ type XdsConnection struct {
 
 // XdsEvent represents a config or registry event that results in a push.
 type XdsEvent struct {
+	// Indicate whether the push is Full Push
+	full bool
+
 	namespacesUpdated map[string]struct{}
 
 	// If GroupVersionKind is service entry and not empty, it is used to indicate the event
@@ -496,16 +499,16 @@ func (s *DiscoveryServer) DeltaAggregatedResources(stream ads.AggregatedDiscover
 // for large configs. The method will hold a lock on con.pushMutex.
 func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) error {
 	// TODO: update the service deps based on NetworkScope
+	if !pushEv.full {
+		edsUpdatedServices := pushEv.configsUpdated[model.ServiceEntryKind]
 
-	edsUpdatedServices := pushEv.configsUpdated[model.ServiceEntryKind]
-	if edsUpdatedServices != nil {
 		if !ProxyNeedsPush(con.node, pushEv) {
 			adsLog.Debugf("Skipping EDS push to %v, no updates required", con.ConID)
 			return nil
 		}
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)
-		if len(con.Clusters) > 0 {
+		if len(con.Clusters) > 0 && len(edsUpdatedServices) > 0 {
 			if err := s.pushEds(pushEv.push, con, versionInfo(), edsUpdatedServices); err != nil {
 				return err
 			}
@@ -625,7 +628,9 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 	}
 
 	// Setting this to nil will trigger a full push
-	req.ConfigsUpdated[model.ServiceEntryKind] = nil
+	if _, f := req.ConfigsUpdated[model.ServiceEntryKind]; f {
+		req.ConfigsUpdated[model.ServiceEntryKind] = nil
+	}
 
 	s.startPush(req)
 }

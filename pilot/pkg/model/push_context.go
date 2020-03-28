@@ -261,13 +261,14 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		Reason: append(first.Reason, other.Reason...),
 	}
 
+	// Do not merge when any one is empty
 	if len(first.ConfigsUpdated) > 0 && len(other.ConfigsUpdated) > 0 {
 		merged.ConfigsUpdated = make(map[resource.GroupVersionKind]map[string]struct{})
-		for update := range first.ConfigsUpdated {
-			merged.ConfigsUpdated[update] = make(map[string]struct{})
+		for kind := range first.ConfigsUpdated {
+			merged.ConfigsUpdated[kind] = make(map[string]struct{})
 		}
-		for update := range other.ConfigsUpdated {
-			merged.ConfigsUpdated[update] = make(map[string]struct{})
+		for kind := range other.ConfigsUpdated {
+			merged.ConfigsUpdated[kind] = make(map[string]struct{})
 		}
 
 		if !merged.Full {
@@ -276,17 +277,15 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 				d2 := other.ConfigsUpdated[kind]
 
 				for update := range d1 {
-					merged.ConfigsUpdated[kind][update] = struct{}{}
+					if merged.ConfigsUpdated[kind] != nil {
+						merged.ConfigsUpdated[kind][update] = struct{}{}
+					}
 				}
 
 				for update := range d2 {
-					merged.ConfigsUpdated[kind][update] = struct{}{}
-				}
-			}
-		} else {
-			for kind := range merged.ConfigsUpdated {
-				if kind == ServiceEntryKind {
-					merged.ConfigsUpdated[kind] = nil
+					if merged.ConfigsUpdated[kind] != nil {
+						merged.ConfigsUpdated[kind][update] = struct{}{}
+					}
 				}
 			}
 		}
