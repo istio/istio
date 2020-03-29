@@ -61,7 +61,7 @@ func (e *kubeEndpoints) handleEvent(name string, namespace string, event model.E
 	log.Debugf("Handle event %s for endpoint %s in namespace %s", event, name, namespace)
 
 	// headless service cluster discovery type is ORIGINAL_DST, we do not need update EDS.
-	if features.EnableHeadlessService.Get() {
+	if features.EnableHeadlessService {
 		if obj, _, _ := e.c.services.GetIndexer().GetByKey(kube.KeyFunc(name, namespace)); obj != nil {
 			svc := obj.(*v1.Service)
 			// if the service is headless service, trigger a full push.

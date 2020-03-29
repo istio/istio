@@ -69,7 +69,7 @@ func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance,
 		protocol.Mongo, protocol.Redis, protocol.MySQL:
 		return ListenerProtocolTCP
 	case protocol.Thrift:
-		if features.EnableThriftFilter.Get() {
+		if features.EnableThriftFilter {
 			return ListenerProtocolThrift
 		}
 		return ListenerProtocolTCP

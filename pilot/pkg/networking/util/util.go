@@ -273,7 +273,7 @@ func IsProtocolSniffingEnabledForOutboundPort(port *model.Port) bool {
 
 // IsTCPMetadataExchangeEnabled checks whether Metadata Exchanged enabled for TCP using ALPN.
 func IsTCPMetadataExchangeEnabled(node *model.Proxy) bool {
-	return features.EnableTCPMetadataExchange.Get() && IsIstioVersionGE15(node)
+	return features.EnableTCPMetadataExchange && IsIstioVersionGE15(node)
 }
 
 // ConvertLocality converts '/' separated locality string to Locality struct.

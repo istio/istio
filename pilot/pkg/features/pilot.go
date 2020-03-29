@@ -135,7 +135,7 @@ var (
 		"PILOT_ENABLE_MYSQL_FILTER",
 		false,
 		"EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.",
-	)
+	).Get()
 
 	// EnableRedisFilter enables injection of `envoy.filters.network.redis_proxy` in the filter chain.
 	// Pilot injects this outbound filter if the service port name is `redis`.
@@ -143,7 +143,7 @@ var (
 		"PILOT_ENABLE_REDIS_FILTER",
 		false,
 		"EnableRedisFilter enables injection of `envoy.filters.network.redis_proxy` in the filter chain.",
-	)
+	).Get()
 
 	// UseRemoteAddress sets useRemoteAddress to true for side car outbound listeners so that it picks up the localhost
 	// address of the sender, which is an internal address, so that trusted headers are not sanitized.
@@ -151,7 +151,7 @@ var (
 		"PILOT_SIDECAR_USE_REMOTE_ADDRESS",
 		false,
 		"UseRemoteAddress sets useRemoteAddress to true for side car outbound listeners.",
-	)
+	).Get()
 
 	// EnableThriftFilter enables injection of `envoy.filters.network.thrift_proxy` in the filter chain.
 	// Pilot injects this outbound filter if the service port name is `thrift`.
@@ -159,7 +159,7 @@ var (
 		"PILOT_ENABLE_THRIFT_FILTER",
 		false,
 		"EnableThriftFilter enables injection of `envoy.filters.network.thrift_proxy` in the filter chain.",
-	)
+	).Get()
 
 	// SkipValidateTrustDomain tells the server proxy to not to check the peer's trust domain when
 	// mTLS is enabled in authentication policy.
@@ -184,14 +184,14 @@ var (
 		"PILOT_ENABLE_TCP_METADATA_EXCHANGE",
 		true,
 		"If enabled, metadata exchange will be enabled for TCP using ALPN and Network Metadata Exchange filters in Envoy",
-	)
+	).Get()
 
 	ScopeGatewayToNamespace = env.RegisterBoolVar(
 		"PILOT_SCOPE_GATEWAY_TO_NAMESPACE",
 		false,
 		"If enabled, a gateway workload can only select gateway resources in the same namespace. "+
 			"Gateways with same selectors in different namespaces will not be applicable.",
-	)
+	).Get()
 
 	InboundProtocolDetectionTimeout = env.RegisterDurationVar(
 		"PILOT_INBOUND_PROTOCOL_DETECTION_TIMEOUT",
@@ -205,7 +205,7 @@ var (
 		"If enabled, for a headless service/stateful set in Kubernetes, pilot will generate an "+
 			"outbound listener for each pod in a headless service. This feature should be disabled "+
 			"if headless services have a large number of pods.",
-	)
+	).Get()
 
 	EnableEDSForHeadless = env.RegisterBoolVar(
 		"PILOT_ENABLE_EDS_FOR_HEADLESS_SERVICES",
@@ -213,7 +213,7 @@ var (
 		"If enabled, for headless service in Kubernetes, pilot will send endpoints over EDS, "+
 			"allowing the sidecar to load balance among pods in the headless service. This feature "+
 			"should be enabled if applications access all services explicitly via a HTTP proxy port in the sidecar.",
-	)
+	).Get()
 
 	BlockHTTPonHTTPSPort = env.RegisterBoolVar(
 		"PILOT_BLOCK_HTTP_ON_443",
@@ -249,7 +249,7 @@ var (
 		"If enabled, pilot will validate CRDs while retrieving CRDs from kubernetes cache."+
 			"Use this flag to enable validation of CRDs in Pilot, especially in deployments "+
 			"that do not have galley installed.",
-	)
+	).Get()
 
 	EnableAnalysis = env.RegisterBoolVar(
 		"PILOT_ENABLE_ANALYSIS",

@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -546,7 +545,7 @@ func TestInboundListenerConfig_HTTP(t *testing.T) {
 
 func TestOutboundListenerConfig_WithDisabledSniffing_WithSidecar(t *testing.T) {
 	defaultValue := features.EnableProtocolSniffingForOutbound
-	features.EnableProtocolSniffingForOutbound = true
+	features.EnableProtocolSniffingForOutbound = false
 	defer func() { features.EnableProtocolSniffingForOutbound = defaultValue }()
 
 	// Add a service and verify it's config
@@ -702,7 +701,7 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 	t.Helper()
 
 	defaultValue := features.EnableProtocolSniffingForOutbound
-	features.EnableProtocolSniffingForOutbound = true
+	features.EnableProtocolSniffingForOutbound = false
 	defer func() { features.EnableProtocolSniffingForOutbound = defaultValue }()
 
 	oldestService := getOldestService(services...)
@@ -1049,9 +1048,9 @@ func testOutboundListenerConfigWithSidecarV14(t *testing.T, services ...*model.S
 	}
 
 	// enable mysql filter that is used here
-	_ = os.Setenv(features.EnableMysqlFilter.Name, "true")
-
-	defer func() { _ = os.Unsetenv(features.EnableMysqlFilter.Name) }()
+	defaultValue := features.EnableMysqlFilter
+	features.EnableMysqlFilter = true
+	defer func() { features.EnableMysqlFilter = defaultValue }()
 
 	listeners := buildOutboundListeners(p, &proxy14, sidecarConfig, nil, services...)
 	if len(listeners) != 4 {
@@ -1249,9 +1248,9 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 	}
 
 	// enable mysql filter that is used here
-	_ = os.Setenv(features.EnableMysqlFilter.Name, "true")
-
-	defer func() { _ = os.Unsetenv(features.EnableMysqlFilter.Name) }()
+	defaultValue := features.EnableMysqlFilter
+	features.EnableMysqlFilter = true
+	defer func() { features.EnableMysqlFilter = defaultValue }()
 
 	listeners := buildOutboundListeners(p, &proxy, sidecarConfig, nil, services...)
 	if len(listeners) != 1 {
@@ -1287,9 +1286,9 @@ func testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t *testing.T, ser
 	}
 
 	// enable use remote address to true
-	_ = os.Setenv(features.UseRemoteAddress.Name, "true")
-
-	defer func() { _ = os.Unsetenv(features.UseRemoteAddress.Name) }()
+	defaultValue := features.UseRemoteAddress
+	features.UseRemoteAddress = true
+	defer func() { features.UseRemoteAddress = defaultValue }()
 
 	listeners := buildOutboundListeners(p, &proxy, sidecarConfig, nil, services...)
 
@@ -2192,12 +2191,11 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 	svcIP := "127.0.22.2"
 	limitedSvcName := "thrift-service"
 	limitedSvcIP := "127.0.22.3"
-	if err := os.Setenv("PILOT_ENABLE_THRIFT_FILTER", "true"); err != nil {
-		t.Error(err.Error())
-	}
-	defer func() {
-		_ = os.Unsetenv(features.EnableThriftFilter.Name)
-	}()
+
+	defaultValue := features.EnableThriftFilter
+	features.EnableThriftFilter = true
+	defer func() { features.EnableThriftFilter = defaultValue }()
+
 	services := []*model.Service{
 		buildService(svcName+".default.svc.cluster.local", svcIP, protocol.Thrift, tnow),
 		buildService(limitedSvcName+".default.svc.cluster.local", limitedSvcIP, protocol.Thrift, tnow)}

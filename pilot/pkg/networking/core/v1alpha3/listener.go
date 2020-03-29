@@ -1060,7 +1060,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 					// Instead of generating a single 0.0.0.0:Port listener, generate a listener
 					// for each instance. HTTP services can happily reside on 0.0.0.0:PORT and use the
 					// wildcard route match to get to the appropriate pod through original dst clusters.
-					if features.EnableHeadlessService.Get() && bind == "" && service.Resolution == model.Passthrough &&
+					if features.EnableHeadlessService && bind == "" && service.Resolution == model.Passthrough &&
 						service.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) && servicePort.Protocol.IsTCP() {
 						if instances, err := push.InstancesByPort(service, servicePort.Port, nil); err == nil {
 							for _, instance := range instances {
@@ -1082,7 +1082,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 						}
 					} else {
 						// Standard logic for headless and non headless services
-						if features.EnableThriftFilter.Get() &&
+						if features.EnableThriftFilter &&
 							servicePort.Protocol.IsThrift() {
 							listenerOpts.bind = service.Address
 						}
@@ -1255,7 +1255,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 		// Set useRemoteAddress to true for side car outbound listeners so that it picks up the localhost address of the sender,
 		// which is an internal address, so that trusted headers are not sanitized. This helps to retain the timeout headers
 		// such as "x-envoy-upstream-rq-timeout-ms" set by the calling application.
-		useRemoteAddress: features.UseRemoteAddress.Get(),
+		useRemoteAddress: features.UseRemoteAddress,
 		rds:              rdsName,
 	}
 
@@ -2217,7 +2217,7 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *istione
 		mutable.Listener.FilterChains[i].Metadata = opt.metadata
 		mutable.Listener.FilterChains[i].Name = opt.filterChainName
 
-		if opt.thriftOpts != nil && features.EnableThriftFilter.Get() {
+		if opt.thriftOpts != nil && features.EnableThriftFilter {
 			var quotas []model.Config
 			// Add the TCP filters first.. and then the Thrift filter
 			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
