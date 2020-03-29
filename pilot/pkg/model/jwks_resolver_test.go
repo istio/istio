@@ -644,3 +644,35 @@ func verifyKeyLastRefreshedTime(t *testing.T, r *JwksResolver, ms *test.MockOpen
 		t.Errorf("Want changed: %t but got %t", wantChanged, actualChanged)
 	}
 }
+
+func TestCompareJWKSResponse(t *testing.T) {
+	type args struct {
+		oldKeyString string
+		newKeyString string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    bool
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+		{"testEquivalentStrings", args{test.JwtPubKey1, test.JwtPubKey1}, false, false},
+		{"testReorderedKeys", args{test.JwtPubKey1, test.JwtPubKey1Reordered}, false, false},
+		{"testDifferentKeys", args{test.JwtPubKey1, test.JwtPubKey2}, true, false},
+		{"testOldJsonParseFailure", args{"This is not JSON", test.JwtPubKey1}, true, false},
+		{"testNewJsonParseFailure", args{test.JwtPubKey1, "This is not JSON"}, false, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := compareJWKSResponse(tt.args.oldKeyString, tt.args.newKeyString)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("compareJWKSResponse() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("compareJWKSResponse() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

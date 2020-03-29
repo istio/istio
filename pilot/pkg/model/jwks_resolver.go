@@ -22,6 +22,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"reflect"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -408,7 +410,12 @@ func (r *JwksResolver) refresh() {
 				lastRefreshedTime: now,            // update the lastRefreshedTime if we get a success response from the network.
 				lastUsedTime:      e.lastUsedTime, // keep original lastUsedTime.
 			})
-			if compareJWKSResponse(oldPubKey, newPubKey) {
+			isNewKey, error := compareJWKSResponse(oldPubKey, newPubKey)
+			if error != nil {
+				log.Errorf("Failed to refresh JWT public key from %q: %v", jwksURI, err)
+				return
+			}
+			if isNewKey {
 				hasChange = true
 				log.Infof("Updated cached JWT public key from %q", jwksURI)
 			}
@@ -436,40 +443,40 @@ func (r *JwksResolver) Close() {
 	closeChan <- true
 }
 
-func compareJWKSResponse(oldKeyString string, newKeyString string) bool {
+// Compare two JWKS responses, returning true if there is a difference and false otherwise
+func compareJWKSResponse(oldKeyString string, newKeyString string) (bool, error) {
+	if oldKeyString == newKeyString {
+		return false, nil
+	}
+
 	var oldJWKs map[string]interface{}
 	var newJWKs map[string]interface{}
-	e := json.Unmarshal([]byte(oldKeyString), &oldJWKs)
+	e := json.Unmarshal([]byte(newKeyString), &newJWKs)
+	if e != nil {
+		// If the new key is not parseable as JSON return an error since we will not want to use this key
+		log.Warnf("New JWKs public key JSON is not parseable: %s", newKeyString)
+		return false, e
+	}
+	e = json.Unmarshal([]byte(oldKeyString), &oldJWKs)
 	if e != nil {
 		log.Warnf("Previous JWKs public key JSON is not parseable: %s", oldKeyString)
-		return true
-	}
-	e = json.Unmarshal([]byte(newKeyString), &newJWKs)
-	if e != nil {
-		log.Warnf("New JWKs public key JSON is not parseable: %s", newKeyString)
-		return true
+		return true, nil
 	}
 
-	if oldJWKs == nil || newJWKs == nil {
-		return true
-	}
+	// Sort both sets of keys by "kid (key ID)" to be able to directly compare
+	oldKeys := oldJWKs["keys"].([]interface{})
+	sort.Slice(oldKeys, func(i, j int) bool {
+		key1 := oldKeys[i].(map[string]interface{})
+		key2 := oldKeys[j].(map[string]interface{})
+		return key1["kid"].(string) < key2["kid"].(string)
+	})
+	newKeys := newJWKs["keys"].([]interface{})
+	sort.Slice(newKeys, func(i, j int) bool {
+		key1 := newKeys[i].(map[string]interface{})
+		key2 := newKeys[j].(map[string]interface{})
+		return key1["kid"].(string) < key2["kid"].(string)
+	})
 
-	oldKeys := make(map[string]map[string]interface{})
-	for _, oldKey := range oldJWKs["keys"].([]interface{}) {
-		oldKeys[oldKey.(map[string]interface{})["kid"].(string)] = oldKey.(map[string]interface{})
-	}
-	for _, newKey := range newJWKs["keys"].([]interface{}) {
-		matchingOldKey := oldKeys[newKey.(map[string]interface{})["kid"].(string)]
-		if nil == matchingOldKey {
-			return true
-		}
-		for oldKeyJSONKey, oldKeyJSONValue := range matchingOldKey {
-			newKeyJSONValue := newKey.(map[string]interface{})[oldKeyJSONKey]
-			if newKeyJSONValue == nil || newKeyJSONValue != oldKeyJSONValue {
-				return true
-			}
-		}
-	}
-
-	return false
+	// Once sorted, return the result of deep comparison of the arrays of keys
+	return !reflect.DeepEqual(oldKeys, newKeys), nil
 }

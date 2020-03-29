@@ -37,16 +37,16 @@ var (
 
 const (
 	// JwtPubKey1 is the response to 1st call for JWT public key returned by mock server.
-	JwtPubKey1 = "{ \"keys\": [ { \"kid\": \"fakeKey1_1\", \"alg\": \"RS256\", \"kty\": \"RSA\", \"n\": \"abc\", \"e\": \"def\" }," +
-		" { \"kid\": \"fakeKey1_2\", \"alg\": \"RS256\", \"kty\": \"RSA\", \"n\": \"123\", \"e\": \"456\" } ] }"
+	JwtPubKey1 = `{ "keys": [ { "kid": "fakeKey1_1", "alg": "RS256", "kty": "RSA", "n": "abc", "e": "def" },
+			{ "kid": "fakeKey1_2", "alg": "RS256", "kty": "RSA", "n": "123", "e": "456" } ] }`
 
 	// JwtPubKey1Reordered is the response to 1st call for JWT public key returned by mock server, but in a modified order of json elements.
-	JwtPubKey1Reordered = "{ \"keys\": [ { \"alg\": \"RS256\", \"kid\": \"fakeKey1_2\", \"n\": \"123\", \"kty\": \"RSA\", \"e\": \"456\" }," +
-		" { \"n\": \"abc\", \"alg\": \"RS256\", \"kty\": \"RSA\", \"kid\": \"fakeKey1_1\", \"e\": \"def\" } ] }"
+	JwtPubKey1Reordered = `{ "keys": [ { "alg": "RS256", "kid": "fakeKey1_2", "n": "123", "kty": "RSA", "e": "456" },
+			{ "n": "abc", "alg": "RS256", "kty": "RSA", "kid": "fakeKey1_1", "e": "def" } ] }`
 
 	// JwtPubKey2 is the response to later calls for JWT public key returned by mock server.
-	JwtPubKey2 = "{ \"keys\": [ { \"kid\": \"fakeKey2_1\", \"alg\": \"RS256\", \"kty\": \"RSA\", \"n\": \"ghi\", \"e\": \"lmn\" }," +
-		" { \"kid\": \"fakeKey2_2\", \"alg\": \"RS256\", \"kty\": \"RSA\", \"n\": \"789\", \"e\": \"1234\" } ] }"
+	JwtPubKey2 = `{ "keys": [ { "kid": "fakeKey2_1", "alg": "RS256", "kty": "RSA", "n": "ghi", "e": "lmn" },
+			{ "kid": "fakeKey2_2", "alg": "RS256", "kty": "RSA", "n": "789", "e": "1234" } ] }`
 )
 
 // MockOpenIDDiscoveryServer is the in-memory openID discovery server.
