@@ -193,11 +193,9 @@ type PushRequest struct {
 	NamespacesUpdated map[string]struct{}
 
 	// ConfigsUpdated keeps track of configs that have changed.
-	// The config types are those defined in pkg/config/schemas. Below are some commonly used:
-	//
-	// ServiceEntryKind:
-	// keeps track of all service updated since last full push.
-	// Key is the hostname (serviceName). This is used by incremental eds.
+	// The outer map key is the resource kinds changed and the inner map key is the changed
+	// resource names.
+	// The kind of resources are defined in pkg/config/schemas.
 	ConfigsUpdated map[resource.GroupVersionKind]map[string]struct{}
 
 	// Push stores the push context to use for the update. This may initially be nil, as we will

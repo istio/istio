@@ -186,8 +186,8 @@ func (s *DiscoveryServer) EDSUpdate(clusterID, serviceName string, namespace str
 	return nil
 }
 
-// edsUpdate updates edsUpdates by clusterID, serviceName, IstioEndpoints,
-// and requests a full/eds push.
+// edsUpdate updates EDS by clusterID, serviceName, IstioEndpoints,
+// and requests a Full/EDS push.
 func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace string,
 	istioEndpoints []*model.IstioEndpoint, internal bool) {
 	// edsShardUpdate replaces a subset (shard) of endpoints, as result of an incremental
