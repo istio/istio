@@ -282,7 +282,7 @@ var (
 
 	DefaultRequestTimeout = func() *duration.Duration {
 		return ptypes.DurationProto(defaultRequestTimeoutVar.Get())
-	}
+	}()
 
 	EnableServiceApis = env.RegisterBoolVar("PILOT_ENABLED_SERVICE_APIS", false,
 		"If this is set to true, support for Kubernetes service-apis (github.com/kubernetes-sigs/service-apis) will "+
