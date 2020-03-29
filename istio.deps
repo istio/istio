@@ -11,7 +11,6 @@
     "name": "CNI_REPO_SHA",
     "repoName": "cni",
     "file": "",
-    "lastStableSHA": "367576fc80c2e8d80f248f76edb26eb2b46afa4f"
-
+    "lastStableSHA": "b394552c413ac14750da04afd415091b692478be"
   }
 ]
