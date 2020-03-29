@@ -7067,8 +7067,6 @@ data:
       ingressService: istio-ingressgateway
     jwksResolverExtraRootCA: ""
     keepaliveMaxServerConnectionAge: 30m
-    meshNetworks:
-      networks: {}
     namespace: istio-system
     nodeSelector: {}
     plugins: []
@@ -7364,11 +7362,6 @@ data:
           "enabled": true
         },
         "jwtPolicy": "third-party-jwt",
-        "k8sIngress": {
-          "enableHttps": false,
-          "enabled": false,
-          "gatewayName": "ingressgateway"
-        },
         "localityLbSetting": {
           "enabled": true
         },
@@ -7411,7 +7404,6 @@ data:
           "clusterDomain": "cluster.local",
           "componentLogLevel": "misc:error",
           "concurrency": 2,
-          "dnsRefreshRate": "300s",
           "enableCoreDump": false,
           "envoyAccessLogService": {
             "enabled": false
@@ -7436,8 +7428,6 @@ data:
           "excludeOutboundPorts": "",
           "image": "proxyv2",
           "includeIPRanges": "*",
-          "includeInboundPorts": "*",
-          "kubevirtInterfaces": "",
           "logLevel": "warning",
           "privileged": false,
           "protocolDetectionTimeout": "100ms",

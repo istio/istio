@@ -27,12 +27,12 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/operator/pkg/tpath"
-
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/onsi/gomega"
+	operatormesh "istio.io/istio/operator/cmd/mesh"
+	"istio.io/istio/operator/pkg/tpath"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
@@ -888,7 +888,8 @@ func loadInjectionConfigMap(t testing.TB, settings string) (template *Config, va
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifests, _, err := operator.GenManifests(nil, oy, false, nil, nil)
+	l := operatormesh.NewLogger(true, os.Stdout, os.Stderr)
+	manifests, _, err := operator.GenManifests(nil, oy, false, nil, l)
 	if err != nil {
 		t.Fatalf("failed to generate manifests: %v", err)
 	}

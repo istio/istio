@@ -37,20 +37,6 @@ kiali:
     annotations: {}
     type: ClusterIP
 
-  ingress:
-    enabled: false
-    ## Used to create an Ingress record.
-    hosts:
-      - kiali.local
-    annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-    tls:
-    # Secrets must be manually created in the namespace.
-    # - secretName: kiali-tls
-    #   hosts:
-    #     - kiali.local
-
   dashboard:
     auth:
       strategy: login # Can be anonymous, login, openshift, or ldap

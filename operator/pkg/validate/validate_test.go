@@ -156,7 +156,6 @@ values:
   global:
     proxy:
       includeIPRanges: ""
-      includeInboundPorts: "*"
 `,
 		},
 	}
