@@ -35515,7 +35515,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "refId": "A"
         },
         {
-          "expr": "sum(rate(sidecar_injection_success_total[1m]))",
+          "expr": "sum(rate(sidecar_injection_failure_total[1m]))",
           "interval": "",
           "legendFormat": "Injections (Failure)",
           "refId": "B"
