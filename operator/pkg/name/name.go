@@ -130,7 +130,7 @@ func (cn ComponentName) IsGateway() bool {
 
 // IsAddon reports whether cn is an addon component.
 func (cn ComponentName) IsAddon() bool {
-	return cn == AddonComponentName
+	return BundledAddonComponentNamesMap[cn]
 }
 
 // Namespace returns the namespace for the component. It follows these rules:

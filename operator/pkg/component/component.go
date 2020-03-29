@@ -573,7 +573,7 @@ func NewAddonComponent(addonName, resourceName string, spec *v1alpha1.ExternalCo
 	return &AddonComponent{
 		CommonComponentFields: &CommonComponentFields{
 			Options:       opts,
-			componentName: name.AddonComponentName,
+			componentName: name.ComponentName(addonName),
 			resourceName:  resourceName,
 			addonName:     addonName,
 			spec:          spec,

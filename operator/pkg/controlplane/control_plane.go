@@ -30,7 +30,9 @@ import (
 type IstioOperator struct {
 	// components is a slice of components that are part of the feature.
 	components []component.IstioComponent
-	started    bool
+	// addonComponents is a map of addon components with resource name as key.
+	addonComponents map[string]component.IstioComponent
+	started         bool
 }
 
 // NewIstioOperator creates a new IstioOperator and returns a pointer to it.
@@ -72,7 +74,7 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 		}
 		o := *opts
 		o.Namespace = defaultIfEmpty(c.Namespace, iop.Namespace(installSpec))
-		out.components = append(out.components, component.NewAddonComponent(cn, rn, c, &o))
+		out.addonComponents[rn] = component.NewAddonComponent(cn, rn, c, &o)
 	}
 	return out, nil
 }
@@ -115,6 +117,11 @@ func (i *IstioOperator) RenderManifest() (manifests name.ManifestMap, errsOut ut
 		ms, err := c.RenderManifest()
 		errsOut = util.AppendErr(errsOut, err)
 		manifests[c.ComponentName()] = append(manifests[c.ComponentName()], ms)
+	}
+	for rn, c := range i.addonComponents {
+		ms, err := c.RenderManifest()
+		errsOut = util.AppendErr(errsOut, err)
+		manifests[name.ComponentName(rn)] = append(manifests[name.ComponentName(rn)], ms)
 	}
 	if len(errsOut) > 0 {
 		return nil, errsOut

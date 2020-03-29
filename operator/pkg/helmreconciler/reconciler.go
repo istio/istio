@@ -125,7 +125,9 @@ func (h *HelmReconciler) Reconcile() error {
 func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1.InstallStatus {
 	deps, dch := h.customizer.Input().GetProcessingOrder(manifests)
 	componentStatus := make(map[string]*v1alpha1.InstallStatus_VersionStatus)
-
+	addonComponentStatus := &v1alpha1.InstallStatus_AddonComponentStatus{
+		ComponentStatus: make(map[string]*v1alpha1.InstallStatus_VersionStatus),
+	}
 	// mu protects the shared InstallStatus componentStatus across goroutines
 	var mu sync.Mutex
 	// wg waits for all manifest processing goroutines to finish
@@ -146,9 +148,17 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1
 			// Set status when reconciling starts
 			status := v1alpha1.InstallStatus_RECONCILING
 			mu.Lock()
-			if _, ok := componentStatus[c]; !ok {
-				componentStatus[c] = &v1alpha1.InstallStatus_VersionStatus{}
-				componentStatus[c].Status = status
+			if cn.IsCoreComponent() || cn.IsGateway() {
+				if _, ok := componentStatus[c]; !ok {
+					componentStatus[c] = &v1alpha1.InstallStatus_VersionStatus{}
+					componentStatus[c].Status = status
+				}
+			}
+			if cn.IsAddon() {
+				if _, ok := addonComponentStatus.ComponentStatus[c]; ok {
+					addonComponentStatus.ComponentStatus[c] = &v1alpha1.InstallStatus_VersionStatus{}
+					addonComponentStatus.ComponentStatus[c].Status = status
+				}
 			}
 			mu.Unlock()
 
@@ -169,11 +179,24 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1
 			// Update status based on the result
 			mu.Lock()
 			if status == v1alpha1.InstallStatus_NONE {
-				delete(componentStatus, c)
+				if cn.IsCoreComponent() || cn.IsGateway() {
+					delete(componentStatus, c)
+				}
+				if cn.IsAddon() {
+					delete(addonComponentStatus.ComponentStatus, c)
+				}
 			} else {
-				componentStatus[c].Status = status
-				if errString != "" {
-					componentStatus[c].Error = errString
+				if cn.IsCoreComponent() || cn.IsGateway() {
+					componentStatus[c].Status = status
+					if errString != "" {
+						componentStatus[c].Error = errString
+					}
+				}
+				if cn.IsAddon() {
+					addonComponentStatus.ComponentStatus[c].Status = status
+					if errString != "" {
+						addonComponentStatus.ComponentStatus[c].Error = errString
+					}
 				}
 			}
 			mu.Unlock()
@@ -206,10 +229,23 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1
 			break
 		}
 	}
+	for _, cs := range addonComponentStatus.ComponentStatus {
+		if cs.Status == v1alpha1.InstallStatus_ERROR {
+			overallStatus = v1alpha1.InstallStatus_ERROR
+			break
+		} else if cs.Status == v1alpha1.InstallStatus_UPDATING {
+			overallStatus = v1alpha1.InstallStatus_UPDATING
+			break
+		} else if cs.Status == v1alpha1.InstallStatus_RECONCILING {
+			overallStatus = v1alpha1.InstallStatus_RECONCILING
+			break
+		}
+	}
 
 	out := &v1alpha1.InstallStatus{
-		Status:          overallStatus,
-		ComponentStatus: componentStatus,
+		Status:               overallStatus,
+		ComponentStatus:      componentStatus,
+		AddonComponentStatus: addonComponentStatus,
 	}
 
 	return out
