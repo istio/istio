@@ -4256,6 +4256,74 @@ spec:
                       format: string
                       type: string
                     type: array
+                  localhostServerTls:
+                    properties:
+                      caCertificates:
+                        description: REQUIRED if mode is `MUTUAL`.
+                        format: string
+                        type: string
+                      cipherSuites:
+                        description: 'Optional: If specified, only support the specified
+                          cipher list.'
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      credentialName:
+                        format: string
+                        type: string
+                      httpsRedirect:
+                        type: boolean
+                      maxProtocolVersion:
+                        description: 'Optional: Maximum TLS protocol version.'
+                        enum:
+                        - TLS_AUTO
+                        - TLSV1_0
+                        - TLSV1_1
+                        - TLSV1_2
+                        - TLSV1_3
+                        type: string
+                      minProtocolVersion:
+                        description: 'Optional: Minimum TLS protocol version.'
+                        enum:
+                        - TLS_AUTO
+                        - TLSV1_0
+                        - TLSV1_1
+                        - TLSV1_2
+                        - TLSV1_3
+                        type: string
+                      mode:
+                        enum:
+                        - PASSTHROUGH
+                        - SIMPLE
+                        - MUTUAL
+                        - AUTO_PASSTHROUGH
+                        - ISTIO_MUTUAL
+                        type: string
+                      privateKey:
+                        description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                        format: string
+                        type: string
+                      serverCertificate:
+                        description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                        format: string
+                        type: string
+                      subjectAltNames:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      verifyCertificateHash:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      verifyCertificateSpki:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                    type: object
                   port:
                     description: The port associated with the listener.
                     properties:
@@ -4289,6 +4357,37 @@ spec:
                   defaultEndpoint:
                     format: string
                     type: string
+                  localhostClientTls:
+                    properties:
+                      caCertificates:
+                        format: string
+                        type: string
+                      clientCertificate:
+                        description: REQUIRED if mode is `MUTUAL`.
+                        format: string
+                        type: string
+                      mode:
+                        enum:
+                        - DISABLE
+                        - SIMPLE
+                        - MUTUAL
+                        - ISTIO_MUTUAL
+                        type: string
+                      privateKey:
+                        description: REQUIRED if mode is `MUTUAL`.
+                        format: string
+                        type: string
+                      sni:
+                        description: SNI string to present to the server during TLS
+                          handshake.
+                        format: string
+                        type: string
+                      subjectAltNames:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                    type: object
                   port:
                     description: The port associated with the listener.
                     properties:
@@ -4306,6 +4405,108 @@ spec:
                     type: object
                 type: object
               type: array
+            localhost:
+              properties:
+                clientTls:
+                  properties:
+                    caCertificates:
+                      format: string
+                      type: string
+                    clientCertificate:
+                      description: REQUIRED if mode is `MUTUAL`.
+                      format: string
+                      type: string
+                    mode:
+                      enum:
+                      - DISABLE
+                      - SIMPLE
+                      - MUTUAL
+                      - ISTIO_MUTUAL
+                      type: string
+                    privateKey:
+                      description: REQUIRED if mode is `MUTUAL`.
+                      format: string
+                      type: string
+                    sni:
+                      description: SNI string to present to the server during TLS
+                        handshake.
+                      format: string
+                      type: string
+                    subjectAltNames:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                  type: object
+                serverTls:
+                  properties:
+                    caCertificates:
+                      description: REQUIRED if mode is `MUTUAL`.
+                      format: string
+                      type: string
+                    cipherSuites:
+                      description: 'Optional: If specified, only support the specified
+                        cipher list.'
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                    credentialName:
+                      format: string
+                      type: string
+                    httpsRedirect:
+                      type: boolean
+                    maxProtocolVersion:
+                      description: 'Optional: Maximum TLS protocol version.'
+                      enum:
+                      - TLS_AUTO
+                      - TLSV1_0
+                      - TLSV1_1
+                      - TLSV1_2
+                      - TLSV1_3
+                      type: string
+                    minProtocolVersion:
+                      description: 'Optional: Minimum TLS protocol version.'
+                      enum:
+                      - TLS_AUTO
+                      - TLSV1_0
+                      - TLSV1_1
+                      - TLSV1_2
+                      - TLSV1_3
+                      type: string
+                    mode:
+                      enum:
+                      - PASSTHROUGH
+                      - SIMPLE
+                      - MUTUAL
+                      - AUTO_PASSTHROUGH
+                      - ISTIO_MUTUAL
+                      type: string
+                    privateKey:
+                      description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                      format: string
+                      type: string
+                    serverCertificate:
+                      description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                      format: string
+                      type: string
+                    subjectAltNames:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                    verifyCertificateHash:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                    verifyCertificateSpki:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                  type: object
+              type: object
             outboundTrafficPolicy:
               description: Configuration for the outbound traffic policy.
               properties:
@@ -6991,36 +7192,6 @@ data:
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
       discoveryAddress: istiod.istio-system.svc:15012
-
-  Corefile: |-
-
-    global:15054 {
-        errors
-        log
-        proxy . 127.0.0.1:15053 {
-        }
-
-    }
-
-    .:15054 {
-        errors
-        log
-        health :15056 {
-          lameduck 5s
-        }
-
-        kubernetes cluster.local in-addr.arpa ip6.arpa {
-            pods insecure
-            fallthrough in-addr.arpa ip6.arpa
-            ttl 30
-        }
-        prometheus :9153
-
-        forward . /etc/resolv.conf
-        cache 30
-        reload
-        loadbalance
-    }
 ---
 
 
@@ -7049,39 +7220,6 @@ spec:
         app: istiod
         istio: pilot
     spec:
-      affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - ppc64le
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - s390x
-            weight: 2
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-                - ppc64le
-                - s390x
       containers:
       - args:
         - discovery
@@ -7116,8 +7254,6 @@ spec:
               fieldPath: spec.serviceAccountName
         - name: PILOT_TRACE_SAMPLING
           value: "1"
-        - name: CONFIG_NAMESPACE
-          value: istio-config
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
           value: "true"
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
@@ -7126,23 +7262,16 @@ spec:
           value: istio-sidecar-injector
         - name: ISTIOD_ADDR
           value: istiod.istio-system.svc:15012
-        - name: PILOT_EXTERNAL_GALLEY
-          value: "false"
         - name: PILOT_ENABLE_ANALYSIS
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
-        envFrom:
-        - configMapRef:
-            name: istiod
-            optional: true
         image: gcr.io/istio-testing/pilot:latest
         name: discovery
         ports:
         - containerPort: 8080
         - containerPort: 15010
         - containerPort: 15017
-        - containerPort: 15053
         readinessProbe:
           httpGet:
             path: /ready
@@ -7175,43 +7304,6 @@ spec:
         - mountPath: /var/lib/istio/inject
           name: inject
           readOnly: true
-        - mountPath: /var/lib/istio/local
-          name: istiod
-          readOnly: true
-      - args:
-        - -conf
-        - /var/lib/istio/coredns/Corefile
-        image: coredns/coredns:1.1.2
-        imagePullPolicy: IfNotPresent
-        livenessProbe:
-          failureThreshold: 5
-          httpGet:
-            path: /health
-            port: 15056
-            scheme: HTTP
-          initialDelaySeconds: 60
-          successThreshold: 1
-          timeoutSeconds: 5
-        name: dns
-        ports:
-        - containerPort: 15054
-          name: dns
-          protocol: UDP
-        - containerPort: 15055
-          name: metrics
-          protocol: TCP
-        securityContext:
-          capabilities:
-            drop:
-            - ALL
-          runAsGroup: 1337
-          runAsNonRoot: true
-          runAsUser: 1337
-        volumeMounts:
-        - mountPath: /var/run/secrets/istio-dns
-          name: local-certs
-        - mountPath: /var/lib/istio/coredns
-          name: config-volume
       securityContext:
         fsGroup: 1337
       serviceAccountName: istio-pilot-service-account
@@ -7226,10 +7318,6 @@ spec:
               audience: istio-ca
               expirationSeconds: 43200
               path: istio-token
-      - configMap:
-          name: istiod
-          optional: true
-        name: istiod
       - name: cacerts
         secret:
           optional: true
@@ -7932,14 +8020,6 @@ spec:
       targetPort: 15017
     - port: 15014
       name: http-monitoring # prometheus stats
-    - name: dns
-      port: 53
-      targetPort: 15053
-      protocol: UDP
-    - name: dns-tls
-      port: 853
-      targetPort: 15053
-      protocol: TCP
   selector:
     app: istiod
     # Label used by the 'default' service. For versioned deployments we match with app and version.

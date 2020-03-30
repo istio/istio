@@ -30,6 +30,7 @@ import (
 )
 
 var (
+	listenPort   = 0
 	controlZport = 0
 
 	bindAddress = ""
@@ -302,7 +303,7 @@ func controlZDashCmd() *cobra.Command {
 // portForward first tries to forward localhost:remotePort to podName:remotePort, falls back to dynamic local port
 func portForward(podName, namespace, flavor, url, localAddr string, remotePort int, client kubernetes.ExecClient, writer io.Writer) error {
 	var err error
-	for _, localPort := range []int{remotePort, 0} {
+	for _, localPort := range []int{listenPort, remotePort} {
 		fw, err := client.BuildPortForwarder(podName, namespace, localAddr, localPort, remotePort)
 		if err != nil {
 			return fmt.Errorf("could not build port forwarder for %s: %v", flavor, err)
@@ -357,6 +358,7 @@ func dashboard() *cobra.Command {
 		},
 	}
 
+	dashboardCmd.PersistentFlags().IntVarP(&listenPort, "port", "p", 0, "Local port to listen to")
 	dashboardCmd.PersistentFlags().StringVar(&bindAddress, "address", "localhost",
 		"Address to listen on. Only accepts IP address or localhost as a value. "+
 			"When localhost is supplied, istioctl will try to bind on both 127.0.0.1 and ::1 "+

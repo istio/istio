@@ -99,11 +99,6 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 5
-          envFrom:
-          # Allow an istiod configmap injecting user-specified env.
-          - configMapRef:
-              name: istiod
-              optional: true
           env:
           - name: REVISION
             value: "{{ .Values.revision | default `default` }}"
@@ -136,12 +131,6 @@ spec:
           - name: PILOT_TRACE_SAMPLING
             value: "{{ .Values.pilot.traceSampling }}"
 {{- end }}
-          - name: CONFIG_NAMESPACE
-            value: {{ .Values.pilot.configNamespace }}
-{{- if .Values.pilot.appNamespaces }}
-          - name: APP_NAMESPACE
-            value: {{ join "," .Values.pilot.appNamespaces }}
-{{- end }}
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
             value: "{{ .Values.pilot.enableProtocolSniffingForOutbound }}"
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
@@ -150,8 +139,6 @@ spec:
             value: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
           - name: ISTIOD_ADDR
             value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
-          - name: PILOT_EXTERNAL_GALLEY
-            value: "false"
           - name: PILOT_ENABLE_ANALYSIS
             value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID
@@ -185,9 +172,10 @@ spec:
           - name: inject
             mountPath: /var/lib/istio/inject
             readOnly: true
-          - name: istiod
-            mountPath: /var/lib/istio/local
-            readOnly: true
+          {{- if .Values.pilot.jwksResolverExtraRootCA }}
+          - name: extracacerts
+            mountPath: /cacerts
+          {{- end }}
 
         # CoreDNS sidecar. Ports are used internally, to run as non-root.
         # This is a short-term solution - the code in istiod can also be used
@@ -225,7 +213,6 @@ spec:
             successThreshold: 1
             failureThreshold: 5
 
-
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
@@ -241,10 +228,6 @@ spec:
                 expirationSeconds: 43200
                 path: istio-token
       {{- end }}
-      - name: istiod
-        configMap:
-          name: istiod
-          optional: true
       # Optional: user-generated root
       - name: cacerts
         secret:
@@ -263,14 +246,4 @@ spec:
         configMap:
           name: pilot-jwks-extra-cacerts{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- end }}
-      affinity:
-      {{- include "nodeaffinity" . | indent 6 }}
-      {{- include "podAntiAffinity" . | indent 6 }}
-{{- if .Values.pilot.tolerations }}
-      tolerations:
-{{ toYaml .Values.pilot.tolerations | indent 6 }}
-{{- else if .Values.global.defaultTolerations }}
-      tolerations:
-{{ toYaml .Values.global.defaultTolerations | indent 6 }}
-{{- end }}
 ---

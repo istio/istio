@@ -210,6 +210,9 @@ EOF
     # Create the clusters.
     # TODO: add IPv6
     KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "ipv4" "${IMAGE}" "${CLUSTER_NAME}" "${CLUSTER_YAML}"
+
+    # Replace with --internal which allows cross-cluster api server access
+    kind get kubeconfig --name "${CLUSTER_NAME}" --internal > "${CLUSTER_KUBECONFIG}"
   done
 
   # Export variables for the kube configs for the clusters.

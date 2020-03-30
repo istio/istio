@@ -45,35 +45,6 @@ spec:
 
 apiVersion: v1
 data:
-  Corefile: |2-
-
-    global:15054 {
-        errors
-        log
-        proxy . 127.0.0.1:15053 {
-        }
-
-    }
-
-    .:15054 {
-        errors
-        log
-        health :15056 {
-          lameduck 5s
-        }
-
-        kubernetes cluster.local in-addr.arpa ip6.arpa {
-            pods insecure
-            fallthrough in-addr.arpa ip6.arpa
-            ttl 30
-        }
-        prometheus :9153
-
-        forward . /etc/resolv.conf
-        cache 30
-        reload
-        loadbalance
-    }
   mesh: |-
     accessLogEncoding: TEXT
     accessLogFile: ""
@@ -191,39 +162,6 @@ spec:
         app: istiod
         istio: pilot
     spec:
-      affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - ppc64le
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - s390x
-            weight: 2
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-                - ppc64le
-                - s390x
       containers:
       - args:
         - discovery
@@ -258,8 +196,6 @@ spec:
               fieldPath: spec.serviceAccountName
         - name: PILOT_TRACE_SAMPLING
           value: "1"
-        - name: CONFIG_NAMESPACE
-          value: istio-config
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
           value: "true"
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
@@ -268,23 +204,16 @@ spec:
           value: istio-sidecar-injector
         - name: ISTIOD_ADDR
           value: istiod.istio-system.svc:15012
-        - name: PILOT_EXTERNAL_GALLEY
-          value: "false"
         - name: PILOT_ENABLE_ANALYSIS
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
-        envFrom:
-        - configMapRef:
-            name: istiod
-            optional: true
         image: docker.io/istio/pilot:1.1.4
         name: discovery
         ports:
         - containerPort: 8080
         - containerPort: 15010
         - containerPort: 15017
-        - containerPort: 15053
         readinessProbe:
           httpGet:
             path: /ready
@@ -317,43 +246,6 @@ spec:
         - mountPath: /var/lib/istio/inject
           name: inject
           readOnly: true
-        - mountPath: /var/lib/istio/local
-          name: istiod
-          readOnly: true
-      - args:
-        - -conf
-        - /var/lib/istio/coredns/Corefile
-        image: coredns/coredns:1.1.2
-        imagePullPolicy: IfNotPresent
-        livenessProbe:
-          failureThreshold: 5
-          httpGet:
-            path: /health
-            port: 15056
-            scheme: HTTP
-          initialDelaySeconds: 60
-          successThreshold: 1
-          timeoutSeconds: 5
-        name: dns
-        ports:
-        - containerPort: 15054
-          name: dns
-          protocol: UDP
-        - containerPort: 15055
-          name: metrics
-          protocol: TCP
-        securityContext:
-          capabilities:
-            drop:
-            - ALL
-          runAsGroup: 1337
-          runAsNonRoot: true
-          runAsUser: 1337
-        volumeMounts:
-        - mountPath: /var/run/secrets/istio-dns
-          name: local-certs
-        - mountPath: /var/lib/istio/coredns
-          name: config-volume
       securityContext:
         fsGroup: 1337
       serviceAccountName: istio-pilot-service-account
@@ -368,10 +260,6 @@ spec:
               audience: istio-ca
               expirationSeconds: 43200
               path: istio-token
-      - configMap:
-          name: istiod
-          optional: true
-        name: istiod
       - name: cacerts
         secret:
           optional: true
@@ -1073,14 +961,6 @@ spec:
       targetPort: 15017
     - port: 15014
       name: http-monitoring # prometheus stats
-    - name: dns
-      port: 53
-      targetPort: 15053
-      protocol: UDP
-    - name: dns-tls
-      port: 853
-      targetPort: 15053
-      protocol: TCP
   selector:
     app: istiod
     # Label used by the 'default' service. For versioned deployments we match with app and version.

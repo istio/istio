@@ -198,7 +198,6 @@ values:
 			mesh: func(m *meshapi.MeshConfig) {
 				m.DefaultConfig.DrainDuration = types.DurationProto(time.Second * 23)
 				m.DefaultConfig.ParentShutdownDuration = types.DurationProto(time.Second * 42)
-				m.DefaultConfig.ConnectTimeout = types.DurationProto(time.Second * 42)
 			},
 		},
 		{
