@@ -20,7 +20,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
-
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -155,6 +154,9 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(manifestCmd)
 	operatorCmd := mesh.OperatorCmd()
 	rootCmd.AddCommand(operatorCmd)
+	installCmd := mesh.InstallCmd()
+	hideInheritedFlags(installCmd, "namespace", "istioNamespace")
+	rootCmd.AddCommand(installCmd)
 
 	profileCmd := mesh.ProfileCmd()
 	hideInheritedFlags(profileCmd, "namespace", "istioNamespace")
