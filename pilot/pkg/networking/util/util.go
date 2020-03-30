@@ -628,14 +628,14 @@ func ApplyToCommonTLSContext(tlsContext *envoyauth.CommonTlsContext, metadata *m
 
 // ApplyCustomSDSToCommonTLSContext applies the customized sds to CommonTlsContext
 // Used for building both gateway/sidecar TLS context
-func ApplyCustomSDSToCommonTLSContext(tlsContext *envoyauth.CommonTlsContext, tlsOpts *networking.Server_TLSOptions, sdsUdsPath string) {
+func ApplyCustomSDSToCommonTLSContext(tlsContext *envoyauth.CommonTlsContext, tlsOpts *networking.ServerTLSSettings, sdsUdsPath string) {
 	// create SDS config for gateway/sidecar to fetch key/cert from agent.
 	tlsContext.TlsCertificateSdsSecretConfigs = []*envoyauth.SdsSecretConfig{
 		authn_model.ConstructSdsSecretConfigWithCustomUds(tlsOpts.CredentialName, sdsUdsPath),
 	}
 	// If tls mode is MUTUAL, create SDS config for gateway/sidecar to fetch certificate validation context
 	// at gateway agent. Otherwise, use the static certificate validation context config.
-	if tlsOpts.Mode == networking.Server_TLSOptions_MUTUAL {
+	if tlsOpts.Mode == networking.ServerTLSSettings_MUTUAL {
 		defaultValidationContext := &envoyauth.CertificateValidationContext{
 			VerifySubjectAltName:  tlsOpts.SubjectAltNames,
 			VerifyCertificateSpki: tlsOpts.VerifyCertificateSpki,

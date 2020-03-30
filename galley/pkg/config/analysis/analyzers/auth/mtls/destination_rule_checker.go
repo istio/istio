@@ -113,7 +113,7 @@ func (dc *DestinationRuleChecker) AddDestinationRule(resource *resource.Instance
 	fqdn := util.ConvertHostToFQDN(namespace, rule.GetHost())
 	// By default, we are not using MTLS
 	usesMTLS := false
-	if rule.TrafficPolicy != nil && rule.TrafficPolicy.Tls != nil && rule.TrafficPolicy.Tls.Mode == v1alpha3.TLSSettings_ISTIO_MUTUAL {
+	if rule.TrafficPolicy != nil && rule.TrafficPolicy.Tls != nil && rule.TrafficPolicy.Tls.Mode == v1alpha3.ClientTLSSettings_ISTIO_MUTUAL {
 		usesMTLS = true
 	}
 
@@ -132,7 +132,7 @@ func (dc *DestinationRuleChecker) AddDestinationRule(resource *resource.Instance
 	// Now check if we have any overrides
 	for _, pls := range rule.TrafficPolicy.PortLevelSettings {
 		portUsesMTLS := false
-		if pls.Tls != nil && pls.Tls.Mode == v1alpha3.TLSSettings_ISTIO_MUTUAL {
+		if pls.Tls != nil && pls.Tls.Mode == v1alpha3.ClientTLSSettings_ISTIO_MUTUAL {
 			portUsesMTLS = true
 		}
 

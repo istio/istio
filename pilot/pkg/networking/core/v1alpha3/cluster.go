@@ -523,14 +523,14 @@ const (
 // If the (input) TLS setting is nil (i.e not set), *and* the service mTLS mode is STRICT, it also
 // creates and populates the config as if they are set as ISTIO_MUTUAL.
 func conditionallyConvertToIstioMtls(
-	tls *networking.TLSSettings,
+	tls *networking.ClientTLSSettings,
 	serviceAccounts []string,
 	sni string,
 	proxy *model.Proxy,
 	autoMTLSEnabled bool,
 	meshExternal bool,
 	serviceMTLSMode model.MutualTLSMode,
-) (*networking.TLSSettings, mtlsContextType) {
+) (*networking.ClientTLSSettings, mtlsContextType) {
 	mtlsCtx := userSupplied
 	if tls == nil {
 		if meshExternal || !autoMTLSEnabled || serviceMTLSMode == model.MTLSUnknown || serviceMTLSMode == model.MTLSDisable {
@@ -539,11 +539,11 @@ func conditionallyConvertToIstioMtls(
 
 		mtlsCtx = autoDetected
 		// we will setup transport sockets later
-		tls = &networking.TLSSettings{
-			Mode: networking.TLSSettings_ISTIO_MUTUAL,
+		tls = &networking.ClientTLSSettings{
+			Mode: networking.ClientTLSSettings_ISTIO_MUTUAL,
 		}
 	}
-	if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+	if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
 		// Use client provided SNI if set. Otherwise, overwrite with the auto generated SNI
 		// user specified SNIs in the istio mtls settings are useful when routing via gateways
 		sniToUse := tls.Sni
@@ -560,9 +560,9 @@ func conditionallyConvertToIstioMtls(
 }
 
 // buildIstioMutualTLS returns a `TLSSettings` for ISTIO_MUTUAL mode.
-func buildIstioMutualTLS(serviceAccounts []string, sni string, proxy *model.Proxy) *networking.TLSSettings {
-	return &networking.TLSSettings{
-		Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+func buildIstioMutualTLS(serviceAccounts []string, sni string, proxy *model.Proxy) *networking.ClientTLSSettings {
+	return &networking.ClientTLSSettings{
+		Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
 		CaCertificates:    model.GetOrDefault(proxy.Metadata.TLSClientRootCert, constants.DefaultRootCert),
 		ClientCertificate: model.GetOrDefault(proxy.Metadata.TLSClientCertChain, constants.DefaultCertChain),
 		PrivateKey:        model.GetOrDefault(proxy.Metadata.TLSClientKey, constants.DefaultKey),
@@ -573,7 +573,7 @@ func buildIstioMutualTLS(serviceAccounts []string, sni string, proxy *model.Prox
 
 // SelectTrafficPolicyComponents returns the components of TrafficPolicy that should be used for given port.
 func SelectTrafficPolicyComponents(policy *networking.TrafficPolicy, port *model.Port) (
-	*networking.ConnectionPoolSettings, *networking.OutlierDetection, *networking.LoadBalancerSettings, *networking.TLSSettings) {
+	*networking.ConnectionPoolSettings, *networking.OutlierDetection, *networking.LoadBalancerSettings, *networking.ClientTLSSettings) {
 	if policy == nil {
 		return nil, nil, nil, nil
 	}
@@ -947,7 +947,7 @@ func applyLocalityLBSetting(
 	}
 }
 
-func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSettings, mtlsCtxType mtlsContextType, node *model.Proxy) {
+func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSSettings, mtlsCtxType mtlsContextType, node *model.Proxy) {
 	if tls == nil {
 		return
 	}
@@ -972,9 +972,9 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSetting
 
 	tlsContext := &auth.UpstreamTlsContext{}
 	switch tls.Mode {
-	case networking.TLSSettings_DISABLE:
+	case networking.ClientTLSSettings_DISABLE:
 		tlsContext = nil
-	case networking.TLSSettings_SIMPLE:
+	case networking.ClientTLSSettings_SIMPLE:
 		tlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
 				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
@@ -987,7 +987,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSetting
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 		}
-	case networking.TLSSettings_MUTUAL, networking.TLSSettings_ISTIO_MUTUAL:
+	case networking.ClientTLSSettings_MUTUAL, networking.ClientTLSSettings_ISTIO_MUTUAL:
 		if tls.ClientCertificate == "" || tls.PrivateKey == "" {
 			log.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty",
 				cluster.Name)
@@ -1000,7 +1000,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSetting
 		}
 
 		// Fallback to file mount secret instead of SDS if meshConfig.sdsUdsPath isn't set or tls.mode is TLSSettings_MUTUAL.
-		if !node.Metadata.SdsEnabled || opts.push.Mesh.SdsUdsPath == "" || tls.Mode == networking.TLSSettings_MUTUAL {
+		if !node.Metadata.SdsEnabled || opts.push.Mesh.SdsUdsPath == "" || tls.Mode == networking.ClientTLSSettings_MUTUAL {
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
 				ValidationContext: certValidationContext,
 			}
@@ -1031,17 +1031,17 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSetting
 		}
 
 		// Set default SNI of cluster name for istio_mutual if sni is not set.
-		if len(tls.Sni) == 0 && tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+		if len(tls.Sni) == 0 && tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
 			tlsContext.Sni = cluster.Name
 		}
 		if cluster.Http2ProtocolOptions != nil {
 			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
-			if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+			if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
 			} else {
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 			}
-		} else if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+		} else if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
 			// This is in-mesh cluster, advertise it with ALPN.
 			if util.IsTCPMetadataExchangeEnabled(node) {
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshWithMxc
@@ -1062,7 +1062,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSetting
 	// Apply auto mtls to clusters excluding these kind of headless service
 	if cluster.GetType() != apiv2.Cluster_ORIGINAL_DST {
 		// convert to transport socket matcher if the mode was auto detected
-		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected {
+		if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected {
 			transportSocket := cluster.TransportSocket
 			cluster.TransportSocket = nil
 			cluster.TransportSocketMatches = []*apiv2.Cluster_TransportSocketMatch{
