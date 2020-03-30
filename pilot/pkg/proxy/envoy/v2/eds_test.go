@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
@@ -387,9 +388,10 @@ func testOverlappingPorts(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.
 
 	server.EnvoyXdsServer.Push(&model.PushRequest{
 		Full: true,
-		EdsUpdates: map[string]struct{}{
-			"overlapping.cluster.local": {},
-		}})
+		ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+			model.ServiceEntryKind: {
+				"overlapping.cluster.local": {},
+			}}})
 	_, _ = adsc.Wait(5 * time.Second)
 
 	// After the incremental push, we should still see the endpoint
@@ -647,9 +649,11 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 				edsIncSvc: {},
 			}
 			server.EnvoyXdsServer.AdsPushAll(strconv.Itoa(j), &model.PushRequest{
-				Full:       true,
-				EdsUpdates: updates,
-				Push:       server.EnvoyXdsServer.Env.PushContext,
+				Full: true,
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+					model.ServiceEntryKind: updates,
+				},
+				Push: server.EnvoyXdsServer.Env.PushContext,
 			})
 		} else {
 			v2.AdsPushAll(server.EnvoyXdsServer)

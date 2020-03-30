@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
@@ -70,9 +69,8 @@ func (e *kubeEndpoints) handleEvent(name string, namespace string, event model.E
 					Full:              true,
 					NamespacesUpdated: map[string]struct{}{namespace: {}},
 					// TODO: extend and set service instance type, so no need to re-init push context
-					ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{
-						collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
-					Reason: []model.TriggerReason{model.EndpointUpdate},
+					ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{model.ServiceEntryKind: {}},
+					Reason:         []model.TriggerReason{model.EndpointUpdate},
 				})
 				return nil
 			}

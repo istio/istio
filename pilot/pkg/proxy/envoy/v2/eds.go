@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
@@ -171,7 +170,7 @@ func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, namespace string, 
 // Only clusters that changed are updated/pushed.
 func (s *DiscoveryServer) edsIncremental(version string, req *model.PushRequest) {
 	adsLog.Infof("XDS:EDSInc Pushing:%s Services:%v ConnectedEndpoints:%d",
-		version, req.EdsUpdates, s.adsClientCount())
+		version, req.ConfigsUpdated[model.ServiceEntryKind], s.adsClientCount())
 	s.startPush(req)
 }
 
@@ -187,8 +186,8 @@ func (s *DiscoveryServer) EDSUpdate(clusterID, serviceName string, namespace str
 	return nil
 }
 
-// edsUpdate updates edsUpdates by clusterID, serviceName, IstioEndpoints,
-// and requests a full/eds push.
+// edsUpdate updates EDS by clusterID, serviceName, IstioEndpoints,
+// and requests a Full/EDS push.
 func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace string,
 	istioEndpoints []*model.IstioEndpoint, internal bool) {
 	// edsShardUpdate replaces a subset (shard) of endpoints, as result of an incremental
@@ -210,8 +209,10 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			s.ConfigUpdate(&model.PushRequest{
 				Full:              false,
 				NamespacesUpdated: map[string]struct{}{namespace: {}},
-				EdsUpdates:        map[string]struct{}{serviceName: {}},
-				Reason:            []model.TriggerReason{model.EndpointUpdate},
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+					model.ServiceEntryKind: {serviceName: {}},
+				},
+				Reason: []model.TriggerReason{model.EndpointUpdate},
 			})
 		}
 		return
@@ -269,12 +270,14 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 		if !requireFull {
 			edsUpdates = map[string]struct{}{serviceName: {}}
 		}
+
 		s.ConfigUpdate(&model.PushRequest{
-			Full:               requireFull,
-			NamespacesUpdated:  map[string]struct{}{namespace: {}},
-			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
-			EdsUpdates:         edsUpdates,
-			Reason:             []model.TriggerReason{model.EndpointUpdate},
+			Full:              requireFull,
+			NamespacesUpdated: map[string]struct{}{namespace: {}},
+			ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+				model.ServiceEntryKind: edsUpdates,
+			},
+			Reason: []model.TriggerReason{model.EndpointUpdate},
 		})
 	}
 }
