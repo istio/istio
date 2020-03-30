@@ -200,3 +200,7 @@ telemetry:
 
 # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
 revision: ""
+
+# meshConfig defines runtime configuration of components, including Istiod and istio-agent behavior
+# See https://istio.io/docs/reference/config/istio.mesh.v1alpha1/ for all available options
+meshConfig: {}
