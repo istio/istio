@@ -18293,6 +18293,35 @@ data:
       controlPlaneAuthPolicy: NONE
       discoveryAddress: istiod.istio-system.svc:15012
 
+  Corefile: |-
+
+    global:15054 {
+        errors
+        log
+        proxy . 127.0.0.1:15053 {
+        }
+
+    }
+
+    .:15054 {
+        errors
+        log
+        health :15056 {
+          lameduck 5s
+        }
+
+        kubernetes cluster.local in-addr.arpa ip6.arpa {
+            pods insecure
+            fallthrough in-addr.arpa ip6.arpa
+            ttl 30
+        }
+        prometheus :9153
+
+        forward . /etc/resolv.conf
+        cache 30
+        reload
+        loadbalance
+    }
 ---
 
 ---
@@ -18965,6 +18994,14 @@ spec:
       targetPort: 15017
     - port: 15014
       name: http-monitoring # prometheus stats
+    - name: dns
+      port: 53
+      targetPort: 15053
+      protocol: UDP
+    - name: dns-tls
+      port: 853
+      targetPort: 15053
+      protocol: TCP
   selector:
     app: istiod
     # Label used by the 'default' service. For versioned deployments we match with app and version.
@@ -19020,6 +19057,7 @@ spec:
           - containerPort: 8080
           - containerPort: 15010
           - containerPort: 15017
+          - containerPort: 15053
           readinessProbe:
             httpGet:
               path: /ready
@@ -19088,6 +19126,43 @@ spec:
           - name: inject
             mountPath: /var/lib/istio/inject
             readOnly: true
+
+        # CoreDNS sidecar. Ports are used internally, to run as non-root.
+        # This is a short-term solution - the code in istiod can also be used
+        # directly. The plan is to move coreDNS on the agent.
+        - name: dns
+          image: coredns/coredns:1.1.2
+          imagePullPolicy: IfNotPresent
+          args: [ "-conf", "/var/lib/istio/coredns/Corefile" ]
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: local-certs
+              mountPath: /var/run/secrets/istio-dns
+            - name: config-volume
+              mountPath: /var/lib/istio/coredns
+          ports:
+            - containerPort: 15054
+              name: dns
+              protocol: UDP
+            - containerPort: 15055
+              name: metrics
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 15056
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 5
+
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
@@ -20696,6 +20771,35 @@ data:
       {{- end}}
     {{- end}}
 
+  Corefile: |-
+
+    global:15054 {
+        errors
+        log
+        proxy . 127.0.0.1:15053 {
+        }
+
+    }
+
+    .:15054 {
+        errors
+        log
+        health :15056 {
+          lameduck 5s
+        }
+
+        kubernetes cluster.local in-addr.arpa ip6.arpa {
+            pods insecure
+            fallthrough in-addr.arpa ip6.arpa
+            ttl 30
+        }
+        prometheus :9153
+
+        forward . /etc/resolv.conf
+        cache 30
+        reload
+        loadbalance
+    }
 ---
 {{- end }}
 `)
@@ -20808,6 +20912,7 @@ spec:
           - containerPort: 8080
           - containerPort: 15010
           - containerPort: 15017
+          - containerPort: 15053
           readinessProbe:
             httpGet:
               path: /ready
@@ -20892,6 +20997,43 @@ spec:
           - name: extracacerts
             mountPath: /cacerts
           {{- end }}
+
+        # CoreDNS sidecar. Ports are used internally, to run as non-root.
+        # This is a short-term solution - the code in istiod can also be used
+        # directly. The plan is to move coreDNS on the agent.
+        - name: dns
+          image: coredns/coredns:1.1.2
+          imagePullPolicy: IfNotPresent
+          args: [ "-conf", "/var/lib/istio/coredns/Corefile" ]
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: local-certs
+              mountPath: /var/run/secrets/istio-dns
+            - name: config-volume
+              mountPath: /var/lib/istio/coredns
+          ports:
+            - containerPort: 15054
+              name: dns
+              protocol: UDP
+            - containerPort: 15055
+              name: metrics
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 15056
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 5
+
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
@@ -21134,6 +21276,14 @@ spec:
       targetPort: 15017
     - port: 15014
       name: http-monitoring # prometheus stats
+    - name: dns
+      port: 53
+      targetPort: 15053
+      protocol: UDP
+    - name: dns-tls
+      port: 853
+      targetPort: 15053
+      protocol: TCP
   selector:
     app: istiod
     {{- if ne .Values.revision ""}}
