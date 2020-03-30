@@ -189,7 +189,7 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 		}
 
 		// strategic merge overlay m to the base object oo
-		mergedObj, err := mergeK8sObject(oo, m, path[1:])
+		mergedObj, err := MergeK8sObject(oo, m, path[1:])
 		if err != nil {
 			return "", err
 		}
@@ -204,7 +204,7 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 func (t *Translator) ProtoToValues(ii *v1alpha1.IstioOperatorSpec) (string, error) {
 	root := make(map[string]interface{})
 
-	errs := t.protoToHelmValues(ii, root, nil)
+	errs := t.ProtoToHelmValues(ii, root, nil)
 	if len(errs) != 0 {
 		return "", errs.ToError()
 	}
@@ -358,12 +358,14 @@ func (t *Translator) ComponentMap(cns string) *ComponentMaps {
 	return t.ComponentMaps[cn]
 }
 
-// protoToHelmValues takes an interface which must be a struct ptr and recursively iterates through all its fields.
+// ProtoToHelmValues function below is used by third party for integrations and has to be public
+
+// ProtoToHelmValues takes an interface which must be a struct ptr and recursively iterates through all its fields.
 // For each leaf, if looks for a mapping from the struct data path to the corresponding YAML path and if one is
 // found, it calls the associated mapping function if one is defined to populate the values YAML path.
 // If no mapping function is defined, it uses the default mapping function.
-func (t *Translator) protoToHelmValues(node interface{}, root map[string]interface{}, path util.Path) (errs util.Errors) {
-	scope.Debugf("protoToHelmValues with path %s, %v (%T)", path, node, node)
+func (t *Translator) ProtoToHelmValues(node interface{}, root map[string]interface{}, path util.Path) (errs util.Errors) {
+	scope.Debugf("ProtoToHelmValues with path %s, %v (%T)", path, node, node)
 	if util.IsValueNil(node) {
 		return nil
 	}
@@ -373,7 +375,7 @@ func (t *Translator) protoToHelmValues(node interface{}, root map[string]interfa
 	switch vt.Kind() {
 	case reflect.Ptr:
 		if !util.IsNilOrInvalidValue(vv.Elem()) {
-			errs = util.AppendErrs(errs, t.protoToHelmValues(vv.Elem().Interface(), root, path))
+			errs = util.AppendErrs(errs, t.ProtoToHelmValues(vv.Elem().Interface(), root, path))
 		}
 	case reflect.Struct:
 		scope.Debug("Struct")
@@ -384,7 +386,7 @@ func (t *Translator) protoToHelmValues(node interface{}, root map[string]interfa
 			if a, ok := vv.Type().Field(i).Tag.Lookup("json"); ok && a == "-" {
 				continue
 			}
-			errs = util.AppendErrs(errs, t.protoToHelmValues(fieldValue.Interface(), root, append(path, fieldName)))
+			errs = util.AppendErrs(errs, t.ProtoToHelmValues(fieldValue.Interface(), root, append(path, fieldName)))
 		}
 	case reflect.Map:
 		scope.Debug("Map")
@@ -395,7 +397,7 @@ func (t *Translator) protoToHelmValues(node interface{}, root map[string]interfa
 	case reflect.Slice:
 		scope.Debug("Slice")
 		for i := 0; i < vv.Len(); i++ {
-			errs = util.AppendErrs(errs, t.protoToHelmValues(vv.Index(i).Interface(), root, path))
+			errs = util.AppendErrs(errs, t.ProtoToHelmValues(vv.Index(i).Interface(), root, path))
 		}
 	default:
 		// Must be a leaf
@@ -634,8 +636,10 @@ func firstCharToLower(s string) string {
 	return strings.ToLower(s[0:1]) + s[1:]
 }
 
-// mergeK8sObject does strategic merge for overlayNode on the base object.
-func mergeK8sObject(base *object.K8sObject, overlayNode interface{}, path util.Path) (*object.K8sObject, error) {
+// MergeK8sObject function below is used by third party for integrations and has to be public
+
+// MergeK8sObject does strategic merge for overlayNode on the base object.
+func MergeK8sObject(base *object.K8sObject, overlayNode interface{}, path util.Path) (*object.K8sObject, error) {
 	overlay, err := createPatchObjectFromPath(overlayNode, path)
 	if err != nil {
 		return nil, err
