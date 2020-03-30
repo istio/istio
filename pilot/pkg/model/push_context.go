@@ -275,15 +275,11 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 				d2 := other.ConfigsUpdated[kind]
 
 				for update := range d1 {
-					if merged.ConfigsUpdated[kind] != nil {
-						merged.ConfigsUpdated[kind][update] = struct{}{}
-					}
+					merged.ConfigsUpdated[kind][update] = struct{}{}
 				}
 
 				for update := range d2 {
-					if merged.ConfigsUpdated[kind] != nil {
-						merged.ConfigsUpdated[kind][update] = struct{}{}
-					}
+					merged.ConfigsUpdated[kind][update] = struct{}{}
 				}
 			}
 		}
