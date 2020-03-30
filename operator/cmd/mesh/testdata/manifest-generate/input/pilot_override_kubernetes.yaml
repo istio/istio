@@ -23,7 +23,7 @@ spec:
               - path: spec.template.spec.containers.[name:discovery].ports.[containerPort:8080].containerPort
                 value: 1234 # OVERRIDDEN
           - kind: Service
-            name: istio-pilot
+            name: istiod
             patches:
-              - path: spec.ports.[name:grpc-xds].port
+              - path: spec.ports.[name:https-dns].port
                 value: 11111 # OVERRIDDEN

@@ -23,5 +23,7 @@ spec:
           - name: foo
             port: 1234
             targetPort: 1234
+        serviceAnnotations:
+          manifest-generate: "testserviceAnnotation"
     telemetry:
       enabled: false

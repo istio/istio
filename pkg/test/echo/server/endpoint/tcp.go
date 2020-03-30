@@ -19,6 +19,9 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
+
+	"istio.io/istio/pkg/test/echo/common"
 
 	"istio.io/istio/pkg/test/echo/common/response"
 
@@ -57,7 +60,7 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 		for {
 			conn, err := listener.Accept()
 			if err != nil {
-				log.Warn("tcp accept failed: " + err.Error())
+				log.Warn("TCP accept failed: " + err.Error())
 				return
 			}
 
@@ -72,21 +75,26 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 }
 
 // Handles incoming connection.
-func (s *tcpInstance) echo(conn io.ReadWriteCloser) {
+func (s *tcpInstance) echo(conn net.Conn) {
+	defer common.Metrics.TCPRequests.With(common.Port.Value(strconv.Itoa(s.Port.Port))).Increment()
 	defer func() {
 		_ = conn.Close()
 	}()
 
-	// Fill the field in the response
-	_, _ = conn.Write([]byte(fmt.Sprintf("%s=%s\n", string(response.StatusCodeField), response.StatusCodeOK)))
-
+	initialReply := true
 	for {
 		buf, err := bufio.NewReader(conn).ReadBytes(byte('\n'))
 		if err != nil {
 			if err != io.EOF {
-				log.Warn("tcp read failed: " + err.Error())
+				log.Warn("TCP read failed: " + err.Error())
 			}
 			return
+		}
+		log.Infof("TCP Request:\n  Source IP:%s\n  Destination Port:%d", conn.RemoteAddr(), s.Port.Port)
+		if initialReply {
+			// Fill the field in the response
+			_, _ = conn.Write([]byte(fmt.Sprintf("%s=%s\n", string(response.StatusCodeField), response.StatusCodeOK)))
+			initialReply = false
 		}
 
 		// echo the message in the buffer

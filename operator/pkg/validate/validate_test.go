@@ -129,6 +129,17 @@ installPackagePath: /local/file/path
 `,
 		},
 		{
+			desc: "BadGatewayName",
+			yamlStr: `
+components:
+  ingressGateways:
+  - namespace: istio-ingress-ns2
+    name: istio@ingress-1
+    enabled: true
+`,
+			wantErrs: makeErrors([]string{`invalid value Components.IngressGateways[0].Name: istio@ingress-1`}),
+		},
+		{
 			desc: "BadValuesIP",
 			yamlStr: `
 values:

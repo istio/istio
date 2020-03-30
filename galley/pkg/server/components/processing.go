@@ -228,7 +228,7 @@ func (p *Processing) Start() (err error) {
 		p.runtime.Start()
 
 		l := p.getListener()
-		if l != nil {
+		if l != nil && p.args.EnableServer {
 			// start serving
 			gs := p.grpcServer
 			startWG.Done()
@@ -247,7 +247,9 @@ func (p *Processing) Start() (err error) {
 		}()
 	}
 
-	startWG.Wait()
+	if p.args.EnableServer {
+		startWG.Wait()
+	}
 
 	return nil
 }

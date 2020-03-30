@@ -20,7 +20,7 @@ import (
 	"time"
 
 	coreV1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	ingress "k8s.io/api/networking/v1beta1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
@@ -41,12 +41,12 @@ var (
 	resync        = time.Second
 )
 
-func makeAnnotatedIngress(annotation string) *extensions.Ingress {
+func makeAnnotatedIngress(annotation string) *ingress.Ingress {
 	if annotation == "" {
-		return &extensions.Ingress{}
+		return &ingress.Ingress{}
 	}
 
-	return &extensions.Ingress{
+	return &ingress.Ingress{
 		ObjectMeta: metaV1.ObjectMeta{
 			Annotations: map[string]string{
 				kube.IngressClassAnnotation: annotation,

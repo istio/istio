@@ -21,7 +21,7 @@ import (
 	"time"
 
 	coreV1 "k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/networking/v1beta1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -80,10 +80,10 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 	informer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(opts metaV1.ListOptions) (runtime.Object, error) {
-				return client.ExtensionsV1beta1().Ingresses(options.WatchedNamespace).List(opts)
+				return client.NetworkingV1beta1().Ingresses(options.WatchedNamespace).List(opts)
 			},
 			WatchFunc: func(opts metaV1.ListOptions) (watch.Interface, error) {
-				return client.ExtensionsV1beta1().Ingresses(options.WatchedNamespace).Watch(opts)
+				return client.NetworkingV1beta1().Ingresses(options.WatchedNamespace).Watch(opts)
 			},
 		},
 		&v1beta1.Ingress{}, options.ResyncPeriod, cache.Indexers{},
@@ -162,7 +162,7 @@ func (s *StatusSyncer) updateStatus(status []coreV1.LoadBalancerIngress) error {
 
 		currIng.Status.LoadBalancer.Ingress = status
 
-		ingClient := s.client.ExtensionsV1beta1().Ingresses(currIng.Namespace)
+		ingClient := s.client.NetworkingV1beta1().Ingresses(currIng.Namespace)
 		_, err := ingClient.UpdateStatus(currIng)
 		if err != nil {
 			log.Warnf("error updating ingress status: %v", err)

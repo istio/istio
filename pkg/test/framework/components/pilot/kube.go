@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	pilotService = "istio-pilot"
+	pilotService = "istiod"
 	grpcPortName = "grpc-xds"
 )
 

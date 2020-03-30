@@ -613,6 +613,7 @@ message GlobalConfig {
   // Settings for remote cluster.
   // Controls whether to use the Istio remote control plane
   google.protobuf.BoolValue istioRemote = 44;
+
   google.protobuf.BoolValue createRemoteSvcEndpoints = 45;
   // If set, a selector-less service and endpoint for istio-pilot are created with the remotePilotAddress IP,
   // which ensures the istio-pilot. is DNS resolvable in the remote cluster.
@@ -660,6 +661,8 @@ message IstiodConfig {
   // If enabled, all control plane functionality will be handled by a single deployment.
   // Deprecated. This field is always ignored and assumed true.
   google.protobuf.BoolValue enabled = 1 [deprecated=true];
+  // If enabled, istiod will perform config analysis which was previously handled by galley.
+  google.protobuf.BoolValue enableAnalysis = 2;
 }
 
 // GlobalLoggingConfig specifies the global logging level settings for the Istio control plane components.
@@ -1353,6 +1356,8 @@ message TelemetryV2StackDriverConfig {
 
   google.protobuf.BoolValue topology = 4;
 
+  google.protobuf.BoolValue disableOutbound = 6;
+
   TypeMapStringInterface configOverride = 5;
 }
 
@@ -1588,6 +1593,8 @@ message ProxyConfig {
   string enableCoreDumpImage = 33 [deprecated=true];
 
   string outlierLogPath = 34;
+
+  TypeMapStringInterface lifecycle = 36;
 }
 
 // Specifies which tracer to use.
@@ -2108,6 +2115,15 @@ message KialiSecurityConfig {
   string private_key_file = 3;
 }
 
+message KialiServiceConfig {
+  TypeMapStringInterface annotations = 1;
+
+  // Service type.
+  //
+  // See https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
+  string type = 18;
+}
+
 message KialiDashboardConfig {
   string secretName = 1;
 
@@ -2209,6 +2225,8 @@ message KialiConfig {
   Resources resources = 17 [deprecated=true];
 
   string prometheusAddr = 18 [deprecated=true];
+
+  KialiServiceConfig service = 19;
 }
 
 message Values {

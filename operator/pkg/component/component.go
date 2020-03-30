@@ -636,7 +636,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 		return disabledYAMLStr(cf.componentName, cf.resourceName), nil
 	}
 
-	mergedYAML, err := cf.Translator.TranslateHelmValues(cf.InstallSpec, cf.componentName, cf.resourceName)
+	mergedYAML, err := cf.Translator.TranslateHelmValues(cf.InstallSpec, getK8sResourceSpec(cf), cf.componentName, cf.resourceName)
 	if err != nil {
 		return "", err
 	}
@@ -653,7 +653,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 		scope.Infof("Initial manifest with merged values:\n%s\n", my)
 	}
 	// Add the k8s resources from IstioOperatorSpec.
-	my, err = cf.Translator.OverlayK8sSettings(my, cf.InstallSpec, cf.componentName, cf.index)
+	my, err = cf.Translator.OverlayK8sSettings(my, cf.InstallSpec, cf.componentName, cf.resourceName, cf.addonName, cf.index)
 	if err != nil {
 		log.Errorf("Error in OverlayK8sSettings: %s", err)
 		return "", err
@@ -691,7 +691,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 		return "", err
 	}
 
-	scope.Infof("Manifest after resources and overlay: \n%s\n", ret)
+	scope.Debugf("Manifest after resources and overlay: \n%s\n", ret)
 	return ret, nil
 }
 
@@ -717,6 +717,17 @@ func isCoreComponentEnabled(c *CommonComponentFields) bool {
 		return false
 	}
 	return enabled
+}
+
+func getK8sResourceSpec(c *CommonComponentFields) *v1alpha1.KubernetesResourcesSpec {
+	switch t := c.spec.(type) {
+	case *v1alpha1.GatewaySpec:
+		return t.K8S
+	case *v1alpha1.ComponentSpec:
+		return t.K8S
+	default:
+	}
+	return nil
 }
 
 // disabledYAMLStr returns the YAML comment string that the given component is disabled.

@@ -79,9 +79,7 @@ docker.proxyv2: install/gcp/bootstrap/gcp_envoy_bootstrap.json
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
 docker.proxyv2: $(ISTIO_OUT_LINUX)/pilot-agent
 docker.proxyv2: pilot/docker/Dockerfile.proxyv2
-docker.proxyv2: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
-docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/stats-filter.wasm
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.wasm
 	$(DOCKER_RULE)

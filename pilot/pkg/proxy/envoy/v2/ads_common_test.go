@@ -51,11 +51,11 @@ func TestProxyNeedsPush(t *testing.T) {
 			for _, n := range tt.namespaces {
 				ns[n] = struct{}{}
 			}
-			cfgs := map[resource.GroupVersionKind]struct{}{}
+			cfgs := map[resource.GroupVersionKind]map[string]struct{}{}
 			for _, c := range tt.configs {
-				cfgs[c] = struct{}{}
+				cfgs[c] = map[string]struct{}{}
 			}
-			pushEv := &XdsEvent{namespacesUpdated: ns, configTypesUpdated: cfgs}
+			pushEv := &XdsEvent{namespacesUpdated: ns, configsUpdated: cfgs}
 			got := ProxyNeedsPush(tt.proxy, pushEv)
 			if got != tt.want {
 				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)
@@ -166,11 +166,11 @@ func TestPushTypeFor(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfgs := map[resource.GroupVersionKind]struct{}{}
+			cfgs := map[resource.GroupVersionKind]map[string]struct{}{}
 			for _, c := range tt.configTypes {
-				cfgs[c] = struct{}{}
+				cfgs[c] = map[string]struct{}{}
 			}
-			pushEv := &XdsEvent{configTypesUpdated: cfgs}
+			pushEv := &XdsEvent{configsUpdated: cfgs}
 			out := PushTypeFor(tt.proxy, pushEv)
 			if !reflect.DeepEqual(out, tt.expect) {
 				t.Errorf("expected: %v, but got %v", tt.expect, out)

@@ -60,6 +60,8 @@ const (
 	// PassthroughRouteName is the name of the route that forwards traffic to the
 	// PassthroughCluster
 	PassthroughRouteName = "allow_any"
+	// PassthroughFilterChain to catch traffic that doesn't match other filter chains.
+	PassthroughFilterChain = "PassthroughFilterChain"
 
 	// Inbound pass through cluster need to the bind the loopback ip address for the security and loop avoidance.
 	InboundPassthroughClusterIpv4 = "InboundPassthroughClusterIpv4"
@@ -251,48 +253,27 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	})
 }
 
-// IsIstioVersionGE13 checks whether the given Istio version is greater than or equals 1.3.
-func IsIstioVersionGE13(node *model.Proxy) bool {
-	return node.IstioVersion == nil ||
-		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 3, Patch: -1}) >= 0
-}
-
-// IsIstioVersionGE14 checks whether the given Istio version is greater than or equals 1.4.
-func IsIstioVersionGE14(node *model.Proxy) bool {
-	return node.IstioVersion == nil ||
-		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 4, Patch: -1}) >= 0
-}
-
 // IsIstioVersionGE15 checks whether the given Istio version is greater than or equals 1.5.
 func IsIstioVersionGE15(node *model.Proxy) bool {
 	return node.IstioVersion == nil ||
 		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 5, Patch: -1}) >= 0
 }
 
-// IsProtocolSniffingEnabled checks whether protocol sniffing is enabled.
-func IsProtocolSniffingEnabledForOutbound(node *model.Proxy) bool {
-	return features.EnableProtocolSniffingForOutbound.Get() && IsIstioVersionGE13(node)
+func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
+	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
 }
 
-func IsProtocolSniffingEnabledForInbound(node *model.Proxy) bool {
-	return features.EnableProtocolSniffingForInbound.Get() && IsIstioVersionGE14(node)
+func IsProtocolSniffingEnabledForInboundPort(port *model.Port) bool {
+	return features.EnableProtocolSniffingForInbound && port.Protocol.IsUnsupported()
 }
 
-func IsProtocolSniffingEnabledForPort(node *model.Proxy, port *model.Port) bool {
-	return IsProtocolSniffingEnabledForOutbound(node) && port.Protocol.IsUnsupported()
-}
-
-func IsProtocolSniffingEnabledForInboundPort(node *model.Proxy, port *model.Port) bool {
-	return IsProtocolSniffingEnabledForInbound(node) && port.Protocol.IsUnsupported()
-}
-
-func IsProtocolSniffingEnabledForOutboundPort(node *model.Proxy, port *model.Port) bool {
-	return IsProtocolSniffingEnabledForOutbound(node) && port.Protocol.IsUnsupported()
+func IsProtocolSniffingEnabledForOutboundPort(port *model.Port) bool {
+	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
 }
 
 // IsTCPMetadataExchangeEnabled checks whether Metadata Exchanged enabled for TCP using ALPN.
 func IsTCPMetadataExchangeEnabled(node *model.Proxy) bool {
-	return features.EnableTCPMetadataExchange.Get() && IsIstioVersionGE15(node)
+	return features.EnableTCPMetadataExchange && IsIstioVersionGE15(node)
 }
 
 // ConvertLocality converts '/' separated locality string to Locality struct.

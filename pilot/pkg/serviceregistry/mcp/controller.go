@@ -200,11 +200,12 @@ func (c *controller) Apply(change *sink.Change) error {
 		c.serviceEntryEvents(innerStore, prevStore)
 	} else if c.options.XDSUpdater != nil {
 		c.options.XDSUpdater.ConfigUpdate(&model.PushRequest{
-			Full:               true,
-			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{kind: {}},
-			Reason:             []model.TriggerReason{model.ConfigUpdate},
+			Full:           true,
+			ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{kind: {}},
+			Reason:         []model.TriggerReason{model.ConfigUpdate},
 		})
 	}
+
 	return nil
 }
 

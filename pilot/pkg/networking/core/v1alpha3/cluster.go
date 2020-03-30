@@ -31,6 +31,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
@@ -499,7 +500,7 @@ func convertResolution(proxy *model.Proxy, service *model.Service) apiv2.Cluster
 	case model.Passthrough:
 		// Gateways cannot use passthrough clusters. So fallback to EDS
 		if proxy.Type == model.SidecarProxy {
-			if service.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) && features.EnableEDSForHeadless.Get() {
+			if service.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) && features.EnableEDSForHeadless {
 				return apiv2.Cluster_EDS
 			}
 
@@ -576,20 +577,16 @@ func SelectTrafficPolicyComponents(policy *networking.TrafficPolicy, port *model
 	if policy == nil {
 		return nil, nil, nil, nil
 	}
+	// Default to traffic policy's settings.
 	connectionPool := policy.ConnectionPool
 	outlierDetection := policy.OutlierDetection
 	loadBalancer := policy.LoadBalancer
 	tls := policy.Tls
 
+	// Check if port level overrides exist, if yes override with them.
 	if port != nil && len(policy.PortLevelSettings) > 0 {
-		foundPort := false
 		for _, p := range policy.PortLevelSettings {
-			if p.Port != nil {
-				if uint32(port.Port) == p.Port.Number {
-					foundPort = true
-				}
-			}
-			if foundPort {
+			if p.Port != nil && uint32(port.Port) == p.Port.Number {
 				connectionPool = p.ConnectionPool
 				outlierDetection = p.OutlierDetection
 				loadBalancer = p.LoadBalancer
@@ -634,19 +631,88 @@ type buildClusterOpts struct {
 	serviceMTLSMode model.MutualTLSMode
 }
 
-func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {
+type upgradeTuple struct {
+	meshdefault meshconfig.MeshConfig_H2UpgradePolicy
+	override    networking.ConnectionPoolSettings_HTTPSettings_H2UpgradePolicy
+}
+
+// h2UpgradeMap specifies the truth table when upgrade takes place.
+var h2UpgradeMap = map[upgradeTuple]bool{
+	{meshconfig.MeshConfig_DO_NOT_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_UPGRADE}:        true,
+	{meshconfig.MeshConfig_DO_NOT_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_DO_NOT_UPGRADE}: false,
+	{meshconfig.MeshConfig_DO_NOT_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_DEFAULT}:        false,
+	{meshconfig.MeshConfig_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_UPGRADE}:               true,
+	{meshconfig.MeshConfig_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_DO_NOT_UPGRADE}:        false,
+	{meshconfig.MeshConfig_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_DEFAULT}:               true,
+}
+
+// applyH2Upgrade function will upgrade outbound cluster to http2 if specified by configuration.
+func applyH2Upgrade(opts buildClusterOpts, connectionPool *networking.ConnectionPoolSettings) {
+	if shouldH2Upgrade(opts.cluster.Name, opts.direction, opts.port, opts.push.Mesh, connectionPool) {
+		setH2Options(opts.cluster)
+	}
+}
+
+// shouldH2Upgrade function returns true if the cluster  should be upgraded to http2.
+func shouldH2Upgrade(clusterName string, direction model.TrafficDirection, port *model.Port, mesh *meshconfig.MeshConfig,
+	connectionPool *networking.ConnectionPoolSettings) bool {
+	if direction != model.TrafficDirectionOutbound {
+		return false
+	}
+
+	// Do not upgrade non-http ports
+	// This also ensures that we are only upgrading named ports so that
+	// EnableProtocolSniffingForInbound does not interfere.
+	// protocol sniffing uses Cluster_USE_DOWNSTREAM_PROTOCOL.
+	// Therefore if the client upgrades connection to http2, the server will send h2 stream to the application,
+	// even though the application only supports http 1.1.
+	if port != nil && !port.Protocol.IsHTTP() {
+		return false
+	}
+
+	// TODO (mjog)
+	// Upgrade if tls.GetMode() == networking.TLSSettings_ISTIO_MUTUAL
+	override := networking.ConnectionPoolSettings_HTTPSettings_DEFAULT
+	if connectionPool != nil && connectionPool.Http != nil {
+		override = connectionPool.Http.H2UpgradePolicy
+	}
+
+	if !h2UpgradeMap[upgradeTuple{mesh.H2UpgradePolicy, override}] {
+		log.Debugf("Not upgrading cluster: %v (%v %v)", clusterName, mesh.H2UpgradePolicy, override)
+		return false
+	}
+
+	log.Debugf("Upgrading cluster: %v (%v %v)", clusterName, mesh.H2UpgradePolicy, override)
+	return true
+}
+
+// setH2Options make the cluster an h2 cluster by setting http2ProtocolOptions.
+func setH2Options(cluster *apiv2.Cluster) {
+	if cluster == nil || cluster.Http2ProtocolOptions != nil {
+		return
+	}
+	cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
+		// Envoy default value of 100 is too low for data path.
+		MaxConcurrentStreams: &wrappers.UInt32Value{
+			Value: 1073741824,
+		},
+	}
+}
+
+func applyTrafficPolicy(opts buildClusterOpts) {
 	connectionPool, outlierDetection, loadBalancer, tls := SelectTrafficPolicyComponents(opts.policy, opts.port)
 
+	applyH2Upgrade(opts, connectionPool)
 	applyConnectionPool(opts.push, opts.cluster, connectionPool)
 	applyOutlierDetection(opts.cluster, outlierDetection)
-	applyLoadBalancer(opts.cluster, loadBalancer, opts.port, proxy, opts.push.Mesh)
+	applyLoadBalancer(opts.cluster, loadBalancer, opts.port, opts.proxy, opts.push.Mesh)
 
 	if opts.clusterMode != SniDnatClusterMode && opts.direction != model.TrafficDirectionInbound {
 		autoMTLSEnabled := opts.push.Mesh.GetEnableAutoMtls().Value
 		var mtlsCtxType mtlsContextType
 		tls, mtlsCtxType = conditionallyConvertToIstioMtls(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
 			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
-		applyUpstreamTLSSettings(&opts, tls, mtlsCtxType, proxy)
+		applyUpstreamTLSSettings(&opts, tls, mtlsCtxType, opts.proxy)
 	}
 }
 
@@ -704,51 +770,38 @@ func applyConnectionPool(push *model.PushContext, cluster *apiv2.Cluster, settin
 }
 
 func applyTCPKeepalive(push *model.PushContext, cluster *apiv2.Cluster, settings *networking.ConnectionPoolSettings) {
-	var keepaliveProbes uint32
-	var keepaliveTime *types.Duration
-	var keepaliveInterval *types.Duration
-	isTCPKeepaliveSet := false
+	// Apply Keepalive config only if it is configured in mesh config or in destination rule.
+	if push.Mesh.TcpKeepalive != nil || settings.Tcp.TcpKeepalive != nil {
 
-	// Apply mesh wide TCP keepalive.
-	if push.Mesh.TcpKeepalive != nil {
-		keepaliveProbes = push.Mesh.TcpKeepalive.Probes
-		keepaliveTime = push.Mesh.TcpKeepalive.Time
-		keepaliveInterval = push.Mesh.TcpKeepalive.Interval
-		isTCPKeepaliveSet = true
+		// Start with empty tcp_keepalive, which would set SO_KEEPALIVE on the socket with OS default values.
+		cluster.UpstreamConnectionOptions = &apiv2.UpstreamConnectionOptions{
+			TcpKeepalive: &core.TcpKeepalive{},
+		}
+
+		// Apply mesh wide TCP keepalive if available.
+		if push.Mesh.TcpKeepalive != nil {
+			setKeepAliveSettings(cluster, push.Mesh.TcpKeepalive)
+		}
+
+		// Apply/Override individual attributes with DestinationRule TCP keepalive if set.
+		if settings.Tcp.TcpKeepalive != nil {
+			setKeepAliveSettings(cluster, settings.Tcp.TcpKeepalive)
+		}
+	}
+}
+
+func setKeepAliveSettings(cluster *apiv2.Cluster, keepalive *v1alpha3.ConnectionPoolSettings_TCPSettings_TcpKeepalive) {
+	if keepalive.Probes > 0 {
+		cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveProbes = &wrappers.UInt32Value{Value: keepalive.Probes}
 	}
 
-	// Apply/Override with DestinationRule TCP keepalive if set.
-	if settings.Tcp.TcpKeepalive != nil {
-		keepaliveProbes = settings.Tcp.TcpKeepalive.Probes
-		keepaliveTime = settings.Tcp.TcpKeepalive.Time
-		keepaliveInterval = settings.Tcp.TcpKeepalive.Interval
-		isTCPKeepaliveSet = true
+	if keepalive.Time != nil {
+		cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveTime = &wrappers.UInt32Value{Value: uint32(keepalive.Time.Seconds)}
 	}
 
-	if !isTCPKeepaliveSet {
-		return
+	if keepalive.Interval != nil {
+		cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveInterval = &wrappers.UInt32Value{Value: uint32(keepalive.Interval.Seconds)}
 	}
-
-	// If none of the proto fields are set, then an empty tcp_keepalive is set in Envoy.
-	// That would set SO_KEEPALIVE on the socket with OS default values.
-	upstreamConnectionOptions := &apiv2.UpstreamConnectionOptions{
-		TcpKeepalive: &core.TcpKeepalive{},
-	}
-
-	// If any of the TCP keepalive options are not set, skip them from the config so that OS defaults are used.
-	if keepaliveProbes > 0 {
-		upstreamConnectionOptions.TcpKeepalive.KeepaliveProbes = &wrappers.UInt32Value{Value: keepaliveProbes}
-	}
-
-	if keepaliveTime != nil {
-		upstreamConnectionOptions.TcpKeepalive.KeepaliveTime = &wrappers.UInt32Value{Value: uint32(keepaliveTime.Seconds)}
-	}
-
-	if keepaliveInterval != nil {
-		upstreamConnectionOptions.TcpKeepalive.KeepaliveInterval = &wrappers.UInt32Value{Value: uint32(keepaliveInterval.Seconds)}
-	}
-
-	cluster.UpstreamConnectionOptions = upstreamConnectionOptions
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
@@ -811,18 +864,20 @@ func applyOutlierDetection(cluster *apiv2.Cluster, outlier *networking.OutlierDe
 }
 
 func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettings, port *model.Port, proxy *model.Proxy, meshConfig *meshconfig.MeshConfig) {
+	lbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
 	if cluster.OutlierDetection != nil {
 		if cluster.CommonLbConfig == nil {
 			cluster.CommonLbConfig = &apiv2.Cluster_CommonLbConfig{}
 		}
-		// Locality weighted load balancing
-		cluster.CommonLbConfig.LocalityConfigSpecifier = &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
-			LocalityWeightedLbConfig: &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
+		// Locality weighted load balancing - set it only if Locality load balancing is enabled.
+		if lbSetting != nil {
+			cluster.CommonLbConfig.LocalityConfigSpecifier = &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
+				LocalityWeightedLbConfig: &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
+			}
 		}
 	}
 
 	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
-	lbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
 	applyLocalityLBSetting(proxy.Locality, cluster, lbSetting)
 
 	// The following order is important. If cluster type has been identified as Original DST since Resolution is PassThrough,
@@ -836,7 +891,7 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 	}
 
 	// Redis protocol must be defaulted with MAGLEV to benefit from client side sharding.
-	if features.EnableRedisFilter.Get() && port != nil && port.Protocol == protocol.Redis {
+	if features.EnableRedisFilter && port != nil && port.Protocol == protocol.Redis {
 		cluster.LbPolicy = apiv2.Cluster_MAGLEV
 		return
 	}
@@ -1003,11 +1058,11 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSetting
 		}
 	}
 
-	// For headless service, discover type will be `Cluster_ORIGINAL_DST`, and corresponding LbPolicy is `Cluster_CLUSTER_PROVIDED`
+	// For headless service, discover type will be `Cluster_ORIGINAL_DST`
 	// Apply auto mtls to clusters excluding these kind of headless service
-	if cluster.LbPolicy != apiv2.Cluster_CLUSTER_PROVIDED {
+	if cluster.GetType() != apiv2.Cluster_ORIGINAL_DST {
 		// convert to transport socket matcher if the mode was auto detected
-		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected && util.IsIstioVersionGE14(proxy) {
+		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected {
 			transportSocket := cluster.TransportSocket
 			cluster.TransportSocket = nil
 			cluster.TransportSocketMatches = []*apiv2.Cluster_TransportSocketMatch{
@@ -1028,27 +1083,17 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSetting
 
 func setUpstreamProtocol(node *model.Proxy, cluster *apiv2.Cluster, port *model.Port, direction model.TrafficDirection) {
 	if port.Protocol.IsHTTP2() {
-		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
-			// Envoy default value of 100 is too low for data path.
-			MaxConcurrentStreams: &wrappers.UInt32Value{
-				Value: 1073741824,
-			},
-		}
+		setH2Options(cluster)
 	}
 
 	// Add use_downstream_protocol for sidecar proxy only if protocol sniffing is enabled.
 	// Since protocol detection is disabled for gateway and use_downstream_protocol is used
 	// under protocol detection for cluster to select upstream connection protocol when
 	// the service port is unnamed. use_downstream_protocol should be disabled for gateway.
-	if node.Type == model.SidecarProxy && ((util.IsProtocolSniffingEnabledForInboundPort(node, port) && direction == model.TrafficDirectionInbound) ||
-		(util.IsProtocolSniffingEnabledForOutboundPort(node, port) && direction == model.TrafficDirectionOutbound)) {
+	if node.Type == model.SidecarProxy && ((util.IsProtocolSniffingEnabledForInboundPort(port) && direction == model.TrafficDirectionInbound) ||
+		(util.IsProtocolSniffingEnabledForOutboundPort(port) && direction == model.TrafficDirectionOutbound)) {
 		// setup http2 protocol options for upstream connection.
-		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
-			// Envoy default value of 100 is too low for data path.
-			MaxConcurrentStreams: &wrappers.UInt32Value{
-				Value: 1073741824,
-			},
-		}
+		setH2Options(cluster)
 
 		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
 		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,

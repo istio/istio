@@ -46,3 +46,5 @@ galley:
 
   # Enable analysis and status update in Galley
   enableAnalysis: false
+
+revision: ""

@@ -36,7 +36,7 @@ pilot:
   # if protocol sniffing is enabled for outbound
   enableProtocolSniffingForOutbound: true
   # if protocol sniffing is enabled for inbound
-  enableProtocolSniffingForInbound: false
+  enableProtocolSniffingForInbound: true
 
   nodeSelector: {}
   tolerations: []
@@ -188,6 +188,7 @@ telemetry:
       logging: false
       monitoring: false
       topology: false
+      disableOutbound: false
       #  configOverride parts give you the ability to override the low level configuration params passed to envoy filter.
 
       configOverride: {}

@@ -23,8 +23,6 @@ import (
 	"strings"
 	"sync"
 
-	"istio.io/istio/pkg/test/framework/components/environment/api"
-	"istio.io/istio/pkg/test/framework/core"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -39,8 +37,10 @@ var _ SuiteContext = &suiteContext{}
 
 // suiteContext contains suite-level items used during runtime.
 type suiteContext struct {
-	settings    *core.Settings
+	settings    *resource.Settings
 	environment resource.Environment
+
+	skipped bool
 
 	workDir string
 
@@ -53,7 +53,7 @@ type suiteContext struct {
 	suiteLabels label.Set
 }
 
-func newSuiteContext(s *core.Settings, envFn api.FactoryFn, labels label.Set) (*suiteContext, error) {
+func newSuiteContext(s *resource.Settings, envFn resource.EnvironmentFactory, labels label.Set) (*suiteContext, error) {
 	scopeID := fmt.Sprintf("[suite(%s)]", s.TestID)
 
 	workDir := path.Join(s.RunDir(), "_suite_context")
@@ -129,7 +129,7 @@ func (s *suiteContext) Environment() resource.Environment {
 }
 
 // Settings returns the current runtime.Settings.
-func (s *suiteContext) Settings() *core.Settings {
+func (s *suiteContext) Settings() *resource.Settings {
 	return s.settings
 }
 

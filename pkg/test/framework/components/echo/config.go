@@ -62,7 +62,7 @@ type Config struct {
 
 	// WorkloadOnlyPorts for ports only defined in the workload but not in the k8s service.
 	// This is used to test the inbound pass-through filter chain.
-	WorkloadOnlyPorts []int
+	WorkloadOnlyPorts []WorkloadPort
 
 	// ServiceAnnotations is annotations on service object.
 	ServiceAnnotations Annotations
@@ -110,4 +110,12 @@ func (c Config) FQDN() string {
 		out += "." + c.Domain
 	}
 	return out
+}
+
+// ClusterIndex returns the index of the cluster or 0 (the default) if none specified.
+func (c Config) ClusterIndex() resource.ClusterIndex {
+	if c.Cluster != nil {
+		return c.Cluster.Index()
+	}
+	return 0
 }

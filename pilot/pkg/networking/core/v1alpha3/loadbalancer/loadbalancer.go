@@ -69,8 +69,9 @@ func ApplyLocalityLBSetting(
 	// one of Distribute or Failover settings can be applied.
 	if localityLB.GetDistribute() != nil {
 		applyLocalityWeight(locality, loadAssignment, localityLB.GetDistribute())
-	} else if enableFailover {
 		// Failover needs outlier detection, otherwise Envoy will never drop down to a lower priority.
+		// Do not apply default failover when locality LB is disabled.
+	} else if enableFailover && (localityLB.Enabled == nil || localityLB.Enabled.Value) {
 		applyLocalityFailover(locality, loadAssignment, localityLB.GetFailover())
 	}
 }
@@ -85,7 +86,7 @@ func applyLocalityWeight(
 	}
 
 	// Support Locality weighted load balancing
-	// (https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight.html)
+	// (https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/locality_weight#locality-weighted-load-balancing)
 	// by providing weights in LocalityLbEndpoints via load_balancing_weight.
 	// By setting weights across different localities, it can allow
 	// Envoy to weight assignments across different zones and geographical locations.

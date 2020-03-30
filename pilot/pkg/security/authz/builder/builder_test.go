@@ -15,234 +15,222 @@
 package builder
 
 import (
-	"strings"
+	"io/ioutil"
 	"testing"
 
-	envoyRbacHttpPb "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
-	envoyRbacTcpPb "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
-	"github.com/golang/protobuf/ptypes"
-
-	istioRbacPb "istio.io/api/rbac/v1alpha1"
-
+	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
-	authzModel "istio.io/istio/pilot/pkg/security/authz/model"
-	"istio.io/istio/pilot/pkg/security/authz/policy"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
-	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/util/protomarshal"
+
+	"github.com/gogo/protobuf/proto"
+
+	tcppb "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	httppb "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 )
 
-func newService(hostname string, labels map[string]string, t *testing.T) *model.ServiceInstance {
+const (
+	basePath = "testdata/"
+)
+
+var (
+	httpbin = labels.Collection{
+		map[string]string{
+			"app":     "httpbin",
+			"version": "v1",
+		},
+	}
+)
+
+func TestGenerator_GenerateHTTP(t *testing.T) {
+	testCases := []struct {
+		name     string
+		tdBundle trustdomain.Bundle
+		input    string
+		want     []string
+	}{
+		{
+			name:  "action-both",
+			input: "action-both-in.yaml",
+			want: []string{
+				"action-both-deny-out.yaml",
+				"action-both-allow-out.yaml"},
+		},
+		{
+			name:  "all-fields",
+			input: "all-fields-in.yaml",
+			want:  []string{"all-fields-out.yaml"},
+		},
+		{
+			name:  "allow-all",
+			input: "allow-all-in.yaml",
+			want:  []string{"allow-all-out.yaml"},
+		},
+		{
+			name:  "deny-all",
+			input: "deny-all-in.yaml",
+			want:  []string{"deny-all-out.yaml"},
+		},
+		{
+			name:  "multiple-policies",
+			input: "multiple-policies-in.yaml",
+			want:  []string{"multiple-policies-out.yaml"},
+		},
+		{
+			name:  "single-policy",
+			input: "single-policy-in.yaml",
+			want:  []string{"single-policy-out.yaml"},
+		},
+		{
+			name:     "trust-domain-one-alias",
+			tdBundle: trustdomain.NewBundle("td1", []string{"cluster.local"}),
+			input:    "simple-policy-td-aliases-in.yaml",
+			want:     []string{"simple-policy-td-aliases-out.yaml"},
+		},
+		{
+			name:     "trust-domain-multiple-aliases",
+			tdBundle: trustdomain.NewBundle("td1", []string{"cluster.local", "some-td"}),
+			input:    "simple-policy-multiple-td-aliases-in.yaml",
+			want:     []string{"simple-policy-multiple-td-aliases-out.yaml"},
+		},
+		{
+			name:     "trust-domain-wildcard-in-principal",
+			tdBundle: trustdomain.NewBundle("td1", []string{"foobar"}),
+			input:    "simple-policy-principal-with-wildcard-in.yaml",
+			want:     []string{"simple-policy-principal-with-wildcard-out.yaml"},
+		},
+		{
+			name:     "trust-domain-aliases-in-source-principal",
+			tdBundle: trustdomain.NewBundle("new-td", []string{"old-td", "some-trustdomain"}),
+			input:    "td-aliases-source-principal-in.yaml",
+			want:     []string{"td-aliases-source-principal-out.yaml"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			g := New(tc.tdBundle, httpbin, "foo", yamlPolicy(t, basePath+tc.input))
+			if g == nil {
+				t.Fatalf("failed to create generator")
+			}
+			got := g.BuildHTTP()
+			verify(t, convertHTTP(got), tc.want, false /* forTCP */)
+		})
+	}
+}
+
+func TestGenerator_GenerateTCP(t *testing.T) {
+	testCases := []struct {
+		name     string
+		tdBundle trustdomain.Bundle
+		input    string
+		want     []string
+	}{
+		{
+			name:  "action-allow-HTTP-for-TCP-filter",
+			input: "action-allow-HTTP-for-TCP-filter-in.yaml",
+			want:  []string{"action-allow-HTTP-for-TCP-filter-out.yaml"},
+		},
+		{
+			name:  "action-deny-HTTP-for-TCP-filter",
+			input: "action-deny-HTTP-for-TCP-filter-in.yaml",
+			want:  []string{"action-deny-HTTP-for-TCP-filter-out.yaml"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			g := New(tc.tdBundle, httpbin, "foo", yamlPolicy(t, basePath+tc.input))
+			if g == nil {
+				t.Fatalf("failed to create generator")
+			}
+			got := g.BuildTCP()
+			verify(t, convertTCP(got), tc.want, true /* forTCP */)
+		})
+	}
+}
+
+func verify(t *testing.T, gots []proto.Message, wants []string, forTCP bool) {
 	t.Helper()
-	splits := strings.Split(hostname, ".")
-	if len(splits) < 2 {
-		t.Fatalf("failed to initialize service instance: invalid hostname")
+
+	if len(gots) != len(wants) {
+		t.Fatalf("got %d configs but want %d", len(gots), len(wants))
 	}
-	name := splits[0]
-	namespace := splits[1]
-	return &model.ServiceInstance{
-		Service: &model.Service{
-			Attributes: model.ServiceAttributes{
-				Name:      name,
-				Namespace: namespace,
-			},
-			Hostname: host.Name(hostname),
-		},
-		Endpoint: &model.IstioEndpoint{
-			Labels: labels,
-		},
-	}
-}
+	for i, got := range gots {
+		gotYaml, err := protomarshal.ToYAML(got)
+		if err != nil {
+			t.Fatalf("failed to convert to YAML: %v", err)
+		}
 
-func simpleGlobalPermissiveMode() *model.Config {
-	cfg := &model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Kind(),
-			Group:     collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Group(),
-			Version:   collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().Version(),
-			Name:      "default",
-			Namespace: "default",
-		},
-		Spec: &istioRbacPb.RbacConfig{
-			Mode:            istioRbacPb.RbacConfig_ON,
-			EnforcementMode: istioRbacPb.EnforcementMode_PERMISSIVE,
-		},
-	}
-	return cfg
-}
+		wantFile := basePath + wants[i]
+		want := yamlConfig(t, wantFile, forTCP)
+		wantYaml, err := protomarshal.ToYAML(want)
+		if err != nil {
+			t.Fatalf("failed to convert to YAML: %v", err)
+		}
 
-func TestBuilder_BuildHTTPFilter(t *testing.T) {
-	service := newService("bar.a.svc.cluster.local", nil, t)
-
-	testCases := []struct {
-		name         string
-		policies     []*model.Config
-		wantPolicies [][]string
-	}{
-		{
-			name: "v1alpha1 only",
-			policies: []*model.Config{
-				policy.SimpleClusterRbacConfig(),
-				policy.SimpleRole("role-1", "a", "bar"),
-				policy.SimpleBinding("binding-1", "a", "role-1"),
-			},
-			wantPolicies: [][]string{
-				{"role-1"},
-			},
-		},
-		{
-			name: "v1alpha1 without ClusterRbacConfig",
-			policies: []*model.Config{
-				policy.SimpleRole("role-1", "a", "bar"),
-				policy.SimpleBinding("binding-1", "a", "role-1"),
-			},
-		},
-		{
-			name: "v1beta1 allow policies",
-			policies: []*model.Config{
-				policy.SimpleAllowPolicy("authz-bar", "a"),
-				policy.SimpleAllowPolicy("authz-foo", "a"),
-			},
-			wantPolicies: [][]string{
-				{"ns[a]-policy[authz-bar]-rule[0]", "ns[a]-policy[authz-foo]-rule[0]"}},
-		},
-		{
-			name: "v1beta1 deny policies",
-			policies: []*model.Config{
-				policy.SimpleDenyPolicy("authz-bar", "a"),
-				policy.SimpleDenyPolicy("authz-foo", "a"),
-			},
-			wantPolicies: [][]string{
-				{"ns[a]-policy[authz-bar]-rule[0]", "ns[a]-policy[authz-foo]-rule[0]"},
-			},
-		},
-		{
-			name: "v1alpha1 and v1beta1",
-			policies: []*model.Config{
-				policy.SimpleClusterRbacConfig(),
-				policy.SimpleRole("role-1", "a", "bar"),
-				policy.SimpleBinding("binding-1", "a", "role-1"),
-				policy.SimpleAllowPolicy("authz-allow-bar", "a"),
-				policy.SimpleDenyPolicy("authz-deny-bar", "a"),
-			},
-			wantPolicies: [][]string{
-				{"ns[a]-policy[authz-deny-bar]-rule[0]"},
-				{"ns[a]-policy[authz-allow-bar]-rule[0]"},
-			},
-		},
-	}
-
-	for _, tc := range testCases {
-		p := policy.NewAuthzPolicies(tc.policies, t)
-		b := NewBuilder(trustdomain.NewTrustDomainBundle("", nil), service, nil, "a", p)
-
-		filters := b.BuildHTTPFilters()
-		t.Run(tc.name, func(t *testing.T) {
-			if tc.wantPolicies == nil {
-				if len(filters) != 0 {
-					t.Errorf("want empty config but got: %v", filters)
-				}
-			} else {
-				for i, got := range filters {
-					if got.Name != authzModel.RBACHTTPFilterName {
-						t.Errorf("got filter name %q but want %q", got.Name, authzModel.RBACHTTPFilterName)
-					}
-					if len(tc.wantPolicies) != len(filters) {
-						t.Fatalf("want %d filters but found %d", len(tc.wantPolicies), len(filters))
-					}
-					rbacConfig := &envoyRbacHttpPb.RBAC{}
-					if err := ptypes.UnmarshalAny(got.GetTypedConfig(), rbacConfig); err != nil {
-						t.Fatalf("failed to unmarshal config: %s", err)
-					}
-					if len(tc.wantPolicies[i]) == 0 {
-						if len(rbacConfig.GetRules().GetPolicies()) > 0 {
-							t.Errorf("got rules with policies %v but want no policies", rbacConfig.GetRules().GetPolicies())
-						}
-					} else {
-						for _, want := range tc.wantPolicies[i] {
-							if _, found := rbacConfig.GetRules().GetPolicies()[want]; !found {
-								t.Errorf("got rules with policies %v but want %v", rbacConfig.GetRules().GetPolicies(), want)
-							}
-						}
-						if len(tc.wantPolicies[i]) != len(rbacConfig.GetRules().GetPolicies()) {
-							t.Errorf("got %d policies but want %d", len(rbacConfig.GetRules().GetPolicies()), len(tc.wantPolicies[i]))
-						}
-					}
-				}
-			}
-		})
+		util.RefreshGoldenFile([]byte(gotYaml), wantFile, t)
+		if err := util.Compare([]byte(gotYaml), []byte(wantYaml)); err != nil {
+			t.Error(err)
+		}
 	}
 }
 
-func TestBuilder_BuildTCPFilter(t *testing.T) {
-	service := newService("foo.a.svc.cluster.local", nil, t)
-
-	testCases := []struct {
-		name                 string
-		policies             []*model.Config
-		wantRules            bool
-		wantRuleWithPolicies bool
-		wantShadowRules      bool
-	}{
-		{
-			name: "HTTP rule",
-			policies: []*model.Config{
-				policy.SimpleClusterRbacConfig(),
-				policy.SimpleRole("role-1", "a", "foo"),
-				policy.SimpleBinding("binding-1", "a", "role-1"),
-			},
-			wantRules:            true,
-			wantRuleWithPolicies: false,
-		},
-		{
-			name: "normal rule",
-			policies: []*model.Config{
-				policy.SimpleClusterRbacConfig(),
-			},
-			wantRules: true,
-		},
-		{
-			name: "normal shadow rule",
-			policies: []*model.Config{
-				simpleGlobalPermissiveMode(),
-			},
-			wantShadowRules: true,
-		},
+func yamlPolicy(t *testing.T, filename string) *model.AuthorizationPolicies {
+	t.Helper()
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("failed to read input yaml file: %v", err)
 	}
-
-	for _, tc := range testCases {
-		p := policy.NewAuthzPolicies(tc.policies, t)
-		b := NewBuilder(trustdomain.NewTrustDomainBundle("", nil), service, nil, "a", p)
-
-		t.Run(tc.name, func(t *testing.T) {
-			filters := b.BuildTCPFilters()
-			if len(filters) != 1 {
-				t.Fatalf("want 1 filter but got %d", len(filters))
-			}
-			got := filters[0]
-			if got.Name != authzModel.RBACTCPFilterName {
-				t.Errorf("got filter name %q but want %q", got.Name, authzModel.RBACTCPFilterName)
-			}
-			rbacConfig := &envoyRbacTcpPb.RBAC{}
-			if err := ptypes.UnmarshalAny(got.GetTypedConfig(), rbacConfig); err != nil {
-				t.Fatalf("failed to unmarshal config: %s", err)
-			}
-			if rbacConfig.StatPrefix != authzModel.RBACTCPFilterStatPrefix {
-				t.Errorf("got filter stat prefix %q but want %q",
-					rbacConfig.StatPrefix, authzModel.RBACTCPFilterStatPrefix)
-			}
-			if len(rbacConfig.GetRules().GetPolicies()) > 0 != tc.wantRuleWithPolicies {
-				t.Errorf("got rules with policies %v but want %v",
-					len(rbacConfig.GetRules().GetPolicies()) > 0, tc.wantRuleWithPolicies)
-			}
-			if (rbacConfig.GetRules() != nil) != tc.wantRules {
-				t.Errorf("got rules %v but want %v",
-					rbacConfig.GetRules() != nil, tc.wantRules)
-			}
-			if (rbacConfig.GetShadowRules() != nil) != tc.wantShadowRules {
-				t.Errorf("got shadow rules %v but want %v",
-					rbacConfig.GetShadowRules() != nil, tc.wantShadowRules)
-			}
-		})
+	c, _, err := crd.ParseInputs(string(data))
+	if err != nil {
+		t.Fatalf("failde to parse CRD: %v", err)
 	}
+	var configs []*model.Config
+	for i := range c {
+		configs = append(configs, &c[i])
+	}
+	m, err := NewAuthzPolicies(configs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return m
+}
+
+func yamlConfig(t *testing.T, filename string, forTCP bool) proto.Message {
+	t.Helper()
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("failed to read file: %v", err)
+	}
+	if forTCP {
+		out := &tcppb.Filter{}
+		if err := protomarshal.ApplyYAML(string(data), out); err != nil {
+			t.Fatalf("failed to parse YAML: %v", err)
+		}
+		return out
+	}
+	out := &httppb.HttpFilter{}
+	if err := protomarshal.ApplyYAML(string(data), out); err != nil {
+		t.Fatalf("failed to parse YAML: %v", err)
+	}
+	return out
+}
+
+func convertHTTP(in []*httppb.HttpFilter) []proto.Message {
+	ret := make([]proto.Message, len(in))
+	for i := range in {
+		ret[i] = in[i]
+	}
+	return ret
+}
+
+func convertTCP(in []*tcppb.Filter) []proto.Message {
+	ret := make([]proto.Message, len(in))
+	for i := range in {
+		ret[i] = in[i]
+	}
+	return ret
 }

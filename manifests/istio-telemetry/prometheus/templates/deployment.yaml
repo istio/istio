@@ -61,7 +61,11 @@ spec:
 
 {{- if .Values.prometheus.provisionPrometheusCert }}
         - name: istio-proxy
-          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+{{- if contains "/" .Values.global.proxy.image }}
+          image: "{{ .Values.global.proxy.image }}"
+{{- else }}
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.global.tag }}"
+{{- end }}
           ports:
             - containerPort: 15090
               protocol: TCP
@@ -71,11 +75,6 @@ spec:
             - sidecar
             - --domain
             - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
-            - --configPath
-            - "/etc/istio/proxy"
-            - --binaryPath
-            - "/usr/local/bin/envoy"
-            - --serviceCluster
             - "istio-proxy-prometheus"
             {{- if .Values.global.proxy.logLevel }}
             - --proxyLogLevel={{ .Values.global.proxy.logLevel }}
@@ -83,25 +82,14 @@ spec:
             {{- if .Values.global.proxy.componentLogLevel }}
             - --proxyComponentLogLevel={{ .Values.global.proxy.componentLogLevel }}
             {{- end}}
-            - --proxyAdminPort
-            - "15000"
-              {{- if .Values.global.istiod.enabled }}
             - --controlPlaneAuthPolicy
             - NONE
-              {{- else if .Values.global.controlPlaneSecurityEnabled }}
-            - --controlPlaneAuthPolicy
-            - MUTUAL_TLS
-              {{- else }}
-            - --controlPlaneAuthPolicy
-            - NONE
-              {{- end }}
               {{- if .Values.global.trustDomain }}
             - --trust-domain={{ .Values.global.trustDomain }}
               {{- end }}
               {{- if .Values.global.logAsJson }}
             - --log_as_json
               {{- end }}
-            - --controlPlaneBootstrap=false
           env:
             - name: OUTPUT_CERTS
               value: "/etc/istio-certs"
@@ -114,9 +102,9 @@ spec:
               {{- if .Values.global.caAddress }}
               value: {{ .Values.global.caAddress }}
               {{- else if .Values.global.configNamespace }}
-              value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
               {{- else }}
-              value: istiod.istio-system.svc:15012
+              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
               {{- end }}
             - name: POD_NAME
               valueFrom:
@@ -138,14 +126,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.hostIP
-            - name: ISTIO_META_POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: ISTIO_META_CONFIG_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
               {{- if .Values.global.network }}
             - name: ISTIO_META_NETWORK
               value: "{{ .Values.global.network }}"

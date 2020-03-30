@@ -5,7 +5,7 @@ kiali:
   enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `true`.
   replicaCount: 1
   hub: quay.io/kiali
-  tag: v1.14
+  tag: v1.15
   image: kiali
   contextPath: /kiali # The root context path to access the Kiali UI.
   nodeSelector: {}
@@ -32,6 +32,10 @@ kiali:
   # "security" and value "S1".
   podAntiAffinityLabelSelector: []
   podAntiAffinityTermLabelSelector: []
+
+  service:
+    annotations: {}
+    type: ClusterIP
 
   ingress:
     enabled: false
@@ -78,6 +82,7 @@ kiali:
 
   createDemoSecret: true # When true, a secret will be created with a default username and password. Useful for demos.
 
+  prometheusAddr: ""
   resources: {}
   security:
     enabled: false

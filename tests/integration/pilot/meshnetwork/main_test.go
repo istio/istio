@@ -28,13 +28,13 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/structpath"
 )
@@ -71,6 +71,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("meshnetwork_test", m).
+		RequireSingleCluster().
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&i, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
@@ -92,8 +93,25 @@ func setupConfig(cfg *istio.Config) {
 		return
 	}
 
-	// Helm values from install/kubernetes/helm/istio/test-values/values-istio-mesh-networks.yaml
-	cfg.ValuesFile = "test-values/values-istio-mesh-networks.yaml"
+	cfg.ControlPlaneValues = `
+values:
+  # overrides to test the meshNetworks.
+  global:
+    meshNetworks:
+      # NOTE: DO NOT CHANGE THIS! Its hardcoded in Pilot in different areas
+      Kubernetes:
+        endpoints:
+        - fromRegistry: Kubernetes
+        gateways:
+        - port: 15443
+          address: 2.2.2.2
+        vm: {}
+
+    #This will cause ISTIO_META_NETWORK to be set on the pods and the
+    #kube controller code to match endpoints from kubernetes with the default
+    #cluster ID of "Kubernetes". Need to fix this code
+    network: "Kubernetes"
+`
 }
 
 func TestAsymmetricMeshNetworkWithGatewayIP(t *testing.T) {

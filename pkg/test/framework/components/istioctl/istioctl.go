@@ -19,8 +19,8 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 // Instance represents "istioctl"
@@ -56,15 +56,10 @@ func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 }
 
 // NewOrFail returns a new instance of "istioctl".
-func NewOrFail(_ *testing.T, c resource.Context, config Config) Instance {
-	failer, ok := c.(test.Failer)
-	if !ok {
-		panic("context must be a Failer (typically a framework.TestContext)")
-	}
-
+func NewOrFail(t test.Failer, c resource.Context, config Config) Instance {
 	i, err := New(c, config)
 	if err != nil {
-		failer.Fatalf("istioctl.NewOrFail:: %v", err)
+		t.Fatalf("istioctl.NewOrFail:: %v", err)
 	}
 
 	return i

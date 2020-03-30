@@ -57,7 +57,7 @@ while (( "$#" )); do
     ;;
     --topology)
       case $2 in
-        SINGLE_CLUSTER | MULTICLUSTER_SINGLE_NETWORK)
+        SINGLE_CLUSTER | MULTICLUSTER_SINGLE_NETWORK | MULTICLUSTER_MULTINETWORK)
           TOPOLOGY=$2
           echo "Running with topology ${TOPOLOGY}"
           ;;
@@ -104,7 +104,10 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
     time setup_kind_cluster "${IP_FAMILY}" "${NODE_IMAGE:-}"
   else
     # TODO: Support IPv6 multicluster
-    time setup_kind_multicluster_single_network "${NODE_IMAGE:-}"
+    time setup_kind_clusters "${TOPOLOGY}" "${NODE_IMAGE:-}"
+
+    # Set the kube configs to point to the clusters.
+    export INTEGRATION_TEST_KUBECONFIG="${CLUSTER1_KUBECONFIG},${CLUSTER2_KUBECONFIG}"
   fi
 fi
 
@@ -114,7 +117,7 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
   if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
     time kind_load_images ""
   else
-    time kind_load_images_multicluster
+    time kind_load_images_on_clusters
   fi
 fi
 

@@ -9,7 +9,7 @@ Whenever making changes in the charts, it's important to follow the below steps.
 
 Is this a new parameter being added? If not, go to the next step.
 Dynamic, runtime config that is used to configure Istio components should go into the
-[MeshConfig API](https://github.com/istio/api/mesh/v1alpha1/config.proto). Values.yaml is being deprecated and adding
+[MeshConfig API](https://github.com/istio/api/blob/master/mesh/v1alpha1/config.proto). Values.yaml is being deprecated and adding
 to it is discouraged. MeshConfig is the official API which follows API management practices and is dynamic
 (does not require component restarts).
 Exceptions to this rule are configuration items that affect K8s level settings (resources, mounts etc.)
@@ -29,7 +29,7 @@ the schema must be added here, otherwise istioctl users will see errors.
 Once the schema file is updated, run:
 
 ```bash
-$ BUILD_WITH_CONTAINER=1 make operator-proto
+$ make operator-proto
 ```
 
 This will regenerate the Go structs used for schema validation.
@@ -40,7 +40,7 @@ Tests of istioctl use the compiled-in charts to ensure that the istioctl binary 
 To regenerate the charts package, run:
 
 ```bash
-$ BUILD_WITH_CONTAINER=1 make gen-charts
+$ make gen-charts
 ```
 
 ## Step 5. Update golden files

@@ -28,10 +28,10 @@ rules:
 - apiGroups: ["apiextensions.k8s.io"]
   resources: ["customresourcedefinitions"]
   verbs: ["get", "watch", "list"]
-- apiGroups: ["extensions"]
+- apiGroups: ["networking.k8s.io"]
   resources: ["ingresses"]
   verbs: ["get", "list", "watch"]
-- apiGroups: ["extensions"]
+- apiGroups: ["networking.k8s.io"]
   resources: ["ingresses/status"]
   verbs: ["*"]
   # TODO: remove, too broad permission, should be namespace only
@@ -45,13 +45,6 @@ rules:
 - apiGroups: [""]
   resources: ["secrets"]
   verbs: ["create", "get", "watch", "list", "update", "delete"]
-- apiGroups: ["certificates.k8s.io"]
-  resources:
-    - "certificatesigningrequests"
-    - "certificatesigningrequests/approval"
-    - "certificatesigningrequests/status"
-  resourceNames: ["kubernetes.io/legacy-unknown"]
-  verbs: ["update", "create", "get", "delete", "watch"]
 - apiGroups: ["discovery.k8s.io"]
   resources: ["endpointslices"]
   verbs: ["get", "list", "watch"]
@@ -104,10 +97,10 @@ rules:
     verbs: ["get", "list", "watch"]
 
   # ingress controller
-  - apiGroups: ["extensions"]
+  - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses"]
     verbs: ["get", "list", "watch"]
-  - apiGroups: ["extensions"]
+  - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses/status"]
     verbs: ["*"]
 
@@ -127,9 +120,7 @@ rules:
     resources:
       - "signers"
     resourceNames:
-    # Support legacy versions, before signerName was added
     - "kubernetes.io/legacy-unknown"
-    - "istio.io/*"
     verbs: ["approve"]
 
   # Used by Istiod to verify the JWT tokens
@@ -259,8 +250,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Authentication policy for Istio services. See more details
-            at: https://istio.io/docs/reference/config/security/istio.authentication.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             originIsOptional:
               description: Deprecated.
@@ -317,6 +307,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -335,8 +335,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -349,6 +348,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -367,8 +376,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -381,6 +389,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -399,8 +417,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -413,6 +430,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -431,8 +458,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -450,6 +476,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -468,8 +504,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -482,6 +517,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -500,8 +545,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -514,6 +558,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -532,8 +586,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -546,6 +599,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -564,8 +627,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -585,6 +647,14 @@ spec:
             peers:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - mtls
+                    - properties:
+                        jwt: {}
+                      required:
+                      - jwt
                 - required:
                   - mtls
                 - properties:
@@ -639,6 +709,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -657,8 +737,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -671,6 +750,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -689,8 +778,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -703,6 +791,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -721,8 +819,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -735,6 +832,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -753,8 +860,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -772,6 +878,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -790,8 +906,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -804,6 +919,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -822,8 +947,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -836,6 +960,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -854,8 +988,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -868,6 +1001,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -886,8 +1029,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -932,6 +1074,12 @@ spec:
                     description: Specifies the ports.
                     items:
                       oneOf:
+                      - not:
+                          anyOf:
+                          - required:
+                            - number
+                          - required:
+                            - name
                       - required:
                         - number
                       - required:
@@ -983,8 +1131,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Authentication policy for Istio services. See more details
-            at: https://istio.io/docs/reference/config/security/istio.authentication.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             originIsOptional:
               description: Deprecated.
@@ -1041,6 +1188,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1059,8 +1216,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1073,6 +1229,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1091,8 +1257,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1105,6 +1270,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1123,8 +1298,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1137,6 +1311,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1155,8 +1339,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1174,6 +1357,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1192,8 +1385,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1206,6 +1398,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1224,8 +1426,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1238,6 +1439,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1256,8 +1467,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1270,6 +1480,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1288,8 +1508,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1309,6 +1528,14 @@ spec:
             peers:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - mtls
+                    - properties:
+                        jwt: {}
+                      required:
+                      - jwt
                 - required:
                   - mtls
                 - properties:
@@ -1363,6 +1590,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1381,8 +1618,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1395,6 +1631,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1413,8 +1659,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1427,6 +1672,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1445,8 +1700,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1459,6 +1713,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1477,8 +1741,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1496,6 +1759,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1514,8 +1787,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1528,6 +1800,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1546,8 +1828,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1560,6 +1841,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1578,8 +1869,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1592,6 +1882,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1610,8 +1910,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1656,6 +1955,12 @@ spec:
                     description: Specifies the ports.
                     items:
                       oneOf:
+                      - not:
+                          anyOf:
+                          - required:
+                            - number
+                          - required:
+                            - name
                       - required:
                         - number
                       - required:
@@ -1711,6 +2016,14 @@ spec:
             api_keys:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - query
+                    - required:
+                      - header
+                    - required:
+                      - cookie
                 - required:
                   - query
                 - required:
@@ -1734,6 +2047,14 @@ spec:
             apiKeys:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - query
+                    - required:
+                      - header
+                    - required:
+                      - cookie
                 - required:
                   - query
                 - required:
@@ -1759,6 +2080,24 @@ spec:
                 attributes:
                   additionalProperties:
                     oneOf:
+                    - not:
+                        anyOf:
+                        - required:
+                          - stringValue
+                        - required:
+                          - int64Value
+                        - required:
+                          - doubleValue
+                        - required:
+                          - boolValue
+                        - required:
+                          - bytesValue
+                        - required:
+                          - timestampValue
+                        - required:
+                          - durationValue
+                        - required:
+                          - stringMapValue
                     - required:
                       - stringValue
                     - required:
@@ -1812,6 +2151,12 @@ spec:
               description: List of HTTP patterns to match.
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - uriTemplate
+                    - required:
+                      - regex
                 - required:
                   - uriTemplate
                 - required:
@@ -1822,6 +2167,24 @@ spec:
                       attributes:
                         additionalProperties:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - stringValue
+                              - required:
+                                - int64Value
+                              - required:
+                                - doubleValue
+                              - required:
+                                - boolValue
+                              - required:
+                                - bytesValue
+                              - required:
+                                - timestampValue
+                              - required:
+                                - durationValue
+                              - required:
+                                - stringMapValue
                           - required:
                             - stringValue
                           - required:
@@ -2026,6 +2389,14 @@ spec:
                         clause:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -2040,6 +2411,7 @@ spec:
                                 format: string
                                 type: string
                               regex:
+                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                 format: string
                                 type: string
                             type: object
@@ -2288,11 +2660,48 @@ spec:
                       loadBalancer:
                         description: Settings controlling the load balancer algorithms.
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - simple
+                            - properties:
+                                consistentHash:
+                                  oneOf:
+                                  - not:
+                                      anyOf:
+                                      - required:
+                                        - httpHeaderName
+                                      - required:
+                                        - httpCookie
+                                      - required:
+                                        - useSourceIp
+                                      - required:
+                                        - httpQueryParameterName
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
+                              required:
+                              - consistentHash
                         - required:
                           - simple
                         - properties:
                             consistentHash:
                               oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
                               - required:
                                 - httpHeaderName
                               - required:
@@ -2480,11 +2889,48 @@ spec:
                               description: Settings controlling the load balancer
                                 algorithms.
                               oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - simple
+                                  - properties:
+                                      consistentHash:
+                                        oneOf:
+                                        - not:
+                                            anyOf:
+                                            - required:
+                                              - httpHeaderName
+                                            - required:
+                                              - httpCookie
+                                            - required:
+                                              - useSourceIp
+                                            - required:
+                                              - httpQueryParameterName
+                                        - required:
+                                          - httpHeaderName
+                                        - required:
+                                          - httpCookie
+                                        - required:
+                                          - useSourceIp
+                                        - required:
+                                          - httpQueryParameterName
+                                    required:
+                                    - consistentHash
                               - required:
                                 - simple
                               - properties:
                                   consistentHash:
                                     oneOf:
+                                    - not:
+                                        anyOf:
+                                        - required:
+                                          - httpHeaderName
+                                        - required:
+                                          - httpCookie
+                                        - required:
+                                          - useSourceIp
+                                        - required:
+                                          - httpQueryParameterName
                                     - required:
                                       - httpHeaderName
                                     - required:
@@ -2744,11 +3190,48 @@ spec:
                 loadBalancer:
                   description: Settings controlling the load balancer algorithms.
                   oneOf:
+                  - not:
+                      anyOf:
+                      - required:
+                        - simple
+                      - properties:
+                          consistentHash:
+                            oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - httpHeaderName
+                                - required:
+                                  - httpCookie
+                                - required:
+                                  - useSourceIp
+                                - required:
+                                  - httpQueryParameterName
+                            - required:
+                              - httpHeaderName
+                            - required:
+                              - httpCookie
+                            - required:
+                              - useSourceIp
+                            - required:
+                              - httpQueryParameterName
+                        required:
+                        - consistentHash
                   - required:
                     - simple
                   - properties:
                       consistentHash:
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - httpHeaderName
+                            - required:
+                              - httpCookie
+                            - required:
+                              - useSourceIp
+                            - required:
+                              - httpQueryParameterName
                         - required:
                           - httpHeaderName
                         - required:
@@ -2933,11 +3416,48 @@ spec:
                       loadBalancer:
                         description: Settings controlling the load balancer algorithms.
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - simple
+                            - properties:
+                                consistentHash:
+                                  oneOf:
+                                  - not:
+                                      anyOf:
+                                      - required:
+                                        - httpHeaderName
+                                      - required:
+                                        - httpCookie
+                                      - required:
+                                        - useSourceIp
+                                      - required:
+                                        - httpQueryParameterName
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
+                              required:
+                              - consistentHash
                         - required:
                           - simple
                         - properties:
                             consistentHash:
                               oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
                               - required:
                                 - httpHeaderName
                               - required:
@@ -3190,6 +3710,14 @@ spec:
                   match:
                     description: Match on listener/route configuration/cluster.
                     oneOf:
+                    - not:
+                        anyOf:
+                        - required:
+                          - listener
+                        - required:
+                          - routeConfiguration
+                        - required:
+                          - cluster
                     - required:
                       - listener
                     - required:
@@ -3350,76 +3878,6 @@ spec:
                     type: object
                 type: object
               type: array
-            filters:
-              items:
-                properties:
-                  filterConfig:
-                    type: object
-                  filterName:
-                    description: The name of the filter to instantiate.
-                    format: string
-                    type: string
-                  filterType:
-                    description: The type of filter to instantiate.
-                    enum:
-                    - INVALID
-                    - HTTP
-                    - NETWORK
-                    type: string
-                  insertPosition:
-                    description: Insert position in the filter chain.
-                    properties:
-                      index:
-                        description: Position of this filter in the filter chain.
-                        enum:
-                        - FIRST
-                        - LAST
-                        - BEFORE
-                        - AFTER
-                        type: string
-                      relativeTo:
-                        format: string
-                        type: string
-                    type: object
-                  listenerMatch:
-                    properties:
-                      address:
-                        description: One or more IP addresses to which the listener
-                          is bound.
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      listenerProtocol:
-                        description: Selects a class of listeners for the same protocol.
-                        enum:
-                        - ALL
-                        - HTTP
-                        - TCP
-                        type: string
-                      listenerType:
-                        description: Inbound vs outbound sidecar listener or gateway
-                          listener.
-                        enum:
-                        - ANY
-                        - SIDECAR_INBOUND
-                        - SIDECAR_OUTBOUND
-                        - GATEWAY
-                        type: string
-                      portNamePrefix:
-                        format: string
-                        type: string
-                      portNumber:
-                        type: integer
-                    type: object
-                type: object
-              type: array
-            workloadLabels:
-              additionalProperties:
-                format: string
-                type: string
-              description: Deprecated.
-              type: object
             workloadSelector:
               properties:
                 labels:
@@ -3675,6 +4133,9 @@ spec:
                       type: integer
                     description: Set of ports associated with the endpoint.
                     type: object
+                  serviceAccount:
+                    format: string
+                    type: string
                   weight:
                     description: The load balancing weight associated with the endpoint.
                     type: integer
@@ -3726,6 +4187,15 @@ spec:
                 format: string
                 type: string
               type: array
+            workloadSelector:
+              description: Applicable only for MESH_INTERNAL services.
+              properties:
+                labels:
+                  additionalProperties:
+                    format: string
+                    type: string
+                  type: object
+              type: object
           type: object
       type: object
   versions:
@@ -3803,74 +4273,6 @@ spec:
                     type: object
                 type: object
               type: array
-            inboundTls:
-              properties:
-                caCertificates:
-                  description: REQUIRED if mode is `MUTUAL`.
-                  format: string
-                  type: string
-                cipherSuites:
-                  description: 'Optional: If specified, only support the specified
-                    cipher list.'
-                  items:
-                    format: string
-                    type: string
-                  type: array
-                credentialName:
-                  format: string
-                  type: string
-                httpsRedirect:
-                  type: boolean
-                maxProtocolVersion:
-                  description: 'Optional: Maximum TLS protocol version.'
-                  enum:
-                  - TLS_AUTO
-                  - TLSV1_0
-                  - TLSV1_1
-                  - TLSV1_2
-                  - TLSV1_3
-                  type: string
-                minProtocolVersion:
-                  description: 'Optional: Minimum TLS protocol version.'
-                  enum:
-                  - TLS_AUTO
-                  - TLSV1_0
-                  - TLSV1_1
-                  - TLSV1_2
-                  - TLSV1_3
-                  type: string
-                mode:
-                  enum:
-                  - PASSTHROUGH
-                  - SIMPLE
-                  - MUTUAL
-                  - AUTO_PASSTHROUGH
-                  - ISTIO_MUTUAL
-                  type: string
-                privateKey:
-                  description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
-                  format: string
-                  type: string
-                serverCertificate:
-                  description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
-                  format: string
-                  type: string
-                subjectAltNames:
-                  items:
-                    format: string
-                    type: string
-                  type: array
-                verifyCertificateHash:
-                  items:
-                    format: string
-                    type: string
-                  type: array
-                verifyCertificateSpki:
-                  items:
-                    format: string
-                    type: string
-                  type: array
-              type: object
             ingress:
               items:
                 properties:
@@ -3887,75 +4289,6 @@ spec:
                   defaultEndpoint:
                     format: string
                     type: string
-                  inboundTls:
-                    description: Overrides Sidecar level `inboundTls` settings.
-                    properties:
-                      caCertificates:
-                        description: REQUIRED if mode is `MUTUAL`.
-                        format: string
-                        type: string
-                      cipherSuites:
-                        description: 'Optional: If specified, only support the specified
-                          cipher list.'
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      credentialName:
-                        format: string
-                        type: string
-                      httpsRedirect:
-                        type: boolean
-                      maxProtocolVersion:
-                        description: 'Optional: Maximum TLS protocol version.'
-                        enum:
-                        - TLS_AUTO
-                        - TLSV1_0
-                        - TLSV1_1
-                        - TLSV1_2
-                        - TLSV1_3
-                        type: string
-                      minProtocolVersion:
-                        description: 'Optional: Minimum TLS protocol version.'
-                        enum:
-                        - TLS_AUTO
-                        - TLSV1_0
-                        - TLSV1_1
-                        - TLSV1_2
-                        - TLSV1_3
-                        type: string
-                      mode:
-                        enum:
-                        - PASSTHROUGH
-                        - SIMPLE
-                        - MUTUAL
-                        - AUTO_PASSTHROUGH
-                        - ISTIO_MUTUAL
-                        type: string
-                      privateKey:
-                        description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
-                        format: string
-                        type: string
-                      serverCertificate:
-                        description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
-                        format: string
-                        type: string
-                      subjectAltNames:
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      verifyCertificateHash:
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      verifyCertificateSpki:
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                    type: object
                   port:
                     description: The port associated with the listener.
                     properties:
@@ -4119,6 +4452,14 @@ spec:
                         description: String patterns that match allowed origins.
                         items:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -4133,6 +4474,7 @@ spec:
                               format: string
                               type: string
                             regex:
+                              description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                               format: string
                               type: string
                           type: object
@@ -4151,6 +4493,14 @@ spec:
                     properties:
                       abort:
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - httpStatus
+                            - required:
+                              - grpcStatus
+                            - required:
+                              - http2Error
                         - required:
                           - httpStatus
                         - required:
@@ -4180,13 +4530,15 @@ spec:
                         type: object
                       delay:
                         oneOf:
-                        - properties:
-                            percent: {}
-                          required:
+                        - not:
+                            anyOf:
+                            - required:
+                              - fixedDelay
+                            - required:
+                              - exponentialDelay
+                        - required:
                           - fixedDelay
-                        - properties:
-                            percent: {}
-                          required:
+                        - required:
                           - exponentialDelay
                         properties:
                           exponentialDelay:
@@ -4253,6 +4605,14 @@ spec:
                       properties:
                         authority:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -4267,6 +4627,7 @@ spec:
                               format: string
                               type: string
                             regex:
+                              description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                               format: string
                               type: string
                           type: object
@@ -4280,6 +4641,14 @@ spec:
                         headers:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -4294,6 +4663,7 @@ spec:
                                 format: string
                                 type: string
                               regex:
+                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                 format: string
                                 type: string
                             type: object
@@ -4304,6 +4674,14 @@ spec:
                           type: boolean
                         method:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -4318,6 +4696,7 @@ spec:
                               format: string
                               type: string
                             regex:
+                              description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                               format: string
                               type: string
                           type: object
@@ -4332,6 +4711,14 @@ spec:
                         queryParams:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -4346,6 +4733,7 @@ spec:
                                 format: string
                                 type: string
                               regex:
+                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                 format: string
                                 type: string
                             type: object
@@ -4353,6 +4741,14 @@ spec:
                           type: object
                         scheme:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -4367,6 +4763,7 @@ spec:
                               format: string
                               type: string
                             regex:
+                              description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                               format: string
                               type: string
                           type: object
@@ -4382,6 +4779,14 @@ spec:
                           type: string
                         uri:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -4396,12 +4801,21 @@ spec:
                               format: string
                               type: string
                             regex:
+                              description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                               format: string
                               type: string
                           type: object
                         withoutHeaders:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -4416,6 +4830,7 @@ spec:
                                 format: string
                                 type: string
                               regex:
+                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                 format: string
                                 type: string
                             type: object
@@ -4743,6 +5158,91 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    app: istio-pilot
+    chart: istio
+    heritage: Tiller
+    release: istio
+  name: workloadentries.networking.istio.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    description: 'CreationTimestamp is a timestamp representing the server time when
+      this object was created. It is not guaranteed to be set in happens-before order
+      across separate operations. Clients may not set this value. It is represented
+      in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
+      lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+    name: Age
+    type: date
+  - JSONPath: .spec.address
+    description: Address associated with the network endpoint.
+    name: Address
+    type: string
+  group: networking.istio.io
+  names:
+    categories:
+    - istio-io
+    - networking-istio-io
+    kind: WorkloadEntry
+    listKind: WorkloadEntryList
+    plural: workloadentries
+    shortNames:
+    - we
+    singular: workloadentry
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          description: 'Configuration affecting VMs onboarded into the mesh. See more
+            details at: https://istio.io/docs/reference/config/networking/workload-entry.html'
+          properties:
+            address:
+              format: string
+              type: string
+            labels:
+              additionalProperties:
+                format: string
+                type: string
+              description: One or more labels associated with the endpoint.
+              type: object
+            locality:
+              description: The locality associated with the endpoint.
+              format: string
+              type: string
+            network:
+              format: string
+              type: string
+            ports:
+              additionalProperties:
+                type: integer
+              description: Set of ports associated with the endpoint.
+              type: object
+            serviceAccount:
+              format: string
+              type: string
+            weight:
+              description: The load balancing weight associated with the endpoint.
+              type: integer
+          type: object
+      type: object
+  versions:
+  - name: v1alpha3
+    served: true
+    storage: true
+  - name: v1beta1
+    served: true
+    storage: false
+---
+
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  labels:
     app: mixer
     chart: istio
     heritage: Tiller
@@ -4865,15 +5365,58 @@ spec:
                 authentication:
                   description: Auth config for the connection to the backend.
                   oneOf:
+                  - not:
+                      anyOf:
+                      - properties:
+                          tls:
+                            allOf:
+                            - oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - tokenPath
+                                  - required:
+                                    - oauth
+                              - required:
+                                - tokenPath
+                              - required:
+                                - oauth
+                            - oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - authHeader
+                                  - required:
+                                    - customHeader
+                              - required:
+                                - authHeader
+                              - required:
+                                - customHeader
+                        required:
+                        - tls
+                      - required:
+                        - mutual
                   - properties:
                       tls:
                         allOf:
                         - oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - tokenPath
+                              - required:
+                                - oauth
                           - required:
                             - tokenPath
                           - required:
                             - oauth
                         - oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - authHeader
+                              - required:
+                                - customHeader
                           - required:
                             - authHeader
                           - required:
@@ -5227,8 +5770,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             enforcementMode:
               enum:
@@ -5316,8 +5858,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             enforcementMode:
               enum:
@@ -5405,8 +5946,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             rules:
               description: The set of access rules (permissions) that the role has.
@@ -5530,8 +6070,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             actions:
               items:
@@ -5911,6 +6450,8 @@ spec:
     kind: PeerAuthentication
     listKind: PeerAuthenticationList
     plural: peerauthentications
+    shortNames:
+    - pa
     singular: peerauthentication
   scope: Namespaced
   subresources:
@@ -5988,6 +6529,8 @@ spec:
     kind: RequestAuthentication
     listKind: RequestAuthenticationList
     plural: requestauthentications
+    shortNames:
+    - ra
     singular: requestauthentication
   scope: Namespaced
   subresources:
@@ -6137,13 +6680,50 @@ spec:
 ---
 
 
-apiVersion: v1
-kind: Namespace
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
 metadata:
-  name: istio-system
-  labels:
-    istio-operator-managed: Reconcile
-    istio-injection: disabled
+  name: istiooperators.install.istio.io
+spec:
+  group: install.istio.io
+  names:
+    kind: IstioOperator
+    plural: istiooperators
+    singular: istiooperator
+    shortNames:
+    - iop
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        spec:
+          description: 'Specification of the desired state of the istio control plane resource.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+        status:
+          description: 'Status describes each of istio control plane component status at the current time.
+            0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
+            More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
+            https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
 ---
 
 
@@ -6249,58 +6829,6 @@ spec:
 ---
 
 
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-galley-istio-system
-  labels:
-    release: istio
-rules:
-  # For reading Istio resources
-  - apiGroups: [
-    "authentication.istio.io",
-    "config.istio.io",
-    "networking.istio.io",
-    "rbac.istio.io",
-    "security.istio.io"]
-    resources: ["*"]
-    verbs: ["get", "list", "watch"]
-    # For updating Istio resource statuses
-  - apiGroups: [
-    "authentication.istio.io",
-    "config.istio.io",
-    "networking.istio.io",
-    "rbac.istio.io",
-    "security.istio.io"]
-    resources: ["*/status"]
-    verbs: ["update"]
-
-    # Remove galley's permissions to reconcile the validation config when istiod is present.
-    # Notably missing here is the permission to modify webhooks.
-
-  - apiGroups: ["extensions","apps"]
-    resources: ["deployments"]
-    resourceNames: ["istio-galley"]
-    verbs: ["get"]
-  - apiGroups: [""]
-    resources: ["pods", "nodes", "services", "endpoints", "namespaces"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["extensions"]
-    resources: ["ingresses"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["extensions"]
-    resources: ["deployments/finalizers"]
-    resourceNames: ["istio-galley"]
-    verbs: ["update"]
-  - apiGroups: ["apiextensions.k8s.io"]
-    resources: ["customresourcedefinitions"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["rbac.authorization.k8s.io"]
-    resources: ["clusterroles"]
-    verbs: ["get", "list", "watch"]
----
-
-
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -6326,7 +6854,7 @@ data:
     cpu:
       targetAverageUtilization: 80
     deploymentLabels: {}
-    enableProtocolSniffingForInbound: false
+    enableProtocolSniffingForInbound: true
     enableProtocolSniffingForOutbound: true
     enabled: true
     env: {}
@@ -6404,7 +6932,7 @@ data:
     #  The trust domain aliases represent the aliases of trust_domain.
     #  For example, if we have
     #  trustDomain: td1
-    #  trustDomainAliases: [“td2”, "td3"]
+    #  trustDomainAliases: ["td2", "td3"]
     #  Any service with the identity "td1/ns/foo/sa/a-service-account", "td2/ns/foo/sa/a-service-account",
     #  or "td3/ns/foo/sa/a-service-account" will be treated the same in the Istio mesh.
     trustDomainAliases:
@@ -6531,12 +7059,12 @@ spec:
         - --log_output_level=default:info
         - --domain
         - cluster.local
-        - --secureGrpcAddr=:15011
         - --trust-domain=cluster.local
         - --keepaliveMaxServerConnectionAge
         - 30m
-        - --disable-install-crds=true
         env:
+        - name: REVISION
+          value: default
         - name: JWT_POLICY
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
@@ -6563,12 +7091,14 @@ spec:
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
           value: "true"
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
-          value: "false"
+          value: "true"
         - name: INJECTION_WEBHOOK_CONFIG_NAME
           value: istio-sidecar-injector
         - name: ISTIOD_ADDR
           value: istiod.istio-system.svc:15012
         - name: PILOT_EXTERNAL_GALLEY
+          value: "false"
+        - name: PILOT_ENABLE_ANALYSIS
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
@@ -6586,8 +7116,8 @@ spec:
           httpGet:
             path: /ready
             port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
+          initialDelaySeconds: 1
+          periodSeconds: 3
           timeoutSeconds: 5
         resources:
           requests:
@@ -6689,6 +7219,7 @@ data:
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
         "istiod": {
+          "enableAnalysis": false,
           "enabled": true
         },
         "jwtPolicy": "third-party-jwt",
@@ -6835,6 +7366,7 @@ data:
       "istio_cni": {
         "enabled": false
       },
+      "revision": "",
       "sidecarInjectorWebhook": {
         "alwaysInjectSelector": [],
         "enableNamespacesByDefault": false,
@@ -7003,7 +7535,6 @@ data:
       {{- if .Values.global.logAsJson }}
         - --log_as_json
       {{- end }}
-        - --controlPlaneBootstrap=false
       {{- if .Values.global.proxy.lifecycle }}
         lifecycle:
           {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
@@ -7018,9 +7549,9 @@ data:
         {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
         {{- else if .Values.global.configNamespace }}
-          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
-          value: istiod.istio-system.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -7060,14 +7591,6 @@ data:
             ]
         - name: ISTIO_META_CLUSTER_ID
           value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
-        - name: ISTIO_META_POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: ISTIO_META_CONFIG_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: "{{ or (index .ObjectMeta.Annotations `sidecar.istio.io/interceptionMode`) .ProxyConfig.InterceptionMode.String }}"
         {{- if .Values.global.network }}
@@ -7100,8 +7623,8 @@ data:
         {{- end }}
         {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
         {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
-          - name: {{ $key }}
-            value: "{{ $value }}"
+        - name: {{ $key }}
+          value: "{{ $value }}"
         {{- end }}
         {{- end }}
         {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
@@ -7144,19 +7667,30 @@ data:
           runAsUser: 1337
           {{- end }}
         resources:
-          {{ if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) -}}
+      {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) }}
+        {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) }}
           requests:
             {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) -}}
             cpu: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU` }}"
-            {{ end}}
+            {{ end }}
             {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) -}}
             memory: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory` }}"
             {{ end }}
-        {{ else -}}
-      {{- if .Values.global.proxy.resources }}
+        {{- end }}
+        {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) }}
+          limits:
+            {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) -}}
+            cpu: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit` }}"
+            {{ end }}
+            {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) -}}
+            memory: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit` }}"
+            {{ end }}
+        {{- end }}
+      {{- else }}
+        {{- if .Values.global.proxy.resources }}
           {{ toYaml .Values.global.proxy.resources | indent 4 }}
+        {{- end }}
       {{- end }}
-        {{  end -}}
         volumeMounts:
         {{- if eq .Values.global.pilotCertProvider "istiod" }}
         - mountPath: /var/run/secrets/istio
@@ -7179,7 +7713,7 @@ data:
           name: istio-certs
           readOnly: true
         {{- end }}
-        - name: podinfo
+        - name: istio-podinfo
           mountPath: /etc/istio/pod
         {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
         - mountPath: {{ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}
@@ -7202,7 +7736,7 @@ data:
       - emptyDir:
           medium: Memory
         name: istio-envoy
-      - name: podinfo
+      - name: istio-podinfo
         downwardAPI:
           items:
             - path: "labels"
@@ -7310,37 +7844,7 @@ spec:
   selector:
     matchLabels:
       app: istiod
-      release: istio
       istio: pilot
----
-
-
-apiVersion: v1
-kind: Service
-metadata:
-  name: istio-pilot
-  namespace: istio-system
-  labels:
-    app: pilot
-    release: istio
-    istio: pilot
-spec:
-  ports:
-  - port: 15010
-    name: grpc-xds # direct
-  - port: 15011
-    name: https-xds # mTLS
-  - port: 15012
-    name: https-dns # mTLS with k8s-signed cert
-  - port: 8080
-    name: http-legacy-discovery # direct
-  - port: 15014
-    name: http-monitoring
-  - port: 443
-    name: https-webhook # validation and injection
-    targetPort: 15017
-  selector:
-    istio: pilot
 ---
 
 
@@ -7354,11 +7858,15 @@ metadata:
     release: istio
 spec:
   ports:
+    - port: 15010
+      name: grpc-xds # plaintext
     - port: 15012
       name: https-dns # mTLS with k8s-signed cert
     - port: 443
       name: https-webhook # validation and injection
       targetPort: 15017
+    - port: 15014
+      name: http-monitoring # prometheus stats
   selector:
     app: istiod
     # Label used by the 'default' service. For versioned deployments we match with app and version.
@@ -7804,7 +8312,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.http.wasm
+          name: istio.metadata_exchange
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -7835,9 +8343,12 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.network.metadata_exchange
-          config:
-            protocol: istio-peer-exchange
+          name: istio.metadata_exchange
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+            value:
+              protocol: istio-peer-exchange
     - applyTo: CLUSTER
       match:
         context: SIDECAR_OUTBOUND
@@ -7848,7 +8359,7 @@ spec:
         operation: MERGE
         value:
           filters:
-          - name: envoy.filters.network.upstream.metadata_exchange
+          - name: istio.metadata_exchange
             typed_config:
               "@type": type.googleapis.com/udpa.type.v1.TypedStruct
               type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
@@ -7864,7 +8375,7 @@ spec:
         operation: MERGE
         value:
           filters:
-          - name: envoy.filters.network.upstream.metadata_exchange
+          - name: istio.metadata_exchange
             typed_config:
               "@type": type.googleapis.com/udpa.type.v1.TypedStruct
               type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
@@ -7894,7 +8405,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.http.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -7926,7 +8437,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.http.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -7958,7 +8469,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.http.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -7998,7 +8509,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.network.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
@@ -8028,7 +8539,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.network.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
@@ -8058,7 +8569,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.network.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm

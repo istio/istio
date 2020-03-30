@@ -18,28 +18,23 @@ import (
 	"fmt"
 	"math"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/tests/integration/pilot/outboundtrafficpolicy"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/tests/util"
-
-	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
-	"istio.io/istio/pkg/test/util/structpath"
 	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/istio/tests/integration/pilot/outboundtrafficpolicy"
 )
 
 //	Virtual service topology
@@ -66,16 +61,14 @@ type testCaseMirror struct {
 }
 
 type mirrorTestOptions struct {
-	t                 *testing.T
-	cases             []testCaseMirror
-	mirrorHost        string
-	mirrorClusterName string
-	fnInjectConfig    func(ns namespace.Instance, instances [3]echo.Instance)
+	t              *testing.T
+	cases          []testCaseMirror
+	mirrorHost     string
+	fnInjectConfig func(ns namespace.Instance, instances [3]echo.Instance)
 }
 
 var (
 	mirrorProtocols = []protocol.Instance{protocol.HTTP, protocol.GRPC}
-	totalAttempts   = 3
 )
 
 func TestMirroring(t *testing.T) {
@@ -95,11 +88,6 @@ func TestMirroring(t *testing.T) {
 			name:       "mirror-10",
 			percentage: 10.0,
 			threshold:  5.0,
-		},
-		{
-			name:       "mirror-80",
-			percentage: 80.0,
-			threshold:  10.0,
 		},
 		{
 			name:       "mirror-0",
@@ -174,10 +162,9 @@ func TestMirroringExternalService(t *testing.T) {
 	}
 
 	runMirrorTest(mirrorTestOptions{
-		t:                 t,
-		cases:             cases,
-		mirrorHost:        fakeExternalURL,
-		mirrorClusterName: fakeExternalURL,
+		t:          t,
+		cases:      cases,
+		mirrorHost: fakeExternalURL,
 		fnInjectConfig: func(ns namespace.Instance, instances [3]echo.Instance) {
 			g.ApplyConfigOrFail(t, ns, fmt.Sprintf(sidecar, i.Settings().ConfigNamespace, ns.Name(),
 				instances[1].Config().Domain, fakeExternalURL))
@@ -229,90 +216,24 @@ func runMirrorTest(options mirrorTestOptions) {
 					g.ApplyConfigOrFail(t, ns, deployment)
 					defer g.DeleteConfigOrFail(t, ns, deployment)
 
-					workloads, err := instances[0].Workloads()
-					if err != nil {
-						t.Fatalf("Failed to get workloads. Error: %v", err)
-					}
-					mirrorClusterName := options.mirrorClusterName
-					if len(mirrorClusterName) == 0 {
-						mirrorClusterName = fmt.Sprintf("%s.%s.svc.%s", instances[2].Config().Service, instances[2].Config().Namespace.Name(), instances[2].Config().Domain)
-					}
-
-					for _, w := range workloads {
-						if err = w.Sidecar().WaitForConfig(func(cfg *envoyAdmin.ConfigDump) (bool, error) {
-							validator := structpath.ForProto(cfg)
-							if err = checkIfMirrorWasApplied(instances[1], mirrorClusterName, c, validator); err != nil {
-								return false, err
-							}
-							return true, nil
-						}); err != nil {
-							t.Fatalf("Failed to apply configuration. Error: %v", err)
-						}
-					}
-
 					for _, proto := range mirrorProtocols {
 						t.Run(string(proto), func(t *testing.T) {
-							var err error
-							for i := 1; i <= totalAttempts; i++ {
-								testID := fmt.Sprintf("%d-%s", i, util.RandomString(16))
-								err = sendTrafficMirror(instances, proto, testID)
-								if err != nil {
-									log.Errorf("Attempt %d/%d failed: %v", i, totalAttempts, err)
-									continue
+							retry.UntilSuccessOrFail(t, func() error {
+								testID := util.RandomString(16)
+								if err := sendTrafficMirror(instances, proto, testID); err != nil {
+									return err
 								}
 
-								err = verifyTrafficMirror(instances, c, testID)
-								if err != nil {
-									log.Errorf("Attempt %d/%d failed: %v", i, totalAttempts, err)
-									continue
+								if err := verifyTrafficMirror(instances, c, testID); err != nil {
+									return err
 								}
-
-								break
-							}
-							if err != nil {
-								log.Errorf("Too many attempts. Test failed")
-								t.Fatal(err)
-							}
+								return nil
+							}, retry.Delay(time.Second))
 						})
 					}
 				})
 			}
 		})
-}
-
-func checkIfMirrorWasApplied(target echo.Instance, mirrorClusterName string, tc testCaseMirror, validator *structpath.Instance) error {
-	for _, port := range target.Config().Ports {
-		vsName := vsName(target, port)
-		instance := validator.Select(
-			"{.configs[*].dynamicRouteConfigs[*].routeConfig.virtualHosts[?(@.name == %q)].routes[*].route}",
-			vsName)
-
-		if tc.percentage > 0 {
-			instance.Exists("{.requestMirrorPolicy}")
-
-			clusterName := fmt.Sprintf("outbound|%d||%s", port.ServicePort, mirrorClusterName)
-			instance.Equals(clusterName, "{.requestMirrorPolicy.cluster}")
-
-			if tc.absent {
-				instance.Equals(tc.percentage, "{.requestMirrorPolicy.runtimeFraction.defaultValue.numerator}")
-			} else {
-				instance.Equals(tc.percentage*10000, "{.requestMirrorPolicy.runtimeFraction.defaultValue.numerator}") // Set to MILLION.
-				instance.Equals("MILLION", "{.requestMirrorPolicy.runtimeFraction.defaultValue.denominator}")
-			}
-		} else {
-			instance.NotExists("{.requestMirrorPolicy}")
-		}
-
-		if err := instance.Check(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func vsName(target echo.Instance, port echo.Port) string {
-	cfg := target.Config()
-	return fmt.Sprintf("%s.%s.svc.%s:%d", cfg.Service, cfg.Namespace.Name(), cfg.Domain, port.ServicePort)
 }
 
 func sendTrafficMirror(instances [3]echo.Instance, proto protocol.Instance, testID string) error {
@@ -329,64 +250,39 @@ func sendTrafficMirror(instances [3]echo.Instance, proto protocol.Instance, test
 	default:
 		return fmt.Errorf("protocol not supported in mirror testing: %s", proto)
 	}
-	const totalThreads = 10
-	errs := make(chan error, totalThreads)
 
-	wg := sync.WaitGroup{}
-	wg.Add(totalThreads)
-
-	for i := 0; i < totalThreads; i++ {
-		go func() {
-			_, err := instances[0].Call(options)
-			if err != nil {
-				errs <- err
-			}
-			wg.Done()
-		}()
-	}
-
-	wg.Wait()
-	close(errs)
-
-	var callerrors error
-	for err := range errs {
-		callerrors = multierror.Append(err, callerrors)
-	}
-	if callerrors != nil {
-		return fmt.Errorf("error occurred during call: %v", callerrors)
+	_, err := instances[0].Call(options)
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
 
 func verifyTrafficMirror(instances [3]echo.Instance, tc testCaseMirror, testID string) error {
-	_, err := retry.Do(func() (interface{}, bool, error) {
-		countB, err := logCount(instances[1], testID)
-		if err != nil {
-			return nil, false, err
-		}
+	countB, err := logCount(instances[1], testID)
+	if err != nil {
+		return err
+	}
 
-		countC, err := logCount(instances[2], testID)
-		if err != nil {
-			return nil, false, err
-		}
+	countC, err := logCount(instances[2], testID)
+	if err != nil {
+		return err
+	}
 
-		actualPercent := (countC / countB) * 100
-		deltaFromExpected := math.Abs(actualPercent - tc.percentage)
+	actualPercent := (countC / countB) * 100
+	deltaFromExpected := math.Abs(actualPercent - tc.percentage)
 
-		if tc.threshold-deltaFromExpected < 0 {
-			err := fmt.Errorf("unexpected mirror traffic. Expected %g%%, got %.1f%% (threshold: %g%%, testID: %s)",
-				tc.percentage, actualPercent, tc.threshold, testID)
-			log.Infof("%v", err)
-			return nil, false, err
-		}
-
-		log.Infof("Got expected mirror traffic. Expected %g%%, got %.1f%% (threshold: %g%%, , testID: %s)",
+	if tc.threshold-deltaFromExpected < 0 {
+		err := fmt.Errorf("unexpected mirror traffic. Expected %g%%, got %.1f%% (threshold: %g%%, testID: %s)",
 			tc.percentage, actualPercent, tc.threshold, testID)
-		return nil, true, nil
-	}, retry.Delay(time.Second))
+		log.Infof("%v", err)
+		return err
+	}
 
-	return err
+	log.Infof("Got expected mirror traffic. Expected %g%%, got %.1f%% (threshold: %g%%, , testID: %s)",
+		tc.percentage, actualPercent, tc.threshold, testID)
+	return nil
 }
 
 func logCount(instance echo.Instance, testID string) (float64, error) {

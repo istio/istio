@@ -71,6 +71,10 @@ global:
     drainDuration: "22s"
     parentShutdownDuration: "33s"
     concurrency: 5
+    lifecycle:
+      preStop:
+        exec:
+          command: ["/bin/sh", "-c", "sleep 30"]
 `,
 		},
 		{

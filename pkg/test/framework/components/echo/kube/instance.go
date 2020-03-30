@@ -64,13 +64,6 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 		return nil, err
 	}
 
-	// Validate the configuration.
-	if cfg.Galley == nil {
-		// Galley is not actually required currently, but it will be once Pilot gets
-		// all resources from Galley. Requiring now for forward-compatibility.
-		return nil, errors.New("galley must be provided")
-	}
-
 	c := &instance{
 		cfg:     cfg,
 		ctx:     ctx,
@@ -85,15 +78,25 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	}
 	c.grpcPort = uint16(grpcPort.InstancePort)
 	c.tls = cfg.TLSSettings
-	// Generate the deployment YAML.
-	generatedYAML, err := generateYAML(cfg)
+
+	// Generate the service and deployment YAML.
+	serviceYAML, deploymentYAML, err := generateYAML(cfg)
 	if err != nil {
 		return nil, err
 	}
 
+	// Apply the service definition to all clusters.
+	for _, cluster := range ctx.Environment().(*kubeEnv.Environment).KubeClusters {
+		if _, err = cluster.ApplyContents(cfg.Namespace.Name(), serviceYAML); err != nil {
+			return nil, fmt.Errorf("failed deploying echo service %s to cluster %d: %v",
+				cfg.FQDN(), cluster.Index(), err)
+		}
+	}
+
 	// Deploy the YAML.
-	if _, err = c.cluster.ApplyContents(cfg.Namespace.Name(), generatedYAML); err != nil {
-		return nil, err
+	if _, err = c.cluster.ApplyContents(cfg.Namespace.Name(), deploymentYAML); err != nil {
+		return nil, fmt.Errorf("failed deploying echo %s to cluster %d: %v",
+			cfg.FQDN(), c.cluster.Index(), err)
 	}
 
 	// Now retrieve the service information to find the ClusterIP
@@ -193,7 +196,7 @@ func (c *instance) WaitUntilCallable(instances ...echo.Instance) error {
 	// Wait for the outbound config to be received by each workload from Pilot.
 	for _, w := range c.workloads {
 		if w.sidecar != nil {
-			if err := w.sidecar.WaitForConfig(common.OutboundConfigAcceptFunc(instances...)); err != nil {
+			if err := w.sidecar.WaitForConfig(common.OutboundConfigAcceptFunc(c, instances...)); err != nil {
 				return err
 			}
 		}

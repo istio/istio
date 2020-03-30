@@ -161,6 +161,30 @@ var (
 		},
 		{
 			ConfigMeta: model.ConfigMeta{
+				Name:      "productpage",
+				Namespace: "default",
+				Type:      collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
+				Group:     collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Group(),
+				Version:   collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
+			},
+			Spec: &networking.DestinationRule{
+				Host: "productpage",
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{
+				Name:      "details",
+				Namespace: "default",
+				Type:      collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
+				Group:     collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Group(),
+				Version:   collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
+			},
+			Spec: &networking.DestinationRule{
+				Host: "details",
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{
 				Name:      "bookinfo",
 				Namespace: "default",
 				Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
@@ -495,8 +519,8 @@ var (
 	}
 )
 
-// Tests Pilot returning 1.3 style /debug
-func TestDescribe13(t *testing.T) {
+// Tests Pilot /debug
+func TestDescribe(t *testing.T) {
 	cannedConfig := map[string][]byte{
 		"details-v1-5b7f94f9bc-wp5tb":     util.ReadFile("../pkg/writer/compare/testdata/envoyconfigdump.json", t),
 		"ratings-v1-f745cf57b-vfwcv":      util.ReadFile("testdata/describe/ratings-v1-f745cf57b-vfwcv.json", t),
@@ -553,7 +577,6 @@ func TestDescribe13(t *testing.T) {
 Suggestion: add 'version' label to pod for Istio telemetry.
 --------------------
 Service: details
-Pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak HTTP
 `,
 		},
 		{ // case 5 has recent data including RBAC
@@ -569,7 +592,6 @@ Service: ratings
 DestinationRule: ratings for "ratings"
    Matching subsets: v1
    Traffic Policy TLS Mode: ISTIO_MUTUAL
-Pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak mTLS
 RBAC policies: ratings-reader
 `,
 		},
@@ -582,9 +604,9 @@ RBAC policies: ratings-reader
    Pod Ports: 15090 (istio-proxy)
 --------------------
 Service: productpage
-   Port:  9080/UnsupportedProtocol targets pod port 9080
-   9080 is unnamed which does not follow Istio conventions
-Authn: None
+   Port:  9080/auto-detect targets pod port 9080
+DestinationRule: productpage for "productpage"
+   No Traffic Policy
 
 
 Exposed on Ingress Gateway http://10.1.2.3
@@ -594,17 +616,17 @@ VirtualService: bookinfo
 		},
 		{ // case 7 has 1.2 data, and a service with unnamed port, and no containerPort
 			execClientConfig: cannedConfig,
-			configs:          []model.Config{},
+			configs:          cannedIstioConfig,
 			k8sConfigs:       cannedNoPortNameK8sEnv,
 			args:             strings.Split("-n bookinfo experimental describe pod ratings-v1-f745cf57b-vfwcv", " "),
 			expectedOutput: `Pod: ratings-v1-f745cf57b-vfwcv
    Pod Ports: 15090 (istio-proxy)
 --------------------
 Service: ratings
-   Port:  9080/UnsupportedProtocol targets pod port 9080
-   Warning: Pod ratings-v1-f745cf57b-vfwcv port 9080 not exposed by Container
-   9080 is unnamed which does not follow Istio conventions
-Pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak mTLS
+   Port:  9080/auto-detect targets pod port 9080
+DestinationRule: ratings for "ratings"
+   Matching subsets: v1
+   Traffic Policy TLS Mode: ISTIO_MUTUAL
 RBAC policies: ratings-reader
 `,
 		},
@@ -623,7 +645,6 @@ RBAC policies: ratings-reader
 DestinationRule: ratings.bookinfo for "ratings"
    Matching subsets: v1
    Traffic Policy TLS Mode: ISTIO_MUTUAL
-Pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak mTLS
 RBAC policies: ratings-reader
 `,
 		},
@@ -636,9 +657,9 @@ RBAC policies: ratings-reader
    Pod Ports: 15090 (istio-proxy)
 --------------------
 Service: productpage
-   Port:  9080/UnsupportedProtocol targets pod port 9080
-   9080 is unnamed which does not follow Istio conventions
-Authn: None
+   Port:  9080/auto-detect targets pod port 9080
+DestinationRule: productpage for "productpage"
+   No Traffic Policy
 
 
 Exposed on Ingress Gateway http://10.1.2.3:7080
@@ -731,7 +752,8 @@ func TestDescribeAutoMTLS(t *testing.T) {
 --------------------
 Service: productpage
    Port:  9080/auto-detect targets pod port 9080
-Pod is Strict mTLS, clients configured automatically
+DestinationRule: productpage for "productpage"
+   No Traffic Policy
 
 
 Exposed on Ingress Gateway http://10.1.2.3
@@ -747,7 +769,8 @@ VirtualService: bookinfo
 			args:             strings.Split("x describe svc productpage", " "),
 			expectedOutput: `Service: productpage
    Port:  9080/auto-detect targets pod port 9080
-Pod is Strict mTLS, clients configured automatically
+DestinationRule: productpage for "productpage"
+   No Traffic Policy
 
 
 Exposed on Ingress Gateway http://10.1.2.3

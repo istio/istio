@@ -91,16 +91,25 @@ metadata:
   name: test-lua
   namespace: istio-system
 spec:
-  workloadLabels:
-    app: envoyfilter-test-app
-  filters:
-    - listenerMatch:
-        listenerType: SIDECAR_OUTBOUND
-        listenerProtocol: HTTP
-      filterName: envoy.lua
-      filterType: HTTP
-      filterConfig:
-        inlineCode: |
-          function envoy_on_request(request_handle)
-            request_handle:logWarn("Hello World")
-          end
+  workloadSelector:
+    labels:
+      app: envoyfilter-test-app
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.http_connection_manager"
+            subFilter:
+              name: "envoy.router"
+    patch:
+      operation: INSERT_BEFORE
+      value: # lua filter specification
+        name: envoy.lua
+        typed_config:
+          "@type": "type.googleapis.com/envoy.config.filter.http.lua.v2.Lua"
+          inlineCode: |
+            function envoy_on_request(request_handle)
+              request_handle:logWarn("Hello World")
+            end

@@ -24,6 +24,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/tests/integration/security/util"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -32,7 +33,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"

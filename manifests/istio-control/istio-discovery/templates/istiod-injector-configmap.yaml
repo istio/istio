@@ -1,4 +1,3 @@
-{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
 {{- if not .Values.global.omitSidecarInjectorConfigMap }}
 apiVersion: v1
 kind: ConfigMap
@@ -10,7 +9,7 @@ metadata:
 data:
 {{/* Scope the values to just top level fields used in the template, to reduce the size. */}}
   values: |-
-{{ pick .Values "global" "istio_cni" "sidecarInjectorWebhook" | toPrettyJson | indent 4 }}
+{{ pick .Values "global" "istio_cni" "sidecarInjectorWebhook" "revision" | toPrettyJson | indent 4 }}
 
   # To disable injection: use omitSidecarInjectorConfigMap, which disables the webhook patching
   # and istiod webhook functionality.
@@ -30,5 +29,4 @@ data:
 
 {{ .Files.Get "files/injection-template.yaml" | trim | indent 4 }}
 
-{{- end }}
 {{- end }}

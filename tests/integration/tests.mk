@@ -37,14 +37,20 @@ ifneq ($(TEST_SELECT),)
     _INTEGRATION_TEST_SELECT_FLAGS += --istio.test.select=$(TEST_SELECT)
 endif
 
-# $(INTEGRATION_TEST_KUBECONFIG) specifies the kube config file to be used. If not specified, then
-# ~/.kube/config is used.
-# TODO: This probably needs to be more intelligent and take environment variables into account.
-ifneq ($(KUBECONFIG),)
-	_INTEGRATION_TEST_FLAGS += --istio.test.kube.config=$(KUBECONFIG)
-else
-	_INTEGRATION_TEST_FLAGS += --istio.test.kube.config=~/.kube/config
+# $(INTEGRATION_TEST_KUBECONFIG) overrides all kube config settings.
+_INTEGRATION_TEST_KUBECONFIG ?= $(INTEGRATION_TEST_KUBECONFIG)
+
+# If $(INTEGRATION_TEST_KUBECONFIG) not specified, use $(KUBECONFIG).
+ifeq ($(_INTEGRATION_TEST_KUBECONFIG),)
+    _INTEGRATION_TEST_KUBECONFIG = $(KUBECONFIG)
 endif
+
+# If neither $(INTEGRATION_TEST_KUBECONFIG) nor $(KUBECONFIG) specified, use default.
+ifeq ($(_INTEGRATION_TEST_KUBECONFIG),)
+    _INTEGRATION_TEST_KUBECONFIG = ~/.kube/config
+endif
+
+_INTEGRATION_TEST_FLAGS += --istio.test.kube.config=$(_INTEGRATION_TEST_KUBECONFIG)
 
 # Generate integration test targets for kubernetes environment.
 test.integration.%.kube: | $(JUNIT_REPORT)
@@ -60,6 +66,7 @@ TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification
 test.integration.%.local: | $(JUNIT_REPORT)
 	$(GO) test -p 1 ${T} -race ./tests/integration/$(subst .,/,$*)/... \
 	--istio.test.env native \
+	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # Generate presubmit integration test targets for each component in kubernetes environment
@@ -67,12 +74,6 @@ test.integration.%.kube.presubmit: istioctl | $(JUNIT_REPORT)
 	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
 	--istio.test.env kube \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
-
-# Generate presubmit integration test targets for each component in local environment.
-test.integration.%.local.presubmit: | $(JUNIT_REPORT)
-	$(GO) test -p 1 ${T} -race ./tests/integration/$(subst .,/,$*)/... \
-	--istio.test.env native \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # Presubmit integration tests targeting Kubernetes environment.

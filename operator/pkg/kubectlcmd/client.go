@@ -166,7 +166,7 @@ func (c *Client) kubectl(subcmds []string, opts *Options) (string, string, error
 	csError := util.ConsolidateLog(stderr.String())
 
 	if err != nil {
-		scope.Errorf("error running kubectl: %s", err)
+		scope.Errorf("error running kubectl: %s", csError)
 		return stdout.String(), csError, fmt.Errorf("error running kubectl: %s", err)
 	}
 

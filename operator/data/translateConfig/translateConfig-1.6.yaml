@@ -131,7 +131,7 @@ componentMaps:
     ResourceType:         "Deployment"
     ResourceName:         "prometheus"
     ContainerName:        "prometheus"
-    HelmSubdir:           "istio-telemetry/prometheus-operator"
+    HelmSubdir:           "istio-telemetry/prometheusOperator"
     ToHelmValuesTreeRoot: "prometheus"
     SkipReverseTranslate: true
   Kiali:

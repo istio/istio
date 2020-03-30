@@ -25,6 +25,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
@@ -129,7 +130,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 	listenerPort := 0
 	useSniffing := false
 	var err error
-	if util.IsProtocolSniffingEnabledForOutbound(node) &&
+	if features.EnableProtocolSniffingForOutbound &&
 		!strings.HasPrefix(routeName, model.UnixAddressPrefix) {
 		index := strings.IndexRune(routeName, ':')
 		if index != -1 {

@@ -24,10 +24,10 @@ import (
 
 	"istio.io/istio/galley/testdatasets/validation"
 	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/yml"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
@@ -173,6 +173,7 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 				"networking.istio.io/v1beta1/Gateway",
 				"networking.istio.io/v1beta1/DestinationRule",
 				"networking.istio.io/v1beta1/VirtualService",
+				"networking.istio.io/v1beta1/WorkloadEntry",
 				"networking.istio.io/v1beta1/Sidecar",
 			} {
 				recognized[gvk] = struct{}{}

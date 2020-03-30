@@ -17,19 +17,18 @@ package istio
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/mitchellh/go-homedir"
 
 	yaml2 "gopkg.in/yaml.v2"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework/core/image"
+	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/util/file"
+	"istio.io/istio/pkg/test/scopes"
 
 	kubeCore "k8s.io/api/core/v1"
 )
@@ -38,10 +37,9 @@ const (
 	// DefaultSystemNamespace default value for SystemNamespace
 	DefaultSystemNamespace = "istio-system"
 
-	// E2EValuesFile for default settings for Istio Helm deployment.
-	// This modifies a few values to help tests, like prometheus scrape interval
-	// In general, specific settings should be added to tests, not here
-	E2EValuesFile = "test-values/values-integ.yaml"
+	// IntegrationTestDefaultsIOP is the path of the default IstioOperator spec to use
+	// for integration tests
+	IntegrationTestDefaultsIOP = "tests/integration/iop-integration-test-defaults.yaml"
 
 	// DefaultDeployTimeout for Istio
 	DefaultDeployTimeout = time.Second * 300
@@ -70,9 +68,9 @@ var (
 		DeployIstio:                    true,
 		DeployTimeout:                  0,
 		UndeployTimeout:                0,
-		ChartDir:                       env.IstioChartDir,
-		ValuesFile:                     E2EValuesFile,
+		IOPFile:                        IntegrationTestDefaultsIOP,
 		CustomSidecarInjectorNamespace: "",
+		ControlPlaneTopology:           make(map[resource.ClusterIndex]resource.ClusterIndex),
 	}
 )
 
@@ -105,11 +103,8 @@ type Config struct {
 	// UndeployTimeout the timeout for undeploying Istio.
 	UndeployTimeout time.Duration
 
-	// The top-level Helm chart dir.
-	ChartDir string
-
-	// The Helm values file to be used.
-	ValuesFile string
+	// The IstioOperator spec file to be used for defaults
+	IOPFile string
 
 	// Override values specifically for the ICP crd
 	// This is mostly required for cases where --set cannot be used
@@ -121,6 +116,10 @@ type Config struct {
 
 	// Indicates that the test should deploy Istio into the target Kubernetes cluster before running tests.
 	DeployIstio bool
+
+	// ControlPlaneTopology maps each cluster to the cluster that runs its control plane. For replicated control
+	// plane cases (where each cluster has its own control plane), the cluster will map to itself (e.g. 0->0).
+	ControlPlaneTopology map[resource.ClusterIndex]resource.ClusterIndex
 
 	// Do not wait for the validation webhook before completing the deployment. This is useful for
 	// doing deployments without Galley.
@@ -138,22 +137,23 @@ func (c *Config) IsMtlsEnabled() bool {
 		return true
 	}
 
-	data, err := file.AsString(filepath.Join(c.ChartDir, c.ValuesFile))
-	if err != nil {
-		return true
-	}
 	m := make(map[interface{}]interface{})
-	err = yaml2.Unmarshal([]byte(data), &m)
+	err := yaml2.Unmarshal([]byte(c.ControlPlaneValues), &m)
 	if err != nil {
 		return false
 	}
-	if m["global"] != nil {
-		switch globalVal := m["global"].(type) {
+	if m["values"] != nil {
+		switch values := m["values"].(type) {
 		case map[interface{}]interface{}:
-			switch mtlsVal := globalVal["mtls"].(type) {
-			case map[interface{}]interface{}:
-				if !mtlsVal["enabled"].(bool) && !mtlsVal["auto"].(bool) {
-					return false
+			if values["global"] != nil {
+				switch globalVal := values["global"].(type) {
+				case map[interface{}]interface{}:
+					switch mtlsVal := globalVal["mtls"].(type) {
+					case map[interface{}]interface{}:
+						if !mtlsVal["enabled"].(bool) && !mtlsVal["auto"].(bool) {
+							return false
+						}
+					}
 				}
 			}
 		}
@@ -162,18 +162,10 @@ func (c *Config) IsMtlsEnabled() bool {
 	return true
 }
 
-func (c *Config) IstioOperator() string {
+func (c *Config) IstioOperatorConfigYAML() string {
 	data := ""
 	if c.ControlPlaneValues != "" {
 		data = Indent(c.ControlPlaneValues, "  ")
-	} else if c.ValuesFile != "" {
-		valfile, err := file.AsString(filepath.Join(c.ChartDir, c.ValuesFile))
-		if err != nil {
-			return ""
-		}
-		data = fmt.Sprintf(`
-  values:
-%s`, Indent(valfile, "    "))
 	}
 
 	s, err := image.SettingsFromCommandLine()
@@ -191,7 +183,7 @@ spec:
 `, s.Hub, s.Tag, data)
 }
 
-// indents a block of text with an indent string
+// Indent indents a block of text with an indent string
 func Indent(text, indent string) string {
 	if text[len(text)-1:] == "\n" {
 		result := ""
@@ -212,12 +204,13 @@ func DefaultConfig(ctx resource.Context) (Config, error) {
 	// Make a local copy.
 	s := *settingsFromCommandline
 
-	if err := normalizeFile(&s.ChartDir); err != nil {
-		return Config{}, err
+	iopFile := s.IOPFile
+	if iopFile != "" && !path.IsAbs(s.IOPFile) {
+		iopFile = filepath.Join(env.IstioSrc, s.IOPFile)
 	}
 
-	if err := checkFileExists(filepath.Join(s.ChartDir, s.ValuesFile)); err != nil {
-		return Config{}, err
+	if err := checkFileExists(iopFile); err != nil {
+		scopes.Framework.Warnf("Default IOPFile missing: %v", err)
 	}
 
 	deps, err := image.SettingsFromCommandLine()
@@ -247,17 +240,6 @@ func DefaultConfigOrFail(t test.Failer, ctx resource.Context) Config {
 		t.Fatalf("Get istio config: %v", err)
 	}
 	return cfg
-}
-
-func normalizeFile(path *string) error {
-	// If the path uses the homedir ~, expand the path.
-	var err error
-	*path, err = homedir.Expand(*path)
-	if err != nil {
-		return err
-	}
-
-	return checkFileExists(*path)
 }
 
 func checkFileExists(path string) error {
@@ -332,10 +314,10 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("DeployTimeout:                  %s\n", c.DeployTimeout.String())
 	result += fmt.Sprintf("UndeployTimeout:                %s\n", c.UndeployTimeout.String())
 	result += fmt.Sprintf("Values:                         %v\n", c.Values)
-	result += fmt.Sprintf("ChartDir:                       %s\n", c.ChartDir)
-	result += fmt.Sprintf("ValuesFile:                     %s\n", c.ValuesFile)
+	result += fmt.Sprintf("IOPFile:                        %s\n", c.IOPFile)
 	result += fmt.Sprintf("SkipWaitForValidationWebhook:   %v\n", c.SkipWaitForValidationWebhook)
 	result += fmt.Sprintf("CustomSidecarInjectorNamespace: %s\n", c.CustomSidecarInjectorNamespace)
+	result += fmt.Sprintf("ControlPlaneTopology:           %v\n", c.ControlPlaneTopology)
 
 	return result
 }

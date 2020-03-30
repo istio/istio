@@ -63,12 +63,12 @@ spec:
         - --log_output_level=default:info
         - --domain
         - cluster.local
-        - --secureGrpcAddr=:15011
         - --trust-domain=cluster.local
         - --keepaliveMaxServerConnectionAge
         - 30m
-        - --disable-install-crds=true
         env:
+        - name: REVISION
+          value: default
         - name: JWT_POLICY
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
@@ -95,12 +95,14 @@ spec:
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
           value: "true"
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
-          value: "false"
+          value: "true"
         - name: INJECTION_WEBHOOK_CONFIG_NAME
           value: istio-sidecar-injector
         - name: ISTIOD_ADDR
           value: istiod.istio-control.svc:15012
         - name: PILOT_EXTERNAL_GALLEY
+          value: "false"
+        - name: PILOT_ENABLE_ANALYSIS
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
@@ -118,8 +120,8 @@ spec:
           httpGet:
             path: /ready
             port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
+          initialDelaySeconds: 1
+          periodSeconds: 3
           timeoutSeconds: 5
         resources:
           requests:

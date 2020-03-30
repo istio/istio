@@ -130,10 +130,15 @@ func (c *controller) addInformer(schema collection.Schema, namespace string, res
 			if !ok {
 				return nil, fmt.Errorf("client not initialized %s", kind)
 			}
+			var timeout time.Duration
+			if opts.TimeoutSeconds != nil {
+				timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
+			}
 			opts.Watch = true
 			req := rc.dynamic.Get().
 				Resource(schema.Resource().Plural()).
-				VersionedParams(&opts, meta_v1.ParameterCodec)
+				VersionedParams(&opts, meta_v1.ParameterCodec).
+				Timeout(timeout)
 			if !schema.Resource().IsClusterScoped() {
 				req = req.Namespace(namespace)
 			}
@@ -327,7 +332,7 @@ func (c *controller) Get(typ resource.GroupVersionKind, name, namespace string) 
 	}
 
 	config, err := crd.ConvertObject(s, obj, c.client.domainSuffix)
-	if err == nil && features.EnableCRDValidation.Get() {
+	if err == nil && features.EnableCRDValidation {
 		if err = s.Resource().ValidateProto(config.Name, config.Namespace, config.Spec); err != nil {
 			handleValidationFailure(obj, err)
 			return nil
@@ -368,7 +373,7 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]mo
 
 		config, err := crd.ConvertObject(s, item, c.client.domainSuffix)
 
-		if err == nil && features.EnableCRDValidation.Get() {
+		if err == nil && features.EnableCRDValidation {
 			err = s.Resource().ValidateProto(config.Name, config.Namespace, config.Spec)
 		}
 

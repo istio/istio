@@ -20,8 +20,8 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 // AdapterMode enumerates the mode of policy backend usage

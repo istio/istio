@@ -228,14 +228,6 @@ func EnvoyStatsMatcherInclusionRegexp(value []string) Instance {
 	return newStringArrayOptionOrSkipIfEmpty("inclusionRegexps", value)
 }
 
-func SDSUDSPath(value string) Instance {
-	return newOption("sds_uds_path", value)
-}
-
-func SDSTokenPath(value string) Instance {
-	return newOption("sds_token_path", value)
-}
-
 func PilotCertProvider(value string) Instance {
 	return newOption("pilot_cert_provider", value)
 }
@@ -244,6 +236,14 @@ func STSPort(value int) Instance {
 	return newOption("sts_port", value)
 }
 
+func GCPProjectID(value string) Instance {
+	return newOption("gcp_project_id", value)
+}
+
 func STSEnabled(value bool) Instance {
 	return newOption("sts", value)
+}
+
+func ProvCert(value string) Instance {
+	return newOption("provisioned_cert", value)
 }
