@@ -5927,3 +5927,35 @@ func TestValidatePeerAuthentication(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateDNSRefreshRate(t *testing.T) {
+	type durationCheck struct {
+		duration *types.Duration
+		isValid  bool
+	}
+
+	checks := []durationCheck{
+		{
+			duration: &types.Duration{Seconds: 1},
+			isValid:  true,
+		},
+		{
+			duration: &types.Duration{Nanos: 99999},
+			isValid:  false,
+		},
+		{
+			duration: &types.Duration{Nanos: 0},
+			isValid:  false,
+		},
+		{
+			duration: &types.Duration{Seconds: 0},
+			isValid:  false,
+		},
+	}
+
+	for _, check := range checks {
+		if got := ValidateDNSRefreshRate(check.duration); (got == nil) != check.isValid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, check.isValid, got, check.duration)
+		}
+	}
+}

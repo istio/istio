@@ -15,6 +15,7 @@
 package mesh
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -122,6 +123,92 @@ func TestValidateSetFlags(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ValidateSetFlags(tt.args)
+			if got != nil && fmt.Sprintf("%v", got) != fmt.Sprintf("%v", tt.want) {
+				t.Errorf("got: %v, want: %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidateDuration(t *testing.T) {
+
+	tests := []struct {
+		name     string
+		flagName string
+		duration string
+		want     error
+	}{
+		{
+			name:     "Test valid convertDuration",
+			flagName: "values.global.proxy.dnsRefreshRate",
+			duration: "10s",
+			want:     nil,
+		},
+		{
+			name:     "Test invalid convertDuration",
+			flagName: "values.global.proxy.dnsRefreshRate",
+			duration: "sam",
+			want:     fmt.Errorf("Invalid duration format %q", "sam"),
+		},
+		{
+			name:     "Test valid protocolDetectionTimeout",
+			flagName: "values.global.proxy.protocolDetectionTimeout",
+			duration: "100ms",
+			want:     nil,
+		},
+		{
+			name:     "Test 0s is valid for protocolDetectionTimeout",
+			flagName: "values.global.proxy.protocolDetectionTimeout",
+			duration: "0s",
+			want:     nil,
+		},
+		{
+			name:     "Test invalid protocolDetectionTimeout",
+			flagName: "values.global.proxy.protocolDetectionTimeout",
+			duration: "-1s",
+			want:     errors.New("only durations to ms precision are supported"),
+		},
+		{
+			name:     "Test valid dnsRefreshRate",
+			flagName: "values.global.proxy.dnsRefreshRate",
+			duration: "10s",
+			want:     nil,
+		},
+		{
+			name:     "Test invalid dnsRefreshRate",
+			flagName: "values.global.proxy.dnsRefreshRate",
+			duration: "100ms",
+			want:     errors.New("DNS refresh rate only supports durations to seconds precision"),
+		},
+		{
+			name:     "Test valid connectTimeout",
+			flagName: "values.global.connectTimeout",
+			duration: "100ms",
+			want:     nil,
+		},
+		{
+			name:     "Test invalid connectTimeout",
+			flagName: "values.global.connectTimeout",
+			duration: "-1ms",
+			want:     errors.New("duration must be greater than 1ms"),
+		},
+		{
+			name:     "Test valid reportBatchMaxTime",
+			flagName: "values.mixer.telemetry.reportBatchMaxTime",
+			duration: "10s",
+			want:     nil,
+		},
+		{
+			name:     "Test invalid reportBatchMaxTime",
+			flagName: "values.mixer.telemetry.reportBatchMaxTime",
+			duration: "-1ms",
+			want:     errors.New("duration must be greater than 1ms"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := validateDuration(tt.flagName, tt.duration)
 			if got != nil && fmt.Sprintf("%v", got) != fmt.Sprintf("%v", tt.want) {
 				t.Errorf("got: %v, want: %v", got, tt.want)
 			}
