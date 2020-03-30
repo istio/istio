@@ -277,20 +277,22 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, fmt.Errorf("config validation: %v", err)
 	}
 
-	if err := s.initDNSTLSListener(dns.DNSAddr.Get()); err != nil {
-		// TODO: will be made an error before launching. Tests are currently
-		// failing since TLS is not initialized in some configs.
-		log.Warna("Failed to start DNS-over-TLS listener", err)
-	}
-
-	// Respond to CoreDNS gRPC queries.
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		if s.DNSListener != nil {
-			dnsSvc := dns.InitDNS()
-			dnsSvc.StartDNS(dns.DNSAddr.Get(), s.DNSListener)
+	if dns.DNSAddr.Get() != "" {
+		if err := s.initDNSTLSListener(dns.DNSAddr.Get()); err != nil {
+			// TODO: will be made an error before launching. Tests are currently
+			// failing since TLS is not initialized in some configs.
+			log.Warna("Failed to start DNS-over-TLS listener", err)
 		}
-		return nil
-	})
+
+		// Respond to CoreDNS gRPC queries.
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			if s.DNSListener != nil {
+				dnsSvc := dns.InitDNS()
+				dnsSvc.StartDNS(dns.DNSAddr.Get(), s.DNSListener)
+			}
+			return nil
+		})
+	}
 
 	// Run the SDS signing server.
 	// RunCA() must be called after createCA() and initDNSListener()
