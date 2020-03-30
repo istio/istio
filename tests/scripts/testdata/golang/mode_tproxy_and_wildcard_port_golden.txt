@@ -44,7 +44,7 @@ iptables -t mangle -A PREROUTING -p tcp -j ISTIO_INBOUND
 iptables -t mangle -A ISTIO_INBOUND -p tcp --dport 22 -j RETURN
 iptables -t mangle -A ISTIO_INBOUND -p tcp --dport 7777 -j RETURN
 iptables -t mangle -A ISTIO_INBOUND -p tcp --dport 8888 -j RETURN
-iptables -t mangle -A ISTIO_INBOUND -p tcp -m socket -j ISTIO_DIVERT
+iptables -t mangle -A ISTIO_INBOUND -p tcp -m conntrack --ctstate RELATED,ESTABLISHED -j ISTIO_DIVERT
 iptables -t mangle -A ISTIO_INBOUND -p tcp -j ISTIO_TPROXY
 iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT
 iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN
