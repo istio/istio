@@ -394,7 +394,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		if in.Timeout != nil {
 			d = gogo.DurationToProtoDuration(in.Timeout)
 		} else {
-			d = features.DefaultRequestTimeout()
+			d = features.DefaultRequestTimeout
 		}
 
 		action.Timeout = d
