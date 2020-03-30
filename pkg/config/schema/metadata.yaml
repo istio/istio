@@ -48,6 +48,10 @@ collections:
     kind: "template"
     group: "config.istio.io"
 
+  - name: "istio/install/v1alpha1/istiooperatorspecs"
+    kind: "IstioOperatorSpec"
+    group: "install.istio.io"
+
   - name: "istio/mesh/v1alpha1/MeshConfig"
     kind: "MeshConfig"
     group: ""
@@ -147,10 +151,6 @@ collections:
     kind: "PeerAuthentication"
     group: "security.istio.io"
     pilot: true
-
-  - name: "istio/install/v1alpha1/istiooperators"
-    kind: "IstioOperator"
-    group: "install.istio.io"
 
   ### K8s collections ###
 
@@ -261,6 +261,10 @@ collections:
     kind: "rule"
     group: "config.istio.io"
 
+  - name: "istio/install/v1alpha1/istiooperatorspecs"
+    kind: "IstioOperatorSpec"
+    group: "install.istio.io"
+
   - name: "k8s/networking.istio.io/v1alpha3/destinationrules"
     kind: "DestinationRule"
     group: "networking.istio.io"
@@ -320,10 +324,6 @@ collections:
   - name: "k8s/security.istio.io/v1beta1/peerauthentications"
     kind: "PeerAuthentication"
     group: "security.istio.io"
-
-  - name: "istio/install/v1alpha1/istiooperators"
-    kind: "IstioOperator"
-    group: "install.istio.io"
 
 # The snapshots to generate
 snapshots:
@@ -670,7 +670,7 @@ resources:
     plural: "istiooperators"
     group: "install.istio.io"
     version: "v1alpha1"
-    proto: "istio.operator.v1alpha1.IstioOperator"
+    proto: "istio.operator.v1alpha1.IstioOperatorSpec"
     protoPackage: "istio.io/api/operator/v1alpha1"
     validate: "ValidateIstioOperator"
     description: "describes the Istio configuration maintained by the operator."
@@ -716,6 +716,7 @@ resources:
     version: "v1alpha2"
     proto: "google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
+
 
 # Transform specific configurations
 transforms:

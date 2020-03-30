@@ -41,7 +41,6 @@ import (
 	operator "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/pkg/log"
 
-	operator_validate "istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
@@ -2832,12 +2831,13 @@ func validateLocalities(localities []string) error {
 	return nil
 }
 
-// ValidateAuthenticationPolicy checks that AuthenticationPolicy is well-formed.
+// ValidateIstioOperator checks that IstioOperator is well-formed.
 var ValidateIstioOperator = registerValidateFunc("ValidateIstioOperator",
 	func(name, namespace string, msg proto.Message) error {
 		in, ok := msg.(*operator.IstioOperator)
 		if !ok {
 			return fmt.Errorf("cannot cast to IstioOperator")
 		}
-		return operator_validate.CheckIstioOperator(in, true)
+		_ = in
+		return nil // TODO except it introduces an import cycle operator_validate.CheckIstioOperator(in, true)
 	})
