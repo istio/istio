@@ -17894,6 +17894,7 @@ data:
       discoveryAddress: istiod.istio-system.svc:15012
 
   Corefile: |-
+
     global:15054 {
         errors
         log
@@ -17909,15 +17910,6 @@ data:
           lameduck 5s
         }
 
-        #proxy global 127.0.0.1:15010 {
-        #  protocol grpc insecure
-        #}
-        proxy global 127.0.0.1:15053 {
-        }
-        proxy svc 127.0.0.1:15053 {
-        }
-        proxy example.com 127.0.0.1:15053 {
-        }
         kubernetes cluster.local in-addr.arpa ip6.arpa {
             pods insecure
             fallthrough in-addr.arpa ip6.arpa
@@ -20557,6 +20549,7 @@ data:
     {{- end}}
 
   Corefile: |-
+
     global:15054 {
         errors
         log
@@ -20572,15 +20565,6 @@ data:
           lameduck 5s
         }
 
-        #proxy global 127.0.0.1:15010 {
-        #  protocol grpc insecure
-        #}
-        proxy global 127.0.0.1:15053 {
-        }
-        proxy svc 127.0.0.1:15053 {
-        }
-        proxy example.com 127.0.0.1:15053 {
-        }
         kubernetes cluster.local in-addr.arpa ip6.arpa {
             pods insecure
             fallthrough in-addr.arpa ip6.arpa

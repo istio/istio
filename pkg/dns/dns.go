@@ -76,9 +76,9 @@ type IstioDNS struct {
 	tlsUpstream string
 
 	// m protects pending, conn and outID
-	m            sync.Mutex
-	pending      map[uint16]chan *dns.Msg
-	conn         *dns.Conn
+	m       sync.Mutex
+	pending map[uint16]chan *dns.Msg
+	conn    *dns.Conn
 	// outID is used to match requests to responses in the DNS-TCP.
 	outID        uint16
 	dnsTLSSuffix []string
