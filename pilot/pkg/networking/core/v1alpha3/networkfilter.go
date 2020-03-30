@@ -154,19 +154,19 @@ func buildNetworkFiltersStack(_ *model.Proxy, port *model.Port, tcpFilter *liste
 	case protocol.Mongo:
 		filterstack = append(filterstack, buildMongoFilter(statPrefix), tcpFilter)
 	case protocol.Redis:
-		if features.EnableRedisFilter.Get() {
+		if features.EnableRedisFilter {
 			// redis filter has route config, it is a terminating filter, no need append tcp filter.
 			filterstack = append(filterstack, buildRedisFilter(statPrefix, clusterName))
 		} else {
 			filterstack = append(filterstack, tcpFilter)
 		}
 	case protocol.MySQL:
-		if features.EnableMysqlFilter.Get() {
+		if features.EnableMysqlFilter {
 			filterstack = append(filterstack, buildMySQLFilter(statPrefix))
 		}
 		filterstack = append(filterstack, tcpFilter)
 	case protocol.Thrift:
-		if features.EnableThriftFilter.Get() {
+		if features.EnableThriftFilter {
 			// Thrift filter has route config, it is a terminating filter, no need append tcp filter.
 			filterstack = append(filterstack, buildThriftFilter(statPrefix))
 		} else {

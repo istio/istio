@@ -876,7 +876,7 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 	}
 
 	if err := ps.initAuthorizationPolicies(env); err != nil {
-		rbacLog.Errorf("failed to initialize authorization policies: %v", err)
+		authzLog.Errorf("failed to initialize authorization policies: %v", err)
 		return err
 	}
 
@@ -989,7 +989,7 @@ func (ps *PushContext) updateContext(
 
 	if authzChanged {
 		if err := ps.initAuthorizationPolicies(env); err != nil {
-			rbacLog.Errorf("failed to initialize authorization policies: %v", err)
+			authzLog.Errorf("failed to initialize authorization policies: %v", err)
 			return err
 		}
 	} else {
@@ -1419,7 +1419,7 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
 	var err error
 	if ps.AuthzPolicies, err = GetAuthorizationPolicies(env); err != nil {
-		rbacLog.Errorf("failed to initialize authorization policies: %v", err)
+		authzLog.Errorf("failed to initialize authorization policies: %v", err)
 		return err
 	}
 	return nil
@@ -1536,7 +1536,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 	out := make([]Config, 0)
 
 	var configs []Config
-	if features.ScopeGatewayToNamespace.Get() {
+	if features.ScopeGatewayToNamespace {
 		configs = ps.gatewaysByNamespace[proxy.ConfigNamespace]
 	} else {
 		configs = ps.allGateways

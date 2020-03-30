@@ -4,13 +4,13 @@
 // charts/base/NOTES.txt
 // charts/base/files/crd-all.gen.yaml
 // charts/base/files/crd-mixer.yaml
+// charts/base/files/crd-operator.yaml
 // charts/base/files/gen-istio-cluster.yaml
 // charts/base/kustomization.yaml
 // charts/base/templates/clusterrole.yaml
 // charts/base/templates/clusterrolebinding.yaml
 // charts/base/templates/crds.yaml
 // charts/base/templates/endpoints.yaml
-// charts/base/templates/namespaces.yaml
 // charts/base/templates/serviceaccount.yaml
 // charts/base/templates/services.yaml
 // charts/base/templates/validatingwebhookconfiguration.yaml
@@ -85,7 +85,7 @@
 // charts/istio-operator/Chart.yaml
 // charts/istio-operator/templates/clusterrole.yaml
 // charts/istio-operator/templates/clusterrole_binding.yaml
-// charts/istio-operator/templates/crd.yaml
+// charts/istio-operator/templates/crd-operator.yaml
 // charts/istio-operator/templates/deployment.yaml
 // charts/istio-operator/templates/namespace.yaml
 // charts/istio-operator/templates/service.yaml
@@ -6764,17 +6764,70 @@ func chartsBaseFilesCrdMixerYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsBaseFilesGenIstioClusterYaml = []byte(`---
-# Source: base/templates/namespaces.yaml
-apiVersion: v1
-kind: Namespace
+var _chartsBaseFilesCrdOperatorYaml = []byte(`# SYNC WITH manifests/istio-operator/templates
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
 metadata:
-  name: istio-system
-  labels:
-    istio-operator-managed: Reconcile
-    istio-injection: disabled
-
+  name: istiooperators.install.istio.io
+spec:
+  group: install.istio.io
+  names:
+    kind: IstioOperator
+    plural: istiooperators
+    singular: istiooperator
+    shortNames:
+    - iop
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        spec:
+          description: 'Specification of the desired state of the istio control plane resource.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+        status:
+          description: 'Status describes each of istio control plane component status at the current time.
+            0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
+            More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
+            https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
 ---
+`)
+
+func chartsBaseFilesCrdOperatorYamlBytes() ([]byte, error) {
+	return _chartsBaseFilesCrdOperatorYaml, nil
+}
+
+func chartsBaseFilesCrdOperatorYaml() (*asset, error) {
+	bytes, err := chartsBaseFilesCrdOperatorYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/base/files/crd-operator.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsBaseFilesGenIstioClusterYaml = []byte(`---
 # Source: base/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
@@ -13230,6 +13283,53 @@ spec:
       storage: true
 ---
 
+# SYNC WITH manifests/istio-operator/templates
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: istiooperators.install.istio.io
+spec:
+  group: install.istio.io
+  names:
+    kind: IstioOperator
+    plural: istiooperators
+    singular: istiooperator
+    shortNames:
+    - iop
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        spec:
+          description: 'Specification of the desired state of the istio control plane resource.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+        status:
+          description: 'Status describes each of istio control plane component status at the current time.
+            0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
+            More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
+            https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+---
+
 
 ---
 # Source: base/templates/clusterrole.yaml
@@ -13542,8 +13642,20 @@ metadata:
     release: {{ .Release.Name }}
 rules:
 - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
+{{- if .Values.global.istiod.enableAnalysis }}
+  verbs: ["get", "watch", "list", "update"]
+{{- else }}
   verbs: ["get", "watch", "list"]
+{{- end }}
   resources: ["*"]
+{{- if .Values.global.istiod.enableAnalysis }}
+  - apiGroups: ["extensions", "networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["extensions", "networking.k8s.io"]
+    resources: ["ingresses/status"]
+    verbs: ["*"]
+{{- end}}
 - apiGroups: ["apiextensions.k8s.io"]
   resources: ["customresourcedefinitions"]
   verbs: ["get", "watch", "list"]
@@ -13596,7 +13708,12 @@ rules:
 
   # istio configuration
   - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
+
+{{- if .Values.global.istiod.enableAnalysis }}
+    verbs: ["get", "watch", "list", "update"]
+{{- else }}
     verbs: ["get", "watch", "list"]
+{{- end }}
     resources: ["*"]
 
   # auto-detect installed CRD definitions
@@ -13616,6 +13733,14 @@ rules:
     verbs: ["get", "list", "watch"]
 
   # ingress controller
+{{- if .Values.global.istiod.enableAnalysis }}
+  - apiGroups: ["extensions", "networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["extensions", "networking.k8s.io"]
+    resources: ["ingresses/status"]
+    verbs: ["*"]
+{{- end}}
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses"]
     verbs: ["get", "list", "watch"]
@@ -13768,6 +13893,7 @@ func chartsBaseTemplatesClusterrolebindingYaml() (*asset, error) {
 
 var _chartsBaseTemplatesCrdsYaml = []byte(`{{ .Files.Get "files/crd-all.gen.yaml" }}
 {{ .Files.Get "files/crd-mixer.yaml" }}
+{{ .Files.Get "files/crd-operator.yaml" }}
 `)
 
 func chartsBaseTemplatesCrdsYamlBytes() ([]byte, error) {
@@ -13865,30 +13991,6 @@ func chartsBaseTemplatesEndpointsYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "charts/base/templates/endpoints.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsBaseTemplatesNamespacesYaml = []byte(`apiVersion: v1
-kind: Namespace
-metadata:
-  name: {{ .Values.global.istioNamespace }}
-  labels:
-    istio-operator-managed: Reconcile
-    istio-injection: disabled
-`)
-
-func chartsBaseTemplatesNamespacesYamlBytes() ([]byte, error) {
-	return _chartsBaseTemplatesNamespacesYaml, nil
-}
-
-func chartsBaseTemplatesNamespacesYaml() (*asset, error) {
-	bytes, err := chartsBaseTemplatesNamespacesYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/base/templates/namespaces.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -14089,16 +14191,14 @@ var _chartsBaseValuesYaml = []byte(`global:
 
   # ImagePullSecrets for control plane ServiceAccount, list of secrets in the same namespace
   # to use for pulling any images in pods that reference this ServiceAccount.
-  # Must be set for any clustser configured with private docker registry.
+  # Must be set for any cluster configured with private docker registry.
   imagePullSecrets: []
 
-  # Used to locate istio-pilot.
-  # Default is to install pilot in a dedicated namespace, istio-pilot11. You can use multiple namespaces, but
-  # for each 'profile' you need to match the control plane namespace and the value of istioNamespace
-  # It is assumed that istio-system is running either 1.0 or an upgraded version of 1.1, but only security components are
-  # used (citadel generating the secrets).
+  # Used to locate istiod.
   istioNamespace: istio-system
-`)
+
+  istiod:
+    enableAnalysis: false`)
 
 func chartsBaseValuesYamlBytes() ([]byte, error) {
 	return _chartsBaseValuesYaml, nil
@@ -15401,9 +15501,9 @@ spec:
           {{- if .Values.global.caAddress }}
             value: {{ .Values.global.caAddress }}
           {{- else if .Values.global.configNamespace }}
-            value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
           {{- else }}
-            value: istiod.istio-system.svc:15012
+            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
           {{- end }}
           - name: NODE_NAME
             valueFrom:
@@ -17250,9 +17350,9 @@ spec:
             {{- if .Values.global.caAddress }}
             value: {{ .Values.global.caAddress }}
             {{- else if .Values.global.configNamespace }}
-            value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
             {{- else }}
-            value: istiod.istio-system.svc:15012
+            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
             {{- end }}
           resources:
 {{- if .Values.global.proxy.resources }}
@@ -17541,6 +17641,8 @@ var _chartsIstioControlIstioConfigValuesYaml = []byte(`galley:
 
   # Enable analysis and status update in Galley
   enableAnalysis: false
+
+revision: ""
 `)
 
 func chartsIstioControlIstioConfigValuesYamlBytes() ([]byte, error) {
@@ -17876,6 +17978,7 @@ data:
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
         "istiod": {
+          "enableAnalysis": false,
           "enabled": true
         },
         "jwtPolicy": "third-party-jwt",
@@ -18047,6 +18150,7 @@ data:
         "trustDomainAliases": [],
         "useMCP": false
       },
+      "revision": "",
       "sidecarInjectorWebhook": {
         "alwaysInjectSelector": [],
         "enableNamespacesByDefault": false,
@@ -18226,9 +18330,9 @@ data:
         {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
         {{- else if .Values.global.configNamespace }}
-          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
-          value: istiod.istio-system.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -18609,6 +18713,8 @@ spec:
           - name: ISTIOD_ADDR
             value: istiod.istio-system.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
+            value: "false"
+          - name: PILOT_ENABLE_ANALYSIS
             value: "false"
           - name: CLUSTER_ID
             value: "Kubernetes"
@@ -19677,9 +19783,9 @@ template: |
     {{- if .Values.global.caAddress }}
       value: {{ .Values.global.caAddress }}
     {{- else if .Values.global.configNamespace }}
-      value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+      value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
     {{- else }}
-      value: istiod.istio-system.svc:15012
+      value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
     {{- end }}
     - name: POD_NAME
       valueFrom:
@@ -20660,6 +20766,8 @@ spec:
             value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
             value: "false"
+          - name: PILOT_ENABLE_ANALYSIS
+            value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
           resources:
@@ -20808,7 +20916,7 @@ metadata:
 data:
 {{/* Scope the values to just top level fields used in the template, to reduce the size. */}}
   values: |-
-{{ pick .Values "global" "istio_cni" "sidecarInjectorWebhook" | toPrettyJson | indent 4 }}
+{{ pick .Values "global" "istio_cni" "sidecarInjectorWebhook" "revision" | toPrettyJson | indent 4 }}
 
   # To disable injection: use omitSidecarInjectorConfigMap, which disables the webhook patching
   # and istiod webhook functionality.
@@ -22657,7 +22765,8 @@ func chartsIstioOperatorTemplatesClusterrole_bindingYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioOperatorTemplatesCrdYaml = []byte(`apiVersion: apiextensions.k8s.io/v1beta1
+var _chartsIstioOperatorTemplatesCrdOperatorYaml = []byte(`# SYNC WITH manifests/base/files
+apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: istiooperators.install.istio.io
@@ -22704,17 +22813,17 @@ spec:
 ---
 `)
 
-func chartsIstioOperatorTemplatesCrdYamlBytes() ([]byte, error) {
-	return _chartsIstioOperatorTemplatesCrdYaml, nil
+func chartsIstioOperatorTemplatesCrdOperatorYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesCrdOperatorYaml, nil
 }
 
-func chartsIstioOperatorTemplatesCrdYaml() (*asset, error) {
-	bytes, err := chartsIstioOperatorTemplatesCrdYamlBytes()
+func chartsIstioOperatorTemplatesCrdOperatorYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesCrdOperatorYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "charts/istio-operator/templates/crd.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "charts/istio-operator/templates/crd-operator.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -36361,8 +36470,8 @@ func chartsIstioTelemetryGrafanaValuesYaml() (*asset, error) {
 var _chartsIstioTelemetryKialiChartYaml = []byte(`apiVersion: v1
 description: Kiali is an open source project for service mesh observability, refer to https://www.kiali.io for details.
 name: kiali
-version: 1.14.0
-appVersion: 1.14.0
+version: 1.15.0
+appVersion: 1.15.0
 tillerVersion: ">=2.7.2"
 keywords:
   - istio-addon
@@ -36716,6 +36825,8 @@ data:
 {{- end }}
     deployment:
       accessible_namespaces: ['**']
+    login_token:
+      signing_key: {{ randAlphaNum 10 | quote }}
     server:
       port: 20001
 {{- if .Values.kiali.contextPath }}
@@ -36731,11 +36842,15 @@ data:
         url: {{ .Values.kiali.dashboard.grafanaURL }}
         in_cluster_url: {{ .Values.kiali.dashboard.grafanaInClusterURL }}
       prometheus:
+{{- if .Values.kiali.prometheusAddr}}
+        url: {{ .Values.kiali.prometheusAddr}}
+{{- else }}
 {{- if .Values.global.prometheusNamespace }}
         url: http://prometheus.{{ .Values.global.prometheusNamespace }}:9090
 {{ else }}
         url: http://prometheus:9090
 {{- end }}
+{{- end}}
 {{- if .Values.kiali.security.enabled }}
     identity:
       cert_file: {{ .Values.kiali.security.cert_file }}
@@ -36982,7 +37097,7 @@ kiali:
   enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `+"`"+`true`+"`"+`.
   replicaCount: 1
   hub: quay.io/kiali
-  tag: v1.14
+  tag: v1.15
   image: kiali
   contextPath: /kiali # The root context path to access the Kiali UI.
   nodeSelector: {}
@@ -37059,6 +37174,7 @@ kiali:
 
   createDemoSecret: true # When true, a secret will be created with a default username and password. Useful for demos.
 
+  prometheusAddr: ""
   resources: {}
   security:
     enabled: false
@@ -38921,9 +39037,9 @@ spec:
           {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
           {{- else if .Values.global.configNamespace }}
-          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
           {{- else }}
-          value: istiod.istio-system.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
       {{- end }}
         resources:
 {{- if .Values.global.proxy.resources }}
@@ -40799,9 +40915,9 @@ spec:
               {{- if .Values.global.caAddress }}
               value: {{ .Values.global.caAddress }}
               {{- else if .Values.global.configNamespace }}
-              value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
               {{- else }}
-              value: istiod.istio-system.svc:15012
+              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
               {{- end }}
             - name: POD_NAME
               valueFrom:
@@ -43645,6 +43761,7 @@ spec:
       istioNamespace: istio-system
       istiod:
         enabled: true
+        enableAnalysis: false
       logging:
         level: "default:info"
       logAsJson: false
@@ -44060,7 +44177,7 @@ spec:
 
     kiali:
       hub: quay.io/kiali
-      tag: v1.14
+      tag: v1.15
       contextPath: /kiali
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
@@ -45578,13 +45695,13 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/base/NOTES.txt":                                                                chartsBaseNotesTxt,
 	"charts/base/files/crd-all.gen.yaml":                                                   chartsBaseFilesCrdAllGenYaml,
 	"charts/base/files/crd-mixer.yaml":                                                     chartsBaseFilesCrdMixerYaml,
+	"charts/base/files/crd-operator.yaml":                                                  chartsBaseFilesCrdOperatorYaml,
 	"charts/base/files/gen-istio-cluster.yaml":                                             chartsBaseFilesGenIstioClusterYaml,
 	"charts/base/kustomization.yaml":                                                       chartsBaseKustomizationYaml,
 	"charts/base/templates/clusterrole.yaml":                                               chartsBaseTemplatesClusterroleYaml,
 	"charts/base/templates/clusterrolebinding.yaml":                                        chartsBaseTemplatesClusterrolebindingYaml,
 	"charts/base/templates/crds.yaml":                                                      chartsBaseTemplatesCrdsYaml,
 	"charts/base/templates/endpoints.yaml":                                                 chartsBaseTemplatesEndpointsYaml,
-	"charts/base/templates/namespaces.yaml":                                                chartsBaseTemplatesNamespacesYaml,
 	"charts/base/templates/serviceaccount.yaml":                                            chartsBaseTemplatesServiceaccountYaml,
 	"charts/base/templates/services.yaml":                                                  chartsBaseTemplatesServicesYaml,
 	"charts/base/templates/validatingwebhookconfiguration.yaml":                            chartsBaseTemplatesValidatingwebhookconfigurationYaml,
@@ -45659,7 +45776,7 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-operator/Chart.yaml":                                                     chartsIstioOperatorChartYaml,
 	"charts/istio-operator/templates/clusterrole.yaml":                                     chartsIstioOperatorTemplatesClusterroleYaml,
 	"charts/istio-operator/templates/clusterrole_binding.yaml":                             chartsIstioOperatorTemplatesClusterrole_bindingYaml,
-	"charts/istio-operator/templates/crd.yaml":                                             chartsIstioOperatorTemplatesCrdYaml,
+	"charts/istio-operator/templates/crd-operator.yaml":                                    chartsIstioOperatorTemplatesCrdOperatorYaml,
 	"charts/istio-operator/templates/deployment.yaml":                                      chartsIstioOperatorTemplatesDeploymentYaml,
 	"charts/istio-operator/templates/namespace.yaml":                                       chartsIstioOperatorTemplatesNamespaceYaml,
 	"charts/istio-operator/templates/service.yaml":                                         chartsIstioOperatorTemplatesServiceYaml,
@@ -45825,6 +45942,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"files": &bintree{nil, map[string]*bintree{
 				"crd-all.gen.yaml":       &bintree{chartsBaseFilesCrdAllGenYaml, map[string]*bintree{}},
 				"crd-mixer.yaml":         &bintree{chartsBaseFilesCrdMixerYaml, map[string]*bintree{}},
+				"crd-operator.yaml":      &bintree{chartsBaseFilesCrdOperatorYaml, map[string]*bintree{}},
 				"gen-istio-cluster.yaml": &bintree{chartsBaseFilesGenIstioClusterYaml, map[string]*bintree{}},
 			}},
 			"kustomization.yaml": &bintree{chartsBaseKustomizationYaml, map[string]*bintree{}},
@@ -45833,7 +45951,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"clusterrolebinding.yaml":             &bintree{chartsBaseTemplatesClusterrolebindingYaml, map[string]*bintree{}},
 				"crds.yaml":                           &bintree{chartsBaseTemplatesCrdsYaml, map[string]*bintree{}},
 				"endpoints.yaml":                      &bintree{chartsBaseTemplatesEndpointsYaml, map[string]*bintree{}},
-				"namespaces.yaml":                     &bintree{chartsBaseTemplatesNamespacesYaml, map[string]*bintree{}},
 				"serviceaccount.yaml":                 &bintree{chartsBaseTemplatesServiceaccountYaml, map[string]*bintree{}},
 				"services.yaml":                       &bintree{chartsBaseTemplatesServicesYaml, map[string]*bintree{}},
 				"validatingwebhookconfiguration.yaml": &bintree{chartsBaseTemplatesValidatingwebhookconfigurationYaml, map[string]*bintree{}},
@@ -45938,7 +46055,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"templates": &bintree{nil, map[string]*bintree{
 				"clusterrole.yaml":         &bintree{chartsIstioOperatorTemplatesClusterroleYaml, map[string]*bintree{}},
 				"clusterrole_binding.yaml": &bintree{chartsIstioOperatorTemplatesClusterrole_bindingYaml, map[string]*bintree{}},
-				"crd.yaml":                 &bintree{chartsIstioOperatorTemplatesCrdYaml, map[string]*bintree{}},
+				"crd-operator.yaml":        &bintree{chartsIstioOperatorTemplatesCrdOperatorYaml, map[string]*bintree{}},
 				"deployment.yaml":          &bintree{chartsIstioOperatorTemplatesDeploymentYaml, map[string]*bintree{}},
 				"namespace.yaml":           &bintree{chartsIstioOperatorTemplatesNamespaceYaml, map[string]*bintree{}},
 				"service.yaml":             &bintree{chartsIstioOperatorTemplatesServiceYaml, map[string]*bintree{}},

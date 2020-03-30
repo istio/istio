@@ -691,7 +691,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 		return "", err
 	}
 
-	scope.Infof("Manifest after resources and overlay: \n%s\n", ret)
+	scope.Debugf("Manifest after resources and overlay: \n%s\n", ret)
 	return ret, nil
 }
 

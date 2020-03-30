@@ -15,7 +15,6 @@
 package v1alpha3
 
 import (
-	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -196,8 +195,9 @@ func prepareListeners(t *testing.T) []*v2.Listener {
 }
 
 func TestVirtualInboundListenerBuilder(t *testing.T) {
-	_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
-	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForInbound.Name) }()
+	defaultValue := features.EnableProtocolSniffingForInbound
+	features.EnableProtocolSniffingForInbound = true
+	defer func() { features.EnableProtocolSniffingForInbound = defaultValue }()
 
 	// prepare
 	t.Helper()
@@ -244,8 +244,9 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 }
 
 func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
-	_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
-	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForInbound.Name) }()
+	defaultValue := features.EnableProtocolSniffingForInbound
+	features.EnableProtocolSniffingForInbound = true
+	defer func() { features.EnableProtocolSniffingForInbound = defaultValue }()
 	// prepare
 	t.Helper()
 	listeners := prepareListeners(t)

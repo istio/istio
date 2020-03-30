@@ -332,7 +332,7 @@ func (c *controller) Get(typ resource.GroupVersionKind, name, namespace string) 
 	}
 
 	config, err := crd.ConvertObject(s, obj, c.client.domainSuffix)
-	if err == nil && features.EnableCRDValidation.Get() {
+	if err == nil && features.EnableCRDValidation {
 		if err = s.Resource().ValidateProto(config.Name, config.Namespace, config.Spec); err != nil {
 			handleValidationFailure(obj, err)
 			return nil
@@ -373,7 +373,7 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]mo
 
 		config, err := crd.ConvertObject(s, item, c.client.domainSuffix)
 
-		if err == nil && features.EnableCRDValidation.Get() {
+		if err == nil && features.EnableCRDValidation {
 			err = s.Resource().ValidateProto(config.Name, config.Namespace, config.Spec)
 		}
 

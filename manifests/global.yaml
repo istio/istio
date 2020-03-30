@@ -66,6 +66,7 @@ global:
   # Enabled by default in master for maximising testing.
   istiod:
     enabled: true
+    enableAnalysis: false
 
   proxy:
     image: proxyv2

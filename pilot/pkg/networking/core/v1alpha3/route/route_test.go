@@ -18,15 +18,18 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"time"
 
 	envoyroute "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/util/gogo"
 
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pkg/config/host"
@@ -78,8 +81,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("for virtual service with changed default timeout", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		os.Setenv("ISTIO_DEFAULT_REQUEST_TIMEOUT", "1s")
-		defer os.Unsetenv("ISTIO_DEFAULT_REQUEST_TIMEOUT")
+		dt := features.DefaultRequestTimeout
+		features.DefaultRequestTimeout = ptypes.DurationProto(1 * time.Second)
+		defer func() { features.DefaultRequestTimeout = dt }()
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServicePlain, serviceRegistry, 8080, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
