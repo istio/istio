@@ -31,11 +31,12 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/onsi/gomega"
-	operatormesh "istio.io/istio/operator/cmd/mesh"
-	"istio.io/istio/operator/pkg/tpath"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+
+	operatormesh "istio.io/istio/operator/cmd/mesh"
+	"istio.io/istio/operator/pkg/tpath"
 
 	"istio.io/istio/operator/pkg/name"
 
