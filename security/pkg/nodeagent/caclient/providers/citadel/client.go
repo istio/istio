@@ -129,19 +129,22 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 			return nil, fmt.Errorf("failed to append certificates")
 		}
 	}
-
-	config := tls.Config{}
-	config.RootCAs = certPool
-
-	if ProvCert != "" {
-		// Load the certificate from disk
-		certificate, err := tls.LoadX509KeyPair(ProvCert+"/cert-chain.pem", ProvCert+"/key.pem")
-		if err != nil {
-			return nil, fmt.Errorf("cannot load key pair: %s", err)
-		}
-
-		config.Certificates = []tls.Certificate{certificate}
+	var certificate tls.Certificate
+	config := tls.Config{
+		Certificates: []tls.Certificate{certificate},
+		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			log.Infof("call getclientCertificate")
+			if ProvCert != "" {
+				// Load the certificate from disk
+				certificate, err = tls.LoadX509KeyPair(ProvCert+"/cert-chain.pem", ProvCert+"/key.pem")
+				if err != nil {
+					return nil, fmt.Errorf("cannot load key pair: %s", err)
+				}
+			}
+			return &certificate, nil
+		},
 	}
+	config.RootCAs = certPool
 
 	// Initial implementation of citadel hardcoded the SAN to 'istio-citadel'. For backward compat, keep it.
 	// TODO: remove this once istiod replaces citadel.
