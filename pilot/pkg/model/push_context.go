@@ -1536,7 +1536,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 	out := make([]Config, 0)
 
 	var configs []Config
-	if features.ScopeGatewayToNamespace.Get() {
+	if features.ScopeGatewayToNamespace {
 		configs = ps.gatewaysByNamespace[proxy.ConfigNamespace]
 	} else {
 		configs = ps.allGateways
