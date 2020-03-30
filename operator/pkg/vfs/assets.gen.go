@@ -18134,6 +18134,9 @@ spec:
 ---
 # Source: istio-discovery/templates/configmap.yaml
 
+
+
+
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -18191,25 +18194,19 @@ data:
   mesh: |-
     # Set enableTracing to false to disable request tracing.
     enableTracing: true
-
     # Set accessLogFile to empty string to disable access log.
     accessLogFile: ""
-
     accessLogFormat: ""
-
     accessLogEncoding: 'TEXT'
-
     enableEnvoyAccessLogService: false
     # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
     reportBatchMaxEntries: 100
     # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
     reportBatchMaxTime: 1s
     disableMixerHttpReports: true
-
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
     disablePolicyChecks: true
-
     # Automatic protocol detection uses a set of heuristics to
     # determine whether the connection is using TLS or not (on the
     # server side), as well as the application protocol being used
@@ -18220,16 +18217,13 @@ data:
     # traffic. Set this field to tweak the period that Envoy will wait
     # for the client to send the first bits of data. (MUST BE >=1ms)
     protocolDetectionTimeout: 100ms
-
     # This is the k8s ingress service name, update if you used a different name
     ingressService: "istio-ingressgateway"
     ingressControllerMode: "STRICT"
     ingressClass: "istio"
-
     # The trust domain corresponds to the trust root of a system.
     # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
     trustDomain: "cluster.local"
-
     #  The trust domain aliases represent the aliases of trust_domain.
     #  For example, if we have
     #  trustDomain: td1
@@ -18237,15 +18231,12 @@ data:
     #  Any service with the identity "td1/ns/foo/sa/a-service-account", "td2/ns/foo/sa/a-service-account",
     #  or "td3/ns/foo/sa/a-service-account" will be treated the same in the Istio mesh.
     trustDomainAliases:
-
     # Used by pilot-agent
     sdsUdsPath: "unix:/etc/istio/proxy/SDS"
-
     # If true, automatically configure client side mTLS settings to match the corresponding service's
     # server side mTLS authentication policy, when destination rule for that service does not specify
     # TLS settings.
     enableAutoMtls: true
-
     outboundTrafficPolicy:
       mode: ALLOW_ANY
     localityLbSetting:
@@ -18292,7 +18283,6 @@ data:
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
       discoveryAddress: istiod.istio-system.svc:15012
-
 ---
 
 ---
@@ -20406,43 +20396,16 @@ func chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml() (*asset, error
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml = []byte(`{{- if .Values.pilot.configMap }}
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-  namespace: {{ .Release.Namespace }}
-  labels:
-    release: {{ .Release.Name }}
-data:
-
-  # Configuration file for the mesh networks to be used by the Split Horizon EDS.
-  meshNetworks: |-
-  {{- if .Values.global.meshNetworks }}
-    networks:
-{{ toYaml .Values.global.meshNetworks | trim | indent 6 }}
-  {{- else }}
-    networks: {}
-  {{- end }}
-
-  values.yaml: |-
-{{ toYaml .Values.pilot | trim | indent 4 }}
-
-  mesh: |-
+var _chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml = []byte(`{{- define "mesh" }}
     {{- if .Values.global.enableTracing }}
     # Set enableTracing to false to disable request tracing.
     enableTracing: {{ .Values.global.enableTracing }}
     {{- end }}
-
     # Set accessLogFile to empty string to disable access log.
     accessLogFile: "{{ .Values.global.proxy.accessLogFile }}"
-
     accessLogFormat: {{ .Values.global.proxy.accessLogFormat | quote }}
-
     accessLogEncoding: '{{ .Values.global.proxy.accessLogEncoding }}'
-
     enableEnvoyAccessLogService: {{ .Values.global.proxy.envoyAccessLogService.enabled }}
-
     {{- if .Values.global.remotePolicyAddress }}
     {{- if .Values.global.createRemoteSvcEndpoints }}
     mixerCheckServer: istio-policy.{{ .Release.Namespace }}:15004
@@ -20456,9 +20419,7 @@ data:
     {{- else }}
     mixerReportServer: {{ .Values.global.remoteTelemetryAddress }}:15004
     {{- end }}
-
     {{- else }}
-
     {{- if .Values.mixer.policy.enabled }}
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:15004
@@ -20466,7 +20427,6 @@ data:
     mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:9091
     {{- end }}
     {{- end }}
-
     {{- if and .Values.telemetry.v1.enabled .Values.telemetry.enabled }}
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     mixerReportServer: istio-telemetry.{{ .Values.global.telemetryNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:15004
@@ -20474,36 +20434,29 @@ data:
     mixerReportServer: istio-telemetry.{{ .Values.global.telemetryNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:9091
     {{- end }}
     {{- end }}
-
     {{- end }}
-
     {{- if or .Values.mixer.policy.enabled .Values.global.remotePolicyAddress }}
     # policyCheckFailOpen allows traffic in cases when the mixer policy service cannot be reached.
     # Default is false which means the traffic is denied when the client is unable to connect to Mixer.
     policyCheckFailOpen: {{ .Values.global.policyCheckFailOpen }}
     {{- end }}
-
     {{- if .Values.mixer.telemetry.reportBatchMaxEntries }}
     # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
     reportBatchMaxEntries: {{ .Values.mixer.telemetry.reportBatchMaxEntries }}
     {{- end }}
-
     {{- if .Values.mixer.telemetry.reportBatchMaxTime }}
     # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
     reportBatchMaxTime: {{ .Values.mixer.telemetry.reportBatchMaxTime }}
     {{- end }}
-
     {{- if .Values.mixer.telemetry.sessionAffinityEnabled }}
     # sidecarToTelemetrySessionAffinity will create a STRICT_DNS type cluster for istio-telemetry.
     sidecarToTelemetrySessionAffinity: {{ .Values.mixer.telemetry.sessionAffinityEnabled }}
     {{- end }}
-
     {{- if .Values.telemetry.v2.enabled }}
     disableMixerHttpReports: true
     {{- else }}
     disableMixerHttpReports: false
     {{- end }}
-
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
     {{- if .Values.mixer.policy.enabled }}
@@ -20511,7 +20464,6 @@ data:
     {{- else }}
     disablePolicyChecks: true
     {{- end }}
-
     # Automatic protocol detection uses a set of heuristics to
     # determine whether the connection is using TLS or not (on the
     # server side), as well as the application protocol being used
@@ -20522,7 +20474,6 @@ data:
     # traffic. Set this field to tweak the period that Envoy will wait
     # for the client to send the first bits of data. (MUST BE >=1ms)
     protocolDetectionTimeout: {{ .Values.global.proxy.protocolDetectionTimeout }}
-
     # This is the k8s ingress service name, update if you used a different name
     {{- if .Values.pilot.ingress }}
     {{- if .Values.pilot.ingress.ingressService }}
@@ -20531,11 +20482,9 @@ data:
     ingressClass: "{{ .Values.pilot.ingress.ingressClass }}"
     {{- end }}
     {{- end }}
-
     # The trust domain corresponds to the trust root of a system.
     # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
     trustDomain: {{ .Values.global.trustDomain | quote }}
-
     #  The trust domain aliases represent the aliases of trust_domain.
     #  For example, if we have
     #  trustDomain: td1
@@ -20546,15 +20495,12 @@ data:
       {{- range .Values.global.trustDomainAliases }}
       - {{ . | quote }}
       {{- end }}
-
     # Used by pilot-agent
     sdsUdsPath: "unix:/etc/istio/proxy/SDS"
-
     # If true, automatically configure client side mTLS settings to match the corresponding service's
     # server side mTLS authentication policy, when destination rule for that service does not specify
     # TLS settings.
     enableAutoMtls: {{ .Values.global.mtls.auto }}
-
     {{- if .Values.global.useMCP }}
     configSources:
     {{- if .Values.global.controlPlaneSecurityEnabled }}
@@ -20569,10 +20515,8 @@ data:
     {{- end }}
     {{- end}}
     {{- end }}
-
     outboundTrafficPolicy:
       mode: {{ .Values.global.outboundTrafficPolicy.mode }}
-
     {{- if  .Values.global.localityLbSetting.enabled }}
     localityLbSetting:
 {{ toYaml .Values.global.localityLbSetting | trim | indent 6 }}
@@ -20695,7 +20639,41 @@ data:
 {{ toYaml .Values.global.proxy.envoyAccessLogService.tcpKeepalive | trim | indent 10 }}
       {{- end}}
     {{- end}}
+{{- end }}
 
+{{/* We take the mesh config above, defined with individual values.yaml, and merge with .Values.meshConfig */}}
+{{/* The intent here is that meshConfig.foo becomes the API, rather than re-inventing the API in values.yaml */}}
+{{- $originalMesh := include "mesh" . | fromYaml }}
+{{- $mesh := mergeOverwrite $originalMesh .Values.meshConfig }}
+
+{{- if .Values.pilot.configMap }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+data:
+
+  # Configuration file for the mesh networks to be used by the Split Horizon EDS.
+  meshNetworks: |-
+  {{- if .Values.global.meshNetworks }}
+    networks:
+{{ toYaml .Values.global.meshNetworks | trim | indent 6 }}
+  {{- else }}
+    networks: {}
+  {{- end }}
+
+  values.yaml: |-
+{{ toYaml .Values.pilot | trim | indent 4 }}
+
+  mesh: |-
+{{- if .Values.meshConfig }}
+{{ $mesh | toYaml | indent 4 }}
+{{- else }}
+{{- include "mesh" . }}
+{{- end }}
 ---
 {{- end }}
 `)
@@ -22589,6 +22567,10 @@ telemetry:
 
 # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
 revision: ""
+
+# meshConfig defines runtime configuration of components, including Istiod and istio-agent behavior
+# See https://istio.io/docs/reference/config/istio.mesh.v1alpha1/ for all available options
+meshConfig: {}
 `)
 
 func chartsIstioControlIstioDiscoveryValuesYamlBytes() ([]byte, error) {
