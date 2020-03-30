@@ -310,7 +310,7 @@ func (r *ReconcileIstioOperator) getOrCreateReconciler(iop *iopv1alpha1.IstioOpe
 		reconciler.SetNeedUpdateAndPrune(false)
 		oldInstance := reconciler.GetInstance()
 		reconciler.SetInstance(iop)
-		if reconciler.GetInstance() != oldInstance {
+		if !reflect.DeepEqual(reconciler.GetInstance(), oldInstance) {
 			//regenerate the reconciler
 			if reconciler, err = r.factory.New(iop, r.client); err == nil {
 				reconcilers[key] = reconciler
