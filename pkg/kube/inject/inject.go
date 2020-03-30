@@ -861,9 +861,6 @@ func cleanProxyConfig(pc meshconfig.ProxyConfig) *meshconfig.ProxyConfig {
 	if pc.DiscoveryAddress == defaults.DiscoveryAddress {
 		pc.DiscoveryAddress = ""
 	}
-	if reflect.DeepEqual(pc.ConnectTimeout, defaults.ConnectTimeout) {
-		pc.ConnectTimeout = nil
-	}
 	if reflect.DeepEqual(pc.EnvoyMetricsService, defaults.EnvoyMetricsService) {
 		pc.EnvoyMetricsService = nil
 	}

@@ -973,9 +973,6 @@ var _datasetMeshIstioIoV1alpha1Meshconfig_expectedJson = []byte(`{
                 "defaultConfig": {
                   "binaryPath": "/usr/local/bin/envoy",
                   "configPath": "/etc/istio/proxy",
-                  "connectTimeout": {
-                    "seconds": 10
-                  },
                   "discoveryAddress": "istio-pilot:15010",
                   "drainDuration": {
                     "seconds": 45

@@ -49,8 +49,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "mesh SDS disabled, tls mode ISTIO_MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com"},
-				Tls: &networking.Server_TLSOptions{
-					Mode: networking.Server_TLSOptions_ISTIO_MUTUAL,
+				Tls: &networking.ServerTLSSettings{
+					Mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
 				},
 			},
 			result: &auth.DownstreamTlsContext{
@@ -87,8 +87,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "mesh SDS enabled, tls mode ISTIO_MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com"},
-				Tls: &networking.Server_TLSOptions{
-					Mode: networking.Server_TLSOptions_ISTIO_MUTUAL,
+				Tls: &networking.ServerTLSSettings{
+					Mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
 				},
 			},
 			sdsPath: "unix:/var/run/sds/uds_path",
@@ -146,8 +146,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "no credential name no key no cert tls SIMPLE",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
-				Tls: &networking.Server_TLSOptions{
-					Mode: networking.Server_TLSOptions_SIMPLE,
+				Tls: &networking.ServerTLSSettings{
+					Mode: networking.ServerTLSSettings_SIMPLE,
 				},
 			},
 			result: &auth.DownstreamTlsContext{
@@ -175,8 +175,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "credential name no key no cert tls SIMPLE",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
-				Tls: &networking.Server_TLSOptions{
-					Mode:           networking.Server_TLSOptions_SIMPLE,
+				Tls: &networking.ServerTLSSettings{
+					Mode:           networking.ServerTLSSettings_SIMPLE,
 					CredentialName: "ingress-sds-resource-name",
 				},
 			},
@@ -215,8 +215,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "credential name subject alternative name no key no cert tls SIMPLE",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
-				Tls: &networking.Server_TLSOptions{
-					Mode:            networking.Server_TLSOptions_SIMPLE,
+				Tls: &networking.ServerTLSSettings{
+					Mode:            networking.ServerTLSSettings_SIMPLE,
 					CredentialName:  "ingress-sds-resource-name",
 					SubjectAltNames: []string{"subject.name.a.com", "subject.name.b.com"},
 				},
@@ -260,8 +260,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "no credential name key and cert tls SIMPLE",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
-				Tls: &networking.Server_TLSOptions{
-					Mode:              networking.Server_TLSOptions_SIMPLE,
+				Tls: &networking.ServerTLSSettings{
+					Mode:              networking.ServerTLSSettings_SIMPLE,
 					ServerCertificate: "server-cert.crt",
 					PrivateKey:        "private-key.key",
 				},
@@ -291,8 +291,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "no credential name key and cert tls MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
-				Tls: &networking.Server_TLSOptions{
-					Mode:              networking.Server_TLSOptions_MUTUAL,
+				Tls: &networking.ServerTLSSettings{
+					Mode:              networking.ServerTLSSettings_MUTUAL,
 					ServerCertificate: "server-cert.crt",
 					PrivateKey:        "private-key.key",
 				},
@@ -323,8 +323,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "credential name subject alternative name key and cert tls MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
-				Tls: &networking.Server_TLSOptions{
-					Mode:              networking.Server_TLSOptions_MUTUAL,
+				Tls: &networking.ServerTLSSettings{
+					Mode:              networking.ServerTLSSettings_MUTUAL,
 					CredentialName:    "ingress-sds-resource-name",
 					ServerCertificate: "server-cert.crt",
 					PrivateKey:        "private-key.key",
@@ -394,8 +394,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "credential name verify spki key and cert tls MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
-				Tls: &networking.Server_TLSOptions{
-					Mode:                  networking.Server_TLSOptions_MUTUAL,
+				Tls: &networking.ServerTLSSettings{
+					Mode:                  networking.ServerTLSSettings_MUTUAL,
 					CredentialName:        "ingress-sds-resource-name",
 					VerifyCertificateSpki: []string{"abcdef"},
 				},
@@ -463,8 +463,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "credential name verify hash key and cert tls MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
-				Tls: &networking.Server_TLSOptions{
-					Mode:                  networking.Server_TLSOptions_MUTUAL,
+				Tls: &networking.ServerTLSSettings{
+					Mode:                  networking.ServerTLSSettings_MUTUAL,
 					CredentialName:        "ingress-sds-resource-name",
 					VerifyCertificateHash: []string{"fedcba"},
 				},
@@ -531,8 +531,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "no credential name key and cert tls PASSTHROUGH",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
-				Tls: &networking.Server_TLSOptions{
-					Mode:              networking.Server_TLSOptions_PASSTHROUGH,
+				Tls: &networking.ServerTLSSettings{
+					Mode:              networking.ServerTLSSettings_PASSTHROUGH,
 					ServerCertificate: "server-cert.crt",
 					PrivateKey:        "private-key.key",
 				},
@@ -596,8 +596,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 					Protocol: "HTTPS",
 				},
 				Hosts: []string{"example.org", "example.org"},
-				Tls: &networking.Server_TLSOptions{
-					Mode: networking.Server_TLSOptions_ISTIO_MUTUAL,
+				Tls: &networking.ServerTLSSettings{
+					Mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
 				},
 			},
 			routeName: "some-route",
@@ -657,8 +657,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 					Protocol: "HTTPS",
 				},
 				Hosts: []string{"example.org", "test.org"},
-				Tls: &networking.Server_TLSOptions{
-					Mode: networking.Server_TLSOptions_ISTIO_MUTUAL,
+				Tls: &networking.ServerTLSSettings{
+					Mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
 				},
 			},
 			routeName: "some-route",
@@ -718,8 +718,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 					Protocol: "HTTPS",
 				},
 				Hosts: []string{"*.example.org", "example.org"},
-				Tls: &networking.Server_TLSOptions{
-					Mode: networking.Server_TLSOptions_ISTIO_MUTUAL,
+				Tls: &networking.ServerTLSSettings{
+					Mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
 				},
 			},
 			routeName: "some-route",
