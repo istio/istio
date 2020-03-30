@@ -15,6 +15,7 @@
 package kubernetes
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -96,7 +97,7 @@ func (client *Client) nodeAgentsForPod(name, ns, istioNamespace string) ([]*v1.P
 
 	// need to retrieve more information on target pod, such as node and labels
 	podGet := client.Get().Resource("pods").Namespace(ns).Name(name)
-	obj, err := podGet.Do().Get()
+	obj, err := podGet.Do(context.TODO()).Get()
 	if err != nil {
 		log.Debugf("failed to retrieve pod information for %s.%s: %v", ns, name, err)
 		return nil, err
@@ -122,7 +123,7 @@ func (client *Client) nodeAgentsForPod(name, ns, istioNamespace string) ([]*v1.P
 		nodeAgentPodReq.Param(k, v)
 	}
 
-	res := nodeAgentPodReq.Do()
+	res := nodeAgentPodReq.Do(context.TODO())
 	if res.Error() != nil {
 		log.Debugf("failed to retrieve node agent pods: %v", err)
 		return nil, fmt.Errorf("unable to retrieve node agent pods: %v", res.Error())

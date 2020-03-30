@@ -15,6 +15,7 @@
 package manifest
 
 import (
+	context2 "context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -299,7 +300,7 @@ func createNamespace(namespace string) error {
 			"istio-injection": "disabled",
 		},
 	}}
-	_, err := cs.CoreV1().Namespaces().Create(ns)
+	_, err := cs.CoreV1().Namespaces().Create(context2.TODO(), ns, metav1.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return fmt.Errorf("failed to create namespace %v: %v", namespace, err)
 	}
@@ -547,7 +548,7 @@ func DeploymentExists(kubeconfig, context, namespace, name string) (bool, error)
 		return false, fmt.Errorf("k8s client error: %s", err)
 	}
 
-	d, err := cs.AppsV1().Deployments(namespace).Get(name, metav1.GetOptions{})
+	d, err := cs.AppsV1().Deployments(namespace).Get(context2.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		return false, err
 	}
@@ -720,7 +721,7 @@ func waitForCRDs(objects object.K8sObjects, stdout string, dryRun bool) error {
 	errPoll := wait.Poll(cRDPollInterval, cRDPollTimeout, func() (bool, error) {
 	descriptor:
 		for _, crdName := range crdNames {
-			crd, errGet := cs.ApiextensionsV1beta1().CustomResourceDefinitions().Get(crdName, metav1.GetOptions{})
+			crd, errGet := cs.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context2.TODO(), crdName, metav1.GetOptions{})
 			if errGet != nil {
 				return false, errGet
 			}
@@ -777,19 +778,19 @@ func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error
 			kind := o.GroupVersionKind().Kind
 			switch kind {
 			case "Namespace":
-				namespace, err := cs.CoreV1().Namespaces().Get(o.Name, metav1.GetOptions{})
+				namespace, err := cs.CoreV1().Namespaces().Get(context2.TODO(), o.Name, metav1.GetOptions{})
 				if err != nil {
 					return false, err
 				}
 				namespaces = append(namespaces, *namespace)
 			case "Pod":
-				pod, err := cs.CoreV1().Pods(o.Namespace).Get(o.Name, metav1.GetOptions{})
+				pod, err := cs.CoreV1().Pods(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
 				if err != nil {
 					return false, err
 				}
 				pods = append(pods, *pod)
 			case "ReplicationController":
-				rc, err := cs.CoreV1().ReplicationControllers(o.Namespace).Get(o.Name, metav1.GetOptions{})
+				rc, err := cs.CoreV1().ReplicationControllers(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
 				if err != nil {
 					return false, err
 				}
@@ -799,7 +800,7 @@ func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error
 				}
 				pods = append(pods, list...)
 			case "Deployment":
-				currentDeployment, err := cs.AppsV1().Deployments(o.Namespace).Get(o.Name, metav1.GetOptions{})
+				currentDeployment, err := cs.AppsV1().Deployments(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
 				if err != nil {
 					return false, err
 				}
@@ -813,7 +814,7 @@ func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error
 				}
 				deployments = append(deployments, newDeployment)
 			case "DaemonSet":
-				ds, err := cs.AppsV1().DaemonSets(o.Namespace).Get(o.Name, metav1.GetOptions{})
+				ds, err := cs.AppsV1().DaemonSets(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
 				if err != nil {
 					return false, err
 				}
@@ -823,7 +824,7 @@ func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error
 				}
 				pods = append(pods, list...)
 			case "StatefulSet":
-				sts, err := cs.AppsV1().StatefulSets(o.Namespace).Get(o.Name, metav1.GetOptions{})
+				sts, err := cs.AppsV1().StatefulSets(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
 				if err != nil {
 					return false, err
 				}
@@ -833,7 +834,7 @@ func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error
 				}
 				pods = append(pods, list...)
 			case "ReplicaSet":
-				rs, err := cs.AppsV1().ReplicaSets(o.Namespace).Get(o.Name, metav1.GetOptions{})
+				rs, err := cs.AppsV1().ReplicaSets(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
 				if err != nil {
 					return false, err
 				}
@@ -863,7 +864,7 @@ func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error
 }
 
 func getPods(client kubernetes.Interface, namespace string, selector map[string]string) ([]v1.Pod, error) {
-	list, err := client.CoreV1().Pods(namespace).List(metav1.ListOptions{
+	list, err := client.CoreV1().Pods(namespace).List(context2.TODO(), metav1.ListOptions{
 		FieldSelector: fields.Everything().String(),
 		LabelSelector: labels.Set(selector).AsSelector().String(),
 	})

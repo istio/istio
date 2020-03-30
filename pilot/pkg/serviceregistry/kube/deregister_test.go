@@ -38,7 +38,7 @@ func TestRemoveIPFromEndpoint(t *testing.T) {
 					{
 						[]v1.EndpointAddress{{"10.128.0.17", "", nil, nil}},
 						[]v1.EndpointAddress{{"", "", nil, nil}},
-						[]v1.EndpointPort{{"3309", 3309, "TCP"}},
+						[]v1.EndpointPort{{"3309", 3309, "TCP", nil}},
 					},
 				},
 			},
@@ -51,7 +51,7 @@ func TestRemoveIPFromEndpoint(t *testing.T) {
 					{
 						[]v1.EndpointAddress{{"10.128.0.18", "", nil, nil}},
 						[]v1.EndpointAddress{{"", "", nil, nil}},
-						[]v1.EndpointPort{{"3309", 3309, "TCP"}},
+						[]v1.EndpointPort{{"3309", 3309, "TCP", nil}},
 					},
 				},
 			},
@@ -64,7 +64,7 @@ func TestRemoveIPFromEndpoint(t *testing.T) {
 					{
 						[]v1.EndpointAddress{{"10.128.0.17", "", nil, nil}, {"10.128.0.18", "", nil, nil}, {"10.128.0.19", "", nil, nil}},
 						[]v1.EndpointAddress{{"", "", nil, nil}},
-						[]v1.EndpointPort{{"3309", 3309, "TCP"}},
+						[]v1.EndpointPort{{"3309", 3309, "TCP", nil}},
 					},
 				},
 			},
@@ -77,12 +77,12 @@ func TestRemoveIPFromEndpoint(t *testing.T) {
 					{
 						[]v1.EndpointAddress{{"10.128.0.17", "", nil, nil}, {"10.128.0.18", "", nil, nil}, {"10.128.0.19", "", nil, nil}},
 						[]v1.EndpointAddress{{"", "", nil, nil}},
-						[]v1.EndpointPort{{"3309", 3309, "TCP"}},
+						[]v1.EndpointPort{{"3309", 3309, "TCP", nil}},
 					},
 					{
 						[]v1.EndpointAddress{{"10.128.0.20", "", nil, nil}, {"10.128.0.21", "", nil, nil}, {"10.128.0.22", "", nil, nil}},
 						[]v1.EndpointAddress{{"", "", nil, nil}},
-						[]v1.EndpointPort{{"3308", 3308, "TCP"}},
+						[]v1.EndpointPort{{"3308", 3308, "TCP", nil}},
 					},
 				},
 			},
@@ -95,12 +95,12 @@ func TestRemoveIPFromEndpoint(t *testing.T) {
 					{
 						[]v1.EndpointAddress{{"10.128.0.17", "", nil, nil}, {"10.128.0.18", "", nil, nil}, {"10.128.0.19", "", nil, nil}},
 						[]v1.EndpointAddress{{"", "", nil, nil}},
-						[]v1.EndpointPort{{"3309", 3309, "TCP"}},
+						[]v1.EndpointPort{{"3309", 3309, "TCP", nil}},
 					},
 					{
 						[]v1.EndpointAddress{{"10.128.0.20", "", nil, nil}, {"10.128.0.21", "", nil, nil}, {"10.128.0.22", "", nil, nil}},
 						[]v1.EndpointAddress{{"", "", nil, nil}},
-						[]v1.EndpointPort{{"3308", 3308, "TCP"}},
+						[]v1.EndpointPort{{"3308", 3308, "TCP", nil}},
 					},
 				},
 			},

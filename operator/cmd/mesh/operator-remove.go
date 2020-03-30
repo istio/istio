@@ -77,7 +77,7 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l *Logger, delet
 		l.logAndFatal(err)
 	}
 
-	scope.Infof("Using the following manifest to remove operator:\n%s\n", mstr)
+	scope.Debugf("Using the following manifest to remove operator:\n%s\n", mstr)
 
 	opts := &kubectlcmd.Options{
 		DryRun:      args.dryRun,

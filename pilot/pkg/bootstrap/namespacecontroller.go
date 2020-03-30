@@ -15,6 +15,7 @@
 package bootstrap
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -93,7 +94,7 @@ func NewNamespaceController(data func() map[string]string, kubeClient kubernetes
 				}
 			}
 			c.queue.Push(func() error {
-				ns, err := kubeClient.CoreV1().Namespaces().Get(cm.Namespace, metav1.GetOptions{})
+				ns, err := kubeClient.CoreV1().Namespaces().Get(context.TODO(), cm.Namespace, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
