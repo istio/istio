@@ -60,7 +60,7 @@ type ExecClient interface {
 	GetIstioVersions(namespace string) (*version.MeshInfo, error)
 	PilotDiscoveryDo(pilotNamespace, method, path string, body []byte) ([]byte, error)
 	PodsForSelector(namespace, labelSelector string) (*v1.PodList, error)
-	BuildPortForwarder(podName string, ns string, localPort int, podPort int) (*PortForward, error)
+	BuildPortForwarder(podName string, ns string, localAddr string, localPort int, podPort int) (*PortForward, error)
 }
 
 // PortForward gathers port forwarding results
@@ -329,7 +329,7 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 // BuildPortForwarder sets up port forwarding.
 //
 // nolint: lll
-func (client *Client) BuildPortForwarder(podName string, ns string, localPort int, podPort int) (*PortForward, error) {
+func (client *Client) BuildPortForwarder(podName string, ns string, localAddr string, localPort int, podPort int) (*PortForward, error) {
 	var err error
 	if localPort == 0 {
 		localPort, err = availablePort()
@@ -348,7 +348,10 @@ func (client *Client) BuildPortForwarder(podName string, ns string, localPort in
 
 	stop := make(chan struct{})
 	ready := make(chan struct{})
-	fw, err := portforward.New(dialer, []string{fmt.Sprintf("%d:%d", localPort, podPort)}, stop, ready, ioutil.Discard, os.Stderr)
+	if localAddr == "" {
+		localAddr = "localhost"
+	}
+	fw, err := portforward.NewOnAddresses(dialer, []string{localAddr}, []string{fmt.Sprintf("%d:%d", localPort, podPort)}, stop, ready, ioutil.Discard, os.Stderr)
 	if err != nil {
 		return nil, fmt.Errorf("failed establishing port-forward: %v", err)
 	}
