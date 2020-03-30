@@ -90,24 +90,60 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 `,
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
-			// Warn users if they use `manifest apply` without any config args.
-			if len(maArgs.inFilenames) == 0 && len(maArgs.set) == 0 && !rootArgs.dryRun && !maArgs.skipConfirmation {
-				if !confirm("This will install the default Istio profile into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
-					cmd.Print("Cancelled.\n")
-					os.Exit(1)
-				}
-			}
-			if err := configLogs(rootArgs.logToStdErr); err != nil {
-				return fmt.Errorf("could not configure logs: %s", err)
-			}
-			if err := ApplyManifests(maArgs.set, maArgs.inFilenames, maArgs.force, rootArgs.dryRun, rootArgs.verbose,
-				maArgs.kubeConfigPath, maArgs.context, maArgs.wait, maArgs.readinessTimeout, l); err != nil {
-				return fmt.Errorf("failed to apply manifests: %v", err)
-			}
-
-			return nil
+			return runApplyCmd(cmd, rootArgs, maArgs)
 		}}
+}
+
+// InstallCmd in an alias for manifest apply.
+func InstallCmd() *cobra.Command {
+	rootArgs := &rootArgs{}
+	macArgs := &manifestApplyArgs{}
+
+	mac := &cobra.Command{
+		Use:   "install",
+		Short: "Applies an Istio manifest, installing or reconfiguring Istio on a cluster.",
+		Long:  "The install generates an Istio install manifest and applies it to a cluster.",
+		// nolint: lll
+		Example: `  # Apply a default Istio installation
+  istioctl install
+
+  # Enable grafana dashboard
+  istioctl install --set values.grafana.enabled=true
+
+  # Generate the demo profile and don't wait for confirmation
+  istioctl install --set profile=demo --skip-confirmation
+
+  # To override a setting that includes dots, escape them with a backslash (\).  Your shell may require enclosing quotes.
+  istioctl install --set "values.sidecarInjectorWebhook.injectedAnnotations.container\.apparmor\.security\.beta\.kubernetes\.io/istio-proxy=runtime/default"
+`,
+		Args: cobra.ExactArgs(0),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runApplyCmd(cmd, rootArgs, macArgs)
+		}}
+
+	addFlags(mac, rootArgs)
+	addManifestApplyFlags(mac, macArgs)
+	return mac
+}
+
+func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyArgs) error {
+	l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
+	// Warn users if they use `manifest apply` without any config args.
+	if len(maArgs.inFilenames) == 0 && len(maArgs.set) == 0 && !rootArgs.dryRun && !maArgs.skipConfirmation {
+		if !confirm("This will install the default Istio profile into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
+			cmd.Print("Cancelled.\n")
+			os.Exit(1)
+		}
+	}
+	if err := configLogs(rootArgs.logToStdErr); err != nil {
+		return fmt.Errorf("could not configure logs: %s", err)
+	}
+	if err := ApplyManifests(maArgs.set, maArgs.inFilenames, maArgs.force, rootArgs.dryRun, rootArgs.verbose,
+		maArgs.kubeConfigPath, maArgs.context, maArgs.wait, maArgs.readinessTimeout, l); err != nil {
+		return fmt.Errorf("failed to apply manifests: %v", err)
+	}
+
+	return nil
 }
 
 // ApplyManifests generates manifests from the given input files and --set flag overlays and applies them to the
