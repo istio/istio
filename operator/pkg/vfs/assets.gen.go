@@ -21018,7 +21018,7 @@ spec:
   selector:
     app: istiod
     {{- if ne .Values.revision ""}}
-    version: {{ .Values.revision }}
+    istio.io/rev: {{ .Values.revision }}
     {{- else }}
     # Label used by the 'default' service. For versioned deployments we match with app and version.
     # This avoids default deployment picking the canary
