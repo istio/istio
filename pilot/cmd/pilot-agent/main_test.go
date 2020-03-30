@@ -273,7 +273,7 @@ func Test_fromJSON(t *testing.T) {
 			args: struct{ j string }{j: val},
 			want: &meshconfig.RemoteService{
 				Address:     "oap.istio-system:11800",
-				TlsSettings: &v1alpha3.TLSSettings{},
+				TlsSettings: &v1alpha3.ClientTLSSettings{},
 				TcpKeepalive: &v1alpha3.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
 					Probes:   3,
 					Time:     &types.Duration{Seconds: 10},
