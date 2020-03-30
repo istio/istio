@@ -88,6 +88,13 @@ var (
 	// By default will be active, set to empty string to disable DNS functionality.
 	DNSAddr = env.RegisterStringVar("dnsAddr", ":15053", "DNS listen address")
 
+	// DNSAgentAddr is the listener addres on the agent.
+	// This is in the range of hardcoded address used by agent - not customizable
+	// except for tests.
+	// By default will be active, set to empty string to disable DNS functionality.
+	// Iptables interception matches this.
+	DNSAgentAddr = ":15013"
+
 	// DNSUp controls the upstream DNS.
 	DNSUp = env.RegisterStringVar("dnsUp", "istiod.istio-system.svc:853",
 		"DNS-over-TLS upstream server")

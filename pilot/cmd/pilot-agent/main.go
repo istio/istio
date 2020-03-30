@@ -300,7 +300,7 @@ var (
 			// TODO: replace hardcoded list with settings.
 			dnsSrv := dns.InitDNSAgent(dns.DNSUp.Get(), sa.RootCert,
 				[]string{".cluster.local", ".global"})
-			dnsSrv.StartDNS(dns.DNSAddr.Get(), nil)
+			dnsSrv.StartDNS(dns.DNSAgentAddr, nil)
 
 			envoyProxy := envoy.NewProxy(envoy.ProxyConfig{
 				Config:              proxyConfig,
