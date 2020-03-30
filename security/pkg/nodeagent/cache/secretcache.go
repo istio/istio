@@ -104,9 +104,9 @@ type Options struct {
 	// The initial backoff time in millisecond to avoid the thundering herd problem.
 	InitialBackoffInMilliSec int64
 
-	// secret should be refreshed before it expired, SecretRefreshGraceDuration is the grace period;
-	// secret should be refreshed if time.Now.After(secret.CreateTime + SecretTTL - SecretRefreshGraceDuration)
-	SecretRefreshGraceDuration time.Duration
+	// secret should be rotated if:
+	// time.Now.After(<secret ExpireTime> - <secret TTL> * SecretRotationGracePeriodRatio)
+	SecretRotationGracePeriodRatio float64
 
 	// Key rotation job running interval.
 	RotationInterval time.Duration
@@ -121,10 +121,10 @@ type Options struct {
 	// authentication provider specific plugins.
 	Plugins []plugin.Plugin
 
-	// set this flag to true for if token used is always valid(ex, normal k8s JWT)
+	// Set this flag to true for if token used is always valid(ex, normal k8s JWT)
 	AlwaysValidTokenFlag bool
 
-	// set this flag to true if skip validate format for certificate chain returned from CA.
+	// Set this flag to true if skip validate format for certificate chain returned from CA.
 	SkipValidateCert bool
 
 	// Whether to generate PKCS#8 private keys.
@@ -319,8 +319,8 @@ func (sc *SecretCache) SecretExist(connectionID, resourceName, token, version st
 		return false
 	}
 
-	e := val.(model.SecretItem)
-	return e.ResourceName == resourceName && e.Token == token && e.Version == version
+	secret := val.(model.SecretItem)
+	return secret.ResourceName == resourceName && secret.Token == token && secret.Version == version
 }
 
 // ShouldWaitForIngressGatewaySecret returns true if node agent is working in ingress gateway agent mode
@@ -401,7 +401,7 @@ func (sc *SecretCache) Close() {
 }
 
 func (sc *SecretCache) keyCertRotationJob() {
-	// Wake up once in a while and refresh stale items.
+	// Wake up once in a while and rotate keys and certificates if in grace period.
 	sc.rotationTicker = time.NewTicker(sc.configOptions.RotationInterval)
 	for {
 		select {
@@ -488,8 +488,8 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 
 	secretMap.Range(func(k interface{}, v interface{}) bool {
 		key := k.(ConnKey)
-		e := v.(*model.SecretItem)
-		sc.secrets.Store(key, *e)
+		secret := v.(*model.SecretItem)
+		sc.secrets.Store(key, *secret)
 		return true
 	})
 }
@@ -500,30 +500,31 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 		return
 	}
 
-	cacheLog.Debug("Refresh job running")
+	cacheLog.Debug("Rotation job running")
 
 	var secretMap sync.Map
 	wg := sync.WaitGroup{}
 	sc.secrets.Range(func(k interface{}, v interface{}) bool {
 		connKey := k.(ConnKey)
-		e := v.(model.SecretItem)
+		secret := v.(model.SecretItem)
 		conIDresourceNamePrefix := cacheLogPrefix(connKey.ConnectionID, connKey.ResourceName)
+		logPrefix := cacheLogPrefix(connKey.ResourceName)
 
-		// only refresh root cert if updateRootFlag is set to true.
+		// only rotate root cert if updateRootFlag is set to true.
 		if updateRootFlag {
 			if connKey.ResourceName != RootCertReqResourceName {
 				return true
 			}
 
 			atomic.AddUint64(&sc.rootCertChangedCount, 1)
-			t := time.Now()
+			now := time.Now()
 			ns := &model.SecretItem{
 				ResourceName: connKey.ResourceName,
 				RootCert:     sc.rootCert,
 				ExpireTime:   sc.rootCertExpireTime,
-				Token:        e.Token,
-				CreatedTime:  t,
-				Version:      t.String(),
+				Token:        secret.Token,
+				CreatedTime:  now,
+				Version:      now.String(),
 			}
 			secretMap.Store(connKey, ns)
 			cacheLog.Debugf("%s secret cache is updated", conIDresourceNamePrefix)
@@ -539,14 +540,14 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 
 		now := time.Now()
 
-		// Remove stale secrets from cache, this prevent the cache growing indefinitely.
-		if sc.configOptions.EvictionDuration != 0 && now.After(e.CreatedTime.Add(sc.configOptions.EvictionDuration)) {
+		// Remove stale secrets from cache, this prevents the cache growing indefinitely.
+		if sc.configOptions.EvictionDuration != 0 && now.After(secret.CreatedTime.Add(sc.configOptions.EvictionDuration)) {
 			sc.secrets.Delete(connKey)
 			return true
 		}
 
 		// Re-generate secret if it's expired.
-		if sc.shouldRefresh(&e) {
+		if sc.shouldRotate(&secret) {
 			atomic.AddUint64(&sc.secretChangedCount, 1)
 
 			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
@@ -565,7 +566,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 				// If token is still valid, re-generated the secret and push change to proxy.
 				// Most likey this code path may not necessary, since TTL of cert is much longer than token.
 				// When cert has expired, we could make it simple by assuming token has already expired.
-				ns, err := sc.generateSecret(context.Background(), e.Token, connKey, now)
+				ns, err := sc.generateSecret(context.Background(), secret.Token, connKey, now)
 				if err != nil {
 					cacheLog.Errorf("%s failed to rotate secret: %v", conIDresourceNamePrefix, err)
 					return
@@ -585,14 +586,14 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 
 	secretMap.Range(func(k interface{}, v interface{}) bool {
 		key := k.(ConnKey)
-		e := v.(*model.SecretItem)
-		sc.secrets.Store(key, *e)
+		secret := v.(*model.SecretItem)
+		sc.secrets.Store(key, *secret)
 		return true
 	})
 }
 
 // generateGatewaySecret returns secret for ingress gateway proxy.
-func (sc *SecretCache) generateGatewaySecret(token string, connKey ConnKey, t time.Time) (*model.SecretItem, error) {
+func (sc *SecretCache) generateGatewaySecret(token string, connKey ConnKey, now time.Time) (*model.SecretItem, error) {
 	secretItem, exist := sc.fetcher.FindIngressGatewaySecret(connKey.ResourceName)
 	if !exist {
 		return nil, fmt.Errorf("cannot find secret for ingress gateway SDS request %+v", connKey)
@@ -604,8 +605,8 @@ func (sc *SecretCache) generateGatewaySecret(token string, connKey ConnKey, t ti
 			RootCert:     secretItem.RootCert,
 			ExpireTime:   secretItem.ExpireTime,
 			Token:        token,
-			CreatedTime:  t,
-			Version:      t.String(),
+			CreatedTime:  now,
+			Version:      now.String(),
 		}, nil
 	}
 	return &model.SecretItem{
@@ -614,8 +615,8 @@ func (sc *SecretCache) generateGatewaySecret(token string, connKey ConnKey, t ti
 		PrivateKey:       secretItem.PrivateKey,
 		ResourceName:     connKey.ResourceName,
 		Token:            token,
-		CreatedTime:      t,
-		Version:          t.String(),
+		CreatedTime:      now,
+		Version:          now.String(),
 	}, nil
 }
 
@@ -652,7 +653,7 @@ func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token stri
 		return nil, err
 	}
 
-	t := time.Now()
+	now := time.Now()
 	var certExpireTime time.Time
 	if certExpireTime, err = nodeagentutil.ParseCertAndGetExpiryTimestamp(rootCert); err != nil {
 		cacheLog.Errorf("failed to extract expiration time in the root certificate loaded from file: %v", err)
@@ -669,8 +670,8 @@ func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token stri
 		RootCert:     rootCert,
 		ExpireTime:   certExpireTime,
 		Token:        token,
-		CreatedTime:  t,
-		Version:      t.String(),
+		CreatedTime:  now,
+		Version:      now.String(),
 	}, nil
 }
 
@@ -686,7 +687,7 @@ func (sc *SecretCache) generateKeyCertFromExistingFiles(certChainPath, keyPath, 
 		return nil, err
 	}
 
-	t := time.Now()
+	now := time.Now()
 	var certExpireTime time.Time
 	if certExpireTime, err = nodeagentutil.ParseCertAndGetExpiryTimestamp(certChain); err != nil {
 		cacheLog.Errorf("failed to extract expiration time in the certificate loaded from file: %v", err)
@@ -698,9 +699,9 @@ func (sc *SecretCache) generateKeyCertFromExistingFiles(certChainPath, keyPath, 
 		PrivateKey:       keyPEM,
 		ResourceName:     connKey.ResourceName,
 		Token:            token,
-		CreatedTime:      t,
+		CreatedTime:      now,
 		ExpireTime:       certExpireTime,
-		Version:          t.String(),
+		Version:          now.String(),
 	}, nil
 }
 
@@ -763,8 +764,9 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	}
 
 	// Cert expire time by default is createTime + sc.configOptions.SecretTTL.
-	// Citadel respects SecretTTL that passed to it and use it decide TTL of cert it issued.
+	// Istiod respects SecretTTL that passed to it and use it decide TTL of cert it issued.
 	// Some customer CA may override TTL param that's passed to it.
+	// TODO: SkipValidateCert option is only used in tests. We should improve tests and remove it.
 	expireTime := t.Add(sc.configOptions.SecretTTL)
 	if !sc.configOptions.SkipValidateCert {
 		if expireTime, err = nodeagentutil.ParseCertAndGetExpiryTimestamp(certChain); err != nil {
@@ -806,9 +808,11 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	}, nil
 }
 
-func (sc *SecretCache) shouldRefresh(s *model.SecretItem) bool {
-	// secret should be refreshed before it expired, SecretRefreshGraceDuration is the grace period;
-	return time.Now().After(s.ExpireTime.Add(-sc.configOptions.SecretRefreshGraceDuration))
+func (sc *SecretCache) shouldRotate(secret *model.SecretItem) bool {
+	// secret should be rotated before it expired.
+	secretLifeTime := secret.ExpireTime.Sub(secret.CreatedTime)
+	gracePeriod := secretLifeTime * time.Duration(sc.configOptions.SecretRotationGracePeriodRatio)
+	return time.Now().After(secret.ExpireTime.Add(-gracePeriod))
 }
 
 func (sc *SecretCache) isTokenExpired() bool {
