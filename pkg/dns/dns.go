@@ -75,11 +75,12 @@ type IstioDNS struct {
 	tlsClient   *dns.Client
 	tlsUpstream string
 
-	// m protects pending, conn and outId
+	// m protects pending, conn and outID
 	m            sync.Mutex
 	pending      map[uint16]chan *dns.Msg
 	conn         *dns.Conn
-	outId        uint16
+	// outID is used to match requests to responses in the DNS-TCP.
+	outID        uint16
 	dnsTLSSuffix []string
 }
 
@@ -88,7 +89,7 @@ var (
 	// By default will be active, set to empty string to disable DNS functionality.
 	DNSAddr = env.RegisterStringVar("dnsAddr", ":15053", "DNS listen address")
 
-	// DNSAgentAddr is the listener addres on the agent.
+	// DNSAgentAddr is the listener address on the agent.
 	// This is in the range of hardcoded address used by agent - not customizable
 	// except for tests.
 	// By default will be active, set to empty string to disable DNS functionality.
@@ -188,7 +189,12 @@ func (h *IstioDNS) StartDNS(udpAddr string, tlsListener net.Listener) {
 		}
 		h.tlsServer.Listener = tlsListener
 		log.Infoa("Started DNS-TLS", tlsListener.Addr())
-		go h.tlsServer.ActivateAndServe()
+		go func() {
+			err := h.tlsServer.ActivateAndServe()
+			if err != nil {
+				log.Errora("Failed to activate DNS-TLS ", err)
+			}
+		}()
 
 	}
 	// UDP
@@ -199,7 +205,12 @@ func (h *IstioDNS) StartDNS(udpAddr string, tlsListener net.Listener) {
 	}
 
 	log.Infoa("Started DNS", udpAddr)
-	go h.server.ActivateAndServe()
+	go func() {
+		err := h.server.ActivateAndServe()
+		if err != nil {
+			log.Errora("Failed to activate DNS-UDP ", err)
+		}
+	}()
 }
 
 // ServerDNS is the implementation of DNS interface
@@ -210,16 +221,16 @@ func (h *IstioDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	var err error
 	var response *dns.Msg
 
-	useTls := false
+	useTLS := false
 	if len(h.dnsTLSSuffix) > 0 {
 		for _, q := range r.Question {
 			for _, s := range h.dnsTLSSuffix {
 				if strings.HasSuffix(q.Name, s) {
-					useTls = true
+					useTLS = true
 					break
 				}
 			}
-			if useTls {
+			if useTLS {
 				break
 			}
 		}
@@ -228,7 +239,7 @@ func (h *IstioDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	// Nothing found - forward to upstream DNS.
 	// TODO: this is NOT secured - pilot to k8s will need to use TLS or run a local coredns
 	// replica, using k8s plugin ( so this is over localhost )
-	if !useTls || h.tlsClient == nil {
+	if !useTLS || h.tlsClient == nil {
 		response, _, err = h.client.Exchange(r, h.resolvConfServers[0])
 		if err != nil {
 			log.Debuga("DNS error ", r, err)
@@ -263,21 +274,21 @@ func (h *IstioDNS) ServeDNSTLS(w dns.ResponseWriter, r *dns.Msg) {
 	//connection pool, which is also not optimal. The RFC recommends pipelining.
 
 	// By using this code, the latency is around 800us - with ~400 us in istiod
-	origId := r.MsgHdr.Id
+	origID := r.MsgHdr.Id
 	var key uint16
 	ch := make(chan *dns.Msg)
 	h.m.Lock()
-	h.outId++
-	key = h.outId
-	r.MsgHdr.Id = h.outId
-	h.pending[h.outId] = ch
-	//pendingTLS.Increment()
+	h.outID++
+	key = h.outID
+	r.MsgHdr.Id = h.outID
+	h.pending[h.outID] = ch
+	pendingTLS.Increment()
 	h.m.Unlock()
 
 	defer func() {
 		h.m.Lock()
 		delete(h.pending, key)
-		//pendingTLS.Decrement()
+		pendingTLS.Decrement()
 		h.m.Unlock()
 	}()
 
@@ -288,13 +299,13 @@ func (h *IstioDNS) ServeDNSTLS(w dns.ResponseWriter, r *dns.Msg) {
 		log.Infoa("DNS timeout, no TLS connection")
 		response = new(dns.Msg)
 		response.SetRcode(r, dns.RcodeServerFailure)
-		w.WriteMsg(response)
+		_ = w.WriteMsg(response)
 		return
 	}
 
 	// TODO: optimize - when close restart immediately the connect, maybe
 	// keep 2-3 connections open ?
-	//dnsTLS.Increment()
+	dnsTLS.Increment()
 	err := currentConn.WriteMsg(r)
 	if err != nil {
 		return
@@ -303,9 +314,9 @@ func (h *IstioDNS) ServeDNSTLS(w dns.ResponseWriter, r *dns.Msg) {
 	to := time.After(2 * time.Second)
 	select {
 	case m := <-ch:
-		m.MsgHdr.Id = origId
+		m.MsgHdr.Id = origID
 		response = m
-		w.WriteMsg(m)
+		_ = w.WriteMsg(m)
 	case <-to:
 		return
 	}
