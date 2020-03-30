@@ -287,7 +287,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		if s.DNSListener != nil {
 			dnsSvc := dns.InitDNS()
-			go dnsSvc.StartDNS(s.DNSListener)
+			dnsSvc.StartDNS(dns.DNSAddr.Get(), s.DNSListener)
 		}
 		return nil
 	})

@@ -293,9 +293,14 @@ var (
 			}
 
 			// Start a local DNS server on 15053, forwarding to DNS-over-TLS server
-			// This will not have any impact on app unless interception is enabled
-			dnsSrv := dns.InitDNS()
-			dnsSrv.StartDNS(nil)
+			// This will not have any impact on app unless interception is enabled.
+			// We can't start on 53 - istio-agent runs as user istio-proxy.
+			// This is available to apps even if interception is not enabled.
+
+			// TODO: replace hardcoded list with settings.
+			dnsSrv := dns.InitDNSAgent(dns.DNSUp.Get(), sa.RootCert,
+				[]string{".cluster.local", ".global"})
+			dnsSrv.StartDNS(dns.DNSAddr.Get(), nil)
 
 			envoyProxy := envoy.NewProxy(envoy.ProxyConfig{
 				Config:              proxyConfig,
