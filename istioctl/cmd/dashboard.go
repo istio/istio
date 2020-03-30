@@ -30,6 +30,7 @@ import (
 )
 
 var (
+	listenPort   = 0
 	controlZport = 0
 
 	// label selector
@@ -300,7 +301,7 @@ func controlZDashCmd() *cobra.Command {
 // portForward first tries to forward localhost:remotePort to podName:remotePort, falls back to dynamic local port
 func portForward(podName, namespace, flavor, url string, remotePort int, client kubernetes.ExecClient, writer io.Writer) error {
 	var err error
-	for _, localPort := range []int{remotePort, 0} {
+	for _, localPort := range []int{listenPort, remotePort} {
 		fw, err := client.BuildPortForwarder(podName, namespace, localPort, remotePort)
 		if err != nil {
 			return fmt.Errorf("could not build port forwarder for %s: %v", flavor, err)
@@ -354,6 +355,8 @@ func dashboard() *cobra.Command {
 			return nil
 		},
 	}
+
+	dashboardCmd.PersistentFlags().IntVarP(&listenPort, "port", "p", 0, "Local port to listen to")
 
 	dashboardCmd.AddCommand(kialiDashCmd())
 	dashboardCmd.AddCommand(promDashCmd())
