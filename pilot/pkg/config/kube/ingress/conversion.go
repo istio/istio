@@ -82,9 +82,9 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.
 				Name:     fmt.Sprintf("https-443-ingress-%s-%s-%d", ingress.Name, ingress.Namespace, i),
 			},
 			Hosts: tls.Hosts,
-			Tls: &networking.Server_TLSOptions{
+			Tls: &networking.ServerTLSSettings{
 				HttpsRedirect:  false,
-				Mode:           networking.Server_TLSOptions_SIMPLE,
+				Mode:           networking.ServerTLSSettings_SIMPLE,
 				CredentialName: tls.SecretName,
 			},
 		})
