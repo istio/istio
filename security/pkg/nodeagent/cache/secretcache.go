@@ -508,7 +508,6 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 		connKey := k.(ConnKey)
 		secret := v.(model.SecretItem)
 		conIDresourceNamePrefix := cacheLogPrefix(connKey.ConnectionID, connKey.ResourceName)
-		logPrefix := cacheLogPrefix(connKey.ResourceName)
 
 		// only rotate root cert if updateRootFlag is set to true.
 		if updateRootFlag {
