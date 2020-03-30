@@ -328,9 +328,6 @@ func TestIngressClass(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		//if i != 11 {
-		//	continue
-		//}
 		className := ""
 		if c.ingressClass != nil {
 			className = c.ingressClass.Name
