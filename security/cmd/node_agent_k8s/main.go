@@ -100,11 +100,11 @@ const (
 	secretTTL     = "SECRET_TTL"
 	secretTTLFlag = "secretTtl"
 
-	// The environmental variable name for grace duration that secret is re-generated
-	// before it's expired time.
-	// example value format like "10m"
-	SecretRefreshGraceDuration     = "SECRET_GRACE_DURATION"
-	secretRefreshGraceDurationFlag = "secretRefreshGraceDuration"
+	// The environmental variable name for grace period ratio that secret is re-generated before
+	// its expiration.
+	// Example value format like "0.5"
+	secretRotationGracePeriodRatio     = "SECRET_GRACE_PERIOD_RATIO"
+	secretRotationGracePeriodRatioFlag = "secretGracePeriodRatio"
 
 	// The environmental variable name for key rotation job running interval.
 	// example value format like "20m"
@@ -247,9 +247,9 @@ var (
 	vaultSignCsrPathEnv                = env.RegisterStringVar(vaultSignCsrPath, "", "").Get()
 	vaultTLSRootCertEnv                = env.RegisterStringVar(vaultTLSRootCert, "", "").Get()
 	secretTTLEnv                       = env.RegisterDurationVar(secretTTL, 24*time.Hour, "").Get()
-	secretRefreshGraceDurationEnv      = env.RegisterDurationVar(SecretRefreshGraceDuration, 12*time.Hour, "").Get()
 	secretRotationIntervalEnv          = env.RegisterDurationVar(SecretRotationInterval, 10*time.Minute, "").Get()
 	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar(staledConnectionRecycleInterval, 5*time.Minute, "").Get()
+	secretRotationGracePeriodRatioEnv  = env.RegisterFloatVar(secretRotationGracePeriodRatio, 0.5, "").Get()
 	initialBackoffInMilliSecEnv        = env.RegisterIntVar(InitialBackoffInMilliSec, 2000, "").Get()
 	monitoringPortEnv                  = env.RegisterIntVar(MonitoringPort, 15014,
 		"The port number for monitoring Citadel agent").Get()
@@ -313,8 +313,8 @@ func applyEnvVars(cmd *cobra.Command) {
 		workloadSdsCacheOptions.SecretTTL = secretTTLEnv
 	}
 
-	if !cmd.Flag(secretRefreshGraceDurationFlag).Changed {
-		workloadSdsCacheOptions.SecretRefreshGraceDuration = secretRefreshGraceDurationEnv
+	if !cmd.Flag(secretRotationGracePeriodRatioFlag).Changed {
+		workloadSdsCacheOptions.SecretRotationGracePeriodRatio = secretRotationGracePeriodRatioEnv
 	}
 
 	if !cmd.Flag(secretRotationIntervalFlag).Changed {
@@ -385,8 +385,8 @@ func main() {
 
 	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.SecretTTL, secretTTLFlag,
 		24*time.Hour, "Secret's TTL")
-	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.SecretRefreshGraceDuration, secretRefreshGraceDurationFlag,
-		time.Hour, "Secret's Refresh Grace Duration")
+	rootCmd.PersistentFlags().Float64Var(&workloadSdsCacheOptions.SecretRotationGracePeriodRatio, secretRotationGracePeriodRatioFlag,
+		0.5, "Secret's rotation grace period ratio")
 	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.RotationInterval, secretRotationIntervalFlag,
 		10*time.Minute, "Secret rotation job running interval")
 
