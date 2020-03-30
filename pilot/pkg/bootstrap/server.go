@@ -621,10 +621,10 @@ func (s *Server) initEventHandlers() error {
 	// Flush cached discovery responses whenever services configuration change.
 	serviceHandler := func(svc *model.Service, _ model.Event) {
 		pushReq := &model.PushRequest{
-			Full:               true,
-			NamespacesUpdated:  map[string]struct{}{svc.Attributes.Namespace: {}},
-			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
-			Reason:             []model.TriggerReason{model.ServiceUpdate},
+			Full:              true,
+			NamespacesUpdated: map[string]struct{}{svc.Attributes.Namespace: {}},
+			ConfigsUpdated:    map[resource.GroupVersionKind]map[string]struct{}{model.ServiceEntryKind: {}},
+			Reason:            []model.TriggerReason{model.ServiceUpdate},
 		}
 		s.EnvoyXdsServer.ConfigUpdate(pushReq)
 	}
@@ -640,8 +640,8 @@ func (s *Server) initEventHandlers() error {
 			Full:              true,
 			NamespacesUpdated: map[string]struct{}{si.Service.Attributes.Namespace: {}},
 			// TODO: extend and set service instance type, so no need re-init push context
-			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
-			Reason:             []model.TriggerReason{model.ServiceUpdate},
+			ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{model.ServiceEntryKind: {}},
+			Reason:         []model.TriggerReason{model.ServiceUpdate},
 		})
 	}
 	if err := s.ServiceController().AppendInstanceHandler(instanceHandler); err != nil {
@@ -654,9 +654,9 @@ func (s *Server) initEventHandlers() error {
 		// (especially mixerclient HTTP and quota)
 		configHandler := func(old, curr model.Config, _ model.Event) {
 			pushReq := &model.PushRequest{
-				Full:               true,
-				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{curr.GroupVersionKind(): {}},
-				Reason:             []model.TriggerReason{model.ConfigUpdate},
+				Full:           true,
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{curr.GroupVersionKind(): {}},
+				Reason:         []model.TriggerReason{model.ConfigUpdate},
 			}
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
 		}
