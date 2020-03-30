@@ -16,11 +16,14 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
+
+	"istio.io/istio/pkg/kube"
 
 	"github.com/spf13/cobra"
 
@@ -40,7 +43,6 @@ import (
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/security/authz/converter"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/kube"
 )
 
 var (
@@ -160,7 +162,7 @@ PLEASE ALWAYS REVIEW THE CONVERTED POLICIES BEFORE APPLYING.
 			var namespaceToServiceToSelector map[string]converter.ServiceToWorkloadLabels
 			namespaceToServiceToSelector, err = getNamespaceToServiceToSelector(serviceFiles, authorizationPolicies.ListV1alpha1Namespaces())
 			if err != nil {
-				return fmt.Errorf("failed to get the k8s service definitions: %v", err)
+				return fmt.Errorf("failed to get the Kubernetes service definitions: %v", err)
 			}
 
 			out, err := converter.Convert(authorizationPolicies, namespaceToServiceToSelector, allowNoClusterRbacConfig)
@@ -295,10 +297,6 @@ func getAuthorizationPoliciesFromCluster() (*model.AuthorizationPolicies, error)
 }
 
 func getNamespaceToServiceToSelector(files, namespaces []string) (map[string]converter.ServiceToWorkloadLabels, error) {
-	k8sClient, err := kube.CreateClientset("", "")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create the Kubernetes client: %v", err)
-	}
 	var services []v1.Service
 	if len(files) != 0 {
 		for _, filename := range files {
@@ -321,8 +319,12 @@ func getNamespaceToServiceToSelector(files, namespaces []string) (map[string]con
 			}
 		}
 	} else {
+		k8sClient, err := kube.CreateClientset("", "")
+		if err != nil {
+			return nil, fmt.Errorf("failed to create the Kubernetes client: %v", err)
+		}
 		for _, ns := range namespaces {
-			rets, err := k8sClient.CoreV1().Services(ns).List(metav1.ListOptions{})
+			rets, err := k8sClient.CoreV1().Services(ns).List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
 				return nil, err
 			}

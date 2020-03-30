@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"regexp"
@@ -91,7 +92,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			if err != nil {
 				return err
 			}
-			pod, err := client.CoreV1().Pods(ns).Get(podName, metav1.GetOptions{})
+			pod, err := client.CoreV1().Pods(ns).Get(context.TODO(), podName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -102,7 +103,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 
 			printPod(writer, pod)
 
-			svcs, err := client.CoreV1().Services(ns).List(metav1.ListOptions{})
+			svcs, err := client.CoreV1().Services(ns).List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
 				return err
 			}
@@ -989,7 +990,7 @@ func getIstioVirtualServicePathForSvcFromListener(cd *configdump.Wrapper, svc v1
 
 func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabels []k8s_labels.Set, kubeClient kubernetes.Interface, configClient model.ConfigStore, execClient istioctl_kubernetes.ExecClient) error { // nolint: lll
 
-	pods, err := kubeClient.CoreV1().Pods(istioNamespace).List(metav1.ListOptions{
+	pods, err := kubeClient.CoreV1().Pods(istioNamespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: "istio=ingressgateway",
 		FieldSelector: "status.phase=Running",
 	})
@@ -1003,7 +1004,7 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabel
 	pod := pods.Items[0]
 
 	// Currently no support for non-standard gateways selecting non ingressgateway pods
-	ingressSvcs, err := kubeClient.CoreV1().Services(istioNamespace).List(metav1.ListOptions{
+	ingressSvcs, err := kubeClient.CoreV1().Services(istioNamespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: "istio=ingressgateway",
 	})
 	if err != nil {
@@ -1142,14 +1143,14 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			if err != nil {
 				return err
 			}
-			svc, err := client.CoreV1().Services(ns).Get(svcName, metav1.GetOptions{})
+			svc, err := client.CoreV1().Services(ns).Get(context.TODO(), svcName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
 
 			writer := cmd.OutOrStdout()
 
-			pods, err := client.CoreV1().Pods(ns).List(metav1.ListOptions{})
+			pods, err := client.CoreV1().Pods(ns).List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
 				return err
 			}
