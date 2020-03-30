@@ -225,7 +225,7 @@ kind: Ingress
 metadata:
   name: ingress
 spec:
-  ingressClass: istio-test
+  ingressClassName: istio-test
   tls:
   - hosts: ["foo.example.com"]
     secretName: k8s-ingress-secret-foo
