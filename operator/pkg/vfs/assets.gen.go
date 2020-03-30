@@ -13733,41 +13733,6 @@ spec:
 
 ---
 # Source: base/templates/clusterrole.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-pilot-istio-system
-  labels:
-    app: pilot
-    release: istio-base
-rules:
-- apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
-  verbs: ["get", "watch", "list"]
-  resources: ["*"]
-- apiGroups: ["apiextensions.k8s.io"]
-  resources: ["customresourcedefinitions"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["networking.k8s.io"]
-  resources: ["ingresses"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["networking.k8s.io"]
-  resources: ["ingresses/status"]
-  verbs: ["*"]
-  # TODO: remove, too broad permission, should be namespace only
-- apiGroups: [""]
-  resources: ["configmaps"]
-  # Create and update needed for ingress election
-  verbs: ["get", "list", "watch", "create", "update"]
-- apiGroups: [""]
-  resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["create", "get", "watch", "list", "update", "delete"]
-- apiGroups: ["discovery.k8s.io"]
-  resources: ["endpointslices"]
-  verbs: ["get", "list", "watch"]
----
 # Dedicated cluster role - istiod will use fewer dangerous permissions ( secret access in particular ).
 # TODO: separate cluster role with the minimal set of permissions needed for a 'tenant' Istiod
 apiVersion: rbac.authorization.k8s.io/v1
@@ -13906,22 +13871,6 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-pilot-istio-system
-  labels:
-    app: pilot
-    release: istio-base
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-pilot-istio-system
-subjects:
-  - kind: ServiceAccount
-    name: istio-pilot-service-account
-    namespace: istio-system
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
   name: istiod-pilot-istio-system
   labels:
     app: pilot
@@ -14033,54 +13982,7 @@ func chartsBaseKustomizationYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsBaseTemplatesClusterroleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-pilot-{{ .Values.global.istioNamespace }}
-  labels:
-    app: pilot
-    release: {{ .Release.Name }}
-rules:
-- apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
-{{- if .Values.global.istiod.enableAnalysis }}
-  verbs: ["get", "watch", "list", "update"]
-{{- else }}
-  verbs: ["get", "watch", "list"]
-{{- end }}
-  resources: ["*"]
-{{- if .Values.global.istiod.enableAnalysis }}
-  - apiGroups: ["extensions", "networking.k8s.io"]
-    resources: ["ingresses"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["extensions", "networking.k8s.io"]
-    resources: ["ingresses/status"]
-    verbs: ["*"]
-{{- end}}
-- apiGroups: ["apiextensions.k8s.io"]
-  resources: ["customresourcedefinitions"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["networking.k8s.io"]
-  resources: ["ingresses"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["networking.k8s.io"]
-  resources: ["ingresses/status"]
-  verbs: ["*"]
-  # TODO: remove, too broad permission, should be namespace only
-- apiGroups: [""]
-  resources: ["configmaps"]
-  # Create and update needed for ingress election
-  verbs: ["get", "list", "watch", "create", "update"]
-- apiGroups: [""]
-  resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["create", "get", "watch", "list", "update", "delete"]
-- apiGroups: ["discovery.k8s.io"]
-  resources: ["endpointslices"]
-  verbs: ["get", "list", "watch"]
----
-# Dedicated cluster role - istiod will use fewer dangerous permissions ( secret access in particular ).
+var _chartsBaseTemplatesClusterroleYaml = []byte(`# Dedicated cluster role - istiod will use fewer dangerous permissions ( secret access in particular ).
 # TODO: separate cluster role with the minimal set of permissions needed for a 'tenant' Istiod
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -14108,7 +14010,6 @@ rules:
 
   # istio configuration
   - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
-
 {{- if .Values.global.istiod.enableAnalysis }}
     verbs: ["get", "watch", "list", "update"]
 {{- else }}
@@ -14240,22 +14141,6 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: istio-reader-service-account
-    namespace: {{ .Values.global.istioNamespace }}
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-pilot-{{ .Values.global.istioNamespace }}
-  labels:
-    app: pilot
-    release: {{ .Release.Name }}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-pilot-{{ .Values.global.istioNamespace }}
-subjects:
-  - kind: ServiceAccount
-    name: istio-pilot-service-account
     namespace: {{ .Values.global.istioNamespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
