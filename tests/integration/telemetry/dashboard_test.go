@@ -59,6 +59,8 @@ var (
 				"pilot_xds_eds_instances",
 				"_timeout",
 				"_rejects",
+				// We do not simulate injection errors
+				"sidecar_injection_failure_total",
 				// In default install, we have no proxy
 				"istio-proxy",
 				// cAdvisor does not expose this metrics, and we don't have kubelet in kind
