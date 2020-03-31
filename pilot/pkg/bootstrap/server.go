@@ -279,9 +279,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	if dns.DNSAddr.Get() != "" {
 		if err := s.initDNSTLSListener(dns.DNSAddr.Get()); err != nil {
-			// TODO: will be made an error before launching. Tests are currently
-			// failing since TLS is not initialized in some configs.
-			log.Warna("Failed to start DNS-over-TLS listener", err)
+			log.Warna("Failed to start DNS-over-TLS listener ", err)
 		}
 
 		// Respond to CoreDNS gRPC queries.

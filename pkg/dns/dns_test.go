@@ -69,7 +69,7 @@ func initDNS() error {
 	}
 	istiodDNS.StartDNS(istiodDNSAddr, tls.NewListener(l, cfg))
 
-	agentDNS := InitDNSAgent(istiodDNSAddr, rootCertBytes, []string{".com"})
+	agentDNS := InitDNSAgent(istiodDNSAddr, "", rootCertBytes, []string{".com."})
 	agentDNS.StartDNS(agentDNSAddr, nil)
 	return nil
 }

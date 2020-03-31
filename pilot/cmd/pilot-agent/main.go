@@ -192,6 +192,8 @@ var (
 				log.Infof("Effective config: %s", out)
 			}
 
+			// If not set, set a default based on platform - podNamespace.svc.cluster.local for
+			// K8S
 			role.DNSDomain = getDNSDomain(podNamespace, role.DNSDomain)
 			log.Infof("Proxy role: %#v", role)
 
@@ -297,10 +299,18 @@ var (
 			// We can't start on 53 - istio-agent runs as user istio-proxy.
 			// This is available to apps even if interception is not enabled.
 
-			// TODO: replace hardcoded list with settings.
-			dnsSrv := dns.InitDNSAgent(dns.DNSUp.Get(), sa.RootCert,
-				[]string{".cluster.local", ".global"})
-			dnsSrv.StartDNS(dns.DNSAgentAddr, nil)
+			// TODO: replace hardcoded .global. Right now the ingress templates are
+			// hardcoding it as well, so there is little benefit to do it only here.
+			if dns.DNSTLSEnableAgent.Get() {
+				// In the injection template the only place where global.proxy.clusterDomain
+				// is made available is in the --domain param.
+				// Instead of introducing a new config, use that.
+
+				dnsSrv := dns.InitDNSAgent(proxyConfig.DiscoveryAddress,
+					role.DNSDomain, sa.RootCert,
+					[]string{".global."})
+				dnsSrv.StartDNS(dns.DNSAgentAddr, nil)
+			}
 
 			envoyProxy := envoy.NewProxy(envoy.ProxyConfig{
 				Config:              proxyConfig,

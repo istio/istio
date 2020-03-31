@@ -87,7 +87,7 @@ type IstioDNS struct {
 var (
 	// DNSAddr is the env controlling the DNS-over-TLS server.
 	// By default will be active, set to empty string to disable DNS functionality.
-	DNSAddr = env.RegisterStringVar("dnsAddr", ":15053", "DNS listen address")
+	DNSAddr = env.RegisterStringVar("DNS_ADDR", ":15053", "DNS listen address")
 
 	// DNSAgentAddr is the listener address on the agent.
 	// This is in the range of hardcoded address used by agent - not customizable
@@ -96,13 +96,10 @@ var (
 	// Iptables interception matches this.
 	DNSAgentAddr = ":15013"
 
-	// DNSUp controls the upstream DNS.
-	DNSUp = env.RegisterStringVar("dnsUp", "istiod.istio-system.svc:853",
-		"DNS-over-TLS upstream server")
-
-	// DNSTLS controls the upstream DNS-over-TLS upstream server.
-	DNSTLS = env.RegisterStringVar("DNS_TLS", "istiod.istio-system.svc:853",
-		"DNS-over-TLS upstream server")
+	// DNSTLSEnableAgent activates the DNS-over-TLS in istio-agent.
+	// This will just attempt to connect to Istiod and start the DNS server on the default port -
+	// DNS_CAPTURE controls capturing port 53.
+	DNSTLSEnableAgent = env.RegisterBoolVar("DNS_TLS", true, "DNS-over-TLS upstream server")
 
 	pendingTLS = monitoring.NewGauge(
 		"dns_tls_pending",
@@ -143,8 +140,22 @@ func InitDNS() *IstioDNS {
 
 // InitDNS will create the IstioDNS and initialize the client side:
 // - /etc/resolv.conf will be parsed, and nameservers added to resolvConf list
-// -
-func InitDNSAgent(dnsTLSServer string, cert []byte, suffixes []string) *IstioDNS {
+// - discoveryAddress is the XDS server address.
+// - domain is the same as "--domain" passed to agent.
+func InitDNSAgent(discoveryAddress string, domain string, cert []byte, suffixes []string) *IstioDNS {
+	dnsTLSServer, _, err := net.SplitHostPort(discoveryAddress)
+	if err != nil {
+		log.Errora("Invalid discovery address, defaulting ", discoveryAddress, " ", err)
+		dnsTLSServer = "istiod.istio-system.svc"
+	}
+
+	dnsDomainL := strings.Split(domain, ".")
+	clusterLocal := "cluster.local"
+	if len(dnsDomainL) > 3 {
+		clusterLocal = strings.Join(dnsDomainL[2:], ".")
+	}
+	suffixes = append(suffixes, clusterLocal + ".")
+
 	h := InitDNS()
 
 	h.dnsTLSSuffix = suffixes

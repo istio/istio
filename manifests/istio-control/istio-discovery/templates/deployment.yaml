@@ -208,7 +208,7 @@ spec:
               path: /health
               port: 15056
               scheme: HTTP
-            initialDelaySeconds: 60
+            initialDelaySeconds: 2
             timeoutSeconds: 5
             successThreshold: 1
             failureThreshold: 5
