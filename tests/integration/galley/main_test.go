@@ -36,9 +36,6 @@ func TestMain(m *testing.M) {
 values:
   prometheus:
     enabled: true
-components:
-  galley:
-    enabled: true
 `
 		})).
 		SetupOnEnv(environment.Kube, func(ctx resource.Context) error {
