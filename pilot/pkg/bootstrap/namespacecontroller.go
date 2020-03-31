@@ -20,6 +20,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	informer "k8s.io/client-go/informers/core/v1"
@@ -61,9 +62,9 @@ type NamespaceController struct {
 }
 
 // NewNamespaceController returns a pointer to a newly constructed NamespaceController instance.
-func NewNamespaceController(data func() map[string]string, kubeClient kubernetes.Interface) *NamespaceController {
+func NewNamespaceController(getData func() map[string]string, kubeClient kubernetes.Interface) *NamespaceController {
 	c := &NamespaceController{
-		getData: data,
+		getData: getData,
 		client:  kubeClient.CoreV1(),
 		queue:   queue.NewQueue(time.Second),
 	}
@@ -74,6 +75,11 @@ func NewNamespaceController(data func() map[string]string, kubeClient kubernetes
 			options.LabelSelector = fields.SelectorFromSet(configMapLabel).String()
 		})
 	configmapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.queue.Push(func() error {
+				return c.configMapChange(obj)
+			})
+		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			c.queue.Push(func() error {
 				return c.configMapChange(newObj)
@@ -96,6 +102,9 @@ func NewNamespaceController(data func() map[string]string, kubeClient kubernetes
 			c.queue.Push(func() error {
 				ns, err := kubeClient.CoreV1().Namespaces().Get(context.TODO(), cm.Namespace, metav1.GetOptions{})
 				if err != nil {
+					if kerrors.IsNotFound(err) {
+						return nil
+					}
 					return err
 				}
 				// If the namespace is terminating, we may get into a loop of trying to re-add the configmap back
@@ -114,6 +123,31 @@ func NewNamespaceController(data func() map[string]string, kubeClient kubernetes
 		AddFunc: func(obj interface{}) {
 			c.queue.Push(func() error {
 				return c.namespaceChange(obj)
+			})
+		},
+		UpdateFunc: func(newObj, oldObj interface{}) {
+			c.queue.Push(func() error {
+				return c.namespaceChange(newObj)
+			})
+		},
+		DeleteFunc: func(obj interface{}) {
+			ns, ok := obj.(*v1.Namespace)
+			if !ok {
+				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+				if !ok {
+					log.Errorf("error decoding object, invalid type")
+					return
+				}
+
+				ns, ok = tombstone.Obj.(*v1.Namespace)
+				if !ok {
+					log.Errorf("error decoding object tombstone, invalid type")
+					return
+				}
+			}
+
+			c.queue.Push(func() error {
+				return c.namespaceChange(ns)
 			})
 		},
 	})
