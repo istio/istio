@@ -121,6 +121,8 @@ func NewController(client *Client, options controller2.Options) model.ConfigStor
 	for _, s := range client.Schemas().All() {
 		if crdExistsWithRetry(client, s) {
 			out.addInformer(s, options.WatchedNamespace, options.ResyncPeriod)
+		} else {
+			log.Warnf("Skipping CRD %v as it is not present", s.String())
 		}
 	}
 
