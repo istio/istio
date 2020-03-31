@@ -154,7 +154,7 @@ func InitDNSAgent(discoveryAddress string, domain string, cert []byte, suffixes 
 	if len(dnsDomainL) > 3 {
 		clusterLocal = strings.Join(dnsDomainL[2:], ".")
 	}
-	suffixes = append(suffixes, clusterLocal + ".")
+	suffixes = append(suffixes, clusterLocal+".")
 
 	h := InitDNS()
 

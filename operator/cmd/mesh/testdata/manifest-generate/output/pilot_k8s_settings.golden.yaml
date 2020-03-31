@@ -123,7 +123,7 @@ spec:
             path: /health
             port: 15056
             scheme: HTTP
-          initialDelaySeconds: 60
+          initialDelaySeconds: 2
           successThreshold: 1
           timeoutSeconds: 5
         name: dns
