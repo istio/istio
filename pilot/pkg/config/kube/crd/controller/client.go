@@ -422,7 +422,7 @@ func (cl *Client) objectInEnvironment(o *model.Config) bool {
 func (cl *Client) CRDExists(schema collection.Schema) (bool, error) {
 	// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
 	name := fmt.Sprintf("%s.%s", schema.Resource().Plural(), schema.Resource().Group())
-	_, err := cl.crdClient.ApiextensionsV1beta1().CustomResourceDefinitions().Get(name, meta_v1.GetOptions{})
+	_, err := cl.crdClient.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context2.TODO(), name, meta_v1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		// Not found, return false
 		return false, nil
