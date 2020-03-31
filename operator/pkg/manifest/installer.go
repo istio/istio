@@ -438,12 +438,9 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version, revis
 		o.AddLabels(map[string]string{istioComponentLabelStr: string(componentName)})
 		o.AddLabels(map[string]string{operatorLabelStr: operatorReconcileStr})
 		o.AddLabels(map[string]string{istioVersionLabelStr: version})
-		if componentName == name.PilotComponentName {
-			o.AddLabels(map[string]string{model.RevisionLabel: revision})
-		}
 	}
 
-	opts.ExtraArgs = []string{"--force", "--selector", componentLabel}
+	opts.ExtraArgs = []string{"--selector", componentLabel}
 	// Base components include namespaces and CRDs, pruning them will remove user configs, which makes it hard to roll back.
 	if componentName != name.IstioBaseComponentName && opts.Prune == nil {
 		opts.Prune = pointer.BoolPtr(true)
