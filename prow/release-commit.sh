@@ -83,6 +83,13 @@ ${DEPENDENCIES:-$(cat <<EOD
     branch: master
 EOD
 )}
+dashboards:
+  istio-mesh-dashboard: 7639
+  istio-performance-dashboard: 11829
+  istio-service-dashboard: 7636
+  istio-workload-dashboard: 7630
+  mixer-dashboard: 7642
+  pilot-dashboard: 7645
 ${PROXY_OVERRIDE:-}
 EOF
 )
