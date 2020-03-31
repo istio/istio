@@ -810,8 +810,11 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 func (sc *SecretCache) shouldRotate(secret *model.SecretItem) bool {
 	// secret should be rotated before it expired.
 	secretLifeTime := secret.ExpireTime.Sub(secret.CreatedTime)
-	gracePeriod := secretLifeTime * time.Duration(sc.configOptions.SecretRotationGracePeriodRatio)
-	return time.Now().After(secret.ExpireTime.Add(-gracePeriod))
+	gracePeriod := time.Duration(sc.configOptions.SecretRotationGracePeriodRatio * float64(secretLifeTime))
+	rotate := time.Now().After(secret.ExpireTime.Add(-gracePeriod))
+	cacheLog.Debugf("Secret %s: lifetime: %v, graceperiod: %v, expiration: %v, should rotate: %v",
+		secret.ResourceName, secretLifeTime, gracePeriod, secret.ExpireTime, rotate)
+	return rotate
 }
 
 func (sc *SecretCache) isTokenExpired() bool {
