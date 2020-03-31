@@ -40,9 +40,9 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 		t.Error(err)
 	}
 	istioCA, err := ca.NewIstioCA(&ca.IstioCAOptions{
-		CertTTL:       time.Minute * time.Duration(2),
-		MaxCertTTL:    time.Minute * time.Duration(4),
-		KeyCertBundle: bundle,
+		DefaultCertTTL: time.Minute * time.Duration(2),
+		MaxCertTTL:     time.Minute * time.Duration(4),
+		KeyCertBundle:  bundle,
 		RotatorConfig: &ca.SelfSignedCARootCertRotatorConfig{
 			// Disable root cert rotator by setting check interval to 0ns.
 			CheckInterval: time.Duration(0),
