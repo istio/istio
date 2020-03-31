@@ -13,3 +13,28 @@
 // limitations under the License.
 
 package successsds
+
+import (
+	"fmt"
+	"testing"
+
+	"istio.io/istio/mixer/test/client/env"
+	testID "istio.io/istio/mixer/test/client/env"
+	sdsTest "istio.io/istio/security/pkg/nodeagent/test"
+)
+
+func TestProxySDS(t *testing.T) {
+	setup := sdsTest.SetupTest(t, testID.SDSTest)
+	defer setup.TearDown()
+
+	setup.StartProxy(t)
+	for i := 0; i < 10; i++ {
+		code, _, err := env.HTTPGet(fmt.Sprintf("http://localhost:%d/echo", setup.OutboundListenerPort))
+		if err != nil {
+			t.Errorf("Failed in request: %v", err)
+		}
+		if code != 200 {
+			t.Errorf("Unexpected status code: %d", code)
+		}
+	}
+}
