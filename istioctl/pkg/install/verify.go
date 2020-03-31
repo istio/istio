@@ -15,6 +15,7 @@
 package install
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -93,7 +94,7 @@ func verifyPostInstall(enableVerbose bool, istioNamespaceFlag string,
 				Namespace(namespace).
 				Name(name).
 				VersionedParams(&meta_v1.GetOptions{}, scheme.ParameterCodec).
-				Do().
+				Do(context.TODO()).
 				Into(deployment)
 			if err != nil {
 				return err
@@ -113,7 +114,7 @@ func verifyPostInstall(enableVerbose bool, istioNamespaceFlag string,
 				Namespace(namespace).
 				Name(name).
 				VersionedParams(&meta_v1.GetOptions{}, scheme.ParameterCodec).
-				Do().
+				Do(context.TODO()).
 				Into(job)
 			if err != nil {
 				return err
@@ -130,14 +131,14 @@ func verifyPostInstall(enableVerbose bool, istioNamespaceFlag string,
 				Get().
 				Resource(kinds).
 				Name(name).
-				Do()
+				Do(context.TODO())
 			if result.Error() != nil {
 				result = info.Client.
 					Get().
 					Resource(kinds).
 					Namespace(namespace).
 					Name(name).
-					Do()
+					Do(context.TODO())
 				if result.Error() != nil {
 					msg := fmt.Sprintf("Istio installation failed, incomplete or"+
 						" does not match \"%s\" - the required %s:%s is not ready due to: %v", options.Filenames[0], kind, name, result.Error())

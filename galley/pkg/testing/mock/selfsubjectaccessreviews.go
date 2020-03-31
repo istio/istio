@@ -17,6 +17,8 @@ package mock
 import (
 	"context"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	authorizationapi "k8s.io/api/authorization/v1"
 	v1 "k8s.io/api/authorization/v1"
 	authorizationv1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
@@ -44,7 +46,8 @@ func newSelfSubjectAccessReviewInterface() authorizationv1.SelfSubjectAccessRevi
 }
 
 // Create implements authorizationv1.SelfSubjectAccessReviewInterface
-func (i *SelfSubjectAccessReviewImpl) Create(sar *authorizationapi.SelfSubjectAccessReview) (result *authorizationapi.SelfSubjectAccessReview, err error) {
+func (i *SelfSubjectAccessReviewImpl) Create(ctx context.Context, sar *v1.SelfSubjectAccessReview,
+	opts metav1.CreateOptions) (result *authorizationapi.SelfSubjectAccessReview, err error) {
 	allowed := true
 	if i.disallowed[newDisallowKey(sar.Spec.ResourceAttributes)] {
 		allowed = false

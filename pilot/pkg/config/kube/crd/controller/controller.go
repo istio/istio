@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -122,7 +123,7 @@ func (c *controller) addInformer(schema collection.Schema, namespace string, res
 			if !schema.Resource().IsClusterScoped() {
 				req = req.Namespace(namespace)
 			}
-			err = req.Do().Into(result)
+			err = req.Do(context.TODO()).Into(result)
 			return
 		},
 		func(opts meta_v1.ListOptions) (watch.Interface, error) {
@@ -142,7 +143,7 @@ func (c *controller) addInformer(schema collection.Schema, namespace string, res
 			if !schema.Resource().IsClusterScoped() {
 				req = req.Namespace(namespace)
 			}
-			return req.Watch()
+			return req.Watch(context.TODO())
 		})
 }
 

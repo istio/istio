@@ -16,6 +16,7 @@ package kubernetes
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -201,7 +202,7 @@ func (client *Client) GetIstioPods(namespace string, params map[string]string) (
 		req.Param(k, v)
 	}
 
-	res := req.Do()
+	res := req.Do(context.TODO())
 	if res.Error() != nil {
 		return nil, fmt.Errorf("unable to retrieve Pods: %v", res.Error())
 	}
@@ -219,7 +220,7 @@ func (client *Client) GetPilotAgentContainer(podName, podNamespace string) (stri
 		Namespace(podNamespace).
 		Name(podName)
 
-	res := req.Do()
+	res := req.Do(context.TODO())
 	if res.Error() != nil {
 		return "", fmt.Errorf("unable to retrieve Pod: %v", res.Error())
 	}
@@ -359,7 +360,7 @@ func (client *Client) BuildPortForwarder(podName string, ns string, localAddr st
 	// Run the same check as k8s.io/kubectl/pkg/cmd/portforward/portforward.go
 	// so that we will fail early if there is a problem contacting API server.
 	podGet := client.Get().Resource("pods").Namespace(ns).Name(podName)
-	obj, err := podGet.Do().Get()
+	obj, err := podGet.Do(context.TODO()).Get()
 	if err != nil {
 		return nil, fmt.Errorf("failed retrieving pod: %v", err)
 	}
@@ -395,7 +396,7 @@ func availablePort() (int, error) {
 
 func (client *Client) PodsForSelector(namespace, labelSelector string) (*v1.PodList, error) {
 	podGet := client.Get().Resource("pods").Namespace(namespace).Param("labelSelector", labelSelector)
-	obj, err := podGet.Do().Get()
+	obj, err := podGet.Do(context.TODO()).Get()
 	if err != nil {
 		return nil, fmt.Errorf("failed retrieving pod: %v", err)
 	}

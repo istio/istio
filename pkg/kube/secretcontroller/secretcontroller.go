@@ -16,6 +16,7 @@ package secretcontroller
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -107,11 +108,11 @@ func NewController(
 		&cache.ListWatch{
 			ListFunc: func(opts meta_v1.ListOptions) (runtime.Object, error) {
 				opts.LabelSelector = MultiClusterSecretLabel + "=true"
-				return kubeclientset.CoreV1().Secrets(namespace).List(opts)
+				return kubeclientset.CoreV1().Secrets(namespace).List(context.TODO(), opts)
 			},
 			WatchFunc: func(opts meta_v1.ListOptions) (watch.Interface, error) {
 				opts.LabelSelector = MultiClusterSecretLabel + "=true"
-				return kubeclientset.CoreV1().Secrets(namespace).Watch(opts)
+				return kubeclientset.CoreV1().Secrets(namespace).Watch(context.TODO(), opts)
 			},
 		},
 		&corev1.Secret{}, 0, cache.Indexers{},

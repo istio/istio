@@ -19,12 +19,12 @@ require (
 	fortio.org/fortio v1.3.1
 	github.com/Azure/go-autorest/autorest v0.9.4 // indirect
 	github.com/DataDog/datadog-go v2.2.0+incompatible
+	github.com/Masterminds/goutils v1.1.0 // indirect
 	github.com/Masterminds/semver v1.4.2
-	github.com/Masterminds/sprig v2.14.1+incompatible
+	github.com/Masterminds/sprig v2.20.0+incompatible
 	github.com/Microsoft/go-winio v0.4.14 // indirect
 	github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6 // indirect
 	github.com/alicebob/miniredis v0.0.0-20180201100744-9d52b1fc8da9
-	github.com/aokoli/goutils v1.0.1 // indirect
 	github.com/aws/aws-sdk-go v1.23.20
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/cactus/go-statsd-client v3.1.1+incompatible
@@ -62,7 +62,7 @@ require (
 	github.com/go-openapi/swag v0.19.6 // indirect
 	github.com/go-redis/redis v6.10.2+incompatible
 	github.com/gobwas/glob v0.2.3 // indirect
-	github.com/gogo/protobuf v1.3.0
+	github.com/gogo/protobuf v1.3.1
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
 	github.com/golang/protobuf v1.3.5
@@ -101,7 +101,7 @@ require (
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/nwaples/rardecode v1.0.0 // indirect
-	github.com/onsi/gomega v1.7.1
+	github.com/onsi/gomega v1.8.1
 	github.com/open-policy-agent/opa v0.8.2
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/openshift/api v3.9.1-0.20191008181517-e4fd21196097+incompatible
@@ -114,7 +114,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/pquerna/cachecontrol v0.0.0-20180306154005-525d0eb5f91d // indirect
 	github.com/prometheus/client_golang v1.1.0
-	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
+	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.6.0
 	github.com/prometheus/prom2json v1.2.2
 	github.com/ryanuber/go-glob v1.0.0
@@ -147,21 +147,21 @@ require (
 	google.golang.org/grpc v1.26.0
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/square/go-jose.v2 v2.3.1
-	gopkg.in/yaml.v2 v2.2.7
-	istio.io/api v0.0.0-20200326193317-ce1b8dd24c91
+	gopkg.in/yaml.v2 v2.2.8
+	istio.io/api v0.0.0-20200330210552-3ca04d2c2233
 	istio.io/gogo-genproto v0.0.0-20200227125611-d2e4aa9d5634
 	istio.io/pkg v0.0.0-20200227125209-63966175aa01
-	k8s.io/api v0.17.2
-	k8s.io/apiextensions-apiserver v0.17.2
-	k8s.io/apimachinery v0.17.2
-	k8s.io/cli-runtime v0.17.2
-	k8s.io/client-go v0.17.2
-	k8s.io/helm v2.14.3+incompatible
-	k8s.io/kubectl v0.17.2
-	k8s.io/utils v0.0.0-20191114184206-e782cd3c129f
-	sigs.k8s.io/controller-runtime v0.4.0
+	k8s.io/api v0.18.0
+	k8s.io/apiextensions-apiserver v0.18.0
+	k8s.io/apimachinery v0.18.0
+	k8s.io/cli-runtime v0.18.0
+	k8s.io/client-go v0.18.0
+	k8s.io/helm v2.16.0+incompatible
+	k8s.io/kubectl v0.18.0
+	k8s.io/utils v0.0.0-20200324210504-a9aa75ae1b89
+	sigs.k8s.io/controller-runtime v0.5.1-0.20200327213554-2d4c4877f906
 	sigs.k8s.io/service-apis v0.0.0-20200227172328-b9010cfacdbe
-	sigs.k8s.io/yaml v1.1.0
+	sigs.k8s.io/yaml v1.2.0
 )
 
 replace github.com/Azure/go-autorest/autorest => github.com/Azure/go-autorest/autorest v0.9.0

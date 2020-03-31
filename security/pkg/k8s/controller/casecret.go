@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"context"
 	"time"
 
 	"istio.io/pkg/log"
@@ -58,7 +59,7 @@ func (csc *CaSecretController) LoadCASecretWithRetry(secretName, namespace strin
 	var caSecret *v1.Secret
 	var scrtErr error
 	for {
-		caSecret, scrtErr = csc.client.Secrets(namespace).Get(secretName, metav1.GetOptions{})
+		caSecret, scrtErr = csc.client.Secrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
 		if scrtErr == nil {
 			return caSecret, scrtErr
 		}
@@ -79,7 +80,7 @@ func (csc *CaSecretController) UpdateCASecretWithRetry(caSecret *v1.Secret,
 	retryInterval, timeout time.Duration) error {
 	start := time.Now()
 	for {
-		_, scrtErr := csc.client.Secrets(caSecret.Namespace).Update(caSecret)
+		_, scrtErr := csc.client.Secrets(caSecret.Namespace).Update(context.TODO(), caSecret, metav1.UpdateOptions{})
 		if scrtErr == nil {
 			return nil
 		}

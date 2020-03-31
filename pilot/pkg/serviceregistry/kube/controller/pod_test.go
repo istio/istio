@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"context"
 	"reflect"
 	"testing"
 	"time"
@@ -35,20 +36,20 @@ import (
 func initTestEnv(t *testing.T, ki kubernetes.Interface, fx *FakeXdsUpdater) {
 	cleanup(ki)
 	for _, n := range []string{"nsa", "nsb"} {
-		_, err := ki.CoreV1().Namespaces().Create(&v1.Namespace{
+		_, err := ki.CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: n,
 				Labels: map[string]string{
 					"istio-injection": "enabled",
 				},
 			},
-		})
+		}, metav1.CreateOptions{})
 		if err != nil {
 			t.Fatalf("failed creating test namespace: %v", err)
 		}
 
 		// K8S 1.10 also checks if service account exists
-		_, err = ki.CoreV1().ServiceAccounts(n).Create(&v1.ServiceAccount{
+		_, err = ki.CoreV1().ServiceAccounts(n).Create(context.TODO(), &v1.ServiceAccount{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "default",
 				Annotations: map[string]string{
@@ -61,12 +62,12 @@ func initTestEnv(t *testing.T, ki kubernetes.Interface, fx *FakeXdsUpdater) {
 					UID:  "1",
 				},
 			},
-		})
+		}, metav1.CreateOptions{})
 		if err != nil {
 			t.Fatalf("failed creating test service account: %v", err)
 		}
 
-		_, err = ki.CoreV1().Secrets(n).Create(&v1.Secret{
+		_, err = ki.CoreV1().Secrets(n).Create(context.TODO(), &v1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "default-token-2",
 				Annotations: map[string]string{
@@ -78,7 +79,7 @@ func initTestEnv(t *testing.T, ki kubernetes.Interface, fx *FakeXdsUpdater) {
 			Data: map[string][]byte{
 				"token": []byte("1"),
 			},
-		})
+		}, metav1.CreateOptions{})
 		if err != nil {
 			t.Fatalf("failed creating test secret: %v", err)
 		}
@@ -89,11 +90,11 @@ func initTestEnv(t *testing.T, ki kubernetes.Interface, fx *FakeXdsUpdater) {
 func cleanup(ki kubernetes.Interface) {
 	for _, n := range []string{"nsa", "nsb"} {
 		n := n
-		pods, err := ki.CoreV1().Pods(n).List(metav1.ListOptions{})
+		pods, err := ki.CoreV1().Pods(n).List(context.TODO(), metav1.ListOptions{})
 		if err == nil {
 			// Make sure the pods don't exist
 			for _, pod := range pods.Items {
-				_ = ki.CoreV1().Pods(pod.Namespace).Delete(pod.Name, nil)
+				_ = ki.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
 			}
 		}
 	}
@@ -143,7 +144,7 @@ func TestIPReuse(t *testing.T) {
 		t.Fatalf("unexpected pod: %v", p)
 	}
 
-	err := c.client.CoreV1().Pods("ns").Delete("another-pod", &metav1.DeleteOptions{})
+	err := c.client.CoreV1().Pods("ns").Delete(context.TODO(), "another-pod", metav1.DeleteOptions{})
 	if err != nil {
 		t.Fatalf("Cannot delete pod: %v", err)
 	}

@@ -21,6 +21,9 @@ spec:
 ---
 # Source: istio-discovery/templates/configmap.yaml
 
+
+
+
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -78,25 +81,19 @@ data:
   mesh: |-
     # Set enableTracing to false to disable request tracing.
     enableTracing: true
-
     # Set accessLogFile to empty string to disable access log.
     accessLogFile: ""
-
     accessLogFormat: ""
-
     accessLogEncoding: 'TEXT'
-
     enableEnvoyAccessLogService: false
     # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
     reportBatchMaxEntries: 100
     # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
     reportBatchMaxTime: 1s
     disableMixerHttpReports: true
-
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
     disablePolicyChecks: true
-
     # Automatic protocol detection uses a set of heuristics to
     # determine whether the connection is using TLS or not (on the
     # server side), as well as the application protocol being used
@@ -107,16 +104,13 @@ data:
     # traffic. Set this field to tweak the period that Envoy will wait
     # for the client to send the first bits of data. (MUST BE >=1ms)
     protocolDetectionTimeout: 100ms
-
     # This is the k8s ingress service name, update if you used a different name
     ingressService: "istio-ingressgateway"
     ingressControllerMode: "STRICT"
     ingressClass: "istio"
-
     # The trust domain corresponds to the trust root of a system.
     # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
     trustDomain: "cluster.local"
-
     #  The trust domain aliases represent the aliases of trust_domain.
     #  For example, if we have
     #  trustDomain: td1
@@ -124,15 +118,12 @@ data:
     #  Any service with the identity "td1/ns/foo/sa/a-service-account", "td2/ns/foo/sa/a-service-account",
     #  or "td3/ns/foo/sa/a-service-account" will be treated the same in the Istio mesh.
     trustDomainAliases:
-
     # Used by pilot-agent
     sdsUdsPath: "unix:/etc/istio/proxy/SDS"
-
     # If true, automatically configure client side mTLS settings to match the corresponding service's
     # server side mTLS authentication policy, when destination rule for that service does not specify
     # TLS settings.
     enableAutoMtls: true
-
     outboundTrafficPolicy:
       mode: ALLOW_ANY
     localityLbSetting:
@@ -179,36 +170,6 @@ data:
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
       discoveryAddress: istiod.istio-system.svc:15012
-
-  Corefile: |-
-
-    global:15054 {
-        errors
-        log
-        proxy . 127.0.0.1:15053 {
-        }
-
-    }
-
-    .:15054 {
-        errors
-        log
-        health :15056 {
-          lameduck 5s
-        }
-
-        kubernetes cluster.local in-addr.arpa ip6.arpa {
-            pods insecure
-            fallthrough in-addr.arpa ip6.arpa
-            ttl 30
-        }
-        prometheus :9153
-
-        forward . /etc/resolv.conf
-        cache 30
-        reload
-        loadbalance
-    }
 ---
 
 ---
@@ -881,14 +842,6 @@ spec:
       targetPort: 15017
     - port: 15014
       name: http-monitoring # prometheus stats
-    - name: dns
-      port: 53
-      targetPort: 15053
-      protocol: UDP
-    - name: dns-tls
-      port: 853
-      targetPort: 15053
-      protocol: TCP
   selector:
     app: istiod
     # Label used by the 'default' service. For versioned deployments we match with app and version.
@@ -944,7 +897,6 @@ spec:
           - containerPort: 8080
           - containerPort: 15010
           - containerPort: 15017
-          - containerPort: 15053
           readinessProbe:
             httpGet:
               path: /ready
@@ -1013,43 +965,6 @@ spec:
           - name: inject
             mountPath: /var/lib/istio/inject
             readOnly: true
-
-        # CoreDNS sidecar. Ports are used internally, to run as non-root.
-        # This is a short-term solution - the code in istiod can also be used
-        # directly. The plan is to move coreDNS on the agent.
-        - name: dns
-          image: coredns/coredns:1.1.2
-          imagePullPolicy: IfNotPresent
-          args: [ "-conf", "/var/lib/istio/coredns/Corefile" ]
-          securityContext:
-            runAsUser: 1337
-            runAsGroup: 1337
-            runAsNonRoot: true
-            capabilities:
-              drop:
-                - ALL
-          volumeMounts:
-            - name: local-certs
-              mountPath: /var/run/secrets/istio-dns
-            - name: config-volume
-              mountPath: /var/lib/istio/coredns
-          ports:
-            - containerPort: 15054
-              name: dns
-              protocol: UDP
-            - containerPort: 15055
-              name: metrics
-              protocol: TCP
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 15056
-              scheme: HTTP
-            initialDelaySeconds: 60
-            timeoutSeconds: 5
-            successThreshold: 1
-            failureThreshold: 5
-
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
