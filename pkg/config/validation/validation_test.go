@@ -5959,3 +5959,31 @@ func TestValidateDNSRefreshRate(t *testing.T) {
 		}
 	}
 }
+
+func TestReportBatchMaxEntries(t *testing.T) {
+	type maxEntriesCheck struct {
+		maxEntries string
+		isValid    bool
+	}
+
+	checks := []maxEntriesCheck{
+		{
+			maxEntries: "100",
+			isValid:    true,
+		},
+		{
+			maxEntries: "ten",
+			isValid:    false,
+		},
+		{
+			maxEntries: "0",
+			isValid:    true,
+		},
+	}
+
+	for _, check := range checks {
+		if got := ValidateReportBatchMaxEntries(check.maxEntries); (got == nil) != check.isValid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, check.isValid, got, check.maxEntries)
+		}
+	}
+}

@@ -69,6 +69,8 @@ var (
 		"values.global.proxy.dnsRefreshRate":                validateDuration,
 		"values.global.connectTimeout":                      validateDuration,
 		"values.mixer.telemetry.reportBatchMaxTime":         validateDuration,
+		"values.mixer.telemetry.reportBatchMaxEntries":      validation.ValidateReportBatchMaxEntries,
+		"values.global.outboundTrafficPolicy.mode":          []string{"REGISTRY_ONLY", "ALLOW_ANY"},
 
 		"security.components.nodeAgent.enabled": boolValues,
 
@@ -189,6 +191,12 @@ func verifyValues(flagName, flagValue string) error {
 		if err := validateDuration(flagName, flagValue); err != nil {
 			return fmt.Errorf("\n Unsupported value: %q for %q. \n Error: %v",
 				flagValue, flagName, err)
+		}
+	}
+	if valType == reflect.TypeOf(validation.ValidateReportBatchMaxEntries) {
+		if err := validation.ValidateReportBatchMaxEntries(flagValue); err != nil {
+			return fmt.Errorf("\n Unsupported value: %q for flag %q, use valid value eg: 100",
+				flagValue, flagName)
 		}
 	}
 	return nil

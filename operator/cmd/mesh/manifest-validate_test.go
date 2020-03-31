@@ -119,6 +119,28 @@ func TestValidateSetFlags(t *testing.T) {
 			},
 			want: fmt.Errorf("\n Unsupported format: %q for flag %q", "v1.2.3", "revision"),
 		},
+		{
+			name: "Test valid reportBatchMaxEntries",
+			args: []string{
+				"values.mixer.telemetry.reportBatchMaxEntries=100",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid reportBatchMaxEntries",
+			args: []string{
+				"values.mixer.telemetry.reportBatchMaxEntries=ten",
+			},
+			want: fmt.Errorf("\n Unsupported value: %q for flag %q, use valid value eg: 100",
+				"ten", "values.mixer.telemetry.reportBatchMaxEntries"),
+		},
+		{
+			name: "Test valid outboundTrafficPolicy mode",
+			args: []string{
+				"values.global.outboundTrafficPolicy.mode=ALLOW_ANY",
+			},
+			want: nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

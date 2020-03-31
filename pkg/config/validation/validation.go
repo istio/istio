@@ -2837,3 +2837,22 @@ func ValidateDNSRefreshRate(drr *types.Duration) error {
 	}
 	return nil
 }
+
+// ValidateReportBatchMaxEntries verifies valid value for reportBatchMaxEntries flag
+func ValidateReportBatchMaxEntries(val string) error {
+	// ReportBatchMaxEntries accepts only uint32
+	u64, err := strconv.ParseUint(val, 10, 32)
+	if err != nil {
+		return fmt.Errorf("Invalid syntax: %q", val)
+	}
+
+	// Convert to uint32 because ParseUint returns uint64
+	maxEntries := uint32(u64)
+
+	// reportBatchMaxEntries to 0 means
+	// the default batching behavior (i.e., every 100 requests)
+	if maxEntries == 0 {
+		return nil
+	}
+	return nil
+}
