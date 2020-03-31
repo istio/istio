@@ -26,15 +26,14 @@ import (
 
 	klabels "k8s.io/apimachinery/pkg/labels"
 
-	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/tpath"
-	"istio.io/istio/pkg/test"
-
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/httpserver"
 	"istio.io/istio/operator/pkg/util/tgz"
+	"istio.io/istio/pkg/test"
 	"istio.io/pkg/version"
 )
 
@@ -310,7 +309,7 @@ func TestInstallPackagePath(t *testing.T) {
 
 // This test enforces that objects that reference other objects do so properly, such as Service selecting deployment
 func TestConfigSelectors(t *testing.T) {
-	got, err := runManifestGenerate([]string{}, "", true)
+	got, err := runManifestGenerate([]string{}, "", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -318,7 +317,7 @@ func TestConfigSelectors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gotRev, e := runManifestGenerate([]string{}, "--set revision=canary", true)
+	gotRev, e := runManifestGenerate([]string{}, "--set revision=canary", false)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -451,6 +450,7 @@ func findObject(objs object.K8sObjects, name, kind string) *object.K8sObject {
 // -ldflags "-X istio.io/pkg/version.buildHub=myhub -X istio.io/pkg/version.buildVersion=mytag"
 // results in these values showing up in a generated manifest.
 func TestLDFlags(t *testing.T) {
+	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
 	tmpHub, tmpTag := version.DockerInfo.Hub, version.DockerInfo.Tag
 	defer func() {
 		version.DockerInfo.Hub, version.DockerInfo.Tag = tmpHub, tmpTag
@@ -458,7 +458,11 @@ func TestLDFlags(t *testing.T) {
 	version.DockerInfo.Hub = "testHub"
 	version.DockerInfo.Tag = "testTag"
 	l := NewLogger(true, os.Stdout, os.Stderr)
-	_, iops, err := GenerateConfig(nil, "", true, nil, l)
+	ysf, err := yamlFromSetFlags([]string{"installPackagePath=" + filepath.Join(testDataDir, "data-snapshot")}, false, l)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, iops, err := GenerateConfig(nil, ysf, true, nil, l)
 	if err != nil {
 		t.Fatal(err)
 	}

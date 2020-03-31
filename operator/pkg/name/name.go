@@ -21,13 +21,12 @@ import (
 
 	"github.com/ghodss/yaml"
 
-	"istio.io/istio/operator/pkg/helm"
-	"istio.io/istio/operator/pkg/vfs"
-	"istio.io/istio/operator/version"
-
 	"istio.io/api/operator/v1alpha1"
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/operator/pkg/vfs"
+	"istio.io/istio/operator/version"
 )
 
 const (
@@ -102,9 +101,6 @@ func init() {
 		allComponentNamesMap[n] = true
 	}
 	if err := loadComponentNamesConfig(); err != nil {
-		panic(err)
-	}
-	if err := scanBundledAddonComponents(); err != nil {
 		panic(err)
 	}
 	generateValuesEnablementMap()
@@ -190,8 +186,8 @@ func generateValuesEnablementMap() {
 	ValuesEnablementPathMap["spec.values.gateways.istio-egressgateway.enabled"] = "spec.components.egressGateways.[name:istio-egressgateway].enabled"
 }
 
-func scanBundledAddonComponents() error {
-	addonComponentNames, err := helm.GetAddonNamesFromCharts("", true)
+func ScanBundledAddonComponents(chartsRootDir string) error {
+	addonComponentNames, err := helm.GetAddonNamesFromCharts(chartsRootDir, true)
 	if err != nil {
 		return fmt.Errorf("failed to scan bundled addon components: %v", err)
 	}
