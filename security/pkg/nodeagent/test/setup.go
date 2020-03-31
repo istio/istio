@@ -18,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"testing"
 	"time"
@@ -84,11 +83,12 @@ func WriteDataToFile(path string, content string) error {
 
 // SetupTest starts Envoy, SDS server, CA server and a dummy backend.
 // The test allow HTTP request flow.
-//                                                     CA server
-//                                                         |
-//                                           +---------SDS server-------+
-//                                           |                          |
-// HTTP request->outbound listener->outbound TLS cluster<-mTLS->inbound TLS listener->inbound cluster->backend
+//                                 CA server
+//                                     |
+//                        +--------SDS server--------+
+//                        |                          |
+// HTTP    ->outbound ->outbound TLS <--mTLS-->inbound TLS ->inbound ->backend
+// request   listener   cluster                listener      cluster
 func SetupTest(t *testing.T, testID uint16) *Env {
 	// Set up credential files for bootstrap config
 	jwtToken := getDataFromFile(istioEnv.IstioSrc+"/security/pkg/nodeagent/test/testdata/jwt-token.jwt", t)
@@ -121,7 +121,7 @@ func SetupTest(t *testing.T, testID uint16) *Env {
 // proxy admin            : AdminPort
 // CSR server             : MixerPort
 func (e *Env) DumpPortMap(t *testing.T) {
-	log.Printf("\n\tport allocation status\t\t\t\n"+
+	t.Logf("\n\tport allocation status\t\t\t\n"+
 		"outbound listener\t\t:\t%d\n"+
 		"inbound listener\t\t:\t%d\n"+
 		"test backend\t\t\t:\t%d\n"+
@@ -136,7 +136,7 @@ func (e *Env) StartProxy(t *testing.T) {
 	if err := e.ProxySetup.SetUp(); err != nil {
 		t.Fatalf("failed to start proxy: %v", err)
 	}
-	log.Println("proxy is running...")
+	t.Log("proxy is running...")
 }
 
 // StartSDSServer starts SDS server
@@ -152,7 +152,7 @@ func (e *Env) StartSDSServer(t *testing.T) {
 
 	caClient, err := citadel.NewCitadelClient(serverOptions.CAEndpoint, false, nil)
 	if err != nil {
-		log.Fatalf("failed to create CA client: %+v", err)
+		t.Fatalf("failed to create CA client: %+v", err)
 	}
 	secretFetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: true,
