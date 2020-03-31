@@ -302,10 +302,6 @@ spec:
       enableTracing: true
       imagePullPolicy: IfNotPresent
       imagePullSecrets: []
-      k8sIngress:
-        enableHttps: false
-        enabled: false
-        gatewayName: ingressgateway
       localityLbSetting:
         enabled: true
       logAsJson: false
@@ -337,7 +333,6 @@ spec:
         clusterDomain: cluster.local
         componentLogLevel: misc:error
         concurrency: 2
-        dnsRefreshRate: 300s
         enableCoreDump: false
         envoyAccessLogService:
           enabled: false
@@ -357,8 +352,6 @@ spec:
         excludeOutboundPorts: ""
         image: proxyv2
         includeIPRanges: '*'
-        includeInboundPorts: '*'
-        kubevirtInterfaces: ""
         logLevel: warning
         privileged: false
         protocolDetectionTimeout: 100ms
@@ -423,10 +416,6 @@ spec:
       image:
         repository: grafana/grafana
         tag: 6.4.3
-      ingress:
-        enabled: false
-        hosts:
-        - grafana.local
       nodeSelector: {}
       persist: false
       podAntiAffinityLabelSelector: []
@@ -461,10 +450,6 @@ spec:
         viewOnlyMode: false
       enabled: false
       hub: quay.io/kiali
-      ingress:
-        enabled: false
-        hosts:
-        - kiali.local
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
@@ -537,8 +522,6 @@ spec:
         ingressControllerMode: "OFF"
         ingressService: istio-ingressgateway
       keepaliveMaxServerConnectionAge: 30m
-      meshNetworks:
-        networks: {}
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
@@ -552,10 +535,6 @@ spec:
       contextPath: /prometheus
       enabled: true
       hub: docker.io/prom
-      ingress:
-        enabled: false
-        hosts:
-        - prometheus.local
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
@@ -586,8 +565,6 @@ spec:
         enabled: false
     tracing:
       enabled: false
-      ingress:
-        enabled: false
       jaeger:
         accessMode: ReadWriteMany
         hub: docker.io/jaegertracing

@@ -2,63 +2,8 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 101
+number_of_entries: 97
 ---
-<h2 id="AddonIngressConfig">AddonIngressConfig</h2>
-<section>
-<p>Configuration for the addon ingress.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="AddonIngressConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Controls whether addon ingress is enabled.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="AddonIngressConfig-hosts">
-<td><code>hosts</code></td>
-<td><code>string[]</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="AddonIngressConfig-annotations">
-<td><code>annotations</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="AddonIngressConfig-tls">
-<td><code>tls</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="ArchConfig">ArchConfig</h2>
 <section>
 <p>ArchConfig specifies the pod scheduling target architecture(amd64, ppc64le, s390x) for all the Istio control plane components.</p>
@@ -1671,17 +1616,6 @@ Please set either failover or distribute configuration but not both.</p>
 No
 </td>
 </tr>
-<tr id="GlobalConfig-k8sIngress">
-<td><code>k8sIngress</code></td>
-<td><code><a href="#KubernetesIngressConfig">KubernetesIngressConfig</a></code></td>
-<td>
-<p>Specifies the Configuration for the legacy kubernetes Ingress.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="GlobalConfig-logAsJson">
 <td><code>logAsJson</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
@@ -2874,56 +2808,6 @@ No
 </tbody>
 </table>
 </section>
-<h2 id="KubernetesIngressConfig">KubernetesIngressConfig</h2>
-<section>
-<p>Configuration for the legacy kubernetes Ingress.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="KubernetesIngressConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Enables gateway for legacy k8s Ingress.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KubernetesIngressConfig-enableHttps">
-<td><code>enableHttps</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Enables HTTPS legacy k8s Ingress.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KubernetesIngressConfig-gatewayName">
-<td><code>gatewayName</code></td>
-<td><code>string</code></td>
-<td>
-<p>Sets the gateway name for legacy k8s Ingress.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="LoadSheddingConfig">LoadSheddingConfig</h2>
 <section>
 <p>Configuration for when mixer starts rejecting grpc requests.</p>
@@ -4074,17 +3958,6 @@ No
 No
 </td>
 </tr>
-<tr id="PilotConfig-meshNetworks">
-<td><code>meshNetworks</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-<p>Used to override control plane networks.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="PilotConfig-configMap">
 <td><code>configMap</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
@@ -4867,15 +4740,6 @@ No
 No
 </td>
 </tr>
-<tr id="PrometheusConfig-ingress">
-<td><code>ingress</code></td>
-<td><code><a href="#AddonIngressConfig">AddonIngressConfig</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="PrometheusConfig-service">
 <td><code>service</code></td>
 <td><code><a href="#PrometheusServiceConfig">PrometheusServiceConfig</a></code></td>
@@ -5246,19 +5110,6 @@ No
 No
 </td>
 </tr>
-<tr id="ProxyConfig-dnsRefreshRate">
-<td><code>dnsRefreshRate</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">Duration</a></code></td>
-<td>
-<p>Configures the DNS refresh rate for Envoy cluster of type STRICT_DNS.</p>
-
-<p>This must be given it terms of seconds. For example, 300s is valid but 5m is invalid.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="ProxyConfig-enableCoreDump">
 <td><code>enableCoreDump</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
@@ -5331,22 +5182,6 @@ No
 No
 </td>
 </tr>
-<tr id="ProxyConfig-includeInboundPorts">
-<td><code>includeInboundPorts</code></td>
-<td><code>string</code></td>
-<td>
-<p>Specifies the Istio ingress ports to capture.</p>
-
-<p>Examples:
-&ldquo;&rdquo;:          Redirect no inbound traffic to Envoy.
-&ldquo;*&rdquo;:         Redirect all inbound traffic to Envoy.
-&ldquo;80,8080&rdquo;:   Redirect only selected ports.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="ProxyConfig-includeIPRanges">
 <td><code>includeIPRanges</code></td>
 <td><code>string</code></td>
@@ -5355,17 +5190,6 @@ No
 
 <p>Example: &ldquo;172.30.0.0/16,172.20.0.0/16&rdquo;
 This would only capture egress traffic on those two IP Ranges, all other outbound traffic would # be allowed by the sidecar.&rdquo;</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="ProxyConfig-kubevirtInterfaces">
-<td><code>kubevirtInterfaces</code></td>
-<td><code>string</code></td>
-<td>
-<p>Comma separated list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound. By default, no interfaces are configured.</p>
 
 </td>
 <td>
@@ -6898,17 +6722,6 @@ No
 No
 </td>
 </tr>
-<tr id="TracingConfig-ingress">
-<td><code>ingress</code></td>
-<td><code><a href="#TracingIngressConfig">TracingIngressConfig</a></code></td>
-<td>
-<p>Controls legacy k8s ingress for addon tracing components.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="TracingConfig-jaeger">
 <td><code>jaeger</code></td>
 <td><code><a href="#TracingJaegerConfig">TracingJaegerConfig</a></code></td>
@@ -7104,61 +6917,6 @@ No
 <tbody>
 <tr id="TracingOpencensusExportersConfig-stackdriver">
 <td><code>stackdriver</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="TracingIngressConfig">TracingIngressConfig</h2>
-<section>
-<p>Controls legacy k8s ingress for addon tracing components.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="TracingIngressConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Enables k8s ingress for addon tracing components.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="TracingIngressConfig-annotations">
-<td><code>annotations</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="TracingIngressConfig-hosts">
-<td><code>hosts</code></td>
-<td><code>string[]</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="TracingIngressConfig-tls">
-<td><code>tls</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
 </td>
@@ -7663,57 +7421,6 @@ No
 </tbody>
 </table>
 </section>
-<h2 id="KialiIngressConfig">KialiIngressConfig</h2>
-<section>
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="KialiIngressConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiIngressConfig-annotations">
-<td><code>annotations</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiIngressConfig-tls">
-<td><code>tls</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiIngressConfig-hosts">
-<td><code>hosts</code></td>
-<td><code>string[]</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="KialiConfig">KialiConfig</h2>
 <section>
 <p>Configuration for Kiali addon.</p>
@@ -7789,15 +7496,6 @@ No
 <tr id="KialiConfig-dashboard">
 <td><code>dashboard</code></td>
 <td><code><a href="#KialiDashboardConfig">KialiDashboardConfig</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiConfig-ingress">
-<td><code>ingress</code></td>
-<td><code><a href="#KialiIngressConfig">KialiIngressConfig</a></code></td>
 <td>
 </td>
 <td>
