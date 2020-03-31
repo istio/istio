@@ -18006,6 +18006,7 @@ metadata:
   namespace: istio-system
   labels:
     app: istiod
+    istio.io/rev: default
     release: istio-base
     istio: pilot
 spec:
@@ -18028,6 +18029,7 @@ metadata:
   name: istio
   namespace: istio-system
   labels:
+    istio.io/rev: default
     release: istio-base
 data:
 
@@ -18179,6 +18181,7 @@ metadata:
   name: istio-sidecar-injector
   namespace: istio-system
   labels:
+    istio.io/rev: default
     release: istio-base
 data:
 
@@ -18819,6 +18822,7 @@ metadata:
   name: istiod
   namespace: istio-system
   labels:
+    istio.io/rev: default
     app: istiod
     release: istio-base
 spec:
@@ -18848,6 +18852,7 @@ metadata:
   namespace: istio-system
   labels:
     app: istiod
+    istio.io/rev: default
     istio: pilot
     release: istio-base
 spec:
@@ -18862,8 +18867,7 @@ spec:
     metadata:
       labels:
         app: istiod
-        # Label used by the 'default' service. For versioned deployments we match with app and version.
-        # This avoids default deployment picking the canary
+        istio.io/rev: default
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
@@ -18994,6 +18998,7 @@ metadata:
   labels:
     app: istiod
     release: istio-base
+    istio.io/rev: default
 spec:
   maxReplicas: 5
   minReplicas: 1
@@ -19015,6 +19020,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.4
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -19043,6 +19050,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.4
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -19139,6 +19148,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -19171,6 +19182,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-metadata-exchange-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -19223,6 +19236,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -19327,6 +19342,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -19429,6 +19446,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -19461,6 +19480,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-metadata-exchange-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -19516,6 +19537,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -19620,6 +19643,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -19723,6 +19748,7 @@ metadata:
   name: istio-sidecar-injector
 
   labels:
+    istio.io/rev: default
     app: sidecar-injector
     release: istio-base
 webhooks:
@@ -20215,6 +20241,7 @@ metadata:
   labels:
     app: istiod
     release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   maxReplicas: {{ .Values.pilot.autoscaleMax }}
   minReplicas: {{ .Values.pilot.autoscaleMin }}
@@ -20253,6 +20280,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
 data:
   extra.pem: {{ .Values.pilot.jwksResolverExtraRootCA | quote }}
 {{- end }}
@@ -20530,6 +20558,7 @@ metadata:
   name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
     release: {{ .Release.Name }}
 data:
 
@@ -20577,9 +20606,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
-    {{- if ne .Values.revision ""}}
-    version: {{ .Values.revision }}
-    {{- end }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
     istio: pilot
     release: {{ .Release.Name }}
 {{- range $key, $val := .Values.pilot.deploymentLabels }}
@@ -20599,7 +20626,7 @@ spec:
     matchLabels:
       {{- if ne .Values.revision ""}}
       app: istiod
-      version: {{ .Values.revision }}
+      istio.io/rev: {{ .Values.revision | default "default" }}
       {{- else }}
       istio: pilot
       {{- end }}
@@ -20607,13 +20634,8 @@ spec:
     metadata:
       labels:
         app: istiod
-        {{- if ne .Values.revision ""}}
-        version: {{ .Values.revision }}
-        {{- else }}
-        # Label used by the 'default' service. For versioned deployments we match with app and version.
-        # This avoids default deployment picking the canary
+        istio.io/rev: {{ .Values.revision | default "default" }}
         istio: pilot
-        {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
         {{- if .Values.pilot.podAnnotations }}
@@ -20805,6 +20827,7 @@ metadata:
   name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
     release: {{ .Release.Name }}
 data:
 {{/* Scope the values to just top level fields used in the template, to reduce the size. */}}
@@ -20858,6 +20881,7 @@ metadata:
   name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
 {{- end }}
   labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
     app: sidecar-injector
     release: {{ .Release.Name }}
 webhooks:
@@ -20940,6 +20964,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
+    istio.io/rev: {{ .Values.revision | default "default" }}
     release: {{ .Release.Name }}
     istio: pilot
 spec:
@@ -20976,6 +21001,7 @@ metadata:
   name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
     app: istiod
     release: {{ .Release.Name }}
 spec:
@@ -20992,7 +21018,7 @@ spec:
   selector:
     app: istiod
     {{- if ne .Values.revision ""}}
-    version: {{ .Values.revision }}
+    istio.io/rev: {{ .Values.revision }}
     {{- else }}
     # Label used by the 'default' service. For versioned deployments we match with app and version.
     # This avoids default deployment picking the canary
@@ -21026,6 +21052,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -21059,6 +21087,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -21157,6 +21187,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
 {{- if not .Values.telemetry.v2.stackdriver.disableOutbound }}
@@ -21278,6 +21310,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -21321,6 +21355,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -21378,6 +21414,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -21507,6 +21545,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -21633,6 +21673,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
 {{- if not .Values.telemetry.v2.stackdriver.disableOutbound }}
@@ -21763,6 +21805,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -21806,6 +21850,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -21866,6 +21912,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -21995,6 +22043,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -22122,6 +22172,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
 {{- if not .Values.telemetry.v2.stackdriver.disableOutbound }}

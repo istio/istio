@@ -28,6 +28,7 @@ metadata:
   labels:
     app: istiod
     release: istio
+    istio.io/rev: default
 spec:
   maxReplicas: 5
   minReplicas: 1
@@ -128,6 +129,7 @@ data:
 kind: ConfigMap
 metadata:
   labels:
+    istio.io/rev: default
     release: istio
   name: istio
   namespace: istio-system
@@ -141,6 +143,7 @@ metadata:
   labels:
     app: istiod
     istio: pilot
+    istio.io/rev: default
     release: istio
   name: istiod
   namespace: istio-system
@@ -159,6 +162,7 @@ spec:
       labels:
         app: istiod
         istio: pilot
+        istio.io/rev: default
     spec:
       containers:
       - args:
@@ -278,6 +282,7 @@ metadata:
   name: istio-sidecar-injector
   namespace: istio-system
   labels:
+    istio.io/rev: default
     release: istio
 data:
 
@@ -892,6 +897,7 @@ metadata:
   name: istio-sidecar-injector
 
   labels:
+    istio.io/rev: default
     app: sidecar-injector
     release: istio
 webhooks:
@@ -921,6 +927,7 @@ metadata:
   namespace: istio-system
   labels:
     app: istiod
+    istio.io/rev: default
     release: istio
     istio: pilot
 spec:
@@ -938,6 +945,7 @@ metadata:
   name: istiod
   namespace: istio-system
   labels:
+    istio.io/rev: default
     app: istiod
     release: istio
 spec:
@@ -964,6 +972,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.4
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -994,6 +1004,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.4
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -1088,6 +1100,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -1122,6 +1136,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-metadata-exchange-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -1176,6 +1192,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -1282,6 +1300,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -1382,6 +1402,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -1416,6 +1438,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-metadata-exchange-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -1473,6 +1497,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -1579,6 +1605,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER

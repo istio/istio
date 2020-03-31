@@ -4,6 +4,7 @@ metadata:
   name: istio-sidecar-injector
   namespace: istio-system
   labels:
+    istio.io/rev: default
     release: istio
 data:
 

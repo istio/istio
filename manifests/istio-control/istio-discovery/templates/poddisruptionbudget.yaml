@@ -6,6 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
+    istio.io/rev: {{ .Values.revision | default "default" }}
     release: {{ .Release.Name }}
     istio: pilot
 spec:
