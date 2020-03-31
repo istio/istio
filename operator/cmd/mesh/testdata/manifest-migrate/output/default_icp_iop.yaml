@@ -314,10 +314,6 @@ spec:
       enableTracing: true
       imagePullPolicy: IfNotPresent
       imagePullSecrets: []
-      k8sIngress:
-        enableHttps: false
-        enabled: false
-        gatewayName: ingressgateway
       localityLbSetting:
         enabled: true
       logAsJson: false
@@ -349,7 +345,7 @@ spec:
         clusterDomain: cluster.local
         componentLogLevel: misc:error
         concurrency: 2
-        dnsRefreshRate: 300s
+
         enableCoreDump: false
         envoyAccessLogService:
           enabled: false
@@ -369,8 +365,6 @@ spec:
         excludeOutboundPorts: ""
         image: proxyv2
         includeIPRanges: '*'
-        includeInboundPorts: '*'
-        kubevirtInterfaces: ""
         logLevel: warning
         privileged: false
         protocolDetectionTimeout: 100ms

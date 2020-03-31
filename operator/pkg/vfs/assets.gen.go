@@ -18220,11 +18220,6 @@ data:
           "enabled": true
         },
         "jwtPolicy": "third-party-jwt",
-        "k8sIngress": {
-          "enableHttps": false,
-          "enabled": false,
-          "gatewayName": "ingressgateway"
-        },
         "localityLbSetting": {
           "enabled": true
         },
@@ -18267,7 +18262,6 @@ data:
           "clusterDomain": "cluster.local",
           "componentLogLevel": "misc:error",
           "concurrency": 2,
-          "dnsRefreshRate": "300s",
           "enableCoreDump": false,
           "envoyAccessLogService": {
             "enabled": false,
@@ -18315,8 +18309,6 @@ data:
           "excludeOutboundPorts": "",
           "image": "proxyv2",
           "includeIPRanges": "*",
-          "includeInboundPorts": "*",
-          "kubevirtInterfaces": "",
           "logLevel": "warning",
           "privileged": false,
           "protocolDetectionTimeout": "100ms",
@@ -37026,20 +37018,6 @@ kiali:
     annotations: {}
     type: ClusterIP
 
-  ingress:
-    enabled: false
-    ## Used to create an Ingress record.
-    hosts:
-      - kiali.local
-    annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-    tls:
-    # Secrets must be manually created in the namespace.
-    # - secretName: kiali-tls
-    #   hosts:
-    #     - kiali.local
-
   dashboard:
     auth:
       strategy: login # Can be anonymous, login, openshift, or ldap
@@ -41103,20 +41081,6 @@ var _chartsIstioTelemetryPrometheusValuesYaml = []byte(`prometheus:
 
   contextPath: /prometheus
 
-  ingress:
-    enabled: false
-    ## Used to create an Ingress record.
-    hosts:
-      - prometheus.local
-    annotations:
-      # kubernetes.io/ingress.class: nginx
-      # kubernetes.io/tls-acme: "true"
-    tls:
-      # Secrets must be manually created in the namespace.
-      # - secretName: prometheus-tls
-      #   hosts:
-      #     - prometheus.local
-
   # 1.2 it is disabled by default - it can be enabled for special cases, but would create port
   # conflicts. In general it is not recommended to use node ports for services, but use gateways instead.
 #  service:
@@ -42663,21 +42627,6 @@ tracing:
     name: http-query
     type: ClusterIP
     externalPort: 80
-
-  ingress:
-    enabled: false
-    # Used to create an Ingress record.
-    hosts:
-    # - tracing.local
-    annotations:
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-    tls:
-    # Secrets must be manually created in the namespace.
-    # - secretName: tracing-tls
-    #   hosts:
-    #     - tracing.local
-
 `)
 
 func chartsIstioTelemetryTracingValuesYamlBytes() ([]byte, error) {
@@ -43662,10 +43611,6 @@ spec:
       logging:
         level: "default:info"
       logAsJson: false
-      k8sIngress:
-        enabled: false
-        gatewayName: ingressgateway
-        enableHttps: false
       pilotCertProvider: istiod
       jwtPolicy: third-party-jwt
       proxy:
@@ -43688,7 +43633,6 @@ spec:
           port: # example: 15000
         logLevel: warning
         componentLogLevel: "misc:error"
-        dnsRefreshRate: 300s
         protocolDetectionTimeout: 100ms
         privileged: false
         enableCoreDump: false
@@ -43699,8 +43643,6 @@ spec:
         includeIPRanges: "*"
         excludeIPRanges: ""
         excludeOutboundPorts: ""
-        kubevirtInterfaces: ""
-        includeInboundPorts: "*"
         excludeInboundPorts: ""
         autoInject: enabled
         envoyStatsd:
@@ -43815,8 +43757,6 @@ spec:
       enableProtocolSniffingForOutbound: true
       enableProtocolSniffingForInbound: true
       deploymentLabels:
-      meshNetworks:
-        networks: {}
       configMap: true
       ingress:
         ingressService: istio-ingressgateway
@@ -43952,12 +43892,7 @@ spec:
       retention: 6h
       scrapeInterval: 15s
       contextPath: /prometheus
-      ingress:
-        enabled: false
-        hosts:
-          - prometheus.local
-        annotations:
-        tls:
+
       security:
         enabled: true
       nodeSelector: {}
@@ -43986,12 +43921,6 @@ spec:
         externalPort: 3000
         loadBalancerIP:
         loadBalancerSourceRanges:
-      ingress:
-        enabled: false
-        hosts:
-          - grafana.local
-        annotations:
-        tls:
       datasources:
         datasources.yaml:
           apiVersion: 1
@@ -44062,11 +43991,6 @@ spec:
         name: http-query
         type: ClusterIP
         externalPort: 9411
-      ingress:
-        enabled: false
-        hosts:
-        annotations:
-        tls:
     istiocoredns:
       coreDNSImage: coredns/coredns
       coreDNSTag: 1.6.2
@@ -44079,12 +44003,6 @@ spec:
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
-      ingress:
-        enabled: false
-        hosts:
-          - kiali.local
-        annotations:
-        tls:
       dashboard:
         secretName: kiali
         usernameKey: username

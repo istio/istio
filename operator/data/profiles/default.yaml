@@ -259,10 +259,6 @@ spec:
       logging:
         level: "default:info"
       logAsJson: false
-      k8sIngress:
-        enabled: false
-        gatewayName: ingressgateway
-        enableHttps: false
       pilotCertProvider: istiod
       jwtPolicy: third-party-jwt
       proxy:
@@ -285,7 +281,6 @@ spec:
           port: # example: 15000
         logLevel: warning
         componentLogLevel: "misc:error"
-        dnsRefreshRate: 300s
         protocolDetectionTimeout: 100ms
         privileged: false
         enableCoreDump: false
@@ -296,8 +291,6 @@ spec:
         includeIPRanges: "*"
         excludeIPRanges: ""
         excludeOutboundPorts: ""
-        kubevirtInterfaces: ""
-        includeInboundPorts: "*"
         excludeInboundPorts: ""
         autoInject: enabled
         envoyStatsd:
@@ -412,8 +405,6 @@ spec:
       enableProtocolSniffingForOutbound: true
       enableProtocolSniffingForInbound: true
       deploymentLabels:
-      meshNetworks:
-        networks: {}
       configMap: true
       ingress:
         ingressService: istio-ingressgateway
@@ -549,12 +540,7 @@ spec:
       retention: 6h
       scrapeInterval: 15s
       contextPath: /prometheus
-      ingress:
-        enabled: false
-        hosts:
-          - prometheus.local
-        annotations:
-        tls:
+
       security:
         enabled: true
       nodeSelector: {}
@@ -583,12 +569,6 @@ spec:
         externalPort: 3000
         loadBalancerIP:
         loadBalancerSourceRanges:
-      ingress:
-        enabled: false
-        hosts:
-          - grafana.local
-        annotations:
-        tls:
       datasources:
         datasources.yaml:
           apiVersion: 1
@@ -659,11 +639,6 @@ spec:
         name: http-query
         type: ClusterIP
         externalPort: 9411
-      ingress:
-        enabled: false
-        hosts:
-        annotations:
-        tls:
     istiocoredns:
       coreDNSImage: coredns/coredns
       coreDNSTag: 1.6.2
@@ -676,12 +651,6 @@ spec:
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
-      ingress:
-        enabled: false
-        hosts:
-          - kiali.local
-        annotations:
-        tls:
       dashboard:
         secretName: kiali
         usernameKey: username

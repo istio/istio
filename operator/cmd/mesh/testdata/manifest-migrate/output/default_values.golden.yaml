@@ -341,10 +341,6 @@ spec:
       enableTracing: true
       imagePullPolicy: IfNotPresent
       imagePullSecrets: []
-      k8sIngress:
-        enableHttps: false
-        enabled: false
-        gatewayName: ingressgateway
       localityLbSetting:
         enabled: true
       logging:
@@ -369,7 +365,6 @@ spec:
         clusterDomain: cluster.local
         componentLogLevel: ""
         concurrency: 2
-        dnsRefreshRate: 300s
         enableCoreDump: false
         envoyAccessLogService:
           enabled: false
@@ -389,8 +384,6 @@ spec:
         excludeOutboundPorts: ""
         image: proxyv2
         includeIPRanges: '*'
-        includeInboundPorts: '*'
-        kubevirtInterfaces: ""
         logLevel: ""
         privileged: false
         protocolDetectionTimeout: 10ms
@@ -462,10 +455,6 @@ spec:
       image:
         repository: grafana/grafana
         tag: 6.1.6
-      ingress:
-        enabled: false
-        hosts:
-        - grafana.local
       persist: false
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
@@ -500,10 +489,6 @@ spec:
         viewOnlyMode: false
       hub: quay.io/kiali
       image: kiali
-      ingress:
-        enabled: false
-        hosts:
-        - kiali.local
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
       replicaCount: 1
@@ -552,10 +537,6 @@ spec:
       contextPath: /prometheus
       hub: docker.io/prom
       image: prometheus
-      ingress:
-        enabled: false
-        hosts:
-        - prometheus.local
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
       retention: 6h
@@ -601,8 +582,6 @@ spec:
       selfSigned: false
     tracing:
       enabled: false
-      ingress:
-        enabled: false
       jaeger:
         accessMode: ReadWriteMany
         hub: docker.io/jaegertracing

@@ -11,20 +11,6 @@ prometheus:
 
   contextPath: /prometheus
 
-  ingress:
-    enabled: false
-    ## Used to create an Ingress record.
-    hosts:
-      - prometheus.local
-    annotations:
-      # kubernetes.io/ingress.class: nginx
-      # kubernetes.io/tls-acme: "true"
-    tls:
-      # Secrets must be manually created in the namespace.
-      # - secretName: prometheus-tls
-      #   hosts:
-      #     - prometheus.local
-
   # 1.2 it is disabled by default - it can be enabled for special cases, but would create port
   # conflicts. In general it is not recommended to use node ports for services, but use gateways instead.
 #  service:
