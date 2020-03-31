@@ -25,6 +25,7 @@ import (
 
 	ghc "github.com/go-training/grpc-health-check/proto"
 	"google.golang.org/grpc"
+
 	proxyEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pkg/spiffe"
 	istioEnv "istio.io/istio/pkg/test/env"
