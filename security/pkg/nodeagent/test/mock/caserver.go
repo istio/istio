@@ -116,7 +116,7 @@ func (s *CAServer) CreateCertificate(ctx context.Context, request *pb.IstioCerti
 	return response, nil
 }
 
-func (s *CAServer) sign(csrPEM []byte, subjectIDs []string, _, forCA bool) ([]byte, error) {
+func (s *CAServer) sign(csrPEM []byte, subjectIDs []string, _ time.Duration, forCA bool) ([]byte, error) {
 	csr, err := util.ParsePemEncodedCSR(csrPEM)
 	if err != nil {
 		caServerLog.Errorf("failed to parse CSR: %+v", err)
