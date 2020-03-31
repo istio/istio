@@ -22,8 +22,10 @@ import (
 	"reflect"
 	"time"
 
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/informers/networking/v1beta1"
+
 	"k8s.io/client-go/informers"
-	"k8s.io/client-go/listers/networking/v1beta1"
 
 	"istio.io/pkg/ledger"
 
@@ -88,7 +90,7 @@ type controller struct {
 	informer               cache.SharedIndexInformer
 	virtualServiceHandlers []func(model.Config, model.Config, model.Event)
 	gatewayHandlers        []func(model.Config, model.Config, model.Event)
-	classes                v1beta1.IngressClassLister
+	classes                v1beta1.IngressClassInformer
 }
 
 var (
@@ -114,7 +116,7 @@ func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
 	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
 	log.Infof("Ingress controller watching namespaces %q", options.WatchedNamespace)
 	informer := sharedInformers.Networking().V1beta1().Ingresses().Informer()
-	classes := sharedInformers.Networking().V1beta1().IngressClasses().Lister()
+	classes := sharedInformers.Networking().V1beta1().IngressClasses()
 
 	c := &controller{
 		mesh:         mesh,
@@ -152,8 +154,8 @@ func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
 func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *ingress.Ingress) (bool, error) {
 	var class *ingress.IngressClass
 	if i.Spec.IngressClassName != nil {
-		c, err := c.classes.Get(*i.Spec.IngressClassName)
-		if err != nil {
+		c, err := c.classes.Lister().Get(*i.Spec.IngressClassName)
+		if err != nil && !kerrors.IsNotFound(err) {
 			return false, fmt.Errorf("failed to get ingress class %v: %v", i.Spec.IngressClassName, err)
 		}
 		class = c
@@ -236,6 +238,7 @@ func (c *controller) Run(stop <-chan struct{}) {
 		c.queue.Run(stop)
 	}()
 	go c.informer.Run(stop)
+	go c.classes.Informer().Run(stop)
 	<-stop
 }
 
