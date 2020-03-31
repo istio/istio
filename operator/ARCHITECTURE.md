@@ -8,11 +8,11 @@ See the
 for a more complete design description. The operator code is divided roughly into five areas:
 
 1. [IstioOperatorSpec API](#istiooperatorspec-api) and related infrastructure, which is expressed as a
-[proto](https://github.com/istio/api/mesh/v1alpha1/operator.proto) and
+[proto](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto) and
 compiled to [Go
-structs](https://github.com/istio/api/mesh/v1alpha1/operator.pb.go).
+structs](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.pb.go).
 `IstioOperatorSpec` has pass-through fields to the Helm values.yaml API, but these are additionally validated through
-a [schema](pkg/apis/istio/v1alpha/values_types.proto).
+a [schema](pkg/apis/istio/v1alpha1/values_types.proto).
 1. [Controller](#k8s-controller) code. The code comprises the K8s listener, webhook and logic for reconciling the cluster
 to an `IstioOperatorSpec` CR.
 1. [Manifest creation](#manifest-creation) code. User settings are overlaid on top of the
@@ -25,7 +25,7 @@ run a privileged controller in the cluster.
 automate configuration migration from Helm to the operator.
 
 The operator code uses the new Helm charts in the [istio/installer](https://github.com/istio/installer) repo. It is not
-compatible with the older charts in [istio/istio](https://github.com/istio/istio/tree/master/install/kubernetes/helm).
+compatible with the older charts in [istio/istio](https://github.com/istio/istio/tree/1.4.7/install/kubernetes/helm).
 See the istio/installer repo for details about the new charts and why they were created. Briefly, the new charts
 are intended to support production ready deployments of Istio that follow best practices like canarying for upgrade.
 
