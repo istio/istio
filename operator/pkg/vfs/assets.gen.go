@@ -31059,7 +31059,7 @@ spec:
 {{- $filename := trimSuffix (ext $path) (base $path) }}
       - name: dashboards-istio-{{ $filename }}
         configMap:
-          name:  istio-grafana-configuration-dashboards-{{ $filename }}
+          name: istio-grafana-configuration-dashboards-{{ $filename }}
 {{- end }}
 `)
 
