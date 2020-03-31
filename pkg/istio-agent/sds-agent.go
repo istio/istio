@@ -61,9 +61,6 @@ var (
 	// TODO: default to same as discovery address
 	caEndpointEnv = env.RegisterStringVar(caEndpoint, "", "").Get()
 
-	alwaysValidTokenFlag = env.RegisterBoolVar("AlwaysValidTokenFlag", false, "token "+
-		"used is always valid or not, set this to true on VM since no token on VM").Get()
-
 	pluginNamesEnv             = env.RegisterStringVar(pluginNames, "", "").Get()
 	enableIngressGatewaySDSEnv = env.RegisterBoolVar(enableIngressGatewaySDS, false, "").Get()
 
@@ -458,6 +455,8 @@ func applyEnvVars() {
 	workloadSdsCacheOptions.InitialBackoffInMilliSec = int64(initialBackoffInMilliSecEnv)
 	// Disable the secret eviction for istio agent.
 	workloadSdsCacheOptions.EvictionDuration = 0
-	workloadSdsCacheOptions.AlwaysValidTokenFlag = alwaysValidTokenFlag
+	if citadel.ProvCert != "" {
+		workloadSdsCacheOptions.AlwaysValidTokenFlag = true
+	}
 	workloadSdsCacheOptions.OutputKeyCertToDir = serverOptions.OutputKeyCertToDir
 }

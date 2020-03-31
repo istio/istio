@@ -101,7 +101,6 @@ export ISTIO_CA
 export PROV_CERT
 export OUTPUT_CERTS
 export CA_ADDR
-export AlwaysValidTokenFlag
 
 # If predefined ISTIO_AGENT_FLAGS is null, make it an empty string.
 ISTIO_AGENT_FLAGS=${ISTIO_AGENT_FLAGS:-}

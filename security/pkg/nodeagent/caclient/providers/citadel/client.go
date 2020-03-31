@@ -133,7 +133,6 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 	config := tls.Config{
 		Certificates: []tls.Certificate{certificate},
 		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			log.Infof("call getclientCertificate")
 			if ProvCert != "" {
 				// Load the certificate from disk
 				certificate, err = tls.LoadX509KeyPair(ProvCert+"/cert-chain.pem", ProvCert+"/key.pem")
