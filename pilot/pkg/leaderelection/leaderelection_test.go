@@ -93,7 +93,6 @@ func TestLeaderElectionConfigMapRemoved(t *testing.T) {
 }
 
 func TestLeaderElectionNoPermission(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/22038")
 	client := fake.NewSimpleClientset()
 	allowRbac := atomic.NewBool(true)
 	client.Fake.PrependReactor("update", "*", func(action k8stesting.Action) (bool, runtime.Object, error) {
