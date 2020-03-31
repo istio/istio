@@ -15,6 +15,7 @@
 package test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -22,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	ghc "github.com/go-training/grpc-health-check/proto"
+	"google.golang.org/grpc"
 	proxyEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pkg/spiffe"
 	istioEnv "istio.io/istio/pkg/test/env"
@@ -56,16 +59,16 @@ func (e *Env) TearDown() {
 	e.CAServer.GRPCServer.GracefulStop()
 }
 
-func getDataFromFile(filePath string, t *testing.T) string {
+func getDataFromFile(filePath string, t *testing.T) []byte {
 	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		t.Fatalf("failed to read %q", filePath)
 	}
-	return string(data)
+	return data
 }
 
 // WriteDataToFile writes data into file
-func WriteDataToFile(path string, content string) error {
+func WriteDataToFile(path string, content []byte) error {
 	if path == "" {
 		return errors.New("empty file path")
 	}
@@ -74,7 +77,7 @@ func WriteDataToFile(path string, content string) error {
 		return err
 	}
 	defer f.Close()
-	if _, err = f.WriteString(content); err != nil {
+	if _, err = f.Write(content); err != nil {
 		return err
 	}
 	_ = f.Sync()
@@ -100,7 +103,7 @@ func SetupTest(t *testing.T, testID uint16) *Env {
 	// Set up test environment for Proxy
 	proxySetup := proxyEnv.NewTestSetup(testID, t)
 	proxySetup.SetNoMixer(true)
-	proxySetup.EnvoyTemplate = getDataFromFile(istioEnv.IstioSrc+"/security/pkg/nodeagent/test/testdata/bootstrap.yaml", t)
+	proxySetup.EnvoyTemplate = string(getDataFromFile(istioEnv.IstioSrc+"/security/pkg/nodeagent/test/testdata/bootstrap.yaml", t))
 	env.ProxySetup = proxySetup
 	env.OutboundListenerPort = int(proxySetup.Ports().ClientProxyPort)
 
@@ -110,6 +113,7 @@ func SetupTest(t *testing.T, testID uint16) *Env {
 		t.Fatalf("failed to start CA server: %+v", err)
 	}
 	env.CAServer = ca
+	env.waitForCAReady(t)
 	env.StartSDSServer(t)
 	return env
 }
@@ -168,4 +172,26 @@ func (e *Env) StartSDSServer(t *testing.T) {
 		t.Fatalf("failed to start SDS server: %+v", err)
 	}
 	e.SDSServer = sdsServer
+}
+
+// waitForCAReady makes health check requests to gRPC healthcheck service at CA server.
+func (e *Env) waitForCAReady(t *testing.T) {
+	conn, err := grpc.Dial(e.CAServer.URL, grpc.WithInsecure())
+	if err != nil {
+		t.Fatalf("failed on connecting CA server %s: %v", e.CAServer.URL, err)
+	}
+	defer conn.Close()
+
+	client := ghc.NewHealthClient(conn)
+	req := new(ghc.HealthCheckRequest)
+	var resp *ghc.HealthCheckResponse
+	for i := 0; i < 20; i++ {
+		resp, err = client.Check(context.Background(), req)
+		if err == nil && resp.GetStatus() == ghc.HealthCheckResponse_SERVING {
+			t.Logf("CA server is ready for handling CSR requests")
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Fatalf("CA server is not ready. resp: %v, error: %v", resp, err)
 }

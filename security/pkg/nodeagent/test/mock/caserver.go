@@ -21,6 +21,7 @@ import (
 	"net"
 	"time"
 
+	ghc "github.com/go-training/grpc-health-check/proto"
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pkg/mcp/status"
@@ -41,6 +42,7 @@ type CAServer struct {
 	certPem       []byte
 	keyPem        []byte
 	keyCertBundle util.KeyCertBundle
+	certLifetime  time.Duration
 }
 
 // NewCAServer creates a new CA server that listens on port.
@@ -68,12 +70,13 @@ func NewCAServer(port int) (*CAServer, error) {
 	server := &CAServer{
 		certPem:       cert,
 		keyPem:        key,
+		certLifetime:  24 * time.Hour,
 		keyCertBundle: keyCertBundle,
 		GRPCServer:    grpc.NewServer(),
 	}
 	// Register CA service at gRPC server.
 	pb.RegisterIstioCertificateServiceServer(server.GRPCServer, server)
-
+	ghc.RegisterHealthServer(server.GRPCServer, server)
 	return server, server.start(port)
 }
 
@@ -86,15 +89,13 @@ func (s *CAServer) start(port int) error {
 
 	// If passed in port is 0, get the actual chosen port.
 	port = listener.Addr().(*net.TCPAddr).Port
-	s.URL = fmt.Sprintf("http://localhost:%d", port)
+	s.URL = fmt.Sprintf("localhost:%d", port)
 	go func() {
 		log.Infof("start CA server on %s", s.URL)
 		if err := s.GRPCServer.Serve(listener); err != nil {
 			log.Errorf("CA Server failed to serve in %q: %v", s.URL, err)
 		}
 	}()
-	// sleep a while for mock server to start.
-	time.Sleep(time.Second)
 	return nil
 }
 
@@ -115,16 +116,14 @@ func (s *CAServer) CreateCertificate(ctx context.Context, request *pb.IstioCerti
 	return response, nil
 }
 
-func (s *CAServer) sign(csrPEM []byte, subjectIDs []string, requestedLifetime time.Duration, forCA bool) ([]byte, error) {
-	log.Infof("lifetime: %s", requestedLifetime.String())
+func (s *CAServer) sign(csrPEM []byte, subjectIDs []string, _, forCA bool) ([]byte, error) {
 	csr, err := util.ParsePemEncodedCSR(csrPEM)
 	if err != nil {
 		caServerLog.Errorf("failed to parse CSR: %+v", err)
 		return nil, caerror.NewError(caerror.CSRError, err)
 	}
-	lifetime := 24 * time.Hour
 	signingCert, signingKey, _, _ := s.keyCertBundle.GetAll()
-	certBytes, err := util.GenCertFromCSR(csr, signingCert, csr.PublicKey, *signingKey, subjectIDs, lifetime, forCA)
+	certBytes, err := util.GenCertFromCSR(csr, signingCert, csr.PublicKey, *signingKey, subjectIDs, s.certLifetime, forCA)
 	if err != nil {
 		caServerLog.Errorf("failed to generate cert from CSR: %+v", err)
 		return nil, caerror.NewError(caerror.CertGenError, err)
@@ -136,4 +135,11 @@ func (s *CAServer) sign(csrPEM []byte, subjectIDs []string, requestedLifetime ti
 	cert := pem.EncodeToMemory(block)
 
 	return cert, nil
+}
+
+// Check implements `service Health`.
+func (s *CAServer) Check(ctx context.Context, in *ghc.HealthCheckRequest) (*ghc.HealthCheckResponse, error) {
+	return &ghc.HealthCheckResponse{
+		Status: ghc.HealthCheckResponse_SERVING,
+	}, nil
 }
