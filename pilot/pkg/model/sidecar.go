@@ -67,6 +67,8 @@ type SidecarScope struct {
 
 	// Union of services imported across all egress listeners for use by CDS code.
 	services []*Service
+	// Same services with services field. For convenient usage when accessing by hostname.
+	serviceMap map[string]*Service
 
 	// Destination rules imported across all egress listeners. This
 	// contains the computed set based on public/private destination rules
@@ -149,10 +151,16 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		destinationRules:      make(map[host.Name]*Config),
 		namespaceDependencies: make(map[string]struct{}),
 	}
+
+	serviceMap := make(map[string]*Service, len(out.services))
+	out.serviceMap = serviceMap
+
 	// Now that we have all the services that sidecars using this scope (in
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
 	for _, s := range out.services {
+		serviceMap[string(s.Hostname)] = s
+
 		out.destinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s)
 		out.namespaceDependencies[s.Attributes.Namespace] = struct{}{}
 	}
@@ -185,6 +193,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 	// this sidecar crd. This is needed to generate CDS output
 	out.services = make([]*Service, 0)
 	servicesAdded := make(map[string]*Service)
+	out.serviceMap = servicesAdded
 	dummyNode := Proxy{
 		ConfigNamespace: configNamespace,
 	}
@@ -420,6 +429,18 @@ func (sc *SidecarScope) DependsOnNamespace(namespace string) bool {
 	}
 
 	if _, f := sc.namespaceDependencies[namespace]; f {
+		return true
+	}
+
+	return false
+}
+
+func (sc *SidecarScope) DependsOnService(service string) bool {
+	if sc == nil {
+		return true
+	}
+
+	if _, f := sc.serviceMap[service]; f {
 		return true
 	}
 

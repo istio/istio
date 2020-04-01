@@ -268,9 +268,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	// It is done in DiscoveryServer.Push --> AdsPushAll
 	if !internal {
 		var edsUpdates map[string]struct{}
-		if !requireFull {
-			edsUpdates = map[string]struct{}{serviceName: {}}
-		}
+		edsUpdates = map[string]struct{}{serviceName: {}}
 
 		s.ConfigUpdate(&model.PushRequest{
 			Full:              requireFull,

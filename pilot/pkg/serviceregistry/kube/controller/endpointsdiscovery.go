@@ -69,7 +69,7 @@ func (e *kubeEndpoints) handleEvent(name string, namespace string, event model.E
 					Full:              true,
 					NamespacesUpdated: map[string]struct{}{namespace: {}},
 					// TODO: extend and set service instance type, so no need to re-init push context
-					ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{model.ServiceEntryKind: {}},
+					ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{model.ServiceEntryKind: {svc.Name: {}}},
 					Reason:         []model.TriggerReason{model.EndpointUpdate},
 				})
 				return nil

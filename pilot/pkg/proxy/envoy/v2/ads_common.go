@@ -17,7 +17,50 @@ package v2
 import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 )
+
+var (
+	pushResourceScope = map[resource.GroupVersionKind]func(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool{
+		model.ServiceEntryKind: serviceEntryAffectProxy,
+	}
+	defaultTrueScope = func(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
+		return true
+	}
+	defaultFalseScope = func(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
+		return false
+	}
+)
+
+func serviceEntryAffectProxy(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
+	for resource := range resources {
+		if proxy.SidecarScope.DependsOnService(resource) {
+			return true
+		}
+	}
+
+	return false
+}
+
+//func virtualServiceAffectProxy(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
+//	proxy.SidecarScope.ServiceForHostname()
+//}
+
+func PushAffectProxy(pushEv *XdsEvent, proxy *model.Proxy) bool {
+	if len(pushEv.configsUpdated) == 0 {
+		return true
+	}
+
+	for kind, resources := range pushEv.configsUpdated {
+		if scope, f := pushResourceScope[kind]; !f {
+			return true
+		} else if scope(proxy, pushEv, resources) {
+			return true
+		}
+	}
+
+	return false
+}
 
 func ProxyNeedsPush(proxy *model.Proxy, pushEv *XdsEvent) bool {
 	targetNamespaces := pushEv.namespacesUpdated
@@ -45,6 +88,10 @@ Loop:
 			appliesToProxy = true
 			break Loop
 		}
+	}
+
+	if appliesToProxy {
+		appliesToProxy = PushAffectProxy(pushEv, proxy)
 	}
 
 	if !appliesToProxy {

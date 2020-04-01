@@ -688,8 +688,10 @@ func (s *Server) initEventHandlers() error {
 		pushReq := &model.PushRequest{
 			Full:              true,
 			NamespacesUpdated: map[string]struct{}{svc.Attributes.Namespace: {}},
-			ConfigsUpdated:    map[resource.GroupVersionKind]map[string]struct{}{model.ServiceEntryKind: {}},
-			Reason:            []model.TriggerReason{model.ServiceUpdate},
+			ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{model.ServiceEntryKind: {
+				string(svc.Hostname): struct{}{},
+			}},
+			Reason: []model.TriggerReason{model.ServiceUpdate},
 		}
 		s.EnvoyXdsServer.ConfigUpdate(pushReq)
 	}
@@ -704,8 +706,10 @@ func (s *Server) initEventHandlers() error {
 		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
 			Full:              true,
 			NamespacesUpdated: map[string]struct{}{si.Service.Attributes.Namespace: {}},
-			ConfigsUpdated:    map[resource.GroupVersionKind]map[string]struct{}{model.ServiceEntryKind: {}},
-			Reason:            []model.TriggerReason{model.ServiceUpdate},
+			ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{model.ServiceEntryKind: {
+				string(si.Service.Hostname): struct{}{},
+			}},
+			Reason: []model.TriggerReason{model.ServiceUpdate},
 		})
 	}
 	if err := s.ServiceController().AppendInstanceHandler(instanceHandler); err != nil {
@@ -716,7 +720,7 @@ func (s *Server) initEventHandlers() error {
 		configHandler := func(_, curr model.Config, _ model.Event) {
 			pushReq := &model.PushRequest{
 				Full:           true,
-				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{curr.GroupVersionKind(): {}},
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{curr.GroupVersionKind(): {curr.Name: {}}},
 				Reason:         []model.TriggerReason{model.ConfigUpdate},
 			}
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)

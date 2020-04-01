@@ -129,6 +129,7 @@ func (c *controller) Apply(change *sink.Change) error {
 	}
 
 	kind := s.Resource().GroupVersionKind()
+	names := map[string]struct{}{} // If non-incremental, we use empty names to indicate all.
 
 	// innerStore is [namespace][name]
 	innerStore := make(map[string]map[string]*model.Config)
@@ -145,6 +146,9 @@ func (c *controller) Apply(change *sink.Change) error {
 			}
 		}
 
+		if change.Incremental {
+			names[name] = struct{}{}
+		}
 		conf := &model.Config{
 			ConfigMeta: model.ConfigMeta{
 				Type:              kind.Kind,
@@ -182,6 +186,7 @@ func (c *controller) Apply(change *sink.Change) error {
 		}
 	}
 	for _, removed := range change.Removed {
+		names[removed] = struct{}{}
 		err := c.ledger.Delete(kube.KeyFunc(change.Collection, removed))
 		if err != nil {
 			log.Warnf(ledgerLogf, err)
@@ -201,7 +206,7 @@ func (c *controller) Apply(change *sink.Change) error {
 	} else if c.options.XDSUpdater != nil {
 		c.options.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			Full:           true,
-			ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{kind: {}},
+			ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{kind: names},
 			Reason:         []model.TriggerReason{model.ConfigUpdate},
 		})
 	}

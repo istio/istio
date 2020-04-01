@@ -105,8 +105,8 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, metadata
 	m.remoteKubeControllers[clusterID] = &remoteKubeController
 	m.m.Unlock()
 
-	_ = kubectl.AppendServiceHandler(func(*model.Service, model.Event) { m.updateHandler() })
-	_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { m.updateHandler() })
+	_ = kubectl.AppendServiceHandler(func(svc *model.Service, ev model.Event) { m.updateHandler(svc) })
+	_ = kubectl.AppendInstanceHandler(func(si *model.ServiceInstance, ev model.Event) { m.updateHandler(si.Service) })
 	go kubectl.Run(stopCh)
 	return nil
 }
@@ -139,12 +139,14 @@ func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 	return nil
 }
 
-func (m *Multicluster) updateHandler() {
+func (m *Multicluster) updateHandler(svc *model.Service) {
 	if m.XDSUpdater != nil {
 		req := &model.PushRequest{
-			Full:           true,
-			ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{model.ServiceEntryKind: {}},
-			Reason:         []model.TriggerReason{model.UnknownTrigger},
+			Full: true,
+			ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{model.ServiceEntryKind: {
+				string(svc.Hostname): {},
+			}},
+			Reason: []model.TriggerReason{model.UnknownTrigger},
 		}
 		m.XDSUpdater.ConfigUpdate(req)
 	}
