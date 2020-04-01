@@ -16,32 +16,58 @@ package outboundtrafficpolicy
 
 import (
 	"testing"
+
+	"istio.io/istio/pkg/test/echo/common/scheme"
 )
 
 func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
-	expected := map[string]Response{
-		"http": {
-			Metric:    "istio_requests_total",
-			PromQuery: `sum(istio_requests_total{destination_service_name="BlackHoleCluster",response_code="502"})`,
-			Code:      []string{"502"},
-		}, // HTTP will return an error code
-		"http_egress": {
-			Metric:    "istio_requests_total",
-			PromQuery: `sum(istio_requests_total{destination_service_name="istio-egressgateway",response_code="200"})`,
-			Code:      []string{"200"},
-		}, // we define the virtual service in the namespace, so we should be able to reach it
-		"https": {
-			Metric:    "istio_tcp_connections_closed_total",
-			PromQuery: `sum(istio_tcp_connections_closed_total{destination_service="BlackHoleCluster",destination_service_name="BlackHoleCluster"})`,
-			Code:      []string{},
-		}, // HTTPS will direct to blackhole cluster, giving no response
-		"tcp": {
-			Metric:    "",
-			PromQuery: "",
-			Code:      []string{},
-		}, // TCP will direct to blackhole cluster
+	cases := []*TestCase{
+		{
+			Name:     "HTTP Traffic",
+			PortName: "http",
+			Scheme:   scheme.HTTP,
+			Expected: Expected{
+				Metric:    "istio_requests_total",
+				PromQuery: `sum(istio_requests_total{destination_service_name="BlackHoleCluster",response_code="502"})`,
+				Code:      []string{"502"},
+			},
+		},
+		{
+			Name:     "HTTPS Traffic",
+			PortName: "https",
+			// TODO: set up TLS here instead of just sending HTTP. We get a false positive here
+			Scheme: scheme.HTTP,
+			Expected:Expected{
+				Metric:    "istio_tcp_connections_closed_total",
+				PromQuery: `sum(istio_tcp_connections_closed_total{destination_service="BlackHoleCluster",destination_service_name="BlackHoleCluster"})`,
+				Code:      []string{},
+			},
+		},
+		{
+			Name:     "HTTP Traffic Egress",
+			PortName: "http",
+			Host:     "some-external-site.com",
+			Gateway:  true,
+			Scheme:   scheme.HTTP,
+			Expected: Expected{
+				Metric:    "istio_requests_total",
+				PromQuery: `sum(istio_requests_total{destination_service_name="istio-egressgateway",response_code="200"})`,
+				Code:      []string{"200"},
+			},
+		},
+		// TODO add HTTPS through gateway
+		{
+			Name:     "TCP",
+			PortName: "tcp",
+			Scheme:   scheme.TCP,
+			Expected:Expected{
+				Metric:    "",
+				PromQuery: "",
+				Code:      []string{},
+			},
+		},
 	}
 
-	RunExternalRequest(prom, RegistryOnly, expected, t)
+	RunExternalRequest(cases, prom, RegistryOnly, t)
 
 }

@@ -16,30 +16,56 @@ package outboundtrafficpolicy
 
 import (
 	"testing"
+
+	"istio.io/istio/pkg/test/echo/common/scheme"
 )
 
 func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
-	expected := map[string]Response{
-		"http": {
-			Metric:    "istio_requests_total",
-			PromQuery: `sum(istio_requests_total{reporter="source",destination_service_name="PassthroughCluster",response_code="200"})`,
-			Code:      []string{"200"},
+	cases := []*TestCase{
+		{
+			Name:     "HTTP Traffic",
+			PortName: "http",
+			Scheme:   scheme.HTTP,
+			Expected: Expected{
+					Metric:    "istio_requests_total",
+					PromQuery: `sum(istio_requests_total{reporter="source",destination_service_name="PassthroughCluster",response_code="200"})`,
+					Code:      []string{"200"},
+			},
 		},
-		"http_egress": {
-			Metric:    "istio_requests_total",
-			PromQuery: `sum(istio_requests_total{reporter="source",destination_service_name="istio-egressgateway",response_code="200"})`,
-			Code:      []string{"200"},
+		{
+			Name:     "HTTPS Traffic",
+			PortName: "https",
+			// TODO: set up TLS here instead of just sending HTTP. We get a false positive here
+			Scheme: scheme.HTTP,
+			Expected:Expected{
+					Metric:    "istio_tcp_connections_opened_total",
+					PromQuery: `sum(istio_tcp_connections_opened_total{reporter="source",destination_service_name="PassthroughCluster"})`,
+					Code:      []string{"200"},
+			},
 		},
-		"https": {
-			Metric:    "istio_tcp_connections_opened_total",
-			PromQuery: `sum(istio_tcp_connections_opened_total{reporter="source",destination_service_name="PassthroughCluster"})`,
-			Code:      []string{"200"},
+		{
+			Name:     "HTTP Traffic Egress",
+			PortName: "http",
+			Host:     "some-external-site.com",
+			Gateway:  true,
+			Scheme:   scheme.HTTP,
+			Expected: Expected{
+					Metric:    "istio_requests_total",
+					PromQuery: `sum(istio_requests_total{reporter="source",destination_service_name="istio-egressgateway",response_code="200"})`,
+					Code:      []string{"200"},
+			},
 		},
-		"tcp": {
-			Metric:    "istio_tcp_connections_closed_total",
-			PromQuery: `sum(istio_tcp_connections_closed_total{reporter="destination",source_workload="client-v1",destination_workload="destination-v1"})`,
-			Code:      []string{"200"},
+		// TODO add HTTPS through gateway
+		{
+			Name:     "TCP",
+			PortName: "tcp",
+			Scheme:   scheme.TCP,
+			Expected:Expected{
+					Metric:    "istio_tcp_connections_closed_total",
+					PromQuery: `sum(istio_tcp_connections_closed_total{reporter="destination",source_workload="client-v1",destination_workload="destination-v1"})`,
+					Code:      []string{"200"},
+			},
 		},
 	}
-	RunExternalRequest(prom, AllowAny, expected, t)
+	RunExternalRequest(cases, prom, AllowAny, t)
 }

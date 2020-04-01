@@ -163,10 +163,20 @@ spec:
 `
 )
 
-// Response contains the metric and query to run against
-// prometheus to validate that expected telemetry information was gathered
+// TestCase represents what is being tested
+type TestCase struct {
+	Name     string
+	PortName string
+	Host     string
+	Gateway  bool
+	Scheme   scheme.Instance
+	Expected Expected
+}
+
+// Expected contains the metric and query to run against
+// prometheus to validate that expected telemetry information was gathered;
 // as well as the http response code
-type Response struct {
+type Expected struct {
 	Metric    string
 	PromQuery string
 	Code      []string
@@ -223,39 +233,7 @@ func createGateway(t *testing.T, appsNamespace namespace.Instance, serviceNamesp
 // TODO support native environment for registry only/gateway. Blocked by #13177 because the listeners for native use static
 // routes and this test relies on the dynamic routes sent through pilot to allow external traffic.
 
-func RunExternalRequest(prometheus prometheus.Instance, mode TrafficPolicy, expected map[string]Response, t *testing.T) {
-	var cases = []struct {
-		name     string
-		portName string
-		host     string
-		gateway  bool
-		scheme   scheme.Instance
-	}{
-		{
-			name:     "HTTP Traffic",
-			portName: "http",
-			scheme:   scheme.HTTP,
-		},
-		{
-			name:     "HTTPS Traffic",
-			portName: "https",
-			// TODO: set up TLS here instead of just sending HTTP. We get a false positive here
-			scheme: scheme.HTTP,
-		},
-		{
-			name:     "HTTP Traffic Egress",
-			portName: "http",
-			host:     "some-external-site.com",
-			gateway:  true,
-			scheme:   scheme.HTTP,
-		},
-		// TODO add HTTPS through gateway
-		{
-			name:     "TCP",
-			portName: "tcp",
-			scheme:   scheme.TCP,
-		},
-	}
+func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode TrafficPolicy, t *testing.T) {
 
 	framework.
 		NewTest(t).
@@ -263,26 +241,26 @@ func RunExternalRequest(prometheus prometheus.Instance, mode TrafficPolicy, expe
 			client, dest := setupEcho(t, ctx, mode)
 
 			for _, tc := range cases {
-				t.Run(tc.name, func(t *testing.T) {
-					if _, kube := ctx.Environment().(*kube.Environment); !kube && tc.gateway {
+				t.Run(tc.Name, func(t *testing.T) {
+					if _, kube := ctx.Environment().(*kube.Environment); !kube && tc.Gateway {
 						t.Skip("Cannot run gateway in native environment.")
 					}
-					key := tc.portName
+					key := tc.PortName
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := client.Call(echo.CallOptions{
 							Target:   dest,
-							PortName: tc.portName,
-							Scheme:   tc.scheme,
+							PortName: tc.PortName,
+							Scheme:   tc.Scheme,
 							Headers: map[string][]string{
-								"Host": {tc.host},
+								"Host": {tc.Host},
 							},
 						})
 
-						if tc.gateway {
+						if tc.Gateway {
 							key += "_egress"
 						}
 
-						if err != nil && len(expected[key].Code) != 0 {
+						if err != nil && len(tc.Expected.Code) != 0 {
 							return fmt.Errorf("request failed: %v", err)
 						}
 
@@ -290,20 +268,20 @@ func RunExternalRequest(prometheus prometheus.Instance, mode TrafficPolicy, expe
 						for _, r := range resp {
 							codes = append(codes, r.Code)
 						}
-						if !reflect.DeepEqual(codes, expected[key].Code) {
-							return fmt.Errorf("got codes %q, expected %q", codes, expected[key])
+						if !reflect.DeepEqual(codes, tc.Expected.Code) {
+							return fmt.Errorf("got codes %q, expected %q", codes, tc.Expected.Code)
 						}
 
 						for _, r := range resp {
-							if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.gateway && !f {
+							if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.Gateway && !f {
 								return fmt.Errorf("expected to be handled by gateway. response: %+v", r.RawResponse)
 							}
 						}
 						return nil
 					}, retry.Delay(time.Second), retry.Timeout(20*time.Second))
 
-					if expected[key].Metric != "" {
-						util.ValidateMetric(t, prometheus, expected[key].PromQuery, expected[key].Metric, 1)
+					if tc.Expected.Metric != "" {
+						util.ValidateMetric(t, prometheus, tc.Expected.PromQuery, tc.Expected.Metric, 1)
 					}
 				})
 			}
@@ -388,7 +366,7 @@ func WaitUntilNotCallable(c echo.Instance, dest echo.Instance) error {
 		for _, port := range dest.Config().Ports {
 			clusterName := clusterName(dest, port)
 			// Ensure that we have an outbound configuration for the target port.
-			err := validator.NotExists("{.configs[*].dynamicActiveClusters[?(@.cluster.name == '%s')]}", clusterName).Check()
+			err := validator.NotExists("{.configs[*].dynamicActiveClusters[?(@.cluster.Name == '%s')]}", clusterName).Check()
 			if err != nil {
 				return false, err
 			}

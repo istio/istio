@@ -17,33 +17,61 @@ package v2
 import (
 	"testing"
 
+	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/tests/integration/mixer/outboundtrafficpolicy"
 )
 
 func TestOutboundTrafficPolicy_RegistryOnly_TelemetryV2(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/21385")
-	expected := map[string]outboundtrafficpolicy.Response{
-		"http": {
-			Metric:    "istio_requests_total",
-			PromQuery: `sum(istio_requests_total{destination_service_name="BlackHoleCluster",response_code="502"})`,
-			Code:      []string{"502"},
-		}, // HTTP will return an error code
-		"http_egress": {
-			Metric:    "istio_requests_total",
-			PromQuery: `sum(istio_requests_total{destination_service_name="istio-egressgateway",response_code="200"})`,
-			Code:      []string{"200"},
-		}, // we define the virtual service in the namespace, so we should be able to reach it
-		"https": {
-			Metric:    "istio_tcp_connections_closed_total",
-			PromQuery: `sum(istio_tcp_connections_closed_total{destination_service="BlackHoleCluster",destination_service_name="BlackHoleCluster"})`,
-			Code:      []string{},
-		}, // HTTPS will direct to blackhole cluster, giving no response
-		"tcp": {
-			Metric:    "istio_tcp_connections_closed_total",
-			PromQuery: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="BlackHoleCluster",source_workload="client-v1"})`,
-			Code:      []string{},
-		}, // TCP will direct to blackhole cluster
+
+	cases := []*outboundtrafficpolicy.TestCase{
+		{
+			Name:     "HTTP Traffic",
+			PortName: "http",
+			Scheme:   scheme.HTTP,
+			Expected: outboundtrafficpolicy.Expected{
+				Metric:    "istio_requests_total",
+				PromQuery: `sum(istio_requests_total{destination_service_name="BlackHoleCluster",response_code="502"})`,
+				Code:      []string{"502"},
+			},
+		},
+		{
+			Name:     "HTTPS Traffic",
+			PortName: "https",
+			// TODO: set up TLS here instead of just sending HTTP. We get a false positive here
+			Scheme: scheme.HTTP,
+			Expected:outboundtrafficpolicy.Expected{
+				Metric:    "istio_tcp_connections_closed_total",
+				PromQuery: `sum(istio_tcp_connections_closed_total{destination_service="BlackHoleCluster",destination_service_name="BlackHoleCluster"})`,
+				Code:      []string{},
+			},
+		},
+		{
+			Name:     "HTTP Traffic Egress",
+			PortName: "http",
+			Host:     "some-external-site.com",
+			Gateway:  true,
+			Scheme:   scheme.HTTP,
+			Expected: outboundtrafficpolicy.Expected{
+				Metric:    "istio_requests_total",
+				PromQuery: `sum(istio_requests_total{destination_service_name="istio-egressgateway",response_code="200"})`,
+				Code:      []string{"200"},
+			},
+		},
+		// TODO add HTTPS through gateway
+		{
+			Name:     "TCP",
+			PortName: "tcp",
+			Scheme:   scheme.TCP,
+			Expected: outboundtrafficpolicy.Expected{
+				Metric:    "istio_tcp_connections_closed_total",
+				PromQuery: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="BlackHoleCluster",source_workload="client-v1"})`,
+				Code:      []string{},
+			},
+		},
 	}
+
+
 	// destination_service="BlackHoleCluster" does not get filled in when using sidecar scoping
-	outboundtrafficpolicy.RunExternalRequest(prom, outboundtrafficpolicy.RegistryOnly, expected, t)
+	outboundtrafficpolicy.RunExternalRequest(cases, prom, outboundtrafficpolicy.RegistryOnly, t)
 }
