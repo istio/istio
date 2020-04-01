@@ -113,7 +113,7 @@ function istio_provision_certs() {
 
   # shellcheck disable=SC2086
   go run ./security/tools/generate_cert -client \
-    -host spiffee://cluster.local/${NS}/${SA} -mode citadel --out-cert cert-chain.pem --out-priv key.pem
+    -host spiffe://cluster.local/${NS}/${SA} -mode citadel --out-cert cert-chain.pem --out-priv key.pem
   echo "Generated cert-chain.pem and key.pem. It should be installed on /etc/certs"
 
   local B64_DECODE=${BASE64_DECODE:-base64 --decode}
