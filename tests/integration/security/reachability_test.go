@@ -106,7 +106,7 @@ func TestReachability(t *testing.T) {
 						if src == rctx.Naked {
 							return opts.Target == rctx.Naked
 						}
-						// Headless service with sidecar injected, autMtls does not apply.
+						// Headless service with sidecar injected, autoMtls does not apply.
 						if opts.Target == rctx.Headless {
 							return false
 						}
@@ -127,9 +127,31 @@ func TestReachability(t *testing.T) {
 							return opts.Target == rctx.Naked || (opts.Target == rctx.B && opts.PortName != "http")
 
 						}
+						// Headless service with sidecar injected, autoMtls does not apply.
+						if opts.Target == rctx.Headless {
+							return false
+						}
 						// PeerAuthentication disable mTLS for workload app:b, except http port. Thus, autoMTLS
 						// will fail on all ports on b, except http port.
 						return opts.Target != rctx.B || opts.PortName == "http"
+					},
+				},
+				{
+					ConfigFile:          "beta-mtls-off-headless-nake.yaml",
+					Namespace:           rctx.Namespace,
+					RequiredEnvironment: environment.Kube,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						if src == rctx.Headless {
+							return false
+						}
+						// only include access to headless service
+						if opts.Target != rctx.Headless {
+							return false
+						}
+						return true
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
 					},
 				},
 				{
