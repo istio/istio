@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
+	sdsutil "istio.io/istio/security/pkg/nodeagent/util"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -277,6 +278,26 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 	}
 
 	return server, nil
+}
+
+// EnsureSDSReady checks if local SDS server is ready for accepting incoming connections.
+// Returns error on timeout or connection failure.
+func (conf *SDSAgent) EnsureSDSReady() error {
+	if !isSidecar && ingressSdsExists() {
+		err := sdsutil.SDSHealthCheck(serverOptions.IngressGatewayUDSPath)
+		if err != nil {
+			log.Errorf("gateway SDS server is not ready: %v", err)
+			return err
+		}
+		log.Infof("gateway SDS server is ready on %s", serverOptions.IngressGatewayUDSPath)
+	}
+	err := sdsutil.SDSHealthCheck(serverOptions.WorkloadUDSPath)
+	if err != nil {
+		log.Errorf("workload SDS server is not ready: %v", err)
+		return err
+	}
+	log.Infof("workload SDS server is ready on %s", serverOptions.WorkloadUDSPath)
+	return nil
 }
 
 func ingressSdsExists() bool {

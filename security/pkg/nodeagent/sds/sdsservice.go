@@ -35,6 +35,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	ghc "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
@@ -167,9 +168,10 @@ func newSDSService(st cache.SecretManager, skipTokenVerification, localJWT bool,
 	return ret
 }
 
-// register adds the SDS handle to the grpc server
+// register adds the SDS handler and healthcheck handler to the grpc server
 func (s *sdsservice) register(rpcs *grpc.Server) {
 	sds.RegisterSecretDiscoveryServiceServer(rpcs, s)
+	ghc.RegisterHealthServer(rpcs, s)
 }
 
 // DebugInfo serializes the current sds client data into JSON for the debug endpoint
@@ -206,6 +208,18 @@ func (s *sdsservice) DebugInfo() (string, error) {
 	}
 
 	return string(debugJSON), nil
+}
+
+// Check handles health check requests.
+func (s *sdsservice) Check(ctx context.Context, in *ghc.HealthCheckRequest) (*ghc.HealthCheckResponse, error) {
+	return &ghc.HealthCheckResponse{
+		Status: ghc.HealthCheckResponse_SERVING,
+	}, nil
+}
+
+// Watch handles health check streams.
+func (s *sdsservice) Watch(_ *ghc.HealthCheckRequest, _ ghc.Health_WatchServer) error {
+	return status.Error(codes.Unimplemented, "Watching is not implemented")
 }
 
 func (s *sdsservice) DeltaSecrets(stream sds.SecretDiscoveryService_DeltaSecretsServer) error {

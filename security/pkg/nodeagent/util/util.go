@@ -15,6 +15,7 @@
 package util
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -23,6 +24,15 @@ import (
 	"time"
 
 	"go.opencensus.io/stats/view"
+	"google.golang.org/grpc"
+	ghc "google.golang.org/grpc/health/grpc_health_v1"
+)
+
+var (
+	// healthCheckRetryInterval defines the interval of SDS health check requests.
+	healthCheckRetryInterval = 100 * time.Millisecond
+	// healthCheckTimeout defines timeout for SDS health check.
+	healthCheckTimeout = 2 * time.Second
 )
 
 // ParseCertAndGetExpiryTimestamp parses the first certificate in certByte and returns cert expire
@@ -84,4 +94,29 @@ func OutputKeyCertToDir(dir string, privateKey, certChain, rootCert []byte) erro
 	}
 
 	return nil
+}
+
+// SDSHealthCheck sends gRPC health check requests to udsPath with retry.
+func SDSHealthCheck(udsPath string) error {
+	addr := "unix:" + udsPath
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	if err != nil {
+		return fmt.Errorf("failed on connecting SDS server %s: %v", addr, err)
+	}
+	defer conn.Close()
+
+	client := ghc.NewHealthClient(conn)
+	req := new(ghc.HealthCheckRequest)
+	var resp *ghc.HealthCheckResponse
+	start := time.Now()
+	for {
+		resp, err = client.Check(context.Background(), req)
+		if err == nil && resp.GetStatus() == ghc.HealthCheckResponse_SERVING {
+			return nil
+		}
+		if time.Since(start) > healthCheckTimeout {
+			return fmt.Errorf("timeout (%s) on health check %s, err: %v", healthCheckTimeout.String(), udsPath, err)
+		}
+		time.Sleep(healthCheckRetryInterval)
+	}
 }

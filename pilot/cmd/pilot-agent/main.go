@@ -228,6 +228,9 @@ var (
 			if err != nil {
 				log.Fatala("Failed to start in-process SDS", err)
 			}
+			if err = sa.EnsureSDSReady(); err != nil {
+				log.Fatala("SDS server is not ready", err)
+			}
 
 			// dedupe cert paths so we don't set up 2 watchers for the same file
 			tlsCerts := dedupeStrings(getTLSCerts(proxyConfig))

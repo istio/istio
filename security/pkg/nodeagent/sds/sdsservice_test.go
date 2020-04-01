@@ -91,6 +91,80 @@ func TestStreamSecretsForBothSds(t *testing.T) {
 	testHelper(t, arg, sdsRequestStream, false)
 }
 
+func TestHealthCheckForSds(t *testing.T) {
+	testCases := []struct {
+		name               string
+		sdsOptions         Options
+		healthCheckSuccess []bool
+	}{
+		{
+			name: "health check both SDS server succeed",
+			sdsOptions: Options{
+				EnableIngressGatewaySDS: true,
+				EnableWorkloadSDS:       true,
+				RecycleInterval:         30 * time.Second,
+				IngressGatewayUDSPath:   fmt.Sprintf("/tmp/gateway_gotest%s.sock", string(uuid.NewUUID())),
+				WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
+			},
+			healthCheckSuccess: []bool{true, true},
+		},
+		{
+			name: "health check workload SDS server succeed",
+			sdsOptions: Options{
+				EnableIngressGatewaySDS: false,
+				EnableWorkloadSDS:       true,
+				RecycleInterval:         30 * time.Second,
+				IngressGatewayUDSPath:   fmt.Sprintf("/tmp/gateway_gotest%s.sock", string(uuid.NewUUID())),
+				WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
+			},
+			healthCheckSuccess: []bool{false, true},
+		},
+		{
+			name: "health check gateway SDS server succeed",
+			sdsOptions: Options{
+				EnableIngressGatewaySDS: true,
+				EnableWorkloadSDS:       false,
+				RecycleInterval:         30 * time.Second,
+				IngressGatewayUDSPath:   fmt.Sprintf("/tmp/gateway_gotest%s.sock", string(uuid.NewUUID())),
+				WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
+			},
+			healthCheckSuccess: []bool{true, false},
+		},
+		{
+			name: "health check both SDS server fail",
+			sdsOptions: Options{
+				EnableIngressGatewaySDS: false,
+				EnableWorkloadSDS:       false,
+				RecycleInterval:         30 * time.Second,
+				IngressGatewayUDSPath:   fmt.Sprintf("/tmp/gateway_gotest%s.sock", string(uuid.NewUUID())),
+				WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
+			},
+			healthCheckSuccess: []bool{false, false},
+		},
+	}
+	for _, tc := range testCases {
+		wst := &mockSecretStore{
+			checkToken: true,
+		}
+		gst := &mockSecretStore{
+			checkToken: false,
+		}
+		server, err := NewServer(tc.sdsOptions, wst, gst)
+		if err != nil {
+			t.Fatalf("%s: failed to start grpc server for sds: %v", tc.name, err)
+		}
+		err = util.SDSHealthCheck(tc.sdsOptions.IngressGatewayUDSPath)
+		if err != nil && tc.healthCheckSuccess[0] {
+			t.Errorf("%s: gateway SDS server health check failed: %v", tc.name, err)
+		}
+		err = util.SDSHealthCheck(tc.sdsOptions.WorkloadUDSPath)
+		if err != nil && tc.healthCheckSuccess[1] {
+			t.Errorf("%s: workload SDS server health check failed: %v", tc.name, err)
+		}
+		server.Stop()
+	}
+}
+
 func TestFetchSecretsForWorkloadSds(t *testing.T) {
 	arg := Options{
 		EnableIngressGatewaySDS: false,
