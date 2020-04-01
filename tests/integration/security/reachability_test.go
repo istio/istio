@@ -75,10 +75,6 @@ func TestReachability(t *testing.T) {
 					Namespace:           systemNM,
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// only include headless service
-						if opts.Target != rctx.Headless {
-							return false
-						}
 						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
@@ -111,7 +107,7 @@ func TestReachability(t *testing.T) {
 							return opts.Target == rctx.Naked
 						}
 						// Headless service with sidecar injected, autoMtls does not apply.
-						if opts.Target == rctx.Headless {
+						if src != rctx.Headless && opts.Target == rctx.Headless {
 							return false
 						}
 						return true
@@ -132,7 +128,7 @@ func TestReachability(t *testing.T) {
 
 						}
 						// Headless service with sidecar injected, autoMtls does not apply.
-						if opts.Target == rctx.Headless {
+						if src != rctx.Headless && opts.Target == rctx.Headless {
 							return false
 						}
 						// PeerAuthentication disable mTLS for workload app:b, except http port. Thus, autoMTLS
