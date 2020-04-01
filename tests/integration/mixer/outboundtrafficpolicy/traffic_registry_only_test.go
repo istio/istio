@@ -27,9 +27,9 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 			PortName: "http",
 			Scheme:   scheme.HTTP,
 			Expected: Expected{
-				Metric:    "istio_requests_total",
-				PromQuery: `sum(istio_requests_total{destination_service_name="BlackHoleCluster",response_code="502"})`,
-				Code:      []string{"502"},
+				Metric:          "istio_requests_total",
+				PromQueryFormat: `sum(istio_requests_total{destination_service_name="BlackHoleCluster",response_code="502"})`,
+				ResponseCode:            []string{"502"},
 			},
 		},
 		{
@@ -38,9 +38,9 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 			// TODO: set up TLS here instead of just sending HTTP. We get a false positive here
 			Scheme: scheme.HTTP,
 			Expected:Expected{
-				Metric:    "istio_tcp_connections_closed_total",
-				PromQuery: `sum(istio_tcp_connections_closed_total{destination_service="BlackHoleCluster",destination_service_name="BlackHoleCluster"})`,
-				Code:      []string{},
+				Metric:          "istio_tcp_connections_closed_total",
+				PromQueryFormat: `sum(istio_tcp_connections_closed_total{destination_service="BlackHoleCluster",destination_service_name="BlackHoleCluster"})`,
+				ResponseCode:            []string{},
 			},
 		},
 		{
@@ -50,9 +50,9 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 			Gateway:  true,
 			Scheme:   scheme.HTTP,
 			Expected: Expected{
-				Metric:    "istio_requests_total",
-				PromQuery: `sum(istio_requests_total{destination_service_name="istio-egressgateway",response_code="200"})`,
-				Code:      []string{"200"},
+				Metric:          "istio_requests_total",
+				PromQueryFormat: `sum(istio_requests_total{destination_service_name="istio-egressgateway",response_code="200"})`,
+				ResponseCode:            []string{"200"},
 			},
 		},
 		// TODO add HTTPS through gateway
@@ -61,9 +61,9 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 			PortName: "tcp",
 			Scheme:   scheme.TCP,
 			Expected:Expected{
-				Metric:    "",
-				PromQuery: "",
-				Code:      []string{},
+				Metric:          "",
+				PromQueryFormat: "",
+				ResponseCode:            []string{},
 			},
 		},
 	}

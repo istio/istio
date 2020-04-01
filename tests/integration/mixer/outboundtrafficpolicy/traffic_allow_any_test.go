@@ -27,9 +27,9 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 			PortName: "http",
 			Scheme:   scheme.HTTP,
 			Expected: Expected{
-					Metric:    "istio_requests_total",
-					PromQuery: `sum(istio_requests_total{reporter="source",destination_service_name="PassthroughCluster",response_code="200"})`,
-					Code:      []string{"200"},
+					Metric:          "istio_requests_total",
+					PromQueryFormat: `sum(istio_requests_total{reporter="source",destination_service_name="PassthroughCluster",response_code="200"})`,
+				ResponseCode:            []string{"200"},
 			},
 		},
 		{
@@ -38,9 +38,9 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 			// TODO: set up TLS here instead of just sending HTTP. We get a false positive here
 			Scheme: scheme.HTTP,
 			Expected:Expected{
-					Metric:    "istio_tcp_connections_opened_total",
-					PromQuery: `sum(istio_tcp_connections_opened_total{reporter="source",destination_service_name="PassthroughCluster"})`,
-					Code:      []string{"200"},
+					Metric:          "istio_tcp_connections_opened_total",
+					PromQueryFormat: `sum(istio_tcp_connections_opened_total{reporter="source",destination_service_name="PassthroughCluster"})`,
+				ResponseCode:            []string{"200"},
 			},
 		},
 		{
@@ -50,9 +50,9 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 			Gateway:  true,
 			Scheme:   scheme.HTTP,
 			Expected: Expected{
-					Metric:    "istio_requests_total",
-					PromQuery: `sum(istio_requests_total{reporter="source",destination_service_name="istio-egressgateway",response_code="200"})`,
-					Code:      []string{"200"},
+					Metric:          "istio_requests_total",
+					PromQueryFormat: `sum(istio_requests_total{reporter="source",destination_service_name="istio-egressgateway",response_code="200"})`,
+				ResponseCode:            []string{"200"},
 			},
 		},
 		// TODO add HTTPS through gateway
@@ -61,9 +61,9 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 			PortName: "tcp",
 			Scheme:   scheme.TCP,
 			Expected:Expected{
-					Metric:    "istio_tcp_connections_closed_total",
-					PromQuery: `sum(istio_tcp_connections_closed_total{reporter="destination",source_workload="client-v1",destination_workload="destination-v1"})`,
-					Code:      []string{"200"},
+					Metric:          "istio_tcp_connections_closed_total",
+					PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="destination",source_workload="client-v1",destination_workload="destination-v1"})`,
+				ResponseCode:            []string{"200"},
 			},
 		},
 	}

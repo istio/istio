@@ -177,9 +177,9 @@ type TestCase struct {
 // prometheus to validate that expected telemetry information was gathered;
 // as well as the http response code
 type Expected struct {
-	Metric    string
-	PromQuery string
-	Code      []string
+	Metric          string
+	PromQueryFormat string
+	ResponseCode            []string
 }
 
 // TrafficPolicy is the mode of the outbound traffic policy to use
@@ -235,6 +235,39 @@ func createGateway(t *testing.T, appsNamespace namespace.Instance, serviceNamesp
 
 func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode TrafficPolicy, t *testing.T) {
 
+
+	// Testing of Blackhole and Passthrough clusters:
+	// Setup of environment:
+	// 1. client and destination are deployed to app-1-XXXX namespace
+	// 2. client is restricted to talk to destination via Sidecar scope where outbound policy is set (ALLOW_ANY, REGISTRY_ONLY)
+	//    and clients' egress can only be to service-2-XXXX/* and istio-system/*
+	// 3. a namespace service-2-YYYY is created
+	// 4. A gateway is put in service-2-YYYY where its host is set for some-external-site.com on port 80 and 443
+	// 3. a VirtualService is also created in service-2-XXXX to:
+	//    a) route requests for some-external-site.com to the istio-egressgateway
+	//       * if the request on port 80, then it will add an http header `handled-by-egress-gateway`
+	//    b) from the egressgateway it will forward the request to the destination pod deployed in the app-1-XXX
+	//       namespace
+
+
+	// Test cases:
+	// 1. http case:
+	//    client -------> Hits listener 0.0.0.0_80 cluster
+	//    Metric is istio_requests_total i.e. HTTP
+	//
+	// 2. https case:
+	//    client ----> Hits listener 0.0.0.0_443
+	//    Metric is istio_tcp_connections_closed_total i.e. TCP
+	//
+	// 3. http_egress
+	//    client ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
+	//      VS Routing (add Egress Header) --> Egress Gateway --> destination
+	//    Metric is istio_requests_total i.e. HTTP with destination as destination
+	//
+	// 4. TCP
+	//    client ---TCP request at port 9090----> Hits listener 0.0.0.0_9090 -> 0.0.0.0_150001 -> ALLOW_ANY/REGISTRY_ONLY
+	//    Metric is istio_tcp_connections_closed_total i.e. TCP
+	//
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
@@ -245,7 +278,6 @@ func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode 
 					if _, kube := ctx.Environment().(*kube.Environment); !kube && tc.Gateway {
 						t.Skip("Cannot run gateway in native environment.")
 					}
-					key := tc.PortName
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := client.Call(echo.CallOptions{
 							Target:   dest,
@@ -256,11 +288,9 @@ func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode 
 							},
 						})
 
-						if tc.Gateway {
-							key += "_egress"
-						}
-
-						if err != nil && len(tc.Expected.Code) != 0 {
+						// the expected response from a blackhole test case will have err
+						// set; use the length of the expected code to ignore this condition
+						if err != nil && len(tc.Expected.ResponseCode) != 0 {
 							return fmt.Errorf("request failed: %v", err)
 						}
 
@@ -268,8 +298,8 @@ func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode 
 						for _, r := range resp {
 							codes = append(codes, r.Code)
 						}
-						if !reflect.DeepEqual(codes, tc.Expected.Code) {
-							return fmt.Errorf("got codes %q, expected %q", codes, tc.Expected.Code)
+						if !reflect.DeepEqual(codes, tc.Expected.ResponseCode) {
+							return fmt.Errorf("got codes %q, expected %q", codes, tc.Expected.ResponseCode)
 						}
 
 						for _, r := range resp {
@@ -281,7 +311,7 @@ func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode 
 					}, retry.Delay(time.Second), retry.Timeout(20*time.Second))
 
 					if tc.Expected.Metric != "" {
-						util.ValidateMetric(t, prometheus, tc.Expected.PromQuery, tc.Expected.Metric, 1)
+						util.ValidateMetric(t, prometheus, tc.Expected.PromQueryFormat, tc.Expected.Metric, 1)
 					}
 				})
 			}
