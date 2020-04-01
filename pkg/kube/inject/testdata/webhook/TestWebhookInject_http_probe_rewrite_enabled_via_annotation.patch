@@ -73,8 +73,13 @@
     "op": "add",
     "path": "/metadata/labels",
     "value": {
-      "security.istio.io/tlsMode": "istio"
+      "istio.io/rev": ""
     }
+  },
+  {
+    "op": "add",
+    "path": "/metadata/labels/security.istio.io~1tlsMode",
+    "value": "istio"
   },
   {
     "op": "add",

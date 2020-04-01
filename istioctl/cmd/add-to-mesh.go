@@ -98,6 +98,8 @@ func addToMeshCmd() *cobra.Command {
 }
 
 func deploymentMeshifyCmd() *cobra.Command {
+	var revision string
+
 	cmd := &cobra.Command{
 		Use:   "deployment",
 		Short: "Add deployment to Istio service mesh",
@@ -131,13 +133,19 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			deps := make([]appsv1.Deployment, 0)
 			deps = append(deps, *dep)
 			return injectSideCarIntoDeployment(client, deps, sidecarTemplate, valuesConfig,
-				args[0], ns, meshConfig, writer)
+				args[0], ns, revision, meshConfig, writer)
 		},
 	}
+
+	cmd.PersistentFlags().StringVar(&revision, "revision", "",
+		"control plane revision")
+
 	return cmd
 }
 
 func svcMeshifyCmd() *cobra.Command {
+	var revision string
+
 	cmd := &cobra.Command{
 		Use:   "service",
 		Short: "Add Service to Istio service mesh",
@@ -173,9 +181,13 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 				return nil
 			}
 			return injectSideCarIntoDeployment(client, matchingDeployments, sidecarTemplate, valuesConfig,
-				args[0], ns, meshConfig, writer)
+				args[0], ns, revision, meshConfig, writer)
 		},
 	}
+
+	cmd.PersistentFlags().StringVar(&revision, "revision", "",
+		"control plane revision")
+
 	return cmd
 }
 
@@ -258,12 +270,12 @@ func setupParameters(sidecarTemplate, valuesConfig *string) (*meshconfig.MeshCon
 }
 
 func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Deployment, sidecarTemplate, valuesConfig,
-	svcName, svcNamespace string, meshConfig *meshconfig.MeshConfig, writer io.Writer) error {
+	svcName, svcNamespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer) error {
 	var errs error
 	for _, dep := range deps {
 		log.Debugf("updating deployment %s.%s with Istio sidecar injected",
 			dep.Name, dep.Namespace)
-		newDep, err := inject.IntoObject(sidecarTemplate, valuesConfig, meshConfig, &dep)
+		newDep, err := inject.IntoObject(sidecarTemplate, valuesConfig, revision, meshConfig, &dep)
 		if err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("failed to inject sidecar to deployment resource %s.%s for service %s.%s due to %v",
 				dep.Name, dep.Namespace, svcName, svcNamespace, err))
