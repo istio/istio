@@ -26,3 +26,17 @@ spec:
     # 8090 is the targetPort for service http(80)
     8090:
       mode: STRICT
+---
+apiVersion: "security.istio.io/v1beta1"
+kind: "PeerAuthentication"
+metadata:
+  name: "headless"
+  annotations:
+    test-suite: "beta-mtls-partial-automtls"
+spec:
+  selector:
+    matchLabels:
+      app: headless
+  mtls:
+    # disable tls for headless service
+    mode: DISABLE

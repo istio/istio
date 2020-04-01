@@ -106,6 +106,10 @@ func TestReachability(t *testing.T) {
 						if src == rctx.Naked {
 							return opts.Target == rctx.Naked
 						}
+						// Headless service with sidecar injected, autMtls does not apply.
+						if opts.Target == rctx.Headless {
+							return false
+						}
 						return true
 					},
 				},
