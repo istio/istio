@@ -271,11 +271,11 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 			}
 		}
 
-		if !merged.Full {
-			for kind := range merged.ConfigsUpdated {
-				d1 := first.ConfigsUpdated[kind]
-				d2 := other.ConfigsUpdated[kind]
+		for kind := range merged.ConfigsUpdated {
+			d1 := first.ConfigsUpdated[kind]
+			d2 := other.ConfigsUpdated[kind]
 
+			if len(d1) > 0 && len(d2) > 0 {
 				for update := range d1 {
 					merged.ConfigsUpdated[kind][update] = struct{}{}
 				}
@@ -908,7 +908,7 @@ func (ps *PushContext) updateContext(
 	pushReq *PushRequest) error {
 
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
-		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, quotasChanged bool
+	authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, quotasChanged bool
 
 	for k := range pushReq.ConfigsUpdated {
 		switch k {
