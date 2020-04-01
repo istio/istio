@@ -7939,6 +7939,7 @@ metadata:
   labels:
     istio.io/rev: default
     app: istiod
+    istio: pilot
     release: istio
 spec:
   ports:
