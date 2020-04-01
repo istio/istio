@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright 2020 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ func TestOutboundTrafficPolicy_AllowAny_TelemetryV2(t *testing.T) {
 		},
 		"http_egress": {
 			Metric:    "istio_requests_total",
-			PromQuery: `sum(istio_requests_total{reporter="source",destination_service_name="destination",response_code="200"})`,
+			PromQuery: `sum(istio_requests_total{reporter="source",destination_service_name="istio-egressgateway",response_code="200"})`,
 			Code:      []string{"200"},
 		},
 		"https": {
@@ -38,8 +38,8 @@ func TestOutboundTrafficPolicy_AllowAny_TelemetryV2(t *testing.T) {
 			Code:      []string{"200"},
 		},
 		"tcp": {
-			Metric:    "istio_tcp_connections_opened_total",
-			PromQuery: `sum(istio_tcp_connections_opened_total{reporter="source",destination_service_name="PassthroughCluster",source_workload="client-v1"})`,
+			Metric:    "istio_tcp_connections_closed_total",
+			PromQuery: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="PassthroughCluster",source_workload="client-v1"})`,
 			Code:      []string{"200"},
 		},
 	}

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright 2020 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import (
 )
 
 func TestOutboundTrafficPolicy_RegistryOnly_TelemetryV2(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/21566 and https://github.com/istio/istio/issues/21385")
+	t.Skip("https://github.com/istio/istio/issues/21385")
 	expected := map[string]outboundtrafficpolicy.Response{
 		"http": {
 			Metric:    "istio_requests_total",
@@ -39,8 +39,8 @@ func TestOutboundTrafficPolicy_RegistryOnly_TelemetryV2(t *testing.T) {
 			Code:      []string{},
 		}, // HTTPS will direct to blackhole cluster, giving no response
 		"tcp": {
-			Metric:    "",
-			PromQuery: "",
+			Metric:    "istio_tcp_connections_closed_total",
+			PromQuery: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="BlackHoleCluster",source_workload="client-v1"})`,
 			Code:      []string{},
 		}, // TCP will direct to blackhole cluster
 	}
