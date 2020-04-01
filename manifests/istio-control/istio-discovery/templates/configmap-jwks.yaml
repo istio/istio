@@ -6,6 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
 data:
   extra.pem: {{ .Values.pilot.jwksResolverExtraRootCA | quote }}
 {{- end }}

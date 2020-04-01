@@ -20,6 +20,7 @@ import (
 
 	"istio.io/api/operator/v1alpha1"
 	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util"
 )
 
@@ -28,6 +29,7 @@ var (
 	DefaultValidations = map[string]ValidatorFunc{
 		"Hub":                                validateHub,
 		"Tag":                                validateTag,
+		"AddonComponents":                    validateAddonComponents,
 		"Components.IngressGateways[*].Name": validateGatewayName,
 		"Components.EgressGateways[*].Name":  validateGatewayName,
 	}
@@ -95,6 +97,7 @@ func Validate(validations map[string]ValidatorFunc, structPtr interface{}, path 
 			errs = util.AppendErrs(errs, Validate(validations, fieldValue.Addr().Interface(), append(path, fieldName), checkRequired))
 		case reflect.Map:
 			newPath := append(path, fieldName)
+			errs = util.AppendErrs(errs, validateLeaf(validations, newPath, fieldValue.Interface(), checkRequired))
 			for _, key := range fieldValue.MapKeys() {
 				nnp := append(newPath, key.String())
 				errs = util.AppendErrs(errs, validateLeaf(validations, nnp, fieldValue.MapIndex(key), checkRequired))
@@ -157,6 +160,22 @@ func validateHub(path util.Path, val interface{}) util.Errors {
 
 func validateTag(path util.Path, val interface{}) util.Errors {
 	return validateWithRegex(path, val, TagRegexp)
+}
+
+func validateAddonComponents(path util.Path, val interface{}) util.Errors {
+	valMap, ok := val.(map[string]*v1alpha1.ExternalComponentSpec)
+	if !ok {
+		return util.NewErrs(fmt.Errorf("validateAddonComponents(%s) bad type %T, want map[string]*ExternalComponentSpec", path, val))
+	}
+
+	for key := range valMap {
+		cn := name.ComponentName(key)
+		if name.BundledAddonComponentNamesMap[cn] && (cn == name.TitleCase(cn)) {
+			return util.NewErrs(fmt.Errorf("invalid addon component name: %s, expect component name starting with lower-case character", key))
+		}
+	}
+
+	return nil
 }
 
 func validateGatewayName(path util.Path, val interface{}) util.Errors {

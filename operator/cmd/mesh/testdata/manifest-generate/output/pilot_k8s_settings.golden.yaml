@@ -4,6 +4,7 @@ metadata:
   labels:
     app: istiod
     istio: pilot
+    istio.io/rev: default
     release: istio
   name: istiod
   namespace: istio-control
@@ -22,6 +23,7 @@ spec:
       labels:
         app: istiod
         istio: pilot
+        istio.io/rev: default
     spec:
       containers:
       - args:
@@ -181,6 +183,7 @@ kind: HorizontalPodAutoscaler
 metadata:
   labels:
     app: istiod
+    istio.io/rev: default
     release: istio
   name: istiod
   namespace: istio-control

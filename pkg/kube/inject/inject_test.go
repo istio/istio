@@ -210,7 +210,6 @@ values:
     proxy:
       includeIPRanges: "127.0.0.1/24,10.96.0.1/24"
       excludeIPRanges: "10.96.0.2/24,10.96.0.3/24"
-      includeInboundPorts: "1,2,3"
       excludeInboundPorts: "4,5,6"
       statusPort: 0
   `,

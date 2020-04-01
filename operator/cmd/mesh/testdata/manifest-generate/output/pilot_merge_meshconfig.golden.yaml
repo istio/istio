@@ -94,8 +94,6 @@ data:
       ingressService: istio-ingressgateway
     jwksResolverExtraRootCA: ""
     keepaliveMaxServerConnectionAge: 30m
-    meshNetworks:
-      networks: {}
     namespace: istio-system
     nodeSelector: {}
     plugins: []
@@ -117,6 +115,7 @@ data:
 kind: ConfigMap
 metadata:
   labels:
+    istio.io/rev: default
     release: istio
   name: istio
   namespace: istio-system

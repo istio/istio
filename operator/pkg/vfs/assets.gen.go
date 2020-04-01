@@ -13733,41 +13733,6 @@ spec:
 
 ---
 # Source: base/templates/clusterrole.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-pilot-istio-system
-  labels:
-    app: pilot
-    release: istio-base
-rules:
-- apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
-  verbs: ["get", "watch", "list"]
-  resources: ["*"]
-- apiGroups: ["apiextensions.k8s.io"]
-  resources: ["customresourcedefinitions"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["networking.k8s.io"]
-  resources: ["ingresses"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["networking.k8s.io"]
-  resources: ["ingresses/status"]
-  verbs: ["*"]
-  # TODO: remove, too broad permission, should be namespace only
-- apiGroups: [""]
-  resources: ["configmaps"]
-  # Create and update needed for ingress election
-  verbs: ["get", "list", "watch", "create", "update"]
-- apiGroups: [""]
-  resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["create", "get", "watch", "list", "update", "delete"]
-- apiGroups: ["discovery.k8s.io"]
-  resources: ["endpointslices"]
-  verbs: ["get", "list", "watch"]
----
 # Dedicated cluster role - istiod will use fewer dangerous permissions ( secret access in particular ).
 # TODO: separate cluster role with the minimal set of permissions needed for a 'tenant' Istiod
 apiVersion: rbac.authorization.k8s.io/v1
@@ -13906,22 +13871,6 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-pilot-istio-system
-  labels:
-    app: pilot
-    release: istio-base
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-pilot-istio-system
-subjects:
-  - kind: ServiceAccount
-    name: istio-pilot-service-account
-    namespace: istio-system
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
   name: istiod-pilot-istio-system
   labels:
     app: pilot
@@ -14033,54 +13982,7 @@ func chartsBaseKustomizationYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsBaseTemplatesClusterroleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-pilot-{{ .Values.global.istioNamespace }}
-  labels:
-    app: pilot
-    release: {{ .Release.Name }}
-rules:
-- apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
-{{- if .Values.global.istiod.enableAnalysis }}
-  verbs: ["get", "watch", "list", "update"]
-{{- else }}
-  verbs: ["get", "watch", "list"]
-{{- end }}
-  resources: ["*"]
-{{- if .Values.global.istiod.enableAnalysis }}
-  - apiGroups: ["extensions", "networking.k8s.io"]
-    resources: ["ingresses"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["extensions", "networking.k8s.io"]
-    resources: ["ingresses/status"]
-    verbs: ["*"]
-{{- end}}
-- apiGroups: ["apiextensions.k8s.io"]
-  resources: ["customresourcedefinitions"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["networking.k8s.io"]
-  resources: ["ingresses"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["networking.k8s.io"]
-  resources: ["ingresses/status"]
-  verbs: ["*"]
-  # TODO: remove, too broad permission, should be namespace only
-- apiGroups: [""]
-  resources: ["configmaps"]
-  # Create and update needed for ingress election
-  verbs: ["get", "list", "watch", "create", "update"]
-- apiGroups: [""]
-  resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["create", "get", "watch", "list", "update", "delete"]
-- apiGroups: ["discovery.k8s.io"]
-  resources: ["endpointslices"]
-  verbs: ["get", "list", "watch"]
----
-# Dedicated cluster role - istiod will use fewer dangerous permissions ( secret access in particular ).
+var _chartsBaseTemplatesClusterroleYaml = []byte(`# Dedicated cluster role - istiod will use fewer dangerous permissions ( secret access in particular ).
 # TODO: separate cluster role with the minimal set of permissions needed for a 'tenant' Istiod
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -14108,7 +14010,6 @@ rules:
 
   # istio configuration
   - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
-
 {{- if .Values.global.istiod.enableAnalysis }}
     verbs: ["get", "watch", "list", "update"]
 {{- else }}
@@ -14240,22 +14141,6 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: istio-reader-service-account
-    namespace: {{ .Values.global.istioNamespace }}
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-pilot-{{ .Values.global.istioNamespace }}
-  labels:
-    app: pilot
-    release: {{ .Release.Name }}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-pilot-{{ .Values.global.istioNamespace }}
-subjects:
-  - kind: ServiceAccount
-    name: istio-pilot-service-account
     namespace: {{ .Values.global.istioNamespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -18121,6 +18006,7 @@ metadata:
   namespace: istio-system
   labels:
     app: istiod
+    istio.io/rev: default
     release: istio-base
     istio: pilot
 spec:
@@ -18143,6 +18029,7 @@ metadata:
   name: istio
   namespace: istio-system
   labels:
+    istio.io/rev: default
     release: istio-base
 data:
 
@@ -18324,6 +18211,7 @@ metadata:
   name: istio-sidecar-injector
   namespace: istio-system
   labels:
+    istio.io/rev: default
     release: istio-base
 data:
 
@@ -18365,11 +18253,6 @@ data:
           "enabled": true
         },
         "jwtPolicy": "third-party-jwt",
-        "k8sIngress": {
-          "enableHttps": false,
-          "enabled": false,
-          "gatewayName": "ingressgateway"
-        },
         "localityLbSetting": {
           "enabled": true
         },
@@ -18412,7 +18295,6 @@ data:
           "clusterDomain": "cluster.local",
           "componentLogLevel": "misc:error",
           "concurrency": 2,
-          "dnsRefreshRate": "300s",
           "enableCoreDump": false,
           "envoyAccessLogService": {
             "enabled": false,
@@ -18460,8 +18342,6 @@ data:
           "excludeOutboundPorts": "",
           "image": "proxyv2",
           "includeIPRanges": "*",
-          "includeInboundPorts": "*",
-          "kubevirtInterfaces": "",
           "logLevel": "warning",
           "privileged": false,
           "protocolDetectionTimeout": "100ms",
@@ -18972,6 +18852,7 @@ metadata:
   name: istiod
   namespace: istio-system
   labels:
+    istio.io/rev: default
     app: istiod
     release: istio-base
 spec:
@@ -19009,6 +18890,7 @@ metadata:
   namespace: istio-system
   labels:
     app: istiod
+    istio.io/rev: default
     istio: pilot
     release: istio-base
 spec:
@@ -19023,8 +18905,7 @@ spec:
     metadata:
       labels:
         app: istiod
-        # Label used by the 'default' service. For versioned deployments we match with app and version.
-        # This avoids default deployment picking the canary
+        istio.io/rev: default
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
@@ -19193,6 +19074,7 @@ metadata:
   labels:
     app: istiod
     release: istio-base
+    istio.io/rev: default
 spec:
   maxReplicas: 5
   minReplicas: 1
@@ -19214,6 +19096,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.4
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -19242,6 +19126,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.4
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -19338,6 +19224,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -19370,6 +19258,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-metadata-exchange-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -19422,6 +19312,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -19526,6 +19418,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -19628,6 +19522,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -19660,6 +19556,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-metadata-exchange-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -19715,6 +19613,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -19819,6 +19719,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -19922,6 +19824,7 @@ metadata:
   name: istio-sidecar-injector
 
   labels:
+    istio.io/rev: default
     app: sidecar-injector
     release: istio-base
 webhooks:
@@ -20414,6 +20317,7 @@ metadata:
   labels:
     app: istiod
     release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   maxReplicas: {{ .Values.pilot.autoscaleMax }}
   minReplicas: {{ .Values.pilot.autoscaleMin }}
@@ -20452,6 +20356,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
 data:
   extra.pem: {{ .Values.pilot.jwksResolverExtraRootCA | quote }}
 {{- end }}
@@ -20729,6 +20634,7 @@ metadata:
   name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
     release: {{ .Release.Name }}
 data:
 
@@ -20806,9 +20712,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
-    {{- if ne .Values.revision ""}}
-    version: {{ .Values.revision }}
-    {{- end }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
     istio: pilot
     release: {{ .Release.Name }}
 {{- range $key, $val := .Values.pilot.deploymentLabels }}
@@ -20828,7 +20732,7 @@ spec:
     matchLabels:
       {{- if ne .Values.revision ""}}
       app: istiod
-      version: {{ .Values.revision }}
+      istio.io/rev: {{ .Values.revision | default "default" }}
       {{- else }}
       istio: pilot
       {{- end }}
@@ -20836,13 +20740,8 @@ spec:
     metadata:
       labels:
         app: istiod
-        {{- if ne .Values.revision ""}}
-        version: {{ .Values.revision }}
-        {{- else }}
-        # Label used by the 'default' service. For versioned deployments we match with app and version.
-        # This avoids default deployment picking the canary
+        istio.io/rev: {{ .Values.revision | default "default" }}
         istio: pilot
-        {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
         {{- if .Values.pilot.podAnnotations }}
@@ -21072,6 +20971,7 @@ metadata:
   name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
     release: {{ .Release.Name }}
 data:
 {{/* Scope the values to just top level fields used in the template, to reduce the size. */}}
@@ -21125,6 +21025,7 @@ metadata:
   name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
 {{- end }}
   labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
     app: sidecar-injector
     release: {{ .Release.Name }}
 webhooks:
@@ -21207,6 +21108,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
+    istio.io/rev: {{ .Values.revision | default "default" }}
     release: {{ .Release.Name }}
     istio: pilot
 spec:
@@ -21243,6 +21145,7 @@ metadata:
   name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
     app: istiod
     release: {{ .Release.Name }}
 spec:
@@ -21267,7 +21170,7 @@ spec:
   selector:
     app: istiod
     {{- if ne .Values.revision ""}}
-    version: {{ .Values.revision }}
+    istio.io/rev: {{ .Values.revision }}
     {{- else }}
     # Label used by the 'default' service. For versioned deployments we match with app and version.
     # This avoids default deployment picking the canary
@@ -21301,6 +21204,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -21334,6 +21239,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -21432,6 +21339,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
 {{- if not .Values.telemetry.v2.stackdriver.disableOutbound }}
@@ -21553,6 +21462,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -21596,6 +21507,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -21653,6 +21566,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -21782,6 +21697,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -21908,6 +21825,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
 {{- if not .Values.telemetry.v2.stackdriver.disableOutbound }}
@@ -22038,6 +21957,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -22081,6 +22002,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -22141,6 +22064,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -22270,6 +22195,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -22397,6 +22324,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
 {{- if not .Values.telemetry.v2.stackdriver.disableOutbound }}
@@ -36313,7 +36242,7 @@ spec:
 {{- $filename := trimSuffix (ext $path) (base $path) }}
       - name: dashboards-istio-{{ $filename }}
         configMap:
-          name:  istio-grafana-configuration-dashboards-{{ $filename }}
+          name: istio-grafana-configuration-dashboards-{{ $filename }}
 {{- end }}
 `)
 
@@ -37292,20 +37221,6 @@ kiali:
   service:
     annotations: {}
     type: ClusterIP
-
-  ingress:
-    enabled: false
-    ## Used to create an Ingress record.
-    hosts:
-      - kiali.local
-    annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-    tls:
-    # Secrets must be manually created in the namespace.
-    # - secretName: kiali-tls
-    #   hosts:
-    #     - kiali.local
 
   dashboard:
     auth:
@@ -41370,20 +41285,6 @@ var _chartsIstioTelemetryPrometheusValuesYaml = []byte(`prometheus:
 
   contextPath: /prometheus
 
-  ingress:
-    enabled: false
-    ## Used to create an Ingress record.
-    hosts:
-      - prometheus.local
-    annotations:
-      # kubernetes.io/ingress.class: nginx
-      # kubernetes.io/tls-acme: "true"
-    tls:
-      # Secrets must be manually created in the namespace.
-      # - secretName: prometheus-tls
-      #   hosts:
-      #     - prometheus.local
-
   # 1.2 it is disabled by default - it can be enabled for special cases, but would create port
   # conflicts. In general it is not recommended to use node ports for services, but use gateways instead.
 #  service:
@@ -42930,21 +42831,6 @@ tracing:
     name: http-query
     type: ClusterIP
     externalPort: 80
-
-  ingress:
-    enabled: false
-    # Used to create an Ingress record.
-    hosts:
-    # - tracing.local
-    annotations:
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-    tls:
-    # Secrets must be manually created in the namespace.
-    # - secretName: tracing-tls
-    #   hosts:
-    #     - tracing.local
-
 `)
 
 func chartsIstioTelemetryTracingValuesYamlBytes() ([]byte, error) {
@@ -43929,10 +43815,6 @@ spec:
       logging:
         level: "default:info"
       logAsJson: false
-      k8sIngress:
-        enabled: false
-        gatewayName: ingressgateway
-        enableHttps: false
       pilotCertProvider: istiod
       jwtPolicy: third-party-jwt
       proxy:
@@ -43955,7 +43837,6 @@ spec:
           port: # example: 15000
         logLevel: warning
         componentLogLevel: "misc:error"
-        dnsRefreshRate: 300s
         protocolDetectionTimeout: 100ms
         privileged: false
         enableCoreDump: false
@@ -43966,8 +43847,6 @@ spec:
         includeIPRanges: "*"
         excludeIPRanges: ""
         excludeOutboundPorts: ""
-        kubevirtInterfaces: ""
-        includeInboundPorts: "*"
         excludeInboundPorts: ""
         autoInject: enabled
         envoyStatsd:
@@ -44082,8 +43961,6 @@ spec:
       enableProtocolSniffingForOutbound: true
       enableProtocolSniffingForInbound: true
       deploymentLabels:
-      meshNetworks:
-        networks: {}
       configMap: true
       ingress:
         ingressService: istio-ingressgateway
@@ -44219,12 +44096,7 @@ spec:
       retention: 6h
       scrapeInterval: 15s
       contextPath: /prometheus
-      ingress:
-        enabled: false
-        hosts:
-          - prometheus.local
-        annotations:
-        tls:
+
       security:
         enabled: true
       nodeSelector: {}
@@ -44253,12 +44125,6 @@ spec:
         externalPort: 3000
         loadBalancerIP:
         loadBalancerSourceRanges:
-      ingress:
-        enabled: false
-        hosts:
-          - grafana.local
-        annotations:
-        tls:
       datasources:
         datasources.yaml:
           apiVersion: 1
@@ -44329,11 +44195,6 @@ spec:
         name: http-query
         type: ClusterIP
         externalPort: 9411
-      ingress:
-        enabled: false
-        hosts:
-        annotations:
-        tls:
     istiocoredns:
       coreDNSImage: coredns/coredns
       coreDNSTag: 1.6.2
@@ -44346,12 +44207,6 @@ spec:
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
-      ingress:
-        enabled: false
-        hosts:
-          - kiali.local
-        annotations:
-        tls:
       dashboard:
         secretName: kiali
         usernameKey: username
