@@ -55,9 +55,9 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 	}
 	// Store the actual listening port back to the argument.
 	s.Port.Port = p
-	fmt.Printf("Listening GRPC on %v\n", p)
 
-	if s.TLSCert != "" && s.TLSKey != "" {
+	if s.Port.TLS {
+		fmt.Printf("Listening GRPC (over TLS) on %v\n", p)
 		// Create the TLS credentials
 		creds, errCreds := credentials.NewServerTLSFromFile(s.TLSCert, s.TLSKey)
 		if errCreds != nil {
@@ -65,6 +65,7 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 		}
 		s.server = grpc.NewServer(grpc.Creds(creds))
 	} else {
+		fmt.Printf("Listening GRPC on %v\n", p)
 		s.server = grpc.NewServer()
 	}
 	proto.RegisterEchoTestServiceServer(s.server, &grpcHandler{
@@ -122,7 +123,7 @@ type grpcHandler struct {
 }
 
 func (h *grpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.EchoResponse, error) {
-	defer common.Metrics.GrpcRequests.With(common.Port.Value(strconv.Itoa(h.Port.Port))).Increment()
+	defer common.Metrics.GrpcRequests.With(common.PortLabel.Value(strconv.Itoa(h.Port.Port))).Increment()
 	host := "-"
 	body := bytes.Buffer{}
 	md, ok := metadata.FromIncomingContext(ctx)

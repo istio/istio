@@ -27,7 +27,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/server/endpoint"
@@ -36,7 +35,7 @@ import (
 
 // Config for an echo server Instance.
 type Config struct {
-	Ports     model.PortList
+	Ports     common.PortList
 	Metrics   int
 	TLSCert   string
 	TLSKey    string
@@ -110,7 +109,7 @@ func (s *Instance) Close() (err error) {
 	return
 }
 
-func (s *Instance) newEndpoint(port *model.Port, udsServer string) (endpoint.Instance, error) {
+func (s *Instance) newEndpoint(port *common.Port, udsServer string) (endpoint.Instance, error) {
 	return endpoint.New(endpoint.Config{
 		Port:          port,
 		UDSServer:     udsServer,

@@ -114,6 +114,9 @@ spec:
           - --port
 {{- end }}
           - "{{ $p.Port }}"
+{{- if $p.TLS }}
+          - --tls={{ $p.Port }}
+{{- end }}
 {{- end }}
 {{- range $i, $p := $.WorkloadOnlyPorts }}
 {{- if eq .Protocol "TCP" }}
@@ -122,6 +125,9 @@ spec:
           - --port
 {{- end }}
           - "{{ $p.Port }}"
+{{- if $p.TLS }}
+          - --tls={{ $p.Port }}
+{{- end }}
 {{- end }}
           - --version
           - "{{ $subset.Version }}"

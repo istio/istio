@@ -86,6 +86,9 @@ type WorkloadPort struct {
 
 	// Protocol to be used for this port.
 	Protocol protocol.Instance
+
+	// TLS determines whether the connection will be plain text or TLS. By default this is false (plain text).
+	TLS bool
 }
 
 // Port exposed by an Echo Instance
@@ -104,6 +107,9 @@ type Port struct {
 	// InstancePort number where this instance is listening for connections.
 	// This need not be the same as the ServicePort where the service is accessed.
 	InstancePort int
+
+	// TLS determines whether the connection will be plain text or TLS. By default this is false (plain text).
+	TLS bool
 }
 
 // Workload provides an interface for a single deployed echo server.
