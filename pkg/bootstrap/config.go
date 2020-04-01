@@ -50,7 +50,7 @@ const (
 	lightstepAccessTokenBase = "lightstep_access_token.txt"
 
 	// required stats are used by readiness checks.
-	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,http_mixer_filter,tcp_mixer_filter,server,cluster.xds-grpc"
+	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,http_mixer_filter,tcp_mixer_filter,server,cluster.xds-grpc,wasm"
 	requiredEnvoyStatsMatcherInclusionSuffix   = "ssl_context_update_by_sds"
 
 	// Prefixes of V2 metrics.
