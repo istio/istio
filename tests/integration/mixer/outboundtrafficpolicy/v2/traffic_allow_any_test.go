@@ -52,7 +52,7 @@ func TestOutboundTrafficPolicy_AllowAny_TelemetryV2(t *testing.T) {
 			Scheme:   scheme.HTTP,
 			Expected: outboundtrafficpolicy.Expected{
 				Metric:          "istio_requests_total",
-				PromQueryFormat: `sum(istio_requests_total{reporter="source",destination_service_name="istio-egressgateway",response_code="200"})`,
+				PromQueryFormat: `sum(istio_requests_total{reporter="source",destination_service_name="istio-egressgateway.istio-system.svc.cluster.local",response_code="200"})`, // nolint: lll
 				ResponseCode:    []string{"200"},
 			},
 		},
