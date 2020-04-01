@@ -28,9 +28,12 @@ import (
 	v1 "k8s.io/api/core/v1"
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	metafake "k8s.io/client-go/metadata/fake"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/annotation"
@@ -149,7 +152,11 @@ func newFakeControllerWithOptions(opts fakeControllerOptions) (*Controller, *Fak
 	fx := NewFakeXDS()
 
 	clientSet := fake.NewSimpleClientset()
-	c := NewController(clientSet, Options{
+	scheme := runtime.NewScheme()
+	metaV1.AddMetaToScheme(scheme)
+	metadataClient := metafake.NewSimpleMetadataClient(scheme)
+
+	c := NewController(clientSet, metadataClient, Options{
 		WatchedNamespace: "", // tests create resources in multiple ns
 		ResyncPeriod:     resync,
 		DomainSuffix:     domainSuffix,
@@ -408,8 +415,8 @@ func TestController_GetPodLocality(t *testing.T) {
 				if err := waitForPod(controller, pod.Status.PodIP); err != nil {
 					t.Fatalf("wait for pod err: %v", err)
 				}
-				// pod first time occur will trigger xds push
-				fx.Wait("xds")
+				// pod first time occur will trigger proxy push
+				fx.Wait("proxy")
 			}
 
 			// Verify expected existing pod AZs
@@ -1688,6 +1695,10 @@ func generatePodWithProbes(ip, name, namespace, saName, node string, readinessPa
 
 func generateNode(name string, labels map[string]string) *coreV1.Node {
 	return &coreV1.Node{
+		TypeMeta: metaV1.TypeMeta{
+			Kind:       "Node",
+			APIVersion: "v1",
+		},
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:   name,
 			Labels: labels,
@@ -1696,12 +1707,20 @@ func generateNode(name string, labels map[string]string) *coreV1.Node {
 }
 
 func addNodes(t *testing.T, controller *Controller, nodes ...*coreV1.Node) {
+	nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
+	fakeClient := controller.metadataClient.(*metafake.FakeMetadataClient)
+
 	for _, node := range nodes {
-		if _, err := controller.client.CoreV1().Nodes().Create(context.TODO(), node, metaV1.CreateOptions{}); err != nil {
-			// if err := controller.nodes.informer.GetStore().Add(node); err != nil {
-			t.Fatalf("Cannot create node %s (error: %v)", node.Name, err)
+		partialMetadata := &metaV1.PartialObjectMetadata{
+			TypeMeta:   node.TypeMeta,
+			ObjectMeta: node.ObjectMeta,
+		}
+		_, err := fakeClient.Resource(nodeResource).(metafake.MetadataClient).CreateFake(partialMetadata, metaV1.CreateOptions{})
+		if err != nil {
+			t.Fatal(err)
 		}
 	}
+
 }
 
 func TestEndpointUpdate(t *testing.T) {

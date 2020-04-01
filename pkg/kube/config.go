@@ -19,6 +19,7 @@ import (
 	"os"
 
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -77,6 +78,19 @@ func CreateClientset(kubeconfig, context string, fns ...func(*rest.Config)) (*ku
 	return kubernetes.NewForConfig(c)
 }
 
+// CreateMetadataClient is a helper function that builds a kubernetes metadata client from a kubeconfig
+// filepath. See `BuildClientConfig` for kubeconfig loading rules.
+func CreateMetadataClient(kubeconfig, context string, fns ...func(*rest.Config)) (metadata.Interface, error) {
+	c, err := BuildClientConfig(kubeconfig, context)
+	if err != nil {
+		return nil, err
+	}
+	for _, fn := range fns {
+		fn(c)
+	}
+	return metadata.NewForConfig(c)
+}
+
 // CreateInterfaceFromClusterConfig is a helper function to create Kubernetes interface from in memory cluster config struct
 func CreateInterfaceFromClusterConfig(clusterConfig *clientcmdapi.Config) (kubernetes.Interface, error) {
 	return createInterface(clusterConfig)
@@ -91,4 +105,14 @@ func createInterface(clusterConfig *clientcmdapi.Config) (kubernetes.Interface, 
 		return nil, err
 	}
 	return kubernetes.NewForConfig(restConfig)
+}
+
+// CreateMetadataInterfaceFromClusterConfig is a helper function to create Kubernetes metadata interface from in memory cluster config struct
+func CreateMetadataInterfaceFromClusterConfig(clusterConfig *clientcmdapi.Config) (metadata.Interface, error) {
+	clientConfig := clientcmd.NewDefaultClientConfig(*clusterConfig, &clientcmd.ConfigOverrides{})
+	restConfig, err := clientConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	return metadata.NewForConfig(restConfig)
 }
