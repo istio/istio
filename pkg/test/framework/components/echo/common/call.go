@@ -162,10 +162,10 @@ func schemeForPort(port *echo.Port) (scheme.Instance, error) {
 	switch port.Protocol {
 	case protocol.GRPC, protocol.GRPCWeb, protocol.HTTP2:
 		return scheme.GRPC, nil
-	case protocol.HTTP, protocol.TCP:
+	case protocol.HTTP, protocol.HTTPS:
 		return scheme.HTTP, nil
-	case protocol.HTTPS, protocol.TLS:
-		return scheme.HTTPS, nil
+	case protocol.TCP:
+		return scheme.TCP, nil
 	default:
 		return "", fmt.Errorf("failed creating call for port %s: unsupported protocol %s",
 			port.Name, port.Protocol)

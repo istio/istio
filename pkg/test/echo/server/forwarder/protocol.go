@@ -72,7 +72,7 @@ func newProtocol(cfg Config) (protocol, error) {
 	headers := common.GetHeaders(cfg.Request)
 
 	switch scheme.Instance(u.Scheme) {
-	case scheme.HTTP, scheme.HTTPS:
+	case scheme.HTTP:
 		return &httpProtocol{
 			client: &http.Client{
 				Transport: &http.Transport{
@@ -117,7 +117,7 @@ func newProtocol(cfg Config) (protocol, error) {
 			conn:   grpcConn,
 			client: proto.NewEchoTestServiceClient(grpcConn),
 		}, nil
-	case scheme.WebSocket, scheme.WebSocketS:
+	case scheme.WebSocket:
 		dialer := &websocket.Dialer{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,
