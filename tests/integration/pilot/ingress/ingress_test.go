@@ -51,6 +51,8 @@ func TestMain(m *testing.M) {
 		NewSuite("pilot_test", m).
 		Label(label.CustomSetup).
 		RequireEnvironment(environment.Kube).
+		// IngressClass is only present in 1.18+
+		RequireEnvironmentVersion("1.18").
 		RequireSingleCluster().
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {
