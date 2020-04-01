@@ -543,6 +543,7 @@ metadata:
 spec:
   selector:
     matchLabels:
+      app: istiod
       istio: pilot
   strategy:
     rollingUpdate:
@@ -1461,7 +1462,6 @@ spec:
   selector:
     matchLabels:
       app: istiod
-      release: istio
       istio: pilot
 ---
 

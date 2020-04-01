@@ -17,7 +17,6 @@ spec:
       {{- if ne .Values.revision ""}}
       version: {{ .Values.revision }}
       {{- end }}
-      release: {{ .Release.Name }}
       istio: pilot
 ---
 {{- end }}
