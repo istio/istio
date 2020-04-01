@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
-	ghc "github.com/go-training/grpc-health-check/proto"
 	"google.golang.org/grpc"
+	ghc "google.golang.org/grpc/health/grpc_health_v1"
 
 	proxyEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pkg/spiffe"

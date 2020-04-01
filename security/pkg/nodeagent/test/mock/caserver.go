@@ -21,8 +21,8 @@ import (
 	"net"
 	"time"
 
-	ghc "github.com/go-training/grpc-health-check/proto"
 	"google.golang.org/grpc"
+	ghc "google.golang.org/grpc/health/grpc_health_v1"
 
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/pkg/spiffe"
@@ -137,9 +137,14 @@ func (s *CAServer) sign(csrPEM []byte, subjectIDs []string, _ time.Duration, for
 	return cert, nil
 }
 
-// Check implements `service Health`.
+// Check handles health check requests.
 func (s *CAServer) Check(ctx context.Context, in *ghc.HealthCheckRequest) (*ghc.HealthCheckResponse, error) {
 	return &ghc.HealthCheckResponse{
 		Status: ghc.HealthCheckResponse_SERVING,
 	}, nil
+}
+
+// Watch handles health check streams.
+func (s *CAServer) Watch(_ *ghc.HealthCheckRequest, _ ghc.Health_WatchServer) error {
+	return nil
 }
