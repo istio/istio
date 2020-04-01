@@ -108,7 +108,6 @@ type Config struct {
 
 	// Override values specifically for the ICP crd
 	// This is mostly required for cases where --set cannot be used
-	// If specified, Values will be ignored
 	ControlPlaneValues string
 
 	// Overrides for the Helm values file.
