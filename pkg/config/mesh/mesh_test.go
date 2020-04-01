@@ -19,6 +19,8 @@ import (
 	"reflect"
 	"testing"
 
+	. "github.com/onsi/gomega"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
 	"istio.io/istio/pkg/config/mesh"
@@ -167,6 +169,60 @@ func TestResolveHostsInNetworksConfig(t *testing.T) {
 			if addrAfter != tt.address && !tt.modified {
 				t.Fatalf("Expected network address not to be modified after calling the function")
 			}
+		})
+	}
+}
+
+func TestIsClusterLocal(t *testing.T) {
+	cases := []struct {
+		name     string
+		m        meshconfig.MeshConfig
+		ns       string
+		expected bool
+	}{
+		{
+			name:     "local by default",
+			m:        mesh.DefaultMeshConfig(),
+			ns:       "kube-system",
+			expected: true,
+		},
+		{
+			name:     "not local by default",
+			m:        mesh.DefaultMeshConfig(),
+			ns:       "bob",
+			expected: false,
+		},
+		{
+			name: "local 1",
+			m: meshconfig.MeshConfig{
+				ClusterLocalNamespaces: []string{"ns1", "ns2"},
+			},
+			ns:       "ns1",
+			expected: true,
+		},
+		{
+			name: "local 2",
+			m: meshconfig.MeshConfig{
+				ClusterLocalNamespaces: []string{"ns1", "ns2"},
+			},
+			ns:       "ns2",
+			expected: true,
+		},
+		{
+			name: "not local",
+			m: meshconfig.MeshConfig{
+				ClusterLocalNamespaces: []string{"ns1", "ns2"},
+			},
+			ns:       "ns3",
+			expected: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			clusterLocal := mesh.IsClusterLocal(&c.m, c.ns)
+			g.Expect(clusterLocal).To(Equal(c.expected))
 		})
 	}
 }
