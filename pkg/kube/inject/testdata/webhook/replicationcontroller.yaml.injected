@@ -14,6 +14,7 @@ spec:
       creationTimestamp: null
       labels:
         app: nginx
+        istio.io/rev: ""
         security.istio.io/tlsMode: istio
         service.istio.io/canonical-name: nginx
         service.istio.io/canonical-revision: latest

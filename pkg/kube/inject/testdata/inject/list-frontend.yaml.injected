@@ -36,6 +36,7 @@ items:
         creationTimestamp: null
         labels:
           app: hello
+          istio.io/rev: ""
           security.istio.io/tlsMode: istio
           tier: frontend
           track: stable

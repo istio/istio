@@ -20,6 +20,7 @@ spec:
       creationTimestamp: null
       labels:
         app: status
+        istio.io/rev: ""
         security.istio.io/tlsMode: istio
     spec:
       containers:
