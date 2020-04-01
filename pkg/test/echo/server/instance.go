@@ -42,6 +42,7 @@ type Config struct {
 	TLSKey    string
 	Version   string
 	UDSServer string
+	Cluster   string
 	Dialer    common.Dialer
 }
 
@@ -116,6 +117,7 @@ func (s *Instance) newEndpoint(port *model.Port, udsServer string) (endpoint.Ins
 		UDSServer:     udsServer,
 		IsServerReady: s.isReady,
 		Version:       s.Version,
+		Cluster:       s.Cluster,
 		TLSCert:       s.TLSCert,
 		TLSKey:        s.TLSKey,
 		Dialer:        s.Dialer,
