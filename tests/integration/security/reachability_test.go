@@ -75,6 +75,10 @@ func TestReachability(t *testing.T) {
 					Namespace:           systemNM,
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// only include headless service
+						if opts.Target != rctx.Headless {
+							return false
+						}
 						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
@@ -141,13 +145,6 @@ func TestReachability(t *testing.T) {
 					Namespace:           rctx.Namespace,
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						if src == rctx.Headless {
-							return false
-						}
-						// only include access to headless service
-						if opts.Target != rctx.Headless {
-							return false
-						}
 						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {

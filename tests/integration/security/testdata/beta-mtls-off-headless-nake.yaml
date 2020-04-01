@@ -6,7 +6,7 @@ kind: MeshPolicy
 metadata:
   name: "default"
   annotations:
-    test-suite: "beta-mtls-partial-automtls"
+    test-suite: "beta-mtls-off-headless-nake"
 spec: {}
 ---
 apiVersion: "security.istio.io/v1beta1"
@@ -14,7 +14,7 @@ kind: "PeerAuthentication"
 metadata:
   name: "default"
   annotations:
-    test-suite: "beta-mtls-off"
+    test-suite: "beta-mtls-off-headless-nake"
 spec:
   mtls:
     mode: DISABLE  # This is to simulate a headless service without proxy
