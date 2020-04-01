@@ -4,6 +4,7 @@ metadata:
   name: istio-sidecar-injector
   namespace: istio-system
   labels:
+    istio.io/rev: default
     release: istio
 data:
 
@@ -37,14 +38,10 @@ data:
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
         "istiod": {
+          "enableAnalysis": false,
           "enabled": true
         },
         "jwtPolicy": "third-party-jwt",
-        "k8sIngress": {
-          "enableHttps": false,
-          "enabled": false,
-          "gatewayName": "ingressgateway"
-        },
         "localityLbSetting": {
           "enabled": true
         },
@@ -87,7 +84,6 @@ data:
           "clusterDomain": "cluster.local",
           "componentLogLevel": "misc:error",
           "concurrency": 2,
-          "dnsRefreshRate": "300s",
           "enableCoreDump": false,
           "envoyAccessLogService": {
             "enabled": false
@@ -112,8 +108,6 @@ data:
           "excludeOutboundPorts": "",
           "image": "myproxy",
           "includeIPRanges": "172.30.0.0/16,172.21.0.0/16",
-          "includeInboundPorts": "*",
-          "kubevirtInterfaces": "",
           "logLevel": "warning",
           "privileged": false,
           "protocolDetectionTimeout": "100ms",
@@ -183,6 +177,7 @@ data:
       "istio_cni": {
         "enabled": false
       },
+      "revision": "",
       "sidecarInjectorWebhook": {
         "alwaysInjectSelector": [],
         "enableNamespacesByDefault": false,
@@ -365,9 +360,9 @@ data:
         {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
         {{- else if .Values.global.configNamespace }}
-          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
-          value: istiod.istio-system.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:

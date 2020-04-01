@@ -15,7 +15,6 @@
 package networking
 
 import (
-	"os"
 	"testing"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -125,23 +124,17 @@ func TestModelProtocolToListenerProtocol(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.sniffingEnabledForInbound {
-				_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
-			} else {
-				_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "false")
-			}
-			if tt.sniffingEnabledForOutbound {
-				_ = os.Setenv(features.EnableProtocolSniffingForOutbound.Name, "true")
-			} else {
-				_ = os.Setenv(features.EnableProtocolSniffingForOutbound.Name, "false")
-			}
+			defaultValue := features.EnableProtocolSniffingForOutbound
+			features.EnableProtocolSniffingForOutbound = tt.sniffingEnabledForOutbound
+			defer func() { features.EnableProtocolSniffingForOutbound = defaultValue }()
+
+			defaultInboundValue := features.EnableProtocolSniffingForInbound
+			features.EnableProtocolSniffingForInbound = tt.sniffingEnabledForInbound
+			defer func() { features.EnableProtocolSniffingForInbound = defaultInboundValue }()
 
 			if got := ModelProtocolToListenerProtocol(tt.node, tt.protocol, tt.direction); got != tt.want {
 				t.Errorf("ModelProtocolToListenerProtocol() = %v, want %v", got, tt.want)
 			}
-
-			_ = os.Unsetenv(features.EnableProtocolSniffingForInbound.Name)
-			_ = os.Unsetenv(features.EnableProtocolSniffingForOutbound.Name)
 		})
 	}
 }

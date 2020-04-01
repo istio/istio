@@ -220,17 +220,17 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 func mcpSecurityOptions(ctx context.Context, configSource *meshconfig.ConfigSource) (grpc.DialOption, error) {
 	securityOption := grpc.WithInsecure()
 	if configSource.TlsSettings != nil &&
-		configSource.TlsSettings.Mode != networkingapi.TLSSettings_DISABLE {
+		configSource.TlsSettings.Mode != networkingapi.ClientTLSSettings_DISABLE {
 		var credentialOption *creds.Options
 		switch configSource.TlsSettings.Mode {
-		case networkingapi.TLSSettings_SIMPLE:
-		case networkingapi.TLSSettings_MUTUAL:
+		case networkingapi.ClientTLSSettings_SIMPLE:
+		case networkingapi.ClientTLSSettings_MUTUAL:
 			credentialOption = &creds.Options{
 				CertificateFile:   configSource.TlsSettings.ClientCertificate,
 				KeyFile:           configSource.TlsSettings.PrivateKey,
 				CACertificateFile: configSource.TlsSettings.CaCertificates,
 			}
-		case networkingapi.TLSSettings_ISTIO_MUTUAL:
+		case networkingapi.ClientTLSSettings_ISTIO_MUTUAL:
 			credentialOption = &creds.Options{
 				CertificateFile:   path.Join(constants.AuthCertsPath, constants.CertChainFilename),
 				KeyFile:           path.Join(constants.AuthCertsPath, constants.KeyFilename),

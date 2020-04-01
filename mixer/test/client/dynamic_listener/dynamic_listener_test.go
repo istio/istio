@@ -29,9 +29,10 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/cache"
+	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
+	"github.com/envoyproxy/go-control-plane/pkg/cache/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
-	xds "github.com/envoyproxy/go-control-plane/pkg/server"
+	xds "github.com/envoyproxy/go-control-plane/pkg/server/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
@@ -39,6 +40,7 @@ import (
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	"istio.io/istio/mixer/test/client/env"
+	pilotutil "istio.io/istio/pilot/pkg/networking/util"
 )
 
 const envoyConf = `
@@ -161,11 +163,6 @@ func makeListener(s *env.TestSetup, key string) *v2.Listener {
 		}},
 	}
 
-	pbst, err := conversion.MessageToStruct(manager)
-	if err != nil {
-		panic(err)
-	}
-
 	return &v2.Listener{
 		Name: strconv.Itoa(int(s.Ports().ServerProxyPort)),
 		Address: &core.Address{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{
@@ -173,8 +170,8 @@ func makeListener(s *env.TestSetup, key string) *v2.Listener {
 			PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(s.Ports().ServerProxyPort)}}}},
 		FilterChains: []*listener.FilterChain{{
 			Filters: []*listener.Filter{{
-				Name:       wellknown.HTTPConnectionManager,
-				ConfigType: &listener.Filter_Config{pbst},
+				Name:       "http",
+				ConfigType: &listener.Filter_TypedConfig{pilotutil.MessageToAny(manager)},
 			}},
 		}},
 	}
@@ -195,7 +192,7 @@ func TestDynamicListener(t *testing.T) {
 	server := xds.NewServer(context.Background(), snapshots, nil)
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, server)
 	snapshot := cache.Snapshot{}
-	snapshot.Resources[cache.Listener] = cache.Resources{Version: strconv.Itoa(count), Items: map[string]cache.Resource{
+	snapshot.Resources[types.Listener] = cache.Resources{Version: strconv.Itoa(count), Items: map[string]types.Resource{
 		"backend": makeListener(s, fmt.Sprintf("count%d", count))}}
 	snapshots.SetSnapshot("", snapshot)
 
@@ -212,7 +209,7 @@ func TestDynamicListener(t *testing.T) {
 	for ; count < 2; count++ {
 		log.Printf("iteration %d", count)
 		snapshot := cache.Snapshot{}
-		snapshot.Resources[cache.Listener] = cache.Resources{Version: strconv.Itoa(count), Items: map[string]cache.Resource{
+		snapshot.Resources[types.Listener] = cache.Resources{Version: strconv.Itoa(count), Items: map[string]types.Resource{
 			"backend": makeListener(s, fmt.Sprintf("count%d", count))}}
 		snapshots.SetSnapshot("", snapshot)
 

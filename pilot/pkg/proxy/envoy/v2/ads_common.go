@@ -21,7 +21,7 @@ import (
 
 func ProxyNeedsPush(proxy *model.Proxy, pushEv *XdsEvent) bool {
 	targetNamespaces := pushEv.namespacesUpdated
-	configs := pushEv.configTypesUpdated
+	configs := pushEv.configsUpdated
 
 	// appliesToProxy starts as false, we will set it to true if we encounter any configs that require a push
 	appliesToProxy := false
@@ -88,7 +88,7 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 
 	// In case configTypes is not set, for example mesh configuration updated.
 	// If push scoping is not enabled, we push all xds
-	if len(pushEv.configTypesUpdated) == 0 {
+	if len(pushEv.configsUpdated) == 0 {
 		out[CDS] = true
 		out[EDS] = true
 		out[LDS] = true
@@ -99,7 +99,7 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 	// Note: CDS push must be followed by EDS, otherwise after Cluster is warmed, no ClusterLoadAssignment is retained.
 
 	if proxy.Type == model.SidecarProxy {
-		for config := range pushEv.configTypesUpdated {
+		for config := range pushEv.configsUpdated {
 			switch config {
 			case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
 				out[LDS] = true
@@ -152,7 +152,7 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 			}
 		}
 	} else {
-		for config := range pushEv.configTypesUpdated {
+		for config := range pushEv.configsUpdated {
 			switch config {
 			case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
 				out[LDS] = true

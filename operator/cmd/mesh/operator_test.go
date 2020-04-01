@@ -18,9 +18,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"istio.io/istio/pkg/test/env"
 
 	"github.com/kr/pretty"
 
@@ -163,6 +166,7 @@ func TestOperatorRemove(t *testing.T) {
 				operatorNamespace: "operator-test-namespace",
 				istioNamespace:    "istio-test-namespace",
 			},
+			kubeConfigPath: path.Join(env.IstioSrc, "tests/util/kubeconfig"),
 		},
 		force: true,
 	}
@@ -170,7 +174,6 @@ func TestOperatorRemove(t *testing.T) {
 	operatorRemove(rootArgs, orArgs, NewLogger(rootArgs.logToStdErr, os.Stdout, os.Stderr), mockDeleteManifest)
 	gotYAML := deleteOutput
 
-	fmt.Println(gotYAML)
 	if refreshGoldenFiles() {
 		t.Logf("Refreshing golden file for %s", goldenFilepath)
 		if err := ioutil.WriteFile(goldenFilepath, []byte(gotYAML), 0644); err != nil {

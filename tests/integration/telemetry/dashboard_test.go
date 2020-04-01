@@ -59,6 +59,8 @@ var (
 				"pilot_xds_eds_instances",
 				"_timeout",
 				"_rejects",
+				// We do not simulate injection errors
+				"sidecar_injection_failure_total",
 				// In default install, we have no proxy
 				"istio-proxy",
 				// cAdvisor does not expose this metrics, and we don't have kubelet in kind
@@ -99,26 +101,10 @@ var (
 			},
 		},
 		{
-			"istio-grafana-configuration-dashboards-galley-dashboard",
-			"galley-dashboard.json",
-			[]string{
-				// Exclude all metrics -- galley is disabled by default
-				"_",
-			},
-		},
-		{
 			"istio-grafana-configuration-dashboards-mixer-dashboard",
 			"mixer-dashboard.json",
 			[]string{
 				// Exclude all metrics -- mixer is disabled by default
-				"_",
-			},
-		},
-		{
-			"istio-grafana-configuration-dashboards-citadel-dashboard",
-			"citadel-dashboard.json",
-			[]string{
-				// Exclude all metrics -- citadel is disabled by default
 				"_",
 			},
 		},

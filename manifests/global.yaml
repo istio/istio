@@ -50,22 +50,10 @@ global:
   # To output all istio components logs in json format by adding --log_as_json argument to each container argument
   logAsJson: false
 
-  k8sIngress:
-    enabled: false
-    # Gateway used for k8s Ingress resources. By default it is
-    # using 'istio:ingressgateway' that will be installed by setting
-    # 'gateways.enabled' and 'gateways.istio-ingressgateway.enabled'
-    # flags to true.
-    gatewayName: ingressgateway
-    # enableHttps will add port 443 on the ingress.
-    # It REQUIRES that the certificates are installed  in the
-    # expected secrets - enabling this option without certificates
-    # will result in LDS rejection and the ingress will not work.
-    enableHttps: false
-
   # Enabled by default in master for maximising testing.
   istiod:
     enabled: true
+    enableAnalysis: false
 
   proxy:
     image: proxyv2
@@ -125,10 +113,6 @@ global:
     # not set, then the global "logLevel" will be used.
     componentLogLevel: "misc:error"
 
-    # Configure the DNS refresh rate for Envoy cluster of type STRICT_DNS
-    # This must be given it terms of seconds. For example, 300s is valid but 5m is invalid.
-    dnsRefreshRate: 300s
-
     # Automatic protocol detection uses a set of heuristics to
     # determine whether the connection is using TLS or not (on the
     # server side), as well as the application protocol being used
@@ -167,15 +151,9 @@ global:
     excludeIPRanges: ""
     excludeOutboundPorts: ""
 
-    # pod internal interfaces
-    kubevirtInterfaces: ""
-
     # istio ingress capture whitelist
     # examples:
-    #     Redirect no inbound traffic to Envoy:    --includeInboundPorts=""
-    #     Redirect all inbound traffic to Envoy:   --includeInboundPorts="*"
     #     Redirect only selected ports:            --includeInboundPorts="80,8080"
-    includeInboundPorts: "*"
     excludeInboundPorts: ""
 
     # This controls the 'policy' in the sidecar injector.

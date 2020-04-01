@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -197,11 +196,9 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		if tc.sniffingEnabledForInbound {
-			_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
-		} else {
-			_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "false")
-		}
+		defaultValue := features.EnableProtocolSniffingForInbound
+		features.EnableProtocolSniffingForInbound = tc.sniffingEnabledForInbound
+		defer func() { features.EnableProtocolSniffingForInbound = defaultValue }()
 
 		settingsName := "default"
 		if settings != nil {
@@ -583,8 +580,8 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 	destRule := &networking.DestinationRule{
 		Host: "*.example.org",
 		TrafficPolicy: &networking.TrafficPolicy{
-			Tls: &networking.TLSSettings{
-				Mode:              networking.TLSSettings_MUTUAL,
+			Tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
 				ClientCertificate: "/defaultCert.pem",
 				PrivateKey:        "/defaultPrivateKey.pem",
 				CaCertificates:    "/defaultCaCert.pem",
@@ -655,8 +652,8 @@ func buildSniTestClustersWithMetadata(sniValue string, typ model.NodeType, meta 
 								Port: &networking.PortSelector{
 									Number: 8080,
 								},
-								Tls: &networking.TLSSettings{
-									Mode: networking.TLSSettings_ISTIO_MUTUAL,
+								Tls: &networking.ClientTLSSettings{
+									Mode: networking.ClientTLSSettings_ISTIO_MUTUAL,
 									Sni:  sniValue,
 								},
 							},
@@ -854,8 +851,8 @@ func TestClusterMetadata(t *testing.T) {
 }
 
 func TestConditionallyConvertToIstioMtls(t *testing.T) {
-	tlsSettings := &networking.TLSSettings{
-		Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+	tlsSettings := &networking.ClientTLSSettings{
+		Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
 		CaCertificates:    constants.DefaultRootCert,
 		ClientCertificate: constants.DefaultCertChain,
 		PrivateKey:        constants.DefaultKey,
@@ -864,14 +861,14 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 	}
 	tests := []struct {
 		name            string
-		tls             *networking.TLSSettings
+		tls             *networking.ClientTLSSettings
 		sans            []string
 		sni             string
 		proxy           *model.Proxy
 		autoMTLSEnabled bool
 		meshExternal    bool
 		serviceMTLSMode model.MutualTLSMode
-		want            *networking.TLSSettings
+		want            *networking.ClientTLSSettings
 		wantCtxType     mtlsContextType
 	}{
 		{
@@ -886,8 +883,8 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		},
 		{
 			"Destination rule TLS sni and SAN override absent",
-			&networking.TLSSettings{
-				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+			&networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    constants.DefaultRootCert,
 				ClientCertificate: constants.DefaultCertChain,
 				PrivateKey:        constants.DefaultKey,
@@ -898,8 +895,8 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			false, false, model.MTLSUnknown,
-			&networking.TLSSettings{
-				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+			&networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    constants.DefaultRootCert,
 				ClientCertificate: constants.DefaultCertChain,
 				PrivateKey:        constants.DefaultKey,
@@ -919,8 +916,8 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				TLSClientRootCert:  "/custom/root.pem",
 			}},
 			false, false, model.MTLSUnknown,
-			&networking.TLSSettings{
-				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+			&networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    "/custom/root.pem",
 				ClientCertificate: "/custom/chain.pem",
 				PrivateKey:        "/custom/key.pem",
@@ -932,16 +929,16 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		{
 			"Auto fill nil settings when mTLS nil for internal service in strict mode",
 			nil,
-			[]string{"spiffee://foo/serviceaccount/1"},
+			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			true, false, model.MTLSStrict,
-			&networking.TLSSettings{
-				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+			&networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    constants.DefaultRootCert,
 				ClientCertificate: constants.DefaultCertChain,
 				PrivateKey:        constants.DefaultKey,
-				SubjectAltNames:   []string{"spiffee://foo/serviceaccount/1"},
+				SubjectAltNames:   []string{"spiffe://foo/serviceaccount/1"},
 				Sni:               "foo.com",
 			},
 			autoDetected,
@@ -949,16 +946,16 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		{
 			"Auto fill nil settings when mTLS nil for internal service in permissive mode",
 			nil,
-			[]string{"spiffee://foo/serviceaccount/1"},
+			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			true, false, model.MTLSPermissive,
-			&networking.TLSSettings{
-				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+			&networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    constants.DefaultRootCert,
 				ClientCertificate: constants.DefaultCertChain,
 				PrivateKey:        constants.DefaultKey,
-				SubjectAltNames:   []string{"spiffee://foo/serviceaccount/1"},
+				SubjectAltNames:   []string{"spiffe://foo/serviceaccount/1"},
 				Sni:               "foo.com",
 			},
 			autoDetected,
@@ -966,7 +963,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		{
 			"Auto fill nil settings when mTLS nil for internal service in plaintext mode",
 			nil,
-			[]string{"spiffee://foo/serviceaccount/1"},
+			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			true, false, model.MTLSDisable,
@@ -976,7 +973,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		{
 			"Auto fill nil settings when mTLS nil for internal service in unknown mode",
 			nil,
-			[]string{"spiffee://foo/serviceaccount/1"},
+			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			true, false, model.MTLSUnknown,
@@ -986,7 +983,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		{
 			"Do not auto fill nil settings for external",
 			nil,
-			[]string{"spiffee://foo/serviceaccount/1"},
+			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			true, true, model.MTLSUnknown,
@@ -996,7 +993,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		{
 			"Do not auto fill nil settings if server mTLS is disabled",
 			nil,
-			[]string{"spiffee://foo/serviceaccount/1"},
+			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			false, false, model.MTLSDisable,
@@ -1747,9 +1744,9 @@ func TestRedisProtocolClusterAtGateway(t *testing.T) {
 	}
 
 	// enable redis filter to true
-	_ = os.Setenv(features.EnableRedisFilter.Name, "true")
-
-	defer func() { _ = os.Unsetenv(features.EnableRedisFilter.Name) }()
+	defaultValue := features.EnableRedisFilter
+	features.EnableRedisFilter = true
+	defer func() { features.EnableRedisFilter = defaultValue }()
 
 	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
 
@@ -1781,8 +1778,8 @@ func TestAutoMTLSClusterPlaintextMode(t *testing.T) {
 					Port: &networking.PortSelector{
 						Number: 9090,
 					},
-					Tls: &networking.TLSSettings{
-						Mode: networking.TLSSettings_DISABLE,
+					Tls: &networking.ClientTLSSettings{
+						Mode: networking.ClientTLSSettings_DISABLE,
 					},
 				},
 			},
@@ -1818,8 +1815,8 @@ func TestAutoMTLSClusterStrictMode(t *testing.T) {
 					Port: &networking.PortSelector{
 						Number: 9090,
 					},
-					Tls: &networking.TLSSettings{
-						Mode: networking.TLSSettings_DISABLE,
+					Tls: &networking.ClientTLSSettings{
+						Mode: networking.ClientTLSSettings_DISABLE,
 					},
 				},
 			},
@@ -1874,8 +1871,8 @@ func TestAutoMTLSClusterStrictMode_SkipForExternal(t *testing.T) {
 					Port: &networking.PortSelector{
 						Number: 9090,
 					},
-					Tls: &networking.TLSSettings{
-						Mode: networking.TLSSettings_DISABLE,
+					Tls: &networking.ClientTLSSettings{
+						Mode: networking.ClientTLSSettings_DISABLE,
 					},
 				},
 			},
@@ -1991,8 +1988,8 @@ func TestAutoMTLSClusterWithPeerAuthnStrictMode(t *testing.T) {
 					Port: &networking.PortSelector{
 						Number: 9090,
 					},
-					Tls: &networking.TLSSettings{
-						Mode: networking.TLSSettings_DISABLE,
+					Tls: &networking.ClientTLSSettings{
+						Mode: networking.ClientTLSSettings_DISABLE,
 					},
 				},
 			},
@@ -2054,8 +2051,8 @@ func TestAutoMTLSClusterIgnoreWorkloadLevelPeerAuthn(t *testing.T) {
 					Port: &networking.PortSelector{
 						Number: 9090,
 					},
-					Tls: &networking.TLSSettings{
-						Mode: networking.TLSSettings_DISABLE,
+					Tls: &networking.ClientTLSSettings{
+						Mode: networking.ClientTLSSettings_DISABLE,
 					},
 				},
 			},
@@ -2129,8 +2126,9 @@ func TestApplyLoadBalancer(t *testing.T) {
 			}
 
 			if test.port != nil && test.port.Protocol == protocol.Redis {
-				os.Setenv("PILOT_ENABLE_REDIS_FILTER", "true")
-				defer os.Unsetenv("PILOT_ENABLE_REDIS_FILTER")
+				defaultValue := features.EnableRedisFilter
+				features.EnableRedisFilter = true
+				defer func() { features.EnableRedisFilter = defaultValue }()
 			}
 
 			applyLoadBalancer(cluster, test.lbSettings, test.port, &proxy, &meshconfig.MeshConfig{})
@@ -2144,8 +2142,8 @@ func TestApplyLoadBalancer(t *testing.T) {
 }
 
 func TestApplyUpstreamTLSSettings(t *testing.T) {
-	tlsSettings := &networking.TLSSettings{
-		Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+	tlsSettings := &networking.ClientTLSSettings{
+		Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
 		CaCertificates:    constants.DefaultRootCert,
 		ClientCertificate: constants.DefaultCertChain,
 		PrivateKey:        constants.DefaultKey,
@@ -2157,7 +2155,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		name          string
 		mtlsCtx       mtlsContextType
 		discoveryType apiv2.Cluster_DiscoveryType
-		tls           *networking.TLSSettings
+		tls           *networking.ClientTLSSettings
 
 		expectTransportSocket      bool
 		expectTransportSocketMatch bool

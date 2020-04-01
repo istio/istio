@@ -16,6 +16,7 @@ package multicluster
 
 import (
 	"bytes"
+	context2 "context"
 	"fmt"
 	"io"
 	"os"
@@ -215,7 +216,7 @@ func createRemoteSecretFromTokenAndServer(tokenSecret *v1.Secret, clusterName, c
 }
 
 func getServiceAccountSecretToken(kube kubernetes.Interface, saName, saNamespace string) (*v1.Secret, error) {
-	serviceAccount, err := kube.CoreV1().ServiceAccounts(saNamespace).Get(saName, metav1.GetOptions{})
+	serviceAccount, err := kube.CoreV1().ServiceAccounts(saNamespace).Get(context2.TODO(), saName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +229,7 @@ func getServiceAccountSecretToken(kube kubernetes.Interface, saName, saNamespace
 	if secretNamespace == "" {
 		secretNamespace = saNamespace
 	}
-	return kube.CoreV1().Secrets(secretNamespace).Get(secretName, metav1.GetOptions{})
+	return kube.CoreV1().Secrets(secretNamespace).Get(context2.TODO(), secretName, metav1.GetOptions{})
 }
 
 func getCurrentContextAndClusterServerFromKubeconfig(context string, config *api.Config) (string, string, error) {

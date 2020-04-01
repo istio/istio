@@ -5,7 +5,7 @@ kiali:
   enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `true`.
   replicaCount: 1
   hub: quay.io/kiali
-  tag: v1.14
+  tag: v1.15
   image: kiali
   contextPath: /kiali # The root context path to access the Kiali UI.
   nodeSelector: {}
@@ -36,20 +36,6 @@ kiali:
   service:
     annotations: {}
     type: ClusterIP
-
-  ingress:
-    enabled: false
-    ## Used to create an Ingress record.
-    hosts:
-      - kiali.local
-    annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-    tls:
-    # Secrets must be manually created in the namespace.
-    # - secretName: kiali-tls
-    #   hosts:
-    #     - kiali.local
 
   dashboard:
     auth:
@@ -82,6 +68,7 @@ kiali:
 
   createDemoSecret: true # When true, a secret will be created with a default username and password. Useful for demos.
 
+  prometheusAddr: ""
   resources: {}
   security:
     enabled: false

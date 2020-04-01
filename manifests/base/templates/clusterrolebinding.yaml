@@ -17,22 +17,6 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-pilot-{{ .Values.global.istioNamespace }}
-  labels:
-    app: pilot
-    release: {{ .Release.Name }}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-pilot-{{ .Values.global.istioNamespace }}
-subjects:
-  - kind: ServiceAccount
-    name: istio-pilot-service-account
-    namespace: {{ .Values.global.istioNamespace }}
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
   name: istiod-pilot-{{ .Values.global.istioNamespace }}
   labels:
     app: pilot

@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -24,13 +25,19 @@ import (
 	"sync"
 	"time"
 
+	klabels "k8s.io/apimachinery/pkg/labels"
+
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/metadata"
+	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/pkg/log"
@@ -150,10 +157,11 @@ var _ serviceregistry.Instance = &Controller{}
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
-	client    kubernetes.Interface
-	queue     queue.Instance
-	services  cache.SharedIndexInformer
-	endpoints kubeEndpointsController
+	client         kubernetes.Interface
+	metadataClient metadata.Interface
+	queue          queue.Instance
+	services       cache.SharedIndexInformer
+	endpoints      kubeEndpointsController
 
 	// TODO we can disable this when we only have EndpointSlice enabled
 	nodes           cache.SharedIndexInformer
@@ -184,7 +192,7 @@ type Controller struct {
 
 // NewController creates a new Kubernetes controller
 // Created by bootstrap and multicluster (see secretcontroler).
-func NewController(client kubernetes.Interface, options Options) *Controller {
+func NewController(client kubernetes.Interface, metadataClient metadata.Interface, options Options) *Controller {
 	log.Infof("Service controller watching namespace %q for services, endpoints, nodes and pods, refresh %s",
 		options.WatchedNamespace, options.ResyncPeriod)
 
@@ -192,6 +200,7 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 	c := &Controller{
 		domainSuffix:               options.DomainSuffix,
 		client:                     client,
+		metadataClient:             metadataClient,
 		queue:                      queue.NewQueue(1 * time.Second),
 		clusterID:                  options.ClusterID,
 		xdsUpdater:                 options.XDSUpdater,
@@ -213,7 +222,9 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 		c.endpoints = newEndpointSliceController(c, sharedInformers)
 	}
 
-	c.nodes = sharedInformers.Core().V1().Nodes().Informer()
+	metadataSharedInformer := metadatainformer.NewSharedInformerFactory(metadataClient, options.ResyncPeriod)
+	nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
+	c.nodes = metadataSharedInformer.ForResource(nodeResource).Informer()
 	registerHandlers(c.nodes, c.queue, "Nodes", c.onNodeEvent)
 
 	podInformer := sharedInformers.Core().V1().Pods().Informer()
@@ -290,7 +301,7 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 	return nil
 }
 
-func (c *Controller) onNodeEvent(_ interface{}, _ model.Event) error {
+func (c *Controller) onNodeEvent(obj interface{}, ev model.Event) error {
 	return c.checkReadyForEvents()
 }
 
@@ -415,15 +426,26 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 
 	// NodeName is set by the scheduler after the pod is created
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#late-initialization
-	node, exists, err := c.nodes.GetStore().GetByKey(pod.Spec.NodeName)
+	raw, exists, err := c.nodes.GetStore().GetByKey(pod.Spec.NodeName)
 	if !exists || err != nil {
-		log.Warnf("unable to get node %q for pod %q: %v", pod.Spec.NodeName, pod.Name, err)
+		log.Warnf("unable to get node %q for pod %q from cache: %v", pod.Spec.NodeName, pod.Name, err)
+		nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
+		raw, err = c.metadataClient.Resource(nodeResource).Get(context.TODO(), pod.Spec.NodeName, metav1.GetOptions{})
+		if err != nil {
+			log.Warnf("unable to get node %q for pod %q: %v", pod.Spec.NodeName, pod.Name, err)
+			return ""
+		}
+	}
+
+	nodeMeta, err := meta.Accessor(raw)
+	if err != nil {
+		log.Warnf("unable to get node meta: %v", nodeMeta)
 		return ""
 	}
 
-	region := getLabelValue(node.(*v1.Node), NodeRegionLabel, NodeRegionLabelGA)
-	zone := getLabelValue(node.(*v1.Node), NodeZoneLabel, NodeZoneLabelGA)
-	subzone := getLabelValue(node.(*v1.Node), IstioSubzoneLabel, "")
+	region := getLabelValue(nodeMeta, NodeRegionLabel, NodeRegionLabelGA)
+	zone := getLabelValue(nodeMeta, NodeZoneLabel, NodeZoneLabelGA)
+	subzone := getLabelValue(nodeMeta, IstioSubzoneLabel, "")
 
 	if region == "" && zone == "" && subzone == "" {
 		return ""
@@ -547,8 +569,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 			}
 			// 1. find proxy service by label selector, if not any, there may exist headless service without selector
 			// failover to 2
-			svcLister := listerv1.NewServiceLister(c.services.GetIndexer())
-			if services, err := svcLister.GetPodServices(pod); err == nil && len(services) > 0 {
+			if services, err := getPodServices(listerv1.NewServiceLister(c.services.GetIndexer()), pod); err == nil && len(services) > 0 {
 				for _, svc := range services {
 					out = append(out, c.getProxyServiceInstancesByPod(pod, svc, proxy)...)
 				}
@@ -579,6 +600,28 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	return out, nil
 }
 
+func getPodServices(s listerv1.ServiceLister, pod *v1.Pod) ([]*v1.Service, error) {
+	allServices, err := s.Services(pod.Namespace).List(klabels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	var services []*v1.Service
+	for i := range allServices {
+		service := allServices[i]
+		if service.Spec.Selector == nil {
+			// services with nil selectors match nothing, not everything.
+			continue
+		}
+		selector := klabels.Set(service.Spec.Selector).AsSelectorPreValidated()
+		if selector.Matches(klabels.Set(pod.Labels)) {
+			services = append(services, service)
+		}
+	}
+
+	return services, nil
+}
+
 // getProxyServiceInstancesFromMetadata retrieves ServiceInstances using proxy Metadata rather than
 // from the Pod. This allows retrieving Instances immediately, regardless of delays in Kubernetes.
 // If the proxy doesn't have enough metadata, an error is returned
@@ -601,7 +644,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 
 	// Find the Service associated with the pod.
 	svcLister := listerv1.NewServiceLister(c.services.GetIndexer())
-	services, err := svcLister.GetPodServices(dummyPod)
+	services, err := getPodServices(svcLister, dummyPod)
 	if err != nil {
 		return nil, fmt.Errorf("error getting instances: %v", err)
 

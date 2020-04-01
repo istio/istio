@@ -17,43 +17,6 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istio-pilot-istio-system
-  labels:
-    app: pilot
-    release: istio
-rules:
-- apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
-  verbs: ["get", "watch", "list"]
-  resources: ["*"]
-- apiGroups: ["apiextensions.k8s.io"]
-  resources: ["customresourcedefinitions"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["networking.k8s.io"]
-  resources: ["ingresses"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["networking.k8s.io"]
-  resources: ["ingresses/status"]
-  verbs: ["*"]
-  # TODO: remove, too broad permission, should be namespace only
-- apiGroups: [""]
-  resources: ["configmaps"]
-  # Create and update needed for ingress election
-  verbs: ["get", "list", "watch", "create", "update"]
-- apiGroups: [""]
-  resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["create", "get", "watch", "list", "update", "delete"]
-- apiGroups: ["discovery.k8s.io"]
-  resources: ["endpointslices"]
-  verbs: ["get", "list", "watch"]
----
-
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
   name: istiod-istio-system
   labels:
     app: istiod
@@ -98,7 +61,7 @@ rules:
 
   # ingress controller
   - apiGroups: ["networking.k8s.io"]
-    resources: ["ingresses"]
+    resources: ["ingresses", "ingressclasses"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses/status"]
@@ -189,24 +152,6 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-pilot-istio-system
-  labels:
-    app: pilot
-    release: istio
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-pilot-istio-system
-subjects:
-  - kind: ServiceAccount
-    name: istio-pilot-service-account
-    namespace: istio-system
----
-
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
   name: istiod-pilot-istio-system
   labels:
     app: pilot
@@ -250,8 +195,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Authentication policy for Istio services. See more details
-            at: https://istio.io/docs/reference/config/security/istio.authentication.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             originIsOptional:
               description: Deprecated.
@@ -308,6 +252,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -339,6 +293,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -370,6 +334,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -401,6 +375,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -437,6 +421,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -468,6 +462,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -499,6 +503,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -530,6 +544,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -568,6 +592,14 @@ spec:
             peers:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - mtls
+                    - properties:
+                        jwt: {}
+                      required:
+                      - jwt
                 - required:
                   - mtls
                 - properties:
@@ -622,6 +654,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -653,6 +695,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -684,6 +736,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -715,6 +777,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -751,6 +823,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -782,6 +864,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -813,6 +905,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -844,6 +946,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -907,6 +1019,12 @@ spec:
                     description: Specifies the ports.
                     items:
                       oneOf:
+                      - not:
+                          anyOf:
+                          - required:
+                            - number
+                          - required:
+                            - name
                       - required:
                         - number
                       - required:
@@ -958,8 +1076,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Authentication policy for Istio services. See more details
-            at: https://istio.io/docs/reference/config/security/istio.authentication.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             originIsOptional:
               description: Deprecated.
@@ -1016,6 +1133,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1047,6 +1174,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1078,6 +1215,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1109,6 +1256,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1145,6 +1302,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1176,6 +1343,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1207,6 +1384,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1238,6 +1425,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1276,6 +1473,14 @@ spec:
             peers:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - mtls
+                    - properties:
+                        jwt: {}
+                      required:
+                      - jwt
                 - required:
                   - mtls
                 - properties:
@@ -1330,6 +1535,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1361,6 +1576,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1392,6 +1617,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1423,6 +1658,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1459,6 +1704,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1490,6 +1745,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1521,6 +1786,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1552,6 +1827,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1615,6 +1900,12 @@ spec:
                     description: Specifies the ports.
                     items:
                       oneOf:
+                      - not:
+                          anyOf:
+                          - required:
+                            - number
+                          - required:
+                            - name
                       - required:
                         - number
                       - required:
@@ -1670,6 +1961,14 @@ spec:
             api_keys:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - query
+                    - required:
+                      - header
+                    - required:
+                      - cookie
                 - required:
                   - query
                 - required:
@@ -1693,6 +1992,14 @@ spec:
             apiKeys:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - query
+                    - required:
+                      - header
+                    - required:
+                      - cookie
                 - required:
                   - query
                 - required:
@@ -1718,6 +2025,24 @@ spec:
                 attributes:
                   additionalProperties:
                     oneOf:
+                    - not:
+                        anyOf:
+                        - required:
+                          - stringValue
+                        - required:
+                          - int64Value
+                        - required:
+                          - doubleValue
+                        - required:
+                          - boolValue
+                        - required:
+                          - bytesValue
+                        - required:
+                          - timestampValue
+                        - required:
+                          - durationValue
+                        - required:
+                          - stringMapValue
                     - required:
                       - stringValue
                     - required:
@@ -1771,6 +2096,12 @@ spec:
               description: List of HTTP patterns to match.
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - uriTemplate
+                    - required:
+                      - regex
                 - required:
                   - uriTemplate
                 - required:
@@ -1781,6 +2112,24 @@ spec:
                       attributes:
                         additionalProperties:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - stringValue
+                              - required:
+                                - int64Value
+                              - required:
+                                - doubleValue
+                              - required:
+                                - boolValue
+                              - required:
+                                - bytesValue
+                              - required:
+                                - timestampValue
+                              - required:
+                                - durationValue
+                              - required:
+                                - stringMapValue
                           - required:
                             - stringValue
                           - required:
@@ -1985,6 +2334,14 @@ spec:
                         clause:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -2248,11 +2605,48 @@ spec:
                       loadBalancer:
                         description: Settings controlling the load balancer algorithms.
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - simple
+                            - properties:
+                                consistentHash:
+                                  oneOf:
+                                  - not:
+                                      anyOf:
+                                      - required:
+                                        - httpHeaderName
+                                      - required:
+                                        - httpCookie
+                                      - required:
+                                        - useSourceIp
+                                      - required:
+                                        - httpQueryParameterName
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
+                              required:
+                              - consistentHash
                         - required:
                           - simple
                         - properties:
                             consistentHash:
                               oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
                               - required:
                                 - httpHeaderName
                               - required:
@@ -2440,11 +2834,48 @@ spec:
                               description: Settings controlling the load balancer
                                 algorithms.
                               oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - simple
+                                  - properties:
+                                      consistentHash:
+                                        oneOf:
+                                        - not:
+                                            anyOf:
+                                            - required:
+                                              - httpHeaderName
+                                            - required:
+                                              - httpCookie
+                                            - required:
+                                              - useSourceIp
+                                            - required:
+                                              - httpQueryParameterName
+                                        - required:
+                                          - httpHeaderName
+                                        - required:
+                                          - httpCookie
+                                        - required:
+                                          - useSourceIp
+                                        - required:
+                                          - httpQueryParameterName
+                                    required:
+                                    - consistentHash
                               - required:
                                 - simple
                               - properties:
                                   consistentHash:
                                     oneOf:
+                                    - not:
+                                        anyOf:
+                                        - required:
+                                          - httpHeaderName
+                                        - required:
+                                          - httpCookie
+                                        - required:
+                                          - useSourceIp
+                                        - required:
+                                          - httpQueryParameterName
                                     - required:
                                       - httpHeaderName
                                     - required:
@@ -2704,11 +3135,48 @@ spec:
                 loadBalancer:
                   description: Settings controlling the load balancer algorithms.
                   oneOf:
+                  - not:
+                      anyOf:
+                      - required:
+                        - simple
+                      - properties:
+                          consistentHash:
+                            oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - httpHeaderName
+                                - required:
+                                  - httpCookie
+                                - required:
+                                  - useSourceIp
+                                - required:
+                                  - httpQueryParameterName
+                            - required:
+                              - httpHeaderName
+                            - required:
+                              - httpCookie
+                            - required:
+                              - useSourceIp
+                            - required:
+                              - httpQueryParameterName
+                        required:
+                        - consistentHash
                   - required:
                     - simple
                   - properties:
                       consistentHash:
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - httpHeaderName
+                            - required:
+                              - httpCookie
+                            - required:
+                              - useSourceIp
+                            - required:
+                              - httpQueryParameterName
                         - required:
                           - httpHeaderName
                         - required:
@@ -2893,11 +3361,48 @@ spec:
                       loadBalancer:
                         description: Settings controlling the load balancer algorithms.
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - simple
+                            - properties:
+                                consistentHash:
+                                  oneOf:
+                                  - not:
+                                      anyOf:
+                                      - required:
+                                        - httpHeaderName
+                                      - required:
+                                        - httpCookie
+                                      - required:
+                                        - useSourceIp
+                                      - required:
+                                        - httpQueryParameterName
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
+                              required:
+                              - consistentHash
                         - required:
                           - simple
                         - properties:
                             consistentHash:
                               oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
                               - required:
                                 - httpHeaderName
                               - required:
@@ -3150,6 +3655,14 @@ spec:
                   match:
                     description: Match on listener/route configuration/cluster.
                     oneOf:
+                    - not:
+                        anyOf:
+                        - required:
+                          - listener
+                        - required:
+                          - routeConfiguration
+                        - required:
+                          - cluster
                     - required:
                       - listener
                     - required:
@@ -3565,6 +4078,9 @@ spec:
                       type: integer
                     description: Set of ports associated with the endpoint.
                     type: object
+                  serviceAccount:
+                    format: string
+                    type: string
                   weight:
                     description: The load balancing weight associated with the endpoint.
                     type: integer
@@ -3616,6 +4132,15 @@ spec:
                 format: string
                 type: string
               type: array
+            workloadSelector:
+              description: Applicable only for MESH_INTERNAL services.
+              properties:
+                labels:
+                  additionalProperties:
+                    format: string
+                    type: string
+                  type: object
+              type: object
           type: object
       type: object
   versions:
@@ -3676,6 +4201,74 @@ spec:
                       format: string
                       type: string
                     type: array
+                  localhostServerTls:
+                    properties:
+                      caCertificates:
+                        description: REQUIRED if mode is `MUTUAL`.
+                        format: string
+                        type: string
+                      cipherSuites:
+                        description: 'Optional: If specified, only support the specified
+                          cipher list.'
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      credentialName:
+                        format: string
+                        type: string
+                      httpsRedirect:
+                        type: boolean
+                      maxProtocolVersion:
+                        description: 'Optional: Maximum TLS protocol version.'
+                        enum:
+                        - TLS_AUTO
+                        - TLSV1_0
+                        - TLSV1_1
+                        - TLSV1_2
+                        - TLSV1_3
+                        type: string
+                      minProtocolVersion:
+                        description: 'Optional: Minimum TLS protocol version.'
+                        enum:
+                        - TLS_AUTO
+                        - TLSV1_0
+                        - TLSV1_1
+                        - TLSV1_2
+                        - TLSV1_3
+                        type: string
+                      mode:
+                        enum:
+                        - PASSTHROUGH
+                        - SIMPLE
+                        - MUTUAL
+                        - AUTO_PASSTHROUGH
+                        - ISTIO_MUTUAL
+                        type: string
+                      privateKey:
+                        description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                        format: string
+                        type: string
+                      serverCertificate:
+                        description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                        format: string
+                        type: string
+                      subjectAltNames:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      verifyCertificateHash:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      verifyCertificateSpki:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                    type: object
                   port:
                     description: The port associated with the listener.
                     properties:
@@ -3709,6 +4302,37 @@ spec:
                   defaultEndpoint:
                     format: string
                     type: string
+                  localhostClientTls:
+                    properties:
+                      caCertificates:
+                        format: string
+                        type: string
+                      clientCertificate:
+                        description: REQUIRED if mode is `MUTUAL`.
+                        format: string
+                        type: string
+                      mode:
+                        enum:
+                        - DISABLE
+                        - SIMPLE
+                        - MUTUAL
+                        - ISTIO_MUTUAL
+                        type: string
+                      privateKey:
+                        description: REQUIRED if mode is `MUTUAL`.
+                        format: string
+                        type: string
+                      sni:
+                        description: SNI string to present to the server during TLS
+                          handshake.
+                        format: string
+                        type: string
+                      subjectAltNames:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                    type: object
                   port:
                     description: The port associated with the listener.
                     properties:
@@ -3726,6 +4350,108 @@ spec:
                     type: object
                 type: object
               type: array
+            localhost:
+              properties:
+                clientTls:
+                  properties:
+                    caCertificates:
+                      format: string
+                      type: string
+                    clientCertificate:
+                      description: REQUIRED if mode is `MUTUAL`.
+                      format: string
+                      type: string
+                    mode:
+                      enum:
+                      - DISABLE
+                      - SIMPLE
+                      - MUTUAL
+                      - ISTIO_MUTUAL
+                      type: string
+                    privateKey:
+                      description: REQUIRED if mode is `MUTUAL`.
+                      format: string
+                      type: string
+                    sni:
+                      description: SNI string to present to the server during TLS
+                        handshake.
+                      format: string
+                      type: string
+                    subjectAltNames:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                  type: object
+                serverTls:
+                  properties:
+                    caCertificates:
+                      description: REQUIRED if mode is `MUTUAL`.
+                      format: string
+                      type: string
+                    cipherSuites:
+                      description: 'Optional: If specified, only support the specified
+                        cipher list.'
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                    credentialName:
+                      format: string
+                      type: string
+                    httpsRedirect:
+                      type: boolean
+                    maxProtocolVersion:
+                      description: 'Optional: Maximum TLS protocol version.'
+                      enum:
+                      - TLS_AUTO
+                      - TLSV1_0
+                      - TLSV1_1
+                      - TLSV1_2
+                      - TLSV1_3
+                      type: string
+                    minProtocolVersion:
+                      description: 'Optional: Minimum TLS protocol version.'
+                      enum:
+                      - TLS_AUTO
+                      - TLSV1_0
+                      - TLSV1_1
+                      - TLSV1_2
+                      - TLSV1_3
+                      type: string
+                    mode:
+                      enum:
+                      - PASSTHROUGH
+                      - SIMPLE
+                      - MUTUAL
+                      - AUTO_PASSTHROUGH
+                      - ISTIO_MUTUAL
+                      type: string
+                    privateKey:
+                      description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                      format: string
+                      type: string
+                    serverCertificate:
+                      description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                      format: string
+                      type: string
+                    subjectAltNames:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                    verifyCertificateHash:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                    verifyCertificateSpki:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                  type: object
+              type: object
             outboundTrafficPolicy:
               description: Configuration for the outbound traffic policy.
               properties:
@@ -3872,6 +4598,14 @@ spec:
                         description: String patterns that match allowed origins.
                         items:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -3905,6 +4639,14 @@ spec:
                     properties:
                       abort:
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - httpStatus
+                            - required:
+                              - grpcStatus
+                            - required:
+                              - http2Error
                         - required:
                           - httpStatus
                         - required:
@@ -3934,13 +4676,15 @@ spec:
                         type: object
                       delay:
                         oneOf:
-                        - properties:
-                            percent: {}
-                          required:
+                        - not:
+                            anyOf:
+                            - required:
+                              - fixedDelay
+                            - required:
+                              - exponentialDelay
+                        - required:
                           - fixedDelay
-                        - properties:
-                            percent: {}
-                          required:
+                        - required:
                           - exponentialDelay
                         properties:
                           exponentialDelay:
@@ -4007,6 +4751,14 @@ spec:
                       properties:
                         authority:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -4035,6 +4787,14 @@ spec:
                         headers:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -4060,6 +4820,14 @@ spec:
                           type: boolean
                         method:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -4089,6 +4857,14 @@ spec:
                         queryParams:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -4111,6 +4887,14 @@ spec:
                           type: object
                         scheme:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -4141,6 +4925,14 @@ spec:
                           type: string
                         uri:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -4162,6 +4954,14 @@ spec:
                         withoutHeaders:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -4504,6 +5304,91 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    app: istio-pilot
+    chart: istio
+    heritage: Tiller
+    release: istio
+  name: workloadentries.networking.istio.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    description: 'CreationTimestamp is a timestamp representing the server time when
+      this object was created. It is not guaranteed to be set in happens-before order
+      across separate operations. Clients may not set this value. It is represented
+      in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
+      lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+    name: Age
+    type: date
+  - JSONPath: .spec.address
+    description: Address associated with the network endpoint.
+    name: Address
+    type: string
+  group: networking.istio.io
+  names:
+    categories:
+    - istio-io
+    - networking-istio-io
+    kind: WorkloadEntry
+    listKind: WorkloadEntryList
+    plural: workloadentries
+    shortNames:
+    - we
+    singular: workloadentry
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          description: 'Configuration affecting VMs onboarded into the mesh. See more
+            details at: https://istio.io/docs/reference/config/networking/workload-entry.html'
+          properties:
+            address:
+              format: string
+              type: string
+            labels:
+              additionalProperties:
+                format: string
+                type: string
+              description: One or more labels associated with the endpoint.
+              type: object
+            locality:
+              description: The locality associated with the endpoint.
+              format: string
+              type: string
+            network:
+              format: string
+              type: string
+            ports:
+              additionalProperties:
+                type: integer
+              description: Set of ports associated with the endpoint.
+              type: object
+            serviceAccount:
+              format: string
+              type: string
+            weight:
+              description: The load balancing weight associated with the endpoint.
+              type: integer
+          type: object
+      type: object
+  versions:
+  - name: v1alpha3
+    served: true
+    storage: true
+  - name: v1beta1
+    served: true
+    storage: false
+---
+
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  labels:
     app: mixer
     chart: istio
     heritage: Tiller
@@ -4626,15 +5511,58 @@ spec:
                 authentication:
                   description: Auth config for the connection to the backend.
                   oneOf:
+                  - not:
+                      anyOf:
+                      - properties:
+                          tls:
+                            allOf:
+                            - oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - tokenPath
+                                  - required:
+                                    - oauth
+                              - required:
+                                - tokenPath
+                              - required:
+                                - oauth
+                            - oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - authHeader
+                                  - required:
+                                    - customHeader
+                              - required:
+                                - authHeader
+                              - required:
+                                - customHeader
+                        required:
+                        - tls
+                      - required:
+                        - mutual
                   - properties:
                       tls:
                         allOf:
                         - oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - tokenPath
+                              - required:
+                                - oauth
                           - required:
                             - tokenPath
                           - required:
                             - oauth
                         - oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - authHeader
+                              - required:
+                                - customHeader
                           - required:
                             - authHeader
                           - required:
@@ -4988,8 +5916,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             enforcementMode:
               enum:
@@ -5077,8 +6004,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             enforcementMode:
               enum:
@@ -5166,8 +6092,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             rules:
               description: The set of access rules (permissions) that the role has.
@@ -5291,8 +6216,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             actions:
               items:
@@ -5902,13 +6826,50 @@ spec:
 ---
 
 
-apiVersion: v1
-kind: Namespace
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
 metadata:
-  name: istio-system
-  labels:
-    istio-operator-managed: Reconcile
-    istio-injection: disabled
+  name: istiooperators.install.istio.io
+spec:
+  group: install.istio.io
+  names:
+    kind: IstioOperator
+    plural: istiooperators
+    singular: istiooperator
+    shortNames:
+    - iop
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        spec:
+          description: 'Specification of the desired state of the istio control plane resource.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+        status:
+          description: 'Status describes each of istio control plane component status at the current time.
+            0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
+            More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
+            https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
 ---
 
 
@@ -5999,6 +6960,7 @@ metadata:
   labels:
     app: istiod
     release: istio
+    istio.io/rev: default
 spec:
   maxReplicas: 5
   minReplicas: 1
@@ -6020,6 +6982,7 @@ metadata:
   name: istio
   namespace: istio-system
   labels:
+    istio.io/rev: default
     release: istio
 data:
 
@@ -6039,7 +7002,7 @@ data:
     cpu:
       targetAverageUtilization: 80
     deploymentLabels: {}
-    enableProtocolSniffingForInbound: false
+    enableProtocolSniffingForInbound: true
     enableProtocolSniffingForOutbound: true
     enabled: true
     env: {}
@@ -6051,8 +7014,6 @@ data:
       ingressService: istio-ingressgateway
     jwksResolverExtraRootCA: ""
     keepaliveMaxServerConnectionAge: 30m
-    meshNetworks:
-      networks: {}
     namespace: istio-system
     nodeSelector: {}
     plugins: []
@@ -6075,25 +7036,19 @@ data:
   mesh: |-
     # Set enableTracing to false to disable request tracing.
     enableTracing: true
-
     # Set accessLogFile to empty string to disable access log.
     accessLogFile: ""
-
     accessLogFormat: ""
-
     accessLogEncoding: 'TEXT'
-
     enableEnvoyAccessLogService: false
     # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
     reportBatchMaxEntries: 100
     # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
     reportBatchMaxTime: 1s
     disableMixerHttpReports: true
-
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
     disablePolicyChecks: true
-
     # Automatic protocol detection uses a set of heuristics to
     # determine whether the connection is using TLS or not (on the
     # server side), as well as the application protocol being used
@@ -6104,16 +7059,13 @@ data:
     # traffic. Set this field to tweak the period that Envoy will wait
     # for the client to send the first bits of data. (MUST BE >=1ms)
     protocolDetectionTimeout: 100ms
-
     # This is the k8s ingress service name, update if you used a different name
     ingressService: "istio-ingressgateway"
     ingressControllerMode: "STRICT"
     ingressClass: "istio"
-
     # The trust domain corresponds to the trust root of a system.
     # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
     trustDomain: "cluster.local"
-
     #  The trust domain aliases represent the aliases of trust_domain.
     #  For example, if we have
     #  trustDomain: td1
@@ -6121,15 +7073,12 @@ data:
     #  Any service with the identity "td1/ns/foo/sa/a-service-account", "td2/ns/foo/sa/a-service-account",
     #  or "td3/ns/foo/sa/a-service-account" will be treated the same in the Istio mesh.
     trustDomainAliases:
-
     # Used by pilot-agent
     sdsUdsPath: "unix:/etc/istio/proxy/SDS"
-
     # If true, automatically configure client side mTLS settings to match the corresponding service's
     # server side mTLS authentication policy, when destination rule for that service does not specify
     # TLS settings.
     enableAutoMtls: false
-
     outboundTrafficPolicy:
       mode: ALLOW_ANY
     localityLbSetting:
@@ -6185,6 +7134,7 @@ metadata:
   labels:
     app: istiod
     istio: pilot
+    istio.io/rev: default
     release: istio
   name: istiod
   namespace: istio-system
@@ -6203,40 +7153,8 @@ spec:
       labels:
         app: istiod
         istio: pilot
+        istio.io/rev: default
     spec:
-      affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - ppc64le
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - s390x
-            weight: 2
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-                - ppc64le
-                - s390x
       containers:
       - args:
         - discovery
@@ -6271,24 +7189,18 @@ spec:
               fieldPath: spec.serviceAccountName
         - name: PILOT_TRACE_SAMPLING
           value: "1"
-        - name: CONFIG_NAMESPACE
-          value: istio-config
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
           value: "true"
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
-          value: "false"
+          value: "true"
         - name: INJECTION_WEBHOOK_CONFIG_NAME
           value: istio-sidecar-injector
         - name: ISTIOD_ADDR
           value: istiod.istio-system.svc:15012
-        - name: PILOT_EXTERNAL_GALLEY
+        - name: PILOT_ENABLE_ANALYSIS
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
-        envFrom:
-        - configMapRef:
-            name: istiod
-            optional: true
         image: gcr.io/istio-testing/pilot:latest
         name: discovery
         ports:
@@ -6327,9 +7239,6 @@ spec:
         - mountPath: /var/lib/istio/inject
           name: inject
           readOnly: true
-        - mountPath: /var/lib/istio/local
-          name: istiod
-          readOnly: true
       securityContext:
         fsGroup: 1337
       serviceAccountName: istio-pilot-service-account
@@ -6344,10 +7253,6 @@ spec:
               audience: istio-ca
               expirationSeconds: 43200
               path: istio-token
-      - configMap:
-          name: istiod
-          optional: true
-        name: istiod
       - name: cacerts
         secret:
           optional: true
@@ -6369,6 +7274,7 @@ metadata:
   name: istio-sidecar-injector
   namespace: istio-system
   labels:
+    istio.io/rev: default
     release: istio
 data:
 
@@ -6402,14 +7308,10 @@ data:
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
         "istiod": {
+          "enableAnalysis": false,
           "enabled": true
         },
         "jwtPolicy": "third-party-jwt",
-        "k8sIngress": {
-          "enableHttps": false,
-          "enabled": false,
-          "gatewayName": "ingressgateway"
-        },
         "localityLbSetting": {
           "enabled": true
         },
@@ -6452,7 +7354,6 @@ data:
           "clusterDomain": "cluster.local",
           "componentLogLevel": "misc:error",
           "concurrency": 2,
-          "dnsRefreshRate": "300s",
           "enableCoreDump": false,
           "envoyAccessLogService": {
             "enabled": false
@@ -6477,8 +7378,6 @@ data:
           "excludeOutboundPorts": "",
           "image": "proxyv2",
           "includeIPRanges": "*",
-          "includeInboundPorts": "*",
-          "kubevirtInterfaces": "",
           "logLevel": "warning",
           "privileged": false,
           "protocolDetectionTimeout": "100ms",
@@ -6548,6 +7447,7 @@ data:
       "istio_cni": {
         "enabled": false
       },
+      "revision": "",
       "sidecarInjectorWebhook": {
         "alwaysInjectSelector": [],
         "enableNamespacesByDefault": false,
@@ -6730,9 +7630,9 @@ data:
         {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
         {{- else if .Values.global.configNamespace }}
-          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
-          value: istiod.istio-system.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -6989,6 +7889,7 @@ metadata:
   name: istio-sidecar-injector
 
   labels:
+    istio.io/rev: default
     app: sidecar-injector
     release: istio
 webhooks:
@@ -7018,6 +7919,7 @@ metadata:
   namespace: istio-system
   labels:
     app: istiod
+    istio.io/rev: default
     release: istio
     istio: pilot
 spec:
@@ -7035,6 +7937,7 @@ metadata:
   name: istiod
   namespace: istio-system
   labels:
+    istio.io/rev: default
     app: istiod
     release: istio
 spec:
@@ -7061,6 +7964,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.4
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -7091,6 +7996,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.4
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -7185,6 +8092,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -7219,6 +8128,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-metadata-exchange-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -7273,6 +8184,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -7379,6 +8292,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -7479,6 +8394,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -7513,6 +8430,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-metadata-exchange-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -7570,6 +8489,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -7676,6 +8597,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER

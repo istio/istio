@@ -43,7 +43,6 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		DrainDuration:          types.DurationProto(45 * time.Second),
 		ParentShutdownDuration: types.DurationProto(60 * time.Second),
 		DiscoveryAddress:       constants.DiscoveryPlainAddress,
-		ConnectTimeout:         types.DurationProto(10 * time.Second),
 		StatsdUdpAddress:       "",
 		EnvoyMetricsService:    &meshconfig.RemoteService{Address: ""},
 		EnvoyAccessLogService:  &meshconfig.RemoteService{Address: ""},

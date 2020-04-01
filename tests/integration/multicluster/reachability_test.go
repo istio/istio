@@ -55,6 +55,8 @@ func TestMulticlusterReachability(t *testing.T) {
 			// Now verify that they can talk to each other.
 			for _, src := range []echo.Instance{a, b} {
 				for _, dest := range []echo.Instance{a, b} {
+					src := src
+					dest := dest
 					subTestName := fmt.Sprintf("%s->%s://%s:%s%s",
 						src.Config().Service,
 						"http",

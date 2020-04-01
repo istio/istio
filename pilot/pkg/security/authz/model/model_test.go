@@ -35,7 +35,7 @@ func TestModel_MigrateTrustDomain(t *testing.T) {
 	}{
 		{
 			name:     "no-source-principal",
-			tdBundle: trustdomain.NewTrustDomainBundle("td-1", []string{"td-2"}),
+			tdBundle: trustdomain.NewBundle("td-1", []string{"td-2"}),
 			rule: yamlRule(t, `
 from:
 - source:
@@ -50,7 +50,7 @@ from:
 		},
 		{
 			name:     "source-principal-field",
-			tdBundle: trustdomain.NewTrustDomainBundle("td-1", []string{"td-2"}),
+			tdBundle: trustdomain.NewBundle("td-1", []string{"td-2"}),
 			rule: yamlRule(t, `
 from:
 - source:
@@ -63,7 +63,7 @@ from:
 		},
 		{
 			name:     "source-principal-attribute",
-			tdBundle: trustdomain.NewTrustDomainBundle("td-1", []string{"td-2"}),
+			tdBundle: trustdomain.NewBundle("td-1", []string{"td-2"}),
 			rule: yamlRule(t, `
 when:
 - key: source.principal

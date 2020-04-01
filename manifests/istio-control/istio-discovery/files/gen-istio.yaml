@@ -8,6 +8,7 @@ metadata:
   namespace: istio-system
   labels:
     app: istiod
+    istio.io/rev: default
     release: istio-base
     istio: pilot
 spec:
@@ -21,12 +22,16 @@ spec:
 ---
 # Source: istio-discovery/templates/configmap.yaml
 
+
+
+
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio
   namespace: istio-system
   labels:
+    istio.io/rev: default
     release: istio-base
 data:
 
@@ -46,7 +51,7 @@ data:
     cpu:
       targetAverageUtilization: 80
     deploymentLabels: {}
-    enableProtocolSniffingForInbound: false
+    enableProtocolSniffingForInbound: true
     enableProtocolSniffingForOutbound: true
     env: {}
     hub: ""
@@ -78,25 +83,19 @@ data:
   mesh: |-
     # Set enableTracing to false to disable request tracing.
     enableTracing: true
-
     # Set accessLogFile to empty string to disable access log.
     accessLogFile: ""
-
     accessLogFormat: ""
-
     accessLogEncoding: 'TEXT'
-
     enableEnvoyAccessLogService: false
     # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
     reportBatchMaxEntries: 100
     # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
     reportBatchMaxTime: 1s
     disableMixerHttpReports: true
-
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
     disablePolicyChecks: true
-
     # Automatic protocol detection uses a set of heuristics to
     # determine whether the connection is using TLS or not (on the
     # server side), as well as the application protocol being used
@@ -107,16 +106,13 @@ data:
     # traffic. Set this field to tweak the period that Envoy will wait
     # for the client to send the first bits of data. (MUST BE >=1ms)
     protocolDetectionTimeout: 100ms
-
     # This is the k8s ingress service name, update if you used a different name
     ingressService: "istio-ingressgateway"
     ingressControllerMode: "STRICT"
     ingressClass: "istio"
-
     # The trust domain corresponds to the trust root of a system.
     # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
     trustDomain: "cluster.local"
-
     #  The trust domain aliases represent the aliases of trust_domain.
     #  For example, if we have
     #  trustDomain: td1
@@ -124,15 +120,12 @@ data:
     #  Any service with the identity "td1/ns/foo/sa/a-service-account", "td2/ns/foo/sa/a-service-account",
     #  or "td3/ns/foo/sa/a-service-account" will be treated the same in the Istio mesh.
     trustDomainAliases:
-
     # Used by pilot-agent
     sdsUdsPath: "unix:/etc/istio/proxy/SDS"
-
     # If true, automatically configure client side mTLS settings to match the corresponding service's
     # server side mTLS authentication policy, when destination rule for that service does not specify
     # TLS settings.
     enableAutoMtls: true
-
     outboundTrafficPolicy:
       mode: ALLOW_ANY
     localityLbSetting:
@@ -179,7 +172,6 @@ data:
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
       discoveryAddress: istiod.istio-system.svc:15012
-
 ---
 
 ---
@@ -191,6 +183,7 @@ metadata:
   name: istio-sidecar-injector
   namespace: istio-system
   labels:
+    istio.io/rev: default
     release: istio-base
 data:
 
@@ -228,14 +221,10 @@ data:
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
         "istiod": {
+          "enableAnalysis": false,
           "enabled": true
         },
         "jwtPolicy": "third-party-jwt",
-        "k8sIngress": {
-          "enableHttps": false,
-          "enabled": false,
-          "gatewayName": "ingressgateway"
-        },
         "localityLbSetting": {
           "enabled": true
         },
@@ -278,7 +267,6 @@ data:
           "clusterDomain": "cluster.local",
           "componentLogLevel": "misc:error",
           "concurrency": 2,
-          "dnsRefreshRate": "300s",
           "enableCoreDump": false,
           "envoyAccessLogService": {
             "enabled": false,
@@ -326,8 +314,6 @@ data:
           "excludeOutboundPorts": "",
           "image": "proxyv2",
           "includeIPRanges": "*",
-          "includeInboundPorts": "*",
-          "kubevirtInterfaces": "",
           "logLevel": "warning",
           "privileged": false,
           "protocolDetectionTimeout": "100ms",
@@ -399,6 +385,7 @@ data:
         "trustDomainAliases": [],
         "useMCP": false
       },
+      "revision": "",
       "sidecarInjectorWebhook": {
         "alwaysInjectSelector": [],
         "enableNamespacesByDefault": false,
@@ -578,9 +565,9 @@ data:
         {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
         {{- else if .Values.global.configNamespace }}
-          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
-          value: istiod.istio-system.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -837,6 +824,7 @@ metadata:
   name: istiod
   namespace: istio-system
   labels:
+    istio.io/rev: default
     app: istiod
     release: istio-base
 spec:
@@ -866,6 +854,7 @@ metadata:
   namespace: istio-system
   labels:
     app: istiod
+    istio.io/rev: default
     istio: pilot
     release: istio-base
 spec:
@@ -880,8 +869,7 @@ spec:
     metadata:
       labels:
         app: istiod
-        # Label used by the 'default' service. For versioned deployments we match with app and version.
-        # This avoids default deployment picking the canary
+        istio.io/rev: default
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
@@ -912,11 +900,6 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 5
-          envFrom:
-          # Allow an istiod configmap injecting user-specified env.
-          - configMapRef:
-              name: istiod
-              optional: true
           env:
           - name: REVISION
             value: "default"
@@ -941,17 +924,15 @@ spec:
                 fieldPath: spec.serviceAccountName
           - name: PILOT_TRACE_SAMPLING
             value: "1"
-          - name: CONFIG_NAMESPACE
-            value: istio-config
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
             value: "true"
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
-            value: "false"
+            value: "true"
           - name: INJECTION_WEBHOOK_CONFIG_NAME
             value: istio-sidecar-injector
           - name: ISTIOD_ADDR
             value: istiod.istio-system.svc:15012
-          - name: PILOT_EXTERNAL_GALLEY
+          - name: PILOT_ENABLE_ANALYSIS
             value: "false"
           - name: CLUSTER_ID
             value: "Kubernetes"
@@ -980,9 +961,6 @@ spec:
           - name: inject
             mountPath: /var/lib/istio/inject
             readOnly: true
-          - name: istiod
-            mountPath: /var/lib/istio/local
-            readOnly: true
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
@@ -996,10 +974,6 @@ spec:
                 audience: istio-ca
                 expirationSeconds: 43200
                 path: istio-token
-      - name: istiod
-        configMap:
-          name: istiod
-          optional: true
       # Optional: user-generated root
       - name: cacerts
         secret:
@@ -1013,39 +987,6 @@ spec:
       - name: config-volume
         configMap:
           name: istio
-      affinity:      
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "amd64"
-                - "ppc64le"
-                - "s390x"
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "amd64"
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "ppc64le"
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "s390x"      
 ---
 
 ---
@@ -1059,6 +1000,7 @@ metadata:
   labels:
     app: istiod
     release: istio-base
+    istio.io/rev: default
 spec:
   maxReplicas: 5
   minReplicas: 1
@@ -1080,6 +1022,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.4
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -1108,6 +1052,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.4
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -1204,6 +1150,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -1236,6 +1184,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-metadata-exchange-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -1288,6 +1238,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -1392,6 +1344,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -1494,6 +1448,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -1526,6 +1482,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-metadata-exchange-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -1581,6 +1539,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -1685,6 +1645,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -1788,6 +1750,7 @@ metadata:
   name: istio-sidecar-injector
 
   labels:
+    istio.io/rev: default
     app: sidecar-injector
     release: istio-base
 webhooks:

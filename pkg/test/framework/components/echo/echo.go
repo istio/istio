@@ -79,6 +79,15 @@ type Instance interface {
 	CallOrFail(t test.Failer, options CallOptions) client.ParsedResponses
 }
 
+// Workload port exposed by an Echo instance
+type WorkloadPort struct {
+	// Port number
+	Port int
+
+	// Protocol to be used for this port.
+	Protocol protocol.Instance
+}
+
 // Port exposed by an Echo Instance
 type Port struct {
 	// Name of this port

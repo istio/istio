@@ -243,8 +243,6 @@ pilot:
   podAntiAffinityTermLabelSelector: []
   keepaliveMaxServerConnectionAge: 30m
   deploymentLabels:
-  meshNetworks:
-    networks: {}
   configMap: true
   ingress:
     ingressService: istio-ingressgateway
@@ -286,12 +284,6 @@ grafana:
   image:
     repository: grafana/grafana
     tag: 6.1.6
-  ingress:
-    enabled: false
-    hosts:
-      - grafana.local
-    annotations:
-    tls:
   persist: false
   storageClassName: ""
   accessMode: ReadWriteMany
@@ -351,12 +343,6 @@ prometheus:
   podAntiAffinityTermLabelSelector: []
   scrapeInterval: 15s
   contextPath: /prometheus
-  ingress:
-    enabled: false
-    hosts:
-      - prometheus.local
-    annotations:
-    tls:
   service:
     annotations: {}
     nodePort:
@@ -403,11 +389,6 @@ tracing:
     name: http
     type: ClusterIP
     externalPort: 9411
-  ingress:
-    enabled: false
-    hosts:
-    annotations:
-    tls:
 kiali:
   enabled: false
   replicaCount: 1
@@ -419,12 +400,6 @@ kiali:
   tolerations: []
   podAntiAffinityLabelSelector: []
   podAntiAffinityTermLabelSelector: []
-  ingress:
-    enabled: false
-    hosts:
-      - kiali.local
-    annotations:
-    tls:
   dashboard:
     auth:
       strategy: login 
@@ -475,10 +450,6 @@ global:
   logging:
     level: "default:info"
   monitoringPort: 15014
-  k8sIngress:
-    enabled: false
-    gatewayName: ingressgateway
-    enableHttps: false
   proxy:
     image: proxyv2
     clusterDomain: "cluster.local"
@@ -510,7 +481,6 @@ global:
         interval: 10s
     logLevel: ""
     componentLogLevel: ""
-    dnsRefreshRate: 300s
     protocolDetectionTimeout: 10ms
     privileged: false
     enableCoreDump: false
@@ -521,8 +491,6 @@ global:
     includeIPRanges: "*"
     excludeIPRanges: ""
     excludeOutboundPorts: ""
-    kubevirtInterfaces: ""
-    includeInboundPorts: "*"
     excludeInboundPorts: ""
     autoInject: enabled
     envoyStatsd:
