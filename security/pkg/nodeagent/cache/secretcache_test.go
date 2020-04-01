@@ -1178,28 +1178,44 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 
 func TestShouldRotate(t *testing.T) {
 	now := time.Now()
-	secret := &model.SecretItem{
-		ResourceName: "Test-resource",
-		ExpireTime:   now.Add(time.Hour),
-		CreatedTime:  now.Add(-time.Hour),
+
+	testCases := map[string]struct {
+		secret       *model.SecretItem
+		sc           *SecretCache
+		shouldRotate bool
+	}{
+		"Not in grace period": {
+			secret: &model.SecretItem{
+				ResourceName: "test1",
+				ExpireTime:   now.Add(time.Hour),
+				CreatedTime:  now.Add(-time.Hour),
+			},
+			sc:           &SecretCache{configOptions: Options{SecretRotationGracePeriodRatio: 0.4}},
+			shouldRotate: false,
+		},
+		"In grace period": {
+			secret: &model.SecretItem{
+				ResourceName: "test2",
+				ExpireTime:   now.Add(time.Hour),
+				CreatedTime:  now.Add(-time.Hour),
+			},
+			sc:           &SecretCache{configOptions: Options{SecretRotationGracePeriodRatio: 0.6}},
+			shouldRotate: true,
+		},
+		"Passed the expiration": {
+			secret: &model.SecretItem{
+				ResourceName: "test3",
+				ExpireTime:   now.Add(-time.Minute),
+				CreatedTime:  now.Add(-time.Hour),
+			},
+			sc:           &SecretCache{configOptions: Options{SecretRotationGracePeriodRatio: 0}},
+			shouldRotate: true,
+		},
 	}
 
-	options := &Options{SecretRotationGracePeriodRatio: 0.4}
-	sc := &SecretCache{configOptions: *options}
-	if sc.shouldRotate(secret) {
-		t.Errorf("Should not rotate: not in grace period.")
-	}
-
-	options.SecretRotationGracePeriodRatio = 0.6
-	sc = &SecretCache{configOptions: *options}
-	if !sc.shouldRotate(secret) {
-		t.Errorf("Should rotate: in grace period.")
-	}
-
-	secret.ExpireTime = now.Add(-time.Minute)
-	options.SecretRotationGracePeriodRatio = 0
-	sc = &SecretCache{configOptions: *options}
-	if !sc.shouldRotate(secret) {
-		t.Errorf("Should not rotate: passed the expiration.")
+	for name, tc := range testCases {
+		if tc.sc.shouldRotate(tc.secret) != tc.shouldRotate {
+			t.Errorf("%s: unexpected shouldRotate return. Expected: %v", name, tc.shouldRotate)
+		}
 	}
 }
