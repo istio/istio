@@ -12,6 +12,15 @@
 ## See the License for the specific language governing permissions and
 ## limitations under the License.
 
+# Set up authentication if using custom Envoy URL
+# This is needed to fetch Envoy binary for ASM, especially in prow
+ifdef ISTIO_ENVOY_BASE_URL
+ifdef GOOGLE_APPLICATION_CREDENTIALS
+$(shell gcloud auth activate-service-account --key-file="${GOOGLE_APPLICATION_CREDENTIALS}")
+endif
+export AUTH_HEADER ?= Authorization: Bearer $(shell gcloud auth print-access-token)
+endif
+
 #-----------------------------------------------------------------------------
 # Global Variables
 #-----------------------------------------------------------------------------
