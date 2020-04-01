@@ -125,6 +125,9 @@ func (c *kubeComponent) ID() resource.ID {
 
 // Address of the Galley MCP Server.
 func (c *kubeComponent) Address() string {
+	if c.client == nil {
+		return ""
+	}
 	return c.client.address
 }
 

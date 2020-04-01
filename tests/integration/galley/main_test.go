@@ -31,13 +31,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("galley_test", m).
-		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
-			cfg.ControlPlaneValues = `
-values:
-  prometheus:
-    enabled: true
-`
-		})).
+		SetupOnEnv(environment.Kube, istio.Setup(nil, nil)).
 		SetupOnEnv(environment.Kube, func(ctx resource.Context) error {
 			cluster = ctx.Environment().Clusters()[0].(kube.Cluster)
 			return nil
