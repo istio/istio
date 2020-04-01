@@ -35,6 +35,7 @@ spec:
         app: istiod
         istio.io/rev: {{ .Values.revision | default "default" }}
         istio: pilot
+        release: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
         {{- if .Values.pilot.podAnnotations }}
