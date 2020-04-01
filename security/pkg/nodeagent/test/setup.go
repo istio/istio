@@ -37,7 +37,7 @@ import (
 )
 
 const (
-	proxyTokenPath = "/tmp/sts-envoy-token.jwt"
+	proxyTokenPath = "/tmp/sds-envoy-token.jwt"
 	sdsPath        = "/tmp/sdstestudspath"
 )
 
