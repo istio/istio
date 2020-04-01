@@ -29,7 +29,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
-
 )
 
 const (
@@ -74,7 +73,7 @@ func NewNamespaceController(data func() map[string]string, options Options, kube
 	})
 
 	c.namespaceStore, c.namespaceController =
-		cache.NewInformer(namespaceLW, &v1.Namespace{}, namespaceResyncPeriod, cache.ResourceEventHandlerFuncs{
+		cache.NewInformer(namespaceLW, &v1.Namespace{}, NamespaceResyncPeriod, cache.ResourceEventHandlerFuncs{
 			UpdateFunc: c.namespaceUpdated,
 			AddFunc:    c.namespaceAdded,
 		})
@@ -101,7 +100,7 @@ func (nc *NamespaceController) namespaceAdded(obj interface{}) {
 func (nc *NamespaceController) namespaceUpdated(oldObj, newObj interface{}) {
 	ns, ok := newObj.(*v1.Namespace)
 
-	if ok {
+	if ok && ns.Status.Phase != v1.NamespaceTerminating {
 		// Every namespaceResyncPeriod, namespaceUpdated() will be invoked
 		// for every namespace. If a namespace does not have the Citadel CA
 		// certificate or the certificate in a ConfigMap of the namespace is not

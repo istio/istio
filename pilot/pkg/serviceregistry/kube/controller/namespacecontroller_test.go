@@ -49,13 +49,6 @@ func TestNamespaceController(t *testing.T) {
 	expectConfigMap(t, client, "foo", newData)
 }
 
-func deleteConfigMap(t *testing.T, client *fake.Clientset, ns string) {
-	t.Helper()
-	if err := client.CoreV1().ConfigMaps(ns).Delete(context.TODO(), CACertNamespaceConfigMap, metav1.DeleteOptions{}); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func createNamespace(t *testing.T, client *fake.Clientset, ns string) {
 	t.Helper()
 	if _, err := client.CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{
