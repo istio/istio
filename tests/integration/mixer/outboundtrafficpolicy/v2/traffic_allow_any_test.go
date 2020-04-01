@@ -30,7 +30,7 @@ func TestOutboundTrafficPolicy_AllowAny_TelemetryV2(t *testing.T) {
 			Expected: outboundtrafficpolicy.Expected{
 				Metric:          "istio_requests_total",
 				PromQueryFormat: `sum(istio_requests_total{reporter="source",destination_service_name="PassthroughCluster",response_code="200"})`,
-				ResponseCode:            []string{"200"},
+				ResponseCode:    []string{"200"},
 			},
 		},
 		{
@@ -38,10 +38,10 @@ func TestOutboundTrafficPolicy_AllowAny_TelemetryV2(t *testing.T) {
 			PortName: "https",
 			// TODO: set up TLS here instead of just sending HTTP. We get a false positive here
 			Scheme: scheme.HTTP,
-			Expected:outboundtrafficpolicy.Expected{
+			Expected: outboundtrafficpolicy.Expected{
 				Metric:          "istio_tcp_connections_opened_total",
 				PromQueryFormat: `sum(istio_tcp_connections_opened_total{reporter="source",destination_service_name="PassthroughCluster"})`,
-				ResponseCode:            []string{"200"},
+				ResponseCode:    []string{"200"},
 			},
 		},
 		{
@@ -53,7 +53,7 @@ func TestOutboundTrafficPolicy_AllowAny_TelemetryV2(t *testing.T) {
 			Expected: outboundtrafficpolicy.Expected{
 				Metric:          "istio_requests_total",
 				PromQueryFormat: `sum(istio_requests_total{reporter="source",destination_service_name="istio-egressgateway",response_code="200"})`,
-				ResponseCode:            []string{"200"},
+				ResponseCode:    []string{"200"},
 			},
 		},
 		// TODO add HTTPS through gateway
@@ -64,7 +64,7 @@ func TestOutboundTrafficPolicy_AllowAny_TelemetryV2(t *testing.T) {
 			Expected: outboundtrafficpolicy.Expected{
 				Metric:          "istio_tcp_connections_closed_total",
 				PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="PassthroughCluster",source_workload="client-v1"})`,
-				ResponseCode:            []string{"200"},
+				ResponseCode:    []string{"200"},
 			},
 		},
 	}

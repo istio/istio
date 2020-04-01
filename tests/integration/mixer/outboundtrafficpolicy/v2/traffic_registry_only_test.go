@@ -32,7 +32,7 @@ func TestOutboundTrafficPolicy_RegistryOnly_TelemetryV2(t *testing.T) {
 			Expected: outboundtrafficpolicy.Expected{
 				Metric:          "istio_requests_total",
 				PromQueryFormat: `sum(istio_requests_total{destination_service_name="BlackHoleCluster",response_code="502"})`,
-				ResponseCode:            []string{"502"},
+				ResponseCode:    []string{"502"},
 			},
 		},
 		{
@@ -40,10 +40,10 @@ func TestOutboundTrafficPolicy_RegistryOnly_TelemetryV2(t *testing.T) {
 			PortName: "https",
 			// TODO: set up TLS here instead of just sending HTTP. We get a false positive here
 			Scheme: scheme.HTTP,
-			Expected:outboundtrafficpolicy.Expected{
+			Expected: outboundtrafficpolicy.Expected{
 				Metric:          "istio_tcp_connections_closed_total",
 				PromQueryFormat: `sum(istio_tcp_connections_closed_total{destination_service="BlackHoleCluster",destination_service_name="BlackHoleCluster"})`,
-				ResponseCode:            []string{},
+				ResponseCode:    []string{},
 			},
 		},
 		{
@@ -55,7 +55,7 @@ func TestOutboundTrafficPolicy_RegistryOnly_TelemetryV2(t *testing.T) {
 			Expected: outboundtrafficpolicy.Expected{
 				Metric:          "istio_requests_total",
 				PromQueryFormat: `sum(istio_requests_total{destination_service_name="istio-egressgateway",response_code="200"})`,
-				ResponseCode:            []string{"200"},
+				ResponseCode:    []string{"200"},
 			},
 		},
 		// TODO add HTTPS through gateway
@@ -66,11 +66,10 @@ func TestOutboundTrafficPolicy_RegistryOnly_TelemetryV2(t *testing.T) {
 			Expected: outboundtrafficpolicy.Expected{
 				Metric:          "istio_tcp_connections_closed_total",
 				PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="BlackHoleCluster",source_workload="client-v1"})`,
-				ResponseCode:            []string{},
+				ResponseCode:    []string{},
 			},
 		},
 	}
-
 
 	// destination_service="BlackHoleCluster" does not get filled in when using sidecar scoping
 	outboundtrafficpolicy.RunExternalRequest(cases, prom, outboundtrafficpolicy.RegistryOnly, t)

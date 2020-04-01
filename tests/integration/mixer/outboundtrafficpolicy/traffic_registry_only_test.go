@@ -29,7 +29,7 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 			Expected: Expected{
 				Metric:          "istio_requests_total",
 				PromQueryFormat: `sum(istio_requests_total{destination_service_name="BlackHoleCluster",response_code="502"})`,
-				ResponseCode:            []string{"502"},
+				ResponseCode:    []string{"502"},
 			},
 		},
 		{
@@ -37,10 +37,10 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 			PortName: "https",
 			// TODO: set up TLS here instead of just sending HTTP. We get a false positive here
 			Scheme: scheme.HTTP,
-			Expected:Expected{
+			Expected: Expected{
 				Metric:          "istio_tcp_connections_closed_total",
 				PromQueryFormat: `sum(istio_tcp_connections_closed_total{destination_service="BlackHoleCluster",destination_service_name="BlackHoleCluster"})`,
-				ResponseCode:            []string{},
+				ResponseCode:    []string{},
 			},
 		},
 		{
@@ -52,7 +52,7 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 			Expected: Expected{
 				Metric:          "istio_requests_total",
 				PromQueryFormat: `sum(istio_requests_total{destination_service_name="istio-egressgateway",response_code="200"})`,
-				ResponseCode:            []string{"200"},
+				ResponseCode:    []string{"200"},
 			},
 		},
 		// TODO add HTTPS through gateway
@@ -60,10 +60,10 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 			Name:     "TCP",
 			PortName: "tcp",
 			Scheme:   scheme.TCP,
-			Expected:Expected{
+			Expected: Expected{
 				Metric:          "",
 				PromQueryFormat: "",
-				ResponseCode:            []string{},
+				ResponseCode:    []string{},
 			},
 		},
 	}

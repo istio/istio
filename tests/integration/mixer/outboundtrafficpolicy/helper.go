@@ -179,7 +179,7 @@ type TestCase struct {
 type Expected struct {
 	Metric          string
 	PromQueryFormat string
-	ResponseCode            []string
+	ResponseCode    []string
 }
 
 // TrafficPolicy is the mode of the outbound traffic policy to use
@@ -235,7 +235,6 @@ func createGateway(t *testing.T, appsNamespace namespace.Instance, serviceNamesp
 
 func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode TrafficPolicy, t *testing.T) {
 
-
 	// Testing of Blackhole and Passthrough clusters:
 	// Setup of environment:
 	// 1. client and destination are deployed to app-1-XXXX namespace
@@ -248,7 +247,6 @@ func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode 
 	//       * if the request on port 80, then it will add an http header `handled-by-egress-gateway`
 	//    b) from the egressgateway it will forward the request to the destination pod deployed in the app-1-XXX
 	//       namespace
-
 
 	// Test cases:
 	// 1. http case:
