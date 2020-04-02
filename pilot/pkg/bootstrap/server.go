@@ -29,10 +29,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	"istio.io/istio/pkg/dns"
-
-	"istio.io/pkg/env"
-
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -63,6 +59,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/dns"
 	"istio.io/istio/pkg/jwt"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
