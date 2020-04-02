@@ -508,7 +508,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		}
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)
-		if len(con.Clusters) > 0  {
+		if len(con.Clusters) > 0 {
 			if len(edsUpdatedServices) == 0 {
 				edsUpdatedServices = nil
 			}

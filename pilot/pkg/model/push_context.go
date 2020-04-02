@@ -910,7 +910,7 @@ func (ps *PushContext) updateContext(
 	pushReq *PushRequest) error {
 
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
-	authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, quotasChanged bool
+		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, quotasChanged bool
 
 	for k := range pushReq.ConfigsUpdated {
 		switch k {
