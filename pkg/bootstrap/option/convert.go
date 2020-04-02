@@ -55,10 +55,10 @@ func keepaliveConverter(value *networkingAPI.ConnectionPoolSettings_TCPSettings_
 	}
 }
 
-func tlsConverter(tls *networkingAPI.TLSSettings, sniName string, metadata *model.NodeMetadata) convertFunc {
+func tlsConverter(tls *networkingAPI.ClientTLSSettings, sniName string, metadata *model.NodeMetadata) convertFunc {
 	return func(*instance) (interface{}, error) {
 		caCertificates := tls.CaCertificates
-		if caCertificates == "" && tls.Mode == networkingAPI.TLSSettings_ISTIO_MUTUAL {
+		if caCertificates == "" && tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
 			caCertificates = constants.DefaultCertChain
 		}
 		var certValidationContext *auth.CertificateValidationContext
@@ -77,7 +77,7 @@ func tlsConverter(tls *networkingAPI.TLSSettings, sniName string, metadata *mode
 
 		var tlsContext *auth.UpstreamTLSContext
 		switch tls.Mode {
-		case networkingAPI.TLSSettings_SIMPLE:
+		case networkingAPI.ClientTLSSettings_SIMPLE:
 			tlsContext = &auth.UpstreamTLSContext{
 				CommonTLSContext: &auth.CommonTLSContext{
 					ValidationContext: certValidationContext,
@@ -85,13 +85,13 @@ func tlsConverter(tls *networkingAPI.TLSSettings, sniName string, metadata *mode
 				Sni: tls.Sni,
 			}
 			tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNH2Only
-		case networkingAPI.TLSSettings_MUTUAL, networkingAPI.TLSSettings_ISTIO_MUTUAL:
+		case networkingAPI.ClientTLSSettings_MUTUAL, networkingAPI.ClientTLSSettings_ISTIO_MUTUAL:
 			clientCertificate := tls.ClientCertificate
-			if tls.ClientCertificate == "" && tls.Mode == networkingAPI.TLSSettings_ISTIO_MUTUAL {
+			if tls.ClientCertificate == "" && tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
 				clientCertificate = constants.DefaultRootCert
 			}
 			privateKey := tls.PrivateKey
-			if tls.PrivateKey == "" && tls.Mode == networkingAPI.TLSSettings_ISTIO_MUTUAL {
+			if tls.PrivateKey == "" && tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
 				privateKey = constants.DefaultKey
 			}
 			if clientCertificate == "" || privateKey == "" {
@@ -116,10 +116,10 @@ func tlsConverter(tls *networkingAPI.TLSSettings, sniName string, metadata *mode
 					},
 				},
 			}
-			if len(tls.Sni) == 0 && tls.Mode == networkingAPI.TLSSettings_ISTIO_MUTUAL {
+			if len(tls.Sni) == 0 && tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
 				tlsContext.Sni = sniName
 			}
-			if tls.Mode == networkingAPI.TLSSettings_ISTIO_MUTUAL {
+			if tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
 				tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNInMeshH2
 			} else {
 				tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNH2Only

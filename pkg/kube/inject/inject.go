@@ -554,7 +554,7 @@ func parseTemplate(tmplStr string, funcMap map[string]interface{}, data SidecarT
 
 // IntoResourceFile injects the istio proxy into the specified
 // kubernetes YAML file.
-func IntoResourceFile(sidecarTemplate string, valuesConfig string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer) error {
+func IntoResourceFile(sidecarTemplate string, valuesConfig string, revision string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer) error {
 	reader := yamlDecoder.NewYAMLReader(bufio.NewReaderSize(in, 4096))
 	for {
 		raw, err := reader.Read()
@@ -572,7 +572,7 @@ func IntoResourceFile(sidecarTemplate string, valuesConfig string, meshconfig *m
 
 		var updated []byte
 		if err == nil {
-			outObject, err := IntoObject(sidecarTemplate, valuesConfig, meshconfig, obj) // nolint: vetshadow
+			outObject, err := IntoObject(sidecarTemplate, valuesConfig, revision, meshconfig, obj) // nolint: vetshadow
 			if err != nil {
 				return err
 			}
@@ -613,7 +613,7 @@ func FromRawToObject(raw []byte) (runtime.Object, error) {
 }
 
 // IntoObject convert the incoming resources into Injected resources
-func IntoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshconfig.MeshConfig, in runtime.Object) (interface{}, error) {
+func IntoObject(sidecarTemplate string, valuesConfig string, revision string, meshconfig *meshconfig.MeshConfig, in runtime.Object) (interface{}, error) {
 	out := in.DeepCopyObject()
 
 	var deploymentMetadata *metav1.ObjectMeta
@@ -634,7 +634,7 @@ func IntoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 				return nil, err
 			}
 
-			r, err := IntoObject(sidecarTemplate, valuesConfig, meshconfig, obj) // nolint: vetshadow
+			r, err := IntoObject(sidecarTemplate, valuesConfig, revision, meshconfig, obj) // nolint: vetshadow
 			if err != nil {
 				return nil, err
 			}
@@ -763,10 +763,13 @@ func IntoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	}
 
 	metadata.Annotations[annotation.SidecarStatus.Name] = status
+	if metadata.Labels == nil {
+		metadata.Labels = make(map[string]string)
+	}
+	// This function, IntoObject(), is only used on the 'istioctl kube-kubeinject' path, which
+	// doesn't use Pilot bootstrap variables.
+	metadata.Labels[model.RevisionLabel] = revision
 	if status != "" && metadata.Labels[model.TLSModeLabelName] == "" {
-		if metadata.Labels == nil {
-			metadata.Labels = make(map[string]string)
-		}
 		metadata.Labels[model.TLSModeLabelName] = model.IstioMutualTLSModeLabel
 	}
 
@@ -860,9 +863,6 @@ func cleanProxyConfig(pc meshconfig.ProxyConfig) *meshconfig.ProxyConfig {
 	}
 	if pc.DiscoveryAddress == defaults.DiscoveryAddress {
 		pc.DiscoveryAddress = ""
-	}
-	if reflect.DeepEqual(pc.ConnectTimeout, defaults.ConnectTimeout) {
-		pc.ConnectTimeout = nil
 	}
 	if reflect.DeepEqual(pc.EnvoyMetricsService, defaults.EnvoyMetricsService) {
 		pc.EnvoyMetricsService = nil
@@ -973,6 +973,9 @@ func cleanMeshConfig(v proto.Message) proto.Message {
 	}
 	if cpy.IngressControllerMode == defaults.IngressControllerMode {
 		cpy.IngressControllerMode = meshconfig.MeshConfig_UNSPECIFIED
+	}
+	if reflect.DeepEqual(cpy.ClusterLocalNamespaces, defaults.ClusterLocalNamespaces) {
+		cpy.ClusterLocalNamespaces = nil
 	}
 	return &cpy
 }

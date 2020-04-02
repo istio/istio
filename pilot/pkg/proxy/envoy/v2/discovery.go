@@ -94,7 +94,7 @@ type DiscoveryServer struct {
 	// Defaults to false, can be enabled with PILOT_DEBUG_ADSZ_CONFIG=1
 	DebugConfigs bool
 
-	// mutex protecting global structs updated or read by ADS service, including EDSUpdates and
+	// mutex protecting global structs updated or read by ADS service, including ConfigsUpdated and
 	// shards.
 	mutex sync.RWMutex
 
@@ -373,22 +373,18 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 			proxiesQueueTime.Record(time.Since(info.Start).Seconds())
 
 			go func() {
-				edsUpdates := info.EdsUpdates
-				if info.Full {
-					// Setting this to nil will trigger a full push
-					edsUpdates = nil
+				pushEv := &XdsEvent{
+					full:              info.Full,
+					push:              info.Push,
+					done:              doneFunc,
+					start:             info.Start,
+					namespacesUpdated: info.NamespacesUpdated,
+					configsUpdated:    info.ConfigsUpdated,
+					noncePrefix:       info.Push.Version,
 				}
 
 				select {
-				case client.pushChannel <- &XdsEvent{
-					push:               info.Push,
-					edsUpdatedServices: edsUpdates,
-					done:               doneFunc,
-					start:              info.Start,
-					namespacesUpdated:  info.NamespacesUpdated,
-					configTypesUpdated: info.ConfigTypesUpdated,
-					noncePrefix:        info.Push.Version,
-				}:
+				case client.pushChannel <- pushEv:
 					return
 				case <-client.stream.Context().Done(): // grpc stream was closed
 					doneFunc()

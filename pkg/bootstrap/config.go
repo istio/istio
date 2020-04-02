@@ -50,7 +50,7 @@ const (
 	lightstepAccessTokenBase = "lightstep_access_token.txt"
 
 	// required stats are used by readiness checks.
-	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,http_mixer_filter,tcp_mixer_filter,server,cluster.xds-grpc"
+	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,http_mixer_filter,tcp_mixer_filter,server,cluster.xds-grpc,wasm"
 	requiredEnvoyStatsMatcherInclusionSuffix   = "ssl_context_update_by_sds"
 
 	// Prefixes of V2 metrics.
@@ -124,8 +124,13 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.ProvCert(cfg.ProvCert))
 
 	if cfg.STSPort > 0 {
-		opts = append(opts, option.STSEnabled(true),
+		opts = append(opts,
+			option.STSEnabled(true),
 			option.STSPort(cfg.STSPort))
+		md := cfg.PlatEnv.Metadata()
+		if projectID, found := md[platform.GCPProject]; found {
+			opts = append(opts, option.GCPProjectID(projectID))
+		}
 	}
 
 	// Support passing extra info from node environment as metadata
@@ -238,7 +243,6 @@ func getProxyConfigOptions(config *meshAPI.ProxyConfig, metadata *model.NodeMeta
 	opts := make([]option.Instance, 0)
 
 	opts = append(opts, option.ProxyConfig(config),
-		option.ConnectTimeout(config.ConnectTimeout),
 		option.Cluster(config.ServiceCluster),
 		option.PilotGRPCAddress(config.DiscoveryAddress),
 		option.DiscoveryAddress(config.DiscoveryAddress),

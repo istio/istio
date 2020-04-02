@@ -100,6 +100,9 @@ const (
 	// VirtualInboundListenerName is the name for traffic capture listener
 	VirtualInboundListenerName = "virtualInbound"
 
+	// virtualInboundCatchAllHTTPFilterChainName is the name of the catch all http filter chain
+	virtualInboundCatchAllHTTPFilterChainName = "virtualInbound-catchall-http"
+
 	// WildcardAddress binds to all IP addresses
 	WildcardAddress = "0.0.0.0"
 
@@ -330,6 +333,11 @@ var (
 		},
 	}
 
+	// httpGrpcAccessLog is used when access log service is enabled in mesh config.
+	httpGrpcAccessLog = buildHTTPGrpcAccessLog()
+
+	tracingConfig = buildTracingConfig()
+
 	lmutex          sync.RWMutex
 	cachedAccessLog *accesslog.AccessLog
 )
@@ -393,6 +401,28 @@ func maybeBuildAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
 	}
 	return cachedAccessLog
+}
+
+func buildHTTPGrpcAccessLog() *accesslog.AccessLog {
+	fl := &accesslogconfig.HttpGrpcAccessLogConfig{
+		CommonConfig: &accesslogconfig.CommonGrpcAccessLogConfig{
+			LogName: httpEnvoyAccessLogFriendlyName,
+			GrpcService: &core.GrpcService{
+				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+						ClusterName: EnvoyAccessLogCluster,
+					},
+				},
+			},
+		},
+	}
+
+	fl.CommonConfig.FilterStateObjectsToLog = envoyWasmStateToLog
+
+	return &accesslog.AccessLog{
+		Name:       wellknown.HTTPGRPCAccessLog,
+		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
+	}
 }
 
 var (
@@ -1030,7 +1060,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 					// Instead of generating a single 0.0.0.0:Port listener, generate a listener
 					// for each instance. HTTP services can happily reside on 0.0.0.0:PORT and use the
 					// wildcard route match to get to the appropriate pod through original dst clusters.
-					if features.EnableHeadlessService.Get() && bind == "" && service.Resolution == model.Passthrough &&
+					if features.EnableHeadlessService && bind == "" && service.Resolution == model.Passthrough &&
 						service.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) && servicePort.Protocol.IsTCP() {
 						if instances, err := push.InstancesByPort(service, servicePort.Port, nil); err == nil {
 							for _, instance := range instances {
@@ -1052,7 +1082,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 						}
 					} else {
 						// Standard logic for headless and non headless services
-						if features.EnableThriftFilter.Get() &&
+						if features.EnableThriftFilter &&
 							servicePort.Protocol.IsThrift() {
 							listenerOpts.bind = service.Address
 						}
@@ -1159,7 +1189,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 	*listenerMapKey = listenerOpts.bind + ":" + strconv.Itoa(pluginParams.Port.Port)
 
 	var exists bool
-	sniffingEnabled := features.EnableProtocolSniffingForOutbound.Get()
+	sniffingEnabled := features.EnableProtocolSniffingForOutbound
 
 	// Have we already generated a listener for this Port based on user
 	// specified listener ports? if so, we should not add any more HTTP
@@ -1225,7 +1255,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 		// Set useRemoteAddress to true for side car outbound listeners so that it picks up the localhost address of the sender,
 		// which is an internal address, so that trusted headers are not sanitized. This helps to retain the timeout headers
 		// such as "x-envoy-upstream-rq-timeout-ms" set by the calling application.
-		useRemoteAddress: features.UseRemoteAddress.Get(),
+		useRemoteAddress: features.UseRemoteAddress,
 		rds:              rdsName,
 	}
 
@@ -1350,7 +1380,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 			return false, nil
 		}
 
-		if !features.EnableProtocolSniffingForOutbound.Get() {
+		if !features.EnableProtocolSniffingForOutbound {
 			// Check for port collisions between TCP/TLS and HTTP (or unknown). If
 			// configured correctly, TCP/TLS ports may not collide. We'll
 			// need to do additional work to find out if there is a
@@ -1423,7 +1453,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 
 	conflictType := NoConflict
 
-	outboundSniffingEnabled := features.EnableProtocolSniffingForOutbound.Get()
+	outboundSniffingEnabled := features.EnableProtocolSniffingForOutbound
 
 	// For HTTP_PROXY protocol defined by sidecars, just create the HTTP listener right away.
 	if pluginParams.Port.Protocol == protocol.HTTP_PROXY {
@@ -1868,8 +1898,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 		filters = append(filters, &http_conn.HttpFilter{Name: wellknown.GRPCWeb})
 	}
 
-	if util.IsIstioVersionGE14(pluginParams.Node) &&
-		pluginParams.ServiceInstance != nil &&
+	if pluginParams.ServiceInstance != nil &&
 		pluginParams.ServiceInstance.ServicePort != nil &&
 		pluginParams.ServiceInstance.ServicePort.Protocol == protocol.GRPC {
 		filters = append(filters, &http_conn.HttpFilter{
@@ -1883,8 +1912,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	}
 
 	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
-	if util.IsIstioVersionGE14(pluginParams.Node) &&
-		(pluginParams.ListenerCategory == networking.EnvoyFilter_SIDECAR_OUTBOUND) {
+	if pluginParams.ListenerCategory == networking.EnvoyFilter_SIDECAR_OUTBOUND {
 		filters = append(filters, &http_conn.HttpFilter{
 			Name: AlpnFilterName,
 			ConfigType: &http_conn.HttpFilter_TypedConfig{
@@ -1936,12 +1964,8 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 
 	idleTimeout, err := time.ParseDuration(pluginParams.Node.Metadata.IdleTimeout)
 	if idleTimeout > 0 && err == nil {
-		if util.IsIstioVersionGE14(pluginParams.Node) {
-			connectionManager.CommonHttpProtocolOptions = &core.HttpProtocolOptions{
-				IdleTimeout: ptypes.DurationProto(idleTimeout),
-			}
-		} else {
-			connectionManager.IdleTimeout = ptypes.DurationProto(idleTimeout)
+		connectionManager.CommonHttpProtocolOptions = &core.HttpProtocolOptions{
+			IdleTimeout: ptypes.DurationProto(idleTimeout),
 		}
 	}
 
@@ -1970,48 +1994,30 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	}
 
 	if pluginParams.Push.Mesh.EnableEnvoyAccessLogService {
-		fl := &accesslogconfig.HttpGrpcAccessLogConfig{
-			CommonConfig: &accesslogconfig.CommonGrpcAccessLogConfig{
-				LogName: httpEnvoyAccessLogFriendlyName,
-				GrpcService: &core.GrpcService{
-					TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-						EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-							ClusterName: EnvoyAccessLogCluster,
-						},
-					},
-				},
-			},
-		}
-
-		if util.IsIstioVersionGE14(pluginParams.Node) {
-			fl.CommonConfig.FilterStateObjectsToLog = envoyWasmStateToLog
-		}
-
-		acc := &accesslog.AccessLog{
-			Name:       wellknown.HTTPGRPCAccessLog,
-			ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
-		}
-
-		connectionManager.AccessLog = append(connectionManager.AccessLog, acc)
+		connectionManager.AccessLog = append(connectionManager.AccessLog, httpGrpcAccessLog)
 	}
 
 	if pluginParams.Push.Mesh.EnableTracing {
-		tc := authn_model.GetTraceConfig()
-		connectionManager.Tracing = &http_conn.HttpConnectionManager_Tracing{
-			ClientSampling: &envoy_type.Percent{
-				Value: tc.ClientSampling,
-			},
-			RandomSampling: &envoy_type.Percent{
-				Value: tc.RandomSampling,
-			},
-			OverallSampling: &envoy_type.Percent{
-				Value: tc.OverallSampling,
-			},
-		}
+		connectionManager.Tracing = tracingConfig
 		connectionManager.GenerateRequestId = proto.BoolTrue
 	}
 
 	return connectionManager
+}
+
+func buildTracingConfig() *http_conn.HttpConnectionManager_Tracing {
+	tc := authn_model.GetTraceConfig()
+	return &http_conn.HttpConnectionManager_Tracing{
+		ClientSampling: &envoy_type.Percent{
+			Value: tc.ClientSampling,
+		},
+		RandomSampling: &envoy_type.Percent{
+			Value: tc.RandomSampling,
+		},
+		OverallSampling: &envoy_type.Percent{
+			Value: tc.OverallSampling,
+		},
+	}
 }
 
 func buildThriftRatelimit(domain string, thriftconfig *meshconfig.MeshConfig_ThriftConfig) *thrift_ratelimit.RateLimit {
@@ -2211,7 +2217,7 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *istione
 		mutable.Listener.FilterChains[i].Metadata = opt.metadata
 		mutable.Listener.FilterChains[i].Name = opt.filterChainName
 
-		if opt.thriftOpts != nil && features.EnableThriftFilter.Get() {
+		if opt.thriftOpts != nil && features.EnableThriftFilter {
 			var quotas []model.Config
 			// Add the TCP filters first.. and then the Thrift filter
 			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)

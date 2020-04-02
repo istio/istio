@@ -104,7 +104,7 @@ func run(c *cobra.Command, args []string) error {
 
 	// only use the first pod in the list
 	promPod := pl.Items[0]
-	fw, err := client.BuildPortForwarder(promPod.Name, istioNamespace, 0, 9090)
+	fw, err := client.BuildPortForwarder(promPod.Name, istioNamespace, "", 0, 9090)
 	if err != nil {
 		return fmt.Errorf("could not build port forwarder for prometheus: %v", err)
 	}

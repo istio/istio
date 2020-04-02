@@ -93,7 +93,7 @@ func TestController(t *testing.T) {
 				{Number: 80, Name: "http-port", Protocol: "http"},
 				{Number: 8080, Name: "http-alt-port", Protocol: "http"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{
 					Address: "2.2.2.2",
 					Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
@@ -159,7 +159,7 @@ func TestServiceEntryChanges(t *testing.T) {
 				{Number: 80, Name: "http-port", Protocol: "http"},
 				{Number: 8080, Name: "http-alt-port", Protocol: "http"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{
 					Address: "2.2.2.2",
 					Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
@@ -207,7 +207,7 @@ func TestServiceEntryChanges(t *testing.T) {
 				{Number: 80, Name: "http-port", Protocol: "http"},
 				{Number: 8080, Name: "http-alt-port", Protocol: "http"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{
 					Address: "2.2.2.2",
 					Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
@@ -255,7 +255,7 @@ func TestServiceEntryChanges(t *testing.T) {
 				{Number: 80, Name: "http-port", Protocol: "http"},
 				{Number: 8080, Name: "http-alt-port", Protocol: "http"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{
 					Address: "2.2.2.2",
 					Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
@@ -330,7 +330,7 @@ func TestServiceEntryDelete(t *testing.T) {
 			Ports: []*networking.Port{
 				{Number: 80, Name: "http-port", Protocol: "http"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{
 					Address: "10.31.241.103",
 					Ports:   map[string]uint32{"http-port": 80},

@@ -62,7 +62,6 @@ type ListenerBuilder struct {
 	outboundListeners       []*xdsapi.Listener
 	virtualOutboundListener *xdsapi.Listener
 	virtualInboundListener  *xdsapi.Listener
-	useInboundFilterChain   bool
 }
 
 // Setup the filter chain match so that the match should work under both
@@ -142,7 +141,7 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 	// Note: the HTTP inspector should be after TLS inspector.
 	// If TLS inspector sets transport protocol to tls, the http inspector
 	// won't inspect the packet.
-	if features.EnableProtocolSniffingForInbound.Get() {
+	if features.EnableProtocolSniffingForInbound {
 		lb.virtualInboundListener.ListenerFilters =
 			append(lb.virtualInboundListener.ListenerFilters, &listener.ListenerFilter{
 				Name: xdsutil.HttpInspector,
@@ -160,8 +159,6 @@ func NewListenerBuilder(node *model.Proxy, push *model.PushContext) *ListenerBui
 	builder := &ListenerBuilder{
 		node: node,
 		push: push,
-		// The extra inbound listener has no side effect for iptables that doesn't redirect to 15006
-		useInboundFilterChain: true,
 	}
 	return builder
 }
@@ -260,7 +257,7 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 	actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	filterChains, needTLSForPassThroughFilterChain := buildInboundCatchAllNetworkFilterChains(configgen, lb.node, lb.push)
-	if features.EnableProtocolSniffingForInbound.Get() {
+	if features.EnableProtocolSniffingForInbound {
 		filterChains = append(filterChains, buildInboundCatchAllHTTPFilterChains(configgen, lb.node, lb.push)...)
 	}
 	lb.virtualInboundListener = &xdsapi.Listener{
@@ -271,9 +268,7 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 		TrafficDirection: core.TrafficDirection_INBOUND,
 		FilterChains:     filterChains,
 	}
-	if lb.useInboundFilterChain {
-		lb.aggregateVirtualInboundListener(needTLSForPassThroughFilterChain)
-	}
+	lb.aggregateVirtualInboundListener(needTLSForPassThroughFilterChain)
 	return lb
 }
 
@@ -365,7 +360,7 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 			matchingIP = "::0/0"
 		}
 
-		setAccessLog(push, node, tcpProxy)
+		setAccessLog(push, tcpProxy)
 		tcpProxyFilter := &listener.Filter{
 			Name:       xdsutil.TCPProxy,
 			ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
@@ -416,6 +411,7 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 				Filters:          append(chain.TCP, tcpProxyFilter),
 			}
 			if chain.TLSContext != nil {
+				filterChain.FilterChainMatch.TransportProtocol = "tls"
 				// Update transport socket from the TLS context configured by the plugin.
 				filterChain.TransportSocket = &core.TransportSocket{
 					Name:       util.EnvoyTLSSocketName,
@@ -471,44 +467,68 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
 			Bind:               matchingIP,
 			InboundClusterName: clusterName,
 		}
+		// Call plugins to install authn/authz policies.
+		var allChains []istionetworking.FilterChain
+		for _, p := range configgen.Plugins {
+			chains := p.OnInboundPassthroughFilterChains(in)
+			allChains = append(allChains, chains...)
+		}
+		if len(allChains) == 0 {
+			// Add one empty entry to the list if none of the plugins are interested in updating the filter chains.
+			allChains = []istionetworking.FilterChain{{}}
+		}
+
+		// Override the filter chain match to make sure the pass through filter chain captures the pass through traffic.
+		for i := range allChains {
+			chain := &allChains[i]
+			if chain.FilterChainMatch == nil {
+				chain.FilterChainMatch = &listener.FilterChainMatch{}
+			}
+			chain.FilterChainMatch.PrefixRanges = []*core.CidrRange{
+				util.ConvertAddressToCidr(matchingIP),
+			}
+			chain.FilterChainMatch.ApplicationProtocols = plaintextHTTPALPNs
+			chain.ListenerProtocol = istionetworking.ListenerProtocolHTTP
+		}
+
 		mutable := &istionetworking.MutableObjects{
-			FilterChains: []istionetworking.FilterChain{
-				{
-					ListenerProtocol: istionetworking.ListenerProtocolHTTP,
-				},
-			},
+			FilterChains: allChains,
 		}
 		for _, p := range configgen.Plugins {
 			if err := p.OnInboundPassthrough(in, mutable); err != nil {
 				log.Errorf("Build inbound passthrough filter chains error: %v", err)
 			}
 		}
-		httpOpts := configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, in)
-		httpOpts.statPrefix = clusterName
-		connectionManager := buildHTTPConnectionManager(in, httpOpts, mutable.FilterChains[0].HTTP)
 
-		filter := &listener.Filter{
-			Name:       xdsutil.HTTPConnectionManager,
-			ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(connectionManager)},
+		// Construct the actual filter chains for each of the filter chain from the plugin.
+		for _, chain := range allChains {
+			httpOpts := configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, in)
+			httpOpts.statPrefix = clusterName
+			connectionManager := buildHTTPConnectionManager(in, httpOpts, chain.HTTP)
+
+			filter := &listener.Filter{
+				Name:       xdsutil.HTTPConnectionManager,
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(connectionManager)},
+			}
+
+			filterChain := &listener.FilterChain{
+				FilterChainMatch: chain.FilterChainMatch,
+				Filters:          []*listener.Filter{filter},
+			}
+			if chain.TLSContext != nil {
+				filterChain.FilterChainMatch.TransportProtocol = "tls"
+				filterChain.FilterChainMatch.ApplicationProtocols =
+					append(filterChain.FilterChainMatch.ApplicationProtocols, mtlsHTTPALPNs...)
+
+				// Update transport socket from the TLS context configured by the plugin.
+				filterChain.TransportSocket = &core.TransportSocket{
+					Name:       util.EnvoyTLSSocketName,
+					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(chain.TLSContext)},
+				}
+			}
+			filterChain.Name = virtualInboundCatchAllHTTPFilterChainName
+			filterChains = append(filterChains, filterChain)
 		}
-
-		filterChainMatch := listener.FilterChainMatch{
-			// Port : EMPTY to match all ports
-			PrefixRanges: []*core.CidrRange{
-				util.ConvertAddressToCidr(matchingIP),
-			},
-			ApplicationProtocols: plaintextHTTPALPNs,
-		}
-
-		filterChain := &listener.FilterChain{
-			Name:             VirtualInboundListenerName,
-			FilterChainMatch: &filterChainMatch,
-			Filters: []*listener.Filter{
-				filter,
-			},
-		}
-
-		filterChains = append(filterChains, filterChain)
 	}
 
 	return filterChains
@@ -538,7 +558,7 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 		StatPrefix:       egressCluster,
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: egressCluster},
 	}
-	setAccessLog(push, node, tcpProxy)
+	setAccessLog(push, tcpProxy)
 	filterStack = append(filterStack, &listener.Filter{
 		Name:       xdsutil.TCPProxy,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},

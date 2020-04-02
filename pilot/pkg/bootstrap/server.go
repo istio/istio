@@ -26,13 +26,11 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
-
-	"istio.io/pkg/env"
-
+	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
-
-	"istio.io/istio/pilot/pkg/leaderelection"
+	"k8s.io/client-go/tools/cache"
 
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -41,17 +39,14 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 
-	"istio.io/istio/pkg/jwt"
-
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
-
 	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/env"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -63,6 +58,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/jwt"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -119,8 +115,10 @@ type Server struct {
 	clusterID   string
 	environment *model.Environment
 
-	configController    model.ConfigStoreCache
-	kubeClient          kubernetes.Interface
+	configController model.ConfigStoreCache
+	kubeClient       kubernetes.Interface
+	metadataClient   metadata.Interface
+
 	startFuncs          []startFunc
 	multicluster        *kubecontroller.Multicluster
 	httpServer          *http.Server // debug
@@ -399,6 +397,11 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 		if err != nil {
 			return fmt.Errorf("failed creating kube client: %v", err)
 		}
+
+		s.metadataClient, err = kubelib.CreateMetadataClient(args.Config.KubeConfig, "")
+		if err != nil {
+			return fmt.Errorf("failed creating kube metadata client: %v", err)
+		}
 	}
 
 	return nil
@@ -621,10 +624,10 @@ func (s *Server) initEventHandlers() error {
 	// Flush cached discovery responses whenever services configuration change.
 	serviceHandler := func(svc *model.Service, _ model.Event) {
 		pushReq := &model.PushRequest{
-			Full:               true,
-			NamespacesUpdated:  map[string]struct{}{svc.Attributes.Namespace: {}},
-			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
-			Reason:             []model.TriggerReason{model.ServiceUpdate},
+			Full:              true,
+			NamespacesUpdated: map[string]struct{}{svc.Attributes.Namespace: {}},
+			ConfigsUpdated:    map[resource.GroupVersionKind]map[string]struct{}{model.ServiceEntryKind: {}},
+			Reason:            []model.TriggerReason{model.ServiceUpdate},
 		}
 		s.EnvoyXdsServer.ConfigUpdate(pushReq)
 	}
@@ -640,8 +643,8 @@ func (s *Server) initEventHandlers() error {
 			Full:              true,
 			NamespacesUpdated: map[string]struct{}{si.Service.Attributes.Namespace: {}},
 			// TODO: extend and set service instance type, so no need re-init push context
-			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
-			Reason:             []model.TriggerReason{model.ServiceUpdate},
+			ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{model.ServiceEntryKind: {}},
+			Reason:         []model.TriggerReason{model.ServiceUpdate},
 		})
 	}
 	if err := s.ServiceController().AppendInstanceHandler(instanceHandler); err != nil {
@@ -654,9 +657,9 @@ func (s *Server) initEventHandlers() error {
 		// (especially mixerclient HTTP and quota)
 		configHandler := func(old, curr model.Config, _ model.Event) {
 			pushReq := &model.PushRequest{
-				Full:               true,
-				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{curr.GroupVersionKind(): {}},
-				Reason:             []model.TriggerReason{model.ConfigUpdate},
+				Full:           true,
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{curr.GroupVersionKind(): {}},
+				Reason:         []model.TriggerReason{model.ConfigUpdate},
 			}
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
 		}

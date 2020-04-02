@@ -15,6 +15,7 @@
 package rt
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
@@ -272,10 +273,10 @@ func (p *Provider) initKnownAdapters() {
 				inf := cache.NewSharedIndexInformer(
 					&cache.ListWatch{
 						ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-							return ext.ApiextensionsV1beta1().CustomResourceDefinitions().List(options)
+							return ext.ApiextensionsV1beta1().CustomResourceDefinitions().List(context.TODO(), options)
 						},
 						WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-							return ext.ApiextensionsV1beta1().CustomResourceDefinitions().Watch(options)
+							return ext.ApiextensionsV1beta1().CustomResourceDefinitions().Watch(context.TODO(), options)
 						},
 					},
 					&v1beta12.CustomResourceDefinition{},

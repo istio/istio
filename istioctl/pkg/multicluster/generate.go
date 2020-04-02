@@ -90,9 +90,6 @@ func overlayIstioControlPlane(mesh *Mesh, current *Cluster, meshNetworks *v1alph
 			},
 			Network: current.Network,
 		},
-		Pilot: &operatorV1alpha1.PilotConfig{
-			MeshNetworks: meshNetworksJSON,
-		},
 	}
 
 	typedValuesJSON, err := protomarshal.ToJSONMap(typedValues)

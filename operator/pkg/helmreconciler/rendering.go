@@ -30,6 +30,7 @@ import (
 	util2 "k8s.io/kubectl/pkg/util"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/helm/pkg/manifest"
@@ -173,7 +174,11 @@ func MergeIOPSWithProfile(iop *valuesv1alpha1.IstioOperator) (*v1alpha1.IstioOpe
 // ProcessManifest apply the manifest to create or update resources, returns the number of objects processed
 func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error) {
 	var errs []error
-	crName := h.instance.Name + "-" + manifest.Name
+	objAccessor, err := meta.Accessor(h.instance)
+	if err != nil {
+		return 0, err
+	}
+	crName := objAccessor.GetName() + "-" + manifest.Name
 	log.Infof("Processing resources from manifest: %s for CR %s", manifest.Name, crName)
 	allObjects, err := object.ParseK8sObjectsFromYAMLManifest(manifest.Content)
 	if err != nil {

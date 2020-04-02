@@ -395,13 +395,13 @@ func validateServerPort(port *networking.Port) (errs error) {
 	return
 }
 
-func validateTLSOptions(tls *networking.Server_TLSOptions) (errs error) {
+func validateTLSOptions(tls *networking.ServerTLSSettings) (errs error) {
 	if tls == nil {
 		// no tls config at all is valid
 		return
 	}
 
-	if tls.Mode == networking.Server_TLSOptions_ISTIO_MUTUAL {
+	if tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
 		// ISTIO_MUTUAL TLS mode uses either SDS or default certificate mount paths
 		// therefore, we should fail validation if other TLS fields are set
 		if tls.ServerCertificate != "" {
@@ -417,19 +417,19 @@ func validateTLSOptions(tls *networking.Server_TLSOptions) (errs error) {
 		return
 	}
 
-	if (tls.Mode == networking.Server_TLSOptions_SIMPLE || tls.Mode == networking.Server_TLSOptions_MUTUAL) && tls.CredentialName != "" {
+	if (tls.Mode == networking.ServerTLSSettings_SIMPLE || tls.Mode == networking.ServerTLSSettings_MUTUAL) && tls.CredentialName != "" {
 		// If tls mode is SIMPLE or MUTUAL, and CredentialName is specified, credentials are fetched
 		// remotely. ServerCertificate and CaCertificates fields are not required.
 		return
 	}
-	if tls.Mode == networking.Server_TLSOptions_SIMPLE {
+	if tls.Mode == networking.ServerTLSSettings_SIMPLE {
 		if tls.ServerCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("SIMPLE TLS requires a server certificate"))
 		}
 		if tls.PrivateKey == "" {
 			errs = appendErrors(errs, fmt.Errorf("SIMPLE TLS requires a private key"))
 		}
-	} else if tls.Mode == networking.Server_TLSOptions_MUTUAL {
+	} else if tls.Mode == networking.ServerTLSSettings_MUTUAL {
 		if tls.ServerCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a server certificate"))
 		}
@@ -922,12 +922,12 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error
 	return
 }
 
-func validateTLS(settings *networking.TLSSettings) (errs error) {
+func validateTLS(settings *networking.ClientTLSSettings) (errs error) {
 	if settings == nil {
 		return
 	}
 
-	if settings.Mode == networking.TLSSettings_MUTUAL {
+	if settings.Mode == networking.ClientTLSSettings_MUTUAL {
 		if settings.ClientCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("client certificate required for mutual tls"))
 		}
@@ -1215,10 +1215,6 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 		if err := ValidateDatadogCollector(tracer); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, "invalid datadog config:"))
 		}
-	}
-
-	if err := ValidateConnectTimeout(config.ConnectTimeout); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "invalid connect timeout:"))
 	}
 
 	if config.StatsdUdpAddress != "" {
@@ -2531,6 +2527,21 @@ func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 	}
 	return nil
 }
+
+// ValidateWorkloadEntry validates a workload entry.
+var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
+	func(_, _ string, config proto.Message) (errs error) {
+		we, ok := config.(*networking.WorkloadEntry)
+		if !ok {
+			return fmt.Errorf("cannot cast to workload entry")
+		}
+		if we.Address == "" {
+			return fmt.Errorf("address must be set")
+		}
+		// TODO: add better validation. The tricky thing is that we don't know if its meant to be
+		// DNS or STATIC type without association with a ServiceEntry
+		return nil
+	})
 
 // ValidateServiceEntry validates a service entry.
 var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",

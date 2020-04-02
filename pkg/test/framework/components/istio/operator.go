@@ -21,8 +21,11 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 
 	"github.com/hashicorp/go-multierror"
+
+	"istio.io/istio/pkg/test/util/yml"
 
 	"istio.io/istio/pkg/test/cert/ca"
 	"istio.io/istio/pkg/test/deployment"
@@ -57,12 +60,30 @@ func (i *operatorComponent) Settings() Config {
 	return i.settings
 }
 
+// When we cleanup, we should not delete CRDs. This will filter out all the crds
+func removeCRDs(istioYaml string) string {
+	allParts := yml.SplitString(istioYaml)
+	nonCrds := make([]string, 0, len(allParts))
+
+	// Make the regular expression multi-line and anchor to the beginning of the line.
+	r := regexp.MustCompile(`(?m)^kind: CustomResourceDefinition$`)
+
+	for _, p := range allParts {
+		if r.Match([]byte(p)) {
+			continue
+		}
+		nonCrds = append(nonCrds, p)
+	}
+
+	return yml.JoinString(nonCrds...)
+}
+
 func (i *operatorComponent) Close() (err error) {
 	scopes.CI.Infof("=== BEGIN: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
 	defer scopes.CI.Infof("=== DONE: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
 	if i.settings.DeployIstio {
 		for _, cluster := range i.environment.KubeClusters {
-			if e := cluster.DeleteContents("", i.installManifest[cluster.Name()]); e != nil {
+			if e := cluster.DeleteContents("", removeCRDs(i.installManifest[cluster.Name()])); e != nil {
 				err = multierror.Append(err, e)
 			}
 		}
@@ -196,12 +217,9 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 		"-f", iopFile,
 		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
 	}
-	// If control plane values set, assume this includes the full set of values, and .Values is
-	// just for helm use case. Otherwise, include all values.
-	if cfg.ControlPlaneValues == "" {
-		for k, v := range cfg.Values {
-			installSettings = append(installSettings, "--set", fmt.Sprintf("values.%s=%s", k, v))
-		}
+	// Include all user-specified values.
+	for k, v := range cfg.Values {
+		installSettings = append(installSettings, "--set", fmt.Sprintf("values.%s=%s", k, v))
 	}
 	if c.environment.IsMulticluster() {
 		// Set the clusterName for the local cluster.
@@ -212,8 +230,8 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 	// Save the manifest generate output so we can later cleanup
 	genCmd := []string{"manifest", "generate"}
 	genCmd = append(genCmd, installSettings...)
-	out, e := istioCtl.Invoke(genCmd)
-	if e != nil {
+	out, err := istioCtl.Invoke(genCmd)
+	if err != nil {
 		return err
 	}
 	c.installManifest[cluster.Name()] = out
@@ -236,14 +254,6 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 
 func waitForControlPlane(dumper resource.Dumper, cluster kube.Cluster, cfg Config) error {
 	if !cfg.SkipWaitForValidationWebhook {
-		// Wait for the validation webhook to come online before continuing.
-		if _, _, err := cluster.WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istiod"); err != nil {
-			err = fmt.Errorf("error waiting %s/%s service endpoints: %v", cfg.SystemNamespace, "istiod", err)
-			scopes.CI.Info(err.Error())
-			dumper.Dump()
-			return err
-		}
-
 		// Wait for webhook to come online. The only reliable way to do that is to see if we can submit invalid config.
 		if err := waitForValidationWebhook(cluster.Accessor, cfg); err != nil {
 			dumper.Dump()

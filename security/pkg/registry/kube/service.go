@@ -15,6 +15,7 @@
 package kube
 
 import (
+	"context"
 	"reflect"
 	"time"
 
@@ -56,10 +57,10 @@ func NewServiceController(core corev1.CoreV1Interface, namespaces []string, reg 
 	LW := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
 		return &cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-				return core.Services(namespace).List(options)
+				return core.Services(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-				return core.Services(namespace).Watch(options)
+				return core.Services(namespace).Watch(context.TODO(), options)
 			},
 		}
 	})

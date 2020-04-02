@@ -59,7 +59,11 @@ func GenerateConfig(inFilenames []string, setOverlayYAML string, force bool, kub
 		return "", nil, err
 	}
 
-	if err := validation.ValidateConfig(false, iops.Values, iops).ToError(); err != nil {
+	errs, warning := validation.ValidateConfig(false, iops.Values, iops)
+	if warning != "" {
+		l.logAndError(warning)
+	}
+	if errs.ToError() != nil {
 		return "", nil, fmt.Errorf("generated config failed semantic validation: %v", err)
 	}
 	return iopsString, iops, nil
@@ -215,8 +219,11 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 // installation charts and profile file.
 // If installPackagePath is not a URL, it returns installPackagePath and profileOrPath unmodified.
 func rewriteURLToLocalInstallPath(installPackagePath, profileOrPath string, skipValidation bool) (string, string, error) {
-	var err error
-	if util.IsHTTPURL(installPackagePath) {
+	isURL, err := util.IsHTTPURL(installPackagePath)
+	if err != nil && !skipValidation {
+		return "", "", err
+	}
+	if isURL {
 		if !skipValidation {
 			_, ver, err := helm.URLToDirname(installPackagePath)
 			if err != nil {
@@ -235,7 +242,7 @@ func rewriteURLToLocalInstallPath(installPackagePath, profileOrPath string, skip
 		// /tmp/istio-install-packages/istio-1.5.1/install/kubernetes/operator/profiles/default.yaml.
 		profileOrPath = filepath.Join(installPackagePath, helm.OperatorSubdirFilePath, "profiles", profileOrPath+".yaml")
 		// Rewrite installPackagePath to the local file path for further processing.
-		installPackagePath = filepath.Join(installPackagePath, helm.OperatorSubdirFilePath, "charts")
+		installPackagePath = filepath.Join(installPackagePath, helm.OperatorSubdirFilePath)
 	}
 
 	return installPackagePath, profileOrPath, nil

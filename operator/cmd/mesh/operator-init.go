@@ -118,8 +118,8 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l *Logger, apply man
 		l.logAndFatal(err)
 	}
 
-	scope.Infof("Installing operator charts with the following values:\n%s", vals)
-	scope.Infof("Using the following manifest to install operator:\n%s\n", mstr)
+	scope.Debugf("Installing operator charts with the following values:\n%s", vals)
+	scope.Debugf("Using the following manifest to install operator:\n%s\n", mstr)
 
 	opts := &kubectlcmd.Options{
 		DryRun:      args.dryRun,

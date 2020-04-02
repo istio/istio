@@ -456,7 +456,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
 func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump, error) {
 	dynamicActiveClusters := make([]*adminapi.ClustersConfigDump_DynamicCluster, 0)
-	clusters := s.generateRawClusters(conn.node, s.globalPushContext())
+	clusters := s.ConfigGenerator.BuildClusters(conn.node, s.globalPushContext())
 
 	for _, cs := range clusters {
 		cluster, err := ptypes.MarshalAny(cs)
@@ -474,7 +474,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	}
 
 	dynamicActiveListeners := make([]*adminapi.ListenersConfigDump_DynamicListener, 0)
-	listeners := s.generateRawListeners(conn, s.globalPushContext())
+	listeners := s.ConfigGenerator.BuildListeners(conn.node, s.globalPushContext())
 	for _, cs := range listeners {
 		listener, err := ptypes.MarshalAny(cs)
 		if err != nil {
@@ -492,7 +492,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 		return nil, err
 	}
 
-	routes := s.generateRawRoutes(conn, s.globalPushContext())
+	routes := s.ConfigGenerator.BuildHTTPRoutes(conn.node, s.globalPushContext(), conn.Routes)
 	routeConfigAny := util.MessageToAny(&adminapi.RoutesConfigDump{})
 	if len(routes) > 0 {
 		dynamicRouteConfig := make([]*adminapi.RoutesConfigDump_DynamicRouteConfig, 0)

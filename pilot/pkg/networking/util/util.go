@@ -253,12 +253,6 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	})
 }
 
-// IsIstioVersionGE14 checks whether the given Istio version is greater than or equals 1.4.
-func IsIstioVersionGE14(node *model.Proxy) bool {
-	return node.IstioVersion == nil ||
-		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 4, Patch: -1}) >= 0
-}
-
 // IsIstioVersionGE15 checks whether the given Istio version is greater than or equals 1.5.
 func IsIstioVersionGE15(node *model.Proxy) bool {
 	return node.IstioVersion == nil ||
@@ -266,20 +260,20 @@ func IsIstioVersionGE15(node *model.Proxy) bool {
 }
 
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
-	return features.EnableProtocolSniffingForOutbound.Get() && port.Protocol.IsUnsupported()
+	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
 }
 
 func IsProtocolSniffingEnabledForInboundPort(port *model.Port) bool {
-	return features.EnableProtocolSniffingForInbound.Get() && port.Protocol.IsUnsupported()
+	return features.EnableProtocolSniffingForInbound && port.Protocol.IsUnsupported()
 }
 
 func IsProtocolSniffingEnabledForOutboundPort(port *model.Port) bool {
-	return features.EnableProtocolSniffingForOutbound.Get() && port.Protocol.IsUnsupported()
+	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
 }
 
 // IsTCPMetadataExchangeEnabled checks whether Metadata Exchanged enabled for TCP using ALPN.
 func IsTCPMetadataExchangeEnabled(node *model.Proxy) bool {
-	return features.EnableTCPMetadataExchange.Get() && IsIstioVersionGE15(node)
+	return features.EnableTCPMetadataExchange && IsIstioVersionGE15(node)
 }
 
 // ConvertLocality converts '/' separated locality string to Locality struct.
@@ -634,14 +628,14 @@ func ApplyToCommonTLSContext(tlsContext *envoyauth.CommonTlsContext, metadata *m
 
 // ApplyCustomSDSToCommonTLSContext applies the customized sds to CommonTlsContext
 // Used for building both gateway/sidecar TLS context
-func ApplyCustomSDSToCommonTLSContext(tlsContext *envoyauth.CommonTlsContext, tlsOpts *networking.Server_TLSOptions, sdsUdsPath string) {
+func ApplyCustomSDSToCommonTLSContext(tlsContext *envoyauth.CommonTlsContext, tlsOpts *networking.ServerTLSSettings, sdsUdsPath string) {
 	// create SDS config for gateway/sidecar to fetch key/cert from agent.
 	tlsContext.TlsCertificateSdsSecretConfigs = []*envoyauth.SdsSecretConfig{
 		authn_model.ConstructSdsSecretConfigWithCustomUds(tlsOpts.CredentialName, sdsUdsPath),
 	}
 	// If tls mode is MUTUAL, create SDS config for gateway/sidecar to fetch certificate validation context
 	// at gateway agent. Otherwise, use the static certificate validation context config.
-	if tlsOpts.Mode == networking.Server_TLSOptions_MUTUAL {
+	if tlsOpts.Mode == networking.ServerTLSSettings_MUTUAL {
 		defaultValidationContext := &envoyauth.CertificateValidationContext{
 			VerifySubjectAltName:  tlsOpts.SubjectAltNames,
 			VerifyCertificateSpki: tlsOpts.VerifyCertificateSpki,

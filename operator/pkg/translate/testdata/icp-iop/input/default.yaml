@@ -255,7 +255,7 @@ spec:
           port: # example: 15000
         logLevel: warning
         componentLogLevel: "misc:error"
-        dnsRefreshRate: 300s
+
         protocolDetectionTimeout: 100ms
         privileged: false
         enableCoreDump: false

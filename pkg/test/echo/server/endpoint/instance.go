@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
 )
@@ -33,11 +32,12 @@ type OnReadyFunc func()
 type Config struct {
 	IsServerReady IsServerReadyFunc
 	Version       string
+	Cluster       string
 	TLSCert       string
 	TLSKey        string
 	UDSServer     string
 	Dialer        common.Dialer
-	Port          *model.Port
+	Port          *common.Port
 }
 
 // Instance of an endpoint that serves the Echo application on a single port/protocol.

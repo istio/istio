@@ -80,14 +80,6 @@ spec:
         volumeMounts:
         - mountPath: /data/grafana
           name: data
-        - mountPath: /var/lib/grafana/dashboards/istio/citadel-dashboard.json
-          name: dashboards-istio-citadel-dashboard
-          readOnly: true
-          subPath: citadel-dashboard.json
-        - mountPath: /var/lib/grafana/dashboards/istio/galley-dashboard.json
-          name: dashboards-istio-galley-dashboard
-          readOnly: true
-          subPath: galley-dashboard.json
         - mountPath: /var/lib/grafana/dashboards/istio/istio-mesh-dashboard.json
           name: dashboards-istio-istio-mesh-dashboard
           readOnly: true
@@ -127,12 +119,6 @@ spec:
         name: config
       - emptyDir: {}
         name: data
-      - configMap:
-          name: istio-grafana-configuration-dashboards-citadel-dashboard
-        name: dashboards-istio-citadel-dashboard
-      - configMap:
-          name: istio-grafana-configuration-dashboards-galley-dashboard
-        name: dashboards-istio-galley-dashboard
       - configMap:
           name: istio-grafana-configuration-dashboards-istio-mesh-dashboard
         name: dashboards-istio-istio-mesh-dashboard
@@ -373,6 +359,7 @@ metadata:
   labels:
     app: istiod
     istio: pilot
+    istio.io/rev: default
     release: istio
   name: istiod
   namespace: istio-system
@@ -391,40 +378,8 @@ spec:
       labels:
         app: istiod
         istio: pilot
+        istio.io/rev: default
     spec:
-      affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - ppc64le
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - s390x
-            weight: 2
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-                - ppc64le
-                - s390x
       containers:
       - args:
         - discovery
@@ -459,24 +414,18 @@ spec:
               fieldPath: spec.serviceAccountName
         - name: PILOT_TRACE_SAMPLING
           value: "1"
-        - name: CONFIG_NAMESPACE
-          value: istio-config
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
           value: "true"
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
-          value: "false"
+          value: "true"
         - name: INJECTION_WEBHOOK_CONFIG_NAME
           value: istio-sidecar-injector
         - name: ISTIOD_ADDR
           value: istiod.istio-system.svc:15012
-        - name: PILOT_EXTERNAL_GALLEY
+        - name: PILOT_ENABLE_ANALYSIS
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
-        envFrom:
-        - configMapRef:
-            name: istiod
-            optional: true
         image: component.pilot.hub/pilot:2
         name: discovery
         ports:
@@ -515,9 +464,6 @@ spec:
         - mountPath: /var/lib/istio/inject
           name: inject
           readOnly: true
-        - mountPath: /var/lib/istio/local
-          name: istiod
-          readOnly: true
       securityContext:
         fsGroup: 1337
       serviceAccountName: istio-pilot-service-account
@@ -532,10 +478,6 @@ spec:
               audience: istio-ca
               expirationSeconds: 43200
               path: istio-token
-      - configMap:
-          name: istiod
-          optional: true
-        name: istiod
       - name: cacerts
         secret:
           optional: true
@@ -621,7 +563,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: docker.io/testing/kiali:v1.14
+        image: docker.io/testing/kiali:v1.15
         livenessProbe:
           httpGet:
             path: /kiali/healthz

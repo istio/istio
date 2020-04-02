@@ -22,7 +22,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/operator/v1alpha1"
-	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
@@ -34,14 +33,16 @@ import (
 type HelmReconciler struct {
 	client             client.Client
 	customizer         RenderingCustomizer
-	instance           *iop.IstioOperator
+	instance           runtime.Object
 	needUpdateAndPrune bool
 }
 
-// NewHelmReconciler creates a HelmReconciler and returns a ptr to it.
-func NewHelmReconciler(instance *iop.IstioOperator) *HelmReconciler {
+// NewHelmReconciler creates a HelmReconciler and returns a ptr to it
+func NewHelmReconciler(instance runtime.Object, customizer RenderingCustomizer, client client.Client) *HelmReconciler {
 	return &HelmReconciler{
-		instance: instance,
+		instance:   instance,
+		client:     client,
+		customizer: customizer,
 	}
 }
 
@@ -55,7 +56,7 @@ type Factory struct {
 // instance is the custom resource to be reconciled/deleted.
 // client is the kubernetes client
 // logger is the logger
-func (f *Factory) New(instance *iop.IstioOperator, client client.Client) (*HelmReconciler, error) {
+func (f *Factory) New(instance runtime.Object, client client.Client) (*HelmReconciler, error) {
 	delegate, err := f.CustomizerFactory.NewCustomizer(instance)
 	if err != nil {
 		return nil, err
@@ -277,12 +278,12 @@ func (h *HelmReconciler) GetCustomizer() RenderingCustomizer {
 }
 
 // GetInstance returns the instance associated with this HelmReconciler
-func (h *HelmReconciler) GetInstance() *iop.IstioOperator {
+func (h *HelmReconciler) GetInstance() runtime.Object {
 	return h.instance
 }
 
 // SetInstance set the instance associated with this HelmReconciler
-func (h *HelmReconciler) SetInstance(instance *iop.IstioOperator) {
+func (h *HelmReconciler) SetInstance(instance runtime.Object) {
 	h.instance = instance
 }
 

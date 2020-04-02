@@ -101,7 +101,7 @@ func getAllPods(kubeconfig string) (*v1.PodList, error) {
 	if err != nil {
 		return nil, err
 	}
-	return clientset.CoreV1().Pods(meta_v1.NamespaceAll).List(meta_v1.ListOptions{})
+	return clientset.CoreV1().Pods(meta_v1.NamespaceAll).List(context.TODO(), meta_v1.ListOptions{})
 }
 
 func NewPodInfo(nameOrAppLabel string, kubeconfig string, proxyType string) *PodInfo {

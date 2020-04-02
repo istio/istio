@@ -967,15 +967,15 @@ var _datasetMeshIstioIoV1alpha1Meshconfig_expectedJson = []byte(`{
             },
             "Body": {
                 "accessLogFile": "/dev/stdout",
+                "clusterLocalNamespaces": [
+                  "kube-system"
+                ],
                 "connectTimeout": {
                     "seconds": 10
                 },
                 "defaultConfig": {
                   "binaryPath": "/usr/local/bin/envoy",
                   "configPath": "/etc/istio/proxy",
-                  "connectTimeout": {
-                    "seconds": 10
-                  },
                   "discoveryAddress": "istio-pilot:15010",
                   "drainDuration": {
                     "seconds": 45

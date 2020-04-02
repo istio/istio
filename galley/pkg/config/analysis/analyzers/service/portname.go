@@ -65,7 +65,7 @@ func (s *PortNameAnalyzer) Analyze(c analysis.Context) {
 func (s *PortNameAnalyzer) analyzeService(r *resource.Instance, c analysis.Context) {
 	svc := r.Message.(*v1.ServiceSpec)
 	for _, port := range svc.Ports {
-		if instance := configKube.ConvertProtocol(port.Port, port.Name, port.Protocol); instance.IsUnsupported() {
+		if instance := configKube.ConvertProtocol(port.Port, port.Name, port.Protocol, port.AppProtocol); instance.IsUnsupported() {
 			c.Report(collections.K8SCoreV1Services.Name(), msg.NewPortNameIsNotUnderNamingConvention(
 				r, port.Name, int(port.Port), port.TargetPort.String()))
 		}

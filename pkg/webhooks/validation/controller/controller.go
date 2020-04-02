@@ -17,6 +17,7 @@ package controller
 
 import (
 	"bytes"
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -417,10 +418,10 @@ func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason st
 	invalid.Object["spec"] = map[string]interface{}{} // gateway must have at least one server
 
 	createOptions := kubeApiMeta.CreateOptions{DryRun: []string{kubeApiMeta.DryRunAll}}
-	_, err := c.dynamicResourceInterface.Create(invalid, createOptions)
+	_, err := c.dynamicResourceInterface.Create(context.TODO(), invalid, createOptions)
 	if kubeErrors.IsAlreadyExists(err) {
 		updateOptions := kubeApiMeta.UpdateOptions{DryRun: []string{kubeApiMeta.DryRunAll}}
-		_, err = c.dynamicResourceInterface.Update(invalid, updateOptions)
+		_, err = c.dynamicResourceInterface.Update(context.TODO(), invalid, updateOptions)
 	}
 	if err == nil {
 		return false, fmt.Sprintf("dummy invalid config not rejected")
@@ -457,7 +458,7 @@ func (c *Controller) galleyPodsRunning() (running bool, err error) {
 
 func (c *Controller) deleteValidatingWebhookConfiguration() error {
 	err := c.client.AdmissionregistrationV1beta1().
-		ValidatingWebhookConfigurations().Delete(c.o.WebhookConfigName, &kubeApiMeta.DeleteOptions{})
+		ValidatingWebhookConfigurations().Delete(context.TODO(), c.o.WebhookConfigName, kubeApiMeta.DeleteOptions{})
 	if err != nil {
 		scope.Errorf("Failed to delete validatingwebhookconfiguration: %v", err)
 		reportValidationConfigDeleteError(kubeErrors.ReasonForError(err))
@@ -492,7 +493,7 @@ func (c *Controller) updateValidatingWebhookConfiguration(caBundle []byte, failu
 
 	if !reflect.DeepEqual(updated, current) {
 		latest, err := c.client.AdmissionregistrationV1beta1().
-			ValidatingWebhookConfigurations().Update(updated)
+			ValidatingWebhookConfigurations().Update(context.TODO(), updated, kubeApiMeta.UpdateOptions{})
 		if err != nil {
 			scope.Errorf("Failed to update validatingwebhookconfiguration %v (failurePolicy=%v, resourceVersion=%v): %v",
 				c.o.WebhookConfigName, failurePolicy, updated.ResourceVersion, err)
