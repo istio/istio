@@ -115,6 +115,7 @@ type Server struct {
 	clusterID   string
 	environment *model.Environment
 
+	kubeConfig       *rest.Config
 	configController model.ConfigStoreCache
 	kubeClient       kubernetes.Interface
 	metadataClient   metadata.Interface
@@ -390,6 +391,11 @@ func (s *Server) WaitUntilCompletion() {
 func (s *Server) initKubeClient(args *PilotArgs) error {
 	if hasKubeRegistry(args.Service.Registries) {
 		var err error
+		// Used by validation
+		s.kubeConfig, err = kubelib.BuildClientConfig(args.Config.KubeConfig, "")
+		if err != nil {
+			return fmt.Errorf("failed creating kube config: %v", err)
+		}
 		s.kubeClient, err = kubelib.CreateClientset(args.Config.KubeConfig, "", func(config *rest.Config) {
 			config.QPS = 20
 			config.Burst = 40
