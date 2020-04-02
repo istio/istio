@@ -133,51 +133,51 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 			LocalityLbSetting:                 &v1alpha3.LocalityLoadBalancerSetting{},
 			ClusterLocalNamespaces:            append(make([]string, 0), defaultClusterLocalNamespaces...),
 		}
-		// Defaults matching the standard install
-		// order matches the generated mesh config.
-		return meshconfig.MeshConfig{
-			EnableTracing:               true,
-			AccessLogFile:               "",
-			AccessLogEncoding:           meshconfig.MeshConfig_TEXT,
-			AccessLogFormat:             "",
-			EnableEnvoyAccessLogService: false,
-			ReportBatchMaxEntries:       100,
-			ReportBatchMaxTime:          types.DurationProto(1 * time.Second),
-			DisableMixerHttpReports:     true,
-			DisablePolicyChecks:         true,
-			ProtocolDetectionTimeout:    types.DurationProto(100 * time.Millisecond),
-			IngressService:        "istio-ingressgateway",
-			IngressControllerMode: meshconfig.MeshConfig_STRICT,
-			IngressClass:          "istio",
-			TrustDomain:           "cluster.local",
-			TrustDomainAliases:    []string{},
-			SdsUdsPath:            "unix:/etc/istio/proxy/SDS",
-			EnableAutoMtls:        &types.BoolValue{Value: true},
-			OutboundTrafficPolicy: &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},
-			LocalityLbSetting: &v1alpha3.LocalityLoadBalancerSetting{
-				Enabled: &types.BoolValue{Value: true},
-			},
-			Certificates:  []*meshconfig.Certificate{},
-			DefaultConfig: &proxyConfig,
-
-			// Not set in the default mesh config - code defaults.
-			MixerCheckServer:                  "",
-			MixerReportServer:                 "",
-			PolicyCheckFailOpen:               false,
-			SidecarToTelemetrySessionAffinity: false,
-			RootNamespace:                     constants.IstioSystemNamespace,
-			ProxyListenPort:                   15001,
-			ConnectTimeout:                    types.DurationProto(10 * time.Second),
-			EnableSdsTokenMount:               false,
-			DefaultServiceExportTo:            []string{"*"},
-			DefaultVirtualServiceExportTo:     []string{"*"},
-			DefaultDestinationRuleExportTo:    []string{"*"},
-			DnsRefreshRate:                    types.DurationProto(5 * time.Second), // 5 seconds is the default refresh rate used in Envoy
-			ThriftConfig:                      &meshconfig.MeshConfig_ThriftConfig{},
-			ClusterLocalNamespaces:            append(make([]string, 0), defaultClusterLocalNamespaces...),
-		}
-
 	}
+	// Defaults matching the standard install
+	// order matches the generated mesh config.
+	return meshconfig.MeshConfig{
+		EnableTracing:               true,
+		AccessLogFile:               "",
+		AccessLogEncoding:           meshconfig.MeshConfig_TEXT,
+		AccessLogFormat:             "",
+		EnableEnvoyAccessLogService: false,
+		ReportBatchMaxEntries:       100,
+		ReportBatchMaxTime:          types.DurationProto(1 * time.Second),
+		DisableMixerHttpReports:     true,
+		DisablePolicyChecks:         true,
+		ProtocolDetectionTimeout:    types.DurationProto(100 * time.Millisecond),
+		IngressService:              "istio-ingressgateway",
+		IngressControllerMode:       meshconfig.MeshConfig_STRICT,
+		IngressClass:                "istio",
+		TrustDomain:                 "cluster.local",
+		TrustDomainAliases:          []string{},
+		SdsUdsPath:                  "unix:/etc/istio/proxy/SDS",
+		EnableAutoMtls:              &types.BoolValue{Value: true},
+		OutboundTrafficPolicy:       &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},
+		LocalityLbSetting: &v1alpha3.LocalityLoadBalancerSetting{
+			Enabled: &types.BoolValue{Value: true},
+		},
+		Certificates:  []*meshconfig.Certificate{},
+		DefaultConfig: &proxyConfig,
+
+		// Not set in the default mesh config - code defaults.
+		MixerCheckServer:                  "",
+		MixerReportServer:                 "",
+		PolicyCheckFailOpen:               false,
+		SidecarToTelemetrySessionAffinity: false,
+		RootNamespace:                     constants.IstioSystemNamespace,
+		ProxyListenPort:                   15001,
+		ConnectTimeout:                    types.DurationProto(10 * time.Second),
+		EnableSdsTokenMount:               false,
+		DefaultServiceExportTo:            []string{"*"},
+		DefaultVirtualServiceExportTo:     []string{"*"},
+		DefaultDestinationRuleExportTo:    []string{"*"},
+		DnsRefreshRate:                    types.DurationProto(5 * time.Second), // 5 seconds is the default refresh rate used in Envoy
+		ThriftConfig:                      &meshconfig.MeshConfig_ThriftConfig{},
+		ClusterLocalNamespaces:            append(make([]string, 0), defaultClusterLocalNamespaces...),
+	}
+
 }
 
 // IsClusterLocal indicates whether the given namespace is configured to be cluster-local.
