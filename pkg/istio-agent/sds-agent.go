@@ -282,7 +282,7 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 
 // EnsureSDSReady checks if local SDS server is ready for accepting incoming connections.
 // Returns error on timeout or connection failure.
-func (conf *SDSAgent) EnsureSDSReady() error {
+func (conf *SDSAgent) EnsureSDSReady(isSidecar bool) error {
 	if !isSidecar && ingressSdsExists() {
 		err := sdsutil.SDSHealthCheck(serverOptions.IngressGatewayUDSPath)
 		if err != nil {

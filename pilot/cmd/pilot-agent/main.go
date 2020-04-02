@@ -228,7 +228,7 @@ var (
 			if err != nil {
 				log.Fatala("Failed to start in-process SDS", err)
 			}
-			if err = sa.EnsureSDSReady(); err != nil {
+			if err = sa.EnsureSDSReady(role.Type == model.SidecarProxy); err != nil {
 				log.Fatala("SDS server is not ready", err)
 			}
 
