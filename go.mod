@@ -67,7 +67,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
 	github.com/golang/protobuf v1.3.2
 	github.com/golang/sync v0.0.0-20180314180146-1d60e4601c6f
-	github.com/google/cel-go v0.2.0
+	github.com/google/cel-go v0.4.1
 	github.com/google/go-cmp v0.3.1
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/google/go-querystring v1.0.0 // indirect
