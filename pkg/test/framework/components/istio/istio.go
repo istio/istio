@@ -31,6 +31,10 @@ type Instance interface {
 // SetupConfigFn is a setup function that specifies the overrides of the configuration to deploy Istio.
 type SetupConfigFn func(cfg *Config)
 
+// SetupCASecretFn is a setup function that configures the secret for
+// the plugged in CA key and certificate.
+type SetupCASecretFn func(ctx resource.Context) error
+
 // Setup is a setup function that will deploy Istio on Kubernetes environment
 func Setup(i *Instance, cfn SetupConfigFn) resource.SetupFn {
 	return func(ctx resource.Context) error {
@@ -45,6 +49,43 @@ func Setup(i *Instance, cfn SetupConfigFn) resource.SetupFn {
 			}
 			if cfn != nil {
 				cfn(&cfg)
+			}
+			ins, err := Deploy(ctx, &cfg)
+			if err != nil {
+				return err
+			}
+			if i != nil {
+				*i = ins
+			}
+		}
+
+		return nil
+	}
+}
+
+// SetupWithPluginCAKeyCert is a setup function that will deploy Istio
+// with plugged in CA key and certificate on Kubernetes environment.
+func SetupWithPluginCAKeyCert(i *Instance, cfn SetupConfigFn, caSecretFn SetupCASecretFn) resource.SetupFn {
+	return func(ctx resource.Context) error {
+		switch ctx.Environment().EnvironmentName() {
+		case environment.Native:
+			scopes.Framework.Debugf("istio.Setup: Skipping deployment of Istio on native")
+
+		case environment.Kube:
+			cfg, err := DefaultConfig(ctx)
+			if err != nil {
+				return err
+			}
+			if cfn != nil {
+				cfn(&cfg)
+			}
+			if caSecretFn != nil {
+				err := caSecretFn(ctx)
+				if err != nil {
+					scopes.CI.Infof("=== FAILED: configuring CA secret [err=%v] ===", err)
+				} else {
+					scopes.CI.Info("=== SUCCESS: configuring CA secret ===")
+				}
 			}
 			ins, err := Deploy(ctx, &cfg)
 			if err != nil {
