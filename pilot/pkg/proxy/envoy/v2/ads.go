@@ -508,7 +508,10 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		}
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)
-		if len(con.Clusters) > 0 && len(edsUpdatedServices) > 0 {
+		if len(con.Clusters) > 0  {
+			if len(edsUpdatedServices) == 0 {
+				edsUpdatedServices = nil
+			}
 			if err := s.pushEds(pushEv.push, con, versionInfo(), edsUpdatedServices); err != nil {
 				return err
 			}

@@ -68,7 +68,7 @@ type SidecarScope struct {
 	// Union of services imported across all egress listeners for use by CDS code.
 	services []*Service
 	// Same services with services field. For convenient usage when accessing by hostname.
-	serviceMap map[string]*Service
+	serviceMap map[host.Name]*Service
 
 	// Destination rules imported across all egress listeners. This
 	// contains the computed set based on public/private destination rules
@@ -152,14 +152,14 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		namespaceDependencies: make(map[string]struct{}),
 	}
 
-	serviceMap := make(map[string]*Service, len(out.services))
+	serviceMap := make(map[host.Name]*Service, len(out.services))
 	out.serviceMap = serviceMap
 
 	// Now that we have all the services that sidecars using this scope (in
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
 	for _, s := range out.services {
-		serviceMap[string(s.Hostname)] = s
+		serviceMap[s.Hostname] = s
 
 		out.destinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s)
 		out.namespaceDependencies[s.Attributes.Namespace] = struct{}{}
@@ -192,7 +192,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 	// Now collect all the imported services across all egress listeners in
 	// this sidecar crd. This is needed to generate CDS output
 	out.services = make([]*Service, 0)
-	servicesAdded := make(map[string]*Service)
+	servicesAdded := make(map[host.Name]*Service)
 	out.serviceMap = servicesAdded
 	dummyNode := Proxy{
 		ConfigNamespace: configNamespace,
@@ -205,14 +205,14 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 		if s == nil {
 			return
 		}
-		if foundSvc, found := servicesAdded[string(s.Hostname)]; !found {
-			servicesAdded[string(s.Hostname)] = s
+		if foundSvc, found := servicesAdded[s.Hostname]; !found {
+			servicesAdded[s.Hostname] = s
 			out.services = append(out.services, s)
 			out.namespaceDependencies[s.Attributes.Namespace] = struct{}{}
 		} else if foundSvc.Attributes.Namespace == s.Attributes.Namespace && s.Ports != nil && len(s.Ports) > 0 {
 			// merge the ports to service when each listener generates partial service
 			// we only merge if the found service is in the same namespace as the one we're trying to add
-			os := servicesAdded[string(s.Hostname)]
+			os := servicesAdded[s.Hostname]
 			for _, p := range s.Ports {
 				found := false
 				for _, osp := range os.Ports {
@@ -435,7 +435,7 @@ func (sc *SidecarScope) DependsOnNamespace(namespace string) bool {
 	return false
 }
 
-func (sc *SidecarScope) DependsOnService(service string) bool {
+func (sc *SidecarScope) DependsOnService(service host.Name) bool {
 	if sc == nil {
 		return true
 	}

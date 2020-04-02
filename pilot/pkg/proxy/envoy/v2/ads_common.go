@@ -16,6 +16,7 @@ package v2
 
 import (
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 )
@@ -34,7 +35,7 @@ var (
 
 func serviceEntryAffectProxy(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
 	for resource := range resources {
-		if proxy.SidecarScope.DependsOnService(resource) {
+		if proxy.SidecarScope.DependsOnService(host.Name(resource)) {
 			return true
 		}
 	}
