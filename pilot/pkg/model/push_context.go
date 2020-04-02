@@ -266,7 +266,9 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 			merged.ConfigsUpdated[kind] = make(map[string]struct{})
 		}
 		for kind := range other.ConfigsUpdated {
-			merged.ConfigsUpdated[kind] = make(map[string]struct{})
+			if _, exists := merged.ConfigsUpdated[kind]; !exists {
+				merged.ConfigsUpdated[kind] = make(map[string]struct{})
+			}
 		}
 
 		if !merged.Full {
@@ -279,7 +281,9 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 				}
 
 				for update := range d2 {
-					merged.ConfigsUpdated[kind][update] = struct{}{}
+					if _, exists := merged.ConfigsUpdated[kind][update]; !exists {
+						merged.ConfigsUpdated[kind][update] = struct{}{}
+					}
 				}
 			}
 		}
@@ -292,7 +296,9 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 			merged.NamespacesUpdated[update] = struct{}{}
 		}
 		for update := range other.NamespacesUpdated {
-			merged.NamespacesUpdated[update] = struct{}{}
+			if _, exists := merged.NamespacesUpdated[update]; !exists {
+				merged.NamespacesUpdated[update] = struct{}{}
+			}
 		}
 	}
 
