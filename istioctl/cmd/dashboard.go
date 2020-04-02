@@ -23,6 +23,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 
@@ -41,13 +42,14 @@ var (
 
 // port-forward to Istio System Prometheus; open browser
 func promDashCmd() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:     "prometheus",
 		Short:   "Open Prometheus web UI",
 		Long:    `Open Istio's Prometheus dashboard`,
 		Example: `istioctl dashboard prometheus`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := clientExecFactory(kubeconfig, configContext)
+			client, err := clientExecFactory(kubeconfig, configContext, opts)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -72,13 +74,14 @@ func promDashCmd() *cobra.Command {
 
 // port-forward to Istio System Grafana; open browser
 func grafanaDashCmd() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:     "grafana",
 		Short:   "Open Grafana web UI",
 		Long:    `Open Istio's Grafana dashboard`,
 		Example: `istioctl dashboard grafana`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := clientExecFactory(kubeconfig, configContext)
+			client, err := clientExecFactory(kubeconfig, configContext, opts)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -103,13 +106,14 @@ func grafanaDashCmd() *cobra.Command {
 
 // port-forward to Istio System Kiali; open browser
 func kialiDashCmd() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:     "kiali",
 		Short:   "Open Kiali web UI",
 		Long:    `Open Istio's Kiali dashboard`,
 		Example: `istioctl dashboard kiali`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := clientExecFactory(kubeconfig, configContext)
+			client, err := clientExecFactory(kubeconfig, configContext, opts)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -134,13 +138,14 @@ func kialiDashCmd() *cobra.Command {
 
 // port-forward to Istio System Jaeger; open browser
 func jaegerDashCmd() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:     "jaeger",
 		Short:   "Open Jaeger web UI",
 		Long:    `Open Istio's Jaeger dashboard`,
 		Example: `istioctl dashboard jaeger`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := clientExecFactory(kubeconfig, configContext)
+			client, err := clientExecFactory(kubeconfig, configContext, opts)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -165,13 +170,14 @@ func jaegerDashCmd() *cobra.Command {
 
 // port-forward to Istio System Zipkin; open browser
 func zipkinDashCmd() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:     "zipkin",
 		Short:   "Open Zipkin web UI",
 		Long:    `Open Istio's Zipkin dashboard`,
 		Example: `istioctl dashboard zipkin`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := clientExecFactory(kubeconfig, configContext)
+			client, err := clientExecFactory(kubeconfig, configContext, opts)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -212,7 +218,7 @@ func envoyDashCmd() *cobra.Command {
 				return fmt.Errorf("name cannot be provided when a selector is specified")
 			}
 
-			client, err := clientExecFactory(kubeconfig, configContext)
+			client, err := envoyClientFactory(kubeconfig, configContext)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -249,6 +255,7 @@ func envoyDashCmd() *cobra.Command {
 
 // port-forward to sidecar ControlZ port; open browser
 func controlZDashCmd() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:     "controlz <pod-name[.namespace]>",
 		Short:   "Open ControlZ web UI",
@@ -265,7 +272,7 @@ func controlZDashCmd() *cobra.Command {
 				return fmt.Errorf("name cannot be provided when a selector is specified")
 			}
 
-			client, err := clientExecFactory(kubeconfig, configContext)
+			client, err := clientExecFactory(kubeconfig, configContext, opts)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}

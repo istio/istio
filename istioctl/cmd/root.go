@@ -33,6 +33,7 @@ import (
 	"istio.io/pkg/log"
 )
 
+// CommandParseError distinguishes an error parsing istioctl CLI arguments from an error processing
 type CommandParseError struct {
 	e error
 }
@@ -48,8 +49,11 @@ var (
 	istioNamespace   string
 	defaultNamespace string
 
-	// Create a kubernetes.ExecClient (or mockExecClient)
-	clientExecFactory = newExecClient
+	// Create a kubernetes.ExecClient (or mockExecClient) for talking to control plane components
+	clientExecFactory = newPilotExecClient
+
+	// Create a kubernetes.ExecClient (or mock) for talking to data plane components
+	envoyClientFactory = newEnvoyClient
 
 	// Create a kubernetes.ExecClientSDS
 	clientExecSdsFactory = newSDSExecClient

@@ -37,6 +37,7 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/client-go/transport/spdy"
 
+	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/version"
 )
@@ -52,6 +53,7 @@ var (
 type Client struct {
 	Config *rest.Config
 	*rest.RESTClient
+	Revision string
 }
 
 // ExecClient is an interface for remote execution
@@ -82,7 +84,20 @@ func NewClient(kubeconfig, configContext string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Client{config, restClient}, nil
+	return &Client{config, restClient, ""}, nil
+}
+
+// NewExtendedClient is a constructor for the client wrapper that supports dual/multiple control plans
+func NewExtendedClient(kubeconfig, configContext string, opts clioptions.ControlPlaneOptions) (*Client, error) {
+	config, err := defaultRestConfig(kubeconfig, configContext)
+	if err != nil {
+		return nil, err
+	}
+	restClient, err := rest.RESTClientFor(config)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{config, restClient, opts.Revision}, nil
 }
 
 func defaultRestConfig(kubeconfig, configContext string) (*rest.Config, error) {
@@ -195,6 +210,15 @@ func (client *Client) ExtractExecResult(podName, podNamespace, container string,
 
 // GetIstioPods retrieves the pod objects for Istio deployments
 func (client *Client) GetIstioPods(namespace string, params map[string]string) ([]v1.Pod, error) {
+	if client.Revision != "" {
+		labelSelector, ok := params["labelSelector"]
+		if ok {
+			params["labelSelector"] = fmt.Sprintf("%s,istio.io/rev=%s", labelSelector, client.Revision)
+		} else {
+			params["labelSelector"] = fmt.Sprintf("istio.io/rev=%s", client.Revision)
+		}
+	}
+
 	req := client.Get().
 		Resource("pods").
 		Namespace(namespace)
