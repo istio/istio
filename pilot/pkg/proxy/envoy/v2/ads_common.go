@@ -30,6 +30,7 @@ var (
 )
 
 func serviceEntryAffectProxy(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
+	_ = pushEv
 	if len(resources) == 0 {
 		return true
 	}
@@ -43,6 +44,7 @@ func serviceEntryAffectProxy(proxy *model.Proxy, pushEv *XdsEvent, resources map
 }
 
 func virtualServiceAffectProxy(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
+	_ = pushEv
 	if len(resources) == 0 {
 		return true
 	}
@@ -56,6 +58,7 @@ func virtualServiceAffectProxy(proxy *model.Proxy, pushEv *XdsEvent, resources m
 }
 
 func destinationRuleAffectProxy(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
+	_ = pushEv
 	if len(resources) == 0 {
 		return true
 	}
