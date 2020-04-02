@@ -16,6 +16,7 @@ package mesh
 
 import (
 	"fmt"
+	"github.com/ghodss/yaml"
 	"path/filepath"
 	"strings"
 
@@ -176,6 +177,12 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 		}
 	}
 
+	//TODO: handle gateway node properly
+	userOverlayYAML, err = overlayk8sfromValueToIOP(userOverlayYAML, l)
+	if err != nil {
+		return "", nil, fmt.Errorf("could not overlay k8s settings from values to IOP: %s", err)
+	}
+
 	// Merge user file and --set overlays.
 	outYAML, err = util.OverlayYAML(outYAML, userOverlayYAML)
 	if err != nil {
@@ -206,6 +213,40 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 	return util.ToYAMLWithJSONPB(finalIOPS), finalIOPS, nil
 }
 
+func overlayk8sfromValueToIOP(userOverlayYaml string, l *Logger) (string, error) {
+	mvs := version.OperatorBinaryVersion.MinorVersion
+	t, err := translate.NewReverseTranslator(mvs)
+	if err != nil {
+		return "", fmt.Errorf("error creating values.yaml translator: %s", err)
+	}
+	valuesOverlay, err := tpath.GetConfigSubtree(userOverlayYaml, "spec.values")
+	if err != nil {
+		return "", fmt.Errorf("error getting values overlay yaml from userOverlayYaml %v", err)
+	}
+	var valuesOverlayTree = make(map[string]interface{})
+	err = yaml.Unmarshal([]byte(valuesOverlay), &valuesOverlayTree)
+	if err != nil {
+		return "", fmt.Errorf("error when unmarshalling values overlay yaml into untype tree %v", err)
+	}
+	iopSpecTree := make(map[string]interface{})
+	if err = t.TranslateK8S(valuesOverlayTree, iopSpecTree); err != nil {
+		return "", err
+	}
+	iopSpecTreeYAML, err := yaml.Marshal(iopSpecTree)
+	if err != nil {
+		return "", fmt.Errorf("error when marshalling reverse translated tree %v", err)
+	}
+	iopTreeYAML, err := tpath.AddSpecRoot(string(iopSpecTreeYAML))
+	if err != nil {
+		return "", fmt.Errorf("error when adding spec root: %v", err)
+	}
+	// overlay the reverse translated iopTreeYAML back to userOverlayYaml
+	finalYAML, err := util.OverlayYAML(userOverlayYaml, iopTreeYAML)
+	if err != nil {
+		return "", fmt.Errorf("error overlay the reverse translated iopTreeYAML: %v", err)
+	}
+	return finalYAML, err
+}
 // rewriteURLToLocalInstallPath checks installPackagePath and if it is a URL, it tries to download and extract the
 // Istio release tar at the URL to a local file path. If successful, it returns the resulting local paths to the
 // installation charts and profile file.

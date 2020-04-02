@@ -101,14 +101,6 @@ func (t *ReverseTranslator) initAPIAndComponentMapping(vs version.MinorVersion) 
 func (t *ReverseTranslator) initK8SMapping(valueTree map[string]interface{}) error {
 	outputMapping := make(map[string]*Translation)
 	for valKey, componentName := range t.ValuesToComponentName {
-		cnEnabled, _, err := IsComponentEnabledFromValue(componentName, valueTree)
-		if err != nil {
-			return err
-		}
-		if !cnEnabled {
-			scope.Debugf("Component:%s disabled, skip k8s mapping", componentName)
-			continue
-		}
 		for K8SValKey, outPathTmpl := range t.KubernetesPatternMapping {
 			newKey, err := renderComponentName(K8SValKey, valKey)
 			if err != nil {
@@ -130,14 +122,6 @@ func (t *ReverseTranslator) initK8SMapping(valueTree map[string]interface{}) err
 	igwOutputMapping := make(map[string]*Translation)
 	egwOutputMapping := make(map[string]*Translation)
 	for valKey, componentName := range gatewayPathMapping {
-		cnEnabled, _, err := IsComponentEnabledFromValue(componentName, valueTree)
-		if err != nil {
-			return err
-		}
-		if !cnEnabled {
-			scope.Debugf("Component:%s disabled, skip k8s mapping", componentName)
-			continue
-		}
 		mapping := igwOutputMapping
 		if componentName == name.EgressComponentName {
 			mapping = egwOutputMapping
@@ -213,31 +197,35 @@ func (t *ReverseTranslator) TranslateTree(valueTree map[string]interface{}, cpSp
 		return fmt.Errorf("error when translating enablement and namespace from value.yaml tree: %v", err)
 	}
 	// translate with api mapping
-	err = t.translateTree(valueTree, cpSpecTree)
+	err = t.translateAPI(valueTree, cpSpecTree)
 	if err != nil {
 		return fmt.Errorf("error when translating value.yaml tree with global mapping: %v", err)
 	}
 
 	// translate with k8s mapping
-	err = t.initK8SMapping(valueTree)
-	if err != nil {
-		return fmt.Errorf("error when initiating k8s mapping: %v", err)
-	}
-	err = t.translateK8sTree(valueTree, cpSpecTree, t.KubernetesMapping)
-	if err != nil {
-		return fmt.Errorf("error when translating value.yaml tree with kubernetes mapping: %v", err)
-	}
-
-	// translate for gateway
-	err = t.translateGateway(valueTree, cpSpecTree)
-	if err != nil {
-		return fmt.Errorf("error when translating gateway from value.yaml tree: %v", err.Error())
+	if err := t.TranslateK8S(valueTree, cpSpecTree); err != nil {
+		return err
 	}
 
 	// translate remaining untranslated paths into component values
 	err = t.translateRemainingPaths(valueTree, cpSpecTree, nil)
 	if err != nil {
 		return fmt.Errorf("error when translating remaining path: %v", err)
+	}
+	return nil
+}
+
+// TranslateK8S is a helper function to translate k8s settings from values.yaml to IstioOperator, except for gateways.
+func (t *ReverseTranslator) TranslateK8S(valueTree map[string]interface{}, cpSpecTree map[string]interface{}) error {
+	// translate with k8s mapping
+	if err := t.initK8SMapping(valueTree); err != nil {
+		return fmt.Errorf("error when initiating k8s mapping: %v", err)
+	}
+	if err := t.translateK8sTree(valueTree, cpSpecTree, t.KubernetesMapping); err != nil {
+		return fmt.Errorf("error when translating value.yaml tree with kubernetes mapping: %v", err)
+	}
+	if err := t.translateGateway(valueTree, cpSpecTree); err != nil {
+		return fmt.Errorf("error when translating gateway with kubernetes mapping: %v", err.Error())
 	}
 	return nil
 }
@@ -326,13 +314,17 @@ func translateStrategy(fieldName string, outPath string, value interface{}, cpSp
 }
 
 // translateHPASpec translates HPA related configurations from helm values.yaml tree.
-func translateHPASpec(inPath string, outPath string, value interface{}, valueTree map[string]interface{}, cpSpecTree map[string]interface{}) error {
-	asEnabled, ok := value.(bool)
-	if !ok {
-		return fmt.Errorf("expect autoscaleEnabled node type to be bool but got: %T", value)
-	}
-	if !asEnabled {
-		return nil
+// do not translate if autoscaleEnabled is explicitly set to false
+func translateHPASpec(inPath string, outPath string, valueTree map[string]interface{}, cpSpecTree map[string]interface{}) error {
+	m, found, err := tpath.GetFromTreePath(valueTree, util.ToYAMLPath(inPath))
+	if found {
+		asEnabled, ok := m.(bool)
+		if !ok {
+			return fmt.Errorf("expect autoscaleEnabled node type to be bool but got: %T", m)
+		}
+		if !asEnabled {
+			return nil
+		}
 	}
 
 	newP := util.PathFromString(inPath)
@@ -371,24 +363,26 @@ func translateHPASpec(inPath string, outPath string, value interface{}, valueTre
 	}
 
 	// There is no direct source from value.yaml for scaleTargetRef value, we need to construct from component name
-	st := make(map[string]interface{})
-	stVal := `
+	if found {
+		st := make(map[string]interface{})
+		stVal := `
 apiVersion: apps/v1
 kind: Deployment
 name: istio-%s`
 
-	// need to do special handling for gateways and mixer
-	// ex. because deployment name should be istio-telemetry instead of istio-mixer.telemetry, we need to get rid of the prefix mixer part.
-	if specialComponentPath[newPS] && len(newP) > 2 {
-		newPS = newP[1 : len(newP)-1].String()
-	}
+		// need to do special handling for gateways and mixer
+		// ex. because deployment name should be istio-telemetry instead of istio-mixer.telemetry, we need to get rid of the prefix mixer part.
+		if specialComponentPath[newPS] && len(newP) > 2 {
+			newPS = newP[1 : len(newP)-1].String()
+		}
 
-	stString := fmt.Sprintf(stVal, newPS)
-	if err := yaml.Unmarshal([]byte(stString), &st); err != nil {
-		return err
-	}
-	if err := setOutputAndClean(valPath, outPath+".scaleTargetRef", st, valueTree, cpSpecTree, false); err != nil {
-		return err
+		stString := fmt.Sprintf(stVal, newPS)
+		if err := yaml.Unmarshal([]byte(stString), &st); err != nil {
+			return err
+		}
+		if err := setOutputAndClean(valPath, outPath+".scaleTargetRef", st, valueTree, cpSpecTree, false); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -435,6 +429,17 @@ func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
 	cpSpecTree map[string]interface{}, mapping map[string]*Translation) error {
 	for inPath, v := range mapping {
 		scope.Debugf("Checking for k8s path %s in helm Value.yaml tree", inPath)
+		path := util.PathFromString(inPath)
+		k8sSettingName := ""
+		if len(path) != 0 {
+			k8sSettingName = path[len(path)-1]
+		}
+	    if k8sSettingName == "autoscaleEnabled" {
+			if err := translateHPASpec(inPath, v.OutPath, valueTree, cpSpecTree); err != nil {
+				return fmt.Errorf("error in translating K8s HPA spec: %s", err)
+			}
+			continue
+		}
 		m, found, err := tpath.GetFromTreePath(valueTree, util.ToYAMLPath(inPath))
 		if err != nil {
 			return err
@@ -455,19 +460,7 @@ func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
 			continue
 		}
 
-		path := util.PathFromString(inPath)
-		k8sSettingName := ""
-		if len(path) != 0 {
-			k8sSettingName = path[len(path)-1]
-		}
-
 		switch k8sSettingName {
-		case "autoscaleEnabled":
-			err := translateHPASpec(inPath, v.OutPath, m, valueTree, cpSpecTree)
-			if err != nil {
-				return fmt.Errorf("error in translating K8s HPA spec: %s", err)
-			}
-
 		case "env":
 			err := translateEnv(v.OutPath, m, cpSpecTree)
 			if err != nil {
@@ -528,8 +521,8 @@ func (t *ReverseTranslator) translateRemainingPaths(valueTree map[string]interfa
 	return nil
 }
 
-// translateTree is internal method for translating value.yaml tree
-func (t *ReverseTranslator) translateTree(valueTree map[string]interface{},
+// translateAPI is internal method for translating value.yaml tree based on API mapping.
+func (t *ReverseTranslator) translateAPI(valueTree map[string]interface{},
 	cpSpecTree map[string]interface{}) error {
 	for inPath, v := range t.APIMapping {
 		scope.Debugf("Checking for path %s in helm Value.yaml tree", inPath)

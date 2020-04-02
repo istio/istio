@@ -140,6 +140,7 @@ values:
     telemetryNamespace: istio-telemetry
   pilot:
     image: pilot
+    autoscaleEnabled: true
     traceSampling: 1
     podAntiAffinityLabelSelector:
     - key: istio
