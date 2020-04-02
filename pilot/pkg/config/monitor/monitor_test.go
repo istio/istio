@@ -33,8 +33,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
-const checkInterval = 100 * time.Millisecond
-
 var gatewayGvk = collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind()
 
 var createConfigSet = []*model.Config{
@@ -99,9 +97,9 @@ func TestMonitorForChange(t *testing.T) {
 		case 0:
 			configs = createConfigSet
 			err = nil
-		case 1:
+		case 3:
 			configs = updateConfigSet
-		case 2:
+		case 6:
 			configs = []*model.Config{}
 		}
 
@@ -113,7 +111,12 @@ func TestMonitorForChange(t *testing.T) {
 	defer func() { stop <- struct{}{} }() // shut it down
 	mon.Start(stop)
 
-	appsignals.Notify("test", syscall.SIGUSR1)
+	go func() {
+		for i := 0; i < 10; i++ {
+			appsignals.Notify("test", syscall.SIGUSR1)
+			time.Sleep(time.Millisecond * 100)
+		}
+	}()
 	g.Eventually(func() error {
 		c, err := store.List(gatewayGvk, "")
 		g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -129,10 +132,12 @@ func TestMonitorForChange(t *testing.T) {
 		return nil
 	}).Should(gomega.Succeed())
 
-	appsignals.Notify("test", syscall.SIGUSR1)
 	g.Eventually(func() error {
 		c, err := store.List(gatewayGvk, "")
 		g.Expect(err).NotTo(gomega.HaveOccurred())
+		if len(c) == 0 {
+			return errors.New("no config")
+		}
 
 		gateway := c[0].Spec.(*networking.Gateway)
 		if gateway.Servers[0].Port.Protocol != "HTTP2" {
@@ -142,7 +147,6 @@ func TestMonitorForChange(t *testing.T) {
 		return nil
 	}).Should(gomega.Succeed())
 
-	appsignals.Notify("test", syscall.SIGUSR1)
 	g.Eventually(func() ([]model.Config, error) {
 		return store.List(gatewayGvk, "")
 	}).Should(gomega.HaveLen(0))
