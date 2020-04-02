@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/echo/common/scheme"
+
 	"istio.io/istio/pkg/test/env"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -92,11 +94,22 @@ spec:
 					Namespace: ns,
 					Ports: []echo.Port{
 						{
-							// Currently only GRPC protocol has the TLS certs added.
-							// For this test, that is sufficient.
 							Name:         "grpc",
 							Protocol:     protocol.GRPC,
 							InstancePort: 8090,
+							TLS:          true,
+						},
+						{
+							Name:         "http",
+							Protocol:     protocol.HTTP,
+							InstancePort: 8091,
+							TLS:          true,
+						},
+						{
+							Name:         "tcp",
+							Protocol:     protocol.TCP,
+							InstancePort: 8092,
+							TLS:          true,
 						},
 					},
 					Galley: g,
@@ -117,15 +130,23 @@ spec:
 				}).
 				BuildOrFail(t)
 
-			retry.UntilSuccessOrFail(ctx, func() error {
-				resp, err := client.Call(echo.CallOptions{
-					Target:   server,
-					PortName: "grpc",
+			for _, tt := range []string{"grpc", "http", "tcp"} {
+				ctx.NewSubTest(tt).Run(func(ctx framework.TestContext) {
+					retry.UntilSuccessOrFail(ctx, func() error {
+						opts := echo.CallOptions{
+							Target:   server,
+							PortName: tt,
+						}
+						if tt == "tcp" {
+							opts.Scheme = scheme.TCP
+						}
+						resp, err := client.Call(opts)
+						if err != nil {
+							return err
+						}
+						return resp.CheckOK()
+					}, retry.Delay(time.Millisecond*100))
 				})
-				if err != nil {
-					return err
-				}
-				return resp.CheckOK()
-			}, retry.Delay(time.Millisecond*100))
+			}
 		})
 }
