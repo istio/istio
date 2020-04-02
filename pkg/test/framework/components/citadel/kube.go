@@ -15,6 +15,7 @@
 package citadel
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -61,7 +62,7 @@ func (c *kubeComponent) ID() resource.ID {
 }
 
 func (c *kubeComponent) WaitForSecretToExist() (*v1.Secret, error) {
-	watch, err := c.secret.Watch(mv1.ListOptions{})
+	watch, err := c.secret.Watch(context.TODO(), mv1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up watch for secret (error: %v)", err)
 	}
@@ -93,7 +94,7 @@ func (c *kubeComponent) WaitForSecretToExistOrFail(t test.Failer) *v1.Secret {
 
 func (c *kubeComponent) DeleteSecret(name string) error {
 	var immediate int64
-	return c.secret.Delete(name, &mv1.DeleteOptions{GracePeriodSeconds: &immediate})
+	return c.secret.Delete(context.TODO(), name, mv1.DeleteOptions{GracePeriodSeconds: &immediate})
 }
 
 func (c *kubeComponent) DeleteSecretOrFail(t test.Failer, name string) {

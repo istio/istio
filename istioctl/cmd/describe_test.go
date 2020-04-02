@@ -153,8 +153,8 @@ var (
 					},
 				},
 				TrafficPolicy: &networking.TrafficPolicy{
-					Tls: &networking.TLSSettings{
-						Mode: networking.TLSSettings_ISTIO_MUTUAL,
+					Tls: &networking.ClientTLSSettings{
+						Mode: networking.ClientTLSSettings_ISTIO_MUTUAL,
 					},
 				},
 			},

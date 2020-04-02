@@ -11,7 +11,6 @@
 // charts/base/templates/clusterrolebinding.yaml
 // charts/base/templates/crds.yaml
 // charts/base/templates/endpoints.yaml
-// charts/base/templates/namespaces.yaml
 // charts/base/templates/serviceaccount.yaml
 // charts/base/templates/services.yaml
 // charts/base/templates/validatingwebhookconfiguration.yaml
@@ -69,8 +68,6 @@
 // charts/istio-control/istio-discovery/files/gen-istio.yaml
 // charts/istio-control/istio-discovery/files/injection-template.yaml
 // charts/istio-control/istio-discovery/kustomization.yaml
-// charts/istio-control/istio-discovery/templates/_affinity.tpl
-// charts/istio-control/istio-discovery/templates/_helpers.tpl
 // charts/istio-control/istio-discovery/templates/autoscale.yaml
 // charts/istio-control/istio-discovery/templates/configmap-jwks.yaml
 // charts/istio-control/istio-discovery/templates/configmap.yaml
@@ -4325,6 +4322,74 @@ spec:
                       format: string
                       type: string
                     type: array
+                  localhostServerTls:
+                    properties:
+                      caCertificates:
+                        description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                        format: string
+                        type: string
+                      cipherSuites:
+                        description: 'Optional: If specified, only support the specified
+                          cipher list.'
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      credentialName:
+                        format: string
+                        type: string
+                      httpsRedirect:
+                        type: boolean
+                      maxProtocolVersion:
+                        description: 'Optional: Maximum TLS protocol version.'
+                        enum:
+                        - TLS_AUTO
+                        - TLSV1_0
+                        - TLSV1_1
+                        - TLSV1_2
+                        - TLSV1_3
+                        type: string
+                      minProtocolVersion:
+                        description: 'Optional: Minimum TLS protocol version.'
+                        enum:
+                        - TLS_AUTO
+                        - TLSV1_0
+                        - TLSV1_1
+                        - TLSV1_2
+                        - TLSV1_3
+                        type: string
+                      mode:
+                        enum:
+                        - PASSTHROUGH
+                        - SIMPLE
+                        - MUTUAL
+                        - AUTO_PASSTHROUGH
+                        - ISTIO_MUTUAL
+                        type: string
+                      privateKey:
+                        description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                        format: string
+                        type: string
+                      serverCertificate:
+                        description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                        format: string
+                        type: string
+                      subjectAltNames:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      verifyCertificateHash:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      verifyCertificateSpki:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                    type: object
                   port:
                     description: The port associated with the listener.
                     properties:
@@ -4358,6 +4423,37 @@ spec:
                   defaultEndpoint:
                     format: string
                     type: string
+                  localhostClientTls:
+                    properties:
+                      caCertificates:
+                        format: string
+                        type: string
+                      clientCertificate:
+                        description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                        format: string
+                        type: string
+                      mode:
+                        enum:
+                        - DISABLE
+                        - SIMPLE
+                        - MUTUAL
+                        - ISTIO_MUTUAL
+                        type: string
+                      privateKey:
+                        description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                        format: string
+                        type: string
+                      sni:
+                        description: SNI string to present to the server during TLS
+                          handshake.
+                        format: string
+                        type: string
+                      subjectAltNames:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                    type: object
                   port:
                     description: The port associated with the listener.
                     properties:
@@ -4375,6 +4471,108 @@ spec:
                     type: object
                 type: object
               type: array
+            localhost:
+              properties:
+                clientTls:
+                  properties:
+                    caCertificates:
+                      format: string
+                      type: string
+                    clientCertificate:
+                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      format: string
+                      type: string
+                    mode:
+                      enum:
+                      - DISABLE
+                      - SIMPLE
+                      - MUTUAL
+                      - ISTIO_MUTUAL
+                      type: string
+                    privateKey:
+                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      format: string
+                      type: string
+                    sni:
+                      description: SNI string to present to the server during TLS
+                        handshake.
+                      format: string
+                      type: string
+                    subjectAltNames:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                  type: object
+                serverTls:
+                  properties:
+                    caCertificates:
+                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      format: string
+                      type: string
+                    cipherSuites:
+                      description: 'Optional: If specified, only support the specified
+                        cipher list.'
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                    credentialName:
+                      format: string
+                      type: string
+                    httpsRedirect:
+                      type: boolean
+                    maxProtocolVersion:
+                      description: 'Optional: Maximum TLS protocol version.'
+                      enum:
+                      - TLS_AUTO
+                      - TLSV1_0
+                      - TLSV1_1
+                      - TLSV1_2
+                      - TLSV1_3
+                      type: string
+                    minProtocolVersion:
+                      description: 'Optional: Minimum TLS protocol version.'
+                      enum:
+                      - TLS_AUTO
+                      - TLSV1_0
+                      - TLSV1_1
+                      - TLSV1_2
+                      - TLSV1_3
+                      type: string
+                    mode:
+                      enum:
+                      - PASSTHROUGH
+                      - SIMPLE
+                      - MUTUAL
+                      - AUTO_PASSTHROUGH
+                      - ISTIO_MUTUAL
+                      type: string
+                    privateKey:
+                      description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                      format: string
+                      type: string
+                    serverCertificate:
+                      description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                      format: string
+                      type: string
+                    subjectAltNames:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                    verifyCertificateHash:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                    verifyCertificateSpki:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                  type: object
+              type: object
             outboundTrafficPolicy:
               description: Configuration for the outbound traffic policy.
               properties:
@@ -6829,16 +7027,6 @@ func chartsBaseFilesCrdOperatorYaml() (*asset, error) {
 }
 
 var _chartsBaseFilesGenIstioClusterYaml = []byte(`---
-# Source: base/templates/namespaces.yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: istio-system
-  labels:
-    istio-operator-managed: Reconcile
-    istio-injection: disabled
-
----
 # Source: base/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
@@ -10886,6 +11074,74 @@ spec:
                       format: string
                       type: string
                     type: array
+                  localhostServerTls:
+                    properties:
+                      caCertificates:
+                        description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                        format: string
+                        type: string
+                      cipherSuites:
+                        description: 'Optional: If specified, only support the specified
+                          cipher list.'
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      credentialName:
+                        format: string
+                        type: string
+                      httpsRedirect:
+                        type: boolean
+                      maxProtocolVersion:
+                        description: 'Optional: Maximum TLS protocol version.'
+                        enum:
+                        - TLS_AUTO
+                        - TLSV1_0
+                        - TLSV1_1
+                        - TLSV1_2
+                        - TLSV1_3
+                        type: string
+                      minProtocolVersion:
+                        description: 'Optional: Minimum TLS protocol version.'
+                        enum:
+                        - TLS_AUTO
+                        - TLSV1_0
+                        - TLSV1_1
+                        - TLSV1_2
+                        - TLSV1_3
+                        type: string
+                      mode:
+                        enum:
+                        - PASSTHROUGH
+                        - SIMPLE
+                        - MUTUAL
+                        - AUTO_PASSTHROUGH
+                        - ISTIO_MUTUAL
+                        type: string
+                      privateKey:
+                        description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                        format: string
+                        type: string
+                      serverCertificate:
+                        description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                        format: string
+                        type: string
+                      subjectAltNames:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      verifyCertificateHash:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      verifyCertificateSpki:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                    type: object
                   port:
                     description: The port associated with the listener.
                     properties:
@@ -10919,6 +11175,37 @@ spec:
                   defaultEndpoint:
                     format: string
                     type: string
+                  localhostClientTls:
+                    properties:
+                      caCertificates:
+                        format: string
+                        type: string
+                      clientCertificate:
+                        description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                        format: string
+                        type: string
+                      mode:
+                        enum:
+                        - DISABLE
+                        - SIMPLE
+                        - MUTUAL
+                        - ISTIO_MUTUAL
+                        type: string
+                      privateKey:
+                        description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                        format: string
+                        type: string
+                      sni:
+                        description: SNI string to present to the server during TLS
+                          handshake.
+                        format: string
+                        type: string
+                      subjectAltNames:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                    type: object
                   port:
                     description: The port associated with the listener.
                     properties:
@@ -10936,6 +11223,108 @@ spec:
                     type: object
                 type: object
               type: array
+            localhost:
+              properties:
+                clientTls:
+                  properties:
+                    caCertificates:
+                      format: string
+                      type: string
+                    clientCertificate:
+                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      format: string
+                      type: string
+                    mode:
+                      enum:
+                      - DISABLE
+                      - SIMPLE
+                      - MUTUAL
+                      - ISTIO_MUTUAL
+                      type: string
+                    privateKey:
+                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      format: string
+                      type: string
+                    sni:
+                      description: SNI string to present to the server during TLS
+                        handshake.
+                      format: string
+                      type: string
+                    subjectAltNames:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                  type: object
+                serverTls:
+                  properties:
+                    caCertificates:
+                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      format: string
+                      type: string
+                    cipherSuites:
+                      description: 'Optional: If specified, only support the specified
+                        cipher list.'
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                    credentialName:
+                      format: string
+                      type: string
+                    httpsRedirect:
+                      type: boolean
+                    maxProtocolVersion:
+                      description: 'Optional: Maximum TLS protocol version.'
+                      enum:
+                      - TLS_AUTO
+                      - TLSV1_0
+                      - TLSV1_1
+                      - TLSV1_2
+                      - TLSV1_3
+                      type: string
+                    minProtocolVersion:
+                      description: 'Optional: Minimum TLS protocol version.'
+                      enum:
+                      - TLS_AUTO
+                      - TLSV1_0
+                      - TLSV1_1
+                      - TLSV1_2
+                      - TLSV1_3
+                      type: string
+                    mode:
+                      enum:
+                      - PASSTHROUGH
+                      - SIMPLE
+                      - MUTUAL
+                      - AUTO_PASSTHROUGH
+                      - ISTIO_MUTUAL
+                      type: string
+                    privateKey:
+                      description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                      format: string
+                      type: string
+                    serverCertificate:
+                      description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                      format: string
+                      type: string
+                    subjectAltNames:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                    verifyCertificateHash:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                    verifyCertificateSpki:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                  type: object
+              type: object
             outboundTrafficPolicy:
               description: Configuration for the outbound traffic policy.
               properties:
@@ -13344,41 +13733,6 @@ spec:
 
 ---
 # Source: base/templates/clusterrole.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-pilot-istio-system
-  labels:
-    app: pilot
-    release: istio-base
-rules:
-- apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
-  verbs: ["get", "watch", "list"]
-  resources: ["*"]
-- apiGroups: ["apiextensions.k8s.io"]
-  resources: ["customresourcedefinitions"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["networking.k8s.io"]
-  resources: ["ingresses"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["networking.k8s.io"]
-  resources: ["ingresses/status"]
-  verbs: ["*"]
-  # TODO: remove, too broad permission, should be namespace only
-- apiGroups: [""]
-  resources: ["configmaps"]
-  # Create and update needed for ingress election
-  verbs: ["get", "list", "watch", "create", "update"]
-- apiGroups: [""]
-  resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["create", "get", "watch", "list", "update", "delete"]
-- apiGroups: ["discovery.k8s.io"]
-  resources: ["endpointslices"]
-  verbs: ["get", "list", "watch"]
----
 # Dedicated cluster role - istiod will use fewer dangerous permissions ( secret access in particular ).
 # TODO: separate cluster role with the minimal set of permissions needed for a 'tenant' Istiod
 apiVersion: rbac.authorization.k8s.io/v1
@@ -13428,7 +13782,7 @@ rules:
 
   # ingress controller
   - apiGroups: ["networking.k8s.io"]
-    resources: ["ingresses"]
+    resources: ["ingresses", "ingressclasses"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses/status"]
@@ -13512,22 +13866,6 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: istio-reader-service-account
-    namespace: istio-system
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-pilot-istio-system
-  labels:
-    app: pilot
-    release: istio-base
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-pilot-istio-system
-subjects:
-  - kind: ServiceAccount
-    name: istio-pilot-service-account
     namespace: istio-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -13644,54 +13982,7 @@ func chartsBaseKustomizationYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsBaseTemplatesClusterroleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-pilot-{{ .Values.global.istioNamespace }}
-  labels:
-    app: pilot
-    release: {{ .Release.Name }}
-rules:
-- apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
-{{- if .Values.global.istiod.enableAnalysis }}
-  verbs: ["get", "watch", "list", "update"]
-{{- else }}
-  verbs: ["get", "watch", "list"]
-{{- end }}
-  resources: ["*"]
-{{- if .Values.global.istiod.enableAnalysis }}
-  - apiGroups: ["extensions", "networking.k8s.io"]
-    resources: ["ingresses"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["extensions", "networking.k8s.io"]
-    resources: ["ingresses/status"]
-    verbs: ["*"]
-{{- end}}
-- apiGroups: ["apiextensions.k8s.io"]
-  resources: ["customresourcedefinitions"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["networking.k8s.io"]
-  resources: ["ingresses"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["networking.k8s.io"]
-  resources: ["ingresses/status"]
-  verbs: ["*"]
-  # TODO: remove, too broad permission, should be namespace only
-- apiGroups: [""]
-  resources: ["configmaps"]
-  # Create and update needed for ingress election
-  verbs: ["get", "list", "watch", "create", "update"]
-- apiGroups: [""]
-  resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["create", "get", "watch", "list", "update", "delete"]
-- apiGroups: ["discovery.k8s.io"]
-  resources: ["endpointslices"]
-  verbs: ["get", "list", "watch"]
----
-# Dedicated cluster role - istiod will use fewer dangerous permissions ( secret access in particular ).
+var _chartsBaseTemplatesClusterroleYaml = []byte(`# Dedicated cluster role - istiod will use fewer dangerous permissions ( secret access in particular ).
 # TODO: separate cluster role with the minimal set of permissions needed for a 'tenant' Istiod
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -13719,7 +14010,6 @@ rules:
 
   # istio configuration
   - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
-
 {{- if .Values.global.istiod.enableAnalysis }}
     verbs: ["get", "watch", "list", "update"]
 {{- else }}
@@ -13753,7 +14043,7 @@ rules:
     verbs: ["*"]
 {{- end}}
   - apiGroups: ["networking.k8s.io"]
-    resources: ["ingresses"]
+    resources: ["ingresses", "ingressclasses"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses/status"]
@@ -13851,22 +14141,6 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: istio-reader-service-account
-    namespace: {{ .Values.global.istioNamespace }}
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-pilot-{{ .Values.global.istioNamespace }}
-  labels:
-    app: pilot
-    release: {{ .Release.Name }}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-pilot-{{ .Values.global.istioNamespace }}
-subjects:
-  - kind: ServiceAccount
-    name: istio-pilot-service-account
     namespace: {{ .Values.global.istioNamespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -14002,30 +14276,6 @@ func chartsBaseTemplatesEndpointsYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "charts/base/templates/endpoints.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsBaseTemplatesNamespacesYaml = []byte(`apiVersion: v1
-kind: Namespace
-metadata:
-  name: {{ .Values.global.istioNamespace }}
-  labels:
-    istio-operator-managed: Reconcile
-    istio-injection: disabled
-`)
-
-func chartsBaseTemplatesNamespacesYamlBytes() ([]byte, error) {
-	return _chartsBaseTemplatesNamespacesYaml, nil
-}
-
-func chartsBaseTemplatesNamespacesYaml() (*asset, error) {
-	bytes, err := chartsBaseTemplatesNamespacesYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/base/templates/namespaces.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -14226,14 +14476,10 @@ var _chartsBaseValuesYaml = []byte(`global:
 
   # ImagePullSecrets for control plane ServiceAccount, list of secrets in the same namespace
   # to use for pulling any images in pods that reference this ServiceAccount.
-  # Must be set for any clustser configured with private docker registry.
+  # Must be set for any cluster configured with private docker registry.
   imagePullSecrets: []
 
-  # Used to locate istio-pilot.
-  # Default is to install pilot in a dedicated namespace, istio-pilot11. You can use multiple namespaces, but
-  # for each 'profile' you need to match the control plane namespace and the value of istioNamespace
-  # It is assumed that istio-system is running either 1.0 or an upgraded version of 1.1, but only security components are
-  # used (citadel generating the secrets).
+  # Used to locate istiod.
   istioNamespace: istio-system
 
   istiod:
@@ -17760,6 +18006,7 @@ metadata:
   namespace: istio-system
   labels:
     app: istiod
+    istio.io/rev: default
     release: istio-base
     istio: pilot
 spec:
@@ -17773,12 +18020,16 @@ spec:
 ---
 # Source: istio-discovery/templates/configmap.yaml
 
+
+
+
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio
   namespace: istio-system
   labels:
+    istio.io/rev: default
     release: istio-base
 data:
 
@@ -17830,25 +18081,19 @@ data:
   mesh: |-
     # Set enableTracing to false to disable request tracing.
     enableTracing: true
-
     # Set accessLogFile to empty string to disable access log.
     accessLogFile: ""
-
     accessLogFormat: ""
-
     accessLogEncoding: 'TEXT'
-
     enableEnvoyAccessLogService: false
     # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
     reportBatchMaxEntries: 100
     # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
     reportBatchMaxTime: 1s
     disableMixerHttpReports: true
-
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
     disablePolicyChecks: true
-
     # Automatic protocol detection uses a set of heuristics to
     # determine whether the connection is using TLS or not (on the
     # server side), as well as the application protocol being used
@@ -17859,16 +18104,13 @@ data:
     # traffic. Set this field to tweak the period that Envoy will wait
     # for the client to send the first bits of data. (MUST BE >=1ms)
     protocolDetectionTimeout: 100ms
-
     # This is the k8s ingress service name, update if you used a different name
     ingressService: "istio-ingressgateway"
     ingressControllerMode: "STRICT"
     ingressClass: "istio"
-
     # The trust domain corresponds to the trust root of a system.
     # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
     trustDomain: "cluster.local"
-
     #  The trust domain aliases represent the aliases of trust_domain.
     #  For example, if we have
     #  trustDomain: td1
@@ -17876,15 +18118,12 @@ data:
     #  Any service with the identity "td1/ns/foo/sa/a-service-account", "td2/ns/foo/sa/a-service-account",
     #  or "td3/ns/foo/sa/a-service-account" will be treated the same in the Istio mesh.
     trustDomainAliases:
-
     # Used by pilot-agent
     sdsUdsPath: "unix:/etc/istio/proxy/SDS"
-
     # If true, automatically configure client side mTLS settings to match the corresponding service's
     # server side mTLS authentication policy, when destination rule for that service does not specify
     # TLS settings.
     enableAutoMtls: true
-
     outboundTrafficPolicy:
       mode: ALLOW_ANY
     localityLbSetting:
@@ -17931,7 +18170,6 @@ data:
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
       discoveryAddress: istiod.istio-system.svc:15012
-
 ---
 
 ---
@@ -17943,6 +18181,7 @@ metadata:
   name: istio-sidecar-injector
   namespace: istio-system
   labels:
+    istio.io/rev: default
     release: istio-base
 data:
 
@@ -17984,11 +18223,6 @@ data:
           "enabled": true
         },
         "jwtPolicy": "third-party-jwt",
-        "k8sIngress": {
-          "enableHttps": false,
-          "enabled": false,
-          "gatewayName": "ingressgateway"
-        },
         "localityLbSetting": {
           "enabled": true
         },
@@ -18031,7 +18265,6 @@ data:
           "clusterDomain": "cluster.local",
           "componentLogLevel": "misc:error",
           "concurrency": 2,
-          "dnsRefreshRate": "300s",
           "enableCoreDump": false,
           "envoyAccessLogService": {
             "enabled": false,
@@ -18079,8 +18312,6 @@ data:
           "excludeOutboundPorts": "",
           "image": "proxyv2",
           "includeIPRanges": "*",
-          "includeInboundPorts": "*",
-          "kubevirtInterfaces": "",
           "logLevel": "warning",
           "privileged": false,
           "protocolDetectionTimeout": "100ms",
@@ -18591,7 +18822,9 @@ metadata:
   name: istiod
   namespace: istio-system
   labels:
+    istio.io/rev: default
     app: istiod
+    istio: pilot
     release: istio-base
 spec:
   ports:
@@ -18620,6 +18853,7 @@ metadata:
   namespace: istio-system
   labels:
     app: istiod
+    istio.io/rev: default
     istio: pilot
     release: istio-base
 spec:
@@ -18634,8 +18868,7 @@ spec:
     metadata:
       labels:
         app: istiod
-        # Label used by the 'default' service. For versioned deployments we match with app and version.
-        # This avoids default deployment picking the canary
+        istio.io/rev: default
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
@@ -18666,11 +18899,6 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 5
-          envFrom:
-          # Allow an istiod configmap injecting user-specified env.
-          - configMapRef:
-              name: istiod
-              optional: true
           env:
           - name: REVISION
             value: "default"
@@ -18695,8 +18923,6 @@ spec:
                 fieldPath: spec.serviceAccountName
           - name: PILOT_TRACE_SAMPLING
             value: "1"
-          - name: CONFIG_NAMESPACE
-            value: istio-config
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
             value: "true"
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
@@ -18705,8 +18931,6 @@ spec:
             value: istio-sidecar-injector
           - name: ISTIOD_ADDR
             value: istiod.istio-system.svc:15012
-          - name: PILOT_EXTERNAL_GALLEY
-            value: "false"
           - name: PILOT_ENABLE_ANALYSIS
             value: "false"
           - name: CLUSTER_ID
@@ -18736,9 +18960,6 @@ spec:
           - name: inject
             mountPath: /var/lib/istio/inject
             readOnly: true
-          - name: istiod
-            mountPath: /var/lib/istio/local
-            readOnly: true
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
@@ -18752,10 +18973,6 @@ spec:
                 audience: istio-ca
                 expirationSeconds: 43200
                 path: istio-token
-      - name: istiod
-        configMap:
-          name: istiod
-          optional: true
       # Optional: user-generated root
       - name: cacerts
         secret:
@@ -18769,39 +18986,6 @@ spec:
       - name: config-volume
         configMap:
           name: istio
-      affinity:      
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "amd64"
-                - "ppc64le"
-                - "s390x"
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "amd64"
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "ppc64le"
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "s390x"      
 ---
 
 ---
@@ -18815,6 +18999,7 @@ metadata:
   labels:
     app: istiod
     release: istio-base
+    istio.io/rev: default
 spec:
   maxReplicas: 5
   minReplicas: 1
@@ -18836,6 +19021,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.4
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -18864,6 +19051,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.4
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -18960,6 +19149,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -18992,6 +19183,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-metadata-exchange-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -19044,6 +19237,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -19148,6 +19343,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -19250,6 +19447,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -19282,6 +19481,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-metadata-exchange-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -19337,6 +19538,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -19441,6 +19644,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -19544,6 +19749,7 @@ metadata:
   name: istio-sidecar-injector
 
   labels:
+    istio.io/rev: default
     app: sidecar-injector
     release: istio-base
 webhooks:
@@ -20027,133 +20233,6 @@ func chartsIstioControlIstioDiscoveryKustomizationYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplates_affinityTpl = []byte(`{{/* affinity - https://kubernetes.io/docs/concepts/configuration/assign-pod-node/ */}}
-
-{{- define "nodeaffinity" }}
-  nodeAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-    {{- include "nodeAffinityRequiredDuringScheduling" . }}
-    preferredDuringSchedulingIgnoredDuringExecution:
-    {{- include "nodeAffinityPreferredDuringScheduling" . }}
-{{- end }}
-
-{{- define "nodeAffinityRequiredDuringScheduling" }}
-      nodeSelectorTerms:
-      - matchExpressions:
-        - key: beta.kubernetes.io/arch
-          operator: In
-          values:
-        {{- range $key, $val := .Values.global.arch }}
-          {{- if gt ($val | int) 0 }}
-          - {{ $key | quote }}
-          {{- end }}
-        {{- end }}
-        {{- $nodeSelector := default .Values.global.defaultNodeSelector .Values.pilot.nodeSelector -}}
-        {{- range $key, $val := $nodeSelector }}
-        - key: {{ $key }}
-          operator: In
-          values:
-          - {{ $val | quote }}
-        {{- end }}
-{{- end }}
-
-{{- define "nodeAffinityPreferredDuringScheduling" }}
-  {{- range $key, $val := .Values.global.arch }}
-    {{- if gt ($val | int) 0 }}
-    - weight: {{ $val | int }}
-      preference:
-        matchExpressions:
-        - key: beta.kubernetes.io/arch
-          operator: In
-          values:
-          - {{ $key | quote }}
-    {{- end }}
-  {{- end }}
-{{- end }}
-
-{{- define "podAntiAffinity" }}
-{{- if or .Values.pilot.podAntiAffinityLabelSelector .Values.pilot.podAntiAffinityTermLabelSelector}}
-  podAntiAffinity:
-    {{- if .Values.pilot.podAntiAffinityLabelSelector }}
-    requiredDuringSchedulingIgnoredDuringExecution:
-    {{- include "podAntiAffinityRequiredDuringScheduling" . }}
-    {{- end }}
-    {{- if .Values.pilot.podAntiAffinityTermLabelSelector }}
-    preferredDuringSchedulingIgnoredDuringExecution:
-    {{- include "podAntiAffinityPreferredDuringScheduling" . }}
-    {{- end }}
-{{- end }}
-{{- end }}
-
-{{- define "podAntiAffinityRequiredDuringScheduling" }}
-    {{- range $index, $item := .Values.pilot.podAntiAffinityLabelSelector }}
-    - labelSelector:
-        matchExpressions:
-        - key: {{ $item.key }}
-          operator: {{ $item.operator }}
-          {{- if $item.values }}
-          values:
-          {{- $vals := split "," $item.values }}
-          {{- range $i, $v := $vals }}
-          - {{ $v | quote }}
-          {{- end }}
-          {{- end }}
-      topologyKey: {{ $item.topologyKey }}
-    {{- end }}
-{{- end }}
-
-{{- define "podAntiAffinityPreferredDuringScheduling" }}
-    {{- range $index, $item := .Values.pilot.podAntiAffinityTermLabelSelector }}
-    - podAffinityTerm:
-        labelSelector:
-          matchExpressions:
-          - key: {{ $item.key }}
-            operator: {{ $item.operator }}
-            {{- if $item.values }}
-            values:
-            {{- $vals := split "," $item.values }}
-            {{- range $i, $v := $vals }}
-            - {{ $v | quote }}
-            {{- end }}
-            {{- end }}
-        topologyKey: {{ $item.topologyKey }}
-      weight: 100
-    {{- end }}
-{{- end }}
-`)
-
-func chartsIstioControlIstioDiscoveryTemplates_affinityTplBytes() ([]byte, error) {
-	return _chartsIstioControlIstioDiscoveryTemplates_affinityTpl, nil
-}
-
-func chartsIstioControlIstioDiscoveryTemplates_affinityTpl() (*asset, error) {
-	bytes, err := chartsIstioControlIstioDiscoveryTemplates_affinityTplBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-discovery/templates/_affinity.tpl", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioControlIstioDiscoveryTemplates_helpersTpl = []byte(``)
-
-func chartsIstioControlIstioDiscoveryTemplates_helpersTplBytes() ([]byte, error) {
-	return _chartsIstioControlIstioDiscoveryTemplates_helpersTpl, nil
-}
-
-func chartsIstioControlIstioDiscoveryTemplates_helpersTpl() (*asset, error) {
-	bytes, err := chartsIstioControlIstioDiscoveryTemplates_helpersTplBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-discovery/templates/_helpers.tpl", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml = []byte(`{{- if and .Values.pilot.autoscaleEnabled .Values.pilot.autoscaleMin .Values.pilot.autoscaleMax }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
@@ -20163,6 +20242,7 @@ metadata:
   labels:
     app: istiod
     release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   maxReplicas: {{ .Values.pilot.autoscaleMax }}
   minReplicas: {{ .Values.pilot.autoscaleMin }}
@@ -20201,6 +20281,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
 data:
   extra.pem: {{ .Values.pilot.jwksResolverExtraRootCA | quote }}
 {{- end }}
@@ -20221,43 +20302,16 @@ func chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml() (*asset, error
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml = []byte(`{{- if .Values.pilot.configMap }}
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-  namespace: {{ .Release.Namespace }}
-  labels:
-    release: {{ .Release.Name }}
-data:
-
-  # Configuration file for the mesh networks to be used by the Split Horizon EDS.
-  meshNetworks: |-
-  {{- if .Values.global.meshNetworks }}
-    networks:
-{{ toYaml .Values.global.meshNetworks | trim | indent 6 }}
-  {{- else }}
-    networks: {}
-  {{- end }}
-
-  values.yaml: |-
-{{ toYaml .Values.pilot | trim | indent 4 }}
-
-  mesh: |-
+var _chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml = []byte(`{{- define "mesh" }}
     {{- if .Values.global.enableTracing }}
     # Set enableTracing to false to disable request tracing.
     enableTracing: {{ .Values.global.enableTracing }}
     {{- end }}
-
     # Set accessLogFile to empty string to disable access log.
     accessLogFile: "{{ .Values.global.proxy.accessLogFile }}"
-
     accessLogFormat: {{ .Values.global.proxy.accessLogFormat | quote }}
-
     accessLogEncoding: '{{ .Values.global.proxy.accessLogEncoding }}'
-
     enableEnvoyAccessLogService: {{ .Values.global.proxy.envoyAccessLogService.enabled }}
-
     {{- if .Values.global.remotePolicyAddress }}
     {{- if .Values.global.createRemoteSvcEndpoints }}
     mixerCheckServer: istio-policy.{{ .Release.Namespace }}:15004
@@ -20271,9 +20325,7 @@ data:
     {{- else }}
     mixerReportServer: {{ .Values.global.remoteTelemetryAddress }}:15004
     {{- end }}
-
     {{- else }}
-
     {{- if .Values.mixer.policy.enabled }}
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:15004
@@ -20281,7 +20333,6 @@ data:
     mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:9091
     {{- end }}
     {{- end }}
-
     {{- if and .Values.telemetry.v1.enabled .Values.telemetry.enabled }}
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     mixerReportServer: istio-telemetry.{{ .Values.global.telemetryNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:15004
@@ -20289,36 +20340,29 @@ data:
     mixerReportServer: istio-telemetry.{{ .Values.global.telemetryNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:9091
     {{- end }}
     {{- end }}
-
     {{- end }}
-
     {{- if or .Values.mixer.policy.enabled .Values.global.remotePolicyAddress }}
     # policyCheckFailOpen allows traffic in cases when the mixer policy service cannot be reached.
     # Default is false which means the traffic is denied when the client is unable to connect to Mixer.
     policyCheckFailOpen: {{ .Values.global.policyCheckFailOpen }}
     {{- end }}
-
     {{- if .Values.mixer.telemetry.reportBatchMaxEntries }}
     # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
     reportBatchMaxEntries: {{ .Values.mixer.telemetry.reportBatchMaxEntries }}
     {{- end }}
-
     {{- if .Values.mixer.telemetry.reportBatchMaxTime }}
     # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
     reportBatchMaxTime: {{ .Values.mixer.telemetry.reportBatchMaxTime }}
     {{- end }}
-
     {{- if .Values.mixer.telemetry.sessionAffinityEnabled }}
     # sidecarToTelemetrySessionAffinity will create a STRICT_DNS type cluster for istio-telemetry.
     sidecarToTelemetrySessionAffinity: {{ .Values.mixer.telemetry.sessionAffinityEnabled }}
     {{- end }}
-
     {{- if .Values.telemetry.v2.enabled }}
     disableMixerHttpReports: true
     {{- else }}
     disableMixerHttpReports: false
     {{- end }}
-
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
     {{- if .Values.mixer.policy.enabled }}
@@ -20326,7 +20370,6 @@ data:
     {{- else }}
     disablePolicyChecks: true
     {{- end }}
-
     # Automatic protocol detection uses a set of heuristics to
     # determine whether the connection is using TLS or not (on the
     # server side), as well as the application protocol being used
@@ -20337,7 +20380,6 @@ data:
     # traffic. Set this field to tweak the period that Envoy will wait
     # for the client to send the first bits of data. (MUST BE >=1ms)
     protocolDetectionTimeout: {{ .Values.global.proxy.protocolDetectionTimeout }}
-
     # This is the k8s ingress service name, update if you used a different name
     {{- if .Values.pilot.ingress }}
     {{- if .Values.pilot.ingress.ingressService }}
@@ -20346,11 +20388,9 @@ data:
     ingressClass: "{{ .Values.pilot.ingress.ingressClass }}"
     {{- end }}
     {{- end }}
-
     # The trust domain corresponds to the trust root of a system.
     # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
     trustDomain: {{ .Values.global.trustDomain | quote }}
-
     #  The trust domain aliases represent the aliases of trust_domain.
     #  For example, if we have
     #  trustDomain: td1
@@ -20361,15 +20401,12 @@ data:
       {{- range .Values.global.trustDomainAliases }}
       - {{ . | quote }}
       {{- end }}
-
     # Used by pilot-agent
     sdsUdsPath: "unix:/etc/istio/proxy/SDS"
-
     # If true, automatically configure client side mTLS settings to match the corresponding service's
     # server side mTLS authentication policy, when destination rule for that service does not specify
     # TLS settings.
     enableAutoMtls: {{ .Values.global.mtls.auto }}
-
     {{- if .Values.global.useMCP }}
     configSources:
     {{- if .Values.global.controlPlaneSecurityEnabled }}
@@ -20384,10 +20421,8 @@ data:
     {{- end }}
     {{- end}}
     {{- end }}
-
     outboundTrafficPolicy:
       mode: {{ .Values.global.outboundTrafficPolicy.mode }}
-
     {{- if  .Values.global.localityLbSetting.enabled }}
     localityLbSetting:
 {{ toYaml .Values.global.localityLbSetting | trim | indent 6 }}
@@ -20510,7 +20545,42 @@ data:
 {{ toYaml .Values.global.proxy.envoyAccessLogService.tcpKeepalive | trim | indent 10 }}
       {{- end}}
     {{- end}}
+{{- end }}
 
+{{/* We take the mesh config above, defined with individual values.yaml, and merge with .Values.meshConfig */}}
+{{/* The intent here is that meshConfig.foo becomes the API, rather than re-inventing the API in values.yaml */}}
+{{- $originalMesh := include "mesh" . | fromYaml }}
+{{- $mesh := mergeOverwrite $originalMesh .Values.meshConfig }}
+
+{{- if .Values.pilot.configMap }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    release: {{ .Release.Name }}
+data:
+
+  # Configuration file for the mesh networks to be used by the Split Horizon EDS.
+  meshNetworks: |-
+  {{- if .Values.global.meshNetworks }}
+    networks:
+{{ toYaml .Values.global.meshNetworks | trim | indent 6 }}
+  {{- else }}
+    networks: {}
+  {{- end }}
+
+  values.yaml: |-
+{{ toYaml .Values.pilot | trim | indent 4 }}
+
+  mesh: |-
+{{- if .Values.meshConfig }}
+{{ $mesh | toYaml | indent 4 }}
+{{- else }}
+{{- include "mesh" . }}
+{{- end }}
 ---
 {{- end }}
 `)
@@ -20537,9 +20607,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
-    {{- if ne .Values.revision ""}}
-    version: {{ .Values.revision }}
-    {{- end }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
     istio: pilot
     release: {{ .Release.Name }}
 {{- range $key, $val := .Values.pilot.deploymentLabels }}
@@ -20559,7 +20627,7 @@ spec:
     matchLabels:
       {{- if ne .Values.revision ""}}
       app: istiod
-      version: {{ .Values.revision }}
+      istio.io/rev: {{ .Values.revision | default "default" }}
       {{- else }}
       istio: pilot
       {{- end }}
@@ -20567,13 +20635,8 @@ spec:
     metadata:
       labels:
         app: istiod
-        {{- if ne .Values.revision ""}}
-        version: {{ .Values.revision }}
-        {{- else }}
-        # Label used by the 'default' service. For versioned deployments we match with app and version.
-        # This avoids default deployment picking the canary
+        istio.io/rev: {{ .Values.revision | default "default" }}
         istio: pilot
-        {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
         {{- if .Values.pilot.podAnnotations }}
@@ -20630,11 +20693,6 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 5
-          envFrom:
-          # Allow an istiod configmap injecting user-specified env.
-          - configMapRef:
-              name: istiod
-              optional: true
           env:
           - name: REVISION
             value: "{{ .Values.revision | default `+"`"+`default`+"`"+` }}"
@@ -20667,12 +20725,6 @@ spec:
           - name: PILOT_TRACE_SAMPLING
             value: "{{ .Values.pilot.traceSampling }}"
 {{- end }}
-          - name: CONFIG_NAMESPACE
-            value: {{ .Values.pilot.configNamespace }}
-{{- if .Values.pilot.appNamespaces }}
-          - name: APP_NAMESPACE
-            value: {{ join "," .Values.pilot.appNamespaces }}
-{{- end }}
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
             value: "{{ .Values.pilot.enableProtocolSniffingForOutbound }}"
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
@@ -20681,8 +20733,6 @@ spec:
             value: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
           - name: ISTIOD_ADDR
             value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
-          - name: PILOT_EXTERNAL_GALLEY
-            value: "false"
           - name: PILOT_ENABLE_ANALYSIS
             value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID
@@ -20716,9 +20766,10 @@ spec:
           - name: inject
             mountPath: /var/lib/istio/inject
             readOnly: true
-          - name: istiod
-            mountPath: /var/lib/istio/local
-            readOnly: true
+          {{- if .Values.pilot.jwksResolverExtraRootCA }}
+          - name: extracacerts
+            mountPath: /cacerts
+          {{- end }}
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
@@ -20734,10 +20785,6 @@ spec:
                 expirationSeconds: 43200
                 path: istio-token
       {{- end }}
-      - name: istiod
-        configMap:
-          name: istiod
-          optional: true
       # Optional: user-generated root
       - name: cacerts
         secret:
@@ -20756,16 +20803,6 @@ spec:
         configMap:
           name: pilot-jwks-extra-cacerts{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- end }}
-      affinity:
-      {{- include "nodeaffinity" . | indent 6 }}
-      {{- include "podAntiAffinity" . | indent 6 }}
-{{- if .Values.pilot.tolerations }}
-      tolerations:
-{{ toYaml .Values.pilot.tolerations | indent 6 }}
-{{- else if .Values.global.defaultTolerations }}
-      tolerations:
-{{ toYaml .Values.global.defaultTolerations | indent 6 }}
-{{- end }}
 ---
 `)
 
@@ -20791,6 +20828,7 @@ metadata:
   name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
     release: {{ .Release.Name }}
 data:
 {{/* Scope the values to just top level fields used in the template, to reduce the size. */}}
@@ -20844,6 +20882,7 @@ metadata:
   name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
 {{- end }}
   labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
     app: sidecar-injector
     release: {{ .Release.Name }}
 webhooks:
@@ -20926,6 +20965,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
+    istio.io/rev: {{ .Values.revision | default "default" }}
     release: {{ .Release.Name }}
     istio: pilot
 spec:
@@ -20962,7 +21002,9 @@ metadata:
   name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
     app: istiod
+    istio: pilot
     release: {{ .Release.Name }}
 spec:
   ports:
@@ -20978,7 +21020,7 @@ spec:
   selector:
     app: istiod
     {{- if ne .Values.revision ""}}
-    version: {{ .Values.revision }}
+    istio.io/rev: {{ .Values.revision }}
     {{- else }}
     # Label used by the 'default' service. For versioned deployments we match with app and version.
     # This avoids default deployment picking the canary
@@ -21012,6 +21054,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -21045,6 +21089,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -21143,6 +21189,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
 {{- if not .Values.telemetry.v2.stackdriver.disableOutbound }}
@@ -21264,6 +21312,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -21307,6 +21357,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -21364,6 +21416,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -21493,6 +21547,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -21619,6 +21675,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
 {{- if not .Values.telemetry.v2.stackdriver.disableOutbound }}
@@ -21749,6 +21807,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -21792,6 +21852,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -21852,6 +21914,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -21981,6 +22045,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -22108,6 +22174,8 @@ metadata:
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
 {{- if not .Values.telemetry.v2.stackdriver.disableOutbound }}
@@ -22430,6 +22498,10 @@ telemetry:
 
 # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
 revision: ""
+
+# meshConfig defines runtime configuration of components, including Istiod and istio-agent behavior
+# See https://istio.io/docs/reference/config/istio.mesh.v1alpha1/ for all available options
+meshConfig: {}
 `)
 
 func chartsIstioControlIstioDiscoveryValuesYamlBytes() ([]byte, error) {
@@ -35547,7 +35619,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "refId": "A"
         },
         {
-          "expr": "sum(rate(sidecar_injection_success_total[1m]))",
+          "expr": "sum(rate(sidecar_injection_failure_total[1m]))",
           "interval": "",
           "legendFormat": "Injections (Failure)",
           "refId": "B"
@@ -36020,7 +36092,7 @@ spec:
 {{- $filename := trimSuffix (ext $path) (base $path) }}
       - name: dashboards-istio-{{ $filename }}
         configMap:
-          name:  istio-grafana-configuration-dashboards-{{ $filename }}
+          name: istio-grafana-configuration-dashboards-{{ $filename }}
 {{- end }}
 `)
 
@@ -36999,20 +37071,6 @@ kiali:
   service:
     annotations: {}
     type: ClusterIP
-
-  ingress:
-    enabled: false
-    ## Used to create an Ingress record.
-    hosts:
-      - kiali.local
-    annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-    tls:
-    # Secrets must be manually created in the namespace.
-    # - secretName: kiali-tls
-    #   hosts:
-    #     - kiali.local
 
   dashboard:
     auth:
@@ -41077,20 +41135,6 @@ var _chartsIstioTelemetryPrometheusValuesYaml = []byte(`prometheus:
 
   contextPath: /prometheus
 
-  ingress:
-    enabled: false
-    ## Used to create an Ingress record.
-    hosts:
-      - prometheus.local
-    annotations:
-      # kubernetes.io/ingress.class: nginx
-      # kubernetes.io/tls-acme: "true"
-    tls:
-      # Secrets must be manually created in the namespace.
-      # - secretName: prometheus-tls
-      #   hosts:
-      #     - prometheus.local
-
   # 1.2 it is disabled by default - it can be enabled for special cases, but would create port
   # conflicts. In general it is not recommended to use node ports for services, but use gateways instead.
 #  service:
@@ -41473,6 +41517,7 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   jobLabel: istio
+  targetLabels: [app]
   selector:
     matchExpressions:
       - {key: istio, operator: In, values: [mixer,pilot,galley,citadel,sidecar-injector]}
@@ -42637,21 +42682,6 @@ tracing:
     name: http-query
     type: ClusterIP
     externalPort: 80
-
-  ingress:
-    enabled: false
-    # Used to create an Ingress record.
-    hosts:
-    # - tracing.local
-    annotations:
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-    tls:
-    # Secrets must be manually created in the namespace.
-    # - secretName: tracing-tls
-    #   hosts:
-    #     - tracing.local
-
 `)
 
 func chartsIstioTelemetryTracingValuesYamlBytes() ([]byte, error) {
@@ -43636,10 +43666,6 @@ spec:
       logging:
         level: "default:info"
       logAsJson: false
-      k8sIngress:
-        enabled: false
-        gatewayName: ingressgateway
-        enableHttps: false
       pilotCertProvider: istiod
       jwtPolicy: third-party-jwt
       proxy:
@@ -43662,7 +43688,6 @@ spec:
           port: # example: 15000
         logLevel: warning
         componentLogLevel: "misc:error"
-        dnsRefreshRate: 300s
         protocolDetectionTimeout: 100ms
         privileged: false
         enableCoreDump: false
@@ -43673,8 +43698,6 @@ spec:
         includeIPRanges: "*"
         excludeIPRanges: ""
         excludeOutboundPorts: ""
-        kubevirtInterfaces: ""
-        includeInboundPorts: "*"
         excludeInboundPorts: ""
         autoInject: enabled
         envoyStatsd:
@@ -43789,8 +43812,6 @@ spec:
       enableProtocolSniffingForOutbound: true
       enableProtocolSniffingForInbound: true
       deploymentLabels:
-      meshNetworks:
-        networks: {}
       configMap: true
       ingress:
         ingressService: istio-ingressgateway
@@ -43926,12 +43947,7 @@ spec:
       retention: 6h
       scrapeInterval: 15s
       contextPath: /prometheus
-      ingress:
-        enabled: false
-        hosts:
-          - prometheus.local
-        annotations:
-        tls:
+
       security:
         enabled: true
       nodeSelector: {}
@@ -43960,12 +43976,6 @@ spec:
         externalPort: 3000
         loadBalancerIP:
         loadBalancerSourceRanges:
-      ingress:
-        enabled: false
-        hosts:
-          - grafana.local
-        annotations:
-        tls:
       datasources:
         datasources.yaml:
           apiVersion: 1
@@ -44036,11 +44046,6 @@ spec:
         name: http-query
         type: ClusterIP
         externalPort: 9411
-      ingress:
-        enabled: false
-        hosts:
-        annotations:
-        tls:
     istiocoredns:
       coreDNSImage: coredns/coredns
       coreDNSTag: 1.6.2
@@ -44053,12 +44058,6 @@ spec:
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
-      ingress:
-        enabled: false
-        hosts:
-          - kiali.local
-        annotations:
-        tls:
       dashboard:
         secretName: kiali
         usernameKey: username
@@ -44116,6 +44115,40 @@ spec:
           requests:
             cpu: 10m
             memory: 40Mi
+        service:
+          ports:
+            ## You can add custom gateway ports in user values overrides, but it must include those ports since helm replaces.
+            # Note that AWS ELB will by default perform health checks on the first port
+            # on this list. Setting this to the health check port will ensure that health
+            # checks always work. https://github.com/istio/istio/issues/12503
+            - port: 15020
+              targetPort: 15020
+              name: status-port
+            - port: 80
+              targetPort: 8080
+              name: http2
+            - port: 443
+              targetPort: 8443
+              name: https
+            - port: 15029
+              targetPort: 15029
+              name: kiali
+            - port: 15030
+              targetPort: 15030
+              name: prometheus
+            - port: 15031
+              targetPort: 15031
+              name: grafana
+            - port: 15032
+              targetPort: 15032
+              name: tracing
+            - port: 31400
+              targetPort: 31400
+              name: tcp
+              # This is the port where sni routing happens
+            - port: 15443
+              targetPort: 15443
+              name: tls
 
     policy:
       enabled: false
@@ -44200,39 +44233,6 @@ spec:
         autoscaleEnabled: false
       istio-ingressgateway:
         autoscaleEnabled: false
-        ports:
-        ## You can add custom gateway ports in user values overrides, but it must include those ports since helm replaces.
-        # Note that AWS ELB will by default perform health checks on the first port
-        # on this list. Setting this to the health check port will ensure that health
-        # checks always work. https://github.com/istio/istio/issues/12503
-        - port: 15020
-          targetPort: 15020
-          name: status-port
-        - port: 80
-          targetPort: 8080
-          name: http2
-        - port: 443
-          targetPort: 8443
-          name: https
-        - port: 15029
-          targetPort: 15029
-          name: kiali
-        - port: 15030
-          targetPort: 15030
-          name: prometheus
-        - port: 15031
-          targetPort: 15031
-          name: grafana
-        - port: 15032
-          targetPort: 15032
-          name: tracing
-        - port: 31400
-          targetPort: 31400
-          name: tcp
-          # This is the port where sni routing happens
-        - port: 15443
-          targetPort: 15443
-          name: tls
     kiali:
       createDemoSecret: true
 `)
@@ -45573,7 +45573,6 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/base/templates/clusterrolebinding.yaml":                                        chartsBaseTemplatesClusterrolebindingYaml,
 	"charts/base/templates/crds.yaml":                                                      chartsBaseTemplatesCrdsYaml,
 	"charts/base/templates/endpoints.yaml":                                                 chartsBaseTemplatesEndpointsYaml,
-	"charts/base/templates/namespaces.yaml":                                                chartsBaseTemplatesNamespacesYaml,
 	"charts/base/templates/serviceaccount.yaml":                                            chartsBaseTemplatesServiceaccountYaml,
 	"charts/base/templates/services.yaml":                                                  chartsBaseTemplatesServicesYaml,
 	"charts/base/templates/validatingwebhookconfiguration.yaml":                            chartsBaseTemplatesValidatingwebhookconfigurationYaml,
@@ -45631,8 +45630,6 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-control/istio-discovery/files/gen-istio.yaml":                            chartsIstioControlIstioDiscoveryFilesGenIstioYaml,
 	"charts/istio-control/istio-discovery/files/injection-template.yaml":                   chartsIstioControlIstioDiscoveryFilesInjectionTemplateYaml,
 	"charts/istio-control/istio-discovery/kustomization.yaml":                              chartsIstioControlIstioDiscoveryKustomizationYaml,
-	"charts/istio-control/istio-discovery/templates/_affinity.tpl":                         chartsIstioControlIstioDiscoveryTemplates_affinityTpl,
-	"charts/istio-control/istio-discovery/templates/_helpers.tpl":                          chartsIstioControlIstioDiscoveryTemplates_helpersTpl,
 	"charts/istio-control/istio-discovery/templates/autoscale.yaml":                        chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml,
 	"charts/istio-control/istio-discovery/templates/configmap-jwks.yaml":                   chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml,
 	"charts/istio-control/istio-discovery/templates/configmap.yaml":                        chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml,
@@ -45823,7 +45820,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"clusterrolebinding.yaml":             &bintree{chartsBaseTemplatesClusterrolebindingYaml, map[string]*bintree{}},
 				"crds.yaml":                           &bintree{chartsBaseTemplatesCrdsYaml, map[string]*bintree{}},
 				"endpoints.yaml":                      &bintree{chartsBaseTemplatesEndpointsYaml, map[string]*bintree{}},
-				"namespaces.yaml":                     &bintree{chartsBaseTemplatesNamespacesYaml, map[string]*bintree{}},
 				"serviceaccount.yaml":                 &bintree{chartsBaseTemplatesServiceaccountYaml, map[string]*bintree{}},
 				"services.yaml":                       &bintree{chartsBaseTemplatesServicesYaml, map[string]*bintree{}},
 				"validatingwebhookconfiguration.yaml": &bintree{chartsBaseTemplatesValidatingwebhookconfigurationYaml, map[string]*bintree{}},
@@ -45906,8 +45902,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				}},
 				"kustomization.yaml": &bintree{chartsIstioControlIstioDiscoveryKustomizationYaml, map[string]*bintree{}},
 				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl":                  &bintree{chartsIstioControlIstioDiscoveryTemplates_affinityTpl, map[string]*bintree{}},
-					"_helpers.tpl":                   &bintree{chartsIstioControlIstioDiscoveryTemplates_helpersTpl, map[string]*bintree{}},
 					"autoscale.yaml":                 &bintree{chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml, map[string]*bintree{}},
 					"configmap-jwks.yaml":            &bintree{chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml, map[string]*bintree{}},
 					"configmap.yaml":                 &bintree{chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml, map[string]*bintree{}},

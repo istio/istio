@@ -15,6 +15,7 @@
 package util
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -80,7 +81,7 @@ func TestUpdateDataInConfigMap(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset()
 			if tc.existingConfigMap != nil {
-				if _, err := client.CoreV1().ConfigMaps(testMeta.Namespace).Create(tc.existingConfigMap); err != nil {
+				if _, err := client.CoreV1().ConfigMaps(testMeta.Namespace).Create(context.TODO(), tc.existingConfigMap, metav1.CreateOptions{}); err != nil {
 					t.Errorf("failed to create configmap %v", err)
 				}
 			}
@@ -166,7 +167,7 @@ func TestInsertDataToConfigMap(t *testing.T) {
 				client = tc.client
 			}
 			if tc.existingConfigMap != nil {
-				if _, err := client.CoreV1().ConfigMaps(tc.meta.Namespace).Create(tc.existingConfigMap); err != nil {
+				if _, err := client.CoreV1().ConfigMaps(tc.meta.Namespace).Create(context.TODO(), tc.existingConfigMap, metav1.CreateOptions{}); err != nil {
 					t.Errorf("failed to create configmap %v", err)
 				}
 			}

@@ -16,6 +16,7 @@ package util
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -109,7 +110,7 @@ func CreateIngressKubeSecret(t test.Failer, ctx framework.TestContext, credNames
 	// Check if Kubernetes secret is ready
 	retry.UntilSuccessOrFail(t, func() error {
 		for _, cn := range credNames {
-			_, err := kubeAccessor.GetSecret(systemNS.Name()).Get(cn, metav1.GetOptions{})
+			_, err := kubeAccessor.GetSecret(systemNS.Name()).Get(context.TODO(), cn, metav1.GetOptions{})
 			if err != nil {
 				return fmt.Errorf("secret %v not found: %v", cn, err)
 			}
@@ -225,20 +226,20 @@ func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string, 
 	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 	kubeAccessor := ctx.Environment().(*kube.Environment).KubeClusters[0]
 	for _, cn := range credNames {
-		scrt, err := kubeAccessor.GetSecret(systemNS.Name()).Get(cn, metav1.GetOptions{})
+		scrt, err := kubeAccessor.GetSecret(systemNS.Name()).Get(context.TODO(), cn, metav1.GetOptions{})
 		if err != nil {
 			t.Errorf("Failed to get secret %s:%s (error: %s)", scrt.Namespace, scrt.Name, err)
 			continue
 		}
 		scrt = updateSecret(ingressType, scrt, ingressCred)
-		if _, err = kubeAccessor.GetSecret(systemNS.Name()).Update(scrt); err != nil {
+		if _, err = kubeAccessor.GetSecret(systemNS.Name()).Update(context.TODO(), scrt, metav1.UpdateOptions{}); err != nil {
 			t.Errorf("Failed to update secret %s:%s (error: %s)", scrt.Namespace, scrt.Name, err)
 		}
 	}
 	// Check if Kubernetes secret is ready
 	retry.UntilSuccessOrFail(t, func() error {
 		for _, cn := range credNames {
-			_, err := kubeAccessor.GetSecret(systemNS.Name()).Get(cn, metav1.GetOptions{})
+			_, err := kubeAccessor.GetSecret(systemNS.Name()).Get(context.TODO(), cn, metav1.GetOptions{})
 			if err != nil {
 				return fmt.Errorf("secret %v not found: %v", cn, err)
 			}

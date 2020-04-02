@@ -15,6 +15,7 @@
 package leaderelection
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -75,11 +76,11 @@ func TestLeaderElection(t *testing.T) {
 func TestLeaderElectionConfigMapRemoved(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	_, stop := createElection(t, "pod1", true, client)
-	if err := client.CoreV1().ConfigMaps("ns").Delete("istio-leader", &v1.DeleteOptions{}); err != nil {
+	if err := client.CoreV1().ConfigMaps("ns").Delete(context.TODO(), "istio-leader", v1.DeleteOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	retry.UntilSuccessOrFail(t, func() error {
-		l, err := client.CoreV1().ConfigMaps("ns").List(v1.ListOptions{})
+		l, err := client.CoreV1().ConfigMaps("ns").List(context.TODO(), v1.ListOptions{})
 		if err != nil {
 			return err
 		}
@@ -92,7 +93,6 @@ func TestLeaderElectionConfigMapRemoved(t *testing.T) {
 }
 
 func TestLeaderElectionNoPermission(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/22038")
 	client := fake.NewSimpleClientset()
 	allowRbac := atomic.NewBool(true)
 	client.Fake.PrependReactor("update", "*", func(action k8stesting.Action) (bool, runtime.Object, error) {

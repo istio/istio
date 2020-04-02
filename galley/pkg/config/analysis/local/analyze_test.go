@@ -14,6 +14,7 @@
 package local
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -167,7 +168,7 @@ func TestAddRunningKubeSourceWithMeshCfg(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error getting client for mock kube: %v", err)
 	}
-	if _, err := client.CoreV1().ConfigMaps(istioNamespace.String()).Create(cfg); err != nil {
+	if _, err := client.CoreV1().ConfigMaps(istioNamespace.String()).Create(context.TODO(), cfg, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("Error creating mesh config configmap: %v", err)
 	}
 

@@ -160,6 +160,10 @@
       {
           "regex": "(destination_canonical_revision=\\.=(.+?);\\.;)",
           "tag_name": "destination_canonical_revision"
+      },
+      {
+        "regex": "(wasm_filter\\.(.+?)\\.)",
+        "tag_name": "wasm_filter"
       }
     ],
     "stats_matcher": {
@@ -274,7 +278,7 @@
         "name": "sds-grpc",
         "type": "STATIC",
         "http2_protocol_options": {},
-        "connect_timeout": "7s",
+        "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         "load_assignment": {
           "cluster_name": "sds-grpc",
@@ -296,7 +300,7 @@
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
         "dns_lookup_family": "V4_ONLY",
-        "connect_timeout": "7s",
+        "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         "transport_socket": {
           "name": "envoy.transport_sockets.tls",

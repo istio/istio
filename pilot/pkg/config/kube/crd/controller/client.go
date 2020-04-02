@@ -17,6 +17,7 @@
 package controller
 
 import (
+	context2 "context"
 	"fmt"
 	"time"
 
@@ -233,7 +234,7 @@ func (cl *Client) Get(typ resource.GroupVersionKind, name, namespace string) *mo
 		NamespaceIfScoped(namespace, !s.Resource().IsClusterScoped()).
 		Resource(s.Resource().Plural()).
 		Name(name).
-		Do().Into(config)
+		Do(context2.TODO()).Into(config)
 
 	if err != nil {
 		scope.Warna(err)
@@ -277,7 +278,7 @@ func (cl *Client) Create(config model.Config) (string, error) {
 		NamespaceIfScoped(out.GetObjectMeta().Namespace, !s.Resource().IsClusterScoped()).
 		Resource(s.Resource().Plural()).
 		Body(out).
-		Do().Into(obj)
+		Do(context2.TODO()).Into(obj)
 	if err != nil {
 		return "", err
 	}
@@ -315,7 +316,7 @@ func (cl *Client) Update(config model.Config) (string, error) {
 		Resource(s.Resource().Plural()).
 		Name(out.GetObjectMeta().Name).
 		Body(out).
-		Do().Into(obj)
+		Do(context2.TODO()).Into(obj)
 	if err != nil {
 		return "", err
 	}
@@ -342,7 +343,7 @@ func (cl *Client) Delete(typ resource.GroupVersionKind, name, namespace string) 
 		NamespaceIfScoped(namespace, !s.Resource().IsClusterScoped()).
 		Resource(s.Resource().Plural()).
 		Name(name).
-		Do().Error()
+		Do(context2.TODO()).Error()
 }
 
 func (cl *Client) Version() string {
@@ -381,7 +382,7 @@ func (cl *Client) List(kind resource.GroupVersionKind, namespace string) ([]mode
 	errs := rc.dynamic.Get().
 		NamespaceIfScoped(namespace, !s.Resource().IsClusterScoped()).
 		Resource(s.Resource().Plural()).
-		Do().Into(list)
+		Do(context2.TODO()).Into(list)
 
 	out := make([]model.Config, 0)
 	for _, item := range list.GetItems() {
@@ -428,7 +429,7 @@ func (cl *Client) RegisterMockResourceCRD() error {
 	skipCreate := true
 	for _, s := range schemas {
 		name := s.Resource().Plural() + "." + s.Resource().Group()
-		crd, errGet := cs.ApiextensionsV1beta1().CustomResourceDefinitions().Get(name, meta_v1.GetOptions{})
+		crd, errGet := cs.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context2.TODO(), name, meta_v1.GetOptions{})
 		if errGet != nil {
 			skipCreate = false
 			break // create the resources
@@ -476,7 +477,7 @@ func (cl *Client) RegisterMockResourceCRD() error {
 			},
 		}
 		scope.Infof("registering CRD %q", name)
-		_, err = cs.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
+		_, err = cs.ApiextensionsV1beta1().CustomResourceDefinitions().Create(context2.TODO(), crd, meta_v1.CreateOptions{})
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return err
 		}
@@ -487,7 +488,7 @@ func (cl *Client) RegisterMockResourceCRD() error {
 	descriptor:
 		for _, s := range schemas {
 			name := s.Resource().Plural() + "." + s.Resource().Group()
-			crd, errGet := cs.ApiextensionsV1beta1().CustomResourceDefinitions().Get(name, meta_v1.GetOptions{})
+			crd, errGet := cs.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context2.TODO(), name, meta_v1.GetOptions{})
 			if errGet != nil {
 				return false, errGet
 			}

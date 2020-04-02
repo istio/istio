@@ -354,7 +354,6 @@ func TestValidateProxyConfig(t *testing.T) {
 		ProxyAdminPort:         15000,
 		DrainDuration:          types.DurationProto(45 * time.Second),
 		ParentShutdownDuration: types.DurationProto(60 * time.Second),
-		ConnectTimeout:         types.DurationProto(10 * time.Second),
 		ServiceCluster:         "istio-proxy",
 		StatsdUdpAddress:       "istio-statsd-prom-bridge.istio-system:9125",
 		EnvoyMetricsService:    &meshconfig.RemoteService{Address: "metrics-service.istio-system:15000"},
@@ -417,11 +416,6 @@ func TestValidateProxyConfig(t *testing.T) {
 		{
 			name:    "parent shutdown duration invalid",
 			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ParentShutdownDuration = types.DurationProto(-1 * time.Second) }),
-			isValid: false,
-		},
-		{
-			name:    "connect timeout invalid",
-			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ConnectTimeout = types.DurationProto(-1 * time.Second) }),
 			isValid: false,
 		},
 		{
@@ -672,7 +666,6 @@ func TestValidateProxyConfig(t *testing.T) {
 		ProxyAdminPort:         0,
 		DrainDuration:          types.DurationProto(-1 * time.Second),
 		ParentShutdownDuration: types.DurationProto(-1 * time.Second),
-		ConnectTimeout:         types.DurationProto(-1 * time.Second),
 		ServiceCluster:         "",
 		StatsdUdpAddress:       "10.0.0.100",
 		EnvoyMetricsService:    &meshconfig.RemoteService{Address: "metrics-service"},
@@ -694,7 +687,7 @@ func TestValidateProxyConfig(t *testing.T) {
 		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.Errors) != 13 {
+			if len(err.Errors) != 12 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -1262,7 +1255,7 @@ func TestValidateServer(t *testing.T) {
 			&networking.Server{
 				Hosts: []string{"foo.bar.com"},
 				Port:  &networking.Port{Number: 1, Name: "http", Protocol: "http"},
-				Tls:   &networking.Server_TLSOptions{Mode: networking.Server_TLSOptions_SIMPLE},
+				Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_SIMPLE},
 			},
 			"TLS"},
 		{"no tls on HTTPS",
@@ -1275,14 +1268,14 @@ func TestValidateServer(t *testing.T) {
 			&networking.Server{
 				Hosts: []string{"foo.bar.com"},
 				Port:  &networking.Port{Number: 10000, Name: "http", Protocol: "http"},
-				Tls:   &networking.Server_TLSOptions{Mode: networking.Server_TLSOptions_SIMPLE},
+				Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_SIMPLE},
 			},
 			"cannot have TLS"},
 		{"tls redirect on HTTP",
 			&networking.Server{
 				Hosts: []string{"foo.bar.com"},
 				Port:  &networking.Port{Number: 10000, Name: "http", Protocol: "http"},
-				Tls: &networking.Server_TLSOptions{
+				Tls: &networking.ServerTLSSettings{
 					HttpsRedirect: true,
 				},
 			},
@@ -1356,70 +1349,70 @@ func TestValidateServerPort(t *testing.T) {
 func TestValidateTlsOptions(t *testing.T) {
 	tests := []struct {
 		name string
-		in   *networking.Server_TLSOptions
+		in   *networking.ServerTLSSettings
 		out  string
 	}{
-		{"empty", &networking.Server_TLSOptions{}, ""},
+		{"empty", &networking.ServerTLSSettings{}, ""},
 		{"simple",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_SIMPLE,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_SIMPLE,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh"},
 			""},
 		{"simple with client bundle",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_SIMPLE,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_SIMPLE,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker"},
 			""},
 		{"simple sds with client bundle",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_SIMPLE,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_SIMPLE,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker",
 				CredentialName:    "sds-name"},
 			""},
 		{"simple no server cert",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_SIMPLE,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_SIMPLE,
 				ServerCertificate: "",
 				PrivateKey:        "Khan Noonien Singh",
 			},
 			"server certificate"},
 		{"simple no private key",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_SIMPLE,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_SIMPLE,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        ""},
 			"private key"},
 		{"simple sds no server cert",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_SIMPLE,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_SIMPLE,
 				ServerCertificate: "",
 				PrivateKey:        "Khan Noonien Singh",
 				CredentialName:    "sds-name",
 			},
 			""},
 		{"simple sds no private key",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_SIMPLE,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_SIMPLE,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "",
 				CredentialName:    "sds-name",
 			},
 			""},
 		{"mutual",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_MUTUAL,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker"},
 			""},
 		{"mutual sds",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_MUTUAL,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker",
@@ -1427,23 +1420,23 @@ func TestValidateTlsOptions(t *testing.T) {
 			},
 			""},
 		{"mutual no server cert",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_MUTUAL,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker"},
 			"server certificate"},
 		{"mutual sds no server cert",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_MUTUAL,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker",
 				CredentialName:    "sds-name"},
 			""},
 		{"mutual no client CA bundle",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_MUTUAL,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    ""},
@@ -1451,55 +1444,55 @@ func TestValidateTlsOptions(t *testing.T) {
 		// this pair asserts we get errors about both client and server certs missing when in mutual mode
 		// and both are absent, but requires less rewriting of the testing harness than merging the cases
 		{"mutual no certs",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_MUTUAL,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "",
 				PrivateKey:        "",
 				CaCertificates:    ""},
 			"server certificate"},
 		{"mutual no certs",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_MUTUAL,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "",
 				PrivateKey:        "",
 				CaCertificates:    ""},
 			"private key"},
 		{"mutual no certs",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_MUTUAL,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "",
 				PrivateKey:        "",
 				CaCertificates:    ""},
 			"client CA bundle"},
 		{"pass through sds no certs",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_PASSTHROUGH,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_PASSTHROUGH,
 				ServerCertificate: "",
 				CaCertificates:    "",
 				CredentialName:    "sds-name"},
 			""},
 		{"istio_mutual no certs",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_ISTIO_MUTUAL,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_ISTIO_MUTUAL,
 				ServerCertificate: "",
 				PrivateKey:        "",
 				CaCertificates:    ""},
 			""},
 		{"istio_mutual with server cert",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_ISTIO_MUTUAL,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_ISTIO_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard"},
 			"cannot have associated server cert"},
 		{"istio_mutual with client bundle",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_ISTIO_MUTUAL,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_ISTIO_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker"},
 			"cannot have associated"},
 		{"istio_mutual with private key",
-			&networking.Server_TLSOptions{
-				Mode:       networking.Server_TLSOptions_ISTIO_MUTUAL,
+			&networking.ServerTLSSettings{
+				Mode:       networking.ServerTLSSettings_ISTIO_MUTUAL,
 				PrivateKey: "Khan Noonien Singh"},
 			"cannot have associated private key"},
 	}

@@ -27,6 +27,7 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   jobLabel: istio
+  targetLabels: [app]
   selector:
     matchExpressions:
       - {key: istio, operator: In, values: [mixer,pilot,galley,citadel,sidecar-injector]}

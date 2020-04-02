@@ -106,6 +106,7 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 
 	echoArgs := append([]string{
 		"--version", cfg.Version,
+		"--cluster", "0",
 	}, w.portMap.toEchoArgs()...)
 
 	var image string

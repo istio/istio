@@ -16,6 +16,7 @@ package secretfetcher
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -51,6 +52,8 @@ const (
 	tlsScrtCert = "tls.crt"
 	// The ID/name for the k8sKey in kubernetes tls secret.
 	tlsScrtKey = "tls.key"
+	// The ID/name for the CA certificate in kubernetes tls secret
+	tlsScrtCaCert = "ca.crt"
 
 	// IngressSecretNamespace the namespace of kubernetes secrets to watch.
 	ingressSecretNamespace = "INGRESS_GATEWAY_NAMESPACE"
@@ -165,11 +168,11 @@ func (sf *SecretFetcher) InitWithKubeClientAndNs(core corev1.CoreV1Interface, na
 	scrtLW := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.FieldSelector = istioSecretSelector
-			return core.Secrets(namespace).List(options)
+			return core.Secrets(namespace).List(context.TODO(), options)
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 			options.FieldSelector = istioSecretSelector
-			return core.Secrets(namespace).Watch(options)
+			return core.Secrets(namespace).Watch(context.TODO(), options)
 		},
 	}
 
@@ -228,6 +231,8 @@ func extractCertAndKey(scrt *v1.Secret) (cert, key []byte, exist bool) {
 func extractCACert(scrt *v1.Secret, fromCompoundSecret bool) (caCert []byte, exist bool) {
 	if len(scrt.Data[genericScrtCaCert]) > 0 {
 		caCert = scrt.Data[genericScrtCaCert]
+	} else if len(scrt.Data[tlsScrtCaCert]) > 0 {
+		caCert = scrt.Data[tlsScrtCaCert]
 	} else if !fromCompoundSecret {
 		caCert = scrt.Data[tlsScrtCert]
 	}
@@ -505,7 +510,7 @@ func (sf *SecretFetcher) FindIngressGatewaySecret(key string) (secret model.Secr
 		// the secret back to cache as it is not a normal codepath. When watcher recovers, those secret
 		// shall be added back. Note that this approach only covers the TLS server key/cert fetching.
 		if sf.coreV1 != nil {
-			if secret, err := sf.coreV1.Secrets(sf.secretNamespace).Get(key, metav1.GetOptions{}); err == nil {
+			if secret, err := sf.coreV1.Secrets(sf.secretNamespace).Get(context.TODO(), key, metav1.GetOptions{}); err == nil {
 				secretItem, _, _ := extractK8sSecretIntoSecretItem(secret, time.Now())
 				if secretItem != nil {
 					secretFetcherLog.Infof("Return secret %s found by direct api call", key)

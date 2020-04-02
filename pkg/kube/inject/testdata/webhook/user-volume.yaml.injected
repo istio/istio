@@ -20,6 +20,7 @@ spec:
       creationTimestamp: null
       labels:
         app: user-volume
+        istio.io/rev: ""
         security.istio.io/tlsMode: istio
         service.istio.io/canonical-name: user-volume
         service.istio.io/canonical-revision: latest

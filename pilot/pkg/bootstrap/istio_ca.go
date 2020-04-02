@@ -228,13 +228,13 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 	log.Info("Istiod CA has started")
 
 	if s.kubeClient != nil {
-		nc := NewNamespaceController(func() map[string]string {
-			return map[string]string{
-				constants.CACertNamespaceConfigMapDataName: string(ca.GetCAKeyCertBundle().GetRootCertPem()),
-			}
-		}, s.kubeClient)
-		s.leaderElection.AddRunFunction(func(_ <-chan struct{}) {
-			nc.Run(stopCh)
+		s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
+			nc := NewNamespaceController(func() map[string]string {
+				return map[string]string{
+					constants.CACertNamespaceConfigMapDataName: string(ca.GetCAKeyCertBundle().GetRootCertPem()),
+				}
+			}, s.kubeClient)
+			nc.Run(stop)
 		})
 	}
 

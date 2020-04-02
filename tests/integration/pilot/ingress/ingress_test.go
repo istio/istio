@@ -51,6 +51,8 @@ func TestMain(m *testing.M) {
 		NewSuite("pilot_test", m).
 		Label(label.CustomSetup).
 		RequireEnvironment(environment.Kube).
+		// IngressClass is only present in 1.18+
+		RequireEnvironmentVersion("1.18").
 		RequireSingleCluster().
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {
@@ -214,13 +216,18 @@ func TestIngress(t *testing.T) {
 			defer ingressutil.DeleteIngressKubeSecret(t, ctx, []string{credName2})
 
 			if err := g.ApplyConfig(ns, `
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1beta1
+kind: IngressClass
+metadata:
+  name: istio-test
+spec:
+  controller: istio.io/ingress-controller`, `
+apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
-  annotations:
-    kubernetes.io/ingress.class: istio
   name: ingress
 spec:
+  ingressClassName: istio-test
   tls:
   - hosts: ["foo.example.com"]
     secretName: k8s-ingress-secret-foo

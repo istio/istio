@@ -496,7 +496,7 @@ func createMultiClusterSecret(k8s *fake.Clientset) error {
 
 	data["testRemoteCluster"] = []byte("Test")
 	secret.Data = data
-	_, err := k8s.CoreV1().Secrets(testSecretNameSpace).Create(&secret)
+	_, err := k8s.CoreV1().Secrets(testSecretNameSpace).Create(context.TODO(), &secret, metav1.CreateOptions{})
 	return err
 }
 
@@ -504,7 +504,8 @@ func deleteMultiClusterSecret(k8s *fake.Clientset) error {
 	var immediate int64
 
 	return k8s.CoreV1().Secrets(testSecretNameSpace).Delete(
-		testSecretName, &metav1.DeleteOptions{GracePeriodSeconds: &immediate})
+		context.TODO(),
+		testSecretName, metav1.DeleteOptions{GracePeriodSeconds: &immediate})
 }
 
 func verifyControllers(t *testing.T, b *builder, expectedControllerCount int, timeoutName string) {

@@ -260,12 +260,12 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	writeField(body, response.ServiceVersionField, h.Version)
 	writeField(body, response.ServicePortField, port)
 	writeField(body, response.HostField, r.Host)
+	writeField(body, response.URLField, r.URL.String())
+	writeField(body, response.ClusterField, h.Cluster)
 
-	writeField(body, response.Field("Method"), r.Method)
-	writeField(body, response.Field("URL"), r.URL.String())
-	writeField(body, response.Field("Proto"), r.Proto)
-	writeField(body, response.Field("RemoteAddr"), r.RemoteAddr)
-	writeField(body, response.Field("Method"), r.Method)
+	writeField(body, "Method", r.Method)
+	writeField(body, "Proto", r.Proto)
+	writeField(body, "RemoteAddr", r.RemoteAddr)
 
 	for name, values := range r.Header {
 		for _, value := range values {

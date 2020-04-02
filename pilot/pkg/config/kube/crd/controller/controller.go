@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -122,7 +123,7 @@ func (c *controller) addInformer(schema collection.Schema, namespace string, res
 			if !schema.Resource().IsClusterScoped() {
 				req = req.Namespace(namespace)
 			}
-			err = req.Do().Into(result)
+			err = req.Do(context.TODO()).Into(result)
 			return
 		},
 		func(opts meta_v1.ListOptions) (watch.Interface, error) {
@@ -142,7 +143,7 @@ func (c *controller) addInformer(schema collection.Schema, namespace string, res
 			if !schema.Resource().IsClusterScoped() {
 				req = req.Namespace(namespace)
 			}
-			return req.Watch()
+			return req.Watch(context.TODO())
 		})
 }
 
@@ -332,7 +333,7 @@ func (c *controller) Get(typ resource.GroupVersionKind, name, namespace string) 
 	}
 
 	config, err := crd.ConvertObject(s, obj, c.client.domainSuffix)
-	if err == nil && features.EnableCRDValidation.Get() {
+	if err == nil && features.EnableCRDValidation {
 		if err = s.Resource().ValidateProto(config.Name, config.Namespace, config.Spec); err != nil {
 			handleValidationFailure(obj, err)
 			return nil
@@ -373,7 +374,7 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]mo
 
 		config, err := crd.ConvertObject(s, item, c.client.domainSuffix)
 
-		if err == nil && features.EnableCRDValidation.Get() {
+		if err == nil && features.EnableCRDValidation {
 			err = s.Resource().ValidateProto(config.Name, config.Namespace, config.Spec)
 		}
 
