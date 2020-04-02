@@ -39,6 +39,7 @@ import (
 const (
 	proxyTokenPath = "/tmp/sds-envoy-token.jwt"
 	sdsPath        = "/tmp/sdstestudspath"
+	jwtToken       = "thisisafakejwt"
 )
 
 // Env manages test setup and teardown.
@@ -95,8 +96,7 @@ func WriteDataToFile(path string, content []byte) error {
 // request   listener   cluster                listener      cluster
 func SetupTest(t *testing.T, testID uint16) *Env {
 	// Set up credential files for bootstrap config
-	jwtToken := getDataFromFile(istioEnv.IstioSrc+"/security/pkg/nodeagent/test/testdata/jwt-token.jwt", t)
-	if err := WriteDataToFile(proxyTokenPath, jwtToken); err != nil {
+	if err := WriteDataToFile(proxyTokenPath, []byte(jwtToken)); err != nil {
 		t.Fatalf("failed to set up token file %s: %v", proxyTokenPath, err)
 	}
 
