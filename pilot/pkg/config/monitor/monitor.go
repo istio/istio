@@ -15,11 +15,14 @@
 package monitor
 
 import (
+	"os"
 	"reflect"
 	"strings"
-	"time"
+	"syscall"
 
 	"github.com/gogo/protobuf/proto"
+
+	"istio.io/pkg/appsignals"
 
 	"istio.io/pkg/log"
 
@@ -30,8 +33,8 @@ import (
 // changes are found.
 type Monitor struct {
 	name            string
+	root            string
 	store           model.ConfigStore
-	checkDuration   time.Duration
 	configs         []*model.Config
 	getSnapshotFunc func() ([]*model.Config, error)
 }
@@ -39,12 +42,12 @@ type Monitor struct {
 // NewMonitor creates a Monitor and will delegate to a passed in controller.
 // The controller holds a reference to the actual store.
 // Any func that returns a []*model.Config can be used with the Monitor
-func NewMonitor(name string, delegateStore model.ConfigStore, checkInterval time.Duration, getSnapshotFunc func() ([]*model.Config, error)) *Monitor {
+func NewMonitor(name string, delegateStore model.ConfigStore, getSnapshotFunc func() ([]*model.Config, error), root string) *Monitor {
 	monitor := &Monitor{
 		name:            name,
+		root:            root,
 		store:           delegateStore,
 		getSnapshotFunc: getSnapshotFunc,
-		checkDuration:   checkInterval,
 	}
 	return monitor
 }
@@ -54,17 +57,25 @@ func NewMonitor(name string, delegateStore model.ConfigStore, checkInterval time
 // periodically polls the getSnapshotFunc for changes until a close event is sent.
 func (m *Monitor) Start(stop <-chan struct{}) {
 	m.checkAndUpdate()
-	tick := time.NewTicker(m.checkDuration)
 
+	c := make(chan appsignals.Signal, 1)
+	appsignals.Watch(c)
+	shut := make(chan os.Signal, 1)
+	if err := appsignals.FileTrigger(m.root, syscall.SIGUSR1, shut); err != nil {
+		log.Errorf("Unable to setup FileTrigger for %s: %v", m.root, err)
+	}
 	// Run the close loop asynchronously.
 	go func() {
 		for {
 			select {
+			case trigger := <-c:
+				if trigger.Signal == syscall.SIGUSR1 {
+					log.Infof("Triggering reload in response to: %v", trigger.Source)
+					m.checkAndUpdate()
+				}
 			case <-stop:
-				tick.Stop()
+				shut <- syscall.SIGTERM
 				return
-			case <-tick.C:
-				m.checkAndUpdate()
 			}
 		}
 	}()
