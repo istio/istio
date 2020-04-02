@@ -459,7 +459,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 	for _, cluster := range clusters {
 		// Validate Clusters so that generated clusters pass Envoy validation logic.
 		if err := cluster.Validate(); err != nil {
-			return clusters, fmt.Errorf("Cluster %s failed validation with error %s", cluster.Name, err.Error())
+			return clusters, fmt.Errorf("cluster %s failed validation with error %s", cluster.Name, err.Error())
 		}
 	}
 	if len(env.PushContext.ProxyStatus[model.DuplicatedClusters.Name()]) > 0 {
