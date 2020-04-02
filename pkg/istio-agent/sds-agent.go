@@ -179,6 +179,9 @@ type SDSAgent struct {
 
 	// If set, this is the Citadel client, used to retrieve certificates.
 	CitadelClient caClientInterface.Client
+
+	// CAEndpoint is the CA endpoint to which node agent sends CSR request.
+	CAEndpoint string
 }
 
 // NewSDSAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -233,6 +236,12 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 
 	ac.SDSAddress = "unix:" + LocalSDS
 
+	ac.CAEndpoint = caEndpointEnv
+	if caEndpointEnv == "" {
+		// if not set, we will fallback to the discovery address
+		ac.CAEndpoint = discAddr
+	}
+
 	if tlsRequired {
 		ac.RequireCerts = true
 	}
@@ -269,6 +278,7 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 	serverOptions.CertsDir = conf.CertsPath
 	serverOptions.JWTPath = conf.JWTPath
 	serverOptions.OutputKeyCertToDir = conf.OutputKeyCertToDir
+	serverOptions.CAEndpoint = conf.CAEndpoint
 	serverOptions.TLSEnabled = conf.RequireCerts
 
 	// TODO: remove the caching, workload has a single cert
@@ -466,7 +476,6 @@ func applyEnvVars() {
 
 	serverOptions.EnableIngressGatewaySDS = enableIngressGatewaySDSEnv
 	serverOptions.CAProviderName = caProviderEnv
-	serverOptions.CAEndpoint = caEndpointEnv
 	serverOptions.TrustDomain = trustDomainEnv
 	serverOptions.Pkcs8Keys = pkcs8KeysEnv
 	serverOptions.RecycleInterval = staledConnectionRecycleIntervalEnv
