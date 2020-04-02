@@ -1,0 +1,11 @@
+apiVersion: v1
+name: base
+version: 1.1.0
+tillerVersion: ">=2.7.2"
+description: Helm chart for deploying Istio cluster resources and CRDs
+keywords:
+  - istio
+sources:
+  - http://github.com/istio/istio
+engine: gotpl
+icon: https://istio.io/favicons/android-192x192.png
