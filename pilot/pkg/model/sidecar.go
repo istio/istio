@@ -67,8 +67,10 @@ type SidecarScope struct {
 
 	// Union of services imported across all egress listeners for use by CDS code.
 	services []*Service
-	// Same services with services field. For convenient usage when accessing by hostname.
-	serviceMap map[host.Name]*Service
+	// Set of all services this sidecar depends on.
+	serviceDependencies map[host.Name]struct{}
+
+	virtualServiceDependencies map[string]struct{}
 
 	// Destination rules imported across all egress listeners. This
 	// contains the computed set based on public/private destination rules
@@ -78,6 +80,9 @@ type SidecarScope struct {
 	// CDS, we simply have to find the matching service and return the
 	// destination rule.
 	destinationRules map[host.Name]*Config
+
+	// Set of all destinationRules this sidecar depends on.
+	destinationRuleDependencies map[string]struct{}
 
 	// OutboundTrafficPolicy defines the outbound traffic policy for this sidecar.
 	// If OutboundTrafficPolicy is ALLOW_ANY traffic to unknown destinations will
@@ -146,23 +151,34 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	defaultEgressListener.virtualServices = ps.VirtualServices(&dummyNode, meshGateway)
 
 	out := &SidecarScope{
-		EgressListeners:       []*IstioEgressListenerWrapper{defaultEgressListener},
-		services:              defaultEgressListener.services,
-		destinationRules:      make(map[host.Name]*Config),
-		namespaceDependencies: make(map[string]struct{}),
+		EgressListeners:             []*IstioEgressListenerWrapper{defaultEgressListener},
+		services:                    defaultEgressListener.services,
+		destinationRules:            make(map[host.Name]*Config),
+		serviceDependencies:         make(map[host.Name]struct{}),
+		virtualServiceDependencies:  make(map[string]struct{}),
+		destinationRuleDependencies: make(map[string]struct{}),
+		namespaceDependencies:       make(map[string]struct{}),
 	}
-
-	serviceMap := make(map[host.Name]*Service, len(out.services))
-	out.serviceMap = serviceMap
 
 	// Now that we have all the services that sidecars using this scope (in
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
 	for _, s := range out.services {
-		serviceMap[s.Hostname] = s
-
 		out.destinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s)
 		out.namespaceDependencies[s.Attributes.Namespace] = struct{}{}
+		out.serviceDependencies[s.Hostname] = struct{}{}
+	}
+
+	for _, dr := range out.destinationRules {
+		if dr != nil {
+			out.destinationRuleDependencies[dr.Name] = struct{}{}
+		}
+	}
+
+	for _, el := range out.EgressListeners {
+		for _, vs := range el.virtualServices {
+			out.virtualServiceDependencies[vs.Name] = struct{}{}
+		}
 	}
 
 	if ps.Mesh.OutboundTrafficPolicy != nil {
@@ -181,7 +197,12 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 	}
 
 	r := sidecarConfig.Spec.(*networking.Sidecar)
-	out := &SidecarScope{}
+	out := &SidecarScope{
+		serviceDependencies:         make(map[host.Name]struct{}),
+		virtualServiceDependencies:  make(map[string]struct{}),
+		destinationRuleDependencies: make(map[string]struct{}),
+		namespaceDependencies:       make(map[string]struct{}),
+	}
 
 	out.EgressListeners = make([]*IstioEgressListenerWrapper, 0)
 	for _, e := range r.Egress {
@@ -193,13 +214,9 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 	// this sidecar crd. This is needed to generate CDS output
 	out.services = make([]*Service, 0)
 	servicesAdded := make(map[host.Name]*Service)
-	out.serviceMap = servicesAdded
 	dummyNode := Proxy{
 		ConfigNamespace: configNamespace,
 	}
-
-	// Assign namespace dependencies
-	out.namespaceDependencies = make(map[string]struct{})
 
 	addService := func(s *Service) {
 		if s == nil {
@@ -207,6 +224,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 		}
 		if foundSvc, found := servicesAdded[s.Hostname]; !found {
 			servicesAdded[s.Hostname] = s
+			out.serviceDependencies[s.Hostname] = struct{}{}
 			out.services = append(out.services, s)
 			out.namespaceDependencies[s.Attributes.Namespace] = struct{}{}
 		} else if foundSvc.Attributes.Namespace == s.Attributes.Namespace && s.Ports != nil && len(s.Ports) > 0 {
@@ -240,6 +258,8 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 		// want in the hosts field, and the potentially random choice below won't matter
 		for _, vs := range listener.virtualServices {
 			v := vs.Spec.(*networking.VirtualService)
+			out.virtualServiceDependencies[vs.Name] = struct{}{}
+
 			for _, d := range virtualServiceDestinations(v) {
 				// Default to this hostname in our config namespace
 				if s, ok := ps.ServiceByHostnameAndNamespace[host.Name(d.Host)][configNamespace]; ok {
@@ -275,7 +295,11 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 	// that these services need
 	out.destinationRules = make(map[host.Name]*Config)
 	for _, s := range out.services {
-		out.destinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s)
+		dr := ps.DestinationRule(&dummyNode, s)
+		out.destinationRules[s.Hostname] = dr
+		if dr != nil {
+			out.destinationRuleDependencies[dr.Name] = struct{}{}
+		}
 	}
 
 	if r.OutboundTrafficPolicy == nil {
@@ -440,7 +464,31 @@ func (sc *SidecarScope) DependsOnService(service host.Name) bool {
 		return true
 	}
 
-	if _, f := sc.serviceMap[service]; f {
+	if _, f := sc.serviceDependencies[service]; f {
+		return true
+	}
+
+	return false
+}
+
+func (sc *SidecarScope) DependsOnVirtualService(name string) bool {
+	if sc == nil {
+		return true
+	}
+
+	if _, f := sc.virtualServiceDependencies[name]; f {
+		return true
+	}
+
+	return false
+}
+
+func (sc *SidecarScope) DependsOnDestinationRule(name string) bool {
+	if sc == nil {
+		return true
+	}
+
+	if _, f := sc.destinationRuleDependencies[name]; f {
 		return true
 	}
 

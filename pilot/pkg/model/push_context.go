@@ -233,7 +233,9 @@ const (
 )
 
 var (
-	ServiceEntryKind = collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind()
+	ServiceEntryKind    = collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind()
+	VirtualServiceKind  = collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind()
+	DestinationRuleKind = collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind()
 )
 
 // Merge two update requests together

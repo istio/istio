@@ -23,29 +23,38 @@ import (
 
 var (
 	pushResourceScope = map[resource.GroupVersionKind]func(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool{
-		model.ServiceEntryKind: serviceEntryAffectProxy,
-	}
-	defaultTrueScope = func(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
-		return true
-	}
-	defaultFalseScope = func(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
-		return false
+		model.ServiceEntryKind:    serviceEntryAffectProxy,
+		model.VirtualServiceKind:  virtualServiceAffectProxy,
+		model.DestinationRuleKind: destinationRuleAffectProxy,
 	}
 )
 
 func serviceEntryAffectProxy(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
-	for resource := range resources {
-		if proxy.SidecarScope.DependsOnService(host.Name(resource)) {
+	for name := range resources {
+		if proxy.SidecarScope.DependsOnService(host.Name(name)) {
 			return true
 		}
 	}
-
 	return false
 }
 
-//func virtualServiceAffectProxy(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
-//	proxy.SidecarScope.ServiceForHostname()
-//}
+func virtualServiceAffectProxy(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
+	for name := range resources {
+		if proxy.SidecarScope.DependsOnVirtualService(name) {
+			return true
+		}
+	}
+	return false
+}
+
+func destinationRuleAffectProxy(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
+	for name := range resources {
+		if proxy.SidecarScope.DependsOnDestinationRule(name) {
+			return true
+		}
+	}
+	return false
+}
 
 func PushAffectProxy(pushEv *XdsEvent, proxy *model.Proxy) bool {
 	if len(pushEv.configsUpdated) == 0 {
