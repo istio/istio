@@ -87,7 +87,6 @@ func getRemoteInfoWrapper(pc **cobra.Command, opts *clioptions.ControlPlaneOptio
 
 func getProxyInfoWrapper(opts *clioptions.ControlPlaneOptions) func() (*[]istioVersion.ProxyInfo, error) {
 	return func() (*[]istioVersion.ProxyInfo, error) {
-		fmt.Printf("@@@ ecs getting proxy info, opts=%#v\n", opts)
 		return getProxyInfo(opts)
 	}
 }
