@@ -80,6 +80,9 @@ var (
 	k8sCAPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 
 	// CitadelCACertPath is the directory for Citadel CA certificate.
+	// This is mounted from config map 'istio-ca-root-cert'. Part of startup,
+	// this may be replaced with ./etc/certs, if a root-cert.pem is found, to
+	// handle secrets mounted from non-citadel CAs.
 	CitadelCACertPath = "./var/run/secrets/istio"
 )
 
@@ -128,7 +131,7 @@ const (
 
 var (
 	// LocalSDS is the location of the in-process SDS server - must be in a writeable dir.
-	LocalSDS = "/etc/istio/proxy/SDS"
+	LocalSDS = "./etc/istio/proxy/SDS"
 
 	workloadSdsCacheOptions cache.Options
 	gatewaySdsCacheOptions  cache.Options
@@ -164,6 +167,18 @@ type SDSAgent struct {
 
 	// OutputKeyCertToDir is the directory for output the key and certificate
 	OutputKeyCertToDir string
+
+	// RootCert is the CA root certificate. It is loaded part of detecting the
+	// SDS operating mode - may be the Citadel CA, Kubernentes CA or a custom
+	// CA. If not set it should be assumed we are using a public certificate (like ACME).
+	RootCert []byte
+
+	// WorkloadSecrets is the interface used to get secrets. The SDS agent
+	// is calling this.
+	WorkloadSecrets *cache.SecretCache
+
+	// If set, this is the Citadel client, used to retrieve certificates.
+	CitadelClient caClientInterface.Client
 }
 
 // NewSDSAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -256,7 +271,7 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 	serverOptions.OutputKeyCertToDir = conf.OutputKeyCertToDir
 
 	// TODO: remove the caching, workload has a single cert
-	workloadSecretCache, _ := newSecretCache(serverOptions)
+	workloadSecretCache, _ := conf.newSecretCache(serverOptions)
 
 	var gatewaySecretCache *cache.SecretCache
 	if !isSidecar {
@@ -287,7 +302,7 @@ func ingressSdsExists() bool {
 }
 
 // newSecretCache creates the cache for workload secrets and/or gateway secrets.
-func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.SecretCache, caClient caClientInterface.Client) {
+func (conf *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.SecretCache, caClient caClientInterface.Client) {
 	ret := &secretfetcher.SecretFetcher{}
 
 	// TODO: get the MC public keys from pilot.
@@ -349,6 +364,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 				// for debugging only
 				log.Warnf("Failed to load root cert, assume IP secure network: %v", err)
 				serverOptions.CAEndpoint = "istiod.istio-system.svc:15010"
+				tls = false
 			}
 		} else {
 			// Explicitly configured CA
@@ -394,10 +410,14 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 			}
 		}
 
+		conf.RootCert = rootCert
 		// Will use TLS unless the reserved 15010 port is used ( istiod on an ipsec/secure VPC)
 		// rootCert may be nil - in which case the system roots are used, and the CA is expected to have public key
 		// Otherwise assume the injection has mounted /etc/certs/root-cert.pem
 		caClient, err = citadel.NewCitadelClient(serverOptions.CAEndpoint, tls, rootCert)
+		if err == nil {
+			conf.CitadelClient = caClient
+		}
 	}
 
 	if err != nil {
@@ -411,6 +431,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 	workloadSdsCacheOptions.Pkcs8Keys = serverOptions.Pkcs8Keys
 	workloadSdsCacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
 	workloadSecretCache = cache.NewSecretCache(ret, sds.NotifyProxy, workloadSdsCacheOptions)
+	conf.WorkloadSecrets = workloadSecretCache
 	return
 }
 
