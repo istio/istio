@@ -76,11 +76,11 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 		port = 0
 		listener, err = listenOnUDS(s.UDSServer)
 	} else if s.Port.TLS {
-		cer, err := tls.LoadX509KeyPair(s.TLSCert, s.TLSKey)
-		if err != nil {
+		cert, cerr := tls.LoadX509KeyPair(s.TLSCert, s.TLSKey)
+		if cerr != nil {
 			return fmt.Errorf("could not load TLS keys: %v", err)
 		}
-		config := &tls.Config{Certificates: []tls.Certificate{cer}}
+		config := &tls.Config{Certificates: []tls.Certificate{cert}}
 		// Listen on the given port and update the port if it changed from what was passed in.
 		listener, port, err = listenOnPortTLS(s.Port.Port, config)
 		// Store the actual listening port back to the argument.
