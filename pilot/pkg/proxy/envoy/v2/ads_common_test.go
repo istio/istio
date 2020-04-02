@@ -19,7 +19,7 @@ import (
 	"strconv"
 	"testing"
 
-	"istio.io/istio/pilot/pkg/model"
+	model "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 )
@@ -33,8 +33,10 @@ func TestProxyNeedsPush(t *testing.T) {
 	)
 
 	pushResourceScopeBak := pushResourceScope
-	pushResourceScope = map[resource.GroupVersionKind]func(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool{
+	pushResourceScope = map[resource.GroupVersionKind]func(*model.Proxy, *XdsEvent, map[string]struct{}) bool{
 		model.ServiceEntryKind: func(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
+			_ = proxy
+			_ = pushEv
 			if len(resources) == 0 {
 				return true
 			}
@@ -42,6 +44,8 @@ func TestProxyNeedsPush(t *testing.T) {
 			return f
 		},
 		model.VirtualServiceKind: func(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
+			_ = proxy
+			_ = pushEv
 			if len(resources) == 0 {
 				return true
 			}
@@ -49,6 +53,8 @@ func TestProxyNeedsPush(t *testing.T) {
 			return f
 		},
 		model.DestinationRuleKind: func(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
+			_ = proxy
+			_ = pushEv
 			if len(resources) == 0 {
 				return true
 			}
@@ -79,7 +85,7 @@ func TestProxyNeedsPush(t *testing.T) {
 		{"quotaspec config for gateway", gateway, nil, map[resource.GroupVersionKind]map[string]struct{}{
 			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(): {}}, false},
 		{"invalid config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
-			resource.GroupVersionKind{Kind: invalidKind}: {}}, true},
+			{Kind: invalidKind}: {}}, true},
 		{"serviceentry empty config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
 			model.ServiceEntryKind: {}}, true},
 		{"serviceentry unmatched config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
