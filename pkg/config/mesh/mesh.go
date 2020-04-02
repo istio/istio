@@ -60,6 +60,8 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 			StatusPort:             15020,
 		}
 	}
+	// TODO: include revision based on REVISION env
+	// TODO: set default namespace based on POD_NAMESPACE env
 	return meshconfig.ProxyConfig{
 		// missing: ConnectTimeout: 10 * time.Second,
 		ConfigPath:             constants.ConfigPathDir,
@@ -143,7 +145,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 			ReportBatchMaxTime:          types.DurationProto(1 * time.Second),
 			DisableMixerHttpReports:     true,
 			DisablePolicyChecks:         true,
-			// protocolDetectionTimeout - missing
+			ProtocolDetectionTimeout:    types.DurationProto(100 * time.Millisecond),
 			IngressService:        "istio-ingressgateway",
 			IngressControllerMode: meshconfig.MeshConfig_STRICT,
 			IngressClass:          "istio",
@@ -171,7 +173,6 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 			DefaultVirtualServiceExportTo:     []string{"*"},
 			DefaultDestinationRuleExportTo:    []string{"*"},
 			DnsRefreshRate:                    types.DurationProto(5 * time.Second), // 5 seconds is the default refresh rate used in Envoy
-			ProtocolDetectionTimeout:          types.DurationProto(100 * time.Millisecond),
 			ThriftConfig:                      &meshconfig.MeshConfig_ThriftConfig{},
 			ClusterLocalNamespaces:            append(make([]string, 0), defaultClusterLocalNamespaces...),
 		}
