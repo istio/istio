@@ -2,8 +2,7 @@
 
 ## Test Setup
 
-This test starts an Envoy proxy, a SDS server, a test backend and a dummy CA server. All of 
-these components are running in individual processes.
+This test starts an Envoy proxy, a SDS server, a test backend and a dummy CA server. All of these components are running in individual processes.
 
 The Envoy has two sets of listener and cluster configurations, which mimics two sidecars. An HTTP client sends a request and should expect response sent from the test backend.
 
@@ -18,9 +17,9 @@ The Envoy has two sets of listener and cluster configurations, which mimics two 
                              +----+  server +----+
                              |    |         |    |
                              |    +---------+    |
-+--------+    +------------------------------------------------+    +---------+    
++--------+    +--------------+-------------------+-------------+    +---------+
 | HTTP   |--->| outbound-->outbound<--mTLS-->inbound-->inbound |--->| test    |
-| client |    | listener   cluster           listener  cluster |    | backend | 
+| client |    | listener   cluster           listener  cluster |    | backend |
 +--------+    +------------------------------------------------+    +---------+
 
 ```
