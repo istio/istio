@@ -33,6 +33,7 @@ type OnReadyFunc func()
 type Config struct {
 	IsServerReady IsServerReadyFunc
 	Version       string
+	Cluster       string
 	TLSCert       string
 	TLSKey        string
 	UDSServer     string
