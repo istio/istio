@@ -455,11 +455,17 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 	proxy.DiscoverIPVersions()
 
 	clusters := configgen.BuildClusters(proxy, env.PushContext)
-	var err error
-	if len(env.PushContext.ProxyStatus[model.DuplicatedClusters.Name()]) > 0 {
-		err = fmt.Errorf("duplicate clusters detected %#v", env.PushContext.ProxyStatus[model.DuplicatedClusters.Name()])
+
+	for _, cluster := range clusters {
+		// Validate Clusters so that generated clusters pass Envoy validation logic.
+		if err := cluster.Validate(); err != nil {
+			return clusters, fmt.Errorf("Cluster %s failed validation with error %s", cluster.Name, err.Error())
+		}
 	}
-	return clusters, err
+	if len(env.PushContext.ProxyStatus[model.DuplicatedClusters.Name()]) > 0 {
+		return clusters, fmt.Errorf("duplicate clusters detected %#v", env.PushContext.ProxyStatus[model.DuplicatedClusters.Name()])
+	}
+	return clusters, nil
 }
 
 func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
@@ -1628,6 +1634,9 @@ func TestBuildClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
 
 	for _, cluster := range clusters {
+		if err := cluster.Validate(); err != nil {
+			t.Fatalf("Cluster %s validation failed with error %s", cluster.Name, err.Error())
+		}
 		if cluster.Name != "BlackHoleCluster" {
 			g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
 			g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds()))
@@ -1755,6 +1764,10 @@ func TestRedisProtocolClusterAtGateway(t *testing.T) {
 	clusters := configgen.BuildClusters(proxy, env.PushContext)
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
 	for _, cluster := range clusters {
+		// Validate Clusters so that generated clusters pass Envoy validation logic.
+		if err := cluster.Validate(); err != nil {
+			t.Fatalf("Cluster %s failed validation with error %s", cluster.Name, err.Error())
+		}
 		if cluster.Name == "outbound|6379||redis.com" {
 			g.Expect(cluster.GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_EDS}))
 			g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_MAGLEV))
@@ -2279,6 +2292,13 @@ func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 	proxy.SetSidecarScope(env.PushContext)
 	clusters := cfg.BuildClusters(proxy, env.PushContext)
+
+	for _, cluster := range clusters {
+		// Validate Clusters so that generated clusters pass Envoy validation logic.
+		if err := cluster.Validate(); err != nil {
+			t.Fatalf("Cluster %s failed validation with error %s", cluster.Name, err.Error())
+		}
+	}
 
 	// Expect to ignore STRICT_DNS cluster without endpoints.
 	g.Expect(len(clusters)).To(Equal(2))

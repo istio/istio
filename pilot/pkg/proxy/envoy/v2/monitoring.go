@@ -100,7 +100,6 @@ var (
 
 	cdsPushes         = pushes.With(typeTag.Value("cds"))
 	cdsSendErrPushes  = pushes.With(typeTag.Value("cds_senderr"))
-	cdsBuildErrPushes = pushes.With(typeTag.Value("cds_builderr"))
 	edsPushes         = pushes.With(typeTag.Value("eds"))
 	edsSendErrPushes  = pushes.With(typeTag.Value("eds_senderr"))
 	ldsPushes         = pushes.With(typeTag.Value("lds"))
@@ -108,7 +107,6 @@ var (
 	ldsBuildErrPushes = pushes.With(typeTag.Value("lds_builderr"))
 	rdsPushes         = pushes.With(typeTag.Value("rds"))
 	rdsSendErrPushes  = pushes.With(typeTag.Value("rds_senderr"))
-	rdsBuildErrPushes = pushes.With(typeTag.Value("rds_builderr"))
 
 	pushTime = monitoring.NewDistribution(
 		"pilot_xds_push_time",
