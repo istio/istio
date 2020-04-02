@@ -71,11 +71,6 @@ func TestRenderCharts(t *testing.T) {
 			desc: "all_off",
 		},
 		{
-			desc:                        "all_on",
-			diffIgnore:                  "ConfigMap:*:istio",
-			showOutputFileInPullRequest: true,
-		},
-		{
 			desc:       "prometheus",
 			diffIgnore: "ConfigMap:*:istio",
 		},
@@ -223,6 +218,9 @@ func runManifestGenerate(iopStr string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	// Since controller code is running locally, we can point to a local filesystem path.
+	iop.Spec.InstallPackagePath = filepath.Join(testDataDir, "data-snapshot")
 
 	testReconciler := helmreconciler.NewHelmReconciler(iop)
 	testInput := NewIstioRenderingInput(iop)

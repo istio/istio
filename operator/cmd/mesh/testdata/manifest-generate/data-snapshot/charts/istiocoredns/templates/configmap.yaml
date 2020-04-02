@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istiocoredns
+    release: {{ .Release.Name }}
+data:
+  Corefile: |
+    .:53 {
+          errors
+          health
+          {{ if eq -1 (semver  .Values.istiocoredns.coreDNSTag  | (semver "1.4.0").Compare) }}
+          # Removed support for the proxy plugin: https://coredns.io/2019/03/03/coredns-1.4.0-release/
+          grpc global 127.0.0.1:8053
+          forward . /etc/resolv.conf {
+            except global
+          }
+          {{ else }}
+          proxy global 127.0.0.1:8053 {
+            protocol grpc insecure
+          }
+          proxy . /etc/resolv.conf
+          {{ end }}
+          prometheus :9153
+          cache 30
+          reload
+        }
+---
