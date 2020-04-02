@@ -32,6 +32,7 @@ func TestProxyNeedsPush(t *testing.T) {
 		vsName      = "vs1"
 	)
 
+	pushResourceScopeBak := pushResourceScope
 	pushResourceScope = map[resource.GroupVersionKind]func(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool{
 		model.ServiceEntryKind: func(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
 			if len(resources) == 0 {
@@ -55,6 +56,9 @@ func TestProxyNeedsPush(t *testing.T) {
 			return f
 		},
 	}
+	defer func() {
+		pushResourceScope = pushResourceScopeBak
+	}()
 
 	sidecar := &model.Proxy{Type: model.SidecarProxy, IPAddresses: []string{"127.0.0.1"}}
 	gateway := &model.Proxy{Type: model.Router}
