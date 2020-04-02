@@ -1,0 +1,25 @@
+# The separate profile will disable istiod and bring back the old microservices model
+# This will be removed in future (1.6) releases
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  components:
+    sidecarInjector:
+      enabled: true
+    citadel:
+      enabled: true
+    galley:
+      enabled: true
+    telemetry:
+      enabled: true
+  values:
+    telemetry:
+      v1:
+        enabled: true
+      v2:
+        enabled: false
+    global:
+      pilotCertProvider: kubernetes
+      mountMtlsCerts: true
+      istiod:
+        enabled: false

@@ -1,0 +1,23 @@
+{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
+{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istiod
+    release: {{ .Release.Name }}
+    istio: pilot
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: istiod
+      {{- if ne .Values.revision ""}}
+      version: {{ .Values.revision }}
+      {{- end }}
+      istio: pilot
+---
+{{- end }}
+{{- end }}

@@ -1,0 +1,119 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: injector-mesh
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+data:
+  # This is the 'mesh' config, loaded by the sidecar injector.
+  # It is a different configmap from pilot to allow a-la-carte install of the injector and follow the model
+  # of reducing blast-radius of config changes and avoiding globals.
+
+  # Note that injector uses a subset of the mesh config only - for clarity this is only generating the
+  # required config, i.e. the defaultConfig section. See injection-template .ProxyConfig settings.
+
+
+  mesh: |-
+    # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
+    # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
+    sdsUdsPath: {{ .Values.global.sds.udsPath | quote }}
+
+    defaultConfig:
+      #
+      # TCP connection timeout between Envoy & the application, and between Envoys.
+      connectTimeout: 10s
+      #
+      ### ADVANCED SETTINGS #############
+      # Where should envoy's configuration be stored in the istio-proxy container
+      configPath: "/etc/istio/proxy"
+      # The pseudo service name used for Envoy.
+      serviceCluster: istio-proxy
+      # These settings that determine how long an old Envoy
+      # process should be kept alive after an occasional reload.
+      drainDuration: 45s
+      parentShutdownDuration: 1m0s
+      #
+      # Port where Envoy listens (on local host) for admin commands
+      # You can exec into the istio-proxy container in a pod and
+      # curl the admin port (curl http://localhost:15000/) to obtain
+      # diagnostic information from Envoy. See
+      # https://lyft.github.io/envoy/docs/operations/admin.html
+      # for more details
+      proxyAdminPort: 15000
+      #
+      # Set concurrency to a specific number to control the number of Proxy worker threads.
+      # If set to 0 (default), then start worker thread for each CPU thread/core.
+      concurrency: {{ .Values.global.proxy.concurrency }}
+      #
+      {{- if eq .Values.global.proxy.tracer "lightstep" }}
+      tracing:
+        lightstep:
+          # Address of the LightStep Satellite pool
+          address: {{ .Values.global.tracer.lightstep.address }}
+          # Access Token used to communicate with the Satellite pool
+          accessToken: {{ .Values.global.tracer.lightstep.accessToken }}
+          # Whether communication with the Satellite pool should be secure
+          secure: {{ .Values.global.tracer.lightstep.secure }}
+          # Path to the file containing the cacert to use when verifying TLS
+          cacertPath: {{ .Values.global.tracer.lightstep.cacertPath }}
+      {{- else if eq .Values.global.proxy.tracer "zipkin" }}
+      tracing:
+        zipkin:
+          # Address of the Zipkin collector
+        {{- if .Values.global.tracer.zipkin.address }}
+          address: {{ .Values.global.tracer.zipkin.address }}
+        {{- else }}
+          address: zipkin.{{ .Values.global.telemetryNamespace }}:9411
+        {{- end }}
+      {{- else if eq .Values.global.proxy.tracer "datadog" }}
+      tracing:
+        datadog:
+          # Address of the DataDog Agent
+          address: {{ .Values.global.tracer.datadog.address }}
+      {{- else if eq .Values.global.proxy.tracer "stackdriver" }}
+      tracing:
+        stackdriver:
+          # enables trace output to stdout.
+          debug: {{ $.Values.global.tracer.stackdriver.debug }}
+        {{- if $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}
+          # The global default max number of attributes per span.
+          maxNumberOfAttributes: {{ $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}
+        {{- end }}
+        {{- if $.Values.global.tracer.stackdriver.maxNumberOfAnnotations }}
+          # The global default max number of annotation events per span.
+          maxNumberOfAnnotations: {{ $.Values.global.tracer.stackdriver.maxNumberOfAnnotations }}
+        {{- end }}
+        {{- if $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents }}
+          # The global default max number of message events per span.
+          maxNumberOfMessageEvents: {{ $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents }}
+        {{- end }}
+      {{- end }}
+
+    {{- $defPilotHostname := printf "istio-pilot%s.%s" .Values.version .Values.global.configNamespace }}
+    {{- $pilotAddress := .Values.global.remotePilotAddress | default $defPilotHostname }}
+
+    {{- if .Values.global.controlPlaneSecurityEnabled }}
+      #
+      # Mutual TLS authentication between sidecars and istio control plane.
+      controlPlaneAuthPolicy: MUTUAL_TLS
+      #
+      # Address where istio Pilot service is running
+      {{- if .Values.global.remotePilotAddress }}
+      discoveryAddress: {{ $defPilotHostname }}:15011
+      {{- else }}
+      discoveryAddress: {{ $pilotAddress }}:15011
+      {{- end }}
+    {{- else }}
+      #
+      # Mutual TLS authentication between sidecars and istio control plane.
+      controlPlaneAuthPolicy: NONE
+      #
+      # Address where istio Pilot service is running
+      {{- if .Values.global.remotePilotAddress }}
+      discoveryAddress: {{ $defPilotHostname }}:15010
+      {{- else }}
+      discoveryAddress: {{ $pilotAddress }}:15010
+      {{- end }}
+    {{- end }}
+---

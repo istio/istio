@@ -1,0 +1,123 @@
+{{- if .Values.global.meshExpansion.enabled }}
+  {{- if .Values.global.istiod.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: meshexpansion-gateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 15012
+        protocol: TCP
+        name: tcp-istiod
+      hosts:
+        - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: meshexpansion-vs-istiod
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  hosts:
+  - istiod.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  gateways:
+  - meshexpansion-gateway
+  tcp:
+  - match:
+    - port: 15012
+    route:
+    - destination:
+        host: istiod.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+        port:
+          number: 15012
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: meshexpansion-dr-istiod
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  host: istiod.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: 15012
+      tls:
+        mode: DISABLE
+---
+  {{- else }}
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: meshexpansion-gateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 15011
+        protocol: TCP
+        name: tcp-pilot
+      hosts:
+        - "*"
+    - port:
+        number: 15004
+        name: tls-mixer
+        protocol: TLS
+      tls:
+        mode: AUTO_PASSTHROUGH
+      hosts:
+        - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: meshexpansion-vs-pilot
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  hosts:
+    - istio-pilot.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  gateways:
+    - meshexpansion-gateway
+  tcp:
+    - match:
+        - port: 15011
+      route:
+        - destination:
+            host: istio-pilot.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+            port:
+              number: 15011
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: meshexpansion-dr-pilot
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  host: pilot.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  trafficPolicy:
+    portLevelSettings:
+      - port:
+          number: 15011
+        tls:
+          mode: DISABLE
+  {{- end }}
+{{- end }}
+

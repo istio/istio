@@ -1,0 +1,4 @@
+hub: gcr.io/istio-testing
+tag: 1.5-dev
+operatorNamespace: istio-operator
+istioNamespace: istio-system
