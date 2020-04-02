@@ -72,7 +72,9 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		if err := s.initMCPConfigController(args); err != nil {
 			return err
 		}
-	} else if args.Config.FileDir != "" {
+	}
+
+	if args.Config.FileDir != "" {
 		store := memory.Make(collections.Pilot)
 		configController := memory.NewController(store)
 
@@ -81,15 +83,19 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 			return err
 		}
 		s.ConfigStores = append(s.ConfigStores, configController)
-	} else {
+	}
+
+	if args.Config.KubeConfig != "" {
 		configController, err := s.makeKubeConfigController(args)
 		if err != nil {
 			return err
 		}
+
 		s.ConfigStores = append(s.ConfigStores, configController)
 		if features.EnableServiceApis {
 			s.ConfigStores = append(s.ConfigStores, gateway.NewController(s.kubeClient, configController))
 		}
+
 		if features.EnableAnalysis {
 			if err := s.initInprocessAnalysisController(args); err != nil {
 				return err
