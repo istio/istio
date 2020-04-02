@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -28,11 +29,15 @@ import (
 
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/metadata"
+	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/pkg/log"
@@ -152,10 +157,11 @@ var _ serviceregistry.Instance = &Controller{}
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
-	client    kubernetes.Interface
-	queue     queue.Instance
-	services  cache.SharedIndexInformer
-	endpoints kubeEndpointsController
+	client         kubernetes.Interface
+	metadataClient metadata.Interface
+	queue          queue.Instance
+	services       cache.SharedIndexInformer
+	endpoints      kubeEndpointsController
 
 	// TODO we can disable this when we only have EndpointSlice enabled
 	nodes           cache.SharedIndexInformer
@@ -186,7 +192,7 @@ type Controller struct {
 
 // NewController creates a new Kubernetes controller
 // Created by bootstrap and multicluster (see secretcontroler).
-func NewController(client kubernetes.Interface, options Options) *Controller {
+func NewController(client kubernetes.Interface, metadataClient metadata.Interface, options Options) *Controller {
 	log.Infof("Service controller watching namespace %q for services, endpoints, nodes and pods, refresh %s",
 		options.WatchedNamespace, options.ResyncPeriod)
 
@@ -194,6 +200,7 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 	c := &Controller{
 		domainSuffix:               options.DomainSuffix,
 		client:                     client,
+		metadataClient:             metadataClient,
 		queue:                      queue.NewQueue(1 * time.Second),
 		clusterID:                  options.ClusterID,
 		xdsUpdater:                 options.XDSUpdater,
@@ -215,7 +222,9 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 		c.endpoints = newEndpointSliceController(c, sharedInformers)
 	}
 
-	c.nodes = sharedInformers.Core().V1().Nodes().Informer()
+	metadataSharedInformer := metadatainformer.NewSharedInformerFactory(metadataClient, options.ResyncPeriod)
+	nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
+	c.nodes = metadataSharedInformer.ForResource(nodeResource).Informer()
 	registerHandlers(c.nodes, c.queue, "Nodes", c.onNodeEvent)
 
 	podInformer := sharedInformers.Core().V1().Pods().Informer()
@@ -292,7 +301,7 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 	return nil
 }
 
-func (c *Controller) onNodeEvent(_ interface{}, _ model.Event) error {
+func (c *Controller) onNodeEvent(obj interface{}, ev model.Event) error {
 	return c.checkReadyForEvents()
 }
 
@@ -417,15 +426,26 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 
 	// NodeName is set by the scheduler after the pod is created
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#late-initialization
-	node, exists, err := c.nodes.GetStore().GetByKey(pod.Spec.NodeName)
+	raw, exists, err := c.nodes.GetStore().GetByKey(pod.Spec.NodeName)
 	if !exists || err != nil {
-		log.Warnf("unable to get node %q for pod %q: %v", pod.Spec.NodeName, pod.Name, err)
+		log.Warnf("unable to get node %q for pod %q from cache: %v", pod.Spec.NodeName, pod.Name, err)
+		nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
+		raw, err = c.metadataClient.Resource(nodeResource).Get(context.TODO(), pod.Spec.NodeName, metav1.GetOptions{})
+		if err != nil {
+			log.Warnf("unable to get node %q for pod %q: %v", pod.Spec.NodeName, pod.Name, err)
+			return ""
+		}
+	}
+
+	nodeMeta, err := meta.Accessor(raw)
+	if err != nil {
+		log.Warnf("unable to get node meta: %v", nodeMeta)
 		return ""
 	}
 
-	region := getLabelValue(node.(*v1.Node), NodeRegionLabel, NodeRegionLabelGA)
-	zone := getLabelValue(node.(*v1.Node), NodeZoneLabel, NodeZoneLabelGA)
-	subzone := getLabelValue(node.(*v1.Node), IstioSubzoneLabel, "")
+	region := getLabelValue(nodeMeta, NodeRegionLabel, NodeRegionLabelGA)
+	zone := getLabelValue(nodeMeta, NodeZoneLabel, NodeZoneLabelGA)
+	subzone := getLabelValue(nodeMeta, IstioSubzoneLabel, "")
 
 	if region == "" && zone == "" && subzone == "" {
 		return ""

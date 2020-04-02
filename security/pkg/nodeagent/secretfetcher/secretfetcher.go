@@ -52,6 +52,8 @@ const (
 	tlsScrtCert = "tls.crt"
 	// The ID/name for the k8sKey in kubernetes tls secret.
 	tlsScrtKey = "tls.key"
+	// The ID/name for the CA certificate in kubernetes tls secret
+	tlsScrtCaCert = "ca.crt"
 
 	// IngressSecretNamespace the namespace of kubernetes secrets to watch.
 	ingressSecretNamespace = "INGRESS_GATEWAY_NAMESPACE"
@@ -229,6 +231,8 @@ func extractCertAndKey(scrt *v1.Secret) (cert, key []byte, exist bool) {
 func extractCACert(scrt *v1.Secret, fromCompoundSecret bool) (caCert []byte, exist bool) {
 	if len(scrt.Data[genericScrtCaCert]) > 0 {
 		caCert = scrt.Data[genericScrtCaCert]
+	} else if len(scrt.Data[tlsScrtCaCert]) > 0 {
+		caCert = scrt.Data[tlsScrtCaCert]
 	} else if !fromCompoundSecret {
 		caCert = scrt.Data[tlsScrtCert]
 	}

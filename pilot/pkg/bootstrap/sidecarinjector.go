@@ -71,6 +71,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 		// Disable monitoring. The injection metrics will be picked up by Pilots metrics exporter already
 		MonitoringPort: -1,
 		Mux:            s.httpsMux,
+		Revision:       args.Revision,
 	}
 
 	wh, err := inject.NewWebhook(parameters)

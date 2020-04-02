@@ -27,7 +27,7 @@ import (
 
 func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext, version string) error {
 	pushStart := time.Now()
-	rawRoutes := s.generateRawRoutes(con, push)
+	rawRoutes := s.ConfigGenerator.BuildHTTPRoutes(con.node, push, con.Routes)
 	if s.DebugConfigs {
 		for _, r := range rawRoutes {
 			con.RouteConfigs[r.Name] = r
@@ -50,20 +50,6 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext,
 
 	adsLog.Infof("RDS: PUSH for node:%s routes:%d", con.node.ID, len(rawRoutes))
 	return nil
-}
-
-func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.PushContext) []*xdsapi.RouteConfiguration {
-	rawRoutes := s.ConfigGenerator.BuildHTTPRoutes(con.node, push, con.Routes)
-	// Now validate each route
-	for _, r := range rawRoutes {
-		if err := r.Validate(); err != nil {
-			adsLog.Errorf("RDS: Generated invalid routes for route:%s for node:%v: %v, %v", r.Name, con.node.ID, err, r)
-			rdsBuildErrPushes.Increment()
-			// Generating invalid routes is a bug.
-			// Instead of panic, which will break down the whole cluster. Just ignore it here, let envoy process it.
-		}
-	}
-	return rawRoutes
 }
 
 func routeDiscoveryResponse(rs []*xdsapi.RouteConfiguration, version string, noncePrefix string) *xdsapi.DiscoveryResponse {

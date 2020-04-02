@@ -74,6 +74,7 @@ type IstioDNS struct {
 	// If nil, no DNS-TLS requests will be made.
 	tlsClient   *dns.Client
 	tlsUpstream string
+	backoff time.Duration
 
 	// m protects pending, conn and outID
 	m       sync.Mutex
@@ -112,6 +113,7 @@ func InitDNS() *IstioDNS {
 	h := &IstioDNS{
 		mux:     dns.NewServeMux(),
 		pending: map[uint16]chan *dns.Msg{},
+		backoff: 1 * time.Second,
 	}
 
 	h.mux.Handle(".", h)
@@ -176,7 +178,7 @@ func InitDNSAgent(discoveryAddress string, domain string, cert []byte, suffixes 
 				// test/debug
 				h.tlsClient.TLSConfig.ServerName = "istiod.istio-system.svc"
 			}
-			h.tlsUpstream = dnsTLSServer
+			h.tlsUpstream = dnsTLSServer + ":853"
 			// Maintain a connection to the TLS server.
 			h.openTLS()
 		}
@@ -369,7 +371,7 @@ func (h *IstioDNS) openTLS() {
 	h.m.Lock()
 	h.conn = conn
 	h.m.Unlock()
-	log.Infoa("DNS: Opened TLS connection to ", h.resolvConfServers[0], " ", time.Since(t0), err)
+	log.Infoa("DNS: Opened TLS connection to ", h.tlsUpstream, " ", time.Since(t0), err)
 	if err != nil {
 		log.Warna("Initial failure to open DNS-TLS connection, will retry", err)
 	}
@@ -383,14 +385,18 @@ func (h *IstioDNS) openTLS() {
 				h.m.Lock()
 				h.conn = conn
 				h.m.Unlock()
-				log.Infoa("DNS: Opened TLS connection to ", h.resolvConfServers[0], " ",
-					time.Since(t0), " ", time.Since(tclose), err)
 				if err != nil {
 					// TODO: exponential backoff
 					// TODO: if we are not in strict mode, fallback to UDP
-					time.Sleep(1 * time.Second)
+					time.Sleep(h.backoff)
+					if h.backoff < 33 * time.Second {
+						h.backoff = 2 * h.backoff
+					}
 					continue
 				}
+				h.backoff = 1 * time.Second
+				log.Infoa("DNS: Opened TLS connection to ", h.tlsUpstream, " ",
+					time.Since(t0), " ", time.Since(tclose), err)
 			}
 
 			msg, err := h.conn.ReadMsg()

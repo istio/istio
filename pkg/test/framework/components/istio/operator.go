@@ -217,12 +217,9 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 		"-f", iopFile,
 		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
 	}
-	// If control plane values set, assume this includes the full set of values, and .Values is
-	// just for helm use case. Otherwise, include all values.
-	if cfg.ControlPlaneValues == "" {
-		for k, v := range cfg.Values {
-			installSettings = append(installSettings, "--set", fmt.Sprintf("values.%s=%s", k, v))
-		}
+	// Include all user-specified values.
+	for k, v := range cfg.Values {
+		installSettings = append(installSettings, "--set", fmt.Sprintf("values.%s=%s", k, v))
 	}
 	if c.environment.IsMulticluster() {
 		// Set the clusterName for the local cluster.

@@ -21,6 +21,7 @@ spec:
       creationTimestamp: null
       labels:
         app: traffic
+        istio.io/rev: ""
         security.istio.io/tlsMode: istio
     spec:
       containers:

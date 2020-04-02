@@ -164,6 +164,8 @@ const (
 )
 
 func injectCommand() *cobra.Command {
+	var revision string
+
 	injectCmd := &cobra.Command{
 		Use:   "kube-inject",
 		Short: "Inject Envoy sidecar into Kubernetes pod resources",
@@ -304,7 +306,7 @@ istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \
 				return nil
 			}
 
-			return inject.IntoResourceFile(sidecarTemplate, valuesConfig, meshConfig, reader, writer)
+			return inject.IntoResourceFile(sidecarTemplate, valuesConfig, revision, meshConfig, reader, writer)
 		},
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
 			// istioctl kube-inject is typically redirected to a .yaml file;
@@ -335,6 +337,9 @@ istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", configMapKey))
 	injectCmd.PersistentFlags().StringVar(&injectConfigMapName, "injectConfigMapName", defaultInjectConfigMapName,
 		fmt.Sprintf("ConfigMap name for Istio sidecar injection, key should be %q.", injectConfigMapKey))
+
+	injectCmd.PersistentFlags().StringVar(&revision, "revision", "",
+		"control plane revision")
 
 	return injectCmd
 }

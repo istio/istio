@@ -13782,7 +13782,7 @@ rules:
 
   # ingress controller
   - apiGroups: ["networking.k8s.io"]
-    resources: ["ingresses"]
+    resources: ["ingresses", "ingressclasses"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses/status"]
@@ -14043,7 +14043,7 @@ rules:
     verbs: ["*"]
 {{- end}}
   - apiGroups: ["networking.k8s.io"]
-    resources: ["ingresses"]
+    resources: ["ingresses", "ingressclasses"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses/status"]
@@ -18854,6 +18854,7 @@ metadata:
   labels:
     istio.io/rev: default
     app: istiod
+    istio: pilot
     release: istio-base
 spec:
   ports:
@@ -21147,6 +21148,7 @@ metadata:
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
     app: istiod
+    istio: pilot
     release: {{ .Release.Name }}
 spec:
   ports:
@@ -41667,6 +41669,7 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   jobLabel: istio
+  targetLabels: [app]
   selector:
     matchExpressions:
       - {key: istio, operator: In, values: [mixer,pilot,galley,citadel,sidecar-injector]}

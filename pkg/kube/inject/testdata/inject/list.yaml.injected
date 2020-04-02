@@ -25,6 +25,7 @@ items:
         creationTimestamp: null
         labels:
           app: hello
+          istio.io/rev: ""
           security.istio.io/tlsMode: istio
           tier: backend
           track: stable
@@ -227,6 +228,7 @@ items:
         creationTimestamp: null
         labels:
           app: hello
+          istio.io/rev: ""
           security.istio.io/tlsMode: istio
           tier: backend
           track: stable

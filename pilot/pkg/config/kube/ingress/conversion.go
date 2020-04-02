@@ -35,6 +35,10 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 )
 
+const (
+	IstioIngressController = "istio.io/ingress-controller"
+)
+
 // EncodeIngressRuleName encodes an ingress rule name for a given ingress resource name,
 // as well as the position of the rule and path specified within it, counting from 1.
 // ruleNum == pathNum == 0 indicates the default backend specified for an ingress.
@@ -229,22 +233,34 @@ func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend, namespace string
 // shouldProcessIngress determines whether the given ingress resource should be processed
 // by the controller, based on its ingress class annotation.
 // See https://github.com/kubernetes/ingress/blob/master/examples/PREREQUISITES.md#ingress-class
-func shouldProcessIngress(mesh *meshconfig.MeshConfig, ingress *v1beta1.Ingress) bool {
-	class, exists := "", false
-	if ingress.Annotations != nil {
-		class, exists = ingress.Annotations[kube.IngressClassAnnotation]
-	}
-
-	switch mesh.IngressControllerMode {
-	case meshconfig.MeshConfig_OFF:
-		return false
-	case meshconfig.MeshConfig_STRICT:
-		return exists && class == mesh.IngressClass
-	case meshconfig.MeshConfig_DEFAULT:
-		return !exists || class == mesh.IngressClass
-	default:
-		log.Warnf("invalid ingress synchronization mode: %v", mesh.IngressControllerMode)
-		return false
+func shouldProcessIngressWithClass(mesh *meshconfig.MeshConfig, ingress *v1beta1.Ingress, ingressClass *v1beta1.IngressClass) bool {
+	if class, exists := ingress.Annotations[kube.IngressClassAnnotation]; exists {
+		switch mesh.IngressControllerMode {
+		case meshconfig.MeshConfig_OFF:
+			return false
+		case meshconfig.MeshConfig_STRICT:
+			return class == mesh.IngressClass
+		case meshconfig.MeshConfig_DEFAULT:
+			return class == mesh.IngressClass
+		default:
+			log.Warnf("invalid ingress synchronization mode: %v", mesh.IngressControllerMode)
+			return false
+		}
+	} else if ingressClass != nil {
+		// TODO support ingressclass.kubernetes.io/is-default-class annotation
+		return ingressClass.Spec.Controller == IstioIngressController
+	} else {
+		switch mesh.IngressControllerMode {
+		case meshconfig.MeshConfig_OFF:
+			return false
+		case meshconfig.MeshConfig_STRICT:
+			return false
+		case meshconfig.MeshConfig_DEFAULT:
+			return true
+		default:
+			log.Warnf("invalid ingress synchronization mode: %v", mesh.IngressControllerMode)
+			return false
+		}
 	}
 }
 

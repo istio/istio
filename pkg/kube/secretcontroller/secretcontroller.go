@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
@@ -54,11 +55,15 @@ var ValidateClientConfig = clientcmd.Validate
 // DO NOT USE - TEST ONLY.
 var CreateInterfaceFromClusterConfig = kube.CreateInterfaceFromClusterConfig
 
+// CreateMetadataInterfaceFromClusterConfig is a unit test override variable for interface create.
+// DO NOT USE - TEST ONLY.
+var CreateMetadataInterfaceFromClusterConfig = kube.CreateMetadataInterfaceFromClusterConfig
+
 // addSecretCallback prototype for the add secret callback function.
-type addSecretCallback func(clientset kubernetes.Interface, dataKey string) error
+type addSecretCallback func(clientset kubernetes.Interface, metadataClient metadata.Interface, dataKey string) error
 
 // updateSecretCallback prototype for the update secret callback function.
-type updateSecretCallback func(clientset kubernetes.Interface, dataKey string) error
+type updateSecretCallback func(clientset kubernetes.Interface, metadataClient metadata.Interface, dataKey string) error
 
 // removeSecretCallback prototype for the remove secret callback function.
 type removeSecretCallback func(dataKey string) error
@@ -77,9 +82,10 @@ type Controller struct {
 
 // RemoteCluster defines cluster structZZ
 type RemoteCluster struct {
-	secretName    string
-	client        kubernetes.Interface
-	kubeConfigSha [sha256.Size]byte
+	secretName     string
+	client         kubernetes.Interface
+	metadataClient metadata.Interface
+	kubeConfigSha  [sha256.Size]byte
 }
 
 // ClusterStore is a collection of clusters
@@ -182,7 +188,8 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 }
 
 // StartSecretController creates the secret controller.
-func StartSecretController(k8s kubernetes.Interface,
+func StartSecretController(
+	k8s kubernetes.Interface,
 	addCallback addSecretCallback,
 	updateCallback updateSecretCallback,
 	removeCallback removeSecretCallback,
@@ -259,10 +266,16 @@ func createRemoteCluster(kubeConfig []byte, secretName string) (*RemoteCluster, 
 		return nil, fmt.Errorf("couldn't create client interface: %v", err)
 	}
 
+	metadataClient, err := CreateMetadataInterfaceFromClusterConfig(clientConfig)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't create metadata client interface: %v", err)
+	}
+
 	return &RemoteCluster{
-		secretName:    secretName,
-		client:        client,
-		kubeConfigSha: sha256.Sum256(kubeConfig),
+		secretName:     secretName,
+		client:         client,
+		metadataClient: metadataClient,
+		kubeConfigSha:  sha256.Sum256(kubeConfig),
 	}, nil
 }
 
@@ -280,7 +293,7 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 			}
 
 			c.cs.remoteClusters[clusterID] = remoteCluster
-			if err := c.addCallback(remoteCluster.client, clusterID); err != nil {
+			if err := c.addCallback(remoteCluster.client, remoteCluster.metadataClient, clusterID); err != nil {
 				log.Errorf("Error creating cluster_id=%s from secret %v: %v",
 					clusterID, secretName, err)
 			}
@@ -304,7 +317,7 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 					continue
 				}
 				c.cs.remoteClusters[clusterID] = remoteCluster
-				if err := c.updateCallback(remoteCluster.client, clusterID); err != nil {
+				if err := c.updateCallback(remoteCluster.client, remoteCluster.metadataClient, clusterID); err != nil {
 					log.Errorf("Error updating cluster_id from secret=%v: %s %v",
 						clusterID, secretName, err)
 				}

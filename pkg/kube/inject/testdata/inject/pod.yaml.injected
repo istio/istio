@@ -9,6 +9,7 @@ metadata:
     traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
   creationTimestamp: null
   labels:
+    istio.io/rev: ""
     security.istio.io/tlsMode: istio
   name: hellopod
 spec:

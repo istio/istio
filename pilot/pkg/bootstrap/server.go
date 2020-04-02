@@ -26,15 +26,16 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/istio/pkg/dns"
 
 	"istio.io/pkg/env"
 
+	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
-
-	"istio.io/istio/pilot/pkg/leaderelection"
+	"k8s.io/client-go/tools/cache"
 
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -43,17 +44,14 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 
-	"istio.io/istio/pkg/jwt"
-
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
-
 	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/env"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -65,6 +63,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/jwt"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -121,9 +120,11 @@ type Server struct {
 	clusterID   string
 	environment *model.Environment
 
-	configController    model.ConfigStoreCache
 	kubeConfig          *rest.Config
-	kubeClient          kubernetes.Interface
+	configController model.ConfigStoreCache
+	kubeClient       kubernetes.Interface
+	metadataClient   metadata.Interface
+
 	startFuncs          []startFunc
 	multicluster        *kubecontroller.Multicluster
 	httpServer          *http.Server // debug
@@ -422,6 +423,11 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 		})
 		if err != nil {
 			return fmt.Errorf("failed creating kube client: %v", err)
+		}
+
+		s.metadataClient, err = kubelib.CreateMetadataClient(args.Config.KubeConfig, "")
+		if err != nil {
+			return fmt.Errorf("failed creating kube metadata client: %v", err)
 		}
 	}
 
