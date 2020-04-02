@@ -623,7 +623,7 @@ spec:
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
       replicaCount: 1
-      rewriteAppHTTPProbe: false
+      rewriteAppHTTPProbe: true
       rollingMaxSurge: 100%
       rollingMaxUnavailable: 25%
       selfSigned: false

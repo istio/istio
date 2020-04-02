@@ -593,7 +593,7 @@ spec:
       objectSelector:
         autoInject: true
         enabled: false
-      rewriteAppHTTPProbe: false
+      rewriteAppHTTPProbe: true
       selfSigned: false
     telemetry:
       enabled: true

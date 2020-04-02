@@ -1,6 +1,6 @@
 metadata:
   annotations:
-    "sidecar.istio.io/rewriteAppHTTPProbers": "false"
+    "sidecar.istio.io/rewriteAppHTTPProbers": "true"
 spec:
   initContainers:
     - name: c0

@@ -9525,7 +9525,7 @@ func chartsIstioControlIstioAutoinjectNotesTxt() (*asset, error) {
 }
 
 var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`template: |
-  rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
+  rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe true }}
   initContainers:
   {{ if ne (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`NONE`+"`"+` }}
   {{ if .Values.istio_cni.enabled -}}
@@ -10742,7 +10742,7 @@ var _chartsIstioControlIstioAutoinjectValuesYaml = []byte(`sidecarInjectorWebhoo
   # If true, webhook or istioctl injector will rewrite PodSpec for liveness
   # health check to redirect request to sidecar. This makes liveness check work
   # even when mTLS is enabled.
-  rewriteAppHTTPProbe: false
+  rewriteAppHTTPProbe: true
 
   # If true, a self-signed CA will created in order to issue a certificate that
   # will be used to authenticate the workload respondible for handling
@@ -12054,7 +12054,7 @@ var _chartsIstioControlIstioDiscoveryFilesInjectionTemplateYaml = []byte(`# Conf
 # Istiod only uses SDS based config ( files will mapped/handled by SDS).
 
 template: |
-  rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
+  rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe true }}
   initContainers:
   {{ if ne (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`NONE`+"`"+` }}
   {{ if .Values.istio_cni.enabled -}}
@@ -40472,7 +40472,7 @@ spec:
     sidecarInjectorWebhook:
       image: sidecar_injector
       enableNamespacesByDefault: false
-      rewriteAppHTTPProbe: false
+      rewriteAppHTTPProbe: true
       selfSigned: false
       injectLabel: istio-injection
       objectSelector:
