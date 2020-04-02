@@ -766,82 +766,83 @@ func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error
 
 	var notReady []string
 
-	errPoll := wait.Poll(2*time.Second, opts.WaitTimeout, func() (bool, error) {
-		pods := []v1.Pod{}
-		deployments := []deployment{}
-		namespaces := []v1.Namespace{}
+	pods := []v1.Pod{}
+	deployments := []deployment{}
+	namespaces := []v1.Namespace{}
 
-		for _, o := range objects {
-			kind := o.GroupVersionKind().Kind
-			switch kind {
-			case "Namespace":
-				namespace, err := cs.CoreV1().Namespaces().Get(context2.TODO(), o.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				namespaces = append(namespaces, *namespace)
-			case "Pod":
-				pod, err := cs.CoreV1().Pods(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				pods = append(pods, *pod)
-			case "ReplicationController":
-				rc, err := cs.CoreV1().ReplicationControllers(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				list, err := getPods(cs, rc.Namespace, rc.Spec.Selector)
-				if err != nil {
-					return false, err
-				}
-				pods = append(pods, list...)
-			case "Deployment":
-				currentDeployment, err := cs.AppsV1().Deployments(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				_, _, newReplicaSet, err := kubectlutil.GetAllReplicaSets(currentDeployment, cs.AppsV1())
-				if err != nil || newReplicaSet == nil {
-					return false, err
-				}
-				newDeployment := deployment{
-					newReplicaSet,
-					currentDeployment,
-				}
-				deployments = append(deployments, newDeployment)
-			case "DaemonSet":
-				ds, err := cs.AppsV1().DaemonSets(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				list, err := getPods(cs, ds.Namespace, ds.Spec.Selector.MatchLabels)
-				if err != nil {
-					return false, err
-				}
-				pods = append(pods, list...)
-			case "StatefulSet":
-				sts, err := cs.AppsV1().StatefulSets(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				list, err := getPods(cs, sts.Namespace, sts.Spec.Selector.MatchLabels)
-				if err != nil {
-					return false, err
-				}
-				pods = append(pods, list...)
-			case "ReplicaSet":
-				rs, err := cs.AppsV1().ReplicaSets(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				list, err := getPods(cs, rs.Namespace, rs.Spec.Selector.MatchLabels)
-				if err != nil {
-					return false, err
-				}
-				pods = append(pods, list...)
+	for _, o := range objects {
+		kind := o.GroupVersionKind().Kind
+		switch kind {
+		case "Namespace":
+			namespace, err := cs.CoreV1().Namespaces().Get(context2.TODO(), o.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
 			}
+			namespaces = append(namespaces, *namespace)
+		case "Pod":
+			pod, err := cs.CoreV1().Pods(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			pods = append(pods, *pod)
+		case "ReplicationController":
+			rc, err := cs.CoreV1().ReplicationControllers(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			list, err := getPods(cs, rc.Namespace, rc.Spec.Selector)
+			if err != nil {
+				return err
+			}
+			pods = append(pods, list...)
+		case "Deployment":
+			currentDeployment, err := cs.AppsV1().Deployments(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			_, _, newReplicaSet, err := kubectlutil.GetAllReplicaSets(currentDeployment, cs.AppsV1())
+			if err != nil || newReplicaSet == nil {
+				return err
+			}
+			newDeployment := deployment{
+				newReplicaSet,
+				currentDeployment,
+			}
+			deployments = append(deployments, newDeployment)
+		case "DaemonSet":
+			ds, err := cs.AppsV1().DaemonSets(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			list, err := getPods(cs, ds.Namespace, ds.Spec.Selector.MatchLabels)
+			if err != nil {
+				return err
+			}
+			pods = append(pods, list...)
+		case "StatefulSet":
+			sts, err := cs.AppsV1().StatefulSets(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			list, err := getPods(cs, sts.Namespace, sts.Spec.Selector.MatchLabels)
+			if err != nil {
+				return err
+			}
+			pods = append(pods, list...)
+		case "ReplicaSet":
+			rs, err := cs.AppsV1().ReplicaSets(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			list, err := getPods(cs, rs.Namespace, rs.Spec.Selector.MatchLabels)
+			if err != nil {
+				return err
+			}
+			pods = append(pods, list...)
 		}
+	}
+
+	errPoll := wait.Poll(2*time.Second, opts.WaitTimeout, func() (bool, error) {
 		dr, dnr := deploymentsReady(deployments)
 		nsr, nnr := namespacesReady(namespaces)
 		pr, pnr := podsReady(pods)
