@@ -30,6 +30,10 @@ var (
 )
 
 func serviceEntryAffectProxy(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
+	if len(resources) == 0 {
+		return true
+	}
+
 	for name := range resources {
 		if proxy.SidecarScope.DependsOnService(host.Name(name)) {
 			return true
@@ -39,6 +43,10 @@ func serviceEntryAffectProxy(proxy *model.Proxy, pushEv *XdsEvent, resources map
 }
 
 func virtualServiceAffectProxy(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
+	if len(resources) == 0 {
+		return true
+	}
+
 	for name := range resources {
 		if proxy.SidecarScope.DependsOnVirtualService(name) {
 			return true
@@ -48,6 +56,10 @@ func virtualServiceAffectProxy(proxy *model.Proxy, pushEv *XdsEvent, resources m
 }
 
 func destinationRuleAffectProxy(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
+	if len(resources) == 0 {
+		return true
+	}
+
 	for name := range resources {
 		if proxy.SidecarScope.DependsOnDestinationRule(name) {
 			return true

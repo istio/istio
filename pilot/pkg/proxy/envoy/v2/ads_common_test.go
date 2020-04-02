@@ -25,24 +25,83 @@ import (
 )
 
 func TestProxyNeedsPush(t *testing.T) {
+	const (
+		invalidKind = "INVALID_KIND"
+		svcName     = "svc1.com"
+		drName      = "dr1"
+		vsName      = "vs1"
+	)
+
+	pushResourceScope = map[resource.GroupVersionKind]func(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool{
+		model.ServiceEntryKind: func(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
+			if len(resources) == 0 {
+				return true
+			}
+			_, f := resources[svcName]
+			return f
+		},
+		model.VirtualServiceKind: func(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
+			if len(resources) == 0 {
+				return true
+			}
+			_, f := resources[vsName]
+			return f
+		},
+		model.DestinationRuleKind: func(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
+			if len(resources) == 0 {
+				return true
+			}
+			_, f := resources[drName]
+			return f
+		},
+	}
+
 	sidecar := &model.Proxy{Type: model.SidecarProxy, IPAddresses: []string{"127.0.0.1"}}
 	gateway := &model.Proxy{Type: model.Router}
 	cases := []struct {
 		name       string
 		proxy      *model.Proxy
 		namespaces []string
-		configs    []resource.GroupVersionKind
+		configs    map[resource.GroupVersionKind]map[string]struct{}
 		want       bool
 	}{
 		{"no namespace or configs", sidecar, nil, nil, true},
-		{"gateway config for sidecar", sidecar, nil, []resource.GroupVersionKind{
-			collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind()}, false},
-		{"gateway config for gateway", gateway, nil, []resource.GroupVersionKind{
-			collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind()}, true},
-		{"quotaspec config for sidecar", sidecar, nil, []resource.GroupVersionKind{
-			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind()}, true},
-		{"quotaspec config for gateway", gateway, nil, []resource.GroupVersionKind{
-			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind()}, false},
+		{"gateway config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
+			collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(): {}}, false},
+		{"gateway config for gateway", gateway, nil, map[resource.GroupVersionKind]map[string]struct{}{
+			collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(): {}}, true},
+		{"quotaspec config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
+			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(): {}}, true},
+		{"quotaspec config for gateway", gateway, nil, map[resource.GroupVersionKind]map[string]struct{}{
+			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(): {}}, false},
+		{"invalid config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
+			resource.GroupVersionKind{Kind: invalidKind}: {}}, true},
+		{"serviceentry empty config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
+			model.ServiceEntryKind: {}}, true},
+		{"serviceentry unmatched config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
+			model.ServiceEntryKind: {svcName + "invalid": {}}}, false},
+		{"serviceentry config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
+			model.ServiceEntryKind: {svcName: {}}}, true},
+		{"virtualservice empty config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
+			model.VirtualServiceKind: {}}, true},
+		{"virtualservice unmatched config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
+			model.VirtualServiceKind: {vsName + "invalid": {}}}, false},
+		{"virtualservice config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
+			model.VirtualServiceKind: {vsName: {}}}, true},
+		{"destinationrule empty config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
+			model.DestinationRuleKind: {}}, true},
+		{"destinationrule unmatched config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
+			model.DestinationRuleKind: {drName + "invalid": {}}}, false},
+		{"destinationrule config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
+			model.DestinationRuleKind: {drName: {}}}, true},
+		{"mixture empty and unmatched config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
+			model.DestinationRuleKind: {}, model.ServiceEntryKind: {svcName + "invalid": {}}}, true},
+		{"mixture empty and matched config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
+			model.DestinationRuleKind: {}, model.ServiceEntryKind: {svcName: {}}}, true},
+		{"mixture matched and unmatched config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
+			model.DestinationRuleKind: {drName: {}}, model.ServiceEntryKind: {svcName + "invalid": {}}}, true},
+		{"mixture unmatched and unmatched config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
+			model.DestinationRuleKind: {drName + "invalid": {}}, model.ServiceEntryKind: {svcName + "invalid": {}}}, false},
 	}
 
 	for _, tt := range cases {
@@ -52,8 +111,8 @@ func TestProxyNeedsPush(t *testing.T) {
 				ns[n] = struct{}{}
 			}
 			cfgs := map[resource.GroupVersionKind]map[string]struct{}{}
-			for _, c := range tt.configs {
-				cfgs[c] = map[string]struct{}{}
+			for kind, c := range tt.configs {
+				cfgs[kind] = c
 			}
 			pushEv := &XdsEvent{namespacesUpdated: ns, configsUpdated: cfgs}
 			got := ProxyNeedsPush(tt.proxy, pushEv)
