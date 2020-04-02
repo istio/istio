@@ -120,7 +120,7 @@ type Server struct {
 	clusterID   string
 	environment *model.Environment
 
-	kubeConfig          *rest.Config
+	kubeConfig       *rest.Config
 	configController model.ConfigStoreCache
 	kubeClient       kubernetes.Interface
 	metadataClient   metadata.Interface

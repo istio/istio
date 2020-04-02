@@ -18037,16 +18037,10 @@ data:
   meshNetworks: |-
     networks: {}
 
+  # Basic config for a sidecar CoreDNS server to resolve upstream and K8S requests.
+  # Will be needed until K8S DNS server adds a secure port, to avoid clear text
+  # MITM-exposed requests between istiod and K8S core DNS server.
   Corefile: |-
-
-    global:15054 {
-        errors
-        log
-        proxy . 127.0.0.1:15053 {
-        }
-
-    }
-
     .:15054 {
         errors
         log
@@ -20648,16 +20642,10 @@ data:
     networks: {}
   {{- end }}
 
+  # Basic config for a sidecar CoreDNS server to resolve upstream and K8S requests.
+  # Will be needed until K8S DNS server adds a secure port, to avoid clear text
+  # MITM-exposed requests between istiod and K8S core DNS server.
   Corefile: |-
-
-    global:15054 {
-        errors
-        log
-        proxy . 127.0.0.1:15053 {
-        }
-
-    }
-
     .:15054 {
         errors
         log

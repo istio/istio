@@ -74,7 +74,7 @@ type IstioDNS struct {
 	// If nil, no DNS-TLS requests will be made.
 	tlsClient   *dns.Client
 	tlsUpstream string
-	backoff time.Duration
+	backoff     time.Duration
 
 	// m protects pending, conn and outID
 	m       sync.Mutex
@@ -389,7 +389,7 @@ func (h *IstioDNS) openTLS() {
 					// TODO: exponential backoff
 					// TODO: if we are not in strict mode, fallback to UDP
 					time.Sleep(h.backoff)
-					if h.backoff < 33 * time.Second {
+					if h.backoff < 33*time.Second {
 						h.backoff = 2 * h.backoff
 					}
 					continue

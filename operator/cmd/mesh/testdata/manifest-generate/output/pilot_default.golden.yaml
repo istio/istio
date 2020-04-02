@@ -46,16 +46,7 @@ spec:
 
 apiVersion: v1
 data:
-  Corefile: |2-
-
-    global:15054 {
-        errors
-        log
-        proxy . 127.0.0.1:15053 {
-        }
-
-    }
-
+  Corefile: |-
     .:15054 {
         errors
         log
