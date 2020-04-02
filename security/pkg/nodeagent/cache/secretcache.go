@@ -185,6 +185,7 @@ type SecretCache struct {
 	// close channel.
 	closing chan bool
 
+	// Read/Write to rootCert and rootCertExpireTime should use getRootCert() and setRootCert().
 	rootCertMutex      *sync.RWMutex
 	rootCert           []byte
 	rootCertExpireTime time.Time
