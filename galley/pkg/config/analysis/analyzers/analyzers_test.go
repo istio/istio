@@ -105,7 +105,6 @@ var testGrid = []testCase{
 		analyzer:   &deprecation.FieldAnalyzer{},
 		expected: []message{
 			{msg.Deprecated, "ServiceRoleBinding bind-mongodb-viewer.default"},
-			{msg.Deprecated, "Policy policy-with-jwt.deprecation-policy"},
 		},
 	},
 	{
