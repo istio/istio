@@ -23,13 +23,13 @@ import (
 
 var (
 	pushResourceScope = map[resource.GroupVersionKind]func(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool{
-		model.ServiceEntryKind:    serviceEntryAffectProxy,
-		model.VirtualServiceKind:  virtualServiceAffectProxy,
-		model.DestinationRuleKind: destinationRuleAffectProxy,
+		model.ServiceEntryKind:    serviceEntryAffectsProxy,
+		model.VirtualServiceKind:  virtualServiceAffectsProxy,
+		model.DestinationRuleKind: destinationRuleAffectsProxy,
 	}
 )
 
-func serviceEntryAffectProxy(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
+func serviceEntryAffectsProxy(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
 	_ = pushEv
 	if len(resources) == 0 {
 		return true
@@ -43,7 +43,7 @@ func serviceEntryAffectProxy(proxy *model.Proxy, pushEv *XdsEvent, resources map
 	return false
 }
 
-func virtualServiceAffectProxy(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
+func virtualServiceAffectsProxy(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
 	_ = pushEv
 	if len(resources) == 0 {
 		return true
@@ -57,7 +57,7 @@ func virtualServiceAffectProxy(proxy *model.Proxy, pushEv *XdsEvent, resources m
 	return false
 }
 
-func destinationRuleAffectProxy(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
+func destinationRuleAffectsProxy(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
 	_ = pushEv
 	if len(resources) == 0 {
 		return true
@@ -71,7 +71,9 @@ func destinationRuleAffectProxy(proxy *model.Proxy, pushEv *XdsEvent, resources 
 	return false
 }
 
-func PushAffectProxy(pushEv *XdsEvent, proxy *model.Proxy) bool {
+// PushAffectsProxy checks if a pushEv will affect a specified proxy. That means whether the push will be performed
+// towards the proxy.
+func PushAffectsProxy(pushEv *XdsEvent, proxy *model.Proxy) bool {
 	if len(pushEv.configsUpdated) == 0 {
 		return true
 	}
@@ -116,7 +118,7 @@ Loop:
 	}
 
 	if appliesToProxy {
-		appliesToProxy = PushAffectProxy(pushEv, proxy)
+		appliesToProxy = PushAffectsProxy(pushEv, proxy)
 	}
 
 	if !appliesToProxy {

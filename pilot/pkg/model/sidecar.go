@@ -67,9 +67,13 @@ type SidecarScope struct {
 
 	// Union of services imported across all egress listeners for use by CDS code.
 	services []*Service
+
 	// Set of all services this sidecar depends on.
+	// This field and similar fields below will be used to determine the config/resource scope
+	// which means which config changes will affect the proxies with this scope.
 	serviceDependencies map[host.Name]struct{}
 
+	// Set of all virtualServices this sidecar depends on.
 	virtualServiceDependencies map[string]struct{}
 
 	// Destination rules imported across all egress listeners. This
@@ -452,47 +456,38 @@ func (sc *SidecarScope) DependsOnNamespace(namespace string) bool {
 		return true
 	}
 
-	if _, f := sc.namespaceDependencies[namespace]; f {
-		return true
-	}
-
-	return false
+	_, exists := sc.namespaceDependencies[namespace]
+	return exists
 }
 
+// DependsOnService determines if the Sidecar includes the given service.
 func (sc *SidecarScope) DependsOnService(service host.Name) bool {
 	if sc == nil {
 		return true
 	}
 
-	if _, f := sc.serviceDependencies[service]; f {
-		return true
-	}
-
-	return false
+	_, exists := sc.serviceDependencies[service]
+	return exists
 }
 
+// DependsOnVirtualService determines if the Sidecar includes the given virtualService.
 func (sc *SidecarScope) DependsOnVirtualService(name string) bool {
 	if sc == nil {
 		return true
 	}
 
-	if _, f := sc.virtualServiceDependencies[name]; f {
-		return true
-	}
-
-	return false
+	_, exists := sc.virtualServiceDependencies[name]
+	return exists
 }
 
+// DependsOnDestinationRule determines if the Sidecar includes the given destinationRule.
 func (sc *SidecarScope) DependsOnDestinationRule(name string) bool {
 	if sc == nil {
 		return true
 	}
 
-	if _, f := sc.destinationRuleDependencies[name]; f {
-		return true
-	}
-
-	return false
+	_, exists := sc.destinationRuleDependencies[name]
+	return exists
 }
 
 // Given a list of virtual services visible to this namespace,
