@@ -20660,7 +20660,9 @@ spec:
       labels:
         app: istiod
         istio.io/rev: {{ .Values.revision | default "default" }}
+        {{- if eq .Values.revision ""}}
         istio: pilot
+        {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
         {{- if .Values.pilot.podAnnotations }}
@@ -20998,9 +21000,10 @@ spec:
     matchLabels:
       app: istiod
       {{- if ne .Values.revision ""}}
-      version: {{ .Values.revision }}
-      {{- end }}
+      istio.io/rev: {{ .Values.revision }}
+      {{- else }}
       istio: pilot
+      {{- end }}
 ---
 {{- end }}
 `)
