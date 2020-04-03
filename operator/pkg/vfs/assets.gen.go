@@ -13629,8 +13629,8 @@ spec:
       maxUnavailable: {{ .Values.pilot.rollingMaxUnavailable }}
   selector:
     matchLabels:
-      app: istiod
       {{- if ne .Values.revision ""}}
+      app: istiod
       version: {{ .Values.revision }}
       {{- end }}
       istio: pilot

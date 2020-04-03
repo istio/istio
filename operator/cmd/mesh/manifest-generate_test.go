@@ -17,8 +17,13 @@ package mesh
 import (
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/pkg/test"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -269,6 +274,106 @@ func TestLDFlags(t *testing.T) {
 	if iops.Hub != version.DockerInfo.Hub || iops.Tag != version.DockerInfo.Tag {
 		t.Fatalf("DockerInfoHub, DockerInfoTag got: %s,%s, want: %s, %s", iops.Hub, iops.Tag, version.DockerInfo.Hub, version.DockerInfo.Tag)
 	}
+}
+
+// This test enforces that objects that reference other objects do so properly, such as Service selecting deployment
+func TestConfigSelectors(t *testing.T) {
+	got, err := runManifestGenerate([]string{}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	objs, err := object.ParseK8sObjectsFromYAMLManifest(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// First we fetch all the objects for our default install
+	name := "istiod"
+	deployment := mustFindObject(t, objs, name, "Deployment")
+	service := mustFindObject(t, objs, name, "Service")
+	pdb := mustFindObject(t, objs, name, "PodDisruptionBudget")
+	hpa := mustFindObject(t, objs, name, "HorizontalPodAutoscaler")
+	podLabels := mustGetLabels(t, deployment, "spec.template.metadata.labels")
+
+	// Check all selectors align
+	mustSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabels)
+	mustSelect(t, mustGetLabels(t, service, "spec.selector"), podLabels)
+	mustSelect(t, mustGetLabels(t, deployment, "spec.selector.matchLabels"), podLabels)
+	if hpaName := mustGetPath(t, hpa, "spec.scaleTargetRef.name"); name != hpaName {
+		t.Fatalf("HPA does not match deployment: %v != %v", name, hpaName)
+	}
+
+	// Check selection of previous versions
+	podLabels14 := map[string]string{
+		"app":   "istiod",
+		"istio": "pilot",
+	}
+	mustSelect(t, mustGetLabels(t, service, "spec.selector"), podLabels14)
+	mustSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabels14)
+
+	// Check we aren't changing immutable fields. This one is not a selector, it must be an exact match
+	deploymentSelector14 := map[string]string{
+		"istio": "pilot",
+	}
+	if sel := mustGetLabels(t, deployment, "spec.selector.matchLabels"); !reflect.DeepEqual(deploymentSelector14, sel) {
+		t.Fatalf("Depployment selectors are immutable, but changed since 1.4. Was %v, now is %v", deploymentSelector14, sel)
+	}
+}
+
+func mustSelect(t test.Failer, selector map[string]string, labels map[string]string) {
+	t.Helper()
+	kselector := klabels.Set(selector).AsSelectorPreValidated()
+	if !kselector.Matches(klabels.Set(labels)) {
+		t.Fatalf("%v does not select %v", selector, labels)
+	}
+}
+
+func mustGetLabels(t test.Failer, obj object.K8sObject, path string) map[string]string {
+	t.Helper()
+	got := mustGetPath(t, obj, path)
+	conv, ok := got.(map[string]interface{})
+	if !ok {
+		t.Fatalf("could not convert %v", got)
+	}
+	ret := map[string]string{}
+	for k, v := range conv {
+		sv, ok := v.(string)
+		if !ok {
+			t.Fatalf("could not convert to string %v", v)
+		}
+		ret[k] = sv
+	}
+	return ret
+}
+
+func mustGetPath(t test.Failer, obj object.K8sObject, path string) interface{} {
+	t.Helper()
+	got, f, err := tpath.GetFromTreePath(obj.UnstructuredObject().UnstructuredContent(), util.PathFromString(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !f {
+		t.Fatalf("couldn't find path %v", path)
+	}
+	return got
+}
+
+func mustFindObject(t test.Failer, objs object.K8sObjects, name, kind string) object.K8sObject {
+	t.Helper()
+	o := findObject(objs, name, kind)
+	if o == nil {
+		t.Fatalf("expected %v/%v", name, kind)
+	}
+	return *o
+}
+
+func findObject(objs object.K8sObjects, name, kind string) *object.K8sObject {
+	for _, o := range objs {
+		if o.Kind == kind && o.Name == name {
+			return o
+		}
+	}
+	return nil
 }
 
 func runTestGroup(t *testing.T, tests testGroup) {
