@@ -414,7 +414,7 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		iptConfigurator.handleInboundIpv6Rules(ipv6RangesExclude, ipv6RangesInclude)
 	}
 
-	if dnsVar.Get() {
+	if dnsVar.Get() != "" {
 		for _, gid := range split(iptConfigurator.cfg.ProxyGID) {
 			// TODO: add ip6 as well
 			if gid != "0" { // not clear why gid 0 would be excluded - istio-proxy is not running as 0

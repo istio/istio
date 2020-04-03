@@ -301,7 +301,7 @@ var (
 
 			// TODO: replace hardcoded .global. Right now the ingress templates are
 			// hardcoding it as well, so there is little benefit to do it only here.
-			if dns.DNSTLSEnableAgent.Get() {
+			if dns.DNSTLSEnableAgent.Get() != "" {
 				// In the injection template the only place where global.proxy.clusterDomain
 				// is made available is in the --domain param.
 				// Instead of introducing a new config, use that.

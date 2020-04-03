@@ -100,7 +100,10 @@ var (
 	// DNSTLSEnableAgent activates the DNS-over-TLS in istio-agent.
 	// This will just attempt to connect to Istiod and start the DNS server on the default port -
 	// DNS_CAPTURE controls capturing port 53.
-	DNSTLSEnableAgent = env.RegisterBoolVar("DNS_TLS", true, "DNS-over-TLS upstream server")
+	// Not using a bool - it's error prone in template, annotations, helm.
+	// For now any non-empty value will enable TLS in the agent - we may further customize
+	// the mode, for example specify DNS-HTTPS vs DNS-TLS
+	DNSTLSEnableAgent = env.RegisterStringVar("DNS_AGENT", "", "DNS-over-TLS upstream server")
 
 	pendingTLS = monitoring.NewGauge(
 		"dns_tls_pending",
