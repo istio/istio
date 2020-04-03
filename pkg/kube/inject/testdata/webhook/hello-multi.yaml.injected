@@ -81,6 +81,8 @@ spec:
             [
                 {"name":"http","containerPort":80}
             ]
+        - name: ISTIO_META_APP_CONTAINER
+          value: hello
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
         - name: ISTIO_META_INTERCEPTION_MODE
@@ -280,6 +282,8 @@ spec:
             [
                 {"name":"http","containerPort":81}
             ]
+        - name: ISTIO_META_APP_CONTAINER
+          value: hello
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
         - name: ISTIO_META_INTERCEPTION_MODE

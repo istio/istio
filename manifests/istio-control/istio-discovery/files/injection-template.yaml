@@ -197,6 +197,17 @@ template: |
           {{- end}}
         {{- end}}
         ]
+    - name: ISTIO_META_APP_CONTAINER
+      {{- if eq (len .Spec.Containers) 1 }}
+        {{- $first := true }}
+        {{- range $index, $container := .Spec.Containers }}
+          {{- if $first}}
+      value: {{ $container.Name }}
+          {{- end}} {{- $first = false }}
+        {{- end }}
+      {{- else }}
+      value: 'istio-proxy'
+      {{- end }}
     - name: ISTIO_META_CLUSTER_ID
       value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
     - name: ISTIO_META_INTERCEPTION_MODE

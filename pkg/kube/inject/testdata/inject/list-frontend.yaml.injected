@@ -98,6 +98,8 @@ items:
             value: |-
               [
               ]
+          - name: ISTIO_META_APP_CONTAINER
+            value: nginx
           - name: ISTIO_META_CLUSTER_ID
             value: Kubernetes
           - name: ISTIO_META_INTERCEPTION_MODE
