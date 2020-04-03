@@ -102,9 +102,11 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 					}
 					c.XdsUpdater.ConfigUpdate(pushReq)
 				} else {
+					os := convertServices(old)
 					instances := convertInstances(curr, cs)
+					oinstances := convertInstances(old, os)
 					// If only instances have changed, just update the indexes for the changed instances.
-					c.updateExistingInstances(instances)
+					c.updateExistingInstances(oinstances, instances)
 					endpointsByHostname := make(map[string][]*model.IstioEndpoint)
 					for _, instance := range instances {
 						for _, port := range instance.Service.Ports {
@@ -256,16 +258,100 @@ func (d *ServiceEntryStore) maybeRefreshIndexes() {
 }
 
 // updateExistingInstances updates the indexes (by host, byip maps) for the passed in instances.
-func (d *ServiceEntryStore) updateExistingInstances(instances []*model.ServiceInstance) {
+func (d *ServiceEntryStore) updateExistingInstances(old, instances []*model.ServiceInstance) {
 	d.storeMutex.Lock()
-	// First, delete the existing instances to avoid leaking memory.
-	for _, instance := range instances {
-		delete(d.instances[instance.Service.Hostname], instance.Service.Attributes.Namespace)
-		delete(d.instances, instance.Service.Hostname)
-		delete(d.ip2instance, instance.Endpoint.Address)
+	// An update event has occurred, changing some subset of instances (old -> instances)
+	// These may not represent all known instances, so we cannot just wipe the instances out and replace them
+	// First, we will gather all existing instances from the index, and keep them if
+	// * They are present in `instances`
+	// * They are present in neither `old` or `instances`
+	// Remove instances will be present in `old`, but not `instances` - these will be skipped
+
+	// Keep track of all existing entries we need to retain
+	removedInstances := []*model.ServiceInstance{}
+	for _, o := range old {
+		// Does this instance exist in `instances`? If not, this was deleted
+		deleted := true
+		for _, i := range instances {
+			if reflect.DeepEqual(o, i) {
+				// We found this in instances, so it was not deleted
+				deleted = false
+				break
+			}
+		}
+		if deleted {
+			removedInstances = append(removedInstances, o)
+		}
 	}
-	// Update the indexes with new instances.
-	updateInstances(instances, d.instances, d.ip2instance)
+	addedInstances := []*model.ServiceInstance{}
+	for _, i := range instances {
+		existing := d.instances[i.Service.Hostname][i.Service.Attributes.Namespace]
+		// Does this instance exist in `instances`? If not, this was deleted
+		added := true
+		for _, e := range existing {
+			if reflect.DeepEqual(e, i) {
+				// We found this in instances, so it was not added
+				added = false
+				break
+			}
+		}
+		if added {
+			addedInstances = append(addedInstances, i)
+		}
+	}
+
+	// Get rid of all remove instances
+	for _, o := range removedInstances {
+		existing := d.instances[o.Service.Hostname][o.Service.Attributes.Namespace]
+		i := 0 // output index
+		for _, e := range existing {
+			if !reflect.DeepEqual(e, o) {
+				// This instance was not removed, copy it into the existing array
+				existing[i] = e
+				i++
+			}
+		}
+		// Trim our slice to remove the extra junk at the end
+		existing = existing[:i]
+		d.instances[o.Service.Hostname][o.Service.Attributes.Namespace] = existing
+
+		existing = d.ip2instance[o.Endpoint.Address]
+		i = 0 // output index
+		for _, e := range existing {
+			if !reflect.DeepEqual(e, o) {
+				// This instance was not removed, copy it into the existing array
+				existing[i] = e
+				i++
+			}
+		}
+		// Trim our slice to remove the extra junk at the end
+		existing = existing[:i]
+		d.ip2instance[o.Endpoint.Address] = existing
+	}
+
+	// Clean up empty entries to avoid leaking memory.
+	for _, instance := range removedInstances {
+		if len(d.instances[instance.Service.Hostname]) == 0 {
+			delete(d.instances, instance.Service.Hostname)
+		} else if len(d.instances[instance.Service.Hostname][instance.Service.Attributes.Namespace]) == 0 {
+			delete(d.instances[instance.Service.Hostname], instance.Service.Attributes.Namespace)
+
+		}
+		if len(d.ip2instance[instance.Endpoint.Address]) == 0 {
+			delete(d.ip2instance, instance.Endpoint.Address)
+		}
+	}
+	for _, i := range addedInstances {
+		existing := d.instances[i.Service.Hostname][i.Service.Attributes.Namespace]
+		// Add to instances map
+		existing = append(existing, i)
+		if d.instances[i.Service.Hostname] == nil {
+			d.instances[i.Service.Hostname] = map[string][]*model.ServiceInstance{}
+		}
+		d.instances[i.Service.Hostname][i.Service.Attributes.Namespace] = existing
+		// Set up reverse mapping
+		d.ip2instance[i.Endpoint.Address] = append(d.ip2instance[i.Endpoint.Address], i)
+	}
 	d.storeMutex.Unlock()
 }
 
