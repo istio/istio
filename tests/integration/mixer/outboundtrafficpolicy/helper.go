@@ -18,9 +18,14 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"io/ioutil"
+	"path"
 	"reflect"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/env"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 
@@ -41,6 +46,8 @@ import (
 )
 
 const (
+	// This service entry exists to create conflicts on various ports
+	// As defined below, the tcp-conflict and https-conflict ports are 9443 and 9091
 	ServiceEntry = `
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
@@ -51,14 +58,11 @@ spec:
   - istio.io
   location: MESH_EXTERNAL
   ports:
-  - name: http
-    number: 80
-    protocol: HTTP
   - name: http-for-https
-    number: 443
+    number: 9443
     protocol: HTTP
-  - name: http-tcp
-    number: 9090
+  - name: http-for-tcp
+    number: 9091
     protocol: HTTP
   resolution: DNS
 `
@@ -91,15 +95,6 @@ spec:
       protocol: HTTP
     hosts:
     - "some-external-site.com"
-  - port:
-      number: 443
-      name: https
-      protocol: TLS
-    hosts:
-    - "some-external-site.com"
-    tls:
-      mode: PASSTHROUGH
-
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -131,30 +126,6 @@ spec:
           host: destination.{{.AppNamespace}}.svc.cluster.local
           port:
             number: 80
-        weight: 100
-      headers:
-        request:
-          add:
-            handled-by-egress-gateway: "true"
-    - match:
-      - gateways:
-        - mesh # from sidecars, route to egress gateway service
-        port: 443
-      route:
-      - destination:
-          host: istio-egressgateway.istio-system.svc.cluster.local
-          port:
-            number: 443
-        weight: 100
-    - match:
-      - gateways:
-        - istio-egressgateway
-        port: 443
-      route:
-      - destination:
-          host: destination.{{.AppNamespace}}.svc.cluster.local
-          port:
-            number: 443
         weight: 100
       headers:
         request:
@@ -211,6 +182,14 @@ func createSidecarScope(t *testing.T, tPolicy TrafficPolicy, appsNamespace names
 	if err := g.ApplyConfig(appsNamespace, buf.String()); err != nil {
 		t.Errorf("failed to apply service entries: %v", err)
 	}
+}
+
+func mustReadCert(t *testing.T, f string) string {
+	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs", f))
+	if err != nil {
+		t.Fatalf("failed to read %v: %v", f, err)
+	}
+	return string(b)
 }
 
 // We want to test "external" traffic. To do this without actually hitting an external endpoint,
@@ -346,24 +325,46 @@ func setupEcho(t *testing.T, ctx resource.Context, mode TrafficPolicy) (echo.Ins
 			Galley:    g,
 			Ports: []echo.Port{
 				{
+					// Plain HTTP port, will match no listeners and fall through
 					Name:         "http",
 					Protocol:     protocol.HTTP,
-					InstancePort: 8090,
 					ServicePort:  80,
+					InstancePort: 8080,
 				},
 				{
+					// HTTPS port, will match no listeners and fall through
 					Name:         "https",
 					Protocol:     protocol.HTTPS,
-					InstancePort: 8091,
 					ServicePort:  443,
+					InstancePort: 8443,
+					TLS: true,
 				},
 				{
-					Name:         "tcp",
-					Protocol:     protocol.TCP,
-					InstancePort: 8092,
-					ServicePort:  9090,
+					// HTTPS port, there will be an HTTP service defined on this port that will match
+					Name:        "https-conflict",
+					Protocol:    protocol.HTTPS,
+					ServicePort: 9443,
+					TLS:         true,
+				},
+				{
+					// TCP port, will match no listeners and fall through
+					Name:        "tcp",
+					Protocol:    protocol.TCP,
+					ServicePort: 9090,
+				},
+				{
+					// TCP port, there will be an HTTP service defined on this port that will match
+					Name:        "tcp-conflict",
+					Protocol:    protocol.TCP,
+					ServicePort: 9091,
 				},
 			},
+		TLSSettings: &common.TLSSettings{
+			// Echo has these test certs baked into the docker image
+			RootCert:   mustReadCert(t, "cacert.pem"),
+			ClientCert: mustReadCert(t, "cert.crt"),
+			Key:        mustReadCert(t, "cert.key"),
+		},
 		}).BuildOrFail(t)
 
 	// External traffic should work even if we have service entries on the same ports
