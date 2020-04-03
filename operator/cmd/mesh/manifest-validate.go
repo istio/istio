@@ -43,6 +43,10 @@ var (
 	// https://preliminary.istio.io/docs/setup/additional-setup/config-profiles/
 	profile = []string{"default", "demo", "empty", "minimal", "preview", "remote", "separate"}
 
+	inboundClusterStatName = []string{"SERVICE", "SERVICE_FQDN", "SERVICE_PORT", "SERVICE_PORT_NAME"}
+
+	outboundClusterStatName = append(inboundClusterStatName, "SUBSET_NAME")
+
 	// https://preliminary.istio.io/docs/reference/config/istio.operator.v1alpha1/#IstioOperatorSpec
 	setFlagValues = map[string]interface{}{
 		"profile": profile,
@@ -56,21 +60,29 @@ var (
 
 		// MeshConfig related flags
 		// https://preliminary.istio.io/docs/reference/config/istio.mesh.v1alpha1.html#MeshConfig
-		"values.global.disablePolicyChecks":                 boolValues,
-		"values.global.policyCheckFailOpen":                 boolValues,
+		"values.global.mixerCheckServer":                validation.ValidateProxyAddress,
+		"values.global.mixerReportServer":               validation.ValidateProxyAddress,
+		"values.global.disablePolicyChecks":             boolValues,
+		"values.global.policyCheckFailOpen":             boolValues,
+		"values.mixer.telemetry.sessionAffinityEnabled": boolValues,
+		"values.global.proxyListenPort":                 validatePort,
+		"values.global.proxyHttpPort":                   validatePort,
+
+		"values.global.connectTimeout":                      validateDuration,
 		"values.global.disableReportBatch":                  boolValues,
 		"values.global.enableClientSidePolicyCheck":         boolValues,
 		"values.global.enableTracing":                       boolValues,
 		"values.global.mtls.auto":                           boolValues,
 		"values.global.mtls.enabled":                        boolValues,
-		"values.mixer.telemetry.sessionAffinityEnabled":     boolValues,
+		"values.global.localityLbSetting.enabled":           boolValues,
 		"values.global.proxy.envoyAccessLogService.enabled": boolValues,
 		"values.global.proxy.protocolDetectionTimeout":      validateDuration,
 		"values.global.proxy.dnsRefreshRate":                validateDuration,
-		"values.global.connectTimeout":                      validateDuration,
 		"values.mixer.telemetry.reportBatchMaxTime":         validateDuration,
 		"values.mixer.telemetry.reportBatchMaxEntries":      validation.ValidateReportBatchMaxEntries,
 		"values.global.outboundTrafficPolicy.mode":          []string{"REGISTRY_ONLY", "ALLOW_ANY"},
+		"values.global.inboundClusterStatName":              validateClusterStatName,
+		"values.global.outboundClusterStatName":             validateClusterStatName,
 
 		"security.components.nodeAgent.enabled": boolValues,
 
@@ -139,7 +151,7 @@ func ValidateSetFlags(setOverlay []string) (errs util.Errors) {
 // verifyValues compares provided values with actual values and throw error if it is invalid
 func verifyValues(flagName, flagValue string) error {
 	val := getFlagValue(flagName)
-	valType := reflect.TypeOf(val)
+	valPtr := reflect.ValueOf(val).Pointer()
 
 	switch val.(type) {
 	case []string:
@@ -155,48 +167,63 @@ func verifyValues(flagName, flagValue string) error {
 		}
 	}
 
-	if valType == reflect.TypeOf(isValidTraceSampling) {
-		fval, _ := strconv.ParseFloat(flagValue, 64)
-		if !isValidTraceSampling(fval) {
-			return fmt.Errorf("\n Unsupported value: %q, supported values for: %q is between %.1f to %.1f",
-				flagValue, flagName, traceSamplingMin, traceSamplingMax)
+	if valPtr == reflect.ValueOf(isValidTraceSampling).Pointer() {
+		if err := isValidTraceSampling(flagName, flagValue); err != nil {
+			return err
 		}
 	}
-	if flagName == "installPackagePath" {
+	if valPtr == reflect.ValueOf(validate.InstallPackagePath).Pointer() {
 		if err := validate.InstallPackagePath([]string{flagName}, flagValue); len(err) != 0 {
 			return err
 		}
 	}
-	if flagName == "hub" {
+	if valPtr == reflect.ValueOf(validate.Hub).Pointer() {
 		if err := validate.Hub([]string{flagName}, flagValue); len(err) != 0 {
 			return err
 		}
 	}
-	if flagName == "tag" {
+	if valPtr == reflect.ValueOf(validate.Tag).Pointer() {
 		if err := validate.Tag([]string{flagName}, flagValue); len(err) != 0 {
 			return err
 		}
 	}
-	if valType == reflect.TypeOf(validate.CheckNamespaceName) && flagName == "namespace" {
+	if valPtr == reflect.ValueOf(validate.CheckNamespaceName).Pointer() {
 		if !validate.CheckNamespaceName(flagValue, false) {
 			return fmt.Errorf("\n Unsupported format: %q for flag %q", flagValue, flagName)
 		}
 	}
-	if valType == reflect.TypeOf(validate.CheckRevision) && flagName == "revision" {
+	if valPtr == reflect.ValueOf(validate.CheckRevision).Pointer() {
 		if !validate.CheckRevision(flagValue, false) {
 			return fmt.Errorf("\n Unsupported format: %q for flag %q", flagValue, flagName)
 		}
 	}
-	if valType == reflect.TypeOf(validateDuration) {
+	if valPtr == reflect.ValueOf(validateDuration).Pointer() {
 		if err := validateDuration(flagName, flagValue); err != nil {
 			return fmt.Errorf("\n Unsupported value: %q for %q. \n Error: %v",
 				flagValue, flagName, err)
 		}
 	}
-	if valType == reflect.TypeOf(validation.ValidateReportBatchMaxEntries) {
+	if valPtr == reflect.ValueOf(validation.ValidateReportBatchMaxEntries).Pointer() {
 		if err := validation.ValidateReportBatchMaxEntries(flagValue); err != nil {
 			return fmt.Errorf("\n Unsupported value: %q for flag %q, use valid value eg: 100",
 				flagValue, flagName)
+		}
+	}
+	if valPtr == reflect.ValueOf(validateClusterStatName).Pointer() {
+		if !validateClusterStatName(flagName, flagValue) {
+			return fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %q",
+				flagValue, flagName, strings.Join(outboundClusterStatName, ", "))
+		}
+	}
+	if valPtr == reflect.ValueOf(validation.ValidateProxyAddress).Pointer() {
+		if err := validation.ValidateProxyAddress(flagValue); err != nil {
+			return fmt.Errorf("\n Unsupported value: %q for flag %q, use valid format HOST:PORT",
+				flagValue, flagName)
+		}
+	}
+	if valPtr == reflect.ValueOf(validatePort).Pointer() {
+		if err := validatePort(flagValue); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -238,11 +265,16 @@ func containString(s []string, searchterm string) bool {
 }
 
 // isValidTraceSampling validates pilot sampling rate
-func isValidTraceSampling(n float64) bool {
-	if n < traceSamplingMin || n > traceSamplingMax {
-		return false
+func isValidTraceSampling(flagName, flagValue string) error {
+	var errMsg = "\n Unsupported value: %q, supported values for: %q is between %.1f to %.1f"
+	n, err := strconv.ParseFloat(flagValue, 64)
+	if err != nil {
+		return fmt.Errorf(errMsg, flagValue, flagName, traceSamplingMin, traceSamplingMax)
 	}
-	return true
+	if n < traceSamplingMin || n > traceSamplingMax {
+		return fmt.Errorf(errMsg, flagValue, flagName, traceSamplingMin, traceSamplingMax)
+	}
+	return nil
 }
 
 // validateDuration verifies valid time duration for different flags
@@ -273,4 +305,37 @@ func convertDuration(duration string) (*types.Duration, error) {
 		return nil, fmt.Errorf("Invalid duration format %q", duration)
 	}
 	return types.DurationProto(dur), nil
+}
+
+func validateClusterStatName(flagName, flagValue string) bool {
+	flag := strings.Split(flagName, ".")
+	vals := strings.Split(flagValue, "%_%")
+	// extract the last part of the flag to match with cases
+	switch flag[len(flag)-1] {
+	case "inboundClusterStatName":
+		for _, val := range vals {
+			if !containString(inboundClusterStatName, strings.Trim(val, "%")) {
+				return false
+			}
+		}
+	case "outboundClusterStatName":
+		for _, val := range vals {
+			if !containString(outboundClusterStatName, strings.Trim(val, "%")) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func validatePort(flagValue string) error {
+	var errMsg = "port number %d must be in the range 1..65535"
+	port, err := strconv.Atoi(flagValue)
+	if err != nil {
+		return fmt.Errorf(errMsg, port)
+	}
+	if err := validation.ValidatePort(port); err != nil {
+		return fmt.Errorf(errMsg, port)
+	}
+	return nil
 }

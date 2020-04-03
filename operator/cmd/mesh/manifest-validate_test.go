@@ -141,6 +141,22 @@ func TestValidateSetFlags(t *testing.T) {
 			},
 			want: nil,
 		},
+		{
+			name: "Test valid outboundClusterStatName",
+			args: []string{
+				"values.global.outboundClusterStatName=%SERVICE_FQDN%_%SERVICE_PORT%",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid outboundClusterStatName",
+			args: []string{
+				"values.global.outboundClusterStatName=%SERVICE_FQDN%_%SERVICE_POT%",
+			},
+			want: fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %q",
+				"%SERVICE_FQDN%_%SERVICE_POT%", "values.global.outboundClusterStatName",
+				strings.Join(outboundClusterStatName, ", ")),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -233,6 +249,49 @@ func TestValidateDuration(t *testing.T) {
 			got := validateDuration(tt.flagName, tt.duration)
 			if got != nil && fmt.Sprintf("%v", got) != fmt.Sprintf("%v", tt.want) {
 				t.Errorf("got: %v, want: %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidateClusterStatName(t *testing.T) {
+
+	tests := []struct {
+		name      string
+		flagName  string
+		flagValue string
+		want      bool
+	}{
+		{
+			name:      "Test valid inboundClusterStatName",
+			flagName:  "values.global.inboundClusterStatName",
+			flagValue: "%SERVICE_FQDN%_%SERVICE_PORT%",
+			want:      true,
+		},
+		{
+			name:      "Test invalid inboundClusterStatName",
+			flagName:  "values.global.inboundClusterStatName",
+			flagValue: "%SERVICE_FQDN%_%SERVICE_POT%",
+			want:      false,
+		},
+		{
+			name:      "Test valid outboundClusterStatName",
+			flagName:  "values.global.outboundClusterStatName",
+			flagValue: "%SERVICE_FQDN%_%SERVICE_PORT%",
+			want:      true,
+		},
+		{
+			name:      "Test invalid outboundClusterStatName",
+			flagName:  "values.global.outboundClusterStatName",
+			flagValue: "%SERVICE_FQDN%_%SERVICE_POT%",
+			want:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := validateClusterStatName(tt.flagName, tt.flagValue); got != tt.want {
+				t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got, tt.want, got, tt.flagValue)
 			}
 		})
 	}
