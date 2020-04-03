@@ -17,15 +17,17 @@ package mesh
 import (
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/tpath"
-	"istio.io/istio/pkg/test"
-	klabels "k8s.io/apimachinery/pkg/labels"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+
+	klabels "k8s.io/apimachinery/pkg/labels"
+
+	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/pkg/test"
 
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/util"
@@ -358,6 +360,7 @@ func mustGetPath(t test.Failer, obj object.K8sObject, path string) interface{} {
 	return got
 }
 
+// nolint: unparam
 func mustFindObject(t test.Failer, objs object.K8sObjects, name, kind string) object.K8sObject {
 	t.Helper()
 	o := findObject(objs, name, kind)
