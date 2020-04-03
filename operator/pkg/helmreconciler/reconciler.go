@@ -272,11 +272,6 @@ func (h *HelmReconciler) GetClient() client.Client {
 	return h.client
 }
 
-// GetCustomizer returns the customizer associated with this HelmReconciler
-func (h *HelmReconciler) GetCustomizer() RenderingCustomizer {
-	return h.customizer
-}
-
 // GetInstance returns the instance associated with this HelmReconciler
 func (h *HelmReconciler) GetInstance() runtime.Object {
 	return h.instance

@@ -15,14 +15,12 @@
 package helmreconciler
 
 import (
-	"github.com/go-logr/logr"
+	"istio.io/api/operator/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/helm/pkg/manifest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 )
 
@@ -187,18 +185,6 @@ type Patch interface {
 	// Apply applies the patch to object through the api server
 	// the returned object is the updated resource
 	Apply() (*unstructured.Unstructured, error)
-}
-
-// LoggerProvider is a helper interface which allows HelmReconciler to expose a logger to clients.
-type LoggerProvider interface {
-	// GetLogger returns a logger
-	GetLogger() logr.Logger
-}
-
-// ClientProvider is a helper interface which allows HelmReconciler to expose a client to clients.
-type ClientProvider interface {
-	// GetClient returns a kubernetes client.
-	GetClient() client.Client
 }
 
 // ComponentNameToListMap is a map of ComponentName to a list of ComponentNames.

@@ -118,11 +118,6 @@ func (cn ComponentName) IsCoreComponent() bool {
 	return allComponentNamesMap[cn]
 }
 
-// IsDeprecatedName reports whether cn is a deprecated component.
-func (cn ComponentName) IsDeprecatedName() bool {
-	return DeprecatedComponentNamesMap[cn]
-}
-
 // IsGateway reports whether cn is a gateway component.
 func (cn ComponentName) IsGateway() bool {
 	return cn == IngressComponentName || cn == EgressComponentName
