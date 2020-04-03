@@ -204,3 +204,17 @@ revision: ""
 # meshConfig defines runtime configuration of components, including Istiod and istio-agent behavior
 # See https://istio.io/docs/reference/config/istio.mesh.v1alpha1/ for all available options
 meshConfig: {}
+
+# Settings for DNS, will enable DNS-over-TLS capture. Recommended in secure deployments.
+# On in master for testing - will be off by default in 1.6 release.
+dns:
+  # Setting this to true will enable Istiod DNS-over-TLS support, including
+  # a secure connection to kube entries. In 1.6 this is implemented by forwarding to
+  # a CoreDNS Istiod sidecar with kubernetes plugin enabled.
+  #
+  # This setting also enables agents listening on 15013 for DNS entries - but not
+  # capture.
+  enabled: true
+
+  # Setting this will enable agent capture of DNS requests.
+  capture: true

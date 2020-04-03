@@ -170,6 +170,7 @@ spec:
             mountPath: /cacerts
           {{- end }}
 
+        {{- if .Values.dns.enabled }}
         # CoreDNS sidecar. Ports are used internally, to run as non-root.
         # This is a short-term solution - the code in istiod can also be used
         # directly. The plan is to move coreDNS on the agent.
@@ -205,7 +206,7 @@ spec:
             timeoutSeconds: 5
             successThreshold: 1
             failureThreshold: 5
-
+        {{- end }}
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
