@@ -267,16 +267,6 @@ func TestBareSpec(t *testing.T) {
 	}
 }
 
-func TestIstioControlPlaneInput(t *testing.T) {
-	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
-	runTestGroup(t, testGroup{
-		{
-			desc:       "icp_input",
-			diffSelect: "Deployment:*:istiod,Service:*:istiod",
-		},
-	})
-}
-
 func TestInstallPackagePath(t *testing.T) {
 	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
 	releaseDir, err := createLocalReleaseCharts()

@@ -192,8 +192,6 @@
 // translateConfig/reverseTranslateConfig-1.4.yaml
 // translateConfig/reverseTranslateConfig-1.5.yaml
 // translateConfig/reverseTranslateConfig-1.6.yaml
-// translateConfig/translate-ICP-IOP-1.5.yaml
-// translateConfig/translate-ICP-IOP-1.6.yaml
 // translateConfig/translateConfig-1.3.yaml
 // translateConfig/translateConfig-1.4.yaml
 // translateConfig/translateConfig-1.5.yaml
@@ -44573,84 +44571,6 @@ func translateconfigReversetranslateconfig16Yaml() (*asset, error) {
 	return a, nil
 }
 
-var _translateconfigTranslateIcpIop15Yaml = []byte(`trafficManagement.components.pilot: components.pilot
-policy.components.policy: components.policy
-telemetry.components.telemetry: components.telemetry
-security.components.citadel: components.citadel
-security.components.nodeAgent: components.nodeAgent
-configManagement.components.galley: components.galley
-autoInjection.components.injector: components.sidecarInjector
-cni: components.cni
-
-gateways.components.ingressGateway: components.ingressGateways.[name:istio-ingressgateway]
-gateways.components.egressGateway: components.egressGateways.[name:istio-egressgateway]
-
-security.components.certManager: addonComponents.certManager
-values.grafana.enabled: addonComponents.grafana.enabled
-values.kiali.enabled: addonComponents.kiali.enabled
-values.prometheus.enabled: addonComponents.prometheus.enabled
-values.tracing.enabled: addonComponents.tracing.enabled
-
-values: values
-unvalidatedValues: unvalidatedValues
-hub: hub
-tag: tag
-`)
-
-func translateconfigTranslateIcpIop15YamlBytes() ([]byte, error) {
-	return _translateconfigTranslateIcpIop15Yaml, nil
-}
-
-func translateconfigTranslateIcpIop15Yaml() (*asset, error) {
-	bytes, err := translateconfigTranslateIcpIop15YamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "translateConfig/translate-ICP-IOP-1.5.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _translateconfigTranslateIcpIop16Yaml = []byte(`trafficManagement.components.pilot: components.pilot
-policy.components.policy: components.policy
-telemetry.components.telemetry: components.telemetry
-security.components.citadel: components.citadel
-security.components.nodeAgent: components.nodeAgent
-configManagement.components.galley: components.galley
-autoInjection.components.injector: components.sidecarInjector
-cni: components.cni
-
-gateways.components.ingressGateway: components.ingressGateways.[name:istio-ingressgateway]
-gateways.components.egressGateway: components.egressGateways.[name:istio-egressgateway]
-
-security.components.certManager: addonComponents.certManager
-values.grafana.enabled: addonComponents.grafana.enabled
-values.kiali.enabled: addonComponents.kiali.enabled
-values.prometheus.enabled: addonComponents.prometheus.enabled
-values.tracing.enabled: addonComponents.tracing.enabled
-
-values: values
-unvalidatedValues: unvalidatedValues
-hub: hub
-tag: tag
-`)
-
-func translateconfigTranslateIcpIop16YamlBytes() ([]byte, error) {
-	return _translateconfigTranslateIcpIop16Yaml, nil
-}
-
-func translateconfigTranslateIcpIop16Yaml() (*asset, error) {
-	bytes, err := translateconfigTranslateIcpIop16YamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "translateConfig/translate-ICP-IOP-1.6.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _translateconfigTranslateconfig13Yaml = []byte(`apiMapping:
   Hub:
     outPath: "global.hub"
@@ -45781,8 +45701,6 @@ var _bindata = map[string]func() (*asset, error){
 	"translateConfig/reverseTranslateConfig-1.4.yaml":                                      translateconfigReversetranslateconfig14Yaml,
 	"translateConfig/reverseTranslateConfig-1.5.yaml":                                      translateconfigReversetranslateconfig15Yaml,
 	"translateConfig/reverseTranslateConfig-1.6.yaml":                                      translateconfigReversetranslateconfig16Yaml,
-	"translateConfig/translate-ICP-IOP-1.5.yaml":                                           translateconfigTranslateIcpIop15Yaml,
-	"translateConfig/translate-ICP-IOP-1.6.yaml":                                           translateconfigTranslateIcpIop16Yaml,
 	"translateConfig/translateConfig-1.3.yaml":                                             translateconfigTranslateconfig13Yaml,
 	"translateConfig/translateConfig-1.4.yaml":                                             translateconfigTranslateconfig14Yaml,
 	"translateConfig/translateConfig-1.5.yaml":                                             translateconfigTranslateconfig15Yaml,
@@ -46114,8 +46032,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"reverseTranslateConfig-1.4.yaml": &bintree{translateconfigReversetranslateconfig14Yaml, map[string]*bintree{}},
 		"reverseTranslateConfig-1.5.yaml": &bintree{translateconfigReversetranslateconfig15Yaml, map[string]*bintree{}},
 		"reverseTranslateConfig-1.6.yaml": &bintree{translateconfigReversetranslateconfig16Yaml, map[string]*bintree{}},
-		"translate-ICP-IOP-1.5.yaml":      &bintree{translateconfigTranslateIcpIop15Yaml, map[string]*bintree{}},
-		"translate-ICP-IOP-1.6.yaml":      &bintree{translateconfigTranslateIcpIop16Yaml, map[string]*bintree{}},
 		"translateConfig-1.3.yaml":        &bintree{translateconfigTranslateconfig13Yaml, map[string]*bintree{}},
 		"translateConfig-1.4.yaml":        &bintree{translateconfigTranslateconfig14Yaml, map[string]*bintree{}},
 		"translateConfig-1.5.yaml":        &bintree{translateconfigTranslateconfig15Yaml, map[string]*bintree{}},
