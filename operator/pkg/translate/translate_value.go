@@ -16,6 +16,7 @@ package translate
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/ghodss/yaml"
 
@@ -44,8 +45,8 @@ type ReverseTranslator struct {
 }
 
 type gatewayKubernetesMapping struct {
-	ingressMapping map[string]*Translation
-	egressMapping  map[string]*Translation
+	IngressMapping map[string]*Translation
+	EgressMapping  map[string]*Translation
 }
 
 var (
@@ -135,7 +136,7 @@ func (t *ReverseTranslator) initK8SMapping(valueTree map[string]interface{}) err
 			mapping[newKey] = &Translation{newP[len(newP)-2:].String(), nil}
 		}
 	}
-	t.GatewayKubernetesMapping = gatewayKubernetesMapping{ingressMapping: igwOutputMapping, egressMapping: egwOutputMapping}
+	t.GatewayKubernetesMapping = gatewayKubernetesMapping{IngressMapping: igwOutputMapping, EgressMapping: egwOutputMapping}
 	return nil
 }
 
@@ -207,6 +208,9 @@ func (t *ReverseTranslator) TranslateTree(valueTree map[string]interface{}, cpSp
 		return err
 	}
 
+	if err := t.translateGateway(valueTree, cpSpecTree); err != nil {
+		return fmt.Errorf("error when translating gateway with kubernetes mapping: %v", err.Error())
+	}
 	// translate remaining untranslated paths into component values
 	err = t.translateRemainingPaths(valueTree, cpSpecTree, nil)
 	if err != nil {
@@ -223,9 +227,6 @@ func (t *ReverseTranslator) TranslateK8S(valueTree map[string]interface{}, cpSpe
 	}
 	if err := t.translateK8sTree(valueTree, cpSpecTree, t.KubernetesMapping); err != nil {
 		return fmt.Errorf("error when translating value.yaml tree with kubernetes mapping: %v", err)
-	}
-	if err := t.translateGateway(valueTree, cpSpecTree); err != nil {
-		return fmt.Errorf("error when translating gateway with kubernetes mapping: %v", err.Error())
 	}
 	return nil
 }
@@ -259,6 +260,45 @@ func (t *ReverseTranslator) setEnablementFromValue(valueSpec map[string]interfac
 	return nil
 }
 
+// IssueWarningForGatewayK8SSettings creates deprecated warning messages
+// when user try to set kubernetes settings for gateways via values api.
+func (t *ReverseTranslator) IssueWarningForGatewayK8SSettings(valuesOverlay string) (string, error) {
+	gwOverlay, err := tpath.GetConfigSubtree(valuesOverlay, "gateways")
+	if err != nil {
+		return "", fmt.Errorf("error getting gateways overlay from valuesOverlayYaml %v", err)
+	}
+	if gwOverlay == "" {
+		return "", nil
+	}
+	var deprecatedFields []string
+	for inPath := range t.GatewayKubernetesMapping.IngressMapping {
+		in, err := tpath.GetConfigSubtree(valuesOverlay, inPath)
+		if err != nil {
+			scope.Debug(err.Error())
+			continue
+		}
+		if in != "" {
+			deprecatedFields = append(deprecatedFields, inPath)
+		}
+	}
+	for inPath := range t.GatewayKubernetesMapping.EgressMapping {
+		in, err := tpath.GetConfigSubtree(valuesOverlay, inPath)
+		if err != nil {
+			scope.Debug(err.Error())
+			continue
+		}
+		if in != "" {
+			deprecatedFields = append(deprecatedFields, inPath)
+		}
+	}
+	if len(deprecatedFields) == 0 {
+		return "", nil
+	}
+	warningMessage := fmt.Sprintf("using values api paths: %s are deprecated,"+
+		" please use k8s spec of gateway components instead\n", strings.Join(deprecatedFields, ","))
+	return warningMessage, nil
+}
+
 // translateGateway handles translation for gateways specific configuration
 func (t *ReverseTranslator) translateGateway(valueSpec map[string]interface{}, root map[string]interface{}) error {
 	for inPath, outPath := range gatewayPathMapping {
@@ -277,9 +317,9 @@ func (t *ReverseTranslator) translateGateway(valueSpec map[string]interface{}, r
 		outCP := util.ToYAMLPath("Components." + string(outPath))
 
 		if enabled {
-			mapping := t.GatewayKubernetesMapping.ingressMapping
+			mapping := t.GatewayKubernetesMapping.IngressMapping
 			if outPath == name.EgressComponentName {
-				mapping = t.GatewayKubernetesMapping.egressMapping
+				mapping = t.GatewayKubernetesMapping.EgressMapping
 			}
 			err = t.translateK8sTree(valueSpec, gwSpec, mapping)
 			if err != nil {

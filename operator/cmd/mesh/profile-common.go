@@ -177,8 +177,7 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 		}
 	}
 
-	//TODO: handle gateway node properly
-	userOverlayYAML, err = overlayk8sfromValueToIOP(userOverlayYAML, l)
+	userOverlayYAML, err = translateK8SfromValueToIOP(userOverlayYAML, l)
 	if err != nil {
 		return "", nil, fmt.Errorf("could not overlay k8s settings from values to IOP: %s", err)
 	}
@@ -213,7 +212,8 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 	return util.ToYAMLWithJSONPB(finalIOPS), finalIOPS, nil
 }
 
-func overlayk8sfromValueToIOP(userOverlayYaml string, l *Logger) (string, error) {
+// translateK8SfromValueToIOP use reverse translation to convert k8s settings defined in values API to IOP API.
+func translateK8SfromValueToIOP(userOverlayYaml string, l *Logger) (string, error) {
 	mvs := version.OperatorBinaryVersion.MinorVersion
 	t, err := translate.NewReverseTranslator(mvs)
 	if err != nil {
@@ -232,6 +232,13 @@ func overlayk8sfromValueToIOP(userOverlayYaml string, l *Logger) (string, error)
 	if err = t.TranslateK8S(valuesOverlayTree, iopSpecTree); err != nil {
 		return "", err
 	}
+	warning, err := t.IssueWarningForGatewayK8SSettings(valuesOverlay)
+	if err != nil {
+		return "", fmt.Errorf("error handling values gateway k8s settings: %v", err)
+	}
+	if warning != "" {
+		l.logAndPrint(warning)
+	}
 	iopSpecTreeYAML, err := yaml.Marshal(iopSpecTree)
 	if err != nil {
 		return "", fmt.Errorf("error when marshalling reverse translated tree %v", err)
@@ -247,6 +254,7 @@ func overlayk8sfromValueToIOP(userOverlayYaml string, l *Logger) (string, error)
 	}
 	return finalYAML, err
 }
+
 // rewriteURLToLocalInstallPath checks installPackagePath and if it is a URL, it tries to download and extract the
 // Istio release tar at the URL to a local file path. If successful, it returns the resulting local paths to the
 // installation charts and profile file.

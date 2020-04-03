@@ -15,7 +15,7 @@ spec:
   strategy:
     rollingUpdate:
       maxSurge: 100%
-      maxUnavailable: 25%
+      maxUnavailable: 30%
   template:
     metadata:
       annotations:
@@ -137,4 +137,27 @@ spec:
       - configMap:
           name: istio
         name: config-volume
+---
+
+
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    app: istiod
+    release: istio
+  name: istiod
+  namespace: istio-control
+spec:
+  maxReplicas: 8
+  metrics:
+  - resource:
+      name: cpu
+      targetAverageUtilization: 80
+    type: Resource
+  minReplicas: 2
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: istiod
 ---
