@@ -18,6 +18,7 @@ import (
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/log"
 )
 
 type operatorCommonArgs struct {
@@ -40,7 +41,7 @@ func isControllerInstalled(kubeconfig, context, operatorNamespace string) (bool,
 }
 
 // chartsRootDir, helmBaseDir, componentName, namespace string) (Template, TemplateRenderer, error) {
-func renderOperatorManifest(_ *rootArgs, ocArgs *operatorCommonArgs, _ *Logger) (string, string, error) {
+func renderOperatorManifest(_ *rootArgs, ocArgs *operatorCommonArgs, _ *log.ConsoleLogger) (string, string, error) {
 	r, err := helm.NewHelmRenderer("", "istio-operator", istioControllerComponentName, ocArgs.operatorNamespace)
 	if err != nil {
 		return "", "", err

@@ -15,95 +15,65 @@
 package helmreconciler
 
 import (
+	"context"
+	"fmt"
 	"sync"
 
-	"k8s.io/apimachinery/pkg/runtime"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/operator/v1alpha1"
+	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
+	llog "istio.io/istio/operator/pkg/util/log"
 	"istio.io/pkg/log"
 )
 
-// HelmReconciler reconciles resources rendered by a set of helm charts for a specific instances of a custom resource,
-// or deletes all resources associated with a specific instance of a custom resource.
+// HelmReconciler reconciles resources rendered by a set of helm charts.
 type HelmReconciler struct {
 	client             client.Client
-	customizer         RenderingCustomizer
-	instance           runtime.Object
+	iop                *valuesv1alpha1.IstioOperator
+	pruningDetails     PruningDetails
+	opts               *Options
 	needUpdateAndPrune bool
+	// copy of the last generated manifests.
+	manifests name.ManifestMap
+}
+
+// Options are options for HelmReconciler.
+type Options struct {
+	// DryRun executes all actions but does not write anything to the cluster.
+	DryRun bool
+	// Logger is a logger for user facing output.
+	Logger llog.Logger
+}
+
+var defaultOptions = &Options{
+	Logger: llog.NewDefaultLogger(),
 }
 
 // NewHelmReconciler creates a HelmReconciler and returns a ptr to it
-func NewHelmReconciler(instance runtime.Object, customizer RenderingCustomizer, client client.Client) *HelmReconciler {
+func NewHelmReconciler(client client.Client, iop *valuesv1alpha1.IstioOperator, opts *Options) *HelmReconciler {
+	if opts == nil {
+		opts = defaultOptions
+	}
 	return &HelmReconciler{
-		instance:   instance,
-		client:     client,
-		customizer: customizer,
+		client:         client,
+		iop:            iop,
+		pruningDetails: NewIstioPruningDetails(iop),
+		opts:           opts,
 	}
 }
 
-// Factory is a factory for creating HelmReconciler objects using the specified CustomizerFactory.
-type Factory struct {
-	// CustomizerFactory is a factory for creating the Customizer object for the HelmReconciler.
-	CustomizerFactory RenderingCustomizerFactory
-}
-
-// New Returns a new HelmReconciler for the custom resource.
-// instance is the custom resource to be reconciled/deleted.
-// client is the kubernetes client
-// logger is the logger
-func (f *Factory) New(instance runtime.Object, client client.Client) (*HelmReconciler, error) {
-	delegate, err := f.CustomizerFactory.NewCustomizer(instance)
-	if err != nil {
-		return nil, err
-	}
-	wrappedcustomizer, err := wrapCustomizer(instance, delegate)
-	if err != nil {
-		return nil, err
-	}
-	reconciler := &HelmReconciler{client: client, customizer: wrappedcustomizer, instance: instance, needUpdateAndPrune: true}
-	wrappedcustomizer.RegisterReconciler(reconciler)
-	return reconciler, nil
-}
-
-// wrapCustomizer creates a new internalCustomizer object wrapping the delegate, by inject a LoggingRenderingListener,
-// an OwnerReferenceDecorator, and a PruningDetailsDecorator into a CompositeRenderingListener that includes the listener
-// from the delegate.  This ensures the HelmReconciler can properly implement pruning, etc.
-// instance is the custom resource to be processed by the HelmReconciler
-// delegate is the delegate
-func wrapCustomizer(instance runtime.Object, delegate RenderingCustomizer) (*SimpleRenderingCustomizer, error) {
-	ownerReferenceDecorator, err := NewOwnerReferenceDecorator(instance)
-	if err != nil {
-		return nil, err
-	}
-	return &SimpleRenderingCustomizer{
-		InputValue:          delegate.Input(),
-		PruningDetailsValue: delegate.PruningDetails(),
-		ListenerValue: &CompositeRenderingListener{
-			Listeners: []RenderingListener{
-				&LoggingRenderingListener{Level: 1},
-				ownerReferenceDecorator,
-				NewPruningMarkingsDecorator(delegate.PruningDetails()),
-				delegate.Listener(),
-			},
-		},
-	}, nil
-}
-
-// Reconcile the resources associated with the custom resource instance.
+// Reconcile reconciles the associated resources.
 func (h *HelmReconciler) Reconcile() error {
-	// any processing required before processing the charts
-	err := h.customizer.Listener().BeginReconcile(h.instance)
-	if err != nil {
+	if err := h.beginReconcile(); err != nil {
 		return err
 	}
 
-	// render charts
-	manifestMap, err := h.RenderCharts(h.customizer.Input())
+	manifestMap, err := h.RenderCharts()
 	if err != nil {
 		// TODO: this needs to update status to RECONCILING.
 		return err
@@ -116,15 +86,53 @@ func (h *HelmReconciler) Reconcile() error {
 	if h.needUpdateAndPrune {
 		errs = util.AppendErr(errs, h.Prune(allObjectHashes(manifestMap), false))
 	}
-	errs = util.AppendErr(errs, h.customizer.Listener().EndReconcile(h.instance, status))
+	errs = util.AppendErr(errs, h.endReconcile(status))
 
 	return errs.ToError()
+}
+
+// beginReconcile updates the status field on the IstioOperator instance before reconciling.
+func (h *HelmReconciler) beginReconcile() error {
+	isop := &valuesv1alpha1.IstioOperator{}
+	namespacedName := types.NamespacedName{
+		Name:      h.iop.Name,
+		Namespace: h.iop.Namespace,
+	}
+	if err := h.GetClient().Get(context.TODO(), namespacedName, isop); err != nil {
+		return fmt.Errorf("failed to get IstioOperator before updating status due to %v", err)
+	}
+	if isop.Status == nil {
+		isop.Status = &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_RECONCILING}
+	} else {
+		cs := isop.Status.ComponentStatus
+		for cn := range cs {
+			cs[cn] = &v1alpha1.InstallStatus_VersionStatus{
+				Status: v1alpha1.InstallStatus_RECONCILING,
+			}
+		}
+		isop.Status.Status = v1alpha1.InstallStatus_RECONCILING
+	}
+	return h.GetClient().Status().Update(context.TODO(), isop)
+}
+
+// endReconcile updates the status field on the IstioOperator instance based on the resulting err parameter.
+func (h *HelmReconciler) endReconcile(status *v1alpha1.InstallStatus) error {
+	iop := &valuesv1alpha1.IstioOperator{}
+	namespacedName := types.NamespacedName{
+		Name:      h.iop.Name,
+		Namespace: h.iop.Namespace,
+	}
+	if err := h.GetClient().Get(context.TODO(), namespacedName, iop); err != nil {
+		return fmt.Errorf("failed to get IstioOperator before updating status due to %v", err)
+	}
+	iop.Status = status
+	return h.GetClient().Status().Update(context.TODO(), iop)
 }
 
 // processRecursive processes the given manifests in an order of dependencies defined in h. Dependencies are a tree,
 // where a child must wait for the parent to complete before starting.
 func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1.InstallStatus {
-	deps, dch := h.customizer.Input().GetProcessingOrder(manifests)
+	deps, dch := getProcessingOrder(manifests)
 	componentStatus := make(map[string]*v1alpha1.InstallStatus_VersionStatus)
 
 	// mu protects the shared InstallStatus componentStatus across goroutines
@@ -216,38 +224,28 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1
 	return out
 }
 
+// getProcessingOrder returns the order in which the rendered charts should be processed.
+func getProcessingOrder(m ChartManifestsMap) (ComponentNameToListMap, DependencyWaitCh) {
+	componentNameList := make([]name.ComponentName, 0)
+	dependencyWaitCh := make(DependencyWaitCh)
+	for c := range m {
+		cn := name.ComponentName(c)
+		if cn == name.IstioBaseComponentName {
+			continue
+		}
+		componentNameList = append(componentNameList, cn)
+		dependencyWaitCh[cn] = make(chan struct{}, 1)
+	}
+	componentDependencies := ComponentNameToListMap{
+		name.IstioBaseComponentName: componentNameList,
+	}
+	return componentDependencies, dependencyWaitCh
+}
+
 // Delete resources associated with the custom resource instance
 func (h *HelmReconciler) Delete() error {
 	h.needUpdateAndPrune = true
-	allErrors := []error{}
-
-	// any processing required before processing the charts
-	err := h.customizer.Listener().BeginDelete(h.instance)
-	if err != nil {
-		allErrors = append(allErrors, err)
-	}
-
-	err = h.customizer.Listener().BeginPrune(true)
-	if err != nil {
-		allErrors = append(allErrors, err)
-	}
-	err = h.Prune(nil, true)
-	if err != nil {
-		allErrors = append(allErrors, err)
-	}
-	err = h.customizer.Listener().EndPrune()
-	if err != nil {
-		allErrors = append(allErrors, err)
-	}
-
-	// any post processing required after deleting
-	err = utilerrors.NewAggregate(allErrors)
-	if listenerErr := h.customizer.Listener().EndDelete(h.instance, err); listenerErr != nil {
-		log.Errorf("error calling listener: %s", listenerErr)
-	}
-
-	// return any errors
-	return err
+	return h.Prune(nil, true)
 }
 
 // allObjectHashes returns a map with object hashes of all the objects contained in cmm as the keys.
@@ -270,24 +268,4 @@ func allObjectHashes(cmm ChartManifestsMap) map[string]bool {
 // GetClient returns the kubernetes client associated with this HelmReconciler
 func (h *HelmReconciler) GetClient() client.Client {
 	return h.client
-}
-
-// GetCustomizer returns the customizer associated with this HelmReconciler
-func (h *HelmReconciler) GetCustomizer() RenderingCustomizer {
-	return h.customizer
-}
-
-// GetInstance returns the instance associated with this HelmReconciler
-func (h *HelmReconciler) GetInstance() runtime.Object {
-	return h.instance
-}
-
-// SetInstance set the instance associated with this HelmReconciler
-func (h *HelmReconciler) SetInstance(instance runtime.Object) {
-	h.instance = instance
-}
-
-// SetNeedUpdateAndPrune set the needUpdateAndPrune flag associated with this HelmReconciler
-func (h *HelmReconciler) SetNeedUpdateAndPrune(u bool) {
-	h.needUpdateAndPrune = u
 }

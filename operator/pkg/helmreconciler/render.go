@@ -20,27 +20,24 @@ import (
 	"strings"
 	"sync"
 
-	"istio.io/api/operator/v1alpha1"
-	"istio.io/istio/operator/pkg/apis/istio"
-	"istio.io/istio/operator/pkg/tpath"
-
 	jsonpatch "github.com/evanphx/json-patch"
-	"k8s.io/apimachinery/pkg/runtime"
-
-	util2 "k8s.io/kubectl/pkg/util"
-
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/helm/pkg/manifest"
+	util2 "k8s.io/kubectl/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio"
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
@@ -64,24 +61,15 @@ var (
 )
 
 // FlushObjectCaches flushes all K8s object caches.
-func (h *HelmReconciler) FlushObjectCaches() {
+func FlushObjectCaches() {
 	objectCachesMu.Lock()
 	defer objectCachesMu.Unlock()
 	objectCaches = make(map[string]*ObjectCache)
 }
 
-func (h *HelmReconciler) RenderCharts(in RenderingInput) (ChartManifestsMap, error) {
-	iop, ok := in.GetInputConfig().(*valuesv1alpha1.IstioOperator)
-	if !ok {
-		return nil, fmt.Errorf("unexpected type %T in RenderCharts", in.GetInputConfig())
-	}
-	iopSpec := iop.Spec
+func (h *HelmReconciler) RenderCharts() (ChartManifestsMap, error) {
+	iopSpec := h.iop.Spec
 	if err := validate.CheckIstioOperatorSpec(iopSpec, false); err != nil {
-		return nil, err
-	}
-
-	mergedIOPS, err := MergeIOPSWithProfile(iop)
-	if err != nil {
 		return nil, err
 	}
 
@@ -90,12 +78,12 @@ func (h *HelmReconciler) RenderCharts(in RenderingInput) (ChartManifestsMap, err
 		return nil, err
 	}
 
-	cp, err := controlplane.NewIstioOperator(mergedIOPS, t)
+	cp, err := controlplane.NewIstioOperator(iopSpec, t)
 	if err != nil {
 		return nil, err
 	}
 	if err := cp.Run(); err != nil {
-		return nil, fmt.Errorf("failed to create Istio control plane with spec: \n%v\nerror: %s", mergedIOPS, err)
+		return nil, fmt.Errorf("failed to create Istio control plane with spec: \n%v\nerror: %s", iopSpec, err)
 	}
 
 	manifests, errs := cp.RenderManifest()
@@ -103,7 +91,13 @@ func (h *HelmReconciler) RenderCharts(in RenderingInput) (ChartManifestsMap, err
 		err = errs.ToError()
 	}
 
+	h.manifests = manifests
+
 	return toChartManifestsMap(manifests), err
+}
+
+func (h *HelmReconciler) GetManifests() name.ManifestMap {
+	return h.manifests
 }
 
 // MergeIOPSWithProfile overlays the values in iop on top of the defaults for the profile given by iop.profile and
@@ -174,7 +168,7 @@ func MergeIOPSWithProfile(iop *valuesv1alpha1.IstioOperator) (*v1alpha1.IstioOpe
 // ProcessManifest apply the manifest to create or update resources, returns the number of objects processed
 func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error) {
 	var errs []error
-	objAccessor, err := meta.Accessor(h.instance)
+	objAccessor, err := meta.Accessor(h.iop)
 	if err != nil {
 		return 0, err
 	}
@@ -276,27 +270,28 @@ func (h *HelmReconciler) ProcessObject(chartName string, obj *unstructured.Unstr
 		return utilerrors.NewAggregate(allErrors)
 	}
 
-	mutatedObj, err := h.customizer.Listener().BeginResource(chartName, obj)
-	if err != nil {
-		log.Errorf("error preprocessing object: %s", err)
-		return err
-	}
-
-	err = util2.CreateApplyAnnotation(obj, unstructured.UnstructuredJSONScheme)
-	if err != nil {
+	if err := util2.CreateApplyAnnotation(obj, unstructured.UnstructuredJSONScheme); err != nil {
 		log.Errorf("unexpected error adding apply annotation to object: %s", err)
 	}
 
 	receiver := &unstructured.Unstructured{}
-	receiver.SetGroupVersionKind(mutatedObj.GetObjectKind().GroupVersionKind())
-	objectKey, _ := client.ObjectKeyFromObject(mutatedObj)
+	receiver.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
+	objectKey, _ := client.ObjectKeyFromObject(obj)
+	objectStr := fmt.Sprintf("%s/%s/%s", obj.GetKind(), obj.GetNamespace(), obj.GetName())
 
-	if err = h.client.Get(context.TODO(), objectKey, receiver); apierrors.IsNotFound(err) {
-		log.Infof("creating resource: %s/%s/%s", obj.GetKind(), obj.GetNamespace(), obj.GetName())
-		return h.client.Create(context.TODO(), mutatedObj)
-	} else if err == nil {
-		log.Infof("updating resource: %s/%s/%s", obj.GetKind(), obj.GetNamespace(), obj.GetName())
-		if err := applyOverlay(receiver, mutatedObj); err != nil {
+	if h.opts.DryRun {
+		h.opts.Logger.LogAndPrintf("Not applying object %s because of dry run.", objectStr)
+		return nil
+	}
+
+	err := h.client.Get(context.TODO(), objectKey, receiver)
+	switch {
+	case apierrors.IsNotFound(err):
+		log.Infof("creating resource: %s", objectStr)
+		return h.client.Create(context.TODO(), obj)
+	case err == nil:
+		log.Infof("updating resource: %s", objectStr)
+		if err := applyOverlay(receiver, obj); err != nil {
 			return err
 		}
 		return h.client.Update(context.TODO(), receiver)

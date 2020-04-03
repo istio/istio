@@ -31,28 +31,23 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
-
-	operatormesh "istio.io/istio/operator/cmd/mesh"
-	"istio.io/istio/operator/pkg/tpath"
-
-	"istio.io/istio/operator/pkg/name"
-
-	"istio.io/api/annotation"
-
-	operator "istio.io/istio/operator/cmd/mesh"
-
-	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/mcp/testing/testcerts"
-
 	"k8s.io/api/admission/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+
+	"istio.io/api/annotation"
+	operator "istio.io/istio/operator/cmd/mesh"
+	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/operator/pkg/util/log"
+	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/mcp/testing/testcerts"
 )
 
 const yamlSeparator = "\n---"
@@ -889,7 +884,7 @@ func loadInjectionConfigMap(t testing.TB, settings string) (template *Config, va
 	if err != nil {
 		t.Fatal(err)
 	}
-	l := operatormesh.NewLogger(true, os.Stdout, os.Stderr)
+	l := log.NewConsoleLogger(true, os.Stdout, os.Stderr)
 	manifests, _, err := operator.GenManifests(nil, oy, false, nil, l)
 	if err != nil {
 		t.Fatalf("failed to generate manifests: %v", err)

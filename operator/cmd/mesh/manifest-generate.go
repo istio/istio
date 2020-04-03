@@ -20,19 +20,17 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/spf13/cobra"
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/controlplane"
-	"istio.io/istio/operator/pkg/translate"
-	"istio.io/istio/operator/version"
-
 	"istio.io/istio/operator/pkg/helm"
-
-	"github.com/spf13/cobra"
-
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/pkg/util/log"
+	"istio.io/istio/operator/version"
 )
 
 type manifestGenerateArgs struct {
@@ -79,13 +77,13 @@ func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs) *cobr
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			l := log.NewConsoleLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
 			return manifestGenerate(rootArgs, mgArgs, l)
 		}}
 
 }
 
-func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, l *Logger) error {
+func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, l *log.ConsoleLogger) error {
 	if err := configLogs(args.logToStdErr); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
@@ -102,7 +100,7 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, l *Logger) e
 
 	if mgArgs.outFilename == "" {
 		for _, m := range orderedManifests(manifests) {
-			l.print(m + "\n")
+			l.Print(m + "\n")
 		}
 	} else {
 		if err := os.MkdirAll(mgArgs.outFilename, os.ModePerm); err != nil {
@@ -121,7 +119,7 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, l *Logger) e
 // If force is set, validation errors will not cause processing to abort but will result in warnings going to the
 // supplied logger.
 func GenManifests(inFilename []string, setOverlayYAML string, force bool,
-	kubeConfig *rest.Config, l *Logger) (name.ManifestMap, *v1alpha1.IstioOperatorSpec, error) {
+	kubeConfig *rest.Config, l *log.ConsoleLogger) (name.ManifestMap, *v1alpha1.IstioOperatorSpec, error) {
 	mergedYAML, _, err := GenerateConfig(inFilename, setOverlayYAML, force, kubeConfig, l)
 	if err != nil {
 		return nil, nil, err

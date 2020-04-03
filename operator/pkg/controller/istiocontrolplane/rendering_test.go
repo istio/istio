@@ -225,9 +225,8 @@ func runManifestGenerate(iopStr string) (string, error) {
 	}
 
 	testReconciler := helmreconciler.NewHelmReconciler(iop, nil, nil)
-	testInput := NewIstioRenderingInput(iop)
 
-	mm, err := testReconciler.RenderCharts(testInput)
+	mm, err := testReconciler.RenderCharts(iop)
 	if err != nil {
 		return "", err
 	}

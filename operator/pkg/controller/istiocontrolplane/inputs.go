@@ -74,24 +74,6 @@ func (i *IstioRenderingInput) GetTargetNamespace() string {
 	return i.instance.Namespace
 }
 
-// GetProcessingOrder returns the order in which the rendered charts should be processed.
-func (i *IstioRenderingInput) GetProcessingOrder(m helmreconciler.ChartManifestsMap) (helmreconciler.ComponentNameToListMap, helmreconciler.DependencyWaitCh) {
-	componentNameList := make([]name.ComponentName, 0)
-	dependencyWaitCh := make(helmreconciler.DependencyWaitCh)
-	for c := range m {
-		cn := name.ComponentName(c)
-		if cn == name.IstioBaseComponentName {
-			continue
-		}
-		componentNameList = append(componentNameList, cn)
-		dependencyWaitCh[cn] = make(chan struct{}, 1)
-	}
-	componentDependencies := helmreconciler.ComponentNameToListMap{
-		name.IstioBaseComponentName: componentNameList,
-	}
-	return componentDependencies, dependencyWaitCh
-}
-
 func buildInstallTree() {
 	// Starting with root, recursively insert each first level child into each node.
 	helmreconciler.InsertChildrenRecursive(name.IstioBaseComponentName, installTree, componentDependencies)

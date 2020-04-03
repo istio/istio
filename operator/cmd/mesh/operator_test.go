@@ -23,12 +23,12 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/istio/pkg/test/env"
-
 	"github.com/kr/pretty"
 
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/log"
+	"istio.io/istio/pkg/test/env"
 )
 
 // applyParams is used to capture the inputs to operatorInit applyManifest call.
@@ -95,7 +95,7 @@ func TestOperatorInit(t *testing.T) {
 		},
 	}
 
-	operatorInit(rootArgs, oiArgs, NewLogger(rootArgs.logToStdErr, os.Stdout, os.Stderr), mockApplyManifest)
+	operatorInit(rootArgs, oiArgs, log.NewConsoleLogger(rootArgs.logToStdErr, os.Stdout, os.Stderr), mockApplyManifest)
 	gotYAML := ""
 	for _, ao := range applyOutput {
 		gotYAML += ao.manifest
@@ -145,7 +145,7 @@ func TestOperatorInit(t *testing.T) {
 	}
 }
 
-func mockApplyManifest(manifestStr, componentName string, opts *kubectlcmd.Options, _ bool, _ *Logger) bool {
+func mockApplyManifest(manifestStr, componentName string, opts *kubectlcmd.Options, _ bool, _ *log.ConsoleLogger) bool {
 	applyOutput = append(applyOutput, applyParams{
 		componentName: componentName,
 		manifest:      manifestStr,
@@ -171,7 +171,7 @@ func TestOperatorRemove(t *testing.T) {
 		force: true,
 	}
 
-	operatorRemove(rootArgs, orArgs, NewLogger(rootArgs.logToStdErr, os.Stdout, os.Stderr), mockDeleteManifest)
+	operatorRemove(rootArgs, orArgs, log.NewConsoleLogger(rootArgs.logToStdErr, os.Stdout, os.Stderr), mockDeleteManifest)
 	gotYAML := deleteOutput
 
 	if refreshGoldenFiles() {
@@ -191,7 +191,7 @@ func TestOperatorRemove(t *testing.T) {
 	}
 }
 
-func mockDeleteManifest(manifestStr, _ string, _ *kubectlcmd.Options, _ *Logger) bool {
+func mockDeleteManifest(manifestStr, _ string, _ *kubectlcmd.Options, _ *log.ConsoleLogger) bool {
 	deleteOutput = manifestStr
 	return true
 }

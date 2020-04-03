@@ -19,12 +19,12 @@ import (
 	"fmt"
 
 	"github.com/ghodss/yaml"
+	"github.com/spf13/cobra"
 
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
-
-	"github.com/spf13/cobra"
+	"istio.io/istio/operator/pkg/util/log"
 )
 
 type profileDumpArgs struct {
@@ -61,7 +61,7 @@ func profileDumpCmd(rootArgs *rootArgs, pdArgs *profileDumpArgs) *cobra.Command 
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			l := log.NewConsoleLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
 			return profileDump(args, rootArgs, pdArgs, l)
 		}}
 
@@ -99,7 +99,7 @@ func yamlToPrettyJSON(yml string) (string, error) {
 	return string(prettyJSON), nil
 }
 
-func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *Logger) error {
+func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *log.ConsoleLogger) error {
 	initLogsOrExit(rootArgs)
 
 	if len(args) == 1 && pdArgs.inFilenames != nil {
@@ -141,9 +141,9 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *
 		if err != nil {
 			return err
 		}
-		l.print(j + "\n")
+		l.Print(j + "\n")
 	case yamlOutput:
-		l.print(y + "\n")
+		l.Print(y + "\n")
 	}
 
 	return nil

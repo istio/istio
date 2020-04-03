@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/httpserver"
+	"istio.io/istio/operator/pkg/util/log"
 	"istio.io/istio/operator/pkg/util/tgz"
 	"istio.io/pkg/version"
 )
@@ -320,7 +321,7 @@ func TestLDFlags(t *testing.T) {
 	}()
 	version.DockerInfo.Hub = "testHub"
 	version.DockerInfo.Tag = "testTag"
-	l := NewLogger(true, os.Stdout, os.Stderr)
+	l := log.NewConsoleLogger(true, os.Stdout, os.Stderr)
 	_, iops, err := GenerateConfig(nil, "", true, nil, l)
 	if err != nil {
 		t.Fatal(err)
