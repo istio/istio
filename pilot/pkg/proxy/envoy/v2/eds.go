@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/resource"
 )
@@ -368,7 +369,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 		return buildEmptyClusterLoadAssignment(clusterName)
 	}
 
-	locEps := buildLocalityLbEndpointsFromShards(se, svcPort, subsetLabels, clusterName, push)
+	locEps := buildLocalityLbEndpointsFromShards(proxy, se, svc, svcPort, subsetLabels, clusterName, push)
 
 	return &xdsapi.ClusterLoadAssignment{
 		ClusterName: clusterName,
@@ -534,17 +535,29 @@ func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, 
 
 // build LocalityLbEndpoints for a cluster from existing EndpointShards.
 func buildLocalityLbEndpointsFromShards(
+	proxy *model.Proxy,
 	shards *EndpointShards,
+	svc *model.Service,
 	svcPort *model.Port,
 	epLabels labels.Collection,
 	clusterName string,
 	push *model.PushContext) []*endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 
+	// Determine whether or not the target service is considered local to the cluster
+	// and should, therefore, not be accessed from outside the cluster.
+	isClusterLocal := mesh.IsClusterLocal(push.Mesh, svc.Attributes.Namespace)
+
 	shards.mutex.Lock()
 	// The shards are updated independently, now need to filter and merge
 	// for this cluster
-	for _, endpoints := range shards.Shards {
+	for clusterID, endpoints := range shards.Shards {
+		// If the downstream service is configured as cluster-local, only include endpoints that
+		// reside in the same cluster.
+		if isClusterLocal && (clusterID != proxy.ClusterID) {
+			continue
+		}
+
 		for _, ep := range endpoints {
 			if svcPort.Name != ep.ServicePortName {
 				continue

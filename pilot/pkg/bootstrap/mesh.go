@@ -125,7 +125,7 @@ func getMeshConfig(kube kubernetes.Interface, namespace, name string) (*meshconf
 
 	meshConfig, err := mesh.ApplyMeshConfigDefaults(cfgYaml)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed reading mesh config: %v. YAML:\n%s", err, cfgYaml)
 	}
 
 	log.Warn("Loading default mesh config from K8S, no reload support.")
