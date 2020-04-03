@@ -15,55 +15,64 @@
 package plugincakeycert
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
-	"istio.io/istio/tests/integration/security/util"
-
-	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/integration/security/util/connection"
+)
+
+var (
+	testNamespace namespace.Instance
+	testCtx       framework.TestContext
+	testStruct    *testing.T
 )
 
 func TestPluginCaKeyCert(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-
 			istioCfg := istio.DefaultConfigOrFail(t, ctx)
 
 			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
-			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+			testNamespace = namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "test-plugin-ca-key-cert",
 				Inject: true,
 			})
+			testCtx = ctx
+			testStruct = t
 
-			var a, b echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
-				BuildOrFail(t)
-
-			checkers := []connection.Checker{
-				{
-					From: a,
-					Options: echo.CallOptions{
-						Target:   b,
-						PortName: "http",
-						Scheme:   scheme.HTTP,
-					},
-					ExpectSuccess: true,
-				},
-			}
-
-			for _, checker := range checkers {
-				retry.UntilSuccessOrFail(t, checker.Check, retry.Delay(time.Second), retry.Timeout(10*time.Second))
-			}
+			// Check that the Istio CA root certificate matches the plugin CA cert.
+			retry.UntilSuccessOrFail(t, checkCACert, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 		})
+}
+
+func checkCACert() error {
+	configMapName := "istio-ca-root-cert"
+	kEnv := testCtx.Environment().(*kube.Environment)
+	cm, err := kEnv.KubeClusters[0].GetConfigMap(configMapName, testNamespace.Name())
+	if err != nil {
+		return err
+	}
+	var cert string
+	var pluginCert []byte
+	var ok bool
+	if cert, ok = cm.Data[constants.CACertNamespaceConfigMapDataName]; !ok {
+		return fmt.Errorf("CA certificate %v not found", constants.CACertNamespaceConfigMapDataName)
+	}
+	testStruct.Logf("CA certificate %v found", constants.CACertNamespaceConfigMapDataName)
+	if pluginCert, err = readCertFile("root-cert.pem"); err != nil {
+		return err
+	}
+	if string(pluginCert) != cert {
+		return fmt.Errorf("CA certificate (%v) not matching plugin cert (%v)", cert, string(pluginCert))
+	}
+
+	return nil
 }
