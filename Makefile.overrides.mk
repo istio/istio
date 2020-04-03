@@ -25,7 +25,7 @@ ifeq ($(BUILD_WITH_CONTAINER),1)
 PHONYS := $(shell ls | grep -v Makefile)
 .PHONY: $(PHONYS)
 $(PHONYS):
-	@$(MAKE) $@
+	@$(MAKE_DOCKER) $@
 endif
 
 # istioctl-install builds then installs istioctl into $GOPATH/BIN
