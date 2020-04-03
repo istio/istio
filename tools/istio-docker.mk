@@ -24,8 +24,7 @@ docker: docker.all
 # Add new docker targets to the end of the DOCKER_TARGETS list.
 
 DOCKER_TARGETS ?= docker.pilot docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
-	docker.mixer docker.mixer_codegen docker.galley \
-	docker.istioctl docker.operator
+	docker.mixer docker.mixer_codegen docker.istioctl docker.operator
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
@@ -40,7 +39,7 @@ $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 # 	cp $(ISTIO_OUT_LINUX)/$FILE $(ISTIO_DOCKER)/($FILE)
 DOCKER_FILES_FROM_ISTIO_OUT_LINUX:=client server \
                              pilot-discovery pilot-agent mixs mixgen \
-                             galley istioctl manager
+                             istioctl manager
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT_LINUX), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT_LINUX)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_OUT_LINUX)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
 
@@ -170,13 +169,6 @@ dockerx:
 # Support individual images like `dockerx.pilot`
 dockerx.%:
 	@DOCKER_TARGETS=docker.$* BUILD_ALL=false $(MAKE) --no-print-directory -f Makefile.core.mk dockerx
-
-# galley docker images
-docker.galley: BUILD_PRE=&& chmod 755 galley
-docker.galley: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.galley: galley/docker/Dockerfile.galley
-docker.galley: $(ISTIO_DOCKER)/galley
-	$(DOCKER_RULE)
 
 docker.base: docker/Dockerfile.base
 	$(DOCKER_RULE)

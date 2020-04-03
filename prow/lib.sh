@@ -72,7 +72,7 @@ function build_images() {
   # Build just the images needed for tests
   targets="docker.pilot docker.proxyv2 "
   targets+="docker.app docker.test_policybackend "
-  targets+="docker.mixer docker.galley "
+  targets+="docker.mixer "
   DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets}" make dockerx
 }
 
