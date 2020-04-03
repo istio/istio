@@ -1,0 +1,47 @@
+cni:
+  hub: ""
+  tag: ""
+  image: install-cni
+  pullPolicy: Always
+
+  logLevel: info
+
+  # Configuration file to insert istio-cni plugin configuration
+  # by default this will be the first file found in the cni-conf-dir
+  # Example
+  # cniConfFileName: 10-calico.conflist
+
+  # CNI bin and conf dir override settings
+  # defaults:
+  cniBinDir: /opt/cni/bin
+  cniConfDir: /etc/cni/net.d
+  cniConfFileName: ""
+
+  excludeNamespaces:
+    - istio-system
+
+  # Custom annotations on pod level, if you need them
+  podAnnotations: {}
+
+  # If this value is set a RoleBinding will be created
+  # in the same namespace as the istio-cni DaemonSet is created.
+  # This can be used to bind a preexisting ClusterRole to the istio/cni ServiceAccount
+  # e.g. if you use PodSecurityPolicies
+  psp_cluster_role: ""
+
+  # Deploy the config files as plugin chain (value "true") or as standalone files in the conf dir (value "false")?
+  # Some k8s flavors (e.g. OpenShift) do not support the chain approach, set to false if this is the case
+  chained: true
+
+  repair:
+    enabled: true
+    hub: ""
+    tag: ""
+
+    labelPods: true
+    deletePods: true
+
+    initContainerName: "istio-validation"
+
+    brokenPodLabelKey: "cni.istio.io/uninitialized"
+    brokenPodLabelValue: "true"
