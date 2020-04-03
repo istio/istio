@@ -126,9 +126,9 @@ func (g *gatewayXform) convertIngressToGateway(r *resource.Instance) *resource.I
 				Hosts: tls.Hosts,
 				// While we accept multiple certs, we expect them to be mounted in
 				// /etc/certs/namespace/secretname/tls.crt|tls.key
-				Tls: &v1alpha3.Server_TLSOptions{
+				Tls: &v1alpha3.ServerTLSSettings{
 					HttpsRedirect: false,
-					Mode:          v1alpha3.Server_TLSOptions_SIMPLE,
+					Mode:          v1alpha3.ServerTLSSettings_SIMPLE,
 					// TODO this is no longer valid for the new v2 stuff
 					PrivateKey:        path.Join(IngressCertsPath, IngressKeyFilename),
 					ServerCertificate: path.Join(IngressCertsPath, IngressCertFilename),

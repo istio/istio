@@ -18,15 +18,14 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/validate"
-
 	"gopkg.in/yaml.v2"
 
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	icpv1alpha2 "istio.io/istio/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/operator/pkg/version"
 	"istio.io/istio/operator/pkg/vfs"
 	binversion "istio.io/istio/operator/version"
@@ -100,7 +99,7 @@ func ICPToIOPYAML(icpYAML string) (bool, string) {
 // ICPToIOP takes an IstioControlPlane YAML string and a map of translations with key:value format
 // souce-path:destination-path (where paths are expressed in pkg/tpath format) and returns an IstioOperator string.
 func ICPToIOP(icp string, translations map[string]string) (string, error) {
-	if err := checkIstioControlPlane(icp); err != nil {
+	if err := CheckIstioControlPlane(icp); err != nil {
 		return "", err
 	}
 	icps, err := getSpecSubtree(icp)
@@ -181,21 +180,24 @@ components:
 	return out, nil
 }
 
-// checkIstioControlPlane reports whether icpStr contains an IstioControlPlane with correct object headers.
-func checkIstioControlPlane(icpStr string) error {
+// CheckIstioControlPlane reports whether icpStr contains an IstioControlPlane with correct object headers.
+func CheckIstioControlPlane(icpStr string) error {
 	// First, check if this is even an IstioControlPlane kind.
-	icp := &icpv1alpha2.IstioControlPlane{}
-	if err := util.UnmarshalWithJSONPB(icpStr, icp, false); err != nil {
-		return fmt.Errorf("not a valid IstioControlPlane")
-	}
 	o, err := object.ParseYAMLToK8sObject([]byte(icpStr))
 	if err != nil {
 		return err
 	}
 
 	if o.Kind != icpv1alpha2.IstioControlPlaneKindStr {
-		return fmt.Errorf("incorrect Kind, got %s, want %s", icp.TypeMeta.Kind, icpv1alpha2.IstioControlPlaneKindStr)
+		return fmt.Errorf("incorrect Kind, got %s, want %s", o.Kind, icpv1alpha2.IstioControlPlaneKindStr)
 	}
+
+	// Now check if this is a valid ICP.
+	icp := &icpv1alpha2.IstioControlPlane{}
+	if err := util.UnmarshalWithJSONPB(icpStr, icp, false); err != nil {
+		return fmt.Errorf("not a valid IstioControlPlane")
+	}
+
 	return nil
 }
 

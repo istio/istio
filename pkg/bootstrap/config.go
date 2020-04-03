@@ -23,7 +23,6 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"time"
 
 	md "cloud.google.com/go/compute/metadata"
 
@@ -51,7 +50,7 @@ const (
 	lightstepAccessTokenBase = "lightstep_access_token.txt"
 
 	// required stats are used by readiness checks.
-	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,http_mixer_filter,tcp_mixer_filter,server,cluster.xds-grpc"
+	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,http_mixer_filter,tcp_mixer_filter,server,cluster.xds-grpc,wasm"
 	requiredEnvoyStatsMatcherInclusionSuffix   = "ssl_context_update_by_sds"
 
 	// Prefixes of V2 metrics.
@@ -88,13 +87,12 @@ type Config struct {
 	PodName             string
 	PodNamespace        string
 	PodIP               net.IP
-	SDSUDSPath          string
-	SDSTokenPath        string
 	STSPort             int
 	ControlPlaneAuth    bool
 	DisableReportCalls  bool
 	OutlierLogPath      string
 	PilotCertProvider   string
+	ProvCert            string
 }
 
 // newTemplateParams creates a new template configuration for the given configuration.
@@ -119,21 +117,24 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.PodIP(cfg.PodIP),
 		option.PilotSubjectAltName(cfg.PilotSubjectAltName),
 		option.MixerSubjectAltName(cfg.MixerSubjectAltName),
-		option.SDSTokenPath(cfg.SDSTokenPath),
-		option.SDSUDSPath(cfg.SDSUDSPath),
 		option.ControlPlaneAuth(cfg.ControlPlaneAuth),
 		option.DisableReportCalls(cfg.DisableReportCalls),
 		option.PilotCertProvider(cfg.PilotCertProvider),
-		option.OutlierLogPath(cfg.OutlierLogPath))
+		option.OutlierLogPath(cfg.OutlierLogPath),
+		option.ProvCert(cfg.ProvCert))
 
 	if cfg.STSPort > 0 {
-		opts = append(opts, option.STSEnabled(true),
+		opts = append(opts,
+			option.STSEnabled(true),
 			option.STSPort(cfg.STSPort))
+		md := cfg.PlatEnv.Metadata()
+		if projectID, found := md[platform.GCPProject]; found {
+			opts = append(opts, option.GCPProjectID(projectID))
+		}
 	}
 
 	// Support passing extra info from node environment as metadata
-	sdsEnabled := cfg.SDSTokenPath != "" && cfg.SDSUDSPath != ""
-	meta, rawMeta, err := getNodeMetaData(cfg.LocalEnv, cfg.PlatEnv, cfg.NodeIPs, sdsEnabled, cfg.STSPort)
+	meta, rawMeta, err := getNodeMetaData(cfg.LocalEnv, cfg.PlatEnv, cfg.NodeIPs, cfg.STSPort)
 	if err != nil {
 		return nil, err
 	}
@@ -216,15 +217,6 @@ func lightstepAccessTokenFile(config string) string {
 	return path.Join(config, lightstepAccessTokenBase)
 }
 
-// convertDuration converts to golang duration and logs errors
-func convertDuration(d *types.Duration) time.Duration {
-	if d == nil {
-		return 0
-	}
-	dur, _ := types.DurationFromProto(d)
-	return dur
-}
-
 func getNodeMetadataOptions(meta *model.NodeMetadata, rawMeta map[string]interface{},
 	platEnv platform.Environment) []option.Instance {
 	// Add locality options.
@@ -251,7 +243,6 @@ func getProxyConfigOptions(config *meshAPI.ProxyConfig, metadata *model.NodeMeta
 	opts := make([]option.Instance, 0)
 
 	opts = append(opts, option.ProxyConfig(config),
-		option.ConnectTimeout(config.ConnectTimeout),
 		option.Cluster(config.ServiceCluster),
 		option.PilotGRPCAddress(config.DiscoveryAddress),
 		option.DiscoveryAddress(config.DiscoveryAddress),
@@ -400,6 +391,7 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 			meta.InstanceName = val
 		case "POD_NAMESPACE":
 			meta.Namespace = val
+			meta.ConfigNamespace = val
 		case "ISTIO_META_OWNER":
 			meta.Owner = val
 		case "ISTIO_META_WORKLOAD_NAME":
@@ -418,8 +410,7 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 // ISTIO_METAJSON_* env variables contain json_string in the value.
 // 					The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
-func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
-	sdsEnabled bool, stsPort int) (*model.NodeMetadata, map[string]interface{}, error) {
+func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string, stsPort int) (*model.NodeMetadata, map[string]interface{}, error) {
 	meta := &model.NodeMetadata{}
 	untypedMeta := map[string]interface{}{}
 
@@ -446,12 +437,9 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 	// Support multiple network interfaces, removing duplicates.
 	meta.InstanceIPs = nodeIPs
 
-	// Set SDS configuration on the metadata, if provided.
-	if sdsEnabled {
-		// sds is enabled
-		meta.SdsEnabled = true
-		meta.SdsTrustJwt = true
-	}
+	// sds is enabled by default
+	meta.SdsEnabled = true
+	meta.SdsTrustJwt = true
 
 	// Add STS port into node metadata if it is not 0.
 	if stsPort != 0 {

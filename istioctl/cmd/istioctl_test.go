@@ -21,6 +21,8 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/config/schema/collections"
+
 	"istio.io/pkg/ledger"
 
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -80,7 +82,7 @@ func TestBadParse(t *testing.T) {
 	}
 
 	// all of the subcommands
-	rootCmd = GetRootCmd([]string{"authn", "tls-check", "--unknown-flag"})
+	rootCmd = GetRootCmd([]string{"authz", "tls-check", "--unknown-flag"})
 	fErr = rootCmd.Execute()
 
 	switch fErr.(type) {
@@ -94,14 +96,8 @@ func TestBadParse(t *testing.T) {
 // mockClientFactoryGenerator creates a factory for model.ConfigStore preloaded with data
 func mockClientFactoryGenerator(configs []model.Config) func() (model.ConfigStore, error) {
 	outFactory := func() (model.ConfigStore, error) {
-		// Initialize the real client to get the supported config types
-		realClient, err := newClient()
-		if err != nil {
-			return nil, err
-		}
-
 		// Initialize memory based model.ConfigStore with configs
-		outConfig := memory.Make(realClient.Schemas())
+		outConfig := memory.Make(collections.Pilot)
 		for _, config := range configs {
 			if _, err := outConfig.Create(config); err != nil {
 				return nil, err

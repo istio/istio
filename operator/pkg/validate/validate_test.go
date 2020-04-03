@@ -123,10 +123,31 @@ hub: docker.io:tag/istio
 			wantErrs: makeErrors([]string{`invalid value Hub: docker.io:tag/istio`}),
 		},
 		{
+			desc: "BadAddonComponentName",
+			yamlStr: `
+addonComponents:
+  Prometheus:
+    enabled: false
+`,
+			wantErrs: makeErrors([]string{`invalid addon component name: Prometheus, expect component name starting with lower-case character`}),
+		},
+
+		{
 			desc: "GoodURL",
 			yamlStr: `
 installPackagePath: /local/file/path
 `,
+		},
+		{
+			desc: "BadGatewayName",
+			yamlStr: `
+components:
+  ingressGateways:
+  - namespace: istio-ingress-ns2
+    name: istio@ingress-1
+    enabled: true
+`,
+			wantErrs: makeErrors([]string{`invalid value Components.IngressGateways[0].Name: istio@ingress-1`}),
 		},
 		{
 			desc: "BadValuesIP",
@@ -145,7 +166,6 @@ values:
   global:
     proxy:
       includeIPRanges: ""
-      includeInboundPorts: "*"
 `,
 		},
 	}

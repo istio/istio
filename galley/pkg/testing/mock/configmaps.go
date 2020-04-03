@@ -14,6 +14,7 @@
 package mock
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -39,7 +40,7 @@ func newConfigMapInterface() corev1.ConfigMapInterface {
 	}
 }
 
-func (c *configMapImpl) Create(obj *v1.ConfigMap) (*v1.ConfigMap, error) {
+func (c *configMapImpl) Create(ctx context.Context, obj *v1.ConfigMap, opts metav1.CreateOptions) (*v1.ConfigMap, error) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
@@ -53,7 +54,7 @@ func (c *configMapImpl) Create(obj *v1.ConfigMap) (*v1.ConfigMap, error) {
 	return obj, nil
 }
 
-func (c *configMapImpl) Update(obj *v1.ConfigMap) (*v1.ConfigMap, error) {
+func (c *configMapImpl) Update(ctx context.Context, obj *v1.ConfigMap, opts metav1.UpdateOptions) (*v1.ConfigMap, error) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
@@ -67,7 +68,7 @@ func (c *configMapImpl) Update(obj *v1.ConfigMap) (*v1.ConfigMap, error) {
 	return obj, nil
 }
 
-func (c *configMapImpl) Delete(name string, options *metav1.DeleteOptions) error {
+func (c *configMapImpl) Delete(ctx context.Context, name string, options metav1.DeleteOptions) error {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
@@ -85,7 +86,7 @@ func (c *configMapImpl) Delete(name string, options *metav1.DeleteOptions) error
 	return nil
 }
 
-func (c *configMapImpl) List(opts metav1.ListOptions) (*v1.ConfigMapList, error) {
+func (c *configMapImpl) List(ctx context.Context, opts metav1.ListOptions) (*v1.ConfigMapList, error) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
@@ -98,7 +99,7 @@ func (c *configMapImpl) List(opts metav1.ListOptions) (*v1.ConfigMapList, error)
 	return out, nil
 }
 
-func (c *configMapImpl) Watch(opts metav1.ListOptions) (watch.Interface, error) {
+func (c *configMapImpl) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
@@ -116,7 +117,7 @@ func (c *configMapImpl) Watch(opts metav1.ListOptions) (watch.Interface, error) 
 	return w, nil
 }
 
-func (c *configMapImpl) Get(name string, options metav1.GetOptions) (*v1.ConfigMap, error) {
+func (c *configMapImpl) Get(ctx context.Context, name string, options metav1.GetOptions) (*v1.ConfigMap, error) {
 	obj, ok := c.configMaps[name]
 	if !ok {
 		return nil, fmt.Errorf("configmap %q not found", name)
@@ -124,10 +125,11 @@ func (c *configMapImpl) Get(name string, options metav1.GetOptions) (*v1.ConfigM
 	return obj, nil
 }
 
-func (c *configMapImpl) DeleteCollection(options *metav1.DeleteOptions, listOptions metav1.ListOptions) error {
+func (c *configMapImpl) DeleteCollection(ctx context.Context, options metav1.DeleteOptions, listOptions metav1.ListOptions) error {
 	panic("not implemented")
 }
 
-func (c *configMapImpl) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.ConfigMap, err error) {
+func (c *configMapImpl) Patch(ctx context.Context, name string, pt types.PatchType,
+	data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.ConfigMap, err error) {
 	panic("not implemented")
 }

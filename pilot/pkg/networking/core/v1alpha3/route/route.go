@@ -130,7 +130,7 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 	for fqdn := range missing {
 		svc := serviceRegistry[fqdn]
 		for _, port := range svc.Ports {
-			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(node, port) {
+			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
 				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
 				traceOperation := fmt.Sprintf("%s:%d/*", svc.Hostname, port.Port)
 				httpRoute := BuildDefaultHTTPOutboundRoute(node, cluster, traceOperation)
@@ -197,7 +197,7 @@ func buildSidecarVirtualHostsForVirtualService(
 	serviceByPort := make(map[int][]*model.Service)
 	for _, svc := range servicesInVirtualService {
 		for _, port := range svc.Ports {
-			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(node, port) {
+			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
 				serviceByPort[port.Port] = append(serviceByPort[port.Port], svc)
 			}
 		}
@@ -345,18 +345,17 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	}
 
 	out := &route.Route{
-		Match:    translateRouteMatch(match, node),
+		Match:    translateRouteMatch(match),
 		Metadata: util.BuildConfigInfoMetadata(virtualService.ConfigMeta),
 	}
 
-	if util.IsIstioVersionGE13(node) {
-		routeName := in.Name
-		if match != nil && match.Name != "" {
-			routeName = routeName + "." + match.Name
-		}
-		out.Name = routeName
-		// add a name to the route
+	routeName := in.Name
+	if match != nil && match.Name != "" {
+		routeName = routeName + "." + match.Name
 	}
+	// add a name to the route
+	out.Name = routeName
+
 	out.TypedPerFilterConfig = make(map[string]*any.Any)
 	if redirect := in.Redirect; redirect != nil {
 		action := &route.Route_Redirect{
@@ -395,7 +394,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		if in.Timeout != nil {
 			d = gogo.DurationToProtoDuration(in.Timeout)
 		} else {
-			d = features.DefaultRequestTimeout()
+			d = features.DefaultRequestTimeout
 		}
 
 		action.Timeout = d
@@ -428,6 +427,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 				action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{
 					Cluster:         GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], port),
 					RuntimeFraction: mp,
+					TraceSampled:    &wrappers.BoolValue{Value: false},
 				}
 			}
 		}
@@ -572,23 +572,21 @@ func translateAppendHeaders(headers map[string]string, appendFlag bool) []*core.
 }
 
 // translateRouteMatch translates match condition
-func translateRouteMatch(in *networking.HTTPMatchRequest, node *model.Proxy) *route.RouteMatch {
+func translateRouteMatch(in *networking.HTTPMatchRequest) *route.RouteMatch {
 	out := &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}}
 	if in == nil {
 		return out
 	}
 
 	for name, stringMatch := range in.Headers {
-		matcher := translateHeaderMatch(name, stringMatch, node)
+		matcher := translateHeaderMatch(name, stringMatch)
 		out.Headers = append(out.Headers, &matcher)
 	}
 
-	if util.IsIstioVersionGE14(node) {
-		for name, stringMatch := range in.WithoutHeaders {
-			matcher := translateHeaderMatch(name, stringMatch, node)
-			matcher.InvertMatch = true
-			out.Headers = append(out.Headers, &matcher)
-		}
+	for name, stringMatch := range in.WithoutHeaders {
+		matcher := translateHeaderMatch(name, stringMatch)
+		matcher.InvertMatch = true
+		out.Headers = append(out.Headers, &matcher)
 	}
 
 	// guarantee ordering of headers
@@ -603,19 +601,15 @@ func translateRouteMatch(in *networking.HTTPMatchRequest, node *model.Proxy) *ro
 		case *networking.StringMatch_Prefix:
 			out.PathSpecifier = &route.RouteMatch_Prefix{Prefix: m.Prefix}
 		case *networking.StringMatch_Regex:
-			if !util.IsIstioVersionGE14(node) {
-				out.PathSpecifier = &route.RouteMatch_Regex{Regex: m.Regex}
-			} else {
-				out.PathSpecifier = &route.RouteMatch_SafeRegex{
-					SafeRegex: &matcher.RegexMatcher{
-						EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
-							MaxProgramSize: &wrappers.UInt32Value{
-								Value: uint32(maxRegExProgramSize),
-							},
-						}},
-						Regex: m.Regex,
-					},
-				}
+			out.PathSpecifier = &route.RouteMatch_SafeRegex{
+				SafeRegex: &matcher.RegexMatcher{
+					EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
+						MaxProgramSize: &wrappers.UInt32Value{
+							Value: uint32(maxRegExProgramSize),
+						},
+					}},
+					Regex: m.Regex,
+				},
 			}
 		}
 	}
@@ -623,17 +617,17 @@ func translateRouteMatch(in *networking.HTTPMatchRequest, node *model.Proxy) *ro
 	out.CaseSensitive = &wrappers.BoolValue{Value: !in.IgnoreUriCase}
 
 	if in.Method != nil {
-		matcher := translateHeaderMatch(HeaderMethod, in.Method, node)
+		matcher := translateHeaderMatch(HeaderMethod, in.Method)
 		out.Headers = append(out.Headers, &matcher)
 	}
 
 	if in.Authority != nil {
-		matcher := translateHeaderMatch(HeaderAuthority, in.Authority, node)
+		matcher := translateHeaderMatch(HeaderAuthority, in.Authority)
 		out.Headers = append(out.Headers, &matcher)
 	}
 
 	if in.Scheme != nil {
-		matcher := translateHeaderMatch(HeaderScheme, in.Scheme, node)
+		matcher := translateHeaderMatch(HeaderScheme, in.Scheme)
 		out.Headers = append(out.Headers, &matcher)
 	}
 
@@ -692,7 +686,7 @@ func isCatchAllHeaderMatch(in *networking.StringMatch) bool {
 }
 
 // translateHeaderMatch translates to HeaderMatcher
-func translateHeaderMatch(name string, in *networking.StringMatch, node *model.Proxy) route.HeaderMatcher {
+func translateHeaderMatch(name string, in *networking.StringMatch) route.HeaderMatcher {
 	out := route.HeaderMatcher{
 		Name: name,
 	}
@@ -706,19 +700,15 @@ func translateHeaderMatch(name string, in *networking.StringMatch, node *model.P
 	case *networking.StringMatch_Exact:
 		out.HeaderMatchSpecifier = &route.HeaderMatcher_ExactMatch{ExactMatch: m.Exact}
 	case *networking.StringMatch_Prefix:
-		// Envoy regex grammar is ECMA-262 (http://en.cppreference.com/w/cpp/regex/ecmascript)
+		// Envoy regex grammar is RE2 (https://github.com/google/re2/wiki/Syntax)
 		// Golang has a slightly different regex grammar
 		out.HeaderMatchSpecifier = &route.HeaderMatcher_PrefixMatch{PrefixMatch: m.Prefix}
 	case *networking.StringMatch_Regex:
-		if !util.IsIstioVersionGE14(node) {
-			out.HeaderMatchSpecifier = &route.HeaderMatcher_RegexMatch{RegexMatch: m.Regex}
-		} else {
-			out.HeaderMatchSpecifier = &route.HeaderMatcher_SafeRegexMatch{
-				SafeRegexMatch: &matcher.RegexMatcher{
-					EngineType: regexEngine,
-					Regex:      m.Regex,
-				},
-			}
+		out.HeaderMatchSpecifier = &route.HeaderMatcher_SafeRegexMatch{
+			SafeRegexMatch: &matcher.RegexMatcher{
+				EngineType: regexEngine,
+				Regex:      m.Regex,
+			},
 		}
 	}
 
@@ -827,7 +817,7 @@ func BuildDefaultHTTPInboundRoute(node *model.Proxy, clusterName string, operati
 	notimeout := ptypes.DurationProto(0)
 
 	val := &route.Route{
-		Match: translateRouteMatch(nil, node),
+		Match: translateRouteMatch(nil),
 		Decorator: &route.Decorator{
 			Operation: operation,
 		},
@@ -840,9 +830,7 @@ func BuildDefaultHTTPInboundRoute(node *model.Proxy, clusterName string, operati
 		},
 	}
 
-	if util.IsIstioVersionGE13(node) {
-		val.Name = DefaultRouteName
-	}
+	val.Name = DefaultRouteName
 	return val
 }
 

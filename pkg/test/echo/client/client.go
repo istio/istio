@@ -16,9 +16,13 @@ package client
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
 	"io"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
@@ -33,14 +37,33 @@ type Instance struct {
 }
 
 // New creates a new echo client.Instance that is connected to the given server address.
-func New(address string) (*Instance, error) {
+func New(address string, tlsSettings *common.TLSSettings) (*Instance, error) {
 	// Connect to the GRPC (command) endpoint of 'this' app.
 	ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout)
 	defer cancel()
-	conn, err := grpc.DialContext(ctx,
-		address,
-		grpc.WithInsecure(),
-		grpc.WithBlock())
+	dialOptions := []grpc.DialOption{grpc.WithBlock()}
+	if tlsSettings == nil {
+		dialOptions = append(dialOptions, grpc.WithInsecure())
+	} else {
+		cert, err := tls.X509KeyPair([]byte(tlsSettings.ClientCert), []byte(tlsSettings.Key))
+		if err != nil {
+			return nil, err
+		}
+
+		certPool := x509.NewCertPool()
+		if !certPool.AppendCertsFromPEM([]byte(tlsSettings.RootCert)) {
+			return nil, fmt.Errorf("failed to create cert pool")
+		}
+		cfg := credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{cert}, RootCAs: certPool})
+		// If provided, override the hostname
+		if tlsSettings.Hostname != "" {
+			if err := cfg.OverrideServerName(tlsSettings.Hostname); err != nil {
+				return nil, err
+			}
+		}
+		dialOptions = append(dialOptions, grpc.WithTransportCredentials(cfg))
+	}
+	conn, err := grpc.DialContext(ctx, address, dialOptions...)
 	if err != nil {
 		return nil, err
 	}

@@ -24,7 +24,7 @@ import (
 )
 
 func testIstioctl(t *testing.T, ctx framework.TestContext, workload string) { // nolint:interfacer
-	istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+	istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 	args := []string{"experimental", "metrics", workload}
 	output, fErr := istioCtl.Invoke(args)
 	if fErr != nil {

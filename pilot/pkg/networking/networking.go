@@ -24,7 +24,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/protocol"
 )
 
@@ -51,11 +50,11 @@ func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance,
 	if p == protocol.Unsupported {
 		switch trafficDirection {
 		case core.TrafficDirection_INBOUND:
-			if !util.IsProtocolSniffingEnabledForInbound(node) {
+			if !features.EnableProtocolSniffingForInbound {
 				p = protocol.TCP
 			}
 		case core.TrafficDirection_OUTBOUND:
-			if !util.IsProtocolSniffingEnabledForOutbound(node) {
+			if !features.EnableProtocolSniffingForOutbound {
 				p = protocol.TCP
 			}
 		default:
@@ -70,7 +69,7 @@ func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance,
 		protocol.Mongo, protocol.Redis, protocol.MySQL:
 		return ListenerProtocolTCP
 	case protocol.Thrift:
-		if features.EnableThriftFilter.Get() {
+		if features.EnableThriftFilter {
 			return ListenerProtocolThrift
 		}
 		return ListenerProtocolTCP

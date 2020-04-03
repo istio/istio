@@ -24,6 +24,9 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/galley/pkg/server/components"
+	"istio.io/istio/galley/pkg/server/settings"
+
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -86,6 +89,11 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		s.ConfigStores = append(s.ConfigStores, configController)
 		if features.EnableServiceApis {
 			s.ConfigStores = append(s.ConfigStores, gateway.NewController(s.kubeClient, configController))
+		}
+		if features.EnableAnalysis {
+			if err := s.initInprocessAnalysisController(args); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -212,17 +220,17 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 func mcpSecurityOptions(ctx context.Context, configSource *meshconfig.ConfigSource) (grpc.DialOption, error) {
 	securityOption := grpc.WithInsecure()
 	if configSource.TlsSettings != nil &&
-		configSource.TlsSettings.Mode != networkingapi.TLSSettings_DISABLE {
+		configSource.TlsSettings.Mode != networkingapi.ClientTLSSettings_DISABLE {
 		var credentialOption *creds.Options
 		switch configSource.TlsSettings.Mode {
-		case networkingapi.TLSSettings_SIMPLE:
-		case networkingapi.TLSSettings_MUTUAL:
+		case networkingapi.ClientTLSSettings_SIMPLE:
+		case networkingapi.ClientTLSSettings_MUTUAL:
 			credentialOption = &creds.Options{
 				CertificateFile:   configSource.TlsSettings.ClientCertificate,
 				KeyFile:           configSource.TlsSettings.PrivateKey,
 				CACertificateFile: configSource.TlsSettings.CaCertificates,
 			}
-		case networkingapi.TLSSettings_ISTIO_MUTUAL:
+		case networkingapi.ClientTLSSettings_ISTIO_MUTUAL:
 			credentialOption = &creds.Options{
 				CertificateFile:   path.Join(constants.AuthCertsPath, constants.CertChainFilename),
 				KeyFile:           path.Join(constants.AuthCertsPath, constants.KeyFilename),
@@ -266,6 +274,39 @@ func mcpSecurityOptions(ctx context.Context, configSource *meshconfig.ConfigSour
 		}
 	}
 	return securityOption, nil
+}
+
+// initInprocessAnalysisController spins up an instance of Galley which serves no purpose other than
+// running Analyzers for status updates.  The Status Updater will eventually need to allow input from istiod
+// to support config distribution status as well.
+func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
+
+	processingArgs := settings.DefaultArgs()
+	processingArgs.KubeConfig = args.Config.KubeConfig
+	processingArgs.EnableValidationController = false
+	processingArgs.EnableValidationServer = false
+	processingArgs.MonitoringPort = 0
+	processingArgs.Liveness.UpdateInterval = 0
+	processingArgs.Readiness.UpdateInterval = 0
+	processingArgs.Insecure = true // TODO - use sidecar?
+	processingArgs.EnableServer = false
+	processingArgs.MeshConfigFile = args.Mesh.ConfigFile
+	processingArgs.EnableConfigAnalysis = true
+
+	processing := components.NewProcessing(processingArgs)
+
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		if err := processing.Start(); err != nil {
+			return err
+		}
+
+		go func() {
+			<-stop
+			processing.Stop()
+		}()
+		return nil
+	})
+	return nil
 }
 
 func (s *Server) mcpController(
@@ -324,7 +365,7 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 
 func (s *Server) makeFileMonitor(fileDir string, configController model.ConfigStore) error {
 	fileSnapshot := configmonitor.NewFileSnapshot(fileDir, collections.Pilot)
-	fileMonitor := configmonitor.NewMonitor("file-monitor", configController, FilepathWalkInterval, fileSnapshot.ReadConfigFiles)
+	fileMonitor := configmonitor.NewMonitor("file-monitor", configController, fileSnapshot.ReadConfigFiles, fileDir)
 
 	// Defer starting the file monitor until after the service is created.
 	s.addStartFunc(func(stop <-chan struct{}) error {

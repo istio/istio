@@ -18,22 +18,19 @@ import (
 	"fmt"
 	"math"
 	"strings"
-	"sync"
 	"testing"
+	"time"
 
-	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/util/retry"
 
-	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	multierror "github.com/hashicorp/go-multierror"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
-	"istio.io/istio/pkg/test/util/structpath"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -46,18 +43,16 @@ import (
 //							|
 //							|
 //							|
-//		-------------------------------------
-//		|weight1	|weight2	|weight3	|weight4
-//		|b			|c			|d			|e
-//	|-------|	|-------|	|-------|	|-------|
-//	| Host0 |	| Host1	|	| Host2 |	| Host3 |
-//	|-------|	|-------|	|-------|	|-------|
+//		-------------------------
+//		|weight1	|weight2	|weight3
+//		|b			|c			|d
+//	|-------|	|-------|	|-------|
+//	| Host0 |	| Host1	|	| Host2 |
+//	|-------|	|-------|	|-------|
 //
 //
 
 const (
-	batchSize = 100
-
 	// Error threshold. For example, we expect 25% traffic, traffic distribution within [15%, 35%] is accepted.
 	errorThreshold = 10.0
 )
@@ -67,21 +62,18 @@ type VirtualServiceConfig struct {
 	Host0     string
 	Host1     string
 	Host2     string
-	Host3     string
 	Namespace string
 	Weight0   int32
 	Weight1   int32
 	Weight2   int32
-	Weight3   int32
 }
 
 func TestTrafficShifting(t *testing.T) {
 	// Traffic distribution
 	weights := map[string][]int32{
-		"20-80":       {20, 80},
-		"50-50":       {50, 50},
-		"33-33-34":    {33, 33, 34},
-		"25-25-25-25": {25, 25, 25, 25},
+		"20-80":    {20, 80},
+		"50-50":    {50, 50},
+		"33-33-34": {33, 33, 34},
 	}
 
 	framework.
@@ -93,80 +85,38 @@ func TestTrafficShifting(t *testing.T) {
 				Inject: true,
 			})
 
-			var instances [5]echo.Instance
+			var instances [4]echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
 				With(&instances[0], echoConfig(ns, "a")).
 				With(&instances[1], echoConfig(ns, "b")).
 				With(&instances[2], echoConfig(ns, "c")).
 				With(&instances[3], echoConfig(ns, "d")).
-				With(&instances[4], echoConfig(ns, "e")).
 				BuildOrFail(t)
 
-			hosts := []string{"b", "c", "d", "e"}
+			hosts := []string{"b", "c", "d"}
 
 			for k, v := range weights {
 				t.Run(k, func(t *testing.T) {
-					v = append(v, make([]int32, 4-len(v))...)
+					v = append(v, make([]int32, 3-len(v))...)
 
 					vsc := VirtualServiceConfig{
 						"traffic-shifting-rule",
 						hosts[0],
 						hosts[1],
 						hosts[2],
-						hosts[3],
 						ns.Name(),
 						v[0],
 						v[1],
 						v[2],
-						v[3],
 					}
 
 					deployment := tmpl.EvaluateOrFail(t, file.AsStringOrFail(t, "testdata/traffic-shifting.yaml"), vsc)
 					g.ApplyConfigOrFail(t, ns, deployment)
 
-					workloads, err := instances[0].Workloads()
-					if err != nil {
-						t.Fatalf("Failed to get workloads. Error: %v", err)
-					}
-
-					for _, w := range workloads {
-						if err = w.Sidecar().WaitForConfig(func(cfg *envoyAdmin.ConfigDump) (bool, error) {
-							validator := structpath.ForProto(cfg)
-							for i, instance := range instances[1:] {
-								for _, p := range instance.Config().Ports {
-									if v[i] == 0 {
-										continue
-									}
-									if err = CheckVirtualServiceConfig(instance, p, v[i], validator); err != nil {
-										return false, err
-									}
-								}
-							}
-							return true, nil
-						}); err != nil {
-							t.Fatalf("Failed to apply configuration. Error: %v", err)
-						}
-					}
-
-					sendTraffic(t, batchSize, instances[0], instances[1], hosts, v, errorThreshold)
+					sendTraffic(t, 100, instances[0], instances[1], hosts, v, errorThreshold)
 				})
 			}
 		})
-}
-
-func CheckVirtualServiceConfig(target echo.Instance, port echo.Port, weight int32, validator *structpath.Instance) error {
-	clusterName := clusterName(target, port)
-
-	instance := validator.Select(
-		"{.configs[*].dynamicRouteConfigs[*].routeConfig.virtualHosts[*].routes[*].route.weightedClusters.clusters[?(@.name == %q)]}",
-		clusterName)
-
-	return instance.Equals(weight, "{.weight}").Check()
-}
-
-func clusterName(target echo.Instance, port echo.Port) string {
-	cfg := target.Config()
-	return fmt.Sprintf("outbound|%d||%s.%s.svc.%s", port.ServicePort, cfg.Service, cfg.Namespace.Name(), cfg.Domain)
 }
 
 func echoConfig(ns namespace.Instance, name string) echo.Config {
@@ -188,45 +138,19 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 }
 
 func sendTraffic(t *testing.T, batchSize int, from, to echo.Instance, hosts []string, weight []int32, errorThreshold float64) {
-	const totalThreads = 10
-
-	results := make(chan client.ParsedResponses, 10)
-	errs := make(chan error, 10)
-
-	wg := sync.WaitGroup{}
-	wg.Add(totalThreads)
-
-	for i := 0; i < totalThreads; i++ {
-		go func() {
-			resp, err := from.Call(echo.CallOptions{
-				Target:   to,
-				PortName: "http",
-				Count:    batchSize,
-			})
-			if err != nil {
-				errs <- err
-			} else {
-				results <- resp
-			}
-			wg.Done()
-		}()
-	}
-
-	wg.Wait()
-	close(results)
-	close(errs)
-
-	var callerrors error
-	for err := range errs {
-		callerrors = multierror.Append(err, callerrors)
-	}
-	if callerrors != nil {
-		t.Fatalf("Error occurred during call: %v", callerrors)
-	}
-
-	var totalRequests int
-	hitCount := map[string]int{}
-	for resp := range results {
+	t.Helper()
+	// Send `batchSize` requests and ensure they are distributed as expected.
+	retry.UntilSuccessOrFail(t, func() error {
+		resp, err := from.Call(echo.CallOptions{
+			Target:   to,
+			PortName: "http",
+			Count:    batchSize,
+		})
+		if err != nil {
+			return fmt.Errorf("error during call: %v", err)
+		}
+		var totalRequests int
+		hitCount := map[string]int{}
 		for _, r := range resp {
 			for _, h := range hosts {
 				if strings.HasPrefix(r.Hostname, h+"-") {
@@ -236,17 +160,17 @@ func sendTraffic(t *testing.T, batchSize int, from, to echo.Instance, hosts []st
 				}
 			}
 		}
-	}
 
-	for i, v := range hosts {
-		percentOfTrafficToHost := float64(hitCount[v]) * 100.0 / float64(totalRequests)
-		deltaFromExpected := math.Abs(float64(weight[i]) - percentOfTrafficToHost)
-		if errorThreshold-deltaFromExpected < 0 {
-			t.Errorf("Unexpected traffic weight for host %v. Expected %d%%, got %g%% (thresold: %g%%)",
-				v, weight[i], percentOfTrafficToHost, errorThreshold)
-		} else {
+		for i, v := range hosts {
+			percentOfTrafficToHost := float64(hitCount[v]) * 100.0 / float64(totalRequests)
+			deltaFromExpected := math.Abs(float64(weight[i]) - percentOfTrafficToHost)
+			if errorThreshold-deltaFromExpected < 0 {
+				return fmt.Errorf("unexpected traffic weight for host %v. Expected %d%%, got %g%% (thresold: %g%%)",
+					v, weight[i], percentOfTrafficToHost, errorThreshold)
+			}
 			t.Logf("Got expected traffic weight for host %v. Expected %d%%, got %g%% (thresold: %g%%)",
 				v, weight[i], percentOfTrafficToHost, errorThreshold)
 		}
-	}
+		return nil
+	}, retry.Delay(time.Second))
 }

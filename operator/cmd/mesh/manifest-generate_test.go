@@ -18,13 +18,29 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
+	klabels "k8s.io/apimachinery/pkg/labels"
+
+	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/pkg/test"
+
 	"istio.io/istio/operator/pkg/compare"
+	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/httpserver"
+	"istio.io/istio/operator/pkg/util/tgz"
 	"istio.io/pkg/version"
+)
+
+const (
+	istioTestVersion = "istio-1.5.0"
+	testTGZFilename  = istioTestVersion + "-linux.tar.gz"
 )
 
 type testGroup []struct {
@@ -41,6 +57,7 @@ type testGroup []struct {
 	outputDir                   string
 	diffSelect                  string
 	diffIgnore                  string
+	useCompiledInCharts         bool
 }
 
 func TestManifestGenerateFlags(t *testing.T) {
@@ -69,11 +86,11 @@ func TestManifestGenerateFlags(t *testing.T) {
 		},
 		{
 			desc:       "component_hub_tag",
-			diffIgnore: "ConfigMap:*:istio",
+			diffSelect: "Deployment:*:*",
 		},
 		{
 			desc:       "flag_set_values",
-			diffIgnore: "ConfigMap:*:istio",
+			diffSelect: "Deployment:*:istio-ingressgateway,ConfigMap:*:istio-sidecar-injector",
 			flags:      "-s values.global.proxy.image=myproxy --set values.global.proxy.includeIPRanges=172.30.0.0/16,172.21.0.0/16",
 			noInput:    true,
 		},
@@ -84,24 +101,26 @@ func TestManifestGenerateFlags(t *testing.T) {
 			noInput:    true,
 		},
 		{
-			desc:  "flag_override_values",
-			flags: "-s tag=my-tag",
+			desc:       "flag_override_values",
+			diffSelect: "Deployment:*:istiod",
+			flags:      "-s tag=my-tag",
 		},
 		{
-			desc:      "flag_output",
-			flags:     "-o " + flagOutputDir,
-			outputDir: flagOutputDir,
+			desc:       "flag_output",
+			flags:      "-o " + flagOutputDir,
+			diffSelect: "Deployment:*:istiod",
+			outputDir:  flagOutputDir,
 		},
 		{
 			desc:       "flag_output_set_values",
-			diffIgnore: "ConfigMap:*:istio",
+			diffSelect: "Deployment:*:istio-ingressgateway",
 			flags:      "-s values.global.proxy.image=mynewproxy -o " + flagOutputValuesDir,
 			outputDir:  flagOutputValuesDir,
 			noInput:    true,
 		},
 		{
 			desc:       "flag_force",
-			diffIgnore: "ConfigMap:*:istio",
+			diffSelect: "no:resources:selected",
 			flags:      "--force",
 		},
 		{
@@ -118,13 +137,12 @@ func TestManifestGenerateFlags(t *testing.T) {
 func TestManifestGeneratePilot(t *testing.T) {
 	runTestGroup(t, testGroup{
 		{
-			desc: "pilot_default",
-			// TODO: remove istio ConfigMap (istio/istio#16828)
+			desc:       "pilot_default",
 			diffIgnore: "CustomResourceDefinition:*:*,ConfigMap:*:istio",
 		},
 		{
 			desc:       "pilot_k8s_settings",
-			diffIgnore: "CustomResourceDefinition:*:*,ConfigMap:*:istio",
+			diffSelect: "Deployment:*:istiod,HorizontalPodAutoscaler:*:istiod",
 		},
 		{
 			desc:       "pilot_override_values",
@@ -132,7 +150,7 @@ func TestManifestGeneratePilot(t *testing.T) {
 		},
 		{
 			desc:       "pilot_override_kubernetes",
-			diffSelect: "Deployment:*:istiod, Service:*:istio-pilot",
+			diffSelect: "Deployment:*:istiod, Service:*:istiod",
 		},
 		{
 			desc:       "pilot_merge_meshconfig",
@@ -174,6 +192,17 @@ func TestManifestGenerateGateway(t *testing.T) {
 	})
 }
 
+func TestManifestGenerateAddonK8SOverride(t *testing.T) {
+	runTestGroup(t, testGroup{
+		{
+			desc:       "addon_k8s_override",
+			diffSelect: "Service:*:prometheus, Deployment:*:prometheus, Service:*:kiali",
+		},
+	})
+}
+
+// TestManifestGenerateHelmValues tests whether enabling components through the values passthrough interface works as
+// expected i.e. without requiring enablement also in IstioOperator API.
 func TestManifestGenerateHelmValues(t *testing.T) {
 	runTestGroup(t, testGroup{
 		{
@@ -188,60 +217,244 @@ func TestManifestGenerateOrdered(t *testing.T) {
 	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
 	// Since this is testing the special case of stable YAML output order, it
 	// does not use the established test group pattern
-	t.Run("stable_manifest", func(t *testing.T) {
-		inPath := filepath.Join(testDataDir, "input/all_on.yaml")
-		got1, err := runManifestGenerate([]string{inPath}, "")
-		if err != nil {
-			t.Fatal(err)
-		}
-		got2, err := runManifestGenerate([]string{inPath}, "")
-		if err != nil {
-			t.Fatal(err)
-		}
+	inPath := filepath.Join(testDataDir, "input/all_on.yaml")
+	got1, err := runManifestGenerate([]string{inPath}, "", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got2, err := runManifestGenerate([]string{inPath}, "", false)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-		if got1 != got2 {
-			fmt.Printf("%s", util.YAMLDiff(got1, got2))
-			t.Errorf("stable_manifest: Manifest generation is not producing stable text output.")
-		}
-	})
+	if got1 != got2 {
+		fmt.Printf("%s", util.YAMLDiff(got1, got2))
+		t.Errorf("stable_manifest: Manifest generation is not producing stable text output.")
+	}
 }
 
 func TestMultiICPSFiles(t *testing.T) {
 	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
-	t.Run("multi-ICPS files", func(t *testing.T) {
-		inPathBase := filepath.Join(testDataDir, "input/all_off.yaml")
-		inPathOverride := filepath.Join(testDataDir, "input/telemetry_override_only.yaml")
-		got, err := runManifestGenerate([]string{inPathBase, inPathOverride}, "")
-		if err != nil {
-			t.Fatal(err)
-		}
-		outPath := filepath.Join(testDataDir, "output/telemetry_override_values"+goldenFileSuffixHideChangesInReview)
+	inPathBase := filepath.Join(testDataDir, "input/all_off.yaml")
+	inPathOverride := filepath.Join(testDataDir, "input/telemetry_override_only.yaml")
+	got, err := runManifestGenerate([]string{inPathBase, inPathOverride}, "", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	outPath := filepath.Join(testDataDir, "output/telemetry_override_values"+goldenFileSuffixHideChangesInReview)
 
-		want, err := readFile(outPath)
-		if err != nil {
-			t.Fatal(err)
-		}
-		diffSelect := "handler:*:prometheus"
-		got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
-		if err != nil {
-			t.Errorf("error selecting from output manifest: %v", err)
-		}
-		diff := compare.YAMLCmp(got, want)
-		if diff != "" {
-			t.Errorf("`manifest generate` diff = %s", diff)
-		}
-	})
+	want, err := readFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	diffSelect := "handler:*:prometheus"
+	got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
+	if err != nil {
+		t.Errorf("error selecting from output manifest: %v", err)
+	}
+	diff := compare.YAMLCmp(got, want)
+	if diff != "" {
+		t.Errorf("`manifest generate` diff = %s", diff)
+	}
 }
 
 func TestBareSpec(t *testing.T) {
 	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
-	t.Run("multi-ICPS files", func(t *testing.T) {
-		inPathBase := filepath.Join(testDataDir, "input/bare_spec.yaml")
-		_, err := runManifestGenerate([]string{inPathBase}, "")
-		if err != nil {
-			t.Fatal(err)
-		}
+	inPathBase := filepath.Join(testDataDir, "input/bare_spec.yaml")
+	_, err := runManifestGenerate([]string{inPathBase}, "", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestIstioControlPlaneInput(t *testing.T) {
+	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
+	runTestGroup(t, testGroup{
+		{
+			desc:       "icp_input",
+			diffSelect: "Deployment:*:istiod,Service:*:istiod",
+		},
 	})
+}
+
+func TestInstallPackagePath(t *testing.T) {
+	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
+	releaseDir, err := createLocalReleaseCharts()
+	defer os.RemoveAll(releaseDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	operatorArtifactDir := filepath.Join(releaseDir, istioTestVersion, helm.OperatorSubdirFilePath)
+	serverDir, err := ioutil.TempDir(os.TempDir(), "istio-test-server-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(serverDir)
+	if err := tgz.Create(releaseDir, filepath.Join(serverDir, testTGZFilename)); err != nil {
+		t.Fatal(err)
+	}
+	srv := httpserver.NewServer(serverDir)
+	runTestGroup(t, testGroup{
+		{
+			// Use some arbitrary small test input (pilot only) since we are testing the local filesystem code here, not
+			// manifest generation.
+			desc:       "install_package_path",
+			diffSelect: "Deployment:*:istiod",
+			flags:      "--set installPackagePath=" + operatorArtifactDir,
+		},
+		{
+			// Specify both charts and profile from local filesystem.
+			desc:       "install_package_path",
+			diffSelect: "Deployment:*:istiod",
+			flags:      fmt.Sprintf("--set installPackagePath=%s --set profile=%s/profiles/default.yaml", operatorArtifactDir, operatorArtifactDir),
+		},
+		{
+			// --force is needed for version mismatch.
+			desc:       "install_package_path",
+			diffSelect: "Deployment:*:istiod",
+			flags:      "--force --set installPackagePath=" + srv.URL() + "/" + testTGZFilename,
+		},
+	})
+
+}
+
+// This test enforces that objects that reference other objects do so properly, such as Service selecting deployment
+func TestConfigSelectors(t *testing.T) {
+	got, err := runManifestGenerate([]string{}, "", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	objs, err := object.ParseK8sObjectsFromYAMLManifest(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotRev, e := runManifestGenerate([]string{}, "--set revision=canary", true)
+	if e != nil {
+		t.Fatal(e)
+	}
+	objsRev, err := object.ParseK8sObjectsFromYAMLManifest(gotRev)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// First we fetch all the objects for our default install
+	name := "istiod"
+	deployment := mustFindObject(t, objs, name, "Deployment")
+	service := mustFindObject(t, objs, name, "Service")
+	pdb := mustFindObject(t, objs, name, "PodDisruptionBudget")
+	hpa := mustFindObject(t, objs, name, "HorizontalPodAutoscaler")
+	podLabels := mustGetLabels(t, deployment, "spec.template.metadata.labels")
+	// Check all selectors align
+	mustSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabels)
+	mustSelect(t, mustGetLabels(t, service, "spec.selector"), podLabels)
+	mustSelect(t, mustGetLabels(t, deployment, "spec.selector.matchLabels"), podLabels)
+	if hpaName := mustGetPath(t, hpa, "spec.scaleTargetRef.name"); name != hpaName {
+		t.Fatalf("HPA does not match deployment: %v != %v", name, hpaName)
+	}
+
+	// Next we fetch all the objects for a revision install
+	nameRev := "istiod-canary"
+	deploymentRev := mustFindObject(t, objsRev, nameRev, "Deployment")
+	serviceRev := mustFindObject(t, objsRev, nameRev, "Service")
+	pdbRev := mustFindObject(t, objsRev, nameRev, "PodDisruptionBudget")
+	hpaRev := mustFindObject(t, objsRev, nameRev, "HorizontalPodAutoscaler")
+	podLabelsRev := mustGetLabels(t, deploymentRev, "spec.template.metadata.labels")
+	// Check all selectors align for revision
+	mustSelect(t, mustGetLabels(t, pdbRev, "spec.selector.matchLabels"), podLabelsRev)
+	mustSelect(t, mustGetLabels(t, serviceRev, "spec.selector"), podLabelsRev)
+	mustSelect(t, mustGetLabels(t, deploymentRev, "spec.selector.matchLabels"), podLabelsRev)
+	if hpaName := mustGetPath(t, hpaRev, "spec.scaleTargetRef.name"); nameRev != hpaName {
+		t.Fatalf("HPA does not match deployment: %v != %v", nameRev, hpaName)
+	}
+
+	// Make sure default and revisions do not cross
+	mustNotSelect(t, mustGetLabels(t, serviceRev, "spec.selector"), podLabels)
+	mustNotSelect(t, mustGetLabels(t, service, "spec.selector"), podLabelsRev)
+	mustNotSelect(t, mustGetLabels(t, pdbRev, "spec.selector.matchLabels"), podLabels)
+	mustNotSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabelsRev)
+
+	// Check selection of previous versions . This only matters for in place upgrade (non revision)
+	podLabels15 := map[string]string{
+		"app":   "istiod",
+		"istio": "pilot",
+	}
+	mustSelect(t, mustGetLabels(t, service, "spec.selector"), podLabels15)
+	mustNotSelect(t, mustGetLabels(t, serviceRev, "spec.selector"), podLabels15)
+	mustSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabels15)
+	mustNotSelect(t, mustGetLabels(t, pdbRev, "spec.selector.matchLabels"), podLabels15)
+
+	// Check we aren't changing immutable fields. This only matters for in place upgrade (non revision)
+	// This one is not a selector, it must be an exact match
+	deploymentSelector15 := map[string]string{
+		"istio": "pilot",
+	}
+	if sel := mustGetLabels(t, deployment, "spec.selector.matchLabels"); !reflect.DeepEqual(deploymentSelector15, sel) {
+		t.Fatalf("Depployment selectors are immutable, but changed since 1.5. Was %v, now is %v", deploymentSelector15, sel)
+	}
+}
+
+func mustSelect(t test.Failer, selector map[string]string, labels map[string]string) {
+	t.Helper()
+	kselector := klabels.Set(selector).AsSelectorPreValidated()
+	if !kselector.Matches(klabels.Set(labels)) {
+		t.Fatalf("%v does not select %v", selector, labels)
+	}
+}
+
+func mustNotSelect(t test.Failer, selector map[string]string, labels map[string]string) {
+	t.Helper()
+	kselector := klabels.Set(selector).AsSelectorPreValidated()
+	if kselector.Matches(klabels.Set(labels)) {
+		t.Fatalf("%v selects %v when it should not", selector, labels)
+	}
+}
+
+func mustGetLabels(t test.Failer, obj object.K8sObject, path string) map[string]string {
+	t.Helper()
+	got := mustGetPath(t, obj, path)
+	conv, ok := got.(map[string]interface{})
+	if !ok {
+		t.Fatalf("could not convert %v", got)
+	}
+	ret := map[string]string{}
+	for k, v := range conv {
+		sv, ok := v.(string)
+		if !ok {
+			t.Fatalf("could not convert to string %v", v)
+		}
+		ret[k] = sv
+	}
+	return ret
+}
+
+func mustGetPath(t test.Failer, obj object.K8sObject, path string) interface{} {
+	t.Helper()
+	got, f, err := tpath.GetFromTreePath(obj.UnstructuredObject().UnstructuredContent(), util.PathFromString(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !f {
+		t.Fatalf("couldn't find path %v", path)
+	}
+	return got
+}
+
+func mustFindObject(t test.Failer, objs object.K8sObjects, name, kind string) object.K8sObject {
+	t.Helper()
+	o := findObject(objs, name, kind)
+	if o == nil {
+		t.Fatalf("expected %v/%v", name, kind)
+	}
+	return *o
+}
+
+func findObject(objs object.K8sObjects, name, kind string) *object.K8sObject {
+	for _, o := range objs {
+		if o.Kind == kind && o.Name == name {
+			return o
+		}
+	}
+	return nil
 }
 
 // TestLDFlags checks whether building mesh command with
@@ -280,18 +493,9 @@ func runTestGroup(t *testing.T, tests testGroup) {
 				filenames = []string{inPath}
 			}
 
-			got, err := runManifestGenerate(filenames, tt.flags)
+			got, err := runManifestGenerate(filenames, tt.flags, tt.useCompiledInCharts)
 			if err != nil {
 				t.Fatal(err)
-			}
-
-			diffSelect := "*:*:*"
-			if tt.diffSelect != "" {
-				diffSelect = tt.diffSelect
-				got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
-				if err != nil {
-					t.Errorf("error selecting from output manifest: %v", err)
-				}
 			}
 
 			if tt.outputDir != "" {
@@ -300,6 +504,15 @@ func runTestGroup(t *testing.T, tests testGroup) {
 				})
 				if err != nil {
 					t.Fatal(err)
+				}
+			}
+
+			diffSelect := "*:*:*"
+			if tt.diffSelect != "" {
+				diffSelect = tt.diffSelect
+				got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
+				if err != nil {
+					t.Errorf("error selecting from output manifest: %v", err)
 				}
 			}
 
@@ -332,13 +545,16 @@ func runTestGroup(t *testing.T, tests testGroup) {
 
 // runManifestGenerate runs the manifest generate command. If filenames is set, passes the given filenames as -f flag,
 // flags is passed to the command verbatim. If you set both flags and path, make sure to not use -f in flags.
-func runManifestGenerate(filenames []string, flags string) (string, error) {
+func runManifestGenerate(filenames []string, flags string, useCompiledInCharts bool) (string, error) {
 	args := "manifest generate"
 	for _, f := range filenames {
 		args += " -f " + f
 	}
 	if flags != "" {
 		args += " " + flags
+	}
+	if !useCompiledInCharts {
+		args += " --set installPackagePath=" + filepath.Join(testDataDir, "data-snapshot")
 	}
 	return runCommand(args)
 }
@@ -356,4 +572,17 @@ func removeDirOrFail(t *testing.T, path string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func createLocalReleaseCharts() (string, error) {
+	releaseDir, err := ioutil.TempDir(os.TempDir(), "istio-test-release-*")
+	if err != nil {
+		return "", err
+	}
+	releaseSubDir := filepath.Join(releaseDir, istioTestVersion, helm.OperatorSubdirFilePath)
+	cmd := exec.Command("../../release/create_release_charts.sh", "-o", releaseSubDir)
+	if stdo, err := cmd.Output(); err != nil {
+		return "", fmt.Errorf("%s: \n%s", err, string(stdo))
+	}
+	return releaseDir, nil
 }

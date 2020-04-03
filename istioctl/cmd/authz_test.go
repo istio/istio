@@ -24,7 +24,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/security/authz/policy"
+	"istio.io/istio/pilot/pkg/security/authz/builder"
 	"istio.io/istio/pilot/test/util"
 )
 
@@ -58,7 +58,11 @@ func getPolicies(data string, t *testing.T) *model.AuthorizationPolicies {
 	for i := range c {
 		configs = append(configs, &c[i])
 	}
-	return policy.NewAuthzPolicies(configs, t)
+	m, err := builder.NewAuthzPolicies(configs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return m
 }
 
 func runCommandWantOutput(command, golden string, t *testing.T) {

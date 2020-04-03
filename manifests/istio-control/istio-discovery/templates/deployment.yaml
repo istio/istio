@@ -1,4 +1,3 @@
-{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,9 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
-    {{- if ne .Values.revision ""}}
-    version: {{ .Values.revision }}
-    {{- end }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
     istio: pilot
     release: {{ .Release.Name }}
 {{- range $key, $val := .Values.pilot.deploymentLabels }}
@@ -28,7 +25,7 @@ spec:
     matchLabels:
       {{- if ne .Values.revision ""}}
       app: istiod
-      version: {{ .Values.revision }}
+      istio.io/rev: {{ .Values.revision | default "default" }}
       {{- else }}
       istio: pilot
       {{- end }}
@@ -36,11 +33,8 @@ spec:
     metadata:
       labels:
         app: istiod
-        {{- if ne .Values.revision ""}}
-        version: {{ .Values.revision }}
-        {{- else }}
-        # Label used by the 'default' service. For versioned deployments we match with app and version.
-        # This avoids default deployment picking the canary
+        istio.io/rev: {{ .Values.revision | default "default" }}
+        {{- if eq .Values.revision ""}}
         istio: pilot
         {{- end }}
       annotations:
@@ -80,12 +74,6 @@ spec:
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
-
-{{- if and .Values.global.controlPlaneSecurityEnabled }}
-          - --secureGrpcAddr=:15011
-{{- else }}
-          - --secureGrpcAddr=
-{{- end }}
 {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
 {{- end }}
@@ -94,8 +82,6 @@ spec:
 {{- end }}
           - --keepaliveMaxServerConnectionAge
           - "{{ .Values.pilot.keepaliveMaxServerConnectionAge }}"
-          # TODO: make default
-          - --disable-install-crds=true
           ports:
           - containerPort: 8080
           - containerPort: 15010
@@ -107,12 +93,9 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 5
-          envFrom:
-          # Allow an istiod configmap injecting user-specified env.
-          - configMapRef:
-              name: istiod
-              optional: true
           env:
+          - name: REVISION
+            value: "{{ .Values.revision | default `default` }}"
           - name: JWT_POLICY
             value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
@@ -142,12 +125,6 @@ spec:
           - name: PILOT_TRACE_SAMPLING
             value: "{{ .Values.pilot.traceSampling }}"
 {{- end }}
-          - name: CONFIG_NAMESPACE
-            value: {{ .Values.pilot.configNamespace }}
-{{- if .Values.pilot.appNamespaces }}
-          - name: APP_NAMESPACE
-            value: {{ join "," .Values.pilot.appNamespaces }}
-{{- end }}
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
             value: "{{ .Values.pilot.enableProtocolSniffingForOutbound }}"
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
@@ -156,8 +133,8 @@ spec:
             value: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
           - name: ISTIOD_ADDR
             value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
-          - name: PILOT_EXTERNAL_GALLEY
-            value: "false"
+          - name: PILOT_ENABLE_ANALYSIS
+            value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
           resources:
@@ -189,9 +166,10 @@ spec:
           - name: inject
             mountPath: /var/lib/istio/inject
             readOnly: true
-          - name: istiod
-            mountPath: /var/lib/istio/local
-            readOnly: true
+          {{- if .Values.pilot.jwksResolverExtraRootCA }}
+          - name: extracacerts
+            mountPath: /cacerts
+          {{- end }}
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
@@ -207,10 +185,6 @@ spec:
                 expirationSeconds: 43200
                 path: istio-token
       {{- end }}
-      - name: istiod
-        configMap:
-          name: istiod
-          optional: true
       # Optional: user-generated root
       - name: cacerts
         secret:
@@ -219,7 +193,7 @@ spec:
       # Optional - image should have
       - name: inject
         configMap:
-          name: istio-sidecar-injector
+          name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
           optional: true
       - name: config-volume
         configMap:
@@ -229,15 +203,4 @@ spec:
         configMap:
           name: pilot-jwks-extra-cacerts{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- end }}
-      affinity:
-      {{- include "nodeaffinity" . | indent 6 }}
-      {{- include "podAntiAffinity" . | indent 6 }}
-{{- if .Values.pilot.tolerations }}
-      tolerations:
-{{ toYaml .Values.pilot.tolerations | indent 6 }}
-{{- else if .Values.global.defaultTolerations }}
-      tolerations:
-{{ toYaml .Values.global.defaultTolerations | indent 6 }}
-{{- end }}
 ---
-{{- end }}

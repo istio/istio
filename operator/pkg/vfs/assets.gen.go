@@ -4,13 +4,13 @@
 // charts/base/NOTES.txt
 // charts/base/files/crd-all.gen.yaml
 // charts/base/files/crd-mixer.yaml
+// charts/base/files/crd-operator.yaml
 // charts/base/files/gen-istio-cluster.yaml
 // charts/base/kustomization.yaml
 // charts/base/templates/clusterrole.yaml
 // charts/base/templates/clusterrolebinding.yaml
 // charts/base/templates/crds.yaml
 // charts/base/templates/endpoints.yaml
-// charts/base/templates/namespaces.yaml
 // charts/base/templates/serviceaccount.yaml
 // charts/base/templates/services.yaml
 // charts/base/templates/validatingwebhookconfiguration.yaml
@@ -29,12 +29,8 @@
 // charts/gateways/istio-ingress/Chart.yaml
 // charts/gateways/istio-ingress/NOTES.txt
 // charts/gateways/istio-ingress/templates/_affinity.tpl
-// charts/gateways/istio-ingress/templates/addongateway.yaml
 // charts/gateways/istio-ingress/templates/autoscale.yaml
-// charts/gateways/istio-ingress/templates/certificate.yaml
 // charts/gateways/istio-ingress/templates/deployment.yaml
-// charts/gateways/istio-ingress/templates/gateway.yaml
-// charts/gateways/istio-ingress/templates/hosts.yaml
 // charts/gateways/istio-ingress/templates/meshexpansion.yaml
 // charts/gateways/istio-ingress/templates/poddisruptionbudget.yaml
 // charts/gateways/istio-ingress/templates/preconfigured.yaml
@@ -42,7 +38,6 @@
 // charts/gateways/istio-ingress/templates/rolebindings.yaml
 // charts/gateways/istio-ingress/templates/service.yaml
 // charts/gateways/istio-ingress/templates/serviceaccount.yaml
-// charts/gateways/istio-ingress/templates/sidecar.yaml
 // charts/gateways/istio-ingress/values.yaml
 // charts/istio-cni/Chart.yaml
 // charts/istio-cni/templates/clusterrole.yaml
@@ -73,10 +68,7 @@
 // charts/istio-control/istio-discovery/files/gen-istio.yaml
 // charts/istio-control/istio-discovery/files/injection-template.yaml
 // charts/istio-control/istio-discovery/kustomization.yaml
-// charts/istio-control/istio-discovery/templates/_affinity.tpl
-// charts/istio-control/istio-discovery/templates/_helpers.tpl
 // charts/istio-control/istio-discovery/templates/autoscale.yaml
-// charts/istio-control/istio-discovery/templates/clusterrole-galley-disable-webhook.yaml
 // charts/istio-control/istio-discovery/templates/configmap-jwks.yaml
 // charts/istio-control/istio-discovery/templates/configmap.yaml
 // charts/istio-control/istio-discovery/templates/deployment.yaml
@@ -88,6 +80,15 @@
 // charts/istio-control/istio-discovery/templates/telemetryv2_1.5.yaml
 // charts/istio-control/istio-discovery/templates/telemetryv2_1.6.yaml
 // charts/istio-control/istio-discovery/values.yaml
+// charts/istio-operator/Chart.yaml
+// charts/istio-operator/templates/clusterrole.yaml
+// charts/istio-operator/templates/clusterrole_binding.yaml
+// charts/istio-operator/templates/crd-operator.yaml
+// charts/istio-operator/templates/deployment.yaml
+// charts/istio-operator/templates/namespace.yaml
+// charts/istio-operator/templates/service.yaml
+// charts/istio-operator/templates/service_account.yaml
+// charts/istio-operator/values.yaml
 // charts/istio-policy/Chart.yaml
 // charts/istio-policy/templates/_affinity.tpl
 // charts/istio-policy/templates/_helpers.tpl
@@ -101,8 +102,6 @@
 // charts/istio-policy/templates/serviceaccount.yaml
 // charts/istio-policy/values.yaml
 // charts/istio-telemetry/grafana/Chart.yaml
-// charts/istio-telemetry/grafana/dashboards/citadel-dashboard.json
-// charts/istio-telemetry/grafana/dashboards/galley-dashboard.json
 // charts/istio-telemetry/grafana/dashboards/istio-mesh-dashboard.json
 // charts/istio-telemetry/grafana/dashboards/istio-performance-dashboard.json
 // charts/istio-telemetry/grafana/dashboards/istio-service-dashboard.json
@@ -148,16 +147,15 @@
 // charts/istio-telemetry/prometheus/templates/clusterrolebindings.yaml
 // charts/istio-telemetry/prometheus/templates/configmap.yaml
 // charts/istio-telemetry/prometheus/templates/deployment.yaml
-// charts/istio-telemetry/prometheus/templates/ingress.yaml
 // charts/istio-telemetry/prometheus/templates/service.yaml
 // charts/istio-telemetry/prometheus/templates/serviceaccount.yaml
 // charts/istio-telemetry/prometheus/templates/tests/test-prometheus-connection.yaml
 // charts/istio-telemetry/prometheus/values.yaml
-// charts/istio-telemetry/prometheus-operator/Chart.yaml
-// charts/istio-telemetry/prometheus-operator/templates/_affinity.tpl
-// charts/istio-telemetry/prometheus-operator/templates/prometheus.yaml
-// charts/istio-telemetry/prometheus-operator/templates/servicemonitors.yaml
-// charts/istio-telemetry/prometheus-operator/values.yaml
+// charts/istio-telemetry/prometheusOperator/Chart.yaml
+// charts/istio-telemetry/prometheusOperator/templates/_affinity.tpl
+// charts/istio-telemetry/prometheusOperator/templates/prometheus.yaml
+// charts/istio-telemetry/prometheusOperator/templates/servicemonitors.yaml
+// charts/istio-telemetry/prometheusOperator/values.yaml
 // charts/istio-telemetry/tracing/Chart.yaml
 // charts/istio-telemetry/tracing/templates/_affinity.tpl
 // charts/istio-telemetry/tracing/templates/deployment-jaeger.yaml
@@ -182,14 +180,6 @@
 // examples/user-gateway/ingress-gateway-only.yaml
 // examples/vm/values-istio-meshexpansion-gateways.yaml
 // examples/vm/values-istio-meshexpansion.yaml
-// operator-chart/Chart.yaml
-// operator-chart/templates/clusterrole.yaml
-// operator-chart/templates/clusterrole_binding.yaml
-// operator-chart/templates/crd.yaml
-// operator-chart/templates/deployment.yaml
-// operator-chart/templates/namespace.yaml
-// operator-chart/templates/service.yaml
-// operator-chart/templates/service_account.yaml
 // profiles/default.yaml
 // profiles/demo.yaml
 // profiles/empty.yaml
@@ -336,8 +326,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Authentication policy for Istio services. See more details
-            at: https://istio.io/docs/reference/config/security/istio.authentication.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             originIsOptional:
               description: Deprecated.
@@ -394,6 +383,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -412,8 +411,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -426,6 +424,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -444,8 +452,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -458,6 +465,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -476,8 +493,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -490,6 +506,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -508,8 +534,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -527,6 +552,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -545,8 +580,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -559,6 +593,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -577,8 +621,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -591,6 +634,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -609,8 +662,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -623,6 +675,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -641,8 +703,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -662,6 +723,14 @@ spec:
             peers:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - mtls
+                    - properties:
+                        jwt: {}
+                      required:
+                      - jwt
                 - required:
                   - mtls
                 - properties:
@@ -716,6 +785,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -734,8 +813,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -748,6 +826,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -766,8 +854,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -780,6 +867,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -798,8 +895,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -812,6 +908,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -830,8 +936,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -849,6 +954,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -867,8 +982,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -881,6 +995,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -899,8 +1023,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -913,6 +1036,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -931,8 +1064,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -945,6 +1077,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -963,8 +1105,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1009,6 +1150,12 @@ spec:
                     description: Specifies the ports.
                     items:
                       oneOf:
+                      - not:
+                          anyOf:
+                          - required:
+                            - number
+                          - required:
+                            - name
                       - required:
                         - number
                       - required:
@@ -1059,8 +1206,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Authentication policy for Istio services. See more details
-            at: https://istio.io/docs/reference/config/security/istio.authentication.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             originIsOptional:
               description: Deprecated.
@@ -1117,6 +1263,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1135,8 +1291,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1149,6 +1304,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1167,8 +1332,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1181,6 +1345,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1199,8 +1373,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1213,6 +1386,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1231,8 +1414,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1250,6 +1432,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1268,8 +1460,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1282,6 +1473,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1300,8 +1501,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1314,6 +1514,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1332,8 +1542,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1346,6 +1555,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1364,8 +1583,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1385,6 +1603,14 @@ spec:
             peers:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - mtls
+                    - properties:
+                        jwt: {}
+                      required:
+                      - jwt
                 - required:
                   - mtls
                 - properties:
@@ -1439,6 +1665,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1457,8 +1693,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1471,6 +1706,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1489,8 +1734,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1503,6 +1747,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1521,8 +1775,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1535,6 +1788,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1553,8 +1816,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1572,6 +1834,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1590,8 +1862,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1604,6 +1875,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1622,8 +1903,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1636,6 +1916,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1654,8 +1944,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1668,6 +1957,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1686,8 +1985,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -1732,6 +2030,12 @@ spec:
                     description: Specifies the ports.
                     items:
                       oneOf:
+                      - not:
+                          anyOf:
+                          - required:
+                            - number
+                          - required:
+                            - name
                       - required:
                         - number
                       - required:
@@ -1786,6 +2090,14 @@ spec:
             api_keys:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - query
+                    - required:
+                      - header
+                    - required:
+                      - cookie
                 - required:
                   - query
                 - required:
@@ -1809,6 +2121,14 @@ spec:
             apiKeys:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - query
+                    - required:
+                      - header
+                    - required:
+                      - cookie
                 - required:
                   - query
                 - required:
@@ -1834,6 +2154,24 @@ spec:
                 attributes:
                   additionalProperties:
                     oneOf:
+                    - not:
+                        anyOf:
+                        - required:
+                          - stringValue
+                        - required:
+                          - int64Value
+                        - required:
+                          - doubleValue
+                        - required:
+                          - boolValue
+                        - required:
+                          - bytesValue
+                        - required:
+                          - timestampValue
+                        - required:
+                          - durationValue
+                        - required:
+                          - stringMapValue
                     - required:
                       - stringValue
                     - required:
@@ -1887,6 +2225,12 @@ spec:
               description: List of HTTP patterns to match.
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - uriTemplate
+                    - required:
+                      - regex
                 - required:
                   - uriTemplate
                 - required:
@@ -1897,6 +2241,24 @@ spec:
                       attributes:
                         additionalProperties:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - stringValue
+                              - required:
+                                - int64Value
+                              - required:
+                                - doubleValue
+                              - required:
+                                - boolValue
+                              - required:
+                                - bytesValue
+                              - required:
+                                - timestampValue
+                              - required:
+                                - durationValue
+                              - required:
+                                - stringMapValue
                           - required:
                             - stringValue
                           - required:
@@ -2099,6 +2461,14 @@ spec:
                         clause:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -2113,6 +2483,7 @@ spec:
                                 format: string
                                 type: string
                               regex:
+                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                 format: string
                                 type: string
                             type: object
@@ -2359,11 +2730,48 @@ spec:
                       loadBalancer:
                         description: Settings controlling the load balancer algorithms.
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - simple
+                            - properties:
+                                consistentHash:
+                                  oneOf:
+                                  - not:
+                                      anyOf:
+                                      - required:
+                                        - httpHeaderName
+                                      - required:
+                                        - httpCookie
+                                      - required:
+                                        - useSourceIp
+                                      - required:
+                                        - httpQueryParameterName
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
+                              required:
+                              - consistentHash
                         - required:
                           - simple
                         - properties:
                             consistentHash:
                               oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
                               - required:
                                 - httpHeaderName
                               - required:
@@ -2551,11 +2959,48 @@ spec:
                               description: Settings controlling the load balancer
                                 algorithms.
                               oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - simple
+                                  - properties:
+                                      consistentHash:
+                                        oneOf:
+                                        - not:
+                                            anyOf:
+                                            - required:
+                                              - httpHeaderName
+                                            - required:
+                                              - httpCookie
+                                            - required:
+                                              - useSourceIp
+                                            - required:
+                                              - httpQueryParameterName
+                                        - required:
+                                          - httpHeaderName
+                                        - required:
+                                          - httpCookie
+                                        - required:
+                                          - useSourceIp
+                                        - required:
+                                          - httpQueryParameterName
+                                    required:
+                                    - consistentHash
                               - required:
                                 - simple
                               - properties:
                                   consistentHash:
                                     oneOf:
+                                    - not:
+                                        anyOf:
+                                        - required:
+                                          - httpHeaderName
+                                        - required:
+                                          - httpCookie
+                                        - required:
+                                          - useSourceIp
+                                        - required:
+                                          - httpQueryParameterName
                                     - required:
                                       - httpHeaderName
                                     - required:
@@ -2815,11 +3260,48 @@ spec:
                 loadBalancer:
                   description: Settings controlling the load balancer algorithms.
                   oneOf:
+                  - not:
+                      anyOf:
+                      - required:
+                        - simple
+                      - properties:
+                          consistentHash:
+                            oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - httpHeaderName
+                                - required:
+                                  - httpCookie
+                                - required:
+                                  - useSourceIp
+                                - required:
+                                  - httpQueryParameterName
+                            - required:
+                              - httpHeaderName
+                            - required:
+                              - httpCookie
+                            - required:
+                              - useSourceIp
+                            - required:
+                              - httpQueryParameterName
+                        required:
+                        - consistentHash
                   - required:
                     - simple
                   - properties:
                       consistentHash:
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - httpHeaderName
+                            - required:
+                              - httpCookie
+                            - required:
+                              - useSourceIp
+                            - required:
+                              - httpQueryParameterName
                         - required:
                           - httpHeaderName
                         - required:
@@ -3004,11 +3486,48 @@ spec:
                       loadBalancer:
                         description: Settings controlling the load balancer algorithms.
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - simple
+                            - properties:
+                                consistentHash:
+                                  oneOf:
+                                  - not:
+                                      anyOf:
+                                      - required:
+                                        - httpHeaderName
+                                      - required:
+                                        - httpCookie
+                                      - required:
+                                        - useSourceIp
+                                      - required:
+                                        - httpQueryParameterName
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
+                              required:
+                              - consistentHash
                         - required:
                           - simple
                         - properties:
                             consistentHash:
                               oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
                               - required:
                                 - httpHeaderName
                               - required:
@@ -3260,6 +3779,14 @@ spec:
                   match:
                     description: Match on listener/route configuration/cluster.
                     oneOf:
+                    - not:
+                        anyOf:
+                        - required:
+                          - listener
+                        - required:
+                          - routeConfiguration
+                        - required:
+                          - cluster
                     - required:
                       - listener
                     - required:
@@ -3420,76 +3947,6 @@ spec:
                     type: object
                 type: object
               type: array
-            filters:
-              items:
-                properties:
-                  filterConfig:
-                    type: object
-                  filterName:
-                    description: The name of the filter to instantiate.
-                    format: string
-                    type: string
-                  filterType:
-                    description: The type of filter to instantiate.
-                    enum:
-                    - INVALID
-                    - HTTP
-                    - NETWORK
-                    type: string
-                  insertPosition:
-                    description: Insert position in the filter chain.
-                    properties:
-                      index:
-                        description: Position of this filter in the filter chain.
-                        enum:
-                        - FIRST
-                        - LAST
-                        - BEFORE
-                        - AFTER
-                        type: string
-                      relativeTo:
-                        format: string
-                        type: string
-                    type: object
-                  listenerMatch:
-                    properties:
-                      address:
-                        description: One or more IP addresses to which the listener
-                          is bound.
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      listenerProtocol:
-                        description: Selects a class of listeners for the same protocol.
-                        enum:
-                        - ALL
-                        - HTTP
-                        - TCP
-                        type: string
-                      listenerType:
-                        description: Inbound vs outbound sidecar listener or gateway
-                          listener.
-                        enum:
-                        - ANY
-                        - SIDECAR_INBOUND
-                        - SIDECAR_OUTBOUND
-                        - GATEWAY
-                        type: string
-                      portNamePrefix:
-                        format: string
-                        type: string
-                      portNumber:
-                        type: integer
-                    type: object
-                type: object
-              type: array
-            workloadLabels:
-              additionalProperties:
-                format: string
-                type: string
-              description: Deprecated.
-              type: object
             workloadSelector:
               properties:
                 labels:
@@ -3743,6 +4200,9 @@ spec:
                       type: integer
                     description: Set of ports associated with the endpoint.
                     type: object
+                  serviceAccount:
+                    format: string
+                    type: string
                   weight:
                     description: The load balancing weight associated with the endpoint.
                     type: integer
@@ -3794,6 +4254,15 @@ spec:
                 format: string
                 type: string
               type: array
+            workloadSelector:
+              description: Applicable only for MESH_INTERNAL services.
+              properties:
+                labels:
+                  additionalProperties:
+                    format: string
+                    type: string
+                  type: object
+              type: object
           type: object
       type: object
   versions:
@@ -3853,109 +4322,7 @@ spec:
                       format: string
                       type: string
                     type: array
-                  port:
-                    description: The port associated with the listener.
-                    properties:
-                      name:
-                        description: Label assigned to the port.
-                        format: string
-                        type: string
-                      number:
-                        description: A valid non-negative integer port number.
-                        type: integer
-                      protocol:
-                        description: The protocol exposed on the port.
-                        format: string
-                        type: string
-                    type: object
-                type: object
-              type: array
-            inboundTls:
-              properties:
-                caCertificates:
-                  description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
-                  format: string
-                  type: string
-                cipherSuites:
-                  description: 'Optional: If specified, only support the specified
-                    cipher list.'
-                  items:
-                    format: string
-                    type: string
-                  type: array
-                credentialName:
-                  format: string
-                  type: string
-                httpsRedirect:
-                  type: boolean
-                maxProtocolVersion:
-                  description: 'Optional: Maximum TLS protocol version.'
-                  enum:
-                  - TLS_AUTO
-                  - TLSV1_0
-                  - TLSV1_1
-                  - TLSV1_2
-                  - TLSV1_3
-                  type: string
-                minProtocolVersion:
-                  description: 'Optional: Minimum TLS protocol version.'
-                  enum:
-                  - TLS_AUTO
-                  - TLSV1_0
-                  - TLSV1_1
-                  - TLSV1_2
-                  - TLSV1_3
-                  type: string
-                mode:
-                  enum:
-                  - PASSTHROUGH
-                  - SIMPLE
-                  - MUTUAL
-                  - AUTO_PASSTHROUGH
-                  - ISTIO_MUTUAL
-                  type: string
-                privateKey:
-                  description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
-                  format: string
-                  type: string
-                serverCertificate:
-                  description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
-                  format: string
-                  type: string
-                subjectAltNames:
-                  items:
-                    format: string
-                    type: string
-                  type: array
-                verifyCertificateHash:
-                  items:
-                    format: string
-                    type: string
-                  type: array
-                verifyCertificateSpki:
-                  items:
-                    format: string
-                    type: string
-                  type: array
-              type: object
-            ingress:
-              items:
-                properties:
-                  bind:
-                    description: The IP to which the listener should be bound.
-                    format: string
-                    type: string
-                  captureMode:
-                    enum:
-                    - DEFAULT
-                    - IPTABLES
-                    - NONE
-                    type: string
-                  defaultEndpoint:
-                    format: string
-                    type: string
-                  inboundTls:
-                    description: Overrides Sidecar level `+"`"+`inboundTls`+"`"+` settings.
+                  localhostServerTls:
                     properties:
                       caCertificates:
                         description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
@@ -4040,6 +4407,172 @@ spec:
                     type: object
                 type: object
               type: array
+            ingress:
+              items:
+                properties:
+                  bind:
+                    description: The IP to which the listener should be bound.
+                    format: string
+                    type: string
+                  captureMode:
+                    enum:
+                    - DEFAULT
+                    - IPTABLES
+                    - NONE
+                    type: string
+                  defaultEndpoint:
+                    format: string
+                    type: string
+                  localhostClientTls:
+                    properties:
+                      caCertificates:
+                        format: string
+                        type: string
+                      clientCertificate:
+                        description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                        format: string
+                        type: string
+                      mode:
+                        enum:
+                        - DISABLE
+                        - SIMPLE
+                        - MUTUAL
+                        - ISTIO_MUTUAL
+                        type: string
+                      privateKey:
+                        description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                        format: string
+                        type: string
+                      sni:
+                        description: SNI string to present to the server during TLS
+                          handshake.
+                        format: string
+                        type: string
+                      subjectAltNames:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                    type: object
+                  port:
+                    description: The port associated with the listener.
+                    properties:
+                      name:
+                        description: Label assigned to the port.
+                        format: string
+                        type: string
+                      number:
+                        description: A valid non-negative integer port number.
+                        type: integer
+                      protocol:
+                        description: The protocol exposed on the port.
+                        format: string
+                        type: string
+                    type: object
+                type: object
+              type: array
+            localhost:
+              properties:
+                clientTls:
+                  properties:
+                    caCertificates:
+                      format: string
+                      type: string
+                    clientCertificate:
+                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      format: string
+                      type: string
+                    mode:
+                      enum:
+                      - DISABLE
+                      - SIMPLE
+                      - MUTUAL
+                      - ISTIO_MUTUAL
+                      type: string
+                    privateKey:
+                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      format: string
+                      type: string
+                    sni:
+                      description: SNI string to present to the server during TLS
+                        handshake.
+                      format: string
+                      type: string
+                    subjectAltNames:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                  type: object
+                serverTls:
+                  properties:
+                    caCertificates:
+                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      format: string
+                      type: string
+                    cipherSuites:
+                      description: 'Optional: If specified, only support the specified
+                        cipher list.'
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                    credentialName:
+                      format: string
+                      type: string
+                    httpsRedirect:
+                      type: boolean
+                    maxProtocolVersion:
+                      description: 'Optional: Maximum TLS protocol version.'
+                      enum:
+                      - TLS_AUTO
+                      - TLSV1_0
+                      - TLSV1_1
+                      - TLSV1_2
+                      - TLSV1_3
+                      type: string
+                    minProtocolVersion:
+                      description: 'Optional: Minimum TLS protocol version.'
+                      enum:
+                      - TLS_AUTO
+                      - TLSV1_0
+                      - TLSV1_1
+                      - TLSV1_2
+                      - TLSV1_3
+                      type: string
+                    mode:
+                      enum:
+                      - PASSTHROUGH
+                      - SIMPLE
+                      - MUTUAL
+                      - AUTO_PASSTHROUGH
+                      - ISTIO_MUTUAL
+                      type: string
+                    privateKey:
+                      description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                      format: string
+                      type: string
+                    serverCertificate:
+                      description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                      format: string
+                      type: string
+                    subjectAltNames:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                    verifyCertificateHash:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                    verifyCertificateSpki:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                  type: object
+              type: object
             outboundTrafficPolicy:
               description: Configuration for the outbound traffic policy.
               properties:
@@ -4185,6 +4718,14 @@ spec:
                         description: String patterns that match allowed origins.
                         items:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -4199,6 +4740,7 @@ spec:
                               format: string
                               type: string
                             regex:
+                              description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                               format: string
                               type: string
                           type: object
@@ -4211,12 +4753,32 @@ spec:
                       maxAge:
                         type: string
                     type: object
+                  delegate:
+                    properties:
+                      name:
+                        description: Name specifies the name of the delegate VirtualService.
+                        format: string
+                        type: string
+                      namespace:
+                        description: Namespace specifies the namespace where the delegate
+                          VirtualService resides.
+                        format: string
+                        type: string
+                    type: object
                   fault:
                     description: Fault injection policy to apply on HTTP traffic at
                       the client side.
                     properties:
                       abort:
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - httpStatus
+                            - required:
+                              - grpcStatus
+                            - required:
+                              - http2Error
                         - required:
                           - httpStatus
                         - required:
@@ -4246,13 +4808,15 @@ spec:
                         type: object
                       delay:
                         oneOf:
-                        - properties:
-                            percent: {}
-                          required:
+                        - not:
+                            anyOf:
+                            - required:
+                              - fixedDelay
+                            - required:
+                              - exponentialDelay
+                        - required:
                           - fixedDelay
-                        - properties:
-                            percent: {}
-                          required:
+                        - required:
                           - exponentialDelay
                         properties:
                           exponentialDelay:
@@ -4319,6 +4883,14 @@ spec:
                       properties:
                         authority:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -4333,6 +4905,7 @@ spec:
                               format: string
                               type: string
                             regex:
+                              description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                               format: string
                               type: string
                           type: object
@@ -4346,6 +4919,14 @@ spec:
                         headers:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -4360,6 +4941,7 @@ spec:
                                 format: string
                                 type: string
                               regex:
+                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                 format: string
                                 type: string
                             type: object
@@ -4370,6 +4952,14 @@ spec:
                           type: boolean
                         method:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -4384,6 +4974,7 @@ spec:
                               format: string
                               type: string
                             regex:
+                              description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                               format: string
                               type: string
                           type: object
@@ -4398,6 +4989,14 @@ spec:
                         queryParams:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -4412,6 +5011,7 @@ spec:
                                 format: string
                                 type: string
                               regex:
+                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                 format: string
                                 type: string
                             type: object
@@ -4419,6 +5019,14 @@ spec:
                           type: object
                         scheme:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -4433,6 +5041,7 @@ spec:
                               format: string
                               type: string
                             regex:
+                              description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                               format: string
                               type: string
                           type: object
@@ -4448,6 +5057,14 @@ spec:
                           type: string
                         uri:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -4462,12 +5079,21 @@ spec:
                               format: string
                               type: string
                             regex:
+                              description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                               format: string
                               type: string
                           type: object
                         withoutHeaders:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -4482,6 +5108,7 @@ spec:
                                 format: string
                                 type: string
                               regex:
+                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                 format: string
                                 type: string
                             type: object
@@ -4808,6 +5435,90 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    app: istio-pilot
+    chart: istio
+    heritage: Tiller
+    release: istio
+  name: workloadentries.networking.istio.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    description: 'CreationTimestamp is a timestamp representing the server time when
+      this object was created. It is not guaranteed to be set in happens-before order
+      across separate operations. Clients may not set this value. It is represented
+      in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
+      lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+    name: Age
+    type: date
+  - JSONPath: .spec.address
+    description: Address associated with the network endpoint.
+    name: Address
+    type: string
+  group: networking.istio.io
+  names:
+    categories:
+    - istio-io
+    - networking-istio-io
+    kind: WorkloadEntry
+    listKind: WorkloadEntryList
+    plural: workloadentries
+    shortNames:
+    - we
+    singular: workloadentry
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          description: 'Configuration affecting VMs onboarded into the mesh. See more
+            details at: https://istio.io/docs/reference/config/networking/workload-entry.html'
+          properties:
+            address:
+              format: string
+              type: string
+            labels:
+              additionalProperties:
+                format: string
+                type: string
+              description: One or more labels associated with the endpoint.
+              type: object
+            locality:
+              description: The locality associated with the endpoint.
+              format: string
+              type: string
+            network:
+              format: string
+              type: string
+            ports:
+              additionalProperties:
+                type: integer
+              description: Set of ports associated with the endpoint.
+              type: object
+            serviceAccount:
+              format: string
+              type: string
+            weight:
+              description: The load balancing weight associated with the endpoint.
+              type: integer
+          type: object
+      type: object
+  versions:
+  - name: v1alpha3
+    served: true
+    storage: true
+  - name: v1beta1
+    served: true
+    storage: false
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  labels:
     app: mixer
     chart: istio
     heritage: Tiller
@@ -4929,15 +5640,58 @@ spec:
                 authentication:
                   description: Auth config for the connection to the backend.
                   oneOf:
+                  - not:
+                      anyOf:
+                      - properties:
+                          tls:
+                            allOf:
+                            - oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - tokenPath
+                                  - required:
+                                    - oauth
+                              - required:
+                                - tokenPath
+                              - required:
+                                - oauth
+                            - oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - authHeader
+                                  - required:
+                                    - customHeader
+                              - required:
+                                - authHeader
+                              - required:
+                                - customHeader
+                        required:
+                        - tls
+                      - required:
+                        - mutual
                   - properties:
                       tls:
                         allOf:
                         - oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - tokenPath
+                              - required:
+                                - oauth
                           - required:
                             - tokenPath
                           - required:
                             - oauth
                         - oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - authHeader
+                              - required:
+                                - customHeader
                           - required:
                             - authHeader
                           - required:
@@ -5288,8 +6042,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             enforcementMode:
               enum:
@@ -5376,8 +6129,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             enforcementMode:
               enum:
@@ -5464,8 +6216,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             rules:
               description: The set of access rules (permissions) that the role has.
@@ -5588,8 +6339,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             actions:
               items:
@@ -5967,6 +6717,8 @@ spec:
     kind: PeerAuthentication
     listKind: PeerAuthenticationList
     plural: peerauthentications
+    shortNames:
+    - pa
     singular: peerauthentication
   scope: Namespaced
   subresources:
@@ -6043,6 +6795,8 @@ spec:
     kind: RequestAuthentication
     listKind: RequestAuthenticationList
     plural: requestauthentications
+    shortNames:
+    - ra
     singular: requestauthentication
   scope: Namespaced
   subresources:
@@ -6221,17 +6975,70 @@ func chartsBaseFilesCrdMixerYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsBaseFilesGenIstioClusterYaml = []byte(`---
-# Source: base/templates/namespaces.yaml
-apiVersion: v1
-kind: Namespace
+var _chartsBaseFilesCrdOperatorYaml = []byte(`# SYNC WITH manifests/istio-operator/templates
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
 metadata:
-  name: istio-system
-  labels:
-    istio-operator-managed: Reconcile
-    istio-injection: disabled
-
+  name: istiooperators.install.istio.io
+spec:
+  group: install.istio.io
+  names:
+    kind: IstioOperator
+    plural: istiooperators
+    singular: istiooperator
+    shortNames:
+    - iop
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        spec:
+          description: 'Specification of the desired state of the istio control plane resource.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+        status:
+          description: 'Status describes each of istio control plane component status at the current time.
+            0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
+            More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
+            https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
 ---
+`)
+
+func chartsBaseFilesCrdOperatorYamlBytes() ([]byte, error) {
+	return _chartsBaseFilesCrdOperatorYaml, nil
+}
+
+func chartsBaseFilesCrdOperatorYaml() (*asset, error) {
+	bytes, err := chartsBaseFilesCrdOperatorYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/base/files/crd-operator.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsBaseFilesGenIstioClusterYaml = []byte(`---
 # Source: base/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
@@ -6283,8 +7090,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Authentication policy for Istio services. See more details
-            at: https://istio.io/docs/reference/config/security/istio.authentication.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             originIsOptional:
               description: Deprecated.
@@ -6341,6 +7147,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6359,8 +7175,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -6373,6 +7188,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6391,8 +7216,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -6405,6 +7229,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6423,8 +7257,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -6437,6 +7270,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6455,8 +7298,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -6474,6 +7316,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6492,8 +7344,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -6506,6 +7357,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6524,8 +7385,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -6538,6 +7398,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6556,8 +7426,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -6570,6 +7439,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6588,8 +7467,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -6609,6 +7487,14 @@ spec:
             peers:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - mtls
+                    - properties:
+                        jwt: {}
+                      required:
+                      - jwt
                 - required:
                   - mtls
                 - properties:
@@ -6663,6 +7549,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6681,8 +7577,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -6695,6 +7590,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6713,8 +7618,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -6727,6 +7631,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6745,8 +7659,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -6759,6 +7672,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6777,8 +7700,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -6796,6 +7718,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6814,8 +7746,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -6828,6 +7759,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6846,8 +7787,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -6860,6 +7800,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6878,8 +7828,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -6892,6 +7841,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6910,8 +7869,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -6956,6 +7914,12 @@ spec:
                     description: Specifies the ports.
                     items:
                       oneOf:
+                      - not:
+                          anyOf:
+                          - required:
+                            - number
+                          - required:
+                            - name
                       - required:
                         - number
                       - required:
@@ -7006,8 +7970,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Authentication policy for Istio services. See more details
-            at: https://istio.io/docs/reference/config/security/istio.authentication.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             originIsOptional:
               description: Deprecated.
@@ -7064,6 +8027,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7082,8 +8055,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -7096,6 +8068,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7114,8 +8096,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -7128,6 +8109,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7146,8 +8137,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -7160,6 +8150,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7178,8 +8178,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -7197,6 +8196,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7215,8 +8224,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -7229,6 +8237,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7247,8 +8265,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -7261,6 +8278,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7279,8 +8306,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -7293,6 +8319,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7311,8 +8347,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -7332,6 +8367,14 @@ spec:
             peers:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - mtls
+                    - properties:
+                        jwt: {}
+                      required:
+                      - jwt
                 - required:
                   - mtls
                 - properties:
@@ -7386,6 +8429,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7404,8 +8457,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -7418,6 +8470,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7436,8 +8498,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -7450,6 +8511,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7468,8 +8539,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -7482,6 +8552,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7500,8 +8580,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -7519,6 +8598,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7537,8 +8626,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -7551,6 +8639,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7569,8 +8667,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -7583,6 +8680,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7601,8 +8708,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -7615,6 +8721,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7633,8 +8749,7 @@ spec:
                                     format: string
                                     type: string
                                   regex:
-                                    description: ECMAscript style regex-based match
-                                      as defined by [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript).
+                                    description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                     format: string
                                     type: string
                                   suffix:
@@ -7679,6 +8794,12 @@ spec:
                     description: Specifies the ports.
                     items:
                       oneOf:
+                      - not:
+                          anyOf:
+                          - required:
+                            - number
+                          - required:
+                            - name
                       - required:
                         - number
                       - required:
@@ -7733,6 +8854,14 @@ spec:
             api_keys:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - query
+                    - required:
+                      - header
+                    - required:
+                      - cookie
                 - required:
                   - query
                 - required:
@@ -7756,6 +8885,14 @@ spec:
             apiKeys:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - query
+                    - required:
+                      - header
+                    - required:
+                      - cookie
                 - required:
                   - query
                 - required:
@@ -7781,6 +8918,24 @@ spec:
                 attributes:
                   additionalProperties:
                     oneOf:
+                    - not:
+                        anyOf:
+                        - required:
+                          - stringValue
+                        - required:
+                          - int64Value
+                        - required:
+                          - doubleValue
+                        - required:
+                          - boolValue
+                        - required:
+                          - bytesValue
+                        - required:
+                          - timestampValue
+                        - required:
+                          - durationValue
+                        - required:
+                          - stringMapValue
                     - required:
                       - stringValue
                     - required:
@@ -7834,6 +8989,12 @@ spec:
               description: List of HTTP patterns to match.
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - uriTemplate
+                    - required:
+                      - regex
                 - required:
                   - uriTemplate
                 - required:
@@ -7844,6 +9005,24 @@ spec:
                       attributes:
                         additionalProperties:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - stringValue
+                              - required:
+                                - int64Value
+                              - required:
+                                - doubleValue
+                              - required:
+                                - boolValue
+                              - required:
+                                - bytesValue
+                              - required:
+                                - timestampValue
+                              - required:
+                                - durationValue
+                              - required:
+                                - stringMapValue
                           - required:
                             - stringValue
                           - required:
@@ -8046,6 +9225,14 @@ spec:
                         clause:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -8060,6 +9247,7 @@ spec:
                                 format: string
                                 type: string
                               regex:
+                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                 format: string
                                 type: string
                             type: object
@@ -8306,11 +9494,48 @@ spec:
                       loadBalancer:
                         description: Settings controlling the load balancer algorithms.
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - simple
+                            - properties:
+                                consistentHash:
+                                  oneOf:
+                                  - not:
+                                      anyOf:
+                                      - required:
+                                        - httpHeaderName
+                                      - required:
+                                        - httpCookie
+                                      - required:
+                                        - useSourceIp
+                                      - required:
+                                        - httpQueryParameterName
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
+                              required:
+                              - consistentHash
                         - required:
                           - simple
                         - properties:
                             consistentHash:
                               oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
                               - required:
                                 - httpHeaderName
                               - required:
@@ -8498,11 +9723,48 @@ spec:
                               description: Settings controlling the load balancer
                                 algorithms.
                               oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - simple
+                                  - properties:
+                                      consistentHash:
+                                        oneOf:
+                                        - not:
+                                            anyOf:
+                                            - required:
+                                              - httpHeaderName
+                                            - required:
+                                              - httpCookie
+                                            - required:
+                                              - useSourceIp
+                                            - required:
+                                              - httpQueryParameterName
+                                        - required:
+                                          - httpHeaderName
+                                        - required:
+                                          - httpCookie
+                                        - required:
+                                          - useSourceIp
+                                        - required:
+                                          - httpQueryParameterName
+                                    required:
+                                    - consistentHash
                               - required:
                                 - simple
                               - properties:
                                   consistentHash:
                                     oneOf:
+                                    - not:
+                                        anyOf:
+                                        - required:
+                                          - httpHeaderName
+                                        - required:
+                                          - httpCookie
+                                        - required:
+                                          - useSourceIp
+                                        - required:
+                                          - httpQueryParameterName
                                     - required:
                                       - httpHeaderName
                                     - required:
@@ -8762,11 +10024,48 @@ spec:
                 loadBalancer:
                   description: Settings controlling the load balancer algorithms.
                   oneOf:
+                  - not:
+                      anyOf:
+                      - required:
+                        - simple
+                      - properties:
+                          consistentHash:
+                            oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - httpHeaderName
+                                - required:
+                                  - httpCookie
+                                - required:
+                                  - useSourceIp
+                                - required:
+                                  - httpQueryParameterName
+                            - required:
+                              - httpHeaderName
+                            - required:
+                              - httpCookie
+                            - required:
+                              - useSourceIp
+                            - required:
+                              - httpQueryParameterName
+                        required:
+                        - consistentHash
                   - required:
                     - simple
                   - properties:
                       consistentHash:
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - httpHeaderName
+                            - required:
+                              - httpCookie
+                            - required:
+                              - useSourceIp
+                            - required:
+                              - httpQueryParameterName
                         - required:
                           - httpHeaderName
                         - required:
@@ -8951,11 +10250,48 @@ spec:
                       loadBalancer:
                         description: Settings controlling the load balancer algorithms.
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - simple
+                            - properties:
+                                consistentHash:
+                                  oneOf:
+                                  - not:
+                                      anyOf:
+                                      - required:
+                                        - httpHeaderName
+                                      - required:
+                                        - httpCookie
+                                      - required:
+                                        - useSourceIp
+                                      - required:
+                                        - httpQueryParameterName
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
+                              required:
+                              - consistentHash
                         - required:
                           - simple
                         - properties:
                             consistentHash:
                               oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
                               - required:
                                 - httpHeaderName
                               - required:
@@ -9207,6 +10543,14 @@ spec:
                   match:
                     description: Match on listener/route configuration/cluster.
                     oneOf:
+                    - not:
+                        anyOf:
+                        - required:
+                          - listener
+                        - required:
+                          - routeConfiguration
+                        - required:
+                          - cluster
                     - required:
                       - listener
                     - required:
@@ -9367,76 +10711,6 @@ spec:
                     type: object
                 type: object
               type: array
-            filters:
-              items:
-                properties:
-                  filterConfig:
-                    type: object
-                  filterName:
-                    description: The name of the filter to instantiate.
-                    format: string
-                    type: string
-                  filterType:
-                    description: The type of filter to instantiate.
-                    enum:
-                    - INVALID
-                    - HTTP
-                    - NETWORK
-                    type: string
-                  insertPosition:
-                    description: Insert position in the filter chain.
-                    properties:
-                      index:
-                        description: Position of this filter in the filter chain.
-                        enum:
-                        - FIRST
-                        - LAST
-                        - BEFORE
-                        - AFTER
-                        type: string
-                      relativeTo:
-                        format: string
-                        type: string
-                    type: object
-                  listenerMatch:
-                    properties:
-                      address:
-                        description: One or more IP addresses to which the listener
-                          is bound.
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      listenerProtocol:
-                        description: Selects a class of listeners for the same protocol.
-                        enum:
-                        - ALL
-                        - HTTP
-                        - TCP
-                        type: string
-                      listenerType:
-                        description: Inbound vs outbound sidecar listener or gateway
-                          listener.
-                        enum:
-                        - ANY
-                        - SIDECAR_INBOUND
-                        - SIDECAR_OUTBOUND
-                        - GATEWAY
-                        type: string
-                      portNamePrefix:
-                        format: string
-                        type: string
-                      portNumber:
-                        type: integer
-                    type: object
-                type: object
-              type: array
-            workloadLabels:
-              additionalProperties:
-                format: string
-                type: string
-              description: Deprecated.
-              type: object
             workloadSelector:
               properties:
                 labels:
@@ -9690,6 +10964,9 @@ spec:
                       type: integer
                     description: Set of ports associated with the endpoint.
                     type: object
+                  serviceAccount:
+                    format: string
+                    type: string
                   weight:
                     description: The load balancing weight associated with the endpoint.
                     type: integer
@@ -9741,6 +11018,15 @@ spec:
                 format: string
                 type: string
               type: array
+            workloadSelector:
+              description: Applicable only for MESH_INTERNAL services.
+              properties:
+                labels:
+                  additionalProperties:
+                    format: string
+                    type: string
+                  type: object
+              type: object
           type: object
       type: object
   versions:
@@ -9800,109 +11086,7 @@ spec:
                       format: string
                       type: string
                     type: array
-                  port:
-                    description: The port associated with the listener.
-                    properties:
-                      name:
-                        description: Label assigned to the port.
-                        format: string
-                        type: string
-                      number:
-                        description: A valid non-negative integer port number.
-                        type: integer
-                      protocol:
-                        description: The protocol exposed on the port.
-                        format: string
-                        type: string
-                    type: object
-                type: object
-              type: array
-            inboundTls:
-              properties:
-                caCertificates:
-                  description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
-                  format: string
-                  type: string
-                cipherSuites:
-                  description: 'Optional: If specified, only support the specified
-                    cipher list.'
-                  items:
-                    format: string
-                    type: string
-                  type: array
-                credentialName:
-                  format: string
-                  type: string
-                httpsRedirect:
-                  type: boolean
-                maxProtocolVersion:
-                  description: 'Optional: Maximum TLS protocol version.'
-                  enum:
-                  - TLS_AUTO
-                  - TLSV1_0
-                  - TLSV1_1
-                  - TLSV1_2
-                  - TLSV1_3
-                  type: string
-                minProtocolVersion:
-                  description: 'Optional: Minimum TLS protocol version.'
-                  enum:
-                  - TLS_AUTO
-                  - TLSV1_0
-                  - TLSV1_1
-                  - TLSV1_2
-                  - TLSV1_3
-                  type: string
-                mode:
-                  enum:
-                  - PASSTHROUGH
-                  - SIMPLE
-                  - MUTUAL
-                  - AUTO_PASSTHROUGH
-                  - ISTIO_MUTUAL
-                  type: string
-                privateKey:
-                  description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
-                  format: string
-                  type: string
-                serverCertificate:
-                  description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
-                  format: string
-                  type: string
-                subjectAltNames:
-                  items:
-                    format: string
-                    type: string
-                  type: array
-                verifyCertificateHash:
-                  items:
-                    format: string
-                    type: string
-                  type: array
-                verifyCertificateSpki:
-                  items:
-                    format: string
-                    type: string
-                  type: array
-              type: object
-            ingress:
-              items:
-                properties:
-                  bind:
-                    description: The IP to which the listener should be bound.
-                    format: string
-                    type: string
-                  captureMode:
-                    enum:
-                    - DEFAULT
-                    - IPTABLES
-                    - NONE
-                    type: string
-                  defaultEndpoint:
-                    format: string
-                    type: string
-                  inboundTls:
-                    description: Overrides Sidecar level `+"`"+`inboundTls`+"`"+` settings.
+                  localhostServerTls:
                     properties:
                       caCertificates:
                         description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
@@ -9987,6 +11171,172 @@ spec:
                     type: object
                 type: object
               type: array
+            ingress:
+              items:
+                properties:
+                  bind:
+                    description: The IP to which the listener should be bound.
+                    format: string
+                    type: string
+                  captureMode:
+                    enum:
+                    - DEFAULT
+                    - IPTABLES
+                    - NONE
+                    type: string
+                  defaultEndpoint:
+                    format: string
+                    type: string
+                  localhostClientTls:
+                    properties:
+                      caCertificates:
+                        format: string
+                        type: string
+                      clientCertificate:
+                        description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                        format: string
+                        type: string
+                      mode:
+                        enum:
+                        - DISABLE
+                        - SIMPLE
+                        - MUTUAL
+                        - ISTIO_MUTUAL
+                        type: string
+                      privateKey:
+                        description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                        format: string
+                        type: string
+                      sni:
+                        description: SNI string to present to the server during TLS
+                          handshake.
+                        format: string
+                        type: string
+                      subjectAltNames:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                    type: object
+                  port:
+                    description: The port associated with the listener.
+                    properties:
+                      name:
+                        description: Label assigned to the port.
+                        format: string
+                        type: string
+                      number:
+                        description: A valid non-negative integer port number.
+                        type: integer
+                      protocol:
+                        description: The protocol exposed on the port.
+                        format: string
+                        type: string
+                    type: object
+                type: object
+              type: array
+            localhost:
+              properties:
+                clientTls:
+                  properties:
+                    caCertificates:
+                      format: string
+                      type: string
+                    clientCertificate:
+                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      format: string
+                      type: string
+                    mode:
+                      enum:
+                      - DISABLE
+                      - SIMPLE
+                      - MUTUAL
+                      - ISTIO_MUTUAL
+                      type: string
+                    privateKey:
+                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      format: string
+                      type: string
+                    sni:
+                      description: SNI string to present to the server during TLS
+                        handshake.
+                      format: string
+                      type: string
+                    subjectAltNames:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                  type: object
+                serverTls:
+                  properties:
+                    caCertificates:
+                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      format: string
+                      type: string
+                    cipherSuites:
+                      description: 'Optional: If specified, only support the specified
+                        cipher list.'
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                    credentialName:
+                      format: string
+                      type: string
+                    httpsRedirect:
+                      type: boolean
+                    maxProtocolVersion:
+                      description: 'Optional: Maximum TLS protocol version.'
+                      enum:
+                      - TLS_AUTO
+                      - TLSV1_0
+                      - TLSV1_1
+                      - TLSV1_2
+                      - TLSV1_3
+                      type: string
+                    minProtocolVersion:
+                      description: 'Optional: Minimum TLS protocol version.'
+                      enum:
+                      - TLS_AUTO
+                      - TLSV1_0
+                      - TLSV1_1
+                      - TLSV1_2
+                      - TLSV1_3
+                      type: string
+                    mode:
+                      enum:
+                      - PASSTHROUGH
+                      - SIMPLE
+                      - MUTUAL
+                      - AUTO_PASSTHROUGH
+                      - ISTIO_MUTUAL
+                      type: string
+                    privateKey:
+                      description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                      format: string
+                      type: string
+                    serverCertificate:
+                      description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                      format: string
+                      type: string
+                    subjectAltNames:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                    verifyCertificateHash:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                    verifyCertificateSpki:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                  type: object
+              type: object
             outboundTrafficPolicy:
               description: Configuration for the outbound traffic policy.
               properties:
@@ -10132,6 +11482,14 @@ spec:
                         description: String patterns that match allowed origins.
                         items:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -10146,6 +11504,7 @@ spec:
                               format: string
                               type: string
                             regex:
+                              description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                               format: string
                               type: string
                           type: object
@@ -10158,12 +11517,32 @@ spec:
                       maxAge:
                         type: string
                     type: object
+                  delegate:
+                    properties:
+                      name:
+                        description: Name specifies the name of the delegate VirtualService.
+                        format: string
+                        type: string
+                      namespace:
+                        description: Namespace specifies the namespace where the delegate
+                          VirtualService resides.
+                        format: string
+                        type: string
+                    type: object
                   fault:
                     description: Fault injection policy to apply on HTTP traffic at
                       the client side.
                     properties:
                       abort:
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - httpStatus
+                            - required:
+                              - grpcStatus
+                            - required:
+                              - http2Error
                         - required:
                           - httpStatus
                         - required:
@@ -10193,13 +11572,15 @@ spec:
                         type: object
                       delay:
                         oneOf:
-                        - properties:
-                            percent: {}
-                          required:
+                        - not:
+                            anyOf:
+                            - required:
+                              - fixedDelay
+                            - required:
+                              - exponentialDelay
+                        - required:
                           - fixedDelay
-                        - properties:
-                            percent: {}
-                          required:
+                        - required:
                           - exponentialDelay
                         properties:
                           exponentialDelay:
@@ -10266,6 +11647,14 @@ spec:
                       properties:
                         authority:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -10280,6 +11669,7 @@ spec:
                               format: string
                               type: string
                             regex:
+                              description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                               format: string
                               type: string
                           type: object
@@ -10293,6 +11683,14 @@ spec:
                         headers:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -10307,6 +11705,7 @@ spec:
                                 format: string
                                 type: string
                               regex:
+                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                 format: string
                                 type: string
                             type: object
@@ -10317,6 +11716,14 @@ spec:
                           type: boolean
                         method:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -10331,6 +11738,7 @@ spec:
                               format: string
                               type: string
                             regex:
+                              description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                               format: string
                               type: string
                           type: object
@@ -10345,6 +11753,14 @@ spec:
                         queryParams:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -10359,6 +11775,7 @@ spec:
                                 format: string
                                 type: string
                               regex:
+                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                 format: string
                                 type: string
                             type: object
@@ -10366,6 +11783,14 @@ spec:
                           type: object
                         scheme:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -10380,6 +11805,7 @@ spec:
                               format: string
                               type: string
                             regex:
+                              description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                               format: string
                               type: string
                           type: object
@@ -10395,6 +11821,14 @@ spec:
                           type: string
                         uri:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -10409,12 +11843,21 @@ spec:
                               format: string
                               type: string
                             regex:
+                              description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                               format: string
                               type: string
                           type: object
                         withoutHeaders:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -10429,6 +11872,7 @@ spec:
                                 format: string
                                 type: string
                               regex:
+                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
                                 format: string
                                 type: string
                             type: object
@@ -10755,6 +12199,90 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    app: istio-pilot
+    chart: istio
+    heritage: Tiller
+    release: istio
+  name: workloadentries.networking.istio.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    description: 'CreationTimestamp is a timestamp representing the server time when
+      this object was created. It is not guaranteed to be set in happens-before order
+      across separate operations. Clients may not set this value. It is represented
+      in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
+      lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+    name: Age
+    type: date
+  - JSONPath: .spec.address
+    description: Address associated with the network endpoint.
+    name: Address
+    type: string
+  group: networking.istio.io
+  names:
+    categories:
+    - istio-io
+    - networking-istio-io
+    kind: WorkloadEntry
+    listKind: WorkloadEntryList
+    plural: workloadentries
+    shortNames:
+    - we
+    singular: workloadentry
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          description: 'Configuration affecting VMs onboarded into the mesh. See more
+            details at: https://istio.io/docs/reference/config/networking/workload-entry.html'
+          properties:
+            address:
+              format: string
+              type: string
+            labels:
+              additionalProperties:
+                format: string
+                type: string
+              description: One or more labels associated with the endpoint.
+              type: object
+            locality:
+              description: The locality associated with the endpoint.
+              format: string
+              type: string
+            network:
+              format: string
+              type: string
+            ports:
+              additionalProperties:
+                type: integer
+              description: Set of ports associated with the endpoint.
+              type: object
+            serviceAccount:
+              format: string
+              type: string
+            weight:
+              description: The load balancing weight associated with the endpoint.
+              type: integer
+          type: object
+      type: object
+  versions:
+  - name: v1alpha3
+    served: true
+    storage: true
+  - name: v1beta1
+    served: true
+    storage: false
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  labels:
     app: mixer
     chart: istio
     heritage: Tiller
@@ -10876,15 +12404,58 @@ spec:
                 authentication:
                   description: Auth config for the connection to the backend.
                   oneOf:
+                  - not:
+                      anyOf:
+                      - properties:
+                          tls:
+                            allOf:
+                            - oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - tokenPath
+                                  - required:
+                                    - oauth
+                              - required:
+                                - tokenPath
+                              - required:
+                                - oauth
+                            - oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - authHeader
+                                  - required:
+                                    - customHeader
+                              - required:
+                                - authHeader
+                              - required:
+                                - customHeader
+                        required:
+                        - tls
+                      - required:
+                        - mutual
                   - properties:
                       tls:
                         allOf:
                         - oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - tokenPath
+                              - required:
+                                - oauth
                           - required:
                             - tokenPath
                           - required:
                             - oauth
                         - oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - authHeader
+                              - required:
+                                - customHeader
                           - required:
                             - authHeader
                           - required:
@@ -11235,8 +12806,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             enforcementMode:
               enum:
@@ -11323,8 +12893,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             enforcementMode:
               enum:
@@ -11411,8 +12980,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             rules:
               description: The set of access rules (permissions) that the role has.
@@ -11535,8 +13103,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             actions:
               items:
@@ -11914,6 +13481,8 @@ spec:
     kind: PeerAuthentication
     listKind: PeerAuthenticationList
     plural: peerauthentications
+    shortNames:
+    - pa
     singular: peerauthentication
   scope: Namespaced
   subresources:
@@ -11990,6 +13559,8 @@ spec:
     kind: RequestAuthentication
     listKind: RequestAuthenticationList
     plural: requestauthentications
+    shortNames:
+    - ra
     singular: requestauthentication
   scope: Namespaced
   subresources:
@@ -12136,50 +13707,56 @@ spec:
       storage: true
 ---
 
+# SYNC WITH manifests/istio-operator/templates
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: istiooperators.install.istio.io
+spec:
+  group: install.istio.io
+  names:
+    kind: IstioOperator
+    plural: istiooperators
+    singular: istiooperator
+    shortNames:
+    - iop
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        spec:
+          description: 'Specification of the desired state of the istio control plane resource.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+        status:
+          description: 'Status describes each of istio control plane component status at the current time.
+            0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
+            More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
+            https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+---
+
 
 ---
 # Source: base/templates/clusterrole.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-pilot-istio-system
-  labels:
-    app: pilot
-    release: istio-base
-rules:
-- apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
-  verbs: ["get", "watch", "list"]
-  resources: ["*"]
-- apiGroups: ["apiextensions.k8s.io"]
-  resources: ["customresourcedefinitions"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["extensions"]
-  resources: ["ingresses"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["extensions"]
-  resources: ["ingresses/status"]
-  verbs: ["*"]
-  # TODO: remove, too broad permission, should be namespace only
-- apiGroups: [""]
-  resources: ["configmaps"]
-  # Create and update needed for ingress election
-  verbs: ["get", "list", "watch", "create", "update"]
-- apiGroups: [""]
-  resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["create", "get", "watch", "list", "update", "delete"]
-- apiGroups: ["certificates.k8s.io"]
-  resources:
-    - "certificatesigningrequests"
-    - "certificatesigningrequests/approval"
-    - "certificatesigningrequests/status"
-  verbs: ["update", "create", "get", "delete", "watch"]
-- apiGroups: ["discovery.k8s.io"]
-  resources: ["endpointslices"]
-  verbs: ["get", "list", "watch"]
----
 # Dedicated cluster role - istiod will use fewer dangerous permissions ( secret access in particular ).
 # TODO: separate cluster role with the minimal set of permissions needed for a 'tenant' Istiod
 apiVersion: rbac.authorization.k8s.io/v1
@@ -12228,10 +13805,10 @@ rules:
     verbs: ["get", "list", "watch"]
 
   # ingress controller
-  - apiGroups: ["extensions"]
-    resources: ["ingresses"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "ingressclasses"]
     verbs: ["get", "list", "watch"]
-  - apiGroups: ["extensions"]
+  - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses/status"]
     verbs: ["*"]
 
@@ -12247,6 +13824,13 @@ rules:
       - "certificatesigningrequests/approval"
       - "certificatesigningrequests/status"
     verbs: ["update", "create", "get", "delete", "watch"]
+  - apiGroups: ["certificates.k8s.io"]
+    resources:
+      - "signers"
+    resourceNames:
+    - "kubernetes.io/legacy-unknown"
+    verbs: ["approve"]
+
   # Used by Istiod to verify the JWT tokens
   - apiGroups: ["authentication.k8s.io"]
     resources: ["tokenreviews"]
@@ -12306,22 +13890,6 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: istio-reader-service-account
-    namespace: istio-system
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-pilot-istio-system
-  labels:
-    app: pilot
-    release: istio-base
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-pilot-istio-system
-subjects:
-  - kind: ServiceAccount
-    name: istio-pilot-service-account
     namespace: istio-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -12438,48 +14006,7 @@ func chartsBaseKustomizationYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsBaseTemplatesClusterroleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-pilot-{{ .Values.global.istioNamespace }}
-  labels:
-    app: pilot
-    release: {{ .Release.Name }}
-rules:
-- apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
-  verbs: ["get", "watch", "list"]
-  resources: ["*"]
-- apiGroups: ["apiextensions.k8s.io"]
-  resources: ["customresourcedefinitions"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["extensions"]
-  resources: ["ingresses"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["extensions"]
-  resources: ["ingresses/status"]
-  verbs: ["*"]
-  # TODO: remove, too broad permission, should be namespace only
-- apiGroups: [""]
-  resources: ["configmaps"]
-  # Create and update needed for ingress election
-  verbs: ["get", "list", "watch", "create", "update"]
-- apiGroups: [""]
-  resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["create", "get", "watch", "list", "update", "delete"]
-- apiGroups: ["certificates.k8s.io"]
-  resources:
-    - "certificatesigningrequests"
-    - "certificatesigningrequests/approval"
-    - "certificatesigningrequests/status"
-  verbs: ["update", "create", "get", "delete", "watch"]
-- apiGroups: ["discovery.k8s.io"]
-  resources: ["endpointslices"]
-  verbs: ["get", "list", "watch"]
----
-# Dedicated cluster role - istiod will use fewer dangerous permissions ( secret access in particular ).
+var _chartsBaseTemplatesClusterroleYaml = []byte(`# Dedicated cluster role - istiod will use fewer dangerous permissions ( secret access in particular ).
 # TODO: separate cluster role with the minimal set of permissions needed for a 'tenant' Istiod
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -12507,7 +14034,11 @@ rules:
 
   # istio configuration
   - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
+{{- if .Values.global.istiod.enableAnalysis }}
+    verbs: ["get", "watch", "list", "update"]
+{{- else }}
     verbs: ["get", "watch", "list"]
+{{- end }}
     resources: ["*"]
 
   # auto-detect installed CRD definitions
@@ -12527,10 +14058,18 @@ rules:
     verbs: ["get", "list", "watch"]
 
   # ingress controller
-  - apiGroups: ["extensions"]
+{{- if .Values.global.istiod.enableAnalysis }}
+  - apiGroups: ["extensions", "networking.k8s.io"]
     resources: ["ingresses"]
     verbs: ["get", "list", "watch"]
-  - apiGroups: ["extensions"]
+  - apiGroups: ["extensions", "networking.k8s.io"]
+    resources: ["ingresses/status"]
+    verbs: ["*"]
+{{- end}}
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "ingressclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses/status"]
     verbs: ["*"]
 
@@ -12546,6 +14085,13 @@ rules:
       - "certificatesigningrequests/approval"
       - "certificatesigningrequests/status"
     verbs: ["update", "create", "get", "delete", "watch"]
+  - apiGroups: ["certificates.k8s.io"]
+    resources:
+      - "signers"
+    resourceNames:
+    - "kubernetes.io/legacy-unknown"
+    verbs: ["approve"]
+
   # Used by Istiod to verify the JWT tokens
   - apiGroups: ["authentication.k8s.io"]
     resources: ["tokenreviews"]
@@ -12624,22 +14170,6 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-pilot-{{ .Values.global.istioNamespace }}
-  labels:
-    app: pilot
-    release: {{ .Release.Name }}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-pilot-{{ .Values.global.istioNamespace }}
-subjects:
-  - kind: ServiceAccount
-    name: istio-pilot-service-account
-    namespace: {{ .Values.global.istioNamespace }}
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
   name: istiod-pilot-{{ .Values.global.istioNamespace }}
   labels:
     app: pilot
@@ -12672,6 +14202,7 @@ func chartsBaseTemplatesClusterrolebindingYaml() (*asset, error) {
 
 var _chartsBaseTemplatesCrdsYaml = []byte(`{{ .Files.Get "files/crd-all.gen.yaml" }}
 {{ .Files.Get "files/crd-mixer.yaml" }}
+{{ .Files.Get "files/crd-operator.yaml" }}
 `)
 
 func chartsBaseTemplatesCrdsYamlBytes() ([]byte, error) {
@@ -12769,30 +14300,6 @@ func chartsBaseTemplatesEndpointsYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "charts/base/templates/endpoints.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsBaseTemplatesNamespacesYaml = []byte(`apiVersion: v1
-kind: Namespace
-metadata:
-  name: {{ .Values.global.istioNamespace }}
-  labels:
-    istio-operator-managed: Reconcile
-    istio-injection: disabled
-`)
-
-func chartsBaseTemplatesNamespacesYamlBytes() ([]byte, error) {
-	return _chartsBaseTemplatesNamespacesYaml, nil
-}
-
-func chartsBaseTemplatesNamespacesYaml() (*asset, error) {
-	bytes, err := chartsBaseTemplatesNamespacesYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/base/templates/namespaces.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -12993,16 +14500,14 @@ var _chartsBaseValuesYaml = []byte(`global:
 
   # ImagePullSecrets for control plane ServiceAccount, list of secrets in the same namespace
   # to use for pulling any images in pods that reference this ServiceAccount.
-  # Must be set for any clustser configured with private docker registry.
+  # Must be set for any cluster configured with private docker registry.
   imagePullSecrets: []
 
-  # Used to locate istio-pilot.
-  # Default is to install pilot in a dedicated namespace, istio-pilot11. You can use multiple namespaces, but
-  # for each 'profile' you need to match the control plane namespace and the value of istioNamespace
-  # It is assumed that istio-system is running either 1.0 or an upgraded version of 1.1, but only security components are
-  # used (citadel generating the secrets).
+  # Used to locate istiod.
   istioNamespace: istio-system
-`)
+
+  istiod:
+    enableAnalysis: false`)
 
 func chartsBaseValuesYamlBytes() ([]byte, error) {
 	return _chartsBaseValuesYaml, nil
@@ -13277,7 +14782,7 @@ var _chartsGatewaysIstioEgressTemplatesAutoscaleYaml = []byte(`{{ $gateway := in
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: istio-egressgateway
+  name: {{ $gateway.name | default "istio-egressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -13288,7 +14793,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: istio-egressgateway
+    name: {{ $gateway.name | default "istio-egressgateway" }}
   metrics:
     - type: Resource
       resource:
@@ -13317,7 +14822,7 @@ var _chartsGatewaysIstioEgressTemplatesDeploymentYaml = []byte(`{{ $gateway := i
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istio-egressgateway
+  name: {{ $gateway.name | default "istio-egressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -13344,7 +14849,7 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
-        service.istio.io/canonical-name: istio-egressgateway
+        service.istio.io/canonical-name: {{ $gateway.name | default "istio-egressgateway" }}
 {{- if not (eq .Values.revision "") }}
         service.istio.io/canonical-revision: {{ .Values.revision }}
 {{- else}}
@@ -13414,22 +14919,9 @@ spec:
           - --log_as_json
         {{- end }}
           - --serviceCluster
-          - istio-egressgateway
-          - --proxyAdminPort
-          - "15000"
+          - {{ $gateway.name | default "istio-egressgateway" }}
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
-        {{- end }}
-          - --controlPlaneAuthPolicy
-          - NONE
-          - --discoveryAddress
-        {{- $namespace := .Values.global.configNamespace | default "istio-system" }}
-        {{- if .Values.global.remotePilotAddress }}
-        # Use the DNS hostname instead of the IP address. The discovery address needs to match the
-        # SAN in istiod's cert. The istiod-remote.<namespace>.svc will resolve to the remotePilotAddress.
-          - istiod-remote.{{ $namespace }}.svc:15012
-        {{- else }}
-          - istio-pilot.{{ $namespace }}.svc:15012
         {{- end }}
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
@@ -13485,9 +14977,9 @@ spec:
               fieldRef:
                 fieldPath: spec.serviceAccountName
           - name: ISTIO_META_WORKLOAD_NAME
-            value: istio-egressgateway
+            value: {{ $gateway.name | default "istio-egressgateway" }}
           - name: ISTIO_META_OWNER
-            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/istio-egressgateway
+            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/{{ $gateway.name | default "istio-egressgateway" }}
           {{- if $.Values.global.meshID }}
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.meshID }}"
@@ -13495,19 +14987,6 @@ spec:
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.trustDomain }}"
           {{- end }}
-          {{- if $.Values.global.mtls.auto }}
-          - name: ISTIO_AUTO_MTLS_ENABLED
-            value: "true"
-          {{- end }}
-          - name: ISTIO_META_POD_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.name
-          - name: ISTIO_META_CONFIG_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
           {{- if $gateway.env }}
           {{- range $key, $val := $gateway.env }}
           - name: {{ $key }}
@@ -13628,7 +15107,7 @@ var _chartsGatewaysIstioEgressTemplatesPoddisruptionbudgetYaml = []byte(`{{- if 
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istio-egressgateway
+  name: {{ $gateway.name | default "istio-egressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -13760,7 +15239,7 @@ var _chartsGatewaysIstioEgressTemplatesServiceYaml = []byte(`{{ $gateway := inde
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-egressgateway
+  name: {{ $gateway.name | default "istio-egressgateway" }}
   namespace: {{ .Release.Namespace }}
   annotations:
     {{- range $key, $val := $gateway.serviceAnnotations }}
@@ -13834,6 +15313,7 @@ var _chartsGatewaysIstioEgressValuesYaml = []byte(`# Standalone istio egress gat
 # Should be installed in a separate namespace, to minimize access to config
 gateways:
   istio-egressgateway:
+    name: istio-egressgateway
     ports:
     - port: 80
       name: http2
@@ -13854,11 +15334,11 @@ gateways:
       # This can be a real domain name ( istio.example.com )
       suffix: global
       enabled: false
-    
+
     labels:
       app: istio-egressgateway
       istio: egressgateway
-  
+
 
     # Scalability tunning
     # replicaCount: 1
@@ -14153,94 +15633,12 @@ func chartsGatewaysIstioIngressTemplates_affinityTpl() (*asset, error) {
 	return a, nil
 }
 
-var _chartsGatewaysIstioIngressTemplatesAddongatewayYaml = []byte(`# Template for telemetry addon gateways
-{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
-{{ range $addon := $gateway.telemetry_addon_gateways }}
-{{ if $addon.enabled }}
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: istio-{{ $addon.name }}-gateway
-  namespace: {{ $.Release.Namespace }}
-  labels:
-    app: {{ $addon.name }}
-    release: {{ $.Release.Name }}
-spec:
-  selector:
-    istio: ingressgateway
-  servers:
-    - port:
-        number: {{ $addon.port }}
-        name: https-{{ $addon.name }}
-        protocol: HTTPS
-      tls:
-        mode: SIMPLE
-        serverCertificate: /etc/istio/ingressgateway-certs/tls.crt
-        privateKey: /etc/istio/ingressgateway-certs/tls.key
-      hosts:
-        - "*"
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: {{ $addon.name }}-virtual-service
-  namespace: {{ $.Release.Namespace }}
-  labels:
-    app: {{ $addon.name }}
-    release: {{ $.Release.Name }}
-spec:
-  hosts:
-    - "*"
-  gateways:
-    - istio-{{ $addon.name }}-gateway
-  http:
-    - match:
-        - port: {{ $addon.port }}
-      route:
-        - destination:
-            host: {{ $addon.name }}.{{ $.Release.Namespace }}.svc.{{ $.Values.global.proxy.clusterDomain }}
-            port:
-              number: {{ $addon.desPort }}
----
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: {{ $addon.name }}
-  namespace: {{ $.Release.Namespace }}
-  labels:
-    app: {{ $addon.name }}
-    release: {{ $.Release.Name }}
-spec:
-  host: {{ $addon.name }}.{{ $.Release.Namespace }}.svc.{{ $.Values.global.proxy.clusterDomain }}
-  trafficPolicy:
-    tls:
-      mode: DISABLE
----
-{{- end }}
-{{- end }}
-`)
-
-func chartsGatewaysIstioIngressTemplatesAddongatewayYamlBytes() ([]byte, error) {
-	return _chartsGatewaysIstioIngressTemplatesAddongatewayYaml, nil
-}
-
-func chartsGatewaysIstioIngressTemplatesAddongatewayYaml() (*asset, error) {
-	bytes, err := chartsGatewaysIstioIngressTemplatesAddongatewayYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/gateways/istio-ingress/templates/addongateway.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _chartsGatewaysIstioIngressTemplatesAutoscaleYaml = []byte(`{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
 {{- if and $gateway.autoscaleEnabled $gateway.autoscaleMin $gateway.autoscaleMax }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: istio-ingressgateway
+  name: {{ $gateway.name | default "istio-ingressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -14251,7 +15649,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: istio-ingressgateway
+    name: {{ $gateway.name | default "istio-ingressgateway" }}
   metrics:
     - type: Resource
       resource:
@@ -14276,73 +15674,11 @@ func chartsGatewaysIstioIngressTemplatesAutoscaleYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsGatewaysIstioIngressTemplatesCertificateYaml = []byte(`{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
-{{ if $gateway.certificates }}
----
-# Auto-generate Certmanager Issuer and certificate requests.
-# Requires 'email' to be set, for Let's Encrypt use.
-
-apiVersion: certmanager.k8s.io/v1alpha1
-kind: Issuer
-metadata:
-  name: letsencrypt
-  namespace: {{ .Release.Namespace }}
-spec:
-  acme:
-    server: https://acme-v02.api.letsencrypt.org/directory
-    email: {{ $gateway.email }}
-    privateKeySecretRef:
-      name: letsencrypt
-    http01: {}
----
-
-apiVersion: certmanager.k8s.io/v1alpha1
-kind: Certificate
-metadata:
-  name: istio-ingressgateway-certs
-  namespace: {{ .Release.Namespace }}
-spec:
-  secretName: istio-ingressgateway-certs
-  issuerRef:
-    name: letsencrypt
-    kind: ClusterIssuer
-  commonName: {{ $gateway.commonName }}
-  dnsNames:
-{{- range $key := $gateway.certificates }}
-  - {{ $key }}
-{{- end }}
-  acme:
-    config:
-    - http01:
-        ingressClass: istio
-      domains:
-{{- range $key := $gateway.certificates }}
-      - {{ $key }}
-{{- end }}
-{{- end }}
-
-`)
-
-func chartsGatewaysIstioIngressTemplatesCertificateYamlBytes() ([]byte, error) {
-	return _chartsGatewaysIstioIngressTemplatesCertificateYaml, nil
-}
-
-func chartsGatewaysIstioIngressTemplatesCertificateYaml() (*asset, error) {
-	bytes, err := chartsGatewaysIstioIngressTemplatesCertificateYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/gateways/istio-ingress/templates/certificate.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _chartsGatewaysIstioIngressTemplatesDeploymentYaml = []byte(`{{- $gateway := index .Values "gateways" "istio-ingressgateway" }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istio-ingressgateway
+  name: {{ $gateway.name | default "istio-ingressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -14369,7 +15705,7 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
-        service.istio.io/canonical-name: istio-ingressgateway
+        service.istio.io/canonical-name: {{ $gateway.name | default "istio-ingressgateway" }}
         {{- if not (eq .Values.revision "") }}
         service.istio.io/canonical-revision: {{ .Values.revision }}
         {{- else}}
@@ -14442,23 +15778,10 @@ spec:
           - --log_as_json
         {{- end }}
           - --serviceCluster
-          - istio-ingressgateway
-          - --proxyAdminPort
-          - "15000"
+          - {{ $gateway.name | default "istio-ingressgateway" }}
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
         {{- end }}
-          - --controlPlaneAuthPolicy
-          - NONE
-          - --discoveryAddress
-          {{- $namespace := .Values.global.configNamespace | default "istio-system" }}
-          {{- if .Values.global.remotePilotAddress }}
-          # Use the DNS hostname instead of the IP address. The discovery address needs to match the
-          # SAN in istiod's cert. The istiod-remote.<namespace>.svc will resolve to the remotePilotAddress.
-          - istiod-remote.{{ $namespace }}.svc:15012
-          {{- else }}
-          - istio-pilot.{{ $namespace }}.svc:15012
-          {{- end }}
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
@@ -14483,15 +15806,13 @@ spec:
             value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
             value: {{ .Values.global.pilotCertProvider }}
-          - name: "ISTIO_META_USER_SDS"
-            value: "true"
           - name: CA_ADDR
           {{- if .Values.global.caAddress }}
             value: {{ .Values.global.caAddress }}
           {{- else if .Values.global.configNamespace }}
-            value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
           {{- else }}
-            value: istiod.istio-system.svc:15012
+            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
           {{- end }}
           - name: NODE_NAME
             valueFrom:
@@ -14523,9 +15844,9 @@ spec:
               fieldRef:
                 fieldPath: spec.serviceAccountName
           - name: ISTIO_META_WORKLOAD_NAME
-            value: istio-ingressgateway
+            value: {{ $gateway.name | default "istio-ingressgateway" }}
           - name: ISTIO_META_OWNER
-            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/istio-ingressgateway
+            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/{{ $gateway.name | default "istio-ingressgateway" }}
           {{- if $.Values.global.meshID }}
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.meshID }}"
@@ -14533,19 +15854,6 @@ spec:
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.trustDomain }}"
           {{- end }}
-          {{- if $.Values.global.mtls.auto }}
-          - name: ISTIO_AUTO_MTLS_ENABLED
-            value: "true"
-          {{- end }}
-          - name: ISTIO_META_POD_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.name
-          - name: ISTIO_META_CONFIG_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
           {{- range $key, $val := $gateway.env }}
           - name: {{ $key }}
             value: {{ $val }}
@@ -14668,130 +15976,6 @@ func chartsGatewaysIstioIngressTemplatesDeploymentYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsGatewaysIstioIngressTemplatesGatewayYaml = []byte(`{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
-# Main Gateway. Apps must bind to NAMESPACE/ingressgateway
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: ingressgateway
-  namespace: {{ .Release.Namespace }}
-  labels:
-    release: {{ .Release.Name }}
-spec:
-  selector:
-    istio: ingressgateway
-  servers:
-{{- if $gateway.tls }}
-  - port:
-      number: 443
-      name: https-default
-      protocol: HTTPS
-    tls:
-      mode: SIMPLE
-      serverCertificate: /etc/istio/ingressgateway-certs/tls.crt
-      privateKey: /etc/istio/ingressgateway-certs/tls.key
-    hosts:
-      - "*"
-  {{- end }}
-  - port:
-      number: 80
-      name: http
-      protocol: HTTP
-    hosts:
-      - "*"
-    # Additional ports in gateaway for the ingressPorts - apps using dedicated port instead of hostname
-{{ range $app := $gateway.ingressPorts }}
-  - port:
-      number: {{ $app.port }}
-      name: {{ $app.name }}
-      protocol: HTTP2
-    hosts:
-    - "*"
-{{- end }}
-`)
-
-func chartsGatewaysIstioIngressTemplatesGatewayYamlBytes() ([]byte, error) {
-	return _chartsGatewaysIstioIngressTemplatesGatewayYaml, nil
-}
-
-func chartsGatewaysIstioIngressTemplatesGatewayYaml() (*asset, error) {
-	bytes, err := chartsGatewaysIstioIngressTemplatesGatewayYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/gateways/istio-ingress/templates/gateway.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsGatewaysIstioIngressTemplatesHostsYaml = []byte(`{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
-
-# TODO: range TCP ports, add ports
-# {{ $gateway.domain }}
-{{ range $app := $gateway.hosts }}
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: {{ $app.name }}
-  namespace: {{ $.Release.Namespace }}
-  labels:
-    release: {{ $.Release.Name }}
-spec:
-  hosts:
-  - "{{ $app.name }}.{{ $gateway.domain }}"
-  gateways:
-  - ingressgateway
-  http:
-  - route:
-    - destination:
-        host: {{ $app.dest }}
-        port:
-          number: {{ $app.destPort }}
-{{- end }}
-
-{{ range $app := $gateway.ingressPorts }}
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: {{ $app.name }}
-  namespace: {{ $.Release.Namespace }}
-  labels:
-    release: {{ $.Release.Name }}
-spec:
-  hosts:
-  - "*"
-  gateways:
-  - ingressgateway
-  http:
-  -
-    match:
-    - port: {{ $app.port }}
-    route:
-    - destination:
-        host: {{ $app.dest }}
-        port:
-          number: {{ $app.destPort }}
-{{- end }}
-`)
-
-func chartsGatewaysIstioIngressTemplatesHostsYamlBytes() ([]byte, error) {
-	return _chartsGatewaysIstioIngressTemplatesHostsYaml, nil
-}
-
-func chartsGatewaysIstioIngressTemplatesHostsYaml() (*asset, error) {
-	bytes, err := chartsGatewaysIstioIngressTemplatesHostsYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/gateways/istio-ingress/templates/hosts.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _chartsGatewaysIstioIngressTemplatesMeshexpansionYaml = []byte(`{{- if .Values.global.meshExpansion.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
@@ -14811,8 +15995,6 @@ spec:
       hosts:
         - "*"
 ---
-
-
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -14875,7 +16057,7 @@ var _chartsGatewaysIstioIngressTemplatesPoddisruptionbudgetYaml = []byte(`{{- if
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: ingressgateway
+  name: {{ $gateway.name | default "istio-ingressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -14905,41 +16087,6 @@ func chartsGatewaysIstioIngressTemplatesPoddisruptionbudgetYaml() (*asset, error
 }
 
 var _chartsGatewaysIstioIngressTemplatesPreconfiguredYaml = []byte(`{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
-{{- if .Values.global.k8sIngress.enabled }}
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: istio-autogenerated-k8s-ingress
-  namespace: {{ .Release.Namespace }}
-  labels:
-{{ $gateway.labels | toYaml | indent 4 }}
-    release: {{ .Release.Name }}
-spec:
-  selector:
-    istio: {{ .Values.global.k8sIngress.gatewayName }}
-  servers:
-  - port:
-      number: 80
-      protocol: HTTP
-      name: http
-    hosts:
-    - "*"
-{{ if .Values.global.k8sIngress.enableHttps }}
-  - port:
-      number: 443
-      protocol: HTTPS
-      name: https-default
-    tls:
-      mode: SIMPLE
-      serverCertificate: /etc/istio/ingressgateway-certs/tls.crt
-      privateKey: /etc/istio/ingressgateway-certs/tls.key
-    hosts:
-    - "*"
-{{ end }}
----
-{{ end }}
-
-
 {{- if .Values.global.multiCluster.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
@@ -15096,7 +16243,7 @@ var _chartsGatewaysIstioIngressTemplatesServiceYaml = []byte(`{{ $gateway := ind
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-ingressgateway
+  name: {{ $gateway.name | default "istio-ingressgateway" }}
   namespace: {{ .Release.Namespace }}
   annotations:
     {{- range $key, $val := $gateway.serviceAnnotations }}
@@ -15192,39 +16339,12 @@ func chartsGatewaysIstioIngressTemplatesServiceaccountYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsGatewaysIstioIngressTemplatesSidecarYaml = []byte(`apiVersion: networking.istio.io/v1alpha3
-kind: Sidecar
-metadata:
-  name: default
-  namespace: {{ .Release.Namespace }}
-  labels:
-    release: {{ .Release.Name }}
-spec:
-  egress:
-    - hosts:
-        - "*/*"
-`)
-
-func chartsGatewaysIstioIngressTemplatesSidecarYamlBytes() ([]byte, error) {
-	return _chartsGatewaysIstioIngressTemplatesSidecarYaml, nil
-}
-
-func chartsGatewaysIstioIngressTemplatesSidecarYaml() (*asset, error) {
-	bytes, err := chartsGatewaysIstioIngressTemplatesSidecarYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/gateways/istio-ingress/templates/sidecar.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _chartsGatewaysIstioIngressValuesYaml = []byte(`# A-la-carte istio ingress gateway.
 # Must be installed in a separate namespace, to minimize access to secrets.
 
 gateways:
   istio-ingressgateway:
+    name: istio-ingressgateway
     labels:
       app: istio-ingressgateway
       istio: ingressgateway
@@ -15254,9 +16374,6 @@ gateways:
     - port: 15032
       targetPort: 15032
       name: tracing
-    - port: 31400
-      targetPort: 31400
-      name: tcp
       # This is the port where sni routing happens
     - port: 15443
       targetPort: 15443
@@ -16542,9 +17659,9 @@ spec:
             {{- if .Values.global.caAddress }}
             value: {{ .Values.global.caAddress }}
             {{- else if .Values.global.configNamespace }}
-            value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
             {{- else }}
-            value: istiod.istio-system.svc:15012
+            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
             {{- end }}
           resources:
 {{- if .Values.global.proxy.resources }}
@@ -16833,6 +17950,8 @@ var _chartsIstioControlIstioConfigValuesYaml = []byte(`galley:
 
   # Enable analysis and status update in Galley
   enableAnalysis: false
+
+revision: ""
 `)
 
 func chartsIstioControlIstioConfigValuesYamlBytes() ([]byte, error) {
@@ -16911,6 +18030,7 @@ metadata:
   namespace: istio-system
   labels:
     app: istiod
+    istio.io/rev: default
     release: istio-base
     istio: pilot
 spec:
@@ -16918,12 +18038,14 @@ spec:
   selector:
     matchLabels:
       app: istiod
-      release: istio-base
       istio: pilot
 ---
 
 ---
 # Source: istio-discovery/templates/configmap.yaml
+
+
+
 
 apiVersion: v1
 kind: ConfigMap
@@ -16931,6 +18053,7 @@ metadata:
   name: istio
   namespace: istio-system
   labels:
+    istio.io/rev: default
     release: istio-base
 data:
 
@@ -16950,7 +18073,7 @@ data:
     cpu:
       targetAverageUtilization: 80
     deploymentLabels: {}
-    enableProtocolSniffingForInbound: false
+    enableProtocolSniffingForInbound: true
     enableProtocolSniffingForOutbound: true
     env: {}
     hub: ""
@@ -16982,25 +18105,19 @@ data:
   mesh: |-
     # Set enableTracing to false to disable request tracing.
     enableTracing: true
-
     # Set accessLogFile to empty string to disable access log.
     accessLogFile: ""
-
     accessLogFormat: ""
-
     accessLogEncoding: 'TEXT'
-
     enableEnvoyAccessLogService: false
     # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
     reportBatchMaxEntries: 100
     # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
     reportBatchMaxTime: 1s
     disableMixerHttpReports: true
-
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
     disablePolicyChecks: true
-
     # Automatic protocol detection uses a set of heuristics to
     # determine whether the connection is using TLS or not (on the
     # server side), as well as the application protocol being used
@@ -17011,32 +18128,26 @@ data:
     # traffic. Set this field to tweak the period that Envoy will wait
     # for the client to send the first bits of data. (MUST BE >=1ms)
     protocolDetectionTimeout: 100ms
-
     # This is the k8s ingress service name, update if you used a different name
     ingressService: "istio-ingressgateway"
     ingressControllerMode: "STRICT"
     ingressClass: "istio"
-
     # The trust domain corresponds to the trust root of a system.
     # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
     trustDomain: "cluster.local"
-
     #  The trust domain aliases represent the aliases of trust_domain.
     #  For example, if we have
     #  trustDomain: td1
-    #  trustDomainAliases: [“td2”, "td3"]
+    #  trustDomainAliases: ["td2", "td3"]
     #  Any service with the identity "td1/ns/foo/sa/a-service-account", "td2/ns/foo/sa/a-service-account",
     #  or "td3/ns/foo/sa/a-service-account" will be treated the same in the Istio mesh.
     trustDomainAliases:
-
     # Used by pilot-agent
     sdsUdsPath: "unix:/etc/istio/proxy/SDS"
-
     # If true, automatically configure client side mTLS settings to match the corresponding service's
     # server side mTLS authentication policy, when destination rule for that service does not specify
     # TLS settings.
     enableAutoMtls: true
-
     outboundTrafficPolicy:
       mode: ALLOW_ANY
     localityLbSetting:
@@ -17083,7 +18194,6 @@ data:
       # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
       controlPlaneAuthPolicy: NONE
       discoveryAddress: istiod.istio-system.svc:15012
-
 ---
 
 ---
@@ -17095,6 +18205,7 @@ metadata:
   name: istio-sidecar-injector
   namespace: istio-system
   labels:
+    istio.io/rev: default
     release: istio-base
 data:
 
@@ -17132,14 +18243,10 @@ data:
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
         "istiod": {
+          "enableAnalysis": false,
           "enabled": true
         },
         "jwtPolicy": "third-party-jwt",
-        "k8sIngress": {
-          "enableHttps": false,
-          "enabled": false,
-          "gatewayName": "ingressgateway"
-        },
         "localityLbSetting": {
           "enabled": true
         },
@@ -17182,7 +18289,6 @@ data:
           "clusterDomain": "cluster.local",
           "componentLogLevel": "misc:error",
           "concurrency": 2,
-          "dnsRefreshRate": "300s",
           "enableCoreDump": false,
           "envoyAccessLogService": {
             "enabled": false,
@@ -17230,8 +18336,6 @@ data:
           "excludeOutboundPorts": "",
           "image": "proxyv2",
           "includeIPRanges": "*",
-          "includeInboundPorts": "*",
-          "kubevirtInterfaces": "",
           "logLevel": "warning",
           "privileged": false,
           "protocolDetectionTimeout": "100ms",
@@ -17303,6 +18407,7 @@ data:
         "trustDomainAliases": [],
         "useMCP": false
       },
+      "revision": "",
       "sidecarInjectorWebhook": {
         "alwaysInjectSelector": [],
         "enableNamespacesByDefault": false,
@@ -17468,7 +18573,6 @@ data:
       {{- if .Values.global.logAsJson }}
         - --log_as_json
       {{- end }}
-        - --controlPlaneBootstrap=false
       {{- if .Values.global.proxy.lifecycle }}
         lifecycle:
           {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
@@ -17483,9 +18587,9 @@ data:
         {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
         {{- else if .Values.global.configNamespace }}
-          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
-          value: istiod.istio-system.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -17525,14 +18629,6 @@ data:
             ]
         - name: ISTIO_META_CLUSTER_ID
           value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `+"`"+`Kubernetes`+"`"+` }}"
-        - name: ISTIO_META_POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: ISTIO_META_CONFIG_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: "{{ or (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/interceptionMode`+"`"+`) .ProxyConfig.InterceptionMode.String }}"
         {{- if .Values.global.network }}
@@ -17565,8 +18661,8 @@ data:
         {{- end }}
         {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
         {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
-          - name: {{ $key }}
-            value: "{{ $value }}"
+        - name: {{ $key }}
+          value: "{{ $value }}"
         {{- end }}
         {{- end }}
         {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
@@ -17609,19 +18705,30 @@ data:
           runAsUser: 1337
           {{- end }}
         resources:
-          {{ if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
+      {{- if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) }}
+        {{- if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) }}
           requests:
             {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) -}}
             cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+` }}"
-            {{ end}}
+            {{ end }}
             {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
             memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+` }}"
             {{ end }}
-        {{ else -}}
-      {{- if .Values.global.proxy.resources }}
+        {{- end }}
+        {{- if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) }}
+          limits:
+            {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) -}}
+            cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+` }}"
+            {{ end }}
+            {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) -}}
+            memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+` }}"
+            {{ end }}
+        {{- end }}
+      {{- else }}
+        {{- if .Values.global.proxy.resources }}
           {{ toYaml .Values.global.proxy.resources | indent 4 }}
+        {{- end }}
       {{- end }}
-        {{  end -}}
         volumeMounts:
         {{- if eq .Values.global.pilotCertProvider "istiod" }}
         - mountPath: /var/run/secrets/istio
@@ -17644,7 +18751,7 @@ data:
           name: istio-certs
           readOnly: true
         {{- end }}
-        - name: podinfo
+        - name: istio-podinfo
           mountPath: /etc/istio/pod
         {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
         - mountPath: {{ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}
@@ -17667,7 +18774,7 @@ data:
       - emptyDir:
           medium: Memory
         name: istio-envoy
-      - name: podinfo
+      - name: istio-podinfo
         downwardAPI:
           items:
             - path: "labels"
@@ -17732,107 +18839,28 @@ data:
         traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/kubevirtInterfaces`+"`"+` }}"
 
 ---
-# Source: istio-discovery/templates/clusterrole-galley-disable-webhook.yaml
-
-
-
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-galley-istio-system
-  labels:
-    release: istio-base
-rules:
-  # For reading Istio resources
-  - apiGroups: [
-    "authentication.istio.io",
-    "config.istio.io",
-    "networking.istio.io",
-    "rbac.istio.io",
-    "security.istio.io"]
-    resources: ["*"]
-    verbs: ["get", "list", "watch"]
-    # For updating Istio resource statuses
-  - apiGroups: [
-    "authentication.istio.io",
-    "config.istio.io",
-    "networking.istio.io",
-    "rbac.istio.io",
-    "security.istio.io"]
-    resources: ["*/status"]
-    verbs: ["update"]
-
-    # Remove galley's permissions to reconcile the validation config when istiod is present.
-    # Notably missing here is the permission to modify webhooks.
-
-  - apiGroups: ["extensions","apps"]
-    resources: ["deployments"]
-    resourceNames: ["istio-galley"]
-    verbs: ["get"]
-  - apiGroups: [""]
-    resources: ["pods", "nodes", "services", "endpoints", "namespaces"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["extensions"]
-    resources: ["ingresses"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["extensions"]
-    resources: ["deployments/finalizers"]
-    resourceNames: ["istio-galley"]
-    verbs: ["update"]
-  - apiGroups: ["apiextensions.k8s.io"]
-    resources: ["customresourcedefinitions"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["rbac.authorization.k8s.io"]
-    resources: ["clusterroles"]
-    verbs: ["get", "list", "watch"]
----
-
----
 # Source: istio-discovery/templates/service.yaml
-
-apiVersion: v1
-kind: Service
-metadata:
-  name: istio-pilot
-  namespace: istio-system
-  labels:
-    app: pilot
-    release: istio-base
-    istio: pilot
-spec:
-  ports:
-  - port: 15010
-    name: grpc-xds # direct
-  - port: 15011
-    name: https-xds # mTLS
-  - port: 15012
-    name: https-dns # mTLS with k8s-signed cert
-  - port: 8080
-    name: http-legacy-discovery # direct
-  - port: 15014
-    name: http-monitoring
-  - port: 443
-    name: https-webhook # validation and injection
-    targetPort: 15017
-  selector:
-    istio: pilot
----
 apiVersion: v1
 kind: Service
 metadata:
   name: istiod
   namespace: istio-system
   labels:
+    istio.io/rev: default
     app: istiod
+    istio: pilot
     release: istio-base
 spec:
   ports:
+    - port: 15010
+      name: grpc-xds # plaintext
     - port: 15012
       name: https-dns # mTLS with k8s-signed cert
     - port: 443
       name: https-webhook # validation and injection
       targetPort: 15017
+    - port: 15014
+      name: http-monitoring # prometheus stats
   selector:
     app: istiod
     # Label used by the 'default' service. For versioned deployments we match with app and version.
@@ -17842,7 +18870,6 @@ spec:
 
 ---
 # Source: istio-discovery/templates/deployment.yaml
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17850,6 +18877,7 @@ metadata:
   namespace: istio-system
   labels:
     app: istiod
+    istio.io/rev: default
     istio: pilot
     release: istio-base
 spec:
@@ -17864,8 +18892,7 @@ spec:
     metadata:
       labels:
         app: istiod
-        # Label used by the 'default' service. For versioned deployments we match with app and version.
-        # This avoids default deployment picking the canary
+        istio.io/rev: default
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
@@ -17882,12 +18909,9 @@ spec:
           - --log_output_level=default:info
           - --domain
           - cluster.local
-          - --secureGrpcAddr=:15011
           - --trust-domain=cluster.local
           - --keepaliveMaxServerConnectionAge
           - "30m"
-          # TODO: make default
-          - --disable-install-crds=true
           ports:
           - containerPort: 8080
           - containerPort: 15010
@@ -17899,12 +18923,9 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 5
-          envFrom:
-          # Allow an istiod configmap injecting user-specified env.
-          - configMapRef:
-              name: istiod
-              optional: true
           env:
+          - name: REVISION
+            value: "default"
           - name: JWT_POLICY
             value: third-party-jwt
           - name: PILOT_CERT_PROVIDER
@@ -17926,17 +18947,15 @@ spec:
                 fieldPath: spec.serviceAccountName
           - name: PILOT_TRACE_SAMPLING
             value: "1"
-          - name: CONFIG_NAMESPACE
-            value: istio-config
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
             value: "true"
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
-            value: "false"
+            value: "true"
           - name: INJECTION_WEBHOOK_CONFIG_NAME
             value: istio-sidecar-injector
           - name: ISTIOD_ADDR
             value: istiod.istio-system.svc:15012
-          - name: PILOT_EXTERNAL_GALLEY
+          - name: PILOT_ENABLE_ANALYSIS
             value: "false"
           - name: CLUSTER_ID
             value: "Kubernetes"
@@ -17965,9 +18984,6 @@ spec:
           - name: inject
             mountPath: /var/lib/istio/inject
             readOnly: true
-          - name: istiod
-            mountPath: /var/lib/istio/local
-            readOnly: true
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
@@ -17981,10 +18997,6 @@ spec:
                 audience: istio-ca
                 expirationSeconds: 43200
                 path: istio-token
-      - name: istiod
-        configMap:
-          name: istiod
-          optional: true
       # Optional: user-generated root
       - name: cacerts
         secret:
@@ -17998,39 +19010,6 @@ spec:
       - name: config-volume
         configMap:
           name: istio
-      affinity:      
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "amd64"
-                - "ppc64le"
-                - "s390x"
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "amd64"
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "ppc64le"
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "s390x"      
 ---
 
 ---
@@ -18044,6 +19023,7 @@ metadata:
   labels:
     app: istiod
     release: istio-base
+    istio.io/rev: default
 spec:
   maxReplicas: 5
   minReplicas: 1
@@ -18057,7 +19037,6 @@ spec:
       name: cpu
       targetAverageUtilization: 80
 ---
-
 ---
 # Source: istio-discovery/templates/telemetryv2_1.4.yaml
 
@@ -18066,6 +19045,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.4
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -18094,6 +19075,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.4
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -18190,6 +19173,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -18222,6 +19207,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-metadata-exchange-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -18274,6 +19261,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -18378,6 +19367,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -18480,6 +19471,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -18494,7 +19487,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.http.wasm
+          name: istio.metadata_exchange
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -18512,6 +19505,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-metadata-exchange-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -18523,9 +19518,12 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.network.metadata_exchange
-          config:
-            protocol: istio-peer-exchange
+          name: istio.metadata_exchange
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+            value:
+              protocol: istio-peer-exchange
     - applyTo: CLUSTER
       match:
         context: SIDECAR_OUTBOUND
@@ -18536,7 +19534,7 @@ spec:
         operation: MERGE
         value:
           filters:
-          - name: envoy.filters.network.upstream.metadata_exchange
+          - name: istio.metadata_exchange
             typed_config:
               "@type": type.googleapis.com/udpa.type.v1.TypedStruct
               type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
@@ -18552,7 +19550,7 @@ spec:
         operation: MERGE
         value:
           filters:
-          - name: envoy.filters.network.upstream.metadata_exchange
+          - name: istio.metadata_exchange
             typed_config:
               "@type": type.googleapis.com/udpa.type.v1.TypedStruct
               type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
@@ -18564,6 +19562,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -18580,7 +19580,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.http.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -18612,7 +19612,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.http.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -18644,7 +19644,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.http.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -18668,6 +19668,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -18682,7 +19684,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.network.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
@@ -18712,7 +19714,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.network.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
@@ -18742,7 +19744,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.network.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
@@ -18771,6 +19773,7 @@ metadata:
   name: istio-sidecar-injector
 
   labels:
+    istio.io/rev: default
     app: sidecar-injector
     release: istio-base
 webhooks:
@@ -18951,7 +19954,6 @@ template: |
   {{- if .Values.global.logAsJson }}
     - --log_as_json
   {{- end }}
-    - --controlPlaneBootstrap=false
   {{- if .Values.global.proxy.lifecycle }}
     lifecycle:
       {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
@@ -18966,9 +19968,9 @@ template: |
     {{- if .Values.global.caAddress }}
       value: {{ .Values.global.caAddress }}
     {{- else if .Values.global.configNamespace }}
-      value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+      value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
     {{- else }}
-      value: istiod.istio-system.svc:15012
+      value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
     {{- end }}
     - name: POD_NAME
       valueFrom:
@@ -19008,14 +20010,6 @@ template: |
         ]
     - name: ISTIO_META_CLUSTER_ID
       value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `+"`"+`Kubernetes`+"`"+` }}"
-    - name: ISTIO_META_POD_NAME
-      valueFrom:
-        fieldRef:
-          fieldPath: metadata.name
-    - name: ISTIO_META_CONFIG_NAMESPACE
-      valueFrom:
-        fieldRef:
-          fieldPath: metadata.namespace
     - name: ISTIO_META_INTERCEPTION_MODE
       value: "{{ or (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/interceptionMode`+"`"+`) .ProxyConfig.InterceptionMode.String }}"
     {{- if .Values.global.network }}
@@ -19048,8 +20042,8 @@ template: |
     {{- end }}
     {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
     {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
-      - name: {{ $key }}
-        value: "{{ $value }}"
+    - name: {{ $key }}
+      value: "{{ $value }}"
     {{- end }}
     {{- end }}
     {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
@@ -19092,19 +20086,30 @@ template: |
       runAsUser: 1337
       {{- end }}
     resources:
-      {{ if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
+  {{- if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) }}
+    {{- if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) }}
       requests:
         {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) -}}
         cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+` }}"
-        {{ end}}
+        {{ end }}
         {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
         memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+` }}"
         {{ end }}
-    {{ else -}}
-  {{- if .Values.global.proxy.resources }}
+    {{- end }}
+    {{- if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) }}
+      limits:
+        {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) -}}
+        cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+` }}"
+        {{ end }}
+        {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) -}}
+        memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+` }}"
+        {{ end }}
+    {{- end }}
+  {{- else }}
+    {{- if .Values.global.proxy.resources }}
       {{ toYaml .Values.global.proxy.resources | indent 4 }}
+    {{- end }}
   {{- end }}
-    {{  end -}}
     volumeMounts:
     {{- if eq .Values.global.pilotCertProvider "istiod" }}
     - mountPath: /var/run/secrets/istio
@@ -19127,7 +20132,7 @@ template: |
       name: istio-certs
       readOnly: true
     {{- end }}
-    - name: podinfo
+    - name: istio-podinfo
       mountPath: /etc/istio/pod
     {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
     - mountPath: {{ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}
@@ -19150,7 +20155,7 @@ template: |
   - emptyDir:
       medium: Memory
     name: istio-envoy
-  - name: podinfo
+  - name: istio-podinfo
     downwardAPI:
       items:
         - path: "labels"
@@ -19252,135 +20257,7 @@ func chartsIstioControlIstioDiscoveryKustomizationYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplates_affinityTpl = []byte(`{{/* affinity - https://kubernetes.io/docs/concepts/configuration/assign-pod-node/ */}}
-
-{{- define "nodeaffinity" }}
-  nodeAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-    {{- include "nodeAffinityRequiredDuringScheduling" . }}
-    preferredDuringSchedulingIgnoredDuringExecution:
-    {{- include "nodeAffinityPreferredDuringScheduling" . }}
-{{- end }}
-
-{{- define "nodeAffinityRequiredDuringScheduling" }}
-      nodeSelectorTerms:
-      - matchExpressions:
-        - key: beta.kubernetes.io/arch
-          operator: In
-          values:
-        {{- range $key, $val := .Values.global.arch }}
-          {{- if gt ($val | int) 0 }}
-          - {{ $key | quote }}
-          {{- end }}
-        {{- end }}
-        {{- $nodeSelector := default .Values.global.defaultNodeSelector .Values.pilot.nodeSelector -}}
-        {{- range $key, $val := $nodeSelector }}
-        - key: {{ $key }}
-          operator: In
-          values:
-          - {{ $val | quote }}
-        {{- end }}
-{{- end }}
-
-{{- define "nodeAffinityPreferredDuringScheduling" }}
-  {{- range $key, $val := .Values.global.arch }}
-    {{- if gt ($val | int) 0 }}
-    - weight: {{ $val | int }}
-      preference:
-        matchExpressions:
-        - key: beta.kubernetes.io/arch
-          operator: In
-          values:
-          - {{ $key | quote }}
-    {{- end }}
-  {{- end }}
-{{- end }}
-
-{{- define "podAntiAffinity" }}
-{{- if or .Values.pilot.podAntiAffinityLabelSelector .Values.pilot.podAntiAffinityTermLabelSelector}}
-  podAntiAffinity:
-    {{- if .Values.pilot.podAntiAffinityLabelSelector }}
-    requiredDuringSchedulingIgnoredDuringExecution:
-    {{- include "podAntiAffinityRequiredDuringScheduling" . }}
-    {{- end }}
-    {{- if .Values.pilot.podAntiAffinityTermLabelSelector }}
-    preferredDuringSchedulingIgnoredDuringExecution:
-    {{- include "podAntiAffinityPreferredDuringScheduling" . }}
-    {{- end }}
-{{- end }}
-{{- end }}
-
-{{- define "podAntiAffinityRequiredDuringScheduling" }}
-    {{- range $index, $item := .Values.pilot.podAntiAffinityLabelSelector }}
-    - labelSelector:
-        matchExpressions:
-        - key: {{ $item.key }}
-          operator: {{ $item.operator }}
-          {{- if $item.values }}
-          values:
-          {{- $vals := split "," $item.values }}
-          {{- range $i, $v := $vals }}
-          - {{ $v | quote }}
-          {{- end }}
-          {{- end }}
-      topologyKey: {{ $item.topologyKey }}
-    {{- end }}
-{{- end }}
-
-{{- define "podAntiAffinityPreferredDuringScheduling" }}
-    {{- range $index, $item := .Values.pilot.podAntiAffinityTermLabelSelector }}
-    - podAffinityTerm:
-        labelSelector:
-          matchExpressions:
-          - key: {{ $item.key }}
-            operator: {{ $item.operator }}
-            {{- if $item.values }}
-            values:
-            {{- $vals := split "," $item.values }}
-            {{- range $i, $v := $vals }}
-            - {{ $v | quote }}
-            {{- end }}
-            {{- end }}
-        topologyKey: {{ $item.topologyKey }}
-      weight: 100
-    {{- end }}
-{{- end }}
-`)
-
-func chartsIstioControlIstioDiscoveryTemplates_affinityTplBytes() ([]byte, error) {
-	return _chartsIstioControlIstioDiscoveryTemplates_affinityTpl, nil
-}
-
-func chartsIstioControlIstioDiscoveryTemplates_affinityTpl() (*asset, error) {
-	bytes, err := chartsIstioControlIstioDiscoveryTemplates_affinityTplBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-discovery/templates/_affinity.tpl", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioControlIstioDiscoveryTemplates_helpersTpl = []byte(``)
-
-func chartsIstioControlIstioDiscoveryTemplates_helpersTplBytes() ([]byte, error) {
-	return _chartsIstioControlIstioDiscoveryTemplates_helpersTpl, nil
-}
-
-func chartsIstioControlIstioDiscoveryTemplates_helpersTpl() (*asset, error) {
-	bytes, err := chartsIstioControlIstioDiscoveryTemplates_helpersTplBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-discovery/templates/_helpers.tpl", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
-{{- if and .Values.pilot.autoscaleEnabled .Values.pilot.autoscaleMin .Values.pilot.autoscaleMax }}
+var _chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml = []byte(`{{- if and .Values.pilot.autoscaleEnabled .Values.pilot.autoscaleMin .Values.pilot.autoscaleMax }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
@@ -19389,6 +20266,7 @@ metadata:
   labels:
     app: istiod
     release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   maxReplicas: {{ .Values.pilot.autoscaleMax }}
   minReplicas: {{ .Values.pilot.autoscaleMin }}
@@ -19402,9 +20280,7 @@ spec:
       name: cpu
       targetAverageUtilization: {{ .Values.pilot.cpu.targetAverageUtilization }}
 ---
-{{- end }}
-{{- end }}
-`)
+{{- end }}`)
 
 func chartsIstioControlIstioDiscoveryTemplatesAutoscaleYamlBytes() ([]byte, error) {
 	return _chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml, nil
@@ -19421,84 +20297,7 @@ func chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYaml = []byte(`{{ if .Values.clusterResources }}
-{{/* If we have Istiod enabled and Galley disabled, we may run into issues during upgrade. */}}
-{{/* The old Galley will continuely try to patch its webhook, when we actually want to remove it. */}}
-{{/* This will disable Galley's permission to do so, if galley is disabled.
-     Only the default revision needs to do this, since only default revision is handling validation.
-  */}}
-{{- if and (not .Values.galley.enabled) (eq .Values.revision "") }}
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-galley-{{ .Release.Namespace }}
-  labels:
-    release: {{ .Release.Name }}
-rules:
-  # For reading Istio resources
-  - apiGroups: [
-    "authentication.istio.io",
-    "config.istio.io",
-    "networking.istio.io",
-    "rbac.istio.io",
-    "security.istio.io"]
-    resources: ["*"]
-    verbs: ["get", "list", "watch"]
-    # For updating Istio resource statuses
-  - apiGroups: [
-    "authentication.istio.io",
-    "config.istio.io",
-    "networking.istio.io",
-    "rbac.istio.io",
-    "security.istio.io"]
-    resources: ["*/status"]
-    verbs: ["update"]
-
-    # Remove galley's permissions to reconcile the validation config when istiod is present.
-    # Notably missing here is the permission to modify webhooks.
-
-  - apiGroups: ["extensions","apps"]
-    resources: ["deployments"]
-    resourceNames: ["istio-galley"]
-    verbs: ["get"]
-  - apiGroups: [""]
-    resources: ["pods", "nodes", "services", "endpoints", "namespaces"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["extensions"]
-    resources: ["ingresses"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["extensions"]
-    resources: ["deployments/finalizers"]
-    resourceNames: ["istio-galley"]
-    verbs: ["update"]
-  - apiGroups: ["apiextensions.k8s.io"]
-    resources: ["customresourcedefinitions"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["rbac.authorization.k8s.io"]
-    resources: ["clusterroles"]
-    verbs: ["get", "list", "watch"]
----
-{{- end }}
-{{- end }}
-`)
-
-func chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYamlBytes() ([]byte, error) {
-	return _chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYaml, nil
-}
-
-func chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYaml() (*asset, error) {
-	bytes, err := chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-discovery/templates/clusterrole-galley-disable-webhook.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
-{{- if .Values.pilot.jwksResolverExtraRootCA }}
+var _chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml = []byte(`{{- if .Values.pilot.jwksResolverExtraRootCA }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -19506,9 +20305,9 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
 data:
   extra.pem: {{ .Values.pilot.jwksResolverExtraRootCA | quote }}
-{{- end }}
 {{- end }}
 `)
 
@@ -19527,44 +20326,16 @@ func chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml() (*asset, error
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
-{{- if .Values.pilot.configMap }}
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-  namespace: {{ .Release.Namespace }}
-  labels:
-    release: {{ .Release.Name }}
-data:
-
-  # Configuration file for the mesh networks to be used by the Split Horizon EDS.
-  meshNetworks: |-
-  {{- if .Values.global.meshNetworks }}
-    networks:
-{{ toYaml .Values.global.meshNetworks | trim | indent 6 }}
-  {{- else }}
-    networks: {}
-  {{- end }}
-
-  values.yaml: |-
-{{ toYaml .Values.pilot | trim | indent 4 }}
-
-  mesh: |-
+var _chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml = []byte(`{{- define "mesh" }}
     {{- if .Values.global.enableTracing }}
     # Set enableTracing to false to disable request tracing.
     enableTracing: {{ .Values.global.enableTracing }}
     {{- end }}
-
     # Set accessLogFile to empty string to disable access log.
     accessLogFile: "{{ .Values.global.proxy.accessLogFile }}"
-
     accessLogFormat: {{ .Values.global.proxy.accessLogFormat | quote }}
-
     accessLogEncoding: '{{ .Values.global.proxy.accessLogEncoding }}'
-
     enableEnvoyAccessLogService: {{ .Values.global.proxy.envoyAccessLogService.enabled }}
-
     {{- if .Values.global.remotePolicyAddress }}
     {{- if .Values.global.createRemoteSvcEndpoints }}
     mixerCheckServer: istio-policy.{{ .Release.Namespace }}:15004
@@ -19578,9 +20349,7 @@ data:
     {{- else }}
     mixerReportServer: {{ .Values.global.remoteTelemetryAddress }}:15004
     {{- end }}
-
     {{- else }}
-
     {{- if .Values.mixer.policy.enabled }}
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:15004
@@ -19588,7 +20357,6 @@ data:
     mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:9091
     {{- end }}
     {{- end }}
-
     {{- if and .Values.telemetry.v1.enabled .Values.telemetry.enabled }}
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     mixerReportServer: istio-telemetry.{{ .Values.global.telemetryNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:15004
@@ -19596,36 +20364,29 @@ data:
     mixerReportServer: istio-telemetry.{{ .Values.global.telemetryNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:9091
     {{- end }}
     {{- end }}
-
     {{- end }}
-
     {{- if or .Values.mixer.policy.enabled .Values.global.remotePolicyAddress }}
     # policyCheckFailOpen allows traffic in cases when the mixer policy service cannot be reached.
     # Default is false which means the traffic is denied when the client is unable to connect to Mixer.
     policyCheckFailOpen: {{ .Values.global.policyCheckFailOpen }}
     {{- end }}
-
     {{- if .Values.mixer.telemetry.reportBatchMaxEntries }}
     # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
     reportBatchMaxEntries: {{ .Values.mixer.telemetry.reportBatchMaxEntries }}
     {{- end }}
-
     {{- if .Values.mixer.telemetry.reportBatchMaxTime }}
     # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
     reportBatchMaxTime: {{ .Values.mixer.telemetry.reportBatchMaxTime }}
     {{- end }}
-
     {{- if .Values.mixer.telemetry.sessionAffinityEnabled }}
     # sidecarToTelemetrySessionAffinity will create a STRICT_DNS type cluster for istio-telemetry.
     sidecarToTelemetrySessionAffinity: {{ .Values.mixer.telemetry.sessionAffinityEnabled }}
     {{- end }}
-
     {{- if .Values.telemetry.v2.enabled }}
     disableMixerHttpReports: true
     {{- else }}
     disableMixerHttpReports: false
     {{- end }}
-
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
     {{- if .Values.mixer.policy.enabled }}
@@ -19633,7 +20394,6 @@ data:
     {{- else }}
     disablePolicyChecks: true
     {{- end }}
-
     # Automatic protocol detection uses a set of heuristics to
     # determine whether the connection is using TLS or not (on the
     # server side), as well as the application protocol being used
@@ -19644,7 +20404,6 @@ data:
     # traffic. Set this field to tweak the period that Envoy will wait
     # for the client to send the first bits of data. (MUST BE >=1ms)
     protocolDetectionTimeout: {{ .Values.global.proxy.protocolDetectionTimeout }}
-
     # This is the k8s ingress service name, update if you used a different name
     {{- if .Values.pilot.ingress }}
     {{- if .Values.pilot.ingress.ingressService }}
@@ -19653,30 +20412,25 @@ data:
     ingressClass: "{{ .Values.pilot.ingress.ingressClass }}"
     {{- end }}
     {{- end }}
-
     # The trust domain corresponds to the trust root of a system.
     # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
     trustDomain: {{ .Values.global.trustDomain | quote }}
-
     #  The trust domain aliases represent the aliases of trust_domain.
     #  For example, if we have
     #  trustDomain: td1
-    #  trustDomainAliases: [“td2”, "td3"]
+    #  trustDomainAliases: ["td2", "td3"]
     #  Any service with the identity "td1/ns/foo/sa/a-service-account", "td2/ns/foo/sa/a-service-account",
     #  or "td3/ns/foo/sa/a-service-account" will be treated the same in the Istio mesh.
     trustDomainAliases:
       {{- range .Values.global.trustDomainAliases }}
       - {{ . | quote }}
       {{- end }}
-
     # Used by pilot-agent
     sdsUdsPath: "unix:/etc/istio/proxy/SDS"
-
     # If true, automatically configure client side mTLS settings to match the corresponding service's
     # server side mTLS authentication policy, when destination rule for that service does not specify
     # TLS settings.
     enableAutoMtls: {{ .Values.global.mtls.auto }}
-
     {{- if .Values.global.useMCP }}
     configSources:
     {{- if .Values.global.controlPlaneSecurityEnabled }}
@@ -19691,10 +20445,8 @@ data:
     {{- end }}
     {{- end}}
     {{- end }}
-
     outboundTrafficPolicy:
       mode: {{ .Values.global.outboundTrafficPolicy.mode }}
-
     {{- if  .Values.global.localityLbSetting.enabled }}
     localityLbSetting:
 {{ toYaml .Values.global.localityLbSetting | trim | indent 6 }}
@@ -19817,9 +20569,43 @@ data:
 {{ toYaml .Values.global.proxy.envoyAccessLogService.tcpKeepalive | trim | indent 10 }}
       {{- end}}
     {{- end}}
-
----
 {{- end }}
+
+{{/* We take the mesh config above, defined with individual values.yaml, and merge with .Values.meshConfig */}}
+{{/* The intent here is that meshConfig.foo becomes the API, rather than re-inventing the API in values.yaml */}}
+{{- $originalMesh := include "mesh" . | fromYaml }}
+{{- $mesh := mergeOverwrite $originalMesh .Values.meshConfig }}
+
+{{- if .Values.pilot.configMap }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    release: {{ .Release.Name }}
+data:
+
+  # Configuration file for the mesh networks to be used by the Split Horizon EDS.
+  meshNetworks: |-
+  {{- if .Values.global.meshNetworks }}
+    networks:
+{{ toYaml .Values.global.meshNetworks | trim | indent 6 }}
+  {{- else }}
+    networks: {}
+  {{- end }}
+
+  values.yaml: |-
+{{ toYaml .Values.pilot | trim | indent 4 }}
+
+  mesh: |-
+{{- if .Values.meshConfig }}
+{{ $mesh | toYaml | indent 4 }}
+{{- else }}
+{{- include "mesh" . }}
+{{- end }}
+---
 {{- end }}
 `)
 
@@ -19838,17 +20624,14 @@ func chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
-apiVersion: apps/v1
+var _chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml = []byte(`apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
-    {{- if ne .Values.revision ""}}
-    version: {{ .Values.revision }}
-    {{- end }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
     istio: pilot
     release: {{ .Release.Name }}
 {{- range $key, $val := .Values.pilot.deploymentLabels }}
@@ -19868,7 +20651,7 @@ spec:
     matchLabels:
       {{- if ne .Values.revision ""}}
       app: istiod
-      version: {{ .Values.revision }}
+      istio.io/rev: {{ .Values.revision | default "default" }}
       {{- else }}
       istio: pilot
       {{- end }}
@@ -19876,11 +20659,8 @@ spec:
     metadata:
       labels:
         app: istiod
-        {{- if ne .Values.revision ""}}
-        version: {{ .Values.revision }}
-        {{- else }}
-        # Label used by the 'default' service. For versioned deployments we match with app and version.
-        # This avoids default deployment picking the canary
+        istio.io/rev: {{ .Values.revision | default "default" }}
+        {{- if eq .Values.revision ""}}
         istio: pilot
         {{- end }}
       annotations:
@@ -19920,12 +20700,6 @@ spec:
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
-
-{{- if and .Values.global.controlPlaneSecurityEnabled }}
-          - --secureGrpcAddr=:15011
-{{- else }}
-          - --secureGrpcAddr=
-{{- end }}
 {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
 {{- end }}
@@ -19934,8 +20708,6 @@ spec:
 {{- end }}
           - --keepaliveMaxServerConnectionAge
           - "{{ .Values.pilot.keepaliveMaxServerConnectionAge }}"
-          # TODO: make default
-          - --disable-install-crds=true
           ports:
           - containerPort: 8080
           - containerPort: 15010
@@ -19947,12 +20719,9 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 5
-          envFrom:
-          # Allow an istiod configmap injecting user-specified env.
-          - configMapRef:
-              name: istiod
-              optional: true
           env:
+          - name: REVISION
+            value: "{{ .Values.revision | default `+"`"+`default`+"`"+` }}"
           - name: JWT_POLICY
             value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
@@ -19982,12 +20751,6 @@ spec:
           - name: PILOT_TRACE_SAMPLING
             value: "{{ .Values.pilot.traceSampling }}"
 {{- end }}
-          - name: CONFIG_NAMESPACE
-            value: {{ .Values.pilot.configNamespace }}
-{{- if .Values.pilot.appNamespaces }}
-          - name: APP_NAMESPACE
-            value: {{ join "," .Values.pilot.appNamespaces }}
-{{- end }}
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
             value: "{{ .Values.pilot.enableProtocolSniffingForOutbound }}"
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
@@ -19996,8 +20759,8 @@ spec:
             value: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
           - name: ISTIOD_ADDR
             value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
-          - name: PILOT_EXTERNAL_GALLEY
-            value: "false"
+          - name: PILOT_ENABLE_ANALYSIS
+            value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
           resources:
@@ -20029,9 +20792,10 @@ spec:
           - name: inject
             mountPath: /var/lib/istio/inject
             readOnly: true
-          - name: istiod
-            mountPath: /var/lib/istio/local
-            readOnly: true
+          {{- if .Values.pilot.jwksResolverExtraRootCA }}
+          - name: extracacerts
+            mountPath: /cacerts
+          {{- end }}
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
@@ -20047,10 +20811,6 @@ spec:
                 expirationSeconds: 43200
                 path: istio-token
       {{- end }}
-      - name: istiod
-        configMap:
-          name: istiod
-          optional: true
       # Optional: user-generated root
       - name: cacerts
         secret:
@@ -20059,7 +20819,7 @@ spec:
       # Optional - image should have
       - name: inject
         configMap:
-          name: istio-sidecar-injector
+          name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
           optional: true
       - name: config-volume
         configMap:
@@ -20069,18 +20829,7 @@ spec:
         configMap:
           name: pilot-jwks-extra-cacerts{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- end }}
-      affinity:
-      {{- include "nodeaffinity" . | indent 6 }}
-      {{- include "podAntiAffinity" . | indent 6 }}
-{{- if .Values.pilot.tolerations }}
-      tolerations:
-{{ toYaml .Values.pilot.tolerations | indent 6 }}
-{{- else if .Values.global.defaultTolerations }}
-      tolerations:
-{{ toYaml .Values.global.defaultTolerations | indent 6 }}
-{{- end }}
 ---
-{{- end }}
 `)
 
 func chartsIstioControlIstioDiscoveryTemplatesDeploymentYamlBytes() ([]byte, error) {
@@ -20098,19 +20847,19 @@ func chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
-{{- if not .Values.global.omitSidecarInjectorConfigMap }}
+var _chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml = []byte(`{{- if not .Values.global.omitSidecarInjectorConfigMap }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
     release: {{ .Release.Name }}
 data:
 {{/* Scope the values to just top level fields used in the template, to reduce the size. */}}
   values: |-
-{{ pick .Values "global" "istio_cni" "sidecarInjectorWebhook" | toPrettyJson | indent 4 }}
+{{ pick .Values "global" "istio_cni" "sidecarInjectorWebhook" "revision" | toPrettyJson | indent 4 }}
 
   # To disable injection: use omitSidecarInjectorConfigMap, which disables the webhook patching
   # and istiod webhook functionality.
@@ -20130,7 +20879,6 @@ data:
 
 {{ .Files.Get "files/injection-template.yaml" | trim | indent 4 }}
 
-{{- end }}
 {{- end }}
 `)
 
@@ -20160,6 +20908,7 @@ metadata:
   name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
 {{- end }}
   labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
     app: sidecar-injector
     release: {{ .Release.Name }}
 webhooks:
@@ -20194,19 +20943,14 @@ webhooks:
 {{- else if .Values.revision }}
       matchExpressions:
       - key: istio-injection
-        operator: NotIn
-        values:
-        - disabled
+        operator: DoesNotExist
       - key: istio.io/rev
         operator: In
         values:
         - {{ .Values.revision }}
-{{- else if eq .Values.sidecarInjectorWebhook.injectLabel "istio-injection" }}
-      matchLabels:
-        istio-injection: enabled
 {{- else }}
       matchLabels:
-        istio-env: {{ .Release.Namespace }}
+        istio-injection: enabled
 {{- end }}
 {{- if .Values.sidecarInjectorWebhook.objectSelector.enabled }}
     objectSelector:
@@ -20239,8 +20983,7 @@ func chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml() (*asset, err
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
-{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
+var _chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml = []byte(`{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
@@ -20248,6 +20991,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
+    istio.io/rev: {{ .Values.revision | default "default" }}
     release: {{ .Release.Name }}
     istio: pilot
 spec:
@@ -20256,12 +21000,11 @@ spec:
     matchLabels:
       app: istiod
       {{- if ne .Values.revision ""}}
-      version: {{ .Values.revision }}
-      {{- end }}
-      release: {{ .Release.Name }}
+      istio.io/rev: {{ .Values.revision }}
+      {{- else }}
       istio: pilot
+      {{- end }}
 ---
-{{- end }}
 {{- end }}
 `)
 
@@ -20280,65 +21023,37 @@ func chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml() (*asset,
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesServiceYaml = []byte(`{{- if or (eq .Values.revision "") (not .Values.clusterResources) }}
-apiVersion: v1
-kind: Service
-metadata:
-  name: istio-pilot{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: pilot
-    release: {{ .Release.Name }}
-    istio: pilot
-spec:
-  ports:
-  - port: 15010
-    name: grpc-xds # direct
-  - port: 15011
-    name: https-xds # mTLS
-  - port: 15012
-    name: https-dns # mTLS with k8s-signed cert
-  - port: 8080
-    name: http-legacy-discovery # direct
-  - port: 15014
-    name: http-monitoring
-  - port: 443
-    name: https-webhook # validation and injection
-    targetPort: 15017
-  selector:
-    {{- if ne .Values.revision ""}}
-    app: istiod
-    version: {{ .Values.revision }}
-    {{ else }}
-    istio: pilot
-    {{- end }}
----
-apiVersion: v1
+var _chartsIstioControlIstioDiscoveryTemplatesServiceYaml = []byte(`apiVersion: v1
 kind: Service
 metadata:
   name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
     app: istiod
+    istio: pilot
     release: {{ .Release.Name }}
 spec:
   ports:
+    - port: 15010
+      name: grpc-xds # plaintext
     - port: 15012
       name: https-dns # mTLS with k8s-signed cert
     - port: 443
       name: https-webhook # validation and injection
       targetPort: 15017
+    - port: 15014
+      name: http-monitoring # prometheus stats
   selector:
     app: istiod
     {{- if ne .Values.revision ""}}
-    version: {{ .Values.revision }}
+    istio.io/rev: {{ .Values.revision }}
     {{- else }}
     # Label used by the 'default' service. For versioned deployments we match with app and version.
     # This avoids default deployment picking the canary
     istio: pilot
     {{- end }}
 ---
-{{- end }}
 `)
 
 func chartsIstioControlIstioDiscoveryTemplatesServiceYamlBytes() ([]byte, error) {
@@ -20356,17 +21071,18 @@ func chartsIstioControlIstioDiscoveryTemplatesServiceYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
-{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
+var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml = []byte(`{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: metadata-exchange-1.4
+  name: metadata-exchange-1.4{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -20394,12 +21110,14 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stats-filter-1.4
+  name: stats-filter-1.4{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -20492,14 +21210,17 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stackdriver-filter-1.4
+  name: stackdriver-filter-1.4{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
+{{- if not .Values.telemetry.v2.stackdriver.disableOutbound }}
     - applyTo: HTTP_FILTER
       match:
         context: SIDECAR_OUTBOUND
@@ -20529,6 +21250,7 @@ spec:
                 runtime: envoy.wasm.runtime.null
                 code:
                   inline_string: envoy.wasm.null.stackdriver
+{{- end }}
     - applyTo: HTTP_FILTER
       match:
         context: SIDECAR_INBOUND
@@ -20590,7 +21312,6 @@ spec:
 ---
 {{- end}}
 {{- end}}
-{{- end }}
 `)
 
 func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14YamlBytes() ([]byte, error) {
@@ -20608,17 +21329,18 @@ func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml() (*asset, erro
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
-{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
+var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml = []byte(`{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: metadata-exchange-1.5
+  name: metadata-exchange-1.5{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -20656,12 +21378,14 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: tcp-metadata-exchange-1.5
+  name: tcp-metadata-exchange-1.5{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -20713,12 +21437,14 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stats-filter-1.5
+  name: stats-filter-1.5{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -20842,12 +21568,14 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: tcp-stats-filter-1.5
+  name: tcp-stats-filter-1.5{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -20968,14 +21696,17 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stackdriver-filter-1.5
+  name: stackdriver-filter-1.5{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
+{{- if not .Values.telemetry.v2.stackdriver.disableOutbound }}
     - applyTo: HTTP_FILTER
       match:
         context: SIDECAR_OUTBOUND
@@ -21008,6 +21739,7 @@ spec:
                   runtime: envoy.wasm.runtime.null
                   code:
                     local: { inline_string: envoy.wasm.null.stackdriver }
+{{- end }}
     - applyTo: HTTP_FILTER
       match:
         context: SIDECAR_INBOUND
@@ -21075,7 +21807,6 @@ spec:
 ---
 {{- end}}
 {{- end}}
-{{- end }}
 `)
 
 func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15YamlBytes() ([]byte, error) {
@@ -21093,17 +21824,18 @@ func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml() (*asset, erro
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml = []byte(`{{ if or (eq .Values.revision "") (not .Values.clusterResources) }}
-{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
+var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml = []byte(`{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: metadata-exchange-1.6
+  name: metadata-exchange-1.6{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -21118,7 +21850,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.http.wasm
+          name: istio.metadata_exchange
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -21141,12 +21873,14 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: tcp-metadata-exchange-1.6
+  name: tcp-metadata-exchange-1.6{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -21158,9 +21892,12 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.network.metadata_exchange
-          config:
-            protocol: istio-peer-exchange
+          name: istio.metadata_exchange
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
+            value:
+              protocol: istio-peer-exchange
     - applyTo: CLUSTER
       match:
         context: SIDECAR_OUTBOUND
@@ -21171,7 +21908,7 @@ spec:
         operation: MERGE
         value:
           filters:
-          - name: envoy.filters.network.upstream.metadata_exchange
+          - name: istio.metadata_exchange
             typed_config:
               "@type": type.googleapis.com/udpa.type.v1.TypedStruct
               type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
@@ -21187,7 +21924,7 @@ spec:
         operation: MERGE
         value:
           filters:
-          - name: envoy.filters.network.upstream.metadata_exchange
+          - name: istio.metadata_exchange
             typed_config:
               "@type": type.googleapis.com/udpa.type.v1.TypedStruct
               type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
@@ -21198,12 +21935,14 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stats-filter-1.6
+  name: stats-filter-1.6{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -21220,7 +21959,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.http.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -21259,7 +21998,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.http.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -21298,7 +22037,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.http.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -21327,12 +22066,14 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: tcp-stats-filter-1.6
+  name: tcp-stats-filter-1.6{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -21347,7 +22088,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.network.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
@@ -21384,7 +22125,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.network.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
@@ -21421,7 +22162,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.network.wasm
+          name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
@@ -21454,14 +22195,17 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stackdriver-filter-1.6
+  name: stackdriver-filter-1.6{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.global.configRootNamespace }}
   namespace: {{ .Values.global.configRootNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
 spec:
   configPatches:
+{{- if not .Values.telemetry.v2.stackdriver.disableOutbound }}
     - applyTo: HTTP_FILTER
       match:
         context: SIDECAR_OUTBOUND
@@ -21476,7 +22220,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.http.wasm
+          name: istio.stackdriver
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -21494,6 +22238,7 @@ spec:
                   runtime: envoy.wasm.runtime.null
                   code:
                     local: { inline_string: envoy.wasm.null.stackdriver }
+{{- end }}
     - applyTo: HTTP_FILTER
       match:
         context: SIDECAR_INBOUND
@@ -21508,7 +22253,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.http.wasm
+          name: istio.stackdriver
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -21540,7 +22285,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.http.wasm
+          name: istio.stackdriver
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
@@ -21561,7 +22306,6 @@ spec:
 ---
 {{- end}}
 {{- end}}
-{{- end }}
 `)
 
 func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16YamlBytes() ([]byte, error) {
@@ -21617,7 +22361,7 @@ pilot:
   # if protocol sniffing is enabled for outbound
   enableProtocolSniffingForOutbound: true
   # if protocol sniffing is enabled for inbound
-  enableProtocolSniffingForInbound: false
+  enableProtocolSniffingForInbound: true
 
   nodeSelector: {}
   tolerations: []
@@ -21769,6 +22513,7 @@ telemetry:
       logging: false
       monitoring: false
       topology: false
+      disableOutbound: false
       #  configOverride parts give you the ability to override the low level configuration params passed to envoy filter.
 
       configOverride: {}
@@ -21780,6 +22525,10 @@ telemetry:
 
 # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
 revision: ""
+
+# meshConfig defines runtime configuration of components, including Istiod and istio-agent behavior
+# See https://istio.io/docs/reference/config/istio.mesh.v1alpha1/ for all available options
+meshConfig: {}
 `)
 
 func chartsIstioControlIstioDiscoveryValuesYamlBytes() ([]byte, error) {
@@ -21793,6 +22542,418 @@ func chartsIstioControlIstioDiscoveryValuesYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "charts/istio-control/istio-discovery/values.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorChartYaml = []byte(`apiVersion: v1
+name: istio-operator
+version: 1.6.0
+tillerVersion: ">=2.7.2"
+description: Helm chart for deploying Istio operator
+keywords:
+  - istio
+  - operator
+sources:
+  - http://github.com/istio/istio/operator
+engine: gotpl
+icon: https://istio.io/favicons/android-192x192.png
+`)
+
+func chartsIstioOperatorChartYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorChartYaml, nil
+}
+
+func chartsIstioOperatorChartYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorChartYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/Chart.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesClusterroleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: istio-operator
+rules:
+# istio groups
+- apiGroups:
+  - authentication.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - config.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - install.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - networking.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - rbac.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - security.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+# k8s groups
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  - validatingwebhookconfigurations
+  verbs:
+  - '*'
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions.apiextensions.k8s.io
+  - customresourcedefinitions
+  verbs:
+  - '*'
+- apiGroups:
+  - apps
+  - extensions
+  resources:
+  - daemonsets
+  - deployments
+  - deployments/finalizers
+  - ingresses
+  - replicasets
+  - statefulsets
+  verbs:
+  - '*'
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - '*'
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - get
+  - create
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - '*'
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  - roles
+  - rolebindings
+  verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - endpoints
+  - events
+  - namespaces
+  - pods
+  - persistentvolumeclaims
+  - secrets
+  - services
+  - serviceaccounts
+  verbs:
+  - '*'
+---
+`)
+
+func chartsIstioOperatorTemplatesClusterroleYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesClusterroleYaml, nil
+}
+
+func chartsIstioOperatorTemplatesClusterroleYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesClusterroleYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/clusterrole.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesClusterrole_bindingYaml = []byte(`kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: istio-operator
+subjects:
+- kind: ServiceAccount
+  name: istio-operator
+  namespace: {{.Values.operatorNamespace}}
+roleRef:
+  kind: ClusterRole
+  name: istio-operator
+  apiGroup: rbac.authorization.k8s.io
+---
+`)
+
+func chartsIstioOperatorTemplatesClusterrole_bindingYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesClusterrole_bindingYaml, nil
+}
+
+func chartsIstioOperatorTemplatesClusterrole_bindingYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesClusterrole_bindingYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/clusterrole_binding.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesCrdOperatorYaml = []byte(`# SYNC WITH manifests/base/files
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: istiooperators.install.istio.io
+spec:
+  group: install.istio.io
+  names:
+    kind: IstioOperator
+    plural: istiooperators
+    singular: istiooperator
+    shortNames:
+    - iop
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        spec:
+          description: 'Specification of the desired state of the istio control plane resource.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+        status:
+          description: 'Status describes each of istio control plane component status at the current time.
+            0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
+            More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
+            https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+---
+`)
+
+func chartsIstioOperatorTemplatesCrdOperatorYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesCrdOperatorYaml, nil
+}
+
+func chartsIstioOperatorTemplatesCrdOperatorYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesCrdOperatorYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/crd-operator.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesDeploymentYaml = []byte(`apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{.Values.operatorNamespace}}
+  name: istio-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: istio-operator
+  template:
+    metadata:
+      labels:
+        name: istio-operator
+    spec:
+      serviceAccountName: istio-operator
+      containers:
+        - name: istio-operator
+          image: {{.Values.hub}}/operator:{{.Values.tag}}
+          command:
+          - operator
+          - server
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          env:
+            - name: WATCH_NAMESPACE
+              value: {{.Values.istioNamespace}}
+            - name: LEADER_ELECTION_NAMESPACE
+              value: {{.Values.operatorNamespace}}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: {{.Values.operatorNamespace}}
+---
+`)
+
+func chartsIstioOperatorTemplatesDeploymentYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesDeploymentYaml, nil
+}
+
+func chartsIstioOperatorTemplatesDeploymentYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesDeploymentYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/deployment.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesNamespaceYaml = []byte(`apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-operator
+  labels:
+    istio-operator-managed: Reconcile
+    istio-injection: disabled
+---
+`)
+
+func chartsIstioOperatorTemplatesNamespaceYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesNamespaceYaml, nil
+}
+
+func chartsIstioOperatorTemplatesNamespaceYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesNamespaceYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/namespace.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesServiceYaml = []byte(`apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{.Values.operatorNamespace}}
+  labels:
+    name: istio-operator
+  name: istio-operator
+spec:
+  ports:
+  - name: http-metrics
+    port: 8383
+    targetPort: 8383
+  selector:
+    name: istio-operator
+---
+`)
+
+func chartsIstioOperatorTemplatesServiceYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesServiceYaml, nil
+}
+
+func chartsIstioOperatorTemplatesServiceYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesServiceYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/service.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesService_accountYaml = []byte(`apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: {{.Values.operatorNamespace}}
+  name: istio-operator
+---
+`)
+
+func chartsIstioOperatorTemplatesService_accountYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesService_accountYaml, nil
+}
+
+func chartsIstioOperatorTemplatesService_accountYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesService_accountYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/service_account.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorValuesYaml = []byte(`hub: gcr.io/istio-testing
+tag: 1.6-dev
+operatorNamespace: istio-operator
+istioNamespace: istio-system
+`)
+
+func chartsIstioOperatorValuesYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorValuesYaml, nil
+}
+
+func chartsIstioOperatorValuesYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorValuesYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/values.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -22905,6 +24066,8 @@ name: grafana
 version: 1.1.0
 appVersion: 1.1.0
 tillerVersion: ">=2.7.2"
+keywords:
+  - istio-addon
 `)
 
 func chartsIstioTelemetryGrafanaChartYamlBytes() ([]byte, error) {
@@ -22918,2862 +24081,6 @@ func chartsIstioTelemetryGrafanaChartYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "charts/istio-telemetry/grafana/Chart.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson = []byte(`{
-  "annotations": {
-    "list": [
-      {
-        "builtIn": 1,
-        "datasource": "-- Grafana --",
-        "enable": true,
-        "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
-        "name": "Annotations & Alerts",
-        "type": "dashboard"
-      }
-    ]
-  },
-  "description": "",
-  "editable": true,
-  "gnetId": null,
-  "graphTooltip": 0,
-  "links": [],
-  "panels": [
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 0
-      },
-      "id": 8,
-      "panels": [],
-      "title": "Performance",
-      "type": "row"
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "description": "CPU usage across Citadel instances.",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 0,
-        "y": 1
-      },
-      "id": 10,
-      "legend": {
-        "alignAsTable": false,
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "rightSide": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=~\"citadel\", pod=~\"istio-citadel-.*\"}[1m]))",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Citadel CPU usage rate",
-          "refId": "A"
-        },
-        {
-          "expr": "irate(process_cpu_seconds_total{job=\"citadel\"}[1m])",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Citadel CPU usage irate",
-          "refId": "C"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "CPU",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": "",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "description": "Citadel process memory statistics.",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 8,
-        "y": 1
-      },
-      "id": 12,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "process_virtual_memory_bytes{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Virtual Memory",
-          "refId": "A"
-        },
-        {
-          "expr": "process_resident_memory_bytes{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Resident Memory",
-          "refId": "B"
-        },
-        {
-          "expr": "go_memstats_heap_sys_bytes{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Heap Memory Total",
-          "refId": "C"
-        },
-        {
-          "expr": "go_memstats_alloc_bytes{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Heap Memory Allocated",
-          "refId": "E"
-        },
-        {
-          "expr": "go_memstats_heap_inuse_bytes{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Heap Inuse",
-          "refId": "F"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Memory",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 16,
-        "y": 1
-      },
-      "id": 14,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "go_goroutines{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Goroutines",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Goroutines",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 7
-      },
-      "id": 28,
-      "panels": [],
-      "title": "General",
-      "type": "row"
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "description": "Total number of CSR requests made to Citadel.",
-      "fill": 1,
-      "gridPos": {
-        "h": 5,
-        "w": 12,
-        "x": 0,
-        "y": 8
-      },
-      "id": 30,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "citadel_server_csr_count{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "CSR Request Count",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "CSR Requests",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "description": "The number of certificates issuances that have succeeded.",
-      "fill": 1,
-      "gridPos": {
-        "h": 5,
-        "w": 12,
-        "x": 12,
-        "y": 8
-      },
-      "id": 32,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "citadel_server_success_cert_issuance_count{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Certificates Issued",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Certificates Issued",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 13
-      },
-      "id": 23,
-      "panels": [],
-      "title": "Errors",
-      "type": "row"
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "description": "The number of errors occurred when creating the CSR.",
-      "fill": 1,
-      "gridPos": {
-        "h": 5,
-        "w": 8,
-        "x": 0,
-        "y": 14
-      },
-      "id": 20,
-      "legend": {
-        "alignAsTable": false,
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "rightSide": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "citadel_secret_controller_csr_err_count{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "CSR Creation Error Count",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "CSR Creation Errors",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": "",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "fill": 1,
-      "gridPos": {
-        "h": 5,
-        "w": 8,
-        "x": 8,
-        "y": 14
-      },
-      "id": 24,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "citadel_server_csr_parsing_err_count{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "CSR Parse Error Count",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "CSR Parse Errors",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "description": "The number of authentication failures.",
-      "fill": 1,
-      "gridPos": {
-        "h": 5,
-        "w": 8,
-        "x": 16,
-        "y": 14
-      },
-      "id": 26,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "citadel_server_authentication_failure_count{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Authentication Failure Count",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Authentication Failures",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 19
-      },
-      "id": 4,
-      "panels": [],
-      "title": "Secret Controller",
-      "type": "row"
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "description": "The number of certificates created due to service account creation.",
-      "fill": 1,
-      "gridPos": {
-        "h": 5,
-        "w": 8,
-        "x": 0,
-        "y": 20
-      },
-      "id": 2,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": true,
-      "targets": [
-        {
-          "expr": "citadel_secret_controller_svc_acc_created_cert_count{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "SA Secrets Created",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Service Account Secrets Created (due to SA creation)",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "decimals": null,
-          "format": "short",
-          "label": "Certs Created",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "description": "The number of certificates deleted due to service account deletion.",
-      "fill": 1,
-      "gridPos": {
-        "h": 5,
-        "w": 8,
-        "x": 8,
-        "y": 20
-      },
-      "id": 16,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": true,
-      "targets": [
-        {
-          "expr": "citadel_secret_controller_svc_acc_deleted_cert_count{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "SA Secrets Deleted",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Service Account Secrets Deleted (due to SA deletion)",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "decimals": null,
-          "format": "short",
-          "label": "Certs Created",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "description": "The number of certificates recreated due to secret deletion (service account still exists).",
-      "fill": 1,
-      "gridPos": {
-        "h": 5,
-        "w": 8,
-        "x": 16,
-        "y": 20
-      },
-      "id": 6,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": true,
-      "targets": [
-        {
-          "expr": "citadel_secret_controller_secret_deleted_cert_count{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "SA Secrets Recreated",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Service Account Secrets Recreated (due to errant deletion)",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "decimals": null,
-          "format": "short",
-          "label": "Certs Created",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    }
-  ],
-  "refresh": "5s",
-  "schemaVersion": 18,
-  "style": "dark",
-  "tags": [],
-  "templating": {
-    "list": []
-  },
-  "time": {
-    "from": "now-5m",
-    "to": "now"
-  },
-  "timepicker": {
-    "refresh_intervals": [
-      "5s",
-      "10s",
-      "30s",
-      "1m",
-      "5m",
-      "15m",
-      "30m",
-      "1h",
-      "2h",
-      "1d"
-    ],
-    "time_options": [
-      "5m",
-      "15m",
-      "1h",
-      "6h",
-      "12h",
-      "24h",
-      "2d",
-      "7d",
-      "30d"
-    ]
-  },
-  "timezone": "",
-  "title": "Istio Citadel Dashboard",
-  "uid": "OOyOqb4Wz",
-  "version": 1
-}`)
-
-func chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJsonBytes() ([]byte, error) {
-	return _chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson, nil
-}
-
-func chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson() (*asset, error) {
-	bytes, err := chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJsonBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-telemetry/grafana/dashboards/citadel-dashboard.json", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson = []byte(`{
-  "__inputs": [
-    {
-      "name": "DS_PROMETHEUS",
-      "label": "Prometheus",
-      "description": "",
-      "type": "datasource",
-      "pluginId": "prometheus",
-      "pluginName": "Prometheus"
-    }
-  ],
-  "annotations": {
-    "list": [
-      {
-        "builtIn": 1,
-        "datasource": "-- Grafana --",
-        "enable": true,
-        "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
-        "name": "Annotations & Alerts",
-        "type": "dashboard"
-      }
-    ]
-  },
-  "editable": false,
-  "gnetId": null,
-  "graphTooltip": 0,
-  "links": [],
-  "panels": [
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 5,
-        "w": 24,
-        "x": 0,
-        "y": 0
-      },
-      "id": 46,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum(istio_build{component=\"galley\"}) by (tag)",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "{{ tag }}",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Galley Versions",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": false
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 5
-      },
-      "id": 40,
-      "panels": [],
-      "title": "Resource Usage",
-      "type": "row"
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 0,
-        "y": 6
-      },
-      "id": 36,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "process_virtual_memory_bytes{job=\"galley\"}",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "Virtual Memory",
-          "refId": "A"
-        },
-        {
-          "expr": "process_resident_memory_bytes{job=\"galley\"}",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "Resident Memory",
-          "refId": "B"
-        },
-        {
-          "expr": "go_memstats_heap_sys_bytes{job=\"galley\"}",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "heap sys",
-          "refId": "C"
-        },
-        {
-          "expr": "go_memstats_heap_alloc_bytes{job=\"galley\"}",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "heap alloc",
-          "refId": "D"
-        },
-        {
-          "expr": "go_memstats_alloc_bytes{job=\"galley\"}",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "Alloc",
-          "refId": "F"
-        },
-        {
-          "expr": "go_memstats_heap_inuse_bytes{job=\"galley\"}",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "Heap in-use",
-          "refId": "G"
-        },
-        {
-          "expr": "go_memstats_stack_inuse_bytes{job=\"galley\"}",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "Stack in-use",
-          "refId": "H"
-        },
-        {
-          "expr": "sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container=~\"galley\", pod=~\"istio-galley-.*\"})",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Total (kis)",
-          "refId": "E"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Memory",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": false
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 6,
-        "y": 6
-      },
-      "id": 38,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=~\"galley\", pod=~\"istio-galley-.*\"}[1m]))",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "Total (k8s)",
-          "refId": "A"
-        },
-        {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=~\"galley\", pod=~\"istio-galley-.*\"}[1m])) by (container)",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "{{ container }} (k8s)",
-          "refId": "B"
-        },
-        {
-          "expr": "irate(process_cpu_seconds_total{job=\"galley\"}[1m])",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "galley (self-reported)",
-          "refId": "C"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "CPU",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 12,
-        "y": 6
-      },
-      "id": 42,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "process_open_fds{job=\"galley\"}",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "Open FDs (galley)",
-          "refId": "A"
-        },
-        {
-          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\",container=~\"galley\", pod=~\"istio-galley-.*\"}",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "{{ container }} ",
-          "refId": "B"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Disk",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": false
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 18,
-        "y": 6
-      },
-      "id": 44,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "go_goroutines{job=\"galley\"}",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "goroutines_total",
-          "refId": "A"
-        },
-        {
-          "expr": "istio_mcp_clients_total{component=\"galley\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "clients_total",
-          "refId": "B"
-        },
-        {
-          "expr": "go_goroutines{job=\"galley\"}/sum(istio_mcp_clients_total{component=\"galley\"}) without (component)",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "avg_goroutines_per_client",
-          "refId": "C"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Goroutines",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 14
-      },
-      "id": 10,
-      "panels": [],
-      "title": "Runtime",
-      "type": "row"
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 0,
-        "y": 15
-      },
-      "id": 2,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum(rate(galley_runtime_strategy_on_change_total[1m])) * 60",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Strategy Change Events",
-          "refId": "A"
-        },
-        {
-          "expr": "sum(rate(galley_runtime_processor_events_processed_total[1m])) * 60",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Processed Events",
-          "refId": "B"
-        },
-        {
-          "expr": "sum(rate(galley_runtime_processor_snapshots_published_total[1m])) * 60",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Snapshot Published",
-          "refId": "C"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Event Rates",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": "Events/min",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": "",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 8,
-        "y": 15
-      },
-      "id": 4,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum(rate(galley_runtime_strategy_timer_max_time_reached_total[1m])) * 60",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Max Time Reached",
-          "refId": "A"
-        },
-        {
-          "expr": "sum(rate(galley_runtime_strategy_timer_quiesce_reached_total[1m])) * 60",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Quiesce Reached",
-          "refId": "B"
-        },
-        {
-          "expr": "sum(rate(galley_runtime_strategy_timer_resets_total[1m])) * 60",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Timer Resets",
-          "refId": "C"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Timer Rates",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": "Events/min",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 16,
-        "y": 15
-      },
-      "id": 8,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 3,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": true,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.50, sum by (le) (galley_runtime_processor_snapshot_events_total_bucket))",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "P50",
-          "refId": "A"
-        },
-        {
-          "expr": "histogram_quantile(0.90, sum by (le) (galley_runtime_processor_snapshot_events_total_bucket))",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "P90",
-          "refId": "B"
-        },
-        {
-          "expr": "histogram_quantile(0.95, sum by (le) (galley_runtime_processor_snapshot_events_total_bucket))",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "P95",
-          "refId": "C"
-        },
-        {
-          "expr": "histogram_quantile(0.99, sum by (le) (galley_runtime_processor_snapshot_events_total_bucket))",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "P99",
-          "refId": "D"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Events Per Snapshot",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 8,
-        "y": 21
-      },
-      "id": 6,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum by (collection) (galley_runtime_state_type_instances_total)",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "{{ collection }}",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "State Type Instances",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": "Count",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 27
-      },
-      "id": 34,
-      "panels": [],
-      "title": "Validation",
-      "type": "row"
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 0,
-        "y": 28
-      },
-      "id": 28,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "galley_validation_cert_key_updates{}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Key Updates",
-          "refId": "A"
-        },
-        {
-          "expr": "galley_validation_cert_key_update_errors{}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Key Update Errors: {{ error }}",
-          "refId": "B"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Validation Webhook Certificate",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 8,
-        "y": 28
-      },
-      "id": 30,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum(galley_validation_passed{}) by (group, version, resource)",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Passed: {{ group }}/{{ version }}/{{resource}}",
-          "refId": "A"
-        },
-        {
-          "expr": "sum(galley_validation_failed{}) by (group, version, resource, reason)",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Failed: {{ group }}/{{ version }}/{{resource}} ({{ reason}})",
-          "refId": "B"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Resource Validation",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 16,
-        "y": 28
-      },
-      "id": 32,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum(galley_validation_http_error{}) by (status)",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "{{ status }}",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Validation HTTP Errors",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 34
-      },
-      "id": 12,
-      "panels": [],
-      "title": "Kubernetes Source",
-      "type": "row"
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 0,
-        "y": 35
-      },
-      "id": 14,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "rate(galley_source_kube_event_success_total[1m]) * 60",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Success",
-          "refId": "A"
-        },
-        {
-          "expr": "rate(galley_source_kube_event_error_total[1m]) * 60",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Error",
-          "refId": "B"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Source Event Rate",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": "Events/min",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 16,
-        "y": 35
-      },
-      "id": 24,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "rate(galley_source_kube_dynamic_converter_failure_total[1m]) * 60",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Error",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Kubernetes Object Conversion Failures",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": "Failures/min",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 41
-      },
-      "id": 18,
-      "panels": [],
-      "title": "Mesh Configuration Protocol",
-      "type": "row"
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 0,
-        "y": 42
-      },
-      "id": 20,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum(istio_mcp_clients_total{component=\"galley\"})",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Clients",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Connected Clients",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 8,
-        "y": 42
-      },
-      "id": 22,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum by(collection)(irate(istio_mcp_request_acks_total{component=\"galley\"}[1m]) * 60)",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Request ACKs",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": "ACKs/min",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 16,
-        "y": 42
-      },
-      "id": 26,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "rate(istio_mcp_request_nacks_total{component=\"galley\"}[1m]) * 60",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Request NACKs",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": "NACKs/min",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    }
-  ],
-  "refresh": "5s",
-  "schemaVersion": 16,
-  "style": "dark",
-  "tags": [],
-  "templating": {
-    "list": []
-  },
-  "time": {
-    "from": "now-5m",
-    "to": "now"
-  },
-  "timepicker": {
-    "refresh_intervals": [
-      "5s",
-      "10s",
-      "30s",
-      "1m",
-      "5m",
-      "15m",
-      "30m",
-      "1h",
-      "2h",
-      "1d"
-    ],
-    "time_options": [
-      "5m",
-      "15m",
-      "1h",
-      "6h",
-      "12h",
-      "24h",
-      "2d",
-      "7d",
-      "30d"
-    ]
-  },
-  "timezone": "",
-  "title": "Istio Galley Dashboard",
-  "uid": "TSEY6jLmk",
-  "version": 1
-}
-`)
-
-func chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJsonBytes() ([]byte, error) {
-	return _chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson, nil
-}
-
-func chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson() (*asset, error) {
-	bytes, err := chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJsonBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-telemetry/grafana/dashboards/galley-dashboard.json", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -26149,6 +24456,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
         "rgba(237, 129, 40, 0.89)",
         "#d44a3a"
       ],
+      "datasource": "Prometheus",
       "format": "none",
       "gauge": {
         "maxValue": 100,
@@ -26230,6 +24538,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
         "rgba(237, 129, 40, 0.89)",
         "#d44a3a"
       ],
+      "datasource": "Prometheus",
       "format": "none",
       "gauge": {
         "maxValue": 100,
@@ -26311,6 +24620,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
         "rgba(237, 129, 40, 0.89)",
         "#d44a3a"
       ],
+      "datasource": "Prometheus",
       "format": "none",
       "gauge": {
         "maxValue": 100,
@@ -26392,6 +24702,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson = []byte(`{
         "rgba(237, 129, 40, 0.89)",
         "#d44a3a"
       ],
+      "datasource": "Prometheus",
       "format": "none",
       "gauge": {
         "maxValue": 100,
@@ -27037,7 +25348,6 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
   "editable": false,
   "gnetId": null,
   "graphTooltip": 0,
-  "id": 9,
   "links": [],
   "panels": [
     {
@@ -27089,6 +25399,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 8,
@@ -27120,7 +25431,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "steppedLine": false,
       "targets": [
         {
-          "expr": "(sum(irate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",pod=~\"istio-telemetry-.*\",container=~\"mixer|istio-proxy\"}[1m]))/ (round(sum(irate(istio_requests_total[1m])), 0.001)/1000))/ (sum(irate(istio_requests_total{source_workload=\"istio-ingressgateway\"}[1m])) >bool 10)",
+          "expr": "(sum(irate(container_cpu_usage_seconds_total{pod=~\"istio-telemetry-.*\",container=~\"mixer|istio-proxy\"}[1m]))/ (round(sum(irate(istio_requests_total[1m])), 0.001)/1000))/ (sum(irate(istio_requests_total{source_workload=\"istio-ingressgateway\"}[1m])) >bool 10)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -27128,7 +25439,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "refId": "A"
         },
         {
-          "expr": "(sum(irate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",pod=~\"istio-ingressgateway-.*\",container=\"istio-proxy\"}[1m])) / (round(sum(irate(istio_requests_total{source_workload=\"istio-ingressgateway\", reporter=\"source\"}[1m])), 0.001)/1000))",
+          "expr": "(sum(irate(container_cpu_usage_seconds_total{pod=~\"istio-ingressgateway-.*\",container=\"istio-proxy\"}[1m])) / (round(sum(irate(istio_requests_total{source_workload=\"istio-ingressgateway\", reporter=\"source\"}[1m])), 0.001)/1000))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -27136,14 +25447,14 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "refId": "B"
         },
         {
-          "expr": "(sum(irate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",namespace!=\"istio-system\",container=\"istio-proxy\"}[1m]))/ (round(sum(irate(istio_requests_total[1m])), 0.001)/1000))/ (sum(irate(istio_requests_total{source_workload=\"istio-ingressgateway\"}[1m])) >bool 10)",
+          "expr": "(sum(irate(container_cpu_usage_seconds_total{namespace!=\"istio-system\",container=\"istio-proxy\"}[1m]))/ (round(sum(irate(istio_requests_total[1m])), 0.001)/1000))/ (sum(irate(istio_requests_total{source_workload=\"istio-ingressgateway\"}[1m])) >bool 10)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "istio-proxy",
           "refId": "C"
         },
         {
-          "expr": "(sum(irate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",pod=~\"istio-policy-.*\",container=~\"mixer|istio-proxy\"}[1m]))/ (round(sum(irate(istio_requests_total[1m])), 0.001)/1000))/ (sum(irate(istio_requests_total{source_workload=\"istio-ingressgateway\"}[1m])) >bool 10)",
+          "expr": "(sum(irate(container_cpu_usage_seconds_total{pod=~\"istio-policy-.*\",container=~\"mixer|istio-proxy\"}[1m]))/ (round(sum(irate(istio_requests_total[1m])), 0.001)/1000))/ (sum(irate(istio_requests_total{source_workload=\"istio-ingressgateway\"}[1m])) >bool 10)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "istio-policy",
@@ -27196,6 +25507,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 8,
@@ -27227,28 +25539,28 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",pod=~\"istio-telemetry-.*\",container=~\"mixer|istio-proxy\"}[1m]))",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{pod=~\"istio-telemetry-.*\",container=~\"mixer|istio-proxy\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "istio-telemetry",
           "refId": "A"
         },
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",pod=~\"istio-ingressgateway-.*\",container=\"istio-proxy\"}[1m]))",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{pod=~\"istio-ingressgateway-.*\",container=\"istio-proxy\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "istio-ingressgateway",
           "refId": "B"
         },
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",namespace!=\"istio-system\",container=\"istio-proxy\"}[1m]))",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{namespace!=\"istio-system\",container=\"istio-proxy\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "istio-proxy",
           "refId": "C"
         },
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",pod=~\"istio-policy-.*\",container=~\"mixer|istio-proxy\"}[1m]))",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{pod=~\"istio-policy-.*\",container=~\"mixer|istio-proxy\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "istio-policy",
@@ -27314,6 +25626,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 8,
@@ -27345,28 +25658,28 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "steppedLine": false,
       "targets": [
         {
-          "expr": "(sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",pod=~\"istio-telemetry-.*\"}) / (sum(irate(istio_requests_total[1m])) / 1000)) / (sum(irate(istio_requests_total{source_workload=\"istio-ingressgateway\"}[1m])) >bool 10)",
+          "expr": "(sum(container_memory_usage_bytes{pod=~\"istio-telemetry-.*\"}) / (sum(irate(istio_requests_total[1m])) / 1000)) / (sum(irate(istio_requests_total{source_workload=\"istio-ingressgateway\"}[1m])) >bool 10)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "istio-telemetry / 1k rps",
           "refId": "A"
         },
         {
-          "expr": "sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",pod=~\"istio-ingressgateway-.*\"}) / count(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",pod=~\"istio-ingressgateway-.*\",container!=\"POD\"})",
+          "expr": "sum(container_memory_usage_bytes{pod=~\"istio-ingressgateway-.*\"}) / count(container_memory_usage_bytes{pod=~\"istio-ingressgateway-.*\",container!=\"POD\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "per istio-ingressgateway",
           "refId": "B"
         },
         {
-          "expr": "sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",namespace!=\"istio-system\",container=\"istio-proxy\"}) / count(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",namespace!=\"istio-system\",container=\"istio-proxy\"})",
+          "expr": "sum(container_memory_usage_bytes{namespace!=\"istio-system\",container=\"istio-proxy\"}) / count(container_memory_usage_bytes{namespace!=\"istio-system\",container=\"istio-proxy\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "per istio proxy",
           "refId": "C"
         },
         {
-          "expr": "(sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",pod=~\"istio-policy-.*\"}) / (sum(irate(istio_requests_total[1m])) / 1000))/ (sum(irate(istio_requests_total{source_workload=\"istio-ingressgateway\"}[1m])) >bool 10)",
+          "expr": "(sum(container_memory_usage_bytes{pod=~\"istio-policy-.*\"}) / (sum(irate(istio_requests_total[1m])) / 1000))/ (sum(irate(istio_requests_total{source_workload=\"istio-ingressgateway\"}[1m])) >bool 10)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "istio-policy / 1k rps",
@@ -27419,6 +25732,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 8,
@@ -27537,6 +25851,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 8,
@@ -27666,7 +25981,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container=\"istio-proxy\"})",
+          "expr": "sum(container_memory_usage_bytes{container=\"istio-proxy\"})",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -27753,7 +26068,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=\"istio-proxy\"}[1m]))",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{container=\"istio-proxy\"}[1m]))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -27840,7 +26155,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container=\"istio-proxy\"})",
+          "expr": "sum(container_fs_usage_bytes{ container=\"istio-proxy\"})",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{ container }}",
@@ -27940,7 +26255,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "steppedLine": false,
       "targets": [
         {
-          "expr": "process_virtual_memory_bytes{job=\"pilot\"}",
+          "expr": "process_virtual_memory_bytes{app=\"istiod\"}",
           "format": "time_series",
           "instant": false,
           "intervalFactor": 2,
@@ -27949,7 +26264,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "step": 2
         },
         {
-          "expr": "process_resident_memory_bytes{job=\"pilot\"}",
+          "expr": "process_resident_memory_bytes{app=\"istiod\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "Resident Memory",
@@ -27957,7 +26272,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "step": 2
         },
         {
-          "expr": "go_memstats_heap_sys_bytes{job=\"pilot\"}",
+          "expr": "go_memstats_heap_sys_bytes{app=\"istiod\"}",
           "format": "time_series",
           "hide": true,
           "intervalFactor": 2,
@@ -27965,7 +26280,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "refId": "A"
         },
         {
-          "expr": "go_memstats_heap_alloc_bytes{job=\"pilot\"}",
+          "expr": "go_memstats_heap_alloc_bytes{app=\"istiod\"}",
           "format": "time_series",
           "hide": true,
           "intervalFactor": 2,
@@ -27973,7 +26288,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "refId": "D"
         },
         {
-          "expr": "go_memstats_alloc_bytes{job=\"pilot\"}",
+          "expr": "go_memstats_alloc_bytes{app=\"istiod\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "Alloc",
@@ -27981,7 +26296,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "step": 2
         },
         {
-          "expr": "go_memstats_heap_inuse_bytes{job=\"pilot\"}",
+          "expr": "go_memstats_heap_inuse_bytes{app=\"istiod\"}",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -27990,7 +26305,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "step": 2
         },
         {
-          "expr": "go_memstats_stack_inuse_bytes{job=\"pilot\"}",
+          "expr": "go_memstats_stack_inuse_bytes{app=\"istiod\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "Stack in-use",
@@ -27998,7 +26313,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "step": 2
         },
         {
-          "expr": "sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istiod-.*\"})",
+          "expr": "sum(container_memory_usage_bytes{container=~\"discovery|istio-proxy\", pod=~\"istiod-.*\"})",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -28007,7 +26322,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "step": 2
         },
         {
-          "expr": "container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istiod-.*\"}",
+          "expr": "container_memory_usage_bytes{container=~\"discovery|istio-proxy\", pod=~\"istiod-.*\"}",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -28094,7 +26409,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istiod-.*\"}[1m]))",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{container=~\"discovery|istio-proxy\", pod=~\"istiod-.*\"}[1m]))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -28103,7 +26418,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "step": 2
         },
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=~\"discovery|istio-proxy\", pod=~\"istiod-.*\"}[1m])) by (container)",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{container=~\"discovery|istio-proxy\", pod=~\"istiod-.*\"}[1m])) by (container)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -28112,7 +26427,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "step": 2
         },
         {
-          "expr": "irate(process_cpu_seconds_total{job=\"pilot\"}[1m])",
+          "expr": "irate(process_cpu_seconds_total{app=\"istiod\"}[1m])",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -28199,7 +26514,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "steppedLine": false,
       "targets": [
         {
-          "expr": "process_open_fds{job=\"pilot\"}",
+          "expr": "process_open_fds{app=\"istiod\"}",
           "format": "time_series",
           "hide": true,
           "instant": false,
@@ -28209,7 +26524,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "refId": "A"
         },
         {
-          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container=~\"discovery|istio-proxy\", pod=~\"istiod-.*\"}",
+          "expr": "container_fs_usage_bytes{ container=~\"discovery|istio-proxy\", pod=~\"istiod-.*\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{ container }}",
@@ -28296,7 +26611,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "steppedLine": false,
       "targets": [
         {
-          "expr": "go_goroutines{job=\"pilot\"}",
+          "expr": "go_goroutines{app=\"istiod\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "Number of Goroutines",
@@ -28453,7 +26768,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "step": 2
         },
         {
-          "expr": "sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container=~\"mixer|istio-proxy\", pod=~\"istio-telemetry-.*\"})",
+          "expr": "sum(container_memory_usage_bytes{container=~\"mixer|istio-proxy\", pod=~\"istio-telemetry-.*\"})",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -28462,7 +26777,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "step": 2
         },
         {
-          "expr": "container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container=~\"mixer|istio-proxy\", pod=~\"istio-telemetry-.*\"}",
+          "expr": "container_memory_usage_bytes{container=~\"mixer|istio-proxy\", pod=~\"istio-telemetry-.*\"}",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -28549,7 +26864,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=~\"mixer|istio-proxy\", pod=~\"istio-telemetry-.*\"}[1m]))",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{container=~\"mixer|istio-proxy\", pod=~\"istio-telemetry-.*\"}[1m]))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -28558,7 +26873,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "step": 2
         },
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=~\"mixer|istio-proxy\", pod=~\"istio-telemetry-.*\"}[1m])) by (container)",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{container=~\"mixer|istio-proxy\", pod=~\"istio-telemetry-.*\"}[1m])) by (container)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -28664,7 +26979,7 @@ var _chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson = []byte
           "refId": "A"
         },
         {
-          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container=~\"mixer|istio-proxy\", pod=~\"istio-telemetry-.*\"}",
+          "expr": "container_fs_usage_bytes{container=~\"mixer|istio-proxy\", pod=~\"istio-telemetry-.*\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{ container }}",
@@ -35639,7 +33954,6 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
   "editable": false,
   "gnetId": null,
   "graphTooltip": 1,
-  "id": 11,
   "links": [],
   "panels": [
     {
@@ -35790,7 +34104,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "process_virtual_memory_bytes{job=\"pilot\"}",
+          "expr": "process_virtual_memory_bytes{app=\"istiod\"}",
           "format": "time_series",
           "instant": false,
           "intervalFactor": 2,
@@ -35799,7 +34113,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "step": 2
         },
         {
-          "expr": "process_resident_memory_bytes{job=\"pilot\"}",
+          "expr": "process_resident_memory_bytes{app=\"istiod\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "Resident Memory",
@@ -35807,7 +34121,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "step": 2
         },
         {
-          "expr": "go_memstats_heap_sys_bytes{job=\"pilot\"}",
+          "expr": "go_memstats_heap_sys_bytes{app=\"istiod\"}",
           "format": "time_series",
           "hide": true,
           "intervalFactor": 2,
@@ -35815,7 +34129,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "refId": "A"
         },
         {
-          "expr": "go_memstats_heap_alloc_bytes{job=\"pilot\"}",
+          "expr": "go_memstats_heap_alloc_bytes{app=\"istiod\"}",
           "format": "time_series",
           "hide": true,
           "intervalFactor": 2,
@@ -35823,7 +34137,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "refId": "D"
         },
         {
-          "expr": "go_memstats_alloc_bytes{job=\"pilot\"}",
+          "expr": "go_memstats_alloc_bytes{app=\"istiod\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "Alloc",
@@ -35831,7 +34145,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "step": 2
         },
         {
-          "expr": "go_memstats_heap_inuse_bytes{job=\"pilot\"}",
+          "expr": "go_memstats_heap_inuse_bytes{app=\"istiod\"}",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -35840,7 +34154,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "step": 2
         },
         {
-          "expr": "go_memstats_stack_inuse_bytes{job=\"pilot\"}",
+          "expr": "go_memstats_stack_inuse_bytes{app=\"istiod\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "Stack in-use",
@@ -35848,7 +34162,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "step": 2
         },
         {
-          "expr": "container_memory_usage_bytes{job=\"kubernetes-cadvisor\", container=~\"discovery\", pod=~\"istiod-.*|istio-pilot-.*\"}",
+          "expr": "container_memory_usage_bytes{container=~\"discovery\", pod=~\"istiod-.*|istio-pilot-.*\"}",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -35857,7 +34171,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "step": 2
         },
         {
-          "expr": "container_memory_usage_bytes{job=\"kubernetes-cadvisor\", container=~\"istio-proxy\", pod=~\"istiod-.*|istio-pilot-.*\"}",
+          "expr": "container_memory_usage_bytes{container=~\"istio-proxy\", pod=~\"istiod-.*|istio-pilot-.*\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Sidecar (container)",
@@ -35942,14 +34256,14 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(irate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=\"discovery\", pod=~\"istiod-.*|istio-pilot-.*\"}[1m]))",
+          "expr": "sum(irate(container_cpu_usage_seconds_total{container=\"discovery\", pod=~\"istiod-.*|istio-pilot-.*\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Discovery (container)",
           "refId": "A"
         },
         {
-          "expr": "irate(process_cpu_seconds_total{job=\"pilot\"}[1m])",
+          "expr": "irate(process_cpu_seconds_total{app=\"istiod\"}[1m])",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -35958,7 +34272,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "step": 2
         },
         {
-          "expr": "sum(irate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=\"istio-proxy\", pod=~\"istiod-.*|istio-pilot-.*\"}[1m]))",
+          "expr": "sum(irate(container_cpu_usage_seconds_total{container=\"istio-proxy\", pod=~\"istiod-.*|istio-pilot-.*\"}[1m]))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -36045,7 +34359,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container=\"discovery\", pod=~\"istiod-.*|istio-pilot-.*\"}",
+          "expr": "container_fs_usage_bytes{container=\"discovery\", pod=~\"istiod-.*|istio-pilot-.*\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "Discovery",
@@ -36053,7 +34367,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "step": 2
         },
         {
-          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container=\"istio-proxy\", pod=~\"istiod-.*|istio-pilot-.*\"}",
+          "expr": "container_fs_usage_bytes{container=\"istio-proxy\", pod=~\"istiod-.*|istio-pilot-.*\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Sidecar",
@@ -36139,7 +34453,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "go_goroutines{job=\"pilot\"}",
+          "expr": "go_goroutines{app=\"istiod\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "Number of Goroutines",
@@ -36206,6 +34520,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "bars": true,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "description": "Shows the rate of pilot pushes",
       "fill": 1,
       "gridPos": {
@@ -36350,7 +34665,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(pilot_xds_cds_reject{job=\"pilot\"}) or (absent(pilot_xds_cds_reject{job=\"pilot\"}) - 1)",
+          "expr": "sum(pilot_xds_cds_reject{app=\"istiod\"}) or (absent(pilot_xds_cds_reject{app=\"istiod\"}) - 1)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -36358,7 +34673,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "refId": "C"
         },
         {
-          "expr": "sum(pilot_xds_eds_reject{job=\"pilot\"}) or (absent(pilot_xds_eds_reject{job=\"pilot\"}) - 1)",
+          "expr": "sum(pilot_xds_eds_reject{app=\"istiod\"}) or (absent(pilot_xds_eds_reject{app=\"istiod\"}) - 1)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -36366,7 +34681,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "refId": "D"
         },
         {
-          "expr": "sum(pilot_xds_rds_reject{job=\"pilot\"}) or (absent(pilot_xds_rds_reject{job=\"pilot\"}) - 1)",
+          "expr": "sum(pilot_xds_rds_reject{app=\"istiod\"}) or (absent(pilot_xds_rds_reject{app=\"istiod\"}) - 1)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -36374,7 +34689,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "refId": "A"
         },
         {
-          "expr": "sum(pilot_xds_lds_reject{job=\"pilot\"}) or (absent(pilot_xds_lds_reject{job=\"pilot\"}) - 1)",
+          "expr": "sum(pilot_xds_lds_reject{app=\"istiod\"}) or (absent(pilot_xds_lds_reject{app=\"istiod\"}) - 1)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -36382,14 +34697,14 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "refId": "B"
         },
         {
-          "expr": "sum(rate(pilot_xds_write_timeout{job=\"pilot\"}[1m]))",
+          "expr": "sum(rate(pilot_xds_write_timeout{app=\"istiod\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Write Timeouts",
           "refId": "F"
         },
         {
-          "expr": "sum(rate(pilot_total_xds_internal_errors{job=\"pilot\"}[1m]))",
+          "expr": "sum(rate(pilot_total_xds_internal_errors{app=\"istiod\"}[1m]))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -36397,7 +34712,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "refId": "H"
         },
         {
-          "expr": "sum(rate(pilot_total_xds_rejects{job=\"pilot\"}[1m]))",
+          "expr": "sum(rate(pilot_total_xds_rejects{app=\"istiod\"}[1m]))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -36405,7 +34720,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "refId": "E"
         },
         {
-          "expr": "sum(rate(pilot_xds_push_context_errors{job=\"pilot\"}[1m]))",
+          "expr": "sum(rate(pilot_xds_push_context_errors{app=\"istiod\"}[1m]))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -36420,7 +34735,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "refId": "L"
         },
         {
-          "expr": "sum(rate(pilot_xds_push_errors{job=\"pilot\"}[1m])) by (type)",
+          "expr": "sum(rate(pilot_xds_push_errors{app=\"istiod\"}[1m])) by (type)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -36428,14 +34743,14 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "refId": "I"
         },
         {
-          "expr": "sum(rate(pilot_xds_push_timeout{job=\"pilot\"}[1m]))",
+          "expr": "sum(rate(pilot_xds_push_timeout{app=\"istiod\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Push Timeouts",
           "refId": "G"
         },
         {
-          "expr": "sum(rate(pilot_xds_push_timeout_failures{job=\"pilot\"}[1m]))",
+          "expr": "sum(rate(pilot_xds_push_timeout_failures{app=\"istiod\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Push Timeouts Failures",
@@ -36488,6 +34803,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "bars": false,
       "dashLength": 10,
       "dashes": false,
+      "datasource": "Prometheus",
       "description": "Shows the total time it takes to push a config update to a proxy",
       "fill": 1,
       "gridPos": {
@@ -36628,7 +34944,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "pilot_conflict_inbound_listener{job=\"pilot\"}",
+          "expr": "pilot_conflict_inbound_listener{app=\"istiod\"}",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -36636,7 +34952,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "refId": "B"
         },
         {
-          "expr": "pilot_conflict_outbound_listener_http_over_current_tcp{job=\"pilot\"}",
+          "expr": "pilot_conflict_outbound_listener_http_over_current_tcp{app=\"istiod\"}",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -36644,7 +34960,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "refId": "A"
         },
         {
-          "expr": "pilot_conflict_outbound_listener_tcp_over_current_tcp{job=\"pilot\"}",
+          "expr": "pilot_conflict_outbound_listener_tcp_over_current_tcp{app=\"istiod\"}",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -36652,7 +34968,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
           "refId": "C"
         },
         {
-          "expr": "pilot_conflict_outbound_listener_tcp_over_current_http{job=\"pilot\"}",
+          "expr": "pilot_conflict_outbound_listener_tcp_over_current_http{app=\"istiod\"}",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -36738,21 +35054,21 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "pilot_virt_services{job=\"pilot\"}",
+          "expr": "pilot_virt_services{app=\"istiod\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Virtual Services",
           "refId": "A"
         },
         {
-          "expr": "pilot_services{job=\"pilot\"}",
+          "expr": "pilot_services{app=\"istiod\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Services",
           "refId": "B"
         },
         {
-          "expr": "pilot_xds{job=\"pilot\"}",
+          "expr": "pilot_xds{app=\"istiod\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Connected Endpoints",
@@ -36844,7 +35160,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
       ],
       "targets": [
         {
-          "expr": "sum(pilot_xds_eds_instances{job=\"pilot\", cluster=~\".+\\\\|.+\"}) by (cluster) < 1",
+          "expr": "sum(pilot_xds_eds_instances{app=\"istiod\", cluster=~\".+\\\\|.+\"}) by (cluster) < 1",
           "format": "time_series",
           "hide": false,
           "instant": true,
@@ -37170,6 +35486,212 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
         "align": false,
         "alignLevel": null
       }
+    },
+    {
+      "collapsed": false,
+      "datasource": null,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 40
+      },
+      "id": 626,
+      "panels": [],
+      "title": "Webhooks",
+      "type": "row"
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 41
+      },
+      "hiddenSeries": false,
+      "id": 629,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "hideEmpty": false,
+        "hideZero": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "dataLinks": []
+      },
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "sum(rate(galley_validation_passed[1m]))",
+          "interval": "",
+          "legendFormat": "Validations (Success)",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(galley_validation_failed[1m]))",
+          "interval": "",
+          "legendFormat": "Validation (Failure)",
+          "refId": "B"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Configuration Validation",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "description": "",
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 41
+      },
+      "hiddenSeries": false,
+      "id": 630,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "hideZero": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "dataLinks": []
+      },
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "sum(rate(sidecar_injection_success_total[1m]))",
+          "interval": "",
+          "legendFormat": "Injections (Success)",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(sidecar_injection_failure_total[1m]))",
+          "interval": "",
+          "legendFormat": "Injections (Failure)",
+          "refId": "B"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Sidecar Injection",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
     }
   ],
   "refresh": "5s",
@@ -37209,7 +35731,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
     ]
   },
   "timezone": "browser",
-  "title": "Istio Pilot Dashboard",
+  "title": "Istio Control Plane Dashboard",
   "uid": "3--MLVZZk",
   "version": 11
 }`)
@@ -37597,7 +36119,7 @@ spec:
 {{- $filename := trimSuffix (ext $path) (base $path) }}
       - name: dashboards-istio-{{ $filename }}
         configMap:
-          name:  istio-grafana-configuration-dashboards-{{ $filename }}
+          name: istio-grafana-configuration-dashboards-{{ $filename }}
 {{- end }}
 `)
 
@@ -37651,6 +36173,7 @@ kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
   name: istio-grafana-pvc
+  namespace: {{ .Release.Namespace }}
   labels:
     app: grafana
     release: {{ .Release.Name }}
@@ -37917,9 +36440,11 @@ func chartsIstioTelemetryGrafanaValuesYaml() (*asset, error) {
 var _chartsIstioTelemetryKialiChartYaml = []byte(`apiVersion: v1
 description: Kiali is an open source project for service mesh observability, refer to https://www.kiali.io for details.
 name: kiali
-version: 1.14.0
-appVersion: 1.14.0
+version: 1.15.0
+appVersion: 1.15.0
 tillerVersion: ">=2.7.2"
+keywords:
+  - istio-addon
 `)
 
 func chartsIstioTelemetryKialiChartYamlBytes() ([]byte, error) {
@@ -38270,6 +36795,8 @@ data:
 {{- end }}
     deployment:
       accessible_namespaces: ['**']
+    login_token:
+      signing_key: {{ randAlphaNum 10 | quote }}
     server:
       port: 20001
 {{- if .Values.kiali.contextPath }}
@@ -38285,11 +36812,15 @@ data:
         url: {{ .Values.kiali.dashboard.grafanaURL }}
         in_cluster_url: {{ .Values.kiali.dashboard.grafanaInClusterURL }}
       prometheus:
+{{- if .Values.kiali.prometheusAddr}}
+        url: {{ .Values.kiali.prometheusAddr}}
+{{- else }}
 {{- if .Values.global.prometheusNamespace }}
         url: http://prometheus.{{ .Values.global.prometheusNamespace }}:9090
 {{ else }}
         url: http://prometheus:9090
 {{- end }}
+{{- end}}
 {{- if .Values.kiali.security.enabled }}
     identity:
       cert_file: {{ .Values.kiali.security.cert_file }}
@@ -38379,7 +36910,7 @@ spec:
       containers:
       - image: "{{ .Values.kiali.hub }}/{{ .Values.kiali.image }}:{{ .Values.kiali.tag }}"
 {{- if .Values.global.imagePullPolicy }}
-      imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
 {{- end }}
         name: kiali
         command:
@@ -38466,10 +36997,15 @@ kind: Service
 metadata:
   name: kiali
   namespace: {{ .Release.Namespace }}
+  annotations:
+    {{- range $key, $val := .Values.kiali.service.annotations }}
+      {{ $key }}: {{ $val | quote }}
+    {{- end }}
   labels:
     app: kiali
     release: {{ .Release.Name }}
 spec:
+  type: {{ .Values.kiali.service.type }}
   ports:
     - name: http-kiali
       protocol: TCP
@@ -38531,7 +37067,7 @@ kiali:
   enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `+"`"+`true`+"`"+`.
   replicaCount: 1
   hub: quay.io/kiali
-  tag: v1.14
+  tag: v1.15
   image: kiali
   contextPath: /kiali # The root context path to access the Kiali UI.
   nodeSelector: {}
@@ -38559,19 +37095,9 @@ kiali:
   podAntiAffinityLabelSelector: []
   podAntiAffinityTermLabelSelector: []
 
-  ingress:
-    enabled: false
-    ## Used to create an Ingress record.
-    hosts:
-      - kiali.local
+  service:
     annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-    tls:
-    # Secrets must be manually created in the namespace.
-    # - secretName: kiali-tls
-    #   hosts:
-    #     - kiali.local
+    type: ClusterIP
 
   dashboard:
     auth:
@@ -38604,6 +37130,7 @@ kiali:
 
   createDemoSecret: true # When true, a secret will be created with a default username and password. Useful for demos.
 
+  prometheusAddr: ""
   resources: {}
   security:
     enabled: false
@@ -40466,9 +38993,9 @@ spec:
           {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
           {{- else if .Values.global.configNamespace }}
-          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
           {{- else }}
-          value: istiod.istio-system.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
       {{- end }}
         resources:
 {{- if .Values.global.proxy.resources }}
@@ -41731,6 +40258,8 @@ name: prometheus
 version: 1.1.0
 appVersion: 2.8.0
 tillerVersion: ">=2.7.2"
+keywords:
+  - istio-addon
 `)
 
 func chartsIstioTelemetryPrometheusChartYamlBytes() ([]byte, error) {
@@ -42015,8 +40544,9 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: istio-pilot;http-monitoring
-
+        regex: istiod;http-monitoring
+      - source_labels: [__meta_kubernetes_service_label_app]
+        target_label: app
     - job_name: 'galley'
       kubernetes_sd_configs:
       - role: endpoints
@@ -42180,7 +40710,7 @@ data:
         action: replace
         target_label: pod_name
 
-{{- if .Values.security.enabled }}
+{{- if .Values.prometheus.provisionPrometheusCert }}
     - job_name: 'kubernetes-pods-istio-secure'
       scheme: https
       tls_config:
@@ -42300,7 +40830,11 @@ spec:
 
 {{- if .Values.prometheus.provisionPrometheusCert }}
         - name: istio-proxy
-          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+{{- if contains "/" .Values.global.proxy.image }}
+          image: "{{ .Values.global.proxy.image }}"
+{{- else }}
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.global.tag }}"
+{{- end }}
           ports:
             - containerPort: 15090
               protocol: TCP
@@ -42310,11 +40844,6 @@ spec:
             - sidecar
             - --domain
             - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
-            - --configPath
-            - "/etc/istio/proxy"
-            - --binaryPath
-            - "/usr/local/bin/envoy"
-            - --serviceCluster
             - "istio-proxy-prometheus"
             {{- if .Values.global.proxy.logLevel }}
             - --proxyLogLevel={{ .Values.global.proxy.logLevel }}
@@ -42322,27 +40851,16 @@ spec:
             {{- if .Values.global.proxy.componentLogLevel }}
             - --proxyComponentLogLevel={{ .Values.global.proxy.componentLogLevel }}
             {{- end}}
-            - --proxyAdminPort
-            - "15000"
-              {{- if .Values.global.istiod.enabled }}
             - --controlPlaneAuthPolicy
             - NONE
-              {{- else if .Values.global.controlPlaneSecurityEnabled }}
-            - --controlPlaneAuthPolicy
-            - MUTUAL_TLS
-              {{- else }}
-            - --controlPlaneAuthPolicy
-            - NONE
-              {{- end }}
               {{- if .Values.global.trustDomain }}
             - --trust-domain={{ .Values.global.trustDomain }}
               {{- end }}
               {{- if .Values.global.logAsJson }}
             - --log_as_json
               {{- end }}
-            - --controlPlaneBootstrap=false
           env:
-            - name: OUTPUT_KEY_CERT_TO_DIRECTORY
+            - name: OUTPUT_CERTS
               value: "/etc/istio-certs"
             - name: JWT_POLICY
               value: {{ .Values.global.jwtPolicy }}
@@ -42353,9 +40871,9 @@ spec:
               {{- if .Values.global.caAddress }}
               value: {{ .Values.global.caAddress }}
               {{- else if .Values.global.configNamespace }}
-              value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
               {{- else }}
-              value: istiod.istio-system.svc:15012
+              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
               {{- end }}
             - name: POD_NAME
               valueFrom:
@@ -42377,14 +40895,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.hostIP
-            - name: ISTIO_META_POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: ISTIO_META_CONFIG_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
               {{- if .Values.global.network }}
             - name: ISTIO_META_NETWORK
               value: "{{ .Values.global.network }}"
@@ -42500,61 +41010,6 @@ func chartsIstioTelemetryPrometheusTemplatesDeploymentYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "charts/istio-telemetry/prometheus/templates/deployment.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioTelemetryPrometheusTemplatesIngressYaml = []byte(`{{- if .Values.prometheus.ingress.enabled -}}
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  name: prometheus
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: prometheus
-    release: {{ .Release.Name }}
-  annotations:
-    {{- range $key, $value := .Values.prometheus.ingress.annotations }}
-      {{ $key }}: {{ $value | quote }}
-    {{- end }}
-spec:
-  rules:
-{{- if .Values.prometheus.ingress.hosts }}
-    {{- range $host := .Values.prometheus.ingress.hosts }}
-    - host: {{ $host }}
-      http:
-        paths:
-          - path: {{ if $.Values.prometheus.contextPath }} {{ $.Values.prometheus.contextPath }} {{ else }} / {{ end }}
-            backend:
-              serviceName: prometheus
-              servicePort: 9090
-    {{- end -}}
-{{- else }}
-    - http:
-        paths:
-          - path: {{ if .Values.prometheus.contextPath }} {{ .Values.prometheus.contextPath }} {{ else }} / {{ end }}
-            backend:
-              serviceName: prometheus
-              servicePort: 9090
-{{- end }}
-  {{- if .Values.prometheus.ingress.tls }}
-  tls:
-{{ toYaml .Values.prometheus.ingress.tls | indent 4 }}
-  {{- end -}}
-{{- end -}}
-`)
-
-func chartsIstioTelemetryPrometheusTemplatesIngressYamlBytes() ([]byte, error) {
-	return _chartsIstioTelemetryPrometheusTemplatesIngressYaml, nil
-}
-
-func chartsIstioTelemetryPrometheusTemplatesIngressYaml() (*asset, error) {
-	bytes, err := chartsIstioTelemetryPrometheusTemplatesIngressYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-telemetry/prometheus/templates/ingress.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -42707,20 +41162,6 @@ var _chartsIstioTelemetryPrometheusValuesYaml = []byte(`prometheus:
 
   contextPath: /prometheus
 
-  ingress:
-    enabled: false
-    ## Used to create an Ingress record.
-    hosts:
-      - prometheus.local
-    annotations:
-      # kubernetes.io/ingress.class: nginx
-      # kubernetes.io/tls-acme: "true"
-    tls:
-      # Secrets must be manually created in the namespace.
-      # - secretName: prometheus-tls
-      #   hosts:
-      #     - prometheus.local
-
   # 1.2 it is disabled by default - it can be enabled for special cases, but would create port
   # conflicts. In general it is not recommended to use node ports for services, but use gateways instead.
 #  service:
@@ -42785,30 +41226,32 @@ func chartsIstioTelemetryPrometheusValuesYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioTelemetryPrometheusOperatorChartYaml = []byte(`apiVersion: v1
+var _chartsIstioTelemetryPrometheusoperatorChartYaml = []byte(`apiVersion: v1
 description: A Helm chart for Kubernetes
-name: prometheus-operator
+name: prometheusOperator
 version: 1.1.0
 appVersion: 2.3.1
 tillerVersion: ">=2.7.2"
+keywords:
+  - istio-addon
 `)
 
-func chartsIstioTelemetryPrometheusOperatorChartYamlBytes() ([]byte, error) {
-	return _chartsIstioTelemetryPrometheusOperatorChartYaml, nil
+func chartsIstioTelemetryPrometheusoperatorChartYamlBytes() ([]byte, error) {
+	return _chartsIstioTelemetryPrometheusoperatorChartYaml, nil
 }
 
-func chartsIstioTelemetryPrometheusOperatorChartYaml() (*asset, error) {
-	bytes, err := chartsIstioTelemetryPrometheusOperatorChartYamlBytes()
+func chartsIstioTelemetryPrometheusoperatorChartYaml() (*asset, error) {
+	bytes, err := chartsIstioTelemetryPrometheusoperatorChartYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "charts/istio-telemetry/prometheus-operator/Chart.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "charts/istio-telemetry/prometheusOperator/Chart.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _chartsIstioTelemetryPrometheusOperatorTemplates_affinityTpl = []byte(`{{/* affinity - https://kubernetes.io/docs/concepts/configuration/assign-pod-node/ */}}
+var _chartsIstioTelemetryPrometheusoperatorTemplates_affinityTpl = []byte(`{{/* affinity - https://kubernetes.io/docs/concepts/configuration/assign-pod-node/ */}}
 
 {{- define "nodeaffinity" }}
   nodeAffinity:
@@ -42903,22 +41346,22 @@ var _chartsIstioTelemetryPrometheusOperatorTemplates_affinityTpl = []byte(`{{/* 
 {{- end }}
 `)
 
-func chartsIstioTelemetryPrometheusOperatorTemplates_affinityTplBytes() ([]byte, error) {
-	return _chartsIstioTelemetryPrometheusOperatorTemplates_affinityTpl, nil
+func chartsIstioTelemetryPrometheusoperatorTemplates_affinityTplBytes() ([]byte, error) {
+	return _chartsIstioTelemetryPrometheusoperatorTemplates_affinityTpl, nil
 }
 
-func chartsIstioTelemetryPrometheusOperatorTemplates_affinityTpl() (*asset, error) {
-	bytes, err := chartsIstioTelemetryPrometheusOperatorTemplates_affinityTplBytes()
+func chartsIstioTelemetryPrometheusoperatorTemplates_affinityTpl() (*asset, error) {
+	bytes, err := chartsIstioTelemetryPrometheusoperatorTemplates_affinityTplBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "charts/istio-telemetry/prometheus-operator/templates/_affinity.tpl", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "charts/istio-telemetry/prometheusOperator/templates/_affinity.tpl", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _chartsIstioTelemetryPrometheusOperatorTemplatesPrometheusYaml = []byte(`{{- if .Values.prometheusOperator.createPrometheusResource }}
+var _chartsIstioTelemetryPrometheusoperatorTemplatesPrometheusYaml = []byte(`{{- if .Values.prometheusOperator.createPrometheusResource }}
 apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
 metadata:
@@ -43057,22 +41500,22 @@ metadata:
 {{- end }}
 `)
 
-func chartsIstioTelemetryPrometheusOperatorTemplatesPrometheusYamlBytes() ([]byte, error) {
-	return _chartsIstioTelemetryPrometheusOperatorTemplatesPrometheusYaml, nil
+func chartsIstioTelemetryPrometheusoperatorTemplatesPrometheusYamlBytes() ([]byte, error) {
+	return _chartsIstioTelemetryPrometheusoperatorTemplatesPrometheusYaml, nil
 }
 
-func chartsIstioTelemetryPrometheusOperatorTemplatesPrometheusYaml() (*asset, error) {
-	bytes, err := chartsIstioTelemetryPrometheusOperatorTemplatesPrometheusYamlBytes()
+func chartsIstioTelemetryPrometheusoperatorTemplatesPrometheusYaml() (*asset, error) {
+	bytes, err := chartsIstioTelemetryPrometheusoperatorTemplatesPrometheusYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "charts/istio-telemetry/prometheus-operator/templates/prometheus.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "charts/istio-telemetry/prometheusOperator/templates/prometheus.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _chartsIstioTelemetryPrometheusOperatorTemplatesServicemonitorsYaml = []byte(`apiVersion: monitoring.coreos.com/v1
+var _chartsIstioTelemetryPrometheusoperatorTemplatesServicemonitorsYaml = []byte(`apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: istio-mesh-monitor
@@ -43101,6 +41544,7 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   jobLabel: istio
+  targetLabels: [app]
   selector:
     matchExpressions:
       - {key: istio, operator: In, values: [mixer,pilot,galley,citadel,sidecar-injector]}
@@ -43394,22 +41838,22 @@ spec:
       k8s-app: kubelet
 `)
 
-func chartsIstioTelemetryPrometheusOperatorTemplatesServicemonitorsYamlBytes() ([]byte, error) {
-	return _chartsIstioTelemetryPrometheusOperatorTemplatesServicemonitorsYaml, nil
+func chartsIstioTelemetryPrometheusoperatorTemplatesServicemonitorsYamlBytes() ([]byte, error) {
+	return _chartsIstioTelemetryPrometheusoperatorTemplatesServicemonitorsYaml, nil
 }
 
-func chartsIstioTelemetryPrometheusOperatorTemplatesServicemonitorsYaml() (*asset, error) {
-	bytes, err := chartsIstioTelemetryPrometheusOperatorTemplatesServicemonitorsYamlBytes()
+func chartsIstioTelemetryPrometheusoperatorTemplatesServicemonitorsYaml() (*asset, error) {
+	bytes, err := chartsIstioTelemetryPrometheusoperatorTemplatesServicemonitorsYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "charts/istio-telemetry/prometheus-operator/templates/servicemonitors.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "charts/istio-telemetry/prometheusOperator/templates/servicemonitors.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _chartsIstioTelemetryPrometheusOperatorValuesYaml = []byte(`prometheusOperator:
+var _chartsIstioTelemetryPrometheusoperatorValuesYaml = []byte(`prometheusOperator:
   # Controls the default scrape interval used in the ServiceMonitors
   scrapeInterval: 15s
 
@@ -43457,17 +41901,17 @@ var _chartsIstioTelemetryPrometheusOperatorValuesYaml = []byte(`prometheusOperat
 security:
   enabled: true`)
 
-func chartsIstioTelemetryPrometheusOperatorValuesYamlBytes() ([]byte, error) {
-	return _chartsIstioTelemetryPrometheusOperatorValuesYaml, nil
+func chartsIstioTelemetryPrometheusoperatorValuesYamlBytes() ([]byte, error) {
+	return _chartsIstioTelemetryPrometheusoperatorValuesYaml, nil
 }
 
-func chartsIstioTelemetryPrometheusOperatorValuesYaml() (*asset, error) {
-	bytes, err := chartsIstioTelemetryPrometheusOperatorValuesYamlBytes()
+func chartsIstioTelemetryPrometheusoperatorValuesYaml() (*asset, error) {
+	bytes, err := chartsIstioTelemetryPrometheusoperatorValuesYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "charts/istio-telemetry/prometheus-operator/values.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "charts/istio-telemetry/prometheusOperator/values.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -43478,6 +41922,8 @@ name: tracing
 version: 1.1.0
 appVersion: 1.5.1
 tillerVersion: ">=2.7.2"
+keywords:
+  - istio-addon
 `)
 
 func chartsIstioTelemetryTracingChartYamlBytes() ([]byte, error) {
@@ -44263,21 +42709,6 @@ tracing:
     name: http-query
     type: ClusterIP
     externalPort: 80
-
-  ingress:
-    enabled: false
-    # Used to create an Ingress record.
-    hosts:
-    # - tracing.local
-    annotations:
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-    tls:
-    # Secrets must be manually created in the namespace.
-    # - secretName: tracing-tls
-    #   hosts:
-    #     - tracing.local
-
 `)
 
 func chartsIstioTelemetryTracingValuesYamlBytes() ([]byte, error) {
@@ -44301,6 +42732,8 @@ name: istiocoredns
 version: 1.1.0
 appVersion: 0.1
 tillerVersion: ">=2.7.2"
+keywords:
+  - istio-addon
 `)
 
 func chartsIstiocorednsChartYamlBytes() ([]byte, error) {
@@ -44999,396 +43432,6 @@ func examplesVmValuesIstioMeshexpansionYaml() (*asset, error) {
 	return a, nil
 }
 
-var _operatorChartChartYaml = []byte(`apiVersion: v1
-name: operator
-version: 1.5.0
-tillerVersion: ">=2.7.2"
-description: Helm chart for deploying Istio operator
-keywords:
-  - istio
-  - operator
-sources:
-  - http://github.com/istio/operator
-engine: gotpl
-icon: https://istio.io/favicons/android-192x192.png
-`)
-
-func operatorChartChartYamlBytes() ([]byte, error) {
-	return _operatorChartChartYaml, nil
-}
-
-func operatorChartChartYaml() (*asset, error) {
-	bytes, err := operatorChartChartYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "operator-chart/Chart.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _operatorChartTemplatesClusterroleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  creationTimestamp: null
-  name: istio-operator
-rules:
-# istio groups
-- apiGroups:
-  - authentication.istio.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
-  - config.istio.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
-  - install.istio.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
-  - networking.istio.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
-  - rbac.istio.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
-  - security.istio.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-# k8s groups
-- apiGroups:
-  - admissionregistration.k8s.io
-  resources:
-  - mutatingwebhookconfigurations
-  - validatingwebhookconfigurations
-  verbs:
-  - '*'
-- apiGroups:
-  - apiextensions.k8s.io
-  resources:
-  - customresourcedefinitions.apiextensions.k8s.io
-  - customresourcedefinitions
-  verbs:
-  - '*'
-- apiGroups:
-  - apps
-  - extensions
-  resources:
-  - daemonsets
-  - deployments
-  - deployments/finalizers
-  - ingresses
-  - replicasets
-  - statefulsets
-  verbs:
-  - '*'
-- apiGroups:
-  - autoscaling
-  resources:
-  - horizontalpodautoscalers
-  verbs:
-  - '*'
-- apiGroups:
-  - monitoring.coreos.com
-  resources:
-  - servicemonitors
-  verbs:
-  - get
-  - create
-- apiGroups:
-  - policy
-  resources:
-  - poddisruptionbudgets
-  verbs:
-  - '*'
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - clusterrolebindings
-  - clusterroles
-  - roles
-  - rolebindings
-  verbs:
-  - '*'
-- apiGroups:
-  - ""
-  resources:
-  - configmaps
-  - endpoints
-  - events
-  - namespaces
-  - pods
-  - persistentvolumeclaims
-  - secrets
-  - services
-  - serviceaccounts
-  verbs:
-  - '*'
----
-`)
-
-func operatorChartTemplatesClusterroleYamlBytes() ([]byte, error) {
-	return _operatorChartTemplatesClusterroleYaml, nil
-}
-
-func operatorChartTemplatesClusterroleYaml() (*asset, error) {
-	bytes, err := operatorChartTemplatesClusterroleYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "operator-chart/templates/clusterrole.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _operatorChartTemplatesClusterrole_bindingYaml = []byte(`kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: istio-operator
-subjects:
-- kind: ServiceAccount
-  name: istio-operator
-  namespace: {{.Values.operatorNamespace}}
-roleRef:
-  kind: ClusterRole
-  name: istio-operator
-  apiGroup: rbac.authorization.k8s.io
----
-`)
-
-func operatorChartTemplatesClusterrole_bindingYamlBytes() ([]byte, error) {
-	return _operatorChartTemplatesClusterrole_bindingYaml, nil
-}
-
-func operatorChartTemplatesClusterrole_bindingYaml() (*asset, error) {
-	bytes, err := operatorChartTemplatesClusterrole_bindingYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "operator-chart/templates/clusterrole_binding.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _operatorChartTemplatesCrdYaml = []byte(`apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  name: istiooperators.install.istio.io
-spec:
-  group: install.istio.io
-  names:
-    kind: IstioOperator
-    plural: istiooperators
-    singular: istiooperator
-    shortNames:
-    - iop
-  scope: Namespaced
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      properties:
-        apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values.
-            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources'
-          type: string
-        kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase.
-            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-          type: string
-        spec:
-          description: 'Specification of the desired state of the istio control plane resource.
-            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
-          type: object
-        status:
-          description: 'Status describes each of istio control plane component status at the current time.
-            0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
-            More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
-            https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
-          type: object
-  versions:
-  - name: v1alpha1
-    served: true
-    storage: true
----
-`)
-
-func operatorChartTemplatesCrdYamlBytes() ([]byte, error) {
-	return _operatorChartTemplatesCrdYaml, nil
-}
-
-func operatorChartTemplatesCrdYaml() (*asset, error) {
-	bytes, err := operatorChartTemplatesCrdYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "operator-chart/templates/crd.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _operatorChartTemplatesDeploymentYaml = []byte(`apiVersion: apps/v1
-kind: Deployment
-metadata:
-  namespace: {{.Values.operatorNamespace}}
-  name: istio-operator
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      name: istio-operator
-  template:
-    metadata:
-      labels:
-        name: istio-operator
-    spec:
-      serviceAccountName: istio-operator
-      containers:
-        - name: istio-operator
-          image: {{.Values.hub}}/operator:{{.Values.tag}}
-          command:
-          - operator
-          - server
-          imagePullPolicy: IfNotPresent
-          resources:
-            limits:
-              cpu: 200m
-              memory: 256Mi
-            requests:
-              cpu: 50m
-              memory: 128Mi
-          env:
-            - name: WATCH_NAMESPACE
-              value: {{.Values.istioNamespace}}
-            - name: LEADER_ELECTION_NAMESPACE
-              value: {{.Values.operatorNamespace}}
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: OPERATOR_NAME
-              value: {{.Values.operatorNamespace}}
----
-`)
-
-func operatorChartTemplatesDeploymentYamlBytes() ([]byte, error) {
-	return _operatorChartTemplatesDeploymentYaml, nil
-}
-
-func operatorChartTemplatesDeploymentYaml() (*asset, error) {
-	bytes, err := operatorChartTemplatesDeploymentYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "operator-chart/templates/deployment.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _operatorChartTemplatesNamespaceYaml = []byte(`apiVersion: v1
-kind: Namespace
-metadata:
-  name: istio-operator
-  labels:
-    istio-operator-managed: Reconcile
-    istio-injection: disabled
----
-`)
-
-func operatorChartTemplatesNamespaceYamlBytes() ([]byte, error) {
-	return _operatorChartTemplatesNamespaceYaml, nil
-}
-
-func operatorChartTemplatesNamespaceYaml() (*asset, error) {
-	bytes, err := operatorChartTemplatesNamespaceYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "operator-chart/templates/namespace.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _operatorChartTemplatesServiceYaml = []byte(`apiVersion: v1
-kind: Service
-metadata:
-  namespace: {{.Values.operatorNamespace}}
-  labels:
-    name: istio-operator
-  name: istio-operator
-spec:
-  ports:
-  - name: http-metrics
-    port: 8383
-    targetPort: 8383
-  selector:
-    name: istio-operator
----
-`)
-
-func operatorChartTemplatesServiceYamlBytes() ([]byte, error) {
-	return _operatorChartTemplatesServiceYaml, nil
-}
-
-func operatorChartTemplatesServiceYaml() (*asset, error) {
-	bytes, err := operatorChartTemplatesServiceYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "operator-chart/templates/service.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _operatorChartTemplatesService_accountYaml = []byte(`apiVersion: v1
-kind: ServiceAccount
-metadata:
-  namespace: {{.Values.operatorNamespace}}
-  name: istio-operator
----
-`)
-
-func operatorChartTemplatesService_accountYamlBytes() ([]byte, error) {
-	return _operatorChartTemplatesService_accountYaml, nil
-}
-
-func operatorChartTemplatesService_accountYaml() (*asset, error) {
-	bytes, err := operatorChartTemplatesService_accountYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "operator-chart/templates/service_account.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _profilesDefaultYaml = []byte(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 metadata:
@@ -45396,6 +43439,13 @@ metadata:
 spec:
   hub: gcr.io/istio-testing
   tag: latest
+
+  # You may override parts of meshconfig by uncommenting the following lines.
+  # meshConfig:
+    #
+    # Opt-out of global http2 upgrades.
+    # Destination rule is used to opt-in.
+    # h2_upgrade_policy: DO_NOT_UPGRADE
 
   # Traffic management feature
   components:
@@ -45419,8 +43469,8 @@ spec:
           httpGet:
             path: /ready
             port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
+          initialDelaySeconds: 1
+          periodSeconds: 3
           timeoutSeconds: 5
         strategy:
           rollingUpdate:
@@ -45518,6 +43568,35 @@ spec:
     - name: istio-ingressgateway
       enabled: true
       k8s:
+        env:
+          - name: ISTIO_META_ROUTER_MODE
+            value: "sni-dnat"
+        service:
+          ports:
+            - port: 15020
+              targetPort: 15020
+              name: status-port
+            - port: 80
+              targetPort: 8080
+              name: http2
+            - port: 443
+              targetPort: 8443
+              name: https
+            - port: 15029
+              targetPort: 15029
+              name: kiali
+            - port: 15030
+              targetPort: 15030
+              name: prometheus
+            - port: 15031
+              targetPort: 15031
+              name: grafana
+            - port: 15032
+              targetPort: 15032
+              name: tracing
+            - port: 15443
+              targetPort: 15443
+              name: tls
         hpaSpec:
           maxReplicas: 5
           minReplicas: 1
@@ -45546,6 +43625,18 @@ spec:
     - name: istio-egressgateway
       enabled: false
       k8s:
+        env:
+          - name: ISTIO_META_ROUTER_MODE
+            value: "sni-dnat"
+        service:
+          ports:
+            - port: 80
+              name: http2
+            - port: 443
+              name: https
+            - port: 15443
+              targetPort: 15443
+              name: tls
         hpaSpec:
           maxReplicas: 5
           minReplicas: 1
@@ -45598,13 +43689,10 @@ spec:
       istioNamespace: istio-system
       istiod:
         enabled: true
+        enableAnalysis: false
       logging:
         level: "default:info"
       logAsJson: false
-      k8sIngress:
-        enabled: false
-        gatewayName: ingressgateway
-        enableHttps: false
       pilotCertProvider: istiod
       jwtPolicy: third-party-jwt
       proxy:
@@ -45627,7 +43715,6 @@ spec:
           port: # example: 15000
         logLevel: warning
         componentLogLevel: "misc:error"
-        dnsRefreshRate: 300s
         protocolDetectionTimeout: 100ms
         privileged: false
         enableCoreDump: false
@@ -45638,8 +43725,6 @@ spec:
         includeIPRanges: "*"
         excludeIPRanges: ""
         excludeOutboundPorts: ""
-        kubevirtInterfaces: ""
-        includeInboundPorts: "*"
         excludeInboundPorts: ""
         autoInject: enabled
         envoyStatsd:
@@ -45752,10 +43837,8 @@ spec:
       podAntiAffinityTermLabelSelector: []
       keepaliveMaxServerConnectionAge: 30m
       enableProtocolSniffingForOutbound: true
-      enableProtocolSniffingForInbound: false
+      enableProtocolSniffingForInbound: true
       deploymentLabels:
-      meshNetworks:
-        networks: {}
       configMap: true
       ingress:
         ingressService: istio-ingressgateway
@@ -45840,16 +43923,7 @@ spec:
       istio-egressgateway:
         autoscaleEnabled: true
         type: ClusterIP
-        env:
-          ISTIO_META_ROUTER_MODE: "sni-dnat"
-        ports:
-          - port: 80
-            name: http2
-          - port: 443
-            name: https
-          - port: 15443
-            targetPort: 15443
-            name: tls
+        name: istio-egressgateway
         secretVolumes:
           - name: egressgateway-certs
             secretName: istio-egressgateway-certs
@@ -45864,33 +43938,7 @@ spec:
         debug: info
         domain: ""
         type: LoadBalancer
-        env:
-          ISTIO_META_ROUTER_MODE: "sni-dnat"
-        ports:
-          - port: 15020
-            targetPort: 15020
-            name: status-port
-          - port: 80
-            targetPort: 8080
-            name: http2
-          - port: 443
-            targetPort: 8443
-            name: https
-          - port: 15029
-            targetPort: 15029
-            name: kiali
-          - port: 15030
-            targetPort: 15030
-            name: prometheus
-          - port: 15031
-            targetPort: 15031
-            name: grafana
-          - port: 15032
-            targetPort: 15032
-            name: tracing
-          - port: 15443
-            targetPort: 15443
-            name: tls
+        name: istio-ingressgateway
         meshExpansionPorts:
           - port: 15011
             targetPort: 15011
@@ -45926,12 +43974,7 @@ spec:
       retention: 6h
       scrapeInterval: 15s
       contextPath: /prometheus
-      ingress:
-        enabled: false
-        hosts:
-          - prometheus.local
-        annotations:
-        tls:
+
       security:
         enabled: true
       nodeSelector: {}
@@ -45960,12 +44003,6 @@ spec:
         externalPort: 3000
         loadBalancerIP:
         loadBalancerSourceRanges:
-      ingress:
-        enabled: false
-        hosts:
-          - grafana.local
-        annotations:
-        tls:
       datasources:
         datasources.yaml:
           apiVersion: 1
@@ -46036,11 +44073,6 @@ spec:
         name: http-query
         type: ClusterIP
         externalPort: 9411
-      ingress:
-        enabled: false
-        hosts:
-        annotations:
-        tls:
     istiocoredns:
       coreDNSImage: coredns/coredns
       coreDNSTag: 1.6.2
@@ -46048,17 +44080,11 @@ spec:
 
     kiali:
       hub: quay.io/kiali
-      tag: v1.14
+      tag: v1.15
       contextPath: /kiali
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
-      ingress:
-        enabled: false
-        hosts:
-          - kiali.local
-        annotations:
-        tls:
       dashboard:
         secretName: kiali
         usernameKey: username
@@ -46116,6 +44142,40 @@ spec:
           requests:
             cpu: 10m
             memory: 40Mi
+        service:
+          ports:
+            ## You can add custom gateway ports in user values overrides, but it must include those ports since helm replaces.
+            # Note that AWS ELB will by default perform health checks on the first port
+            # on this list. Setting this to the health check port will ensure that health
+            # checks always work. https://github.com/istio/istio/issues/12503
+            - port: 15020
+              targetPort: 15020
+              name: status-port
+            - port: 80
+              targetPort: 8080
+              name: http2
+            - port: 443
+              targetPort: 8443
+              name: https
+            - port: 15029
+              targetPort: 15029
+              name: kiali
+            - port: 15030
+              targetPort: 15030
+              name: prometheus
+            - port: 15031
+              targetPort: 15031
+              name: grafana
+            - port: 15032
+              targetPort: 15032
+              name: tracing
+            - port: 31400
+              targetPort: 31400
+              name: tcp
+              # This is the port where sni routing happens
+            - port: 15443
+              targetPort: 15443
+              name: tls
 
     policy:
       enabled: false
@@ -46200,39 +44260,6 @@ spec:
         autoscaleEnabled: false
       istio-ingressgateway:
         autoscaleEnabled: false
-        ports:
-        ## You can add custom gateway ports in user values overrides, but it must include those ports since helm replaces.
-        # Note that AWS ELB will by default perform health checks on the first port
-        # on this list. Setting this to the health check port will ensure that health
-        # checks always work. https://github.com/istio/istio/issues/12503
-        - port: 15020
-          targetPort: 15020
-          name: status-port
-        - port: 80
-          targetPort: 8080
-          name: http2
-        - port: 443
-          targetPort: 8443
-          name: https
-        - port: 15029
-          targetPort: 15029
-          name: kiali
-        - port: 15030
-          targetPort: 15030
-          name: prometheus
-        - port: 15031
-          targetPort: 15031
-          name: grafana
-        - port: 15032
-          targetPort: 15032
-          name: tracing
-        - port: 31400
-          targetPort: 31400
-          name: tcp
-          # This is the port where sni routing happens
-        - port: 15443
-          targetPort: 15443
-          name: tls
     kiali:
       createDemoSecret: true
 `)
@@ -46408,13 +44435,7 @@ func profilesSeparateYaml() (*asset, error) {
 	return a, nil
 }
 
-var _translateconfigNames15Yaml = []byte(`BundledAddonComponentNames:
-  - "Prometheus"
-  - "Kiali"
-  - "Grafana"
-  - "Tracing"
-  - "Istiocoredns"
-DeprecatedComponentNames:
+var _translateconfigNames15Yaml = []byte(`DeprecatedComponentNames:
   - "Injector"
   - "CertManager"
   - "NodeAgent"
@@ -46437,13 +44458,7 @@ func translateconfigNames15Yaml() (*asset, error) {
 	return a, nil
 }
 
-var _translateconfigNames16Yaml = []byte(`BundledAddonComponentNames:
-  - "Prometheus"
-  - "Kiali"
-  - "Grafana"
-  - "Tracing"
-  - "Istiocoredns"
-DeprecatedComponentNames:
+var _translateconfigNames16Yaml = []byte(`DeprecatedComponentNames:
   - "Injector"
   - "CertManager"
   - "NodeAgent"
@@ -46828,7 +44843,7 @@ componentMaps:
     ResourceType:         "Deployment"
     ResourceName:         "prometheus"
     ContainerName:        "prometheus"
-    HelmSubdir:           "istio-telemetry/prometheus-operator"
+    HelmSubdir:           "istio-telemetry/prometheusOperator"
     ToHelmValuesTreeRoot: "prometheus"
   Kiali:
     ResourceType:         "Deployment"
@@ -47065,7 +45080,7 @@ componentMaps:
     ResourceType:         "Deployment"
     ResourceName:         "prometheus"
     ContainerName:        "prometheus"
-    HelmSubdir:           "istio-telemetry/prometheus-operator"
+    HelmSubdir:           "istio-telemetry/prometheusOperator"
     ToHelmValuesTreeRoot: "prometheus"
   Kiali:
     ResourceType:         "Deployment"
@@ -47242,7 +45257,7 @@ componentMaps:
     ResourceType:         "Deployment"
     ResourceName:         "prometheus"
     ContainerName:        "prometheus"
-    HelmSubdir:           "istio-telemetry/prometheus-operator"
+    HelmSubdir:           "istio-telemetry/prometheusOperator"
     ToHelmValuesTreeRoot: "prometheus"
     SkipReverseTranslate: true
   Kiali:
@@ -47413,7 +45428,7 @@ componentMaps:
     ResourceType:         "Deployment"
     ResourceName:         "prometheus"
     ContainerName:        "prometheus"
-    HelmSubdir:           "istio-telemetry/prometheus-operator"
+    HelmSubdir:           "istio-telemetry/prometheusOperator"
     ToHelmValuesTreeRoot: "prometheus"
     SkipReverseTranslate: true
   Kiali:
@@ -47574,215 +45589,205 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"charts/base/Chart.yaml":                                                                 chartsBaseChartYaml,
-	"charts/base/NOTES.txt":                                                                  chartsBaseNotesTxt,
-	"charts/base/files/crd-all.gen.yaml":                                                     chartsBaseFilesCrdAllGenYaml,
-	"charts/base/files/crd-mixer.yaml":                                                       chartsBaseFilesCrdMixerYaml,
-	"charts/base/files/gen-istio-cluster.yaml":                                               chartsBaseFilesGenIstioClusterYaml,
-	"charts/base/kustomization.yaml":                                                         chartsBaseKustomizationYaml,
-	"charts/base/templates/clusterrole.yaml":                                                 chartsBaseTemplatesClusterroleYaml,
-	"charts/base/templates/clusterrolebinding.yaml":                                          chartsBaseTemplatesClusterrolebindingYaml,
-	"charts/base/templates/crds.yaml":                                                        chartsBaseTemplatesCrdsYaml,
-	"charts/base/templates/endpoints.yaml":                                                   chartsBaseTemplatesEndpointsYaml,
-	"charts/base/templates/namespaces.yaml":                                                  chartsBaseTemplatesNamespacesYaml,
-	"charts/base/templates/serviceaccount.yaml":                                              chartsBaseTemplatesServiceaccountYaml,
-	"charts/base/templates/services.yaml":                                                    chartsBaseTemplatesServicesYaml,
-	"charts/base/templates/validatingwebhookconfiguration.yaml":                              chartsBaseTemplatesValidatingwebhookconfigurationYaml,
-	"charts/base/values.yaml":                                                                chartsBaseValuesYaml,
-	"charts/gateways/istio-egress/Chart.yaml":                                                chartsGatewaysIstioEgressChartYaml,
-	"charts/gateways/istio-egress/NOTES.txt":                                                 chartsGatewaysIstioEgressNotesTxt,
-	"charts/gateways/istio-egress/templates/_affinity.tpl":                                   chartsGatewaysIstioEgressTemplates_affinityTpl,
-	"charts/gateways/istio-egress/templates/_helpers.tpl":                                    chartsGatewaysIstioEgressTemplates_helpersTpl,
-	"charts/gateways/istio-egress/templates/autoscale.yaml":                                  chartsGatewaysIstioEgressTemplatesAutoscaleYaml,
-	"charts/gateways/istio-egress/templates/deployment.yaml":                                 chartsGatewaysIstioEgressTemplatesDeploymentYaml,
-	"charts/gateways/istio-egress/templates/poddisruptionbudget.yaml":                        chartsGatewaysIstioEgressTemplatesPoddisruptionbudgetYaml,
-	"charts/gateways/istio-egress/templates/preconfigured.yaml":                              chartsGatewaysIstioEgressTemplatesPreconfiguredYaml,
-	"charts/gateways/istio-egress/templates/service.yaml":                                    chartsGatewaysIstioEgressTemplatesServiceYaml,
-	"charts/gateways/istio-egress/templates/serviceaccount.yaml":                             chartsGatewaysIstioEgressTemplatesServiceaccountYaml,
-	"charts/gateways/istio-egress/values.yaml":                                               chartsGatewaysIstioEgressValuesYaml,
-	"charts/gateways/istio-ingress/Chart.yaml":                                               chartsGatewaysIstioIngressChartYaml,
-	"charts/gateways/istio-ingress/NOTES.txt":                                                chartsGatewaysIstioIngressNotesTxt,
-	"charts/gateways/istio-ingress/templates/_affinity.tpl":                                  chartsGatewaysIstioIngressTemplates_affinityTpl,
-	"charts/gateways/istio-ingress/templates/addongateway.yaml":                              chartsGatewaysIstioIngressTemplatesAddongatewayYaml,
-	"charts/gateways/istio-ingress/templates/autoscale.yaml":                                 chartsGatewaysIstioIngressTemplatesAutoscaleYaml,
-	"charts/gateways/istio-ingress/templates/certificate.yaml":                               chartsGatewaysIstioIngressTemplatesCertificateYaml,
-	"charts/gateways/istio-ingress/templates/deployment.yaml":                                chartsGatewaysIstioIngressTemplatesDeploymentYaml,
-	"charts/gateways/istio-ingress/templates/gateway.yaml":                                   chartsGatewaysIstioIngressTemplatesGatewayYaml,
-	"charts/gateways/istio-ingress/templates/hosts.yaml":                                     chartsGatewaysIstioIngressTemplatesHostsYaml,
-	"charts/gateways/istio-ingress/templates/meshexpansion.yaml":                             chartsGatewaysIstioIngressTemplatesMeshexpansionYaml,
-	"charts/gateways/istio-ingress/templates/poddisruptionbudget.yaml":                       chartsGatewaysIstioIngressTemplatesPoddisruptionbudgetYaml,
-	"charts/gateways/istio-ingress/templates/preconfigured.yaml":                             chartsGatewaysIstioIngressTemplatesPreconfiguredYaml,
-	"charts/gateways/istio-ingress/templates/role.yaml":                                      chartsGatewaysIstioIngressTemplatesRoleYaml,
-	"charts/gateways/istio-ingress/templates/rolebindings.yaml":                              chartsGatewaysIstioIngressTemplatesRolebindingsYaml,
-	"charts/gateways/istio-ingress/templates/service.yaml":                                   chartsGatewaysIstioIngressTemplatesServiceYaml,
-	"charts/gateways/istio-ingress/templates/serviceaccount.yaml":                            chartsGatewaysIstioIngressTemplatesServiceaccountYaml,
-	"charts/gateways/istio-ingress/templates/sidecar.yaml":                                   chartsGatewaysIstioIngressTemplatesSidecarYaml,
-	"charts/gateways/istio-ingress/values.yaml":                                              chartsGatewaysIstioIngressValuesYaml,
-	"charts/istio-cni/Chart.yaml":                                                            chartsIstioCniChartYaml,
-	"charts/istio-cni/templates/clusterrole.yaml":                                            chartsIstioCniTemplatesClusterroleYaml,
-	"charts/istio-cni/templates/clusterrolebinding.yaml":                                     chartsIstioCniTemplatesClusterrolebindingYaml,
-	"charts/istio-cni/templates/configmap-cni.yaml":                                          chartsIstioCniTemplatesConfigmapCniYaml,
-	"charts/istio-cni/templates/daemonset.yaml":                                              chartsIstioCniTemplatesDaemonsetYaml,
-	"charts/istio-cni/templates/serviceaccount.yaml":                                         chartsIstioCniTemplatesServiceaccountYaml,
-	"charts/istio-cni/values.yaml":                                                           chartsIstioCniValuesYaml,
-	"charts/istio-control/istio-config/Chart.yaml":                                           chartsIstioControlIstioConfigChartYaml,
-	"charts/istio-control/istio-config/OWNERS":                                               chartsIstioControlIstioConfigOwners,
-	"charts/istio-control/istio-config/README.md":                                            chartsIstioControlIstioConfigReadmeMd,
-	"charts/istio-control/istio-config/templates/_affinity.tpl":                              chartsIstioControlIstioConfigTemplates_affinityTpl,
-	"charts/istio-control/istio-config/templates/_helpers.tpl":                               chartsIstioControlIstioConfigTemplates_helpersTpl,
-	"charts/istio-control/istio-config/templates/clusterrole.yaml":                           chartsIstioControlIstioConfigTemplatesClusterroleYaml,
-	"charts/istio-control/istio-config/templates/clusterrolebinding.yaml":                    chartsIstioControlIstioConfigTemplatesClusterrolebindingYaml,
-	"charts/istio-control/istio-config/templates/configmap-envoy.yaml":                       chartsIstioControlIstioConfigTemplatesConfigmapEnvoyYaml,
-	"charts/istio-control/istio-config/templates/configmap-mesh.yaml":                        chartsIstioControlIstioConfigTemplatesConfigmapMeshYaml,
-	"charts/istio-control/istio-config/templates/configmap.yaml":                             chartsIstioControlIstioConfigTemplatesConfigmapYaml,
-	"charts/istio-control/istio-config/templates/deployment.yaml":                            chartsIstioControlIstioConfigTemplatesDeploymentYaml,
-	"charts/istio-control/istio-config/templates/poddisruptionbudget.yaml":                   chartsIstioControlIstioConfigTemplatesPoddisruptionbudgetYaml,
-	"charts/istio-control/istio-config/templates/service.yaml":                               chartsIstioControlIstioConfigTemplatesServiceYaml,
-	"charts/istio-control/istio-config/templates/serviceaccount.yaml":                        chartsIstioControlIstioConfigTemplatesServiceaccountYaml,
-	"charts/istio-control/istio-config/templates/validatingwebhookconfiguration-noop.yaml":   chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationNoopYaml,
-	"charts/istio-control/istio-config/templates/validatingwebhookconfiguration.yaml.tpl":    chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationYamlTpl,
-	"charts/istio-control/istio-config/values.yaml":                                          chartsIstioControlIstioConfigValuesYaml,
-	"charts/istio-control/istio-discovery/Chart.yaml":                                        chartsIstioControlIstioDiscoveryChartYaml,
-	"charts/istio-control/istio-discovery/NOTES.txt":                                         chartsIstioControlIstioDiscoveryNotesTxt,
-	"charts/istio-control/istio-discovery/files/gen-istio.yaml":                              chartsIstioControlIstioDiscoveryFilesGenIstioYaml,
-	"charts/istio-control/istio-discovery/files/injection-template.yaml":                     chartsIstioControlIstioDiscoveryFilesInjectionTemplateYaml,
-	"charts/istio-control/istio-discovery/kustomization.yaml":                                chartsIstioControlIstioDiscoveryKustomizationYaml,
-	"charts/istio-control/istio-discovery/templates/_affinity.tpl":                           chartsIstioControlIstioDiscoveryTemplates_affinityTpl,
-	"charts/istio-control/istio-discovery/templates/_helpers.tpl":                            chartsIstioControlIstioDiscoveryTemplates_helpersTpl,
-	"charts/istio-control/istio-discovery/templates/autoscale.yaml":                          chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml,
-	"charts/istio-control/istio-discovery/templates/clusterrole-galley-disable-webhook.yaml": chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYaml,
-	"charts/istio-control/istio-discovery/templates/configmap-jwks.yaml":                     chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml,
-	"charts/istio-control/istio-discovery/templates/configmap.yaml":                          chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml,
-	"charts/istio-control/istio-discovery/templates/deployment.yaml":                         chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml,
-	"charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml":          chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml,
-	"charts/istio-control/istio-discovery/templates/mutatingwebhook.yaml":                    chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml,
-	"charts/istio-control/istio-discovery/templates/poddisruptionbudget.yaml":                chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml,
-	"charts/istio-control/istio-discovery/templates/service.yaml":                            chartsIstioControlIstioDiscoveryTemplatesServiceYaml,
-	"charts/istio-control/istio-discovery/templates/telemetryv2_1.4.yaml":                    chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml,
-	"charts/istio-control/istio-discovery/templates/telemetryv2_1.5.yaml":                    chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml,
-	"charts/istio-control/istio-discovery/templates/telemetryv2_1.6.yaml":                    chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml,
-	"charts/istio-control/istio-discovery/values.yaml":                                       chartsIstioControlIstioDiscoveryValuesYaml,
-	"charts/istio-policy/Chart.yaml":                                                         chartsIstioPolicyChartYaml,
-	"charts/istio-policy/templates/_affinity.tpl":                                            chartsIstioPolicyTemplates_affinityTpl,
-	"charts/istio-policy/templates/_helpers.tpl":                                             chartsIstioPolicyTemplates_helpersTpl,
-	"charts/istio-policy/templates/autoscale.yaml":                                           chartsIstioPolicyTemplatesAutoscaleYaml,
-	"charts/istio-policy/templates/clusterrole.yaml":                                         chartsIstioPolicyTemplatesClusterroleYaml,
-	"charts/istio-policy/templates/clusterrolebinding.yaml":                                  chartsIstioPolicyTemplatesClusterrolebindingYaml,
-	"charts/istio-policy/templates/config.yaml":                                              chartsIstioPolicyTemplatesConfigYaml,
-	"charts/istio-policy/templates/deployment.yaml":                                          chartsIstioPolicyTemplatesDeploymentYaml,
-	"charts/istio-policy/templates/poddisruptionbudget.yaml":                                 chartsIstioPolicyTemplatesPoddisruptionbudgetYaml,
-	"charts/istio-policy/templates/service.yaml":                                             chartsIstioPolicyTemplatesServiceYaml,
-	"charts/istio-policy/templates/serviceaccount.yaml":                                      chartsIstioPolicyTemplatesServiceaccountYaml,
-	"charts/istio-policy/values.yaml":                                                        chartsIstioPolicyValuesYaml,
-	"charts/istio-telemetry/grafana/Chart.yaml":                                              chartsIstioTelemetryGrafanaChartYaml,
-	"charts/istio-telemetry/grafana/dashboards/citadel-dashboard.json":                       chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson,
-	"charts/istio-telemetry/grafana/dashboards/galley-dashboard.json":                        chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson,
-	"charts/istio-telemetry/grafana/dashboards/istio-mesh-dashboard.json":                    chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson,
-	"charts/istio-telemetry/grafana/dashboards/istio-performance-dashboard.json":             chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson,
-	"charts/istio-telemetry/grafana/dashboards/istio-service-dashboard.json":                 chartsIstioTelemetryGrafanaDashboardsIstioServiceDashboardJson,
-	"charts/istio-telemetry/grafana/dashboards/istio-workload-dashboard.json":                chartsIstioTelemetryGrafanaDashboardsIstioWorkloadDashboardJson,
-	"charts/istio-telemetry/grafana/dashboards/mixer-dashboard.json":                         chartsIstioTelemetryGrafanaDashboardsMixerDashboardJson,
-	"charts/istio-telemetry/grafana/dashboards/pilot-dashboard.json":                         chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson,
-	"charts/istio-telemetry/grafana/fix_datasources.sh":                                      chartsIstioTelemetryGrafanaFix_datasourcesSh,
-	"charts/istio-telemetry/grafana/templates/_affinity.tpl":                                 chartsIstioTelemetryGrafanaTemplates_affinityTpl,
-	"charts/istio-telemetry/grafana/templates/configmap-dashboards.yaml":                     chartsIstioTelemetryGrafanaTemplatesConfigmapDashboardsYaml,
-	"charts/istio-telemetry/grafana/templates/configmap.yaml":                                chartsIstioTelemetryGrafanaTemplatesConfigmapYaml,
-	"charts/istio-telemetry/grafana/templates/deployment.yaml":                               chartsIstioTelemetryGrafanaTemplatesDeploymentYaml,
-	"charts/istio-telemetry/grafana/templates/grafana-policy.yaml":                           chartsIstioTelemetryGrafanaTemplatesGrafanaPolicyYaml,
-	"charts/istio-telemetry/grafana/templates/pvc.yaml":                                      chartsIstioTelemetryGrafanaTemplatesPvcYaml,
-	"charts/istio-telemetry/grafana/templates/service.yaml":                                  chartsIstioTelemetryGrafanaTemplatesServiceYaml,
-	"charts/istio-telemetry/grafana/templates/tests/test-grafana-connection.yaml":            chartsIstioTelemetryGrafanaTemplatesTestsTestGrafanaConnectionYaml,
-	"charts/istio-telemetry/grafana/values.yaml":                                             chartsIstioTelemetryGrafanaValuesYaml,
-	"charts/istio-telemetry/kiali/Chart.yaml":                                                chartsIstioTelemetryKialiChartYaml,
-	"charts/istio-telemetry/kiali/templates/_affinity.tpl":                                   chartsIstioTelemetryKialiTemplates_affinityTpl,
-	"charts/istio-telemetry/kiali/templates/clusterrole.yaml":                                chartsIstioTelemetryKialiTemplatesClusterroleYaml,
-	"charts/istio-telemetry/kiali/templates/clusterrolebinding.yaml":                         chartsIstioTelemetryKialiTemplatesClusterrolebindingYaml,
-	"charts/istio-telemetry/kiali/templates/configmap.yaml":                                  chartsIstioTelemetryKialiTemplatesConfigmapYaml,
-	"charts/istio-telemetry/kiali/templates/demosecret.yaml":                                 chartsIstioTelemetryKialiTemplatesDemosecretYaml,
-	"charts/istio-telemetry/kiali/templates/deployment.yaml":                                 chartsIstioTelemetryKialiTemplatesDeploymentYaml,
-	"charts/istio-telemetry/kiali/templates/service.yaml":                                    chartsIstioTelemetryKialiTemplatesServiceYaml,
-	"charts/istio-telemetry/kiali/templates/serviceaccount.yaml":                             chartsIstioTelemetryKialiTemplatesServiceaccountYaml,
-	"charts/istio-telemetry/kiali/values.yaml":                                               chartsIstioTelemetryKialiValuesYaml,
-	"charts/istio-telemetry/mixer-telemetry/Chart.yaml":                                      chartsIstioTelemetryMixerTelemetryChartYaml,
-	"charts/istio-telemetry/mixer-telemetry/templates/_affinity.tpl":                         chartsIstioTelemetryMixerTelemetryTemplates_affinityTpl,
-	"charts/istio-telemetry/mixer-telemetry/templates/autoscale.yaml":                        chartsIstioTelemetryMixerTelemetryTemplatesAutoscaleYaml,
-	"charts/istio-telemetry/mixer-telemetry/templates/clusterrole.yaml":                      chartsIstioTelemetryMixerTelemetryTemplatesClusterroleYaml,
-	"charts/istio-telemetry/mixer-telemetry/templates/clusterrolebinding.yaml":               chartsIstioTelemetryMixerTelemetryTemplatesClusterrolebindingYaml,
-	"charts/istio-telemetry/mixer-telemetry/templates/config.yaml":                           chartsIstioTelemetryMixerTelemetryTemplatesConfigYaml,
-	"charts/istio-telemetry/mixer-telemetry/templates/configmap-envoy.yaml":                  chartsIstioTelemetryMixerTelemetryTemplatesConfigmapEnvoyYaml,
-	"charts/istio-telemetry/mixer-telemetry/templates/deployment.yaml":                       chartsIstioTelemetryMixerTelemetryTemplatesDeploymentYaml,
-	"charts/istio-telemetry/mixer-telemetry/templates/poddisruptionbudget.yaml":              chartsIstioTelemetryMixerTelemetryTemplatesPoddisruptionbudgetYaml,
-	"charts/istio-telemetry/mixer-telemetry/templates/service.yaml":                          chartsIstioTelemetryMixerTelemetryTemplatesServiceYaml,
-	"charts/istio-telemetry/mixer-telemetry/templates/serviceaccount.yaml":                   chartsIstioTelemetryMixerTelemetryTemplatesServiceaccountYaml,
-	"charts/istio-telemetry/mixer-telemetry/templates/stackdriver.yaml":                      chartsIstioTelemetryMixerTelemetryTemplatesStackdriverYaml,
-	"charts/istio-telemetry/mixer-telemetry/values.yaml":                                     chartsIstioTelemetryMixerTelemetryValuesYaml,
-	"charts/istio-telemetry/prometheus/Chart.yaml":                                           chartsIstioTelemetryPrometheusChartYaml,
-	"charts/istio-telemetry/prometheus/templates/_affinity.tpl":                              chartsIstioTelemetryPrometheusTemplates_affinityTpl,
-	"charts/istio-telemetry/prometheus/templates/clusterrole.yaml":                           chartsIstioTelemetryPrometheusTemplatesClusterroleYaml,
-	"charts/istio-telemetry/prometheus/templates/clusterrolebindings.yaml":                   chartsIstioTelemetryPrometheusTemplatesClusterrolebindingsYaml,
-	"charts/istio-telemetry/prometheus/templates/configmap.yaml":                             chartsIstioTelemetryPrometheusTemplatesConfigmapYaml,
-	"charts/istio-telemetry/prometheus/templates/deployment.yaml":                            chartsIstioTelemetryPrometheusTemplatesDeploymentYaml,
-	"charts/istio-telemetry/prometheus/templates/ingress.yaml":                               chartsIstioTelemetryPrometheusTemplatesIngressYaml,
-	"charts/istio-telemetry/prometheus/templates/service.yaml":                               chartsIstioTelemetryPrometheusTemplatesServiceYaml,
-	"charts/istio-telemetry/prometheus/templates/serviceaccount.yaml":                        chartsIstioTelemetryPrometheusTemplatesServiceaccountYaml,
-	"charts/istio-telemetry/prometheus/templates/tests/test-prometheus-connection.yaml":      chartsIstioTelemetryPrometheusTemplatesTestsTestPrometheusConnectionYaml,
-	"charts/istio-telemetry/prometheus/values.yaml":                                          chartsIstioTelemetryPrometheusValuesYaml,
-	"charts/istio-telemetry/prometheus-operator/Chart.yaml":                                  chartsIstioTelemetryPrometheusOperatorChartYaml,
-	"charts/istio-telemetry/prometheus-operator/templates/_affinity.tpl":                     chartsIstioTelemetryPrometheusOperatorTemplates_affinityTpl,
-	"charts/istio-telemetry/prometheus-operator/templates/prometheus.yaml":                   chartsIstioTelemetryPrometheusOperatorTemplatesPrometheusYaml,
-	"charts/istio-telemetry/prometheus-operator/templates/servicemonitors.yaml":              chartsIstioTelemetryPrometheusOperatorTemplatesServicemonitorsYaml,
-	"charts/istio-telemetry/prometheus-operator/values.yaml":                                 chartsIstioTelemetryPrometheusOperatorValuesYaml,
-	"charts/istio-telemetry/tracing/Chart.yaml":                                              chartsIstioTelemetryTracingChartYaml,
-	"charts/istio-telemetry/tracing/templates/_affinity.tpl":                                 chartsIstioTelemetryTracingTemplates_affinityTpl,
-	"charts/istio-telemetry/tracing/templates/deployment-jaeger.yaml":                        chartsIstioTelemetryTracingTemplatesDeploymentJaegerYaml,
-	"charts/istio-telemetry/tracing/templates/deployment-opencensus.yaml":                    chartsIstioTelemetryTracingTemplatesDeploymentOpencensusYaml,
-	"charts/istio-telemetry/tracing/templates/deployment-zipkin.yaml":                        chartsIstioTelemetryTracingTemplatesDeploymentZipkinYaml,
-	"charts/istio-telemetry/tracing/templates/pvc.yaml":                                      chartsIstioTelemetryTracingTemplatesPvcYaml,
-	"charts/istio-telemetry/tracing/templates/service-jaeger.yaml":                           chartsIstioTelemetryTracingTemplatesServiceJaegerYaml,
-	"charts/istio-telemetry/tracing/templates/service.yaml":                                  chartsIstioTelemetryTracingTemplatesServiceYaml,
-	"charts/istio-telemetry/tracing/values.yaml":                                             chartsIstioTelemetryTracingValuesYaml,
-	"charts/istiocoredns/Chart.yaml":                                                         chartsIstiocorednsChartYaml,
-	"charts/istiocoredns/templates/_affinity.tpl":                                            chartsIstiocorednsTemplates_affinityTpl,
-	"charts/istiocoredns/templates/clusterrole.yaml":                                         chartsIstiocorednsTemplatesClusterroleYaml,
-	"charts/istiocoredns/templates/clusterrolebinding.yaml":                                  chartsIstiocorednsTemplatesClusterrolebindingYaml,
-	"charts/istiocoredns/templates/configmap.yaml":                                           chartsIstiocorednsTemplatesConfigmapYaml,
-	"charts/istiocoredns/templates/deployment.yaml":                                          chartsIstiocorednsTemplatesDeploymentYaml,
-	"charts/istiocoredns/templates/service.yaml":                                             chartsIstiocorednsTemplatesServiceYaml,
-	"charts/istiocoredns/templates/serviceaccount.yaml":                                      chartsIstiocorednsTemplatesServiceaccountYaml,
-	"charts/istiocoredns/values.yaml":                                                        chartsIstiocorednsValuesYaml,
-	"examples/customresource/istio_v1alpha1_istiooperator_cr.yaml":                           examplesCustomresourceIstio_v1alpha1_istiooperator_crYaml,
-	"examples/multicluster/values-istio-multicluster-gateways.yaml":                          examplesMulticlusterValuesIstioMulticlusterGatewaysYaml,
-	"examples/multicluster/values-istio-multicluster-primary.yaml":                           examplesMulticlusterValuesIstioMulticlusterPrimaryYaml,
-	"examples/user-gateway/ingress-gateway-only.yaml":                                        examplesUserGatewayIngressGatewayOnlyYaml,
-	"examples/vm/values-istio-meshexpansion-gateways.yaml":                                   examplesVmValuesIstioMeshexpansionGatewaysYaml,
-	"examples/vm/values-istio-meshexpansion.yaml":                                            examplesVmValuesIstioMeshexpansionYaml,
-	"operator-chart/Chart.yaml":                                                              operatorChartChartYaml,
-	"operator-chart/templates/clusterrole.yaml":                                              operatorChartTemplatesClusterroleYaml,
-	"operator-chart/templates/clusterrole_binding.yaml":                                      operatorChartTemplatesClusterrole_bindingYaml,
-	"operator-chart/templates/crd.yaml":                                                      operatorChartTemplatesCrdYaml,
-	"operator-chart/templates/deployment.yaml":                                               operatorChartTemplatesDeploymentYaml,
-	"operator-chart/templates/namespace.yaml":                                                operatorChartTemplatesNamespaceYaml,
-	"operator-chart/templates/service.yaml":                                                  operatorChartTemplatesServiceYaml,
-	"operator-chart/templates/service_account.yaml":                                          operatorChartTemplatesService_accountYaml,
-	"profiles/default.yaml":                                                                  profilesDefaultYaml,
-	"profiles/demo.yaml":                                                                     profilesDemoYaml,
-	"profiles/empty.yaml":                                                                    profilesEmptyYaml,
-	"profiles/minimal.yaml":                                                                  profilesMinimalYaml,
-	"profiles/preview.yaml":                                                                  profilesPreviewYaml,
-	"profiles/remote.yaml":                                                                   profilesRemoteYaml,
-	"profiles/separate.yaml":                                                                 profilesSeparateYaml,
-	"translateConfig/names-1.5.yaml":                                                         translateconfigNames15Yaml,
-	"translateConfig/names-1.6.yaml":                                                         translateconfigNames16Yaml,
-	"translateConfig/reverseTranslateConfig-1.4.yaml":                                        translateconfigReversetranslateconfig14Yaml,
-	"translateConfig/reverseTranslateConfig-1.5.yaml":                                        translateconfigReversetranslateconfig15Yaml,
-	"translateConfig/reverseTranslateConfig-1.6.yaml":                                        translateconfigReversetranslateconfig16Yaml,
-	"translateConfig/translate-ICP-IOP-1.5.yaml":                                             translateconfigTranslateIcpIop15Yaml,
-	"translateConfig/translate-ICP-IOP-1.6.yaml":                                             translateconfigTranslateIcpIop16Yaml,
-	"translateConfig/translateConfig-1.3.yaml":                                               translateconfigTranslateconfig13Yaml,
-	"translateConfig/translateConfig-1.4.yaml":                                               translateconfigTranslateconfig14Yaml,
-	"translateConfig/translateConfig-1.5.yaml":                                               translateconfigTranslateconfig15Yaml,
-	"translateConfig/translateConfig-1.6.yaml":                                               translateconfigTranslateconfig16Yaml,
-	"versions.yaml":                                                                          versionsYaml,
+	"charts/base/Chart.yaml":                                                               chartsBaseChartYaml,
+	"charts/base/NOTES.txt":                                                                chartsBaseNotesTxt,
+	"charts/base/files/crd-all.gen.yaml":                                                   chartsBaseFilesCrdAllGenYaml,
+	"charts/base/files/crd-mixer.yaml":                                                     chartsBaseFilesCrdMixerYaml,
+	"charts/base/files/crd-operator.yaml":                                                  chartsBaseFilesCrdOperatorYaml,
+	"charts/base/files/gen-istio-cluster.yaml":                                             chartsBaseFilesGenIstioClusterYaml,
+	"charts/base/kustomization.yaml":                                                       chartsBaseKustomizationYaml,
+	"charts/base/templates/clusterrole.yaml":                                               chartsBaseTemplatesClusterroleYaml,
+	"charts/base/templates/clusterrolebinding.yaml":                                        chartsBaseTemplatesClusterrolebindingYaml,
+	"charts/base/templates/crds.yaml":                                                      chartsBaseTemplatesCrdsYaml,
+	"charts/base/templates/endpoints.yaml":                                                 chartsBaseTemplatesEndpointsYaml,
+	"charts/base/templates/serviceaccount.yaml":                                            chartsBaseTemplatesServiceaccountYaml,
+	"charts/base/templates/services.yaml":                                                  chartsBaseTemplatesServicesYaml,
+	"charts/base/templates/validatingwebhookconfiguration.yaml":                            chartsBaseTemplatesValidatingwebhookconfigurationYaml,
+	"charts/base/values.yaml":                                                              chartsBaseValuesYaml,
+	"charts/gateways/istio-egress/Chart.yaml":                                              chartsGatewaysIstioEgressChartYaml,
+	"charts/gateways/istio-egress/NOTES.txt":                                               chartsGatewaysIstioEgressNotesTxt,
+	"charts/gateways/istio-egress/templates/_affinity.tpl":                                 chartsGatewaysIstioEgressTemplates_affinityTpl,
+	"charts/gateways/istio-egress/templates/_helpers.tpl":                                  chartsGatewaysIstioEgressTemplates_helpersTpl,
+	"charts/gateways/istio-egress/templates/autoscale.yaml":                                chartsGatewaysIstioEgressTemplatesAutoscaleYaml,
+	"charts/gateways/istio-egress/templates/deployment.yaml":                               chartsGatewaysIstioEgressTemplatesDeploymentYaml,
+	"charts/gateways/istio-egress/templates/poddisruptionbudget.yaml":                      chartsGatewaysIstioEgressTemplatesPoddisruptionbudgetYaml,
+	"charts/gateways/istio-egress/templates/preconfigured.yaml":                            chartsGatewaysIstioEgressTemplatesPreconfiguredYaml,
+	"charts/gateways/istio-egress/templates/service.yaml":                                  chartsGatewaysIstioEgressTemplatesServiceYaml,
+	"charts/gateways/istio-egress/templates/serviceaccount.yaml":                           chartsGatewaysIstioEgressTemplatesServiceaccountYaml,
+	"charts/gateways/istio-egress/values.yaml":                                             chartsGatewaysIstioEgressValuesYaml,
+	"charts/gateways/istio-ingress/Chart.yaml":                                             chartsGatewaysIstioIngressChartYaml,
+	"charts/gateways/istio-ingress/NOTES.txt":                                              chartsGatewaysIstioIngressNotesTxt,
+	"charts/gateways/istio-ingress/templates/_affinity.tpl":                                chartsGatewaysIstioIngressTemplates_affinityTpl,
+	"charts/gateways/istio-ingress/templates/autoscale.yaml":                               chartsGatewaysIstioIngressTemplatesAutoscaleYaml,
+	"charts/gateways/istio-ingress/templates/deployment.yaml":                              chartsGatewaysIstioIngressTemplatesDeploymentYaml,
+	"charts/gateways/istio-ingress/templates/meshexpansion.yaml":                           chartsGatewaysIstioIngressTemplatesMeshexpansionYaml,
+	"charts/gateways/istio-ingress/templates/poddisruptionbudget.yaml":                     chartsGatewaysIstioIngressTemplatesPoddisruptionbudgetYaml,
+	"charts/gateways/istio-ingress/templates/preconfigured.yaml":                           chartsGatewaysIstioIngressTemplatesPreconfiguredYaml,
+	"charts/gateways/istio-ingress/templates/role.yaml":                                    chartsGatewaysIstioIngressTemplatesRoleYaml,
+	"charts/gateways/istio-ingress/templates/rolebindings.yaml":                            chartsGatewaysIstioIngressTemplatesRolebindingsYaml,
+	"charts/gateways/istio-ingress/templates/service.yaml":                                 chartsGatewaysIstioIngressTemplatesServiceYaml,
+	"charts/gateways/istio-ingress/templates/serviceaccount.yaml":                          chartsGatewaysIstioIngressTemplatesServiceaccountYaml,
+	"charts/gateways/istio-ingress/values.yaml":                                            chartsGatewaysIstioIngressValuesYaml,
+	"charts/istio-cni/Chart.yaml":                                                          chartsIstioCniChartYaml,
+	"charts/istio-cni/templates/clusterrole.yaml":                                          chartsIstioCniTemplatesClusterroleYaml,
+	"charts/istio-cni/templates/clusterrolebinding.yaml":                                   chartsIstioCniTemplatesClusterrolebindingYaml,
+	"charts/istio-cni/templates/configmap-cni.yaml":                                        chartsIstioCniTemplatesConfigmapCniYaml,
+	"charts/istio-cni/templates/daemonset.yaml":                                            chartsIstioCniTemplatesDaemonsetYaml,
+	"charts/istio-cni/templates/serviceaccount.yaml":                                       chartsIstioCniTemplatesServiceaccountYaml,
+	"charts/istio-cni/values.yaml":                                                         chartsIstioCniValuesYaml,
+	"charts/istio-control/istio-config/Chart.yaml":                                         chartsIstioControlIstioConfigChartYaml,
+	"charts/istio-control/istio-config/OWNERS":                                             chartsIstioControlIstioConfigOwners,
+	"charts/istio-control/istio-config/README.md":                                          chartsIstioControlIstioConfigReadmeMd,
+	"charts/istio-control/istio-config/templates/_affinity.tpl":                            chartsIstioControlIstioConfigTemplates_affinityTpl,
+	"charts/istio-control/istio-config/templates/_helpers.tpl":                             chartsIstioControlIstioConfigTemplates_helpersTpl,
+	"charts/istio-control/istio-config/templates/clusterrole.yaml":                         chartsIstioControlIstioConfigTemplatesClusterroleYaml,
+	"charts/istio-control/istio-config/templates/clusterrolebinding.yaml":                  chartsIstioControlIstioConfigTemplatesClusterrolebindingYaml,
+	"charts/istio-control/istio-config/templates/configmap-envoy.yaml":                     chartsIstioControlIstioConfigTemplatesConfigmapEnvoyYaml,
+	"charts/istio-control/istio-config/templates/configmap-mesh.yaml":                      chartsIstioControlIstioConfigTemplatesConfigmapMeshYaml,
+	"charts/istio-control/istio-config/templates/configmap.yaml":                           chartsIstioControlIstioConfigTemplatesConfigmapYaml,
+	"charts/istio-control/istio-config/templates/deployment.yaml":                          chartsIstioControlIstioConfigTemplatesDeploymentYaml,
+	"charts/istio-control/istio-config/templates/poddisruptionbudget.yaml":                 chartsIstioControlIstioConfigTemplatesPoddisruptionbudgetYaml,
+	"charts/istio-control/istio-config/templates/service.yaml":                             chartsIstioControlIstioConfigTemplatesServiceYaml,
+	"charts/istio-control/istio-config/templates/serviceaccount.yaml":                      chartsIstioControlIstioConfigTemplatesServiceaccountYaml,
+	"charts/istio-control/istio-config/templates/validatingwebhookconfiguration-noop.yaml": chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationNoopYaml,
+	"charts/istio-control/istio-config/templates/validatingwebhookconfiguration.yaml.tpl":  chartsIstioControlIstioConfigTemplatesValidatingwebhookconfigurationYamlTpl,
+	"charts/istio-control/istio-config/values.yaml":                                        chartsIstioControlIstioConfigValuesYaml,
+	"charts/istio-control/istio-discovery/Chart.yaml":                                      chartsIstioControlIstioDiscoveryChartYaml,
+	"charts/istio-control/istio-discovery/NOTES.txt":                                       chartsIstioControlIstioDiscoveryNotesTxt,
+	"charts/istio-control/istio-discovery/files/gen-istio.yaml":                            chartsIstioControlIstioDiscoveryFilesGenIstioYaml,
+	"charts/istio-control/istio-discovery/files/injection-template.yaml":                   chartsIstioControlIstioDiscoveryFilesInjectionTemplateYaml,
+	"charts/istio-control/istio-discovery/kustomization.yaml":                              chartsIstioControlIstioDiscoveryKustomizationYaml,
+	"charts/istio-control/istio-discovery/templates/autoscale.yaml":                        chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml,
+	"charts/istio-control/istio-discovery/templates/configmap-jwks.yaml":                   chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml,
+	"charts/istio-control/istio-discovery/templates/configmap.yaml":                        chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml,
+	"charts/istio-control/istio-discovery/templates/deployment.yaml":                       chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml,
+	"charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml":        chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml,
+	"charts/istio-control/istio-discovery/templates/mutatingwebhook.yaml":                  chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml,
+	"charts/istio-control/istio-discovery/templates/poddisruptionbudget.yaml":              chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml,
+	"charts/istio-control/istio-discovery/templates/service.yaml":                          chartsIstioControlIstioDiscoveryTemplatesServiceYaml,
+	"charts/istio-control/istio-discovery/templates/telemetryv2_1.4.yaml":                  chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml,
+	"charts/istio-control/istio-discovery/templates/telemetryv2_1.5.yaml":                  chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml,
+	"charts/istio-control/istio-discovery/templates/telemetryv2_1.6.yaml":                  chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml,
+	"charts/istio-control/istio-discovery/values.yaml":                                     chartsIstioControlIstioDiscoveryValuesYaml,
+	"charts/istio-operator/Chart.yaml":                                                     chartsIstioOperatorChartYaml,
+	"charts/istio-operator/templates/clusterrole.yaml":                                     chartsIstioOperatorTemplatesClusterroleYaml,
+	"charts/istio-operator/templates/clusterrole_binding.yaml":                             chartsIstioOperatorTemplatesClusterrole_bindingYaml,
+	"charts/istio-operator/templates/crd-operator.yaml":                                    chartsIstioOperatorTemplatesCrdOperatorYaml,
+	"charts/istio-operator/templates/deployment.yaml":                                      chartsIstioOperatorTemplatesDeploymentYaml,
+	"charts/istio-operator/templates/namespace.yaml":                                       chartsIstioOperatorTemplatesNamespaceYaml,
+	"charts/istio-operator/templates/service.yaml":                                         chartsIstioOperatorTemplatesServiceYaml,
+	"charts/istio-operator/templates/service_account.yaml":                                 chartsIstioOperatorTemplatesService_accountYaml,
+	"charts/istio-operator/values.yaml":                                                    chartsIstioOperatorValuesYaml,
+	"charts/istio-policy/Chart.yaml":                                                       chartsIstioPolicyChartYaml,
+	"charts/istio-policy/templates/_affinity.tpl":                                          chartsIstioPolicyTemplates_affinityTpl,
+	"charts/istio-policy/templates/_helpers.tpl":                                           chartsIstioPolicyTemplates_helpersTpl,
+	"charts/istio-policy/templates/autoscale.yaml":                                         chartsIstioPolicyTemplatesAutoscaleYaml,
+	"charts/istio-policy/templates/clusterrole.yaml":                                       chartsIstioPolicyTemplatesClusterroleYaml,
+	"charts/istio-policy/templates/clusterrolebinding.yaml":                                chartsIstioPolicyTemplatesClusterrolebindingYaml,
+	"charts/istio-policy/templates/config.yaml":                                            chartsIstioPolicyTemplatesConfigYaml,
+	"charts/istio-policy/templates/deployment.yaml":                                        chartsIstioPolicyTemplatesDeploymentYaml,
+	"charts/istio-policy/templates/poddisruptionbudget.yaml":                               chartsIstioPolicyTemplatesPoddisruptionbudgetYaml,
+	"charts/istio-policy/templates/service.yaml":                                           chartsIstioPolicyTemplatesServiceYaml,
+	"charts/istio-policy/templates/serviceaccount.yaml":                                    chartsIstioPolicyTemplatesServiceaccountYaml,
+	"charts/istio-policy/values.yaml":                                                      chartsIstioPolicyValuesYaml,
+	"charts/istio-telemetry/grafana/Chart.yaml":                                            chartsIstioTelemetryGrafanaChartYaml,
+	"charts/istio-telemetry/grafana/dashboards/istio-mesh-dashboard.json":                  chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson,
+	"charts/istio-telemetry/grafana/dashboards/istio-performance-dashboard.json":           chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson,
+	"charts/istio-telemetry/grafana/dashboards/istio-service-dashboard.json":               chartsIstioTelemetryGrafanaDashboardsIstioServiceDashboardJson,
+	"charts/istio-telemetry/grafana/dashboards/istio-workload-dashboard.json":              chartsIstioTelemetryGrafanaDashboardsIstioWorkloadDashboardJson,
+	"charts/istio-telemetry/grafana/dashboards/mixer-dashboard.json":                       chartsIstioTelemetryGrafanaDashboardsMixerDashboardJson,
+	"charts/istio-telemetry/grafana/dashboards/pilot-dashboard.json":                       chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson,
+	"charts/istio-telemetry/grafana/fix_datasources.sh":                                    chartsIstioTelemetryGrafanaFix_datasourcesSh,
+	"charts/istio-telemetry/grafana/templates/_affinity.tpl":                               chartsIstioTelemetryGrafanaTemplates_affinityTpl,
+	"charts/istio-telemetry/grafana/templates/configmap-dashboards.yaml":                   chartsIstioTelemetryGrafanaTemplatesConfigmapDashboardsYaml,
+	"charts/istio-telemetry/grafana/templates/configmap.yaml":                              chartsIstioTelemetryGrafanaTemplatesConfigmapYaml,
+	"charts/istio-telemetry/grafana/templates/deployment.yaml":                             chartsIstioTelemetryGrafanaTemplatesDeploymentYaml,
+	"charts/istio-telemetry/grafana/templates/grafana-policy.yaml":                         chartsIstioTelemetryGrafanaTemplatesGrafanaPolicyYaml,
+	"charts/istio-telemetry/grafana/templates/pvc.yaml":                                    chartsIstioTelemetryGrafanaTemplatesPvcYaml,
+	"charts/istio-telemetry/grafana/templates/service.yaml":                                chartsIstioTelemetryGrafanaTemplatesServiceYaml,
+	"charts/istio-telemetry/grafana/templates/tests/test-grafana-connection.yaml":          chartsIstioTelemetryGrafanaTemplatesTestsTestGrafanaConnectionYaml,
+	"charts/istio-telemetry/grafana/values.yaml":                                           chartsIstioTelemetryGrafanaValuesYaml,
+	"charts/istio-telemetry/kiali/Chart.yaml":                                              chartsIstioTelemetryKialiChartYaml,
+	"charts/istio-telemetry/kiali/templates/_affinity.tpl":                                 chartsIstioTelemetryKialiTemplates_affinityTpl,
+	"charts/istio-telemetry/kiali/templates/clusterrole.yaml":                              chartsIstioTelemetryKialiTemplatesClusterroleYaml,
+	"charts/istio-telemetry/kiali/templates/clusterrolebinding.yaml":                       chartsIstioTelemetryKialiTemplatesClusterrolebindingYaml,
+	"charts/istio-telemetry/kiali/templates/configmap.yaml":                                chartsIstioTelemetryKialiTemplatesConfigmapYaml,
+	"charts/istio-telemetry/kiali/templates/demosecret.yaml":                               chartsIstioTelemetryKialiTemplatesDemosecretYaml,
+	"charts/istio-telemetry/kiali/templates/deployment.yaml":                               chartsIstioTelemetryKialiTemplatesDeploymentYaml,
+	"charts/istio-telemetry/kiali/templates/service.yaml":                                  chartsIstioTelemetryKialiTemplatesServiceYaml,
+	"charts/istio-telemetry/kiali/templates/serviceaccount.yaml":                           chartsIstioTelemetryKialiTemplatesServiceaccountYaml,
+	"charts/istio-telemetry/kiali/values.yaml":                                             chartsIstioTelemetryKialiValuesYaml,
+	"charts/istio-telemetry/mixer-telemetry/Chart.yaml":                                    chartsIstioTelemetryMixerTelemetryChartYaml,
+	"charts/istio-telemetry/mixer-telemetry/templates/_affinity.tpl":                       chartsIstioTelemetryMixerTelemetryTemplates_affinityTpl,
+	"charts/istio-telemetry/mixer-telemetry/templates/autoscale.yaml":                      chartsIstioTelemetryMixerTelemetryTemplatesAutoscaleYaml,
+	"charts/istio-telemetry/mixer-telemetry/templates/clusterrole.yaml":                    chartsIstioTelemetryMixerTelemetryTemplatesClusterroleYaml,
+	"charts/istio-telemetry/mixer-telemetry/templates/clusterrolebinding.yaml":             chartsIstioTelemetryMixerTelemetryTemplatesClusterrolebindingYaml,
+	"charts/istio-telemetry/mixer-telemetry/templates/config.yaml":                         chartsIstioTelemetryMixerTelemetryTemplatesConfigYaml,
+	"charts/istio-telemetry/mixer-telemetry/templates/configmap-envoy.yaml":                chartsIstioTelemetryMixerTelemetryTemplatesConfigmapEnvoyYaml,
+	"charts/istio-telemetry/mixer-telemetry/templates/deployment.yaml":                     chartsIstioTelemetryMixerTelemetryTemplatesDeploymentYaml,
+	"charts/istio-telemetry/mixer-telemetry/templates/poddisruptionbudget.yaml":            chartsIstioTelemetryMixerTelemetryTemplatesPoddisruptionbudgetYaml,
+	"charts/istio-telemetry/mixer-telemetry/templates/service.yaml":                        chartsIstioTelemetryMixerTelemetryTemplatesServiceYaml,
+	"charts/istio-telemetry/mixer-telemetry/templates/serviceaccount.yaml":                 chartsIstioTelemetryMixerTelemetryTemplatesServiceaccountYaml,
+	"charts/istio-telemetry/mixer-telemetry/templates/stackdriver.yaml":                    chartsIstioTelemetryMixerTelemetryTemplatesStackdriverYaml,
+	"charts/istio-telemetry/mixer-telemetry/values.yaml":                                   chartsIstioTelemetryMixerTelemetryValuesYaml,
+	"charts/istio-telemetry/prometheus/Chart.yaml":                                         chartsIstioTelemetryPrometheusChartYaml,
+	"charts/istio-telemetry/prometheus/templates/_affinity.tpl":                            chartsIstioTelemetryPrometheusTemplates_affinityTpl,
+	"charts/istio-telemetry/prometheus/templates/clusterrole.yaml":                         chartsIstioTelemetryPrometheusTemplatesClusterroleYaml,
+	"charts/istio-telemetry/prometheus/templates/clusterrolebindings.yaml":                 chartsIstioTelemetryPrometheusTemplatesClusterrolebindingsYaml,
+	"charts/istio-telemetry/prometheus/templates/configmap.yaml":                           chartsIstioTelemetryPrometheusTemplatesConfigmapYaml,
+	"charts/istio-telemetry/prometheus/templates/deployment.yaml":                          chartsIstioTelemetryPrometheusTemplatesDeploymentYaml,
+	"charts/istio-telemetry/prometheus/templates/service.yaml":                             chartsIstioTelemetryPrometheusTemplatesServiceYaml,
+	"charts/istio-telemetry/prometheus/templates/serviceaccount.yaml":                      chartsIstioTelemetryPrometheusTemplatesServiceaccountYaml,
+	"charts/istio-telemetry/prometheus/templates/tests/test-prometheus-connection.yaml":    chartsIstioTelemetryPrometheusTemplatesTestsTestPrometheusConnectionYaml,
+	"charts/istio-telemetry/prometheus/values.yaml":                                        chartsIstioTelemetryPrometheusValuesYaml,
+	"charts/istio-telemetry/prometheusOperator/Chart.yaml":                                 chartsIstioTelemetryPrometheusoperatorChartYaml,
+	"charts/istio-telemetry/prometheusOperator/templates/_affinity.tpl":                    chartsIstioTelemetryPrometheusoperatorTemplates_affinityTpl,
+	"charts/istio-telemetry/prometheusOperator/templates/prometheus.yaml":                  chartsIstioTelemetryPrometheusoperatorTemplatesPrometheusYaml,
+	"charts/istio-telemetry/prometheusOperator/templates/servicemonitors.yaml":             chartsIstioTelemetryPrometheusoperatorTemplatesServicemonitorsYaml,
+	"charts/istio-telemetry/prometheusOperator/values.yaml":                                chartsIstioTelemetryPrometheusoperatorValuesYaml,
+	"charts/istio-telemetry/tracing/Chart.yaml":                                            chartsIstioTelemetryTracingChartYaml,
+	"charts/istio-telemetry/tracing/templates/_affinity.tpl":                               chartsIstioTelemetryTracingTemplates_affinityTpl,
+	"charts/istio-telemetry/tracing/templates/deployment-jaeger.yaml":                      chartsIstioTelemetryTracingTemplatesDeploymentJaegerYaml,
+	"charts/istio-telemetry/tracing/templates/deployment-opencensus.yaml":                  chartsIstioTelemetryTracingTemplatesDeploymentOpencensusYaml,
+	"charts/istio-telemetry/tracing/templates/deployment-zipkin.yaml":                      chartsIstioTelemetryTracingTemplatesDeploymentZipkinYaml,
+	"charts/istio-telemetry/tracing/templates/pvc.yaml":                                    chartsIstioTelemetryTracingTemplatesPvcYaml,
+	"charts/istio-telemetry/tracing/templates/service-jaeger.yaml":                         chartsIstioTelemetryTracingTemplatesServiceJaegerYaml,
+	"charts/istio-telemetry/tracing/templates/service.yaml":                                chartsIstioTelemetryTracingTemplatesServiceYaml,
+	"charts/istio-telemetry/tracing/values.yaml":                                           chartsIstioTelemetryTracingValuesYaml,
+	"charts/istiocoredns/Chart.yaml":                                                       chartsIstiocorednsChartYaml,
+	"charts/istiocoredns/templates/_affinity.tpl":                                          chartsIstiocorednsTemplates_affinityTpl,
+	"charts/istiocoredns/templates/clusterrole.yaml":                                       chartsIstiocorednsTemplatesClusterroleYaml,
+	"charts/istiocoredns/templates/clusterrolebinding.yaml":                                chartsIstiocorednsTemplatesClusterrolebindingYaml,
+	"charts/istiocoredns/templates/configmap.yaml":                                         chartsIstiocorednsTemplatesConfigmapYaml,
+	"charts/istiocoredns/templates/deployment.yaml":                                        chartsIstiocorednsTemplatesDeploymentYaml,
+	"charts/istiocoredns/templates/service.yaml":                                           chartsIstiocorednsTemplatesServiceYaml,
+	"charts/istiocoredns/templates/serviceaccount.yaml":                                    chartsIstiocorednsTemplatesServiceaccountYaml,
+	"charts/istiocoredns/values.yaml":                                                      chartsIstiocorednsValuesYaml,
+	"examples/customresource/istio_v1alpha1_istiooperator_cr.yaml":                         examplesCustomresourceIstio_v1alpha1_istiooperator_crYaml,
+	"examples/multicluster/values-istio-multicluster-gateways.yaml":                        examplesMulticlusterValuesIstioMulticlusterGatewaysYaml,
+	"examples/multicluster/values-istio-multicluster-primary.yaml":                         examplesMulticlusterValuesIstioMulticlusterPrimaryYaml,
+	"examples/user-gateway/ingress-gateway-only.yaml":                                      examplesUserGatewayIngressGatewayOnlyYaml,
+	"examples/vm/values-istio-meshexpansion-gateways.yaml":                                 examplesVmValuesIstioMeshexpansionGatewaysYaml,
+	"examples/vm/values-istio-meshexpansion.yaml":                                          examplesVmValuesIstioMeshexpansionYaml,
+	"profiles/default.yaml":                                                                profilesDefaultYaml,
+	"profiles/demo.yaml":                                                                   profilesDemoYaml,
+	"profiles/empty.yaml":                                                                  profilesEmptyYaml,
+	"profiles/minimal.yaml":                                                                profilesMinimalYaml,
+	"profiles/preview.yaml":                                                                profilesPreviewYaml,
+	"profiles/remote.yaml":                                                                 profilesRemoteYaml,
+	"profiles/separate.yaml":                                                               profilesSeparateYaml,
+	"translateConfig/names-1.5.yaml":                                                       translateconfigNames15Yaml,
+	"translateConfig/names-1.6.yaml":                                                       translateconfigNames16Yaml,
+	"translateConfig/reverseTranslateConfig-1.4.yaml":                                      translateconfigReversetranslateconfig14Yaml,
+	"translateConfig/reverseTranslateConfig-1.5.yaml":                                      translateconfigReversetranslateconfig15Yaml,
+	"translateConfig/reverseTranslateConfig-1.6.yaml":                                      translateconfigReversetranslateconfig16Yaml,
+	"translateConfig/translate-ICP-IOP-1.5.yaml":                                           translateconfigTranslateIcpIop15Yaml,
+	"translateConfig/translate-ICP-IOP-1.6.yaml":                                           translateconfigTranslateIcpIop16Yaml,
+	"translateConfig/translateConfig-1.3.yaml":                                             translateconfigTranslateconfig13Yaml,
+	"translateConfig/translateConfig-1.4.yaml":                                             translateconfigTranslateconfig14Yaml,
+	"translateConfig/translateConfig-1.5.yaml":                                             translateconfigTranslateconfig15Yaml,
+	"translateConfig/translateConfig-1.6.yaml":                                             translateconfigTranslateconfig16Yaml,
+	"versions.yaml":                                                                        versionsYaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -47833,6 +45838,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"files": &bintree{nil, map[string]*bintree{
 				"crd-all.gen.yaml":       &bintree{chartsBaseFilesCrdAllGenYaml, map[string]*bintree{}},
 				"crd-mixer.yaml":         &bintree{chartsBaseFilesCrdMixerYaml, map[string]*bintree{}},
+				"crd-operator.yaml":      &bintree{chartsBaseFilesCrdOperatorYaml, map[string]*bintree{}},
 				"gen-istio-cluster.yaml": &bintree{chartsBaseFilesGenIstioClusterYaml, map[string]*bintree{}},
 			}},
 			"kustomization.yaml": &bintree{chartsBaseKustomizationYaml, map[string]*bintree{}},
@@ -47841,7 +45847,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"clusterrolebinding.yaml":             &bintree{chartsBaseTemplatesClusterrolebindingYaml, map[string]*bintree{}},
 				"crds.yaml":                           &bintree{chartsBaseTemplatesCrdsYaml, map[string]*bintree{}},
 				"endpoints.yaml":                      &bintree{chartsBaseTemplatesEndpointsYaml, map[string]*bintree{}},
-				"namespaces.yaml":                     &bintree{chartsBaseTemplatesNamespacesYaml, map[string]*bintree{}},
 				"serviceaccount.yaml":                 &bintree{chartsBaseTemplatesServiceaccountYaml, map[string]*bintree{}},
 				"services.yaml":                       &bintree{chartsBaseTemplatesServicesYaml, map[string]*bintree{}},
 				"validatingwebhookconfiguration.yaml": &bintree{chartsBaseTemplatesValidatingwebhookconfigurationYaml, map[string]*bintree{}},
@@ -47869,12 +45874,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"NOTES.txt":  &bintree{chartsGatewaysIstioIngressNotesTxt, map[string]*bintree{}},
 				"templates": &bintree{nil, map[string]*bintree{
 					"_affinity.tpl":            &bintree{chartsGatewaysIstioIngressTemplates_affinityTpl, map[string]*bintree{}},
-					"addongateway.yaml":        &bintree{chartsGatewaysIstioIngressTemplatesAddongatewayYaml, map[string]*bintree{}},
 					"autoscale.yaml":           &bintree{chartsGatewaysIstioIngressTemplatesAutoscaleYaml, map[string]*bintree{}},
-					"certificate.yaml":         &bintree{chartsGatewaysIstioIngressTemplatesCertificateYaml, map[string]*bintree{}},
 					"deployment.yaml":          &bintree{chartsGatewaysIstioIngressTemplatesDeploymentYaml, map[string]*bintree{}},
-					"gateway.yaml":             &bintree{chartsGatewaysIstioIngressTemplatesGatewayYaml, map[string]*bintree{}},
-					"hosts.yaml":               &bintree{chartsGatewaysIstioIngressTemplatesHostsYaml, map[string]*bintree{}},
 					"meshexpansion.yaml":       &bintree{chartsGatewaysIstioIngressTemplatesMeshexpansionYaml, map[string]*bintree{}},
 					"poddisruptionbudget.yaml": &bintree{chartsGatewaysIstioIngressTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
 					"preconfigured.yaml":       &bintree{chartsGatewaysIstioIngressTemplatesPreconfiguredYaml, map[string]*bintree{}},
@@ -47882,7 +45883,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"rolebindings.yaml":        &bintree{chartsGatewaysIstioIngressTemplatesRolebindingsYaml, map[string]*bintree{}},
 					"service.yaml":             &bintree{chartsGatewaysIstioIngressTemplatesServiceYaml, map[string]*bintree{}},
 					"serviceaccount.yaml":      &bintree{chartsGatewaysIstioIngressTemplatesServiceaccountYaml, map[string]*bintree{}},
-					"sidecar.yaml":             &bintree{chartsGatewaysIstioIngressTemplatesSidecarYaml, map[string]*bintree{}},
 				}},
 				"values.yaml": &bintree{chartsGatewaysIstioIngressValuesYaml, map[string]*bintree{}},
 			}},
@@ -47929,23 +45929,33 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				}},
 				"kustomization.yaml": &bintree{chartsIstioControlIstioDiscoveryKustomizationYaml, map[string]*bintree{}},
 				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl":                           &bintree{chartsIstioControlIstioDiscoveryTemplates_affinityTpl, map[string]*bintree{}},
-					"_helpers.tpl":                            &bintree{chartsIstioControlIstioDiscoveryTemplates_helpersTpl, map[string]*bintree{}},
-					"autoscale.yaml":                          &bintree{chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml, map[string]*bintree{}},
-					"clusterrole-galley-disable-webhook.yaml": &bintree{chartsIstioControlIstioDiscoveryTemplatesClusterroleGalleyDisableWebhookYaml, map[string]*bintree{}},
-					"configmap-jwks.yaml":                     &bintree{chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml, map[string]*bintree{}},
-					"configmap.yaml":                          &bintree{chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml, map[string]*bintree{}},
-					"deployment.yaml":                         &bintree{chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml, map[string]*bintree{}},
-					"istiod-injector-configmap.yaml":          &bintree{chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml, map[string]*bintree{}},
-					"mutatingwebhook.yaml":                    &bintree{chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml, map[string]*bintree{}},
-					"poddisruptionbudget.yaml":                &bintree{chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
-					"service.yaml":                            &bintree{chartsIstioControlIstioDiscoveryTemplatesServiceYaml, map[string]*bintree{}},
-					"telemetryv2_1.4.yaml":                    &bintree{chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml, map[string]*bintree{}},
-					"telemetryv2_1.5.yaml":                    &bintree{chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml, map[string]*bintree{}},
-					"telemetryv2_1.6.yaml":                    &bintree{chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml, map[string]*bintree{}},
+					"autoscale.yaml":                 &bintree{chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml, map[string]*bintree{}},
+					"configmap-jwks.yaml":            &bintree{chartsIstioControlIstioDiscoveryTemplatesConfigmapJwksYaml, map[string]*bintree{}},
+					"configmap.yaml":                 &bintree{chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml, map[string]*bintree{}},
+					"deployment.yaml":                &bintree{chartsIstioControlIstioDiscoveryTemplatesDeploymentYaml, map[string]*bintree{}},
+					"istiod-injector-configmap.yaml": &bintree{chartsIstioControlIstioDiscoveryTemplatesIstiodInjectorConfigmapYaml, map[string]*bintree{}},
+					"mutatingwebhook.yaml":           &bintree{chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml, map[string]*bintree{}},
+					"poddisruptionbudget.yaml":       &bintree{chartsIstioControlIstioDiscoveryTemplatesPoddisruptionbudgetYaml, map[string]*bintree{}},
+					"service.yaml":                   &bintree{chartsIstioControlIstioDiscoveryTemplatesServiceYaml, map[string]*bintree{}},
+					"telemetryv2_1.4.yaml":           &bintree{chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml, map[string]*bintree{}},
+					"telemetryv2_1.5.yaml":           &bintree{chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml, map[string]*bintree{}},
+					"telemetryv2_1.6.yaml":           &bintree{chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml, map[string]*bintree{}},
 				}},
 				"values.yaml": &bintree{chartsIstioControlIstioDiscoveryValuesYaml, map[string]*bintree{}},
 			}},
+		}},
+		"istio-operator": &bintree{nil, map[string]*bintree{
+			"Chart.yaml": &bintree{chartsIstioOperatorChartYaml, map[string]*bintree{}},
+			"templates": &bintree{nil, map[string]*bintree{
+				"clusterrole.yaml":         &bintree{chartsIstioOperatorTemplatesClusterroleYaml, map[string]*bintree{}},
+				"clusterrole_binding.yaml": &bintree{chartsIstioOperatorTemplatesClusterrole_bindingYaml, map[string]*bintree{}},
+				"crd-operator.yaml":        &bintree{chartsIstioOperatorTemplatesCrdOperatorYaml, map[string]*bintree{}},
+				"deployment.yaml":          &bintree{chartsIstioOperatorTemplatesDeploymentYaml, map[string]*bintree{}},
+				"namespace.yaml":           &bintree{chartsIstioOperatorTemplatesNamespaceYaml, map[string]*bintree{}},
+				"service.yaml":             &bintree{chartsIstioOperatorTemplatesServiceYaml, map[string]*bintree{}},
+				"service_account.yaml":     &bintree{chartsIstioOperatorTemplatesService_accountYaml, map[string]*bintree{}},
+			}},
+			"values.yaml": &bintree{chartsIstioOperatorValuesYaml, map[string]*bintree{}},
 		}},
 		"istio-policy": &bintree{nil, map[string]*bintree{
 			"Chart.yaml": &bintree{chartsIstioPolicyChartYaml, map[string]*bintree{}},
@@ -47967,8 +45977,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"grafana": &bintree{nil, map[string]*bintree{
 				"Chart.yaml": &bintree{chartsIstioTelemetryGrafanaChartYaml, map[string]*bintree{}},
 				"dashboards": &bintree{nil, map[string]*bintree{
-					"citadel-dashboard.json":           &bintree{chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson, map[string]*bintree{}},
-					"galley-dashboard.json":            &bintree{chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson, map[string]*bintree{}},
 					"istio-mesh-dashboard.json":        &bintree{chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson, map[string]*bintree{}},
 					"istio-performance-dashboard.json": &bintree{chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson, map[string]*bintree{}},
 					"istio-service-dashboard.json":     &bintree{chartsIstioTelemetryGrafanaDashboardsIstioServiceDashboardJson, map[string]*bintree{}},
@@ -48030,7 +46038,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"clusterrolebindings.yaml": &bintree{chartsIstioTelemetryPrometheusTemplatesClusterrolebindingsYaml, map[string]*bintree{}},
 					"configmap.yaml":           &bintree{chartsIstioTelemetryPrometheusTemplatesConfigmapYaml, map[string]*bintree{}},
 					"deployment.yaml":          &bintree{chartsIstioTelemetryPrometheusTemplatesDeploymentYaml, map[string]*bintree{}},
-					"ingress.yaml":             &bintree{chartsIstioTelemetryPrometheusTemplatesIngressYaml, map[string]*bintree{}},
 					"service.yaml":             &bintree{chartsIstioTelemetryPrometheusTemplatesServiceYaml, map[string]*bintree{}},
 					"serviceaccount.yaml":      &bintree{chartsIstioTelemetryPrometheusTemplatesServiceaccountYaml, map[string]*bintree{}},
 					"tests": &bintree{nil, map[string]*bintree{
@@ -48039,14 +46046,14 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				}},
 				"values.yaml": &bintree{chartsIstioTelemetryPrometheusValuesYaml, map[string]*bintree{}},
 			}},
-			"prometheus-operator": &bintree{nil, map[string]*bintree{
-				"Chart.yaml": &bintree{chartsIstioTelemetryPrometheusOperatorChartYaml, map[string]*bintree{}},
+			"prometheusOperator": &bintree{nil, map[string]*bintree{
+				"Chart.yaml": &bintree{chartsIstioTelemetryPrometheusoperatorChartYaml, map[string]*bintree{}},
 				"templates": &bintree{nil, map[string]*bintree{
-					"_affinity.tpl":        &bintree{chartsIstioTelemetryPrometheusOperatorTemplates_affinityTpl, map[string]*bintree{}},
-					"prometheus.yaml":      &bintree{chartsIstioTelemetryPrometheusOperatorTemplatesPrometheusYaml, map[string]*bintree{}},
-					"servicemonitors.yaml": &bintree{chartsIstioTelemetryPrometheusOperatorTemplatesServicemonitorsYaml, map[string]*bintree{}},
+					"_affinity.tpl":        &bintree{chartsIstioTelemetryPrometheusoperatorTemplates_affinityTpl, map[string]*bintree{}},
+					"prometheus.yaml":      &bintree{chartsIstioTelemetryPrometheusoperatorTemplatesPrometheusYaml, map[string]*bintree{}},
+					"servicemonitors.yaml": &bintree{chartsIstioTelemetryPrometheusoperatorTemplatesServicemonitorsYaml, map[string]*bintree{}},
 				}},
-				"values.yaml": &bintree{chartsIstioTelemetryPrometheusOperatorValuesYaml, map[string]*bintree{}},
+				"values.yaml": &bintree{chartsIstioTelemetryPrometheusoperatorValuesYaml, map[string]*bintree{}},
 			}},
 			"tracing": &bintree{nil, map[string]*bintree{
 				"Chart.yaml": &bintree{chartsIstioTelemetryTracingChartYaml, map[string]*bintree{}},
@@ -48090,18 +46097,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"vm": &bintree{nil, map[string]*bintree{
 			"values-istio-meshexpansion-gateways.yaml": &bintree{examplesVmValuesIstioMeshexpansionGatewaysYaml, map[string]*bintree{}},
 			"values-istio-meshexpansion.yaml":          &bintree{examplesVmValuesIstioMeshexpansionYaml, map[string]*bintree{}},
-		}},
-	}},
-	"operator-chart": &bintree{nil, map[string]*bintree{
-		"Chart.yaml": &bintree{operatorChartChartYaml, map[string]*bintree{}},
-		"templates": &bintree{nil, map[string]*bintree{
-			"clusterrole.yaml":         &bintree{operatorChartTemplatesClusterroleYaml, map[string]*bintree{}},
-			"clusterrole_binding.yaml": &bintree{operatorChartTemplatesClusterrole_bindingYaml, map[string]*bintree{}},
-			"crd.yaml":                 &bintree{operatorChartTemplatesCrdYaml, map[string]*bintree{}},
-			"deployment.yaml":          &bintree{operatorChartTemplatesDeploymentYaml, map[string]*bintree{}},
-			"namespace.yaml":           &bintree{operatorChartTemplatesNamespaceYaml, map[string]*bintree{}},
-			"service.yaml":             &bintree{operatorChartTemplatesServiceYaml, map[string]*bintree{}},
-			"service_account.yaml":     &bintree{operatorChartTemplatesService_accountYaml, map[string]*bintree{}},
 		}},
 	}},
 	"profiles": &bintree{nil, map[string]*bintree{

@@ -48,8 +48,8 @@ func IsPassThroughServer(server *v1alpha3.Server) bool {
 		return false
 	}
 
-	if server.Tls.Mode == v1alpha3.Server_TLSOptions_PASSTHROUGH ||
-		server.Tls.Mode == v1alpha3.Server_TLSOptions_AUTO_PASSTHROUGH {
+	if server.Tls.Mode == v1alpha3.ServerTLSSettings_PASSTHROUGH ||
+		server.Tls.Mode == v1alpha3.ServerTLSSettings_AUTO_PASSTHROUGH {
 		return true
 	}
 

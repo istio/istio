@@ -18,6 +18,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"k8s.io/client-go/dynamic"
+
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 
@@ -40,6 +42,9 @@ var (
 )
 
 func (s *Server) initConfigValidation(args *PilotArgs) error {
+	if s.kubeClient == nil {
+		return nil
+	}
 	if features.IstiodService.Get() == "" {
 		return nil
 	}
@@ -64,17 +69,26 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 	})
 
 	if webhookConfigName := validationWebhookConfigName.Get(); webhookConfigName != "" {
-		iface, err := kube.NewInterfacesFromConfigFile(args.Config.KubeConfig)
-		if err != nil {
-			return err
-		}
-		client, err := iface.KubeClient()
-		if err != nil {
-			return err
-		}
-		dynamicInterface, err := iface.DynamicInterface()
-		if err != nil {
-			return err
+		var dynamicInterface dynamic.Interface
+		if s.kubeClient == nil || s.kubeConfig == nil {
+			iface, err := kube.NewInterfacesFromConfigFile(args.Config.KubeConfig)
+			if err != nil {
+				return err
+			}
+			client, err := iface.KubeClient()
+			if err != nil {
+				return err
+			}
+			s.kubeClient = client
+			dynamicInterface, err = iface.DynamicInterface()
+			if err != nil {
+				return err
+			}
+		} else {
+			dynamicInterface, err = dynamic.NewForConfig(s.kubeConfig)
+			if err != nil {
+				return err
+			}
 		}
 
 		if webhookConfigName == validationWebhookConfigNameTemplate {
@@ -87,7 +101,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 			WebhookConfigName: webhookConfigName,
 			ServiceName:       "istiod",
 		}
-		whController, err := controller.New(o, client, dynamicInterface)
+		whController, err := controller.New(o, s.kubeClient, dynamicInterface)
 		if err != nil {
 			return err
 		}

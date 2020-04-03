@@ -15,6 +15,7 @@
 package configmap
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -49,7 +50,10 @@ func NewController(namespace string, core corev1.CoreV1Interface) *Controller {
 
 // InsertCATLSRootCert updates the CA TLS root certificate in the configmap.
 func (c *Controller) InsertCATLSRootCert(value string) error {
-	configmap, err := c.core.ConfigMaps(c.namespace).Get(IstioSecurityConfigMapName, metav1.GetOptions{})
+	if c.core == nil {
+		return nil
+	}
+	configmap, err := c.core.ConfigMaps(c.namespace).Get(context.TODO(), IstioSecurityConfigMapName, metav1.GetOptions{})
 	exists := true
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -68,11 +72,11 @@ func (c *Controller) InsertCATLSRootCert(value string) error {
 	}
 	configmap.Data[CATLSRootCertName] = value
 	if exists {
-		if _, err = c.core.ConfigMaps(c.namespace).Update(configmap); err != nil {
+		if _, err = c.core.ConfigMaps(c.namespace).Update(context.TODO(), configmap, metav1.UpdateOptions{}); err != nil {
 			return fmt.Errorf("failed to insert CA TLS root cert: %v", err)
 		}
 	} else {
-		if _, err = c.core.ConfigMaps(c.namespace).Create(configmap); err != nil {
+		if _, err = c.core.ConfigMaps(c.namespace).Create(context.TODO(), configmap, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("failed to insert CA TLS root cert: %v", err)
 		}
 	}
@@ -101,7 +105,7 @@ func (c *Controller) InsertCATLSRootCertWithRetry(value string, retryInterval,
 
 // GetCATLSRootCert gets the CA TLS root certificate from the configmap.
 func (c *Controller) GetCATLSRootCert() (string, error) {
-	configmap, err := c.core.ConfigMaps(c.namespace).Get(IstioSecurityConfigMapName, metav1.GetOptions{})
+	configmap, err := c.core.ConfigMaps(c.namespace).Get(context.TODO(), IstioSecurityConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to get CA TLS root cert: %v", err)
 	}

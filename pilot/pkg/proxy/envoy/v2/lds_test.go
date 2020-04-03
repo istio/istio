@@ -42,8 +42,9 @@ import (
 
 // TestLDS using isolated namespaces
 func TestLDSIsolated(t *testing.T) {
-	_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
-	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForInbound.Name) }()
+	defaultInboundValue := features.EnableProtocolSniffingForInbound
+	features.EnableProtocolSniffingForInbound = true
+	defer func() { features.EnableProtocolSniffingForInbound = defaultInboundValue }()
 	_, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
@@ -428,7 +429,7 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 	// TODO: This is flimsy. The ADSC code treats any listener with http connection manager as a HTTP listener
 	// instead of looking at it as a listener with multiple filter chains
 	if l := adsResponse.GetHTTPListeners()["0.0.0.0_8081"]; l != nil {
-		expected := 1
+		expected := 2
 		if len(l.FilterChains) != expected {
 			t.Fatalf("Expected %d filter chains, got %d", expected, len(l.FilterChains))
 		}
@@ -456,8 +457,9 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 
 // TestLDS using default sidecar in root namespace
 func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
-	_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
-	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForInbound.Name) }()
+	defaultInboundValue := features.EnableProtocolSniffingForInbound
+	features.EnableProtocolSniffingForInbound = true
+	defer func() { features.EnableProtocolSniffingForInbound = defaultInboundValue }()
 	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
 		args.Plugins = bootstrap.DefaultPlugins
 		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/envoyfilter-without-service"

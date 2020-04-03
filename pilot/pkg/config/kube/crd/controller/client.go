@@ -17,6 +17,7 @@
 package controller
 
 import (
+	context2 "context"
 	"fmt"
 	"time"
 
@@ -83,6 +84,8 @@ type restClientBuilder struct {
 	schemasBuilder *collection.SchemasBuilder
 	types          []*crd.SchemaType
 }
+
+var scope = log.RegisterScope("kube", "", 0)
 
 func (b *restClientBuilder) build() *restClient {
 	return &restClient{
@@ -211,18 +214,18 @@ func (cl *Client) Schemas() collection.Schemas {
 func (cl *Client) Get(typ resource.GroupVersionKind, name, namespace string) *model.Config {
 	t, ok := crd.SupportedTypes[typ]
 	if !ok {
-		log.Warnf("unknown type: %s", typ)
+		scope.Warnf("unknown type: %s", typ)
 		return nil
 	}
 	rc, ok := cl.clientset[t.Schema.Resource().APIVersion()]
 	if !ok {
-		log.Warnf("cannot find client for type: %s", typ)
+		scope.Warnf("cannot find client for type: %s", typ)
 		return nil
 	}
 
 	s, exists := rc.schemas.FindByGroupVersionKind(typ)
 	if !exists {
-		log.Warnf("cannot find proto schema for type: %s", typ)
+		scope.Warnf("cannot find proto schema for type: %s", typ)
 		return nil
 	}
 
@@ -231,16 +234,16 @@ func (cl *Client) Get(typ resource.GroupVersionKind, name, namespace string) *mo
 		NamespaceIfScoped(namespace, !s.Resource().IsClusterScoped()).
 		Resource(s.Resource().Plural()).
 		Name(name).
-		Do().Into(config)
+		Do(context2.TODO()).Into(config)
 
 	if err != nil {
-		log.Warna(err)
+		scope.Warna(err)
 		return nil
 	}
 
 	out, err := crd.ConvertObject(s, config, cl.domainSuffix)
 	if err != nil {
-		log.Warna(err)
+		scope.Warna(err)
 		return nil
 	}
 	if cl.objectInEnvironment(out) {
@@ -275,7 +278,7 @@ func (cl *Client) Create(config model.Config) (string, error) {
 		NamespaceIfScoped(out.GetObjectMeta().Namespace, !s.Resource().IsClusterScoped()).
 		Resource(s.Resource().Plural()).
 		Body(out).
-		Do().Into(obj)
+		Do(context2.TODO()).Into(obj)
 	if err != nil {
 		return "", err
 	}
@@ -313,7 +316,7 @@ func (cl *Client) Update(config model.Config) (string, error) {
 		Resource(s.Resource().Plural()).
 		Name(out.GetObjectMeta().Name).
 		Body(out).
-		Do().Into(obj)
+		Do(context2.TODO()).Into(obj)
 	if err != nil {
 		return "", err
 	}
@@ -340,7 +343,7 @@ func (cl *Client) Delete(typ resource.GroupVersionKind, name, namespace string) 
 		NamespaceIfScoped(namespace, !s.Resource().IsClusterScoped()).
 		Resource(s.Resource().Plural()).
 		Name(name).
-		Do().Error()
+		Do(context2.TODO()).Error()
 }
 
 func (cl *Client) Version() string {
@@ -379,7 +382,7 @@ func (cl *Client) List(kind resource.GroupVersionKind, namespace string) ([]mode
 	errs := rc.dynamic.Get().
 		NamespaceIfScoped(namespace, !s.Resource().IsClusterScoped()).
 		Resource(s.Resource().Plural()).
-		Do().Into(list)
+		Do(context2.TODO()).Into(list)
 
 	out := make([]model.Config, 0)
 	for _, item := range list.GetItems() {
@@ -426,7 +429,7 @@ func (cl *Client) RegisterMockResourceCRD() error {
 	skipCreate := true
 	for _, s := range schemas {
 		name := s.Resource().Plural() + "." + s.Resource().Group()
-		crd, errGet := cs.ApiextensionsV1beta1().CustomResourceDefinitions().Get(name, meta_v1.GetOptions{})
+		crd, errGet := cs.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context2.TODO(), name, meta_v1.GetOptions{})
 		if errGet != nil {
 			skipCreate = false
 			break // create the resources
@@ -442,7 +445,7 @@ func (cl *Client) RegisterMockResourceCRD() error {
 				continue
 			}
 
-			log.Warnf("Not established: %v", name)
+			scope.Warnf("Not established: %v", name)
 			skipCreate = false
 			break
 		}
@@ -473,8 +476,8 @@ func (cl *Client) RegisterMockResourceCRD() error {
 				},
 			},
 		}
-		log.Infof("registering CRD %q", name)
-		_, err = cs.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
+		scope.Infof("registering CRD %q", name)
+		_, err = cs.ApiextensionsV1beta1().CustomResourceDefinitions().Create(context2.TODO(), crd, meta_v1.CreateOptions{})
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return err
 		}
@@ -485,7 +488,7 @@ func (cl *Client) RegisterMockResourceCRD() error {
 	descriptor:
 		for _, s := range schemas {
 			name := s.Resource().Plural() + "." + s.Resource().Group()
-			crd, errGet := cs.ApiextensionsV1beta1().CustomResourceDefinitions().Get(name, meta_v1.GetOptions{})
+			crd, errGet := cs.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context2.TODO(), name, meta_v1.GetOptions{})
 			if errGet != nil {
 				return false, errGet
 			}
@@ -493,23 +496,23 @@ func (cl *Client) RegisterMockResourceCRD() error {
 				switch cond.Type {
 				case apiextensionsv1beta1.Established:
 					if cond.Status == apiextensionsv1beta1.ConditionTrue {
-						log.Infof("established CRD %q", name)
+						scope.Infof("established CRD %q", name)
 						continue descriptor
 					}
 				case apiextensionsv1beta1.NamesAccepted:
 					if cond.Status == apiextensionsv1beta1.ConditionFalse {
-						log.Warnf("name conflict: %v", cond.Reason)
+						scope.Warnf("name conflict: %v", cond.Reason)
 					}
 				}
 			}
-			log.Infof("missing status condition for %q", name)
+			scope.Infof("missing status condition for %q", name)
 			return false, nil
 		}
 		return true, nil
 	})
 
 	if errPoll != nil {
-		log.Error("failed to verify CRD creation")
+		scope.Error("failed to verify CRD creation")
 		return errPoll
 	}
 

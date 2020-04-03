@@ -22,19 +22,16 @@ import (
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
-	icpv1alpha2 "istio.io/istio/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/operator/version"
 	"istio.io/pkg/log"
-
-	"istio.io/istio/operator/pkg/translate"
 	pkgversion "istio.io/pkg/version"
 )
 
@@ -62,7 +59,11 @@ func GenerateConfig(inFilenames []string, setOverlayYAML string, force bool, kub
 		return "", nil, err
 	}
 
-	if err := validation.ValidateConfig(false, iops.Values, iops).ToError(); err != nil {
+	errs, warning := validation.ValidateConfig(false, iops.Values, iops)
+	if warning != "" {
+		l.logAndError(warning)
+	}
+	if errs.ToError() != nil {
 		return "", nil, fmt.Errorf("generated config failed semantic validation: %v", err)
 	}
 	return iopsString, iops, nil
@@ -156,9 +157,7 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 		return "", nil, err
 	}
 
-	// if input is in IstioControlPlane format.
-	icp := &icpv1alpha2.IstioControlPlane{}
-	if err := util.UnmarshalWithJSONPB(outYAML, icp, false); err == nil {
+	if err := translate.CheckIstioControlPlane(outYAML); err == nil {
 		translations, err := translate.ICPtoIOPTranslations(version.OperatorBinaryVersion)
 		if err != nil {
 			return "", nil, err
@@ -220,8 +219,11 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 // installation charts and profile file.
 // If installPackagePath is not a URL, it returns installPackagePath and profileOrPath unmodified.
 func rewriteURLToLocalInstallPath(installPackagePath, profileOrPath string, skipValidation bool) (string, string, error) {
-	var err error
-	if util.IsHTTPURL(installPackagePath) {
+	isURL, err := util.IsHTTPURL(installPackagePath)
+	if err != nil && !skipValidation {
+		return "", "", err
+	}
+	if isURL {
 		if !skipValidation {
 			_, ver, err := helm.URLToDirname(installPackagePath)
 			if err != nil {
@@ -240,7 +242,7 @@ func rewriteURLToLocalInstallPath(installPackagePath, profileOrPath string, skip
 		// /tmp/istio-install-packages/istio-1.5.1/install/kubernetes/operator/profiles/default.yaml.
 		profileOrPath = filepath.Join(installPackagePath, helm.OperatorSubdirFilePath, "profiles", profileOrPath+".yaml")
 		// Rewrite installPackagePath to the local file path for further processing.
-		installPackagePath = filepath.Join(installPackagePath, helm.OperatorSubdirFilePath, "charts")
+		installPackagePath = filepath.Join(installPackagePath, helm.OperatorSubdirFilePath)
 	}
 
 	return installPackagePath, profileOrPath, nil
@@ -332,10 +334,13 @@ func getJwtTypeOverlay(config *rest.Config, l *Logger) (string, error) {
 // representation if successful. If force is set, validation errors are written to logger rather than causing an
 // error.
 func unmarshalAndValidateIOPS(iopsYAML string, force bool, l *Logger) (*v1alpha1.IstioOperatorSpec, error) {
-	iops, err := istio.UnmarshalAndValidateIOPS(iopsYAML)
-	if err != nil && !force {
+	iops := &v1alpha1.IstioOperatorSpec{}
+	if err := util.UnmarshalWithJSONPB(iopsYAML, iops, false); err != nil {
+		return nil, fmt.Errorf("could not unmarshal merged YAML: %s\n\nYAML:\n%s", err, iopsYAML)
+	}
+	if errs := validate.CheckIstioOperatorSpec(iops, true); len(errs) != 0 && !force {
 		l.logAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
-		return nil, err
+		return iops, fmt.Errorf(errs.Error())
 	}
 	return iops, nil
 }

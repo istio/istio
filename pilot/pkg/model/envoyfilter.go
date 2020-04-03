@@ -27,9 +27,8 @@ import (
 
 // EnvoyFilterWrapper is a wrapper for the EnvoyFilter api object with pre-processed data
 type EnvoyFilterWrapper struct {
-	workloadSelector  labels.Instance
-	Patches           map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper
-	DeprecatedFilters []*networking.EnvoyFilter_Filter
+	workloadSelector labels.Instance
+	Patches          map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper
 }
 
 // EnvoyFilterConfigPatchWrapper is a wrapper over the EnvoyFilter ConfigPatch api object
@@ -66,10 +65,7 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 	out := &EnvoyFilterWrapper{}
 	if localEnvoyFilter.WorkloadSelector != nil {
 		out.workloadSelector = localEnvoyFilter.WorkloadSelector.Labels
-	} else {
-		out.workloadSelector = localEnvoyFilter.WorkloadLabels
 	}
-	out.DeprecatedFilters = localEnvoyFilter.Filters
 	out.Patches = make(map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper)
 	for _, cp := range localEnvoyFilter.ConfigPatches {
 		cpw := &EnvoyFilterConfigPatchWrapper{

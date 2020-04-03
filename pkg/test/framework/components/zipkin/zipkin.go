@@ -17,8 +17,8 @@ package zipkin
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 // Instance represents a zipkin deployment on kube

@@ -19,12 +19,21 @@ import (
 	"os"
 	"time"
 
+	"github.com/spf13/cobra"
+
+	"istio.io/api/operator/v1alpha1"
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/version"
+)
 
-	"github.com/spf13/cobra"
+const (
+	// installedSpecCRPrefix is the prefix of any IstioOperator CR stored in the cluster that is a copy of the CR used
+	// in the last manifest apply operation.
+	installedSpecCRPrefix = "installed-state"
 )
 
 type manifestApplyArgs struct {
@@ -81,24 +90,60 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 `,
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
-			// Warn users if they use `manifest apply` without any config args.
-			if len(maArgs.inFilenames) == 0 && len(maArgs.set) == 0 && !rootArgs.dryRun && !maArgs.skipConfirmation {
-				if !confirm("This will install the default Istio profile into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
-					cmd.Print("Cancelled.\n")
-					os.Exit(1)
-				}
-			}
-			if err := configLogs(rootArgs.logToStdErr); err != nil {
-				return fmt.Errorf("could not configure logs: %s", err)
-			}
-			if err := ApplyManifests(maArgs.set, maArgs.inFilenames, maArgs.force, rootArgs.dryRun, rootArgs.verbose,
-				maArgs.kubeConfigPath, maArgs.context, maArgs.wait, maArgs.readinessTimeout, l); err != nil {
-				return fmt.Errorf("failed to apply manifests: %v", err)
-			}
-
-			return nil
+			return runApplyCmd(cmd, rootArgs, maArgs)
 		}}
+}
+
+// InstallCmd in an alias for manifest apply.
+func InstallCmd() *cobra.Command {
+	rootArgs := &rootArgs{}
+	macArgs := &manifestApplyArgs{}
+
+	mac := &cobra.Command{
+		Use:   "install",
+		Short: "Applies an Istio manifest, installing or reconfiguring Istio on a cluster.",
+		Long:  "The install generates an Istio install manifest and applies it to a cluster.",
+		// nolint: lll
+		Example: `  # Apply a default Istio installation
+  istioctl install
+
+  # Enable grafana dashboard
+  istioctl install --set values.grafana.enabled=true
+
+  # Generate the demo profile and don't wait for confirmation
+  istioctl install --set profile=demo --skip-confirmation
+
+  # To override a setting that includes dots, escape them with a backslash (\).  Your shell may require enclosing quotes.
+  istioctl install --set "values.sidecarInjectorWebhook.injectedAnnotations.container\.apparmor\.security\.beta\.kubernetes\.io/istio-proxy=runtime/default"
+`,
+		Args: cobra.ExactArgs(0),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runApplyCmd(cmd, rootArgs, macArgs)
+		}}
+
+	addFlags(mac, rootArgs)
+	addManifestApplyFlags(mac, macArgs)
+	return mac
+}
+
+func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyArgs) error {
+	l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
+	// Warn users if they use `manifest apply` without any config args.
+	if len(maArgs.inFilenames) == 0 && len(maArgs.set) == 0 && !rootArgs.dryRun && !maArgs.skipConfirmation {
+		if !confirm("This will install the default Istio profile into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
+			cmd.Print("Cancelled.\n")
+			os.Exit(1)
+		}
+	}
+	if err := configLogs(rootArgs.logToStdErr); err != nil {
+		return fmt.Errorf("could not configure logs: %s", err)
+	}
+	if err := ApplyManifests(maArgs.set, maArgs.inFilenames, maArgs.force, rootArgs.dryRun, rootArgs.verbose,
+		maArgs.kubeConfigPath, maArgs.context, maArgs.wait, maArgs.readinessTimeout, l); err != nil {
+		return fmt.Errorf("failed to apply manifests: %v", err)
+	}
+
+	return nil
 }
 
 // ApplyManifests generates manifests from the given input files and --set flag overlays and applies them to the
@@ -119,7 +164,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 	if err != nil {
 		return err
 	}
-	manifests, iop, err := GenManifests(inFilenames, ysf, force, kubeconfig, l)
+	manifests, iops, err := GenManifests(inFilenames, ysf, force, kubeconfig, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate manifest: %v", err)
 	}
@@ -136,7 +181,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 		manifests[cn] = append(manifests[cn], fmt.Sprintf("# %s component has been deprecated.\n", cn))
 	}
 
-	out, err := manifest.ApplyAll(manifests, version.OperatorBinaryVersion, iop.Revision, opts)
+	out, err := manifest.ApplyAll(manifests, version.OperatorBinaryVersion, iops, opts)
 	if err != nil {
 		return fmt.Errorf("failed to apply manifest with kubectl client: %v", err)
 	}
@@ -160,7 +205,26 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 		l.logAndPrint("\n\n✘ Errors were logged during apply operation. Please check component installation logs above.\n")
 		return fmt.Errorf("errors were logged during apply operation")
 	}
-
 	l.logAndPrint("\n\n✔ Installation complete\n")
+
+	crName := installedSpecCRPrefix
+	if iops.Revision != "" {
+		crName += "-" + iops.Revision
+	}
+	if err := saveClusterState(iops, crName, opts); err != nil {
+		l.logAndPrintf("Failed to save install state in the cluster: %s", err)
+		return err
+	}
+
 	return nil
+}
+
+// saveClusterState stores the given IstioOperatorSpec in the cluster as an IstioOperator CR with the given name and
+// namespace.
+func saveClusterState(iops *v1alpha1.IstioOperatorSpec, name string, opts *kubectlcmd.Options) error {
+	iopStr, err := translate.IOPStoIOP(iops, name, iopv1alpha1.Namespace(iops))
+	if err != nil {
+		return fmt.Errorf("failed to apply manifest with kubectl client: %v", err)
+	}
+	return manifest.Apply(iopStr, opts)
 }

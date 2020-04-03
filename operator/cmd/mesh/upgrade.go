@@ -172,10 +172,12 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 		if err != nil {
 			return fmt.Errorf("failed to read override IOPS from file: %v, error: %v", args.inFilenames, err)
 		}
-		// Grab the IstioOperatorSpec subtree.
-		overrideIOPSYaml, err = tpath.GetSpecSubtree(overrideIOPSYaml)
-		if err != nil {
-			return fmt.Errorf("failed to get spec subtree from IOPS yaml, error: %v", err)
+		if overrideIOPSYaml != "" {
+			// Grab the IstioOperatorSpec subtree.
+			overrideIOPSYaml, err = tpath.GetSpecSubtree(overrideIOPSYaml)
+			if err != nil {
+				return fmt.Errorf("failed to get spec subtree from IOPS yaml, error: %v", err)
+			}
 		}
 	}
 

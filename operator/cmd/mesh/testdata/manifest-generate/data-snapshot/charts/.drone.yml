@@ -1,0 +1,48 @@
+kind: pipeline
+name: default
+
+workspace:
+  base: /go
+  path: src/github.com/costinm/istio-install
+
+steps:
+  - name: run
+    image: istio/ci:go1.11-k8s1.10.4-helm2.7.2-minikube0.25
+    environment:
+      GOPATH: /home/circleci
+      DOCKER_HOST: tcp://docker-p:2375
+    commands:
+      - go get -u sigs.k8s.io/kind
+      - /home/circleci/bin/kind create cluster
+      - export PATH=$PATH:$GOPATH/bin
+      - export KUBECONFIG="$(kind get kubeconfig-path --name="kind")"
+      - kubectl apply -f base/
+      - bin/iop istio-control discovery istio-control/istio-discovery
+
+
+
+services:
+  - name: docker-p
+    image: plugins/docker
+    privileged: true
+    commands:
+      - /usr/local/bin/dockerd --data-root /var/lib/docker --host=tcp://0.0.0.0:2375
+
+#  - name: docker
+#    image: plugins/docker
+#    commands:
+#      - /usr/local/bin/dockerd --data-root /var/lib/docker
+
+#services:
+##  Doesn't work - require priv or trusted
+##  - name: docker
+##    image: docker:dind
+##    privileged: true
+##    volumes:
+##      - name: dockersock
+##        path: /var/run
+#
+#volumes:
+#  - name: dockersock
+#    temp: {}
+

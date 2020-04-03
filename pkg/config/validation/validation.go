@@ -395,13 +395,13 @@ func validateServerPort(port *networking.Port) (errs error) {
 	return
 }
 
-func validateTLSOptions(tls *networking.Server_TLSOptions) (errs error) {
+func validateTLSOptions(tls *networking.ServerTLSSettings) (errs error) {
 	if tls == nil {
 		// no tls config at all is valid
 		return
 	}
 
-	if tls.Mode == networking.Server_TLSOptions_ISTIO_MUTUAL {
+	if tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
 		// ISTIO_MUTUAL TLS mode uses either SDS or default certificate mount paths
 		// therefore, we should fail validation if other TLS fields are set
 		if tls.ServerCertificate != "" {
@@ -417,19 +417,19 @@ func validateTLSOptions(tls *networking.Server_TLSOptions) (errs error) {
 		return
 	}
 
-	if (tls.Mode == networking.Server_TLSOptions_SIMPLE || tls.Mode == networking.Server_TLSOptions_MUTUAL) && tls.CredentialName != "" {
+	if (tls.Mode == networking.ServerTLSSettings_SIMPLE || tls.Mode == networking.ServerTLSSettings_MUTUAL) && tls.CredentialName != "" {
 		// If tls mode is SIMPLE or MUTUAL, and CredentialName is specified, credentials are fetched
 		// remotely. ServerCertificate and CaCertificates fields are not required.
 		return
 	}
-	if tls.Mode == networking.Server_TLSOptions_SIMPLE {
+	if tls.Mode == networking.ServerTLSSettings_SIMPLE {
 		if tls.ServerCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("SIMPLE TLS requires a server certificate"))
 		}
 		if tls.PrivateKey == "" {
 			errs = appendErrors(errs, fmt.Errorf("SIMPLE TLS requires a private key"))
 		}
-	} else if tls.Mode == networking.Server_TLSOptions_MUTUAL {
+	} else if tls.Mode == networking.ServerTLSSettings_MUTUAL {
 		if tls.ServerCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a server certificate"))
 		}
@@ -483,38 +483,9 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 			return fmt.Errorf("cannot cast to Envoy filter")
 		}
 
-		if len(rule.Filters) > 0 {
-			scope.Warn("Envoy filter: Filters is deprecated. use configPatches instead") // nolint: golint,stylecheck
-		}
-
-		if rule.WorkloadLabels != nil {
-			scope.Warn("Envoy filter: workloadLabels is deprecated. use workloadSelector instead") // nolint: golint,stylecheck
-		}
-
 		if rule.WorkloadSelector != nil {
 			if rule.WorkloadSelector.GetLabels() == nil {
 				errs = appendErrors(errs, fmt.Errorf("Envoy filter: workloadSelector cannot have empty labels")) // nolint: golint,stylecheck
-			}
-		}
-
-		for _, f := range rule.Filters {
-			if f.InsertPosition != nil {
-				if f.InsertPosition.Index == networking.EnvoyFilter_InsertPosition_BEFORE ||
-					f.InsertPosition.Index == networking.EnvoyFilter_InsertPosition_AFTER {
-					if f.InsertPosition.RelativeTo == "" {
-						errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing relativeTo filter with BEFORE/AFTER index")) // nolint: golint,stylecheck
-					}
-				}
-			}
-			if f.FilterType == networking.EnvoyFilter_Filter_INVALID {
-				errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing filter type")) // nolint: golint,stylecheck
-			}
-			if len(f.FilterName) == 0 {
-				errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing filter name")) // nolint: golint,stylecheck
-			}
-
-			if f.FilterConfig == nil {
-				errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing filter config")) // nolint: golint,stylecheck
 			}
 		}
 
@@ -718,16 +689,6 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 					}
 				}
 			}
-
-			errs = appendErrors(errs, validateSidecarIngressTLS(i.InboundTls))
-
-			// If inbound TLS defined, the port must be either TLS or HTTPS
-			if i.InboundTls != nil {
-				p := protocol.Parse(i.Port.Protocol)
-				if !p.IsTLS() {
-					errs = appendErrors(errs, fmt.Errorf("sidecar: ingress cannot have TLS settings for non HTTPS/TLS ports"))
-				}
-			}
 		}
 
 		portMap = make(map[uint32]struct{})
@@ -780,23 +741,6 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 
 		return
 	})
-
-func validateSidecarIngressTLS(tls *networking.Server_TLSOptions) (errs error) {
-	if tls == nil {
-		return nil
-	}
-
-	if tls.HttpsRedirect {
-		errs = appendErrors(errs, fmt.Errorf("sidecar: inbound tls must not set 'httpsRedirect'"))
-	}
-
-	if tls.Mode == networking.Server_TLSOptions_AUTO_PASSTHROUGH ||
-		tls.Mode == networking.Server_TLSOptions_ISTIO_MUTUAL {
-		errs = appendErrors(errs, fmt.Errorf("sidecar: inbound tls mode must not be %s", tls.Mode.String()))
-	}
-	errs = appendErrors(errs, validateTLSOptions(tls))
-	return
-}
 
 func validateSidecarOutboundTrafficPolicy(tp *networking.OutboundTrafficPolicy) (errs error) {
 	if tp == nil {
@@ -978,12 +922,12 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error
 	return
 }
 
-func validateTLS(settings *networking.TLSSettings) (errs error) {
+func validateTLS(settings *networking.ClientTLSSettings) (errs error) {
 	if settings == nil {
 		return
 	}
 
-	if settings.Mode == networking.TLSSettings_MUTUAL {
+	if settings.Mode == networking.ClientTLSSettings_MUTUAL {
 		if settings.ClientCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("client certificate required for mutual tls"))
 		}
@@ -1271,10 +1215,6 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 		if err := ValidateDatadogCollector(tracer); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, "invalid datadog config:"))
 		}
-	}
-
-	if err := ValidateConnectTimeout(config.ConnectTimeout); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "invalid connect timeout:"))
 	}
 
 	if config.StatsdUdpAddress != "" {
@@ -2546,7 +2486,7 @@ func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 		errs = multierror.Append(errs, errors.New("attempts cannot be negative"))
 	}
 
-	if retries.Attempts == 0 && (retries.PerTryTimeout != nil || retries.RetryOn != "") {
+	if retries.Attempts == 0 && (retries.PerTryTimeout != nil || retries.RetryOn != "" || retries.RetryRemoteLocalities != nil) {
 		errs = appendErrors(errs, errors.New("http retry policy configured when attempts are set to 0 (disabled)"))
 	}
 
@@ -2587,6 +2527,21 @@ func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 	}
 	return nil
 }
+
+// ValidateWorkloadEntry validates a workload entry.
+var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
+	func(_, _ string, config proto.Message) (errs error) {
+		we, ok := config.(*networking.WorkloadEntry)
+		if !ok {
+			return fmt.Errorf("cannot cast to workload entry")
+		}
+		if we.Address == "" {
+			return fmt.Errorf("address must be set")
+		}
+		// TODO: add better validation. The tricky thing is that we don't know if its meant to be
+		// DNS or STATIC type without association with a ServiceEntry
+		return nil
+	})
 
 // ValidateServiceEntry validates a service entry.
 var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",

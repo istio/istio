@@ -30,7 +30,10 @@ import (
 )
 
 var (
+	listenPort   = 0
 	controlZport = 0
+
+	bindAddress = ""
 
 	// label selector
 	labelSelector = ""
@@ -60,7 +63,7 @@ func promDashCmd() *cobra.Command {
 
 			// only use the first pod in the list
 			return portForward(pl.Items[0].Name, istioNamespace, "Prometheus",
-				"http://localhost:%d", 9090, client, cmd.OutOrStdout())
+				"http://localhost:%d", bindAddress, 9090, client, cmd.OutOrStdout())
 		},
 	}
 
@@ -91,7 +94,7 @@ func grafanaDashCmd() *cobra.Command {
 
 			// only use the first pod in the list
 			return portForward(pl.Items[0].Name, istioNamespace, "Grafana",
-				"http://localhost:%d", 3000, client, cmd.OutOrStdout())
+				"http://localhost:%d", bindAddress, 3000, client, cmd.OutOrStdout())
 		},
 	}
 
@@ -122,7 +125,7 @@ func kialiDashCmd() *cobra.Command {
 
 			// only use the first pod in the list
 			return portForward(pl.Items[0].Name, istioNamespace, "Kiali",
-				"http://localhost:%d/kiali", 20001, client, cmd.OutOrStdout())
+				"http://localhost:%d/kiali", bindAddress, 20001, client, cmd.OutOrStdout())
 		},
 	}
 
@@ -153,7 +156,7 @@ func jaegerDashCmd() *cobra.Command {
 
 			// only use the first pod in the list
 			return portForward(pl.Items[0].Name, istioNamespace, "Jaeger",
-				"http://localhost:%d", 16686, client, cmd.OutOrStdout())
+				"http://localhost:%d", bindAddress, 16686, client, cmd.OutOrStdout())
 		},
 	}
 
@@ -184,7 +187,7 @@ func zipkinDashCmd() *cobra.Command {
 
 			// only use the first pod in the list
 			return portForward(pl.Items[0].Name, istioNamespace, "Zipkin",
-				"http://localhost:%d", 9411, client, cmd.OutOrStdout())
+				"http://localhost:%d", bindAddress, 9411, client, cmd.OutOrStdout())
 		},
 	}
 
@@ -237,7 +240,7 @@ func envoyDashCmd() *cobra.Command {
 			}
 
 			return portForward(podName, ns, fmt.Sprintf("Envoy sidecar %s", podName),
-				"http://localhost:%d", 15000, client, c.OutOrStdout())
+				"http://localhost:%d", bindAddress, 15000, client, c.OutOrStdout())
 		},
 	}
 
@@ -290,7 +293,7 @@ func controlZDashCmd() *cobra.Command {
 			}
 
 			return portForward(podName, ns, fmt.Sprintf("ControlZ %s", podName),
-				"http://localhost:%d", controlZport, client, c.OutOrStdout())
+				"http://localhost:%d", bindAddress, controlZport, client, c.OutOrStdout())
 		},
 	}
 
@@ -298,10 +301,10 @@ func controlZDashCmd() *cobra.Command {
 }
 
 // portForward first tries to forward localhost:remotePort to podName:remotePort, falls back to dynamic local port
-func portForward(podName, namespace, flavor, url string, remotePort int, client kubernetes.ExecClient, writer io.Writer) error {
+func portForward(podName, namespace, flavor, url, localAddr string, remotePort int, client kubernetes.ExecClient, writer io.Writer) error {
 	var err error
-	for _, localPort := range []int{remotePort, 0} {
-		fw, err := client.BuildPortForwarder(podName, namespace, localPort, remotePort)
+	for _, localPort := range []int{listenPort, remotePort} {
+		fw, err := client.BuildPortForwarder(podName, namespace, localAddr, localPort, remotePort)
 		if err != nil {
 			return fmt.Errorf("could not build port forwarder for %s: %v", flavor, err)
 		}
@@ -354,6 +357,12 @@ func dashboard() *cobra.Command {
 			return nil
 		},
 	}
+
+	dashboardCmd.PersistentFlags().IntVarP(&listenPort, "port", "p", 0, "Local port to listen to")
+	dashboardCmd.PersistentFlags().StringVar(&bindAddress, "address", "localhost",
+		"Address to listen on. Only accepts IP address or localhost as a value. "+
+			"When localhost is supplied, istioctl will try to bind on both 127.0.0.1 and ::1 "+
+			"and will fail if neither of these address are available to bind.")
 
 	dashboardCmd.AddCommand(kialiDashCmd())
 	dashboardCmd.AddCommand(promDashCmd())

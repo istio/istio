@@ -53,7 +53,7 @@ fi
 
 # Build image to use
 if [[ "${IMAGE_VERSION:-}" == "" ]]; then
-  export IMAGE_VERSION=master-2020-03-11T15-35-42
+  export IMAGE_VERSION=master-2020-03-24T16-16-03
 fi
 if [[ "${IMAGE_NAME:-}" == "" ]]; then
   export IMAGE_NAME=build-tools
@@ -78,6 +78,12 @@ export CONTAINER_CLI="${CONTAINER_CLI:-docker}"
 
 export ENV_BLOCKLIST="${ENV_BLOCKLIST:-^_\|PATH\|SHELL\|EDITOR\|TMUX\|USER\|HOME\|PWD\|TERM\|GO\|rvm\|SSH\|TMPDIR}"
 
+# Remove functions from the list of exported variables, they mess up with the `env` command.
+for f in $(declare -F -x | cut -d ' ' -f 3);
+do
+  unset -f "${f}"
+done
+
 # Set up conditional host mounts for docker and kubernetes config
 export CONDITIONAL_HOST_MOUNTS=${CONDITIONAL_HOST_MOUNTS:-}
 if [[ -d "${HOME}/.docker" ]]; then
@@ -90,6 +96,9 @@ if [[ -d "${HOME}/.kube" ]]; then
   CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.kube,destination=/home/.kube "
 fi
 
+# Avoid recursive calls to make from attempting to start an additional container
+export BUILD_WITH_CONTAINER=0
+
 # For non container build, we need to write env to file
 if [[ "${1}" == "envfile" ]]; then
   echo "TARGET_OUT_LINUX=${TARGET_OUT_LINUX}"
@@ -99,4 +108,5 @@ if [[ "${1}" == "envfile" ]]; then
   echo "TARGET_OS=${TARGET_OS}"
   echo "LOCAL_ARCH=${LOCAL_ARCH}"
   echo "TARGET_ARCH=${TARGET_ARCH}"
+  echo "BUILD_WITH_CONTAINER=0"
 fi

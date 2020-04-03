@@ -46,6 +46,10 @@ type mockPromAPI struct {
 	cannedResponse map[string]prometheus_model.Value
 }
 
+func mockExecClientAuthNoPilot(_, _ string) (kubernetes.ExecClient, error) {
+	return &mockExecConfig{}, nil
+}
+
 func TestMetricsNoPrometheus(t *testing.T) {
 	clientExecFactory = mockExecClientAuthNoPilot
 
@@ -136,7 +140,7 @@ func (client mockPortForwardConfig) PodsForSelector(namespace, labelSelector str
 	return podsForLabel, nil
 }
 
-func (client mockPortForwardConfig) BuildPortForwarder(podName string, ns string, localPort int, podPort int) (*kubernetes.PortForward, error) {
+func (client mockPortForwardConfig) BuildPortForwarder(podName, ns, localAddr string, localPort int, podPort int) (*kubernetes.PortForward, error) {
 	// TODO make istioctl/pkg/kubernetes/client.go use pkg/test/kube/port_forwarder.go
 	// so that the port forward can be mocked.
 	return nil, fmt.Errorf("TODO mockPortForwardConfig doesn't mock port forward")

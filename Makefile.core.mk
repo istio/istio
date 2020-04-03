@@ -345,8 +345,9 @@ gen-charts:
 	@operator/scripts/run_update_charts.sh
 
 refresh-goldens:
-	@REFRESH_GOLDEN=true go test ./operator/...
-	@REFRESH_GOLDEN=true go test ./pkg/kube/inject/...
+	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./operator/...
+	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./pkg/kube/inject/...
+	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./pilot/pkg/security/authz/builder/...
 
 update-golden: refresh-goldens
 
@@ -371,8 +372,12 @@ RELEASE_LDFLAGS='-extldflags -static -s -w'
 DEBUG_LDFLAGS='-extldflags "-static"'
 
 # Non-static istioctl targets. These are typically a build artifact.
-${ISTIO_OUT}/release/istioctl-linux: depend
-	STATIC=0 GOOS=linux LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
+${ISTIO_OUT}/release/istioctl-linux-amd64: depend
+	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
+${ISTIO_OUT}/release/istioctl-linux-armv7: depend
+	STATIC=0 GOOS=linux GOARCH=arm GOARM=7 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
+${ISTIO_OUT}/release/istioctl-linux-arm64: depend
+	STATIC=0 GOOS=linux GOARCH=arm64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl	
 ${ISTIO_OUT}/release/istioctl-osx: depend
 	STATIC=0 GOOS=darwin LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/release/istioctl-win.exe: depend
@@ -389,11 +394,13 @@ ${ISTIO_OUT}/release/_istioctl: istioctl
 
 .PHONY: binaries-test
 binaries-test:
-	go test ./tests/binary/... -v --base-dir ${ISTIO_OUT} --binaries="$(RELEASE_BINARIES)"
+	go test ${GOBUILDFLAGS} ./tests/binary/... -v --base-dir ${ISTIO_OUT} --binaries="$(RELEASE_BINARIES)"
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
-istioctl-all: ${ISTIO_OUT}/release/istioctl-linux ${ISTIO_OUT}/release/istioctl-osx ${ISTIO_OUT}/release/istioctl-win.exe
+istioctl-all: ${ISTIO_OUT}/release/istioctl-linux-amd64 ${ISTIO_OUT}/release/istioctl-linux-armv7 ${ISTIO_OUT}/release/istioctl-linux-arm64 \
+	${ISTIO_OUT}/release/istioctl-osx \
+	${ISTIO_OUT}/release/istioctl-win.exe
 
 .PHONY: istioctl.completion
 istioctl.completion: ${ISTIO_OUT}/release/istioctl.bash ${ISTIO_OUT}/release/_istioctl
@@ -439,7 +446,7 @@ istioctl-test: istioctl-racetest
 
 .PHONY: operator-test
 operator-test:
-	go test ${T} ./operator/...
+	go test ${GOBUILDFLAGS} ${T} ./operator/...
 
 .PHONY: mixer-test
 mixer-test: mixer-racetest
@@ -455,7 +462,7 @@ common-test: common-racetest
 
 .PHONY: selected-pkg-test
 selected-pkg-test:
-	find ${WHAT} -name "*_test.go" | xargs -I {} dirname {} | uniq | xargs -I {} go test ${T} -race ./{}
+	find ${WHAT} -name "*_test.go" | xargs -I {} dirname {} | uniq | xargs -I {} go test ${GOBUILDFLAGS} ${T} -race ./{}
 
 #-----------------------------------------------------------------------------
 # Target: coverage
@@ -507,31 +514,31 @@ racetest: $(JUNIT_REPORT)
 
 .PHONY: pilot-racetest
 pilot-racetest:
-	go test ${T} -race ./pilot/...
+	go test ${GOBUILDFLAGS} ${T} -race ./pilot/...
 
 .PHONY: istioctl-racetest
 istioctl-racetest:
-	go test ${T} -race ./istioctl/...
+	go test ${GOBUILDFLAGS} ${T} -race ./istioctl/...
 
 .PHONY: operator-racetest
 operator-racetest:
-	RACE_TEST=true go test ${T} -race ./operator/...
+	RACE_TEST=true go test ${GOBUILDFLAGS} ${T} -race ./operator/...
 
 .PHONY: mixer-racetest
 mixer-racetest:
-	go test ${T} -race ./mixer/...
+	go test ${GOBUILDFLAGS} ${T} -race ./mixer/...
 
 .PHONY: galley-racetest
 galley-racetest:
-	go test ${T} -race ./galley/...
+	go test ${GOBUILDFLAGS} ${T} -race ./galley/...
 
 .PHONY: security-racetest
 security-racetest:
-	go test ${T} -race ./security/pkg/... ./security/cmd/...
+	go test ${GOBUILDFLAGS} ${T} -race ./security/pkg/... ./security/cmd/...
 
 .PHONY: common-racetest
 common-racetest: ${BUILD_DEPS}
-	go test ${T} -race ./pkg/... ./tests/common/... ./tools/istio-iptables/...
+	go test ${GOBUILDFLAGS} ${T} -race ./pkg/... ./tests/common/... ./tools/istio-iptables/...
 
 #-----------------------------------------------------------------------------
 # Target: clean
@@ -551,49 +558,6 @@ clean:
 include tools/istio-docker.mk
 
 push: docker.push
-
-$(HOME)/.helm:
-	$(HELM) init --client-only
-
-# create istio-init.yaml
-istio-init.yaml: $(HOME)/.helm
-	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
-	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
-	$(HELM) template --name=istio --namespace=istio-system \
-		--set-string global.tag=${TAG_VARIANT} \
-		--set-string global.hub=${HUB} \
-		install/kubernetes/helm/istio-init >> install/kubernetes/$@
-
-# creates istio-demo.yaml istio-remote.yaml
-# Ensure that values-$filename is present in install/kubernetes/helm/istio
-istio-demo.yaml istio-remote.yaml istio-minimal.yaml: $(HOME)/.helm
-	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
-	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
-	$(HELM) template \
-		--name=istio \
-		--namespace=istio-system \
-		--set-string global.tag=${TAG_VARIANT} \
-		--set-string global.hub=${HUB} \
-		--set-string global.imagePullPolicy=$(PULL_POLICY) \
-		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
-		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
-		${EXTRA_HELM_SETTINGS} \
-		--values install/kubernetes/helm/istio/values-$@ \
-		install/kubernetes/helm/istio >> install/kubernetes/$@
-
-e2e_files = istio-auth-non-mcp.yaml \
-		istio-auth-sds.yaml \
-		istio-non-mcp.yaml \
-		istio.yaml \
-		istio-auth.yaml \
-		istio-auth-mcp.yaml \
-		istio-auth-multicluster.yaml \
-		istio-mcp.yaml \
-		istio-one-namespace.yaml \
-		istio-one-namespace-auth.yaml \
-		istio-one-namespace-trust-domain.yaml \
-		istio-multicluster.yaml \
-		istio-multicluster-split-horizon.yaml
 
 FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/istio-auth.yaml \

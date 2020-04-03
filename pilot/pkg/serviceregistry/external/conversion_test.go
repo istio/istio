@@ -87,7 +87,7 @@ var httpStatic = &model.Config{
 			{Number: 80, Name: "http-port", Protocol: "http"},
 			{Number: 8080, Name: "http-alt-port", Protocol: "http"},
 		},
-		Endpoints: []*networking.ServiceEntry_Endpoint{
+		Endpoints: []*networking.WorkloadEntry{
 			{
 				Address: "2.2.2.2",
 				Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
@@ -146,7 +146,7 @@ var httpDNS = &model.Config{
 			{Number: 80, Name: "http-port", Protocol: "http"},
 			{Number: 8080, Name: "http-alt-port", Protocol: "http"},
 		},
-		Endpoints: []*networking.ServiceEntry_Endpoint{
+		Endpoints: []*networking.WorkloadEntry{
 			{
 				Address: "us.google.com",
 				Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
@@ -180,7 +180,7 @@ var tcpDNS = &model.Config{
 		Ports: []*networking.Port{
 			{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 		},
-		Endpoints: []*networking.ServiceEntry_Endpoint{
+		Endpoints: []*networking.WorkloadEntry{
 			{
 				Address: "lon.google.com",
 				Labels:  map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
@@ -211,7 +211,7 @@ var tcpStatic = &model.Config{
 		Ports: []*networking.Port{
 			{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 		},
-		Endpoints: []*networking.ServiceEntry_Endpoint{
+		Endpoints: []*networking.WorkloadEntry{
 			{
 				Address: "1.1.1.1",
 				Labels:  map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
@@ -296,7 +296,7 @@ var udsLocal = &model.Config{
 		Ports: []*networking.Port{
 			{Number: 6553, Name: "grpc-1", Protocol: "grpc"},
 		},
-		Endpoints: []*networking.ServiceEntry_Endpoint{
+		Endpoints: []*networking.WorkloadEntry{
 			{Address: "unix:///test/sock", Labels: map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel}},
 		},
 		Resolution: networking.ServiceEntry_STATIC,

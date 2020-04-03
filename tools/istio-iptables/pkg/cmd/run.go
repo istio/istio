@@ -151,7 +151,8 @@ func (iptConfigurator *IptablesConfigurator) handleInboundPortsInclude() {
 			if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
 				// If an inbound packet belongs to an established socket, route it to the
 				// loopback interface.
-				iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP, "-m", "socket", "-j", constants.ISTIODIVERT)
+				iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP,
+					"-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", constants.ISTIODIVERT)
 				// Otherwise, it's a new connection. Redirect it using TPROXY.
 				iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP, "-j", constants.ISTIOTPROXY)
 			} else {
@@ -162,9 +163,7 @@ func (iptConfigurator *IptablesConfigurator) handleInboundPortsInclude() {
 			for _, port := range split(iptConfigurator.cfg.InboundPortsInclude) {
 				if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
 					iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP,
-						"--dport", port, "-m", "socket", "-j", constants.ISTIODIVERT)
-					iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP, "--dport", port, "-m",
-						"socket", "-j", constants.ISTIODIVERT)
+						"--dport", port, "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", constants.ISTIODIVERT)
 					iptConfigurator.iptables.AppendRuleV4(
 						constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOTPROXY)
 				} else {
@@ -185,13 +184,9 @@ func (iptConfigurator *IptablesConfigurator) handleInboundIpv6Rules(ipv6RangesEx
 		constants.ISTIOREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT, "--to-port", iptConfigurator.cfg.ProxyPort)
 	// Use this chain also for redirecting inbound traffic to the common Envoy port
 	// when not using TPROXY.
-	if iptConfigurator.cfg.InboundPortsInclude == "*" {
-		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j",
-			constants.REDIRECT, "--to-port", iptConfigurator.cfg.InboundCapturePort)
-	} else {
-		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j",
-			constants.REDIRECT, "--to-port", iptConfigurator.cfg.ProxyPort)
-	}
+	iptConfigurator.iptables.AppendRuleV6(constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j",
+		constants.REDIRECT, "--to-port", iptConfigurator.cfg.InboundCapturePort)
+
 	// Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
 	// to the local service. If not set, no inbound port will be intercepted by istio iptablesOrFail.
 	if iptConfigurator.cfg.InboundPortsInclude != "" {
@@ -353,14 +348,8 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	// Use this chain also for redirecting inbound traffic to the common Envoy port
 	// when not using TPROXY.
 
-	// PROXY_INBOUND_CAPTURE_PORT should be used only user explicitly set INBOUND_PORTS_INCLUDE to capture all
-	if iptConfigurator.cfg.InboundPortsInclude == "*" {
-		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT,
-			"--to-port", iptConfigurator.cfg.InboundCapturePort)
-	} else {
-		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT,
-			"--to-port", iptConfigurator.cfg.ProxyPort)
-	}
+	iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT,
+		"--to-port", iptConfigurator.cfg.InboundCapturePort)
 
 	iptConfigurator.handleInboundPortsInclude()
 

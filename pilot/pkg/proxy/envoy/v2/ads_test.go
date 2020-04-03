@@ -119,25 +119,6 @@ func TestAdsReconnect(t *testing.T) {
 	t.Log("Received ", m)
 }
 
-func TestTLS(t *testing.T) {
-	_, tearDown := initLocalPilotTestEnv(t)
-	defer tearDown()
-
-	edsstr, cancel, err := connectADSS(util.MockPilotSecureAddr)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cancel()
-	err = sendCDSReq(sidecarID(app3Ip, "app3"), edsstr)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = adsReceive(edsstr, 3*time.Second)
-	if err != nil {
-		t.Error("Failed to receive with TLS connection ", err)
-	}
-}
-
 func TestAdsClusterUpdate(t *testing.T) {
 	_, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()

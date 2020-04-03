@@ -4,7 +4,7 @@
     "cluster": "istio-proxy",
     "locality": {
     },
-    "metadata": {"EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,CANONICAL_TELEMETRY_SERVICE,MESH_ID,SERVICE_ACCOUNT","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6"}
+    "metadata": {"EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,CANONICAL_TELEMETRY_SERVICE,MESH_ID,SERVICE_ACCOUNT","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","SDS":"true","TRUSTJWT":"true"}
   },
   "stats_config": {
     "use_all_default_tags": false,
@@ -160,6 +160,10 @@
       {
           "regex": "(destination_canonical_revision=\\.=(.+?);\\.;)",
           "tag_name": "destination_canonical_revision"
+      },
+      {
+        "regex": "(wasm_filter\\.(.+?)\\.)",
+        "tag_name": "wasm_filter"
       }
     ],
     "stats_matcher": {
@@ -188,6 +192,9 @@
           },
           {
           "prefix": "cluster.xds-grpc"
+          },
+          {
+          "prefix": "wasm"
           },
           {
           "suffix": "ssl_context_update_by_sds"
@@ -283,7 +290,7 @@
               "endpoint": {
                 "address":{
                   "pipe": {
-                    "path": "/etc/istio/proxy/SDS"
+                    "path": "./etc/istio/proxy/SDS"
                   }
                 }
               }
@@ -306,16 +313,27 @@
               "alpn_protocols": [
                 "h2"
               ],
-              "tls_certificates": [
+              "tls_certificate_sds_secret_configs": [
                 {
-                  "certificate_chain": { "filename": "/etc/certs/cert-chain.pem" },
-                  "private_key": { "filename": "/etc/certs/key.pem" }
+                  "name": "default",
+                  "sds_config": {
+                    "api_config_source": {
+                      "api_type": "GRPC",
+                      "grpc_services": [
+                        {
+                          "envoy_grpc": { "cluster_name": "sds-grpc" }
+                        }
+                      ]
+                    }
+                  }
                 }
               ],
               "validation_context": {
-                "trusted_ca": { "filename": "/etc/certs/root-cert.pem" },
+                "trusted_ca": {
+                  "filename": "./var/run/secrets/istio/root-cert.pem"
+                },
                 "verify_subject_alt_name": ["spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"]
-              },
+              }
             }
           }
         },

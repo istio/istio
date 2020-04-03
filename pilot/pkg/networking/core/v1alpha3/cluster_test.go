@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -197,11 +196,9 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		if tc.sniffingEnabledForInbound {
-			_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
-		} else {
-			_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "false")
-		}
+		defaultValue := features.EnableProtocolSniffingForInbound
+		features.EnableProtocolSniffingForInbound = tc.sniffingEnabledForInbound
+		defer func() { features.EnableProtocolSniffingForInbound = defaultValue }()
 
 		settingsName := "default"
 		if settings != nil {
@@ -266,14 +263,6 @@ func buildTestClustersWithAuthnPolicy(serviceHostname string, serviceResolution 
 		peerAuthn,
 		&model.NodeMetadata{},
 		model.MaxIstioVersion)
-}
-
-func buildTestClustersWithIstioVersion(serviceHostname string, serviceResolution model.Resolution,
-	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message, authnPolicy *authn.Policy, peerAuthn *authn_beta.PeerAuthentication,
-	istioVersion *model.IstioVersion) ([]*apiv2.Cluster, error) {
-	return buildTestClustersWithProxyMetadata(serviceHostname, serviceResolution, false /* externalService */, nodeType, locality, mesh, destRule,
-		authnPolicy, peerAuthn, &model.NodeMetadata{}, istioVersion)
 }
 
 func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolution model.Resolution, externalService bool,
@@ -463,13 +452,20 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 	proxy.SetSidecarScope(env.PushContext)
 
 	proxy.ServiceInstances, _ = serviceDiscovery.GetProxyServiceInstances(proxy)
+	proxy.DiscoverIPVersions()
 
 	clusters := configgen.BuildClusters(proxy, env.PushContext)
-	var err error
-	if len(env.PushContext.ProxyStatus[model.DuplicatedClusters.Name()]) > 0 {
-		err = fmt.Errorf("duplicate clusters detected %#v", env.PushContext.ProxyStatus[model.DuplicatedClusters.Name()])
+
+	for _, cluster := range clusters {
+		// Validate Clusters so that generated clusters pass Envoy validation logic.
+		if err := cluster.Validate(); err != nil {
+			return nil, fmt.Errorf("cluster %s failed validation with error %s", cluster.Name, err.Error())
+		}
 	}
-	return clusters, err
+	if len(env.PushContext.ProxyStatus[model.DuplicatedClusters.Name()]) > 0 {
+		return nil, fmt.Errorf("duplicate clusters detected %#v", env.PushContext.ProxyStatus[model.DuplicatedClusters.Name()])
+	}
+	return clusters, nil
 }
 
 func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
@@ -590,8 +586,8 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 	destRule := &networking.DestinationRule{
 		Host: "*.example.org",
 		TrafficPolicy: &networking.TrafficPolicy{
-			Tls: &networking.TLSSettings{
-				Mode:              networking.TLSSettings_MUTUAL,
+			Tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
 				ClientCertificate: "/defaultCert.pem",
 				PrivateKey:        "/defaultPrivateKey.pem",
 				CaCertificates:    "/defaultCaCert.pem",
@@ -662,8 +658,8 @@ func buildSniTestClustersWithMetadata(sniValue string, typ model.NodeType, meta 
 								Port: &networking.PortSelector{
 									Number: 8080,
 								},
-								Tls: &networking.TLSSettings{
-									Mode: networking.TLSSettings_ISTIO_MUTUAL,
+								Tls: &networking.ClientTLSSettings{
+									Mode: networking.ClientTLSSettings_ISTIO_MUTUAL,
 									Sni:  sniValue,
 								},
 							},
@@ -722,7 +718,8 @@ func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
 	// TcpKeepalive should be present but with nil values.
 	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive).NotTo(BeNil())
 	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveProbes).To(BeNil())
-	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveTime).To(BeNil())
+	// Time should inherit from Mesh config.
+	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveTime.Value).To(Equal(uint32(MeshWideTCPKeepaliveSeconds)))
 	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveInterval).To(BeNil())
 }
 
@@ -860,8 +857,8 @@ func TestClusterMetadata(t *testing.T) {
 }
 
 func TestConditionallyConvertToIstioMtls(t *testing.T) {
-	tlsSettings := &networking.TLSSettings{
-		Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+	tlsSettings := &networking.ClientTLSSettings{
+		Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
 		CaCertificates:    constants.DefaultRootCert,
 		ClientCertificate: constants.DefaultCertChain,
 		PrivateKey:        constants.DefaultKey,
@@ -870,14 +867,14 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 	}
 	tests := []struct {
 		name            string
-		tls             *networking.TLSSettings
+		tls             *networking.ClientTLSSettings
 		sans            []string
 		sni             string
 		proxy           *model.Proxy
 		autoMTLSEnabled bool
 		meshExternal    bool
 		serviceMTLSMode model.MutualTLSMode
-		want            *networking.TLSSettings
+		want            *networking.ClientTLSSettings
 		wantCtxType     mtlsContextType
 	}{
 		{
@@ -892,8 +889,8 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		},
 		{
 			"Destination rule TLS sni and SAN override absent",
-			&networking.TLSSettings{
-				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+			&networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    constants.DefaultRootCert,
 				ClientCertificate: constants.DefaultCertChain,
 				PrivateKey:        constants.DefaultKey,
@@ -904,8 +901,8 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			false, false, model.MTLSUnknown,
-			&networking.TLSSettings{
-				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+			&networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    constants.DefaultRootCert,
 				ClientCertificate: constants.DefaultCertChain,
 				PrivateKey:        constants.DefaultKey,
@@ -925,8 +922,8 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				TLSClientRootCert:  "/custom/root.pem",
 			}},
 			false, false, model.MTLSUnknown,
-			&networking.TLSSettings{
-				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+			&networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    "/custom/root.pem",
 				ClientCertificate: "/custom/chain.pem",
 				PrivateKey:        "/custom/key.pem",
@@ -938,16 +935,16 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		{
 			"Auto fill nil settings when mTLS nil for internal service in strict mode",
 			nil,
-			[]string{"spiffee://foo/serviceaccount/1"},
+			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			true, false, model.MTLSStrict,
-			&networking.TLSSettings{
-				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+			&networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    constants.DefaultRootCert,
 				ClientCertificate: constants.DefaultCertChain,
 				PrivateKey:        constants.DefaultKey,
-				SubjectAltNames:   []string{"spiffee://foo/serviceaccount/1"},
+				SubjectAltNames:   []string{"spiffe://foo/serviceaccount/1"},
 				Sni:               "foo.com",
 			},
 			autoDetected,
@@ -955,16 +952,16 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		{
 			"Auto fill nil settings when mTLS nil for internal service in permissive mode",
 			nil,
-			[]string{"spiffee://foo/serviceaccount/1"},
+			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			true, false, model.MTLSPermissive,
-			&networking.TLSSettings{
-				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+			&networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    constants.DefaultRootCert,
 				ClientCertificate: constants.DefaultCertChain,
 				PrivateKey:        constants.DefaultKey,
-				SubjectAltNames:   []string{"spiffee://foo/serviceaccount/1"},
+				SubjectAltNames:   []string{"spiffe://foo/serviceaccount/1"},
 				Sni:               "foo.com",
 			},
 			autoDetected,
@@ -972,7 +969,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		{
 			"Auto fill nil settings when mTLS nil for internal service in plaintext mode",
 			nil,
-			[]string{"spiffee://foo/serviceaccount/1"},
+			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			true, false, model.MTLSDisable,
@@ -982,7 +979,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		{
 			"Auto fill nil settings when mTLS nil for internal service in unknown mode",
 			nil,
-			[]string{"spiffee://foo/serviceaccount/1"},
+			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			true, false, model.MTLSUnknown,
@@ -992,7 +989,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		{
 			"Do not auto fill nil settings for external",
 			nil,
-			[]string{"spiffee://foo/serviceaccount/1"},
+			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			true, true, model.MTLSUnknown,
@@ -1002,7 +999,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		{
 			"Do not auto fill nil settings if server mTLS is disabled",
 			nil,
-			[]string{"spiffee://foo/serviceaccount/1"},
+			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			false, false, model.MTLSDisable,
@@ -1624,33 +1621,6 @@ func TestClusterDiscoveryTypeAndLbPolicyPassthrough(t *testing.T) {
 	g.Expect(clusters[0].EdsClusterConfig).To(BeNil())
 }
 
-func TestClusterDiscoveryTypeAndLbPolicyPassthroughIstioVersion12(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	clusters, err := buildTestClustersWithIstioVersion("*.example.org", model.ClientSideLB, model.SidecarProxy, nil, testMesh,
-		&networking.DestinationRule{
-			Host: "*.example.org",
-			TrafficPolicy: &networking.TrafficPolicy{
-				LoadBalancer: &networking.LoadBalancerSettings{
-					LbPolicy: &networking.LoadBalancerSettings_Simple{
-						Simple: networking.LoadBalancerSettings_PASSTHROUGH,
-					},
-				},
-				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
-				},
-			},
-		},
-		nil, // authnPolicy
-		nil, // peerAuthn
-		&model.IstioVersion{Major: 1, Minor: 2})
-
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(clusters[0].LbPolicy).To(Equal(apiv2.Cluster_ORIGINAL_DST_LB))
-	g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST}))
-	g.Expect(clusters[0].EdsClusterConfig).To(BeNil())
-}
-
 func TestBuildClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 	g := NewGomegaWithT(t)
 
@@ -1664,6 +1634,9 @@ func TestBuildClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
 
 	for _, cluster := range clusters {
+		if err := cluster.Validate(); err != nil {
+			t.Fatalf("Cluster %s validation failed with error %s", cluster.Name, err.Error())
+		}
 		if cluster.Name != "BlackHoleCluster" {
 			g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
 			g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds()))
@@ -1780,9 +1753,9 @@ func TestRedisProtocolClusterAtGateway(t *testing.T) {
 	}
 
 	// enable redis filter to true
-	_ = os.Setenv(features.EnableRedisFilter.Name, "true")
-
-	defer func() { _ = os.Unsetenv(features.EnableRedisFilter.Name) }()
+	defaultValue := features.EnableRedisFilter
+	features.EnableRedisFilter = true
+	defer func() { features.EnableRedisFilter = defaultValue }()
 
 	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
 
@@ -1791,52 +1764,14 @@ func TestRedisProtocolClusterAtGateway(t *testing.T) {
 	clusters := configgen.BuildClusters(proxy, env.PushContext)
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
 	for _, cluster := range clusters {
+		// Validate Clusters so that generated clusters pass Envoy validation logic.
+		if err := cluster.Validate(); err != nil {
+			t.Fatalf("Cluster %s failed validation with error %s", cluster.Name, err.Error())
+		}
 		if cluster.Name == "outbound|6379||redis.com" {
 			g.Expect(cluster.GetClusterDiscoveryType()).To(Equal(&apiv2.Cluster_Type{Type: apiv2.Cluster_EDS}))
 			g.Expect(cluster.LbPolicy).To(Equal(apiv2.Cluster_MAGLEV))
 		}
-	}
-}
-
-func TestPassthroughClustersBuildUponProxyIpVersions(t *testing.T) {
-
-	validation := func(clusters []*apiv2.Cluster) []bool {
-		hasIpv4, hasIpv6 := false, false
-		for _, c := range clusters {
-			hasIpv4 = hasIpv4 || c.Name == util.InboundPassthroughClusterIpv4
-			hasIpv6 = hasIpv6 || c.Name == util.InboundPassthroughClusterIpv6
-		}
-		return []bool{hasIpv4, hasIpv6}
-	}
-	for _, inAndOut := range []struct {
-		ips      []string
-		features []bool
-	}{
-		{[]string{"6.6.6.6", "::1"}, []bool{true, true}},
-		{[]string{"6.6.6.6"}, []bool{true, false}},
-		{[]string{"::1"}, []bool{false, true}},
-	} {
-		clusters, err := buildTestClustersWithProxyMetadataWithIps("*.example.org", 0, false, model.SidecarProxy, nil, testMesh,
-			&networking.DestinationRule{
-				Host: "*.example.org",
-				TrafficPolicy: &networking.TrafficPolicy{
-					ConnectionPool: &networking.ConnectionPoolSettings{
-						Http: &networking.ConnectionPoolSettings_HTTPSettings{
-							Http1MaxPendingRequests: 1,
-							IdleTimeout:             &types.Duration{Seconds: 15},
-						},
-					},
-				},
-			},
-			nil, // authnPolicy
-			nil, // peerAuthn
-			&model.NodeMetadata{},
-			model.MaxIstioVersion,
-			inAndOut.ips,
-		)
-		g := NewGomegaWithT(t)
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(validation(clusters)).To(Equal(inAndOut.features))
 	}
 }
 
@@ -1856,8 +1791,8 @@ func TestAutoMTLSClusterPlaintextMode(t *testing.T) {
 					Port: &networking.PortSelector{
 						Number: 9090,
 					},
-					Tls: &networking.TLSSettings{
-						Mode: networking.TLSSettings_DISABLE,
+					Tls: &networking.ClientTLSSettings{
+						Mode: networking.ClientTLSSettings_DISABLE,
 					},
 				},
 			},
@@ -1893,8 +1828,8 @@ func TestAutoMTLSClusterStrictMode(t *testing.T) {
 					Port: &networking.PortSelector{
 						Number: 9090,
 					},
-					Tls: &networking.TLSSettings{
-						Mode: networking.TLSSettings_DISABLE,
+					Tls: &networking.ClientTLSSettings{
+						Mode: networking.ClientTLSSettings_DISABLE,
 					},
 				},
 			},
@@ -1949,8 +1884,8 @@ func TestAutoMTLSClusterStrictMode_SkipForExternal(t *testing.T) {
 					Port: &networking.PortSelector{
 						Number: 9090,
 					},
-					Tls: &networking.TLSSettings{
-						Mode: networking.TLSSettings_DISABLE,
+					Tls: &networking.ClientTLSSettings{
+						Mode: networking.ClientTLSSettings_DISABLE,
 					},
 				},
 			},
@@ -2066,8 +2001,8 @@ func TestAutoMTLSClusterWithPeerAuthnStrictMode(t *testing.T) {
 					Port: &networking.PortSelector{
 						Number: 9090,
 					},
-					Tls: &networking.TLSSettings{
-						Mode: networking.TLSSettings_DISABLE,
+					Tls: &networking.ClientTLSSettings{
+						Mode: networking.ClientTLSSettings_DISABLE,
 					},
 				},
 			},
@@ -2129,8 +2064,8 @@ func TestAutoMTLSClusterIgnoreWorkloadLevelPeerAuthn(t *testing.T) {
 					Port: &networking.PortSelector{
 						Number: 9090,
 					},
-					Tls: &networking.TLSSettings{
-						Mode: networking.TLSSettings_DISABLE,
+					Tls: &networking.ClientTLSSettings{
+						Mode: networking.ClientTLSSettings_DISABLE,
 					},
 				},
 			},
@@ -2204,8 +2139,9 @@ func TestApplyLoadBalancer(t *testing.T) {
 			}
 
 			if test.port != nil && test.port.Protocol == protocol.Redis {
-				os.Setenv("PILOT_ENABLE_REDIS_FILTER", "true")
-				defer os.Unsetenv("PILOT_ENABLE_REDIS_FILTER")
+				defaultValue := features.EnableRedisFilter
+				features.EnableRedisFilter = true
+				defer func() { features.EnableRedisFilter = defaultValue }()
 			}
 
 			applyLoadBalancer(cluster, test.lbSettings, test.port, &proxy, &meshconfig.MeshConfig{})
@@ -2219,8 +2155,8 @@ func TestApplyLoadBalancer(t *testing.T) {
 }
 
 func TestApplyUpstreamTLSSettings(t *testing.T) {
-	tlsSettings := &networking.TLSSettings{
-		Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+	tlsSettings := &networking.ClientTLSSettings{
+		Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
 		CaCertificates:    constants.DefaultRootCert,
 		ClientCertificate: constants.DefaultCertChain,
 		PrivateKey:        constants.DefaultKey,
@@ -2229,10 +2165,10 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		mtlsCtx  mtlsContextType
-		LbPolicy apiv2.Cluster_LbPolicy
-		tls      *networking.TLSSettings
+		name          string
+		mtlsCtx       mtlsContextType
+		discoveryType apiv2.Cluster_DiscoveryType
+		tls           *networking.ClientTLSSettings
 
 		expectTransportSocket      bool
 		expectTransportSocketMatch bool
@@ -2240,7 +2176,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		{
 			name:                       "user specified without tls",
 			mtlsCtx:                    userSupplied,
-			LbPolicy:                   apiv2.Cluster_ROUND_ROBIN,
+			discoveryType:              apiv2.Cluster_EDS,
 			tls:                        nil,
 			expectTransportSocket:      false,
 			expectTransportSocketMatch: false,
@@ -2248,7 +2184,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		{
 			name:                       "user specified with tls",
 			mtlsCtx:                    userSupplied,
-			LbPolicy:                   apiv2.Cluster_ROUND_ROBIN,
+			discoveryType:              apiv2.Cluster_EDS,
 			tls:                        tlsSettings,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
@@ -2256,7 +2192,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		{
 			name:                       "auto detect with tls",
 			mtlsCtx:                    autoDetected,
-			LbPolicy:                   apiv2.Cluster_ROUND_ROBIN,
+			discoveryType:              apiv2.Cluster_EDS,
 			tls:                        tlsSettings,
 			expectTransportSocket:      false,
 			expectTransportSocketMatch: true,
@@ -2264,7 +2200,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		{
 			name:                       "auto detect with tls",
 			mtlsCtx:                    autoDetected,
-			LbPolicy:                   apiv2.Cluster_CLUSTER_PROVIDED,
+			discoveryType:              apiv2.Cluster_ORIGINAL_DST,
 			tls:                        tlsSettings,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
@@ -2283,7 +2219,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			opts := &buildClusterOpts{
 				cluster: &apiv2.Cluster{
-					LbPolicy: test.LbPolicy,
+					ClusterDiscoveryType: &apiv2.Cluster_Type{Type: test.discoveryType},
 				},
 				proxy: proxy,
 				push:  push,
@@ -2357,6 +2293,104 @@ func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
 	proxy.SetSidecarScope(env.PushContext)
 	clusters := cfg.BuildClusters(proxy, env.PushContext)
 
+	for _, cluster := range clusters {
+		// Validate Clusters so that generated clusters pass Envoy validation logic.
+		if err := cluster.Validate(); err != nil {
+			t.Fatalf("Cluster %s failed validation with error %s", cluster.Name, err.Error())
+		}
+	}
+
 	// Expect to ignore STRICT_DNS cluster without endpoints.
 	g.Expect(len(clusters)).To(Equal(2))
+}
+
+func TestShouldH2Upgrade(t *testing.T) {
+	tests := []struct {
+		name           string
+		clusterName    string
+		direction      model.TrafficDirection
+		port           model.Port
+		mesh           meshconfig.MeshConfig
+		connectionPool networking.ConnectionPoolSettings
+
+		upgrade bool
+	}{
+		{
+			name:        "mesh upgrade - dr default",
+			clusterName: "bar",
+			direction:   model.TrafficDirectionOutbound,
+			port:        model.Port{Protocol: protocol.HTTP},
+			mesh:        meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
+			connectionPool: networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_DEFAULT}},
+			upgrade: true,
+		},
+		{
+			name:        "mesh no_upgrade - dr default",
+			clusterName: "bar",
+			direction:   model.TrafficDirectionOutbound,
+			port:        model.Port{Protocol: protocol.HTTP},
+			mesh:        meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_DO_NOT_UPGRADE},
+			connectionPool: networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_DEFAULT}},
+			upgrade: false,
+		},
+		{
+			name:        "mesh no_upgrade - dr upgrade",
+			clusterName: "bar",
+			direction:   model.TrafficDirectionOutbound,
+			port:        model.Port{Protocol: protocol.HTTP},
+			mesh:        meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_DO_NOT_UPGRADE},
+			connectionPool: networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_UPGRADE}},
+			upgrade: true,
+		},
+		{
+			name:        "mesh upgrade - dr no_upgrade",
+			clusterName: "bar",
+			direction:   model.TrafficDirectionOutbound,
+			port:        model.Port{Protocol: protocol.HTTP},
+			mesh:        meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
+			connectionPool: networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_DO_NOT_UPGRADE}},
+			upgrade: false,
+		},
+		{
+			name:        "inbound ignore",
+			clusterName: "bar",
+			direction:   model.TrafficDirectionInbound,
+			port:        model.Port{Protocol: protocol.HTTP},
+			mesh:        meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
+			connectionPool: networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_DEFAULT}},
+			upgrade: false,
+		},
+		{
+			name:        "non-http",
+			clusterName: "bar",
+			direction:   model.TrafficDirectionOutbound,
+			port:        model.Port{Protocol: protocol.Unsupported},
+			mesh:        meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
+			connectionPool: networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_DEFAULT}},
+			upgrade: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			upgrade := shouldH2Upgrade(test.clusterName, test.direction, &test.port, &test.mesh, &test.connectionPool)
+
+			if upgrade != test.upgrade {
+				t.Fatalf("got: %t, want: %t (%v, %v)", upgrade, test.upgrade, test.mesh.H2UpgradePolicy, test.connectionPool.Http.H2UpgradePolicy)
+			}
+		})
+	}
+
 }

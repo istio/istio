@@ -218,7 +218,8 @@ func TestWorkloadAgentGenerateSecretWithPluginProvider(t *testing.T) {
 }
 
 func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
-	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0.1)
+	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0.1,
+		true)
 	opt := Options{
 		SecretTTL:                time.Minute,
 		RotationInterval:         300 * time.Microsecond,
@@ -320,7 +321,8 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 }
 
 func TestWorkloadAgentRefreshSecret(t *testing.T) {
-	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0)
+	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0,
+		false)
 	opt := Options{
 		SecretTTL:                200 * time.Microsecond,
 		RotationInterval:         200 * time.Microsecond,
@@ -860,7 +862,7 @@ func checkBool(t *testing.T, name string, got bool, want bool) {
 }
 
 func TestSetAlwaysValidTokenFlag(t *testing.T) {
-	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0)
+	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0, false)
 	opt := Options{
 		SecretTTL:                200 * time.Microsecond,
 		RotationInterval:         200 * time.Microsecond,
@@ -1088,11 +1090,8 @@ func convertToBytes(ss []string) []byte {
 }
 
 func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
-	testWorkloadAgentGenerateSecretFromFile(t)
-}
-
-func testWorkloadAgentGenerateSecretFromFile(t *testing.T) {
-	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0.1)
+	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0.1,
+		false)
 	opt := Options{
 		SecretTTL:                time.Minute,
 		RotationInterval:         300 * time.Microsecond,
@@ -1174,5 +1173,49 @@ func testWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 	}
 	if retries == 3 {
 		t.Errorf("Unused secrets failed to be evicted from cache")
+	}
+}
+
+func TestShouldRotate(t *testing.T) {
+	now := time.Now()
+
+	testCases := map[string]struct {
+		secret       *model.SecretItem
+		sc           *SecretCache
+		shouldRotate bool
+	}{
+		"Not in grace period": {
+			secret: &model.SecretItem{
+				ResourceName: "test1",
+				ExpireTime:   now.Add(time.Hour),
+				CreatedTime:  now.Add(-time.Hour),
+			},
+			sc:           &SecretCache{configOptions: Options{SecretRotationGracePeriodRatio: 0.4}},
+			shouldRotate: false,
+		},
+		"In grace period": {
+			secret: &model.SecretItem{
+				ResourceName: "test2",
+				ExpireTime:   now.Add(time.Hour),
+				CreatedTime:  now.Add(-time.Hour),
+			},
+			sc:           &SecretCache{configOptions: Options{SecretRotationGracePeriodRatio: 0.6}},
+			shouldRotate: true,
+		},
+		"Passed the expiration": {
+			secret: &model.SecretItem{
+				ResourceName: "test3",
+				ExpireTime:   now.Add(-time.Minute),
+				CreatedTime:  now.Add(-time.Hour),
+			},
+			sc:           &SecretCache{configOptions: Options{SecretRotationGracePeriodRatio: 0}},
+			shouldRotate: true,
+		},
+	}
+
+	for name, tc := range testCases {
+		if tc.sc.shouldRotate(tc.secret) != tc.shouldRotate {
+			t.Errorf("%s: unexpected shouldRotate return. Expected: %v", name, tc.shouldRotate)
+		}
 	}
 }

@@ -136,11 +136,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 		}
 
 		pluginParams := &plugin.InputParams{
-			ListenerProtocol:           listenerProtocol,
-			DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_GATEWAY,
-			Node:                       node,
-			Push:                       push,
-			ServiceInstance:            si,
+			ListenerProtocol: listenerProtocol,
+			Node:             node,
+			Push:             push,
+			ServiceInstance:  si,
 			Port: &model.Port{
 				Name:     servers[0].Port.Name,
 				Port:     int(portNumber),
@@ -284,10 +283,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				},
 			},
 		}}
-		if util.IsIstioVersionGE13(node) {
-			// add a name to the route
-			virtualHosts[0].Routes[0].Name = istio_route.DefaultRouteName
-		}
+		// add a name to the route
+		virtualHosts[0].Routes[0].Name = istio_route.DefaultRouteName
 	} else {
 		virtualHosts = make([]*route.VirtualHost, 0, len(vHostDedupMap))
 		for _, v := range vHostDedupMap {
@@ -370,7 +367,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 		// and that no two non-HTTPS servers can be on same port or share port names.
 		// Validation is done per gateway and also during merging
 		sniHosts:   getSNIHostsForServer(server),
-		tlsContext: buildGatewayListenerTLSContext(server, bool(node.Metadata.UserSds), sdsPath, node.Metadata),
+		tlsContext: buildGatewayListenerTLSContext(server, sdsPath, node.Metadata),
 		httpOpts: &httpListenerOpts{
 			rds:              routeName,
 			useRemoteAddress: true,
@@ -407,7 +404,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 //
 // Note that ISTIO_MUTUAL TLS mode and ingressSds should not be used simultaneously on the same ingress gateway.
 func buildGatewayListenerTLSContext(
-	server *networking.Server, enableIngressSds bool, sdsPath string, metadata *model.NodeMetadata) *auth.DownstreamTlsContext {
+	server *networking.Server, sdsPath string, metadata *model.NodeMetadata) *auth.DownstreamTlsContext {
 	// Server.TLS cannot be nil or passthrough. But as a safety guard, return nil
 	if server.Tls == nil || gateway.IsPassThroughServer(server) {
 		return nil // We don't need to setup TLS context for passthrough mode
@@ -419,11 +416,11 @@ func buildGatewayListenerTLSContext(
 		},
 	}
 
-	if enableIngressSds && server.Tls.CredentialName != "" {
+	if server.Tls.CredentialName != "" {
 		// If SDS is enabled at gateway, and credential name is specified at gateway config, create
 		// SDS config for gateway to fetch key/cert at gateway agent.
 		util.ApplyCustomSDSToCommonTLSContext(tls.CommonTlsContext, server.Tls, authn_model.IngressGatewaySdsUdsPath)
-	} else if server.Tls.Mode == networking.Server_TLSOptions_ISTIO_MUTUAL {
+	} else if server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
 		util.ApplyToCommonTLSContext(tls.CommonTlsContext, metadata, sdsPath, server.Tls.SubjectAltNames)
 	} else {
 		// Fall back to the read-from-file approach when SDS is not enabled or Tls.CredentialName is not specified.
@@ -460,15 +457,15 @@ func buildGatewayListenerTLSContext(
 	}
 
 	tls.RequireClientCertificate = proto.BoolFalse
-	if server.Tls.Mode == networking.Server_TLSOptions_MUTUAL ||
-		server.Tls.Mode == networking.Server_TLSOptions_ISTIO_MUTUAL {
+	if server.Tls.Mode == networking.ServerTLSSettings_MUTUAL ||
+		server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
 		tls.RequireClientCertificate = proto.BoolTrue
 	}
 
 	// Set TLS parameters if they are non-default
 	if len(server.Tls.CipherSuites) > 0 ||
-		server.Tls.MinProtocolVersion != networking.Server_TLSOptions_TLS_AUTO ||
-		server.Tls.MaxProtocolVersion != networking.Server_TLSOptions_TLS_AUTO {
+		server.Tls.MinProtocolVersion != networking.ServerTLSSettings_TLS_AUTO ||
+		server.Tls.MaxProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
 
 		tls.CommonTlsContext.TlsParams = &auth.TlsParameters{
 			TlsMinimumProtocolVersion: convertTLSProtocol(server.Tls.MinProtocolVersion),
@@ -480,7 +477,7 @@ func buildGatewayListenerTLSContext(
 	return tls
 }
 
-func convertTLSProtocol(in networking.Server_TLSOptions_TLSProtocol) auth.TlsParameters_TlsProtocol {
+func convertTLSProtocol(in networking.ServerTLSSettings_TLSProtocol) auth.TlsParameters_TlsProtocol {
 	out := auth.TlsParameters_TlsProtocol(in) // There should be a one-to-one enum mapping
 	if out < auth.TlsParameters_TLS_AUTO || out > auth.TlsParameters_TLSv1_3 {
 		log.Warnf("was not able to map TLS protocol to Envoy TLS protocol")
@@ -519,7 +516,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 			return []*filterChainOpts{
 				{
 					sniHosts:       getSNIHostsForServer(server),
-					tlsContext:     buildGatewayListenerTLSContext(server, bool(node.Metadata.UserSds), push.Mesh.SdsUdsPath, node.Metadata),
+					tlsContext:     buildGatewayListenerTLSContext(server, push.Mesh.SdsUdsPath, node.Metadata),
 					networkFilters: filters,
 				},
 			}
@@ -592,7 +589,7 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, push *model.Push
 
 	filterChains := make([]*filterChainOpts, 0)
 
-	if server.Tls.Mode == networking.Server_TLSOptions_AUTO_PASSTHROUGH {
+	if server.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
 		// auto passthrough does not require virtual services. It sets up envoy.filters.network.sni_cluster filter
 		filterChains = append(filterChains, &filterChainOpts{
 			sniHosts:       getSNIHostsForServer(server),

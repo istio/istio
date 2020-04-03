@@ -160,6 +160,10 @@
       {
           "regex": "(destination_canonical_revision=\\.=(.+?);\\.;)",
           "tag_name": "destination_canonical_revision"
+      },
+      {
+        "regex": "(wasm_filter\\.(.+?)\\.)",
+        "tag_name": "wasm_filter"
       }
     ],
     "stats_matcher": {
@@ -188,6 +192,9 @@
           },
           {
           "prefix": "cluster.xds-grpc"
+          },
+          {
+          "prefix": "wasm"
           },
           {
           "suffix": "ssl_context_update_by_sds"
@@ -283,7 +290,7 @@
               "endpoint": {
                 "address":{
                   "pipe": {
-                    "path": "/etc/istio/proxy/SDS"
+                    "path": "./etc/istio/proxy/SDS"
                   }
                 }
               }

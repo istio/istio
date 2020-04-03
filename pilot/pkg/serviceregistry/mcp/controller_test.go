@@ -108,7 +108,7 @@ var (
 		},
 		Location:   networking.ServiceEntry_MESH_INTERNAL,
 		Resolution: networking.ServiceEntry_STATIC,
-		Endpoints: []*networking.ServiceEntry_Endpoint{
+		Endpoints: []*networking.WorkloadEntry{
 			{
 				Address: "127.0.0.1",
 				Ports: map[string]uint32{

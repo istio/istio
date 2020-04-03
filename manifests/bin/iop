@@ -4,7 +4,7 @@
 
 set -x
 
-BASE=${BASE:-`pwd`}
+BASE=${BASE:-$(pwd)}
 OUT=${OUT:-$BASE/out}
 
 #
@@ -27,11 +27,11 @@ function iop() {
     shift
 
     # Global settings - base is expected to be set to a directory including them
-    local cfg="-f $BASE/global.yaml"
+    local cfg="-f ${BASE}/global.yaml"
 
     # User overrides
-    if [ -f $HOME/.istio-values.yaml ]; then
-        cfg="$cfg -f $HOME/.istio-values.yaml"
+    if [ -f "${HOME}/.istio-values.yaml" ]; then
+        cfg="${cfg} -f ${HOME}/.istio-values.yaml"
     fi
 
     if [ "$HUB" != "" ] ; then
@@ -43,26 +43,26 @@ function iop() {
 
     if [ "$1" == "-t" ]; then
         shift
-        render_kube_yaml $ns $rel $tmpl $*
+        render_kube_yaml "$ns" "$rel" "$tmpl" "$*"
     elif [ "$1" == "-d" ]; then
         shift
-        kubectl delete --namespace $ns -l release=$ns-$rel $*
+        kubectl delete --namespace "$ns" -l release="${ns}-${rel}" "$*"
     elif [ "$IOP_MODE" == "helm" ] ; then
-        echo helm upgrade --wait -i $n $cfg $*
-        helm upgrade --namespace $ns --wait -i $rel $tmpl $cfg $*
+        echo helm upgrade --wait -i "$rel" --namespace "$ns" "$cfg" "$*"
+        helm upgrade --namespace "$ns" --wait -i "$rel" "$tmpl" "$cfg" "$*"
     else
         # The 'release' tag is used to group related configs.
         # Apply will make sure that any old config with the same tag that is no longer present will
         # be removed. The release MUST be unique across cluster.
-        kubectl create  ns $ns > /dev/null  2>&1
+        kubectl create  ns "$ns" > /dev/null  2>&1
         #set label 'name' to namespace which is required if enableNamespacesByDefault is true.
-        kubectl label namespace $ns name=$ns --overwrite
+        kubectl label namespace "$ns" name="$ns" --overwrite
 
         if [ "$ISTIO_ENV" != "" ]; then
-            kubectl label namespace $ns istio-env=$ISTIO_ENV --overwrite
+            kubectl label namespace "$ns" istio-env="$ISTIO_ENV" --overwrite
         fi
 
-        render_kube_yaml $ns $rel $tmpl $* | kubectl apply -n $ns --prune -l release=$ns-$rel -f -
+        render_kube_yaml "$ns" "$rel" "$tmpl" "$*" | kubectl apply -n "$ns" --prune -l release="${ns}-${rel}" -f -
     fi
 }
 
@@ -75,13 +75,13 @@ function render_kube_yaml() {
     local tmpl=$1
     shift
 
-    if [ -f ${BASE}/kustomize/$ns/$rel/kustomization.yaml ]; then
-            mkdir -p $OUT/$ns/$rel/ > /dev/null
-            helm template --namespace $ns --name-template $ns-$rel $tmpl $cfg $* > $OUT/$ns/$rel/k8s.yaml
-            cp ${BASE}/kustomize/$ns/$rel/* $OUT/$ns/$rel/ > /dev/null
-            kustomize build $OUT/$ns/$rel
+    if [ -f "${BASE}"/kustomize/"$ns"/"$rel"/kustomization.yaml ]; then
+            mkdir -p "$OUT"/"$ns"/"$rel"/ > /dev/null
+            helm template --namespace "$ns" --name-template "${ns}-${rel}" "$tmpl" "${cfg}" "$"* > "${OUT}/${ns}/${rel}/k8s.yaml"
+            cp "${BASE}/kustomize/${ns}/${rel}/*" "${OUT}/${ns}/${rel}/" > /dev/null
+            kustomize build "${OUT}/${ns}/${rel}"
         else
-            helm template --namespace $ns --name-template $ns-$rel $tmpl $cfg $*
+            helm template --namespace "$ns" --name-template "$ns-$rel" "$tmpl" "$cfg" "$*"
         fi
 }
 
@@ -95,11 +95,11 @@ if [ "$1" == "" ] ; then
     echo "  IOP_MODE=helm to install with tiller (not recommended)"
     echo "  HUB, TAG to select a specific hub and tag for istio images"
     echo "  ISTIO_ENV if set, the namespace will be labeled with ISTIO_ENV"
-    echo "  $HOME/.istio-values.yaml for user specific settings. You can add more options via --set or -f"
+    echo "  ${HOME}/.istio-values.yaml for user specific settings. You can add more options via --set or -f"
     echo ""
     exit 1
 fi
 
-IBASE=${IBASE:-`pwd`}
+IBASE=${IBASE:-$(pwd)}
 
-iop $*
+iop "$*"

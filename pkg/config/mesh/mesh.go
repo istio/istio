@@ -34,6 +34,10 @@ import (
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
+var (
+	defaultClusterLocalNamespaces = []string{"kube-system"}
+)
+
 // DefaultProxyConfig for individual proxies
 func DefaultProxyConfig() meshconfig.ProxyConfig {
 	return meshconfig.ProxyConfig{
@@ -43,7 +47,6 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		DrainDuration:          types.DurationProto(45 * time.Second),
 		ParentShutdownDuration: types.DurationProto(60 * time.Second),
 		DiscoveryAddress:       constants.DiscoveryPlainAddress,
-		ConnectTimeout:         types.DurationProto(10 * time.Second),
 		StatsdUdpAddress:       "",
 		EnvoyMetricsService:    &meshconfig.RemoteService{Address: ""},
 		EnvoyAccessLogService:  &meshconfig.RemoteService{Address: ""},
@@ -62,6 +65,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 	proxyConfig := DefaultProxyConfig()
 	return meshconfig.MeshConfig{
 		IngressClass:                      "istio",
+		IngressControllerMode:             meshconfig.MeshConfig_STRICT,
 		ReportBatchMaxTime:                types.DurationProto(1 * time.Second),
 		ReportBatchMaxEntries:             100,
 		MixerCheckServer:                  "",
@@ -91,7 +95,18 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		EnableAutoMtls:                    &types.BoolValue{Value: false},
 		ThriftConfig:                      &meshconfig.MeshConfig_ThriftConfig{},
 		LocalityLbSetting:                 &v1alpha3.LocalityLoadBalancerSetting{},
+		ClusterLocalNamespaces:            append(make([]string, 0), defaultClusterLocalNamespaces...),
 	}
+}
+
+// IsClusterLocal indicates whether the given namespace is configured to be cluster-local.
+func IsClusterLocal(mesh *meshconfig.MeshConfig, namespace string) bool {
+	for _, clusterLocalNS := range mesh.ClusterLocalNamespaces {
+		if namespace == clusterLocalNS {
+			return true
+		}
+	}
+	return false
 }
 
 // ApplyMeshConfig returns a new MeshConfig decoded from the

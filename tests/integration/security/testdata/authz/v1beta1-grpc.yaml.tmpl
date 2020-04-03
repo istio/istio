@@ -1,0 +1,60 @@
+# The following policy enables mTLS for workload a.
+
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: a
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      app: a
+  mtls:
+    mode: STRICT
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: a
+  namespace: {{ .Namespace }}
+spec:
+  host: "a.{{ .Namespace }}.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+
+# For workload a:
+# * Allow b to call a's Echo method.
+# * Disallow c to talk to a since GET, DELETE, and PUT are not supported in gRPC.
+# * Allow d to call any methods of a.
+
+apiVersion: "security.istio.io/v1beta1"
+kind: AuthorizationPolicy
+metadata:
+  name: a
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "a"
+  rules:
+  - to:
+    - operation:
+        paths: ["/proto.EchoTestService/Echo"]
+        methods: ["POST"]
+    from:
+    - source:
+        principals: ["cluster.local/ns/{{ .Namespace }}/sa/b"]
+  - to:
+    - operation:
+        paths: ["/proto.EchoTestService/Echo"]
+        # Since gRPC only allows POST, this will be denied (even though paths should be allowed).
+        methods: ["GET", "DELETE", "PUT"]
+    from:
+    - source:
+        principals: ["cluster.local/ns/{{ .Namespace }}/sa/c"]
+  - from:
+    - source:
+        principals: ["cluster.local/ns/{{ .Namespace }}/sa/d"]
+---

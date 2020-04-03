@@ -27,8 +27,6 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/operator/pkg/tpath"
-
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
@@ -36,6 +34,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+
+	operatormesh "istio.io/istio/operator/cmd/mesh"
+	"istio.io/istio/operator/pkg/tpath"
 
 	"istio.io/istio/operator/pkg/name"
 
@@ -888,7 +889,8 @@ func loadInjectionConfigMap(t testing.TB, settings string) (template *Config, va
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifests, _, err := operator.GenManifests(nil, oy, false, nil, nil)
+	l := operatormesh.NewLogger(true, os.Stdout, os.Stderr)
+	manifests, _, err := operator.GenManifests(nil, oy, false, nil, l)
 	if err != nil {
 		t.Fatalf("failed to generate manifests: %v", err)
 	}
@@ -1313,12 +1315,17 @@ func TestRunAndServe(t *testing.T) {
          "sidecar.istio.io/status":"{\"version\":\"461c380844de8df1d1e2a80a09b6d7b58b8313c4a7d6796530eb124740a1440f\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
       }
    },
-   {
-      "op": "add",
-      "path": "/metadata/labels",
-      "value": {
-         "security.istio.io/tlsMode": "istio"
+    {
+      "op":"add",
+      "path":"/metadata/labels",
+      "value":{
+         "istio.io/rev":""
       }
+    },
+    {
+      "op":"add",
+      "path":"/metadata/labels/security.istio.io~1tlsMode",
+      "value":"istio"
     },
     {
       "op": "add",

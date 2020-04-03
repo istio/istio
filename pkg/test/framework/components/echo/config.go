@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"time"
 
+	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
@@ -61,7 +62,7 @@ type Config struct {
 
 	// WorkloadOnlyPorts for ports only defined in the workload but not in the k8s service.
 	// This is used to test the inbound pass-through filter chain.
-	WorkloadOnlyPorts []int
+	WorkloadOnlyPorts []WorkloadPort
 
 	// ServiceAnnotations is annotations on service object.
 	ServiceAnnotations Annotations
@@ -80,6 +81,9 @@ type Config struct {
 
 	// Cluster to be used in a multicluster environment
 	Cluster resource.Cluster
+
+	// TLS settings for echo server
+	TLSSettings *common.TLSSettings
 }
 
 // SubsetConfig is the config for a group of Subsets (e.g. Kubernetes deployment).
@@ -106,4 +110,12 @@ func (c Config) FQDN() string {
 		out += "." + c.Domain
 	}
 	return out
+}
+
+// ClusterIndex returns the index of the cluster or 0 (the default) if none specified.
+func (c Config) ClusterIndex() resource.ClusterIndex {
+	if c.Cluster != nil {
+		return c.Cluster.Index()
+	}
+	return 0
 }

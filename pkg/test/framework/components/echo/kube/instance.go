@@ -22,10 +22,10 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	appEcho "istio.io/istio/pkg/test/echo/client"
+	echoCommon "istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	kubeEnv "istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -52,6 +52,7 @@ type instance struct {
 	workloads []*workload
 	grpcPort  uint16
 	ctx       resource.Context
+	tls       *echoCommon.TLSSettings
 	cluster   kubeEnv.Cluster
 }
 
@@ -60,13 +61,6 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	common.AddPortIfMissing(&cfg, protocol.GRPC)
 	if err = common.FillInDefaults(ctx, defaultDomain, &cfg); err != nil {
 		return nil, err
-	}
-
-	// Validate the configuration.
-	if cfg.Galley == nil {
-		// Galley is not actually required currently, but it will be once Pilot gets
-		// all resources from Galley. Requiring now for forward-compatibility.
-		return nil, errors.New("galley must be provided")
 	}
 
 	c := &instance{
@@ -82,16 +76,28 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 		return nil, errors.New("unable fo find GRPC command port")
 	}
 	c.grpcPort = uint16(grpcPort.InstancePort)
+	if grpcPort.TLS {
+		c.tls = cfg.TLSSettings
+	}
 
-	// Generate the deployment YAML.
-	generatedYAML, err := generateYAML(cfg)
+	// Generate the service and deployment YAML.
+	serviceYAML, deploymentYAML, err := generateYAML(cfg)
 	if err != nil {
 		return nil, err
 	}
 
+	// Apply the service definition to all clusters.
+	for _, cluster := range ctx.Environment().(*kubeEnv.Environment).KubeClusters {
+		if _, err = cluster.ApplyContents(cfg.Namespace.Name(), serviceYAML); err != nil {
+			return nil, fmt.Errorf("failed deploying echo service %s to cluster %d: %v",
+				cfg.FQDN(), cluster.Index(), err)
+		}
+	}
+
 	// Deploy the YAML.
-	if _, err = c.cluster.ApplyContents(cfg.Namespace.Name(), generatedYAML); err != nil {
-		return nil, err
+	if _, err = c.cluster.ApplyContents(cfg.Namespace.Name(), deploymentYAML); err != nil {
+		return nil, fmt.Errorf("failed deploying echo %s to cluster %d: %v",
+			cfg.FQDN(), c.cluster.Index(), err)
 	}
 
 	// Now retrieve the service information to find the ClusterIP
@@ -117,16 +123,17 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 
 // getContainerPorts converts the ports to a port list of container ports.
 // Adds ports for health/readiness if necessary.
-func getContainerPorts(ports []echo.Port) model.PortList {
-	containerPorts := make(model.PortList, 0, len(ports))
-	var healthPort *model.Port
-	var readyPort *model.Port
+func getContainerPorts(ports []echo.Port) echoCommon.PortList {
+	containerPorts := make(echoCommon.PortList, 0, len(ports))
+	var healthPort *echoCommon.Port
+	var readyPort *echoCommon.Port
 	for _, p := range ports {
 		// Add the port to the set of application ports.
-		cport := &model.Port{
+		cport := &echoCommon.Port{
 			Name:     p.Name,
 			Protocol: p.Protocol,
 			Port:     p.InstancePort,
+			TLS:      p.TLS,
 		}
 		containerPorts = append(containerPorts, cport)
 
@@ -146,14 +153,14 @@ func getContainerPorts(ports []echo.Port) model.PortList {
 
 	// If we haven't added the readiness/health ports, do so now.
 	if readyPort == nil {
-		containerPorts = append(containerPorts, &model.Port{
+		containerPorts = append(containerPorts, &echoCommon.Port{
 			Name:     "http-readiness-port",
 			Protocol: protocol.HTTP,
 			Port:     httpReadinessPort,
 		})
 	}
 	if healthPort == nil {
-		containerPorts = append(containerPorts, &model.Port{
+		containerPorts = append(containerPorts, &echoCommon.Port{
 			Name:     "tcp-health-port",
 			Protocol: protocol.HTTP,
 			Port:     tcpHealthPort,
@@ -191,7 +198,7 @@ func (c *instance) WaitUntilCallable(instances ...echo.Instance) error {
 	// Wait for the outbound config to be received by each workload from Pilot.
 	for _, w := range c.workloads {
 		if w.sidecar != nil {
-			if err := w.sidecar.WaitForConfig(common.OutboundConfigAcceptFunc(instances...)); err != nil {
+			if err := w.sidecar.WaitForConfig(common.OutboundConfigAcceptFunc(c, instances...)); err != nil {
 				return err
 			}
 		}
@@ -227,7 +234,7 @@ func (c *instance) initialize(endpoints *kubeCore.Endpoints) error {
 	workloads := make([]*workload, 0)
 	for _, subset := range endpoints.Subsets {
 		for _, addr := range subset.Addresses {
-			workload, err := newWorkload(addr, workloadHasSidecar(c.cfg, addr.TargetRef), c.grpcPort, c.cluster, c.ctx)
+			workload, err := newWorkload(addr, workloadHasSidecar(c.cfg, addr.TargetRef), c.grpcPort, c.cluster, c.tls, c.ctx)
 			if err != nil {
 				return err
 			}

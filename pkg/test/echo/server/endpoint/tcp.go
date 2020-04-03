@@ -16,9 +16,13 @@ package endpoint
 
 import (
 	"bufio"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
+	"strconv"
+
+	"istio.io/istio/pkg/test/echo/common"
 
 	"istio.io/istio/pkg/test/echo/common/response"
 
@@ -40,24 +44,43 @@ func newTCP(config Config) Instance {
 }
 
 func (s *tcpInstance) Start(onReady OnReadyFunc) error {
-	// Listen on the given port and update the port if it changed from what was passed in.
-	listener, p, err := listenOnPort(s.Port.Port)
+
+	var listener net.Listener
+	var port int
+	var err error
+	if s.Port.TLS {
+		cert, cerr := tls.LoadX509KeyPair(s.TLSCert, s.TLSKey)
+		if cerr != nil {
+			return fmt.Errorf("could not load TLS keys: %v", err)
+		}
+		config := &tls.Config{Certificates: []tls.Certificate{cert}}
+		// Listen on the given port and update the port if it changed from what was passed in.
+		listener, port, err = listenOnPortTLS(s.Port.Port, config)
+		// Store the actual listening port back to the argument.
+		s.Port.Port = port
+	} else {
+		// Listen on the given port and update the port if it changed from what was passed in.
+		listener, port, err = listenOnPort(s.Port.Port)
+		// Store the actual listening port back to the argument.
+		s.Port.Port = port
+	}
 	if err != nil {
 		return err
 	}
 
-	// Store the actual listening port back to the argument.
-	s.Port.Port = p
 	s.l = listener
-
-	fmt.Printf("Listening TCP on %v\n", p)
+	if s.Port.TLS {
+		fmt.Printf("Listening TCP (over TLS) on %v\n", port)
+	} else {
+		fmt.Printf("Listening TCP on %v\n", port)
+	}
 
 	// Start serving TCP traffic.
 	go func() {
 		for {
 			conn, err := listener.Accept()
 			if err != nil {
-				log.Warn("tcp accept failed: " + err.Error())
+				log.Warn("TCP accept failed: " + err.Error())
 				return
 			}
 
@@ -66,27 +89,32 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 	}()
 
 	// Notify the WaitGroup once the port has transitioned to ready.
-	go s.awaitReady(onReady, p)
+	go s.awaitReady(onReady, port)
 
 	return nil
 }
 
 // Handles incoming connection.
-func (s *tcpInstance) echo(conn io.ReadWriteCloser) {
+func (s *tcpInstance) echo(conn net.Conn) {
+	defer common.Metrics.TCPRequests.With(common.PortLabel.Value(strconv.Itoa(s.Port.Port))).Increment()
 	defer func() {
 		_ = conn.Close()
 	}()
 
-	// Fill the field in the response
-	_, _ = conn.Write([]byte(fmt.Sprintf("%s=%s\n", string(response.StatusCodeField), response.StatusCodeOK)))
-
+	initialReply := true
 	for {
 		buf, err := bufio.NewReader(conn).ReadBytes(byte('\n'))
 		if err != nil {
 			if err != io.EOF {
-				log.Warn("tcp read failed: " + err.Error())
+				log.Warn("TCP read failed: " + err.Error())
 			}
 			return
+		}
+		log.Infof("TCP Request:\n  Source IP:%s\n  Destination Port:%d", conn.RemoteAddr(), s.Port.Port)
+		if initialReply {
+			// Fill the field in the response
+			_, _ = conn.Write([]byte(fmt.Sprintf("%s=%s\n", string(response.StatusCodeField), response.StatusCodeOK)))
+			initialReply = false
 		}
 
 		// echo the message in the buffer

@@ -100,11 +100,6 @@ type DiscoveryServiceOptions struct {
 	// a port number is automatically chosen.
 	GrpcAddr string
 
-	// The listening address for secure GRPC. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
-	// a port number is automatically chosen.
-	// "" means disabling secure GRPC, used in test.
-	SecureGrpcAddr string
-
 	// The listening address for the monitoring port. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
 	// a port number is automatically chosen.
 	MonitoringAddr string
@@ -127,7 +122,9 @@ var PodNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "istio-system", "")
 var podNameVar = env.RegisterStringVar("POD_NAME", "", "")
 var serviceAccountVar = env.RegisterStringVar("SERVICE_ACCOUNT", "", "")
 
-var revisionVar = env.RegisterStringVar("REVISION", "", "")
+// RevisionVar is the value of the Istio control plane revision, e.g. "canary",
+// and is the value used by the "istio.io/rev" label.
+var RevisionVar = env.RegisterStringVar("REVISION", "", "")
 
 // NewPilotArgs constructs pilotArgs with default values.
 func NewPilotArgs(initFuncs ...func(*PilotArgs)) *PilotArgs {
@@ -156,7 +153,7 @@ func (p *PilotArgs) applyDefaults() {
 	p.Namespace = PodNamespaceVar.Get()
 	p.PodName = podNameVar.Get()
 	p.ServiceAccountName = serviceAccountVar.Get()
-	p.Revision = revisionVar.Get()
+	p.Revision = RevisionVar.Get()
 	p.KeepaliveOptions = istiokeepalive.DefaultOption()
 	p.Config.DistributionTrackingEnabled = features.EnableDistributionTracking
 	p.Config.DistributionCacheRetention = features.DistributionHistoryRetention

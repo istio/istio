@@ -135,7 +135,7 @@ var (
 		"PILOT_ENABLE_MYSQL_FILTER",
 		false,
 		"EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.",
-	)
+	).Get()
 
 	// EnableRedisFilter enables injection of `envoy.filters.network.redis_proxy` in the filter chain.
 	// Pilot injects this outbound filter if the service port name is `redis`.
@@ -143,7 +143,7 @@ var (
 		"PILOT_ENABLE_REDIS_FILTER",
 		false,
 		"EnableRedisFilter enables injection of `envoy.filters.network.redis_proxy` in the filter chain.",
-	)
+	).Get()
 
 	// UseRemoteAddress sets useRemoteAddress to true for side car outbound listeners so that it picks up the localhost
 	// address of the sender, which is an internal address, so that trusted headers are not sanitized.
@@ -151,15 +151,7 @@ var (
 		"PILOT_SIDECAR_USE_REMOTE_ADDRESS",
 		false,
 		"UseRemoteAddress sets useRemoteAddress to true for side car outbound listeners.",
-	)
-
-	// UseIstioJWTFilter enables to use Istio JWT filter as a fall back. Pilot injects the Istio JWT
-	// filter to the filter chains if this is set to true.
-	// TODO(yangminzhu): Remove after fully migrate to Envoy JWT filter.
-	UseIstioJWTFilter = env.RegisterBoolVar(
-		"USE_ISTIO_JWT_FILTER",
-		false,
-		"Use the Istio JWT filter for JWT token verification.")
+	).Get()
 
 	// EnableThriftFilter enables injection of `envoy.filters.network.thrift_proxy` in the filter chain.
 	// Pilot injects this outbound filter if the service port name is `thrift`.
@@ -167,7 +159,7 @@ var (
 		"PILOT_ENABLE_THRIFT_FILTER",
 		false,
 		"EnableThriftFilter enables injection of `envoy.filters.network.thrift_proxy` in the filter chain.",
-	)
+	).Get()
 
 	// SkipValidateTrustDomain tells the server proxy to not to check the peer's trust domain when
 	// mTLS is enabled in authentication policy.
@@ -180,26 +172,26 @@ var (
 		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND",
 		true,
 		"If enabled, protocol sniffing will be used for outbound listeners whose port protocol is not specified or unsupported",
-	)
+	).Get()
 
 	EnableProtocolSniffingForInbound = env.RegisterBoolVar(
 		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND",
 		true,
 		"If enabled, protocol sniffing will be used for inbound listeners whose port protocol is not specified or unsupported",
-	)
+	).Get()
 
 	EnableTCPMetadataExchange = env.RegisterBoolVar(
 		"PILOT_ENABLE_TCP_METADATA_EXCHANGE",
 		true,
 		"If enabled, metadata exchange will be enabled for TCP using ALPN and Network Metadata Exchange filters in Envoy",
-	)
+	).Get()
 
 	ScopeGatewayToNamespace = env.RegisterBoolVar(
 		"PILOT_SCOPE_GATEWAY_TO_NAMESPACE",
 		false,
 		"If enabled, a gateway workload can only select gateway resources in the same namespace. "+
 			"Gateways with same selectors in different namespaces will not be applicable.",
-	)
+	).Get()
 
 	InboundProtocolDetectionTimeout = env.RegisterDurationVar(
 		"PILOT_INBOUND_PROTOCOL_DETECTION_TIMEOUT",
@@ -213,7 +205,7 @@ var (
 		"If enabled, for a headless service/stateful set in Kubernetes, pilot will generate an "+
 			"outbound listener for each pod in a headless service. This feature should be disabled "+
 			"if headless services have a large number of pods.",
-	)
+	).Get()
 
 	EnableEDSForHeadless = env.RegisterBoolVar(
 		"PILOT_ENABLE_EDS_FOR_HEADLESS_SERVICES",
@@ -221,7 +213,7 @@ var (
 		"If enabled, for headless service in Kubernetes, pilot will send endpoints over EDS, "+
 			"allowing the sidecar to load balance among pods in the headless service. This feature "+
 			"should be enabled if applications access all services explicitly via a HTTP proxy port in the sidecar.",
-	)
+	).Get()
 
 	BlockHTTPonHTTPSPort = env.RegisterBoolVar(
 		"PILOT_BLOCK_HTTP_ON_443",
@@ -257,13 +249,20 @@ var (
 		"If enabled, pilot will validate CRDs while retrieving CRDs from kubernetes cache."+
 			"Use this flag to enable validation of CRDs in Pilot, especially in deployments "+
 			"that do not have galley installed.",
-	)
+	).Get()
+
+	EnableAnalysis = env.RegisterBoolVar(
+		"PILOT_ENABLE_ANALYSIS",
+		false,
+		"If enabled, pilot will run istio analyzers and write analysis errors to the Status field of any "+
+			"Istio Resources",
+	).Get()
 
 	// IstiodService controls the istiod address - used for injection and as default value injected into pods
 	// if istiod is used. The name must be part of the DNS certificate served by pilot/istiod. The '.svc' is
 	// imposed by K8S - that's how the names for webhooks are defined, based on webhook service (which will be
 	// istio-pilot or istiod) plus namespace and .svc.
-	// The 15010 port is used with plain text, 15011 with Spiffee certs - we need a different port for DNS cert.
+	// The 15010 port is used with plain text, 15011 with Spiffe certs - we need a different port for DNS cert.
 	IstiodService = env.RegisterStringVar("ISTIOD_ADDR", "",
 		"Service name of istiod. If empty the istiod listener, certs will be disabled.")
 
@@ -283,7 +282,7 @@ var (
 
 	DefaultRequestTimeout = func() *duration.Duration {
 		return ptypes.DurationProto(defaultRequestTimeoutVar.Get())
-	}
+	}()
 
 	EnableServiceApis = env.RegisterBoolVar("PILOT_ENABLED_SERVICE_APIS", false,
 		"If this is set to true, support for Kubernetes service-apis (github.com/kubernetes-sigs/service-apis) will "+

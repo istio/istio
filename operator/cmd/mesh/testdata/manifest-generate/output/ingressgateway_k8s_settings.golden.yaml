@@ -37,14 +37,7 @@ spec:
         - name: istio-proxy
           image: "gcr.io/istio-testing/proxyv2:latest"
           ports:
-            - containerPort: 15020
-            - containerPort: 8080
-            - containerPort: 8443
-            - containerPort: 15029
-            - containerPort: 15030
-            - containerPort: 15031
-            - containerPort: 15032
-            - containerPort: 15443
+            - containerPort: 1234
             - containerPort: 15011
             - containerPort: 15012
             - containerPort: 8060
@@ -62,12 +55,6 @@ spec:
           - --log_output_level=default:info
           - --serviceCluster
           - istio-ingressgateway
-          - --proxyAdminPort
-          - "15000"
-          - --controlPlaneAuthPolicy
-          - NONE
-          - --discoveryAddress
-          - istio-pilot.istio-system.svc:15012
           - --trust-domain=cluster.local
           readinessProbe:
             failureThreshold: 30
@@ -92,8 +79,6 @@ spec:
             value: third-party-jwt
           - name: PILOT_CERT_PROVIDER
             value: istiod
-          - name: "ISTIO_META_USER_SDS"
-            value: "true"
           - name: CA_ADDR
             value: istiod.istio-system.svc:15012
           - name: NODE_NAME
@@ -131,17 +116,6 @@ spec:
             value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-ingressgateway
           - name: ISTIO_META_MESH_ID
             value: "cluster.local"
-          - name: ISTIO_AUTO_MTLS_ENABLED
-            value: "true"
-          - name: ISTIO_META_POD_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.name
-          - name: ISTIO_META_CONFIG_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
           - name: ISTIO_META_ROUTER_MODE
             value: sni-dnat
           
@@ -238,7 +212,8 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  annotations: null
+  annotations:
+    manifest-generate: testserviceAnnotation
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
@@ -251,30 +226,6 @@ spec:
   - name: foo
     port: 1234
     targetPort: 1234
-  - name: status-port
-    port: 15020
-    targetPort: 15020
-  - name: http2
-    port: 80
-    targetPort: 8080
-  - name: https
-    port: 443
-    targetPort: 8443
-  - name: kiali
-    port: 15029
-    targetPort: 15029
-  - name: prometheus
-    port: 15030
-    targetPort: 15030
-  - name: grafana
-    port: 15031
-    targetPort: 15031
-  - name: tracing
-    port: 15032
-    targetPort: 15032
-  - name: tls
-    port: 15443
-    targetPort: 15443
   selector:
     app: istio-ingressgateway
     istio: ingressgateway

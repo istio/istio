@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/helmreconciler"
-	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
 )
 
@@ -90,7 +89,7 @@ func TestRenderCharts(t *testing.T) {
 		},
 		{
 			desc:       "component_hub_tag",
-			diffIgnore: "ConfigMap:*:istio",
+			diffSelect: "Deployment:*:*",
 		},
 	})
 	removeDirOrFail(t, flagOutputDir)
@@ -106,7 +105,7 @@ func TestManifestGeneratePilot(t *testing.T) {
 		},
 		{
 			desc:       "pilot_k8s_settings",
-			diffIgnore: "CustomResourceDefinition:*:*,ConfigMap:*:istio",
+			diffSelect: "Deployment:*:istiod,HorizontalPodAutoscaler:*:istiod",
 		},
 		{
 			desc:       "pilot_override_values",
@@ -114,7 +113,7 @@ func TestManifestGeneratePilot(t *testing.T) {
 		},
 		{
 			desc:       "pilot_override_kubernetes",
-			diffSelect: "Deployment:*:istiod, Service:*:istio-pilot",
+			diffSelect: "Deployment:*:istiod, Service:*:istiod",
 		},
 		{
 			desc:       "pilot_merge_meshconfig",
@@ -196,15 +195,6 @@ func runTestGroup(t *testing.T, tests testGroup) {
 				}
 			}
 
-			if tt.outputDir != "" {
-				got, err = util.ReadFilesWithFilter(tt.outputDir, func(fileName string) bool {
-					return strings.HasSuffix(fileName, ".yaml")
-				})
-				if err != nil {
-					t.Fatal(err)
-				}
-			}
-
 			want, err := readFile(outPath)
 			if err != nil {
 				t.Fatal(err)
@@ -234,7 +224,10 @@ func runManifestGenerate(iopStr string) (string, error) {
 		return "", err
 	}
 
-	testReconciler := helmreconciler.NewHelmReconciler(iop)
+	// Since controller code is running locally, we can point to a local filesystem path.
+	iop.Spec.InstallPackagePath = filepath.Join(testDataDir, "data-snapshot")
+
+	testReconciler := helmreconciler.NewHelmReconciler(iop, nil, nil)
 	testInput := NewIstioRenderingInput(iop)
 
 	mm, err := testReconciler.RenderCharts(testInput)

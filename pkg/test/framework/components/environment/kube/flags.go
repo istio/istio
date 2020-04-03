@@ -16,12 +16,15 @@ package kube
 
 import (
 	"flag"
+	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/mitchellh/go-homedir"
 
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
@@ -31,6 +34,8 @@ var (
 	}
 	// hold kubeconfigs from command line to split later
 	kubeConfigs string
+	// hold controlPlaneTopology from command line to parse later
+	controlPlaneTopology string
 )
 
 // newSettingsFromCommandline returns Settings obtained from command-line flags. flag.Parse must be called before calling this function.
@@ -43,6 +48,11 @@ func newSettingsFromCommandline() (*Settings, error) {
 
 	var err error
 	s.KubeConfig, err = parseKubeConfigs(kubeConfigs)
+	if err != nil {
+		return nil, err
+	}
+
+	s.ControlPlaneTopology, err = newControlPlaneTopology(s.KubeConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -76,11 +86,65 @@ func parseKubeConfigs(value string) ([]string, error) {
 	return out, nil
 }
 
+func newControlPlaneTopology(kubeConfigs []string) (map[resource.ClusterIndex]resource.ClusterIndex, error) {
+	topology, err := parseControlPlaneTopology()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(topology) == 0 {
+		// Default to deploying a control plane per cluster.
+		for index := range kubeConfigs {
+			topology[resource.ClusterIndex(index)] = resource.ClusterIndex(index)
+		}
+		return topology, nil
+	}
+
+	// Verify that all of the specified clusters are valid.
+	numClusters := len(kubeConfigs)
+	for cIndex, cpIndex := range topology {
+		if int(cIndex) > numClusters {
+			return nil, fmt.Errorf("failed parsing control plane topology: cluster index %d "+
+				"exceeds number of available clusters %d", cIndex, numClusters)
+		}
+		if int(cpIndex) > numClusters {
+			return nil, fmt.Errorf("failed parsing control plane topology: control plane cluster index %d "+""+
+				"exceeds number of available clusters %d", cpIndex, numClusters)
+		}
+	}
+	return topology, nil
+}
+
+func parseControlPlaneTopology() (map[resource.ClusterIndex]resource.ClusterIndex, error) {
+	out := make(map[resource.ClusterIndex]resource.ClusterIndex)
+	if controlPlaneTopology == "" {
+		return out, nil
+	}
+
+	values := strings.Split(controlPlaneTopology, ",")
+	for _, v := range values {
+		parts := strings.Split(v, ":")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("failed parsing control plane mapping entry %s", v)
+		}
+		clusterIndex, err := strconv.Atoi(parts[0])
+		if err != nil || clusterIndex < 0 {
+			return nil, fmt.Errorf("failed parsing control plane mapping entry %s: failed parsing cluster index", v)
+		}
+		controlPlaneClusterIndex, err := strconv.Atoi(parts[1])
+		if err != nil || clusterIndex < 0 {
+			return nil, fmt.Errorf("failed parsing control plane mapping entry %s: failed parsing control plane index", v)
+		}
+		out[resource.ClusterIndex(clusterIndex)] = resource.ClusterIndex(controlPlaneClusterIndex)
+	}
+	return out, nil
+}
+
 func normalizeFile(path *string) error {
 	// trim leading/trailing spaces from the path and if it uses the homedir ~, expand it.
 	var err error
 	*path = strings.TrimSpace(*path)
-	(*path), err = homedir.Expand(*path)
+	*path, err = homedir.Expand(*path)
 	if err != nil {
 		return err
 	}
@@ -109,4 +173,10 @@ func init() {
 		"A comma-separated list of paths to kube config files for cluster environments (default is current kube context)")
 	flag.BoolVar(&settingsFromCommandLine.Minikube, "istio.test.kube.minikube", settingsFromCommandLine.Minikube,
 		"Indicates that the target environment is Minikube. Used by Ingress component to obtain the right IP address..")
+	flag.StringVar(&controlPlaneTopology, "istio.test.kube.controlPlaneTopology",
+		"", "Specifies the mapping for each cluster to the cluster hosting its control plane. The value is a "+
+			"comma-separated list of the form <clusterIndex>:<controlPlaneClusterIndex>, where the indexes refer to the order in which "+
+			"a given cluster appears in the 'istio.test.kube.config' flag. This topology also determines where control planes should "+
+			"be deployed. If not specified, the default is to deploy a control plane per cluster (i.e. `replicated control "+
+			"planes') and map every cluster to itself (e.g. 0:0,1:1,...).")
 }

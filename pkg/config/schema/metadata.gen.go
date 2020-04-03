@@ -137,6 +137,11 @@ collections:
     group: "networking.istio.io"
     pilot: true
 
+  - name: "istio/networking/v1alpha3/workloadentries"
+    kind: "WorkloadEntry"
+    group: "networking.istio.io"
+    pilot: true
+
   - name: "istio/networking/v1alpha3/sidecars"
     kind: "Sidecar"
     group: "networking.istio.io"
@@ -323,6 +328,10 @@ collections:
     kind: "ServiceEntry"
     group: "networking.istio.io"
 
+  - name: "k8s/networking.istio.io/v1alpha3/workloadentries"
+    kind: "WorkloadEntry"
+    group: "networking.istio.io"
+
   - name: "k8s/networking.istio.io/v1alpha3/sidecars"
     kind: "Sidecar"
     group: "networking.istio.io"
@@ -382,6 +391,7 @@ snapshots:
       - "istio/networking/v1alpha3/envoyfilters"
       - "istio/networking/v1alpha3/gateways"
       - "istio/networking/v1alpha3/serviceentries"
+      - "istio/networking/v1alpha3/workloadentries"
       - "istio/networking/v1alpha3/sidecars"
       - "istio/networking/v1alpha3/virtualservices"
       - "istio/policy/v1beta1/attributemanifests"
@@ -549,6 +559,14 @@ resources:
     proto: "istio.networking.v1alpha3.ServiceEntry"
     protoPackage: "istio.io/api/networking/v1alpha3"
     description: "describes service entries"
+
+  - kind: "WorkloadEntry"
+    plural: "workloadentries"
+    group: "networking.istio.io"
+    version: "v1alpha3"
+    proto: "istio.networking.v1alpha3.WorkloadEntry"
+    protoPackage: "istio.io/api/networking/v1alpha3"
+    description: "describes workload entries"
 
   - kind: "DestinationRule"
     plural: "destinationrules"
@@ -754,6 +772,7 @@ transforms:
       "k8s/networking.istio.io/v1alpha3/envoyfilters": "istio/networking/v1alpha3/envoyfilters"
       "k8s/networking.istio.io/v1alpha3/gateways": "istio/networking/v1alpha3/gateways"
       "k8s/networking.istio.io/v1alpha3/serviceentries": "istio/networking/v1alpha3/serviceentries"
+      "k8s/networking.istio.io/v1alpha3/workloadentries": "istio/networking/v1alpha3/workloadentries"
       "k8s/networking.istio.io/v1alpha3/sidecars": "istio/networking/v1alpha3/sidecars"
       "k8s/networking.istio.io/v1alpha3/virtualservices": "istio/networking/v1alpha3/virtualservices"
       "k8s/rbac.istio.io/v1alpha1/policy": "istio/rbac/v1alpha1/servicerolebindings"

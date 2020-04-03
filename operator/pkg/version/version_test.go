@@ -15,13 +15,16 @@
 package version
 
 import (
+	"fmt"
+	"io/ioutil"
 	"reflect"
 	"testing"
 
-	"istio.io/istio/operator/pkg/util"
-
+	goversion "github.com/hashicorp/go-version"
 	"github.com/kr/pretty"
 	"gopkg.in/yaml.v2"
+
+	"istio.io/istio/operator/pkg/util"
 )
 
 func TestVersion(t *testing.T) {
@@ -131,6 +134,17 @@ supportedIstioVersions: "> 1.1, < 1.4.0"
 `,
 		},
 		{
+			desc: "k8s client and server version provided",
+			yamlStr: `
+operatorVersion: 1.3.0
+operatorVersionRange: 1.3.0
+recommendedIstioVersions: 1.3.0
+supportedIstioVersions: 1.3.0
+k8sClientVersionRange: 1.15.0
+k8sServerVersionRange: 1.15.0
+`,
+		},
+		{
 			desc: "missing operatorVersion",
 			yamlStr: `
 supportedIstioVersions: 1.3.0
@@ -145,6 +159,70 @@ operatorVersion: 1.3.0
 recommendedIstioVersions: 1.3.0
 `,
 			wantErr: `supportedIstioVersions must be set`,
+		},
+		{
+			desc: "incorrect operatorVersion provided",
+			yamlStr: `
+operatorVersion: .X.3.0
+operatorVersionRange: 1.3.0
+recommendedIstioVersions: 1.3.0
+supportedIstioVersions: 1.3.0
+`,
+			wantErr: `Malformed version: .X.3.0`,
+		},
+		{
+			desc: "incorrect operatorVersionRange provided",
+			yamlStr: `
+operatorVersion: 1.3.0
+operatorVersionRange: .Y.3.0
+recommendedIstioVersions: 1.3.0
+supportedIstioVersions: 1.3.0
+`,
+			wantErr: `Malformed constraint: .Y.3.0`,
+		},
+		{
+			desc: "incorrect recommendedIstioVersions provided",
+			yamlStr: `
+operatorVersion: 1.3.0
+operatorVersionRange: 1.3.0
+recommendedIstioVersions: .Z.3.0
+supportedIstioVersions: 1.3.0
+`,
+			wantErr: `Malformed constraint: .Z.3.0`,
+		},
+		{
+			desc: "incorrect supportedIstioVersions provided",
+			yamlStr: `
+operatorVersion: 1.3.0
+operatorVersionRange: 1.3.0
+recommendedIstioVersions: 1.3.0
+supportedIstioVersions: .A.3.0
+`,
+			wantErr: `Malformed constraint: .A.3.0`,
+		},
+		{
+			desc: "incorrect k8sClientVersionRange provided",
+			yamlStr: `
+operatorVersion: 1.3.0
+operatorVersionRange: 1.3.0
+recommendedIstioVersions: 1.3.0
+supportedIstioVersions: 1.3.0
+k8sClientVersionRange: .8.15.0
+k8sServerVersionRange: 1.15.0
+`,
+			wantErr: `Malformed constraint: .8.15.0`,
+		},
+		{
+			desc: "incorrect k8sServerVersionRange provided",
+			yamlStr: `
+operatorVersion: 1.3.0
+operatorVersionRange: 1.3.0
+recommendedIstioVersions: 1.3.0
+supportedIstioVersions: 1.3.0
+k8sClientVersionRange: 1.15.0
+k8sServerVersionRange: .9.15.0
+`,
+			wantErr: `Malformed constraint: .9.15.0`,
 		},
 		{
 			desc: "unknown field",
@@ -358,4 +436,198 @@ func TestTagToVersionString(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestVersionString(t *testing.T) {
+	tests := map[string]struct {
+		version Version
+		want    string
+	}{
+		"with suffix": {
+			version: NewVersion(1, 2, 3, "xyz"),
+			want:    "1.2.3-xyz",
+		},
+		"without suffix": {
+			version: NewVersion(1, 5, 0, ""),
+			want:    "1.5.0",
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			got := tt.version.String()
+			if got != tt.want {
+				t.Errorf("Version.String(): got: %s, want: %s", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestUnmarshalYAML(t *testing.T) {
+	v := &Version{}
+	expectedErr := fmt.Errorf("test error")
+	errReturn := func(interface{}) error { return expectedErr }
+	gotErr := v.UnmarshalYAML(errReturn)
+	if gotErr == nil {
+		t.Errorf("expected error but got nil")
+	}
+	if gotErr != expectedErr {
+		t.Errorf("error mismatch")
+	}
+}
+
+func TestGetVersionCompatibleMap(t *testing.T) {
+	tests := []struct {
+		name        string
+		httpuri     string
+		filecontent string
+		goversion   *goversion.Version
+		want        *CompatibilityMapping
+		wantErr     error
+	}{
+		{
+			name: "version match with content",
+			filecontent: `
+- operatorVersion: 1.4.4
+  operatorVersionRange: ">=1.4.4,<1.5.0"
+  supportedIstioVersions: ">=1.3.3, <1.6"
+  recommendedIstioVersions: 1.4.4
+- operatorVersion: 1.5.0
+  operatorVersionRange: ">=1.5.0,<1.6.0"
+  supportedIstioVersions: ">=1.4.0, <1.6"
+  recommendedIstioVersions: 1.5.0
+  k8sClientVersionRange: ">=1.14"
+  k8sServerVersionRange: ">=1.14"`,
+			goversion: goversionVersionForTest(t, "1.4.4"),
+			want: &CompatibilityMapping{
+				OperatorVersion:          goversionVersionForTest(t, "1.4.4"),
+				OperatorVersionRange:     goversionConstraintsForTest(t, ">=1.4.4,<1.5.0"),
+				SupportedIstioVersions:   goversionConstraintsForTest(t, ">=1.3.3, <1.6"),
+				RecommendedIstioVersions: goversionConstraintsForTest(t, "1.4.4"),
+			},
+		},
+		{
+			name: "version in the operator version range",
+			filecontent: `
+- operatorVersion: 1.4.4
+  operatorVersionRange: ">=1.4.4,<1.5.0"
+  supportedIstioVersions: ">=1.3.3, <1.6"
+  recommendedIstioVersions: 1.4.4
+- operatorVersion: 1.5.0
+  operatorVersionRange: ">=1.5.0,<1.6.0"
+  supportedIstioVersions: ">=1.4.0, <1.6"
+  recommendedIstioVersions: 1.5.0
+  k8sClientVersionRange: ">=1.14"
+  k8sServerVersionRange: ">=1.14"`,
+			goversion: goversionVersionForTest(t, "1.5.1"),
+			want: &CompatibilityMapping{
+				OperatorVersion:          goversionVersionForTest(t, "1.5.0"),
+				OperatorVersionRange:     goversionConstraintsForTest(t, ">=1.5.0,<1.6.0"),
+				SupportedIstioVersions:   goversionConstraintsForTest(t, ">=1.4.0, <1.6"),
+				RecommendedIstioVersions: goversionConstraintsForTest(t, "1.5.0"),
+				K8sClientVersionRange:    goversionConstraintsForTest(t, ">=1.14"),
+				K8sServerVersionRange:    goversionConstraintsForTest(t, ">=1.14"),
+			},
+		},
+		{
+			name: "version not found",
+			filecontent: `
+- operatorVersion: 1.4.4
+  operatorVersionRange: ">=1.4.4,<1.5.0"
+  supportedIstioVersions: ">=1.3.3, <1.6"
+  recommendedIstioVersions: 1.4.4
+- operatorVersion: 1.5.0
+  operatorVersionRange: ">=1.5.0,<1.6.0"
+  supportedIstioVersions: ">=1.4.0, <1.6"
+  recommendedIstioVersions: 1.5.0
+  k8sClientVersionRange: ">=1.14"
+  k8sServerVersionRange: ">=1.14"`,
+			goversion: goversionVersionForTest(t, "1.2.9"),
+			wantErr:   fmt.Errorf("this operator version %s was not found in the version map", "1.2.9"),
+		},
+		{
+			name:      "version uri missing",
+			goversion: goversionVersionForTest(t, "1.2.0"),
+			wantErr:   fmt.Errorf("this operator version %s was not found in the version map", "1.2.0"),
+		},
+		{
+			name:      "invalid uri",
+			httpuri:   "http://invalid.istio.io",
+			goversion: goversionVersionForTest(t, "1.2.0"),
+			wantErr:   fmt.Errorf("this operator version %s was not found in the version map", "1.2.0"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			uri := ""
+			if tt.filecontent != "" {
+				filePath, clean := tempFile(t, tt.filecontent)
+				uri = filePath
+				defer clean()
+			}
+			if tt.httpuri != "" {
+				uri = tt.httpuri
+			}
+			got, err := GetVersionCompatibleMap(uri, tt.goversion)
+			if err != nil {
+				if !reflect.DeepEqual(err, tt.wantErr) {
+					t.Fatalf("error mismatch GetVersionCompatibleMap() error = %v, wantErr = %v", err, tt.wantErr)
+				}
+				return
+			}
+			if !compare(got, tt.want) {
+				t.Errorf("result mismatch GetVersionCompatibleMap() got = %v, want = %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func goversionVersionForTest(t *testing.T, s string) *goversion.Version {
+	t.Helper()
+	result, err := goversion.NewVersion(s)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	return result
+}
+func goversionConstraintsForTest(t *testing.T, s string) goversion.Constraints {
+	t.Helper()
+	result, err := goversion.NewConstraint(s)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	return result
+}
+
+func tempFile(t *testing.T, content string) (string, func()) {
+	t.Helper()
+	tmpfile, err := ioutil.TempFile("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = tmpfile.WriteString(content)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = tmpfile.Sync()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = tmpfile.Seek(0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	clean := func() {
+		_ = tmpfile.Close()
+	}
+	return tmpfile.Name(), clean
+}
+
+func compare(l, r *CompatibilityMapping) bool {
+	return l.OperatorVersion.Equal(r.OperatorVersion) &&
+		l.OperatorVersionRange.String() == r.OperatorVersionRange.String() &&
+		l.SupportedIstioVersions.String() == r.SupportedIstioVersions.String() &&
+		l.RecommendedIstioVersions.String() == r.RecommendedIstioVersions.String() &&
+		l.K8sClientVersionRange.String() == r.K8sClientVersionRange.String() &&
+		l.K8sServerVersionRange.String() == r.K8sServerVersionRange.String()
 }

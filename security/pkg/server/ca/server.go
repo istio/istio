@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	pb "istio.io/istio/security/proto"
 	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 )
 
 // Config for Vault prototyping purpose
@@ -86,6 +85,7 @@ type Server struct {
 // it is signed by the CA signing key.
 func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertificateRequest) (
 	*pb.IstioCertificateResponse, error) {
+	s.monitoring.CSR.Increment()
 	caller := s.authenticate(ctx)
 	if caller == nil {
 		serverCaLog.Warn("request authentication failure")
@@ -111,6 +111,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	response := &pb.IstioCertificateResponse{
 		CertChain: respCertChain,
 	}
+	s.monitoring.Success.Increment()
 	serverCaLog.Debug("CSR successfully signed.")
 
 	return response, nil
@@ -263,7 +264,6 @@ func NewWithGRPC(grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, 
 		}
 	}
 
-	version.Info.RecordComponentBuildTag("citadel")
 	rootCertExpiryTimestamp.Record(extractRootCertExpiryTimestamp(ca))
 
 	server := &Server{

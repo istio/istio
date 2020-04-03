@@ -15,6 +15,7 @@
 package install
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -286,16 +287,16 @@ func (c *preCheckClient) serverVersion() (*version.Info, error) {
 }
 
 func (c *preCheckClient) getNameSpace(ns string) (*v1.Namespace, error) {
-	v, err := c.client.CoreV1().Namespaces().Get(ns, meta_v1.GetOptions{})
+	v, err := c.client.CoreV1().Namespaces().Get(context.TODO(), ns, meta_v1.GetOptions{})
 	return v, err
 }
 
 func (c *preCheckClient) checkAuthorization(s *authorizationapi.SelfSubjectAccessReview) (result *authorizationapi.SelfSubjectAccessReview, err error) {
-	response, err := c.client.AuthorizationV1beta1().SelfSubjectAccessReviews().Create(s)
+	response, err := c.client.AuthorizationV1beta1().SelfSubjectAccessReviews().Create(context.TODO(), s, meta_v1.CreateOptions{})
 	return response, err
 }
 
 func (c *preCheckClient) checkMutatingWebhook() error {
-	_, err := c.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().List(meta_v1.ListOptions{})
+	_, err := c.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().List(context.TODO(), meta_v1.ListOptions{})
 	return err
 }

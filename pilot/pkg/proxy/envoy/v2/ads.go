@@ -100,13 +100,14 @@ type XdsConnection struct {
 
 // XdsEvent represents a config or registry event that results in a push.
 type XdsEvent struct {
-	// If not empty, it is used to indicate the event is caused by a change in the clusters.
-	// Only EDS for the listed clusters will be sent.
-	edsUpdatedServices map[string]struct{}
+	// Indicate whether the push is Full Push
+	full bool
 
 	namespacesUpdated map[string]struct{}
 
-	configTypesUpdated map[resource.GroupVersionKind]struct{}
+	// If GroupVersionKind is service entry and not empty, it is used to indicate the event
+	// is caused by a change in the clusters. Only EDS for the listed clusters will be sent.
+	configsUpdated map[resource.GroupVersionKind]map[string]struct{}
 
 	// Push context to use for the push.
 	push *model.PushContext
@@ -450,6 +451,9 @@ func (s *DiscoveryServer) initProxy(node *core.Node) (*model.Proxy, error) {
 		proxy.Locality = node.Locality
 	}
 
+	// Discover supported IP Versions of proxy so that appropriate config can be delivered.
+	proxy.DiscoverIPVersions()
+
 	return proxy, nil
 }
 
@@ -495,16 +499,17 @@ func (s *DiscoveryServer) DeltaAggregatedResources(stream ads.AggregatedDiscover
 // for large configs. The method will hold a lock on con.pushMutex.
 func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) error {
 	// TODO: update the service deps based on NetworkScope
+	if !pushEv.full {
+		edsUpdatedServices := pushEv.configsUpdated[model.ServiceEntryKind]
 
-	if pushEv.edsUpdatedServices != nil {
 		if !ProxyNeedsPush(con.node, pushEv) {
 			adsLog.Debugf("Skipping EDS push to %v, no updates required", con.ConID)
 			return nil
 		}
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)
-		if len(con.Clusters) > 0 {
-			if err := s.pushEds(pushEv.push, con, versionInfo(), pushEv.edsUpdatedServices); err != nil {
+		if len(con.Clusters) > 0 && len(edsUpdatedServices) > 0 {
+			if err := s.pushEds(pushEv.push, con, versionInfo(), edsUpdatedServices); err != nil {
 				return err
 			}
 		}
@@ -617,8 +622,11 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 		version, len(req.Push.Services(nil)), s.adsClientCount())
 	monServices.Record(float64(len(req.Push.Services(nil))))
 
-	// full push
-	req.EdsUpdates = nil
+	// Make sure the ConfigsUpdated map exists
+	if req.ConfigsUpdated == nil {
+		req.ConfigsUpdated = make(map[resource.GroupVersionKind]map[string]struct{})
+	}
+
 	s.startPush(req)
 }
 

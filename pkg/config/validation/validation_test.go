@@ -354,7 +354,6 @@ func TestValidateProxyConfig(t *testing.T) {
 		ProxyAdminPort:         15000,
 		DrainDuration:          types.DurationProto(45 * time.Second),
 		ParentShutdownDuration: types.DurationProto(60 * time.Second),
-		ConnectTimeout:         types.DurationProto(10 * time.Second),
 		ServiceCluster:         "istio-proxy",
 		StatsdUdpAddress:       "istio-statsd-prom-bridge.istio-system:9125",
 		EnvoyMetricsService:    &meshconfig.RemoteService{Address: "metrics-service.istio-system:15000"},
@@ -417,11 +416,6 @@ func TestValidateProxyConfig(t *testing.T) {
 		{
 			name:    "parent shutdown duration invalid",
 			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ParentShutdownDuration = types.DurationProto(-1 * time.Second) }),
-			isValid: false,
-		},
-		{
-			name:    "connect timeout invalid",
-			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ConnectTimeout = types.DurationProto(-1 * time.Second) }),
 			isValid: false,
 		},
 		{
@@ -672,7 +666,6 @@ func TestValidateProxyConfig(t *testing.T) {
 		ProxyAdminPort:         0,
 		DrainDuration:          types.DurationProto(-1 * time.Second),
 		ParentShutdownDuration: types.DurationProto(-1 * time.Second),
-		ConnectTimeout:         types.DurationProto(-1 * time.Second),
 		ServiceCluster:         "",
 		StatsdUdpAddress:       "10.0.0.100",
 		EnvoyMetricsService:    &meshconfig.RemoteService{Address: "metrics-service"},
@@ -694,7 +687,7 @@ func TestValidateProxyConfig(t *testing.T) {
 		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.Errors) != 13 {
+			if len(err.Errors) != 12 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -1262,7 +1255,7 @@ func TestValidateServer(t *testing.T) {
 			&networking.Server{
 				Hosts: []string{"foo.bar.com"},
 				Port:  &networking.Port{Number: 1, Name: "http", Protocol: "http"},
-				Tls:   &networking.Server_TLSOptions{Mode: networking.Server_TLSOptions_SIMPLE},
+				Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_SIMPLE},
 			},
 			"TLS"},
 		{"no tls on HTTPS",
@@ -1275,14 +1268,14 @@ func TestValidateServer(t *testing.T) {
 			&networking.Server{
 				Hosts: []string{"foo.bar.com"},
 				Port:  &networking.Port{Number: 10000, Name: "http", Protocol: "http"},
-				Tls:   &networking.Server_TLSOptions{Mode: networking.Server_TLSOptions_SIMPLE},
+				Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_SIMPLE},
 			},
 			"cannot have TLS"},
 		{"tls redirect on HTTP",
 			&networking.Server{
 				Hosts: []string{"foo.bar.com"},
 				Port:  &networking.Port{Number: 10000, Name: "http", Protocol: "http"},
-				Tls: &networking.Server_TLSOptions{
+				Tls: &networking.ServerTLSSettings{
 					HttpsRedirect: true,
 				},
 			},
@@ -1356,70 +1349,70 @@ func TestValidateServerPort(t *testing.T) {
 func TestValidateTlsOptions(t *testing.T) {
 	tests := []struct {
 		name string
-		in   *networking.Server_TLSOptions
+		in   *networking.ServerTLSSettings
 		out  string
 	}{
-		{"empty", &networking.Server_TLSOptions{}, ""},
+		{"empty", &networking.ServerTLSSettings{}, ""},
 		{"simple",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_SIMPLE,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_SIMPLE,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh"},
 			""},
 		{"simple with client bundle",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_SIMPLE,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_SIMPLE,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker"},
 			""},
 		{"simple sds with client bundle",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_SIMPLE,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_SIMPLE,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker",
 				CredentialName:    "sds-name"},
 			""},
 		{"simple no server cert",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_SIMPLE,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_SIMPLE,
 				ServerCertificate: "",
 				PrivateKey:        "Khan Noonien Singh",
 			},
 			"server certificate"},
 		{"simple no private key",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_SIMPLE,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_SIMPLE,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        ""},
 			"private key"},
 		{"simple sds no server cert",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_SIMPLE,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_SIMPLE,
 				ServerCertificate: "",
 				PrivateKey:        "Khan Noonien Singh",
 				CredentialName:    "sds-name",
 			},
 			""},
 		{"simple sds no private key",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_SIMPLE,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_SIMPLE,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "",
 				CredentialName:    "sds-name",
 			},
 			""},
 		{"mutual",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_MUTUAL,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker"},
 			""},
 		{"mutual sds",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_MUTUAL,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker",
@@ -1427,23 +1420,23 @@ func TestValidateTlsOptions(t *testing.T) {
 			},
 			""},
 		{"mutual no server cert",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_MUTUAL,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker"},
 			"server certificate"},
 		{"mutual sds no server cert",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_MUTUAL,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker",
 				CredentialName:    "sds-name"},
 			""},
 		{"mutual no client CA bundle",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_MUTUAL,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    ""},
@@ -1451,55 +1444,55 @@ func TestValidateTlsOptions(t *testing.T) {
 		// this pair asserts we get errors about both client and server certs missing when in mutual mode
 		// and both are absent, but requires less rewriting of the testing harness than merging the cases
 		{"mutual no certs",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_MUTUAL,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "",
 				PrivateKey:        "",
 				CaCertificates:    ""},
 			"server certificate"},
 		{"mutual no certs",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_MUTUAL,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "",
 				PrivateKey:        "",
 				CaCertificates:    ""},
 			"private key"},
 		{"mutual no certs",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_MUTUAL,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "",
 				PrivateKey:        "",
 				CaCertificates:    ""},
 			"client CA bundle"},
 		{"pass through sds no certs",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_PASSTHROUGH,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_PASSTHROUGH,
 				ServerCertificate: "",
 				CaCertificates:    "",
 				CredentialName:    "sds-name"},
 			""},
 		{"istio_mutual no certs",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_ISTIO_MUTUAL,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_ISTIO_MUTUAL,
 				ServerCertificate: "",
 				PrivateKey:        "",
 				CaCertificates:    ""},
 			""},
 		{"istio_mutual with server cert",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_ISTIO_MUTUAL,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_ISTIO_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard"},
 			"cannot have associated server cert"},
 		{"istio_mutual with client bundle",
-			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_ISTIO_MUTUAL,
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_ISTIO_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker"},
 			"cannot have associated"},
 		{"istio_mutual with private key",
-			&networking.Server_TLSOptions{
-				Mode:       networking.Server_TLSOptions_ISTIO_MUTUAL,
+			&networking.ServerTLSSettings{
+				Mode:       networking.ServerTLSSettings_ISTIO_MUTUAL,
 				PrivateKey: "Khan Noonien Singh"},
 			"cannot have associated private key"},
 	}
@@ -1851,6 +1844,10 @@ func TestValidateHTTPRetry(t *testing.T) {
 			Attempts:      10,
 			PerTryTimeout: &types.Duration{Seconds: 2},
 			RetryOn:       "600,connect-failure",
+		}, valid: false},
+		{name: "invalid, retryRemoteLocalities configured but attempts set to zero", in: &networking.HTTPRetry{
+			Attempts:              0,
+			RetryRemoteLocalities: &types.BoolValue{Value: false},
 		}, valid: false},
 	}
 
@@ -3016,67 +3013,6 @@ func TestValidateEnvoyFilter(t *testing.T) {
 	}{
 		{name: "empty filters", in: &networking.EnvoyFilter{}, error: ""},
 
-		{name: "missing relativeTo", in: &networking.EnvoyFilter{
-			Filters: []*networking.EnvoyFilter_Filter{
-				{
-					InsertPosition: &networking.EnvoyFilter_InsertPosition{
-						Index: networking.EnvoyFilter_InsertPosition_AFTER,
-					},
-					FilterType:   networking.EnvoyFilter_Filter_NETWORK,
-					FilterName:   "envoy.foo",
-					FilterConfig: &types.Struct{},
-				},
-			},
-		}, error: "missing relativeTo"},
-
-		{name: "missing filter type", in: &networking.EnvoyFilter{
-			Filters: []*networking.EnvoyFilter_Filter{
-				{
-					InsertPosition: &networking.EnvoyFilter_InsertPosition{
-						Index: networking.EnvoyFilter_InsertPosition_FIRST,
-					},
-					FilterName:   "envoy.foo",
-					FilterConfig: &types.Struct{},
-				},
-			},
-		}, error: "missing filter type"},
-
-		{name: "missing filter name", in: &networking.EnvoyFilter{
-			Filters: []*networking.EnvoyFilter_Filter{
-				{
-					InsertPosition: &networking.EnvoyFilter_InsertPosition{
-						Index: networking.EnvoyFilter_InsertPosition_FIRST,
-					},
-					FilterType:   networking.EnvoyFilter_Filter_NETWORK,
-					FilterConfig: &types.Struct{},
-				},
-			},
-		}, error: "missing filter name"},
-
-		{name: "missing filter config", in: &networking.EnvoyFilter{
-			Filters: []*networking.EnvoyFilter_Filter{
-				{
-					InsertPosition: &networking.EnvoyFilter_InsertPosition{
-						Index: networking.EnvoyFilter_InsertPosition_FIRST,
-					},
-					FilterType: networking.EnvoyFilter_Filter_NETWORK,
-					FilterName: "envoy.foo",
-				},
-			},
-		}, error: "missing filter config"},
-
-		{name: "deprecated happy filter config", in: &networking.EnvoyFilter{
-			Filters: []*networking.EnvoyFilter_Filter{
-				{
-					InsertPosition: &networking.EnvoyFilter_InsertPosition{
-						Index: networking.EnvoyFilter_InsertPosition_FIRST,
-					},
-					FilterType:   networking.EnvoyFilter_Filter_NETWORK,
-					FilterName:   "envoy.foo",
-					FilterConfig: &types.Struct{},
-				},
-			},
-		}, error: ""},
 		{name: "invalid applyTo", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3402,7 +3338,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
@@ -3416,7 +3352,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}, Labels: map[string]string{"security.istio.io/tlsMode": "istio"}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}, Labels: map[string]string{"security.istio.io/tlsMode": "istio"}},
 			},
@@ -3430,7 +3366,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
@@ -3442,7 +3378,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
 			Resolution: networking.ServiceEntry_DNS,
@@ -3454,7 +3390,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
 			Resolution: networking.ServiceEntry_DNS,
@@ -3465,7 +3401,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
 			Resolution: networking.ServiceEntry_DNS,
@@ -3476,7 +3412,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid1": 9080}},
 			},
 			Resolution: networking.ServiceEntry_DNS,
@@ -3488,7 +3424,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 80, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-dne": 9080}},
 			},
@@ -3502,7 +3438,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "*.lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-dne": 9080}},
 			},
@@ -3537,7 +3473,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "unix:///lon/google/com"},
 			},
 			Resolution: networking.ServiceEntry_DNS,
@@ -3560,7 +3496,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 			},
 			Resolution: networking.ServiceEntry_NONE,
@@ -3585,7 +3521,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "2.2.2.2", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
@@ -3600,7 +3536,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "2.2.2.2", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
@@ -3615,7 +3551,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "2.2.2.2", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
@@ -3641,7 +3577,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "2.2.2.2", Ports: map[string]uint32{"http-dne": 9080}},
 			},
@@ -3675,7 +3611,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
 			},
 			Resolution: networking.ServiceEntry_STATIC,
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "unix:///path/to/socket"},
 			},
 		},
@@ -3687,7 +3623,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
 			},
 			Resolution: networking.ServiceEntry_STATIC,
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "unix://./relative/path.sock"},
 			},
 		},
@@ -3699,7 +3635,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
 			},
 			Resolution: networking.ServiceEntry_STATIC,
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "unix:///path/to/socket", Ports: map[string]uint32{"grpc-service1": 6553}},
 			},
 		},
@@ -3712,7 +3648,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-service2"},
 			},
 			Resolution: networking.ServiceEntry_STATIC,
-			Endpoints: []*networking.ServiceEntry_Endpoint{
+			Endpoints: []*networking.WorkloadEntry{
 				{Address: "unix:///path/to/socket"},
 			},
 		},
@@ -5420,88 +5356,6 @@ func TestValidateSidecar(t *testing.T) {
 				EgressProxy: &networking.Destination{
 					Host:   "foo.bar",
 					Subset: "shiny",
-				},
-			},
-			Egress: []*networking.IstioEgressListener{
-				{
-					Hosts: []string{"*/*"},
-				},
-			},
-		}, false},
-		{"invalid ingress tls mode", &networking.Sidecar{
-			Ingress: []*networking.IstioIngressListener{
-				{
-					Port: &networking.Port{
-						Protocol: "http",
-						Number:   90,
-						Name:     "foo",
-					},
-					DefaultEndpoint: "127.0.0.1:9999",
-					InboundTls:      &networking.Server_TLSOptions{Mode: networking.Server_TLSOptions_AUTO_PASSTHROUGH},
-				},
-			},
-			Egress: []*networking.IstioEgressListener{
-				{
-					Hosts: []string{"*/*"},
-				},
-			},
-		}, false},
-		{"invalid ingress with httpsRedirect", &networking.Sidecar{
-			Ingress: []*networking.IstioIngressListener{
-				{
-					Port: &networking.Port{
-						Protocol: "http",
-						Number:   90,
-						Name:     "foo",
-					},
-					DefaultEndpoint: "127.0.0.1:9999",
-					InboundTls:      &networking.Server_TLSOptions{HttpsRedirect: true},
-				},
-			},
-			Egress: []*networking.IstioEgressListener{
-				{
-					Hosts: []string{"*/*"},
-				},
-			},
-		}, false},
-		{"valid ingress with tls", &networking.Sidecar{
-			Ingress: []*networking.IstioIngressListener{
-				{
-					Port: &networking.Port{
-						Protocol: "https",
-						Number:   90,
-						Name:     "foo",
-					},
-					DefaultEndpoint: "127.0.0.1:9999",
-					InboundTls: &networking.Server_TLSOptions{
-						Mode:              networking.Server_TLSOptions_MUTUAL,
-						ServerCertificate: "/etc/certs/cert",
-						PrivateKey:        "/etc/certs/key",
-						CaCertificates:    "/etc/certs/ca",
-					},
-				},
-			},
-			Egress: []*networking.IstioEgressListener{
-				{
-					Hosts: []string{"*/*"},
-				},
-			},
-		}, true},
-		{"invalid ingress non tls port with tls", &networking.Sidecar{
-			Ingress: []*networking.IstioIngressListener{
-				{
-					Port: &networking.Port{
-						Protocol: "http",
-						Number:   90,
-						Name:     "foo",
-					},
-					DefaultEndpoint: "127.0.0.1:9999",
-					InboundTls: &networking.Server_TLSOptions{
-						Mode:              networking.Server_TLSOptions_MUTUAL,
-						ServerCertificate: "/etc/certs/cert",
-						PrivateKey:        "/etc/certs/key",
-						CaCertificates:    "/etc/certs/ca",
-					},
 				},
 			},
 			Egress: []*networking.IstioEgressListener{

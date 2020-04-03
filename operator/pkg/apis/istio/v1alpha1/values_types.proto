@@ -24,18 +24,6 @@ package v1alpha1;
 // Package-wide variables from generator "generated".
 option go_package = "v1alpha1";
 
-// Configuration for the addon ingress.
-message AddonIngressConfig {
-  // Controls whether addon ingress is enabled.
-  google.protobuf.BoolValue enabled = 1;
-
-  repeated string hosts = 2;
-
-  TypeMapStringInterface annotations = 3;
-
-  TypeMapStringInterface tls = 4;
-}
-
 // ArchConfig specifies the pod scheduling target architecture(amd64, ppc64le, s390x) for all the Istio control plane components.
 message ArchConfig {
   // Sets pod scheduling weight for amd64 arch
@@ -249,6 +237,8 @@ message EgressGatewayConfig {
 
   GatewayLabelsConfig labels = 9;
 
+  string name = 25;
+
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
@@ -319,6 +309,8 @@ message EgressGatewayConfig {
   TypeSliceOfMapStringInterface configVolumes = 23;
 
   TypeSliceOfMapStringInterface additionalContainers = 24;
+
+  // Next available 26.
 }
 
 
@@ -495,9 +487,6 @@ message GlobalConfig {
   TypeMapStringInterface localityLbSetting = 15;
   // 	LocalityLbSetting map[string]interface{}    `json:"localityLbSetting"`
 
-  // Specifies the Configuration for the legacy kubernetes Ingress.
-  KubernetesIngressConfig k8sIngress = 16;
-
   google.protobuf.BoolValue logAsJson = 36;
 
   // Specifies the global logging level settings for the Istio control plane components.
@@ -609,6 +598,7 @@ message GlobalConfig {
   // Settings for remote cluster.
   // Controls whether to use the Istio remote control plane
   google.protobuf.BoolValue istioRemote = 44;
+
   google.protobuf.BoolValue createRemoteSvcEndpoints = 45;
   // If set, a selector-less service and endpoint for istio-pilot are created with the remotePilotAddress IP,
   // which ensures the istio-pilot. is DNS resolvable in the remote cluster.
@@ -656,6 +646,8 @@ message IstiodConfig {
   // If enabled, all control plane functionality will be handled by a single deployment.
   // Deprecated. This field is always ignored and assumed true.
   google.protobuf.BoolValue enabled = 1 [deprecated=true];
+  // If enabled, istiod will perform config analysis which was previously handled by galley.
+  google.protobuf.BoolValue enableAnalysis = 2;
 }
 
 // GlobalLoggingConfig specifies the global logging level settings for the Istio control plane components.
@@ -711,6 +703,8 @@ message IngressGatewayConfig {
   repeated string loadBalancerSourceRanges = 17;
 
   repeated PortsConfig meshExpansionPorts = 18;
+
+  string name = 44;
 
   // K8s node selector.
   //
@@ -784,6 +778,8 @@ message IngressGatewayConfig {
   TypeSliceOfMapStringInterface hosts = 42;
 
   string telemetry_domain_name = 43;
+
+  // Next available 45.
 }
 
 // Secret Discovery Service (SDS) Configuration for ingress gateway.
@@ -815,18 +811,6 @@ message KubernetesEnvMixerAdapterConfig {
   //
   // See: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/kubernetesenv/
   google.protobuf.BoolValue enabled = 1;
-}
-
-// Configuration for the legacy kubernetes Ingress.
-message KubernetesIngressConfig {
-  // Enables gateway for legacy k8s Ingress.
-  google.protobuf.BoolValue enabled = 1;
-
-  // Enables HTTPS legacy k8s Ingress.
-  google.protobuf.BoolValue enableHttps = 2;
-
-  // Sets the gateway name for legacy k8s Ingress.
-  string gatewayName = 3;
 }
 
 // Configuration for when mixer starts rejecting grpc requests.
@@ -1192,9 +1176,6 @@ message PilotConfig {
   // See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
   TypeMapStringInterface deploymentLabels = 14;
 
-  // Used to override control plane networks.
-  TypeMapStringInterface meshNetworks = 15;
-
   // See EgressGatewayConfig.
   TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 16 [deprecated=true];
 
@@ -1345,6 +1326,8 @@ message TelemetryV2StackDriverConfig {
 
   google.protobuf.BoolValue topology = 4;
 
+  google.protobuf.BoolValue disableOutbound = 6;
+
   TypeMapStringInterface configOverride = 5;
 }
 
@@ -1391,8 +1374,6 @@ message PrometheusConfig {
   google.protobuf.Duration scrapeInterval = 8;
 
   string contextPath = 9;
-
-  AddonIngressConfig ingress = 10;
 
   PrometheusServiceConfig service = 11;
 
@@ -1492,11 +1473,6 @@ message ProxyConfig {
   // If set to 0 (default), then start worker thread for each CPU thread/core.
   uint32 concurrency = 7;
 
-  // Configures the DNS refresh rate for Envoy cluster of type STRICT_DNS.
-  //
-  // This must be given it terms of seconds. For example, 300s is valid but 5m is invalid.
-  google.protobuf.Duration dnsRefreshRate = 8;
-
   // Enables core dumps for newly injected sidecars.
   //
   // If set, newly injected sidecars will have core dumps enabled.
@@ -1521,22 +1497,11 @@ message ProxyConfig {
   // Examples: my-proxy (uses global.hub/tag), docker.io/myrepo/my-proxy:v1.0.0
   string image = 14;
 
-  // Specifies the Istio ingress ports to capture.
-  //
-  // Examples:
-  // "":          Redirect no inbound traffic to Envoy.
-  // "*":         Redirect all inbound traffic to Envoy.
-  // "80,8080":   Redirect only selected ports.
-  string includeInboundPorts = 15;
-
   // Lists the IP ranges of Istio egress traffic that the sidecar captures.
   //
   // Example: "172.30.0.0/16,172.20.0.0/16"
   // This would only capture egress traffic on those two IP Ranges, all other outbound traffic would # be allowed by the sidecar."
   string includeIPRanges = 16;
-
-  // Comma separated list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound. By default, no interfaces are configured.
-  string kubevirtInterfaces = 17;
 
   // Log level for proxy, applies to gateways and sidecars. If left empty, "warning" is used. Expected values are: trace\|debug\|info\|warning\|error\|critical\|off
   string logLevel = 18;
@@ -1580,6 +1545,8 @@ message ProxyConfig {
   string enableCoreDumpImage = 33 [deprecated=true];
 
   string outlierLogPath = 34;
+
+  TypeMapStringInterface lifecycle = 36;
 }
 
 // Specifies which tracer to use.
@@ -1940,9 +1907,6 @@ message TracingConfig {
   // Enables tracing systems installation.
   google.protobuf.BoolValue enabled = 1;
 
-  // Controls legacy k8s ingress for addon tracing components.
-  TracingIngressConfig ingress = 2;
-
   // Defines Configuration for addon Jaeger tracing.
   TracingJaegerConfig jaeger = 3;
 
@@ -1994,17 +1958,6 @@ message TracingOpencensusConfig {
 
 message TracingOpencensusExportersConfig {
   TypeMapStringInterface stackdriver = 1;
-}
-// Controls legacy k8s ingress for addon tracing components.
-message TracingIngressConfig {
-  // Enables k8s ingress for addon tracing components.
-  google.protobuf.BoolValue enabled = 1;
-
-  TypeMapStringInterface annotations = 2;
-
-  repeated string hosts = 3;
-
-  TypeMapStringInterface tls = 4;
 }
 
 // Configuration for addon Jaeger tracing.
@@ -2100,6 +2053,15 @@ message KialiSecurityConfig {
   string private_key_file = 3;
 }
 
+message KialiServiceConfig {
+  TypeMapStringInterface annotations = 1;
+
+  // Service type.
+  //
+  // See https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
+  string type = 18;
+}
+
 message KialiDashboardConfig {
   string secretName = 1;
 
@@ -2120,15 +2082,6 @@ message KialiDashboardConfig {
   string jaegerInClusterURL = 9;
 }
 
-message KialiIngressConfig {
-  google.protobuf.BoolValue enabled = 1;
-
-  TypeMapStringInterface annotations = 2;
-
-  TypeSliceOfMapStringInterface tls = 3;
-
-  repeated string hosts = 4;
-}
 // Configuration for Kiali addon.
 message KialiConfig {
   google.protobuf.BoolValue enabled = 1;
@@ -2149,8 +2102,6 @@ message KialiConfig {
   KialiSecurityConfig security = 7;
 
   KialiDashboardConfig dashboard = 8;
-
-  KialiIngressConfig ingress = 9;
 
   string contextPath = 15;
 
@@ -2201,6 +2152,8 @@ message KialiConfig {
   Resources resources = 17 [deprecated=true];
 
   string prometheusAddr = 18 [deprecated=true];
+
+  KialiServiceConfig service = 19;
 }
 
 message Values {
@@ -2250,6 +2203,8 @@ message Values {
 
   string revision = 21;
 
+  // TODO can this import the real mesh config API?
+  TypeInterface meshConfig = 36;
 }
 
 // GOTYPE: map[string]interface{}

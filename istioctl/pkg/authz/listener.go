@@ -15,8 +15,6 @@
 package authz
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -32,14 +30,10 @@ import (
 	hcm_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	rbac_tcp_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
-	gogojsonpb "github.com/gogo/protobuf/jsonpb"
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
-	jwt_filter "istio.io/istio/security/proto/envoy/config/filter/http/jwt_auth/v2alpha1"
 	"istio.io/pkg/log"
 )
 
@@ -54,7 +48,6 @@ type filterChain struct {
 
 	authN    *authn_filter.FilterConfig
 	envoyJWT *envoy_jwt.JwtAuthentication
-	istioJWT *jwt_filter.JwtAuthentication
 	rbacHTTP *rbac_http_filter.RBAC
 	rbacTCP  *rbac_tcp_filter.RBAC
 
@@ -105,19 +98,6 @@ func getHTTPFilterConfig(filter *hcm_filter.HttpFilter, out proto.Message) error
 	return nil
 }
 
-func StructToGoGoMessage(pbst *structpb.Struct, out proto.Message) error {
-	if pbst == nil {
-		return errors.New("nil struct")
-	}
-
-	buf := &bytes.Buffer{}
-	if err := (&jsonpb.Marshaler{OrigName: true}).Marshal(buf, pbst); err != nil {
-		return err
-	}
-
-	return gogojsonpb.Unmarshal(buf, out)
-}
-
 // ParseListener parses the envoy listener config by extracting the auth related config.
 func ParseListener(listener *v2.Listener) *ParsedListener {
 	parsedListener := &ParsedListener{
@@ -155,13 +135,6 @@ func ParseListener(listener *v2.Listener) *ParsedListener {
 								log.Errorf("found JWT filter but failed to parse: %s", err)
 							} else {
 								parsedFC.envoyJWT = jwt
-							}
-						case "jwt-auth":
-							jwt := &jwt_filter.JwtAuthentication{}
-							if err := getHTTPFilterConfig(httpFilter, jwt); err != nil {
-								log.Errorf("found JWT filter but failed to parse: %s", err)
-							} else {
-								parsedFC.istioJWT = jwt
 							}
 						case "envoy.filters.http.rbac":
 							rbacHTTP := &rbac_http_filter.RBAC{}
@@ -239,21 +212,6 @@ func (l *ParsedListener) print(w io.Writer, printAll bool) {
 		}
 		mTLS := fmt.Sprintf("%s (%s)", mTLSEnabled, mTLSMode)
 
-		jwtPolicy := "no (none)"
-		if fc.istioJWT != nil || fc.envoyJWT != nil {
-			jwtPolicy = "yes (none)"
-			issuers := make([]string, 0)
-			for _, rule := range fc.istioJWT.GetRules() {
-				issuers = append(issuers, rule.Issuer)
-			}
-			for _, rule := range fc.envoyJWT.GetProviders() {
-				issuers = append(issuers, rule.Issuer)
-			}
-			if len(issuers) != 0 {
-				jwtPolicy = fmt.Sprintf("yes (%d: %s)", len(issuers), strings.Join(issuers, ", "))
-			}
-		}
-
 		rbacPolicy := "no (none)"
 		if fc.rbacHTTP != nil || fc.rbacTCP != nil {
 			rbacPolicy = "yes (none)"
@@ -271,11 +229,11 @@ func (l *ParsedListener) print(w io.Writer, printAll bool) {
 
 		var err error
 		if printAll {
-			_, err = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-				listenerName, fc.routeHTTP, sni, alpn, cert, mTLS, jwtPolicy, rbacPolicy)
+			_, err = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+				listenerName, fc.routeHTTP, sni, alpn, cert, mTLS, rbacPolicy)
 		} else {
-			_, err = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-				listenerName, cert, mTLS, jwtPolicy, rbacPolicy)
+			_, err = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+				listenerName, cert, mTLS, rbacPolicy)
 		}
 		if err != nil {
 			log.Errorf("failed to print output: %s", err)
@@ -286,9 +244,9 @@ func (l *ParsedListener) print(w io.Writer, printAll bool) {
 
 func PrintParsedListeners(writer io.Writer, parsedListeners []*ParsedListener, printAll bool) {
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 5, ' ', 0)
-	col := "LISTENER[FilterChain]\tHTTP ROUTE\tSNI\tALPN\tCERTIFICATE\tmTLS (MODE)\tJWT (ISSUERS)\tAuthZ (RULES)"
+	col := "LISTENER[FilterChain]\tHTTP ROUTE\tSNI\tALPN\tCERTIFICATE\tmTLS (MODE)\tAuthZ (RULES)"
 	if !printAll {
-		col = "LISTENER[FilterChain]\tCERTIFICATE\tmTLS (MODE)\tJWT (ISSUERS)\tAuthZ (RULES)"
+		col = "LISTENER[FilterChain]\tCERTIFICATE\tmTLS (MODE)\tAuthZ (RULES)"
 	}
 
 	if _, err := fmt.Fprintln(w, col); err != nil {

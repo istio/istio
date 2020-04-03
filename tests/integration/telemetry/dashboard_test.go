@@ -33,11 +33,11 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -59,8 +59,12 @@ var (
 				"pilot_xds_eds_instances",
 				"_timeout",
 				"_rejects",
+				// We do not simulate injection errors
+				"sidecar_injection_failure_total",
 				// In default install, we have no proxy
 				"istio-proxy",
+				// https://github.com/istio/istio/issues/22674 this causes flaky tests
+				"galley_validation_passed",
 				// cAdvisor does not expose this metrics, and we don't have kubelet in kind
 				"container_fs_usage_bytes",
 			},
@@ -99,26 +103,10 @@ var (
 			},
 		},
 		{
-			"istio-grafana-configuration-dashboards-galley-dashboard",
-			"galley-dashboard.json",
-			[]string{
-				// Exclude all metrics -- galley is disabled by default
-				"_",
-			},
-		},
-		{
 			"istio-grafana-configuration-dashboards-mixer-dashboard",
 			"mixer-dashboard.json",
 			[]string{
 				// Exclude all metrics -- mixer is disabled by default
-				"_",
-			},
-		},
-		{
-			"istio-grafana-configuration-dashboards-citadel-dashboard",
-			"citadel-dashboard.json",
-			[]string{
-				// Exclude all metrics -- citadel is disabled by default
 				"_",
 			},
 		},
