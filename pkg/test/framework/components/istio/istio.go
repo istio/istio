@@ -35,7 +35,7 @@ type SetupConfigFn func(cfg *Config)
 type SetupContextFn func(ctx resource.Context) error
 
 // Setup is a setup function that will deploy Istio on Kubernetes environment
-func Setup(i *Instance, cfn SetupConfigFn) resource.SetupFn {
+func Setup(i *Instance, cfn SetupConfigFn, ctxFns ...SetupContextFn) resource.SetupFn {
 	return func(ctx resource.Context) error {
 		switch ctx.Environment().EnvironmentName() {
 		case environment.Native:
@@ -49,40 +49,13 @@ func Setup(i *Instance, cfn SetupConfigFn) resource.SetupFn {
 			if cfn != nil {
 				cfn(&cfg)
 			}
-			ins, err := Deploy(ctx, &cfg)
-			if err != nil {
-				return err
-			}
-			if i != nil {
-				*i = ins
-			}
-		}
-
-		return nil
-	}
-}
-
-// SetupWithContext is a setup function that will deploy Istio
-// with the provided config and context functions on Kubernetes environment.
-func SetupWithContext(i *Instance, cfn SetupConfigFn, ctxFn SetupContextFn) resource.SetupFn {
-	return func(ctx resource.Context) error {
-		switch ctx.Environment().EnvironmentName() {
-		case environment.Native:
-			scopes.Framework.Debugf("istio.Setup: Skipping deployment of Istio on native")
-
-		case environment.Kube:
-			cfg, err := DefaultConfig(ctx)
-			if err != nil {
-				return err
-			}
-			if cfn != nil {
-				cfn(&cfg)
-			}
-			if ctxFn != nil {
-				err := ctxFn(ctx)
-				if err != nil {
-					scopes.CI.Infof("=== FAILED: context setup function [err=%v] ===", err)
-				} else {
+			for _, ctxFn := range ctxFns {
+				if ctxFn != nil {
+					err := ctxFn(ctx)
+					if err != nil {
+						scopes.CI.Infof("=== FAILED: context setup function [err=%v] ===", err)
+						return err
+					}
 					scopes.CI.Info("=== SUCCESS: context setup function ===")
 				}
 			}

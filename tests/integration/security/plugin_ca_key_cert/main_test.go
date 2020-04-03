@@ -49,7 +49,7 @@ func TestMain(m *testing.M) {
 		RequireEnvironment(environment.Kube).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.SetupWithContext(&inst, nil, createCASecret)).
+		SetupOnEnv(environment.Kube, istio.Setup(&inst, nil, createCASecret)).
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {
 				return err
