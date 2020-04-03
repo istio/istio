@@ -16,9 +16,10 @@ package mesh
 
 import (
 	"fmt"
-	"github.com/ghodss/yaml"
 	"path/filepath"
 	"strings"
+
+	"github.com/ghodss/yaml"
 
 	"k8s.io/client-go/rest"
 
@@ -221,12 +222,13 @@ func translateK8SfromValueToIOP(userOverlayYaml string, l *Logger) (string, erro
 	}
 	valuesOverlay, err := tpath.GetConfigSubtree(userOverlayYaml, "spec.values")
 	if err != nil {
-		return "", fmt.Errorf("error getting values overlay yaml from userOverlayYaml %v", err)
+		scope.Debugf("no spec.values section from userOverlayYaml %v", err)
+		return "", nil
 	}
 	var valuesOverlayTree = make(map[string]interface{})
 	err = yaml.Unmarshal([]byte(valuesOverlay), &valuesOverlayTree)
 	if err != nil {
-		return "", fmt.Errorf("error when unmarshalling values overlay yaml into untype tree %v", err)
+		return "", fmt.Errorf("error unmarshalling values overlay yaml into untype tree %v", err)
 	}
 	iopSpecTree := make(map[string]interface{})
 	if err = t.TranslateK8S(valuesOverlayTree, iopSpecTree); err != nil {
@@ -241,16 +243,16 @@ func translateK8SfromValueToIOP(userOverlayYaml string, l *Logger) (string, erro
 	}
 	iopSpecTreeYAML, err := yaml.Marshal(iopSpecTree)
 	if err != nil {
-		return "", fmt.Errorf("error when marshalling reverse translated tree %v", err)
+		return "", fmt.Errorf("error marshaling reverse translated tree %v", err)
 	}
 	iopTreeYAML, err := tpath.AddSpecRoot(string(iopSpecTreeYAML))
 	if err != nil {
-		return "", fmt.Errorf("error when adding spec root: %v", err)
+		return "", fmt.Errorf("error adding spec root: %v", err)
 	}
 	// overlay the reverse translated iopTreeYAML back to userOverlayYaml
 	finalYAML, err := util.OverlayYAML(userOverlayYaml, iopTreeYAML)
 	if err != nil {
-		return "", fmt.Errorf("error overlay the reverse translated iopTreeYAML: %v", err)
+		return "", fmt.Errorf("failed to overlay the reverse translated iopTreeYAML: %v", err)
 	}
 	return finalYAML, err
 }

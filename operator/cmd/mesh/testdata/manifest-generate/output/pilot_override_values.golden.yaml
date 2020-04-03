@@ -145,6 +145,7 @@ kind: HorizontalPodAutoscaler
 metadata:
   labels:
     app: istiod
+    istio.io/rev: default
     release: istio
   name: istiod
   namespace: istio-control

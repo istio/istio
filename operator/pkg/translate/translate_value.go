@@ -474,7 +474,7 @@ func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
 		if len(path) != 0 {
 			k8sSettingName = path[len(path)-1]
 		}
-	    if k8sSettingName == "autoscaleEnabled" {
+		if k8sSettingName == "autoscaleEnabled" {
 			if err := translateHPASpec(inPath, v.OutPath, valueTree, cpSpecTree); err != nil {
 				return fmt.Errorf("error in translating K8s HPA spec: %s", err)
 			}
