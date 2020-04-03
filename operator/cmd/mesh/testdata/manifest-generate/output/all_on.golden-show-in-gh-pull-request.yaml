@@ -8870,30 +8870,6 @@ data:
   meshNetworks: |-
     networks: {}
 
-  # Basic config for a sidecar CoreDNS server to resolve upstream and K8S requests.
-  # Will be needed until K8S DNS server adds a secure port, to avoid clear text
-  # MITM-exposed requests between istiod and K8S core DNS server.
-  Corefile: |-
-    .:15054 {
-        errors
-        log
-        health :15056 {
-          lameduck 5s
-        }
-
-        kubernetes cluster.local in-addr.arpa ip6.arpa {
-            pods insecure
-            fallthrough in-addr.arpa ip6.arpa
-            ttl 30
-        }
-        prometheus :9153
-
-        forward . /etc/resolv.conf
-        cache 30
-        reload
-        loadbalance
-    }
-
   values.yaml: |-
     appNamespaces: []
     autoscaleEnabled: true
@@ -9115,7 +9091,6 @@ spec:
         - containerPort: 8080
         - containerPort: 15010
         - containerPort: 15017
-        - containerPort: 15053
         readinessProbe:
           httpGet:
             path: /ready
@@ -9148,40 +9123,6 @@ spec:
         - mountPath: /var/lib/istio/inject
           name: inject
           readOnly: true
-      - args:
-        - -conf
-        - /var/lib/istio/coredns/Corefile
-        image: coredns/coredns:1.1.2
-        imagePullPolicy: IfNotPresent
-        livenessProbe:
-          failureThreshold: 5
-          httpGet:
-            path: /health
-            port: 15056
-            scheme: HTTP
-          initialDelaySeconds: 2
-          successThreshold: 1
-          timeoutSeconds: 5
-        name: dns
-        ports:
-        - containerPort: 15054
-          name: dns
-          protocol: UDP
-        - containerPort: 15055
-          name: metrics
-          protocol: TCP
-        securityContext:
-          capabilities:
-            drop:
-            - ALL
-          runAsGroup: 1337
-          runAsNonRoot: true
-          runAsUser: 1337
-        volumeMounts:
-        - mountPath: /var/run/secrets/istio-dns
-          name: local-certs
-        - mountPath: /var/lib/istio/coredns
-          name: config-volume
       securityContext:
         fsGroup: 1337
       serviceAccountName: istio-pilot-service-account
@@ -9895,14 +9836,6 @@ spec:
       targetPort: 15017
     - port: 15014
       name: http-monitoring # prometheus stats
-    - name: dns
-      port: 53
-      targetPort: 15053
-      protocol: UDP
-    - name: dns-tls
-      port: 853
-      targetPort: 15053
-      protocol: TCP
   selector:
     app: istiod
     # Label used by the 'default' service. For versioned deployments we match with app and version.
