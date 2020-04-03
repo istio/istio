@@ -26,6 +26,7 @@ import (
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
+	util "istio.io/istio/tests/integration/mixer"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 
