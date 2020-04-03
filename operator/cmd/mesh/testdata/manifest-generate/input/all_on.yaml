@@ -12,8 +12,6 @@ spec:
       enabled: true
     proxy:
       enabled: true
-    sidecarInjector:
-      enabled: true
     galley:
       enabled: true
     cni:

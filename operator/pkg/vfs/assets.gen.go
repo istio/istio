@@ -40825,8 +40825,10 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/prometheus
+          {{- if .Values.prometheus.provisionPrometheusCert }}
           - mountPath: /etc/istio-certs
             name: istio-certs
+          {{- end }}
 
 {{- if .Values.prometheus.provisionPrometheusCert }}
         - name: istio-proxy
@@ -40949,14 +40951,6 @@ spec:
       - name: istio-certs
         emptyDir:
           medium: Memory
-{{- else }}
-      - name: istio-certs
-        secret:
-          defaultMode: 420
-{{- if not .Values.security.enabled }}
-          optional: true
-{{- end }}
-          secretName: istio.default
 {{- end }}
 
 {{- if .Values.prometheus.provisionPrometheusCert }}
@@ -41203,10 +41197,6 @@ var _chartsIstioTelemetryPrometheusValuesYaml = []byte(`prometheus:
   # is shared with Prometheus through mounted files.
   # When this option is set as false, this certificate provisioning mechanism is disabled.
   provisionPrometheusCert: true
-
-# Indicate if Citadel is enabled, i.e., whether its generated certificates are available
-security:
-  enabled: true
 
 revision: ""
 `)
@@ -41633,7 +41623,7 @@ spec:
       action: replace
       targetLabel: pod_name
 ---
-{{- if .Values.security.enabled }}
+{{- if .Values.prometheus.provisionPrometheusCert }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -41736,7 +41726,7 @@ spec:
       action: replace
       targetLabel: pod_name
 ---
-{{- if .Values.security.enabled }}
+{{- if .Values.prometheus.provisionPrometheusCert  }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -41897,9 +41887,9 @@ var _chartsIstioTelemetryPrometheusoperatorValuesYaml = []byte(`prometheusOperat
   podAntiAffinityLabelSelector: []
   podAntiAffinityTermLabelSelector: []
 
-# Indicate if Citadel is enabled, i.e., whether its generated certificates are available
-security:
-  enabled: true`)
+prometheus:
+  provisionPrometheusCert: true
+`)
 
 func chartsIstioTelemetryPrometheusoperatorValuesYamlBytes() ([]byte, error) {
 	return _chartsIstioTelemetryPrometheusoperatorValuesYaml, nil
@@ -43911,13 +43901,6 @@ spec:
     galley:
       image: galley
       enableAnalysis: false
-
-    security:
-      image: citadel
-      selfSigned: true # indicate if self-signed CA is used.
-      enableNamespacesByDefault: true
-      dnsCerts:
-        istio-pilot-service-account.istio-control: istio-pilot.istio-control
 
     gateways:
       istio-egressgateway:

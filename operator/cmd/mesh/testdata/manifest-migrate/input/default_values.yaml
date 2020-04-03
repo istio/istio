@@ -144,14 +144,6 @@ gateways:
     tolerations: []
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
-sidecarInjectorWebhook:
-  enabled: true
-  enableNamespacesByDefault: false
-  rewriteAppHTTPProbe: true
-  selfSigned: false
-  injectLabel: istio-injection
-  neverInjectSelector: []
-  alwaysInjectSelector: []
 galley:
   enabled: true
   image: galley
@@ -251,33 +243,6 @@ pilot:
   policy:
     enabled: false
   useMCP: true
-security:
-  enabled: true
-  replicaCount: 1
-  rollingMaxSurge: 100%
-  rollingMaxUnavailable: 25%
-  image: citadel
-  selfSigned: true 
-  trustDomain: cluster.local 
-  workloadCertTtl: 2160h
-  enableNamespacesByDefault: true
-  dnsCerts:
-    istio-pilot-service-account.istio-control: istio-pilot-service-account.istio-control
-    istio-pilot-service-account.istio-pilot11: istio-pilot-service-account.istio-system
-    istio-sidecar-injector-service-account.istio-remote: istio-sidecar-injector.istio-remote.svc
-    istio-sidecar-injector-service-account.istio-pilot11: istio-sidecar-injector.istio-pilot11.svc
-    istio-sidecar-injector-service-account.istio-control: istio-sidecar-injector.istio-control.svc
-    istio-sidecar-injector-service-account.istio-master: istio-sidecar-injector.istio-master.svc
-    istio-sidecar-injector-service-account.istio-control-master: istio-sidecar-injector.istio-control-master.svc
-    istio-galley-service-account.istio-pilot11: istio-galley.istio-pilot11.svc
-    istio-galley-service-account.istio-control: istio-galley.istio-control.svc
-    istio-galley-service-account.istio-master: istio-galley.istio-master.svc
-    istio-galley-service-account.istio-control-master: istio-galley.istio-control-master.svc
-    istio-galley-service-account.istio-config: istio-galley.istio-config.svc
-  nodeSelector: {}
-  tolerations: []
-  podAntiAffinityLabelSelector: []
-  podAntiAffinityTermLabelSelector: []
 grafana:
   enabled: false
   replicaCount: 1
@@ -414,17 +379,6 @@ kiali:
     enabled: true
     cert_file: /kiali-cert/cert-chain.pem
     private_key_file: /kiali-cert/key.pem
-certmanager:
-  enabled: false
-  replicaCount: 1
-  hub: quay.io/jetstack
-  image: cert-manager-controller
-  tag: v0.6.2
-  resources: {}
-  nodeSelector: {}
-  tolerations: []
-  podAntiAffinityLabelSelector: []
-  podAntiAffinityTermLabelSelector: []
 cni:
   enabled: false
   hub: gcr.io/istio-release

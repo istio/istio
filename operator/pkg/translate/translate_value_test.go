@@ -163,8 +163,6 @@ values:
 		{
 			desc: "All Enabled",
 			valueYAML: `
-certmanager:
-  enabled: true
 galley:
   enabled: true
 global:
@@ -192,8 +190,6 @@ gateways:
         cpu: 1000m
         memory: 1G
     enabled: true
-sidecarInjectorWebhook:
-  enabled: true
 `,
 			want: `
 hub: docker.io/istio
@@ -228,10 +224,6 @@ values:
   global:
     policyNamespace: istio-policy
     telemetryNamespace: istio-telemetry
-  certmanager:
-    enabled: true
-  sidecarInjectorWebhook:
-    enabled: true
 `,
 		},
 		{

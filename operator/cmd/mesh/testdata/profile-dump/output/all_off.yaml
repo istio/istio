@@ -538,12 +538,6 @@ spec:
         enabled: true
       tag: v2.15.1
       tolerations: []
-    security:
-      dnsCerts:
-        istio-pilot-service-account.istio-control: istio-pilot.istio-control
-      enableNamespacesByDefault: true
-      image: citadel
-      selfSigned: true
     sidecarInjectorWebhook:
       enableNamespacesByDefault: false
       injectLabel: istio-injection
