@@ -1,0 +1,12 @@
+global:
+
+  # ImagePullSecrets for control plane ServiceAccount, list of secrets in the same namespace
+  # to use for pulling any images in pods that reference this ServiceAccount.
+  # Must be set for any cluster configured with private docker registry.
+  imagePullSecrets: []
+
+  # Used to locate istiod.
+  istioNamespace: istio-system
+
+  istiod:
+    enableAnalysis: false

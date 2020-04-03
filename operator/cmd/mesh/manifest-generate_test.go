@@ -50,6 +50,7 @@ type testGroup []struct {
 	outputDir                   string
 	diffSelect                  string
 	diffIgnore                  string
+	useCompiledInCharts         bool
 }
 
 func TestManifestGenerateFlags(t *testing.T) {
@@ -210,11 +211,11 @@ func TestManifestGenerateOrdered(t *testing.T) {
 	// Since this is testing the special case of stable YAML output order, it
 	// does not use the established test group pattern
 	inPath := filepath.Join(testDataDir, "input/all_on.yaml")
-	got1, err := runManifestGenerate([]string{inPath}, "")
+	got1, err := runManifestGenerate([]string{inPath}, "", false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	got2, err := runManifestGenerate([]string{inPath}, "")
+	got2, err := runManifestGenerate([]string{inPath}, "", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -229,7 +230,7 @@ func TestMultiICPSFiles(t *testing.T) {
 	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
 	inPathBase := filepath.Join(testDataDir, "input/all_off.yaml")
 	inPathOverride := filepath.Join(testDataDir, "input/telemetry_override_only.yaml")
-	got, err := runManifestGenerate([]string{inPathBase, inPathOverride}, "")
+	got, err := runManifestGenerate([]string{inPathBase, inPathOverride}, "", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -253,7 +254,7 @@ func TestMultiICPSFiles(t *testing.T) {
 func TestBareSpec(t *testing.T) {
 	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
 	inPathBase := filepath.Join(testDataDir, "input/bare_spec.yaml")
-	_, err := runManifestGenerate([]string{inPathBase}, "")
+	_, err := runManifestGenerate([]string{inPathBase}, "", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -346,7 +347,7 @@ func runTestGroup(t *testing.T, tests testGroup) {
 				filenames = []string{inPath}
 			}
 
-			got, err := runManifestGenerate(filenames, tt.flags)
+			got, err := runManifestGenerate(filenames, tt.flags, tt.useCompiledInCharts)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -398,13 +399,16 @@ func runTestGroup(t *testing.T, tests testGroup) {
 
 // runManifestGenerate runs the manifest generate command. If filenames is set, passes the given filenames as -f flag,
 // flags is passed to the command verbatim. If you set both flags and path, make sure to not use -f in flags.
-func runManifestGenerate(filenames []string, flags string) (string, error) {
+func runManifestGenerate(filenames []string, flags string, useCompiledInCharts bool) (string, error) {
 	args := "manifest generate"
 	for _, f := range filenames {
 		args += " -f " + f
 	}
 	if flags != "" {
 		args += " " + flags
+	}
+	if !useCompiledInCharts {
+		args += " --set installPackagePath=" + filepath.Join(testDataDir, "data-snapshot")
 	}
 	return runCommand(args)
 }
