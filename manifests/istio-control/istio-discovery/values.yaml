@@ -216,13 +216,13 @@ meshConfig:
       # If empty, agent will not start :15013 DNS listener and will not attempt
       # to connect to Istiod DNS-TLS. This will also disable the core dns sidecar in
       # istiod and the dns-over-tls listener.
-      ISTIO_META_DNS_AGENT: DNS-TLS
+      DNS_AGENT: DNS-TLS
 
       # If empty, DNS capture is disabled.
       # If set, intercept UDP port :53 and redirect to localhost:15013
       # Currently only 'ALL' capture is supported - we may refine it if we want
       # finer grained control.
-      ISTIO_META_DNS_CAPTURE: ALL
+      DNS_CAPTURE: ALL
 
 
   # TODO: the intent is to eventually have this enabled by default when security is used.

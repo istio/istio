@@ -49,6 +49,11 @@ template: |
     {{ end -}}
     imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
   {{- if .Values.global.proxy_init.resources }}
+    env:
+    {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
+    - name: {{ $key }}
+      value: "{{ $value }}"
+    {{- end }}
     resources:
       {{ toYaml .Values.global.proxy_init.resources | indent 4 }}
   {{- else }}

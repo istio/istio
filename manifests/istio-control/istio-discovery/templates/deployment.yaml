@@ -136,7 +136,7 @@ spec:
             value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
-          {{- if (eq .Values.meshConfig.defaultConfig.proxyMetadata.ISTIO_META_DNS_TLS "") }}
+          {{- if (eq .Values.meshConfig.defaultConfig.proxyMetadata.DNS_AGENT "") }}
           - name: DNS_ADDR
             value: ""
           {{- end }}
@@ -174,7 +174,7 @@ spec:
             mountPath: /cacerts
           {{- end }}
 
-        {{- if not (eq .Values.meshConfig.defaultConfig.proxyMetadata.ISTIO_META_DNS_TLS "") }}
+        {{- if not (eq .Values.meshConfig.defaultConfig.proxyMetadata.DNS_AGENT "") }}
         # CoreDNS sidecar. Ports are used internally, to run as non-root.
         # This is a short-term solution - the code in istiod can also be used
         # directly. The plan is to move coreDNS on the agent.
