@@ -269,6 +269,7 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 	serverOptions.CertsDir = conf.CertsPath
 	serverOptions.JWTPath = conf.JWTPath
 	serverOptions.OutputKeyCertToDir = conf.OutputKeyCertToDir
+	serverOptions.TLSEnabled = conf.RequireCerts
 
 	// TODO: remove the caching, workload has a single cert
 	workloadSecretCache, _ := conf.newSecretCache(serverOptions)
@@ -312,7 +313,7 @@ func (conf *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretC
 	var err error
 
 	// TODO: this should all be packaged in a plugin, possibly with optional compilation.
-
+	log.Infof("serverOptions.CAEndpoint == %v", serverOptions.CAEndpoint)
 	if (serverOptions.CAProviderName == "GoogleCA" || strings.Contains(serverOptions.CAEndpoint, "googleapis.com")) &&
 		stsclient.GKEClusterURL != "" {
 		// Use a plugin to an external CA - this has direct support for the K8S JWT token
@@ -372,7 +373,7 @@ func (conf *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretC
 			if strings.HasSuffix(serverOptions.CAEndpoint, ":15010") {
 				log.Warna("Debug mode or IP-secure network")
 				tls = false
-			} else if strings.HasSuffix(serverOptions.CAEndpoint, ":15012") {
+			} else if serverOptions.TLSEnabled {
 				if serverOptions.PilotCertProvider == "istiod" {
 					log.Info("istiod uses self-issued certificate")
 					if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)); err != nil {
@@ -430,6 +431,7 @@ func (conf *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretC
 	workloadSdsCacheOptions.TrustDomain = serverOptions.TrustDomain
 	workloadSdsCacheOptions.Pkcs8Keys = serverOptions.Pkcs8Keys
 	workloadSdsCacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
+	workloadSdsCacheOptions.OutputKeyCertToDir = serverOptions.OutputKeyCertToDir
 	workloadSecretCache = cache.NewSecretCache(ret, sds.NotifyProxy, workloadSdsCacheOptions)
 	conf.WorkloadSecrets = workloadSecretCache
 	return
@@ -474,4 +476,8 @@ func applyEnvVars() {
 	workloadSdsCacheOptions.InitialBackoffInMilliSec = int64(initialBackoffInMilliSecEnv)
 	// Disable the secret eviction for istio agent.
 	workloadSdsCacheOptions.EvictionDuration = 0
+	if citadel.ProvCert != "" {
+		workloadSdsCacheOptions.AlwaysValidTokenFlag = true
+	}
+	workloadSdsCacheOptions.OutputKeyCertToDir = serverOptions.OutputKeyCertToDir
 }
