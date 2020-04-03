@@ -109,19 +109,6 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-  # Config management feature
-    galley:
-      enabled: false
-      k8s:
-        replicaCount: 1
-        resources:
-          requests:
-            cpu: 100m
-        strategy:
-          rollingUpdate:
-            maxSurge: "100%"
-            maxUnavailable: "25%"
-
   # Istio Gateway feature
     ingressGateways:
     - name: istio-ingressgateway
@@ -439,10 +426,6 @@ spec:
           kubernetesenv:
             enabled: true
           useAdapterCRDs: false
-
-    galley:
-      image: galley
-      enableAnalysis: false
 
     gateways:
       istio-egressgateway:

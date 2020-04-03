@@ -6970,8 +6970,6 @@ webhooks:
 
 # EgressGateways istio-egressgateway component is disabled.
 
-# Galley component is disabled.
-
 # Resources for Pilot component
 
 apiVersion: autoscaling/v2beta1

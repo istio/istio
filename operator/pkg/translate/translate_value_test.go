@@ -36,8 +36,6 @@ func TestValueToProto(t *testing.T) {
 		{
 			desc: "K8s resources translation",
 			valueYAML: `
-galley:
-  enabled: false
 pilot:
   enabled: true
   rollingMaxSurge: 100%
@@ -95,8 +93,6 @@ tag: 1.2.3
 meshConfig: 
    rootNamespace: istio-system
 components:
-   galley:
-     enabled: false
    telemetry:
      enabled: false
    policy:
@@ -163,8 +159,6 @@ values:
 		{
 			desc: "All Enabled",
 			valueYAML: `
-galley:
-  enabled: true
 global:
   hub: docker.io/istio
   istioNamespace: istio-system
@@ -201,8 +195,6 @@ components:
     enabled: true
   policy:
     enabled: true
-  galley:
-    enabled: true
   pilot:
     enabled: true
   ingressGateways:
@@ -229,8 +221,6 @@ values:
 		{
 			desc: "Some components Disabled",
 			valueYAML: `
-galley:
-  enabled: false
 pilot:
   enabled: true
 global:
@@ -253,8 +243,6 @@ components:
      enabled: false
    policy:
      enabled: true
-   galley:
-     enabled: false
    pilot:
      enabled: true
 meshConfig:

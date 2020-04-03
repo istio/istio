@@ -51,19 +51,6 @@ spec:
             maxUnavailable: 25%
         tolerations: []
       name: istio-egressgateway
-    galley:
-      enabled: true
-      k8s:
-        nodeSelector: {}
-        replicaCount: 1
-        resources:
-          requests:
-            cpu: 100m
-        strategy:
-          rollingUpdate:
-            maxSurge: 100%
-            maxUnavailable: 25%
-        tolerations: []
     ingressGateways:
     - enabled: true
       k8s:
@@ -195,10 +182,6 @@ spec:
       logLevel: info
       pullPolicy: Always
       tag: master-latest-daily
-    galley:
-      image: galley
-      podAntiAffinityLabelSelector: []
-      podAntiAffinityTermLabelSelector: []
     gateways:
       istio-egressgateway:
         connectTimeout: 10s

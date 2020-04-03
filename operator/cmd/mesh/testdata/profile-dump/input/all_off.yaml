@@ -11,11 +11,5 @@ spec:
       enabled: false
     proxy:
       enabled: false
-    sidecarInjector:
-      enabled: false
-    citadel:
-      enabled: false
-    galley:
-      enabled: false
     cni:
       enabled: false
