@@ -10,7 +10,7 @@ replace github.com/spf13/viper => github.com/istio/viper v1.3.3-0.20190515210538
 
 replace github.com/docker/docker => github.com/docker/engine v1.4.2-0.20191011211953-adfac697dc5b
 
-replace istio.io/api => github.com/ChenLingPeng/istioapi v0.0.0-20200403061717-4fc9974c4676
+replace istio.io/api => github.com/ChenLingPeng/istioapi v0.0.0-20200403085555-21086270244e
 
 require (
 	cloud.google.com/go v0.50.0
