@@ -42,7 +42,6 @@ func (*FieldAnalyzer) Metadata() analysis.Metadata {
 		Inputs: collection.Names{
 			collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
 			collections.IstioRbacV1Alpha1Servicerolebindings.Name(),
-			collections.IstioAuthenticationV1Alpha1Policies.Name(),
 		},
 	}
 }
