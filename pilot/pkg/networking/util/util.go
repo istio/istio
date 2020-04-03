@@ -52,14 +52,19 @@ import (
 const (
 	// BlackHoleCluster to catch traffic from routes with unresolved clusters. Traffic arriving here goes nowhere.
 	BlackHoleCluster = "BlackHoleCluster"
+	// BlackHoleVirtualHost is the name of the virtual host used to block all traffic
+	BlackHoleVirtualHost = "block_all"
 	// BlackHoleRouteName is the name of the route that blocks all traffic.
-	BlackHoleRouteName = "block_all"
+	BlackHoleRouteName = "black_hole_route"
 	// PassthroughCluster to forward traffic to the original destination requested. This cluster is used when
 	// traffic does not match any listener in envoy.
 	PassthroughCluster = "PassthroughCluster"
+	// PassthroughVirtualHost is the name of the virtual host used to forward traffic to the
+	// PassthroughCluster
+	PassthroughVirtualHost = "allow_any"
 	// PassthroughRouteName is the name of the route that forwards traffic to the
 	// PassthroughCluster
-	PassthroughRouteName = "allow_any"
+	PassthroughRouteName = "pass_through_route"
 	// PassthroughFilterChain to catch traffic that doesn't match other filter chains.
 	PassthroughFilterChain = "PassthroughFilterChain"
 
