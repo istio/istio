@@ -15,11 +15,12 @@
 package multicluster
 
 import (
+	"fmt"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -27,9 +28,10 @@ import (
 )
 
 var (
-	ist istio.Instance
-	g   galley.Instance
-	p   pilot.Instance
+	ist                istio.Instance
+	pilots             []pilot.Instance
+	clusterLocalNS     namespace.Instance
+	controlPlaneValues string
 )
 
 func TestMain(m *testing.M) {
@@ -38,15 +40,40 @@ func TestMain(m *testing.M) {
 		Label(label.Multicluster).
 		RequireEnvironment(environment.Kube).
 		RequireMinClusters(2).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
 		Setup(func(ctx resource.Context) (err error) {
-			if g, err = galley.New(ctx, galley.Config{}); err != nil {
+			// Create a cluster-local namespace.
+			ns, err := namespace.New(ctx, namespace.Config{
+				Prefix: "local",
+				Inject: true,
+			})
+			if err != nil {
 				return err
 			}
-			if p, err = pilot.New(ctx, pilot.Config{
-				Galley: g,
-			}); err != nil {
-				return err
+
+			// Store the cluster-local namespace.
+			clusterLocalNS = ns
+
+			// Set the cluster-local namespaces in the mesh config.
+			controlPlaneValues = fmt.Sprintf(`
+values:
+  meshConfig:
+    clusterLocalNamespaces: ["kube-system", "%s"]
+`,
+				ns.Name())
+			return nil
+		}).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
+			// Set the control plane values on the config.
+			cfg.ControlPlaneValues = controlPlaneValues
+		})).
+		Setup(func(ctx resource.Context) (err error) {
+			pilots = make([]pilot.Instance, len(ctx.Environment().Clusters()))
+			for i, cluster := range ctx.Environment().Clusters() {
+				if pilots[i], err = pilot.New(ctx, pilot.Config{
+					Cluster: cluster,
+				}); err != nil {
+					return err
+				}
 			}
 			return nil
 		}).
