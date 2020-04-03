@@ -1,5 +1,5 @@
 {{- $ca := genCA "istio-sidecar-injector-ca-{{ .Release.Namespace }}" 3650 }}
-{{- if not .Values.global.operatorManageWebhooks }}
+{{- if and (not .Values.global.operatorManageWebhooks) (not .Values.global.istiod.enabled) }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:

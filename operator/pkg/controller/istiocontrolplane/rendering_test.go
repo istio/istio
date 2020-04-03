@@ -64,9 +64,8 @@ func TestRenderCharts(t *testing.T) {
 			desc: "all_off",
 		},
 		{
-			// TODO: the mutating webhook is setu up differently on the controller. Compare just this resource with a local copy?
 			desc:                        "all_on",
-			diffIgnore:                  "MutatingWebhookConfiguration:*:istio-sidecar-injector,ConfigMap:*:coredns,ConfigMap:*:istio",
+			diffIgnore:                  "ConfigMap:*:istio",
 			showOutputFileInPullRequest: true,
 		},
 		{
@@ -83,7 +82,7 @@ func TestRenderCharts(t *testing.T) {
 		},
 		{
 			desc:       "component_hub_tag",
-			diffIgnore: "ConfigMap:*:istio",
+			diffSelect: "Deployment:*:*",
 		},
 	})
 	removeDirOrFail(t, flagOutputDir)
@@ -99,7 +98,7 @@ func TestManifestGeneratePilot(t *testing.T) {
 		},
 		{
 			desc:       "pilot_k8s_settings",
-			diffIgnore: "CustomResourceDefinition:*:*,ConfigMap:*:istio",
+			diffSelect: "Deployment:*:istiod,HorizontalPodAutoscaler:*:istiod",
 		},
 		{
 			desc:       "pilot_override_values",
@@ -109,11 +108,10 @@ func TestManifestGeneratePilot(t *testing.T) {
 			desc:       "pilot_override_kubernetes",
 			diffSelect: "Deployment:*:istiod, Service:*:istio-pilot",
 		},
-		// TODO: https://github.com/istio/istio/issues/21794
-		/*	{
+		{
 			desc:       "pilot_merge_meshconfig",
 			diffSelect: "ConfigMap:*:istio$",
-		}, */
+		},
 	})
 }
 

@@ -103,6 +103,15 @@
 // charts/istio-control/istio-discovery/templates/telemetryv2_1.5.yaml
 // charts/istio-control/istio-discovery/templates/validatingwebhookconfiguration.yaml
 // charts/istio-control/istio-discovery/values.yaml
+// charts/istio-operator/Chart.yaml
+// charts/istio-operator/templates/clusterrole.yaml
+// charts/istio-operator/templates/clusterrole_binding.yaml
+// charts/istio-operator/templates/crd.yaml
+// charts/istio-operator/templates/deployment.yaml
+// charts/istio-operator/templates/namespace.yaml
+// charts/istio-operator/templates/service.yaml
+// charts/istio-operator/templates/service_account.yaml
+// charts/istio-operator/values.yaml
 // charts/istio-policy/Chart.yaml
 // charts/istio-policy/templates/_affinity.tpl
 // charts/istio-policy/templates/_helpers.tpl
@@ -10477,7 +10486,7 @@ func chartsIstioControlIstioAutoinjectTemplatesDeploymentYaml() (*asset, error) 
 }
 
 var _chartsIstioControlIstioAutoinjectTemplatesMutatingwebhookYaml = []byte(`{{- $ca := genCA "istio-sidecar-injector-ca-{{ .Release.Namespace }}" 3650 }}
-{{- if not .Values.global.operatorManageWebhooks }}
+{{- if and (not .Values.global.operatorManageWebhooks) (not .Values.global.istiod.enabled) }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
@@ -15303,6 +15312,417 @@ func chartsIstioControlIstioDiscoveryValuesYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "charts/istio-control/istio-discovery/values.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorChartYaml = []byte(`apiVersion: v1
+name: istio-operator
+version: 1.5
+tillerVersion: ">=2.7.2"
+description: Helm chart for deploying Istio operator
+keywords:
+  - istio
+  - operator
+sources:
+  - http://github.com/istio/istio/operator
+engine: gotpl
+icon: https://istio.io/favicons/android-192x192.png
+`)
+
+func chartsIstioOperatorChartYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorChartYaml, nil
+}
+
+func chartsIstioOperatorChartYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorChartYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/Chart.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesClusterroleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: istio-operator
+rules:
+# istio groups
+- apiGroups:
+  - authentication.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - config.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - install.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - networking.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - rbac.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - security.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+# k8s groups
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  - validatingwebhookconfigurations
+  verbs:
+  - '*'
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions.apiextensions.k8s.io
+  - customresourcedefinitions
+  verbs:
+  - '*'
+- apiGroups:
+  - apps
+  - extensions
+  resources:
+  - daemonsets
+  - deployments
+  - deployments/finalizers
+  - ingresses
+  - replicasets
+  - statefulsets
+  verbs:
+  - '*'
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - '*'
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - get
+  - create
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - '*'
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  - roles
+  - rolebindings
+  verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - endpoints
+  - events
+  - namespaces
+  - pods
+  - persistentvolumeclaims
+  - secrets
+  - services
+  - serviceaccounts
+  verbs:
+  - '*'
+---
+`)
+
+func chartsIstioOperatorTemplatesClusterroleYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesClusterroleYaml, nil
+}
+
+func chartsIstioOperatorTemplatesClusterroleYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesClusterroleYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/clusterrole.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesClusterrole_bindingYaml = []byte(`kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: istio-operator
+subjects:
+- kind: ServiceAccount
+  name: istio-operator
+  namespace: {{.Values.operatorNamespace}}
+roleRef:
+  kind: ClusterRole
+  name: istio-operator
+  apiGroup: rbac.authorization.k8s.io
+---
+`)
+
+func chartsIstioOperatorTemplatesClusterrole_bindingYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesClusterrole_bindingYaml, nil
+}
+
+func chartsIstioOperatorTemplatesClusterrole_bindingYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesClusterrole_bindingYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/clusterrole_binding.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesCrdYaml = []byte(`apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: istiooperators.install.istio.io
+spec:
+  group: install.istio.io
+  names:
+    kind: IstioOperator
+    plural: istiooperators
+    singular: istiooperator
+    shortNames:
+    - iop
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        spec:
+          description: 'Specification of the desired state of the istio control plane resource.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+        status:
+          description: 'Status describes each of istio control plane component status at the current time.
+            0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
+            More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
+            https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+---
+`)
+
+func chartsIstioOperatorTemplatesCrdYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesCrdYaml, nil
+}
+
+func chartsIstioOperatorTemplatesCrdYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesCrdYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/crd.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesDeploymentYaml = []byte(`apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{.Values.operatorNamespace}}
+  name: istio-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: istio-operator
+  template:
+    metadata:
+      labels:
+        name: istio-operator
+    spec:
+      serviceAccountName: istio-operator
+      containers:
+        - name: istio-operator
+          image: {{.Values.hub}}/operator:{{.Values.tag}}
+          command:
+          - operator
+          - server
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          env:
+            - name: WATCH_NAMESPACE
+              value: {{.Values.istioNamespace}}
+            - name: LEADER_ELECTION_NAMESPACE
+              value: {{.Values.operatorNamespace}}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: {{.Values.operatorNamespace}}
+---
+`)
+
+func chartsIstioOperatorTemplatesDeploymentYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesDeploymentYaml, nil
+}
+
+func chartsIstioOperatorTemplatesDeploymentYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesDeploymentYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/deployment.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesNamespaceYaml = []byte(`apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-operator
+  labels:
+    istio-operator-managed: Reconcile
+    istio-injection: disabled
+---
+`)
+
+func chartsIstioOperatorTemplatesNamespaceYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesNamespaceYaml, nil
+}
+
+func chartsIstioOperatorTemplatesNamespaceYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesNamespaceYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/namespace.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesServiceYaml = []byte(`apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{.Values.operatorNamespace}}
+  labels:
+    name: istio-operator
+  name: istio-operator
+spec:
+  ports:
+  - name: http-metrics
+    port: 8383
+    targetPort: 8383
+  selector:
+    name: istio-operator
+---
+`)
+
+func chartsIstioOperatorTemplatesServiceYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesServiceYaml, nil
+}
+
+func chartsIstioOperatorTemplatesServiceYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesServiceYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/service.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesService_accountYaml = []byte(`apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: {{.Values.operatorNamespace}}
+  name: istio-operator
+---
+`)
+
+func chartsIstioOperatorTemplatesService_accountYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesService_accountYaml, nil
+}
+
+func chartsIstioOperatorTemplatesService_accountYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesService_accountYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/service_account.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorValuesYaml = []byte(`hub: gcr.io/istio-testing
+tag: 1.5-dev
+operatorNamespace: istio-operator
+istioNamespace: istio-system
+`)
+
+func chartsIstioOperatorValuesYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorValuesYaml, nil
+}
+
+func chartsIstioOperatorValuesYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorValuesYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/values.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -42004,6 +42424,15 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-control/istio-discovery/templates/telemetryv2_1.5.yaml":                    chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml,
 	"charts/istio-control/istio-discovery/templates/validatingwebhookconfiguration.yaml":     chartsIstioControlIstioDiscoveryTemplatesValidatingwebhookconfigurationYaml,
 	"charts/istio-control/istio-discovery/values.yaml":                                       chartsIstioControlIstioDiscoveryValuesYaml,
+	"charts/istio-operator/Chart.yaml":                                                       chartsIstioOperatorChartYaml,
+	"charts/istio-operator/templates/clusterrole.yaml":                                       chartsIstioOperatorTemplatesClusterroleYaml,
+	"charts/istio-operator/templates/clusterrole_binding.yaml":                               chartsIstioOperatorTemplatesClusterrole_bindingYaml,
+	"charts/istio-operator/templates/crd.yaml":                                               chartsIstioOperatorTemplatesCrdYaml,
+	"charts/istio-operator/templates/deployment.yaml":                                        chartsIstioOperatorTemplatesDeploymentYaml,
+	"charts/istio-operator/templates/namespace.yaml":                                         chartsIstioOperatorTemplatesNamespaceYaml,
+	"charts/istio-operator/templates/service.yaml":                                           chartsIstioOperatorTemplatesServiceYaml,
+	"charts/istio-operator/templates/service_account.yaml":                                   chartsIstioOperatorTemplatesService_accountYaml,
+	"charts/istio-operator/values.yaml":                                                      chartsIstioOperatorValuesYaml,
 	"charts/istio-policy/Chart.yaml":                                                         chartsIstioPolicyChartYaml,
 	"charts/istio-policy/templates/_affinity.tpl":                                            chartsIstioPolicyTemplates_affinityTpl,
 	"charts/istio-policy/templates/_helpers.tpl":                                             chartsIstioPolicyTemplates_helpersTpl,
@@ -42323,6 +42752,19 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				}},
 				"values.yaml": &bintree{chartsIstioControlIstioDiscoveryValuesYaml, map[string]*bintree{}},
 			}},
+		}},
+		"istio-operator": &bintree{nil, map[string]*bintree{
+			"Chart.yaml": &bintree{chartsIstioOperatorChartYaml, map[string]*bintree{}},
+			"templates": &bintree{nil, map[string]*bintree{
+				"clusterrole.yaml":         &bintree{chartsIstioOperatorTemplatesClusterroleYaml, map[string]*bintree{}},
+				"clusterrole_binding.yaml": &bintree{chartsIstioOperatorTemplatesClusterrole_bindingYaml, map[string]*bintree{}},
+				"crd.yaml":                 &bintree{chartsIstioOperatorTemplatesCrdYaml, map[string]*bintree{}},
+				"deployment.yaml":          &bintree{chartsIstioOperatorTemplatesDeploymentYaml, map[string]*bintree{}},
+				"namespace.yaml":           &bintree{chartsIstioOperatorTemplatesNamespaceYaml, map[string]*bintree{}},
+				"service.yaml":             &bintree{chartsIstioOperatorTemplatesServiceYaml, map[string]*bintree{}},
+				"service_account.yaml":     &bintree{chartsIstioOperatorTemplatesService_accountYaml, map[string]*bintree{}},
+			}},
+			"values.yaml": &bintree{chartsIstioOperatorValuesYaml, map[string]*bintree{}},
 		}},
 		"istio-policy": &bintree{nil, map[string]*bintree{
 			"Chart.yaml": &bintree{chartsIstioPolicyChartYaml, map[string]*bintree{}},
