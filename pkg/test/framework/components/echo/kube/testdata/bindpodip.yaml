@@ -16,7 +16,6 @@ spec:
   selector:
     app: foo
 ---
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -49,6 +48,8 @@ spec:
               fieldPath: status.podIP
         args:
           - --metrics=15014
+          - --cluster
+          - "0"
           - --port
           - "8090"
           - --port

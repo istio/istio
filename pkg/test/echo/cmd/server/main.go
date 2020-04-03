@@ -37,7 +37,7 @@ var (
 	metricsPort int
 	uds         string
 	version     string
-	cluster        string
+	cluster     string
 	crt         string
 	key         string
 	bindIPPorts []int
@@ -95,7 +95,7 @@ var (
 				TLSCert:        crt,
 				TLSKey:         key,
 				Version:        version,
-				Cluster:           cluster,
+				Cluster:        cluster,
 				UDSServer:      uds,
 				BindIPPortsMap: bindIPPortsMap,
 			})
