@@ -24,6 +24,9 @@ import (
 	sdsTest "istio.io/istio/security/pkg/nodeagent/test"
 )
 
+// listener.127.0.0.1_20377.server_ssl_socket_factory.ssl_context_update_by_sds
+// cluster.outbound_cluster_tls.client_ssl_socket_factory.ssl_context_update_by_sds
+
 func TestCertRotation(t *testing.T) {
 	rotateInterval := 1 * time.Second
 	sdsTest.RotateCert(rotateInterval)
@@ -32,6 +35,7 @@ func TestCertRotation(t *testing.T) {
 
 	setup.StartProxy(t)
 	start := time.Now()
+	numReq := 0
 	for {
 		code, _, err := env.HTTPGet(fmt.Sprintf("http://localhost:%d/echo", setup.OutboundListenerPort))
 		if err != nil {
@@ -40,9 +44,43 @@ func TestCertRotation(t *testing.T) {
 		if code != 200 {
 			t.Errorf("Unexpected status code: %d", code)
 		}
+		numReq++
 		if time.Since(start) > 2*rotateInterval {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
+	}
+
+	stats, err := setup.ProxySetup.GetStatsMap()
+	if err == nil {
+		numSSLHandshake := stats["cluster.outbound_cluster_tls.ssl.handshake"]
+		numSSLConnError := stats[fmt.Sprintf("listener.127.0.0.1_%d.ssl.connection_error", setup.InboundListenerPort)]
+		numSSLVerifyNoCert := stats[fmt.Sprintf("listener.127.0.0.1_%d.ssl.fail_verify_no_cert", setup.InboundListenerPort)]
+		numSSLVerifyCAError := stats[fmt.Sprintf("listener.127.0.0.1_%d.ssl.fail_verify_error", setup.InboundListenerPort)]
+		numOutboundSDSUpdate := stats["cluster.outbound_cluster_tls.client_ssl_socket_factory.ssl_context_update_by_sds"]
+		numInboundSDSUpdate := stats[fmt.Sprintf("listener.127.0.0.1_%d.server_ssl_socket_factory.ssl_context_update_by_sds", setup.InboundListenerPort)]
+		// Cluster config max_requests_per_connection is set to 1, the number of requests should match
+		// the number of SSL connections. This guarantees SSL connection is using the latest TLS key/cert loaded in Envoy.
+		if numSSLHandshake != uint64(numReq) {
+			t.Errorf("Number of successful SSL handshake does not match, expect %d but get %d", numReq, numSSLHandshake)
+		}
+		if numSSLConnError != 0 {
+			t.Errorf("Number of SSL connection error: %d", numSSLConnError)
+		}
+		if numSSLVerifyNoCert != 0 {
+			t.Errorf("Number of SSL handshake failures because of missing client cert: %d", numSSLVerifyNoCert)
+		}
+		if numSSLVerifyCAError != 0 {
+			t.Errorf("Number of SSL handshake failures on CA verification: %d", numSSLVerifyCAError)
+		}
+		// Verify that there are multiple SDS updates. TLS key/cert are loaded multiple times.
+		if numOutboundSDSUpdate <= 1 {
+			t.Errorf("Number of SDS updates at outbound cluster should be greater than one, get %d", numOutboundSDSUpdate)
+		}
+		if numInboundSDSUpdate <= 1 {
+			t.Errorf("Number of SDS updates at inbound listener should be greater than one, get %d", numInboundSDSUpdate)
+		}
+	} else {
+		t.Errorf("cannot get Envoy stats: %v", err)
 	}
 }

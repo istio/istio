@@ -54,6 +54,7 @@ func RotateCert(interval time.Duration) {
 type Env struct {
 	ProxySetup           *proxyEnv.TestSetup
 	OutboundListenerPort int
+	InboundListenerPort  int
 	// SDS server
 	SDSServer *sds.Server
 	// CA server
@@ -115,7 +116,7 @@ func SetupTest(t *testing.T, testID uint16) *Env {
 	proxySetup.EnvoyTemplate = string(getDataFromFile(istioEnv.IstioSrc+"/security/pkg/nodeagent/test/testdata/bootstrap.yaml", t))
 	env.ProxySetup = proxySetup
 	env.OutboundListenerPort = int(proxySetup.Ports().ClientProxyPort)
-
+	env.InboundListenerPort = int(proxySetup.Ports().ServerProxyPort)
 	env.DumpPortMap(t)
 	ca, err := caserver.NewCAServer(int(proxySetup.Ports().MixerPort))
 	if err != nil {
