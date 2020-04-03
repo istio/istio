@@ -17,7 +17,6 @@ package v2
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/tests/integration/mixer/outboundtrafficpolicy"
 )
 
@@ -26,7 +25,6 @@ func TestOutboundTrafficPolicy_AllowAny_TelemetryV2(t *testing.T) {
 		{
 			Name:     "HTTP Traffic",
 			PortName: "http",
-			Scheme:   scheme.HTTP,
 			Expected: outboundtrafficpolicy.Expected{
 				Metric:          "istio_requests_total",
 				PromQueryFormat: `sum(istio_requests_total{reporter="source",destination_service_name="PassthroughCluster",response_code="200"})`,
@@ -36,8 +34,15 @@ func TestOutboundTrafficPolicy_AllowAny_TelemetryV2(t *testing.T) {
 		{
 			Name:     "HTTPS Traffic",
 			PortName: "https",
-			// TODO: set up TLS here instead of just sending HTTP. We get a false positive here
-			Scheme: scheme.HTTP,
+			Expected: outboundtrafficpolicy.Expected{
+				Metric:          "istio_tcp_connections_opened_total",
+				PromQueryFormat: `sum(istio_tcp_connections_opened_total{reporter="source",destination_service_name="PassthroughCluster"})`,
+				ResponseCode:    []string{"200"},
+			},
+		},
+		{
+			Name:     "HTTPS Traffic Conflict",
+			PortName: "https-conflict",
 			Expected: outboundtrafficpolicy.Expected{
 				Metric:          "istio_tcp_connections_opened_total",
 				PromQueryFormat: `sum(istio_tcp_connections_opened_total{reporter="source",destination_service_name="PassthroughCluster"})`,
@@ -49,7 +54,6 @@ func TestOutboundTrafficPolicy_AllowAny_TelemetryV2(t *testing.T) {
 			PortName: "http",
 			Host:     "some-external-site.com",
 			Gateway:  true,
-			Scheme:   scheme.HTTP,
 			Expected: outboundtrafficpolicy.Expected{
 				Metric:          "istio_requests_total",
 				PromQueryFormat: `sum(istio_requests_total{reporter="source",destination_service_name="istio-egressgateway.istio-system.svc.cluster.local",response_code="200"})`, // nolint: lll
@@ -60,7 +64,15 @@ func TestOutboundTrafficPolicy_AllowAny_TelemetryV2(t *testing.T) {
 		{
 			Name:     "TCP",
 			PortName: "tcp",
-			Scheme:   scheme.TCP,
+			Expected: outboundtrafficpolicy.Expected{
+				Metric:          "istio_tcp_connections_closed_total",
+				PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="PassthroughCluster",source_workload="client-v1"})`,
+				ResponseCode:    []string{"200"},
+			},
+		},
+		{
+			Name:     "TCP Conflict",
+			PortName: "tcp",
 			Expected: outboundtrafficpolicy.Expected{
 				Metric:          "istio_tcp_connections_closed_total",
 				PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="PassthroughCluster",source_workload="client-v1"})`,

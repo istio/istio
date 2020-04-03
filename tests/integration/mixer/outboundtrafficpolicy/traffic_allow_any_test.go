@@ -16,8 +16,6 @@ package outboundtrafficpolicy
 
 import (
 	"testing"
-
-	"istio.io/istio/pkg/test/echo/common/scheme"
 )
 
 func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
@@ -25,7 +23,6 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 		{
 			Name:     "HTTP Traffic",
 			PortName: "http",
-			Scheme:   scheme.HTTP,
 			Expected: Expected{
 				Metric:          "istio_requests_total",
 				PromQueryFormat: `sum(istio_requests_total{reporter="source",destination_service_name="PassthroughCluster",response_code="200"})`,
@@ -35,8 +32,15 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 		{
 			Name:     "HTTPS Traffic",
 			PortName: "https",
-			// TODO: set up TLS here instead of just sending HTTP. We get a false positive here
-			Scheme: scheme.HTTP,
+			Expected: Expected{
+				Metric:          "istio_tcp_connections_opened_total",
+				PromQueryFormat: `sum(istio_tcp_connections_opened_total{reporter="source",destination_service_name="PassthroughCluster"})`,
+				ResponseCode:    []string{"200"},
+			},
+		},
+		{
+			Name:     "HTTPS Traffic Conflict",
+			PortName: "https-conflict",
 			Expected: Expected{
 				Metric:          "istio_tcp_connections_opened_total",
 				PromQueryFormat: `sum(istio_tcp_connections_opened_total{reporter="source",destination_service_name="PassthroughCluster"})`,
@@ -48,7 +52,6 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 			PortName: "http",
 			Host:     "some-external-site.com",
 			Gateway:  true,
-			Scheme:   scheme.HTTP,
 			Expected: Expected{
 				Metric:          "istio_requests_total",
 				PromQueryFormat: `sum(istio_requests_total{reporter="source",destination_service_name="istio-egressgateway",response_code="200"})`,
@@ -59,7 +62,15 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 		{
 			Name:     "TCP",
 			PortName: "tcp",
-			Scheme:   scheme.TCP,
+			Expected: Expected{
+				Metric:          "istio_tcp_connections_closed_total",
+				PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="destination",source_workload="client-v1",destination_workload="destination-v1"})`,
+				ResponseCode:    []string{"200"},
+			},
+		},
+		{
+			Name:     "TCP Conflict",
+			PortName: "tcp-conflict",
 			Expected: Expected{
 				Metric:          "istio_tcp_connections_closed_total",
 				PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="destination",source_workload="client-v1",destination_workload="destination-v1"})`,

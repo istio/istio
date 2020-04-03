@@ -30,7 +30,6 @@ import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -42,7 +41,6 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/structpath"
-	util "istio.io/istio/tests/integration/mixer"
 )
 
 const (
@@ -140,7 +138,6 @@ type TestCase struct {
 	PortName string
 	Host     string
 	Gateway  bool
-	Scheme   scheme.Instance
 	Expected Expected
 }
 
@@ -259,7 +256,6 @@ func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode 
 						resp, err := client.Call(echo.CallOptions{
 							Target:   dest,
 							PortName: tc.PortName,
-							Scheme:   tc.Scheme,
 							Headers: map[string][]string{
 								"Host": {tc.Host},
 							},
@@ -337,7 +333,7 @@ func setupEcho(t *testing.T, ctx resource.Context, mode TrafficPolicy) (echo.Ins
 					Protocol:     protocol.HTTPS,
 					ServicePort:  443,
 					InstancePort: 8443,
-					TLS: true,
+					TLS:          true,
 				},
 				{
 					// HTTPS port, there will be an HTTP service defined on this port that will match
@@ -359,12 +355,12 @@ func setupEcho(t *testing.T, ctx resource.Context, mode TrafficPolicy) (echo.Ins
 					ServicePort: 9091,
 				},
 			},
-		TLSSettings: &common.TLSSettings{
-			// Echo has these test certs baked into the docker image
-			RootCert:   mustReadCert(t, "cacert.pem"),
-			ClientCert: mustReadCert(t, "cert.crt"),
-			Key:        mustReadCert(t, "cert.key"),
-		},
+			TLSSettings: &common.TLSSettings{
+				// Echo has these test certs baked into the docker image
+				RootCert:   mustReadCert(t, "cacert.pem"),
+				ClientCert: mustReadCert(t, "cert.crt"),
+				Key:        mustReadCert(t, "cert.key"),
+			},
 		}).BuildOrFail(t)
 
 	// External traffic should work even if we have service entries on the same ports
