@@ -320,7 +320,7 @@ func TestInstallPackagePath(t *testing.T) {
 
 // This test enforces that objects that reference other objects do so properly, such as Service selecting deployment
 func TestConfigSelectors(t *testing.T) {
-	got, err := runManifestGenerate([]string{}, "")
+	got, err := runManifestGenerate([]string{}, "", true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -328,7 +328,7 @@ func TestConfigSelectors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gotRev, e := runManifestGenerate([]string{}, "--set revision=canary")
+	gotRev, e := runManifestGenerate([]string{}, "--set revision=canary", true)
 	if e != nil {
 		t.Fatal(e)
 	}
