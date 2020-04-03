@@ -524,7 +524,7 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 	// route.Route_DirectResponse is used for the BlackHole cluster configuration,
 	// hence adding the attributes for the mixer filter
 	case *route.Route_DirectResponse:
-		if virtualHostname == util.BlackHoleVirtualHost {
+		if virtualHostname == util.BlackHole {
 			hostname := host.Name(util.BlackHoleCluster)
 			attrs := addVirtualDestinationServiceAttributes(make(attributes), hostname)
 			addFilterConfigToRoute(in, httpRoute, attrs)

@@ -491,11 +491,11 @@ func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 		}
 
 		return &route.VirtualHost{
-			Name:    util.PassthroughVirtualHost,
+			Name:    util.Passthrough,
 			Domains: []string{"*"},
 			Routes: []*route.Route{
 				{
-					Name: util.PassthroughRouteName,
+					Name: util.Passthrough,
 					Match: &route.RouteMatch{
 						PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
 					},
@@ -516,11 +516,11 @@ func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 	}
 
 	return &route.VirtualHost{
-		Name:    util.BlackHoleVirtualHost,
+		Name:    util.BlackHole,
 		Domains: []string{"*"},
 		Routes: []*route.Route{
 			{
-				Name: util.BlackHoleRouteName,
+				Name: util.BlackHole,
 				Match: &route.RouteMatch{
 					PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
 				},
