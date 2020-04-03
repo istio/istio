@@ -285,60 +285,6 @@ message EnvoyMetricsConfig {
   TypeMapStringInterface tcpKeepalive = 5;
 }
 
-// GalleyConfig is a set of Configuration for Galley.
-message GalleyConfig {
-  // Controls whether Galley is enabled
-  google.protobuf.BoolValue enabled = 1;
-
-  // Image name used for Galley.
-  //
-  // This can be set either to image name if hub is also set in global.hub, or can be set to the full hub:name string.
-  //
-  // Examples: custom-galley, docker.io/someuser:custom-galley
-  string image = 2;
-
-  // TODO: Galley appears to use the mesh config - need to find which fields are used and need to be configured (https://github.com/istio/istio/issues/15865).
-  map<string, string> mesh = 3;
-
-  // See EgressGatewayConfig.
-  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 4 [deprecated=true];
-
-  // See EgressGatewayConfig.
-  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 5 [deprecated=true];
-
-  // Number of replicas in the Galley Deployment.
-  uint32 replicaCount = 6 [deprecated=true];
-
-  // K8s resources settings.
-  //
-  // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 7 [deprecated=true];
-
-  // Enable analysis and status update in Galley
-  google.protobuf.BoolValue enableAnalysis = 8;
-
-  // K8s rolling update strategy
-  TypeIntOrStringForPB rollingMaxSurge = 9 [deprecated=true];
-
-  // K8s rolling update strategy
-  TypeIntOrStringForPB rollingMaxUnavailable = 10 [deprecated=true];
-
-  TypeSliceOfMapStringInterface tolerations = 11 [deprecated=true];
-
-  google.protobuf.BoolValue enableServiceDiscovery = 12 [deprecated=true];
-
-  // K8s node selector.
-  //
-  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  TypeMapStringInterface nodeSelector = 13 [deprecated=true];
-
-  TypeMapStringInterface podAnnotations = 14 [deprecated=true];
-
-  string hub = 15;
-
-  TypeInterface tag = 16;
-}
-
 // GatewayLabelsConfig is a set of Configuration for gateway labels.
 message GatewayLabelsConfig {
   string app = 1;
@@ -601,7 +547,7 @@ message IstiodConfig {
   // If enabled, all control plane functionality will be handled by a single deployment.
   // Deprecated. This field is always ignored and assumed true.
   google.protobuf.BoolValue enabled = 1 [deprecated=true];
-  // If enabled, istiod will perform config analysis which was previously handled by galley.
+  // If enabled, istiod will perform config analysis
   google.protobuf.BoolValue enableAnalysis = 2;
 }
 
@@ -1948,8 +1894,6 @@ message Values {
   CNIConfig cni = 2;
 
   CoreDNSConfig istiocoredns = 3;
-
-  GalleyConfig galley = 4;
 
   GatewaysConfig gateways = 5;
 
