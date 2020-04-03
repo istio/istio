@@ -25,6 +25,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// Lint false positive
+// nolint: structcheck
 type basicPatch struct {
 	client       client.Client
 	patchBytes   []byte

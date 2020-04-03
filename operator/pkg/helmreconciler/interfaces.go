@@ -15,11 +15,12 @@
 package helmreconciler
 
 import (
-	"istio.io/api/operator/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/helm/pkg/manifest"
+
+	"istio.io/api/operator/v1alpha1"
 
 	"istio.io/istio/operator/pkg/name"
 )
