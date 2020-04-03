@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config/schema/resource"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -488,6 +489,35 @@ func (sc *SidecarScope) DependsOnDestinationRule(name string) bool {
 
 	_, exists := sc.destinationRuleDependencies[name]
 	return exists
+}
+
+// AddConfigDependencies add extra config dependencies to this scope. This action should be done before the
+// SidecarScope being used to avoid concurrent read/write.
+// Currently this method is used to prepare test data only.
+func (sc *SidecarScope) AddConfigDependencies(kind resource.GroupVersionKind, names ...string) {
+	switch kind {
+	case ServiceEntryKind:
+		if sc.serviceDependencies == nil {
+			sc.serviceDependencies = make(map[host.Name]struct{})
+		}
+		for _, name := range names {
+			sc.serviceDependencies[host.Name(name)] = struct{}{}
+		}
+	case VirtualServiceKind:
+		if sc.virtualServiceDependencies == nil {
+			sc.virtualServiceDependencies = make(map[string]struct{})
+		}
+		for _, name := range names {
+			sc.virtualServiceDependencies[name] = struct{}{}
+		}
+	case DestinationRuleKind:
+		if sc.destinationRuleDependencies == nil {
+			sc.destinationRuleDependencies = make(map[string]struct{})
+		}
+		for _, name := range names {
+			sc.destinationRuleDependencies[name] = struct{}{}
+		}
+	}
 }
 
 // Given a list of virtual services visible to this namespace,

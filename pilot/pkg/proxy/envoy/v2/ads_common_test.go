@@ -32,42 +32,13 @@ func TestProxyNeedsPush(t *testing.T) {
 		vsName      = "vs1"
 	)
 
-	pushResourceScopeBak := pushResourceScope
-	pushResourceScope = map[resource.GroupVersionKind]func(*model.Proxy, *XdsEvent, map[string]struct{}) bool{
-		model.ServiceEntryKind: func(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
-			_ = proxy
-			_ = pushEv
-			if len(resources) == 0 {
-				return true
-			}
-			_, f := resources[svcName]
-			return f
-		},
-		model.VirtualServiceKind: func(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
-			_ = proxy
-			_ = pushEv
-			if len(resources) == 0 {
-				return true
-			}
-			_, f := resources[vsName]
-			return f
-		},
-		model.DestinationRuleKind: func(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
-			_ = proxy
-			_ = pushEv
-			if len(resources) == 0 {
-				return true
-			}
-			_, f := resources[drName]
-			return f
-		},
-	}
-	defer func() {
-		pushResourceScope = pushResourceScopeBak
-	}()
-
-	sidecar := &model.Proxy{Type: model.SidecarProxy, IPAddresses: []string{"127.0.0.1"}}
+	sidecar := &model.Proxy{Type: model.SidecarProxy, IPAddresses: []string{"127.0.0.1"}, Metadata: &model.NodeMetadata{}, SidecarScope: &model.SidecarScope{}}
 	gateway := &model.Proxy{Type: model.Router}
+
+	sidecar.SidecarScope.AddConfigDependencies(model.ServiceEntryKind, svcName)
+	sidecar.SidecarScope.AddConfigDependencies(model.VirtualServiceKind, vsName)
+	sidecar.SidecarScope.AddConfigDependencies(model.DestinationRuleKind, drName)
+
 	cases := []struct {
 		name       string
 		proxy      *model.Proxy
