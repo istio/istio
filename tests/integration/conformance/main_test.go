@@ -39,11 +39,6 @@ func TestMain(m *testing.M) {
 		NewSuite("conformance_test", m).
 		RequireSingleCluster().
 		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
-			cfg.ControlPlaneValues = `
-components:
-  galley:
-    enabled: true
-`
 		})).
 		Run()
 }

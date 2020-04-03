@@ -268,7 +268,6 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./mixer/cmd/mixs \
   ./mixer/cmd/mixc \
   ./mixer/tools/mixgen \
-  ./galley/cmd/galley \
   ./security/cmd/node_agent \
   ./security/tools/sdsclient \
   ./pkg/test/echo/cmd/client \
@@ -277,7 +276,7 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./operator/cmd/operator
 
 # List of binaries included in releases
-RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen node_agent istioctl galley sdsclient
+RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen node_agent istioctl sdsclient
 
 .PHONY: build
 build: depend
