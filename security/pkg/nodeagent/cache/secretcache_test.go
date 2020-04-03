@@ -1090,10 +1090,6 @@ func convertToBytes(ss []string) []byte {
 }
 
 func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
-	testWorkloadAgentGenerateSecretFromFile(t)
-}
-
-func testWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0.1,
 		false)
 	opt := Options{
@@ -1177,5 +1173,33 @@ func testWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 	}
 	if retries == 3 {
 		t.Errorf("Unused secrets failed to be evicted from cache")
+	}
+}
+
+func TestShouldRotate(t *testing.T) {
+	now := time.Now()
+	secret := &model.SecretItem{
+		ResourceName: "Test-resource",
+		ExpireTime:   now.Add(time.Hour),
+		CreatedTime:  now.Add(-time.Hour),
+	}
+
+	options := &Options{SecretRotationGracePeriodRatio: 0.4}
+	sc := &SecretCache{configOptions: *options}
+	if sc.shouldRotate(secret) {
+		t.Errorf("Should not rotate: not in grace period.")
+	}
+
+	options.SecretRotationGracePeriodRatio = 0.6
+	sc = &SecretCache{configOptions: *options}
+	if !sc.shouldRotate(secret) {
+		t.Errorf("Should rotate: in grace period.")
+	}
+
+	secret.ExpireTime = now.Add(-time.Minute)
+	options.SecretRotationGracePeriodRatio = 0
+	sc = &SecretCache{configOptions: *options}
+	if !sc.shouldRotate(secret) {
+		t.Errorf("Should not rotate: passed the expiration.")
 	}
 }

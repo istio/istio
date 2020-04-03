@@ -9534,7 +9534,7 @@ func chartsIstioControlIstioAutoinjectNotesTxt() (*asset, error) {
 }
 
 var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`template: |
-  rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
+  rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe true }}
   initContainers:
   {{ if ne (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`NONE`+"`"+` }}
   {{ if .Values.istio_cni.enabled -}}
@@ -10751,7 +10751,7 @@ var _chartsIstioControlIstioAutoinjectValuesYaml = []byte(`sidecarInjectorWebhoo
   # If true, webhook or istioctl injector will rewrite PodSpec for liveness
   # health check to redirect request to sidecar. This makes liveness check work
   # even when mTLS is enabled.
-  rewriteAppHTTPProbe: false
+  rewriteAppHTTPProbe: true
 
   # If true, a self-signed CA will created in order to issue a certificate that
   # will be used to authenticate the workload respondible for handling
@@ -12063,7 +12063,7 @@ var _chartsIstioControlIstioDiscoveryFilesInjectionTemplateYaml = []byte(`# Conf
 # Istiod only uses SDS based config ( files will mapped/handled by SDS).
 
 template: |
-  rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
+  rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe true }}
   initContainers:
   {{ if ne (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`NONE`+"`"+` }}
   {{ if .Values.istio_cni.enabled -}}
@@ -13605,8 +13605,8 @@ spec:
       maxUnavailable: {{ .Values.pilot.rollingMaxUnavailable }}
   selector:
     matchLabels:
-      {{- if ne .Values.revision ""}}
       app: istiod
+      {{- if ne .Values.revision ""}}
       version: {{ .Values.revision }}
       {{- end }}
       istio: pilot
@@ -14148,7 +14148,6 @@ spec:
       {{- if ne .Values.revision ""}}
       version: {{ .Values.revision }}
       {{- end }}
-      release: {{ .Release.Name }}
       istio: pilot
 ---
 {{- end }}
@@ -31479,7 +31478,7 @@ spec:
 {{- $filename := trimSuffix (ext $path) (base $path) }}
       - name: dashboards-istio-{{ $filename }}
         configMap:
-          name:  istio-grafana-configuration-dashboards-{{ $filename }}
+          name: istio-grafana-configuration-dashboards-{{ $filename }}
 {{- end }}
 `)
 
@@ -31799,8 +31798,8 @@ func chartsIstioTelemetryGrafanaValuesYaml() (*asset, error) {
 var _chartsIstioTelemetryKialiChartYaml = []byte(`apiVersion: v1
 description: Kiali is an open source project for service mesh observability, refer to https://www.kiali.io for details.
 name: kiali
-version: 1.14.0
-appVersion: 1.14.0
+version: 1.15.0
+appVersion: 1.15.0
 tillerVersion: ">=2.7.2"
 `)
 
@@ -32152,6 +32151,8 @@ data:
 {{- end }}
     deployment:
       accessible_namespaces: ['**']
+    login_token:
+      signing_key: {{ randAlphaNum 10 | quote }}
     server:
       port: 20001
 {{- if .Values.kiali.contextPath }}
@@ -32167,11 +32168,15 @@ data:
         url: {{ .Values.kiali.dashboard.grafanaURL }}
         in_cluster_url: {{ .Values.kiali.dashboard.grafanaInClusterURL }}
       prometheus:
+{{- if .Values.kiali.prometheusAddr}}
+        url: {{ .Values.kiali.prometheusAddr}}
+{{- else }}
 {{- if .Values.global.prometheusNamespace }}
         url: http://prometheus.{{ .Values.global.prometheusNamespace }}:9090
 {{ else }}
         url: http://prometheus:9090
 {{- end }}
+{{- end}}
 {{- if .Values.kiali.security.enabled }}
     identity:
       cert_file: {{ .Values.kiali.security.cert_file }}
@@ -32416,7 +32421,7 @@ kiali:
   enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `+"`"+`true`+"`"+`.
   replicaCount: 1
   hub: quay.io/kiali
-  tag: v1.14
+  tag: v1.15
   image: kiali
   contextPath: /kiali # The root context path to access the Kiali UI.
   nodeSelector: {}
@@ -32493,6 +32498,7 @@ kiali:
 
   createDemoSecret: true # When true, a secret will be created with a default username and password. Useful for demos.
 
+  prometheusAddr: ""
   resources: {}
   security:
     enabled: false
@@ -40886,7 +40892,7 @@ spec:
     sidecarInjectorWebhook:
       image: sidecar_injector
       enableNamespacesByDefault: false
-      rewriteAppHTTPProbe: false
+      rewriteAppHTTPProbe: true
       selfSigned: false
       injectLabel: istio-injection
       objectSelector:
@@ -41021,7 +41027,7 @@ spec:
 
     kiali:
       hub: quay.io/kiali
-      tag: v1.14
+      tag: v1.15
       contextPath: /kiali
       nodeSelector: {}
       podAntiAffinityLabelSelector: []

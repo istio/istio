@@ -6370,6 +6370,7 @@ metadata:
 spec:
   selector:
     matchLabels:
+      app: istiod
       istio: pilot
   strategy:
     rollingUpdate:
@@ -6746,7 +6747,7 @@ data:
           "autoInject": true,
           "enabled": false
         },
-        "rewriteAppHTTPProbe": false,
+        "rewriteAppHTTPProbe": true,
         "selfSigned": false
       }
     }
@@ -6770,7 +6771,7 @@ data:
     # Istiod only uses SDS based config ( files will mapped/handled by SDS).
     
     template: |
-      rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
+      rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe true }}
       initContainers:
       {{ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
       {{ if .Values.istio_cni.enabled -}}
@@ -7288,7 +7289,6 @@ spec:
   selector:
     matchLabels:
       app: istiod
-      release: istio
       istio: pilot
 ---
 

@@ -14,6 +14,12 @@
     "value": {
       "name": "istio-proxy",
       "image": "example.com/proxy:latest",
+      "env": [
+        {
+          "name": "ISTIO_KUBE_APP_PROBERS",
+          "value": "{}"
+        }
+      ],
       "resources": {}
     }
   },

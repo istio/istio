@@ -564,7 +564,7 @@ spec:
     sidecarInjectorWebhook:
       image: sidecar_injector
       enableNamespacesByDefault: false
-      rewriteAppHTTPProbe: false
+      rewriteAppHTTPProbe: true
       selfSigned: false
       injectLabel: istio-injection
       objectSelector:
@@ -699,7 +699,7 @@ spec:
 
     kiali:
       hub: quay.io/kiali
-      tag: v1.14
+      tag: v1.15
       contextPath: /kiali
       nodeSelector: {}
       podAntiAffinityLabelSelector: []

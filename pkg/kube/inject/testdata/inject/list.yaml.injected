@@ -122,6 +122,8 @@ items:
             value: kubernetes://apis/apps/v1/namespaces/default/deployments/hello-v1
           - name: ISTIO_META_MESH_ID
             value: cluster.local
+          - name: ISTIO_KUBE_APP_PROBERS
+            value: '{}'
           image: gcr.io/istio-testing/proxyv2:latest
           imagePullPolicy: IfNotPresent
           name: istio-proxy
@@ -350,6 +352,8 @@ items:
             value: kubernetes://apis/apps/v1/namespaces/default/deployments/hello-v2
           - name: ISTIO_META_MESH_ID
             value: cluster.local
+          - name: ISTIO_KUBE_APP_PROBERS
+            value: '{}'
           image: gcr.io/istio-testing/proxyv2:latest
           imagePullPolicy: IfNotPresent
           name: istio-proxy

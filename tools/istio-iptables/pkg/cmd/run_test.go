@@ -479,11 +479,9 @@ func TestHandleInboundPortsIncludeWithInboundPortsAndTproxy(t *testing.T) {
 		"iptables -t mangle -A ISTIO_DIVERT -j ACCEPT",
 		"iptables -t mangle -A ISTIO_TPROXY ! -d 127.0.0.1/32 -p tcp -j TPROXY --tproxy-mark 1337/0xffffffff --on-port 15001",
 		"iptables -t mangle -A PREROUTING -p tcp -j ISTIO_INBOUND",
-		"iptables -t mangle -A ISTIO_INBOUND -p tcp --dport 32000 -m socket -j ISTIO_DIVERT",
-		"iptables -t mangle -A ISTIO_INBOUND -p tcp --dport 32000 -m socket -j ISTIO_DIVERT",
+		"iptables -t mangle -A ISTIO_INBOUND -p tcp --dport 32000 -m conntrack --ctstate RELATED,ESTABLISHED -j ISTIO_DIVERT",
 		"iptables -t mangle -A ISTIO_INBOUND -p tcp --dport 32000 -j ISTIO_TPROXY",
-		"iptables -t mangle -A ISTIO_INBOUND -p tcp --dport 31000 -m socket -j ISTIO_DIVERT",
-		"iptables -t mangle -A ISTIO_INBOUND -p tcp --dport 31000 -m socket -j ISTIO_DIVERT",
+		"iptables -t mangle -A ISTIO_INBOUND -p tcp --dport 31000 -m conntrack --ctstate RELATED,ESTABLISHED -j ISTIO_DIVERT",
 		"iptables -t mangle -A ISTIO_INBOUND -p tcp --dport 31000 -j ISTIO_TPROXY",
 	}
 	if !reflect.DeepEqual(ip4Rules, expectedIpv4Rules) {
@@ -513,7 +511,7 @@ func TestHandleInboundPortsIncludeWithWildcardInboundPortsAndTproxy(t *testing.T
 		"iptables -t mangle -A ISTIO_TPROXY ! -d 127.0.0.1/32 -p tcp -j TPROXY --tproxy-mark 1337/0xffffffff --on-port 15001",
 		"iptables -t mangle -A PREROUTING -p tcp -j ISTIO_INBOUND",
 		"iptables -t mangle -A ISTIO_INBOUND -p tcp --dport 22 -j RETURN",
-		"iptables -t mangle -A ISTIO_INBOUND -p tcp -m socket -j ISTIO_DIVERT",
+		"iptables -t mangle -A ISTIO_INBOUND -p tcp -m conntrack --ctstate RELATED,ESTABLISHED -j ISTIO_DIVERT",
 		"iptables -t mangle -A ISTIO_INBOUND -p tcp -j ISTIO_TPROXY",
 	}
 	if !reflect.DeepEqual(ip4Rules, expectedIpv4Rules) {

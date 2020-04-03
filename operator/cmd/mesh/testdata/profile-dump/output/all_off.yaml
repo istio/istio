@@ -496,7 +496,7 @@ spec:
         cert_file: /kiali-cert/cert-chain.pem
         enabled: false
         private_key_file: /kiali-cert/key.pem
-      tag: v1.14
+      tag: v1.15
     mixer:
       adapters:
         kubernetesenv:
@@ -601,7 +601,7 @@ spec:
       objectSelector:
         autoInject: true
         enabled: false
-      rewriteAppHTTPProbe: false
+      rewriteAppHTTPProbe: true
       selfSigned: false
     telemetry:
       enabled: true

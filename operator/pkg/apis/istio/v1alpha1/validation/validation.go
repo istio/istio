@@ -21,7 +21,6 @@ import (
 	"istio.io/api/operator/v1alpha1"
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -29,19 +28,21 @@ const (
 )
 
 // ValidateConfig  calls validation func for every defined element in Values
-func ValidateConfig(failOnMissingValidation bool, iopvalues map[string]interface{}, iopls *v1alpha1.IstioOperatorSpec) util.Errors {
+func ValidateConfig(failOnMissingValidation bool, iopvalues map[string]interface{},
+	iopls *v1alpha1.IstioOperatorSpec) (util.Errors, string) {
 	var validationErrors util.Errors
+	var warningMessage string
 	iopvalString := util.ToYAML(iopvalues)
 	values := &valuesv1alpha1.Values{}
 	if err := util.UnmarshalValuesWithJSONPB(iopvalString, values, true); err != nil {
-		return util.NewErrs(err)
+		return util.NewErrs(err), ""
 	}
 	validationErrors = util.AppendErrs(validationErrors, validateSubTypes(reflect.ValueOf(values).Elem(), failOnMissingValidation, values, iopls))
 	// TODO: change back to return err when have other validation cases, warning for automtls check only.
 	if err := validateFeatures(values, iopls).ToError(); err != nil {
-		log.Warnf("feature validation: %v", err.Error())
+		warningMessage = fmt.Sprintf("feature validation warning: %v\n", err.Error())
 	}
-	return validationErrors
+	return validationErrors, warningMessage
 }
 
 // validateFeatures check whether the config sematically make sense. For example, feature X and feature Y can't be enabled together.

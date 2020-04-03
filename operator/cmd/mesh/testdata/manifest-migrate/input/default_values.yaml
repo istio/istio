@@ -161,7 +161,7 @@ sidecarInjectorWebhook:
   rollingMaxUnavailable: 25%
   image: sidecar_injector
   enableNamespacesByDefault: false
-  rewriteAppHTTPProbe: false
+  rewriteAppHTTPProbe: true
   selfSigned: false
   nodeSelector: {}
   tolerations: []

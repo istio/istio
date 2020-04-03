@@ -122,6 +122,8 @@ spec:
           value: kubernetes://apis/apps/v1/namespaces/default/deployments/statusPort
         - name: ISTIO_META_MESH_ID
           value: cluster.local
+        - name: ISTIO_KUBE_APP_PROBERS
+          value: '{}'
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
