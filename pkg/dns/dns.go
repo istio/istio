@@ -86,8 +86,10 @@ type IstioDNS struct {
 }
 
 var (
-	// DNSAddr is the env controlling the DNS-over-TLS server.
+	// DNSAddr is the env controlling the DNS-over-TLS server in istiod.
 	// By default will be active, set to empty string to disable DNS functionality.
+	// Do not change in prod - it must match the Service. Used for testing or running
+	// on VMs.
 	DNSAddr = env.RegisterStringVar("DNS_ADDR", ":15053", "DNS listen address")
 
 	// DNSAgentAddr is the listener address on the agent.
@@ -104,6 +106,15 @@ var (
 	// For now any non-empty value will enable TLS in the agent - we may further customize
 	// the mode, for example specify DNS-HTTPS vs DNS-TLS
 	DNSTLSEnableAgent = env.RegisterStringVar("DNS_AGENT", "", "DNS-over-TLS upstream server")
+
+	// By default we use [discovery-address]:853
+	// If a secure DNS server is available - set this to point to the server.
+	// It is assumed that the server has certificates signed by Istio.
+	// TODO: add option to indicate the expected root CA, or use of public certs.
+	// TODO: also trust k8s and root CAs
+	// TODO: add https and grpc ( tcp-tls, https are the Net names used in miekg library )
+	DNSUpstream = env.RegisterStringVar("DNS_SERVER", "",
+		"Protocol and DNS server to use. Currently only tcp-tls: is supported.")
 
 	pendingTLS = monitoring.NewGauge(
 		"dns_tls_pending",
@@ -143,12 +154,13 @@ func InitDNS() *IstioDNS {
 	return h
 }
 
-// InitDNS will create the IstioDNS and initialize the client side:
+// InitDNS will create the IstioDNS and initialize the agent:
 // - /etc/resolv.conf will be parsed, and nameservers added to resolvConf list
-// - discoveryAddress is the XDS server address.
+// - discoveryAddress is the XDS server address, including port. The DNS-TLS server
+//   is by default on the same host, port 853 (standard).
 // - domain is the same as "--domain" passed to agent.
 func InitDNSAgent(discoveryAddress string, domain string, cert []byte, suffixes []string) *IstioDNS {
-	dnsTLSServer, _, err := net.SplitHostPort(discoveryAddress)
+	dnsTLSServer, discoveryPort, err := net.SplitHostPort(discoveryAddress)
 	if err != nil {
 		log.Errora("Invalid discovery address, defaulting ", discoveryAddress, " ", err)
 		dnsTLSServer = "istiod.istio-system.svc"
@@ -180,8 +192,14 @@ func InitDNSAgent(discoveryAddress string, domain string, cert []byte, suffixes 
 			if strings.HasPrefix(dnsTLSServer, "127.0.0.1") {
 				// test/debug
 				h.tlsClient.TLSConfig.ServerName = "istiod.istio-system.svc"
+				// preserve the port
+				h.tlsUpstream = dnsTLSServer + ":" + discoveryPort
+			} else if DNSUpstream.Get() != "" &&
+				strings.HasSuffix(DNSUpstream.Get(), "tcp-tls:") {
+				h.tlsUpstream = strings.TrimPrefix(DNSUpstream.Get(), "tcp-tls:")
+			} else {
+				h.tlsUpstream = dnsTLSServer + ":853"
 			}
-			h.tlsUpstream = dnsTLSServer + ":853"
 			// Maintain a connection to the TLS server.
 			h.openTLS()
 		}
@@ -220,7 +238,7 @@ func (h *IstioDNS) StartDNS(udpAddr string, tlsListener net.Listener) {
 		log.Warna("Failed to start DNS UDP", udpAddr, err)
 	}
 
-	log.Infoa("Started DNS", udpAddr)
+	log.Infoa("Started DNS ", udpAddr)
 	go func() {
 		err := h.server.ActivateAndServe()
 		if err != nil {
@@ -296,6 +314,7 @@ func (h *IstioDNS) ServeDNSTLS(w dns.ResponseWriter, r *dns.Msg) {
 	h.m.Lock()
 	h.outID++
 	key = h.outID
+	// The ID on the TLS connection is different from the one in the UDS.
 	r.MsgHdr.Id = h.outID
 	h.pending[h.outID] = ch
 	pendingTLS.Increment()
@@ -315,6 +334,7 @@ func (h *IstioDNS) ServeDNSTLS(w dns.ResponseWriter, r *dns.Msg) {
 		log.Infoa("DNS timeout, no TLS connection")
 		response = new(dns.Msg)
 		response.SetRcode(r, dns.RcodeServerFailure)
+		response.MsgHdr.Id = origID
 		_ = w.WriteMsg(response)
 		return
 	}
