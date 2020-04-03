@@ -162,9 +162,6 @@ sidecarInjectorWebhook:
     enabled: false
     autoInject: true
 
-galley:
-  enabled: false
-
 telemetry:
   enabled: true
   v1:
