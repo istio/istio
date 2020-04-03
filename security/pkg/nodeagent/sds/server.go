@@ -117,6 +117,9 @@ type Options struct {
 
 	// Existing certs, for VM or existing certificates
 	CertsDir string
+
+	// whether  ControlPlaneAuthPolicy is MUTUAL_TLS
+	TLSEnabled bool
 }
 
 // Server is the gPRC server that exposes SDS through UDS.
