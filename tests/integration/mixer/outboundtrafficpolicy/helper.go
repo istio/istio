@@ -231,16 +231,24 @@ func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode 
 	//    Metric is istio_requests_total i.e. HTTP
 	//
 	// 2. https case:
-	//    client ----> Hits listener 0.0.0.0_443
+	//    client ----> Hits no listener -> 0.0.0.0_150001 -> ALLOW_ANY/REGISTRY_ONLY
 	//    Metric is istio_tcp_connections_closed_total i.e. TCP
 	//
-	// 3. http_egress
+	// 3. https conflict case:
+	//    client ----> Hits listener 0.0.0.0_9443
+	//    Metric is istio_tcp_connections_closed_total i.e. TCP
+	//
+	// 4. http_egress
 	//    client ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
 	//      VS Routing (add Egress Header) --> Egress Gateway --> destination
 	//    Metric is istio_requests_total i.e. HTTP with destination as destination
 	//
-	// 4. TCP
-	//    client ---TCP request at port 9090----> Hits listener 0.0.0.0_9090 -> 0.0.0.0_150001 -> ALLOW_ANY/REGISTRY_ONLY
+	// 5. TCP
+	//    client ---TCP request at port 9090----> Matches no listener -> 0.0.0.0_150001 -> ALLOW_ANY/REGISTRY_ONLY
+	//    Metric is istio_tcp_connections_closed_total i.e. TCP
+	//
+	// 5. TCP conflict
+	//    client ---TCP request at port 9091 ----> Hits listener 0.0.0.0_9091 ->  ALLOW_ANY/REGISTRY_ONLY
 	//    Metric is istio_tcp_connections_closed_total i.e. TCP
 	//
 	framework.

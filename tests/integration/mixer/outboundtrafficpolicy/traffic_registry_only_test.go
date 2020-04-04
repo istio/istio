@@ -63,6 +63,7 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 			Name:     "TCP",
 			PortName: "tcp",
 			Expected: Expected{
+				// TODO(https://github.com/istio/istio/issues/22735) add metrics
 				Metric:          "",
 				PromQueryFormat: "",
 				ResponseCode:    []string{},
@@ -72,6 +73,7 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 			Name:     "TCP Conflict",
 			PortName: "tcp-conflict",
 			Expected: Expected{
+				// TODO(https://github.com/istio/istio/issues/22735) add metrics
 				Metric:          "",
 				PromQueryFormat: "",
 				ResponseCode:    []string{},
