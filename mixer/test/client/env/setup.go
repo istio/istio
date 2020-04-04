@@ -365,6 +365,28 @@ func (s *TestSetup) WaitForStatsUpdateAndGetStats(waitDuration int) (string, err
 	return respBody, nil
 }
 
+// GetStatsMap fetches Envoy stats with retry, and returns stats in a map.
+func (s *TestSetup) GetStatsMap() (map[string]uint64, error) {
+	delay := 200 * time.Millisecond
+	total := 3 * time.Second
+	var errGet error
+	var code int
+	var statsJSON string
+	for attempt := 0; attempt < int(total/delay); attempt++ {
+		statsURL := fmt.Sprintf("http://localhost:%d/stats?format=json&usedonly", s.Ports().AdminPort)
+		code, statsJSON, errGet = HTTPGet(statsURL)
+		if errGet != nil {
+			log.Printf("sending stats request returns an error: %v", errGet)
+		} else if code != 200 {
+			log.Printf("sending stats request returns unexpected status code: %d", code)
+		} else {
+			return s.unmarshalStats(statsJSON), nil
+		}
+		time.Sleep(delay)
+	}
+	return nil, fmt.Errorf("failed to get stats, err: %v, code: %d", errGet, code)
+}
+
 type statEntry struct {
 	Name  string      `json:"name"`
 	Value json.Number `json:"value"`

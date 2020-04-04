@@ -18,6 +18,7 @@ static_resources:
     type: STATIC
   - name: outbound_cluster_tls
     connect_timeout: 5s
+    max_requests_per_connection: 1
     hosts:
     - socket_address:
         address: 127.0.0.1

@@ -42,10 +42,19 @@ const (
 	jwtToken       = "thisisafakejwt"
 )
 
+var rotateCertInterval time.Duration
+
+// RotateCert forces cert to rotate at a specified interval for testing.
+// Setting this to 0 disables rotation.
+func RotateCert(interval time.Duration) {
+	rotateCertInterval = interval
+}
+
 // Env manages test setup and teardown.
 type Env struct {
 	ProxySetup           *proxyEnv.TestSetup
 	OutboundListenerPort int
+	InboundListenerPort  int
 	// SDS server
 	SDSServer *sds.Server
 	// CA server
@@ -107,7 +116,7 @@ func SetupTest(t *testing.T, testID uint16) *Env {
 	proxySetup.EnvoyTemplate = string(getDataFromFile(istioEnv.IstioSrc+"/security/pkg/nodeagent/test/testdata/bootstrap.yaml", t))
 	env.ProxySetup = proxySetup
 	env.OutboundListenerPort = int(proxySetup.Ports().ClientProxyPort)
-
+	env.InboundListenerPort = int(proxySetup.Ports().ServerProxyPort)
 	env.DumpPortMap(t)
 	ca, err := caserver.NewCAServer(int(proxySetup.Ports().MixerPort))
 	if err != nil {
@@ -163,16 +172,30 @@ func (e *Env) StartSDSServer(t *testing.T) {
 		UseCaClient: true,
 		CaClient:    caClient,
 	}
-	opt := cache.Options{
-		TrustDomain:      spiffe.GetTrustDomain(),
-		RotationInterval: 5 * time.Minute,
-	}
+	opt := e.cacheOptions(t)
 	workloadSecretCache := cache.NewSecretCache(secretFetcher, sds.NotifyProxy, opt)
 	sdsServer, err := sds.NewServer(serverOptions, workloadSecretCache, nil)
 	if err != nil {
 		t.Fatalf("failed to start SDS server: %+v", err)
 	}
 	e.SDSServer = sdsServer
+}
+
+func (e *Env) cacheOptions(t *testing.T) cache.Options {
+	// Default options does not rotate cert until cert expires after 1 hour.
+	opt := cache.Options{
+		SecretTTL:                      1 * time.Hour,
+		TrustDomain:                    spiffe.GetTrustDomain(),
+		RotationInterval:               5 * time.Minute,
+		SecretRotationGracePeriodRatio: 0,
+	}
+	if rotateCertInterval > 0 {
+		// Force cert rotation job to rotate cert.
+		opt.RotationInterval = rotateCertInterval
+		opt.SecretRotationGracePeriodRatio = 1.0
+	}
+	t.Logf("cache options: %+v", opt)
+	return opt
 }
 
 // waitForCAReady makes health check requests to gRPC healthcheck service at CA server.
