@@ -65,18 +65,20 @@ func TestOutboundTrafficPolicy_AllowAny_TelemetryV2(t *testing.T) {
 			Name:     "TCP",
 			PortName: "tcp",
 			Expected: outboundtrafficpolicy.Expected{
-				Metric:          "istio_tcp_connections_closed_total",
-				PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="PassthroughCluster",source_workload="client-v1"})`,
-				ResponseCode:    []string{"200"},
+				// TODO(https://github.com/istio/istio/issues/22717) re-enable TCP
+				//Metric:          "istio_tcp_connections_closed_total",
+				//PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="PassthroughCluster",source_workload="client-v1"})`,
+				ResponseCode: []string{"200"},
 			},
 		},
 		{
 			Name:     "TCP Conflict",
 			PortName: "tcp",
 			Expected: outboundtrafficpolicy.Expected{
-				Metric:          "istio_tcp_connections_closed_total",
-				PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="PassthroughCluster",source_workload="client-v1"})`,
-				ResponseCode:    []string{"200"},
+				// TODO(https://github.com/istio/istio/issues/22717) re-enable TCP
+				//Metric:          "istio_tcp_connections_closed_total",
+				//PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="PassthroughCluster",source_workload="client-v1"})`,
+				ResponseCode: []string{"200"},
 			},
 		},
 	}

@@ -63,18 +63,20 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 			Name:     "TCP",
 			PortName: "tcp",
 			Expected: Expected{
-				Metric:          "istio_tcp_connections_closed_total",
-				PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="destination",source_workload="client-v1",destination_workload="destination-v1"})`,
-				ResponseCode:    []string{"200"},
+				// TODO(https://github.com/istio/istio/issues/22717) re-enable TCP
+				//Metric:          "istio_tcp_connections_closed_total",
+				//PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="destination",source_workload="client-v1",destination_workload="destination-v1"})`,
+				ResponseCode: []string{"200"},
 			},
 		},
 		{
 			Name:     "TCP Conflict",
 			PortName: "tcp-conflict",
 			Expected: Expected{
-				Metric:          "istio_tcp_connections_closed_total",
-				PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="destination",source_workload="client-v1",destination_workload="destination-v1"})`,
-				ResponseCode:    []string{"200"},
+				// TODO(https://github.com/istio/istio/issues/22717) re-enable TCP
+				//Metric:          "istio_tcp_connections_closed_total",
+				//PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="destination",source_workload="client-v1",destination_workload="destination-v1"})`,
+				ResponseCode: []string{"200"},
 			},
 		},
 	}
