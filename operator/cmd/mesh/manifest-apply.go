@@ -23,10 +23,8 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"istio.io/api/operator/v1alpha1"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helmreconciler"
-	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
@@ -163,12 +161,15 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 		return err
 	}
 
-	kubeconfig, err := manifest.InitK8SRestClient(kubeConfigPath, context)
+	restConfig, clientSet, err := manifest.InitK8SRestClient(kubeConfigPath, context)
 	if err != nil {
 		return err
 	}
-
-	_, iops, err := GenerateConfig(inFilenames, ysf, force, kubeconfig, l)
+	client, err := client.New(restConfig, client.Options{Scheme: scheme.Scheme})
+	if err != nil {
+		return err
+	}
+	_, iops, err := GenerateConfig(inFilenames, ysf, force, restConfig, l)
 	if err != nil {
 		return err
 	}
@@ -182,21 +183,14 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 		return err
 	}
 
-	opts := &kubectlcmd.Options{
-		DryRun:      dryRun,
-		Verbose:     verbose,
-		Wait:        wait,
-		WaitTimeout: waitTimeout,
-		Kubeconfig:  kubeConfigPath,
-		Context:     context,
-	}
-
-	client, err := client.New(kubeconfig, client.Options{Scheme: scheme.Scheme})
-	if err != nil {
+	if err := manifest.CreateNamespace(iop.Namespace); err != nil {
 		return err
 	}
 
-	reconciler := helmreconciler.NewHelmReconciler(client, iop, &helmreconciler.Options{DryRun: dryRun})
+	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, &helmreconciler.Options{DryRun: dryRun, Logger: l})
+	if err != nil {
+		return err
+	}
 	if err := reconciler.Reconcile(); err != nil {
 		l.LogAndPrint("\n\n✘ Errors were logged during apply operation. Please check component installation logs above.\n")
 		return fmt.Errorf("errors were logged during apply operation")
@@ -207,7 +201,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 			l.LogAndPrintf("\n\n✘ Errors in manifest:\n%s\n", err)
 			return fmt.Errorf("errors during wait")
 		}
-		if err := manifest.WaitForResources(objs, opts); err != nil {
+		if err := manifest.WaitForResources(objs, clientSet, waitTimeout, dryRun); err != nil {
 			l.LogAndPrintf("\n\n✘ Errors during wait:\n%s\n", err)
 			return fmt.Errorf("errors during wait")
 		}
@@ -215,20 +209,15 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 
 	l.LogAndPrint("\n\n✔ Installation complete\n")
 
-	if err := saveClusterState(iops, crName, opts); err != nil {
-		l.LogAndPrintf("Failed to save install state in the cluster: %s", err)
+	// Save state to cluster in IstioOperator CR.
+	iopStr, err := translate.IOPStoIOPstr(iops, crName, iopv1alpha1.Namespace(iops))
+	obj, err := object.ParseYAMLToK8sObject([]byte(iopStr))
+	if err != nil {
+		return err
+	}
+	if err := reconciler.ProcessObject("", obj.UnstructuredObject()); err != nil {
 		return err
 	}
 
 	return nil
-}
-
-// saveClusterState stores the given IstioOperatorSpec in the cluster as an IstioOperator CR with the given name and
-// namespace.
-func saveClusterState(iops *v1alpha1.IstioOperatorSpec, name string, opts *kubectlcmd.Options) error {
-	iopStr, err := translate.IOPStoIOPstr(iops, name, iopv1alpha1.Namespace(iops))
-	if err != nil {
-		return fmt.Errorf("failed to apply manifest with kubectl client: %v", err)
-	}
-	return manifest.Apply(iopStr, opts)
 }

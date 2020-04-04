@@ -166,17 +166,17 @@ func MergeIOPSWithProfile(iop *valuesv1alpha1.IstioOperator) (*v1alpha1.IstioOpe
 }
 
 // ProcessManifest apply the manifest to create or update resources, returns the number of objects processed
-func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error) {
-	var errs []error
+func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (object.K8sObjects, error) {
+	var errs util.Errors
 	objAccessor, err := meta.Accessor(h.iop)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	crName := objAccessor.GetName() + "-" + manifest.Name
 	log.Infof("Processing resources from manifest: %s for CR %s", manifest.Name, crName)
 	allObjects, err := object.ParseK8sObjectsFromYAMLManifest(manifest.Content)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	objectCachesMu.Lock()
@@ -200,7 +200,7 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error
 	// No further locking required beyond this point, since we have a ptr to a cache corresponding to a CR crName and no
 	// other controller is allowed to work on at the same time.
 	var deployedObjects int
-	var changedObjects object.K8sObjects
+	var changedObjects, processedObjects object.K8sObjects
 	var changedObjectKeys []string
 	allObjectsMap := make(map[string]bool)
 
@@ -228,10 +228,10 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error
 		err = h.ProcessObject(manifest.Name, obj.UnstructuredObject())
 		if err != nil {
 			log.Error(err.Error())
-			errs = append(errs, err)
+			errs = util.AppendErr(errs, err)
 			continue
 		}
-		deployedObjects++
+		processedObjects = append(processedObjects, obj)
 		// Update the cache with the latest object.
 		objectCache.cache[obj.Hash()] = obj
 	}
@@ -248,7 +248,15 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error
 		delete(objectCache.cache, k)
 	}
 
-	return deployedObjects, utilerrors.NewAggregate(errs)
+	if len(errs) != 0 {
+		h.opts.Logger.LogAndPrintf("✘ Component %s installation had errors: \n%s\n", manifest.Name, util.ToString(errs.Dedup(), "\n"))
+		return processedObjects, errs.ToError()
+	}
+	if len(allObjects) != 0 {
+		h.opts.Logger.LogAndPrintf("✔ Component %s installed.", manifest.Name)
+	}
+
+	return processedObjects, nil
 }
 
 // ProcessObject creates or updates an object in the API server depending on whether it already exists.

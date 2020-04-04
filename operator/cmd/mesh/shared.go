@@ -36,9 +36,13 @@ func initLogsOrExit(args *rootArgs) {
 
 func configLogs(logToStdErr bool) error {
 	opt := log.DefaultOptions()
+	op := []string{"/dev/null"}
 	if logToStdErr {
-		opt.OutputPaths = []string{"stderr"}
+		op = []string{"stderr"}
 	}
+	opt.OutputPaths = op
+	opt.ErrorOutputPaths = op
+
 	return log.Configure(opt)
 }
 

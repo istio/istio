@@ -128,6 +128,7 @@ var (
 	kubectl          = kubectlcmd.New()
 
 	k8sRESTConfig     *rest.Config
+	k8sClientset      *kubernetes.Clientset
 	currentKubeconfig string
 	currentContext    string
 	// TODO: remove whitelist after : https://github.com/kubernetes/kubernetes/issues/66430
@@ -229,17 +230,17 @@ func ApplyAll(manifests name.ManifestMap, version pkgversion.Version, iop *v1alp
 		scope.Infof("- %s", c)
 	}
 	scope.Infof("Component dependencies tree: \n%s", installTreeString())
-	if _, err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
+	if _, _, err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
 		return nil, err
 	}
 	// Set up the namespace for installation
-	if err := createNamespace(iop.Namespace); err != nil {
+	if err := CreateNamespace(iop.Namespace); err != nil {
 		return nil, err
 	}
 	return applyRecursive(manifests, version, iop.Revision, opts)
 }
 
-func createNamespace(namespace string) error {
+func CreateNamespace(namespace string) error {
 	if namespace == "" {
 		// Setup default namespace
 		namespace = "istio-system"
@@ -265,7 +266,7 @@ func createNamespace(namespace string) error {
 
 // Apply applies all given manifest using kubectl client.
 func Apply(manifest string, opts *kubectlcmd.Options) error {
-	if _, err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
+	if _, _, err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
 		return err
 	}
 
@@ -302,7 +303,7 @@ func applyRecursive(manifests name.ManifestMap, version pkgversion.Version, revi
 			if len(componentDependencies[c]) > 0 {
 				no := *opts
 				no.WaitTimeout = internalDepTimeout
-				if err := WaitForResources(appliedObjects, &no); err != nil {
+				if err := WaitForResources(appliedObjects, k8sClientset, opts.WaitTimeout, opts.DryRun); err != nil {
 					scope.Errorf("Failed to wait for resource: %v", err)
 				}
 			}
@@ -316,7 +317,7 @@ func applyRecursive(manifests name.ManifestMap, version pkgversion.Version, revi
 	}
 	wg.Wait()
 	if opts.Wait {
-		return out, WaitForResources(allAppliedObjects, opts)
+		return out, WaitForResources(allAppliedObjects, k8sClientset, opts.WaitTimeout, opts.DryRun)
 	}
 	return out, nil
 }
@@ -417,7 +418,7 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version, revis
 	if err != nil {
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
-	if err := WaitForResources(nsObjects, &opts); err != nil {
+	if err := WaitForResources(nsObjects, k8sClientset, opts.WaitTimeout, opts.DryRun); err != nil {
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
 	appliedObjects = append(appliedObjects, nsObjects...)
@@ -492,7 +493,7 @@ func GetKubectlGetItems(stdoutGet string) ([]interface{}, error) {
 }
 
 func DeploymentExists(kubeconfig, context, namespace, name string) (bool, error) {
-	if _, err := InitK8SRestClient(kubeconfig, context); err != nil {
+	if _, _, err := InitK8SRestClient(kubeconfig, context); err != nil {
 		return false, err
 	}
 
@@ -708,21 +709,15 @@ func waitForCRDs(objects object.K8sObjects, stdout string, dryRun bool) error {
 
 // WaitForResources polls to get the current status of all pods, PVCs, and Services
 // until all are ready or a timeout is reached
-// TODO - plumb through k8s client and remove global `k8sRESTConfig`
-func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error {
-	if opts.DryRun {
+func WaitForResources(objects object.K8sObjects, cs *kubernetes.Clientset, waitTimeout time.Duration, dryRun bool) error {
+	if dryRun {
 		logAndPrint("Not waiting for resources ready in dry run mode.")
 		return nil
 	}
 
-	cs, err := kubernetes.NewForConfig(k8sRESTConfig)
-	if err != nil {
-		return fmt.Errorf("k8s client error: %s", err)
-	}
-
 	var notReady []string
 
-	errPoll := wait.Poll(2*time.Second, opts.WaitTimeout, func() (bool, error) {
+	errPoll := wait.Poll(2*time.Second, waitTimeout, func() (bool, error) {
 		pods := []v1.Pod{}
 		deployments := []deployment{}
 		namespaces := []v1.Namespace{}
@@ -810,7 +805,7 @@ func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error
 	})
 
 	if errPoll != nil {
-		msg := fmt.Sprintf("resources not ready after %v: %v\n%s", opts.WaitTimeout, errPoll, strings.Join(notReady, "\n"))
+		msg := fmt.Sprintf("resources not ready after %v: %v\n%s", waitTimeout, errPoll, strings.Join(notReady, "\n"))
 		return errors.New(msg)
 	}
 	return nil
@@ -898,18 +893,23 @@ func buildInstallTreeString(componentName name.ComponentName, prefix string, sb 
 	}
 }
 
-func InitK8SRestClient(kubeconfig, context string) (*rest.Config, error) {
+func InitK8SRestClient(kubeconfig, context string) (*rest.Config, *kubernetes.Clientset, error) {
 	var err error
 	if kubeconfig == currentKubeconfig && context == currentContext && k8sRESTConfig != nil {
-		return k8sRESTConfig, nil
+		return k8sRESTConfig, k8sClientset, nil
 	}
 	currentKubeconfig, currentContext = kubeconfig, context
 
 	k8sRESTConfig, err = defaultRestConfig(kubeconfig, context)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return k8sRESTConfig, nil
+	k8sClientset, err = kubernetes.NewForConfig(k8sRESTConfig)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return k8sRESTConfig, k8sClientset, nil
 }
 
 func defaultRestConfig(kubeconfig, configContext string) (*rest.Config, error) {
