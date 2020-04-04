@@ -224,6 +224,9 @@ func runManifestGenerate(iopStr string) (string, error) {
 		return "", err
 	}
 
+	// Since controller code is running locally, we can point to a local filesystem path.
+	iop.Spec.InstallPackagePath = filepath.Join(testDataDir, "data-snapshot")
+
 	testReconciler := helmreconciler.NewHelmReconciler(iop, nil, nil)
 
 	mm, err := testReconciler.RenderCharts(iop)

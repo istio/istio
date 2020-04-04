@@ -190,6 +190,8 @@ var (
 				log.Infof("Effective config: %s", out)
 			}
 
+			// If not set, set a default based on platform - podNamespace.svc.cluster.local for
+			// K8S
 			role.DNSDomain = getDNSDomain(podNamespace, role.DNSDomain)
 			log.Infof("Proxy role: %#v", role)
 

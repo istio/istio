@@ -22,7 +22,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	appEcho "istio.io/istio/pkg/test/echo/client"
@@ -77,7 +76,9 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 		return nil, errors.New("unable fo find GRPC command port")
 	}
 	c.grpcPort = uint16(grpcPort.InstancePort)
-	c.tls = cfg.TLSSettings
+	if grpcPort.TLS {
+		c.tls = cfg.TLSSettings
+	}
 
 	// Generate the service and deployment YAML.
 	serviceYAML, deploymentYAML, err := generateYAML(cfg)
@@ -122,16 +123,17 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 
 // getContainerPorts converts the ports to a port list of container ports.
 // Adds ports for health/readiness if necessary.
-func getContainerPorts(ports []echo.Port) model.PortList {
-	containerPorts := make(model.PortList, 0, len(ports))
-	var healthPort *model.Port
-	var readyPort *model.Port
+func getContainerPorts(ports []echo.Port) echoCommon.PortList {
+	containerPorts := make(echoCommon.PortList, 0, len(ports))
+	var healthPort *echoCommon.Port
+	var readyPort *echoCommon.Port
 	for _, p := range ports {
 		// Add the port to the set of application ports.
-		cport := &model.Port{
+		cport := &echoCommon.Port{
 			Name:     p.Name,
 			Protocol: p.Protocol,
 			Port:     p.InstancePort,
+			TLS:      p.TLS,
 		}
 		containerPorts = append(containerPorts, cport)
 
@@ -151,14 +153,14 @@ func getContainerPorts(ports []echo.Port) model.PortList {
 
 	// If we haven't added the readiness/health ports, do so now.
 	if readyPort == nil {
-		containerPorts = append(containerPorts, &model.Port{
+		containerPorts = append(containerPorts, &echoCommon.Port{
 			Name:     "http-readiness-port",
 			Protocol: protocol.HTTP,
 			Port:     httpReadinessPort,
 		})
 	}
 	if healthPort == nil {
-		containerPorts = append(containerPorts, &model.Port{
+		containerPorts = append(containerPorts, &echoCommon.Port{
 			Name:     "tcp-health-port",
 			Protocol: protocol.HTTP,
 			Port:     tcpHealthPort,

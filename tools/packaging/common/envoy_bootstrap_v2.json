@@ -296,7 +296,7 @@
               "endpoint": {
                 "address":{
                   "pipe": {
-                    "path": "/etc/istio/proxy/SDS"
+                    "path": "./etc/istio/proxy/SDS"
                   }
                 }
               }
