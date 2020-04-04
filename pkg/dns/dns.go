@@ -107,7 +107,7 @@ var (
 	// the mode, for example specify DNS-HTTPS vs DNS-TLS
 	DNSTLSEnableAgent = env.RegisterStringVar("DNS_AGENT", "", "DNS-over-TLS upstream server")
 
-	// By default we use [discovery-address]:853
+	// DNSUpstream allows overriding the upstream server. By default we use [discovery-address]:853
 	// If a secure DNS server is available - set this to point to the server.
 	// It is assumed that the server has certificates signed by Istio.
 	// TODO: add option to indicate the expected root CA, or use of public certs.
