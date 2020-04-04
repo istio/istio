@@ -257,7 +257,10 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	// common https server for webhooks (e.g. injection, validation)
 	if err := s.initHTTPSWebhookServer(args); err != nil {
-		return nil, fmt.Errorf("injectionWebhook server: %v", err)
+		// Not crashing istiod - existing pods will keep working, new pods
+		// may fail if all webhook injectors are down.
+		// This typically happens if certs are missing.
+		log.Errorf("failed to start injectionWebhook server: %v", err)
 	}
 
 	// Will run the sidecar injector in pilot.

@@ -153,7 +153,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		IngressClass:                "istio",
 		TrustDomain:                 "cluster.local",
 		TrustDomainAliases:          []string{},
-		SdsUdsPath:                  "unix:/etc/istio/proxy/SDS",
+		SdsUdsPath:                  "unix:./etc/istio/proxy/SDS",
 		EnableAutoMtls:              &types.BoolValue{Value: true},
 		OutboundTrafficPolicy:       &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},
 		LocalityLbSetting: &v1alpha3.LocalityLoadBalancerSetting{
