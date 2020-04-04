@@ -95,7 +95,8 @@ var (
 	TestMode = false
 )
 
-// DefaultMeshConfig configuration
+// DefaultMeshConfig returns the default mesh config.
+// This is merged with values from the mesh config map.
 func DefaultMeshConfig() meshconfig.MeshConfig {
 	proxyConfig := DefaultProxyConfig()
 	if TestMode {

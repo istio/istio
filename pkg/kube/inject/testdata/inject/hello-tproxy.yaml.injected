@@ -75,7 +75,7 @@ spec:
               fieldPath: status.hostIP
         - name: MESH_CONFIG
           value: |
-            {"defaultConfig":{"interceptionMode":"TPROXY"}}
+            {"defaultConfig":{"concurrency":2,"interceptionMode":"TPROXY","tracing":{"zipkin":{"address":"zipkin.istio-system:9411"}}}}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
@@ -177,6 +177,8 @@ spec:
           runAsGroup: 0
           runAsNonRoot: false
           runAsUser: 0
+      securityContext:
+        fsGroup: 1337
       volumes:
       - emptyDir:
           medium: Memory

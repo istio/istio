@@ -18158,11 +18158,11 @@ data:
     # TODO (lei-tang): we'll decide whether enable it by default or not before Istio 1.4 Release.
     certificates:
       []
+    #
+    # TCP connection timeout between Envoy & the application, and between Envoys.
+    connectTimeout: 10s
 
     defaultConfig:
-      #
-      # TCP connection timeout between Envoy & the application, and between Envoys.
-      connectTimeout: 10s
       #
       ### ADVANCED SETTINGS #############
       # Where should envoy's configuration be stored in the istio-proxy container
@@ -20457,11 +20457,11 @@ var _chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml = []byte(`{{- define
     # TODO (lei-tang): we'll decide whether enable it by default or not before Istio 1.4 Release.
     certificates:
 {{ toYaml .Values.global.certificates | trim | indent 6 }}
+    #
+    # TCP connection timeout between Envoy & the application, and between Envoys.
+    connectTimeout: 10s
 
     defaultConfig:
-      #
-      # TCP connection timeout between Envoy & the application, and between Envoys.
-      connectTimeout: 10s
       #
       ### ADVANCED SETTINGS #############
       # Where should envoy's configuration be stored in the istio-proxy container
