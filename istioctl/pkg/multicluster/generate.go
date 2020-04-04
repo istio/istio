@@ -38,17 +38,6 @@ import (
 
 // defaults the user can override
 func defaultControlPlane() (*operatorV1alpha1.IstioOperator, error) {
-	typedValues := &operatorV1alpha1.Values{
-		Security: &operatorV1alpha1.SecurityConfig{
-			SelfSigned: &types.BoolValue{Value: false},
-		},
-	}
-
-	typedValuesJSON, err := protomarshal.ToJSONMap(typedValues)
-	if err != nil {
-		return nil, err
-	}
-
 	return &operatorV1alpha1.IstioOperator{
 		Kind:       "IstioOperator",
 		ApiVersion: "install.istio.io/v1alpha1",
@@ -57,7 +46,6 @@ func defaultControlPlane() (*operatorV1alpha1.IstioOperator, error) {
 		},
 		Spec: &iop.IstioOperatorSpec{
 			Profile: "default",
-			Values:  typedValuesJSON,
 		},
 	}, nil
 }
