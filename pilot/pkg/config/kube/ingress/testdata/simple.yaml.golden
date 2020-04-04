@@ -81,4 +81,40 @@ spec:
         port:
           number: 4205
       weight: 100
+  - match:
+    - uri:
+        exact: /sub/path
+    route:
+    - destination:
+        host: service1.ns.svc.mydomain
+        port:
+          number: 4206
+      weight: 100
+  - match:
+    - uri:
+        exact: /sub/path/
+    route:
+    - destination:
+        host: service1.ns.svc.mydomain
+        port:
+          number: 4207
+      weight: 100
+  - match:
+    - uri:
+        prefix: /sub/path/
+    route:
+    - destination:
+        host: service1.ns.svc.mydomain
+        port:
+          number: 4208
+      weight: 100
+  - match:
+    - uri:
+        prefix: /sub/path/
+    route:
+    - destination:
+        host: service1.ns.svc.mydomain
+        port:
+          number: 4209
+      weight: 100
 ---
