@@ -72,7 +72,7 @@ func getForNamespace(ns string, actuals []*SnapshotObject) (result []*SnapshotOb
 
 // NewGoldenSnapshotValidator creates a SnapshotValidatorFunc that tests for equivalence against
 // a set of golden object.
-func NewGoldenSnapshotValidator(ns string, goldens []map[string]interface{}) SnapshotValidatorFunc {
+func NewGoldenSnapshotValidator(goldens []map[string]interface{}) SnapshotValidatorFunc {
 	return func(actuals []*SnapshotObject) error {
 		// Convert goldens to a map of JSON objects indexed by name.
 		goldenMap := make(map[string]interface{})

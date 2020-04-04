@@ -31,9 +31,10 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
-	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
+
+	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 
 	"github.com/google/uuid"
 )
@@ -129,6 +130,9 @@ type Options struct {
 
 	// Whether to generate PKCS#8 private keys.
 	Pkcs8Keys bool
+
+	// OutputKeyCertToDir is the directory for output the key and certificate
+	OutputKeyCertToDir string
 }
 
 // SecretManager defines secrets management interface which is used by SDS.
@@ -570,7 +574,6 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 		// Re-generate secret if it's expired.
 		if sc.shouldRotate(&secret) {
 			atomic.AddUint64(&sc.secretChangedCount, 1)
-
 			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
 			if sc.isTokenExpired() {
 				cacheLog.Debugf("%s token expired", logPrefix)
@@ -590,6 +593,13 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 				ns, err := sc.generateSecret(context.Background(), secret.Token, connKey, now)
 				if err != nil {
 					cacheLog.Errorf("%s failed to rotate secret: %v", logPrefix, err)
+					return
+				}
+				// Output the key and cert to dir to make sure key and cert are rotated.
+				if err = nodeagentutil.OutputKeyCertToDir(sc.configOptions.OutputKeyCertToDir, ns.PrivateKey,
+					ns.CertificateChain, ns.RootCert); err != nil {
+					cacheLog.Errorf("(%v) error when output the key and cert: %v",
+						connKey, err)
 					return
 				}
 

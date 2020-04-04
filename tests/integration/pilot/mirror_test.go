@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/integration/pilot/outboundtrafficpolicy"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/test/framework/resource/environment"
@@ -35,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/tests/integration/mixer/outboundtrafficpolicy"
 )
 
 //	Virtual service topology

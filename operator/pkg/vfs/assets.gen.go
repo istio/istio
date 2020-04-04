@@ -4753,6 +4753,18 @@ spec:
                       maxAge:
                         type: string
                     type: object
+                  delegate:
+                    properties:
+                      name:
+                        description: Name specifies the name of the delegate VirtualService.
+                        format: string
+                        type: string
+                      namespace:
+                        description: Namespace specifies the namespace where the delegate
+                          VirtualService resides.
+                        format: string
+                        type: string
+                    type: object
                   fault:
                     description: Fault injection policy to apply on HTTP traffic at
                       the client side.
@@ -11503,6 +11515,18 @@ spec:
                           type: string
                         type: array
                       maxAge:
+                        type: string
+                    type: object
+                  delegate:
+                    properties:
+                      name:
+                        description: Name specifies the name of the delegate VirtualService.
+                        format: string
+                        type: string
+                      namespace:
+                        description: Namespace specifies the namespace where the delegate
+                          VirtualService resides.
+                        format: string
                         type: string
                     type: object
                   fault:
@@ -20636,7 +20660,9 @@ spec:
       labels:
         app: istiod
         istio.io/rev: {{ .Values.revision | default "default" }}
+        {{- if eq .Values.revision ""}}
         istio: pilot
+        {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
         {{- if .Values.pilot.podAnnotations }}
@@ -20974,9 +21000,10 @@ spec:
     matchLabels:
       app: istiod
       {{- if ne .Values.revision ""}}
-      version: {{ .Values.revision }}
-      {{- end }}
+      istio.io/rev: {{ .Values.revision }}
+      {{- else }}
       istio: pilot
+      {{- end }}
 ---
 {{- end }}
 `)

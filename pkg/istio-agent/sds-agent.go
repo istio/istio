@@ -179,6 +179,9 @@ type SDSAgent struct {
 
 	// If set, this is the Citadel client, used to retrieve certificates.
 	CitadelClient caClientInterface.Client
+
+	// CAEndpoint is the CA endpoint to which node agent sends CSR request.
+	CAEndpoint string
 }
 
 // NewSDSAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -233,6 +236,12 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 
 	ac.SDSAddress = "unix:" + LocalSDS
 
+	ac.CAEndpoint = caEndpointEnv
+	if caEndpointEnv == "" {
+		// if not set, we will fallback to the discovery address
+		ac.CAEndpoint = discAddr
+	}
+
 	if tlsRequired {
 		ac.RequireCerts = true
 	}
@@ -269,6 +278,8 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 	serverOptions.CertsDir = conf.CertsPath
 	serverOptions.JWTPath = conf.JWTPath
 	serverOptions.OutputKeyCertToDir = conf.OutputKeyCertToDir
+	serverOptions.CAEndpoint = conf.CAEndpoint
+	serverOptions.TLSEnabled = conf.RequireCerts
 
 	// TODO: remove the caching, workload has a single cert
 	workloadSecretCache, _ := conf.newSecretCache(serverOptions)
@@ -312,7 +323,7 @@ func (conf *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretC
 	var err error
 
 	// TODO: this should all be packaged in a plugin, possibly with optional compilation.
-
+	log.Infof("serverOptions.CAEndpoint == %v", serverOptions.CAEndpoint)
 	if (serverOptions.CAProviderName == "GoogleCA" || strings.Contains(serverOptions.CAEndpoint, "googleapis.com")) &&
 		stsclient.GKEClusterURL != "" {
 		// Use a plugin to an external CA - this has direct support for the K8S JWT token
@@ -372,7 +383,7 @@ func (conf *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretC
 			if strings.HasSuffix(serverOptions.CAEndpoint, ":15010") {
 				log.Warna("Debug mode or IP-secure network")
 				tls = false
-			} else if strings.HasSuffix(serverOptions.CAEndpoint, ":15012") {
+			} else if serverOptions.TLSEnabled {
 				if serverOptions.PilotCertProvider == "istiod" {
 					log.Info("istiod uses self-issued certificate")
 					if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)); err != nil {
@@ -430,6 +441,7 @@ func (conf *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretC
 	workloadSdsCacheOptions.TrustDomain = serverOptions.TrustDomain
 	workloadSdsCacheOptions.Pkcs8Keys = serverOptions.Pkcs8Keys
 	workloadSdsCacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
+	workloadSdsCacheOptions.OutputKeyCertToDir = serverOptions.OutputKeyCertToDir
 	workloadSecretCache = cache.NewSecretCache(ret, sds.NotifyProxy, workloadSdsCacheOptions)
 	conf.WorkloadSecrets = workloadSecretCache
 	return
@@ -464,7 +476,6 @@ func applyEnvVars() {
 
 	serverOptions.EnableIngressGatewaySDS = enableIngressGatewaySDSEnv
 	serverOptions.CAProviderName = caProviderEnv
-	serverOptions.CAEndpoint = caEndpointEnv
 	serverOptions.TrustDomain = trustDomainEnv
 	serverOptions.Pkcs8Keys = pkcs8KeysEnv
 	serverOptions.RecycleInterval = staledConnectionRecycleIntervalEnv
@@ -474,4 +485,8 @@ func applyEnvVars() {
 	workloadSdsCacheOptions.InitialBackoffInMilliSec = int64(initialBackoffInMilliSecEnv)
 	// Disable the secret eviction for istio agent.
 	workloadSdsCacheOptions.EvictionDuration = 0
+	if citadel.ProvCert != "" {
+		workloadSdsCacheOptions.AlwaysValidTokenFlag = true
+	}
+	workloadSdsCacheOptions.OutputKeyCertToDir = serverOptions.OutputKeyCertToDir
 }

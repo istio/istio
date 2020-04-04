@@ -268,7 +268,6 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./mixer/cmd/mixs \
   ./mixer/cmd/mixc \
   ./mixer/tools/mixgen \
-  ./galley/cmd/galley \
   ./security/cmd/node_agent \
   ./security/tools/sdsclient \
   ./pkg/test/echo/cmd/client \
@@ -277,7 +276,7 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./operator/cmd/operator
 
 # List of binaries included in releases
-RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen node_agent istioctl galley sdsclient
+RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen node_agent istioctl sdsclient
 
 .PHONY: build
 build: depend
@@ -383,10 +382,6 @@ ${ISTIO_OUT}/release/istioctl-osx: depend
 ${ISTIO_OUT}/release/istioctl-win.exe: depend
 	STATIC=0 GOOS=windows LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 
-# legacy istioctl-linux (duplicate of istioctl-linux-amd64) remaining until istio/release-builder is updated, at which point it can be removed
-${ISTIO_OUT}/release/istioctl-linux: depend
-	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
-
 # generate the istioctl completion files
 ${ISTIO_OUT}/release/istioctl.bash: istioctl
 	${LOCAL_OUT}/istioctl collateral --bash && \
@@ -401,12 +396,10 @@ binaries-test:
 	go test ${GOBUILDFLAGS} ./tests/binary/... -v --base-dir ${ISTIO_OUT} --binaries="$(RELEASE_BINARIES)"
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
-# legacy istioctl-linux (duplicate of istioctl-linux-amd64) remaining until istio/release-builder is updated, at which point it can be removed
 .PHONY: istioctl-all
 istioctl-all: ${ISTIO_OUT}/release/istioctl-linux-amd64 ${ISTIO_OUT}/release/istioctl-linux-armv7 ${ISTIO_OUT}/release/istioctl-linux-arm64 \
 	${ISTIO_OUT}/release/istioctl-osx \
-	${ISTIO_OUT}/release/istioctl-win.exe \
-	${ISTIO_OUT}/release/istioctl-linux
+	${ISTIO_OUT}/release/istioctl-win.exe
 
 .PHONY: istioctl.completion
 istioctl.completion: ${ISTIO_OUT}/release/istioctl.bash ${ISTIO_OUT}/release/_istioctl

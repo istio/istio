@@ -17,20 +17,22 @@ package v1alpha3
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
 
-	envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/wrappers"
-
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	apiv2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	envoyEndpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	"github.com/golang/protobuf/ptypes/wrappers"
+	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -545,6 +547,11 @@ func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig mesh
 	env.PushContext = model.NewPushContext()
 	_ = env.PushContext.InitContext(env, nil, nil)
 
+	return env
+}
+
+func withClusterLocalNamespaces(env *model.Environment, ns ...string) *model.Environment { // nolint:interfacer
+	env.Mesh().ClusterLocalNamespaces = ns
 	return env
 }
 
@@ -1448,9 +1455,9 @@ func TestGatewayLocalityLB(t *testing.T) {
 }
 
 func TestBuildLocalityLbEndpoints(t *testing.T) {
-	g := NewGomegaWithT(t)
-	serviceDiscovery := &fakes.ServiceDiscovery{}
-
+	proxy := &model.Proxy{
+		ClusterID: "cluster-1",
+	}
 	servicePort := &model.Port{
 		Name:     "default",
 		Port:     8080,
@@ -1462,63 +1469,251 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 		ClusterVIPs: make(map[string]string),
 		Ports:       model.PortList{servicePort},
 		Resolution:  model.DNSLB,
-	}
-	instances := []*model.ServiceInstance{
-		{
-			Service:     service,
-			ServicePort: servicePort,
-			Endpoint: &model.IstioEndpoint{
-				Address:      "192.168.1.1",
-				EndpointPort: 10001,
-				Locality: model.Locality{
-					ClusterID: "",
-					Label:     "region1/zone1/subzone1",
-				},
-				LbWeight: 30,
-			},
-		},
-		{
-			Service:     service,
-			ServicePort: servicePort,
-			Endpoint: &model.IstioEndpoint{
-				Address:      "192.168.1.2",
-				EndpointPort: 10001,
-				Locality: model.Locality{
-					ClusterID: "",
-					Label:     "region1/zone1/subzone1",
-				},
-				LbWeight: 30,
-			},
-		},
-		{
-			Service:     service,
-			ServicePort: servicePort,
-			Endpoint: &model.IstioEndpoint{
-				Address:      "192.168.1.3",
-				EndpointPort: 10001,
-				Locality: model.Locality{
-					ClusterID: "",
-					Label:     "region2/zone1/subzone1",
-				},
-				LbWeight: 40,
-			},
+		Attributes: model.ServiceAttributes{
+			Name:      "TestService",
+			Namespace: "test-ns",
 		},
 	}
 
-	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
-	serviceDiscovery.InstancesByPortReturns(instances, nil)
+	emptyMetadata := &core.Metadata{
+		FilterMetadata: make(map[string]*structpb.Struct),
+	}
 
-	configStore := &fakes.IstioConfigStore{}
-	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
+	cases := []struct {
+		name      string
+		newEnv    func(model.ServiceDiscovery, model.IstioConfigStore) *model.Environment
+		instances []*model.ServiceInstance
+		expected  []*envoyEndpoint.LocalityLbEndpoints
+	}{
+		{
+			name: "basics",
+			newEnv: func(sd model.ServiceDiscovery, cs model.IstioConfigStore) *model.Environment {
+				return newTestEnvironment(sd, testMesh, cs)
+			},
+			instances: []*model.ServiceInstance{
+				{
+					Service:     service,
+					ServicePort: servicePort,
+					Endpoint: &model.IstioEndpoint{
+						Address:      "192.168.1.1",
+						EndpointPort: 10001,
+						Locality: model.Locality{
+							ClusterID: "cluster-1",
+							Label:     "region1/zone1/subzone1",
+						},
+						LbWeight: 30,
+					},
+				},
+				{
+					Service:     service,
+					ServicePort: servicePort,
+					Endpoint: &model.IstioEndpoint{
+						Address:      "192.168.1.2",
+						EndpointPort: 10001,
+						Locality: model.Locality{
+							ClusterID: "cluster-2",
+							Label:     "region1/zone1/subzone1",
+						},
+						LbWeight: 30,
+					},
+				},
+				{
+					Service:     service,
+					ServicePort: servicePort,
+					Endpoint: &model.IstioEndpoint{
+						Address:      "192.168.1.3",
+						EndpointPort: 10001,
+						Locality: model.Locality{
+							ClusterID: "cluster-3",
+							Label:     "region2/zone1/subzone1",
+						},
+						LbWeight: 40,
+					},
+				},
+			},
+			expected: []*envoyEndpoint.LocalityLbEndpoints{
+				{
+					Locality: &core.Locality{
+						Region:  "region1",
+						Zone:    "zone1",
+						SubZone: "subzone1",
+					},
+					LoadBalancingWeight: &wrappers.UInt32Value{
+						Value: 60,
+					},
+					LbEndpoints: []*envoyEndpoint.LbEndpoint{
+						{
+							HostIdentifier: &envoyEndpoint.LbEndpoint_Endpoint{
+								Endpoint: &envoyEndpoint.Endpoint{
+									Address: &core.Address{
+										Address: &core.Address_SocketAddress{
+											SocketAddress: &core.SocketAddress{
+												Address: "192.168.1.1",
+												PortSpecifier: &core.SocketAddress_PortValue{
+													PortValue: 10001,
+												},
+											},
+										},
+									},
+								},
+							},
+							Metadata: emptyMetadata,
+							LoadBalancingWeight: &wrappers.UInt32Value{
+								Value: 30,
+							},
+						},
+						{
+							HostIdentifier: &envoyEndpoint.LbEndpoint_Endpoint{
+								Endpoint: &envoyEndpoint.Endpoint{
+									Address: &core.Address{
+										Address: &core.Address_SocketAddress{
+											SocketAddress: &core.SocketAddress{
+												Address: "192.168.1.2",
+												PortSpecifier: &core.SocketAddress_PortValue{
+													PortValue: 10001,
+												},
+											},
+										},
+									},
+								},
+							},
+							Metadata: emptyMetadata,
+							LoadBalancingWeight: &wrappers.UInt32Value{
+								Value: 30,
+							},
+						},
+					},
+				},
+				{
+					Locality: &core.Locality{
+						Region:  "region2",
+						Zone:    "zone1",
+						SubZone: "subzone1",
+					},
+					LoadBalancingWeight: &wrappers.UInt32Value{
+						Value: 40,
+					},
+					LbEndpoints: []*envoyEndpoint.LbEndpoint{
+						{
+							HostIdentifier: &envoyEndpoint.LbEndpoint_Endpoint{
+								Endpoint: &envoyEndpoint.Endpoint{
+									Address: &core.Address{
+										Address: &core.Address_SocketAddress{
+											SocketAddress: &core.SocketAddress{
+												Address: "192.168.1.3",
+												PortSpecifier: &core.SocketAddress_PortValue{
+													PortValue: 10001,
+												},
+											},
+										},
+									},
+								},
+							},
+							Metadata: emptyMetadata,
+							LoadBalancingWeight: &wrappers.UInt32Value{
+								Value: 40,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "cluster local",
+			newEnv: func(sd model.ServiceDiscovery, cs model.IstioConfigStore) *model.Environment {
+				return withClusterLocalNamespaces(newTestEnvironment(sd, testMesh, cs), "test-ns")
+			},
+			instances: []*model.ServiceInstance{
+				{
+					Service:     service,
+					ServicePort: servicePort,
+					Endpoint: &model.IstioEndpoint{
+						Address:      "192.168.1.1",
+						EndpointPort: 10001,
+						Locality: model.Locality{
+							ClusterID: "cluster-1",
+							Label:     "region1/zone1/subzone1",
+						},
+						LbWeight: 30,
+					},
+				},
+				{
+					Service:     service,
+					ServicePort: servicePort,
+					Endpoint: &model.IstioEndpoint{
+						Address:      "192.168.1.2",
+						EndpointPort: 10001,
+						Locality: model.Locality{
+							ClusterID: "cluster-2",
+							Label:     "region1/zone1/subzone1",
+						},
+						LbWeight: 30,
+					},
+				},
+			},
+			expected: []*envoyEndpoint.LocalityLbEndpoints{
+				{
+					Locality: &core.Locality{
+						Region:  "region1",
+						Zone:    "zone1",
+						SubZone: "subzone1",
+					},
+					LoadBalancingWeight: &wrappers.UInt32Value{
+						Value: 30,
+					},
+					LbEndpoints: []*envoyEndpoint.LbEndpoint{
+						{
+							HostIdentifier: &envoyEndpoint.LbEndpoint_Endpoint{
+								Endpoint: &envoyEndpoint.Endpoint{
+									Address: &core.Address{
+										Address: &core.Address_SocketAddress{
+											SocketAddress: &core.SocketAddress{
+												Address: "192.168.1.1",
+												PortSpecifier: &core.SocketAddress_PortValue{
+													PortValue: 10001,
+												},
+											},
+										},
+									},
+								},
+							},
+							Metadata: emptyMetadata,
+							LoadBalancingWeight: &wrappers.UInt32Value{
+								Value: 30,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 
-	localityLbEndpoints := buildLocalityLbEndpoints(env.PushContext, model.GetNetworkView(nil), service, 8080, nil)
-	g.Expect(len(localityLbEndpoints)).To(Equal(2))
-	for _, ep := range localityLbEndpoints {
-		if ep.Locality.Region == "region1" {
-			g.Expect(ep.LoadBalancingWeight.GetValue()).To(Equal(uint32(60)))
-		} else if ep.Locality.Region == "region2" {
-			g.Expect(ep.LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
-		}
+	sortEndpoints := func(endpoints []*envoyEndpoint.LocalityLbEndpoints) {
+		sort.SliceStable(endpoints, func(i, j int) bool {
+			if strings.Compare(endpoints[i].Locality.Region, endpoints[j].Locality.Region) < 0 {
+				return true
+			}
+			if strings.Compare(endpoints[i].Locality.Zone, endpoints[j].Locality.Zone) < 0 {
+				return true
+			}
+			return strings.Compare(endpoints[i].Locality.SubZone, endpoints[j].Locality.SubZone) < 0
+		})
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			configStore := &fakes.IstioConfigStore{}
+			serviceDiscovery := &fakes.ServiceDiscovery{}
+			serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
+			serviceDiscovery.InstancesByPortReturns(c.instances, nil)
+
+			env := c.newEnv(serviceDiscovery, configStore)
+			actual := buildLocalityLbEndpoints(proxy, env.PushContext, model.GetNetworkView(nil), service, 8080, nil)
+			sortEndpoints(actual)
+			if v := cmp.Diff(c.expected, actual); v != "" {
+				t.Fatalf("Expected (-) != actual (+):\n%s", v)
+			}
+		})
 	}
 }
 
