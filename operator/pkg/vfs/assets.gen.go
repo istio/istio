@@ -18501,12 +18501,13 @@ data:
         {{- end }}
             drop:
             - ALL
-          readOnlyRootFilesystem: false
         {{- if not .Values.istio_cni.enabled }}
+          readOnlyRootFilesystem: false
           runAsGroup: 0
           runAsNonRoot: false
           runAsUser: 0
         {{- else }}
+          readOnlyRootFilesystem: true
           runAsGroup: 1337
           runAsUser: 1337
           runAsNonRoot: true
@@ -19882,12 +19883,13 @@ template: |
     {{- end }}
         drop:
         - ALL
-      readOnlyRootFilesystem: false
     {{- if not .Values.istio_cni.enabled }}
+      readOnlyRootFilesystem: false
       runAsGroup: 0
       runAsNonRoot: false
       runAsUser: 0
     {{- else }}
+      readOnlyRootFilesystem: true
       runAsGroup: 1337
       runAsUser: 1337
       runAsNonRoot: true
