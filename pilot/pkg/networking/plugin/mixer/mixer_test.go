@@ -230,17 +230,18 @@ func TestOnOutboundListenerSkipMixer(t *testing.T) {
 	mp := mixerplugin{}
 
 	testcases := []struct {
-		name        string
-		meshconfig  *meshconfig.MeshConfig
-		nodeType    model.NodeType
-		wantFilters int
+		name            string
+		meshconfig      *meshconfig.MeshConfig
+		nodeType        model.NodeType
+		wantHTTPFilters int
+		wantTCPFilters  int
 	}{
-		{"both disabled", &meshconfig.MeshConfig{DisablePolicyChecks: true, DisableMixerHttpReports: true}, model.Router, 0},
-		{"only check disabled", &meshconfig.MeshConfig{DisablePolicyChecks: true, DisableMixerHttpReports: false}, model.Router, 1},
-		{"router only report disabled", &meshconfig.MeshConfig{DisablePolicyChecks: false, DisableMixerHttpReports: true}, model.Router, 1},
+		{"both disabled", &meshconfig.MeshConfig{DisablePolicyChecks: true, DisableMixerHttpReports: true}, model.Router, 0, 1},
+		{"only check disabled", &meshconfig.MeshConfig{DisablePolicyChecks: true, DisableMixerHttpReports: false}, model.Router, 1, 1},
+		{"router only report disabled", &meshconfig.MeshConfig{DisablePolicyChecks: false, DisableMixerHttpReports: true}, model.Router, 1, 1},
 		// no client side checks, so sidecar only + report disabled should mean no mixer filter
-		{"sidecar only report disabled", &meshconfig.MeshConfig{DisablePolicyChecks: false, DisableMixerHttpReports: true}, model.SidecarProxy, 0},
-		{"both enabled", &meshconfig.MeshConfig{DisablePolicyChecks: false, DisableMixerHttpReports: false}, model.SidecarProxy, 1},
+		{"sidecar only report disabled", &meshconfig.MeshConfig{DisablePolicyChecks: false, DisableMixerHttpReports: true}, model.SidecarProxy, 0, 1},
+		{"both enabled", &meshconfig.MeshConfig{DisablePolicyChecks: false, DisableMixerHttpReports: false}, model.SidecarProxy, 1, 1},
 	}
 
 	for _, v := range testcases {
@@ -259,11 +260,26 @@ func TestOnOutboundListenerSkipMixer(t *testing.T) {
 					Metadata: &model.NodeMetadata{},
 				},
 			}
-			mutable := &istionetworking.MutableObjects{Listener: &xdsapi.Listener{}, FilterChains: []istionetworking.FilterChain{{}}}
+			mutable := &istionetworking.MutableObjects{Listener: &xdsapi.Listener{}, FilterChains: []istionetworking.FilterChain{
+				{
+					ListenerProtocol: istionetworking.ListenerProtocolHTTP,
+				},
+				{
+					ListenerProtocol: istionetworking.ListenerProtocolTCP,
+					IsFallThrough:    true,
+				},
+			}}
 			_ = mp.OnOutboundListener(inputParams, mutable)
 			for _, chain := range mutable.FilterChains {
-				if got := len(chain.HTTP); got != v.wantFilters {
-					tt.Errorf("Got %d HTTP filters; wanted %d", got, v.wantFilters)
+				if chain.ListenerProtocol == istionetworking.ListenerProtocolHTTP {
+					if got := len(chain.HTTP); got != v.wantHTTPFilters {
+						tt.Errorf("Got %d HTTP filters; wanted %d", got, v.wantHTTPFilters)
+					}
+				}
+				if chain.ListenerProtocol == istionetworking.ListenerProtocolTCP {
+					if got := len(chain.TCP); got != v.wantTCPFilters {
+						tt.Errorf("Got %d TCP filters; wanted %d", got, v.wantTCPFilters)
+					}
 				}
 			}
 		})
