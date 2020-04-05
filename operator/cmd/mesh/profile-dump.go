@@ -21,7 +21,6 @@ import (
 	"github.com/ghodss/yaml"
 
 	"istio.io/istio/operator/pkg/tpath"
-	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 
 	"github.com/spf13/cobra"
@@ -41,10 +40,17 @@ const (
 	yamlOutput = "yaml"
 )
 
+const (
+	IstioOperatorTreeString = `
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+`
+)
+
 func addProfileDumpFlags(cmd *cobra.Command, args *profileDumpArgs) {
 	cmd.PersistentFlags().StringSliceVarP(&args.inFilenames, "filename", "f", nil, filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.configPath, "config-path", "p", "",
-		"The path the root of the configuration subtree to dump e.g. trafficManagement.components.pilot. By default, dump whole tree")
+		"The path the root of the configuration subtree to dump e.g. components.pilot. By default, dump whole tree")
 	cmd.PersistentFlags().StringVarP(&args.outputFormat, "output", "o", yamlOutput,
 		"Output format: one of json|yaml")
 }
@@ -72,7 +78,7 @@ func prependHeader(yml string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	out2, err := util.OverlayYAML(translate.IstioOperatorTreeString, out)
+	out2, err := util.OverlayYAML(IstioOperatorTreeString, out)
 	if err != nil {
 		return "", err
 	}

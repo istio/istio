@@ -671,7 +671,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 	if cf.componentName == name.IngressComponentName || cf.componentName == name.EgressComponentName {
 		pathToK8sOverlay += fmt.Sprintf("%d.", cf.index)
 	}
-	pathToK8sOverlay += fmt.Sprintf("K8S.Overlays")
+	pathToK8sOverlay += "K8S.Overlays"
 	var overlays []*v1alpha1.K8SObjectOverlay
 	found, err := tpath.SetFromPath(cf.InstallSpec, pathToK8sOverlay, &overlays)
 	if err != nil {
