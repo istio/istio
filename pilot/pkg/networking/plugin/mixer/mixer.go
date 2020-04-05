@@ -128,12 +128,24 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *networkin
 
 	switch in.ListenerProtocol {
 	case networking.ListenerProtocolHTTP:
-		if skipHTTPFilter {
-			return nil
-		}
 		httpFilter := buildOutboundHTTPFilter(in.Push.Mesh, attrs, in.Node)
 		for cnum := range mutable.FilterChains {
-			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
+			switch mutable.FilterChains[cnum].ListenerProtocol {
+			case networking.ListenerProtocolHTTP:
+				if !skipHTTPFilter {
+					mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
+				}
+			case networking.ListenerProtocolTCP:
+				if mutable.FilterChains[cnum].IsFallThrough {
+					svc := util.FallThroughFilterChainBlackHoleService
+					if util.IsAllowAnyOutbound(in.Node) {
+						svc = util.FallThroughFilterChainPassthroughService
+					}
+					attrs := createOutboundListenerAttributes(in)
+					fallThroughFilter := buildOutboundTCPFilter(in.Push.Mesh, attrs, in.Node, svc)
+					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, fallThroughFilter)
+				}
+			}
 		}
 		return nil
 	case networking.ListenerProtocolTCP:
