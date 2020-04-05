@@ -72,7 +72,7 @@ function istioCheckServerCert {
 
 
 function istioRun {
-  export ISTIO_CA=istiod.istio-system.svc:15012
+  export CA_ADDR=istiod.istio-system.svc:15012
   export PROV_CERT=/etc/certs
   export OUTPUT_CERTS=/etc/certs
 
