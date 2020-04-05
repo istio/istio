@@ -408,7 +408,6 @@ func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 	if len(listeners[0].FilterChains) != 1 {
 		t.Fatalf("expected %d filter chains, found %d", 1, len(listeners[0].FilterChains))
 	}
-	verifyOutboundTCPListenerHostname(t, listeners[0], "test2.com")
 
 	oldestService := getOldestService(services...)
 	oldestProtocol := oldestService.Ports[0].Protocol
@@ -418,9 +417,8 @@ func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 		t.Fatal("expected HTTP listener, found TCP")
 	}
 
-	if p.outboundListenerParams[0].Service != oldestService {
-		t.Fatalf("listener conflict failed to preserve listener for the oldest service")
-	}
+	// Validate that listener conflict preserves the listener of oldest service.
+	verifyOutboundTCPListenerHostname(t, listeners[0], oldestService.Hostname)
 }
 
 func TestOutboundListenerTCPWithVS(t *testing.T) {
@@ -721,10 +719,6 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 
 	if len(p.outboundListenerParams) != 1 {
 		t.Fatalf("expected %d listener params, found %d", 1, len(p.outboundListenerParams))
-	}
-
-	if p.outboundListenerParams[0].Service != oldestService {
-		t.Fatalf("listener conflict failed to preserve listener for the oldest service")
 	}
 }
 
