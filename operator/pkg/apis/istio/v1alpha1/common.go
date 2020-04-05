@@ -68,13 +68,3 @@ func (intstrpb *IntOrStringForPB) MarshalJSONPB(_ *jsonpb.Marshaler) ([]byte, er
 func (intstrpb *IntOrStringForPB) UnmarshalJSONPB(_ *jsonpb.Unmarshaler, value []byte) error {
 	return intstrpb.UnmarshalJSON(value)
 }
-
-// FromInt creates an IntOrStringForPB object with an int32 value.
-func FromInt(val int) IntOrStringForPB {
-	return IntOrStringForPB{intstr.FromInt(val)}
-}
-
-// FromString creates an IntOrStringForPB object with a string value.
-func FromString(val string) IntOrStringForPB {
-	return IntOrStringForPB{intstr.FromString(val)}
-}

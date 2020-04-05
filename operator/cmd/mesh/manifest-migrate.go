@@ -24,13 +24,11 @@ import (
 	"github.com/spf13/cobra"
 
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	icpv1alpha2 "istio.io/istio/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
 	binversion "istio.io/istio/operator/version"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -92,23 +90,7 @@ func migrateFromFiles(rootArgs *rootArgs, mmArgs *manifestMigrateArgs, args []st
 
 // translateFunc translates the input values and output the result
 func translateFunc(values []byte, force bool, l *Logger) error {
-	// First, try to translate from IstioControlPlane format.
-	icp := &icpv1alpha2.IstioControlPlane{}
-	if err := util.UnmarshalWithJSONPB(string(values), icp, false); err == nil {
-		log.Info("Input file has IstioControlPlane format.")
-		translations, err := translate.ICPtoIOPTranslations(binversion.OperatorBinaryVersion)
-		if err != nil {
-			return err
-		}
-		out, err := translate.ICPToIOP(string(values), translations)
-		if err != nil {
-			return err
-		}
-		l.logAndPrint(out)
-		return nil
-	}
-
-	// Not IstioControlPlane, try Helm values.yaml.
+	// Try to translate Helm values.yaml.
 	mvs := binversion.OperatorBinaryVersion.MinorVersion
 	ts, err := translate.NewReverseTranslator(mvs)
 	if err != nil {
