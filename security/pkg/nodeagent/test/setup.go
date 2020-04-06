@@ -38,7 +38,6 @@ import (
 
 const (
 	proxyTokenPath = "/tmp/sds-envoy-token.jwt"
-	sdsPath        = "/tmp/sdstestudspath"
 	jwtToken       = "thisisafakejwt"
 )
 
@@ -134,15 +133,18 @@ func SetupTest(t *testing.T, testID uint16) *Env {
 // test backend           : BackendPort
 // proxy admin            : AdminPort
 // CSR server             : MixerPort
+// SDS path               : SDSPath
 func (e *Env) DumpPortMap(t *testing.T) {
 	t.Logf("\n\tport allocation status\t\t\t\n"+
+		"proxy admin\t\t\t:\t%d\n"+
 		"outbound listener\t\t:\t%d\n"+
 		"inbound listener\t\t:\t%d\n"+
 		"test backend\t\t\t:\t%d\n"+
-		"proxy admin\t\t\t:\t%d\n"+
-		"CSR server\t\t\t:\t%d\n", e.ProxySetup.Ports().ClientProxyPort,
+		"CSR server\t\t\t:\t%d\n"+
+		"SDS path\t\t\t:\t%s\n", e.ProxySetup.Ports().AdminPort,
+		e.ProxySetup.Ports().ClientProxyPort,
 		e.ProxySetup.Ports().ServerProxyPort, e.ProxySetup.Ports().BackendPort,
-		e.ProxySetup.Ports().AdminPort, e.ProxySetup.Ports().MixerPort)
+		e.ProxySetup.Ports().MixerPort, e.ProxySetup.SDSPath())
 }
 
 // StartProxy starts proxy.
@@ -156,7 +158,7 @@ func (e *Env) StartProxy(t *testing.T) {
 // StartSDSServer starts SDS server
 func (e *Env) StartSDSServer(t *testing.T) {
 	serverOptions := sds.Options{
-		WorkloadUDSPath:   sdsPath,
+		WorkloadUDSPath:   e.ProxySetup.SDSPath(),
 		UseLocalJWT:       true,
 		JWTPath:           proxyTokenPath,
 		CAEndpoint:        fmt.Sprintf("127.0.0.1:%d", e.ProxySetup.Ports().MixerPort),

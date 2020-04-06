@@ -99,6 +99,11 @@ func (s *TestSetup) Ports() *Ports {
 	return s.ports
 }
 
+// SDSPath get SDS path
+func (s *TestSetup) SDSPath() string {
+	return fmt.Sprintf("/tmp/sdstestudspath.%v", s.ports.AdminPort)
+}
+
 // SetMixerCheckReferenced set Referenced in mocked Check response
 func (s *TestSetup) SetMixerCheckReferenced(ref *mixerpb.ReferencedAttributes) {
 	s.mixer.checkReferenced = ref
