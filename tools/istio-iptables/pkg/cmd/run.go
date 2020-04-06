@@ -466,10 +466,10 @@ func (iptConfigurator *IptablesConfigurator) executeIptablesRestoreCommand(isIpv
 		cmd = constants.IP6TABLESRESTORE
 	}
 	rulesFile, err := ioutil.TempFile("", filename)
-	defer os.Remove(rulesFile.Name())
 	if err != nil {
 		return fmt.Errorf("unable to create iptables-restore file: %v", err)
 	}
+	defer os.Remove(rulesFile.Name())
 	if err := iptConfigurator.createRulesFile(rulesFile, data); err != nil {
 		return err
 	}
