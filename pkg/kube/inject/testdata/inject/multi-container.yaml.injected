@@ -83,8 +83,13 @@ spec:
             [
                 {"name":"foo","containerPort":123}
             ]
-        - name: ISTIO_META_APP_CONTAINER
-          value: istio-proxy
+        - name: ISTIO_META_APP_CONTAINERS
+          value: |-
+            [
+                name1,
+                name2,
+                name3
+            ]
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
         - name: ISTIO_META_INTERCEPTION_MODE
