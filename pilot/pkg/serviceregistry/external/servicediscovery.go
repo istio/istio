@@ -53,6 +53,8 @@ type externalConfigType int
 const (
 	serviceEntryConfigType externalConfigType = iota
 	workloadEntryConfigType
+	// TODO implement workload entry
+	_ = workloadEntryConfigType
 )
 
 // configKey unique identifies a config object managed by this registry (ServiceEntry and WorkloadEntry)
@@ -309,7 +311,8 @@ func (d *ServiceEntryStore) updateExistingInstances(ckey configKey, instances []
 }
 
 // updateInstances updates the instance data to the passed in maps.
-func updateInstances(key configKey, instances []*model.ServiceInstance, instancemap map[instancesKey]map[configKey][]*model.ServiceInstance, ip2instance map[string][]*model.ServiceInstance) {
+func updateInstances(key configKey, instances []*model.ServiceInstance, instancemap map[instancesKey]map[configKey][]*model.ServiceInstance,
+	ip2instance map[string][]*model.ServiceInstance) {
 	for _, instance := range instances {
 		ikey := makeInstanceKey(instance)
 		out, found := instancemap[ikey][key]

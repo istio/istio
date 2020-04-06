@@ -144,6 +144,7 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 }
 
 // TestServiceDiscoveryServiceUpdate test various add/update/delete events for ServiceEntry
+// nolint: lll
 func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 	store, sd, stopFn := initServiceDiscovery()
 	defer stopFn()
@@ -208,7 +209,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 	t.Run("add entry", func(t *testing.T) {
 		// Create another SE for the same host, expect these instances to get added
 		createConfigs([]*model.Config{httpStaticOverlay}, store, t)
-		instances := append(baseInstances[:],
+		instances := append(baseInstances,
 			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText))
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
 	})
@@ -216,7 +217,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 	t.Run("add endpoint", func(t *testing.T) {
 		// Update the SE for the same host, expect these instances to get added
 		createConfigs([]*model.Config{httpStaticOverlayUpdated}, store, t)
-		instances := append(baseInstances[:],
+		instances := append(baseInstances,
 			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
 			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
@@ -229,7 +230,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 	t.Run("overlapping address", func(t *testing.T) {
 		// Add another SE with an additional endpoint with a matching address
 		createConfigs([]*model.Config{httpStaticOverlayUpdatedInstance}, store, t)
-		instances := append(baseInstances[:],
+		instances := append(baseInstances,
 			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
 			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
 			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"some-new-label": "bar"}, PlainText))
@@ -242,7 +243,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 
 		// Remove the additional endpoint
 		createConfigs([]*model.Config{httpStaticOverlayUpdated}, store, t)
-		instances = append(baseInstances[:],
+		instances = append(baseInstances,
 			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
 			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
@@ -255,7 +256,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 	t.Run("update removes endpoint", func(t *testing.T) {
 		// Update the SE for the same host to remove the endpoint
 		createConfigs([]*model.Config{httpStaticOverlay}, store, t)
-		instances := append(baseInstances[:],
+		instances := append(baseInstances,
 			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText))
 		expectServiceInstances(t, sd, httpStaticOverlay, 0, instances)
 	})
@@ -287,7 +288,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 	t.Run("change host", func(t *testing.T) {
 		// Update the SE for the same host, expect these instances to get added
 		createConfigs([]*model.Config{httpStaticOverlayUpdated}, store, t)
-		instances := append(baseInstances[:],
+		instances := append(baseInstances,
 			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
 			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
@@ -300,7 +301,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			return &c
 		}()
 		createConfigs([]*model.Config{httpStaticHost}, store, t)
-		instances = append(baseInstances[:],
+		instances = append(baseInstances,
 			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
 			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
 		// This is not applied, just to make makeInstance pick the right service.
@@ -324,7 +325,7 @@ func expectProxyInstances(t *testing.T, sd *ServiceEntryStore, expected []*model
 	retry.UntilSuccessOrFail(t, func() error {
 		instances, err := sd.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{ip}})
 		if err != nil {
-			return fmt.Errorf("GetProxyServiceInstances() encountered unexpected error: %v", err)
+			return fmt.Errorf("getProxyServiceInstances() encountered unexpected error: %v", err)
 		}
 		sortServiceInstances(instances)
 		sortServiceInstances(expected)
@@ -346,7 +347,7 @@ func expectServiceInstances(t *testing.T, sd *ServiceEntryStore, cfg *model.Conf
 		for i, svc := range svcs {
 			instances, err := sd.InstancesByPort(svc, port, nil)
 			if err != nil {
-				return fmt.Errorf("InstancesByPort() encountered unexpected error: %v", err)
+				return fmt.Errorf("instancesByPort() encountered unexpected error: %v", err)
 			}
 			sortServiceInstances(instances)
 			sortServiceInstances(expected[i])
