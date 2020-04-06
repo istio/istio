@@ -654,8 +654,16 @@
               "scope": "https://www.googleapis.com/auth/cloud-platform",
             }
           }
-        }
-      }
+        },
+        "initial_metadata": [
+        {{ if .gcp_project_id }}
+          {
+            "key": "x-goog-user-project",
+            "value": "{{ .gcp_project_id }}"
+          }
+        {{ end }}
+        ]
+      },
       {{ end }}
       "stdout_exporter_enabled": {{ .stackdriverDebug }},
       "incoming_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],
