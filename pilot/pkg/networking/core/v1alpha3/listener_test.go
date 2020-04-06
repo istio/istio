@@ -73,7 +73,6 @@ var (
 		DNSDomain:   "default.example.org",
 		Metadata: &model.NodeMetadata{
 			ConfigNamespace: "not-default",
-			IstioVersion:    "1.4",
 		},
 		ConfigNamespace: "not-default",
 	}
@@ -84,43 +83,17 @@ var (
 		DNSDomain:   "default.example.org",
 		Metadata: &model.NodeMetadata{
 			ConfigNamespace: "not-default",
-			IstioVersion:    "1.1",
 			HTTP10:          "1",
 		},
 		ConfigNamespace: "not-default",
 	}
-	proxy14 = model.Proxy{
-		Type:        model.SidecarProxy,
-		IPAddresses: []string{"1.1.1.1"},
-		ID:          "v0.default",
-		DNSDomain:   "default.example.org",
-		Metadata: &model.NodeMetadata{
-			ConfigNamespace: "not-default",
-			IstioVersion:    "1.4",
-		},
-		ConfigNamespace: "not-default",
-	}
-	proxy14HTTP10 = model.Proxy{
-		Type:        model.SidecarProxy,
-		IPAddresses: []string{"1.1.1.1"},
-		ID:          "v0.default",
-		DNSDomain:   "default.example.org",
-		Metadata: &model.NodeMetadata{
-			ConfigNamespace: "not-default",
-			IstioVersion:    "1.4",
-			HTTP10:          "1",
-		},
-		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 3},
-		ConfigNamespace: "not-default",
-	}
-	proxy14Gateway = model.Proxy{
+	proxyGateway = model.Proxy{
 		Type:        model.Router,
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
 		Metadata: &model.NodeMetadata{
 			ConfigNamespace: "not-default",
-			IstioVersion:    "1.4",
 			Labels: map[string]string{
 				"istio": "ingressgateway",
 			},
@@ -167,102 +140,102 @@ var (
 	}
 )
 
-func TestInboundListenerConfigProxyV14(t *testing.T) {
+func TestInboundListenerConfig(t *testing.T) {
 	defaultValue := features.EnableProtocolSniffingForInbound
 	features.EnableProtocolSniffingForInbound = true
 	defer func() { features.EnableProtocolSniffingForInbound = defaultValue }()
 
-	for _, p := range []*model.Proxy{&proxy14, &proxy14HTTP10} {
-		testInboundListenerConfigV14(t, p,
+	for _, p := range []*model.Proxy{&proxy, &proxyHTTP10} {
+		testInboundListenerConfig(t, p,
 			buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
 			buildService("test2.com", wildcardIP, "unknown", tnow),
 			buildService("test3.com", wildcardIP, protocol.HTTP, tnow.Add(2*time.Second)))
-		testInboundListenerConfigWithoutServiceV14(t, p)
-		testInboundListenerConfigWithSidecarV14(t, p,
+		testInboundListenerConfigWithoutService(t, p)
+		testInboundListenerConfigWithSidecar(t, p,
 			buildService("test.com", wildcardIP, protocol.HTTP, tnow))
-		testInboundListenerConfigWithSidecarWithoutServicesV14(t, p)
+		testInboundListenerConfigWithSidecarWithoutServices(t, p)
 	}
 }
 
-func TestOutboundListenerConflict_HTTPWithCurrentUnknownV14(t *testing.T) {
+func TestOutboundListenerConflict_HTTPWithCurrentUnknown(t *testing.T) {
 	defaultValue := features.EnableProtocolSniffingForOutbound
 	features.EnableProtocolSniffingForOutbound = true
 	defer func() { features.EnableProtocolSniffingForOutbound = defaultValue }()
 
 	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
-	testOutboundListenerConflictV14(t,
+	testOutboundListenerConflict(t,
 		buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
 		buildService("test2.com", wildcardIP, "unknown", tnow),
 		buildService("test3.com", wildcardIP, protocol.HTTP, tnow.Add(2*time.Second)))
 }
 
-func TestOutboundListenerConflict_WellKnowPortsV14(t *testing.T) {
+func TestOutboundListenerConflict_WellKnowPorts(t *testing.T) {
 	defaultValue := features.EnableProtocolSniffingForOutbound
 	features.EnableProtocolSniffingForOutbound = true
 	defer func() { features.EnableProtocolSniffingForOutbound = defaultValue }()
 
 	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
-	testOutboundListenerConflictV14(t,
+	testOutboundListenerConflict(t,
 		buildServiceWithPort("test1.com", 3306, protocol.HTTP, tnow.Add(1*time.Second)),
 		buildServiceWithPort("test2.com", 3306, protocol.MySQL, tnow))
-	testOutboundListenerConflictV14(t,
+	testOutboundListenerConflict(t,
 		buildServiceWithPort("test1.com", 9999, protocol.HTTP, tnow.Add(1*time.Second)),
 		buildServiceWithPort("test2.com", 9999, protocol.MySQL, tnow))
 }
 
-func TestOutboundListenerConflict_TCPWithCurrentUnknownV14(t *testing.T) {
+func TestOutboundListenerConflict_TCPWithCurrentUnknown(t *testing.T) {
 	defaultValue := features.EnableProtocolSniffingForOutbound
 	features.EnableProtocolSniffingForOutbound = true
 	defer func() { features.EnableProtocolSniffingForOutbound = defaultValue }()
 
 	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
-	testOutboundListenerConflictV14(t,
+	testOutboundListenerConflict(t,
 		buildService("test1.com", wildcardIP, protocol.TCP, tnow.Add(1*time.Second)),
 		buildService("test2.com", wildcardIP, "unknown", tnow),
 		buildService("test3.com", wildcardIP, protocol.TCP, tnow.Add(2*time.Second)))
 }
 
-func TestOutboundListenerConflict_UnknownWithCurrentTCPV14(t *testing.T) {
+func TestOutboundListenerConflict_UnknownWithCurrentTCP(t *testing.T) {
 	defaultValue := features.EnableProtocolSniffingForOutbound
 	features.EnableProtocolSniffingForOutbound = true
 	defer func() { features.EnableProtocolSniffingForOutbound = defaultValue }()
 
 	// The oldest service port is TCP.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
-	testOutboundListenerConflictV14(t,
+	testOutboundListenerConflict(t,
 		buildService("test1.com", wildcardIP, "unknown", tnow.Add(1*time.Second)),
 		buildService("test2.com", wildcardIP, protocol.TCP, tnow),
 		buildService("test3.com", wildcardIP, "unknown", tnow.Add(2*time.Second)))
 }
 
-func TestOutboundListenerConflict_UnknownWithCurrentHTTPV14(t *testing.T) {
+func TestOutboundListenerConflict_UnknownWithCurrentHTTP(t *testing.T) {
 	defaultValue := features.EnableProtocolSniffingForOutbound
 	features.EnableProtocolSniffingForOutbound = true
 	defer func() { features.EnableProtocolSniffingForOutbound = defaultValue }()
 
 	// The oldest service port is TCP.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
-	testOutboundListenerConflictV14(t,
+	testOutboundListenerConflict(t,
 		buildService("test1.com", wildcardIP, "unknown", tnow.Add(1*time.Second)),
 		buildService("test2.com", wildcardIP, protocol.HTTP, tnow),
 		buildService("test3.com", wildcardIP, "unknown", tnow.Add(2*time.Second)))
 }
 
-func TestOutboundListenerRouteV14(t *testing.T) {
+func TestOutboundListenerRoute(t *testing.T) {
 	defaultValue := features.EnableProtocolSniffingForOutbound
 	features.EnableProtocolSniffingForOutbound = true
 	defer func() { features.EnableProtocolSniffingForOutbound = defaultValue }()
 
-	testOutboundListenerRouteV14(t,
+	testOutboundListenerRoute(t,
 		buildService("test1.com", "1.2.3.4", "unknown", tnow.Add(1*time.Second)),
 		buildService("test2.com", "2.3.4.5", protocol.HTTP, tnow),
 		buildService("test3.com", "3.4.5.6", "unknown", tnow.Add(2*time.Second)))
 }
 
-func TestOutboundListenerConfig_WithSidecarV14(t *testing.T) {
+func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 	// Add a service and verify it's config
 	services := []*model.Service{
 		buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
@@ -322,13 +295,13 @@ func TestOutboundListenerConfig_WithSidecarV14(t *testing.T) {
 		},
 	}
 	services = append(services, service6)
-	testOutboundListenerConfigWithSidecarV14(t, services...)
+	testOutboundListenerConfigWithSidecar(t, services...)
 }
 
 func TestOutboundListenerConflict_HTTPWithCurrentTCP(t *testing.T) {
 	// The oldest service port is TCP.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
-	testOutboundListenerConflict(t,
+	testOutboundListenerConflictWithSniffingDisabled(t,
 		buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
 		buildService("test2.com", wildcardIP, protocol.TCP, tnow),
 		buildService("test3.com", wildcardIP, protocol.HTTP, tnow.Add(2*time.Second)))
@@ -337,7 +310,7 @@ func TestOutboundListenerConflict_HTTPWithCurrentTCP(t *testing.T) {
 func TestOutboundListenerConflict_TCPWithCurrentHTTP(t *testing.T) {
 	// The oldest service port is HTTP.  We should encounter conflicts when attempting to add the TCP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
-	testOutboundListenerConflict(t,
+	testOutboundListenerConflictWithSniffingDisabled(t,
 		buildService("test1.com", wildcardIP, protocol.TCP, tnow.Add(1*time.Second)),
 		buildService("test2.com", wildcardIP, protocol.HTTP, tnow),
 		buildService("test3.com", wildcardIP, protocol.TCP, tnow.Add(2*time.Second)))
@@ -345,7 +318,7 @@ func TestOutboundListenerConflict_TCPWithCurrentHTTP(t *testing.T) {
 
 func TestOutboundListenerConflict_Unordered(t *testing.T) {
 	// Ensure that the order is preserved when all the times match. The first service in the list wins.
-	testOutboundListenerConflict(t,
+	testOutboundListenerConflictWithSniffingDisabled(t,
 		buildService("test1.com", wildcardIP, protocol.HTTP, tzero),
 		buildService("test2.com", wildcardIP, protocol.TCP, tzero),
 		buildService("test3.com", wildcardIP, protocol.TCP, tzero))
@@ -529,15 +502,15 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 	}
 }
 
-func TestInboundListenerConfig_HTTP(t *testing.T) {
+func TestInboundListenerConfig_HTTP10(t *testing.T) {
 	for _, p := range []*model.Proxy{&proxy, &proxyHTTP10} {
 		// Add a service and verify it's config
-		testInboundListenerConfig(t, p,
+		testInboundListenerConfigWithHTTP10Proxy(t, p,
 			buildService("test.com", wildcardIP, protocol.HTTP, tnow))
-		testInboundListenerConfigWithoutServices(t, p)
-		testInboundListenerConfigWithSidecar(t, p,
+		testInboundListenerConfigWithoutServicesWithHTTP10Proxy(t, p)
+		testInboundListenerConfigWithSidecarWithHTTP10Proxy(t, p,
 			buildService("test.com", wildcardIP, protocol.HTTP, tnow))
-		testInboundListenerConfigWithSidecarWithoutServices(t, p)
+		testInboundListenerConfigWithSidecarWithoutServicesWithHTTP10Proxy(t, p)
 	}
 }
 
@@ -568,7 +541,7 @@ func TestOutboundListenerConfig_WithDisabledSniffing_WithSidecar(t *testing.T) {
 			Namespace: "default",
 		},
 	}
-	testOutboundListenerConfigWithSidecar(t, services...)
+	testOutboundListenerConfigWithSidecarWithSniffingDisabled(t, services...)
 	services = append(services, service4)
 	testOutboundListenerConfigWithSidecarWithCaptureModeNone(t, services...)
 	testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t, services...)
@@ -611,7 +584,7 @@ func TestOutboundTlsTrafficWithoutTimeout(t *testing.T) {
 			},
 		},
 	}
-	testOutboundListenerFilterTimeoutV14(t, services...)
+	testOutboundListenerFilterTimeout(t, services...)
 }
 
 func TestOutboundListenerConfigWithSidecarHTTPProxy(t *testing.T) {
@@ -695,7 +668,7 @@ func TestGetActualWildcardAndLocalHost(t *testing.T) {
 	}
 }
 
-func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
+func testOutboundListenerConflictWithSniffingDisabled(t *testing.T, services ...*model.Service) {
 	t.Helper()
 
 	defaultValue := features.EnableProtocolSniffingForOutbound
@@ -705,7 +678,7 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 	oldestService := getOldestService(services...)
 
 	p := &fakePlugin{}
-	listeners := buildOutboundListeners(t, p, &proxy14, nil, nil, services...)
+	listeners := buildOutboundListeners(t, p, &proxy, nil, nil, services...)
 	if len(listeners) != 1 {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
@@ -722,10 +695,10 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 	}
 }
 
-func testOutboundListenerRouteV14(t *testing.T, services ...*model.Service) {
+func testOutboundListenerRoute(t *testing.T, services ...*model.Service) {
 	t.Helper()
 	p := &fakePlugin{}
-	listeners := buildOutboundListeners(t, p, &proxy14, nil, nil, services...)
+	listeners := buildOutboundListeners(t, p, &proxy, nil, nil, services...)
 	if len(listeners) != 3 {
 		t.Fatalf("expected %d listeners, found %d", 3, len(listeners))
 	}
@@ -765,9 +738,9 @@ func testOutboundListenerRouteV14(t *testing.T, services ...*model.Service) {
 	}
 }
 
-func testOutboundListenerFilterTimeoutV14(t *testing.T, services ...*model.Service) {
+func testOutboundListenerFilterTimeout(t *testing.T, services ...*model.Service) {
 	p := &fakePlugin{}
-	listeners := buildOutboundListeners(t, p, &proxy14, nil, nil, services...)
+	listeners := buildOutboundListeners(t, p, &proxy, nil, nil, services...)
 	if len(listeners) != 2 {
 		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
 	}
@@ -784,11 +757,11 @@ func testOutboundListenerFilterTimeoutV14(t *testing.T, services ...*model.Servi
 	}
 }
 
-func testOutboundListenerConflictV14(t *testing.T, services ...*model.Service) {
+func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 	t.Helper()
 	oldestService := getOldestService(services...)
 	p := &fakePlugin{}
-	listeners := buildOutboundListeners(t, p, &proxy14, nil, nil, services...)
+	listeners := buildOutboundListeners(t, p, &proxy, nil, nil, services...)
 	if len(listeners) != 1 {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
@@ -861,7 +834,7 @@ func testOutboundListenerConflictV14(t *testing.T, services ...*model.Service) {
 	}
 }
 
-func testInboundListenerConfigV14(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
+func testInboundListenerConfig(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
 	t.Helper()
 	p := &fakePlugin{}
 	listeners := buildInboundListeners(t, p, proxy, nil, services...)
@@ -871,7 +844,7 @@ func testInboundListenerConfigV14(t *testing.T, proxy *model.Proxy, services ...
 	verifyFilterChainMatch(t, listeners[0])
 }
 
-func testInboundListenerConfigWithSidecarV14(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
+func testInboundListenerConfigWithSidecar(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
 	t.Helper()
 	p := &fakePlugin{}
 	sidecarConfig := &model.Config{
@@ -900,7 +873,7 @@ func testInboundListenerConfigWithSidecarV14(t *testing.T, proxy *model.Proxy, s
 	verifyFilterChainMatch(t, listeners[0])
 }
 
-func testInboundListenerConfigWithSidecarWithoutServicesV14(t *testing.T, proxy *model.Proxy) {
+func testInboundListenerConfigWithSidecarWithoutServices(t *testing.T, proxy *model.Proxy) {
 	t.Helper()
 	p := &fakePlugin{}
 	sidecarConfig := &model.Config{
@@ -929,7 +902,7 @@ func testInboundListenerConfigWithSidecarWithoutServicesV14(t *testing.T, proxy 
 	verifyFilterChainMatch(t, listeners[0])
 }
 
-func testInboundListenerConfigWithoutServiceV14(t *testing.T, proxy *model.Proxy) {
+func testInboundListenerConfigWithoutService(t *testing.T, proxy *model.Proxy) {
 	t.Helper()
 	p := &fakePlugin{}
 	listeners := buildInboundListeners(t, p, proxy, nil)
@@ -998,7 +971,7 @@ func isTCPFilterChain(fc *listener.FilterChain) bool {
 	return len(fc.Filters) > 0 && fc.Filters[0].Name == "envoy.tcp_proxy"
 }
 
-func testOutboundListenerConfigWithSidecarV14(t *testing.T, services ...*model.Service) {
+func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Service) {
 	t.Helper()
 	p := &fakePlugin{}
 	sidecarConfig := &model.Config{
@@ -1046,7 +1019,7 @@ func testOutboundListenerConfigWithSidecarV14(t *testing.T, services ...*model.S
 	features.EnableMysqlFilter = true
 	defer func() { features.EnableMysqlFilter = defaultValue }()
 
-	listeners := buildOutboundListeners(t, p, &proxy14, sidecarConfig, nil, services...)
+	listeners := buildOutboundListeners(t, p, &proxy, sidecarConfig, nil, services...)
 	if len(listeners) != 4 {
 		t.Fatalf("expected %d listeners, found %d", 4, len(listeners))
 	}
@@ -1101,7 +1074,7 @@ func testOutboundListenerConfigWithSidecarV14(t *testing.T, services ...*model.S
 	}
 }
 
-func testInboundListenerConfig(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
+func testInboundListenerConfigWithHTTP10Proxy(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
 	t.Helper()
 	oldestService := getOldestService(services...)
 	p := &fakePlugin{}
@@ -1128,7 +1101,7 @@ func testInboundListenerConfig(t *testing.T, proxy *model.Proxy, services ...*mo
 	verifyInboundEnvoyListenerNumber(t, listeners[0])
 }
 
-func testInboundListenerConfigWithoutServices(t *testing.T, proxy *model.Proxy) {
+func testInboundListenerConfigWithoutServicesWithHTTP10Proxy(t *testing.T, proxy *model.Proxy) {
 	t.Helper()
 	p := &fakePlugin{}
 	listeners := buildInboundListeners(t, p, proxy, nil)
@@ -1137,7 +1110,7 @@ func testInboundListenerConfigWithoutServices(t *testing.T, proxy *model.Proxy) 
 	}
 }
 
-func testInboundListenerConfigWithSidecar(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
+func testInboundListenerConfigWithSidecarWithHTTP10Proxy(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
 	t.Helper()
 	p := &fakePlugin{}
 	sidecarConfig := &model.Config{
@@ -1172,7 +1145,7 @@ func testInboundListenerConfigWithSidecar(t *testing.T, proxy *model.Proxy, serv
 	}
 }
 
-func testInboundListenerConfigWithSidecarWithoutServices(t *testing.T, proxy *model.Proxy) {
+func testInboundListenerConfigWithSidecarWithoutServicesWithHTTP10Proxy(t *testing.T, proxy *model.Proxy) {
 	t.Helper()
 	p := &fakePlugin{}
 	sidecarConfig := &model.Config{
@@ -1206,7 +1179,7 @@ func testInboundListenerConfigWithSidecarWithoutServices(t *testing.T, proxy *mo
 	}
 }
 
-func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Service) {
+func testOutboundListenerConfigWithSidecarWithSniffingDisabled(t *testing.T, services ...*model.Service) {
 	t.Helper()
 	p := &fakePlugin{}
 	sidecarConfig := &model.Config{
@@ -1344,7 +1317,7 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 			},
 		},
 	}
-	listeners := buildOutboundListeners(t, p, &proxy14, sidecarConfig, nil, services...)
+	listeners := buildOutboundListeners(t, p, &proxy, sidecarConfig, nil, services...)
 	if len(listeners) != 4 {
 		t.Fatalf("expected %d listeners, found %d", 4, len(listeners))
 	}
@@ -1466,7 +1439,7 @@ func TestOutboundListenerConfig_TCPFailThrough(t *testing.T) {
 	// Add a service and verify it's config
 	services := []*model.Service{
 		buildService("test1.com", wildcardIP, protocol.HTTP, tnow)}
-	listeners := buildOutboundListeners(t, &fakePlugin{}, &proxy14, nil, nil, services...)
+	listeners := buildOutboundListeners(t, &fakePlugin{}, &proxy, nil, nil, services...)
 
 	if len(listeners[0].FilterChains) != 2 {
 		t.Fatalf("expectd %d filter chains, found %d", 2, len(listeners[0].FilterChains))
