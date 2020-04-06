@@ -19,9 +19,12 @@ import (
 	"strings"
 	"testing"
 
+	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
+
 	"istio.io/istio/pilot/pkg/features"
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -189,6 +192,7 @@ func prepareListeners(t *testing.T) []*v2.Listener {
 
 	builder := NewListenerBuilder(&proxy, env.PushContext)
 	return builder.buildSidecarInboundListeners(ldsEnv.configgen).
+		buildManagementListeners(ldsEnv.configgen).
 		buildVirtualOutboundListener(ldsEnv.configgen).
 		buildVirtualInboundListener(ldsEnv.configgen).
 		getListeners()
@@ -346,4 +350,40 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 			xdsutil.OriginalDestination, xdsutil.TlsInspector, xdsutil.HttpInspector,
 			l.ListenerFilters[0].Name, l.ListenerFilters[1].Name, l.ListenerFilters[2].Name)
 	}
+}
+
+func TestManagementListenerBuilder(t *testing.T) {
+	listeners := prepareListeners(t)
+	// Get the listener. 1.1.1.1 comes from proxy ip in prepareListeners, 9876 is the management port defined there
+	l := expectListener(t, listeners, "1.1.1.1_9876")
+	expectTcpProxy(t, l.FilterChains, "inbound|9876||mgmtCluster")
+}
+
+func expectTcpProxy(t *testing.T, chains []*listener.FilterChain, s string) {
+	t.Helper()
+	for _, c := range chains {
+		for _, f := range c.Filters {
+			if f.Name != "envoy.tcp_proxy" {
+				continue
+			}
+			fc := &tcp_proxy.TcpProxy{}
+			if err := getFilterConfig(f, fc); err != nil {
+				t.Fatalf("failed to get TCP Proxy config: %s", err)
+			}
+			if fc.GetCluster() != s {
+				t.Fatalf("expected destination %v, got %v", s, fc.GetCluster())
+			}
+		}
+	}
+}
+
+func expectListener(t *testing.T, listeners []*v2.Listener, name string) *v2.Listener {
+	t.Helper()
+	for _, l := range listeners {
+		if l.Name == name {
+			return l
+		}
+	}
+	t.Fatalf("could not find listener %v", name)
+	return nil
 }

@@ -1881,6 +1881,7 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 		}
 	}
 	serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
+	serviceDiscovery.ManagementPortsReturns([]*model.Port{{Port: 9876, Protocol: protocol.HTTP}})
 
 	envoyFilter := model.Config{
 		ConfigMeta: model.ConfigMeta{

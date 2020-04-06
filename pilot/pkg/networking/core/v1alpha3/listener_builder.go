@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"sort"
+	"strconv"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -173,6 +174,24 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(configgen *ConfigGenera
 	return lb
 }
 
+// addressKey takes a *core.Address and coverts it to a unique string identifier
+func addressKey(addr *core.Address) string {
+	switch t := addr.Address.(type) {
+	case *core.Address_SocketAddress:
+		var port string
+		switch pt := t.SocketAddress.PortSpecifier.(type) {
+		case *core.SocketAddress_NamedPort:
+			port = pt.NamedPort
+		case *core.SocketAddress_PortValue:
+			port = strconv.Itoa(int(pt.PortValue))
+		}
+		return t.SocketAddress.Address + "_" + port
+	case *core.Address_Pipe:
+		return t.Pipe.Path
+	}
+	return addr.String()
+}
+
 func (lb *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl) *ListenerBuilder {
 	// Do not generate any management port listeners if the user has specified a SidecarScope object
 	// with ingress listeners. Specifying the ingress listener implies that the user wants
@@ -191,12 +210,12 @@ func (lb *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl) *Lis
 	addresses := make(map[string]*xdsapi.Listener)
 	for _, listener := range lb.inboundListeners {
 		if listener != nil {
-			addresses[listener.Address.String()] = listener
+			addresses[addressKey(listener.Address)] = listener
 		}
 	}
 	for _, listener := range lb.outboundListeners {
 		if listener != nil {
-			addresses[listener.Address.String()] = listener
+			addresses[addressKey(listener.Address)] = listener
 		}
 	}
 
@@ -205,7 +224,7 @@ func (lb *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl) *Lis
 	// non overlapping listeners only.
 	for i := range mgmtListeners {
 		m := mgmtListeners[i]
-		addressString := m.Address.String()
+		addressString := addressKey(m.Address)
 		existingListener, ok := addresses[addressString]
 		if ok {
 			log.Debugf("Omitting listener for management address %s due to collision with service listener (%s)",
