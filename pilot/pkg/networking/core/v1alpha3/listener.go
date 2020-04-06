@@ -974,6 +974,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 				bind = actualWildcard
 			}
 
+			// Build ListenerOpts and PluginParams once and reuse across all Services to avoid unnecessary allocations.
 			listenerOpts := buildListenerOpts{
 				push:       push,
 				proxy:      node,
@@ -994,6 +995,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 			}
 
 			for _, service := range services {
+				// Set service specific attributes here.
 				pluginParams.Service = service
 				configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
 					virtualServices, actualWildcard)
@@ -1031,13 +1033,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 				bind = actualLocalHostAddress
 			}
 
+			// Build ListenerOpts and PluginParams once and reuse across all Services to avoid unnecessary allocations.
 			listenerOpts := buildListenerOpts{
 				push:       push,
 				proxy:      node,
 				bindToPort: bindToPort,
 			}
 
-			// The listener protocol is determined by the protocol of service port.
 			pluginParams := &plugin.InputParams{
 				ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
 				Node:             node,
@@ -1047,11 +1049,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 
 			for _, service := range services {
 				for _, servicePort := range service.Ports {
+					// bind might have been modified by below code, so reset it for every Service.
 					listenerOpts.bind = bind
+					// port depends on servicePort.
 					listenerOpts.port = servicePort.Port
 
+					// Set service specific attributes here.
 					pluginParams.Port = servicePort
 					pluginParams.Service = service
+					// The listener protocol is determined by the protocol of service port.
 					pluginParams.ListenerProtocol = istionetworking.ModelProtocolToListenerProtocol(node, servicePort.Protocol,
 						core.TrafficDirection_OUTBOUND)
 
@@ -1400,6 +1406,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 					newHostname = "sidecar-config-egress-http-listener"
 				}
 
+				// We have a collision with another TCP port. This can happen
+				// for headless services, or non-k8s services that do not have
+				// a VIP, or when we have two binds on a unix domain socket or
+				// on same IP.  Unfortunately we won't know if this is a real
+				// conflict or not until we process the VirtualServices, etc.
+				// The conflict resolution is done later in this code
 				outboundListenerConflict{
 					metric:          model.ProxyStatusConflictOutboundListenerHTTPOverTCP,
 					node:            pluginParams.Node,
@@ -1411,13 +1423,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 				}.addMetric(node, pluginParams.Push)
 				return false, nil
 			}
-
-			// We have a collision with another TCP port. This can happen
-			// for headless services, or non-k8s services that do not have
-			// a VIP, or when we have two binds on a unix domain socket or
-			// on same IP.  Unfortunately we won't know if this is a real
-			// conflict or not until we process the VirtualServices, etc.
-			// The conflict resolution is done later in this code
 		}
 	}
 
