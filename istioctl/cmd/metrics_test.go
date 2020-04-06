@@ -29,6 +29,7 @@ import (
 
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 
+	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/pkg/version"
 
@@ -46,7 +47,7 @@ type mockPromAPI struct {
 	cannedResponse map[string]prometheus_model.Value
 }
 
-func mockExecClientAuthNoPilot(_, _ string) (kubernetes.ExecClient, error) {
+func mockExecClientAuthNoPilot(_, _ string, _ clioptions.ControlPlaneOptions) (kubernetes.ExecClient, error) {
 	return &mockExecConfig{}, nil
 }
 
@@ -91,7 +92,7 @@ func TestMetrics(t *testing.T) {
 	}
 }
 
-func mockPortForwardClientAuthPrometheus(_, _ string) (kubernetes.ExecClient, error) {
+func mockPortForwardClientAuthPrometheus(_, _ string, _ clioptions.ControlPlaneOptions) (kubernetes.ExecClient, error) {
 	return &mockPortForwardConfig{
 		discoverablePods: map[string]map[string]*v1.PodList{
 			"istio-system": {

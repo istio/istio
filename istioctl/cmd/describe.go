@@ -41,6 +41,7 @@ import (
 	mixerclient "istio.io/api/mixer/v1/config/client"
 	"istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/istioctl/pkg/clioptions"
 	istioctl_kubernetes "istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
@@ -72,6 +73,7 @@ var (
 )
 
 func podDescribeCmd() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:   "pod <pod>",
 		Short: "Describe pods and their Istio configuration [kube-only]",
@@ -125,7 +127,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			}
 			// TODO look for port collisions between services targeting this pod
 
-			kubeClient, err := clientExecFactory(kubeconfig, configContext)
+			kubeClient, err := clientExecFactory(kubeconfig, configContext, opts)
 			if err != nil {
 				return err
 			}
@@ -1119,6 +1121,7 @@ func getIngressIP(service v1.Service, pod v1.Pod) string {
 }
 
 func svcDescribeCmd() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:     "service <svc>",
 		Aliases: []string{"svc"},
@@ -1193,7 +1196,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 				return nil
 			}
 
-			kubeClient, err := clientExecFactory(kubeconfig, configContext)
+			kubeClient, err := clientExecFactory(kubeconfig, configContext, opts)
 			if err != nil {
 				return err
 			}

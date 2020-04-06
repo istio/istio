@@ -72,6 +72,11 @@ func TestWaitCmd(t *testing.T) {
 			args:             strings.Split("x wait --timeout 2s virtualservice foo.default", " "),
 			wantException:    false,
 		},
+		{
+			execClientConfig: cannedResponseMap,
+			args:             strings.Split("x wait --revision canary virtualservice foo.default", " "),
+			wantException:    false,
+		},
 	}
 
 	_ = setupK8Sfake()
