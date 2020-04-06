@@ -43,10 +43,10 @@ var (
 		Minor:      "13",
 		GitVersion: "1.13",
 	}
-	version1_8 = &version.Info{
+	version1_12 = &version.Info{
 		Major:      "1",
-		Minor:      "8",
-		GitVersion: "1.8",
+		Minor:      "12",
+		GitVersion: "1.12",
 	}
 	version1_13GKE = &version.Info{
 		Major:      "1",
@@ -63,14 +63,27 @@ var (
 		Minor:      "8",
 		GitVersion: "v1.invalid.7",
 	}
+	version1_19 = &version.Info{
+		Major:      "1",
+		Minor:      "19",
+		GitVersion: "1.19",
+	}
 )
 
 func TestPreCheck(t *testing.T) {
 	cases := []testcase{
 		{
-			description: "Lower Kubernetes Version",
+			description: "Kubernetes version less then pin",
 			config: &mockClientExecPreCheckConfig{
-				version:   version1_8,
+				version:   version1_12,
+				namespace: "test",
+			},
+			expectedException: true,
+		},
+		{
+			description: "Kubernetes version greater then pin",
+			config: &mockClientExecPreCheckConfig{
+				version:   version1_19,
 				namespace: "test",
 			},
 			expectedException: true,

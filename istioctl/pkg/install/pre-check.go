@@ -33,7 +33,8 @@ import (
 )
 
 const (
-	minK8SVersion = "1.13"
+	minK8sVersion = "1.13"
+	maxK8sVersion = "1.18"
 )
 
 var (
@@ -76,16 +77,16 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter genericclioptio
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "#2. Kubernetes-version\n")
 	fmt.Fprintf(writer, "-----------------------\n")
-	res, err := checkKubernetesVersion(v)
+	res, err := checkKubernetesVersionValid(v)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 		fmt.Fprint(writer, err)
-	} else if !res {
-		msg := fmt.Sprintf("The Kubernetes API version: %v is lower than the minimum version: "+minK8SVersion, v)
+	} else if res {
+		fmt.Fprintf(writer, "Istio is compatible with Kubernetes: %v.\n", v)
+	} else {
+		msg := fmt.Sprintf("The Kubernetes API version is %v. Istio has been validated with Kubernetes API versions %v through %v.", v, minK8sVersion, maxK8sVersion)
 		errs = multierror.Append(errs, errors.New(msg))
 		fmt.Fprintf(writer, msg+"\n")
-	} else {
-		fmt.Fprintf(writer, "Istio is compatible with Kubernetes: %v.\n", v)
 	}
 
 	fmt.Fprintf(writer, "\n")
@@ -203,13 +204,21 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter genericclioptio
 
 }
 
-func checkKubernetesVersion(versionInfo *version.Info) (bool, error) {
+func checkKubernetesVersionValid(versionInfo *version.Info) (bool, error) {
 	v, err := extractKubernetesVersion(versionInfo)
 	if err != nil {
 		return false, err
 	}
-	return parseVersion(minK8SVersion, 4) <= parseVersion(v, 4), nil
+	APIVersion := parseVersion(v, 4)
+	minVersion := parseVersion(minK8sVersion, 4)
+	maxVersion := parseVersion(maxK8sVersion, 4)
+
+	if minVersion >= APIVersion && maxVersion <= APIVersion {
+		return true, nil
+	}
+	return false, nil
 }
+
 func extractKubernetesVersion(versionInfo *version.Info) (string, error) {
 	versionMatchRE := regexp.MustCompile(`^\s*v?([0-9]+(?:\.[0-9]+)*)(.*)*$`)
 	parts := versionMatchRE.FindStringSubmatch(versionInfo.GitVersion)
