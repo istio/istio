@@ -118,7 +118,8 @@ data:
       drainDuration: 45s
       parentShutdownDuration: 1m0s
       proxyAdminPort: 15000
-      proxyMetadata: {}
+      proxyMetadata:
+        DNS_AGENT: ""
       serviceCluster: istio-proxy
       tracing:
         zipkin:

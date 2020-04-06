@@ -18138,7 +18138,8 @@ data:
       drainDuration: 45s
       parentShutdownDuration: 1m0s
       proxyAdminPort: 15000
-      proxyMetadata: {}
+      proxyMetadata:
+        DNS_AGENT: ""
       serviceCluster: istio-proxy
       tracing:
         zipkin:
@@ -22601,11 +22602,12 @@ meshConfig:
   # and gradual adoption by setting capture only on specific workloads. It also allows
   # VMs to use other DNS options, like dnsmasq or unbound.
   defaultConfig:
-    proxyMetadata: {}
+    proxyMetadata:
       # If empty, agent will not start :15013 DNS listener and will not attempt
       # to connect to Istiod DNS-TLS. This will also disable the core dns sidecar in
       # istiod and the dns-over-tls listener.
       # DNS_AGENT: DNS-TLS
+      DNS_AGENT: ""
 
       # If empty, DNS capture is disabled.
       # If set, intercept UDP port :53 and redirect to localhost:15013
