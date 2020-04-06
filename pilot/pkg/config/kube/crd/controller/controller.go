@@ -88,15 +88,15 @@ func init() {
 
 // crdExistsWithRetry checks if the provided CRD exists
 // Any errors are retried
-func crdExistsWithRetry(client *Client, schema collection.Schema) bool {
+func knownCrdsWithRetry(client *Client) map[string]struct{} {
 	delay := time.Second
 	maxDelay := time.Minute
 	for {
-		found, err := client.CRDExists(schema)
+		found, err := client.KnownCRDs()
 		if err == nil {
 			return found
 		}
-		log.Errorf("failed to check CRD %v: %v", schema.Name(), err)
+		log.Errorf("failed to list CRDs: %v", err)
 		time.Sleep(delay)
 		delay *= 2
 		if delay > maxDelay {
@@ -117,9 +117,12 @@ func NewController(client *Client, options controller2.Options) model.ConfigStor
 		kinds:  make(map[resource.GroupVersionKind]*cacheHandler),
 	}
 
+	known := knownCrdsWithRetry(client)
 	// add stores for CRD kinds
 	for _, s := range client.Schemas().All() {
-		if crdExistsWithRetry(client, s) {
+		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
+		name := fmt.Sprintf("%s.%s", s.Resource().Plural(), s.Resource().Group())
+		if _, f := known[name]; f {
 			out.addInformer(s, options.WatchedNamespace, options.ResyncPeriod)
 		} else {
 			log.Warnf("Skipping CRD %v as it is not present", s.String())

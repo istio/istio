@@ -418,20 +418,17 @@ func (cl *Client) objectInEnvironment(o *model.Config) bool {
 	return configEnv == cl.revision
 }
 
-// CRDExists checks if a CRD exists in the cluster or not.
-func (cl *Client) CRDExists(schema collection.Schema) (bool, error) {
-	// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
-	name := fmt.Sprintf("%s.%s", schema.Resource().Plural(), schema.Resource().Group())
-	_, err := cl.crdClient.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context2.TODO(), name, meta_v1.GetOptions{})
-	if apierrors.IsNotFound(err) {
-		// Not found, return false
-		return false, nil
-	}
+// KnownCRDs returns all CRDs present in the cluster
+func (cl *Client) KnownCRDs() (map[string]struct{}, error) {
+	res, err := cl.crdClient.ApiextensionsV1beta1().CustomResourceDefinitions().List(context2.TODO(), meta_v1.ListOptions{})
 	if err != nil {
-		// If there is another error, return that so the clients can distinguish between not found and an error
-		return false, err
+		return nil, err
 	}
-	return true, nil
+	mp := map[string]struct{}{}
+	for _, r := range res.Items {
+		mp[r.Name] = struct{}{}
+	}
+	return mp, nil
 }
 
 // deprecated - only used for CRD controller unit tests
