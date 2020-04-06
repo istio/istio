@@ -73,7 +73,7 @@ func TestListenerBuilder(t *testing.T) {
 	service := buildService("test.com", wildcardIP, protocol.HTTP, tnow)
 	services := []*model.Service{service}
 
-	env := buildListenerEnv(services)
+	env := buildListenerEnv(services, nil)
 
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		t.Fatalf("init push context error: %s", err.Error())
@@ -121,7 +121,7 @@ func TestVirtualListenerBuilder(t *testing.T) {
 	service := buildService("test.com", wildcardIP, protocol.HTTP, tnow)
 	services := []*model.Service{service}
 
-	env := buildListenerEnv(services)
+	env := buildListenerEnv(services, nil)
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		t.Fatalf("init push context error: %s", err.Error())
 	}
@@ -164,13 +164,13 @@ func setInboundCaptureAllOnThisNode(proxy *model.Proxy) {
 	proxy.Metadata.InterceptionMode = "REDIRECT"
 }
 
-func prepareListeners(t *testing.T) []*v2.Listener {
+var testServices = []*model.Service{buildService("test.com", wildcardIP, protocol.HTTP, tnow)}
+
+func prepareListeners(t *testing.T, services []*model.Service, mgmtPort []int) []*v2.Listener {
 	// prepare
 	ldsEnv := getDefaultLdsEnv()
-	service := buildService("test.com", wildcardIP, protocol.HTTP, tnow)
-	services := []*model.Service{service}
 
-	env := buildListenerEnv(services)
+	env := buildListenerEnv(services, mgmtPort)
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		t.Fatalf("init push context error: %s", err.Error())
 	}
@@ -205,7 +205,7 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 
 	// prepare
 	t.Helper()
-	listeners := prepareListeners(t)
+	listeners := prepareListeners(t, testServices, nil)
 	// app port listener and virtual inbound listener
 	if len(listeners) != 3 {
 		t.Fatalf("expected %d listeners, found %d", 3, len(listeners))
@@ -253,7 +253,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	defer func() { features.EnableProtocolSniffingForInbound = defaultValue }()
 	// prepare
 	t.Helper()
-	listeners := prepareListeners(t)
+	listeners := prepareListeners(t, testServices, nil)
 	// app port listener and virtual inbound listener
 	if len(listeners) != 3 {
 		t.Fatalf("expect %d listeners, found %d", 3, len(listeners))
@@ -353,13 +353,13 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 }
 
 func TestManagementListenerBuilder(t *testing.T) {
-	listeners := prepareListeners(t)
-	// Get the listener. 1.1.1.1 comes from proxy ip in prepareListeners, 9876 is the management port defined there
+	listeners := prepareListeners(t, nil, []int{9876})
+	// Get the listener. 1.1.1.1 comes from proxy ip in prepareListeners
 	l := expectListener(t, listeners, "1.1.1.1_9876")
-	expectTcpProxy(t, l.FilterChains, "inbound|9876||mgmtCluster")
+	expectTCPProxy(t, l.FilterChains, "inbound|9876||mgmtCluster")
 }
 
-func expectTcpProxy(t *testing.T, chains []*listener.FilterChain, s string) {
+func expectTCPProxy(t *testing.T, chains []*listener.FilterChain, s string) {
 	t.Helper()
 	for _, c := range chains {
 		for _, f := range c.Filters {

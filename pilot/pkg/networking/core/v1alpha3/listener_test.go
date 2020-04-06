@@ -433,7 +433,7 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			configgen := NewConfigGenerator([]plugin.Plugin{p})
 
-			env := buildListenerEnv(services)
+			env := buildListenerEnv(services, nil)
 			serviceDiscovery := new(fakes.ServiceDiscovery)
 			serviceDiscovery.ServicesReturns(services, nil)
 			serviceDiscovery.InstancesByPortReturns(tt.instances, nil)
@@ -1317,7 +1317,7 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 func TestOutboundListenerAccessLogs(t *testing.T) {
 	t.Helper()
 	p := &fakePlugin{}
-	env := buildListenerEnv(nil)
+	env := buildListenerEnv(nil, nil)
 
 	listeners := buildAllListeners(p, nil, env)
 	found := false
@@ -1372,7 +1372,7 @@ func TestHttpProxyListener(t *testing.T) {
 	p := &fakePlugin{}
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 
-	env := buildListenerEnv(nil)
+	env := buildListenerEnv(nil, nil)
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		t.Fatalf("error in initializing push context: %s", err)
 	}
@@ -1633,9 +1633,9 @@ func buildOutboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, s
 
 	var env model.Environment
 	if virtualService != nil {
-		env = buildListenerEnvWithVirtualServices(services, []*model.Config{virtualService})
+		env = buildListenerEnvWithVirtualServices(services, []*model.Config{virtualService}, nil)
 	} else {
-		env = buildListenerEnv(services)
+		env = buildListenerEnv(services, nil)
 	}
 
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
@@ -1662,7 +1662,7 @@ func buildOutboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, s
 func buildInboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, sidecarConfig *model.Config, services ...*model.Service) []*xdsapi.Listener {
 	t.Helper()
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
-	env := buildListenerEnv(services)
+	env := buildListenerEnv(services, nil)
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		return nil
 	}
@@ -1861,11 +1861,11 @@ func buildServiceInstance(service *model.Service, instanceIP string) *model.Serv
 	}
 }
 
-func buildListenerEnv(services []*model.Service) model.Environment {
-	return buildListenerEnvWithVirtualServices(services, nil)
+func buildListenerEnv(services []*model.Service, mgmtPort []int) model.Environment {
+	return buildListenerEnvWithVirtualServices(services, nil, mgmtPort)
 }
 
-func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServices []*model.Config) model.Environment {
+func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServices []*model.Config, mgmtPort []int) model.Environment {
 	serviceDiscovery := new(fakes.ServiceDiscovery)
 	serviceDiscovery.ServicesReturns(services, nil)
 
@@ -1881,7 +1881,11 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 		}
 	}
 	serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
-	serviceDiscovery.ManagementPortsReturns([]*model.Port{{Port: 9876, Protocol: protocol.HTTP}})
+	mgmt := []*model.Port{}
+	for _, p := range mgmtPort {
+		mgmt = append(mgmt, &model.Port{Port: p, Protocol: protocol.HTTP})
+	}
+	serviceDiscovery.ManagementPortsReturns(mgmt)
 
 	envoyFilter := model.Config{
 		ConfigMeta: model.ConfigMeta{
