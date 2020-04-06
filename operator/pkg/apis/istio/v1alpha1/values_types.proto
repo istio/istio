@@ -16,7 +16,6 @@
 syntax = 'proto3';
 
 import "google/protobuf/duration.proto";
-import "k8s.io/api/core/v1/generated.proto";
 import "github.com/gogo/protobuf/protobuf/google/protobuf/wrappers.proto";
 
 package v1alpha1;
@@ -98,50 +97,6 @@ message CPUTargetUtilizationConfig {
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
   int32 targetAverageUtilization = 1;
-}
-
-// Configuration for CertManager.
-message CertManagerConfig {
-  // Controls whether CertManager is enabled.
-  google.protobuf.BoolValue enabled = 1;
-
-  // Image hub for the CertManager Deployment.
-  string hub = 2;
-
-  // Image tag for the CertManager Deployment.
-  TypeInterface tag = 3;
-
-  // Image name for the CertManager Deployment.
-  string image = 4;
-
-  uint32 replicaCount = 5 [deprecated=true];
-
-  string email = 6;
-
-  repeated string extraArgs = 7;
-  // K8s node selector.
-  //
-  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  TypeMapStringInterface nodeSelector = 8 [deprecated=true];
-
-  // K8s resources settings.
-  //
-  // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 9 [deprecated=true];
-
-  string podDnsPolicy = 10;
-
-  TypeMapStringInterface podDnsConfig = 11;
-
-  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 12 [deprecated=true];
-
-  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 13 [deprecated=true];
-
-  TypeSliceOfMapStringInterface tolerations = 14 [deprecated=true];
-
-  TypeMapStringInterface podAnnotations = 15 [deprecated=true];
-
-  TypeMapStringInterface podLabels = 16 [deprecated=true];
 }
 
 // Mirrors Resources for unmarshaling.
@@ -1061,43 +1016,6 @@ message MultiClusterConfig {
   string clusterName = 2;
 }
 
-// Configuration for Node Agent Daemonset.
-message NodeAgentConfig {
-  // Controls whether Node Agent is enabled.
-  google.protobuf.BoolValue enabled = 1;
-
-  // Environment variables passed to the Node Agent container.
-  //
-  // Examples:
-  // env:
-  //   ENV_VAR_1: value1
-  //   ENV_VAR_2: value2
-  TypeMapStringInterface env = 2;
-
-  // Image name for the Node Agent DaemonSet.
-  string image = 3;
-
-  // K8s node selector.
-  //
-  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  TypeMapStringInterface nodeSelector = 4 [deprecated=true];
-
-  TypeSliceOfMapStringInterface tolerations = 5 [deprecated=true];
-
-  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 6 [deprecated=true];
-
-  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 7 [deprecated=true];
-
-  // K8s annotations for pods.
-  //
-  // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-  TypeMapStringInterface podAnnotations = 8 [deprecated=true];
-
-  string hub = 9;
-
-  TypeInterface tag = 10;
-}
-
 // OutboundTrafficPolicyConfig controls the default behavior of the sidecar for handling outbound traffic from the application.
 message OutboundTrafficPolicyConfig {
   // Specifies the sidecar's default behavior when handling outbound traffic from the application.
@@ -1628,83 +1546,6 @@ message SecretVolume {
   string secretName = 3;
 }
 
-// Configuration for Citadel.
-message SecurityConfig {
-  // Controls whether Citadel is enabled.
-  google.protobuf.BoolValue enabled = 1;
-
-  // Number of replicas in the Citadel Deployment.
-  uint32 replicaCount = 2 [deprecated=true];
-
-  // Image name used for Citadel.
-  //
-  // This can be set either to image name if hub is also set, or can be set to the full hub:name string.
-  //
-  // Examples: custom-citadel, docker.io/someuser:custom-citadel
-  string image = 3;
-
-  // Controls whether self-signed CA is used for citadel to generate the certificate/key pair.
-  //
-  // Setting to false if you want to use your own root CA for Citade Deployment.
-  google.protobuf.BoolValue selfSigned = 4;
-
-  // The trust domain corresponds to the trust root of a system
-  // Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
-  // Indicate the domain used in SPIFFE identity URL
-  // The default depends on the environment.
-  //   kubernetes: cluster.local
-  //    else:  default dns domain
-  string trustDomain = 5;
-
-  // The DNS Certs specifies the customized DNS name and corresponding service account.
-  //
-  // Example:
-  //   istio-pilot-service-account.istio-control: istio-pilot.istio-control.svc
-  //   istio-galley-service-account.istio-config: istio-galley.istio-config.svc
-  map<string, string> dnsCerts = 6;
-
-  // Controls whether the mesh-wide authentication policy is created or not.
-  //
-  // Setting to true creates the mesh-wide authentication policy with name "default".
-  google.protobuf.BoolValue createMeshPolicy = 7;
-
-  google.protobuf.BoolValue enableNamespacesByDefault = 8;
-
-  google.protobuf.BoolValue citadelHealthCheck = 9;
-
-  // K8s node selector.
-  //
-  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  TypeMapStringInterface nodeSelector = 10 [deprecated=true];
-
-  TypeMapStringInterface env = 11;
-
-  // K8s annotations for pods.
-  //
-  // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-  TypeMapStringInterface podAnnotations = 12 [deprecated=true];
-
-  // How long workload certs are valid for
-  string workloadCertTtl = 13;
-
-  TypeSliceOfMapStringInterface tolerations = 14 [deprecated=true];
-
-  // K8s resources settings.
-  //
-  // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 15 [deprecated=true];
-
-  // K8s rolling update strategy
-  TypeIntOrStringForPB rollingMaxSurge = 16 [deprecated=true];
-
-  // K8s rolling update strategy
-  TypeIntOrStringForPB rollingMaxUnavailable = 17 [deprecated=true];
-
-  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 18 [deprecated=true];
-
-  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 19 [deprecated=true];
-}
-
 // ServiceConfig is described in istio.io documentation.
 message ServiceConfig {
   TypeMapStringInterface annotations = 1;
@@ -1718,27 +1559,8 @@ message ServiceConfig {
 
 // SidecarInjectorConfig is described in istio.io documentation.
 message SidecarInjectorConfig {
-  // Controls whether Sidecar Injector is enabled.
-  google.protobuf.BoolValue enabled = 1;
-
   // Enables sidecar auto-injection in namespaces by default.
   google.protobuf.BoolValue enableNamespacesByDefault = 2;
-
-  // Image name used for Sidecar Injector.
-  //
-  // This can be set either to image name if hub is also set, or can be set to the full hub:name string.
-  //
-  // Examples: custom-sidecar_injector, docker.io/someuser:custom-sidecar_injector
-  string image = 3;
-
-  string hub = 4;
-
-  TypeInterface tag = 5;
-
-  // K8s node selector. Each component can overwrite the default values by adding its node selector block in the relevant section and setting the desired values.
-  //
-  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  TypeMapStringInterface nodeSelector = 10 [deprecated=true];
 
   // Instructs Istio to not inject the sidecar on those pods, based on labels that are present in those pods.
   //
@@ -1750,22 +1572,8 @@ message SidecarInjectorConfig {
   // See NeverInjectSelector.
   TypeSliceOfMapStringInterface alwaysInjectSelector = 12;
 
-  // See EgressGatewayConfig.
-  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 13 [deprecated=true];
-
-  // See EgressGatewayConfig.
-  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 14 [deprecated=true];
-
-  // Number of replicas in the Sidecar Injector Deployment.
-  uint32 replicaCount = 15 [deprecated=true];
-
   //  If true, webhook or istioctl injector will rewrite PodSpec for liveness health check to redirect request to sidecar. This makes liveness check work even when mTLS is enabled.
   google.protobuf.BoolValue rewriteAppHTTPProbe = 16;
-
-  // Controls whether self-signed CA is used for Sidecar Injector to generate the certificate/key pair.
-  //
-  // Setting to false if you want to use your own root CA.
-  google.protobuf.BoolValue selfSigned = 17;
 
   string injectLabel = 18;
 
@@ -1773,28 +1581,8 @@ message SidecarInjectorConfig {
   // This is primarily to support PSP annotations.
   TypeMapStringInterface injectedAnnotations = 19;
 
-  // K8s resources settings.
-  //
-  // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 20 [deprecated=true];
-
   // Enable objectSelector to filter out pods with no need for sidecar before calling istio-sidecar-injector.
   TypeMapStringInterface objectSelector = 21;
-
-  TypeSliceOfMapStringInterface tolerations = 22 [deprecated=true];
-
-  TypeMapStringInterface lifecycle = 23;
-
-  // K8s annotations for pods.
-  //
-  // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-  TypeMapStringInterface podAnnotations = 24 [deprecated=true];
-
-  // K8s rolling update strategy
-  TypeIntOrStringForPB rollingMaxSurge = 25 [deprecated=true];
-
-  // K8s rolling update strategy
-  TypeIntOrStringForPB rollingMaxUnavailable = 26 [deprecated=true];
 }
 
 // Configuration for stdio adapter in mixer, recommended for debug usage only.
@@ -2157,8 +1945,6 @@ message KialiConfig {
 }
 
 message Values {
-  CertManagerConfig certmanager = 1;
-
   CNIConfig cni = 2;
 
   CoreDNSConfig istiocoredns = 3;
@@ -2173,16 +1959,12 @@ message Values {
 
   MixerConfig mixer = 8;
 
-  NodeAgentConfig nodeagent = 9 [deprecated=true];
-
   PilotConfig pilot = 10;
 
   // Controls whether telemetry is exported for Pilot.
   TelemetryConfig telemetry = 23;
 
   PrometheusConfig prometheus = 11;
-
-  SecurityConfig security = 12;
 
   SidecarInjectorConfig sidecarInjectorWebhook = 13;
 

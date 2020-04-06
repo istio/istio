@@ -53,8 +53,4 @@ prometheus:
   # When this option is set as false, this certificate provisioning mechanism is disabled.
   provisionPrometheusCert: true
 
-# Indicate if Citadel is enabled, i.e., whether its generated certificates are available
-security:
-  enabled: true
-
 revision: ""
