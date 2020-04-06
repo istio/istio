@@ -105,9 +105,9 @@ var (
 	// Description: Invalid Regex
 	InvalidRegexp = diag.NewMessageType(diag.Warning, "IST0122", "Field %q regular expression invalid: %q (%s)")
 
-	// NamespaceMultiplyInjected defines a diag.MessageType for message "NamespaceMultiplyInjected".
+	// NamespaceMultipleInjectionLabels defines a diag.MessageType for message "NamespaceMultipleInjectionLabels".
 	// Description: A namespace has both new and legacy injection labels
-	NamespaceMultiplyInjected = diag.NewMessageType(diag.Warning, "IST0123", "The namespace has both new and legacy injection labels. Run 'kubectl label namespace %s istio.io/rev-' or 'kubectl label namespace %s istio-injection-'")
+	NamespaceMultipleInjectionLabels = diag.NewMessageType(diag.Warning, "IST0123", "The namespace has both new and legacy injection labels. Run 'kubectl label namespace %s istio.io/rev-' or 'kubectl label namespace %s istio-injection-'")
 
 	// NamespaceInvalidInjectorRevision defines a diag.MessageType for message "NamespaceInvalidInjectorRevision".
 	// Description: A namespace is labeled to inject from unknown control plane.
@@ -141,7 +141,7 @@ func All() []*diag.MessageType {
 		PolicyResourceIsDeprecated,
 		MeshPolicyResourceIsDeprecated,
 		InvalidRegexp,
-		NamespaceMultiplyInjected,
+		NamespaceMultipleInjectionLabels,
 		NamespaceInvalidInjectorRevision,
 	}
 }
@@ -383,10 +383,10 @@ func NewInvalidRegexp(r *resource.Instance, where string, re string, problem str
 	)
 }
 
-// NewNamespaceMultiplyInjected returns a new diag.Message based on NamespaceMultiplyInjected.
-func NewNamespaceMultiplyInjected(r *resource.Instance, namespace string, namespace2 string) diag.Message {
+// NewNamespaceMultipleInjectionLabels returns a new diag.Message based on NamespaceMultipleInjectionLabels.
+func NewNamespaceMultipleInjectionLabels(r *resource.Instance, namespace string, namespace2 string) diag.Message {
 	return diag.NewMessage(
-		NamespaceMultiplyInjected,
+		NamespaceMultipleInjectionLabels,
 		r,
 		namespace,
 		namespace2,

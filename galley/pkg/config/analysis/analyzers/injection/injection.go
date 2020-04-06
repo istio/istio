@@ -40,9 +40,9 @@ var _ analysis.Analyzer = &Analyzer{}
 // In theory, there can be alternatives using Mutatingwebhookconfiguration, but they're very uncommon
 // See https://istio.io/docs/ops/troubleshooting/injection/ for more info.
 const (
-	InjectionLabelName        = "istio-injection"
-	InjectionLabelEnableValue = "enabled"
-	NewInjectionLabelName     = model.RevisionLabel
+	InjectionLabelName         = "istio-injection"
+	InjectionLabelEnableValue  = "enabled"
+	RevisionInjectionLabelName = model.RevisionLabel
 
 	istioProxyName = "istio-proxy"
 )
@@ -63,7 +63,6 @@ func (a *Analyzer) Metadata() analysis.Metadata {
 func (a *Analyzer) Analyze(c analysis.Context) {
 	injectedNamespaces := make(map[string]bool)
 	controlPlaneRevisions := make(map[string]bool)
-	revisions := make([]string, 0)
 
 	// Gather revisions of control plane
 	c.ForEach(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
@@ -72,11 +71,15 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 			revision, ok := r.Metadata.Labels[model.RevisionLabel]
 			if ok {
 				controlPlaneRevisions[revision] = true
-				revisions = append(revisions, revision)
 			}
 		}
 		return true
 	})
+
+	revisions := make([]string, 0, len(controlPlaneRevisions))
+	for revision := range controlPlaneRevisions {
+		revisions = append(revisions, revision)
+	}
 
 	c.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
 
@@ -86,7 +89,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		}
 
 		injectionLabel := r.Metadata.Labels[InjectionLabelName]
-		newInjectionLabel, okNewInjectionLabel := r.Metadata.Labels[NewInjectionLabelName]
+		newInjectionLabel, okNewInjectionLabel := r.Metadata.Labels[RevisionInjectionLabelName]
 
 		if injectionLabel == "" && !okNewInjectionLabel {
 			// TODO: if Istio is installed with sidecarInjectorWebhook.enableNamespacesByDefault=true
@@ -99,7 +102,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		if okNewInjectionLabel {
 			if injectionLabel != "" {
 				c.Report(collections.K8SCoreV1Namespaces.Name(),
-					msg.NewNamespaceMultiplyInjected(r,
+					msg.NewNamespaceMultipleInjectionLabels(r,
 						r.Metadata.FullName.String(),
 						r.Metadata.FullName.String()))
 				return true

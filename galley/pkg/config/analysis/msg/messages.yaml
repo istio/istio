@@ -256,7 +256,7 @@ messages:
       - name: problem
         type: string
 
-  - name: "NamespaceMultiplyInjected"
+  - name: "NamespaceMultipleInjectionLabels"
     code: IST0123
     level: Warning
     description: "A namespace has both new and legacy injection labels"
@@ -279,4 +279,3 @@ messages:
         type: string
       - name: revisions
         type: string
-
