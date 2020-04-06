@@ -37,7 +37,7 @@ import (
 )
 
 // defaults the user can override
-func defaultControlPlane() (*operatorV1alpha1.IstioOperator, error) {
+func defaultControlPlane() *operatorV1alpha1.IstioOperator {
 	return &operatorV1alpha1.IstioOperator{
 		Kind:       "IstioOperator",
 		ApiVersion: "install.istio.io/v1alpha1",
@@ -47,7 +47,7 @@ func defaultControlPlane() (*operatorV1alpha1.IstioOperator, error) {
 		Spec: &iop.IstioOperatorSpec{
 			Profile: "default",
 		},
-	}, nil
+	}
 }
 
 // overlay configuration which will override user config.
@@ -114,11 +114,7 @@ func generateIstioControlPlane(mesh *Mesh, current *Cluster, meshNetworks *v1alp
 		}
 		base = &user
 	} else {
-		var err error
-		base, err = defaultControlPlane()
-		if err != nil {
-			return "", err
-		}
+		base = defaultControlPlane()
 	}
 
 	overlay, err := overlayIstioControlPlane(mesh, current, meshNetworks)
