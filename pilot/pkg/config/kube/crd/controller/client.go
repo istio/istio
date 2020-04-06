@@ -51,6 +51,8 @@ type Client struct {
 	// Map of apiVersion to restClient.
 	clientset map[string]*restClient
 
+	crdClient *apiextensionsclient.Clientset
+
 	schemas collection.Schemas
 
 	// domainSuffix for the config metadata
@@ -175,8 +177,14 @@ func NewForConfig(cfg *rest.Config, schemas collection.Schemas, domainSuffix str
 		return nil, err
 	}
 
+	crdClient, err := apiextensionsclient.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	out := &Client{
 		clientset:    cs,
+		crdClient:    crdClient,
 		domainSuffix: domainSuffix,
 		configLedger: configLedger,
 		schemas:      schemas,
@@ -408,6 +416,19 @@ func (cl *Client) objectInEnvironment(o *model.Config) bool {
 	}
 	// Otherwise, only return if the
 	return configEnv == cl.revision
+}
+
+// KnownCRDs returns all CRDs present in the cluster
+func (cl *Client) KnownCRDs() (map[string]struct{}, error) {
+	res, err := cl.crdClient.ApiextensionsV1beta1().CustomResourceDefinitions().List(context2.TODO(), meta_v1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	mp := map[string]struct{}{}
+	for _, r := range res.Items {
+		mp[r.Name] = struct{}{}
+	}
+	return mp, nil
 }
 
 // deprecated - only used for CRD controller unit tests
