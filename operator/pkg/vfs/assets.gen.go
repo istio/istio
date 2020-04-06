@@ -18427,9 +18427,9 @@ data:
   config: |-
     policy: enabled
     alwaysInjectSelector:
-            []
+      []
     neverInjectSelector:
-            []
+      []
     injectedAnnotations:
 
     # Configmap optimized for Istiod. Please DO NOT MERGE all changes from istio - in particular those dependent on
@@ -20869,9 +20869,9 @@ data:
   config: |-
     policy: {{ .Values.global.proxy.autoInject }}
     alwaysInjectSelector:
-      {{ toYaml .Values.sidecarInjectorWebhook.alwaysInjectSelector | trim | indent 6 }}
+{{ toYaml .Values.sidecarInjectorWebhook.alwaysInjectSelector | trim | indent 6 }}
     neverInjectSelector:
-      {{ toYaml .Values.sidecarInjectorWebhook.neverInjectSelector | trim | indent 6 }}
+{{ toYaml .Values.sidecarInjectorWebhook.neverInjectSelector | trim | indent 6 }}
     injectedAnnotations:
       {{- range $key, $val := .Values.sidecarInjectorWebhook.injectedAnnotations }}
       "{{ $key }}": "{{ $val }}"
