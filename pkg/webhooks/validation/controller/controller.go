@@ -407,7 +407,10 @@ func (c *Controller) isEndpointReady() (ready bool, reason string, err error) {
 	return ready, reason, nil
 }
 
-const deniedRequestMessageFragment = `admission webhook "validation.istio.io" denied the request`
+const (
+	deniedRequestMessageFragment   = `admission webhook "validation.istio.io" denied the request`
+	missingResourceMessageFragment = `the server could not find the requested resource`
+)
 
 // Confirm invalid configuration is successfully rejected before switching to FAIL-CLOSE.
 func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason string) {
@@ -426,10 +429,17 @@ func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason st
 	if err == nil {
 		return false, fmt.Sprintf("dummy invalid config not rejected")
 	}
-	if !strings.Contains(err.Error(), deniedRequestMessageFragment) {
-		return false, fmt.Sprintf("dummy invalid rejected for the wrong reason: %v", err)
+	// We expect to get deniedRequestMessageFragment (the config was rejected, as expected)
+	if strings.Contains(err.Error(), deniedRequestMessageFragment) {
+		return true, ""
 	}
-	return true, ""
+	// If the CRD does not exist, we will get this error. This is to handle when Pilot is run
+	// without CRDs - in this case, this check will not be possible.
+	if strings.Contains(err.Error(), missingResourceMessageFragment) {
+		log.Warnf("missing Gateway CRD, cannot perform validation check. Assuming validation is ready")
+		return true, ""
+	}
+	return false, fmt.Sprintf("dummy invalid rejected for the wrong reason: %v", err)
 }
 
 func isEndpointReady(endpoint *kubeApiCore.Endpoints) (ready bool, reason string) {
