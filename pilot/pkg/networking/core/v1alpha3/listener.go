@@ -1029,16 +1029,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 			if bindToPort && bind == "" {
 				bind = actualLocalHostAddress
 			}
-			listenerOpts := buildListenerOpts{
-				push:       push,
-				proxy:      node,
-				bind:       bind,
-				bindToPort: bindToPort,
-			}
 
 			for _, service := range services {
 				for _, servicePort := range service.Ports {
-					listenerOpts.port = servicePort.Port
+					listenerOpts := buildListenerOpts{
+						push:       push,
+						proxy:      node,
+						bind:       bind,
+						bindToPort: bindToPort,
+						port:       servicePort.Port,
+					}
 
 					// The listener protocol is determined by the protocol of service port.
 					pluginParams := &plugin.InputParams{
