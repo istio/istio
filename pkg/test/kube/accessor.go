@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 
-	appsv1 "k8s.io/api/apps/v1"
 	kubeApiAdmissions "k8s.io/api/admissionregistration/v1beta1"
 	kubeApiCore "k8s.io/api/core/v1"
 	kubeApiExt "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -394,11 +393,6 @@ func (a *Accessor) DeleteCustomResourceDefinitions(name string) error {
 // GetService returns the service entry with the given name/namespace.
 func (a *Accessor) GetService(ns string, name string) (*kubeApiCore.Service, error) {
 	return a.set.CoreV1().Services(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
-}
-
-// GetService returns the deployment with the given name/namespace.
-func (a *Accessor) GetDeployment(ns string, name string) (*appsv1.Deployment, error) {
-	return 	a.set.AppsV1().Deployments(ns).Get(name, kubeApiMeta.GetOptions{})
 }
 
 // GetSecret returns secret resource with the given namespace.
