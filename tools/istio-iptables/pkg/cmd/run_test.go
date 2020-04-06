@@ -83,6 +83,7 @@ func TestRulesWithIpRange(t *testing.T) {
 	cfg.OutboundIPRangesExclude = "1.1.0.0/16"
 	cfg.OutboundIPRangesInclude = "9.9.0.0/16"
 	cfg.DryRun = true
+	dnsVar.DefaultValue = "ALL"
 	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	iptConfigurator.cfg.EnableInboundIPv6 = false
 	iptConfigurator.cfg.ProxyGID = "1,2"
@@ -113,6 +114,9 @@ func TestRulesWithIpRange(t *testing.T) {
 		"iptables -t nat -A ISTIO_OUTPUT -d 1.1.0.0/16 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -d 9.9.0.0/16 -j ISTIO_REDIRECT",
 		"iptables -t nat -A ISTIO_OUTPUT -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 2 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -j REDIRECT --to-port 15013",
 	}
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("Output mismatch. Expected: \n%#v ; Actual: \n%#v", expected, actual)
@@ -563,6 +567,7 @@ func TestHandleInboundPortsIncludeWithWildcardInboundPortsAndTproxy(t *testing.T
 func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
 	cfg := constructConfig()
 	cfg.DryRun = true
+	dnsVar.DefaultValue = "ALL"
 	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	iptConfigurator.cfg.EnableInboundIPv6 = false
 	iptConfigurator.cfg.ProxyGID = "1,2"
@@ -590,6 +595,9 @@ func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
 		"iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 2 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 2 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 2 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -j REDIRECT --to-port 15013",
 	}
 
 	if !reflect.DeepEqual(actual, expected) {
