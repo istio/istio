@@ -34,6 +34,7 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/istioctl/pkg/authz"
+	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
@@ -106,7 +107,8 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 		},
 	}
 
-	convertCmd = &cobra.Command{
+	convertOpts clioptions.ControlPlaneOptions
+	convertCmd  = &cobra.Command{
 		Use:   "convert",
 		Short: "Convert v1alpha1 RBAC policy to v1beta1 authorization policy",
 		Long: `Convert Istio v1alpha1 RBAC policy to v1beta1 authorization policy. By default,
@@ -149,7 +151,7 @@ PLEASE ALWAYS REVIEW THE CONVERTED POLICIES BEFORE APPLYING.
 					return fmt.Errorf("failed to create the AuthorizationPolicies: %v", err)
 				}
 			} else {
-				authorizationPolicies, err = getAuthorizationPoliciesFromCluster()
+				authorizationPolicies, err = getAuthorizationPoliciesFromCluster(convertOpts)
 				if err != nil {
 					return fmt.Errorf("failed to get the v1alpha1 RBAC policies: %v", err)
 				}
@@ -267,9 +269,9 @@ func createAuthorizationPoliciesFromFiles(files []string, rootNamespace string) 
 	return authorizationPolicies, nil
 }
 
-func getAuthorizationPoliciesFromCluster() (*model.AuthorizationPolicies, error) {
+func getAuthorizationPoliciesFromCluster(opts clioptions.ControlPlaneOptions) (*model.AuthorizationPolicies, error) {
 	var authorizationPolicies *model.AuthorizationPolicies
-	kubeClient, err := clientExecFactory(kubeconfig, configContext)
+	kubeClient, err := clientExecFactory(kubeconfig, configContext, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -386,4 +388,5 @@ func init() {
 		"Override the root namespace used in the conversion")
 	convertCmd.PersistentFlags().BoolVarP(&allowNoClusterRbacConfig, "allowNoClusterRbacConfig", "", false,
 		"Continue the conversion even if there is no ClusterRbacConfig in the cluster")
+	convertOpts.AttachControlPlaneFlags(convertCmd)
 }

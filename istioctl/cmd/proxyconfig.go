@@ -146,7 +146,7 @@ var (
 )
 
 func setupPodConfigdumpWriter(podName, podNamespace string, out io.Writer) (*configdump.ConfigWriter, error) {
-	kubeClient, err := clientExecFactory(kubeconfig, configContext)
+	kubeClient, err := envoyClientFactory(kubeconfig, configContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create k8s client: %v", err)
 	}
@@ -185,7 +185,7 @@ func setupConfigdumpEnvoyConfigWriter(debug []byte, out io.Writer) (*configdump.
 }
 
 func setupEnvoyLogConfig(param, podName, podNamespace string) (string, error) {
-	kubeClient, err := clientExecFactory(kubeconfig, configContext)
+	kubeClient, err := envoyClientFactory(kubeconfig, configContext)
 	if err != nil {
 		return "", fmt.Errorf("failed to create Kubernetes client: %v", err)
 	}
@@ -221,7 +221,7 @@ func getLogLevelFromConfigMap() (string, error) {
 }
 
 func setupPodClustersWriter(podName, podNamespace string, out io.Writer) (*clusters.ConfigWriter, error) {
-	kubeClient, err := clientExecFactory(kubeconfig, configContext)
+	kubeClient, err := envoyClientFactory(kubeconfig, configContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create k8s client: %v", err)
 	}
