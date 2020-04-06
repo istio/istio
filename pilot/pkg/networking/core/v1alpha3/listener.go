@@ -1037,22 +1037,21 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 				bindToPort: bindToPort,
 			}
 
-			// The listener protocol is determined by the protocol of service port.
-			pluginParams := &plugin.InputParams{
-				ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
-				Node:             node,
-				Push:             push,
-				Bind:             bind,
-			}
-
 			for _, service := range services {
 				for _, servicePort := range service.Ports {
 					listenerOpts.port = servicePort.Port
 
-					pluginParams.Port = servicePort
-					pluginParams.Service = service
-					pluginParams.ListenerProtocol = istionetworking.ModelProtocolToListenerProtocol(node, servicePort.Protocol,
-						core.TrafficDirection_OUTBOUND)
+					// The listener protocol is determined by the protocol of service port.
+					pluginParams := &plugin.InputParams{
+						ListenerProtocol: istionetworking.ModelProtocolToListenerProtocol(node, servicePort.Protocol,
+							core.TrafficDirection_OUTBOUND),
+						ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+						Node:             node,
+						Push:             push,
+						Bind:             bind,
+						Port:             servicePort,
+						Service:          service,
+					}
 
 					// Support Kubernetes statefulsets/headless services with TCP ports only.
 					// Instead of generating a single 0.0.0.0:Port listener, generate a listener
