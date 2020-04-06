@@ -205,7 +205,7 @@ func printError(err error) {
 func logWithError(err error, format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
 	if err == nil {
-		msg += fmt.Sprint(": OK\n")
+		msg += ": OK\n"
 	} else {
 		msg += fmt.Sprintf(": %v\n", err)
 	}

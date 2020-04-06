@@ -98,7 +98,7 @@ func parseYAMLFiles(inFilenames []string, force bool, l *Logger) (overlayYAML st
 		return "", "", err
 	}
 	var fileOverlayIOP *iopv1alpha1.IstioOperator
-	fileOverlayIOP, overlayYAML, err = translate.UnmarshalIOPOrICP(y)
+	fileOverlayIOP, err = validate.UnmarshalIOP(y)
 	if err != nil {
 		return "", "", err
 	}
@@ -114,7 +114,7 @@ func parseYAMLFiles(inFilenames []string, force bool, l *Logger) (overlayYAML st
 		}
 		profile = fileOverlayIOP.Spec.Profile
 	}
-	return overlayYAML, profile, nil
+	return y, profile, nil
 }
 
 // profileFromSetOverlay takes a YAML string and if it contains a key called "profile" in the root, it returns the key
@@ -155,17 +155,6 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 	outYAML, err := getProfileYAML(installPackagePath, profileOrPath)
 	if err != nil {
 		return "", nil, err
-	}
-
-	if err := translate.CheckIstioControlPlane(outYAML); err == nil {
-		translations, err := translate.ICPtoIOPTranslations(version.OperatorBinaryVersion)
-		if err != nil {
-			return "", nil, err
-		}
-		outYAML, err = translate.ICPToIOP(outYAML, translations)
-		if err != nil {
-			return "", nil, err
-		}
 	}
 
 	// Hub and tag are only known at build time and must be passed in here during runtime from build stamps.

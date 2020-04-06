@@ -38,10 +38,6 @@ import (
 )
 
 const (
-	// K8sDeploymentResourceType is the resource type of kubernetes deployment.
-	K8sDeploymentResourceType = "Deployment"
-	// K8sDaemonSetResourceType is the resource type of kubernetes daemonset.
-	K8sDaemonSetResourceType = "DaemonSet"
 	// HelmValuesEnabledSubpath is the subpath from the component root to the enabled parameter.
 	HelmValuesEnabledSubpath = "enabled"
 	// HelmValuesNamespaceSubpath is the subpath from the component root to the namespace parameter.
@@ -54,8 +50,6 @@ const (
 	TranslateConfigFolder = "translateConfig"
 	// TranslateConfigPrefix is the prefix of IstioOperator's translation configuration file
 	TranslateConfigPrefix = "translateConfig-"
-	// ICPToIOPConfigPrefix is the prefix of IstioControPlane-to-IstioOperator translation configuration file
-	ICPToIOPConfigPrefix = "translate-ICP-IOP-"
 
 	// devDbg generates lots of output useful in development.
 	devDbg = false
@@ -225,21 +219,6 @@ func (t *Translator) ProtoToValues(ii *v1alpha1.IstioOperatorSpec) (string, erro
 	}
 
 	return string(y), errs.ToError()
-}
-
-// ValuesOverlaysToHelmValues translates from component value overlays to helm value overlay paths.
-func (t *Translator) ValuesOverlaysToHelmValues(in map[string]interface{}, cname name.ComponentName) map[string]interface{} {
-	out := make(map[string]interface{})
-	toPath := t.ComponentMaps[cname].ToHelmValuesTreeRoot
-	pv := strings.Split(toPath, ".")
-	cur := out
-	for len(pv) > 1 {
-		cur[pv[0]] = make(map[string]interface{})
-		cur = cur[pv[0]].(map[string]interface{})
-		pv = pv[1:]
-	}
-	cur[pv[0]] = in
-	return out
 }
 
 // TranslateHelmValues creates a Helm values.yaml config data tree from iop using the given translator.
@@ -485,15 +464,6 @@ func (t *Translator) IsComponentEnabled(cn name.ComponentName, iop *v1alpha1.Ist
 		return false, nil
 	}
 	return IsComponentEnabledInSpec(cn, iop)
-}
-
-// AllComponentsNames returns a slice of all components used in t.
-func (t *Translator) AllComponentsNames() []name.ComponentName {
-	var out []name.ComponentName
-	for cn := range t.ComponentMaps {
-		out = append(out, cn)
-	}
-	return out
 }
 
 // insertLeaf inserts a leaf with value into root at path, which is first mapped using t.APIMapping.

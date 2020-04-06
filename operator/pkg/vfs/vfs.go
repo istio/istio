@@ -67,15 +67,6 @@ func (di dirInfo) Sys() interface{} {
 	return nil
 }
 
-// Size returns the size of the file at the given path, if it is found.
-func Size(path string) (int64, error) {
-	n, err := Stat(path)
-	if err != nil {
-		return 0, err
-	}
-	return n.Size(), nil
-}
-
 // ReadDir non-recursively reads the directory at path and returns all the files contained in it.
 func ReadDir(path string) ([]string, error) {
 	return AssetDir(path)

@@ -85,15 +85,6 @@ func HashNameKind(kind, name string) string {
 	return strings.Join([]string{kind, name}, ":")
 }
 
-// K8sObjectsFromUnstructuredSlice returns an Objects ptr type from a slice of Unstructured.
-func K8sObjectsFromUnstructuredSlice(objs []*unstructured.Unstructured) (K8sObjects, error) {
-	var ret K8sObjects
-	for _, o := range objs {
-		ret = append(ret, NewK8sObject(o, nil, nil))
-	}
-	return ret, nil
-}
-
 // ParseJSONToK8sObject parses JSON to an K8sObject.
 func ParseJSONToK8sObject(json []byte) (*K8sObject, error) {
 	o, _, err := unstructured.UnstructuredJSONScheme.Decode(json, nil, nil)
@@ -125,11 +116,6 @@ func ParseYAMLToK8sObject(yaml []byte) (*K8sObject, error) {
 // UnstructuredObject exposes the raw object, primarily for testing
 func (o *K8sObject) UnstructuredObject() *unstructured.Unstructured {
 	return o.object
-}
-
-// GroupKind returns the GroupKind for the K8sObject
-func (o *K8sObject) GroupKind() schema.GroupKind {
-	return o.object.GroupVersionKind().GroupKind()
 }
 
 // GroupVersionKind returns the GroupVersionKind for the K8sObject

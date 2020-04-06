@@ -33,9 +33,6 @@ func TestManifestMigrate(t *testing.T) {
 		{
 			desc: "overlay_values",
 		},
-		{
-			desc: "default_icp_iop",
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {

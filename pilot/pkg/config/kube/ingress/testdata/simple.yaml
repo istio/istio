@@ -38,3 +38,27 @@ spec:
         backend:
           serviceName: service1
           servicePort: 4205
+      # Subpath without trailing /, Exact match
+      - path: /sub/path
+        pathType: Exact
+        backend:
+          serviceName: service1
+          servicePort: 4206
+        # With a trailing /, Exact match
+      - path: /sub/path/
+        pathType: Exact
+        backend:
+          serviceName: service1
+          servicePort: 4207
+      # Subpath without trailing /, Prefix match
+      - path: /sub/path
+        pathType: Prefix
+        backend:
+          serviceName: service1
+          servicePort: 4208
+        # With a trailing /, Prefix match
+      - path: /sub/path/
+        pathType: Prefix
+        backend:
+          serviceName: service1
+          servicePort: 4209
