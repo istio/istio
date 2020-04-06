@@ -2582,7 +2582,6 @@ func isFilterChainMatchEmpty(fcm *listener.FilterChainMatch) bool {
 	return true
 }
 
-
 func isFallthroughFilterChain(fc *listener.FilterChain) bool {
 	if fc.Metadata != nil && fc.Metadata.FilterMetadata != nil &&
 		fc.Metadata.FilterMetadata[PilotMetaKey] != nil && fc.Metadata.FilterMetadata[PilotMetaKey].Fields["fallthrough"] != nil {
