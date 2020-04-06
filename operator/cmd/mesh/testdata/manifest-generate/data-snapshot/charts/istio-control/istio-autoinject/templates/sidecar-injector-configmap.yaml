@@ -1,0 +1,27 @@
+{{- if not .Values.global.omitSidecarInjectorConfigMap }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-sidecar-injector
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+    app: sidecar-injector
+    istio: sidecar-injector
+data:
+  values: |-
+    {{ .Values | toJson }}
+
+  config: |-
+    policy: {{ .Values.global.proxy.autoInject }}
+    alwaysInjectSelector:
+{{ toYaml .Values.sidecarInjectorWebhook.alwaysInjectSelector | trim | indent 6 }}
+    neverInjectSelector:
+{{ toYaml .Values.sidecarInjectorWebhook.neverInjectSelector | trim | indent 6 }}
+{{ .Files.Get "files/injection-template.yaml" | trim | indent 4 }}
+    injectedAnnotations:
+    {{- range $key, $val := .Values.sidecarInjectorWebhook.injectedAnnotations }}
+      "{{ $key }}": "{{ $val }}"
+    {{- end }}
+
+{{- end }}

@@ -1,0 +1,216 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-telemetry
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istio-mixer
+    istio: mixer
+    release: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.mixer.telemetry.replicaCount }}
+  strategy:
+    rollingUpdate:
+      maxSurge: {{ .Values.mixer.telemetry.rollingMaxSurge }}
+      maxUnavailable: {{ .Values.mixer.telemetry.rollingMaxUnavailable }}
+  selector:
+    matchLabels:
+      istio: mixer
+      istio-mixer-type: telemetry
+  template:
+    metadata:
+      labels:
+        app: telemetry
+        istio: mixer
+        istio-mixer-type: telemetry
+      annotations:
+        sidecar.istio.io/inject: "false"
+{{- with .Values.mixer.telemetry.podAnnotations }}
+{{ toYaml . | indent 8 }}
+{{- end }}
+    spec:
+      serviceAccountName: istio-mixer-service-account
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+      securityContext:
+        fsGroup: 1337
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.istio-mixer-service-account
+          optional: true
+      - name: uds-socket
+        emptyDir: {}
+      - name: telemetry-adapter-secret
+        secret:
+          secretName: telemetry-adapter-secret
+          optional: true
+      - name: telemetry-envoy-config
+        configMap:
+          name: telemetry-envoy-config
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
+{{- if .Values.mixer.telemetry.tolerations }}
+      tolerations:
+{{ toYaml .Values.mixer.telemetry.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
+{{- end }}
+      containers:
+      - name: mixer
+{{- if contains "/" .Values.mixer.telemetry.image }}
+        image: "{{ .Values.mixer.telemetry.image }}"
+{{- else }}
+        image: "{{ .Values.mixer.telemetry.hub | default .Values.global.hub }}/{{ .Values.mixer.telemetry.image }}:{{ .Values.mixer.telemetry.tag | default .Values.global.tag }}"
+{{- end }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+        ports:
+        - containerPort: 9091
+        - containerPort: 15014
+        - containerPort: 42422
+        args:
+          - --monitoringPort=15014
+          - --address
+{{- if .Values.global.controlPlaneSecurityEnabled }}
+          - unix:///sock/mixer.socket
+{{- else }}
+          - tcp://0.0.0.0:9091
+{{- end }}
+{{- if .Values.global.logging.level }}
+          - --log_output_level={{ .Values.global.logging.level }}
+{{- end}}
+{{- if .Values.global.logAsJson }}
+          - --log_as_json
+{{- end }}
+{{- if .Values.global.useMCP }}
+    {{- if .Values.global.controlPlaneSecurityEnabled}}
+          - --configStoreURL=mcp://localhost:15019
+    {{- else }}
+          - --configStoreURL=mcp://istio-galley.{{ .Values.global.configNamespace }}.svc:9901
+    {{- end }}
+{{- else }}
+          - --configStoreURL=k8s://
+{{- end }}
+          - --configDefaultNamespace={{ .Values.global.telemetryNamespace }}
+          {{- if .Values.mixer.adapters.useAdapterCRDs }}
+          - --useAdapterCRDs=true
+          {{- else }}
+          - --useAdapterCRDs=false
+          {{- end }}
+          - --useTemplateCRDs=false
+          {{- if .Values.global.tracer.zipkin.address }}
+          - --trace_zipkin_url=http://{{- .Values.global.tracer.zipkin.address }}/api/v1/spans
+          {{- else }}
+          - --trace_zipkin_url=http://zipkin.{{ .Values.global.telemetryNamespace }}:9411/api/v1/spans
+          {{- end }}
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        {{- if .Values.mixer.telemetry.env }}
+        {{- range $key, $val := .Values.mixer.telemetry.env }}
+        - name: {{ $key }}
+          value: "{{ $val }}"
+        {{- end }}
+        {{- end }}
+        resources:
+{{- if .Values.mixer.telemetry.resources }}
+{{ toYaml .Values.mixer.telemetry.resources | indent 10 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 10 }}
+{{- end }}
+        securityContext:
+          runAsUser: 1337
+          runAsGroup: 1337
+          runAsNonRoot: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+{{- if .Values.global.useMCP }}
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
+{{- end }}
+        - name: uds-socket
+          mountPath: /sock
+        - name: telemetry-adapter-secret
+          mountPath: /var/run/secrets/istio.io/telemetry/adapter
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /version
+            port: 15014
+          initialDelaySeconds: 5
+          periodSeconds: 5
+{{- if .Values.global.controlPlaneSecurityEnabled }}
+      - name: istio-proxy
+{{- if contains "/" .Values.global.proxy.image }}
+        image: "{{ .Values.global.proxy.image }}"
+{{- else }}
+        image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+{{- end }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+        ports:
+        - containerPort: 15004
+        - containerPort: 15090
+          protocol: TCP
+          name: http-envoy-prom
+        args:
+        - proxy
+        - --domain
+        - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
+        - --serviceCluster
+        - istio-telemetry
+        - --templateFile
+        - /var/lib/envoy/envoy.yaml.tmpl
+      {{- if .Values.global.controlPlaneSecurityEnabled }}
+        - --controlPlaneAuthPolicy
+        - MUTUAL_TLS
+      {{- else }}
+        - --controlPlaneAuthPolicy
+        - NONE
+      {{- end }}
+      {{- if .Values.global.trustDomain }}
+        - --trust-domain={{ .Values.global.trustDomain }}
+      {{- end }}
+      {{- if .Values.global.logAsJson }}
+        - --log_as_json
+      {{- end }}
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        resources:
+{{- if .Values.global.proxy.resources }}
+{{ toYaml .Values.global.proxy.resources | indent 10 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 10 }}
+{{- end }}
+        volumeMounts:
+        - name: telemetry-envoy-config
+          mountPath: /var/lib/envoy
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
+        - name: uds-socket
+          mountPath: /sock
+{{- end }}
+---

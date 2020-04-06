@@ -1,0 +1,124 @@
+# This manifest installs the Istio install-cni container, as well
+# as the Istio CNI plugin and config on
+# each master and worker node in a Kubernetes cluster.
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: istio-cni-node
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: istio-cni-node
+    release: {{ .Release.Name }}
+spec:
+  selector:
+    matchLabels:
+      k8s-app: istio-cni-node
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        k8s-app: istio-cni-node
+      annotations:
+        # This, along with the CriticalAddonsOnly toleration below,
+        # marks the pod as a critical add-on, ensuring it gets
+        # priority scheduling and that its resources are reserved
+        # if it ever gets evicted.
+        scheduler.alpha.kubernetes.io/critical-pod: ''
+        {{- if .Values.cni.podAnnotations }}
+{{ toYaml .Values.cni.podAnnotations | indent 8 }}
+        {{- end }}
+    spec:
+      nodeSelector:
+        beta.kubernetes.io/os: linux
+      hostNetwork: true
+      tolerations:
+        # Make sure istio-cni-node gets scheduled on all nodes.
+        - effect: NoSchedule
+          operator: Exists
+        # Mark the pod as a critical add-on for rescheduling.
+        - key: CriticalAddonsOnly
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists
+      priorityClassName: system-cluster-critical
+      serviceAccountName: istio-cni
+      # Minimize downtime during a rolling upgrade or deletion; tell Kubernetes to do a "force
+      # deletion": https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods.
+      terminationGracePeriodSeconds: 5
+      containers:
+        # This container installs the Istio CNI binaries
+        # and CNI network config file on each node.
+        - name: install-cni
+{{- if contains "/" .Values.cni.image }}
+          image: "{{ .Values.cni.image }}"
+{{- else }}
+          image: "{{ .Values.cni.hub | default .Values.global.hub }}/{{ .Values.cni.image | default "install-cni" }}:{{ .Values.cni.tag | default .Values.global.tag }}"
+{{- end }}
+          imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
+          command: ["/install-cni.sh"]
+          env:
+{{- if .Values.cni.cniConfFileName }}
+            # Name of the CNI config file to create.
+            - name: CNI_CONF_NAME
+              value: "{{ .Values.cni.cniConfFileName }}"
+{{- end }}
+            # The CNI network config to install on each node.
+            - name: CNI_NETWORK_CONFIG
+              valueFrom:
+                configMapKeyRef:
+                  name: istio-cni-config
+                  key: cni_network_config
+            - name: CNI_NET_DIR
+              value: {{ default "/etc/cni/net.d" .Values.cni.cniConfDir }}
+            # Deploy as a standalone CNI plugin or as chained?
+            - name: CHAINED_CNI_PLUGIN
+              value: "{{ .Values.cni.chained }}"
+          volumeMounts:
+            - mountPath: /host/opt/cni/bin
+              name: cni-bin-dir
+            - mountPath: /host/etc/cni/net.d
+              name: cni-net-dir
+{{- if .Values.cni.repair.enabled }}
+        - name: repair-cni
+{{- if contains "/" .Values.cni.image }}
+          image: "{{ .Values.cni.image }}"
+{{- else }}
+          image: "{{ .Values.cni.hub | default .Values.global.hub }}/{{ .Values.cni.image | default "install-cni" }}:{{ .Values.cni.tag | default .Values.global.tag }}"
+{{- end }}
+{{- if or .Values.cni.pullPolicy .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
+{{- end }}
+
+          command: ["/opt/cni/bin/istio-cni-repair"]
+          env:
+          - name: "REPAIR_NODE-NAME"
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: "REPAIR_LABEL-PODS"
+            value: "{{.Values.cni.repair.labelPods}}"
+          # Set to true to enable pod deletion
+          - name: "REPAIR_DELETE-PODS"
+            value: "{{.Values.cni.repair.deletePods}}"
+          - name: "REPAIR_RUN-AS-DAEMON"
+            value: "true"
+          - name: "REPAIR_SIDECAR-ANNOTATION"
+            value: "sidecar.istio.io/status"
+          - name: "REPAIR_INIT-CONTAINER-NAME"
+            value: "{{ .Values.cni.repair.initContainerName }}"
+          - name: "REPAIR_BROKEN-POD-LABEL-KEY"
+            value: "{{.Values.cni.repair.brokenPodLabelKey}}"
+          - name: "REPAIR_BROKEN-POD-LABEL-VALUE"
+            value: "{{.Values.cni.repair.brokenPodLabelValue}}"
+{{- end }}
+      volumes:
+        # Used to install CNI.
+        - name: cni-bin-dir
+          hostPath:
+            path: {{ default "/opt/cni/bin" .Values.cni.cniBinDir }}
+        - name: cni-net-dir
+          hostPath:
+            path: {{ default "/etc/cni/net.d" .Values.cni.cniConfDir }}

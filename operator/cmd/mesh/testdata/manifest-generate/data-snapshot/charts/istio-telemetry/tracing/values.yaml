@@ -1,0 +1,106 @@
+#
+# addon tracing configuration
+#
+tracing:
+  enabled: false
+
+  provider: jaeger
+  nodeSelector: {}
+  tolerations: []
+
+  # Specify the pod anti-affinity that allows you to constrain which nodes
+  # your pod is eligible to be scheduled based on labels on pods that are
+  # already running on the node rather than based on labels on nodes.
+  # There are currently two types of anti-affinity:
+  #    "requiredDuringSchedulingIgnoredDuringExecution"
+  #    "preferredDuringSchedulingIgnoredDuringExecution"
+  # which denote "hard" vs. "soft" requirements, you can define your values
+  # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
+  # correspondingly.
+  # For example:
+  # podAntiAffinityLabelSelector:
+  # - key: security
+  #   operator: In
+  #   values: S1,S2
+  #   topologyKey: "kubernetes.io/hostname"
+  # This pod anti-affinity rule says that the pod requires not to be scheduled
+  # onto a node if that node is already running a pod with label having key
+  # "security" and value "S1".
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
+
+  contextPath: ""
+
+
+  jaeger:
+    hub: docker.io/jaegertracing
+    image: all-in-one
+    tag: 1.16
+    memory:
+      max_traces: 50000
+    resources: {}
+    # spanStorageType value can be "memory" and "badger" for all-in-one image
+    spanStorageType: badger
+    persist: false
+    storageClassName: ""
+    accessMode: ReadWriteMany
+    podAnnotations: {}
+
+  zipkin:
+    hub: docker.io/openzipkin
+    image: zipkin
+    tag: 2.14.2
+    probeStartupDelay: 200
+    queryPort: 9411
+    resources:
+      limits:
+        cpu: 300m
+        memory: 900Mi
+      requests:
+        cpu: 150m
+        memory: 900Mi
+    javaOptsHeap: 700
+    # From: https://github.com/openzipkin/zipkin/blob/master/zipkin-server/src/main/resources/zipkin-server-shared.yml#L51
+    # Maximum number of spans to keep in memory.  When exceeded, oldest traces (and their spans) will be purged.
+    # A safe estimate is 1K of memory per span (each span with 2 annotations + 1 binary annotation), plus
+    # 100 MB for a safety buffer.  You'll need to verify in your own environment.
+    maxSpans: 500000
+    node:
+      cpus: 2
+    podAnnotations: {}
+
+  opencensus:
+    hub: docker.io/omnition
+    tag: 0.1.9
+    resources:
+      limits:
+        cpu: 1
+        memory: 2Gi
+      requests:
+        cpu: 200m
+        memory: 400Mi
+    exporters:
+      stackdriver:
+        enable_tracing: true
+    podAnnotations: {}
+
+  service:
+    annotations: {}
+    name: http-query
+    type: ClusterIP
+    externalPort: 80
+
+  ingress:
+    enabled: false
+    # Used to create an Ingress record.
+    hosts:
+    # - tracing.local
+    annotations:
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+    tls:
+    # Secrets must be manually created in the namespace.
+    # - secretName: tracing-tls
+    #   hosts:
+    #     - tracing.local
+

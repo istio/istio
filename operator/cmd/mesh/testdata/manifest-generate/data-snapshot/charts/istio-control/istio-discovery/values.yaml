@@ -1,0 +1,202 @@
+#.Values.pilot for discovery and mesh wide config
+
+## Discovery Settings
+pilot:
+  autoscaleEnabled: true
+  autoscaleMin: 1
+  autoscaleMax: 5
+  replicaCount: 1
+  rollingMaxSurge: 100%
+  rollingMaxUnavailable: 25%
+
+  hub: ""
+  tag: ""
+
+  # Can be a full hub/image:tag
+  image: pilot
+  traceSampling: 1.0
+
+  # Resources for a small pilot install
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2048Mi
+
+  # Namespace for Istio config
+  configNamespace: istio-config
+
+  # Applications namespace list pilot manages
+  appNamespaces: []
+
+  env: {}
+
+  cpu:
+    targetAverageUtilization: 80
+
+  # if protocol sniffing is enabled for outbound
+  enableProtocolSniffingForOutbound: true
+  # if protocol sniffing is enabled for inbound
+  enableProtocolSniffingForInbound: false
+
+  nodeSelector: {}
+  tolerations: []
+  podAnnotations: {}
+
+  # You can use jwksResolverExtraRootCA to provide a root certificate
+  # in PEM format. This will then be trusted by pilot when resolving
+  # JWKS URIs.
+  jwksResolverExtraRootCA: ""
+
+  # This is used to set the source of configuration for
+  # the associated address in configSource, if nothing is specificed
+  # the default MCP is assumed. The alternative option is SERVICE_REGISTRY
+  # which describes the source is only forwarding synthetic service entries
+  configSource:
+    subscribedResources: []
+
+  plugins: []
+
+  # Specify the pod anti-affinity that allows you to constrain which nodes
+  # your pod is eligible to be scheduled based on labels on pods that are
+  # already running on the node rather than based on labels on nodes.
+  # There are currently two types of anti-affinity:
+  #    "requiredDuringSchedulingIgnoredDuringExecution"
+  #    "preferredDuringSchedulingIgnoredDuringExecution"
+  # which denote "hard" vs. "soft" requirements, you can define your values
+  # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
+  # correspondingly.
+  # For example:
+  # podAntiAffinityLabelSelector:
+  # - key: security
+  #   operator: In
+  #   values: S1,S2
+  #   topologyKey: "kubernetes.io/hostname"
+  # This pod anti-affinity rule says that the pod requires not to be scheduled
+  # onto a node if that node is already running a pod with label having key
+  # "security" and value "S1".
+  podAntiAffinityLabelSelector: []
+  podAntiAffinityTermLabelSelector: []
+
+  # The following is used to limit how long a sidecar can be connected
+  # to a pilot. It balances out load across pilot instances at the cost of
+  # increasing system churn.
+  keepaliveMaxServerConnectionAge: 30m
+
+  # Additional labels to apply to the deployment.
+  deploymentLabels: {}
+
+
+  ## Mesh config settings
+
+  # Install the mesh config map, generated from values.yaml.
+  # If false, pilot wil use default values (by default) or user-supplied values.
+  configMap: true
+
+  # Controls legacy k8s ingress
+  # Only one pilot profile should enable ingress support !!!
+  ingress:
+    # If empty, node-port is assumed.
+    ingressService: istio-ingressgateway
+    # DEFAULT: all Ingress resources without annotation or with istio annotation
+    # STRICT: only with istio annotation
+    # OFF: no ingress or sync.
+    ingressControllerMode: "STRICT"
+
+    # Value to set on "kubernetes.io/ingress.class" annotations to activate, if mode is STRICT
+    # This is required to be different than 'istio' if multiple ingresses are present.
+    ingressClass: istio
+
+  policy:
+    # Will not define mixerCheckServer and mixerReportServer
+    enabled: false
+
+## Mixer settings
+mixer:
+  telemetry:
+    # Set reportBatchMaxEntries to 0 to use the default batching behavior (i.e., every 100 requests).
+    # A positive value indicates the number of requests that are batched before telemetry data
+    # is sent to the mixer server
+    reportBatchMaxEntries: 100
+
+    # Set reportBatchMaxTime to 0 to use the default batching behavior (i.e., every 1 second).
+    # A positive time value indicates the maximum wait time since the last request will telemetry data
+    # be batched before being sent to the mixer server
+    reportBatchMaxTime: 1s
+
+    sessionAffinityEnabled: false
+  policy:
+    enabled: false
+
+sidecarInjectorWebhook:
+  # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
+  # always skip the injection on pods that match that label selector, regardless of the global policy.
+  # See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#more-control-adding-exceptions
+  neverInjectSelector: []
+  alwaysInjectSelector: []
+
+  # injectedAnnotations are additional annotations that will be added to the pod spec after injection
+  # This is primarily to support PSP annotations. For example, if you defined a PSP with the annotations:
+  #
+  # annotations:
+  #   apparmor.security.beta.kubernetes.io/allowedProfileNames: runtime/default
+  #   apparmor.security.beta.kubernetes.io/defaultProfileName: runtime/default
+  #
+  # The PSP controller would add corresponding annotations to the pod spec for each container. However, this happens before
+  # the inject adds additional containers, so we must specify them explicitly here. With the above example, we could specify:
+  # injectedAnnotations:
+  #   container.apparmor.security.beta.kubernetes.io/istio-init: runtime/default
+  #   container.apparmor.security.beta.kubernetes.io/istio-proxy: runtime/default
+  injectedAnnotations: {}
+
+  # This enables injection of sidecar in all namespaces,
+  # with the exception of namespaces with "istio-injection:disabled" annotation
+  # Only one environment should have this enabled.
+  enableNamespacesByDefault: false
+
+  # If set, will use the value as injection label. The value must match the 'release' label of the injector,
+  # except when 1.2 istio-injection label is used, which must be set to "enabled".
+  injectLabel: istio-injection
+
+  # Enable objectSelector to filter out pods with no need for sidecar before calling istio-sidecar-injector.
+  # It is disabled by default since this function will only work after k8s v1.15.
+  objectSelector:
+    enabled: false
+    autoInject: true
+
+galley:
+  enabled: false
+
+telemetry:
+  enabled: true
+  v1:
+    # Set true to enable Mixer based telemetry
+    enabled: false
+  v2:
+    # For Null VM case now. If enabled, will set disableMixerHttpReports to true and not define mixerReportServer
+    # This also enables metadata exchange.
+    enabled: true
+    metadataExchange:
+      # Indicates whether to enable WebAssembly runtime for metadata exchange filter.
+      wasmEnabled: false
+    # Indicate if prometheus stats filter is enabled or not
+    prometheus:
+      enabled: true
+      # Indicates whether to enable WebAssembly runtime for stats filter.
+      wasmEnabled: false
+    # stackdriver filter settings.
+    stackdriver:
+      enabled: false
+      logging: false
+      monitoring: false
+      topology: false
+      #  configOverride parts give you the ability to override the low level configuration params passed to envoy filter.
+
+      configOverride: {}
+      #  e.g.
+      #  enable_mesh_edges_reporting: true
+      #  disable_server_access_logging: false
+      #  meshEdgesReportingDuration: 500s
+      #  disable_host_header_fallback: true
+
+# Revision is set as 'version' label and part of the resource names when installing multiple control planes.
+revision: ""

@@ -1,0 +1,136 @@
+# istio CA watching all namespaces
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-citadel
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: security
+    istio: citadel
+    release: {{ .Release.Name }}
+
+spec:
+  selector:
+    matchLabels:
+      istio: citadel
+  replicas: {{ .Values.security.replicaCount }}
+  strategy:
+    rollingUpdate:
+      maxSurge: {{ .Values.security.rollingMaxSurge }}
+      maxUnavailable: {{ .Values.security.rollingMaxUnavailable }}
+  template:
+    metadata:
+      labels:
+        app: citadel
+        istio: citadel
+      annotations:
+        sidecar.istio.io/inject: "false"
+        {{- if .Values.security.podAnnotations }}
+{{ toYaml .Values.security.podAnnotations | indent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: istio-citadel-service-account
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+      containers:
+        - name: citadel
+          image: "{{ .Values.global.hub }}/{{ .Values.security.image }}:{{ .Values.global.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+          args:
+            {{- if .Values.global.sds.enabled }}
+            - --sds-enabled=true
+            {{- end }}
+            - --append-dns-names=true
+            - --grpc-port=8060
+            - --citadel-storage-namespace={{ .Release.Namespace }}
+          {{- if .Values.kustomize }}
+            - --custom-dns-names=$(CITADEL_DNS)
+          {{- else }}
+            - --custom-dns-names={{ range $k,$v := .Values.security.dnsCerts }}{{ $k }}:{{ $v }},{{ end }}
+          {{- end }}
+          {{- if .Values.security.selfSigned }}
+            - --self-signed-ca=true
+          {{- else }}
+            - --self-signed-ca=false
+            - --signing-cert=/etc/cacerts/ca-cert.pem
+            - --signing-key=/etc/cacerts/ca-key.pem
+            - --root-cert=/etc/cacerts/root-cert.pem
+            - --cert-chain=/etc/cacerts/cert-chain.pem
+          {{- end }}
+          {{- if .Values.global.trustDomain }}
+            - --trust-domain={{ .Values.global.trustDomain }}
+          {{- end }}
+          {{- if .Values.security.workloadCertTtl }}
+            - --workload-cert-ttl={{ .Values.security.workloadCertTtl }}
+          {{- end }}
+          {{- if .Values.security.citadelHealthCheck }}
+            - --liveness-probe-path=/tmp/ca.liveness # path to the liveness health check status file
+            - --liveness-probe-interval=60s # interval for health check file update
+            - --probe-check-interval=15s    # interval for health status check
+          {{- end }}
+          {{- if .Values.global.logAsJson }}
+            - --log_as_json
+          {{- end }}
+          env:
+          - name: CITADEL_ENABLE_NAMESPACES_BY_DEFAULT
+            value: "{{ .Values.security.enableNamespacesByDefault }}"
+          {{- if .Values.security.env }}
+          {{- range $key, $val := .Values.security.env }}
+          - name: {{ $key }}
+            value: {{ $val | quote }}
+          {{- end }}
+          {{- end }}
+          livenessProbe:
+          {{- if .Values.security.citadelHealthCheck }}
+            exec:
+              command:
+              - /usr/local/bin/istio_ca
+              - probe
+              - --probe-path=/tmp/ca.liveness # path to the liveness health check status file
+              - --interval=125s # the maximum time gap allowed between the file mtime and the current sys clock
+            initialDelaySeconds: 60
+            periodSeconds: 60
+          {{- else }}
+            httpGet:
+              path: /version
+              port: 15014
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          {{- end }}
+          resources:
+{{- if .Values.security.resources }}
+{{ toYaml .Values.security.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
+            capabilities:
+              drop:
+              - ALL
+{{- if not .Values.security.selfSigned }}
+          volumeMounts:
+          - name: cacerts
+            mountPath: /etc/cacerts
+            readOnly: true
+      securityContext:
+        fsGroup: 1337
+      volumes:
+      - name: cacerts
+        secret:
+         secretName: cacerts
+         optional: true
+{{- end }}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
+{{- if .Values.security.tolerations }}
+      tolerations:
+{{ toYaml .Values.security.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
+{{- end }}

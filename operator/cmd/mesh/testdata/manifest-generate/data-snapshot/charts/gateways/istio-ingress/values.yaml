@@ -1,0 +1,198 @@
+# A-la-carte istio ingress gateway.
+# Must be installed in a separate namespace, to minimize access to secrets.
+
+gateways:
+  istio-ingressgateway:
+    name: istio-ingressgateway
+    #
+    # Secret Discovery Service (SDS) configuration for ingress gateway.
+    #
+    sds:
+      # If true, ingress gateway fetches credentials from SDS server to handle TLS connections.
+      enabled: false
+      # SDS server that watches kubernetes secrets and provisions credentials to ingress gateway.
+      # This server runs in the same pod as ingress gateway.
+      image: node-agent-k8s
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 2000m
+          memory: 1024Mi
+    labels:
+      app: istio-ingressgateway
+      istio: ingressgateway
+    ports:
+    ## You can add custom gateway ports in user values overrides, but it must include those ports since helm replaces.
+    # Note that AWS ELB will by default perform health checks on the first port
+    # on this list. Setting this to the health check port will ensure that health
+    # checks always work. https://github.com/istio/istio/issues/12503
+    - port: 15020
+      targetPort: 15020
+      name: status-port
+    - port: 80
+      targetPort: 80
+      name: http2
+    - port: 443
+      name: https
+    - port: 15029
+      targetPort: 15029
+      name: kiali
+    - port: 15030
+      targetPort: 15030
+      name: prometheus
+    - port: 15031
+      targetPort: 15031
+      name: grafana
+    - port: 15032
+      targetPort: 15032
+      name: tracing
+    - port: 31400
+      targetPort: 31400
+      name: tcp
+      # This is the port where sni routing happens
+    - port: 15443
+      targetPort: 15443
+      name: tls
+
+    # Scalability tunning
+    # replicaCount: 1
+    rollingMaxSurge: 100%
+    rollingMaxUnavailable: 25%
+    autoscaleEnabled: true
+    autoscaleMin: 1
+    autoscaleMax: 5
+
+    cpu:
+      targetAverageUtilization: 80
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 2000m
+        memory: 1024Mi
+
+    # Debug level for envoy. Can be set to 'debug'
+    debug: info
+
+    loadBalancerIP: ""
+    loadBalancerSourceRanges: []
+    externalIPs: []
+    serviceAnnotations: {}
+
+    domain: ""
+
+    # Enable cross-cluster access using SNI matching
+    zvpn:
+      enabled: false
+      suffix: global
+
+    # To generate an internal load balancer:
+    # --set serviceAnnotations.cloud.google.com/load-balancer-type=internal
+    #serviceAnnotations:
+    #    cloud.google.com/load-balancer-type: "internal"
+
+    podAnnotations: {}
+    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+
+    #### MESH EXPANSION PORTS  ########
+    # Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
+    # to pilot/citadel if global.meshExpansion settings are enabled.
+    # Delete these ports if mesh expansion is not enabled, to avoid
+    # exposing unnecessary ports on the web.
+    # You can remove these ports if you are not using mesh expansion
+    meshExpansionPorts:
+    - port: 15012
+      targetPort: 15012
+      name: tcp-istiod
+    - port: 853
+      targetPort: 853
+      name: tcp-dns-tls
+    ####### end MESH EXPANSION PORTS ######
+
+    ##############
+    secretVolumes:
+    - name: ingressgateway-certs
+      secretName: istio-ingressgateway-certs
+      mountPath: /etc/istio/ingressgateway-certs
+    - name: ingressgateway-ca-certs
+      secretName: istio-ingressgateway-ca-certs
+      mountPath: /etc/istio/ingressgateway-ca-certs
+
+    # Domain name for telemetry addons
+    telemetry_domain_name: ""
+
+    customService: false
+    externalTrafficPolicy: ""
+
+    ingressPorts: []
+    hosts: []
+    additionalContainers: []
+    configVolumes: []
+    certificates: false
+    tls: false
+
+    # Telemetry addon gateways example config
+    telemetry_addon_gateways:
+      tracing_gateway:
+        name: tracing
+        port: 15032
+        desPort: 80
+        enabled: false
+        tls: false
+      kiali_gateway:
+        name: kiali
+        port: 15029
+        desPort: 20001
+        enabled: false
+        tls: false
+      grafana_gateway:
+        name: grafana
+        port: 15031
+        desPort: 3000
+        enabled: false
+        tls: false
+      prometheus_gateway:
+        name: prometheus
+        port: 15030
+        desPort: 9090
+        enabled: false
+        tls: false
+
+    # For Certmanager Issuer and Certificate generation
+    # certificates: {}
+    # email: ""
+
+    ### Advanced options ############
+    env:
+      # A gateway with this mode ensures that pilot generates an additional
+      # set of clusters for internal services but without Istio mTLS, to
+      # enable cross cluster routing.
+      ISTIO_META_ROUTER_MODE: "sni-dnat"
+
+    nodeSelector: {}
+    tolerations: []
+
+    # Specify the pod anti-affinity that allows you to constrain which nodes
+    # your pod is eligible to be scheduled based on labels on pods that are
+    # already running on the node rather than based on labels on nodes.
+    # There are currently two types of anti-affinity:
+    #    "requiredDuringSchedulingIgnoredDuringExecution"
+    #    "preferredDuringSchedulingIgnoredDuringExecution"
+    # which denote "hard" vs. "soft" requirements, you can define your values
+    # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
+    # correspondingly.
+    # For example:
+    # podAntiAffinityLabelSelector:
+    # - key: security
+    #   operator: In
+    #   values: S1,S2
+    #   topologyKey: "kubernetes.io/hostname"
+    # This pod anti-affinity rule says that the pod requires not to be scheduled
+    # onto a node if that node is already running a pod with label having key
+    # "security" and value "S1".
+    podAntiAffinityLabelSelector: []
+    podAntiAffinityTermLabelSelector: []

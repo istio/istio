@@ -1,0 +1,393 @@
+{{- $gateway := index .Values "gateways" "istio-ingressgateway" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $gateway.name | default "istio-ingressgateway" }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ $gateway.labels | toYaml | indent 4 }}
+    release: {{ .Release.Name }}
+spec:
+{{- if not $gateway.autoscaleEnabled }}
+{{- if $gateway.replicaCount }}
+  replicas: {{ $gateway.replicaCount }}
+{{- end }}
+{{- end }}
+  selector:
+    matchLabels:
+{{ $gateway.labels | toYaml | indent 6 }}
+  strategy:
+    rollingUpdate:
+      maxSurge: {{ $gateway.rollingMaxSurge }}
+      maxUnavailable: {{ $gateway.rollingMaxUnavailable }}
+  template:
+    metadata:
+      labels:
+{{ $gateway.labels | toYaml | indent 8 }}
+{{- if eq .Release.Namespace "istio-system"}}
+        heritage: Tiller
+        release: istio
+        chart: gateways
+{{- end }}
+        service.istio.io/canonical-name: {{ $gateway.name | default "istio-ingressgateway" }}
+        service.istio.io/canonical-revision: "1.5"
+      annotations:
+        sidecar.istio.io/inject: "false"
+{{- if $gateway.podAnnotations }}
+{{ toYaml $gateway.podAnnotations | indent 8 }}
+{{ end }}
+    spec:
+      serviceAccountName: istio-ingressgateway-service-account
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+{{- if .Values.global.proxy.enableCoreDump }}
+      initContainers:
+        - name: enable-core-dump
+{{- if contains "/" .Values.global.proxy.image }}
+          image: "{{ .Values.global.proxy.image }}"
+{{- else }}
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.global.tag }}"
+{{- end }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+          command:
+            - /bin/sh
+          args:
+            - -c
+            - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
+          securityContext:
+            privileged: true
+{{- end }}
+      containers:
+{{- if and $gateway.sds.enabled (not .Values.global.istiod.enabled) }}
+        - name: ingress-sds
+{{- if contains "/" $gateway.sds.image }}
+          image: "{{ $gateway.sds.image }}"
+{{- else }}
+          image: "{{ .Values.global.hub }}/{{ $gateway.sds.image }}:{{ .Values.global.tag }}"
+{{- end }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+          resources:
+{{- if $gateway.sds.resources }}
+{{ toYaml $gateway.sds.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
+          env:
+          - name: "ENABLE_WORKLOAD_SDS"
+            value: "false"
+          - name: "ENABLE_INGRESS_GATEWAY_SDS"
+            value: "true"
+          - name: "INGRESS_GATEWAY_NAMESPACE"
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          volumeMounts:
+          - name: ingressgatewaysdsudspath
+            mountPath: /var/run/ingress_gateway
+{{- end }}
+        - name: istio-proxy
+{{- if contains "/" .Values.global.proxy.image }}
+          image: "{{ .Values.global.proxy.image }}"
+{{- else }}
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.global.tag }}"
+{{- end }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+          ports:
+            {{- range $key, $val := $gateway.ports }}
+            - containerPort: {{ $val.port }}
+            {{- end }}
+            {{- range $key, $val := $gateway.meshExpansionPorts }}
+            - containerPort: {{ $val.port }}
+            {{- end }}
+            - containerPort: 15090
+              protocol: TCP
+              name: http-envoy-prom
+          args:
+          - proxy
+          - router
+          - --domain
+          - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
+        {{- if .Values.global.proxy.logLevel }}
+          - --proxyLogLevel={{ .Values.global.proxy.logLevel }}
+        {{- end}}
+        {{- if .Values.global.proxy.componentLogLevel }}
+          - --proxyComponentLogLevel={{ .Values.global.proxy.componentLogLevel }}
+        {{- end}}
+        {{- if .Values.global.logging.level }}
+          - --log_output_level={{ .Values.global.logging.level }}
+        {{- end}}
+        {{- if .Values.global.logAsJson }}
+          - --log_as_json
+        {{- end }}
+          - --drainDuration
+          - '45s' #drainDuration
+          - --parentShutdownDuration
+          - '1m0s' #parentShutdownDuration
+          - --connectTimeout
+          - '10s' #connectTimeout
+          - --serviceCluster
+          - {{ $gateway.name | default "istio-ingressgateway" }}
+          - --zipkinAddress
+        {{- if .Values.global.tracer.zipkin.address }}
+          - {{ .Values.global.tracer.zipkin.address }}
+        {{- else if .Values.global.telemetryNamespace }}
+          - zipkin.{{ .Values.global.telemetryNamespace }}:9411
+        {{- else }}
+          - zipkin:9411
+        {{- end }}
+        {{- if $.Values.global.proxy.envoyMetricsService.enabled }}
+          - --envoyMetricsService
+          {{- with  $.Values.global.proxy.envoyMetricsService }}
+          - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
+          {{- end }}
+        {{- end}}
+        {{- if $.Values.global.proxy.envoyAccessLogService.enabled }}
+          - --envoyAccessLogService
+          {{- with  $.Values.global.proxy.envoyAccessLogService }}
+          - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
+          {{- end }}
+        {{- end }}
+          - --proxyAdminPort
+          - "15000"
+          - --statusPort
+          - "15020"
+        {{- if .Values.global.sts.servicePort }}
+          - --stsPort={{ .Values.global.sts.servicePort }}
+        {{- end }}
+          {{- if .Values.global.istiod.enabled }}
+          - --controlPlaneAuthPolicy
+          - NONE
+          - --discoveryAddress
+          {{- $namespace := .Values.global.configNamespace | default "istio-system" }}
+          {{- if .Values.global.remotePilotAddress }}
+          # Use the DNS hostname instead of the IP address. The discovery address needs to match the
+          # SAN in istiod's cert. The istiod-remote.<namespace>.svc will resolve to the remotePilotAddress.
+          - istiod-remote.{{ $namespace }}.svc:15012
+          {{- else }}
+          - istio-pilot.{{ $namespace }}.svc:15012
+          {{- end }}
+          {{- else if .Values.global.controlPlaneSecurityEnabled }}
+          - --controlPlaneAuthPolicy
+          - MUTUAL_TLS
+          - --discoveryAddress
+          {{- if .Values.global.configNamespace }}
+          - istio-pilot.{{ .Values.global.configNamespace }}:15011
+          {{- else }}
+          - istio-pilot:15011
+          {{- end }}
+        {{- else }}
+          - --controlPlaneAuthPolicy
+          - NONE
+          - --discoveryAddress
+          {{- if .Values.global.configNamespace }}
+          - istio-pilot.{{ .Values.global.configNamespace }}:15010
+          {{- else }}
+          - istio-pilot:15010
+          {{- end }}
+        {{- end }}
+        {{- if .Values.global.trustDomain }}
+          - --trust-domain={{ .Values.global.trustDomain }}
+        {{- end }}
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz/ready
+              port: 15020
+              scheme: HTTP
+            initialDelaySeconds: 1
+            periodSeconds: 2
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+{{- if $gateway.resources }}
+{{ toYaml $gateway.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
+          env:
+          - name: JWT_POLICY
+            value: {{ .Values.global.jwtPolicy }}
+          - name: PILOT_CERT_PROVIDER
+            value: {{ .Values.global.pilotCertProvider }}
+{{- if or .Values.global.istiod.enabled $gateway.sds.enabled }}
+          - name: "ISTIO_META_USER_SDS"
+            value: "true"
+{{- if .Values.global.istiod.enabled }}
+          - name: CA_ADDR
+          {{- if .Values.global.caAddress }}
+            value: {{ .Values.global.caAddress }}
+          {{- else if .Values.global.configNamespace }}
+            value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+          {{- else }}
+            value: istio-pilot.istio-system.svc:15012
+          {{- end }}
+{{- end }}
+{{- end }}
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: INSTANCE_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.podIP
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.hostIP
+          - name: SERVICE_ACCOUNT
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.serviceAccountName
+          - name: ISTIO_META_WORKLOAD_NAME
+            value: {{ $gateway.name | default "istio-ingressgateway" }}
+          - name: ISTIO_META_OWNER
+            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/{{ $gateway.name | default "istio-ingressgateway" }}
+          {{- if $.Values.global.meshID }}
+          - name: ISTIO_META_MESH_ID
+            value: "{{ $.Values.global.meshID }}"
+          {{- else if $.Values.global.trustDomain }}
+          - name: ISTIO_META_MESH_ID
+            value: "{{ $.Values.global.trustDomain }}"
+          {{- end }}
+          {{- if $.Values.global.mtls.auto }}
+          - name: ISTIO_AUTO_MTLS_ENABLED
+            value: "true"
+          {{- end }}
+          - name: ISTIO_META_POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: ISTIO_META_CONFIG_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          {{- range $key, $val := $gateway.env }}
+          - name: {{ $key }}
+            value: {{ $val }}
+          {{- end }}
+          {{ $network_set := index $gateway.env "ISTIO_META_NETWORK" }}
+          {{- if and (not $network_set) .Values.global.network }}
+          - name: ISTIO_META_NETWORK
+            value: {{ .Values.global.network }}
+          {{- end }}
+{{- if $gateway.podAnnotations }}
+          - name: "ISTIO_METAJSON_ANNOTATIONS"
+            value: |
+{{ toJson $gateway.podAnnotations | indent 16}}
+{{ end }}
+          - name: ISTIO_META_CLUSTER_ID
+            value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
+          volumeMounts:
+{{- if eq .Values.global.pilotCertProvider "istiod" }}
+          - mountPath: /var/run/secrets/istio
+            name: istiod-ca-cert
+{{- end }}
+{{- if .Values.global.istiod.enabled }}
+{{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+          - name: istio-token
+            mountPath: /var/run/secrets/tokens
+            readOnly: true
+{{- end }}
+          - name: ingressgatewaysdsudspath
+            mountPath: /var/run/ingress_gateway
+{{ else }}
+          {{- if $gateway.sds.enabled }}
+          - name: ingressgatewaysdsudspath
+            mountPath: /var/run/ingress_gateway
+          {{- end }}
+{{- end }}
+          {{- if .Values.global.mountMtlsCerts }}
+          # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
+          - name: istio-certs
+            mountPath: /etc/certs
+            readOnly: true
+          {{- end }}
+          - name: podinfo
+            mountPath: /etc/istio/pod
+          {{- range $gateway.secretVolumes }}
+          - name: {{ .name }}
+            mountPath: {{ .mountPath | quote }}
+            readOnly: true
+          {{- end }}
+{{- if $gateway.additionalContainers }}
+{{ toYaml $gateway.additionalContainers | indent 8 }}
+{{- end }}
+      volumes:
+{{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
+        configMap:
+          name: istio-ca-root-cert
+{{- end }}
+      - name: podinfo
+        downwardAPI:
+          items:
+          - path: "labels"
+            fieldRef:
+              fieldPath: metadata.labels
+          - path: "annotations"
+            fieldRef:
+              fieldPath: metadata.annotations
+{{- if .Values.global.istiod.enabled }}
+      - name: ingressgatewaysdsudspath
+        emptyDir: {}
+{{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
+              expirationSeconds: 43200
+              audience: {{ .Values.global.sds.token.aud }}
+{{- end }}
+{{- else }}
+      {{- if $gateway.sds.enabled }}
+      - name: ingressgatewaysdsudspath
+        emptyDir: {}
+      {{- end }}
+{{- end }}
+      {{- if .Values.global.mountMtlsCerts }}
+      # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
+      - name: istio-certs
+        secret:
+          secretName: istio.istio-ingressgateway-service-account
+          optional: true
+      {{- end }}
+      {{- range $gateway.secretVolumes }}
+      - name: {{ .name }}
+        secret:
+          secretName: {{ .secretName | quote }}
+          optional: true
+      {{- end }}
+      {{- range $gateway.configVolumes }}
+      - name: {{ .name }}
+        configMap:
+          name: {{ .configMapName | quote }}
+          optional: true
+      {{- end }}
+      affinity:
+      {{- include "nodeaffinity" (dict "global" .Values.global "nodeSelector" $gateway.nodeSelector) | indent 6 }}
+      {{- include "podAntiAffinity" $gateway | indent 6 }}
+{{- if $gateway.tolerations }}
+      tolerations:
+{{ toYaml $gateway.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
+{{- end }}

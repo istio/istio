@@ -1,0 +1,86 @@
+{{- $ca := genCA "istio-sidecar-injector-ca-{{ .Release.Namespace }}" 3650 }}
+{{- if and (not .Values.global.operatorManageWebhooks) (not .Values.global.istiod.enabled) }}
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+        {{- if eq .Release.Namespace "istio-system"}}
+  name: istio-sidecar-injector
+        {{ else }}
+  name: istio-sidecar-injector-{{ .Release.Namespace }}
+        {{- end }}
+  labels:
+    app: sidecar-injector
+    release: {{ .Release.Name }}
+webhooks:
+  - name: sidecar-injector.istio.io
+    clientConfig:
+      service:
+        name: istio-sidecar-injector
+        namespace: {{ .Release.Namespace }}
+        path: "/inject"
+{{- if .Values.sidecarInjectorWebhook.selfSigned }}
+      caBundle: {{ $ca.Cert | b64enc }}
+{{- else }}
+      caBundle: ""
+{{- end }}
+    rules:
+      - operations: [ "CREATE" ]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+    failurePolicy: Fail
+    namespaceSelector:
+{{- if .Values.sidecarInjectorWebhook.enableNamespacesByDefault }}
+      matchExpressions:
+      - key: name
+        operator: NotIn
+        values:
+        - {{ .Release.Namespace }}
+      - key: istio-injection
+        operator: NotIn
+        values:
+        - disabled
+      - key: istio-env
+        operator: DoesNotExist
+{{- else if eq .Values.sidecarInjectorWebhook.injectLabel "istio-injection" }}
+      matchLabels:
+        istio-injection: enabled
+{{- else }}
+      matchLabels:
+        istio-env: {{ .Release.Namespace }}
+{{- end }}
+{{- if .Values.sidecarInjectorWebhook.objectSelector.enabled }}
+    objectSelector:
+{{- if .Values.sidecarInjectorWebhook.objectSelector.autoInject }}
+      matchExpressions:
+      - key: "sidecar.istio.io/inject"
+        operator: NotIn
+        values:
+        - "false"
+{{- else }}
+      matchLabels:
+        "sidecar.istio.io/inject": "true"
+{{- end }}
+{{- end }}
+{{- end }}
+---
+{{- if .Values.sidecarInjectorWebhook.selfSigned }}
+  {{- $cn := "istio-sidecar-injector" }}
+  {{- $altName1 := printf "%s.%s" $cn .Release.Namespace }}
+  {{- $altName2 := printf "%s.%s.svc" $cn .Release.Namespace }}
+  {{- $altNames := (list $altName1 $altName2) }}
+  {{- $cert := genSignedCert $cn nil $altNames 3650 $ca }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: istio-sidecar-injector-self-signed
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: sidecar-injector
+    release: {{ .Release.Name }}
+type: Opaque
+data:
+  root-cert.pem: {{ $ca.Cert | b64enc }}
+  cert-chain.pem: {{ $cert.Cert | b64enc }}
+  key.pem: {{ $cert.Key | b64enc }}
+{{- end }}

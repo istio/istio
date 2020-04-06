@@ -1,0 +1,115 @@
+{{ if eq .Values.tracing.provider "jaeger" }}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-tracing
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: jaeger
+    release: {{ .Release.Name }}
+spec:
+  selector:
+    matchLabels:
+      app: jaeger
+  template:
+    metadata:
+      labels:
+        app: jaeger
+        release: {{ .Release.Name }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "14269"
+        {{- if .Values.tracing.jaeger.podAnnotations }}
+{{ toYaml .Values.tracing.jaeger.podAnnotations | indent 8 }}
+        {{- end }}
+    spec:
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+{{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+{{- range .Values.global.imagePullSecrets }}
+        - name: {{ . }}
+{{- end }}
+{{- end }}
+      containers:
+        - name: jaeger
+          image: "{{ .Values.tracing.jaeger.hub }}/{{ .Values.tracing.jaeger.image }}:{{ .Values.tracing.jaeger.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+          ports:
+            - containerPort: 9411
+            - containerPort: 16686
+            - containerPort: 14250
+            - containerPort: 14267
+            - containerPort: 14268
+            - containerPort: 14269
+            - containerPort: 5775
+              protocol: UDP
+            - containerPort: 6831
+              protocol: UDP
+            - containerPort: 6832
+              protocol: UDP
+          env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          {{- if eq .Values.tracing.jaeger.spanStorageType "badger" }}
+          - name: BADGER_EPHEMERAL
+            value: "false"
+          - name: SPAN_STORAGE_TYPE
+            value: "badger"
+          - name: BADGER_DIRECTORY_VALUE
+            value: "/badger/data"
+          - name: BADGER_DIRECTORY_KEY
+            value: "/badger/key"
+          {{- end }}
+          - name: COLLECTOR_ZIPKIN_HTTP_PORT
+            value: "9411"
+          - name: MEMORY_MAX_TRACES
+            value: "{{ .Values.tracing.jaeger.memory.max_traces }}"
+          - name: QUERY_BASE_PATH
+            value: {{ if .Values.tracing.contextPath }} {{ .Values.tracing.contextPath }} {{ else }} /{{ .Values.tracing.provider }} {{ end }}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 14269
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 14269
+{{- if eq .Values.tracing.jaeger.spanStorageType "badger" }}
+          volumeMounts:
+          - name: data
+            mountPath: /badger
+{{- end }}
+          resources:
+{{- if .Values.tracing.jaeger.resources }}
+{{ toYaml .Values.tracing.jaeger.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
+{{- if .Values.tracing.tolerations }}
+      tolerations:
+{{ toYaml .Values.tracing.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
+{{- end }}
+{{- if eq .Values.tracing.jaeger.spanStorageType "badger" }}
+      volumes:
+      - name: data
+{{- if .Values.tracing.jaeger.persist }}
+        persistentVolumeClaim:
+          claimName: istio-jaeger-pvc
+{{- else }}
+        emptyDir: {}
+{{- end }}
+{{- end }}
+{{ end }}

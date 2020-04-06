@@ -1,0 +1,229 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-galley
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: galley
+    istio: galley
+    release: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.galley.replicaCount }}
+  selector:
+    matchLabels:
+      istio: galley
+  strategy:
+    rollingUpdate:
+      maxSurge: {{ .Values.galley.rollingMaxSurge }}
+      maxUnavailable: {{ .Values.galley.rollingMaxUnavailable }}
+  template:
+    metadata:
+      labels:
+        app: galley
+        istio: galley
+{{- if eq .Release.Namespace "istio-system"}}
+        heritage: Tiller
+        release: istio
+        chart: galley
+{{- end }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+        {{- if .Values.galley.podAnnotations }}
+{{ toYaml .Values.galley.podAnnotations | indent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: istio-galley-service-account
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+      containers:
+        - name: galley
+{{- if contains "/" .Values.galley.image }}
+          image: "{{ .Values.galley.image }}"
+{{- else }}
+          image: "{{ .Values.galley.hub | default .Values.global.hub }}/{{ .Values.galley.image | default "galley" }}:{{ .Values.galley.tag | default .Values.global.tag }}"
+{{- end }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+          ports:
+          - containerPort: 9443
+          - containerPort: 15014
+          - containerPort: 15019
+          - containerPort: 9901
+          command:
+          - /usr/local/bin/galley
+          - server
+          - --meshConfigFile=/etc/mesh-config/mesh
+          - --livenessProbeInterval=1s
+          - --livenessProbePath=/tmp/healthliveness
+          - --readinessProbePath=/tmp/healthready
+          - --readinessProbeInterval=1s
+          - --insecure=true
+  {{- if and .Values.global.configValidation (not .Values.global.istiod.enabled) }}
+          - --enable-validation=true
+  {{- else }}
+          - --enable-validation=false
+  {{- end }}
+  {{- if or .Values.global.operatorManageWebhooks .Values.global.istiod.enabled  }}
+          - --enable-reconcileWebhookConfiguration=false
+  {{- else }}
+          - --enable-reconcileWebhookConfiguration=true
+  {{- end }}
+  {{- if .Values.galley.enableServiceDiscovery }}
+          - --enableServiceDiscovery=true
+  {{- end }}
+          - --enable-server=true
+  {{- if .Values.galley.enableAnalysis }}
+          - --enableAnalysis=true
+  {{- end }}
+          - --deployment-namespace={{ .Release.Namespace }}
+          - --monitoringPort=15014
+          - --validation-port=9443
+{{- if $.Values.global.logging.level }}
+          - --log_output_level={{ $.Values.global.logging.level }}
+{{- end}}
+{{- if .Values.global.certificates }}
+          - --validation.tls.clientCertificate=/etc/dnscerts/cert-chain.pem
+          - --validation.tls.privateKey=/etc/dnscerts/key.pem
+          - --validation.tls.caCertificates=/etc/dnscerts/root-cert.pem
+{{- end }}
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
+            capabilities:
+              drop:
+              - ALL
+          volumeMounts:
+  {{- if and .Values.global.configValidation (not .Values.global.istiod.enabled) }}
+          - name: istio-certs
+            mountPath: /etc/certs
+            readOnly: true
+  {{- end }}
+  {{- if .Values.global.certificates }}
+          - name: dnscerts
+            mountPath: /etc/dnscerts
+            readOnly: true
+  {{- end }}
+          - name: config
+            mountPath: /etc/config
+            readOnly: true
+          - name: mesh-config
+            mountPath: /etc/mesh-config
+            readOnly: true
+          livenessProbe:
+            exec:
+              command:
+                - /usr/local/bin/galley
+                - probe
+                - --probe-path=/tmp/healthliveness
+                - --interval=10s
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+                - /usr/local/bin/galley
+                - probe
+                - --probe-path=/tmp/healthready
+                - --interval=10s
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+{{- if .Values.galley.resources }}
+{{ toYaml .Values.galley.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
+
+{{- if .Values.global.controlPlaneSecurityEnabled }}
+        - name: istio-proxy
+{{- if contains "/" .Values.global.proxy.image }}
+          image: "{{ .Values.global.proxy.image }}"
+{{- else }}
+          image: "{{ .Values.global.hub | default "gcr.io/istio-release" }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.global.tag | default "release-1.1-latest-daily" }}"
+{{- end }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+          ports:
+          - containerPort: 9902
+          args:
+          - proxy
+          - --serviceCluster
+          - istio-galley
+          - --templateFile
+          - /var/lib/istio/galley/envoy/envoy.yaml.tmpl
+          - --controlPlaneAuthPolicy
+          - MUTUAL_TLS
+        {{- if .Values.global.trustDomain }}
+          - --trust-domain={{ .Values.global.trustDomain }}
+        {{- end }}
+        {{- if .Values.global.logAsJson }}
+          - --log_as_json
+        {{- end }}
+          env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: INSTANCE_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.podIP
+          resources:
+{{- if .Values.global.proxy.resources }}
+{{ toYaml .Values.global.proxy.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
+          volumeMounts:
+          - name: istio-certs
+            mountPath: /etc/certs
+            readOnly: true
+          - name: envoy-config
+            mountPath: /var/lib/istio/galley/envoy
+{{- end }}
+      securityContext:
+        fsGroup: 1337
+      volumes:
+  {{- if or .Values.global.controlPlaneSecurityEnabled (and .Values.global.configValidation (not .Values.global.istiod.enabled)) }}
+      - name: istio-certs
+        secret:
+          secretName: istio.istio-galley-service-account
+  {{- end }}
+  {{- if .Values.global.certificates }}
+      - name: dnscerts
+        secret:
+          secretName: dns.istio-galley-service-account
+  {{- end }}
+  {{- if .Values.global.controlPlaneSecurityEnabled }}
+      - name: envoy-config
+        configMap:
+          name: galley-envoy-config
+  {{- end }}
+      # galley expects /etc/config to exist even though it doesn't include any files.
+      - name: config
+        emptyDir:
+          medium: Memory
+      # Different config map from pilot, to allow independent config and rollout.
+      # Both are derived from values.yaml.
+      - name: mesh-config
+        configMap:
+          name: istio-mesh-galley
+
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
+{{- if .Values.galley.tolerations }}
+      tolerations:
+{{ toYaml .Values.galley.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
+{{- end }}
+---

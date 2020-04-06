@@ -1,0 +1,75 @@
+# Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds)
+{{- if .Values.global.istiod.enabled }}
+{{- if and (not .Values.global.operatorManageWebhooks) .Values.global.istiod.enabled }}
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+{{- if eq .Release.Namespace "istio-system"}}
+  name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+{{ else }}
+  name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
+{{- end }}
+  labels:
+    app: sidecar-injector
+    release: {{ .Release.Name }}
+webhooks:
+  - name: sidecar-injector.istio.io
+    clientConfig:
+      service:
+        name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+        namespace: {{ .Release.Namespace }}
+        path: "/inject"
+      caBundle: ""
+    rules:
+      - operations: [ "CREATE" ]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+    failurePolicy: Fail
+    namespaceSelector:
+{{- if .Values.sidecarInjectorWebhook.enableNamespacesByDefault }}
+      matchExpressions:
+      - key: name
+        operator: NotIn
+        values:
+        - {{ .Release.Namespace }}
+      - key: istio-injection
+        operator: NotIn
+        values:
+        - disabled
+      - key: istio-env
+        operator: DoesNotExist
+      - key: istio.io/rev
+        operator: DoesNotExist
+{{- else if .Values.revision }}
+      matchExpressions:
+      - key: istio-injection
+        operator: NotIn
+        values:
+        - disabled
+      - key: istio.io/rev
+        operator: In
+        values:
+        - {{ .Values.revision }}
+{{- else if eq .Values.sidecarInjectorWebhook.injectLabel "istio-injection" }}
+      matchLabels:
+        istio-injection: enabled
+{{- else }}
+      matchLabels:
+        istio-env: {{ .Release.Namespace }}
+{{- end }}
+{{- if .Values.sidecarInjectorWebhook.objectSelector.enabled }}
+    objectSelector:
+{{- if .Values.sidecarInjectorWebhook.objectSelector.autoInject }}
+      matchExpressions:
+      - key: "sidecar.istio.io/inject"
+        operator: NotIn
+        values:
+        - "false"
+{{- else }}
+      matchLabels:
+        "sidecar.istio.io/inject": "true"
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
