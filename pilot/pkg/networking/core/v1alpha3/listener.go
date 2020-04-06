@@ -982,19 +982,18 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 				bindToPort: bindToPort,
 			}
 
-			// The listener protocol is determined by the protocol of egress listener port.
-			pluginParams := &plugin.InputParams{
-				ListenerProtocol: istionetworking.ModelProtocolToListenerProtocol(node, listenPort.Protocol,
-					core.TrafficDirection_OUTBOUND),
-				ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
-				Node:             node,
-				Push:             push,
-				Bind:             bind,
-				Port:             listenPort,
-			}
-
 			for _, service := range services {
-				pluginParams.Service = service
+				// The listener protocol is determined by the protocol of egress listener port.
+				pluginParams := &plugin.InputParams{
+					ListenerProtocol: istionetworking.ModelProtocolToListenerProtocol(node, listenPort.Protocol,
+						core.TrafficDirection_OUTBOUND),
+					ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+					Node:             node,
+					Push:             push,
+					Bind:             bind,
+					Port:             listenPort,
+					Service:          service,
+				}
 				configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
 					virtualServices, actualWildcard)
 			}
