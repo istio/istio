@@ -388,6 +388,50 @@ func buildResourceRegexp(s string) (*regexp.Regexp, error) {
 	return regexp.Compile(strings.Join(hash, ":"))
 }
 
+// manifestDiffYAMLMap an internal function to compare the manifests difference specified in the input.
+func manifestDiffYAMLMap(aom, bom map[string]string, im map[string]string, verbose bool) (string, error) {
+	var sb strings.Builder
+	out := make(map[string]string)
+	for ak, ay := range aom {
+		by, ok := bom[ak]
+		if !ok {
+			out[ak] = fmt.Sprintf("\n\nObject %s is missing in B:\n\n", ak)
+			continue
+		}
+
+		var diff string
+		if verbose {
+			diff = util.YAMLDiff(ay, by)
+		} else {
+			ignorePaths := objectIgnorePaths(ak, im)
+			diff = YAMLCmpWithIgnore(string(ay), string(by), ignorePaths, "")
+		}
+
+		if diff != "" {
+			out[ak] = fmt.Sprintf("\n\nObject %s has diffs:\n\n%s", ak, diff)
+		}
+	}
+	for bk := range bom {
+		_, ok := aom[bk]
+		if !ok {
+			out[bk] = fmt.Sprintf("\n\nObject %s is missing in A:\n\n", bk)
+			continue
+		}
+	}
+
+	keys := make([]string, 0, len(out))
+	for k := range out {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for i := range keys {
+		writeStringSafe(&sb, out[keys[i]])
+	}
+
+	return sb.String(), nil
+}
+
 // manifestDiff an internal function to compare the manifests difference specified in the input.
 func manifestDiff(aom, bom map[string]*object.K8sObject, im map[string]string, verbose bool) (string, error) {
 	var sb strings.Builder
