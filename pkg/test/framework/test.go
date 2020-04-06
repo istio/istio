@@ -31,7 +31,7 @@ type Test struct {
 	parent              *Test
 	goTest              *testing.T
 	labels              []label.Instance
-	featureLabels 		[]label.Instance
+	featureLabels       []label.Instance
 	s                   *suiteContext
 	requiredEnv         environment.Name
 	requiredMinClusters int

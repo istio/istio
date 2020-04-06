@@ -165,10 +165,10 @@ func (s *suiteContext) CreateTmpDirectory(prefix string) (string, error) {
 
 type Outcome string
 
-const(
-	Passed Outcome = "Passed"
-	Failed = "Failed"
-	Skipped = "Skipped"
+const (
+	Passed  Outcome = "Passed"
+	Failed          = "Failed"
+	Skipped         = "Skipped"
 )
 
 type TestOutcome struct {

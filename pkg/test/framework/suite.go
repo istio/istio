@@ -18,14 +18,16 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
-	"istio.io/pkg/log"
 	"os"
 	"path"
 	"sync"
 	"testing"
 	"time"
+
+	"gopkg.in/yaml.v2"
+
+	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
@@ -311,8 +313,8 @@ func (s *Suite) run() (errLevel int) {
 }
 
 type SuiteOutcome struct {
-	Name string
-	Environment string
+	Name         string
+	Environment  string
 	Multicluster bool
 	TestOutcomes []TestOutcome
 }
@@ -332,7 +334,7 @@ func (s *Suite) writeOutput() {
 		if err != nil {
 			log.Errorf("failed writing test suite outcome to yaml: %s", err)
 		}
-		err = ioutil.WriteFile(path.Join(artifactsPath, out.Name + ".yaml"), outbytes, 0644)
+		err = ioutil.WriteFile(path.Join(artifactsPath, out.Name+".yaml"), outbytes, 0644)
 		if err != nil {
 			log.Errorf("failed writing test suite outcome to file: %s", err)
 		}
