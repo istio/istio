@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -90,7 +91,8 @@ type controller struct {
 	informer               cache.SharedIndexInformer
 	virtualServiceHandlers []func(model.Config, model.Config, model.Event)
 	gatewayHandlers        []func(model.Config, model.Config, model.Event)
-	classes                v1beta1.IngressClassInformer
+	// May be nil if ingress class is not supported in the cluster
+	classes *v1beta1.IngressClassInformer
 }
 
 var (
@@ -101,6 +103,19 @@ var (
 var (
 	errUnsupportedOp = errors.New("unsupported operation: the ingress config store is a read-only view")
 )
+
+func ingressClassSupported(client kubernetes.Interface) bool {
+	_, s, _ := client.Discovery().ServerGroupsAndResources()
+	// This may fail if any api service is down, but the result will still be populated, so we skip the error
+	for _, res := range s {
+		for _, api := range res.APIResources {
+			if api.Kind == "IngressClass" && strings.HasPrefix(res.GroupVersion, "networking.k8s.io/") {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 // NewController creates a new Kubernetes controller
 func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
@@ -116,8 +131,13 @@ func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
 	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
 	log.Infof("Ingress controller watching namespaces %q", options.WatchedNamespace)
 	informer := sharedInformers.Networking().V1beta1().Ingresses().Informer()
-	classes := sharedInformers.Networking().V1beta1().IngressClasses()
-
+	var classes *v1beta1.IngressClassInformer
+	if ingressClassSupported(client) {
+		i := sharedInformers.Networking().V1beta1().IngressClasses()
+		classes = &i
+	} else {
+		log.Infof("Skipping IngressClass, resource not supported")
+	}
 	c := &controller{
 		mesh:         mesh,
 		domainSuffix: options.DomainSuffix,
@@ -153,8 +173,8 @@ func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
 
 func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *ingress.Ingress) (bool, error) {
 	var class *ingress.IngressClass
-	if i.Spec.IngressClassName != nil {
-		c, err := c.classes.Lister().Get(*i.Spec.IngressClassName)
+	if c.classes != nil && i.Spec.IngressClassName != nil {
+		c, err := (*c.classes).Lister().Get(*i.Spec.IngressClassName)
 		if err != nil && !kerrors.IsNotFound(err) {
 			return false, fmt.Errorf("failed to get ingress class %v: %v", i.Spec.IngressClassName, err)
 		}
@@ -238,7 +258,9 @@ func (c *controller) Run(stop <-chan struct{}) {
 		c.queue.Run(stop)
 	}()
 	go c.informer.Run(stop)
-	go c.classes.Informer().Run(stop)
+	if c.classes != nil {
+		go (*c.classes).Informer().Run(stop)
+	}
 	<-stop
 }
 
