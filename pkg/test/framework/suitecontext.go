@@ -50,7 +50,8 @@ type suiteContext struct {
 	contextMu    sync.Mutex
 	contextNames map[string]struct{}
 
-	suiteLabels label.Set
+	suiteLabels  label.Set
+	testOutcomes []TestOutcome
 }
 
 func newSuiteContext(s *resource.Settings, envFn resource.EnvironmentFactory, labels label.Set) (*suiteContext, error) {
@@ -156,8 +157,36 @@ func (s *suiteContext) CreateTmpDirectory(prefix string) (string, error) {
 		scopes.Framework.Errorf("Error creating temp dir: runID='%s', prefix='%s', workDir='%v', err='%v'",
 			s.settings.RunID, prefix, s.workDir, err)
 	} else {
-		scopes.Framework.Debugf("Created a temp dir: runID='%s', name='%s'", s.settings.RunID, dir)
+		scopes.Framework.Debugf("Created a temp dir: runID='%s', Name='%s'", s.settings.RunID, dir)
 	}
 
 	return dir, err
+}
+
+type Outcome string
+
+const(
+	Passed Outcome = "Passed"
+	Failed = "Failed"
+	Skipped = "Skipped"
+)
+
+type TestOutcome struct {
+	Name          string
+	Outcome       Outcome
+	FeatureLabels []label.Instance
+}
+
+func (s *suiteContext) registerOutcome(test *Test) {
+	o := Passed
+	if test.goTest.Failed() {
+		o = Failed
+	} else if test.goTest.Skipped() {
+		o = Skipped
+	}
+	s.testOutcomes = append(s.testOutcomes, TestOutcome{
+		Name:          test.goTest.Name(),
+		Outcome:       o,
+		FeatureLabels: test.featureLabels,
+	})
 }

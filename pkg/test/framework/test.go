@@ -31,6 +31,7 @@ type Test struct {
 	parent              *Test
 	goTest              *testing.T
 	labels              []label.Instance
+	featureLabels 		[]label.Instance
 	s                   *suiteContext
 	requiredEnv         environment.Name
 	requiredMinClusters int
@@ -66,6 +67,12 @@ func NewTest(t *testing.T) *Test {
 // Label applies the given labels to this test.
 func (t *Test) Label(labels ...label.Instance) *Test {
 	t.labels = append(t.labels, labels...)
+	return t
+}
+
+// Label applies the given labels to this test.
+func (t *Test) LabelFeatures(labels ...label.Instance) *Test {
+	t.featureLabels = append(t.featureLabels, labels...)
 	return t
 }
 
@@ -233,6 +240,7 @@ func (t *Test) doRun(ctx *testContext, fn func(ctx TestContext), parallel bool) 
 				rt.suiteContext().Settings().TestID,
 				t.goTest.Name(),
 				end.Sub(start))
+			rt.suiteContext().registerOutcome(t)
 			ctx.Done()
 		}
 		if t.hasParallelChildren {

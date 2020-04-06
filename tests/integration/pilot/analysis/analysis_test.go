@@ -32,7 +32,11 @@ import (
 )
 
 func TestAnalysisWritesStatus(t *testing.T) {
-	framework.NewTest(t).Run(func(ctx framework.TestContext) {
+	framework.NewTest(t).
+	LabelFeatures("Usability.Observability.Status").
+	// TODO: make feature labels heirarchical constants like:
+	// Label(features.Usability.Observability.Status).
+	Run(func(ctx framework.TestContext) {
 		ns := namespace.NewOrFail(t, ctx, namespace.Config{
 			Prefix:   "default",
 			Inject:   true,

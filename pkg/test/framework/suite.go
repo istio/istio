@@ -18,7 +18,11 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
+	"istio.io/pkg/log"
 	"os"
+	"path"
 	"sync"
 	"testing"
 	"time"
@@ -301,8 +305,38 @@ func (s *Suite) run() (errLevel int) {
 			}
 		}
 	}
+	s.writeOutput()
 
 	return
+}
+
+type SuiteOutcome struct {
+	Name string
+	Environment string
+	Multicluster bool
+	TestOutcomes []TestOutcome
+}
+
+func (s *Suite) writeOutput() {
+	// the ARTIFACTS env var is set by prow, and uploaded to GCS as part of the job artifact
+	artifactsPath := os.Getenv("ARTIFACTS")
+	if artifactsPath != "" {
+		ctx := rt.suiteContext()
+		out := SuiteOutcome{
+			Name:         ctx.Settings().TestID,
+			Environment:  ctx.Environment().EnvironmentName().String(),
+			Multicluster: ctx.Environment().IsMulticluster(),
+			TestOutcomes: ctx.testOutcomes,
+		}
+		outbytes, err := yaml.Marshal(out)
+		if err != nil {
+			log.Errorf("failed writing test suite outcome to yaml: %s", err)
+		}
+		err = ioutil.WriteFile(path.Join(artifactsPath, out.Name + ".yaml"), outbytes, 0644)
+		if err != nil {
+			log.Errorf("failed writing test suite outcome to file: %s", err)
+		}
+	}
 }
 
 func (s *Suite) runSetupFns(ctx SuiteContext) (err error) {
