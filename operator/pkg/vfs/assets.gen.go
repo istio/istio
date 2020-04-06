@@ -42577,7 +42577,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: tracing
+  name: istio-tracing
   namespace: {{ .Release.Namespace }}
   annotations:
     {{- range $key, $val := .Values.tracing.service.annotations }}
