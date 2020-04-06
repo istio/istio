@@ -18138,9 +18138,7 @@ data:
       drainDuration: 45s
       parentShutdownDuration: 1m0s
       proxyAdminPort: 15000
-      proxyMetadata:
-        DNS_AGENT: DNS-TLS
-        DNS_CAPTURE: ALL
+      proxyMetadata: {}
       serviceCluster: istio-proxy
       tracing:
         zipkin:
@@ -18944,6 +18942,8 @@ spec:
             value: "false"
           - name: CLUSTER_ID
             value: "Kubernetes"
+          - name: DNS_ADDR
+            value: ""
           resources:
             requests:
               cpu: 500m
@@ -18969,41 +18969,6 @@ spec:
           - name: inject
             mountPath: /var/lib/istio/inject
             readOnly: true
-        # CoreDNS sidecar. Ports are used internally, to run as non-root.
-        # This is a short-term solution - the code in istiod can also be used
-        # directly. The plan is to move coreDNS on the agent.
-        - name: dns
-          image: coredns/coredns:1.1.2
-          imagePullPolicy: IfNotPresent
-          args: [ "-conf", "/var/lib/istio/coredns/Corefile" ]
-          securityContext:
-            runAsUser: 1337
-            runAsGroup: 1337
-            runAsNonRoot: true
-            capabilities:
-              drop:
-                - ALL
-          volumeMounts:
-            - name: local-certs
-              mountPath: /var/run/secrets/istio-dns
-            - name: config-volume
-              mountPath: /var/lib/istio/coredns
-          ports:
-            - containerPort: 15054
-              name: dns
-              protocol: UDP
-            - containerPort: 15055
-              name: metrics
-              protocol: TCP
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 15056
-              scheme: HTTP
-            initialDelaySeconds: 2
-            timeoutSeconds: 5
-            successThreshold: 1
-            failureThreshold: 5
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
@@ -20814,10 +20779,8 @@ spec:
             value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
-          {{- if (eq .Values.meshConfig.defaultConfig.proxyMetadata.DNS_AGENT "") }}
           - name: DNS_ADDR
-            value: ""
-          {{- end }}
+            value: "{{ .Values.meshConfig.defaultConfig.proxyMetadata.DNS_AGENT }}"
           resources:
 {{- if .Values.pilot.resources }}
 {{ toYaml .Values.pilot.resources | trim | indent 12 }}
@@ -20852,7 +20815,7 @@ spec:
             mountPath: /cacerts
           {{- end }}
 
-        {{- if not (eq .Values.meshConfig.defaultConfig.proxyMetadata.DNS_AGENT "") }}
+        {{- if .Values.meshConfig.defaultConfig.proxyMetadata.DNS_AGENT }}
         # CoreDNS sidecar. Ports are used internally, to run as non-root.
         # This is a short-term solution - the code in istiod can also be used
         # directly. The plan is to move coreDNS on the agent.
@@ -22638,17 +22601,17 @@ meshConfig:
   # and gradual adoption by setting capture only on specific workloads. It also allows
   # VMs to use other DNS options, like dnsmasq or unbound.
   defaultConfig:
-    proxyMetadata:
+    proxyMetadata: {}
       # If empty, agent will not start :15013 DNS listener and will not attempt
       # to connect to Istiod DNS-TLS. This will also disable the core dns sidecar in
       # istiod and the dns-over-tls listener.
-      DNS_AGENT: DNS-TLS
+      # DNS_AGENT: DNS-TLS
 
       # If empty, DNS capture is disabled.
       # If set, intercept UDP port :53 and redirect to localhost:15013
       # Currently only 'ALL' capture is supported - we may refine it if we want
       # finer grained control.
-      DNS_CAPTURE: ALL
+      # DNS_CAPTURE: ALL
 
 
   # TODO: the intent is to eventually have this enabled by default when security is used.
