@@ -104,6 +104,14 @@ var (
 	// InvalidRegexp defines a diag.MessageType for message "InvalidRegexp".
 	// Description: Invalid Regex
 	InvalidRegexp = diag.NewMessageType(diag.Warning, "IST0122", "Field %q regular expression invalid: %q (%s)")
+
+	// NamespaceMultiplyInjected defines a diag.MessageType for message "NamespaceMultiplyInjected".
+	// Description: A namespace has both new and legacy injection labels
+	NamespaceMultiplyInjected = diag.NewMessageType(diag.Warning, "IST0123", "The namespace has both new and legacy injection labels. Run 'kubectl label namespace %s istio.io/rev-' or 'kubectl label namespace %s istio-injection-'")
+
+	// NamespaceInvalidInjectorRevision defines a diag.MessageType for message "NamespaceInvalidInjectorRevision".
+	// Description: A namespace is labeled to inject from unknown control plane.
+	NamespaceInvalidInjectorRevision = diag.NewMessageType(diag.Warning, "IST0124", "The namespace is labeled to inject from %q but that namespace doesn't exist. Run 'kubectl label namespace %s istio.io/rev=<revision>' where <revision> is one of %s")
 )
 
 // All returns a list of all known message types.
@@ -133,6 +141,8 @@ func All() []*diag.MessageType {
 		PolicyResourceIsDeprecated,
 		MeshPolicyResourceIsDeprecated,
 		InvalidRegexp,
+		NamespaceMultiplyInjected,
+		NamespaceInvalidInjectorRevision,
 	}
 }
 
@@ -370,5 +380,26 @@ func NewInvalidRegexp(r *resource.Instance, where string, re string, problem str
 		where,
 		re,
 		problem,
+	)
+}
+
+// NewNamespaceMultiplyInjected returns a new diag.Message based on NamespaceMultiplyInjected.
+func NewNamespaceMultiplyInjected(r *resource.Instance, namespace string, namespace2 string) diag.Message {
+	return diag.NewMessage(
+		NamespaceMultiplyInjected,
+		r,
+		namespace,
+		namespace2,
+	)
+}
+
+// NewNamespaceInvalidInjectorRevision returns a new diag.Message based on NamespaceInvalidInjectorRevision.
+func NewNamespaceInvalidInjectorRevision(r *resource.Instance, unknownrevision string, namespace string, revisions string) diag.Message {
+	return diag.NewMessage(
+		NamespaceInvalidInjectorRevision,
+		r,
+		unknownrevision,
+		namespace,
+		revisions,
 	)
 }
