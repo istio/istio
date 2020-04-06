@@ -37,6 +37,31 @@ var serviceEntryKind = collections.IstioNetworkingV1Alpha3Serviceentries.Resourc
 
 var _ serviceregistry.Instance = &ServiceEntryStore{}
 
+// instancesKey acts as a key to identify all instances for a given hostname/namespace pair
+// This is mostly used as an index
+type instancesKey struct {
+	hostname  host.Name
+	namespace string
+}
+
+func makeInstanceKey(i *model.ServiceInstance) instancesKey {
+	return instancesKey{i.Service.Hostname, i.Service.Attributes.Namespace}
+}
+
+type externalConfigType int
+
+const (
+	serviceEntryConfigType externalConfigType = iota
+	workloadEntryConfigType
+)
+
+// configKey unique identifies a config object managed by this registry (ServiceEntry and WorkloadEntry)
+type configKey struct {
+	kind      externalConfigType
+	name      string
+	namespace string
+}
+
 // ServiceEntryStore communicates with ServiceEntry CRDs and monitors for changes
 type ServiceEntryStore struct {
 	XdsUpdater model.XDSUpdater
@@ -45,8 +70,8 @@ type ServiceEntryStore struct {
 	storeMutex sync.RWMutex
 
 	ip2instance map[string][]*model.ServiceInstance
-	// Endpoints table. Key is the fqdn hostname and namespace
-	instances map[host.Name]map[string][]*model.ServiceInstance
+	// Endpoints table
+	instances map[instancesKey]map[configKey][]*model.ServiceInstance
 
 	changeMutex    sync.RWMutex
 	lastChange     time.Time
@@ -59,7 +84,7 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 		XdsUpdater:     xdsUpdater,
 		store:          store,
 		ip2instance:    map[string][]*model.ServiceInstance{},
-		instances:      map[host.Name]map[string][]*model.ServiceInstance{},
+		instances:      map[instancesKey]map[configKey][]*model.ServiceInstance{},
 		refreshIndexes: true,
 	}
 	if configController != nil {
@@ -102,11 +127,15 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 					}
 					c.XdsUpdater.ConfigUpdate(pushReq)
 				} else {
-					os := convertServices(old)
 					instances := convertInstances(curr, cs)
-					oinstances := convertInstances(old, os)
+
+					key := configKey{
+						kind:      serviceEntryConfigType,
+						name:      curr.Name,
+						namespace: curr.Namespace,
+					}
 					// If only instances have changed, just update the indexes for the changed instances.
-					c.updateExistingInstances(oinstances, instances)
+					c.updateExistingInstances(key, instances)
 					endpointsByHostname := make(map[string][]*model.IstioEndpoint)
 					for _, instance := range instances {
 						for _, port := range instance.Service.Ports {
@@ -213,13 +242,15 @@ func (d *ServiceEntryStore) InstancesByPort(svc *model.Service, port int,
 
 	out := make([]*model.ServiceInstance, 0)
 
-	instances, found := d.instances[svc.Hostname][svc.Attributes.Namespace]
+	instanceLists, found := d.instances[instancesKey{svc.Hostname, svc.Attributes.Namespace}]
 	if found {
-		for _, instance := range instances {
-			if instance.Service.Hostname == svc.Hostname &&
-				labels.HasSubsetOf(instance.Endpoint.Labels) &&
-				portMatchSingle(instance, port) {
-				out = append(out, instance)
+		for _, instances := range instanceLists {
+			for _, instance := range instances {
+				if instance.Service.Hostname == svc.Hostname &&
+					labels.HasSubsetOf(instance.Endpoint.Labels) &&
+					portMatchSingle(instance, port) {
+					out = append(out, instance)
+				}
 			}
 		}
 	}
@@ -238,11 +269,16 @@ func (d *ServiceEntryStore) maybeRefreshIndexes() {
 		return
 	}
 
-	di := map[host.Name]map[string][]*model.ServiceInstance{}
+	di := map[instancesKey]map[configKey][]*model.ServiceInstance{}
 	dip := map[string][]*model.ServiceInstance{}
 
 	for _, cfg := range d.store.ServiceEntries() {
-		updateInstances(convertInstances(cfg, nil), di, dip)
+		key := configKey{
+			kind:      serviceEntryConfigType,
+			name:      cfg.Name,
+			namespace: cfg.Namespace,
+		}
+		updateInstances(key, convertInstances(cfg, nil), di, dip)
 	}
 
 	d.storeMutex.Lock()
@@ -258,116 +294,33 @@ func (d *ServiceEntryStore) maybeRefreshIndexes() {
 }
 
 // updateExistingInstances updates the indexes (by host, byip maps) for the passed in instances.
-func (d *ServiceEntryStore) updateExistingInstances(old, instances []*model.ServiceInstance) {
+func (d *ServiceEntryStore) updateExistingInstances(ckey configKey, instances []*model.ServiceInstance) {
 	d.storeMutex.Lock()
-	// An update event has occurred, changing some subset of instances (old -> instances)
-	// These may not represent all known instances, so we cannot just wipe the instances out and replace them
-	// First, we will gather all existing instances from the index, and keep them if
-	// * They are present in `instances`
-	// * They are present in neither `old` or `instances`
-	// Remove instances will be present in `old`, but not `instances` - these will be skipped
+	defer d.storeMutex.Unlock()
 
-	// Keep track of all existing entries we need to retain
-	removedInstances := []*model.ServiceInstance{}
-	for _, o := range old {
-		// Does this instance exist in `instances`? If not, this was deleted
-		deleted := true
-		for _, i := range instances {
-			if reflect.DeepEqual(o, i) {
-				// We found this in instances, so it was not deleted
-				deleted = false
-				break
-			}
-		}
-		if deleted {
-			removedInstances = append(removedInstances, o)
-		}
-	}
-	addedInstances := []*model.ServiceInstance{}
+	// First, delete the existing instances to avoid leaking memory.
 	for _, i := range instances {
-		existing := d.instances[i.Service.Hostname][i.Service.Attributes.Namespace]
-		// Does this instance exist in `instances`? If not, this was deleted
-		added := true
-		for _, e := range existing {
-			if reflect.DeepEqual(e, i) {
-				// We found this in instances, so it was not added
-				added = false
-				break
-			}
-		}
-		if added {
-			addedInstances = append(addedInstances, i)
-		}
+		delete(d.instances[makeInstanceKey(i)], ckey)
+		delete(d.ip2instance, i.Endpoint.Address)
 	}
 
-	// Get rid of all remove instances
-	for _, o := range removedInstances {
-		existing := d.instances[o.Service.Hostname][o.Service.Attributes.Namespace]
-		i := 0 // output index
-		for _, e := range existing {
-			if !reflect.DeepEqual(e, o) {
-				// This instance was not removed, copy it into the existing array
-				existing[i] = e
-				i++
-			}
-		}
-		// Trim our slice to remove the extra junk at the end
-		existing = existing[:i]
-		d.instances[o.Service.Hostname][o.Service.Attributes.Namespace] = existing
-
-		existing = d.ip2instance[o.Endpoint.Address]
-		i = 0 // output index
-		for _, e := range existing {
-			if !reflect.DeepEqual(e, o) {
-				// This instance was not removed, copy it into the existing array
-				existing[i] = e
-				i++
-			}
-		}
-		// Trim our slice to remove the extra junk at the end
-		existing = existing[:i]
-		d.ip2instance[o.Endpoint.Address] = existing
-	}
-
-	// Clean up empty entries to avoid leaking memory.
-	for _, instance := range removedInstances {
-		if len(d.instances[instance.Service.Hostname]) == 0 {
-			delete(d.instances, instance.Service.Hostname)
-		} else if len(d.instances[instance.Service.Hostname][instance.Service.Attributes.Namespace]) == 0 {
-			delete(d.instances[instance.Service.Hostname], instance.Service.Attributes.Namespace)
-
-		}
-		if len(d.ip2instance[instance.Endpoint.Address]) == 0 {
-			delete(d.ip2instance, instance.Endpoint.Address)
-		}
-	}
-	for _, i := range addedInstances {
-		existing := d.instances[i.Service.Hostname][i.Service.Attributes.Namespace]
-		// Add to instances map
-		existing = append(existing, i)
-		if d.instances[i.Service.Hostname] == nil {
-			d.instances[i.Service.Hostname] = map[string][]*model.ServiceInstance{}
-		}
-		d.instances[i.Service.Hostname][i.Service.Attributes.Namespace] = existing
-		// Set up reverse mapping
-		d.ip2instance[i.Endpoint.Address] = append(d.ip2instance[i.Endpoint.Address], i)
-	}
-	d.storeMutex.Unlock()
+	// Update the indexes with new instances.
+	updateInstances(ckey, instances, d.instances, d.ip2instance)
 }
 
 // updateInstances updates the instance data to the passed in maps.
-func updateInstances(instances []*model.ServiceInstance, instancemap map[host.Name]map[string][]*model.ServiceInstance,
-	ip2instance map[string][]*model.ServiceInstance) {
+func updateInstances(key configKey, instances []*model.ServiceInstance, instancemap map[instancesKey]map[configKey][]*model.ServiceInstance, ip2instance map[string][]*model.ServiceInstance) {
 	for _, instance := range instances {
-		out, found := instancemap[instance.Service.Hostname][instance.Service.Attributes.Namespace]
+		ikey := makeInstanceKey(instance)
+		out, found := instancemap[ikey][key]
 		if !found {
 			out = []*model.ServiceInstance{}
 		}
 		out = append(out, instance)
-		if _, f := instancemap[instance.Service.Hostname]; !f {
-			instancemap[instance.Service.Hostname] = map[string][]*model.ServiceInstance{}
+		if _, f := instancemap[ikey]; !f {
+			instancemap[ikey] = map[configKey][]*model.ServiceInstance{}
 		}
-		instancemap[instance.Service.Hostname][instance.Service.Attributes.Namespace] = out
+		instancemap[ikey][key] = out
 		byip, found := ip2instance[instance.Endpoint.Address]
 		if !found {
 			byip = []*model.ServiceInstance{}
