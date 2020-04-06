@@ -186,7 +186,6 @@
 // profiles/minimal.yaml
 // profiles/preview.yaml
 // profiles/remote.yaml
-// profiles/separate.yaml
 // translateConfig/names-1.5.yaml
 // translateConfig/names-1.6.yaml
 // translateConfig/reverseTranslateConfig-1.4.yaml
@@ -44506,47 +44505,6 @@ func profilesRemoteYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesSeparateYaml = []byte(`# The separate profile will disable istiod and bring back the old microservices model
-# This will be removed in future (1.6) releases
-apiVersion: install.istio.io/v1alpha1
-kind: IstioOperator
-spec:
-  components:
-    sidecarInjector:
-      enabled: true
-    citadel:
-      enabled: true
-    galley:
-      enabled: true
-    telemetry:
-      enabled: true
-  values:
-    telemetry:
-      v1:
-        enabled: true
-      v2:
-        enabled: false
-    global:
-      pilotCertProvider: kubernetes
-      istiod:
-        enabled: false
-`)
-
-func profilesSeparateYamlBytes() ([]byte, error) {
-	return _profilesSeparateYaml, nil
-}
-
-func profilesSeparateYaml() (*asset, error) {
-	bytes, err := profilesSeparateYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "profiles/separate.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _translateconfigNames15Yaml = []byte(`DeprecatedComponentNames:
   - "Injector"
   - "CertManager"
@@ -45809,7 +45767,6 @@ var _bindata = map[string]func() (*asset, error){
 	"profiles/minimal.yaml":                                                                profilesMinimalYaml,
 	"profiles/preview.yaml":                                                                profilesPreviewYaml,
 	"profiles/remote.yaml":                                                                 profilesRemoteYaml,
-	"profiles/separate.yaml":                                                               profilesSeparateYaml,
 	"translateConfig/names-1.5.yaml":                                                       translateconfigNames15Yaml,
 	"translateConfig/names-1.6.yaml":                                                       translateconfigNames16Yaml,
 	"translateConfig/reverseTranslateConfig-1.4.yaml":                                      translateconfigReversetranslateconfig14Yaml,
@@ -46132,13 +46089,12 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		}},
 	}},
 	"profiles": &bintree{nil, map[string]*bintree{
-		"default.yaml":  &bintree{profilesDefaultYaml, map[string]*bintree{}},
-		"demo.yaml":     &bintree{profilesDemoYaml, map[string]*bintree{}},
-		"empty.yaml":    &bintree{profilesEmptyYaml, map[string]*bintree{}},
-		"minimal.yaml":  &bintree{profilesMinimalYaml, map[string]*bintree{}},
-		"preview.yaml":  &bintree{profilesPreviewYaml, map[string]*bintree{}},
-		"remote.yaml":   &bintree{profilesRemoteYaml, map[string]*bintree{}},
-		"separate.yaml": &bintree{profilesSeparateYaml, map[string]*bintree{}},
+		"default.yaml": &bintree{profilesDefaultYaml, map[string]*bintree{}},
+		"demo.yaml":    &bintree{profilesDemoYaml, map[string]*bintree{}},
+		"empty.yaml":   &bintree{profilesEmptyYaml, map[string]*bintree{}},
+		"minimal.yaml": &bintree{profilesMinimalYaml, map[string]*bintree{}},
+		"preview.yaml": &bintree{profilesPreviewYaml, map[string]*bintree{}},
+		"remote.yaml":  &bintree{profilesRemoteYaml, map[string]*bintree{}},
 	}},
 	"translateConfig": &bintree{nil, map[string]*bintree{
 		"names-1.5.yaml":                  &bintree{translateconfigNames15Yaml, map[string]*bintree{}},
