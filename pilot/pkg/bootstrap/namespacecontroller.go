@@ -118,6 +118,11 @@ func NewNamespaceController(data func() map[string]string, options controller.Op
 				return c.namespaceChange(obj)
 			})
 		},
+		UpdateFunc: func(_, obj interface{}) {
+			c.queue.Push(func() error {
+				return c.namespaceChange(obj)
+			})
+		},
 	})
 	c.namespaceController = namespaceInformer
 
