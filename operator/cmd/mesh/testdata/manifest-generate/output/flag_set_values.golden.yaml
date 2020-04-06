@@ -189,8 +189,7 @@ data:
         "objectSelector": {
           "autoInject": true,
           "enabled": false
-        },
-        "rewriteAppHTTPProbe": true
+        }
       }
     }
 

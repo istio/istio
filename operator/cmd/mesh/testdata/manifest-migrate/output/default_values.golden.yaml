@@ -4,16 +4,6 @@ metadata:
   creationTimestamp: null
 spec:
   addonComponents:
-    citadel:
-      enabled: true
-      k8s:
-        nodeSelector: {}
-        replicaCount: 1
-        strategy:
-          rollingUpdate:
-            maxSurge: 100%
-            maxUnavailable: 25%
-        tolerations: []
     grafana:
       enabled: false
     istiocoredns:
@@ -195,15 +185,6 @@ spec:
   hub: gcr.io/istio-release
   tag: master-latest-daily
   values:
-    certmanager:
-      enabled: false
-      hub: quay.io/jetstack
-      image: cert-manager-controller
-      podAntiAffinityLabelSelector: []
-      podAntiAffinityTermLabelSelector: []
-      replicaCount: 1
-      tag: v0.6.2
-      tolerations: []
     cni:
       cniBinDir: /opt/cni/bin
       cniConfDir: /etc/cni/net.d
@@ -548,38 +529,6 @@ spec:
           enabled: false
           port: 32090
       tag: v2.8.0
-    security:
-      dnsCerts:
-        istio-galley-service-account:
-          istio-config: istio-galley.istio-config.svc
-          istio-control: istio-galley.istio-control.svc
-          istio-control-master: istio-galley.istio-control-master.svc
-          istio-master: istio-galley.istio-master.svc
-          istio-pilot11: istio-galley.istio-pilot11.svc
-        istio-pilot-service-account:
-          istio-control: istio-pilot-service-account.istio-control
-          istio-pilot11: istio-pilot-service-account.istio-system
-        istio-sidecar-injector-service-account:
-          istio-control: istio-sidecar-injector.istio-control.svc
-          istio-control-master: istio-sidecar-injector.istio-control-master.svc
-          istio-master: istio-sidecar-injector.istio-master.svc
-          istio-pilot11: istio-sidecar-injector.istio-pilot11.svc
-          istio-remote: istio-sidecar-injector.istio-remote.svc
-      enableNamespacesByDefault: true
-      image: citadel
-      podAntiAffinityLabelSelector: []
-      podAntiAffinityTermLabelSelector: []
-      selfSigned: true
-      trustDomain: cluster.local
-      workloadCertTtl: 2160h
-    sidecarInjectorWebhook:
-      alwaysInjectSelector: []
-      enableNamespacesByDefault: false
-      enabled: true
-      injectLabel: istio-injection
-      neverInjectSelector: []
-      rewriteAppHTTPProbe: true
-      selfSigned: false
     tracing:
       enabled: false
       jaeger:
