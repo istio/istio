@@ -1,0 +1,20 @@
+# To simplify the deployment, disable some components
+alertmanager:
+  enabled: false
+pushgateway:
+  enabled: false
+kubeStateMetrics:
+  enabled: false
+nodeExporter:
+  enabled: false
+server:
+  persistentVolume:
+    enabled: false
+  service:
+    servicePort: 9090
+
+  # Speed up scraping a bit from the default
+  global:
+    scrape_interval: 15s
+  # Match legacy addon deployment
+  fullnameOverride: prometheus
