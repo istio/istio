@@ -331,7 +331,14 @@ func (c *controller) Run(stop <-chan struct{}) {
 }
 
 func (c *controller) Schemas() collection.Schemas {
-	return c.client.Schemas()
+	sb := collection.NewSchemasBuilder()
+	for _, schema := range c.client.Schemas().All() {
+		gvk := schema.Resource().GroupVersionKind()
+		if _, f := c.kinds[gvk]; f {
+			sb.MustAdd(schema)
+		}
+	}
+	return sb.Build()
 }
 
 func (c *controller) Get(typ resource.GroupVersionKind, name, namespace string) *model.Config {

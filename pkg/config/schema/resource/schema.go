@@ -76,9 +76,9 @@ type Schema interface {
 }
 
 type GroupVersionKind struct {
-	Group   string
-	Version string
-	Kind    string
+	Group   string `json:"group"`
+	Version string `json:"version"`
+	Kind    string `json:"kind"`
 }
 
 var _ fmt.Stringer = GroupVersionKind{}
