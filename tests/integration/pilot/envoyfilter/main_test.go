@@ -257,7 +257,6 @@ func TestEnvoyFilterHTTPFilterInsertBefore(t *testing.T) {
 
 func checkHTTPFilter(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
 	expected := map[string]struct{}{
-		"1.1.1.1_80":      {},
 		"0.0.0.0_80":      {},
 		"virtualInbound":  {},
 		"virtualOutbound": {},
