@@ -21,8 +21,6 @@ import (
 )
 
 func TestOutboundTrafficPolicy_RegistryOnly_TelemetryV2(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/21385")
-
 	cases := []*outboundtrafficpolicy.TestCase{
 		{
 			Name:     "HTTP Traffic",
@@ -38,7 +36,7 @@ func TestOutboundTrafficPolicy_RegistryOnly_TelemetryV2(t *testing.T) {
 			PortName: "https",
 			Expected: outboundtrafficpolicy.Expected{
 				Metric:          "istio_tcp_connections_closed_total",
-				PromQueryFormat: `sum(istio_tcp_connections_closed_total{destination_service="BlackHoleCluster",destination_service_name="BlackHoleCluster"})`,
+				PromQueryFormat: `sum(istio_tcp_connections_closed_total{destination_service_name="BlackHoleCluster"})`,
 				ResponseCode:    []string{},
 			},
 		},
@@ -47,7 +45,7 @@ func TestOutboundTrafficPolicy_RegistryOnly_TelemetryV2(t *testing.T) {
 			PortName: "https-conflict",
 			Expected: outboundtrafficpolicy.Expected{
 				Metric:          "istio_tcp_connections_closed_total",
-				PromQueryFormat: `sum(istio_tcp_connections_closed_total{destination_service="BlackHoleCluster",destination_service_name="BlackHoleCluster"})`,
+				PromQueryFormat: `sum(istio_tcp_connections_closed_total{destination_service_name="BlackHoleCluster"})`,
 				ResponseCode:    []string{},
 			},
 		},
@@ -58,7 +56,7 @@ func TestOutboundTrafficPolicy_RegistryOnly_TelemetryV2(t *testing.T) {
 			Gateway:  true,
 			Expected: outboundtrafficpolicy.Expected{
 				Metric:          "istio_requests_total",
-				PromQueryFormat: `sum(istio_requests_total{destination_service_name="istio-egressgateway",response_code="200"})`,
+				PromQueryFormat: `sum(istio_requests_total{destination_service_name="istio-egressgateway.istio-system.svc.cluster.local",response_code="200"})`,
 				ResponseCode:    []string{"200"},
 			},
 		},
