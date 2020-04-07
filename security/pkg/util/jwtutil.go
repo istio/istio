@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-// IsJwtExpired checks if the JWT token is expired compared with the given time.
+// IsJwtExpired checks if the JWT token is expired compared with the given time, without validating it.
 func IsJwtExpired(token string, now time.Time) (bool, error) {
 	claims, err := parseJwtClaims(token)
 	if err != nil {
@@ -52,10 +52,8 @@ func IsJwtExpired(token string, now time.Time) (bool, error) {
 func parseJwtClaims(token string) (map[string]interface{}, error) {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
-		return nil, fmt.Errorf("JWT contains an invalid number of segments")
+		return nil, fmt.Errorf("token contains an invalid number of segments: %d, expected: 3", len(parts))
 	}
-
-	//token = &Token{Raw: token}
 
 	// Decode the second part.
 	claimBytes, err := decodeSegment(parts[1])
@@ -66,7 +64,7 @@ func parseJwtClaims(token string) (map[string]interface{}, error) {
 
 	claims := make(map[string]interface{})
 	if err := dec.Decode(&claims); err != nil {
-		return nil, fmt.Errorf("Failed to decode the JWT claims")
+		return nil, fmt.Errorf("failed to decode the JWT claims")
 	}
 	return claims, nil
 }

@@ -24,6 +24,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -44,7 +45,7 @@ type CAClient struct {
 	internalErrors        uint64
 	bundle                util.KeyCertBundle
 	certLifetime          time.Duration
-	GeneratedCerts        [][]string // Cache the generated certificats.
+	GeneratedCerts        [][]string // Cache the generated certificates for verification purpose.
 }
 
 // NewMockCAClient creates an instance of CAClient. unavailableErrors and internalErrors are used to
@@ -61,7 +62,7 @@ func NewMockCAClient(unavailableErrors, internalErrors uint64, certLifetime time
 	}
 	bundle, err := util.NewVerifiedKeyCertBundleFromFile(caCertPath, caKeyPath, certChainPath, rootCertPath)
 	if err != nil {
-		return nil, fmt.Errorf("NewMockCAClient creation error: %v", err)
+		return nil, fmt.Errorf("mock ca client creation error: %v", err)
 	}
 	cl.bundle = bundle
 
@@ -85,12 +86,12 @@ func (c *CAClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, exc
 	signingCert, signingKey, certChain, rootCert := c.bundle.GetAll()
 	csr, err := util.ParsePemEncodedCSR(csrPEM)
 	if err != nil {
-		return nil, fmt.Errorf("CSRSign error: %v", err)
+		return nil, fmt.Errorf("csr sign error: %v", err)
 	}
 	subjectIDs := []string{"test"}
 	certBytes, err := util.GenCertFromCSR(csr, signingCert, csr.PublicKey, *signingKey, subjectIDs, c.certLifetime, false)
 	if err != nil {
-		return nil, fmt.Errorf("CSRSign error: %v", err)
+		return nil, fmt.Errorf("csr sign error: %v", err)
 	}
 
 	block := &pem.Block{
@@ -106,10 +107,8 @@ func (c *CAClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, exc
 
 // TokenExchangeServer is the mocked token exchange server for testing.
 type TokenExchangeServer struct {
-	unavailableErrorCount uint64
-	internalErrorCount    uint64
-	unavailableErrors     uint64
-	internalErrors        uint64
+	internalErrorCount uint64
+	internalErrors     uint64
 }
 
 // NewMockTokenExchangeServer creates an instance of TokenExchangeServer. internalErrors is used to

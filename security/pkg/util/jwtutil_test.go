@@ -71,10 +71,15 @@ func TestIsJwtExpired(t *testing.T) {
 			expResult: false,
 			expErr:    nil,
 		},
-		"Invalid JWT": {
+		"Invalid JWT - wrong number of sections": {
+			jwt:    "invalid-section1.invalid-section2",
+			now:    time.Now(),
+			expErr: fmt.Errorf("token contains an invalid number of segments: 2, expected: 3"),
+		},
+		"Invalid JWT - wrong encoding": {
 			jwt:    "invalid-section1.invalid-section2.invalid-section3",
 			now:    time.Now(),
-			expErr: fmt.Errorf("Failed to decode the JWT claims"),
+			expErr: fmt.Errorf("failed to decode the JWT claims"),
 		},
 	}
 

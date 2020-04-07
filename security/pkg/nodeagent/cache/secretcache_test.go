@@ -1025,14 +1025,6 @@ func notifyCb(_ ConnKey, _ *model.SecretItem) error {
 	return nil
 }
 
-func convertToBytes(ss []string) []byte {
-	res := []byte{}
-	for _, s := range ss {
-		res = append(res, []byte(s)...)
-	}
-	return res
-}
-
 func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 	fakeCACli, err := mock.NewMockCAClient(0, 0, time.Millisecond)
 	if err != nil {
