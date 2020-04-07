@@ -163,18 +163,28 @@ func TestPushTypeFor(t *testing.T) {
 			expect: map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true},
 		},
 		{
-			name:  "requestauthentication and peerauthentication updated",
-			proxy: sidecar,
-			configTypes: []resource.GroupVersionKind{collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(),
-				collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind()},
-			expect: map[XdsType]bool{LDS: true},
+			name:        "requestauthentication updated",
+			proxy:       sidecar,
+			configTypes: []resource.GroupVersionKind{collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind()},
+			expect:      map[XdsType]bool{LDS: true},
 		},
 		{
-			name:  "requestauthentication and peerauthentication updated",
-			proxy: gateway,
-			configTypes: []resource.GroupVersionKind{collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(),
-				collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind()},
-			expect: map[XdsType]bool{LDS: true},
+			name:        "requestauthentication updated",
+			proxy:       gateway,
+			configTypes: []resource.GroupVersionKind{collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind()},
+			expect:      map[XdsType]bool{LDS: true},
+		},
+		{
+			name:        "peerauthentication updated",
+			proxy:       sidecar,
+			configTypes: []resource.GroupVersionKind{collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind()},
+			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true},
+		},
+		{
+			name:        "peerauthentication updated",
+			proxy:       gateway,
+			configTypes: []resource.GroupVersionKind{collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind()},
+			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true},
 		},
 	}
 
