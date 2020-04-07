@@ -133,7 +133,7 @@ type IstioEgressListenerWrapper struct {
 	virtualServices []Config
 }
 
-// DefaultSidecarScope is a sidecar scope object with a default catch all egress listener
+// DefaultSidecarScopeForNamespace is a sidecar scope object with a default catch all egress listener
 // that matches the default Istio behavior: a sidecar has listeners for all services in the mesh
 // We use this scope when the user has not set any sidecar Config for a given config namespace.
 func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *SidecarScope {
@@ -474,12 +474,12 @@ func (sc *SidecarScope) DependsOnConfig(kind resource.GroupVersionKind, name str
 		return false, false
 	}
 
-	if d, exists := sc.configDependencies[kind]; !exists {
+	d, exists := sc.configDependencies[kind]
+	if !exists {
 		return false, false
-	} else {
-		_, exists = d[name]
-		return exists, true
 	}
+	_, exists = d[name]
+	return exists, true
 }
 
 // AddConfigDependencies add extra config dependencies to this scope. This action should be done before the
