@@ -25,15 +25,12 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/operator/pkg/object"
-	"istio.io/pkg/log"
-
-	"istio.io/istio/pkg/test/scopes"
-
 	"github.com/golang/protobuf/jsonpb"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	api "istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -41,10 +38,14 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource/environment"
+	"istio.io/istio/pkg/test/scopes"
+	"istio.io/pkg/log"
 )
 
 const (
 	IstioNamespace = "istio-system"
+	pollInterval   = time.Second
+	pollTimeOut    = 100 * time.Second
 )
 
 var (
@@ -71,37 +72,43 @@ func TestController(t *testing.T) {
 
 // checkInstallStatus check the status of IstioOperator CR from the cluster
 func checkInstallStatus(cs kube.Cluster) error {
+	log.Info("checking IstioOperator CR status")
 	gvr := schema.GroupVersionResource{
 		Group:    "install.istio.io",
 		Version:  "v1alpha1",
 		Resource: "istiooperators",
 	}
-	us, err := cs.GetUnstructured(gvr, "istio-system", "test-istiocontrolplane")
-	if err != nil {
-		return fmt.Errorf("failed to get istioOperator resource: %v", err)
-	}
-	usIOPStatus := us.UnstructuredContent()["status"].(map[string]interface{})
-	iopStatusString, err := json.Marshal(usIOPStatus)
-	if err != nil {
-		return fmt.Errorf("failed to marshal istioOperator status: %v", err)
-	}
-	status := &api.InstallStatus{}
-	jspb := jsonpb.Unmarshaler{AllowUnknownFields: true}
-	if err := jspb.Unmarshal(bytes.NewReader(iopStatusString), status); err != nil {
-		return fmt.Errorf("failed to unmarshal istioOperator status: %v", err)
-	}
-	if status.Status != api.InstallStatus_HEALTHY {
-		return fmt.Errorf("expect IstioOperator status to be healthy, but got: %v", status.Status)
-	}
-	var errs util.Errors
-	for cn, cnstatus := range status.ComponentStatus {
-		if cnstatus.Status != api.InstallStatus_HEALTHY {
-			errs = util.AppendErr(errs, fmt.Errorf("expect component: %s status to be healthy,"+
-				" but got: %v", cn, cnstatus.Status))
+	conditionF := func() (done bool, err error) {
+		us, err := cs.GetUnstructured(gvr, "istio-system", "test-istiocontrolplane")
+		if err != nil {
+			return false, fmt.Errorf("failed to get istioOperator resource: %v", err)
 		}
+		usIOPStatus := us.UnstructuredContent()["status"].(map[string]interface{})
+		iopStatusString, err := json.Marshal(usIOPStatus)
+		if err != nil {
+			return false, fmt.Errorf("failed to marshal istioOperator status: %v", err)
+		}
+		status := &api.InstallStatus{}
+		jspb := jsonpb.Unmarshaler{AllowUnknownFields: true}
+		if err := jspb.Unmarshal(bytes.NewReader(iopStatusString), status); err != nil {
+			return false, fmt.Errorf("failed to unmarshal istioOperator status: %v", err)
+		}
+		if status.Status != api.InstallStatus_HEALTHY {
+			return false, fmt.Errorf("expect IstioOperator status to be healthy, but got: %v", status.Status)
+		}
+		var errs util.Errors
+		for cn, cnstatus := range status.ComponentStatus {
+			if cnstatus.Status != api.InstallStatus_HEALTHY {
+				errs = util.AppendErr(errs, fmt.Errorf("expect component: %s status to be healthy,"+
+					" but got: %v", cn, cnstatus.Status))
+			}
+		}
+		return true, nil
 	}
-
-	return errs.ToError()
+	if errPoll := wait.Poll(pollInterval, pollTimeOut, conditionF); errPoll != nil {
+		return fmt.Errorf("failed to poll IstioOperator status: %v", errPoll)
+	}
+	return nil
 }
 
 func checkControllerInstallation(t *testing.T, ctx framework.TestContext, istioCtl istioctl.Instance, workDir string, iopFile string) {
@@ -140,7 +147,6 @@ metadata:
 
 	// takes time for reconciliation to be done
 	scopes.CI.Infof("waiting for reconciliation to be done")
-	time.Sleep(60 * time.Second)
 	if err := checkInstallStatus(cs); err != nil {
 		t.Fatalf("IstioOperator status not healthy: %v", err)
 	}
@@ -148,13 +154,13 @@ metadata:
 		t.Fatalf("pods are not ready: %v", err)
 	}
 
-	if err := compareInCluserAndGeneratedResources(t, istioCtl, iopFile, cs); err != nil {
+	if err := compareInClusterAndGeneratedResources(t, istioCtl, iopFile, cs); err != nil {
 		t.Fatalf("in cluster resources does not match with the generated ones: %v", err)
 	}
 	scopes.CI.Infof("=== Succeeded ===")
 }
 
-func compareInCluserAndGeneratedResources(t *testing.T, istioCtl istioctl.Instance,
+func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Instance,
 	iopFile string, cs kube.Cluster) error {
 	// get manifests by running `manifest generate`
 	generateCmd := []string{
