@@ -22,6 +22,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	fuzz "github.com/google/gofuzz"
+
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pkg/config/schema/collections"
