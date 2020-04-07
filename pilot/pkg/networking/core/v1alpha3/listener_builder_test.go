@@ -19,9 +19,12 @@ import (
 	"strings"
 	"testing"
 
+	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
+
 	"istio.io/istio/pilot/pkg/features"
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -70,7 +73,7 @@ func TestListenerBuilder(t *testing.T) {
 	service := buildService("test.com", wildcardIP, protocol.HTTP, tnow)
 	services := []*model.Service{service}
 
-	env := buildListenerEnv(services)
+	env := buildListenerEnv(services, nil)
 
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		t.Fatalf("init push context error: %s", err.Error())
@@ -118,7 +121,7 @@ func TestVirtualListenerBuilder(t *testing.T) {
 	service := buildService("test.com", wildcardIP, protocol.HTTP, tnow)
 	services := []*model.Service{service}
 
-	env := buildListenerEnv(services)
+	env := buildListenerEnv(services, nil)
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		t.Fatalf("init push context error: %s", err.Error())
 	}
@@ -161,13 +164,13 @@ func setInboundCaptureAllOnThisNode(proxy *model.Proxy) {
 	proxy.Metadata.InterceptionMode = "REDIRECT"
 }
 
-func prepareListeners(t *testing.T) []*v2.Listener {
+var testServices = []*model.Service{buildService("test.com", wildcardIP, protocol.HTTP, tnow)}
+
+func prepareListeners(t *testing.T, services []*model.Service, mgmtPort []int) []*v2.Listener {
 	// prepare
 	ldsEnv := getDefaultLdsEnv()
-	service := buildService("test.com", wildcardIP, protocol.HTTP, tnow)
-	services := []*model.Service{service}
 
-	env := buildListenerEnv(services)
+	env := buildListenerEnv(services, mgmtPort)
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		t.Fatalf("init push context error: %s", err.Error())
 	}
@@ -189,6 +192,7 @@ func prepareListeners(t *testing.T) []*v2.Listener {
 
 	builder := NewListenerBuilder(&proxy, env.PushContext)
 	return builder.buildSidecarInboundListeners(ldsEnv.configgen).
+		buildManagementListeners(ldsEnv.configgen).
 		buildVirtualOutboundListener(ldsEnv.configgen).
 		buildVirtualInboundListener(ldsEnv.configgen).
 		getListeners()
@@ -201,7 +205,7 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 
 	// prepare
 	t.Helper()
-	listeners := prepareListeners(t)
+	listeners := prepareListeners(t, testServices, nil)
 	// app port listener and virtual inbound listener
 	if len(listeners) != 3 {
 		t.Fatalf("expected %d listeners, found %d", 3, len(listeners))
@@ -249,7 +253,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	defer func() { features.EnableProtocolSniffingForInbound = defaultValue }()
 	// prepare
 	t.Helper()
-	listeners := prepareListeners(t)
+	listeners := prepareListeners(t, testServices, nil)
 	// app port listener and virtual inbound listener
 	if len(listeners) != 3 {
 		t.Fatalf("expect %d listeners, found %d", 3, len(listeners))
@@ -346,4 +350,40 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 			xdsutil.OriginalDestination, xdsutil.TlsInspector, xdsutil.HttpInspector,
 			l.ListenerFilters[0].Name, l.ListenerFilters[1].Name, l.ListenerFilters[2].Name)
 	}
+}
+
+func TestManagementListenerBuilder(t *testing.T) {
+	listeners := prepareListeners(t, nil, []int{9876})
+	// Get the listener. 1.1.1.1 comes from proxy ip in prepareListeners
+	l := expectListener(t, listeners, "1.1.1.1_9876")
+	expectTCPProxy(t, l.FilterChains, "inbound|9876||mgmtCluster")
+}
+
+func expectTCPProxy(t *testing.T, chains []*listener.FilterChain, s string) {
+	t.Helper()
+	for _, c := range chains {
+		for _, f := range c.Filters {
+			if f.Name != "envoy.tcp_proxy" {
+				continue
+			}
+			fc := &tcp_proxy.TcpProxy{}
+			if err := getFilterConfig(f, fc); err != nil {
+				t.Fatalf("failed to get TCP Proxy config: %s", err)
+			}
+			if fc.GetCluster() != s {
+				t.Fatalf("expected destination %v, got %v", s, fc.GetCluster())
+			}
+		}
+	}
+}
+
+func expectListener(t *testing.T, listeners []*v2.Listener, name string) *v2.Listener {
+	t.Helper()
+	for _, l := range listeners {
+		if l.Name == name {
+			return l
+		}
+	}
+	t.Fatalf("could not find listener %v", name)
+	return nil
 }

@@ -20,11 +20,13 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/kubernetes"
 )
 
 func TestDashboard(t *testing.T) {
 	clientExecFactory = mockExecClientDashboard
+	envoyClientFactory = mockEnvoyClientDashboard
 
 	cases := []testCase{
 		{ // case 0
@@ -115,6 +117,10 @@ func TestDashboard(t *testing.T) {
 	}
 }
 
-func mockExecClientDashboard(_, _ string) (kubernetes.ExecClient, error) {
+func mockExecClientDashboard(_, _ string, _ clioptions.ControlPlaneOptions) (kubernetes.ExecClient, error) {
+	return &mockExecConfig{}, nil
+}
+
+func mockEnvoyClientDashboard(_, _ string) (kubernetes.ExecClient, error) {
 	return &mockExecConfig{}, nil
 }

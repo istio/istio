@@ -15,8 +15,9 @@ spec:
     matchLabels:
       app: istiod
       {{- if ne .Values.revision ""}}
-      version: {{ .Values.revision }}
-      {{- end }}
+      istio.io/rev: {{ .Values.revision }}
+      {{- else }}
       istio: pilot
+      {{- end }}
 ---
 {{- end }}

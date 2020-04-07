@@ -19,6 +19,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/compare"
@@ -32,6 +33,8 @@ var (
 )
 
 func statusCommand() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
+
 	statusCmd := &cobra.Command{
 		Use:   "proxy-status [<pod-name[.namespace]>]",
 		Short: "Retrieves the synchronization status of each Envoy in the mesh [kube only]",
@@ -47,7 +50,7 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 `,
 		Aliases: []string{"ps"},
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := clientExecSdsFactory(kubeconfig, configContext)
+			kubeClient, err := clientExecSdsFactory(kubeconfig, configContext, opts)
 			if err != nil {
 				return err
 			}
@@ -95,6 +98,7 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 		"(experimental) Retrieve synchronization between active secrets on Envoy instance with those on corresponding node agents")
 	statusCmd.Flags().BoolVar(&sdsJSON, "sds-json", false,
 		"Determines whether SDS dump outputs JSON")
+	opts.AttachControlPlaneFlags(statusCmd)
 
 	return statusCmd
 }
@@ -121,10 +125,14 @@ func sdsDiff(
 	return comparator.Diff()
 }
 
-func newExecClient(kubeconfig, configContext string) (kubernetes.ExecClient, error) {
+func newPilotExecClient(kubeconfig, configContext string, opts clioptions.ControlPlaneOptions) (kubernetes.ExecClient, error) {
+	return kubernetes.NewExtendedClient(kubeconfig, configContext, opts)
+}
+
+func newEnvoyClient(kubeconfig, configContext string) (kubernetes.ExecClient, error) {
 	return kubernetes.NewClient(kubeconfig, configContext)
 }
 
-func newSDSExecClient(kubeconfig, configContext string) (kubernetes.ExecClientSDS, error) {
-	return kubernetes.NewClient(kubeconfig, configContext)
+func newSDSExecClient(kubeconfig, configContext string, opts clioptions.ControlPlaneOptions) (kubernetes.ExecClientSDS, error) {
+	return kubernetes.NewExtendedClient(kubeconfig, configContext, opts)
 }

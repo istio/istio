@@ -58,6 +58,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/dns"
 	"istio.io/istio/pkg/jwt"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
@@ -142,6 +143,7 @@ type Server struct {
 	HTTPListener    net.Listener
 	GRPCListener    net.Listener
 	GRPCDNSListener net.Listener
+	DNSListener     net.Listener
 
 	// for test
 	forceStop bool
@@ -272,6 +274,21 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, fmt.Errorf("config validation: %v", err)
 	}
 
+	if dns.DNSAddr.Get() != "" {
+		if err := s.initDNSTLSListener(dns.DNSAddr.Get()); err != nil {
+			log.Warna("Failed to start DNS-over-TLS listener ", err)
+		}
+
+		// Respond to CoreDNS gRPC queries.
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			if s.DNSListener != nil {
+				dnsSvc := dns.InitDNS()
+				dnsSvc.StartDNS(dns.DNSAddr.Get(), s.DNSListener)
+			}
+			return nil
+		})
+	}
+
 	// Run the SDS signing server.
 	// RunCA() must be called after createCA() and initDNSListener()
 	// because it depends on the following conditions:
@@ -279,7 +296,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	// 2) grpc server has been generated.
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		if s.ca != nil {
-			s.RunCA(s.secureGRPCServerDNS, s.ca, caOpts, stop)
+			s.RunCA(s.secureGRPCServerDNS, s.ca, caOpts, args.Config.ControllerOptions, stop)
 		}
 		return nil
 	})
@@ -517,6 +534,45 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	grpcOptions := s.grpcServerOptions(options)
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 	s.EnvoyXdsServer.Register(s.grpcServer)
+}
+
+// initialize DNS server listener - uses the same certs as gRPC
+func (s *Server) initDNSTLSListener(dns string) error {
+	if dns == "" {
+		return nil
+	}
+	certDir := dnsCertDir
+
+	key := path.Join(certDir, constants.KeyFilename)
+	cert := path.Join(certDir, constants.CertChainFilename)
+
+	certP, err := tls.LoadX509KeyPair(cert, key)
+	if err != nil {
+		return err
+	}
+
+	cp := x509.NewCertPool()
+	rootCertBytes := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+	cp.AppendCertsFromPEM(rootCertBytes)
+
+	// TODO: check if client certs can be used with coredns or others.
+	// If yes - we may require or optionally use them
+	cfg := &tls.Config{
+		Certificates: []tls.Certificate{certP},
+		ClientAuth:   tls.NoClientCert,
+		ClientCAs:    cp,
+	}
+
+	// create secure grpc listener
+	l, err := net.Listen("tcp", dns)
+	if err != nil {
+		return err
+	}
+
+	tl := tls.NewListener(l, cfg)
+	s.DNSListener = tl
+
+	return nil
 }
 
 // initialize secureGRPCServer - using DNS certs

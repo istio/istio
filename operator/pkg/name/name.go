@@ -50,7 +50,6 @@ const (
 	// are used for struct traversal.
 	IstioBaseComponentName ComponentName = "Base"
 	PilotComponentName     ComponentName = "Pilot"
-	GalleyComponentName    ComponentName = "Galley"
 	PolicyComponentName    ComponentName = "Policy"
 	TelemetryComponentName ComponentName = "Telemetry"
 
@@ -77,7 +76,6 @@ var (
 	AllCoreComponentNames = []ComponentName{
 		IstioBaseComponentName,
 		PilotComponentName,
-		GalleyComponentName,
 		PolicyComponentName,
 		TelemetryComponentName,
 		CNIComponentName,
@@ -116,11 +114,6 @@ type ManifestMap map[ComponentName][]string
 // IsCoreComponent reports whether cn is a core component.
 func (cn ComponentName) IsCoreComponent() bool {
 	return allComponentNamesMap[cn]
-}
-
-// IsDeprecatedName reports whether cn is a deprecated component.
-func (cn ComponentName) IsDeprecatedName() bool {
-	return DeprecatedComponentNamesMap[cn]
 }
 
 // IsGateway reports whether cn is a gateway component.

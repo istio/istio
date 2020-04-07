@@ -94,6 +94,7 @@ require (
 	github.com/lestrrat-go/jwx v0.9.0
 	github.com/mattn/go-isatty v0.0.12
 	github.com/mholt/archiver v3.1.1+incompatible
+	github.com/miekg/dns v1.0.14
 	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/reflectwalk v1.0.1 // indirect
@@ -147,7 +148,7 @@ require (
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.2.8
-	istio.io/api v0.0.0-20200403211312-67297ce91693
+	istio.io/api v0.0.0-20200407171655-fb462ece86fb
 	istio.io/gogo-genproto v0.0.0-20200326154102-997c228eecef
 	istio.io/pkg v0.0.0-20200327214633-ce134a9bd104
 	k8s.io/api v0.18.0

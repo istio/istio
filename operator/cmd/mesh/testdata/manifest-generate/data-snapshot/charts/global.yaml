@@ -372,8 +372,7 @@ global:
   # for more detail.
   priorityClassName: ""
 
-  # Use the Mesh Control Protocol (MCP) for configuring Mixer and
-  # Pilot. Requires galley (`--set galley.enabled=true`).
+  # Use the Mesh Control Protocol (MCP) for configuring Mixer and Pilot. Requires an MCP source.
   useMCP: false
 
   # The trust domain corresponds to the trust root of a system
@@ -525,14 +524,12 @@ global:
   # in dnsNames are consistent with those of your services.
   # Example:
   # certificates:
-  #   - secretName: dns.istio-galley-service-account
-  #     dnsNames: [istio-galley.istio-system.svc, istio-galley.istio-system]
-  #   - secretName: dns.istio-sidecar-injector-service-account
-  #     dnsNames: [istio-sidecar-injector.istio-system.svc, istio-sidecar-injector.istio-system]
+  #   - secretName: dns.istiod-service-account
+  #     dnsNames: [istiod.istio-system.svc, istiod.istio-system]
   certificates: []
 
   # Configure whether Operator manages webhook configurations. The current behavior
-  # of Galley and Sidecar Injector is that they manage their own webhook configurations.
+  # of Istiod is to manage its own webhook configurations.
   # When this option is set as true, Istio Operator, instead of webhooks, manages the
   # webhook configurations. When this option is set as false, webhooks manage their
   # own webhook configurations.

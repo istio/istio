@@ -4477,6 +4477,18 @@ spec:
                       maxAge:
                         type: string
                     type: object
+                  delegate:
+                    properties:
+                      name:
+                        description: Name specifies the name of the delegate VirtualService.
+                        format: string
+                        type: string
+                      namespace:
+                        description: Namespace specifies the namespace where the delegate
+                          VirtualService resides.
+                        format: string
+                        type: string
+                    type: object
                   fault:
                     description: Fault injection policy to apply on HTTP traffic at
                       the client side.
@@ -6903,15 +6915,3 @@ webhooks:
     failurePolicy: Ignore
     sideEffects: None
 ---
-
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: istio-galley
-  labels:
-    app: galley
-    release: istio-base
-    istio: galley
-webhooks:
----
-

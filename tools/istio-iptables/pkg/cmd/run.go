@@ -414,6 +414,20 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		iptConfigurator.handleInboundIpv6Rules(ipv6RangesExclude, ipv6RangesInclude)
 	}
 
+	if dnsVar.Get() != "" {
+		for _, gid := range split(iptConfigurator.cfg.ProxyGID) {
+			// TODO: add ip6 as well
+			if gid != "0" { // not clear why gid 0 would be excluded - istio-proxy is not running as 0
+				iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
+					"-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
+			}
+		}
+		// TODO: also capture TCP 53
+		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
+			"-p", "udp", "--dport", "53",
+			"-j", "REDIRECT", "--to-port", "15013")
+	}
+
 	iptConfigurator.executeCommands()
 }
 
@@ -452,10 +466,10 @@ func (iptConfigurator *IptablesConfigurator) executeIptablesRestoreCommand(isIpv
 		cmd = constants.IP6TABLESRESTORE
 	}
 	rulesFile, err := ioutil.TempFile("", filename)
-	defer os.Remove(rulesFile.Name())
 	if err != nil {
 		return fmt.Errorf("unable to create iptables-restore file: %v", err)
 	}
+	defer os.Remove(rulesFile.Name())
 	if err := iptConfigurator.createRulesFile(rulesFile, data); err != nil {
 		return err
 	}

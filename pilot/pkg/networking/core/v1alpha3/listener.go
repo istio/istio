@@ -17,7 +17,6 @@ package v1alpha3
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"reflect"
 	"sort"
 	"strconv"
@@ -143,10 +142,6 @@ const (
 	// Used in xds config. Metavalue bind to this key is used by pilot as xds server but not by envoy.
 	// So the meta data can be erased when pushing to envoy.
 	PilotMetaKey = "pilot_meta"
-
-	// CanonicalHTTPSPort defines the standard port for HTTPS traffic. To avoid conflicts, http services
-	// are not allowed on this port.
-	CanonicalHTTPSPort = 443
 
 	// Alpn HTTP filter name which will override the ALPN for upstream TLS connection.
 	AlpnFilterName = "istio.alpn"
@@ -978,27 +973,29 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 				bind = actualWildcard
 			}
 
+			// Build ListenerOpts and PluginParams once and reuse across all Services to avoid unnecessary allocations.
+			listenerOpts := buildListenerOpts{
+				push:       push,
+				proxy:      node,
+				bind:       bind,
+				port:       listenPort.Port,
+				bindToPort: bindToPort,
+			}
+
+			// The listener protocol is determined by the protocol of egress listener port.
+			pluginParams := &plugin.InputParams{
+				ListenerProtocol: istionetworking.ModelProtocolToListenerProtocol(node, listenPort.Protocol,
+					core.TrafficDirection_OUTBOUND),
+				ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				Node:             node,
+				Push:             push,
+				Bind:             bind,
+				Port:             listenPort,
+			}
+
 			for _, service := range services {
-				listenerOpts := buildListenerOpts{
-					push:       push,
-					proxy:      node,
-					bind:       bind,
-					port:       listenPort.Port,
-					bindToPort: bindToPort,
-				}
-
-				// The listener protocol is determined by the protocol of egress listener port.
-				pluginParams := &plugin.InputParams{
-					ListenerProtocol: istionetworking.ModelProtocolToListenerProtocol(node, listenPort.Protocol,
-						core.TrafficDirection_OUTBOUND),
-					ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
-					Node:             node,
-					Push:             push,
-					Bind:             bind,
-					Port:             listenPort,
-					Service:          service,
-				}
-
+				// Set service specific attributes here.
+				pluginParams.Service = service
 				configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
 					virtualServices, actualWildcard)
 			}
@@ -1034,27 +1031,34 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 			if bindToPort && bind == "" {
 				bind = actualLocalHostAddress
 			}
+
+			// Build ListenerOpts and PluginParams once and reuse across all Services to avoid unnecessary allocations.
+			listenerOpts := buildListenerOpts{
+				push:       push,
+				proxy:      node,
+				bindToPort: bindToPort,
+			}
+
+			pluginParams := &plugin.InputParams{
+				ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				Node:             node,
+				Push:             push,
+				Bind:             bind,
+			}
+
 			for _, service := range services {
 				for _, servicePort := range service.Ports {
-					listenerOpts := buildListenerOpts{
-						push:       push,
-						proxy:      node,
-						port:       servicePort.Port,
-						bind:       bind,
-						bindToPort: bindToPort,
-					}
+					// bind might have been modified by below code, so reset it for every Service.
+					listenerOpts.bind = bind
+					// port depends on servicePort.
+					listenerOpts.port = servicePort.Port
 
+					// Set service specific attributes here.
+					pluginParams.Port = servicePort
+					pluginParams.Service = service
 					// The listener protocol is determined by the protocol of service port.
-					pluginParams := &plugin.InputParams{
-						ListenerProtocol: istionetworking.ModelProtocolToListenerProtocol(node, servicePort.Protocol,
-							core.TrafficDirection_OUTBOUND),
-						ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
-						Node:             node,
-						Push:             push,
-						Bind:             bind,
-						Port:             servicePort,
-						Service:          service,
-					}
+					pluginParams.ListenerProtocol = istionetworking.ModelProtocolToListenerProtocol(node, servicePort.Protocol,
+						core.TrafficDirection_OUTBOUND)
 
 					// Support Kubernetes statefulsets/headless services with TCP ports only.
 					// Instead of generating a single 0.0.0.0:Port listener, generate a listener
@@ -1401,6 +1405,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 					newHostname = "sidecar-config-egress-http-listener"
 				}
 
+				// We have a collision with another TCP port. This can happen
+				// for headless services, or non-k8s services that do not have
+				// a VIP, or when we have two binds on a unix domain socket or
+				// on same IP.  Unfortunately we won't know if this is a real
+				// conflict or not until we process the VirtualServices, etc.
+				// The conflict resolution is done later in this code
 				outboundListenerConflict{
 					metric:          model.ProxyStatusConflictOutboundListenerHTTPOverTCP,
 					node:            pluginParams.Node,
@@ -1412,13 +1422,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 				}.addMetric(node, pluginParams.Push)
 				return false, nil
 			}
-
-			// We have a collision with another TCP port. This can happen
-			// for headless services, or non-k8s services that do not have
-			// a VIP, or when we have two binds on a unix domain socket or
-			// on same IP.  Unfortunately we won't know if this is a real
-			// conflict or not until we process the VirtualServices, etc.
-			// The conflict resolution is done later in this code
 		}
 	}
 
@@ -1437,14 +1440,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(node *model.Proxy, listenerOpts buildListenerOpts,
 	pluginParams *plugin.InputParams, listenerMap map[string]*outboundListenerEntry,
 	virtualServices []model.Config, actualWildcard string) {
-	if features.BlockHTTPonHTTPSPort {
-		if listenerOpts.port == CanonicalHTTPSPort && pluginParams.Port.Protocol == protocol.HTTP {
-			msg := fmt.Sprintf("listener conflict detected: service %v specifies an HTTP service on HTTPS only port %d.",
-				pluginParams.Service.Hostname, CanonicalHTTPSPort)
-			pluginParams.Push.AddMetric(model.ProxyStatusConflictOutboundListenerHTTPoverHTTPS, string(pluginParams.Service.Hostname), node, msg)
-			return
-		}
-	}
 	var destinationCIDR string
 	var listenerMapKey string
 	var currentListenerEntry *outboundListenerEntry
@@ -1484,9 +1479,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 			}
 
 			// Add application protocol filter chain match to the http filter chain. The application protocol will be set by http inspector
-			// Since application protocol filter chain match has been added to the http filter chain, a fail through filter chain will be
+			// Since application protocol filter chain match has been added to the http filter chain, a fall through filter chain will be
 			// appended to the listener later to allow arbitrary egress TCP traffic pass through when its port is conflicted with existing
-			// HTTP services, which can happen when a pod accesses an services that is out of the service mesh.
+			// HTTP services, which can happen when a pod accesses a non registry service.
 			if outboundSniffingEnabled {
 				if listenerOpts.bind == actualWildcard {
 					for _, opt := range opts {
@@ -2100,7 +2095,6 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 			match = chain.match
 		}
 		if len(chain.sniHosts) > 0 {
-			sort.Strings(chain.sniHosts)
 			fullWildcardFound := false
 			for _, h := range chain.sniHosts {
 				if h == "*" {
@@ -2111,6 +2105,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 				}
 			}
 			if !fullWildcardFound {
+				sort.Strings(chain.sniHosts)
 				match.ServerNames = chain.sniHosts
 			}
 		}
@@ -2127,7 +2122,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 			}
 		}
 
-		if !needMatch && reflect.DeepEqual(*match, listener.FilterChainMatch{}) {
+		if !needMatch && isFilterChainMatchEmpty(match) {
 			match = nil
 		}
 		filterChains = append(filterChains, &listener.FilterChain{
@@ -2225,9 +2220,7 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *istione
 			thriftProxies[i] = buildThriftProxy(opt.thriftOpts)
 
 			if pluginParams.Service != nil {
-				quotas = opts.push.QuotaSpecByDestination(&model.ServiceInstance{
-					Service: pluginParams.Service,
-				})
+				quotas = opts.push.QuotaSpecByDestination(pluginParams.Service.Hostname)
 			}
 
 			// If the RLS service was provided, add the RLS to the Thrift filter
@@ -2304,16 +2297,8 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *istione
 // and if there is at least one ipv4 address other than 127.0.0.1, it will use ipv4 address,
 // if all addresses are ipv6  addresses then ipv6 address will be used to get wildcard and local host address.
 func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
-	for i := 0; i < len(node.IPAddresses); i++ {
-		addr := net.ParseIP(node.IPAddresses[i])
-		if addr == nil {
-			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
-			// skip it to prevent a panic.
-			continue
-		}
-		if addr.To4() != nil {
-			return WildcardAddress, LocalhostAddress
-		}
+	if node.SupportsIPv4() {
+		return WildcardAddress, LocalhostAddress
 	}
 	return WildcardIPv6Address, LocalhostIPv6Address
 }
@@ -2322,14 +2307,11 @@ func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
 // It looks for an unicast address, if none found, then the default wildcard address is used.
 // This will make the inbound listener bind to instance_ip:port instead of 0.0.0.0:port where applicable.
 func getSidecarInboundBindIP(node *model.Proxy) string {
-	defaultInboundIP, _ := getActualWildcardAndLocalHost(node)
-	for _, ipAddr := range node.IPAddresses {
-		ip := net.ParseIP(ipAddr)
-		// Return the IP if its a global unicast address.
-		if ip != nil && ip.IsGlobalUnicast() {
-			return ip.String()
-		}
+	// Return the IP if its a global unicast address.
+	if len(node.GlobalUnicastIP) > 0 {
+		return node.GlobalUnicastIP
 	}
+	defaultInboundIP, _ := getActualWildcardAndLocalHost(node)
 	return defaultInboundIP
 }
 
@@ -2544,10 +2526,46 @@ func insertFallthroughMetadata(chain *listener.FilterChain) {
 }
 
 func isMatchAllFilterChain(fc *listener.FilterChain) bool {
-	if fc.FilterChainMatch == nil || reflect.DeepEqual(fc.FilterChainMatch, &listener.FilterChainMatch{}) {
+	return isFilterChainMatchEmpty(fc.FilterChainMatch)
+}
+
+// isFilterChainMatchEmpty checks if a FCM is empty. This is used to avoid the perf overhead of
+// reflect.DeepEquals
+func isFilterChainMatchEmpty(fcm *listener.FilterChainMatch) bool {
+	if fcm == nil {
 		return true
 	}
-	return false
+	if fcm.DestinationPort != nil {
+		return false
+	}
+	if fcm.PrefixRanges != nil {
+		return false
+	}
+	if fcm.AddressSuffix != "" {
+		return false
+	}
+	if fcm.SuffixLen != nil {
+		return false
+	}
+	if fcm.SourceType != listener.FilterChainMatch_ANY {
+		return false
+	}
+	if fcm.SourcePrefixRanges != nil {
+		return false
+	}
+	if fcm.SourcePorts != nil {
+		return false
+	}
+	if fcm.ServerNames != nil {
+		return false
+	}
+	if fcm.TransportProtocol != "" {
+		return false
+	}
+	if fcm.ApplicationProtocols != nil {
+		return false
+	}
+	return true
 }
 
 func isFallthroughFilterChain(fc *listener.FilterChain) bool {

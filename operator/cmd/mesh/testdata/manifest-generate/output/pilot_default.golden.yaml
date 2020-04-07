@@ -18,8 +18,6 @@
 
 # EgressGateways istio-egressgateway component is disabled.
 
-# Galley component is disabled.
-
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
@@ -46,11 +44,30 @@ spec:
 
 apiVersion: v1
 data:
+  Corefile: |-
+    .:15054 {
+        errors
+        log
+        health :15056 {
+          lameduck 5s
+        }
+
+        kubernetes cluster.local in-addr.arpa ip6.arpa {
+            pods insecure
+            fallthrough in-addr.arpa ip6.arpa
+            ttl 30
+        }
+        prometheus :9153
+
+        forward . /etc/resolv.conf
+        cache 30
+        reload
+        loadbalance
+    }
   mesh: |-
     accessLogEncoding: TEXT
-    accessLogFile: ""
-    accessLogFormat: ""
-    certificates: []
+    accessLogFile: null
+    accessLogFormat: null
     defaultConfig:
       concurrency: 2
       configPath: /etc/istio/proxy
@@ -60,6 +77,9 @@ data:
       drainDuration: 45s
       parentShutdownDuration: 1m0s
       proxyAdminPort: 15000
+      proxyMetadata:
+        DNS_AGENT: DNS-TLS
+        DNS_CAPTURE: ALL
       serviceCluster: istio-proxy
       tracing:
         zipkin:
@@ -67,7 +87,6 @@ data:
     disableMixerHttpReports: true
     disablePolicyChecks: true
     enableAutoMtls: true
-    enableEnvoyAccessLogService: false
     enableTracing: true
     ingressClass: istio
     ingressControllerMode: STRICT
@@ -84,48 +103,6 @@ data:
     trustDomain: cluster.local
     trustDomainAliases: null
   meshNetworks: 'networks: {}'
-  values.yaml: |-
-    appNamespaces: []
-    autoscaleEnabled: true
-    autoscaleMax: 5
-    autoscaleMin: 1
-    configMap: true
-    configNamespace: istio-config
-    configSource:
-      subscribedResources: []
-    cpu:
-      targetAverageUtilization: 80
-    deploymentLabels: {}
-    enableProtocolSniffingForInbound: true
-    enableProtocolSniffingForOutbound: true
-    enabled: true
-    env: {}
-    hub: ""
-    image: pilot
-    ingress:
-      ingressClass: istio
-      ingressControllerMode: STRICT
-      ingressService: istio-ingressgateway
-    jwksResolverExtraRootCA: ""
-    keepaliveMaxServerConnectionAge: 30m
-    namespace: istio-system
-    nodeSelector: {}
-    plugins: []
-    podAnnotations: {}
-    podAntiAffinityLabelSelector: []
-    podAntiAffinityTermLabelSelector: []
-    policy:
-      enabled: false
-    replicaCount: 1
-    resources:
-      requests:
-        cpu: 500m
-        memory: 2048Mi
-    rollingMaxSurge: 100%
-    rollingMaxUnavailable: 25%
-    tag: ""
-    tolerations: []
-    traceSampling: 1
 kind: ConfigMap
 metadata:
   labels:
@@ -216,6 +193,7 @@ spec:
         - containerPort: 8080
         - containerPort: 15010
         - containerPort: 15017
+        - containerPort: 15053
         readinessProbe:
           httpGet:
             path: /ready
@@ -248,6 +226,40 @@ spec:
         - mountPath: /var/lib/istio/inject
           name: inject
           readOnly: true
+      - args:
+        - -conf
+        - /var/lib/istio/coredns/Corefile
+        image: coredns/coredns:1.1.2
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /health
+            port: 15056
+            scheme: HTTP
+          initialDelaySeconds: 2
+          successThreshold: 1
+          timeoutSeconds: 5
+        name: dns
+        ports:
+        - containerPort: 15054
+          name: dns
+          protocol: UDP
+        - containerPort: 15055
+          name: metrics
+          protocol: TCP
+        securityContext:
+          capabilities:
+            drop:
+            - ALL
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
+        volumeMounts:
+        - mountPath: /var/run/secrets/istio-dns
+          name: local-certs
+        - mountPath: /var/lib/istio/coredns
+          name: config-volume
       securityContext:
         fsGroup: 1337
       serviceAccountName: istio-pilot-service-account
@@ -294,7 +306,6 @@ data:
           "ppc64le": 2,
           "s390x": 2
         },
-        "certificates": [],
         "configNamespace": "istio-system",
         "configValidation": true,
         "controlPlaneSecurityEnabled": true,
@@ -307,7 +318,6 @@ data:
             "cpu": "10m"
           }
         },
-        "disablePolicyChecks": true,
         "enableHelmTest": false,
         "enableTracing": true,
         "enabled": false,
@@ -355,29 +365,10 @@ data:
         "priorityClassName": "",
         "prometheusNamespace": "istio-system",
         "proxy": {
-          "accessLogEncoding": "TEXT",
-          "accessLogFile": "",
-          "accessLogFormat": "",
           "autoInject": "enabled",
           "clusterDomain": "cluster.local",
           "componentLogLevel": "misc:error",
-          "concurrency": 2,
           "enableCoreDump": false,
-          "envoyAccessLogService": {
-            "enabled": false
-          },
-          "envoyMetricsService": {
-            "enabled": false,
-            "tcpKeepalive": {
-              "interval": "10s",
-              "probes": 3,
-              "time": "10s"
-            },
-            "tlsSettings": {
-              "mode": "DISABLE",
-              "subjectAltNames": []
-            }
-          },
           "envoyStatsd": {
             "enabled": false
           },
@@ -388,7 +379,6 @@ data:
           "includeIPRanges": "*",
           "logLevel": "warning",
           "privileged": false,
-          "protocolDetectionTimeout": "100ms",
           "readinessFailureThreshold": 30,
           "readinessInitialDelaySeconds": 1,
           "readinessPeriodSeconds": 2,
@@ -480,9 +470,9 @@ data:
   config: |-
     policy: enabled
     alwaysInjectSelector:
-            []
+      []
     neverInjectSelector:
-            []
+      []
     injectedAnnotations:
 
     # Configmap optimized for Istiod. Please DO NOT MERGE all changes from istio - in particular those dependent on
@@ -536,6 +526,11 @@ data:
         {{ end -}}
         imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
       {{- if .Values.global.proxy_init.resources }}
+        env:
+        {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
+        - name: {{ $key }}
+          value: "{{ $value }}"
+        {{- end }}
         resources:
           {{ toYaml .Values.global.proxy_init.resources | indent 4 }}
       {{- else }}
@@ -552,12 +547,13 @@ data:
         {{- end }}
             drop:
             - ALL
-          readOnlyRootFilesystem: false
         {{- if not .Values.istio_cni.enabled }}
+          readOnlyRootFilesystem: false
           runAsGroup: 0
           runAsNonRoot: false
           runAsUser: 0
         {{- else }}
+          readOnlyRootFilesystem: true
           runAsGroup: 1337
           runAsUser: 1337
           runAsNonRoot: true
@@ -960,6 +956,14 @@ spec:
       targetPort: 15017
     - port: 15014
       name: http-monitoring # prometheus stats
+    - name: dns
+      port: 53
+      targetPort: 15053
+      protocol: UDP
+    - name: dns-tls
+      port: 853
+      targetPort: 15053
+      protocol: TCP
   selector:
     app: istiod
     # Label used by the 'default' service. For versioned deployments we match with app and version.

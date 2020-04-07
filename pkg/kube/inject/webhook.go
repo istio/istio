@@ -208,6 +208,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		keyFile:                p.KeyFile,
 		cert:                   &pair,
 		env:                    p.Env,
+		revision:               p.Revision,
 	}
 
 	var mux *http.ServeMux
@@ -599,7 +600,7 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, revision s
 	patch = append(patch, addLabels(pod.Labels, map[string]string{
 		model.TLSModeLabelName:                       model.IstioMutualTLSModeLabel,
 		model.IstioCanonicalServiceLabelName:         canonicalSvc,
-		"istio.io/rev":                               revision,
+		model.RevisionLabel:                          revision,
 		model.IstioCanonicalServiceRevisionLabelName: canonicalRev})...)
 
 	if rewrite {

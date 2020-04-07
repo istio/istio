@@ -42,6 +42,5 @@ prometheusOperator:
   podAntiAffinityLabelSelector: []
   podAntiAffinityTermLabelSelector: []
 
-# Indicate if Citadel is enabled, i.e., whether its generated certificates are available
-security:
-  enabled: true
+prometheus:
+  provisionPrometheusCert: true
