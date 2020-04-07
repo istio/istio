@@ -21,7 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
-	"strconv"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -39,11 +39,6 @@ import (
 )
 
 var (
-	certchain, _        = ioutil.ReadFile("./testdata/cert-chain.pem")
-	mockCertChain1st    = []string{"foo", "rootcert"}
-	mockCertChainRemain = []string{string(certchain)}
-	testResourceName    = "default"
-
 	k8sKey       = []byte("fake private k8sKey")
 	k8sCertChain = []byte(`-----BEGIN CERTIFICATE-----
 MIIFPzCCAyegAwIBAgIDEAISMA0GCSqGSIb3DQEBCwUAMEQxCzAJBgNVBAYTAlVT
@@ -218,18 +213,18 @@ func TestWorkloadAgentGenerateSecretWithPluginProvider(t *testing.T) {
 }
 
 func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
-	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0.1,
-		true)
+	fakeCACli, err := mock.NewMockCAClient(2, 2, time.Hour)
+	if err != nil {
+		t.Fatalf("Error creating Mock CA client: %v", err)
+	}
 	opt := Options{
-		SecretTTL:                time.Minute,
-		RotationInterval:         300 * time.Microsecond,
-		EvictionDuration:         60 * time.Second,
+		RotationInterval:         100 * time.Millisecond,
+		EvictionDuration:         300 * time.Millisecond, // Evict quickly
 		InitialBackoffInMilliSec: 10,
-		SkipValidateCert:         true,
 	}
 
 	if isUsingPluginProvider {
-		fakePlugin := mock.NewMockTokenExchangeServer()
+		fakePlugin := mock.NewMockTokenExchangeServer(3)
 		opt.Plugins = []plugin.Plugin{fakePlugin}
 	}
 
@@ -238,76 +233,67 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 		CaClient:    fakeCACli,
 	}
 	sc := NewSecretCache(fetcher, notifyCb, opt)
-	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
 	defer func() {
 		sc.Close()
-		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
 	checkBool(t, "opt.AlwaysValidTokenFlag default", opt.AlwaysValidTokenFlag, false)
 
 	conID := "proxy1-id"
 	ctx := context.Background()
-	gotSecret, err := sc.GenerateSecret(ctx, conID, testResourceName, "jwtToken1")
+	gotSecret, err := sc.GenerateSecret(ctx, conID, WorkloadKeyCertResourceName, "jwtToken1")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
 
-	if got, want := gotSecret.CertificateChain, convertToBytes(mockCertChain1st); !bytes.Equal(got, want) {
-		t.Errorf("CertificateChain: got: %v, want: %v", got, want)
+	if got, want := gotSecret.CertificateChain, []byte(strings.Join(fakeCACli.GeneratedCerts[0], "")); !bytes.Equal(got, want) {
+		t.Errorf("Got unexpected certificate chain #1. Got: %v, want: %v", string(got), string(want))
 	}
 
-	checkBool(t, "SecretExist", sc.SecretExist(conID, testResourceName, "jwtToken1", gotSecret.Version), true)
-	checkBool(t, "SecretExist", sc.SecretExist(conID, testResourceName, "nonexisttoken", gotSecret.Version), false)
+	checkBool(t, "SecretExist", sc.SecretExist(conID, WorkloadKeyCertResourceName, "jwtToken1", gotSecret.Version), true)
+	checkBool(t, "SecretExist", sc.SecretExist(conID, WorkloadKeyCertResourceName, "nonexisttoken", gotSecret.Version), false)
 
 	gotSecretRoot, err := sc.GenerateSecret(ctx, conID, RootCertReqResourceName, "jwtToken1")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
-	if got, want := gotSecretRoot.RootCert, []byte("rootcert"); !bytes.Equal(got, want) {
-		t.Errorf("CertificateChain: got: %v, want: %v", got, want)
+	// Root cert is the last element in the generated certs.
+	if got, want := gotSecretRoot.RootCert, []byte(fakeCACli.GeneratedCerts[0][2]); !bytes.Equal(got, want) {
+		t.Errorf("Got unexpected root certificate. Got: %v\n want: %v", string(got), string(want))
 	}
 
 	checkBool(t, "SecretExist", sc.SecretExist(conID, RootCertReqResourceName, "jwtToken1", gotSecretRoot.Version), true)
 	checkBool(t, "SecretExist", sc.SecretExist(conID, RootCertReqResourceName, "nonexisttoken", gotSecretRoot.Version), false)
 
 	if got, want := atomic.LoadUint64(&sc.rootCertChangedCount), uint64(0); got != want {
-		t.Errorf("rootCertChangedCount: got: %v, want: %v", got, want)
+		t.Errorf("Got unexpected rootCertChangedCount: Got: %v\n want: %v", got, want)
 	}
 
-	key := ConnKey{
-		ConnectionID: conID,
-		ResourceName: testResourceName,
-	}
-	cachedSecret, found := sc.secrets.Load(key)
-	if !found {
-		t.Errorf("Failed to find secret for proxy %q from secret store: %v", conID, err)
-	}
-	if !reflect.DeepEqual(*gotSecret, cachedSecret) {
-		t.Errorf("Secret key: got %+v, want %+v", *gotSecret, cachedSecret)
-	}
-
-	sc.configOptions.SkipValidateCert = false
 	// Try to get secret again using different jwt token, verify secret is re-generated.
-	gotSecret, err = sc.GenerateSecret(ctx, conID, testResourceName, "newToken")
+	gotSecret, err = sc.GenerateSecret(ctx, conID, WorkloadKeyCertResourceName, "newToken")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
-	if got, want := gotSecret.CertificateChain, convertToBytes(mockCertChainRemain); !bytes.Equal(got, want) {
-		t.Errorf("CertificateChain: got: %v, want: %v", got, want)
+
+	if got, want := gotSecret.CertificateChain, []byte(strings.Join(fakeCACli.GeneratedCerts[1], "")); !bytes.Equal(got, want) {
+		t.Errorf("Got unexpected certificate chain #2. Got: %v, want: %v", string(got), string(want))
 	}
 
-	// Root cert is parsed from CSR response, it's updated since 2nd CSR is different from 1st.
-	if got, want := atomic.LoadUint64(&sc.rootCertChangedCount), uint64(1); got != want {
-		t.Errorf("rootCertChangedCount: got: %v, want: %v", got, want)
+	// Root cert stays the same.
+	if got, want := atomic.LoadUint64(&sc.rootCertChangedCount), uint64(0); got != want {
+		t.Errorf("Got unexpected rootCertChangedCount: Got: %v\n want: %v", got, want)
 	}
 
-	// Wait until unused secrets are evicted.
-	wait := 500 * time.Millisecond
+	workloadKey := ConnKey{
+		ConnectionID: conID,
+		ResourceName: WorkloadKeyCertResourceName,
+	}
+	// Wait until the workload secret is evicted.
+	wait := 200 * time.Millisecond
 	retries := 0
 	for ; retries < 3; retries++ {
 		time.Sleep(wait)
-		if _, found := sc.secrets.Load(conID); found {
+		if _, found := sc.secrets.Load(workloadKey); found {
 			// Retry after some sleep.
 			wait *= 2
 			continue
@@ -321,35 +307,28 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 }
 
 func TestWorkloadAgentRefreshSecret(t *testing.T) {
-	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0,
-		false)
+	fakeCACli, err := mock.NewMockCAClient(0, 0, time.Millisecond)
+	if err != nil {
+		t.Fatalf("Error creating Mock CA client: %v", err)
+	}
 	opt := Options{
-		SecretTTL:                200 * time.Microsecond,
-		RotationInterval:         200 * time.Microsecond,
-		EvictionDuration:         10 * time.Second,
+		RotationInterval:         100 * time.Millisecond,
+		EvictionDuration:         300 * time.Second,
 		InitialBackoffInMilliSec: 10,
-		SkipValidateCert:         true,
 	}
 	fetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: true,
 		CaClient:    fakeCACli,
 	}
 	sc := NewSecretCache(fetcher, notifyCb, opt)
-	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
 	defer func() {
 		sc.Close()
-		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
 	testConnID := "proxy1-id"
-	_, err := sc.GenerateSecret(context.Background(), testConnID, testResourceName, "jwtToken1")
+	_, err = sc.GenerateSecret(context.Background(), testConnID, WorkloadKeyCertResourceName, "jwtToken1")
 	if err != nil {
 		t.Fatalf("Failed to get secrets for %q: %v", testConnID, err)
-	}
-
-	for i := 0; i < 10; i++ {
-		id := "proxy-id" + strconv.Itoa(i)
-		sc.GenerateSecret(context.Background(), id, testResourceName, "jwtToken1")
 	}
 
 	// Wait until key rotation job run to update cached secret.
@@ -371,13 +350,13 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 
 	key := ConnKey{
 		ConnectionID: testConnID,
-		ResourceName: testResourceName,
+		ResourceName: WorkloadKeyCertResourceName,
 	}
 	if _, found := sc.secrets.Load(key); !found {
 		t.Errorf("Failed to find secret for %+v from cache", key)
 	}
 
-	sc.DeleteSecret(testConnID, testResourceName)
+	sc.DeleteSecret(testConnID, WorkloadKeyCertResourceName)
 	if _, found := sc.secrets.Load(key); found {
 		t.Errorf("Found deleted secret for %+v from cache", key)
 	}
@@ -712,11 +691,9 @@ func createSecretCache() *SecretCache {
 	ch := make(chan struct{})
 	fetcher.Run(ch)
 	opt := Options{
-		SecretTTL:                time.Minute,
-		RotationInterval:         300 * time.Microsecond,
-		EvictionDuration:         2 * time.Second,
+		RotationInterval:         100 * time.Millisecond,
+		EvictionDuration:         300 * time.Millisecond,
 		InitialBackoffInMilliSec: 10,
-		SkipValidateCert:         true,
 	}
 	return NewSecretCache(fetcher, notifyCb, opt)
 }
@@ -862,46 +839,11 @@ func checkBool(t *testing.T, name string, got bool, want bool) {
 }
 
 func TestSetAlwaysValidTokenFlag(t *testing.T) {
-	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0, false)
-	opt := Options{
-		SecretTTL:                200 * time.Microsecond,
-		RotationInterval:         200 * time.Microsecond,
-		EvictionDuration:         10 * time.Second,
-		InitialBackoffInMilliSec: 10,
-		AlwaysValidTokenFlag:     true,
-		SkipValidateCert:         true,
-	}
-	fetcher := &secretfetcher.SecretFetcher{
-		UseCaClient: true,
-		CaClient:    fakeCACli,
-	}
-	sc := NewSecretCache(fetcher, notifyCb, opt)
-	defer func() {
-		sc.Close()
-	}()
-
-	checkBool(t, "isTokenExpired", sc.isTokenExpired(), false)
-	_, err := sc.GenerateSecret(context.Background(), "proxy1-id", testResourceName, "jwtToken1")
-	if err != nil {
-		t.Fatalf("Failed to get secrets: %v", err)
-	}
-
-	// Wait until key rotation job run to update cached secret.
-	wait := 200 * time.Millisecond
-	retries := 0
-	for ; retries < 5; retries++ {
-		time.Sleep(wait)
-		if atomic.LoadUint64(&sc.secretChangedCount) == uint64(0) {
-			// Retry after some sleep.
-			wait *= 2
-			continue
-		}
-
-		break
-	}
-	if retries == 5 {
-		t.Errorf("Cached secret failed to get refreshed, %d", atomic.LoadUint64(&sc.secretChangedCount))
-	}
+	sc := createSecretCache()
+	defer sc.Close()
+	sc.configOptions.AlwaysValidTokenFlag = true
+	secret := model.SecretItem{}
+	checkBool(t, "isTokenExpired", sc.isTokenExpired(&secret), false)
 }
 
 func TestRootCertificateExists(t *testing.T) {
@@ -920,6 +862,7 @@ func TestRootCertificateExists(t *testing.T) {
 	}
 
 	sc := createSecretCache()
+	defer sc.Close()
 	for _, tc := range testCases {
 		ret := sc.rootCertificateExist(tc.certPath)
 		if tc.expectResult != ret {
@@ -952,6 +895,7 @@ func TestKeyCertificateExist(t *testing.T) {
 	}
 
 	sc := createSecretCache()
+	defer sc.Close()
 	for _, tc := range testCases {
 		ret := sc.keyCertificateExist(tc.certPath, tc.keyPath)
 		if tc.expectResult != ret {
@@ -1090,19 +1034,23 @@ func convertToBytes(ss []string) []byte {
 }
 
 func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
-	fakeCACli := mock.NewMockCAClient(mockCertChain1st, mockCertChainRemain, 0.1,
-		false)
+	fakeCACli, err := mock.NewMockCAClient(0, 0, time.Millisecond)
+	if err != nil {
+		t.Fatalf("Error creating Mock CA client: %v", err)
+	}
 	opt := Options{
-		SecretTTL:                time.Minute,
-		RotationInterval:         300 * time.Microsecond,
-		EvictionDuration:         60 * time.Second,
+		RotationInterval:         100 * time.Millisecond,
+		EvictionDuration:         300 * time.Millisecond,
 		InitialBackoffInMilliSec: 10,
-		SkipValidateCert:         true,
 	}
 
 	existingCertChainFile = "./testdata/cert-chain.pem"
 	existingKeyFile = "./testdata/privatekey.pem"
 	ExistingRootCertFile = "./testdata/cert-chain.pem"
+	certchain, err := ioutil.ReadFile(existingCertChainFile)
+	if err != nil {
+		t.Fatalf("Error reading the cert chain file: %v", err)
+	}
 
 	fetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: true,
@@ -1117,7 +1065,7 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 
 	conID := "proxy1-id"
 	ctx := context.Background()
-	gotSecret, err := sc.GenerateSecret(ctx, conID, testResourceName, "jwtToken1")
+	gotSecret, err := sc.GenerateSecret(ctx, conID, WorkloadKeyCertResourceName, "jwtToken1")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -1130,7 +1078,7 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 		t.Errorf("PrivateKey: got: %v, want: %v", got, want)
 	}
 
-	checkBool(t, "SecretExist", sc.SecretExist(conID, testResourceName, "jwtToken1", gotSecret.Version), true)
+	checkBool(t, "SecretExist", sc.SecretExist(conID, WorkloadKeyCertResourceName, "jwtToken1", gotSecret.Version), true)
 
 	gotSecretRoot, err := sc.GenerateSecret(ctx, conID, RootCertReqResourceName, "jwtToken1")
 	if err != nil {
@@ -1148,7 +1096,7 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 
 	key := ConnKey{
 		ConnectionID: conID,
-		ResourceName: testResourceName,
+		ResourceName: WorkloadKeyCertResourceName,
 	}
 	cachedSecret, found := sc.secrets.Load(key)
 	if !found {

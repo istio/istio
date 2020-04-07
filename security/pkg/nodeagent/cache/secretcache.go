@@ -31,10 +31,10 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
-	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/pkg/log"
-
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
+	pkiutil "istio.io/istio/security/pkg/pki/util"
+	"istio.io/istio/security/pkg/util"
+	"istio.io/pkg/log"
 
 	"github.com/google/uuid"
 )
@@ -79,9 +79,9 @@ const (
 	// firstRetryBackOffInMilliSec is the initial backoff time interval when hitting non-retryable error in CSR request.
 	firstRetryBackOffInMilliSec = 50
 
-	// Timeout the K8s update/delete notification threads. This is to make sure to unblock the
-	// secret watch main thread in case those child threads got stuck due to any reason.
-	notifyK8sSecretTimeout = 30 * time.Second
+	// notifySecretRetrievalTimeout is the timeout for another round of secret retrieval. This is to make sure to
+	// unblock the secret watch main thread in case those child threads got stuck due to any reason.
+	notifySecretRetrievalTimeout = 30 * time.Second
 
 	// The well-known path for an existing certificate chain file
 	defaultCertChainFilePath = "./etc/certs/cert-chain.pem"
@@ -124,9 +124,6 @@ type Options struct {
 
 	// Set this flag to true for if token used is always valid(ex, normal k8s JWT)
 	AlwaysValidTokenFlag bool
-
-	// Set this flag to true if skip validate format for certificate chain returned from CA.
-	SkipValidateCert bool
 
 	// Whether to generate PKCS#8 private keys.
 	Pkcs8Keys bool
@@ -218,7 +215,6 @@ func NewSecretCache(fetcher *secretfetcher.SecretFetcher, notifyCb func(ConnKey,
 
 	atomic.StoreUint64(&ret.secretChangedCount, 0)
 	atomic.StoreUint64(&ret.rootCertChangedCount, 0)
-	atomic.StoreUint32(&ret.skipTokenExpireCheck, 1)
 	go ret.keyCertRotationJob()
 	return ret
 }
@@ -405,19 +401,19 @@ func (sc *SecretCache) callbackWithTimeout(connKey ConnKey, secret *model.Secret
 	logPrefix := cacheLogPrefix(connKey.ResourceName)
 	go func() {
 		defer close(c)
-		if sc.notifyCallback != nil {
-			if err := sc.notifyCallback(connKey, secret); err != nil {
-				cacheLog.Errorf("%s failed to notify secret change for proxy: %v",
-					logPrefix, err)
-			}
-		} else {
+		if sc.notifyCallback == nil {
 			cacheLog.Warnf("%s secret cache notify callback isn't set", logPrefix)
+			return
+		}
+		if err := sc.notifyCallback(connKey, secret); err != nil {
+			cacheLog.Errorf("%s failed to notify secret change for proxy: %v",
+				logPrefix, err)
 		}
 	}()
 	select {
 	case <-c:
 		return // completed normally
-	case <-time.After(notifyK8sSecretTimeout):
+	case <-time.After(notifySecretRetrievalTimeout):
 		cacheLog.Warnf("%s notify secret change for proxy got timeout", logPrefix)
 	}
 }
@@ -575,10 +571,11 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 		if sc.shouldRotate(&secret) {
 			atomic.AddUint64(&sc.secretChangedCount, 1)
 			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
-			if sc.isTokenExpired() {
+			if sc.isTokenExpired(&secret) {
 				cacheLog.Debugf("%s token expired", logPrefix)
+				// TODO: Optimization needed. When using local JWT, server should directly push the new secret instead of
+				// requiring the client to send another SDS request.
 				sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-
 				return true
 			}
 
@@ -760,14 +757,14 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 			" resource name: %s", logPrefix, err, connKey.ResourceName)
 		csrHostName = connKey.ResourceName
 	}
-	options := util.CertOptions{
+	options := pkiutil.CertOptions{
 		Host:       csrHostName,
 		RSAKeySize: keySize,
 		PKCS8Key:   sc.configOptions.Pkcs8Keys,
 	}
 
 	// Generate the cert/key, send CSR to CA.
-	csrPEM, keyPEM, err := util.GenCSR(options)
+	csrPEM, keyPEM, err := pkiutil.GenCSR(options)
 	if err != nil {
 		cacheLog.Errorf("%s failed to generate key and certificate for CSR: %v", logPrefix, err)
 		return nil, err
@@ -791,17 +788,14 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 		certChain = append(certChain, []byte(c)...)
 	}
 
+	var expireTime time.Time
 	// Cert expire time by default is createTime + sc.configOptions.SecretTTL.
 	// Istiod respects SecretTTL that passed to it and use it decide TTL of cert it issued.
 	// Some customer CA may override TTL param that's passed to it.
-	// TODO: SkipValidateCert option is only used in tests. We should improve tests and remove it.
-	expireTime := t.Add(sc.configOptions.SecretTTL)
-	if !sc.configOptions.SkipValidateCert {
-		if expireTime, err = nodeagentutil.ParseCertAndGetExpiryTimestamp(certChain); err != nil {
-			cacheLog.Errorf("%s failed to extract expire time from server certificate in CSR response %+v: %v",
-				logPrefix, certChainPEM, err)
-			return nil, fmt.Errorf("failed to extract expire time from server certificate in CSR response: %v", err)
-		}
+	if expireTime, err = nodeagentutil.ParseCertAndGetExpiryTimestamp(certChain); err != nil {
+		cacheLog.Errorf("%s failed to extract expire time from server certificate in CSR response %+v: %v",
+			logPrefix, certChainPEM, err)
+		return nil, fmt.Errorf("failed to extract expire time from server certificate in CSR response: %v", err)
 	}
 
 	length := len(certChainPEM)
@@ -810,7 +804,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	rootCertChanged := !bytes.Equal(rootCert, []byte(certChainPEM[length-1]))
 	if rootCert == nil || rootCertChanged {
 		rootCertExpireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp([]byte(certChainPEM[length-1]))
-		if sc.configOptions.SkipValidateCert || err == nil {
+		if err == nil {
 			sc.setRootCert([]byte(certChainPEM[length-1]), rootCertExpireTime)
 		} else {
 			cacheLog.Errorf("%s failed to parse root certificate in CSR response: %v", logPrefix, err)
@@ -844,17 +838,18 @@ func (sc *SecretCache) shouldRotate(secret *model.SecretItem) bool {
 	return rotate
 }
 
-func (sc *SecretCache) isTokenExpired() bool {
+func (sc *SecretCache) isTokenExpired(secret *model.SecretItem) bool {
 	// skip check if the token passed from envoy is always valid (ex, normal k8s sa JWT).
 	if sc.configOptions.AlwaysValidTokenFlag {
 		return false
 	}
 
-	if atomic.LoadUint32(&sc.skipTokenExpireCheck) == 1 {
+	expired, err := util.IsJwtExpired(secret.Token, time.Now())
+	if err != nil {
+		cacheLog.Errorf("JWT expiration checking error: %v. Consider as expired.", err)
 		return true
 	}
-	// TODO(quanlin), check if token has expired.
-	return false
+	return expired
 }
 
 // sendRetriableRequest sends retriable requests for either CSR or ExchangeToken.
