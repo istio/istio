@@ -1237,17 +1237,17 @@ func TestContainsEgressDependencies(t *testing.T) {
 			}
 
 			for _, name := range tt.services {
-				if !sidecarScope.DependsOnService(name) {
+				if ok, _ := sidecarScope.DependsOnConfig(ServiceEntryKind, string(name)); !ok {
 					t.Fatalf("Expected contains %v, but no %s", tt.services, name)
 				}
 			}
 			for _, name := range tt.virtualServices {
-				if !sidecarScope.DependsOnVirtualService(name) {
+				if ok, _ := sidecarScope.DependsOnConfig(VirtualServiceKind, name); !ok {
 					t.Fatalf("Expected contains %v, but no %s", tt.virtualServices, name)
 				}
 			}
 			for _, svc := range tt.destinationRule {
-				if !sidecarScope.DependsOnDestinationRule(svc) {
+				if ok, _ := sidecarScope.DependsOnConfig(DestinationRuleKind, svc); !ok {
 					t.Fatalf("Expected contains %v, but no %s", tt.destinationRule, svc)
 				}
 			}

@@ -16,60 +16,8 @@ package v2
 
 import (
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
 )
-
-var (
-	pushResourceScope = map[resource.GroupVersionKind]func(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool{
-		model.ServiceEntryKind:    serviceEntryAffectsProxy,
-		model.VirtualServiceKind:  virtualServiceAffectsProxy,
-		model.DestinationRuleKind: destinationRuleAffectsProxy,
-	}
-)
-
-func serviceEntryAffectsProxy(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
-	_ = pushEv
-	if len(resources) == 0 {
-		return true
-	}
-
-	for name := range resources {
-		if proxy.SidecarScope.DependsOnService(host.Name(name)) {
-			return true
-		}
-	}
-	return false
-}
-
-func virtualServiceAffectsProxy(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
-	_ = pushEv
-	if len(resources) == 0 {
-		return true
-	}
-
-	for name := range resources {
-		if proxy.SidecarScope.DependsOnVirtualService(name) {
-			return true
-		}
-	}
-	return false
-}
-
-func destinationRuleAffectsProxy(proxy *model.Proxy, pushEv *XdsEvent, resources map[string]struct{}) bool {
-	_ = pushEv
-	if len(resources) == 0 {
-		return true
-	}
-
-	for name := range resources {
-		if proxy.SidecarScope.DependsOnDestinationRule(name) {
-			return true
-		}
-	}
-	return false
-}
 
 // PushAffectsProxy checks if a pushEv will affect a specified proxy. That means whether the push will be performed
 // towards the proxy.
@@ -82,10 +30,15 @@ func PushAffectsProxy(pushEv *XdsEvent, proxy *model.Proxy) bool {
 	}
 
 	for kind, resources := range pushEv.configsUpdated {
-		if scope, f := pushResourceScope[kind]; !f {
+		if len(resources) == 0 {
 			return true
-		} else if scope(proxy, pushEv, resources) {
-			return true
+		}
+
+		for name := range resources {
+			ok, scoped := proxy.SidecarScope.DependsOnConfig(kind, name)
+			if !scoped || ok {
+				return true
+			}
 		}
 	}
 

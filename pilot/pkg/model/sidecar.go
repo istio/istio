@@ -69,14 +69,6 @@ type SidecarScope struct {
 	// Union of services imported across all egress listeners for use by CDS code.
 	services []*Service
 
-	// Set of all services this sidecar depends on.
-	// This field and similar fields below will be used to determine the config/resource scope
-	// which means which config changes will affect the proxies with this scope.
-	serviceDependencies map[host.Name]struct{}
-
-	// Set of all virtualServices this sidecar depends on.
-	virtualServiceDependencies map[string]struct{}
-
 	// Destination rules imported across all egress listeners. This
 	// contains the computed set based on public/private destination rules
 	// as well as the inherited ones, in addition to the wildcard matches
@@ -86,9 +78,6 @@ type SidecarScope struct {
 	// destination rule.
 	destinationRules map[host.Name]*Config
 
-	// Set of all destinationRules this sidecar depends on.
-	destinationRuleDependencies map[string]struct{}
-
 	// OutboundTrafficPolicy defines the outbound traffic policy for this sidecar.
 	// If OutboundTrafficPolicy is ALLOW_ANY traffic to unknown destinations will
 	// be forwarded.
@@ -96,6 +85,11 @@ type SidecarScope struct {
 
 	// Set of all namespaces this sidecar depends on. This is determined from the egress config
 	namespaceDependencies map[string]struct{}
+
+	// Set of known kinds of configs this sidecar depends on.
+	// This field will be used to determine the config/resource scope
+	// which means which config changes will affect the proxies with this scope.
+	configDependencies map[resource.GroupVersionKind]map[string]struct{}
 }
 
 // IstioEgressListenerWrapper is a wrapper for
@@ -155,14 +149,20 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
 	defaultEgressListener.virtualServices = ps.VirtualServices(&dummyNode, meshGateway)
 
+	serviceDependencies := make(map[string]struct{}, len(defaultEgressListener.services))
+	virtualServiceDependencies := make(map[string]struct{})
+	destinationRuleDependencies := make(map[string]struct{})
+
 	out := &SidecarScope{
-		EgressListeners:             []*IstioEgressListenerWrapper{defaultEgressListener},
-		services:                    defaultEgressListener.services,
-		destinationRules:            make(map[host.Name]*Config),
-		serviceDependencies:         make(map[host.Name]struct{}),
-		virtualServiceDependencies:  make(map[string]struct{}),
-		destinationRuleDependencies: make(map[string]struct{}),
-		namespaceDependencies:       make(map[string]struct{}),
+		EgressListeners:  []*IstioEgressListenerWrapper{defaultEgressListener},
+		services:         defaultEgressListener.services,
+		destinationRules: make(map[host.Name]*Config),
+		configDependencies: map[resource.GroupVersionKind]map[string]struct{}{
+			ServiceEntryKind:    serviceDependencies,
+			VirtualServiceKind:  virtualServiceDependencies,
+			DestinationRuleKind: destinationRuleDependencies,
+		},
+		namespaceDependencies: make(map[string]struct{}),
 	}
 
 	// Now that we have all the services that sidecars using this scope (in
@@ -171,18 +171,18 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	for _, s := range out.services {
 		out.destinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s)
 		out.namespaceDependencies[s.Attributes.Namespace] = struct{}{}
-		out.serviceDependencies[s.Hostname] = struct{}{}
+		serviceDependencies[string(s.Hostname)] = struct{}{}
 	}
 
 	for _, dr := range out.destinationRules {
 		if dr != nil {
-			out.destinationRuleDependencies[dr.Name] = struct{}{}
+			destinationRuleDependencies[dr.Name] = struct{}{}
 		}
 	}
 
 	for _, el := range out.EgressListeners {
 		for _, vs := range el.virtualServices {
-			out.virtualServiceDependencies[vs.Name] = struct{}{}
+			virtualServiceDependencies[vs.Name] = struct{}{}
 		}
 	}
 
@@ -201,12 +201,18 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 		return DefaultSidecarScopeForNamespace(ps, configNamespace)
 	}
 
+	serviceDependencies := make(map[string]struct{})
+	virtualServiceDependencies := make(map[string]struct{})
+	destinationRuleDependencies := make(map[string]struct{})
+
 	r := sidecarConfig.Spec.(*networking.Sidecar)
 	out := &SidecarScope{
-		serviceDependencies:         make(map[host.Name]struct{}),
-		virtualServiceDependencies:  make(map[string]struct{}),
-		destinationRuleDependencies: make(map[string]struct{}),
-		namespaceDependencies:       make(map[string]struct{}),
+		configDependencies: map[resource.GroupVersionKind]map[string]struct{}{
+			ServiceEntryKind:    serviceDependencies,
+			VirtualServiceKind:  virtualServiceDependencies,
+			DestinationRuleKind: destinationRuleDependencies,
+		},
+		namespaceDependencies: make(map[string]struct{}),
 	}
 
 	out.EgressListeners = make([]*IstioEgressListenerWrapper, 0)
@@ -229,7 +235,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 		}
 		if foundSvc, found := servicesAdded[s.Hostname]; !found {
 			servicesAdded[s.Hostname] = s
-			out.serviceDependencies[s.Hostname] = struct{}{}
+			serviceDependencies[string(s.Hostname)] = struct{}{}
 			out.services = append(out.services, s)
 			out.namespaceDependencies[s.Attributes.Namespace] = struct{}{}
 		} else if foundSvc.Attributes.Namespace == s.Attributes.Namespace && s.Ports != nil && len(s.Ports) > 0 {
@@ -263,7 +269,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 		// want in the hosts field, and the potentially random choice below won't matter
 		for _, vs := range listener.virtualServices {
 			v := vs.Spec.(*networking.VirtualService)
-			out.virtualServiceDependencies[vs.Name] = struct{}{}
+			virtualServiceDependencies[vs.Name] = struct{}{}
 
 			for _, d := range virtualServiceDestinations(v) {
 				// Default to this hostname in our config namespace
@@ -303,7 +309,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 		dr := ps.DestinationRule(&dummyNode, s)
 		out.destinationRules[s.Hostname] = dr
 		if dr != nil {
-			out.destinationRuleDependencies[dr.Name] = struct{}{}
+			destinationRuleDependencies[dr.Name] = struct{}{}
 		}
 	}
 
@@ -461,62 +467,45 @@ func (sc *SidecarScope) DependsOnNamespace(namespace string) bool {
 	return exists
 }
 
-// DependsOnService determines if the Sidecar includes the given service.
-func (sc *SidecarScope) DependsOnService(service host.Name) bool {
+// DependsOnConfig determines if the Sidecar depends on the given config.
+// Returns whether depends on this config and whether this kind of config is scoped here.
+func (sc *SidecarScope) DependsOnConfig(kind resource.GroupVersionKind, name string) (bool, bool) {
 	if sc == nil {
-		return true
+		return false, false
 	}
 
-	_, exists := sc.serviceDependencies[service]
-	return exists
-}
-
-// DependsOnVirtualService determines if the Sidecar includes the given virtualService.
-func (sc *SidecarScope) DependsOnVirtualService(name string) bool {
-	if sc == nil {
-		return true
+	if d, exists := sc.configDependencies[kind]; !exists {
+		return false, false
+	} else {
+		_, exists = d[name]
+		return exists, true
 	}
-
-	_, exists := sc.virtualServiceDependencies[name]
-	return exists
-}
-
-// DependsOnDestinationRule determines if the Sidecar includes the given destinationRule.
-func (sc *SidecarScope) DependsOnDestinationRule(name string) bool {
-	if sc == nil {
-		return true
-	}
-
-	_, exists := sc.destinationRuleDependencies[name]
-	return exists
 }
 
 // AddConfigDependencies add extra config dependencies to this scope. This action should be done before the
 // SidecarScope being used to avoid concurrent read/write.
 // Currently this method is used to prepare test data only.
 func (sc *SidecarScope) AddConfigDependencies(kind resource.GroupVersionKind, names ...string) {
-	switch kind {
-	case ServiceEntryKind:
-		if sc.serviceDependencies == nil {
-			sc.serviceDependencies = make(map[host.Name]struct{})
-		}
-		for _, name := range names {
-			sc.serviceDependencies[host.Name(name)] = struct{}{}
-		}
-	case VirtualServiceKind:
-		if sc.virtualServiceDependencies == nil {
-			sc.virtualServiceDependencies = make(map[string]struct{})
-		}
-		for _, name := range names {
-			sc.virtualServiceDependencies[name] = struct{}{}
-		}
-	case DestinationRuleKind:
-		if sc.destinationRuleDependencies == nil {
-			sc.destinationRuleDependencies = make(map[string]struct{})
-		}
-		for _, name := range names {
-			sc.destinationRuleDependencies[name] = struct{}{}
-		}
+	if sc == nil {
+		return
+	}
+
+	if sc.configDependencies == nil {
+		sc.configDependencies = make(map[resource.GroupVersionKind]map[string]struct{})
+	}
+
+	var (
+		dependencies map[string]struct{}
+		f            bool
+	)
+
+	if dependencies, f = sc.configDependencies[kind]; !f {
+		dependencies = make(map[string]struct{})
+		sc.configDependencies[kind] = dependencies
+	}
+
+	for _, name := range names {
+		dependencies[name] = struct{}{}
 	}
 }
 
