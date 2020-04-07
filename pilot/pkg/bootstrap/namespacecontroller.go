@@ -22,9 +22,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 
+	"istio.io/pkg/log"
+
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/security/pkg/listwatch"
-	"istio.io/pkg/log"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,7 +40,7 @@ const (
 	// Every namespaceResyncPeriod, namespaceUpdated() will be invoked
 	// for every namespace. This value must be configured so Citadel
 	// can update its CA certificate in a ConfigMap in every namespace.
-	namespaceResyncPeriod = time.Second * 30
+	namespaceResyncPeriod = time.Second * 60
 	// The name of the ConfigMap in each namespace storing the root cert of non-Kube CA.
 	CACertNamespaceConfigMap = "istio-ca-root-cert"
 )
@@ -62,7 +64,7 @@ type NamespaceController struct {
 }
 
 // NewNamespaceController returns a pointer to a newly constructed NamespaceController instance.
-func NewNamespaceController(data func() map[string]string, core corev1.CoreV1Interface) (*NamespaceController, error) {
+func NewNamespaceController(data func() map[string]string, options controller.Options, core corev1.CoreV1Interface) (*NamespaceController, error) {
 	c := &NamespaceController{
 		getData: data,
 		core:    core,
@@ -80,7 +82,7 @@ func NewNamespaceController(data func() map[string]string, core corev1.CoreV1Int
 			}}
 	})
 	_, c.configMapController =
-		cache.NewInformer(configMapLw, &v1.ConfigMap{}, 0, cache.ResourceEventHandlerFuncs{
+		cache.NewInformer(configMapLw, &v1.ConfigMap{}, options.ResyncPeriod, cache.ResourceEventHandlerFuncs{
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				c.queue.Push(func() error {
 					return c.configMapChange(newObj)
@@ -125,7 +127,7 @@ func NewNamespaceController(data func() map[string]string, core corev1.CoreV1Int
 			}}
 	})
 	_, c.namespaceController =
-		cache.NewInformer(namespaceLW, &v1.Namespace{}, 0, cache.ResourceEventHandlerFuncs{
+		cache.NewInformer(namespaceLW, &v1.Namespace{}, options.ResyncPeriod, cache.ResourceEventHandlerFuncs{
 			UpdateFunc: func(_, newObj interface{}) {
 				c.queue.Push(func() error {
 					return c.namespaceChange(newObj)
