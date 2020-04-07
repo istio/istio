@@ -31,6 +31,13 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
+func TestStatusExistsByDefault(t *testing.T) {
+	// This test is not yet impemented
+	framework.NewTest(t).
+		LabelFeatures("Usability.Observability.Status.DefaultExists").
+		Run(func(_ framework.TestContext) { t.Skip() })
+}
+
 func TestAnalysisWritesStatus(t *testing.T) {
 	framework.NewTest(t).
 	LabelFeatures("Usability.Observability.Status").
