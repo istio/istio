@@ -25,6 +25,9 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/operator/pkg/object"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pkg/test/scopes"
 
 	"github.com/golang/protobuf/jsonpb"
@@ -144,5 +147,98 @@ metadata:
 	if _, err := cs.CheckPodsAreReady(cs.NewPodFetch(IstioNamespace)); err != nil {
 		t.Fatalf("pods are not ready: %v", err)
 	}
+
+	if err := compareInCluserAndGeneratedResources(t, istioCtl, iopFile, cs); err != nil {
+		t.Fatalf("in cluster resources does not match with the generated ones: %v", err)
+	}
 	scopes.CI.Infof("=== Succeeded ===")
+}
+
+func compareInCluserAndGeneratedResources(t *testing.T, istioCtl istioctl.Instance,
+	iopFile string, cs kube.Cluster) error {
+	// get manifests by running `manifest generate`
+	generateCmd := []string{
+		"manifest", "generate",
+		"-f", iopFile,
+	}
+	genManifests := istioCtl.InvokeOrFail(t, generateCmd)
+	genK8SObjects, err := object.ParseK8sObjectsFromYAMLManifest(genManifests)
+	if err != nil {
+		return fmt.Errorf("failed to parse generated manifest: %v", err)
+	}
+	efgvr := schema.GroupVersionResource{
+		Group:    "networking.istio.io",
+		Version:  "v1alpha3",
+		Resource: "envoyfilters",
+	}
+	var errors util.Errors
+	for _, genK8SObject := range genK8SObjects {
+		kind := genK8SObject.Kind
+		ns := genK8SObject.Namespace
+		name := genK8SObject.Name
+		log.Infof("checking kind: %s, namespace: %s, name: %s", kind, ns, name)
+		switch kind {
+		case "Service":
+			if _, err := cs.GetService(ns, name); err != nil {
+				errors = util.AppendErr(errors,
+					fmt.Errorf("failed to get expected service: %s from cluster", name))
+			}
+		case "ServiceAccount":
+			if _, err := cs.GetServiceAccount(ns, name); err != nil {
+				errors = util.AppendErr(errors,
+					fmt.Errorf("failed to get expected serviceAccount: %s from cluster", name))
+			}
+		case "Deployment":
+			if _, err := cs.GetDeployment(ns, name); err != nil {
+				errors = util.AppendErr(errors,
+					fmt.Errorf("failed to get expected deployment: %s from cluster", name))
+			}
+		case "ConfigMap":
+			if _, err := cs.GetConfigMap(ns, name); err != nil {
+				errors = util.AppendErr(errors,
+					fmt.Errorf("failed to get expected configMap: %s from cluster", name))
+			}
+		case "ValidatingWebhookConfiguration":
+			if exist := cs.ValidatingWebhookConfigurationExists(name); !exist {
+				errors = util.AppendErr(errors,
+					fmt.Errorf("failed to get expected ValidatingWebhookConfiguration: %s from cluster", name))
+			}
+		case "MutatingWebhookConfiguration":
+			if exist := cs.MutatingWebhookConfigurationExists(name); !exist {
+				errors = util.AppendErr(errors,
+					fmt.Errorf("failed to get expected MutatingWebhookConfiguration: %s from cluster", name))
+			}
+		case "CustomResourceDefinition":
+			if _, err := cs.GetCustomResourceDefinition(name); err != nil {
+				errors = util.AppendErr(errors,
+					fmt.Errorf("failed to get expected CustomResourceDefinition: %s from cluster", name))
+			}
+		case "ClusterRole":
+			if _, err := cs.GetClusterRole(name); err != nil {
+				errors = util.AppendErr(errors,
+					fmt.Errorf("failed to get expected ClusterRole: %s from cluster", name))
+			}
+		case "ClusterRoleBinding":
+			if _, err := cs.GetClusterRoleBinding(name); err != nil {
+				errors = util.AppendErr(errors,
+					fmt.Errorf("failed to get expected ClusterRoleBinding: %s from cluster", name))
+			}
+		case "EnvoyFilter":
+			if _, err := cs.GetUnstructured(efgvr, ns, name); err != nil {
+				errors = util.AppendErr(errors,
+					fmt.Errorf("failed to get expected Envoyfilter: %s from cluster", name))
+			}
+		case "PodDisruptionBudget":
+			if _, err := cs.GetPodDisruptionBudget(ns, name); err != nil {
+				errors = util.AppendErr(errors,
+					fmt.Errorf("failed to get expected CustomResourceDefinition: %s from cluster", name))
+			}
+		case "HorizontalPodAutoscaler":
+			if _, err := cs.GetHorizontalPodAutoscaler(ns, name); err != nil {
+				errors = util.AppendErr(errors,
+					fmt.Errorf("failed to get expected CustomResourceDefinition: %s from cluster", name))
+			}
+		}
+	}
+	return errors.ToError()
 }
