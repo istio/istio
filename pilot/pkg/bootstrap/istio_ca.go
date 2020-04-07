@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+
 	"istio.io/istio/pkg/config/constants"
 
 	oidc "github.com/coreos/go-oidc"
@@ -158,7 +160,8 @@ func (s *Server) EnableCA() bool {
 // Protected by installer options: the CA will be started only if the JWT token in /var/run/secrets
 // is mounted. If it is missing - for example old versions of K8S that don't support such tokens -
 // we will not start the cert-signing server, since pods will have no way to authenticate.
-func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts *CAOptions, stopCh <-chan struct{}) {
+func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts *CAOptions,
+	controllerOptions controller.Options, stopCh <-chan struct{}) {
 	if !s.EnableCA() {
 		return
 	}
@@ -227,7 +230,7 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 			return map[string]string{
 				constants.CACertNamespaceConfigMapDataName: string(ca.GetCAKeyCertBundle().GetRootCertPem()),
 			}
-		}, s.kubeClient.CoreV1())
+		}, controllerOptions, s.kubeClient.CoreV1())
 		if err != nil {
 			log.Warnf("failed to start istiod namespace controller, error: %v", err)
 		} else {

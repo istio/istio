@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -33,7 +35,7 @@ func TestNamespaceController(t *testing.T) {
 	testdata := map[string]string{"key": "value"}
 	nc, err := NewNamespaceController(func() map[string]string {
 		return testdata
-	}, client.CoreV1())
+	}, controller.Options{}, client.CoreV1())
 	if err != nil {
 		t.Fatal(err)
 	}
