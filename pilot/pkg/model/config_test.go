@@ -386,14 +386,18 @@ func TestMostSpecificHostMatch(t *testing.T) {
 		{[]host.Name{"*.foo.com", "foo.com"}, "*.foo.com", "*.foo.com"},
 
 		// this passes because we sort alphabetically
-		{[]host.Name{"bar.com", "foo.com"}, "*.com", "bar.com"},
+		{[]host.Name{"bar.com", "foo.com"}, "*.com", ""},
 
-		{[]host.Name{"bar.com", "*.foo.com"}, "*foo.com", "*.foo.com"},
-		{[]host.Name{"foo.com", "*.foo.com"}, "*foo.com", "foo.com"},
+		{[]host.Name{"bar.com", "*.foo.com"}, "*foo.com", ""},
+		{[]host.Name{"foo.com", "*.foo.com"}, "*foo.com", ""},
 
 		// should prioritize closest match
 		{[]host.Name{"*.bar.com", "foo.bar.com"}, "foo.bar.com", "foo.bar.com"},
 		{[]host.Name{"*.foo.bar.com", "bar.foo.bar.com"}, "bar.foo.bar.com", "bar.foo.bar.com"},
+
+		// should not match non-wildcards for wildcard needle
+		{[]host.Name{"bar.foo.com", "foo.bar.com"}, "*.foo.com", ""},
+		{[]host.Name{"foo.bar.foo.com", "bar.foo.bar.com"}, "*.bar.foo.com", ""},
 	}
 
 	for idx, tt := range tests {

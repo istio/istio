@@ -353,7 +353,7 @@ func MostSpecificHostMatch(needle host.Name, stack []host.Name) (host.Name, bool
 			// exact match, return immediately
 			return needle, true
 		}
-		if needle.Matches(h) {
+		if needle.SubsetOf(h) {
 			matches = append(matches, h)
 		}
 	}
