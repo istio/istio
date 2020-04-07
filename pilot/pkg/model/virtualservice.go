@@ -84,7 +84,7 @@ func mergeVirtualServicesIfNeeded(vServices []Config) (out []Config) {
 		if log.DebugEnabled() {
 			jsonm := &jsonpb.Marshaler{Indent: "   "}
 			vsString, _ := jsonm.MarshalToString(rootVs)
-			log.Infof("merged virtualService: %s", vsString)
+			log.Debugf("merged virtualService: %s", vsString)
 		}
 		out = append(out, root)
 	}
