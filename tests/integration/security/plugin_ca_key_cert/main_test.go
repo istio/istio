@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
+	"istio.io/pkg/log"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -103,6 +104,20 @@ func createCASecret(ctx resource.Context) error {
 	err = kubeAccessor.CreateSecret(systemNs.Name(), secret)
 	if err != nil {
 		return err
+	}
+
+	// If there is a configmap storing the CA cert from a previous
+	// integration test, remove it. Ideally, CI should delete all
+	// resources from a previous integration test, but sometimes
+	// the resources from a previous integration test are not deleted.
+	configMapName := "istio-ca-root-cert"
+	kEnv := ctx.Environment().(*kube.Environment)
+	err = kEnv.KubeClusters[0].DeleteConfigMap(configMapName, systemNs.Name())
+	if err == nil {
+		log.Infof("configmap %v is deleted", configMapName)
+	} else {
+		log.Infof("configmap %v may not exist and the deletion returns err (%v)",
+			configMapName, err)
 	}
 	return nil
 }
