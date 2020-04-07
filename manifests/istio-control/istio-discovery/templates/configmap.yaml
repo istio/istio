@@ -124,6 +124,14 @@
 {{ toYaml .Values.global.localityLbSetting | trim | indent 6 }}
     {{- end }}
 
+    # The namespace to treat as the administrative root namespace for istio
+    # configuration.
+{{- if .Values.global.configRootNamespace }}
+    rootNamespace: {{ .Values.global.configRootNamespace }}
+{{- else }}
+    rootNamespace: {{ .Release.Namespace }}
+{{- end }}
+
     # Configures DNS certificates provisioned through Chiron linked into Pilot.
     # The DNS certificate provisioning is enabled by default now so it get tested.
     # TODO (lei-tang): we'll decide whether enable it by default or not before Istio 1.4 Release.
