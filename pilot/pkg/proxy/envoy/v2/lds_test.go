@@ -81,13 +81,13 @@ func TestLDSIsolated(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// 7071 (inbound), 2001 (service - also as http proxy), 18010 (fortio), 15006 (virtual inbound)
+		// 2001 (service - also as http proxy),15006 (virtual inbound)
 		// We do not get mixer on 9091 because there are no services defined in istio-system namespace
 		// in the none.yaml setup
-		if len(ldsr.GetHTTPListeners()) != 4 {
+		if len(ldsr.GetHTTPListeners()) != 2 {
 			// TODO: we are still debating if for HTTP services we have any use case to create a 127.0.0.1:port outbound
 			// for the service (the http proxy is already covering this)
-			t.Error("HTTP listeners, expecting 4 got ", len(ldsr.GetHTTPListeners()), ldsr.GetHTTPListeners())
+			t.Error("HTTP listeners, expecting 2 got ", len(ldsr.GetHTTPListeners()), ldsr.GetHTTPListeners())
 		}
 
 		// s1tcp:2000 outbound, bind=true (to reach other instances of the service)
@@ -233,8 +233,8 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 		return
 	}
 
-	// Expect 7 listeners : 2 orig_dst, 1 http inbound + 4 outbound (http, tcp1, istio-policy and istio-telemetry)
-	if (len(adsResponse.GetHTTPListeners()) + len(adsResponse.GetTCPListeners())) != 7 {
+	// Expect 6 listeners : 2 orig_dst, 4 outbound (http, tcp1, istio-policy and istio-telemetry)
+	if (len(adsResponse.GetHTTPListeners()) + len(adsResponse.GetTCPListeners())) != 6 {
 		t.Fatalf("Expected 7 listeners, got %d\n", len(adsResponse.GetHTTPListeners())+len(adsResponse.GetTCPListeners()))
 	}
 
@@ -419,11 +419,11 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 		return
 	}
 
-	// Expect 3 HTTP listeners for outbound 8081, inbound 9080 and one virtualInbound which has the same inbound 9080
+	// Expect 2 HTTP listeners for outbound 8081 and one virtualInbound which has the same inbound 9080
 	// as a filter chain. Since the adsclient code treats any listener with a HTTP connection manager filter in ANY
 	// filter chain,  as a HTTP listener, we end up getting both 9080 and virtualInbound.
-	if len(adsResponse.GetHTTPListeners()) != 3 {
-		t.Fatalf("Expected 3 http listeners, got %d", len(adsResponse.GetHTTPListeners()))
+	if len(adsResponse.GetHTTPListeners()) != 2 {
+		t.Fatalf("Expected 2 http listeners, got %d", len(adsResponse.GetHTTPListeners()))
 	}
 
 	// TODO: This is flimsy. The ADSC code treats any listener with http connection manager as a HTTP listener
@@ -435,11 +435,6 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 		}
 	} else {
 		t.Fatal("Expected listener for 0.0.0.0_8081")
-	}
-
-	// Also check that the other two listeners are 98.1.1.1_9080, and virtualInbound
-	if l := adsResponse.GetHTTPListeners()["98.1.1.1_9080"]; l == nil {
-		t.Fatal("Expected listener for 98.1.1.1_9080")
 	}
 
 	if l := adsResponse.GetHTTPListeners()["virtualInbound"]; l == nil {

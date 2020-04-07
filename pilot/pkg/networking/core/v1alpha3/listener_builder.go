@@ -311,15 +311,13 @@ func (lb *ListenerBuilder) patchListeners() {
 	}
 	lb.virtualOutboundListener = patchOneListener(lb.virtualOutboundListener, networking.EnvoyFilter_SIDECAR_OUTBOUND)
 	lb.virtualInboundListener = patchOneListener(lb.virtualInboundListener, networking.EnvoyFilter_SIDECAR_INBOUND)
-	lb.inboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_INBOUND, lb.node,
-		lb.push, lb.inboundListeners, false)
 	lb.outboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, lb.node,
 		lb.push, lb.outboundListeners, false)
 }
 
 func (lb *ListenerBuilder) getListeners() []*xdsapi.Listener {
 	if lb.node.Type == model.SidecarProxy {
-		nInbound, nOutbound := len(lb.inboundListeners), len(lb.outboundListeners)
+		nOutbound := len(lb.outboundListeners)
 		nVirtual, nVirtualInbound := 0, 0
 		if lb.virtualOutboundListener != nil {
 			nVirtual = 1
@@ -327,10 +325,9 @@ func (lb *ListenerBuilder) getListeners() []*xdsapi.Listener {
 		if lb.virtualInboundListener != nil {
 			nVirtualInbound = 1
 		}
-		nListener := nInbound + nOutbound + nVirtual + nVirtualInbound
+		nListener := nOutbound + nVirtual + nVirtualInbound
 
 		listeners := make([]*xdsapi.Listener, 0, nListener)
-		listeners = append(listeners, lb.inboundListeners...)
 		listeners = append(listeners, lb.outboundListeners...)
 		if lb.virtualOutboundListener != nil {
 			listeners = append(listeners, lb.virtualOutboundListener)
@@ -339,10 +336,10 @@ func (lb *ListenerBuilder) getListeners() []*xdsapi.Listener {
 			listeners = append(listeners, lb.virtualInboundListener)
 		}
 
-		log.Debugf("Build %d listeners for node %s including %d inbound, %d outbound, %d virtual and %d virtual inbound listeners",
+		log.Debugf("Build %d listeners for node %s including %d outbound, %d virtual and %d virtual inbound listeners",
 			nListener,
 			lb.node.ID,
-			nInbound, nOutbound,
+			nOutbound,
 			nVirtual, nVirtualInbound)
 		return listeners
 	}
