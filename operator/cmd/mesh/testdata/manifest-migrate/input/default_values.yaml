@@ -144,20 +144,6 @@ gateways:
     tolerations: []
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
-galley:
-  enabled: true
-  image: galley
-  replicaCount: 1
-  rollingMaxSurge: 100%
-  rollingMaxUnavailable: 25%
-  resources:
-    requests:
-      cpu: 100m
-  mesh: {}
-  nodeSelector: {}
-  tolerations: []
-  podAntiAffinityLabelSelector: []
-  podAntiAffinityTermLabelSelector: []
 mixer:
   policy:
     enabled: true

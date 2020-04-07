@@ -6886,16 +6886,6 @@ spec:
 
 
 apiVersion: v1
-kind: Namespace
-metadata:
-  name: istio-system
-  labels:
-    istio-operator-managed: Reconcile
-    istio-injection: disabled
----
-
-
-apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-reader-service-account
@@ -6954,23 +6944,9 @@ webhooks:
     sideEffects: None
 ---
 
-
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: istio-galley
-  labels:
-    app: galley
-    release: istio
-    istio: galley
-webhooks:
----
-
 # Cni component is disabled.
 
 # EgressGateways istio-egressgateway component is disabled.
-
-# Galley component is disabled.
 
 # Resources for Pilot component
 

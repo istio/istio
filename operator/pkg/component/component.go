@@ -104,8 +104,6 @@ func NewCoreComponent(cn name.ComponentName, opts *Options) IstioComponent {
 		component = NewCRDComponent(opts)
 	case name.PilotComponentName:
 		component = NewPilotComponent(opts)
-	case name.GalleyComponentName:
-		component = NewGalleyComponent(opts)
 	case name.PolicyComponentName:
 		component = NewPolicyComponent(opts)
 	case name.TelemetryComponentName:
@@ -368,52 +366,6 @@ func (c *TelemetryComponent) Namespace() string {
 
 // Enabled implements the IstioComponent interface.
 func (c *TelemetryComponent) Enabled() bool {
-	return isCoreComponentEnabled(c.CommonComponentFields)
-}
-
-// GalleyComponent is the pilot component.
-type GalleyComponent struct {
-	*CommonComponentFields
-}
-
-// NewGalleyComponent creates a new PilotComponent and returns a pointer to it.
-func NewGalleyComponent(opts *Options) *GalleyComponent {
-	cn := name.GalleyComponentName
-	return &GalleyComponent{
-		&CommonComponentFields{
-			Options:       opts,
-			componentName: cn,
-		},
-	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *GalleyComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *GalleyComponent) RenderManifest() (string, error) {
-	return renderManifest(c, c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *GalleyComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *GalleyComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
-}
-
-// Namespace implements the IstioComponent interface.
-func (c *GalleyComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// Enabled implements the IstioComponent interface.
-func (c *GalleyComponent) Enabled() bool {
 	return isCoreComponentEnabled(c.CommonComponentFields)
 }
 
