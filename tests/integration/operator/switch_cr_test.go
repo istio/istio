@@ -32,13 +32,18 @@ import (
 	api "istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/pkg/log"
 )
 
@@ -78,6 +83,7 @@ func checkInstallStatus(cs kube.Cluster) error {
 		Version:  "v1alpha1",
 		Resource: "istiooperators",
 	}
+	var errs util.Errors
 	conditionF := func() (done bool, err error) {
 		us, err := cs.GetUnstructured(gvr, "istio-system", "test-istiocontrolplane")
 		if err != nil {
@@ -93,20 +99,25 @@ func checkInstallStatus(cs kube.Cluster) error {
 		if err := jspb.Unmarshal(bytes.NewReader(iopStatusString), status); err != nil {
 			return false, fmt.Errorf("failed to unmarshal istioOperator status: %v", err)
 		}
+		errs = util.Errors{}
 		if status.Status != api.InstallStatus_HEALTHY {
-			return false, fmt.Errorf("expect IstioOperator status to be healthy, but got: %v", status.Status)
+			errs = util.AppendErr(errs, fmt.Errorf("got IstioOperator status: %v", status.Status))
+			return false, nil
 		}
-		var errs util.Errors
+
 		for cn, cnstatus := range status.ComponentStatus {
 			if cnstatus.Status != api.InstallStatus_HEALTHY {
-				errs = util.AppendErr(errs, fmt.Errorf("expect component: %s status to be healthy,"+
-					" but got: %v", cn, cnstatus.Status))
+				errs = util.AppendErr(errs, fmt.Errorf("got component: %s status: %v", cn, cnstatus.Status))
+				return false, nil
 			}
 		}
 		return true, nil
 	}
 	if errPoll := wait.Poll(pollInterval, pollTimeOut, conditionF); errPoll != nil {
-		return fmt.Errorf("failed to poll IstioOperator status: %v", errPoll)
+		return fmt.Errorf("failed to get IstioOperator status: %v", errPoll)
+	}
+	if errs.ToError() != nil {
+		return fmt.Errorf("IstioOperator status is not healthy: %v", errs.ToError())
 	}
 	return nil
 }
@@ -150,14 +161,50 @@ metadata:
 	if err := checkInstallStatus(cs); err != nil {
 		t.Fatalf("IstioOperator status not healthy: %v", err)
 	}
-	if _, err := cs.CheckPodsAreReady(cs.NewPodFetch(IstioNamespace)); err != nil {
+	if _, err := cs.WaitUntilPodsAreReady(cs.NewPodFetch(IstioNamespace)); err != nil {
 		t.Fatalf("pods are not ready: %v", err)
 	}
 
 	if err := compareInClusterAndGeneratedResources(t, istioCtl, iopFile, cs); err != nil {
 		t.Fatalf("in cluster resources does not match with the generated ones: %v", err)
 	}
+	sanityCheck(t, ctx)
 	scopes.CI.Infof("=== Succeeded ===")
+}
+
+func sanityCheck(t *testing.T, ctx framework.TestContext) {
+	var client, server echo.Instance
+	test := namespace.NewOrFail(t, ctx, namespace.Config{
+		Prefix: "default",
+		Inject: true,
+	})
+	echoboot.NewBuilderOrFail(t, ctx).
+		With(&client, echo.Config{
+			Service:   "client",
+			Namespace: test,
+			Ports:     []echo.Port{},
+		}).
+		With(&server, echo.Config{
+			Service:   "server",
+			Namespace: test,
+			Ports: []echo.Port{
+				{
+					Name:         "http",
+					Protocol:     protocol.HTTP,
+					InstancePort: 8090,
+				}},
+		}).
+		BuildOrFail(t)
+	retry.UntilSuccessOrFail(t, func() error {
+		resp, err := client.Call(echo.CallOptions{
+			Target:   server,
+			PortName: "http",
+		})
+		if err != nil {
+			return err
+		}
+		return resp.CheckOK()
+	}, retry.Delay(time.Millisecond*100))
 }
 
 func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Instance,
@@ -218,16 +265,6 @@ func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Insta
 			if _, err := cs.GetCustomResourceDefinition(name); err != nil {
 				errors = util.AppendErr(errors,
 					fmt.Errorf("failed to get expected CustomResourceDefinition: %s from cluster", name))
-			}
-		case "ClusterRole":
-			if _, err := cs.GetClusterRole(name); err != nil {
-				errors = util.AppendErr(errors,
-					fmt.Errorf("failed to get expected ClusterRole: %s from cluster", name))
-			}
-		case "ClusterRoleBinding":
-			if _, err := cs.GetClusterRoleBinding(name); err != nil {
-				errors = util.AppendErr(errors,
-					fmt.Errorf("failed to get expected ClusterRoleBinding: %s from cluster", name))
 			}
 		case "EnvoyFilter":
 			if _, err := cs.GetUnstructured(efgvr, ns, name); err != nil {
