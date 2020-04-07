@@ -21,8 +21,9 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
-
+	fuzz "github.com/google/gofuzz"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
@@ -604,7 +605,7 @@ func TestMergeVirtualServices(t *testing.T) {
 
 }
 
-func TestMergeHttpRoute(t *testing.T) {
+func TestMergeHttpRoutes(t *testing.T) {
 	cases := []struct {
 		name     string
 		root     *networking.HTTPRoute
@@ -967,7 +968,7 @@ func TestMergeHttpRoute(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := mergeHTTPRoute(tc.root, tc.delegate)
+			got := mergeHTTPRoutes(tc.root, tc.delegate)
 			if !reflect.DeepEqual(got, tc.expected) {
 				t.Errorf("got unexpected result, diff: %s", cmp.Diff(tc.expected, got))
 			}
@@ -1637,5 +1638,102 @@ func TestHasConflict(t *testing.T) {
 				t.Errorf("got %v, expected %v", got, tc.expected)
 			}
 		})
+	}
+}
+
+// Note: this is to prevent missing merge new added HTTPRoute fields
+func TestFuzzMergeHttpRoute(t *testing.T) {
+	f := fuzz.New().NilChance(0.5).NumElements(0, 1).Funcs(
+		func(r *networking.HTTPRoute, c fuzz.Continue) {
+			c.FuzzNoCustom(r)
+			r.Match = []*networking.HTTPMatchRequest{{}}
+			r.Route = nil
+			r.Redirect = nil
+			r.Delegate = nil
+		},
+		func(r *networking.HTTPMatchRequest, c fuzz.Continue) {
+			*r = networking.HTTPMatchRequest{}
+		},
+		func(r *networking.HTTPRouteDestination, c fuzz.Continue) {
+			*r = networking.HTTPRouteDestination{}
+		},
+		func(r *networking.HTTPRedirect, c fuzz.Continue) {
+			*r = networking.HTTPRedirect{}
+		},
+		func(r *networking.Delegate, c fuzz.Continue) {
+			*r = networking.Delegate{}
+		},
+
+		func(r *networking.HTTPRewrite, c fuzz.Continue) {
+			*r = networking.HTTPRewrite{}
+		},
+
+		func(r *types.Duration, c fuzz.Continue) {
+			*r = types.Duration{}
+		},
+		func(r *networking.HTTPRetry, c fuzz.Continue) {
+			*r = networking.HTTPRetry{}
+		},
+		func(r *networking.HTTPFaultInjection, c fuzz.Continue) {
+			*r = networking.HTTPFaultInjection{}
+		},
+		func(r *networking.Destination, c fuzz.Continue) {
+			*r = networking.Destination{}
+		},
+		func(r *types.UInt32Value, c fuzz.Continue) {
+			*r = types.UInt32Value{}
+		},
+		func(r *networking.Percent, c fuzz.Continue) {
+			*r = networking.Percent{}
+		},
+		func(r *networking.CorsPolicy, c fuzz.Continue) {
+			*r = networking.CorsPolicy{}
+		},
+		func(r *networking.Headers, c fuzz.Continue) {
+			*r = networking.Headers{}
+		})
+
+	root := &networking.HTTPRoute{}
+	f.Fuzz(root)
+
+	delegate := &networking.HTTPRoute{}
+	expected := mergeHTTPRoute(root, delegate)
+	root.XXX_unrecognized = nil
+	root.XXX_sizecache = 0
+	if !reflect.DeepEqual(expected, root) {
+		t.Errorf("%s", cmp.Diff(expected, root))
+	}
+}
+
+// Note: this is to prevent missing merge new added HTTPMatchRequest fields
+func TestFuzzMergeHttpMatchRequest(t *testing.T) {
+	f := fuzz.New().NilChance(0.5).NumElements(1, 1).Funcs(
+		func(r *networking.StringMatch, c fuzz.Continue) {
+			*r = networking.StringMatch{
+				MatchType: &networking.StringMatch_Exact{
+					Exact: "fuzz",
+				},
+			}
+		},
+		func(m *map[string]*networking.StringMatch, c fuzz.Continue) {
+			*m = map[string]*networking.StringMatch{
+				"test": nil,
+			}
+		},
+		func(m *map[string]string, c fuzz.Continue) {
+			*m = map[string]string{"test": "fuzz"}
+		})
+
+	root := &networking.HTTPMatchRequest{}
+	f.Fuzz(root)
+	root.IgnoreUriCase = false
+	root.XXX_sizecache = 0
+	root.XXX_unrecognized = nil
+
+	delegate := &networking.HTTPMatchRequest{}
+	merged := mergeHTTPMatchRequest(root, delegate)
+
+	if !reflect.DeepEqual(merged, root) {
+		t.Errorf("%s", cmp.Diff(merged, root))
 	}
 }

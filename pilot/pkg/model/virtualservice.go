@@ -74,7 +74,7 @@ func mergeVirtualServicesIfNeeded(vServices []Config) (out []Config) {
 				// when multiple routes delegate to one single VS.
 				copiedDelegate := delegate.DeepCopy()
 				vs := copiedDelegate.Spec.(*networking.VirtualService)
-				merged := mergeHTTPRoute(route, vs.Http)
+				merged := mergeHTTPRoutes(route, vs.Http)
 				mergedRoutes = append(mergedRoutes, merged...)
 			} else {
 				mergedRoutes = append(mergedRoutes, route)
@@ -94,51 +94,61 @@ func mergeVirtualServicesIfNeeded(vServices []Config) (out []Config) {
 
 // merge root's route with delegate's and the merged route number equals the delegate's.
 // if there is a conflict with root, the route is ignored
-func mergeHTTPRoute(root *networking.HTTPRoute, delegate []*networking.HTTPRoute) []*networking.HTTPRoute {
+func mergeHTTPRoutes(root *networking.HTTPRoute, delegate []*networking.HTTPRoute) []*networking.HTTPRoute {
 	root.Delegate = nil
 
 	out := make([]*networking.HTTPRoute, 0, len(delegate))
 	for _, subRoute := range delegate {
-		// suppose there are N1 match conditions in root, N2 match conditions in delegate
-		// if match condition of N2 is a subset of anyone in N1, this is a valid matching conditions
-		merged, conflict := mergeHTTPMatchRequests(root.Match, subRoute.Match)
-		if conflict {
-			log.Debugf("HTTPMatchRequests conflict: root root %s, delegate root %s", root.Name, subRoute.Name)
-			continue
+		merged := mergeHTTPRoute(root, subRoute)
+		if merged != nil {
+			out = append(out, merged)
 		}
-		subRoute.Match = merged
-
-		if subRoute.Name == "" {
-			subRoute.Name = root.Name
-		}
-		if subRoute.Rewrite == nil {
-			subRoute.Rewrite = root.Rewrite
-		}
-		if subRoute.Timeout == nil {
-			subRoute.Timeout = root.Timeout
-		}
-		if subRoute.Retries == nil {
-			subRoute.Retries = root.Retries
-		}
-		if subRoute.Fault == nil {
-			subRoute.Fault = root.Fault
-		}
-		if subRoute.Mirror == nil {
-			subRoute.Mirror = root.Mirror
-		}
-		if subRoute.MirrorPercentage == nil {
-			subRoute.MirrorPercentage = root.MirrorPercentage
-		}
-		if subRoute.CorsPolicy == nil {
-			subRoute.CorsPolicy = root.CorsPolicy
-		}
-		if subRoute.Headers == nil {
-			subRoute.Headers = root.Headers
-		}
-
-		out = append(out, subRoute)
 	}
 	return out
+}
+
+// merge the two HTTPRoutes, if there is a conflict with root, the delegate route is ignored
+func mergeHTTPRoute(root *networking.HTTPRoute, delegate *networking.HTTPRoute) *networking.HTTPRoute {
+	// suppose there are N1 match conditions in root, N2 match conditions in delegate
+	// if match condition of N2 is a subset of anyone in N1, this is a valid matching conditions
+	merged, conflict := mergeHTTPMatchRequests(root.Match, delegate.Match)
+	if conflict {
+		log.Debugf("HTTPMatchRequests conflict: root root %s, delegate root %s", root.Name, delegate.Name)
+		return nil
+	}
+	delegate.Match = merged
+
+	if delegate.Name == "" {
+		delegate.Name = root.Name
+	}
+	if delegate.Rewrite == nil {
+		delegate.Rewrite = root.Rewrite
+	}
+	if delegate.Timeout == nil {
+		delegate.Timeout = root.Timeout
+	}
+	if delegate.Retries == nil {
+		delegate.Retries = root.Retries
+	}
+	if delegate.Fault == nil {
+		delegate.Fault = root.Fault
+	}
+	if delegate.Mirror == nil {
+		delegate.Mirror = root.Mirror
+	}
+	if delegate.MirrorPercent == nil {
+		delegate.MirrorPercent = root.MirrorPercent
+	}
+	if delegate.MirrorPercentage == nil {
+		delegate.MirrorPercentage = root.MirrorPercentage
+	}
+	if delegate.CorsPolicy == nil {
+		delegate.CorsPolicy = root.CorsPolicy
+	}
+	if delegate.Headers == nil {
+		delegate.Headers = root.Headers
+	}
+	return delegate
 }
 
 // return merged match conditions if not conflicts
