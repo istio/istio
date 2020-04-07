@@ -128,7 +128,7 @@ func convertServices(cfg model.Config) []*model.Service {
 }
 
 func convertEndpoint(service *model.Service, servicePort *networking.Port,
-	endpoint *networking.WorkloadEntry) *model.ServiceInstance {
+	endpoint *networking.WorkloadEntry, tlsMode string) *model.ServiceInstance {
 	var instancePort uint32
 	addr := endpoint.GetAddress()
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
@@ -140,8 +140,6 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 			instancePort = servicePort.Number
 		}
 	}
-
-	tlsMode := model.GetTLSModeFromEndpointLabels(endpoint.Labels)
 
 	return &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
@@ -159,6 +157,28 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 		Service:     service,
 		ServicePort: convertPort(servicePort),
 	}
+}
+
+// convertWorkloadInstances translates a WorkloadEntry into ServiceInstances. This logic is largely the
+// same as the ServiceEntry convertInstances.
+func convertWorkloadInstances(wle *networking.WorkloadEntry, services []*model.Service, se *networking.ServiceEntry) []*model.ServiceInstance {
+	out := make([]*model.ServiceInstance, 0)
+	for _, service := range services {
+		for _, port := range se.Ports {
+
+			// * Use security.istio.io/tlsMode if its present
+			// * If not, set TLS mode if ServiceAccount is specified
+			tlsMode := model.DisabledTLSModeLabel
+			if val, exists := wle.Labels[model.TLSModeLabelName]; exists {
+				tlsMode = val
+			} else if wle.ServiceAccount != "" {
+				tlsMode = model.IstioMutualTLSModeLabel
+			}
+			ep := convertEndpoint(service, port, wle, tlsMode)
+			out = append(out, ep)
+		}
+	}
+	return out
 }
 
 func convertInstances(cfg model.Config, services []*model.Service) []*model.ServiceInstance {
@@ -188,7 +208,8 @@ func convertInstances(cfg model.Config, services []*model.Service) []*model.Serv
 				})
 			} else {
 				for _, endpoint := range serviceEntry.Endpoints {
-					out = append(out, convertEndpoint(service, serviceEntryPort, endpoint))
+					tlsMode := model.GetTLSModeFromEndpointLabels(endpoint.Labels)
+					out = append(out, convertEndpoint(service, serviceEntryPort, endpoint, tlsMode))
 				}
 			}
 		}
