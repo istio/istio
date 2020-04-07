@@ -8,8 +8,6 @@ spec:
       enabled: false
     citadel:
       enabled: false
-    galley:
-      enabled: false
     sidecarInjector:
       enabled: false
     ingressGateways:

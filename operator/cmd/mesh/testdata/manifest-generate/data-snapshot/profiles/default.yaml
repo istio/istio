@@ -6,13 +6,6 @@ spec:
   hub: gcr.io/istio-testing
   tag: latest
 
-  # You may override parts of meshconfig by uncommenting the following lines.
-  # meshConfig:
-    #
-    # Opt-out of global http2 upgrades.
-    # Destination rule is used to opt-in.
-    # h2_upgrade_policy: DO_NOT_UPGRADE
-
   # Traffic management feature
   components:
     base:
@@ -111,19 +104,6 @@ spec:
     citadel:
       enabled: false
       k8s:
-        strategy:
-          rollingUpdate:
-            maxSurge: "100%"
-            maxUnavailable: "25%"
-
-  # Config management feature
-    galley:
-      enabled: false
-      k8s:
-        replicaCount: 1
-        resources:
-          requests:
-            cpu: 100m
         strategy:
           rollingUpdate:
             maxSurge: "100%"
@@ -251,6 +231,11 @@ spec:
   # Global values passed through to helm global.yaml.
   # Please keep this in sync with manifests/global.yaml
   values:
+    # You may override parts of meshconfig by uncommenting the following lines.
+    meshConfig:
+      # Opt-out of global http2 upgrades.
+      # Destination rule is used to opt-in.
+      # h2_upgrade_policy: DO_NOT_UPGRADE
     global:
       istioNamespace: istio-system
       istiod:
@@ -271,17 +256,8 @@ spec:
           limits:
             cpu: 2000m
             memory: 1024Mi
-        concurrency: 2
-        accessLogFile: ""
-        accessLogFormat: ""
-        accessLogEncoding: TEXT
-        envoyAccessLogService:
-          enabled: false
-          host: # example: accesslog-service.istio-system
-          port: # example: 15000
         logLevel: warning
         componentLogLevel: "misc:error"
-        protocolDetectionTimeout: 100ms
         privileged: false
         enableCoreDump: false
         statusPort: 15020
@@ -297,21 +273,6 @@ spec:
           enabled: false
           host: # example: statsd-svc.istio-system
           port: # example: 9125
-        envoyMetricsService:
-          enabled: false
-          host: # example: metrics-service.istio-system
-          port: # example: 15000
-          tlsSettings:
-            mode: DISABLE # DISABLE, SIMPLE, MUTUAL, ISTIO_MUTUAL
-            clientCertificate: # example: /etc/istio/ms/cert-chain.pem
-            privateKey:        # example: /etc/istio/ms/key.pem
-            caCertificates:    # example: /etc/istio/ms/root-cert.pem
-            sni:               # example: ms.somedomain
-            subjectAltNames: []
-          tcpKeepalive:
-            probes: 3
-            time: 10s
-            interval: 10s
         tracer: "zipkin"
       proxy_init:
         image: proxyv2
@@ -325,10 +286,8 @@ spec:
       # Specify image pull policy if default behavior isn't desired.
       # Default behavior: latest images will be Always else IfNotPresent.
       imagePullPolicy: ""
-      certificates: []
       operatorManageWebhooks: false
       controlPlaneSecurityEnabled: true
-      disablePolicyChecks: true
       policyCheckFailOpen: false
       enableTracing: true
       tracer:
@@ -406,10 +365,6 @@ spec:
       enableProtocolSniffingForInbound: true
       deploymentLabels:
       configMap: true
-      ingress:
-        ingressService: istio-ingressgateway
-        ingressControllerMode: "STRICT"
-        ingressClass: istio
       policy:
         enabled: false
 
@@ -456,8 +411,6 @@ spec:
         loadshedding:
           mode: enforce
           latencyThreshold: 100ms
-        reportBatchMaxEntries: 100
-        reportBatchMaxTime: 1s
         env:
           GOMAXPROCS: "6"
         nodeSelector: {}
@@ -473,10 +426,6 @@ spec:
           kubernetesenv:
             enabled: true
           useAdapterCRDs: false
-
-    galley:
-      image: galley
-      enableAnalysis: false
 
     gateways:
       istio-egressgateway:
@@ -518,6 +467,14 @@ spec:
           - name: ingressgateway-ca-certs
             secretName: istio-ingressgateway-ca-certs
             mountPath: /etc/istio/ingressgateway-ca-certs
+
+    sidecarInjectorWebhook:
+      enableNamespacesByDefault: false
+      rewriteAppHTTPProbe: true
+      injectLabel: istio-injection
+      objectSelector:
+        enabled: false
+        autoInject: true
 
     prometheus:
       hub: docker.io/prom

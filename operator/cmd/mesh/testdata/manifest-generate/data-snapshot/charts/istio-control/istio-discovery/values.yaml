@@ -162,9 +162,6 @@ sidecarInjectorWebhook:
     enabled: false
     autoInject: true
 
-galley:
-  enabled: false
-
 telemetry:
   enabled: true
   v1:
@@ -203,4 +200,32 @@ revision: ""
 
 # meshConfig defines runtime configuration of components, including Istiod and istio-agent behavior
 # See https://istio.io/docs/reference/config/istio.mesh.v1alpha1/ for all available options
-meshConfig: {}
+meshConfig:
+
+  # Config for the default ProxyConfig.
+  # Initially using directly the proxy metadata - can also be activated using annotations
+  # on the pod. This is an unsupported low-level API, pending review and decisions on
+  # enabling the feature. Enabling the DNS listener is safe - and allows further testing
+  # and gradual adoption by setting capture only on specific workloads. It also allows
+  # VMs to use other DNS options, like dnsmasq or unbound.
+  defaultConfig:
+    proxyMetadata:
+      # If empty, agent will not start :15013 DNS listener and will not attempt
+      # to connect to Istiod DNS-TLS. This will also disable the core dns sidecar in
+      # istiod and the dns-over-tls listener.
+      DNS_AGENT: DNS-TLS
+
+      # If empty, DNS capture is disabled.
+      # If set, intercept UDP port :53 and redirect to localhost:15013
+      # Currently only 'ALL' capture is supported - we may refine it if we want
+      # finer grained control.
+      DNS_CAPTURE: ALL
+
+
+  # TODO: the intent is to eventually have this enabled by default when security is used.
+  # It is not clear if user should normally need to configure - the metadata is typically
+  # used as an escape and to control testing and rollout, but it is not intended as a long-term
+  # stable API.
+
+  # What we may configure in mesh config is the ".global" - and use of other suffixes.
+  # No hurry to do this in 1.6, we're trying to prove the code.
