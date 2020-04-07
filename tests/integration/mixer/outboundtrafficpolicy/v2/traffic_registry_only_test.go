@@ -65,9 +65,8 @@ func TestOutboundTrafficPolicy_RegistryOnly_TelemetryV2(t *testing.T) {
 			Name:     "TCP",
 			PortName: "tcp",
 			Expected: outboundtrafficpolicy.Expected{
-				// TODO(https://github.com/istio/istio/issues/22717) re-enable TCP
-				// Metric:          "istio_tcp_connections_closed_total",
-				// PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="BlackHoleCluster",source_workload="client-v1"})`,
+				Metric:          "istio_tcp_connections_closed_total",
+				PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="BlackHoleCluster",source_workload="client-v1"})`,
 				ResponseCode:    []string{},
 			},
 		},
@@ -75,9 +74,8 @@ func TestOutboundTrafficPolicy_RegistryOnly_TelemetryV2(t *testing.T) {
 			Name:     "TCP Conflict",
 			PortName: "tcp-conflict",
 			Expected: outboundtrafficpolicy.Expected{
-				// TODO(https://github.com/istio/istio/issues/22717) re-enable TCP
-				// Metric:          "istio_tcp_connections_closed_total",
-				// PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="BlackHoleCluster",source_workload="client-v1"})`,
+				Metric:          "istio_tcp_connections_closed_total",
+				PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="BlackHoleCluster",source_workload="client-v1"})`,
 				ResponseCode:    []string{},
 			},
 		},
