@@ -18082,52 +18082,10 @@ data:
         loadbalance
     }
 
-  values.yaml: |-
-    appNamespaces: []
-    autoscaleEnabled: true
-    autoscaleMax: 5
-    autoscaleMin: 1
-    configMap: true
-    configNamespace: istio-config
-    configSource:
-      subscribedResources: []
-    cpu:
-      targetAverageUtilization: 80
-    deploymentLabels: {}
-    enableProtocolSniffingForInbound: true
-    enableProtocolSniffingForOutbound: true
-    env: {}
-    hub: ""
-    image: pilot
-    ingress:
-      ingressClass: istio
-      ingressControllerMode: STRICT
-      ingressService: istio-ingressgateway
-    jwksResolverExtraRootCA: ""
-    keepaliveMaxServerConnectionAge: 30m
-    nodeSelector: {}
-    plugins: []
-    podAnnotations: {}
-    podAntiAffinityLabelSelector: []
-    podAntiAffinityTermLabelSelector: []
-    policy:
-      enabled: false
-    replicaCount: 1
-    resources:
-      requests:
-        cpu: 500m
-        memory: 2048Mi
-    rollingMaxSurge: 100%
-    rollingMaxUnavailable: 25%
-    tag: ""
-    tolerations: []
-    traceSampling: 1
-
   mesh: |-
     accessLogEncoding: TEXT
     accessLogFile: ""
     accessLogFormat: ""
-    certificates: []
     defaultConfig:
       concurrency: 2
       configPath: /etc/istio/proxy
@@ -20358,9 +20316,11 @@ var _chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml = []byte(`{{- define
     {{- end }}
     # Set accessLogFile to empty string to disable access log.
     accessLogFile: "{{ .Values.global.proxy.accessLogFile }}"
-    accessLogFormat: {{ .Values.global.proxy.accessLogFormat | quote }}
-    accessLogEncoding: '{{ .Values.global.proxy.accessLogEncoding }}'
-    enableEnvoyAccessLogService: {{ .Values.global.proxy.envoyAccessLogService.enabled }}
+    accessLogFormat: "{{ .Values.global.proxy.accessLogFormat }}"
+    accessLogEncoding: "{{ .Values.global.proxy.accessLogEncoding | default "TEXT" }}"
+    {{- with .Values.global.proxy.envoyAccessLogService }}
+    enableEnvoyAccessLogService: {{ .enabled }}
+    {{- end }}
     {{- if .Values.global.remotePolicyAddress }}
     {{- if .Values.global.createRemoteSvcEndpoints }}
     mixerCheckServer: istio-policy.{{ .Release.Namespace }}:15004
@@ -20415,7 +20375,7 @@ var _chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml = []byte(`{{- define
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
     {{- if .Values.mixer.policy.enabled }}
-    disablePolicyChecks: {{ .Values.global.disablePolicyChecks }}
+    disablePolicyChecks: {{ .Values.global.disablePolicyChecks | default "true" }}
     {{- else }}
     disablePolicyChecks: true
     {{- end }}
@@ -20428,7 +20388,7 @@ var _chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml = []byte(`{{- define
     # the specified period, defaulting to non mTLS plain TCP
     # traffic. Set this field to tweak the period that Envoy will wait
     # for the client to send the first bits of data. (MUST BE >=1ms)
-    protocolDetectionTimeout: {{ .Values.global.proxy.protocolDetectionTimeout }}
+    protocolDetectionTimeout: {{ .Values.global.proxy.protocolDetectionTimeout | default "100ms" }}
     # This is the k8s ingress service name, update if you used a different name
     {{- if .Values.pilot.ingress }}
     {{- if .Values.pilot.ingress.ingressService }}
@@ -20478,10 +20438,10 @@ var _chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml = []byte(`{{- define
     {{- end }}
 
     # Configures DNS certificates provisioned through Chiron linked into Pilot.
-    # The DNS certificate provisioning is enabled by default now so it get tested.
-    # TODO (lei-tang): we'll decide whether enable it by default or not before Istio 1.4 Release.
+{{- if .Values.global.certificates }}
     certificates:
 {{ toYaml .Values.global.certificates | trim | indent 6 }}
+{{- end }}
 
     defaultConfig:
       #
@@ -20508,7 +20468,7 @@ var _chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml = []byte(`{{- define
       #
       # Set concurrency to a specific number to control the number of Proxy worker threads.
       # If set to 0 (default), then start worker thread for each CPU thread/core.
-      concurrency: {{ .Values.global.proxy.concurrency }}
+      concurrency: {{ .Values.global.proxy.concurrency | default 2 }}
       #
       {{- if eq .Values.global.proxy.tracer "lightstep" }}
       tracing:
@@ -20564,6 +20524,7 @@ var _chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml = []byte(`{{- define
       discoveryAddress: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{.Release.Namespace}}.svc:15012
       {{- end }}
 
+    {{- if .Values.global.proxy.envoyMetricsService }}
     {{- if .Values.global.proxy.envoyMetricsService.enabled }}
       #
       # Envoy's Metrics Service stats sink pushes Envoy metrics to a remote collector via the Metrics Service gRPC API.
@@ -20578,8 +20539,10 @@ var _chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml = []byte(`{{- define
 {{ toYaml .Values.global.proxy.envoyMetricsService.tcpKeepalive | trim | indent 10 }}
       {{- end}}
     {{- end}}
+    {{- end}}
 
 
+    {{- if .Values.global.proxy.envoyAccessLogService }}
     {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
       #
       # Envoy's AccessLog Service pushes access logs to a remote collector via the Access Log Service gRPC API.
@@ -20593,6 +20556,7 @@ var _chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml = []byte(`{{- define
         tcpKeepalive:
 {{ toYaml .Values.global.proxy.envoyAccessLogService.tcpKeepalive | trim | indent 10 }}
       {{- end}}
+    {{- end}}
     {{- end}}
 {{- end }}
 
@@ -20644,9 +20608,6 @@ data:
         reload
         loadbalance
     }
-
-  values.yaml: |-
-{{ toYaml .Values.pilot | trim | indent 4 }}
 
   mesh: |-
 {{- if .Values.meshConfig }}
@@ -43558,13 +43519,6 @@ spec:
   hub: gcr.io/istio-testing
   tag: latest
 
-  # You may override parts of meshconfig by uncommenting the following lines.
-  # meshConfig:
-    #
-    # Opt-out of global http2 upgrades.
-    # Destination rule is used to opt-in.
-    # h2_upgrade_policy: DO_NOT_UPGRADE
-
   # Traffic management feature
   components:
     base:
@@ -43803,6 +43757,11 @@ spec:
   # Global values passed through to helm global.yaml.
   # Please keep this in sync with manifests/global.yaml
   values:
+    # You may override parts of meshconfig by uncommenting the following lines.
+    meshConfig:
+      # Opt-out of global http2 upgrades.
+      # Destination rule is used to opt-in.
+      # h2_upgrade_policy: DO_NOT_UPGRADE
     global:
       istioNamespace: istio-system
       istiod:
@@ -43823,17 +43782,8 @@ spec:
           limits:
             cpu: 2000m
             memory: 1024Mi
-        concurrency: 2
-        accessLogFile: ""
-        accessLogFormat: ""
-        accessLogEncoding: TEXT
-        envoyAccessLogService:
-          enabled: false
-          host: # example: accesslog-service.istio-system
-          port: # example: 15000
         logLevel: warning
         componentLogLevel: "misc:error"
-        protocolDetectionTimeout: 100ms
         privileged: false
         enableCoreDump: false
         statusPort: 15020
@@ -43849,21 +43799,6 @@ spec:
           enabled: false
           host: # example: statsd-svc.istio-system
           port: # example: 9125
-        envoyMetricsService:
-          enabled: false
-          host: # example: metrics-service.istio-system
-          port: # example: 15000
-          tlsSettings:
-            mode: DISABLE # DISABLE, SIMPLE, MUTUAL, ISTIO_MUTUAL
-            clientCertificate: # example: /etc/istio/ms/cert-chain.pem
-            privateKey:        # example: /etc/istio/ms/key.pem
-            caCertificates:    # example: /etc/istio/ms/root-cert.pem
-            sni:               # example: ms.somedomain
-            subjectAltNames: []
-          tcpKeepalive:
-            probes: 3
-            time: 10s
-            interval: 10s
         tracer: "zipkin"
       proxy_init:
         image: proxyv2
@@ -43877,10 +43812,8 @@ spec:
       # Specify image pull policy if default behavior isn't desired.
       # Default behavior: latest images will be Always else IfNotPresent.
       imagePullPolicy: ""
-      certificates: []
       operatorManageWebhooks: false
       controlPlaneSecurityEnabled: true
-      disablePolicyChecks: true
       policyCheckFailOpen: false
       enableTracing: true
       tracer:
@@ -43958,10 +43891,6 @@ spec:
       enableProtocolSniffingForInbound: true
       deploymentLabels:
       configMap: true
-      ingress:
-        ingressService: istio-ingressgateway
-        ingressControllerMode: "STRICT"
-        ingressClass: istio
       policy:
         enabled: false
 
@@ -44008,8 +43937,6 @@ spec:
         loadshedding:
           mode: enforce
           latencyThreshold: 100ms
-        reportBatchMaxEntries: 100
-        reportBatchMaxTime: 1s
         env:
           GOMAXPROCS: "6"
         nodeSelector: {}
