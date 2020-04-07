@@ -74,6 +74,9 @@ func destinationRuleAffectsProxy(proxy *model.Proxy, pushEv *XdsEvent, resources
 // PushAffectsProxy checks if a pushEv will affect a specified proxy. That means whether the push will be performed
 // towards the proxy.
 func PushAffectsProxy(pushEv *XdsEvent, proxy *model.Proxy) bool {
+	if proxy.Type != model.SidecarProxy {
+		return true
+	}
 	if len(pushEv.configsUpdated) == 0 {
 		return true
 	}
