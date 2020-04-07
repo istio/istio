@@ -162,6 +162,30 @@ func TestPushTypeFor(t *testing.T) {
 				collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind()},
 			expect: map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true},
 		},
+		{
+			name:        "requestauthentication updated",
+			proxy:       sidecar,
+			configTypes: []resource.GroupVersionKind{collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind()},
+			expect:      map[XdsType]bool{LDS: true},
+		},
+		{
+			name:        "requestauthentication updated",
+			proxy:       gateway,
+			configTypes: []resource.GroupVersionKind{collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind()},
+			expect:      map[XdsType]bool{LDS: true},
+		},
+		{
+			name:        "peerauthentication updated",
+			proxy:       sidecar,
+			configTypes: []resource.GroupVersionKind{collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind()},
+			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true},
+		},
+		{
+			name:        "peerauthentication updated",
+			proxy:       gateway,
+			configTypes: []resource.GroupVersionKind{collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind()},
+			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true},
+		},
 	}
 
 	for _, tt := range tests {
