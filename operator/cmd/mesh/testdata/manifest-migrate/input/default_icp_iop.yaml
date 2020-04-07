@@ -2,8 +2,15 @@ apiVersion: install.istio.io/v1alpha2
 kind: IstioControlPlane
 spec:
   hub: gcr.io/istio-testing
-  tag: 1.4-dev
+  tag: latest
   defaultNamespace: istio-system
+
+  # Base contains all CRDs, namespaces etc.
+  base:
+    enabled: true
+    components:
+      base:
+        enabled: true
 
   # Traffic management feature
   trafficManagement:
@@ -124,16 +131,6 @@ spec:
   # Security feature
   security:
     enabled: true
-    components:
-      citadel:
-        enabled: true
-        k8s:
-          strategy:
-            rollingUpdate:
-              maxSurge: "100%"
-              maxUnavailable: "25%"
-      certManager:
-        enabled: false
 
   # Istio Gateway feature
   gateways:
@@ -202,10 +199,6 @@ spec:
       logging:
         level: "default:info"
       logAsJson: false
-      k8sIngress:
-        enabled: false
-        gatewayName: ingressgateway
-        enableHttps: false
       proxy:
         image: proxyv2
         clusterDomain: "cluster.local"
@@ -237,8 +230,6 @@ spec:
         includeIPRanges: "*"
         excludeIPRanges: ""
         excludeOutboundPorts: ""
-        kubevirtInterfaces: ""
-        includeInboundPorts: "*"
         excludeInboundPorts: ""
         autoInject: enabled
         envoyStatsd:
@@ -289,7 +280,7 @@ spec:
           address: "$(HOST_IP):8126"
       mtls:
         enabled: false
-        auto: false
+        auto: true
       imagePullSecrets: []
       arch:
         amd64: 2
@@ -345,8 +336,6 @@ spec:
       enableProtocolSniffingForOutbound: true
       enableProtocolSniffingForInbound: false
       deploymentLabels:
-      meshNetworks:
-        networks: {}
       configMap: true
       ingress:
         ingressService: istio-ingressgateway
@@ -355,27 +344,12 @@ spec:
       policy:
         enabled: false
       useMCP: true
+
     telemetry:
       enabled: true
-      v1:
-        enabled: true
       v2:
-        # For Null VM case now. If enabled, will set disableMixerHttpReports to true and not define mixerReportServer
-        # also enable metadata exchange and stats filter.
         enabled: false
-        # prometheus stats filter settings.
-        prometheus:
-          # stats filter would be enabled when telemetry and v2 is enabled.
-          enabled: true
-        # stackdriver filter settings.
-        stackdriver:
-          enabled: false
-          logging: false
-          monitoring: false
-          topology: false
-          #  configOverride parts give you the ability to override the low level configuration params passed to envoy filter.
 
-          configOverride: {}
     mixer:
       adapters:
         stdio:
@@ -423,14 +397,6 @@ spec:
           kubernetesenv:
             enabled: true
           useAdapterCRDs: false
-
-    security:
-      image: citadel
-      selfSigned: true # indicate if self-signed CA is used.
-      trustDomain: cluster.local # indicate the domain used in SPIFFE identity URL
-      enableNamespacesByDefault: true
-      dnsCerts:
-        istio-pilot-service-account.istio-control: istio-pilot.istio-control
 
     certmanager:
       hub: quay.io/jetstack
@@ -532,12 +498,6 @@ spec:
       retention: 6h
       scrapeInterval: 15s
       contextPath: /prometheus
-      ingress:
-        enabled: false
-        hosts:
-          - prometheus.local
-        annotations:
-        tls:
       security:
         enabled: true
       nodeSelector: {}
@@ -567,12 +527,6 @@ spec:
         externalPort: 3000
         loadBalancerIP:
         loadBalancerSourceRanges:
-      ingress:
-        enabled: false
-        hosts:
-          - grafana.local
-        annotations:
-        tls:
       datasources:
         datasources.yaml:
           apiVersion: 1
@@ -644,11 +598,6 @@ spec:
         name: http-query
         type: ClusterIP
         externalPort: 9411
-      ingress:
-        enabled: false
-        hosts:
-        annotations:
-        tls:
     istiocoredns:
       enabled: false
       coreDNSImage: coredns/coredns
@@ -664,19 +613,15 @@ spec:
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
-      ingress:
-        enabled: false
-        hosts:
-          - kiali.local
-        annotations:
-        tls:
       dashboard:
         secretName: kiali
         usernameKey: username
         passphraseKey: passphrase
         viewOnlyMode: false
         grafanaURL:
+        grafanaInClusterURL: http://grafana:3000
         jaegerURL:
+        jaegerInClusterURL: http://tracing/jaeger
       prometheusNamespace:
       createDemoSecret: false
       security:
