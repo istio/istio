@@ -110,7 +110,7 @@ func (n *kubeNamespace) Close() (err error) {
 	return
 }
 
-func claimKube(ctx resource.Context, name string) (Instance, error) {
+func claimKube(ctx resource.Context, name string, injectSidecar bool) (Instance, error) {
 	env := ctx.Environment().(*kube.Environment)
 	cfg, err := istio.DefaultConfig(ctx)
 	if err != nil {
@@ -120,7 +120,7 @@ func claimKube(ctx resource.Context, name string) (Instance, error) {
 	for _, cluster := range env.KubeClusters {
 		if !cluster.NamespaceExists(name) {
 			nsConfig := Config{
-				Inject:   true,
+				Inject:   injectSidecar,
 				Revision: cfg.CustomSidecarInjectorNamespace,
 			}
 			nsLabels := createNamespaceLabels(&nsConfig)
