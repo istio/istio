@@ -58,7 +58,7 @@ func TestEnvoyArgs(t *testing.T) {
 		"--service-node", "my-node",
 		"--max-obj-name-len", fmt.Sprint(proxyConfig.StatNameLength),
 		"--local-address-ip-version", "v4",
-		"--log-format", "[Envoy (Epoch 5)] [%Y-%m-%d %T.%e][%t][%l][%n] %v",
+		"--log-format", "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n\t%v",
 		"-l", "trace",
 		"--component-log-level", "misc:error",
 		"--config-yaml", `{"key": "value"}`,
