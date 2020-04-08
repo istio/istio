@@ -4,7 +4,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-reader-service-account
-  namespace: istio-system
+  namespace: default
   labels:
     app: istio-reader
     release: istio-base
@@ -13,7 +13,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-pilot-service-account
-  namespace: istio-system
+  namespace: default
   labels:
     app: pilot
     release: istio-base
@@ -6722,7 +6722,7 @@ spec:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istiod-istio-system
+  name: istiod-default
   labels:
     app: istiod
     release: istio-base
@@ -6812,7 +6812,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istio-reader-istio-system
+  name: istio-reader-default
   labels:
     app: istio-reader
     release: istio-base
@@ -6839,34 +6839,34 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-reader-istio-system
+  name: istio-reader-default
   labels:
     app: istio-reader
     release: istio-base
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-reader-istio-system
+  name: istio-reader-default
 subjects:
   - kind: ServiceAccount
     name: istio-reader-service-account
-    namespace: istio-system
+    namespace: default
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istiod-pilot-istio-system
+  name: istiod-pilot-default
   labels:
     app: pilot
     release: istio-base
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istiod-istio-system
+  name: istiod-default
 subjects:
   - kind: ServiceAccount
     name: istio-pilot-service-account
-    namespace: istio-system
+    namespace: default
 ---
 
 ---
@@ -6882,7 +6882,7 @@ subjects:
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: istiod-istio-system
+  name: istiod-default
   labels:
     app: istiod
     release: istio-base
@@ -6892,7 +6892,7 @@ webhooks:
     clientConfig:
       service:
         name: istiod
-        namespace: istio-system
+        namespace: default
         path: "/validate"
       caBundle: "" # patched at runtime when the webhook is ready.
     rules:
@@ -6915,3 +6915,4 @@ webhooks:
     failurePolicy: Ignore
     sideEffects: None
 ---
+

@@ -13,7 +13,7 @@ data:
       tracing: {{ .Values.global.telemetryNamespace }}
       pilot: {{ .Values.global.configNamespace }}
       prometheus: {{ .Values.global.prometheusNamespace }}
-    istio_namespace: {{ .Values.global.istioNamespace }}
+    istio_namespace: {{ .Release.Namespace }}
     auth:
       strategy: {{ .Values.kiali.dashboard.auth.strategy }}
 {{- if eq .Values.kiali.dashboard.auth.strategy "ldap" }}

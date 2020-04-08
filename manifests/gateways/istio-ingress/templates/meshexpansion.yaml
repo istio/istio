@@ -26,7 +26,7 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   hosts:
-  - istiod.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  - istiod.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   gateways:
   - meshexpansion-gateway
   tcp:
@@ -34,7 +34,7 @@ spec:
     - port: 15012
     route:
     - destination:
-        host: istiod.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+        host: istiod.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
         port:
           number: 15012
 ---

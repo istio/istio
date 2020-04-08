@@ -129,6 +129,9 @@ func TestManifestGenerateFlags(t *testing.T) {
 			flags:      "-s profile=minimal",
 			noInput:    true,
 		},
+		{
+			desc: "namespace_override",
+		},
 	})
 	removeDirOrFail(t, flagOutputDir)
 	removeDirOrFail(t, flagOutputValuesDir)
@@ -379,7 +382,7 @@ func TestConfigSelectors(t *testing.T) {
 		"istio": "pilot",
 	}
 	if sel := mustGetLabels(t, deployment, "spec.selector.matchLabels"); !reflect.DeepEqual(deploymentSelector15, sel) {
-		t.Fatalf("Depployment selectors are immutable, but changed since 1.5. Was %v, now is %v", deploymentSelector15, sel)
+		t.Fatalf("Deployment selectors are immutable, but changed since 1.5. Was %v, now is %v", deploymentSelector15, sel)
 	}
 }
 

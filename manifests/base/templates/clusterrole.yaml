@@ -3,7 +3,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istiod-{{ .Values.global.istioNamespace }}
+  name: istiod-{{ .Release.Namespace }}
   labels:
     app: istiod
     release: {{ .Release.Name }}
@@ -105,7 +105,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istio-reader-{{ .Values.global.istioNamespace }}
+  name: istio-reader-{{ .Release.Namespace }}
   labels:
     app: istio-reader
     release: {{ .Release.Name }}

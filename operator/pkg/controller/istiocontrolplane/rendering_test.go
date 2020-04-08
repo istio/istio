@@ -91,6 +91,9 @@ func TestRenderCharts(t *testing.T) {
 			desc:       "component_hub_tag",
 			diffSelect: "Deployment:*:*",
 		},
+		{
+			desc: "namespace_override",
+		},
 	})
 	removeDirOrFail(t, flagOutputDir)
 	removeDirOrFail(t, flagOutputValuesDir)

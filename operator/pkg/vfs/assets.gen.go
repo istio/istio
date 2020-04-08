@@ -7024,7 +7024,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-reader-service-account
-  namespace: istio-system
+  namespace: default
   labels:
     app: istio-reader
     release: istio-base
@@ -7033,7 +7033,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-pilot-service-account
-  namespace: istio-system
+  namespace: default
   labels:
     app: pilot
     release: istio-base
@@ -13742,7 +13742,7 @@ spec:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istiod-istio-system
+  name: istiod-default
   labels:
     app: istiod
     release: istio-base
@@ -13832,7 +13832,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istio-reader-istio-system
+  name: istio-reader-default
   labels:
     app: istio-reader
     release: istio-base
@@ -13859,34 +13859,34 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-reader-istio-system
+  name: istio-reader-default
   labels:
     app: istio-reader
     release: istio-base
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-reader-istio-system
+  name: istio-reader-default
 subjects:
   - kind: ServiceAccount
     name: istio-reader-service-account
-    namespace: istio-system
+    namespace: default
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istiod-pilot-istio-system
+  name: istiod-pilot-default
   labels:
     app: pilot
     release: istio-base
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istiod-istio-system
+  name: istiod-default
 subjects:
   - kind: ServiceAccount
     name: istio-pilot-service-account
-    namespace: istio-system
+    namespace: default
 ---
 
 ---
@@ -13902,7 +13902,7 @@ subjects:
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: istiod-istio-system
+  name: istiod-default
   labels:
     app: istiod
     release: istio-base
@@ -13912,7 +13912,7 @@ webhooks:
     clientConfig:
       service:
         name: istiod
-        namespace: istio-system
+        namespace: default
         path: "/validate"
       caBundle: "" # patched at runtime when the webhook is ready.
     rules:
@@ -13935,6 +13935,7 @@ webhooks:
     failurePolicy: Ignore
     sideEffects: None
 ---
+
 `)
 
 func chartsBaseFilesGenIstioClusterYamlBytes() ([]byte, error) {
@@ -13979,7 +13980,7 @@ var _chartsBaseTemplatesClusterroleYaml = []byte(`# Dedicated cluster role - ist
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istiod-{{ .Values.global.istioNamespace }}
+  name: istiod-{{ .Release.Namespace }}
   labels:
     app: istiod
     release: {{ .Release.Name }}
@@ -14081,7 +14082,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istio-reader-{{ .Values.global.istioNamespace }}
+  name: istio-reader-{{ .Release.Namespace }}
   labels:
     app: istio-reader
     release: {{ .Release.Name }}
@@ -14122,34 +14123,34 @@ func chartsBaseTemplatesClusterroleYaml() (*asset, error) {
 var _chartsBaseTemplatesClusterrolebindingYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-reader-{{ .Values.global.istioNamespace }}
+  name: istio-reader-{{ .Release.Namespace }}
   labels:
     app: istio-reader
     release: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-reader-{{ .Values.global.istioNamespace }}
+  name: istio-reader-{{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
     name: istio-reader-service-account
-    namespace: {{ .Values.global.istioNamespace }}
+    namespace: {{ .Release.Namespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istiod-pilot-{{ .Values.global.istioNamespace }}
+  name: istiod-pilot-{{ .Release.Namespace }}
   labels:
     app: pilot
     release: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istiod-{{ .Values.global.istioNamespace }}
+  name: istiod-{{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
     name: istio-pilot-service-account
-    namespace: {{ .Values.global.istioNamespace }}
+    namespace: {{ .Release.Namespace }}
 ---
 `)
 
@@ -14194,7 +14195,7 @@ apiVersion: v1
 kind: Endpoints
 metadata:
   name: istio-pilot
-  namespace: {{ .Values.global.istioNamespace }}
+  namespace: {{ .Release.Namespace }}
 subsets:
 - addresses:
   - ip: {{ .Values.global.remotePilotAddress }}
@@ -14223,7 +14224,7 @@ apiVersion: v1
 kind: Endpoints
 metadata:
   name: istio-policy
-  namespace: {{ .Values.global.istioNamespace }}
+  namespace: {{ .Release.Namespace }}
 subsets:
 - addresses:
   - ip: {{ .Values.global.remotePolicyAddress }}
@@ -14241,7 +14242,7 @@ apiVersion: v1
 kind: Endpoints
 metadata:
   name: istio-telemetry
-  namespace: {{ .Values.global.istioNamespace }}
+  namespace: {{ .Release.Namespace }}
 subsets:
 - addresses:
   - ip: {{ .Values.global.remoteTelemetryAddress }}
@@ -14282,7 +14283,7 @@ imagePullSecrets:
 {{- end }}
 metadata:
   name: istio-reader-service-account
-  namespace: {{ .Values.global.istioNamespace }}
+  namespace: {{ .Release.Namespace }}
   labels:
     app: istio-reader
     release: {{ .Release.Name }}
@@ -14297,7 +14298,7 @@ imagePullSecrets:
   {{- end }}
 metadata:
   name: istio-pilot-service-account
-  namespace: {{ .Values.global.istioNamespace }}
+  namespace: {{ .Release.Namespace }}
   labels:
     app: pilot
     release: {{ .Release.Name }}
@@ -14325,7 +14326,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-pilot
-  namespace: {{ .Values.global.istioNamespace }}
+  namespace: {{ .Release.Namespace }}
 spec:
   ports:
   - port: 15010
@@ -14352,7 +14353,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-policy
-  namespace: {{ .Values.global.istioNamespace }}
+  namespace: {{ .Release.Namespace }}
 spec:
   ports:
   - name: grpc-mixer
@@ -14369,7 +14370,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-telemetry
-  namespace: {{ .Values.global.istioNamespace }}
+  namespace: {{ .Release.Namespace }}
 spec:
   ports:
   - name: grpc-mixer
@@ -14403,7 +14404,7 @@ func chartsBaseTemplatesServicesYaml() (*asset, error) {
 var _chartsBaseTemplatesValidatingwebhookconfigurationYaml = []byte(`apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: istiod-{{ .Values.global.istioNamespace }}
+  name: istiod-{{ .Release.Namespace }}
   labels:
     app: istiod
     release: {{ .Release.Name }}
@@ -14413,7 +14414,7 @@ webhooks:
     clientConfig:
       service:
         name: istiod
-        namespace: {{ .Values.global.istioNamespace }}
+        namespace: {{ .Release.Namespace }}
         path: "/validate"
       caBundle: "" # patched at runtime when the webhook is ready.
     rules:
@@ -14435,7 +14436,8 @@ webhooks:
     # endpoint is ready.
     failurePolicy: Ignore
     sideEffects: None
----`)
+---
+`)
 
 func chartsBaseTemplatesValidatingwebhookconfigurationYamlBytes() ([]byte, error) {
 	return _chartsBaseTemplatesValidatingwebhookconfigurationYaml, nil
@@ -15768,7 +15770,7 @@ spec:
           {{- else if .Values.global.configNamespace }}
             value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
           {{- else }}
-            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
+            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
           {{- end }}
           - name: NODE_NAME
             valueFrom:
@@ -15960,7 +15962,7 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   hosts:
-  - istiod.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  - istiod.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   gateways:
   - meshexpansion-gateway
   tcp:
@@ -15968,7 +15970,7 @@ spec:
     - port: 15012
     route:
     - destination:
-        host: istiod.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+        host: istiod.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
         port:
           number: 15012
 ---
@@ -17470,7 +17472,7 @@ data:
         {{- else if .Values.global.configNamespace }}
           value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
-          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -18704,7 +18706,6 @@ apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
   name: istio-sidecar-injector
-
   labels:
     istio.io/rev: default
     app: sidecar-injector
@@ -18909,7 +18910,7 @@ template: |
     {{- else if .Values.global.configNamespace }}
       value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
     {{- else }}
-      value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
+      value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
     {{- end }}
     - name: POD_NAME
       valueFrom:
@@ -19916,11 +19917,7 @@ var _chartsIstioControlIstioDiscoveryTemplatesMutatingwebhookYaml = []byte(`# In
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
-{{- if eq .Release.Namespace "istio-system"}}
   name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-{{ else }}
-  name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
-{{- end }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
     app: sidecar-injector
@@ -35831,7 +35828,7 @@ data:
       tracing: {{ .Values.global.telemetryNamespace }}
       pilot: {{ .Values.global.configNamespace }}
       prometheus: {{ .Values.global.prometheusNamespace }}
-    istio_namespace: {{ .Values.global.istioNamespace }}
+    istio_namespace: {{ .Release.Namespace }}
     auth:
       strategy: {{ .Values.kiali.dashboard.auth.strategy }}
 {{- if eq .Values.kiali.dashboard.auth.strategy "ldap" }}
@@ -38042,7 +38039,7 @@ spec:
           {{- else if .Values.global.configNamespace }}
           value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
           {{- else }}
-          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
       {{- end }}
         resources:
 {{- if .Values.global.proxy.resources }}
@@ -39611,7 +39608,7 @@ data:
       - role: endpoints
         namespaces:
           names:
-          - {{ .Values.global.istioNamespace }}
+          - {{ .Release.Namespace }}
 
       relabel_configs:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
@@ -39922,7 +39919,7 @@ spec:
               {{- else if .Values.global.configNamespace }}
               value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
               {{- else }}
-              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
+              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
               {{- end }}
             - name: POD_NAME
               valueFrom:
