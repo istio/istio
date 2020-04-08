@@ -36,8 +36,6 @@ var (
 	liveReleaseDir string
 	// Path to the operator install base dir in the live release.
 	liveInstallPackageDir string
-	// Path to the operator install base dir in the snapshot.
-	snapshotInstallPackageDir string
 )
 
 func runCommand(command string) (string, error) {
