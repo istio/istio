@@ -92,13 +92,27 @@ func amendFilterChainMatchFromInboundListener(chain *listener.FilterChain, l *xd
 	return chain, needTLS
 }
 
+func isBindtoPort(l *xdsapi.Listener) bool {
+	v1 := l.GetDeprecatedV1()
+	if v1 == nil {
+		// Default is true
+		return true
+	}
+	bp := v1.BindToPort
+	if bp == nil {
+		// Default is true
+		return true
+	}
+	return bp.Value
+}
+
 // Accumulate the filter chains from per proxy service listeners
 func reduceInboundListenerToFilterChains(listeners []*xdsapi.Listener) ([]*listener.FilterChain, bool) {
 	needTLS := false
 	chains := make([]*listener.FilterChain, 0)
 	for _, l := range listeners {
 		// default bindToPort is true and these listener should be skipped
-		if v1Opt := l.GetDeprecatedV1(); v1Opt == nil || v1Opt.BindToPort == nil || v1Opt.BindToPort.Value {
+		if isBindtoPort(l) {
 			// A listener on real port should not be intercepted by virtual inbound listener
 			continue
 		}
@@ -152,6 +166,16 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 	timeout := features.InboundProtocolDetectionTimeout
 	lb.virtualInboundListener.ListenerFiltersTimeout = ptypes.DurationProto(timeout)
 	lb.virtualInboundListener.ContinueOnListenerFiltersTimeout = true
+
+	// All listeners except bind_to_port=true listeners are now a part of virtual inbound and not needed
+	// we can filter these ones out.
+	bindToPortInbound := make([]*xdsapi.Listener, 0, len(lb.inboundListeners))
+	for _, i := range lb.inboundListeners {
+		if isBindtoPort(i) {
+			bindToPortInbound = append(bindToPortInbound, i)
+		}
+	}
+	lb.inboundListeners = bindToPortInbound
 
 	return lb
 }
@@ -288,6 +312,7 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 		FilterChains:     filterChains,
 	}
 	lb.aggregateVirtualInboundListener(needTLSForPassThroughFilterChain)
+
 	return lb
 }
 
@@ -339,10 +364,10 @@ func (lb *ListenerBuilder) getListeners() []*xdsapi.Listener {
 			listeners = append(listeners, lb.virtualInboundListener)
 		}
 
-		log.Debugf("Build %d listeners for node %s including %d inbound, %d outbound, %d virtual and %d virtual inbound listeners",
+		log.Debugf("Build %d listeners for node %s including %d outbound, %d virtual and %d virtual inbound listeners",
 			nListener,
 			lb.node.ID,
-			nInbound, nOutbound,
+			nOutbound,
 			nVirtual, nVirtualInbound)
 		return listeners
 	}
