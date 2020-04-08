@@ -280,7 +280,7 @@ func TestLDFlags(t *testing.T) {
 
 // This test enforces that objects that reference other objects do so properly, such as Service selecting deployment
 func TestConfigSelectors(t *testing.T) {
-	got, err := runManifestGenerate([]string{}, "")
+	got, err := runManifestGenerate([]string{}, "", true)
 	if err != nil {
 		t.Fatal(err)
 	}
