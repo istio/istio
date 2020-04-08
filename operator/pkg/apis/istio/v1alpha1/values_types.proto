@@ -533,7 +533,10 @@ message GlobalConfig {
 
   // The address of the CA for CSR.
   string caAddress = 61;
-  // The next available key is 62
+
+  // the ID of the cluster
+  string clusterID = 62;
+  // The next available key is 63
 }
 
 // Configuration for Security Token Service (STS) server.

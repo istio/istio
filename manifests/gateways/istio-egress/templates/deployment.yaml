@@ -178,8 +178,9 @@ spec:
             value: |
 {{ toJson $gateway.podAnnotations | indent 16}}
 {{ end }}
+          {{ $deprecatedClusterID := .Values.global.multiCluster.clusterName | default "Kubernetes" }}
           - name: ISTIO_META_CLUSTER_ID
-            value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
+            value: "{{ .Values.global.clusterID | default $deprecatedClusterID }}"
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config

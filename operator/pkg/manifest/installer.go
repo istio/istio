@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"istio.io/api/operator/v1alpha1"
+	cert "istio.io/istio/pkg/certs"
 
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
@@ -257,17 +258,23 @@ func parseKubectlVersion(kubectlStdout string) (*goversion.Version, *goversion.V
 }
 
 // ApplyAll applies all given manifests using kubectl client.
-func ApplyAll(manifests name.ManifestMap, version pkgversion.Version, iop *v1alpha1.IstioOperatorSpec, opts *kubectlcmd.Options) (CompositeOutput, error) {
+func ApplyAll(manifests name.ManifestMap, version pkgversion.Version, iop *v1alpha1.IstioOperatorSpec,
+	opts *kubectlcmd.Options, certDir string) (CompositeOutput, error) {
 	scope.Infof("Preparing manifests for these components:")
 	for c := range manifests {
 		scope.Infof("- %s", c)
 	}
 	scope.Infof("Component dependencies tree: \n%s", installTreeString())
-	if _, err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
+	restConfig, err := InitK8SRestClient(opts.Kubeconfig, opts.Context)
+	if err != nil {
 		return nil, err
 	}
 	// Set up the namespace for installation
 	if err := createNamespace(iop.Namespace); err != nil {
+		return nil, err
+	}
+	err = plugInExternalCertOrGenerateSelfSignedCerts(restConfig, certDir, iop, opts.DryRun)
+	if err != nil {
 		return nil, err
 	}
 	return applyRecursive(manifests, version, iop.Revision, opts)
@@ -992,4 +999,45 @@ func logAndPrint(v ...interface{}) {
 	s := fmt.Sprintf(v[0].(string), v[1:]...)
 	scope.Infof(s)
 	fmt.Println(s)
+}
+
+//extractClusterID from: values.global.clusterID -> uuid for 'kube-system`, return error if not found
+func extractClusterID(client kubernetes.Interface, iop *v1alpha1.IstioOperatorSpec) (string, error) {
+	iopvalString := util.ToYAML(iop.Values)
+	values := &iopv1alpha1.Values{}
+	if err := util.UnmarshalValuesWithJSONPB(iopvalString, values, true); err != nil {
+		return "", fmt.Errorf("failed to parse global values in IOP: %v", err)
+	}
+	clusterID := values.Global.ClusterID
+	if clusterID == "" {
+		n, err := client.CoreV1().Namespaces().Get(context2.TODO(), "kube-system", metav1.GetOptions{})
+		if err != nil {
+			return "", fmt.Errorf("failed to get uid for namespace %s to use as clusterID", "kube-system")
+		}
+		clusterID = string(n.UID)
+	}
+	return clusterID, nil
+}
+
+func plugInExternalCertOrGenerateSelfSignedCerts(restConfig *rest.Config, certDir string, iop *v1alpha1.IstioOperatorSpec, dryRun bool) error {
+	//try to plugIn external certs
+	client, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return err
+	}
+	if certDir != "" {
+		clusterID, err := extractClusterID(client, iop)
+		if err != nil {
+			return err
+		}
+		err = cert.PlugInProvisionedCert(client, certDir, iop.Namespace, dryRun)
+		if err != nil {
+			scope.Infof("plugin specified cert and key failed, will generate self signed root cert and two intermediate ca certs")
+			err = cert.GenerateCertsAndKey(client, iop.Namespace, dryRun, certDir, clusterID)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

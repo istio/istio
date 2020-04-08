@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/tpath"
 	pkgversion "istio.io/istio/operator/pkg/version"
+
 	"istio.io/pkg/log"
 )
 
@@ -212,10 +213,21 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 	if len(errs) != 0 && !args.force {
 		return fmt.Errorf("failed in pre-upgrade hooks, error: %v", errs.ToError())
 	}
+	applyCmdArgs := &runApplyManifestArgs{
+		set:              nil,
+		inFilenames:      args.inFilenames,
+		force:            args.force,
+		dryRun:           rootArgs.dryRun,
+		verbose:          rootArgs.verbose,
+		kubeConfigPath:   args.kubeConfigPath,
+		context:          args.context,
+		wait:             args.wait,
+		readinessTimeout: upgradeWaitSecWhenApply,
+		l:                l,
+	}
 
 	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
-	err = ApplyManifests(nil, args.inFilenames, args.force, rootArgs.dryRun,
-		rootArgs.verbose, args.kubeConfigPath, args.context, args.wait, upgradeWaitSecWhenApply, l)
+	err = ApplyManifests(applyCmdArgs)
 	if err != nil {
 		return fmt.Errorf("failed to apply the Istio Control Plane specs. Error: %v", err)
 	}

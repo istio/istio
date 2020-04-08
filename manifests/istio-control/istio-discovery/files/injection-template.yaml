@@ -205,8 +205,15 @@ template: |
             {{ $container.Name }}
           {{- end}}
         ]
+    {{ $deprecatedClusterID := .Values.global.multiCluster.clusterName }}
+    {{ $clusterID := .Values.global.clusterID }}
+    {{- if $clusterID }}
     - name: ISTIO_META_CLUSTER_ID
-      value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
+      value: "{{ $clusterID }}"
+    {{- else }}
+    - name: ISTIO_META_CLUSTER_ID
+      value: "{{ valueOrDefault $deprecatedClusterID  `Kubernetes` }}"
+    {{- end}}
     - name: ISTIO_META_INTERCEPTION_MODE
       value: "{{ or (index .ObjectMeta.Annotations `sidecar.istio.io/interceptionMode`) .ProxyConfig.InterceptionMode.String }}"
     {{- if .Values.global.network }}

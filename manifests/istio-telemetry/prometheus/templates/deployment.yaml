@@ -139,8 +139,9 @@ spec:
             - name: ISTIO_META_MESH_ID
               value: "{{ .Values.global.trustDomain }}"
               {{- end }}
+            {{ $deprecatedClusterID := .Values.global.multiCluster.clusterName | default "Kubernetes" }}
             - name: ISTIO_META_CLUSTER_ID
-              value: "{{ .Values.global.multiCluster.clusterName | default `Kubernetes` }}"
+              value: "{{ .Values.global.clusterID | default $deprecatedClusterID }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           readinessProbe:
             failureThreshold: 30

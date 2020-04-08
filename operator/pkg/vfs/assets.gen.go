@@ -14954,8 +14954,9 @@ spec:
             value: |
 {{ toJson $gateway.podAnnotations | indent 16}}
 {{ end }}
+          {{ $deprecatedClusterID := .Values.global.multiCluster.clusterName | default "Kubernetes" }}
           - name: ISTIO_META_CLUSTER_ID
-            value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
+            value: "{{ .Values.global.clusterID | default $deprecatedClusterID }}"
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -15824,8 +15825,9 @@ spec:
             value: |
 {{ toJson $gateway.podAnnotations | indent 16}}
 {{ end }}
+          {{ $deprecatedClusterID := .Values.global.multiCluster.clusterName | default "Kubernetes" }}
           - name: ISTIO_META_CLUSTER_ID
-            value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
+            value: "{{ .Values.global.clusterID | default $deprecatedClusterID }}"
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -17094,6 +17096,7 @@ data:
         },
         "caAddress": "",
         "certificates": [],
+        "clusterID": "",
         "configNamespace": "istio-system",
         "configRootNamespace": "istio-system",
         "configValidation": true,
@@ -17516,8 +17519,15 @@ data:
                 {{ $container.Name }}
               {{- end}}
             ]
+        {{ $deprecatedClusterID := .Values.global.multiCluster.clusterName }}
+        {{ $clusterID := .Values.global.clusterID }}
+        {{- if $clusterID }}
         - name: ISTIO_META_CLUSTER_ID
-          value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `+"`"+`Kubernetes`+"`"+` }}"
+          value: "{{ $clusterID }}"
+        {{- else }}
+        - name: ISTIO_META_CLUSTER_ID
+          value: "{{ valueOrDefault $deprecatedClusterID  `+"`"+`Kubernetes`+"`"+` }}"
+        {{- end}}
         - name: ISTIO_META_INTERCEPTION_MODE
           value: "{{ or (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/interceptionMode`+"`"+`) .ProxyConfig.InterceptionMode.String }}"
         {{- if .Values.global.network }}
@@ -17855,6 +17865,7 @@ spec:
             value: istiod.istio-system.svc:15012
           - name: PILOT_ENABLE_ANALYSIS
             value: "false"
+          
           - name: CLUSTER_ID
             value: "Kubernetes"
           resources:
@@ -18955,8 +18966,15 @@ template: |
             {{ $container.Name }}
           {{- end}}
         ]
+    {{ $deprecatedClusterID := .Values.global.multiCluster.clusterName }}
+    {{ $clusterID := .Values.global.clusterID }}
+    {{- if $clusterID }}
     - name: ISTIO_META_CLUSTER_ID
-      value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `+"`"+`Kubernetes`+"`"+` }}"
+      value: "{{ $clusterID }}"
+    {{- else }}
+    - name: ISTIO_META_CLUSTER_ID
+      value: "{{ valueOrDefault $deprecatedClusterID  `+"`"+`Kubernetes`+"`"+` }}"
+    {{- end}}
     - name: ISTIO_META_INTERCEPTION_MODE
       value: "{{ or (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/interceptionMode`+"`"+`) .ProxyConfig.InterceptionMode.String }}"
     {{- if .Values.global.network }}
@@ -19731,8 +19749,9 @@ spec:
             value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
           - name: PILOT_ENABLE_ANALYSIS
             value: "{{ .Values.global.istiod.enableAnalysis }}"
+          {{ $deprecatedClusterID := .Values.global.multiCluster.clusterName | default "Kubernetes" }}
           - name: CLUSTER_ID
-            value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
+            value: "{{ .Values.global.clusterID | default $deprecatedClusterID }}"
           {{- if (eq .Values.meshConfig.defaultConfig.proxyMetadata.DNS_AGENT "") }}
           - name: DNS_ADDR
             value: ""
@@ -39953,8 +39972,9 @@ spec:
             - name: ISTIO_META_MESH_ID
               value: "{{ .Values.global.trustDomain }}"
               {{- end }}
+            {{ $deprecatedClusterID := .Values.global.multiCluster.clusterName | default "Kubernetes" }}
             - name: ISTIO_META_CLUSTER_ID
-              value: "{{ .Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
+              value: "{{ .Values.global.clusterID | default $deprecatedClusterID }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           readinessProbe:
             failureThreshold: 30

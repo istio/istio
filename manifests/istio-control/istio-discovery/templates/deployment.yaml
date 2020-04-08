@@ -136,8 +136,9 @@ spec:
             value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
           - name: PILOT_ENABLE_ANALYSIS
             value: "{{ .Values.global.istiod.enableAnalysis }}"
+          {{ $deprecatedClusterID := .Values.global.multiCluster.clusterName | default "Kubernetes" }}
           - name: CLUSTER_ID
-            value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
+            value: "{{ .Values.global.clusterID | default $deprecatedClusterID }}"
           {{- if (eq .Values.meshConfig.defaultConfig.proxyMetadata.DNS_AGENT "") }}
           - name: DNS_ADDR
             value: ""

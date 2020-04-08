@@ -55,6 +55,22 @@ type manifestApplyArgs struct {
 	// set is a string with element format "path=value" where path is an IstioOperator path and the value is a
 	// value to set the node at that path to.
 	set []string
+	// path where to save and store the certificates
+	certDir string
+}
+
+type runApplyManifestArgs struct {
+	set              []string
+	inFilenames      []string
+	force            bool
+	dryRun           bool
+	verbose          bool
+	kubeConfigPath   string
+	context          string
+	wait             bool
+	readinessTimeout time.Duration
+	l                *Logger
+	certDir          string
 }
 
 func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
@@ -68,6 +84,8 @@ func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
 	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false, "Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
 		"of a Deployment are in a ready state before the command exits. It will wait for a maximum duration of --readiness-timeout seconds")
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, SetFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.certDir, "cert-dir", "t", "", "The path where to read plugged-in external certs "+
+		"or to store the generated self-signed root and intermediate certificates and keys")
 }
 
 func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Command {
@@ -81,6 +99,14 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 
   # Enable grafana dashboard
   istioctl manifest apply --set values.grafana.enabled=true
+
+ # plugin in existing CA Certificates from cert-dir /samples/certs
+ # https://preliminary.istio.io/docs/tasks/security/plugin-ca-cert/
+  istioctl manifest apply --cert-dir=/samples/certs
+
+ # generate root certs for myCluster, two intermediate CA certs, keys and save them under /etc/istio/certs if there is no
+ # required plugged-in external certs under /etc/istio/certs
+  istioctl manifest apply --cert-dir=/etc/istio/certs --set values.global.clusterID=myCluster
 
   # Generate the demo profile and don't wait for confirmation
   istioctl manifest apply --set profile=demo --skip-confirmation
@@ -113,6 +139,14 @@ func InstallCmd() *cobra.Command {
   # Generate the demo profile and don't wait for confirmation
   istioctl install --set profile=demo --skip-confirmation
 
+ # plugin in existing CA Certificates from cert-dir /samples/certs
+ # https://preliminary.istio.io/docs/tasks/security/plugin-ca-cert/
+  istioctl install --cert-dir=/samples/certs
+
+ # generate root certs for myCluster, two intermediate CA certs, keys and save them under /etc/istio/certs if there is no
+ # required plugged-in external certs under /etc/istio/certs
+  istioctl install --cert-dir=/etc/istio/certs --set values.global.clusterID=myCluster
+
   # To override a setting that includes dots, escape them with a backslash (\).  Your shell may require enclosing quotes.
   istioctl install --set "values.sidecarInjectorWebhook.injectedAnnotations.container\.apparmor\.security\.beta\.kubernetes\.io/istio-proxy=runtime/default"
 `,
@@ -138,8 +172,21 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 	if err := configLogs(rootArgs.logToStdErr); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
-	if err := ApplyManifests(maArgs.set, maArgs.inFilenames, maArgs.force, rootArgs.dryRun, rootArgs.verbose,
-		maArgs.kubeConfigPath, maArgs.context, maArgs.wait, maArgs.readinessTimeout, l); err != nil {
+	args := &runApplyManifestArgs{
+		set:              maArgs.set,
+		inFilenames:      maArgs.inFilenames,
+		force:            maArgs.force,
+		dryRun:           rootArgs.dryRun,
+		verbose:          rootArgs.verbose,
+		kubeConfigPath:   maArgs.kubeConfigPath,
+		context:          maArgs.context,
+		wait:             maArgs.wait,
+		readinessTimeout: maArgs.readinessTimeout,
+		l:                l,
+		certDir:          maArgs.certDir,
+	}
+
+	if err := ApplyManifests(args); err != nil {
 		return fmt.Errorf("failed to apply manifests: %v", err)
 	}
 
@@ -152,36 +199,35 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 //  dryRun  all operations are done but nothing is written
 //  verbose full manifests are output
 //  wait    block until Services and Deployments are ready, or timeout after waitTimeout
-func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRun bool, verbose bool,
-	kubeConfigPath string, context string, wait bool, waitTimeout time.Duration, l *Logger) error {
+func ApplyManifests(args *runApplyManifestArgs) error {
 
-	ysf, err := yamlFromSetFlags(setOverlay, force, l)
+	ysf, err := yamlFromSetFlags(args.set, args.force, args.l)
 	if err != nil {
 		return err
 	}
 
-	kubeconfig, err := manifest.InitK8SRestClient(kubeConfigPath, context)
+	kubeconfig, err := manifest.InitK8SRestClient(args.kubeConfigPath, args.context)
 	if err != nil {
 		return err
 	}
-	manifests, iops, err := GenManifests(inFilenames, ysf, force, kubeconfig, l)
+	manifests, iops, err := GenManifests(args.inFilenames, ysf, args.force, kubeconfig, args.l)
 	if err != nil {
 		return fmt.Errorf("failed to generate manifest: %v", err)
 	}
 	opts := &kubectlcmd.Options{
-		DryRun:      dryRun,
-		Verbose:     verbose,
-		Wait:        wait,
-		WaitTimeout: waitTimeout,
-		Kubeconfig:  kubeConfigPath,
-		Context:     context,
+		DryRun:      args.dryRun,
+		Verbose:     args.verbose,
+		Wait:        args.wait,
+		WaitTimeout: args.readinessTimeout,
+		Kubeconfig:  args.kubeConfigPath,
+		Context:     args.context,
 	}
 
 	for cn := range name.DeprecatedComponentNamesMap {
 		manifests[cn] = append(manifests[cn], fmt.Sprintf("# %s component has been deprecated.\n", cn))
 	}
 
-	out, err := manifest.ApplyAll(manifests, version.OperatorBinaryVersion, iops, opts)
+	out, err := manifest.ApplyAll(manifests, version.OperatorBinaryVersion, iops, opts, args.certDir)
 	if err != nil {
 		return fmt.Errorf("failed to apply manifest with kubectl client: %v", err)
 	}
@@ -190,29 +236,29 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 	for cn := range manifests {
 		if out[cn].Err != nil {
 			cs := fmt.Sprintf("Component %s - manifest apply returned the following errors:", cn)
-			l.logAndPrintf("\n%s", cs)
-			l.logAndPrint("Error: ", out[cn].Err, "\n")
+			args.l.logAndPrintf("\n%s", cs)
+			args.l.logAndPrint("Error: ", out[cn].Err, "\n")
 			gotError = true
 		}
 
 		if !ignoreError(out[cn].Stderr) {
-			l.logAndPrint("Error detail:\n", out[cn].Stderr, "\n", out[cn].Stdout, "\n")
+			args.l.logAndPrint("Error detail:\n", out[cn].Stderr, "\n", out[cn].Stdout, "\n")
 			gotError = true
 		}
 	}
 
 	if gotError {
-		l.logAndPrint("\n\n✘ Errors were logged during apply operation. Please check component installation logs above.\n")
+		args.l.logAndPrint("\n\n✘ Errors were logged during apply operation. Please check component installation logs above.\n")
 		return fmt.Errorf("errors were logged during apply operation")
 	}
-	l.logAndPrint("\n\n✔ Installation complete\n")
+	args.l.logAndPrint("\n\n✔ Installation complete\n")
 
 	crName := installedSpecCRPrefix
 	if iops.Revision != "" {
 		crName += "-" + iops.Revision
 	}
 	if err := saveClusterState(iops, crName, opts); err != nil {
-		l.logAndPrintf("Failed to save install state in the cluster: %s", err)
+		args.l.logAndPrintf("Failed to save install state in the cluster: %s", err)
 		return err
 	}
 
