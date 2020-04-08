@@ -18082,6 +18082,7 @@ spec:
                 {
                   "debug": "false",
                   "stat_prefix": "istio",
+                  "disable_host_header_fallback": true,
                 }
               vm_config:
                 vm_id: stats_outbound
@@ -18279,6 +18280,7 @@ spec:
                   {
                     "debug": "false",
                     "stat_prefix": "istio",
+                    "disable_host_header_fallback": true,
                   }
                 vm_config:
                   vm_id: stats_outbound
@@ -18580,6 +18582,7 @@ spec:
                   {
                     "debug": "false",
                     "stat_prefix": "istio",
+                    "disable_host_header_fallback": true,
                   }
                 vm_config:
                   vm_id: stats_outbound
@@ -20210,6 +20213,7 @@ spec:
                 {
                   "debug": "false",
                   "stat_prefix": "istio",
+                  "disable_host_header_fallback": true,
                 }
               vm_config:
                 vm_id: stats_outbound
@@ -20562,6 +20566,7 @@ spec:
                   {
                     "debug": "false",
                     "stat_prefix": "istio",
+                    "disable_host_header_fallback": true,
                   }
                 vm_config:
                   vm_id: stats_outbound
@@ -21060,6 +21065,7 @@ spec:
                   {
                     "debug": "false",
                     "stat_prefix": "istio",
+                    "disable_host_header_fallback": true,
                   }
                 vm_config:
                   vm_id: stats_outbound
