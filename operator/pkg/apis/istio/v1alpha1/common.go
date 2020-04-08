@@ -47,6 +47,9 @@ func Namespace(iops *v1alpha1.IstioOperatorSpec) string {
 
 // SetNamespace returns the namespace of the containing CR.
 func SetNamespace(iops *v1alpha1.IstioOperatorSpec, namespace string) {
+	if namespace != "" {
+		iops.Namespace = namespace
+	}
 	if iops.Values == nil {
 		iops.Values = make(map[string]interface{})
 	}
