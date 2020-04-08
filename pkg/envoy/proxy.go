@@ -118,7 +118,9 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 		"--service-node", e.Node,
 		"--max-obj-name-len", fmt.Sprint(e.Config.StatNameLength),
 		"--local-address-ip-version", proxyLocalAddressType,
-		"--log-format", fmt.Sprintf("[Envoy (Epoch %d)] ", epoch) + "[%Y-%m-%d %T.%e][%t][%l][%n] %v",
+		// format is like `2020-04-07T16:52:30.471425Z     info    envoy config   ...message..
+		// this matches Istio log format
+		"--log-format", "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n\t%v",
 	}
 
 	startupArgs = append(startupArgs, e.extraArgs...)
