@@ -202,7 +202,7 @@ func TestValidateDuration(t *testing.T) {
 			name:     "Test invalid convertDuration",
 			flagName: "values.global.proxy.dnsRefreshRate",
 			duration: "sam",
-			want:     fmt.Errorf("Invalid duration format %q", "sam"),
+			want:     fmt.Errorf("invalid duration format %q", "sam"),
 		},
 		{
 			name:     "Test valid protocolDetectionTimeout",

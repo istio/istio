@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/pkg/config/validation"
@@ -146,10 +147,6 @@ func ValidateSetFlags(setOverlay []string) (errs util.Errors) {
 			if err := verifyValues(flagName, flagValue); err != nil {
 				errs = append(errs, err)
 			}
-		} else {
-			// Skip this step until all the possible combination
-			// for flags and its validations are ready
-			// errs = append(errs, fmt.Errorf("\n Invalid flagName: %q", flagName))
 		}
 	}
 	return
@@ -160,11 +157,11 @@ func verifyValues(flagName, flagValue string) error {
 	val := getFlagValue(flagName)
 	valPtr := reflect.ValueOf(val).Pointer()
 
-	switch val.(type) {
+	switch val := val.(type) {
 	case []string:
-		if !containString(val.([]string), flagValue) {
+		if !containString(val, flagValue) {
 			return fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %q",
-				flagValue, flagName, strings.Join(val.([]string), ", "))
+				flagValue, flagName, strings.Join(val, ", "))
 		}
 	case []bool:
 		_, err := strconv.ParseBool(flagValue)
@@ -309,7 +306,7 @@ func validateDuration(flagName, duration string) (err error) {
 func convertDuration(duration string) (*types.Duration, error) {
 	dur, err := time.ParseDuration(duration)
 	if err != nil {
-		return nil, fmt.Errorf("Invalid duration format %q", duration)
+		return nil, fmt.Errorf("invalid duration format %q", duration)
 	}
 	return types.DurationProto(dur), nil
 }

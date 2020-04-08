@@ -2478,7 +2478,7 @@ func ValidateReportBatchMaxEntries(val string) error {
 	// ReportBatchMaxEntries accepts only uint32
 	u64, err := strconv.ParseUint(val, 10, 32)
 	if err != nil {
-		return fmt.Errorf("Invalid syntax: %q", val)
+		return fmt.Errorf("invalid syntax: %q", val)
 	}
 
 	// Convert to uint32 because ParseUint returns uint64
