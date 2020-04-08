@@ -431,7 +431,7 @@ func (a *Accessor) GetSecret(ns string) kubeClientCore.SecretInterface {
 }
 
 // DeleteConfigMap deletes the config resource with the given name and namespace.
-func (a *Accessor) DeleteConfigMap(name, ns string) error {
+func (a *Accessor) DeleteConfigMap(ns, name string) error {
 	return a.set.CoreV1().ConfigMaps(ns).Delete(context.TODO(), name, kubeApiMeta.DeleteOptions{})
 }
 

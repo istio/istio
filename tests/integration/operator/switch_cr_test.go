@@ -27,7 +27,6 @@ import (
 
 	"github.com/golang/protobuf/jsonpb"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	api "istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/object"
@@ -41,6 +40,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/image"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
@@ -49,8 +49,8 @@ import (
 
 const (
 	IstioNamespace = "istio-system"
-	pollInterval   = time.Second
-	pollTimeOut    = 100 * time.Second
+	retryDelay     = time.Second
+	retryTimeOut   = 100 * time.Second
 )
 
 var (
@@ -83,41 +83,37 @@ func checkInstallStatus(cs kube.Cluster) error {
 		Version:  "v1alpha1",
 		Resource: "istiooperators",
 	}
-	var errs util.Errors
-	conditionF := func() (done bool, err error) {
+
+	retryFunc := func() error {
 		us, err := cs.GetUnstructured(gvr, "istio-system", "test-istiocontrolplane")
 		if err != nil {
-			return false, fmt.Errorf("failed to get istioOperator resource: %v", err)
+			return fmt.Errorf("failed to get istioOperator resource: %v", err)
 		}
 		usIOPStatus := us.UnstructuredContent()["status"].(map[string]interface{})
 		iopStatusString, err := json.Marshal(usIOPStatus)
 		if err != nil {
-			return false, fmt.Errorf("failed to marshal istioOperator status: %v", err)
+			return fmt.Errorf("failed to marshal istioOperator status: %v", err)
 		}
 		status := &api.InstallStatus{}
 		jspb := jsonpb.Unmarshaler{AllowUnknownFields: true}
 		if err := jspb.Unmarshal(bytes.NewReader(iopStatusString), status); err != nil {
-			return false, fmt.Errorf("failed to unmarshal istioOperator status: %v", err)
+			return fmt.Errorf("failed to unmarshal istioOperator status: %v", err)
 		}
-		errs = util.Errors{}
+		errs := util.Errors{}
 		if status.Status != api.InstallStatus_HEALTHY {
 			errs = util.AppendErr(errs, fmt.Errorf("got IstioOperator status: %v", status.Status))
-			return false, nil
 		}
 
 		for cn, cnstatus := range status.ComponentStatus {
 			if cnstatus.Status != api.InstallStatus_HEALTHY {
 				errs = util.AppendErr(errs, fmt.Errorf("got component: %s status: %v", cn, cnstatus.Status))
-				return false, nil
 			}
 		}
-		return true, nil
+		return errs.ToError()
 	}
-	if errPoll := wait.Poll(pollInterval, pollTimeOut, conditionF); errPoll != nil {
-		return fmt.Errorf("failed to get IstioOperator status: %v", errPoll)
-	}
-	if errs.ToError() != nil {
-		return fmt.Errorf("IstioOperator status is not healthy: %v", errs.ToError())
+	err := retry.UntilSuccess(retryFunc, retry.Timeout(retryTimeOut), retry.Delay(retryDelay))
+	if err != nil {
+		return fmt.Errorf("istioOperator status is not healthy: %v", err)
 	}
 	return nil
 }
@@ -161,7 +157,7 @@ metadata:
 	if err := checkInstallStatus(cs); err != nil {
 		t.Fatalf("IstioOperator status not healthy: %v", err)
 	}
-	if _, err := cs.WaitUntilPodsAreReady(cs.NewPodFetch(IstioNamespace)); err != nil {
+	if _, err := cs.CheckPodsAreReady(cs.NewPodFetch(IstioNamespace)); err != nil {
 		t.Fatalf("pods are not ready: %v", err)
 	}
 
@@ -172,7 +168,7 @@ metadata:
 	scopes.CI.Infof("=== Succeeded ===")
 }
 
-func sanityCheck(t *testing.T, ctx framework.TestContext) {
+func sanityCheck(t *testing.T, ctx resource.Context) {
 	var client, server echo.Instance
 	test := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "default",
