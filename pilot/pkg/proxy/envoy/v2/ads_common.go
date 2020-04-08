@@ -34,8 +34,8 @@ func PushAffectsProxy(pushEv *XdsEvent, proxy *model.Proxy) bool {
 			return true
 		}
 
-		for name := range resources {
-			ok, scoped := proxy.SidecarScope.DependsOnConfig(kind, name)
+		for res := range resources {
+			ok, scoped := proxy.SidecarScope.DependsOnConfig(kind, res)
 			if !scoped || ok {
 				return true
 			}

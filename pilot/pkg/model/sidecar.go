@@ -451,7 +451,7 @@ func (sc *SidecarScope) DependsOnNamespace(namespace string) bool {
 	return exists
 }
 
-// DependsOnConfig determines if the Sidecar depends on the given config.
+// DependsOnConfig determines if the proxy depends on the given config.
 // Returns whether depends on this config and whether this kind of config is scoped here.
 func (sc *SidecarScope) DependsOnConfig(kind resource.GroupVersionKind, name string) (bool, bool) {
 	if sc == nil {
@@ -468,7 +468,7 @@ func (sc *SidecarScope) DependsOnConfig(kind resource.GroupVersionKind, name str
 
 // AddConfigDependencies add extra config dependencies to this scope. This action should be done before the
 // SidecarScope being used to avoid concurrent read/write.
-func (sc *SidecarScope) AddConfigDependencies(kind resource.GroupVersionKind, names ...string) {
+func (sc *SidecarScope) AddConfigDependencies(kind resource.GroupVersionKind, dependencies ...string) {
 	if sc == nil {
 		return
 	}
@@ -477,18 +477,14 @@ func (sc *SidecarScope) AddConfigDependencies(kind resource.GroupVersionKind, na
 		sc.configDependencies = make(map[resource.GroupVersionKind]map[string]struct{})
 	}
 
-	var (
-		dependencies map[string]struct{}
-		f            bool
-	)
-
-	if dependencies, f = sc.configDependencies[kind]; !f {
-		dependencies = make(map[string]struct{})
-		sc.configDependencies[kind] = dependencies
+	kindDeps, f := sc.configDependencies[kind]
+	if !f {
+		kindDeps = make(map[string]struct{})
+		sc.configDependencies[kind] = kindDeps
 	}
 
-	for _, name := range names {
-		dependencies[name] = struct{}{}
+	for _, name := range dependencies {
+		kindDeps[name] = struct{}{}
 	}
 }
 
