@@ -66,54 +66,6 @@ func setNilSidecarOnProxy(proxy *model.Proxy, pushContext *model.PushContext) {
 	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(pushContext, "not-default")
 }
 
-func TestListenerBuilder(t *testing.T) {
-	// prepare
-	t.Helper()
-	ldsEnv := getDefaultLdsEnv()
-	service := buildService("test.com", wildcardIP, protocol.HTTP, tnow)
-	services := []*model.Service{service}
-
-	env := buildListenerEnv(services, nil)
-
-	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
-		t.Fatalf("init push context error: %s", err.Error())
-	}
-	instances := make([]*model.ServiceInstance, len(services))
-	for i, s := range services {
-		instances[i] = &model.ServiceInstance{
-			Service: s,
-			Endpoint: &model.IstioEndpoint{
-				EndpointPort: 8080,
-			},
-			ServicePort: s.Ports[0],
-		}
-	}
-	proxy := getDefaultProxy()
-	proxy.ServiceInstances = instances
-	setNilSidecarOnProxy(&proxy, env.PushContext)
-
-	builder := NewListenerBuilder(&proxy, env.PushContext)
-	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen).
-		getListeners()
-
-	// the listener for app
-	if len(listeners) != 1 {
-		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
-	}
-	p := service.Ports[0].Protocol
-	if p != protocol.HTTP && isHTTPListener(listeners[0]) {
-		t.Fatal("expected TCP listener, found HTTP")
-	} else if p == protocol.HTTP && !isHTTPListener(listeners[0]) {
-		t.Fatal("expected HTTP listener, found TCP")
-	}
-	verifyInboundHTTPListenerServerName(t, listeners[0])
-	if isHTTPListener(listeners[0]) {
-		verifyInboundHTTPListenerCertDetails(t, listeners[0])
-	}
-
-	verifyInboundEnvoyListenerNumber(t, listeners[0])
-}
-
 func TestVirtualListenerBuilder(t *testing.T) {
 	// prepare
 	t.Helper()
@@ -140,22 +92,19 @@ func TestVirtualListenerBuilder(t *testing.T) {
 	setNilSidecarOnProxy(&proxy, env.PushContext)
 
 	builder := NewListenerBuilder(&proxy, env.PushContext)
-	listeners := builder.buildSidecarInboundListeners(ldsEnv.configgen).
+	listeners := builder.
 		buildVirtualOutboundListener(ldsEnv.configgen).
 		getListeners()
 
-	// app port listener and virtual inbound listener
-	if len(listeners) != 2 {
-		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
+	// virtual outbound listener
+	if len(listeners) != 1 {
+		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
 
-	// The rest attributes are verified in other tests
-	verifyInboundHTTPListenerServerName(t, listeners[0])
-
-	if !strings.HasPrefix(listeners[1].Name, VirtualOutboundListenerName) {
-		t.Fatalf("expect virtual listener, found %s", listeners[1].Name)
+	if !strings.HasPrefix(listeners[0].Name, VirtualOutboundListenerName) {
+		t.Fatalf("expect virtual listener, found %s", listeners[0].Name)
 	} else {
-		t.Logf("found virtual listener: %s", listeners[1].Name)
+		t.Logf("found virtual listener: %s", listeners[0].Name)
 	}
 
 }
@@ -206,27 +155,24 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 	// prepare
 	t.Helper()
 	listeners := prepareListeners(t, testServices, nil)
-	// app port listener and virtual inbound listener
-	if len(listeners) != 3 {
-		t.Fatalf("expected %d listeners, found %d", 3, len(listeners))
+	// virtual inbound and outbound listener
+	if len(listeners) != 2 {
+		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
 	}
 
-	// The rest attributes are verified in other tests
-	verifyInboundHTTPListenerServerName(t, listeners[0])
+	if !strings.HasPrefix(listeners[0].Name, VirtualOutboundListenerName) {
+		t.Fatalf("expect virtual listener, found %s", listeners[0].Name)
+	} else {
+		t.Logf("found virtual listener: %s", listeners[0].Name)
+	}
 
-	if !strings.HasPrefix(listeners[1].Name, VirtualOutboundListenerName) {
+	if !strings.HasPrefix(listeners[1].Name, VirtualInboundListenerName) {
 		t.Fatalf("expect virtual listener, found %s", listeners[1].Name)
 	} else {
-		t.Logf("found virtual listener: %s", listeners[1].Name)
+		t.Logf("found virtual inbound listener: %s", listeners[1].Name)
 	}
 
-	if !strings.HasPrefix(listeners[2].Name, VirtualInboundListenerName) {
-		t.Fatalf("expect virtual listener, found %s", listeners[2].Name)
-	} else {
-		t.Logf("found virtual inbound listener: %s", listeners[2].Name)
-	}
-
-	l := listeners[2]
+	l := listeners[1]
 
 	byListenerName := map[string]int{}
 
@@ -254,18 +200,12 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	// prepare
 	t.Helper()
 	listeners := prepareListeners(t, testServices, nil)
-	// app port listener and virtual inbound listener
-	if len(listeners) != 3 {
-		t.Fatalf("expect %d listeners, found %d", 3, len(listeners))
+	// virtual inbound and outbound listener
+	if len(listeners) != 2 {
+		t.Fatalf("expect %d listeners, found %d", 2, len(listeners))
 	}
 
-	l := listeners[2]
-	// 4 is the 2 passthrough tcp filter chain for ipv4 and 2 http filter chain for ipv4
-	if len(l.FilterChains) != len(listeners[0].FilterChains)+4 {
-		t.Fatalf("expect virtual listener has %d filter chains as the sum of 2nd level listeners "+
-			"plus the 4 fallthrough filter chains, found %d", len(listeners[0].FilterChains)+2, len(l.FilterChains))
-	}
-
+	l := listeners[1]
 	sawFakePluginFilter := false
 	sawIpv4PassthroughCluster := 0
 	sawIpv6PassthroughCluster := false
@@ -354,13 +294,13 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 
 func TestManagementListenerBuilder(t *testing.T) {
 	listeners := prepareListeners(t, nil, []int{9876})
-	// Get the listener. 1.1.1.1 comes from proxy ip in prepareListeners
-	l := expectListener(t, listeners, "1.1.1.1_9876")
+	l := expectListener(t, listeners, "virtualInbound")
 	expectTCPProxy(t, l.FilterChains, "inbound|9876||mgmtCluster")
 }
 
 func expectTCPProxy(t *testing.T, chains []*listener.FilterChain, s string) {
 	t.Helper()
+	got := ""
 	for _, c := range chains {
 		for _, f := range c.Filters {
 			if f.Name != "envoy.tcp_proxy" {
@@ -370,10 +310,14 @@ func expectTCPProxy(t *testing.T, chains []*listener.FilterChain, s string) {
 			if err := getFilterConfig(f, fc); err != nil {
 				t.Fatalf("failed to get TCP Proxy config: %s", err)
 			}
-			if fc.GetCluster() != s {
-				t.Fatalf("expected destination %v, got %v", s, fc.GetCluster())
+			if s == fc.GetCluster() {
+				return
 			}
 		}
+	}
+
+	if got != s {
+		t.Fatalf("expected destination %v, got %v", s, got)
 	}
 }
 
