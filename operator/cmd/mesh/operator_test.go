@@ -23,12 +23,11 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/istio/pkg/test/env"
-
 	"github.com/kr/pretty"
 
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/test/env"
 )
 
 // applyParams is used to capture the inputs to operatorInit applyManifest call.
@@ -65,7 +64,6 @@ func TestOperatorDump(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fmt.Println(gotYAML)
 	if refreshGoldenFiles() {
 		t.Logf("Refreshing golden file for %s", goldenFilepath)
 		if err := ioutil.WriteFile(goldenFilepath, []byte(gotYAML), 0644); err != nil {

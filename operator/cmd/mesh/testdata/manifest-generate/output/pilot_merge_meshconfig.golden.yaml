@@ -34,8 +34,7 @@ data:
       parentShutdownDuration: 1m0s
       proxyAdminPort: 15000
       proxyMetadata:
-        DNS_AGENT: DNS-TLS
-        DNS_CAPTURE: ALL
+        DNS_AGENT: ""
         TERMINATION_DRAIN_DURATION_SECONDS: "120"
       serviceCluster: istio-proxy
       tracing:

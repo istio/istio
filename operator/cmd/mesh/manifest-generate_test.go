@@ -41,6 +41,7 @@ import (
 const (
 	istioTestVersion = "istio-1.5.0"
 	testTGZFilename  = istioTestVersion + "-linux.tar.gz"
+	testDataSubdir   = "cmd/mesh/testdata/manifest-generate"
 )
 
 type chartSourceType int
@@ -81,6 +82,8 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 	liveInstallPackageDir = filepath.Join(liveReleaseDir, istioTestVersion, helm.OperatorSubdirFilePath)
+
+	snapshotInstallPackageDir = filepath.Join(repoRootDir, testDataSubdir, "data-snapshot")
 
 	flag.Parse()
 	code := m.Run()
@@ -494,7 +497,7 @@ func TestLDFlags(t *testing.T) {
 }
 
 func runTestGroup(t *testing.T, tests testGroup) {
-	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
+	testDataDir = filepath.Join(repoRootDir, testDataSubdir)
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			inPath := filepath.Join(testDataDir, "input", tt.desc+".yaml")
