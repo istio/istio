@@ -52,7 +52,7 @@ func mergeVirtualServicesIfNeeded(vServices []Config) (out []Config) {
 
 	// If `PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE` feature disabled,
 	// filter out invalid vs(root or delegate), this can happen after enable -> disable
-	if !features.EnableVirtualServiceDelegate.Get() {
+	if !features.EnableVirtualServiceDelegate {
 		return
 	}
 
@@ -113,7 +113,7 @@ func mergeHTTPRoute(root *networking.HTTPRoute, delegate *networking.HTTPRoute) 
 	// if match condition of N2 is a subset of anyone in N1, this is a valid matching conditions
 	merged, conflict := mergeHTTPMatchRequests(root.Match, delegate.Match)
 	if conflict {
-		log.Debugf("HTTPMatchRequests conflict: root root %s, delegate root %s", root.Name, delegate.Name)
+		log.Debugf("HTTPMatchRequests conflict: root route %s, delegate route %s", root.Name, delegate.Name)
 		return nil
 	}
 	delegate.Match = merged
@@ -167,6 +167,7 @@ func mergeHTTPMatchRequests(root, delegate []*networking.HTTPMatchRequest) (out 
 		foundMatch := false
 		for _, rootMatch := range root {
 			if hasConflict(rootMatch, subMatch) {
+				log.Debugf("HTTPMatchRequests conflict: root %v, delegate %v", rootMatch, subMatch)
 				continue
 			}
 			// merge HTTPMatchRequest

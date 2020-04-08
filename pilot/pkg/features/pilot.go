@@ -293,7 +293,7 @@ var (
 		false,
 		"If enabled, Pilot will merge virtual services with delegates. "+
 			"By default, this is false, and virtualService with delegate will be ignored",
-	)
+	).Get()
 
 	ClusterName = env.RegisterStringVar("CLUSTER_ID", "Kubernetes",
 		"Defines the cluster and service registry that this Istiod instance is belongs to")

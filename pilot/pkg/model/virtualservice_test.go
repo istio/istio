@@ -15,7 +15,6 @@
 package model
 
 import (
-	"os"
 	"reflect"
 	"testing"
 
@@ -25,12 +24,12 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
 func TestMergeVirtualServices(t *testing.T) {
-	os.Setenv("PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE", "true")
-	defer os.Unsetenv("PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE")
+	features.EnableVirtualServiceDelegate = true
 	independentVs := Config{
 		ConfigMeta: ConfigMeta{
 			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),

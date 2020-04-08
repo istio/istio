@@ -2010,7 +2010,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 
 		isDelegate := false
 		if len(virtualService.Hosts) == 0 {
-			if features.EnableVirtualServiceDelegate.Get() {
+			if features.EnableVirtualServiceDelegate {
 				isDelegate = true
 			} else {
 				errs = appendErrors(errs, fmt.Errorf("virtual service must have at least one host"))
@@ -2148,7 +2148,7 @@ func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
 }
 
 func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs error) {
-	if features.EnableVirtualServiceDelegate.Get() {
+	if features.EnableVirtualServiceDelegate {
 		if delegate {
 			return validateDelegateHTTPRoute(http)
 		}
