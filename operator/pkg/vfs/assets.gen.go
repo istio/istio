@@ -19631,6 +19631,8 @@ spec:
         istio.io/rev: {{ .Values.revision | default "default" }}
         {{- if eq .Values.revision ""}}
         istio: pilot
+        {{- else }}
+        istio: istiod
         {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
