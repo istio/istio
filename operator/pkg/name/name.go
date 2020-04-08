@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/ghodss/yaml"
 
@@ -92,6 +93,8 @@ var (
 	// ValuesEnablementPathMap defines a mapping between legacy values enablement paths and the corresponding enablement
 	// paths in IstioOperator.
 	ValuesEnablementPathMap = make(map[string]string)
+
+	scanAddons sync.Once
 )
 
 func init() {
@@ -185,16 +188,20 @@ func generateValuesEnablementMap() {
 }
 
 func ScanBundledAddonComponents(chartsRootDir string) error {
-	addonComponentNames, err := helm.GetAddonNamesFromCharts(chartsRootDir, true)
-	if err != nil {
-		return fmt.Errorf("failed to scan bundled addon components: %v", err)
-	}
-	for _, an := range addonComponentNames {
-		BundledAddonComponentNamesMap[ComponentName(an)] = true
-		enablementName := strings.ToLower(an[:1]) + an[1:]
-		valuePath := fmt.Sprintf("spec.values.%s.enabled", enablementName)
-		iopPath := fmt.Sprintf("spec.addonComponents.%s.enabled", enablementName)
-		ValuesEnablementPathMap[valuePath] = iopPath
-	}
-	return nil
+	var err error
+	scanAddons.Do(func() {
+		addonComponentNames, err := helm.GetAddonNamesFromCharts(chartsRootDir, true)
+		if err != nil {
+			err = fmt.Errorf("failed to scan bundled addon components: %v", err)
+			return
+		}
+		for _, an := range addonComponentNames {
+			BundledAddonComponentNamesMap[ComponentName(an)] = true
+			enablementName := strings.ToLower(an[:1]) + an[1:]
+			valuePath := fmt.Sprintf("spec.values.%s.enabled", enablementName)
+			iopPath := fmt.Sprintf("spec.addonComponents.%s.enabled", enablementName)
+			ValuesEnablementPathMap[valuePath] = iopPath
+		}
+	})
+	return err
 }
