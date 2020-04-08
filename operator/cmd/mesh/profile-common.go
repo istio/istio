@@ -178,7 +178,7 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 		}
 	}
 
-	userOverlayYAML, err = translateK8SfromValueToIOP(userOverlayYAML, l)
+	userOverlayYAML, err = translateK8SfromValueToIOP(userOverlayYAML)
 	if err != nil {
 		return "", nil, fmt.Errorf("could not overlay k8s settings from values to IOP: %s", err)
 	}
@@ -214,7 +214,9 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 }
 
 // translateK8SfromValueToIOP use reverse translation to convert k8s settings defined in values API to IOP API.
-func translateK8SfromValueToIOP(userOverlayYaml string, l *Logger) (string, error) {
+// this ensures that user overlays that set k8s through spec.values
+// are not overridden by spec.components.X.k8s settings in the base profiles
+func translateK8SfromValueToIOP(userOverlayYaml string) (string, error) {
 	mvs := version.OperatorBinaryVersion.MinorVersion
 	t, err := translate.NewReverseTranslator(mvs)
 	if err != nil {
@@ -234,12 +236,12 @@ func translateK8SfromValueToIOP(userOverlayYaml string, l *Logger) (string, erro
 	if err = t.TranslateK8S(valuesOverlayTree, iopSpecTree); err != nil {
 		return "", err
 	}
-	warning, err := t.IssueWarningForGatewayK8SSettings(valuesOverlay)
+	warning, err := t.WarningForGatewayK8SSettings(valuesOverlay)
 	if err != nil {
 		return "", fmt.Errorf("error handling values gateway k8s settings: %v", err)
 	}
 	if warning != "" {
-		l.logAndPrint(warning)
+		return "", fmt.Errorf(warning)
 	}
 	iopSpecTreeYAML, err := yaml.Marshal(iopSpecTree)
 	if err != nil {
