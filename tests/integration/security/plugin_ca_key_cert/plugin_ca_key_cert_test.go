@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
+	certutil "istio.io/istio/tests/integration/security/util/cert"
 )
 
 var (
@@ -67,7 +68,7 @@ func checkCACert() error {
 		return fmt.Errorf("CA certificate %v not found", constants.CACertNamespaceConfigMapDataName)
 	}
 	testStruct.Logf("CA certificate %v found", constants.CACertNamespaceConfigMapDataName)
-	if pluginCert, err = readCertFile("root-cert.pem"); err != nil {
+	if pluginCert, err = certutil.ReadSampleCertFile("root-cert.pem"); err != nil {
 		return err
 	}
 	if string(pluginCert) != cert {

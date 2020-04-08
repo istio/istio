@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package plugincakeycert
+package certmtls
 
 import (
 	"testing"
@@ -35,12 +35,10 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	// Integration test for plugging in the CA key and certificate.
-	// Istio CA will use the plugged in CA certificate to issue certificate
-	// and the CA certificate is mounted to a configmap in each namespace
-	// for data plane to control plane TLS authentication.
+	// This test verifies that the certificate issued by CA to the sidecar
+	// is as expected and that strict mTLS works as expected.
 	framework.
-		NewSuite("plugin_ca_key_cert_test", m).
+		NewSuite("cert_mtls_test", m).
 		// k8s is required because the plugin CA key and certificate are stored in a k8s secret.
 		RequireEnvironment(environment.Kube).
 		RequireSingleCluster().
