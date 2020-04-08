@@ -177,7 +177,6 @@ func checkResultStatic(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
 
 func checkResultStaticListener(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
 	expected := map[string]struct{}{
-		"1.1.1.1_80":      {},
 		"0.0.0.0_80":      {},
 		"5.5.5.5_443":     {},
 		"virtualInbound":  {},
@@ -200,11 +199,10 @@ func checkResultStaticListener(resp *xdsapi.DiscoveryResponse) (success bool, e 
 
 func checkSidecarIngressListener(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
 	expected := map[string]struct{}{
-		"100.100.100.100_9080": {}, // corresponds to the proxy IP
-		"0.0.0.0_80":           {},
-		"5.5.5.5_443":          {},
-		"virtualInbound":       {},
-		"virtualOutbound":      {},
+		"0.0.0.0_80":      {},
+		"5.5.5.5_443":     {},
+		"virtualInbound":  {},
+		"virtualOutbound": {},
 	}
 
 	got := map[string]struct{}{}
