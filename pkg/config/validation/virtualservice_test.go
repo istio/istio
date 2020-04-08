@@ -15,18 +15,18 @@
 package validation
 
 import (
-	"os"
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
+
+	"istio.io/istio/pilot/pkg/features"
 )
 
 func TestValidateChainingVirtualService(t *testing.T) {
-	os.Setenv("PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE", "true")
-	defer os.Unsetenv("PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE")
+	features.EnableVirtualServiceDelegate = true
 	testCases := []struct {
 		name  string
 		in    proto.Message
