@@ -15,7 +15,6 @@
 package ca
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -24,7 +23,7 @@ import (
 )
 
 var (
-	rootCAConf = fmt.Sprintf(`
+	rootCAConf = `
 [ req ]
 encrypt_key = no
 prompt = no
@@ -40,7 +39,7 @@ basicConstraints = critical, CA:true
 keyUsage = critical, digitalSignature, nonRepudiation, keyEncipherment, keyCertSign
 [ req_dn ]
 O = Istio
-CN = Root CA`)
+CN = Root CA`
 )
 
 // Root contains the cryptographic files for a self-signed root CA.

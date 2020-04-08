@@ -56,7 +56,7 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 			}
 			if len(args) > 0 {
 				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
-				path := fmt.Sprintf("config_dump")
+				path := "config_dump"
 				envoyDump, err := kubeClient.EnvoyDo(podName, ns, "GET", path, nil)
 				if err != nil {
 					return err

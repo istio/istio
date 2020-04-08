@@ -37,7 +37,6 @@ import (
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
 	networking "istio.io/api/networking/v1alpha3"
 	authn_beta "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
@@ -1748,9 +1747,9 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 	}
 
 	ingress := &networking.IstioIngressListener{
-		CaptureMode:     v1alpha3.CaptureMode_NONE,
+		CaptureMode:     networking.CaptureMode_NONE,
 		DefaultEndpoint: "127.0.0.1:7020",
-		Port: &v1alpha3.Port{
+		Port: &networking.Port{
 			Number:   7443,
 			Name:     "grpc-core",
 			Protocol: "GRPC",

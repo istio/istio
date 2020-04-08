@@ -20,7 +20,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	authorizationapi "k8s.io/api/authorization/v1"
-	v1 "k8s.io/api/authorization/v1"
 	authorizationv1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 )
 
@@ -46,7 +45,7 @@ func newSelfSubjectAccessReviewInterface() authorizationv1.SelfSubjectAccessRevi
 }
 
 // Create implements authorizationv1.SelfSubjectAccessReviewInterface
-func (i *SelfSubjectAccessReviewImpl) Create(ctx context.Context, sar *v1.SelfSubjectAccessReview,
+func (i *SelfSubjectAccessReviewImpl) Create(ctx context.Context, sar *authorizationapi.SelfSubjectAccessReview,
 	opts metav1.CreateOptions) (result *authorizationapi.SelfSubjectAccessReview, err error) {
 	allowed := true
 	if i.disallowed[newDisallowKey(sar.Spec.ResourceAttributes)] {
@@ -66,11 +65,11 @@ func (i *SelfSubjectAccessReviewImpl) CreateContext(ctx context.Context,
 }
 
 // DisallowResourceAttributes is a helper for testing that marks particular resource attributes as not allowed in the mock.
-func (i *SelfSubjectAccessReviewImpl) DisallowResourceAttributes(r *v1.ResourceAttributes) {
+func (i *SelfSubjectAccessReviewImpl) DisallowResourceAttributes(r *authorizationapi.ResourceAttributes) {
 	i.disallowed[newDisallowKey(r)] = true
 }
 
-func newDisallowKey(r *v1.ResourceAttributes) disallowKey {
+func newDisallowKey(r *authorizationapi.ResourceAttributes) disallowKey {
 	return disallowKey{
 		verb:     r.Verb,
 		group:    r.Group,

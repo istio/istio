@@ -311,7 +311,7 @@ func addTestClientEndpoints(server *bootstrap.Server) {
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("test-1.default", &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
-			Address:         fmt.Sprintf("10.10.10.10"),
+			Address:         "10.10.10.10",
 			ServicePortName: "http",
 			EndpointPort:    80,
 			Locality:        model.Locality{Label: asdcLocality},
@@ -324,7 +324,7 @@ func addTestClientEndpoints(server *bootstrap.Server) {
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("test-1.default", &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
-			Address:         fmt.Sprintf("10.10.10.11"),
+			Address:         "10.10.10.11",
 			ServicePortName: "http",
 			EndpointPort:    80,
 			Locality:        model.Locality{Label: asdc2Locality},
