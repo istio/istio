@@ -169,3 +169,6 @@ replace github.com/Azure/go-autorest/autorest => github.com/Azure/go-autorest/au
 replace github.com/Azure/go-autorest/autorest/adal => github.com/Azure/go-autorest/autorest/adal v0.5.0
 
 replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.2.0+incompatible
+
+// Old version had no license
+replace github.com/chzyer/logex => github.com/chzyer/logex v1.1.11-0.20170329064859-445be9e134b2
