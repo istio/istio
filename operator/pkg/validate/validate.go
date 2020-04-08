@@ -85,7 +85,13 @@ func validate(validations map[string]ValidatorFunc, structPtr interface{}, path 
 			}
 		case reflect.Slice:
 			for i := 0; i < fieldValue.Len(); i++ {
-				errs = util.AppendErrs(errs, validate(validations, fieldValue.Index(i).Interface(), path, checkRequired))
+				newValue := fieldValue.Index(i).Interface()
+				newPath := append(path, fieldName)
+				if util.IsStruct(newValue) || util.IsPtr(newValue) {
+					errs = util.AppendErrs(errs, validate(validations, newValue, newPath, checkRequired))
+				} else {
+					errs = util.AppendErrs(errs, validateLeaf(validations, newPath, newValue, checkRequired))
+				}
 			}
 		case reflect.Ptr:
 			if util.IsNilOrInvalidValue(fieldValue.Elem()) {
