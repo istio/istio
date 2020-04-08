@@ -851,7 +851,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 				},
 				ValidationContextType: &envoyauth.CommonTlsContext_CombinedValidationContext{
 					CombinedValidationContext: &envoyauth.CommonTlsContext_CombinedCertificateValidationContext{
-						DefaultValidationContext: &envoyauth.CertificateValidationContext{VerifySubjectAltName: []string{} /*subjectAltNames*/},
+						DefaultValidationContext: &envoyauth.CertificateValidationContext{MatchSubjectAltNames: StringToExactMatch([]string{})},
 						ValidationContextSdsSecretConfig: &envoyauth.SdsSecretConfig{
 							Name: "ROOTCA",
 							SdsConfig: &core.ConfigSource{
