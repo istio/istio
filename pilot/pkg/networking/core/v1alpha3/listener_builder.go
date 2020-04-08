@@ -92,13 +92,27 @@ func amendFilterChainMatchFromInboundListener(chain *listener.FilterChain, l *xd
 	return chain, needTLS
 }
 
+func isBindtoPort(l *xdsapi.Listener) bool {
+	v1 := l.GetDeprecatedV1()
+	if v1 == nil {
+		// Default is true
+		return true
+	}
+	bp := v1.BindToPort
+	if bp == nil {
+		// Default is true
+		return true
+	}
+	return bp.Value
+}
+
 // Accumulate the filter chains from per proxy service listeners
 func reduceInboundListenerToFilterChains(listeners []*xdsapi.Listener) ([]*listener.FilterChain, bool) {
 	needTLS := false
 	chains := make([]*listener.FilterChain, 0)
 	for _, l := range listeners {
 		// default bindToPort is true and these listener should be skipped
-		if v1Opt := l.GetDeprecatedV1(); v1Opt == nil || v1Opt.BindToPort == nil || v1Opt.BindToPort.Value {
+		if isBindtoPort(l) {
 			// A listener on real port should not be intercepted by virtual inbound listener
 			continue
 		}
@@ -152,6 +166,16 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 	timeout := features.InboundProtocolDetectionTimeout
 	lb.virtualInboundListener.ListenerFiltersTimeout = ptypes.DurationProto(timeout)
 	lb.virtualInboundListener.ContinueOnListenerFiltersTimeout = true
+
+	// All listeners except bind_to_port=true listeners are now a part of virtual inbound and not needed
+	// we can filter these ones out.
+	bindToPortInbound := make([]*xdsapi.Listener, 0, len(lb.inboundListeners))
+	for _, i := range lb.inboundListeners {
+		if isBindtoPort(i) {
+			bindToPortInbound = append(bindToPortInbound, i)
+		}
+	}
+	lb.inboundListeners = bindToPortInbound
 
 	return lb
 }
@@ -288,6 +312,7 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 		FilterChains:     filterChains,
 	}
 	lb.aggregateVirtualInboundListener(needTLSForPassThroughFilterChain)
+
 	return lb
 }
 
@@ -311,13 +336,15 @@ func (lb *ListenerBuilder) patchListeners() {
 	}
 	lb.virtualOutboundListener = patchOneListener(lb.virtualOutboundListener, networking.EnvoyFilter_SIDECAR_OUTBOUND)
 	lb.virtualInboundListener = patchOneListener(lb.virtualInboundListener, networking.EnvoyFilter_SIDECAR_INBOUND)
+	lb.inboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_INBOUND, lb.node,
+		lb.push, lb.inboundListeners, false)
 	lb.outboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, lb.node,
 		lb.push, lb.outboundListeners, false)
 }
 
 func (lb *ListenerBuilder) getListeners() []*xdsapi.Listener {
 	if lb.node.Type == model.SidecarProxy {
-		nOutbound := len(lb.outboundListeners)
+		nInbound, nOutbound := len(lb.inboundListeners), len(lb.outboundListeners)
 		nVirtual, nVirtualInbound := 0, 0
 		if lb.virtualOutboundListener != nil {
 			nVirtual = 1
@@ -325,9 +352,10 @@ func (lb *ListenerBuilder) getListeners() []*xdsapi.Listener {
 		if lb.virtualInboundListener != nil {
 			nVirtualInbound = 1
 		}
-		nListener := nOutbound + nVirtual + nVirtualInbound
+		nListener := nInbound + nOutbound + nVirtual + nVirtualInbound
 
 		listeners := make([]*xdsapi.Listener, 0, nListener)
+		listeners = append(listeners, lb.inboundListeners...)
 		listeners = append(listeners, lb.outboundListeners...)
 		if lb.virtualOutboundListener != nil {
 			listeners = append(listeners, lb.virtualOutboundListener)
