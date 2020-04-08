@@ -185,10 +185,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 		// This needs to be the last virtual host, as routes are evaluated in order.
 		if util.IsAllowAnyOutbound(node) {
 			virtualHosts = append(virtualHosts, &route.VirtualHost{
-				Name:    util.PassthroughRouteName,
+				Name:    util.Passthrough,
 				Domains: []string{"*"},
 				Routes: []*route.Route{
 					{
+						Name: util.Passthrough,
 						Match: &route.RouteMatch{
 							PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
 						},
@@ -204,10 +205,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 			})
 		} else {
 			virtualHosts = append(virtualHosts, &route.VirtualHost{
-				Name:    util.BlackHoleRouteName,
+				Name:    util.BlackHole,
 				Domains: []string{"*"},
 				Routes: []*route.Route{
 					{
+						Name: util.BlackHole,
 						Match: &route.RouteMatch{
 							PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
 						},

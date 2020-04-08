@@ -767,7 +767,7 @@ func TestSidecarOutboundHTTPRouteConfigWithFallthroughRouteEnabled(t *testing.T)
 		}
 		vhost := config.VirtualHosts[0]
 
-		if vhost.Name != util.PassthroughRouteName {
+		if vhost.Name != util.Passthrough {
 			t.Fatalf("vhost name is %s", vhost.Name)
 		}
 		if len(vhost.Routes) != 1 {
