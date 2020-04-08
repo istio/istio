@@ -138,7 +138,12 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 				collections.IstioRbacV1Alpha1Servicerolebindings.Resource().GroupVersionKind(),
 				collections.IstioRbacV1Alpha1Rbacconfigs.Resource().GroupVersionKind(),
 				collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().GroupVersionKind(),
-				collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
+				collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(),
+				collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
+				out[LDS] = true
+			case collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
+				out[CDS] = true
+				out[EDS] = true
 				out[LDS] = true
 			default:
 				out[CDS] = true
@@ -186,7 +191,12 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 				collections.IstioRbacV1Alpha1Servicerolebindings.Resource().GroupVersionKind(),
 				collections.IstioRbacV1Alpha1Rbacconfigs.Resource().GroupVersionKind(),
 				collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().GroupVersionKind(),
-				collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
+				collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(),
+				collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
+				out[LDS] = true
+			case collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
+				out[CDS] = true
+				out[EDS] = true
 				out[LDS] = true
 			default:
 				out[CDS] = true

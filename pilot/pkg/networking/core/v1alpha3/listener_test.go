@@ -37,7 +37,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	mixerClient "istio.io/api/mixer/v1/config/client"
 	"istio.io/api/networking/v1alpha3"
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -433,7 +432,7 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			configgen := NewConfigGenerator([]plugin.Plugin{p})
 
-			env := buildListenerEnv(services)
+			env := buildListenerEnv(services, nil)
 			serviceDiscovery := new(fakes.ServiceDiscovery)
 			serviceDiscovery.ServicesReturns(services, nil)
 			serviceDiscovery.InstancesByPortReturns(tt.instances, nil)
@@ -619,10 +618,20 @@ func TestGetActualWildcardAndLocalHost(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		tt.proxy.DiscoverIPVersions()
 		wm, lh := getActualWildcardAndLocalHost(tt.proxy)
 		if wm != tt.expected[0] && lh != tt.expected[1] {
 			t.Errorf("Test %s failed, expected: %s / %s got: %s / %s", tt.name, tt.expected[0], tt.expected[1], wm, lh)
 		}
+	}
+}
+
+func TestIsFilterChainMatchEmpty(t *testing.T) {
+	fcm := listener.FilterChainMatch{}
+	e := reflect.ValueOf(&fcm).Elem()
+	// This isn't really testing the code, its just making sure an Envoy update won't silently break this method
+	if e.NumField() != 13 {
+		t.Fatalf("Expected 13 fields, got %v. This means we need to update isFilterChainMatchEmpty", e.NumField())
 	}
 }
 
@@ -719,6 +728,7 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 	t.Helper()
 	oldestService := getOldestService(services...)
 	p := &fakePlugin{}
+	proxy.DiscoverIPVersions()
 	listeners := buildOutboundListeners(t, p, &proxy, nil, nil, services...)
 	if len(listeners) != 1 {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
@@ -1317,7 +1327,7 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 func TestOutboundListenerAccessLogs(t *testing.T) {
 	t.Helper()
 	p := &fakePlugin{}
-	env := buildListenerEnv(nil)
+	env := buildListenerEnv(nil, nil)
 
 	listeners := buildAllListeners(p, nil, env)
 	found := false
@@ -1372,7 +1382,7 @@ func TestHttpProxyListener(t *testing.T) {
 	p := &fakePlugin{}
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 
-	env := buildListenerEnv(nil)
+	env := buildListenerEnv(nil, nil)
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		t.Fatalf("error in initializing push context: %s", err)
 	}
@@ -1633,9 +1643,9 @@ func buildOutboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, s
 
 	var env model.Environment
 	if virtualService != nil {
-		env = buildListenerEnvWithVirtualServices(services, []*model.Config{virtualService})
+		env = buildListenerEnvWithVirtualServices(services, []*model.Config{virtualService}, nil)
 	} else {
-		env = buildListenerEnv(services)
+		env = buildListenerEnv(services, nil)
 	}
 
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
@@ -1662,7 +1672,7 @@ func buildOutboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, s
 func buildInboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, sidecarConfig *model.Config, services ...*model.Service) []*xdsapi.Listener {
 	t.Helper()
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
-	env := buildListenerEnv(services)
+	env := buildListenerEnv(services, nil)
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		return nil
 	}
@@ -1861,11 +1871,11 @@ func buildServiceInstance(service *model.Service, instanceIP string) *model.Serv
 	}
 }
 
-func buildListenerEnv(services []*model.Service) model.Environment {
-	return buildListenerEnvWithVirtualServices(services, nil)
+func buildListenerEnv(services []*model.Service, mgmtPort []int) model.Environment {
+	return buildListenerEnvWithVirtualServices(services, nil, mgmtPort)
 }
 
-func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServices []*model.Config) model.Environment {
+func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServices []*model.Config, mgmtPort []int) model.Environment {
 	serviceDiscovery := new(fakes.ServiceDiscovery)
 	serviceDiscovery.ServicesReturns(services, nil)
 
@@ -1881,6 +1891,11 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 		}
 	}
 	serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
+	mgmt := []*model.Port{}
+	for _, p := range mgmtPort {
+		mgmt = append(mgmt, &model.Port{Port: p, Protocol: protocol.HTTP})
+	}
+	serviceDiscovery.ManagementPortsReturns(mgmt)
 
 	envoyFilter := model.Config{
 		ConfigMeta: model.ConfigMeta{
@@ -2190,8 +2205,8 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 							Name:      limitedSvcName,
 							Namespace: "default",
 						},
-						Spec: &mixerClient.QuotaSpecBinding{
-							Services: []*mixerClient.IstioService{
+						Spec: &client.QuotaSpecBinding{
+							Services: []*client.IstioService{
 								{
 									Name:      "thrift-service",
 									Namespace: "default",
@@ -2199,7 +2214,7 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 									Service:   "thrift-service.default.svc.cluster.local",
 								},
 							},
-							QuotaSpecs: []*mixerClient.QuotaSpecBinding_QuotaSpecReference{
+							QuotaSpecs: []*client.QuotaSpecBinding_QuotaSpecReference{
 								{
 									Name:      "thrift-service",
 									Namespace: "default",

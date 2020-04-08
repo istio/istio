@@ -63,52 +63,10 @@ data:
         loadbalance
     }
 
-  values.yaml: |-
-    appNamespaces: []
-    autoscaleEnabled: true
-    autoscaleMax: 5
-    autoscaleMin: 1
-    configMap: true
-    configNamespace: istio-config
-    configSource:
-      subscribedResources: []
-    cpu:
-      targetAverageUtilization: 80
-    deploymentLabels: {}
-    enableProtocolSniffingForInbound: true
-    enableProtocolSniffingForOutbound: true
-    env: {}
-    hub: ""
-    image: pilot
-    ingress:
-      ingressClass: istio
-      ingressControllerMode: STRICT
-      ingressService: istio-ingressgateway
-    jwksResolverExtraRootCA: ""
-    keepaliveMaxServerConnectionAge: 30m
-    nodeSelector: {}
-    plugins: []
-    podAnnotations: {}
-    podAntiAffinityLabelSelector: []
-    podAntiAffinityTermLabelSelector: []
-    policy:
-      enabled: false
-    replicaCount: 1
-    resources:
-      requests:
-        cpu: 500m
-        memory: 2048Mi
-    rollingMaxSurge: 100%
-    rollingMaxUnavailable: 25%
-    tag: ""
-    tolerations: []
-    traceSampling: 1
-
   mesh: |-
     accessLogEncoding: TEXT
     accessLogFile: ""
     accessLogFormat: ""
-    certificates: []
     defaultConfig:
       concurrency: 2
       configPath: /etc/istio/proxy
@@ -119,8 +77,7 @@ data:
       parentShutdownDuration: 1m0s
       proxyAdminPort: 15000
       proxyMetadata:
-        DNS_AGENT: DNS-TLS
-        DNS_CAPTURE: ALL
+        DNS_AGENT: ""
       serviceCluster: istio-proxy
       tracing:
         zipkin:
@@ -583,6 +540,14 @@ data:
               {{- end}}
             {{- end}}
             ]
+        - name: ISTIO_META_APP_CONTAINERS
+          value: |-
+            [
+              {{- range $index, $container := .Spec.Containers }}
+                {{- if ne $index 0}},{{- end}}
+                {{ $container.Name }}
+              {{- end}}
+            ]
         - name: ISTIO_META_CLUSTER_ID
           value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
         - name: ISTIO_META_INTERCEPTION_MODE
@@ -924,6 +889,8 @@ spec:
             value: "false"
           - name: CLUSTER_ID
             value: "Kubernetes"
+          - name: DNS_ADDR
+            value: ""
           resources:
             requests:
               cpu: 500m
@@ -949,41 +916,6 @@ spec:
           - name: inject
             mountPath: /var/lib/istio/inject
             readOnly: true
-        # CoreDNS sidecar. Ports are used internally, to run as non-root.
-        # This is a short-term solution - the code in istiod can also be used
-        # directly. The plan is to move coreDNS on the agent.
-        - name: dns
-          image: coredns/coredns:1.1.2
-          imagePullPolicy: IfNotPresent
-          args: [ "-conf", "/var/lib/istio/coredns/Corefile" ]
-          securityContext:
-            runAsUser: 1337
-            runAsGroup: 1337
-            runAsNonRoot: true
-            capabilities:
-              drop:
-                - ALL
-          volumeMounts:
-            - name: local-certs
-              mountPath: /var/run/secrets/istio-dns
-            - name: config-volume
-              mountPath: /var/lib/istio/coredns
-          ports:
-            - containerPort: 15054
-              name: dns
-              protocol: UDP
-            - containerPort: 15055
-              name: metrics
-              protocol: TCP
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 15056
-              scheme: HTTP
-            initialDelaySeconds: 2
-            timeoutSeconds: 5
-            successThreshold: 1
-            failureThreshold: 5
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.

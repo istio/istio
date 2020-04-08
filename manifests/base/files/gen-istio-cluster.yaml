@@ -6673,6 +6673,19 @@ kind: CustomResourceDefinition
 metadata:
   name: istiooperators.install.istio.io
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.revision
+    description: Istio control plane revision
+    name: Revision
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: 'CreationTimestamp is a timestamp representing the server time when
+      this object was created. It is not guaranteed to be set in happens-before order
+      across separate operations. Clients may not set this value. It is represented
+      in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
+      lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+    name: Age
+    type: date
   group: install.istio.io
   names:
     kind: IstioOperator
@@ -6915,15 +6928,3 @@ webhooks:
     failurePolicy: Ignore
     sideEffects: None
 ---
-
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: istio-galley
-  labels:
-    app: galley
-    release: istio-base
-    istio: galley
-webhooks:
----
-

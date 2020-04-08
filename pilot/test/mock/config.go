@@ -338,17 +338,6 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 		t.Error("expected error putting missing object with a missing key")
 	}
 
-	if _, err := r.Update(elts[0]); err == nil {
-		t.Error("expected error putting object without revision")
-	}
-
-	badrevision := elts[0]
-	badrevision.ResourceVersion = "bad"
-
-	if _, err := r.Update(badrevision); err == nil {
-		t.Error("expected error putting object with a bad revision")
-	}
-
 	// check for missing type
 	if l, _ := r.List(resource.GroupVersionKind{}, namespace); len(l) > 0 {
 		t.Errorf("unexpected objects for missing type")

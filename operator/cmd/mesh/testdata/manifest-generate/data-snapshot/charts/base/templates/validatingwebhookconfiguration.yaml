@@ -34,14 +34,3 @@ webhooks:
     failurePolicy: Ignore
     sideEffects: None
 ---
-{{/* Create a NOP config for Galley's webhook to stop it from blocking config */}}
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: istio-galley
-  labels:
-    app: galley
-    release: {{ .Release.Name }}
-    istio: galley
-webhooks:
----

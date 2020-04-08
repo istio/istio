@@ -17,7 +17,9 @@ package external
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"testing"
+	"time"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -27,12 +29,28 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
-func createServiceEntries(configs []*model.Config, store model.IstioConfigStore, t *testing.T) {
+func createConfigs(configs []*model.Config, store model.IstioConfigStore, t *testing.T) {
 	t.Helper()
 	for _, cfg := range configs {
 		_, err := store.Create(*cfg)
+		if err != nil && strings.Contains(err.Error(), "item already exists") {
+			_, err := store.Update(*cfg)
+			if err != nil {
+				t.Fatalf("error occurred updating ServiceEntry config: %v", err)
+			}
+		} else if err != nil {
+			t.Fatalf("error occurred creating ServiceEntry config: %v", err)
+		}
+	}
+}
+
+func deleteConfigs(configs []*model.Config, store model.IstioConfigStore, t *testing.T) {
+	t.Helper()
+	for _, cfg := range configs {
+		err := store.Delete(cfg.GroupVersionKind(), cfg.Name, cfg.Namespace)
 		if err != nil {
 			t.Errorf("error occurred crearting ServiceEntry config: %v", err)
 		}
@@ -83,7 +101,7 @@ func TestServiceDiscoveryServices(t *testing.T) {
 		makeService("tcpstatic.com", "tcpStatic", "172.217.0.1", map[string]int{"tcp-444": 444}, true, model.ClientSideLB),
 	}
 
-	createServiceEntries([]*model.Config{httpDNS, tcpStatic}, store, t)
+	createConfigs([]*model.Config{httpDNS, tcpStatic}, store, t)
 
 	services, err := sd.Services()
 	if err != nil {
@@ -103,7 +121,7 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	store, sd, stopFn := initServiceDiscovery()
 	defer stopFn()
 
-	createServiceEntries([]*model.Config{httpDNS, tcpStatic}, store, t)
+	createConfigs([]*model.Config{httpDNS, tcpStatic}, store, t)
 
 	service, err := sd.GetService(host.Name(hostDNE))
 	if err != nil {
@@ -125,27 +143,233 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	}
 }
 
+// TestServiceDiscoveryServiceUpdate test various add/update/delete events for ServiceEntry
+// nolint: lll
+func TestServiceDiscoveryServiceUpdate(t *testing.T) {
+	store, sd, stopFn := initServiceDiscovery()
+	defer stopFn()
+
+	// httpStaticOverlayUpdated is the same as httpStaticOverlay but with an extra endpoint added to test updates
+	httpStaticOverlayUpdated := func() *model.Config {
+		c := httpStaticOverlay.DeepCopy()
+		se := c.Spec.(*networking.ServiceEntry)
+		se.Endpoints = append(se.Endpoints, &networking.WorkloadEntry{
+			Address: "6.6.6.6",
+			Labels:  map[string]string{"other": "bar"},
+		})
+		return &c
+	}()
+	// httpStaticOverlayUpdatedInstance is the same as httpStaticOverlayUpdated but with an extra endpoint added that has the same address
+	httpStaticOverlayUpdatedInstance := func() *model.Config {
+		c := httpStaticOverlayUpdated.DeepCopy()
+		se := c.Spec.(*networking.ServiceEntry)
+		se.Endpoints = append(se.Endpoints, &networking.WorkloadEntry{
+			Address: "6.6.6.6",
+			Labels:  map[string]string{"some-new-label": "bar"},
+		})
+		return &c
+	}()
+
+	// httpStaticOverlayUpdatedNop is the same as httpStaticOverlayUpdated but with a NOP change
+	httpStaticOverlayUpdatedNop := func() *model.Config {
+		c := httpStaticOverlayUpdated.DeepCopy()
+		c.ResourceVersion = "foo"
+		return &c
+	}()
+
+	// httpStaticOverlayUpdatedNs is the same as httpStaticOverlay but with an extra endpoint and different namespace added to test updates
+	httpStaticOverlayUpdatedNs := func() *model.Config {
+		c := httpStaticOverlay.DeepCopy()
+		c.Namespace = "other"
+		se := c.Spec.(*networking.ServiceEntry)
+		se.Endpoints = append(se.Endpoints, &networking.WorkloadEntry{
+			Address: "7.7.7.7",
+			Labels:  map[string]string{"namespace": "bar"},
+		})
+		return &c
+	}()
+
+	// Setup the expected instances for `httpStatic`. This will be added/removed from as we add various configs
+	baseInstances := []*model.ServiceInstance{
+		makeInstance(httpStatic, "2.2.2.2", 7080, httpStatic.Spec.(*networking.ServiceEntry).Ports[0], nil, MTLS),
+		makeInstance(httpStatic, "2.2.2.2", 18080, httpStatic.Spec.(*networking.ServiceEntry).Ports[1], nil, MTLS),
+		makeInstance(httpStatic, "3.3.3.3", 1080, httpStatic.Spec.(*networking.ServiceEntry).Ports[0], nil, MTLS),
+		makeInstance(httpStatic, "3.3.3.3", 8080, httpStatic.Spec.(*networking.ServiceEntry).Ports[1], nil, MTLS),
+		makeInstance(httpStatic, "4.4.4.4", 1080, httpStatic.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"foo": "bar"}, PlainText),
+		makeInstance(httpStatic, "4.4.4.4", 8080, httpStatic.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"foo": "bar"}, PlainText),
+	}
+
+	t.Run("simple entry", func(t *testing.T) {
+		// Create a SE, expect the base instances
+		createConfigs([]*model.Config{httpStatic}, store, t)
+		instances := baseInstances
+		expectServiceInstances(t, sd, httpStatic, 0, instances)
+	})
+
+	t.Run("add entry", func(t *testing.T) {
+		// Create another SE for the same host, expect these instances to get added
+		createConfigs([]*model.Config{httpStaticOverlay}, store, t)
+		instances := append(baseInstances,
+			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText))
+		expectServiceInstances(t, sd, httpStatic, 0, instances)
+	})
+
+	t.Run("add endpoint", func(t *testing.T) {
+		// Update the SE for the same host, expect these instances to get added
+		createConfigs([]*model.Config{httpStaticOverlayUpdated}, store, t)
+		instances := append(baseInstances,
+			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
+			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
+		expectServiceInstances(t, sd, httpStatic, 0, instances)
+
+		// Make a NOP change, expect that there are no changes
+		createConfigs([]*model.Config{httpStaticOverlayUpdatedNop}, store, t)
+		expectServiceInstances(t, sd, httpStaticOverlayUpdatedNop, 0, instances)
+	})
+
+	t.Run("overlapping address", func(t *testing.T) {
+		// Add another SE with an additional endpoint with a matching address
+		createConfigs([]*model.Config{httpStaticOverlayUpdatedInstance}, store, t)
+		instances := append(baseInstances,
+			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
+			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
+			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"some-new-label": "bar"}, PlainText))
+		expectServiceInstances(t, sd, httpStaticOverlayUpdatedInstance, 0, instances)
+		proxyInstances := []*model.ServiceInstance{
+			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
+			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"some-new-label": "bar"}, PlainText),
+		}
+		expectProxyInstances(t, sd, proxyInstances, "6.6.6.6")
+
+		// Remove the additional endpoint
+		createConfigs([]*model.Config{httpStaticOverlayUpdated}, store, t)
+		instances = append(baseInstances,
+			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
+			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
+		expectServiceInstances(t, sd, httpStatic, 0, instances)
+		proxyInstances = []*model.ServiceInstance{
+			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
+		}
+		expectProxyInstances(t, sd, proxyInstances, "6.6.6.6")
+	})
+
+	t.Run("update removes endpoint", func(t *testing.T) {
+		// Update the SE for the same host to remove the endpoint
+		createConfigs([]*model.Config{httpStaticOverlay}, store, t)
+		instances := append(baseInstances,
+			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText))
+		expectServiceInstances(t, sd, httpStaticOverlay, 0, instances)
+	})
+
+	t.Run("different namespace", func(t *testing.T) {
+		// Update the SE for the same host in a different ns, expect these instances to get added
+		createConfigs([]*model.Config{httpStaticOverlayUpdatedNs}, store, t)
+		instances := []*model.ServiceInstance{
+			makeInstance(httpStaticOverlayUpdatedNs, "5.5.5.5", 4567, httpStaticOverlayUpdatedNs.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
+			makeInstance(httpStaticOverlayUpdatedNs, "7.7.7.7", 4567, httpStaticOverlayUpdatedNs.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"namespace": "bar"}, PlainText),
+		}
+		// This lookup is per-namespace, so we should only see the objects in the same namespace
+		expectServiceInstances(t, sd, httpStaticOverlayUpdatedNs, 0, instances)
+	})
+	// TODO add hostname updates
+
+	t.Run("delete entry", func(t *testing.T) {
+		// Delete the additional SE, expect it to get removed
+		deleteConfigs([]*model.Config{httpStaticOverlayUpdated}, store, t)
+		expectServiceInstances(t, sd, httpStatic, 0, baseInstances)
+		// Check the other namespace is untouched
+		instances := []*model.ServiceInstance{
+			makeInstance(httpStaticOverlayUpdatedNs, "5.5.5.5", 4567, httpStaticOverlayUpdatedNs.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
+			makeInstance(httpStaticOverlayUpdatedNs, "7.7.7.7", 4567, httpStaticOverlayUpdatedNs.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"namespace": "bar"}, PlainText),
+		}
+		expectServiceInstances(t, sd, httpStaticOverlayUpdatedNs, 0, instances)
+	})
+
+	t.Run("change host", func(t *testing.T) {
+		// Update the SE for the same host, expect these instances to get added
+		createConfigs([]*model.Config{httpStaticOverlayUpdated}, store, t)
+		instances := append(baseInstances,
+			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
+			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
+		expectServiceInstances(t, sd, httpStatic, 0, instances)
+
+		// same as httpStaticOverlayUpdated but with an additional host
+		httpStaticHost := func() *model.Config {
+			c := httpStaticOverlayUpdated.DeepCopy()
+			se := c.Spec.(*networking.ServiceEntry)
+			se.Hosts = append(se.Hosts, "other.com")
+			return &c
+		}()
+		createConfigs([]*model.Config{httpStaticHost}, store, t)
+		instances = append(baseInstances,
+			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
+			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
+		// This is not applied, just to make makeInstance pick the right service.
+		otherHost := func() *model.Config {
+			c := httpStaticOverlayUpdated.DeepCopy()
+			se := c.Spec.(*networking.ServiceEntry)
+			se.Hosts = []string{"other.com"}
+			return &c
+		}()
+		instances2 := []*model.ServiceInstance{
+			makeInstance(otherHost, "5.5.5.5", 4567, httpStaticHost.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
+			makeInstance(otherHost, "6.6.6.6", 4567, httpStaticHost.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
+		}
+		expectServiceInstances(t, sd, httpStaticHost, 0, instances, instances2)
+	})
+}
+
+func expectProxyInstances(t *testing.T, sd *ServiceEntryStore, expected []*model.ServiceInstance, ip string) {
+	t.Helper()
+	// The system is eventually consistent, so add some retries
+	retry.UntilSuccessOrFail(t, func() error {
+		instances, err := sd.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{ip}})
+		if err != nil {
+			return fmt.Errorf("getProxyServiceInstances() encountered unexpected error: %v", err)
+		}
+		sortServiceInstances(instances)
+		sortServiceInstances(expected)
+		if err := compare(t, instances, expected); err != nil {
+			return err
+		}
+		return nil
+	}, retry.Converge(2), retry.Timeout(time.Second*5))
+}
+
+func expectServiceInstances(t *testing.T, sd *ServiceEntryStore, cfg *model.Config, port int, expected ...[]*model.ServiceInstance) {
+	t.Helper()
+	svcs := convertServices(*cfg)
+	if len(svcs) != len(expected) {
+		t.Fatalf("got more services than expected: %v vs %v", len(svcs), len(expected))
+	}
+	// The system is eventually consistent, so add some retries
+	retry.UntilSuccessOrFail(t, func() error {
+		for i, svc := range svcs {
+			instances, err := sd.InstancesByPort(svc, port, nil)
+			if err != nil {
+				return fmt.Errorf("instancesByPort() encountered unexpected error: %v", err)
+			}
+			sortServiceInstances(instances)
+			sortServiceInstances(expected[i])
+			if err := compare(t, instances, expected[i]); err != nil {
+				return fmt.Errorf("%d: %v", i, err)
+			}
+		}
+		return nil
+	}, retry.Converge(2), retry.Timeout(time.Second*5))
+}
+
 func TestServiceDiscoveryGetProxyServiceInstances(t *testing.T) {
 	store, sd, stopFn := initServiceDiscovery()
 	defer stopFn()
 
-	createServiceEntries([]*model.Config{httpStatic, tcpStatic}, store, t)
+	createConfigs([]*model.Config{httpStatic, tcpStatic}, store, t)
 
-	expectedInstances := []*model.ServiceInstance{
-		makeInstance(httpStatic, "2.2.2.2", 7080, httpStatic.Spec.(*networking.ServiceEntry).Ports[0], nil, true),
-		makeInstance(httpStatic, "2.2.2.2", 18080, httpStatic.Spec.(*networking.ServiceEntry).Ports[1], nil, true),
-		makeInstance(tcpStatic, "2.2.2.2", 444, tcpStatic.Spec.(*networking.ServiceEntry).Ports[0], nil, true),
-	}
-
-	instances, err := sd.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{"2.2.2.2"}})
-	if err != nil {
-		t.Errorf("GetProxyServiceInstances() encountered unexpected error: %v", err)
-	}
-	sortServiceInstances(instances)
-	sortServiceInstances(expectedInstances)
-	if err := compare(t, instances, expectedInstances); err != nil {
-		t.Error(err)
-	}
+	expectProxyInstances(t, sd, []*model.ServiceInstance{
+		makeInstance(httpStatic, "2.2.2.2", 7080, httpStatic.Spec.(*networking.ServiceEntry).Ports[0], nil, MTLS),
+		makeInstance(httpStatic, "2.2.2.2", 18080, httpStatic.Spec.(*networking.ServiceEntry).Ports[1], nil, MTLS),
+		makeInstance(tcpStatic, "2.2.2.2", 444, tcpStatic.Spec.(*networking.ServiceEntry).Ports[0], nil, MTLS),
+	}, "2.2.2.2")
 }
 
 // Keeping this test for legacy - but it never happens in real life.
@@ -153,27 +377,16 @@ func TestServiceDiscoveryInstances(t *testing.T) {
 	store, sd, stopFn := initServiceDiscovery()
 	defer stopFn()
 
-	createServiceEntries([]*model.Config{httpDNS, tcpStatic}, store, t)
+	createConfigs([]*model.Config{httpDNS, tcpStatic}, store, t)
 
-	expectedInstances := []*model.ServiceInstance{
-		makeInstance(httpDNS, "us.google.com", 7080, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], nil, true),
-		makeInstance(httpDNS, "us.google.com", 18080, httpDNS.Spec.(*networking.ServiceEntry).Ports[1], nil, true),
-		makeInstance(httpDNS, "uk.google.com", 1080, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], nil, true),
-		makeInstance(httpDNS, "uk.google.com", 8080, httpDNS.Spec.(*networking.ServiceEntry).Ports[1], nil, true),
-		makeInstance(httpDNS, "de.google.com", 80, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"foo": "bar"}, true),
-		makeInstance(httpDNS, "de.google.com", 8080, httpDNS.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"foo": "bar"}, true),
-	}
-
-	svc := convertServices(*httpDNS)
-	instances, err := sd.InstancesByPort(svc[0], 0, nil)
-	if err != nil {
-		t.Errorf("Instances() encountered unexpected error: %v", err)
-	}
-	sortServiceInstances(instances)
-	sortServiceInstances(expectedInstances)
-	if err := compare(t, instances, expectedInstances); err != nil {
-		t.Error(err)
-	}
+	expectServiceInstances(t, sd, httpDNS, 0, []*model.ServiceInstance{
+		makeInstance(httpDNS, "us.google.com", 7080, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], nil, MTLS),
+		makeInstance(httpDNS, "us.google.com", 18080, httpDNS.Spec.(*networking.ServiceEntry).Ports[1], nil, MTLS),
+		makeInstance(httpDNS, "uk.google.com", 1080, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], nil, MTLS),
+		makeInstance(httpDNS, "uk.google.com", 8080, httpDNS.Spec.(*networking.ServiceEntry).Ports[1], nil, MTLS),
+		makeInstance(httpDNS, "de.google.com", 80, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"foo": "bar"}, MTLS),
+		makeInstance(httpDNS, "de.google.com", 8080, httpDNS.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"foo": "bar"}, MTLS),
+	})
 }
 
 // Keeping this test for legacy - but it never happens in real life.
@@ -181,24 +394,13 @@ func TestServiceDiscoveryInstances1Port(t *testing.T) {
 	store, sd, stopFn := initServiceDiscovery()
 	defer stopFn()
 
-	createServiceEntries([]*model.Config{httpDNS, tcpStatic}, store, t)
+	createConfigs([]*model.Config{httpDNS, tcpStatic}, store, t)
 
-	expectedInstances := []*model.ServiceInstance{
-		makeInstance(httpDNS, "us.google.com", 7080, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], nil, true),
-		makeInstance(httpDNS, "uk.google.com", 1080, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], nil, true),
-		makeInstance(httpDNS, "de.google.com", 80, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"foo": "bar"}, true),
-	}
-
-	svc := convertServices(*httpDNS)
-	instances, err := sd.InstancesByPort(svc[0], 80, nil)
-	if err != nil {
-		t.Errorf("Instances() encountered unexpected error: %v", err)
-	}
-	sortServiceInstances(instances)
-	sortServiceInstances(expectedInstances)
-	if err := compare(t, instances, expectedInstances); err != nil {
-		t.Error(err)
-	}
+	expectServiceInstances(t, sd, httpDNS, 80, []*model.ServiceInstance{
+		makeInstance(httpDNS, "us.google.com", 7080, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], nil, MTLS),
+		makeInstance(httpDNS, "uk.google.com", 1080, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], nil, MTLS),
+		makeInstance(httpDNS, "de.google.com", 80, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"foo": "bar"}, MTLS),
+	})
 }
 
 func TestNonServiceConfig(t *testing.T) {
@@ -226,22 +428,12 @@ func TestNonServiceConfig(t *testing.T) {
 	}
 
 	// Now create some service entries and verify that it's added to the registry.
-	createServiceEntries([]*model.Config{httpDNS, tcpStatic}, store, t)
-	expectedInstances := []*model.ServiceInstance{
-		makeInstance(httpDNS, "us.google.com", 7080, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], nil, true),
-		makeInstance(httpDNS, "uk.google.com", 1080, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], nil, true),
-		makeInstance(httpDNS, "de.google.com", 80, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"foo": "bar"}, true),
-	}
-	svc := convertServices(*httpDNS)
-	instances, err := sd.InstancesByPort(svc[0], 80, nil)
-	if err != nil {
-		t.Errorf("Instances() encountered unexpected error: %v", err)
-	}
-	sortServiceInstances(instances)
-	sortServiceInstances(expectedInstances)
-	if err := compare(t, instances, expectedInstances); err != nil {
-		t.Error(err)
-	}
+	createConfigs([]*model.Config{httpDNS, tcpStatic}, store, t)
+	expectServiceInstances(t, sd, httpDNS, 80, []*model.ServiceInstance{
+		makeInstance(httpDNS, "us.google.com", 7080, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], nil, MTLS),
+		makeInstance(httpDNS, "uk.google.com", 1080, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], nil, MTLS),
+		makeInstance(httpDNS, "de.google.com", 80, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"foo": "bar"}, MTLS),
+	})
 }
 
 func TestServicesChanged(t *testing.T) {

@@ -77,6 +77,11 @@ spec:
             [
                 {"name":"http","containerPort":80}
             ]
+        - name: ISTIO_META_APP_CONTAINERS
+          value: |-
+            [
+                traffic
+            ]
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
         - name: ISTIO_META_INTERCEPTION_MODE

@@ -296,7 +296,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	// 2) grpc server has been generated.
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		if s.ca != nil {
-			s.RunCA(s.secureGRPCServerDNS, s.ca, caOpts, stop)
+			s.RunCA(s.secureGRPCServerDNS, s.ca, caOpts, args.Config.ControllerOptions, stop)
 		}
 		return nil
 	})
