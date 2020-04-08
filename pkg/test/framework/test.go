@@ -76,6 +76,12 @@ func (t *Test) LabelFeatures(labels ...label.Instance) *Test {
 	return t
 }
 
+func (t *Test) NotImplementedYet(labels ...label.Instance) *Test {
+	t.LabelFeatures("Usability.Observability.Status.DefaultExists").
+		Run(func(_ TestContext) { t.goTest.Skip() })
+	return t
+}
+
 // RequiresEnvironment ensures that the current environment matches what the suite expects. Otherwise it stops test
 // execution and skips the test.
 func (t *Test) RequiresEnvironment(name environment.Name) *Test {

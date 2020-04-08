@@ -32,10 +32,9 @@ import (
 )
 
 func TestStatusExistsByDefault(t *testing.T) {
-	// This test is not yet impemented
+	// This test is not yet implemented
 	framework.NewTest(t).
-		LabelFeatures("Usability.Observability.Status.DefaultExists").
-		Run(func(_ framework.TestContext) { t.Skip() })
+		NotImplementedYet("Usability.Observability.Status.DefaultExists")
 }
 
 func TestAnalysisWritesStatus(t *testing.T) {
