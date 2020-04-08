@@ -1890,7 +1890,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	copy(filters, httpFilters)
 
 	if httpOpts.addGRPCWebFilter {
-		filters = append(filters, &http_conn.HttpFilter{Name: wellknown.GRPCWeb})
+		filters = append(filters, grpcWebFilter)
 	}
 
 	if pluginParams.ServiceInstance != nil &&
@@ -1931,11 +1931,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 		})
 	}
 
-	filters = append(filters,
-		&http_conn.HttpFilter{Name: wellknown.CORS},
-		&http_conn.HttpFilter{Name: wellknown.Fault},
-		&http_conn.HttpFilter{Name: wellknown.Router},
-	)
+	filters = append(filters, corsFilter, faultFilter, routerFilter)
 
 	if httpOpts.connectionManager == nil {
 		httpOpts.connectionManager = &http_conn.HttpConnectionManager{}
@@ -2073,12 +2069,12 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	}
 	if needTLSInspector || opts.needHTTPInspector {
 		listenerFiltersMap[wellknown.TlsInspector] = true
-		listenerFilters = append(listenerFilters, &listener.ListenerFilter{Name: wellknown.TlsInspector})
+		listenerFilters = append(listenerFilters, tlsInspectorFilter)
 	}
 
 	if opts.needHTTPInspector {
 		listenerFiltersMap[wellknown.HttpInspector] = true
-		listenerFilters = append(listenerFilters, &listener.ListenerFilter{Name: wellknown.HttpInspector})
+		listenerFilters = append(listenerFilters, httpInspectorFilter)
 	}
 
 	for _, chain := range opts.filterChainOpts {
@@ -2491,12 +2487,12 @@ func appendListenerFilters(filters []*listener.ListenerFilter) []*listener.Liste
 
 	if !hasTLSInspector {
 		filters =
-			append(filters, &listener.ListenerFilter{Name: wellknown.TlsInspector})
+			append(filters, tlsInspectorFilter)
 	}
 
 	if !hasHTTPInspector {
 		filters =
-			append(filters, &listener.ListenerFilter{Name: wellknown.HttpInspector})
+			append(filters, httpInspectorFilter)
 	}
 
 	return filters
