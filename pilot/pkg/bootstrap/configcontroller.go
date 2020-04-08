@@ -17,6 +17,7 @@ package bootstrap
 import (
 	"context"
 	"fmt"
+	"istio.io/istio/pilot/pkg/status"
 	"net/url"
 	"os"
 	"path"
@@ -310,18 +311,25 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 
 	processing := components.NewProcessing(processingArgs)
 
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
 		if err := processing.Start(); err != nil {
-			return err
+			//return err
 		}
 
 		go func() {
 			<-stop
 			processing.Stop()
 		}()
-		return nil
 	})
 	return nil
+}
+
+func (s *Server) initOtherStatusStuff(args *PilotArgs) {
+	s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
+		// watch and list the configmaps in the istio-system namespace
+		// periodically write status
+		status.DistributionController{}.Start(stop)
+	})
 }
 
 func (s *Server) mcpController(
