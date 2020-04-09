@@ -625,7 +625,7 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 			// If in incremental mode, shouldn't receive cds here
 			if inc {
 				for _, g := range got {
-					if g == "cds" {
+					if g == "cds" || g == "rds" || g == "lds" {
 						errChan <- fmt.Errorf("should be eds incremental but received cds. %v %v",
 							err, id)
 						return
