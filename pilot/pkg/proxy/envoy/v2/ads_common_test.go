@@ -15,6 +15,7 @@
 package v2
 
 import (
+	"fmt"
 	"reflect"
 	"strconv"
 	"testing"
@@ -30,23 +31,29 @@ func TestProxyNeedsPush(t *testing.T) {
 		svcName     = "svc1.com"
 		drName      = "dr1"
 		vsName      = "vs1"
+		nsName      = "ns1"
 		generalName = "name1"
+
+		invalidNameSuffix = "invalid"
 	)
 
-	sidecar := &model.Proxy{Type: model.SidecarProxy, IPAddresses: []string{"127.0.0.1"}, Metadata: &model.NodeMetadata{}, SidecarScope: &model.SidecarScope{}}
-	gateway := &model.Proxy{Type: model.Router}
-
-	sidecar.SidecarScope.AddConfigDependencies(model.ServiceEntryKind, svcName)
-	sidecar.SidecarScope.AddConfigDependencies(model.VirtualServiceKind, vsName)
-	sidecar.SidecarScope.AddConfigDependencies(model.DestinationRuleKind, drName)
-
-	cases := []struct {
+	type Case struct {
 		name       string
 		proxy      *model.Proxy
 		namespaces []string
 		configs    map[resource.GroupVersionKind]map[string]struct{}
 		want       bool
-	}{
+	}
+
+	sidecar := &model.Proxy{Type: model.SidecarProxy, IPAddresses: []string{"127.0.0.1"}, Metadata: &model.NodeMetadata{}, SidecarScope: &model.SidecarScope{}}
+	gateway := &model.Proxy{Type: model.Router}
+
+	sidecarScopeKindNames := map[resource.GroupVersionKind]string{model.ServiceEntryKind: svcName, model.VirtualServiceKind: vsName, model.DestinationRuleKind: drName}
+	for kind, name := range sidecarScopeKindNames {
+		sidecar.SidecarScope.AddConfigDependencies(kind, name)
+	}
+
+	cases := []Case{
 		{"no namespace or configs", sidecar, nil, nil, true},
 		{"gateway config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
 			collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(): {generalName: {}}}, false},
@@ -58,24 +65,6 @@ func TestProxyNeedsPush(t *testing.T) {
 			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(): {generalName: {}}}, false},
 		{"invalid config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
 			{Kind: invalidKind}: {}}, true},
-		{"serviceentry empty config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
-			model.ServiceEntryKind: {}}, true},
-		{"serviceentry unmatched config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
-			model.ServiceEntryKind: {svcName + "invalid": {}}}, false},
-		{"serviceentry config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
-			model.ServiceEntryKind: {svcName: {}}}, true},
-		{"virtualservice empty config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
-			model.VirtualServiceKind: {}}, true},
-		{"virtualservice unmatched config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
-			model.VirtualServiceKind: {vsName + "invalid": {}}}, false},
-		{"virtualservice config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
-			model.VirtualServiceKind: {vsName: {}}}, true},
-		{"destinationrule empty config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
-			model.DestinationRuleKind: {}}, true},
-		{"destinationrule unmatched config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
-			model.DestinationRuleKind: {drName + "invalid": {}}}, false},
-		{"destinationrule config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
-			model.DestinationRuleKind: {drName: {}}}, true},
 		{"mixture empty and unmatched config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
 			model.DestinationRuleKind: {}, model.ServiceEntryKind: {svcName + "invalid": {}}}, true},
 		{"mixture empty and matched config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
@@ -84,6 +73,43 @@ func TestProxyNeedsPush(t *testing.T) {
 			model.DestinationRuleKind: {drName: {}}, model.ServiceEntryKind: {svcName + "invalid": {}}}, true},
 		{"mixture unmatched and unmatched config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
 			model.DestinationRuleKind: {drName + "invalid": {}}, model.ServiceEntryKind: {svcName + "invalid": {}}}, false},
+	}
+
+	for kind, name := range sidecarScopeKindNames {
+		nsCases := []struct {
+			namespace []string
+			want      bool
+		}{
+			{nil, true},  // empty namespace -> all
+			{[]string{nsName + invalidNameSuffix}, false},  // invalid namespace
+		}
+
+		for _, nsCase := range nsCases {
+			// empty
+			cases = append(cases, Case{
+				name:       fmt.Sprintf("%s empty config and namespace %v for sidecar", kind.Kind, nsCase.namespace),
+				proxy:      sidecar,
+				namespaces: nsCase.namespace,
+				configs:    map[resource.GroupVersionKind]map[string]struct{}{kind: {name: struct{}{}}},
+				want:       nsCase.want, // true && nsCase.want
+			})
+			// valid name
+			cases = append(cases, Case{
+				name:       fmt.Sprintf("%s config and namespace %v for sidecar", kind.Kind, nsCase.namespace),
+				proxy:      sidecar,
+				namespaces: nsCase.namespace,
+				configs:    map[resource.GroupVersionKind]map[string]struct{}{kind: {name: struct{}{}}},
+				want:       nsCase.want,
+			})
+			// invalid name
+			cases = append(cases, Case{
+				name:       fmt.Sprintf("%s unmatched config and namespace %v for sidecar", kind.Kind, nsCase.namespace),
+				proxy:      sidecar,
+				namespaces: nsCase.namespace,
+				configs:    map[resource.GroupVersionKind]map[string]struct{}{kind: {name + invalidNameSuffix: struct{}{}}},
+				want:       false,
+			})
+		}
 	}
 
 	for _, tt := range cases {
