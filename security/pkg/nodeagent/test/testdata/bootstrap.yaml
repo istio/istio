@@ -52,7 +52,7 @@ static_resources:
     lb_policy: ROUND_ROBIN
     hosts:
     - pipe:
-        path: "/tmp/sdstestudspath"
+        path: {{.SDSPath}}
   listeners:
   - name: outbound_listener
     address:

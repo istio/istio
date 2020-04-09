@@ -28,7 +28,6 @@ import (
 // cluster.outbound_cluster_tls.client_ssl_socket_factory.ssl_context_update_by_sds
 
 func TestCertRotation(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/22729")
 	rotateInterval := 1 * time.Second
 	sdsTest.RotateCert(rotateInterval)
 	setup := sdsTest.SetupTest(t, testID.SDSCertRotation)
