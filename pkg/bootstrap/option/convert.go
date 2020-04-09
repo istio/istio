@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strings"
 
 	envoyAPI "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	envoyAPICore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -139,6 +140,16 @@ func nodeMetadataConverter(metadata *model.NodeMetadata, rawMeta map[string]inte
 			return "", err
 		}
 		return marshalString, nil
+	}
+}
+
+func sanConverter(sans []string) convertFunc {
+	return func(*instance) (interface{}, error) {
+		matchers := []string{}
+		for _, s := range sans {
+			matchers = append(matchers, fmt.Sprintf(`{"exact":"%s"}`, s))
+		}
+		return "[" + strings.Join(matchers, ",") + "]", nil
 	}
 }
 

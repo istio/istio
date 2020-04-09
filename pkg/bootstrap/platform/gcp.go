@@ -29,11 +29,13 @@ import (
 )
 
 const (
-	GCPProject       = "gcp_project"
-	GCPProjectNumber = "gcp_project_number"
-	GCPCluster       = "gcp_gke_cluster_name"
-	GCPLocation      = "gcp_location"
-	GCEInstanceID    = "gcp_gce_instance_id"
+	GCPProject           = "gcp_project"
+	GCPProjectNumber     = "gcp_project_number"
+	GCPCluster           = "gcp_gke_cluster_name"
+	GCPLocation          = "gcp_location"
+	GCEInstanceID        = "gcp_gce_instance_id"
+	GCEInstanceTemplate  = "gcp_gce_instance_template"
+	GCEInstanceCreatedBy = "gcp_gce_instance_created_by"
 )
 
 var (
@@ -55,6 +57,20 @@ var (
 		}
 		return metadata.Zone()
 	}
+	instanceTemplateFn = func() (string, error) {
+		it, err := metadata.InstanceAttributeValue("instance-template")
+		if err != nil {
+			return "", err
+		}
+		return it, nil
+	}
+	createdByFn = func() (string, error) {
+		cb, err := metadata.InstanceAttributeValue("created-by")
+		if err != nil {
+			return "", err
+		}
+		return cb, nil
+	}
 )
 
 type shouldFillFn func() bool
@@ -67,6 +83,8 @@ type gcpEnv struct {
 	locationFn         metadataFn
 	clusterNameFn      metadataFn
 	instanceIDFn       metadataFn
+	instanceTemplateFn metadataFn
+	createdByFn        metadataFn
 }
 
 // IsGCP returns whether or not the platform for bootstrapping is Google Cloud Platform.
@@ -89,6 +107,8 @@ func NewGCP() Environment {
 		locationFn:         clusterLocationFn,
 		clusterNameFn:      clusterNameFn,
 		instanceIDFn:       metadata.InstanceID,
+		instanceTemplateFn: instanceTemplateFn,
+		createdByFn:        createdByFn,
 	}
 }
 
@@ -125,6 +145,12 @@ func (e *gcpEnv) Metadata() map[string]string {
 	}
 	if id, err := e.instanceIDFn(); err == nil {
 		md[GCEInstanceID] = id
+	}
+	if it, err := e.instanceTemplateFn(); err == nil {
+		md[GCEInstanceTemplate] = it
+	}
+	if cb, err := e.createdByFn(); err == nil {
+		md[GCEInstanceCreatedBy] = cb
 	}
 	return md
 }

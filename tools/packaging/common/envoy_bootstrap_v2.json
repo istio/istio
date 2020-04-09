@@ -345,7 +345,7 @@
                   "filename": "./var/run/secrets/istio/root-cert.pem"
                   {{- end }}
                 },
-                "verify_subject_alt_name": {{ toJSON .pilot_SAN }}
+                "match_subject_alt_names": {{ .pilot_SAN }}
               }
             }
           }
@@ -577,7 +577,10 @@
                     ]
                   },
                   "http_filters": [{
-                    "name": "envoy.router"
+                    "name": "envoy.router",
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.config.filter.http.router.v2.Router"
+                    }
                   }]
                 }
               }

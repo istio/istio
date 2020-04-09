@@ -132,7 +132,7 @@ require (
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	github.com/yashtewari/glob-intersection v0.0.0-20180206001645-7af743e8ec84 // indirect
 	github.com/yl2chen/cidranger v0.0.0-20180214081945-928b519e5268
-	github.com/yuin/gopher-lua v0.0.0-20180316054350-84ea3a3c79b3 // indirect
+	github.com/yuin/gopher-lua v0.0.0-20191220021717-ab39c6098bdb // indirect
 	go.opencensus.io v0.22.2
 	go.uber.org/atomic v1.4.0
 	go.uber.org/zap v1.10.0
@@ -169,3 +169,6 @@ replace github.com/Azure/go-autorest/autorest => github.com/Azure/go-autorest/au
 replace github.com/Azure/go-autorest/autorest/adal => github.com/Azure/go-autorest/autorest/adal v0.5.0
 
 replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.2.0+incompatible
+
+// Old version had no license
+replace github.com/chzyer/logex => github.com/chzyer/logex v1.1.11-0.20170329064859-445be9e134b2
