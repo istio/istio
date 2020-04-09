@@ -142,7 +142,8 @@ func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 func (m *Multicluster) updateHandler(svc *model.Service) {
 	if m.XDSUpdater != nil {
 		req := &model.PushRequest{
-			Full: true,
+			Full:              true,
+			NamespacesUpdated: map[string]struct{}{svc.Attributes.Namespace: {}},
 			ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{model.ServiceEntryKind: {
 				string(svc.Hostname): {},
 			}},

@@ -719,9 +719,10 @@ func (s *Server) initEventHandlers() error {
 	if s.configController != nil {
 		configHandler := func(_, curr model.Config, _ model.Event) {
 			pushReq := &model.PushRequest{
-				Full:           true,
-				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{curr.GroupVersionKind(): {curr.Name: {}}},
-				Reason:         []model.TriggerReason{model.ConfigUpdate},
+				Full:              true,
+				NamespacesUpdated: map[string]struct{}{curr.Namespace: {}},
+				ConfigsUpdated:    map[resource.GroupVersionKind]map[string]struct{}{curr.GroupVersionKind(): {curr.Name: {}}},
+				Reason:            []model.TriggerReason{model.ConfigUpdate},
 			}
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
 		}

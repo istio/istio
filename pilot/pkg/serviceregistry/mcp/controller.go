@@ -130,11 +130,13 @@ func (c *controller) Apply(change *sink.Change) error {
 
 	kind := s.Resource().GroupVersionKind()
 	resourceUpdated := map[string]struct{}{} // If non-incremental, we use empty resourceUpdated to indicate all.
+	namespaceUpdated := make(map[string]struct{})
 
 	// innerStore is [namespace][name]
 	innerStore := make(map[string]map[string]*model.Config)
 	for _, obj := range change.Objects {
 		namespace, name := extractNameNamespace(obj.Metadata.Name)
+		namespaceUpdated[namespace] = struct{}{}
 
 		createTime := time.Now()
 		if obj.Metadata.CreateTime != nil {
@@ -205,9 +207,10 @@ func (c *controller) Apply(change *sink.Change) error {
 		c.serviceEntryEvents(innerStore, prevStore)
 	} else if c.options.XDSUpdater != nil {
 		c.options.XDSUpdater.ConfigUpdate(&model.PushRequest{
-			Full:           true,
-			ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{kind: resourceUpdated},
-			Reason:         []model.TriggerReason{model.ConfigUpdate},
+			Full:              true,
+			NamespacesUpdated: namespaceUpdated,
+			ConfigsUpdated:    map[resource.GroupVersionKind]map[string]struct{}{kind: resourceUpdated},
+			Reason:            []model.TriggerReason{model.ConfigUpdate},
 		})
 	}
 
