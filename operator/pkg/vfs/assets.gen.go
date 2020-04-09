@@ -42772,7 +42772,6 @@ spec:
           maxNumberOfAnnotations: 200
           maxNumberOfMessageEvents: 200
       mtls:
-        enabled: false
         auto: true
       imagePullSecrets: []
       arch:
