@@ -731,6 +731,10 @@ func (s *Server) initEventHandlers() error {
 				Resource().GroupVersionKind() {
 				continue
 			}
+			if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Workloadentries.
+				Resource().GroupVersionKind() {
+				continue
+			}
 
 			s.configController.RegisterEventHandler(schema.Resource().GroupVersionKind(), configHandler)
 		}
