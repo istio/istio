@@ -12978,7 +12978,7 @@ roleRef:
   name: istio-pilot-{{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
-    name: istiod-service-account
+    name: istio-pilot-service-account
     namespace: {{ .Release.Namespace }}
 ---
 {{ if .Values.global.istiod.enabled }}
@@ -12995,7 +12995,7 @@ roleRef:
   name: istiod-{{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
-    name: istiod-service-account
+    name: istio-pilot-service-account
     namespace: {{ .Release.Namespace }}
 
 ---
@@ -13650,7 +13650,7 @@ spec:
 {{ toYaml .Values.pilot.podAnnotations | indent 8 }}
         {{- end }}
     spec:
-      serviceAccountName: istiod-service-account
+      serviceAccountName: istio-pilot-service-account
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
@@ -14283,7 +14283,7 @@ imagePullSecrets:
 {{- end }}
 {{- end }}
 metadata:
-  name: istiod-service-account
+  name: istio-pilot-service-account
   namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
