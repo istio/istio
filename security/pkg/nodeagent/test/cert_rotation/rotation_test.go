@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"istio.io/istio/mixer/test/client/env"
-	testID "istio.io/istio/mixer/test/client/env"
 	sdsTest "istio.io/istio/security/pkg/nodeagent/test"
 )
 
@@ -30,7 +29,7 @@ import (
 func TestCertRotation(t *testing.T) {
 	rotateInterval := 1 * time.Second
 	sdsTest.RotateCert(rotateInterval)
-	setup := sdsTest.SetupTest(t, testID.SDSCertRotation)
+	setup := sdsTest.SetupTest(t, env.SDSCertRotation)
 	defer setup.TearDown()
 
 	setup.StartProxy(t)

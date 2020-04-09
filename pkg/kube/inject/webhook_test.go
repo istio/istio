@@ -42,8 +42,6 @@ import (
 
 	"istio.io/api/annotation"
 
-	operator "istio.io/istio/operator/cmd/mesh"
-
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/mcp/testing/testcerts"
@@ -890,7 +888,7 @@ func loadInjectionConfigMap(t testing.TB, settings string) (template *Config, va
 		t.Fatal(err)
 	}
 	l := operatormesh.NewLogger(true, os.Stdout, os.Stderr)
-	manifests, _, err := operator.GenManifests(nil, oy, false, nil, l)
+	manifests, _, err := operatormesh.GenManifests(nil, oy, false, nil, l)
 	if err != nil {
 		t.Fatalf("failed to generate manifests: %v", err)
 	}

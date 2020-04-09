@@ -23,7 +23,6 @@ import (
 	"time"
 
 	descriptor "istio.io/api/policy/v1beta1"
-	pb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/pkg/attribute"
 )
@@ -5264,7 +5263,7 @@ type TestInfo struct {
 
 	// Attribute manifest to use when compiling/evaluating the tests.
 	// If nil, then default attributes are used.
-	conf map[string]*pb.AttributeManifest_AttributeInfo
+	conf map[string]*descriptor.AttributeManifest_AttributeInfo
 
 	// Fns field holds any additional function metadata that needs to be involved in the test.
 	Fns []ast.FunctionMetadata
@@ -5292,7 +5291,7 @@ func (t *TestInfo) TestName() string {
 }
 
 // Conf returns the global config to use for the test.
-func (t *TestInfo) Conf() map[string]*pb.AttributeManifest_AttributeInfo {
+func (t *TestInfo) Conf() map[string]*descriptor.AttributeManifest_AttributeInfo {
 	if t.conf != nil {
 		return t.conf
 	}
@@ -5337,7 +5336,7 @@ func (t *TestInfo) CheckReferenced(bag *FakeBag) bool {
 }
 
 // Attribute set from the original expression tests
-var exprEvalAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
+var exprEvalAttrs = map[string]*descriptor.AttributeManifest_AttributeInfo{
 	"a": {
 		ValueType: descriptor.INT64,
 	},
@@ -5398,7 +5397,7 @@ var exprEvalAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
 }
 
 // made up attribute set.
-var defaultAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
+var defaultAttrs = map[string]*descriptor.AttributeManifest_AttributeInfo{
 	"ai": {
 		ValueType: descriptor.INT64,
 	},
@@ -5482,7 +5481,7 @@ var defaultAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
 	},
 }
 
-var istio06AttributeSet = map[string]*pb.AttributeManifest_AttributeInfo{
+var istio06AttributeSet = map[string]*descriptor.AttributeManifest_AttributeInfo{
 	"origin.ip":                       {ValueType: descriptor.IP_ADDRESS},
 	"origin.uid":                      {ValueType: descriptor.STRING},
 	"origin.user":                     {ValueType: descriptor.STRING},

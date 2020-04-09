@@ -136,7 +136,7 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 		t.Errorf("GetService(%q) encountered unexpected error: %v", hostname, err)
 	}
 	if service == nil {
-		t.Errorf("GetService(%q) => should exist", hostname)
+		t.Fatalf("GetService(%q) => should exist", hostname)
 	}
 	if service.Hostname != host.Name(hostname) {
 		t.Errorf("GetService(%q) => %q, want %q", hostname, service.Hostname, hostname)

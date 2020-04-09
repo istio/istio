@@ -434,6 +434,7 @@ func mustFindObject(t test.Failer, objs object.K8sObjects, name, kind string) ob
 	o := findObject(objs, name, kind)
 	if o == nil {
 		t.Fatalf("expected %v/%v", name, kind)
+		return object.K8sObject{}
 	}
 	return *o
 }
