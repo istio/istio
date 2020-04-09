@@ -620,7 +620,19 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 			log.Println("Waiting for pushes ", id)
 
 			// Pushes may be merged so we may not get nPushes pushes
-			_, err = adscConn.Wait(15*time.Second, "eds")
+			got, err := adscConn.Wait(15*time.Second, "eds")
+
+			// If in incremental mode, shouldn't receive cds|rds|lds here
+			if inc {
+				for _, g := range got {
+					if g == "cds" || g == "rds" || g == "lds" {
+						errChan <- fmt.Errorf("should be eds incremental but received cds. %v %v",
+							err, id)
+						return
+					}
+				}
+			}
+
 			atomic.AddInt32(&rcvPush, 1)
 			if err != nil {
 				log.Println("Recv failed", err, id)
@@ -649,7 +661,7 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 				edsIncSvc: {},
 			}
 			server.EnvoyXdsServer.AdsPushAll(strconv.Itoa(j), &model.PushRequest{
-				Full: true,
+				Full: false,
 				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
 					model.ServiceEntryKind: updates,
 				},
