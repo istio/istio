@@ -12,7 +12,7 @@ roleRef:
   name: istio-pilot-{{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
-    name: istiod-service-account
+    name: istio-pilot-service-account
     namespace: {{ .Release.Namespace }}
 ---
 {{ if .Values.global.istiod.enabled }}
@@ -29,7 +29,7 @@ roleRef:
   name: istiod-{{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
-    name: istiod-service-account
+    name: istio-pilot-service-account
     namespace: {{ .Release.Namespace }}
 
 ---
