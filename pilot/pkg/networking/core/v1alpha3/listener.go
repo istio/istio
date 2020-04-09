@@ -35,6 +35,7 @@ import (
 	thrift_ratelimit "github.com/envoyproxy/go-control-plane/envoy/config/filter/thrift/rate_limit/v2alpha1"
 	ratelimit "github.com/envoyproxy/go-control-plane/envoy/config/ratelimit/v2"
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
+	envoy_type_tracing_v2 "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
@@ -329,8 +330,6 @@ var (
 
 	// httpGrpcAccessLog is used when access log service is enabled in mesh config.
 	httpGrpcAccessLog = buildHTTPGrpcAccessLog()
-
-	tracingConfig = buildTracingConfig()
 
 	emptyFilterChainMatch = &listener.FilterChainMatch{}
 
@@ -1990,16 +1989,16 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	}
 
 	if pluginParams.Push.Mesh.EnableTracing {
-		connectionManager.Tracing = tracingConfig
+		connectionManager.Tracing = buildTracingConfig(pluginParams.Push.Mesh.DefaultConfig)
 		connectionManager.GenerateRequestId = proto.BoolTrue
 	}
 
 	return connectionManager
 }
 
-func buildTracingConfig() *http_conn.HttpConnectionManager_Tracing {
+func buildTracingConfig(config *meshconfig.ProxyConfig) *http_conn.HttpConnectionManager_Tracing {
 	tc := authn_model.GetTraceConfig()
-	return &http_conn.HttpConnectionManager_Tracing{
+	tracingCfg := &http_conn.HttpConnectionManager_Tracing{
 		ClientSampling: &envoy_type.Percent{
 			Value: tc.ClientSampling,
 		},
@@ -2010,6 +2009,54 @@ func buildTracingConfig() *http_conn.HttpConnectionManager_Tracing {
 			Value: tc.OverallSampling,
 		},
 	}
+
+	if len(config.Tracing.CustomTags) != 0 {
+		tracingCfg.CustomTags = buildCustomTags(config.Tracing.CustomTags)
+	}
+
+	return tracingCfg
+}
+
+func buildCustomTags(customTags map[string]*meshconfig.Tracing_CustomTag) []*envoy_type_tracing_v2.CustomTag {
+	var tags []*envoy_type_tracing_v2.CustomTag
+
+	for tagName, t := range customTags {
+		switch c := t.Type.(type) {
+		case *meshconfig.Tracing_CustomTag_Environment:
+			env := &envoy_type_tracing_v2.CustomTag{
+				Tag: tagName,
+				Type: &envoy_type_tracing_v2.CustomTag_Environment_{
+					Environment: &envoy_type_tracing_v2.CustomTag_Environment{
+						Name:         c.Environment.Name,
+						DefaultValue: c.Environment.DefaultValue,
+					},
+				},
+			}
+			tags = append(tags, env)
+		case *meshconfig.Tracing_CustomTag_Header:
+			header := &envoy_type_tracing_v2.CustomTag{
+				Tag: tagName,
+				Type: &envoy_type_tracing_v2.CustomTag_RequestHeader{
+					RequestHeader: &envoy_type_tracing_v2.CustomTag_Header{
+						Name:         c.Header.Name,
+						DefaultValue: c.Header.DefaultValue,
+					},
+				},
+			}
+			tags = append(tags, header)
+		case *meshconfig.Tracing_CustomTag_Literal:
+			env := &envoy_type_tracing_v2.CustomTag{
+				Tag: tagName,
+				Type: &envoy_type_tracing_v2.CustomTag_Literal_{
+					Literal: &envoy_type_tracing_v2.CustomTag_Literal{
+						Value: c.Literal.Value,
+					},
+				},
+			}
+			tags = append(tags, env)
+		}
+	}
+	return tags
 }
 
 func buildThriftRatelimit(domain string, thriftconfig *meshconfig.MeshConfig_ThriftConfig) *thrift_ratelimit.RateLimit {
