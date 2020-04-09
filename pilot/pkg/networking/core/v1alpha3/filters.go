@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
-// Define static filters to be reused across the codebase. This avoids duplicate marshalling/unmarshalling
+// Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling
 // This should not be used for filters that will be mutated
 var (
 	corsFilter = &http_conn.HttpFilter{
