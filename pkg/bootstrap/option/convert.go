@@ -24,8 +24,6 @@ import (
 	envoyAPI "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	envoyAPICore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networkingAPI "istio.io/api/networking/v1alpha3"
@@ -176,18 +174,6 @@ func podIPConverter(value net.IP) convertFunc {
 	return func(*instance) (interface{}, error) {
 		return base64.StdEncoding.EncodeToString(value), nil
 	}
-}
-
-func convertToJSONPB(v proto.Message) string {
-	if v == nil {
-		return ""
-	}
-	b, err := (&jsonpb.Marshaler{}).MarshalToString(v)
-	if err != nil {
-		log.Error(err.Error())
-		return ""
-	}
-	return b
 }
 
 func convertToJSON(v interface{}) string {
