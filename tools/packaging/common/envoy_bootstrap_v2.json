@@ -345,7 +345,7 @@
                   "filename": "./var/run/secrets/istio/root-cert.pem"
                   {{- end }}
                 },
-                "verify_subject_alt_name": {{ toJSON .pilot_SAN }}
+                "match_subject_alt_names": {{ .pilot_SAN }}
               }
             }
           }
