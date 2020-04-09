@@ -99,6 +99,21 @@ func (s *TestSetup) Ports() *Ports {
 	return s.ports
 }
 
+// SDSPath gets SDS path. The path does not change after proxy restarts.
+func (s *TestSetup) SDSPath() string {
+	return fmt.Sprintf("/tmp/sdstestudspath.%v", s.ports.MixerPort)
+}
+
+// JWTTokenPath gets JWT token path. The path does not change after proxy restarts.
+func (s *TestSetup) JWTTokenPath() string {
+	return fmt.Sprintf("/tmp/envoy-token-%v.jwt", s.ports.STSPort)
+}
+
+// CACertPath gets CA cert file path. The path does not change after proxy restarts.
+func (s *TestSetup) CACertPath() string {
+	return fmt.Sprintf("/tmp/ca-certificates-%v.crt", s.ports.STSPort)
+}
+
 // SetMixerCheckReferenced set Referenced in mocked Check response
 func (s *TestSetup) SetMixerCheckReferenced(ref *mixerpb.ReferencedAttributes) {
 	s.mixer.checkReferenced = ref

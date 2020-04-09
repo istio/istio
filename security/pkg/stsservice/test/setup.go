@@ -41,12 +41,10 @@ import (
 )
 
 const (
-	// Paths to credentials which will be loaded by proxy. These paths should
-	// match bootstrap config in testdata/bootstrap.yaml
-	certPath       = "/tmp/sts-ca-certificates.crt"
-	proxyTokenPath = "/tmp/sts-envoy-token.jwt"
+	jwtToken = "thisisafakejwt"
 )
 
+// Env manages test setup and teardown.
 type Env struct {
 	ProxySetup *proxyEnv.TestSetup
 	AuthServer *tokenBackend.AuthorizationServer
@@ -58,6 +56,7 @@ type Env struct {
 	tokenExchangePlugin *google.Plugin
 }
 
+// TearDown shuts down all the components.
 func (e *Env) TearDown() {
 	// Stop proxy first, otherwise XDS stream is still alive and server's graceful
 	// stop will be blocked.
@@ -105,16 +104,6 @@ func WriteDataToFile(path string, content string) error {
 // test backend           : BackendPort
 // proxy admin            : AdminPort
 func SetupTest(t *testing.T, cb *xdsService.XDSCallbacks, testID uint16, enableCache bool) *Env {
-	// Set up credential files for bootstrap config
-	jwtToken := getDataFromFile(istioEnv.IstioSrc+"/security/pkg/stsservice/test/testdata/trustworthy-jwt.jwt", t)
-	if err := WriteDataToFile(proxyTokenPath, jwtToken); err != nil {
-		t.Fatalf("failed to set up token file %s: %v", proxyTokenPath, err)
-	}
-	caCert := getDataFromFile(istioEnv.IstioSrc+"/security/pkg/stsservice/test/testdata/ca-certificate.crt", t)
-	if err := WriteDataToFile(certPath, caCert); err != nil {
-		t.Fatalf("failed to set up ca certificate file %s: %v", certPath, err)
-	}
-
 	env := &Env{
 		initialToken: jwtToken,
 	}
@@ -122,6 +111,15 @@ func SetupTest(t *testing.T, cb *xdsService.XDSCallbacks, testID uint16, enableC
 	proxySetup := proxyEnv.NewTestSetup(testID, t)
 	proxySetup.SetNoMixer(true)
 	proxySetup.EnvoyTemplate = getDataFromFile(istioEnv.IstioSrc+"/security/pkg/stsservice/test/testdata/bootstrap.yaml", t)
+	// Set up credential files for bootstrap config
+	if err := WriteDataToFile(proxySetup.JWTTokenPath(), jwtToken); err != nil {
+		t.Fatalf("failed to set up token file %s: %v", proxySetup.JWTTokenPath(), err)
+	}
+	caCert := getDataFromFile(istioEnv.IstioSrc+"/security/pkg/stsservice/test/testdata/ca-certificate.crt", t)
+	if err := WriteDataToFile(proxySetup.CACertPath(), caCert); err != nil {
+		t.Fatalf("failed to set up ca certificate file %s: %v", proxySetup.CACertPath(), err)
+	}
+
 	env.ProxySetup = proxySetup
 	env.DumpPortMap(t)
 	// Set up auth server that provides token service
@@ -183,10 +181,12 @@ func (e *Env) DumpPortMap(t *testing.T) {
 		e.ProxySetup.Ports().BackendPort, e.ProxySetup.Ports().AdminPort)
 }
 
+// ClearTokenCache removes cached token in token exchange plugin.
 func (e *Env) ClearTokenCache() {
 	e.tokenExchangePlugin.ClearCache()
 }
 
+// StartProxy starts proxy.
 func (e *Env) StartProxy(t *testing.T) {
 	if err := e.ProxySetup.SetUp(); err != nil {
 		t.Fatalf("failed to start proxy: %v", err)
