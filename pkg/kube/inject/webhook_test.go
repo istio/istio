@@ -1526,3 +1526,12 @@ func BenchmarkInjectServe(b *testing.B) {
 		wh.serveInject(httptest.NewRecorder(), req)
 	}
 }
+
+// defaultInstallPackageDir returns a path to a snapshot of the helm charts used for testing.
+func defaultInstallPackageDir() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	return filepath.Join(wd, "../../../operator/cmd/mesh/testdata/manifest-generate/data-snapshot")
+}
