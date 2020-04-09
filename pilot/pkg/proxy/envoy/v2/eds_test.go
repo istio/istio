@@ -622,7 +622,7 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 			// Pushes may be merged so we may not get nPushes pushes
 			got, err := adscConn.Wait(15*time.Second, "eds")
 
-			// If in incremental mode, shouldn't receive cds here
+			// If in incremental mode, shouldn't receive cds|rds|lds here
 			if inc {
 				for _, g := range got {
 					if g == "cds" || g == "rds" || g == "lds" {
