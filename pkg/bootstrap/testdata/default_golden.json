@@ -392,7 +392,10 @@
                     ]
                   },
                   "http_filters": [{
-                    "name": "envoy.router"
+                    "name": "envoy.router",
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.config.filter.http.router.v2.Router"
+                    }
                   }]
                 }
               }
