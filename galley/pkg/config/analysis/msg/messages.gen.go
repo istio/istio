@@ -112,6 +112,10 @@ var (
 	// NamespaceInvalidInjectorRevision defines a diag.MessageType for message "NamespaceInvalidInjectorRevision".
 	// Description: A namespace is labeled to inject from unknown control plane.
 	NamespaceInvalidInjectorRevision = diag.NewMessageType(diag.Warning, "IST0124", "The namespace is labeled to inject from %q but that namespace doesn't exist. Run 'kubectl label namespace %s istio.io/rev=<revision>' where <revision> is one of %s")
+
+	// InvalidAnnotation defines a diag.MessageType for message "InvalidAnnotation".
+	// Description: An Istio annotation that is not valid
+	InvalidAnnotation = diag.NewMessageType(diag.Warning, "IST0125", "Invalid annotation %s: %s")
 )
 
 // All returns a list of all known message types.
@@ -143,6 +147,7 @@ func All() []*diag.MessageType {
 		InvalidRegexp,
 		NamespaceMultipleInjectionLabels,
 		NamespaceInvalidInjectorRevision,
+		InvalidAnnotation,
 	}
 }
 
@@ -401,5 +406,15 @@ func NewNamespaceInvalidInjectorRevision(r *resource.Instance, unknownrevision s
 		unknownrevision,
 		namespace,
 		revisions,
+	)
+}
+
+// NewInvalidAnnotation returns a new diag.Message based on InvalidAnnotation.
+func NewInvalidAnnotation(r *resource.Instance, annotation string, problem string) diag.Message {
+	return diag.NewMessage(
+		InvalidAnnotation,
+		r,
+		annotation,
+		problem,
 	)
 }
