@@ -17,6 +17,7 @@ package authenticate
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	oidc "github.com/coreos/go-oidc"
 	"golang.org/x/net/context"
@@ -101,7 +102,7 @@ func NewIDTokenAuthenticator(aud string) (*IDTokenAuthenticator, error) {
 		return nil, err
 	}
 
-	verifier := provider.Verifier(&oidc.Config{ClientID: aud})
+	verifier := provider.Verifier(&oidc.Config{ClientID: aud, Now: func() time.Time { return time.Now().Add(-30 * time.Second) }})
 	return &IDTokenAuthenticator{verifier}, nil
 }
 
