@@ -155,6 +155,9 @@ type Proxy struct {
 
 	// Indicates wheteher proxy supports IPv4 addresses
 	ipv4Support bool
+
+	// GlobalUnicastIP stores the globacl unicast IP if available, otherwise nil
+	GlobalUnicastIP string
 }
 
 var (
@@ -588,6 +591,9 @@ func (node *Proxy) DiscoverIPVersions() {
 			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
 			// skip it to prevent a panic.
 			continue
+		}
+		if addr.IsGlobalUnicast() {
+			node.GlobalUnicastIP = addr.String()
 		}
 		if addr.To4() != nil {
 			node.ipv4Support = true

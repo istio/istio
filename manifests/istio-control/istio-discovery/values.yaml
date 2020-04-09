@@ -162,9 +162,6 @@ sidecarInjectorWebhook:
     enabled: false
     autoInject: true
 
-galley:
-  enabled: false
-
 telemetry:
   enabled: true
   v1:
@@ -216,13 +213,14 @@ meshConfig:
       # If empty, agent will not start :15013 DNS listener and will not attempt
       # to connect to Istiod DNS-TLS. This will also disable the core dns sidecar in
       # istiod and the dns-over-tls listener.
-      DNS_AGENT: DNS-TLS
+      # DNS_AGENT: DNS-TLS
+      DNS_AGENT: ""
 
       # If empty, DNS capture is disabled.
       # If set, intercept UDP port :53 and redirect to localhost:15013
       # Currently only 'ALL' capture is supported - we may refine it if we want
       # finer grained control.
-      DNS_CAPTURE: ALL
+      # DNS_CAPTURE: ALL
 
 
   # TODO: the intent is to eventually have this enabled by default when security is used.

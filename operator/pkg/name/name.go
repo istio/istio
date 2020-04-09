@@ -50,7 +50,6 @@ const (
 	// are used for struct traversal.
 	IstioBaseComponentName ComponentName = "Base"
 	PilotComponentName     ComponentName = "Pilot"
-	GalleyComponentName    ComponentName = "Galley"
 	PolicyComponentName    ComponentName = "Policy"
 	TelemetryComponentName ComponentName = "Telemetry"
 
@@ -77,7 +76,6 @@ var (
 	AllCoreComponentNames = []ComponentName{
 		IstioBaseComponentName,
 		PilotComponentName,
-		GalleyComponentName,
 		PolicyComponentName,
 		TelemetryComponentName,
 		CNIComponentName,

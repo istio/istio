@@ -987,6 +987,7 @@ func TestBuildGatewayListeners(t *testing.T) {
 		env := buildEnv(t, []pilot_model.Config{{Spec: tt.gateway}}, []pilot_model.Config{})
 		proxyGateway.SetGatewaysForProxy(env.PushContext)
 		proxyGateway.ServiceInstances = tt.node.ServiceInstances
+		proxyGateway.DiscoverIPVersions()
 		builder := configgen.buildGatewayListeners(&proxyGateway, env.PushContext, &ListenerBuilder{})
 		var listeners []string
 		for _, l := range builder.gatewayListeners {

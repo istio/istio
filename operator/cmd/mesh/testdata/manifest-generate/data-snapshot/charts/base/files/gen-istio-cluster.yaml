@@ -6915,15 +6915,3 @@ webhooks:
     failurePolicy: Ignore
     sideEffects: None
 ---
-
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: istio-galley
-  labels:
-    app: galley
-    release: istio-base
-    istio: galley
-webhooks:
----
-

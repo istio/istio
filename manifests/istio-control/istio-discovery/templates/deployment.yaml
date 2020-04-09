@@ -36,6 +36,8 @@ spec:
         istio.io/rev: {{ .Values.revision | default "default" }}
         {{- if eq .Values.revision ""}}
         istio: pilot
+        {{- else }}
+        istio: istiod
         {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
@@ -131,17 +133,19 @@ spec:
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
             value: "{{ .Values.pilot.enableProtocolSniffingForInbound }}"
           - name: INJECTION_WEBHOOK_CONFIG_NAME
+          {{- if eq .Release.Namespace "istio-system" }}
             value: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+          {{- else }}
+            value: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
+          {{- end }}
           - name: ISTIOD_ADDR
             value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
           - name: PILOT_ENABLE_ANALYSIS
             value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
-          {{- if (eq .Values.meshConfig.defaultConfig.proxyMetadata.DNS_AGENT "") }}
           - name: DNS_ADDR
-            value: ""
-          {{- end }}
+            value: "{{ .Values.meshConfig.defaultConfig.proxyMetadata.DNS_AGENT }}"
           resources:
 {{- if .Values.pilot.resources }}
 {{ toYaml .Values.pilot.resources | trim | indent 12 }}
@@ -176,7 +180,7 @@ spec:
             mountPath: /cacerts
           {{- end }}
 
-        {{- if not (eq .Values.meshConfig.defaultConfig.proxyMetadata.DNS_AGENT "") }}
+        {{- if .Values.meshConfig.defaultConfig.proxyMetadata.DNS_AGENT }}
         # CoreDNS sidecar. Ports are used internally, to run as non-root.
         # This is a short-term solution - the code in istiod can also be used
         # directly. The plan is to move coreDNS on the agent.

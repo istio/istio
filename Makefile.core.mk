@@ -108,10 +108,13 @@ export JUNIT_OUT ?= $(ARTIFACTS)/junit.xml
 export REPO_ROOT := $(shell git rev-parse --show-toplevel)
 
 # Make directories needed by the build system
-$(shell mkdir -p $(ISTIO_OUT))
 $(shell mkdir -p $(ISTIO_OUT_LINUX))
 $(shell mkdir -p $(ISTIO_OUT_LINUX)/logs)
 $(shell mkdir -p $(dir $(JUNIT_OUT)))
+
+# Need seperate target for init:
+$(ISTIO_OUT):
+	@mkdir -p $@
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT_LINUX}/docker_temp
@@ -376,7 +379,7 @@ ${ISTIO_OUT}/release/istioctl-linux-amd64: depend
 ${ISTIO_OUT}/release/istioctl-linux-armv7: depend
 	STATIC=0 GOOS=linux GOARCH=arm GOARM=7 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/release/istioctl-linux-arm64: depend
-	STATIC=0 GOOS=linux GOARCH=arm64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl	
+	STATIC=0 GOOS=linux GOARCH=arm64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/release/istioctl-osx: depend
 	STATIC=0 GOOS=darwin LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/release/istioctl-win.exe: depend
