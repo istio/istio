@@ -345,6 +345,9 @@ go-gen:
 
 gen-charts:
 	@operator/scripts/run_update_charts.sh
+	# Only stub is checked in to avoid merge conflicts, actual assets is generated with make gen, but the updated
+	# file should not be checked in. gitignore only works for files not already in the repo.
+	git update-index --assume-unchanged operator/pkg/vfs/assets.gen.go
 
 refresh-goldens:
 	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./operator/...

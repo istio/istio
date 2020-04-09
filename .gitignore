@@ -81,5 +81,3 @@ tools/istioctl.bash
 vendor
 # Contains the built artifacts
 out/
-# Only stub is checked in to avoid merge conflicts, actual assets is generated with make gen.
-operator/pkg/vfs/assets.gen.go
