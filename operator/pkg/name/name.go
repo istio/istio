@@ -187,12 +187,14 @@ func generateValuesEnablementMap() {
 	ValuesEnablementPathMap["spec.values.gateways.istio-egressgateway.enabled"] = "spec.components.egressGateways.[name:istio-egressgateway].enabled"
 }
 
+var onceErr error
+
 func ScanBundledAddonComponents(chartsRootDir string) error {
-	var err error
 	scanAddons.Do(func() {
-		addonComponentNames, err := helm.GetAddonNamesFromCharts(chartsRootDir, true)
-		if err != nil {
-			err = fmt.Errorf("failed to scan bundled addon components: %v", err)
+		var addonComponentNames []string
+		addonComponentNames, onceErr = helm.GetAddonNamesFromCharts(chartsRootDir, true)
+		if onceErr != nil {
+			onceErr = fmt.Errorf("failed to scan bundled addon components: %v", onceErr)
 			return
 		}
 		for _, an := range addonComponentNames {
@@ -203,5 +205,5 @@ func ScanBundledAddonComponents(chartsRootDir string) error {
 			ValuesEnablementPathMap[valuePath] = iopPath
 		}
 	})
-	return err
+	return onceErr
 }
