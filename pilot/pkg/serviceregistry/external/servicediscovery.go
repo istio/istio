@@ -160,7 +160,6 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 					for host, eps := range endpointsByHostname {
 						_ = c.XdsUpdater.EDSUpdate(c.Cluster(), host, curr.Namespace, eps)
 					}
-
 				}
 			})
 	}
