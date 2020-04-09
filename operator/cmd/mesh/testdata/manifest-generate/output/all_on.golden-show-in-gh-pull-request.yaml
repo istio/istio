@@ -7593,6 +7593,19 @@ kind: CustomResourceDefinition
 metadata:
   name: istiooperators.install.istio.io
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.revision
+    description: Istio control plane revision
+    name: Revision
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: 'CreationTimestamp is a timestamp representing the server time when
+      this object was created. It is not guaranteed to be set in happens-before order
+      across separate operations. Clients may not set this value. It is represented
+      in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
+      lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+    name: Age
+    type: date
   group: install.istio.io
   names:
     kind: IstioOperator
@@ -8430,8 +8443,7 @@ data:
       parentShutdownDuration: 1m0s
       proxyAdminPort: 15000
       proxyMetadata:
-        DNS_AGENT: DNS-TLS
-        DNS_CAPTURE: ALL
+        DNS_AGENT: ""
       serviceCluster: istio-proxy
       tracing:
         zipkin:
@@ -8531,6 +8543,8 @@ spec:
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
+        - name: DNS_ADDR
+          value: ""
         image: gcr.io/istio-testing/pilot:latest
         name: discovery
         ports:
@@ -8570,40 +8584,6 @@ spec:
         - mountPath: /var/lib/istio/inject
           name: inject
           readOnly: true
-      - args:
-        - -conf
-        - /var/lib/istio/coredns/Corefile
-        image: coredns/coredns:1.1.2
-        imagePullPolicy: IfNotPresent
-        livenessProbe:
-          failureThreshold: 5
-          httpGet:
-            path: /health
-            port: 15056
-            scheme: HTTP
-          initialDelaySeconds: 2
-          successThreshold: 1
-          timeoutSeconds: 5
-        name: dns
-        ports:
-        - containerPort: 15054
-          name: dns
-          protocol: UDP
-        - containerPort: 15055
-          name: metrics
-          protocol: TCP
-        securityContext:
-          capabilities:
-            drop:
-            - ALL
-          runAsGroup: 1337
-          runAsNonRoot: true
-          runAsUser: 1337
-        volumeMounts:
-        - mountPath: /var/run/secrets/istio-dns
-          name: local-certs
-        - mountPath: /var/lib/istio/coredns
-          name: config-volume
       securityContext:
         fsGroup: 1337
       serviceAccountName: istio-pilot-service-account
@@ -9018,6 +8998,14 @@ data:
                 {{- end }}
               {{- end}}
             {{- end}}
+            ]
+        - name: ISTIO_META_APP_CONTAINERS
+          value: |-
+            [
+              {{- range $index, $container := .Spec.Containers }}
+                {{- if ne $index 0}},{{- end}}
+                {{ $container.Name }}
+              {{- end}}
             ]
         - name: ISTIO_META_CLUSTER_ID
           value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
