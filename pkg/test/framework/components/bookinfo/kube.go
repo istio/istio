@@ -30,7 +30,7 @@ const (
 	// BookInfo uses "bookinfo.yaml"
 	BookInfo          bookInfoConfig = "bookinfo.yaml"
 	BookinfoRatingsv2 bookInfoConfig = "bookinfo-ratings-v2.yaml"
-	BookinfoDb        bookInfoConfig = "bookinfo-db.yaml"
+	BookinfoDB        bookInfoConfig = "bookinfo-db.yaml"
 )
 
 func deploy(ctx resource.Context, cfg Config) (i deployment.Instance, err error) {

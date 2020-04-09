@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"sync"
 
-	apicorev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -30,13 +29,13 @@ var _ corev1.ConfigMapInterface = &configMapImpl{}
 
 type configMapImpl struct {
 	mux        sync.Mutex
-	configMaps map[string]*apicorev1.ConfigMap
+	configMaps map[string]*v1.ConfigMap
 	watches    Watches
 }
 
 func newConfigMapInterface() corev1.ConfigMapInterface {
 	return &configMapImpl{
-		configMaps: make(map[string]*apicorev1.ConfigMap),
+		configMaps: make(map[string]*v1.ConfigMap),
 	}
 }
 
@@ -90,7 +89,7 @@ func (c *configMapImpl) List(ctx context.Context, opts metav1.ListOptions) (*v1.
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
-	out := &apicorev1.ConfigMapList{}
+	out := &v1.ConfigMapList{}
 
 	for _, v := range c.configMaps {
 		out.Items = append(out.Items, *v)

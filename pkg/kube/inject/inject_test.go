@@ -22,8 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/api/mesh/v1alpha1"
-
 	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 
@@ -563,7 +561,7 @@ func TestCleanMeshConfig(t *testing.T) {
 	explicit.DefaultConfig.DrainDuration = types.DurationProto(45 * time.Second)
 	overrides := mesh.DefaultMeshConfig()
 	overrides.TrustDomain = "foo.bar"
-	overrides.IngressControllerMode = v1alpha1.MeshConfig_OFF
+	overrides.IngressControllerMode = meshapi.MeshConfig_OFF
 	cases := []struct {
 		name   string
 		mesh   meshapi.MeshConfig

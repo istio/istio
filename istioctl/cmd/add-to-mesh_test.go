@@ -22,7 +22,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -66,7 +65,7 @@ var (
 							Labels: map[string]string{"app": "details"},
 						},
 						Spec: coreV1.PodSpec{
-							Containers: []v1.Container{
+							Containers: []coreV1.Container{
 								{Name: "details", Image: "docker.io/istio/examples-bookinfo-details-v1:1.15.0"},
 							},
 						},
