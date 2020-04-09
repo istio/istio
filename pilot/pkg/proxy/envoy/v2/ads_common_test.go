@@ -30,6 +30,7 @@ func TestProxyNeedsPush(t *testing.T) {
 		svcName     = "svc1.com"
 		drName      = "dr1"
 		vsName      = "vs1"
+		generalName = "name1"
 	)
 
 	sidecar := &model.Proxy{Type: model.SidecarProxy, IPAddresses: []string{"127.0.0.1"}, Metadata: &model.NodeMetadata{}, SidecarScope: &model.SidecarScope{}}
@@ -48,13 +49,13 @@ func TestProxyNeedsPush(t *testing.T) {
 	}{
 		{"no namespace or configs", sidecar, nil, nil, true},
 		{"gateway config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
-			collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(): {}}, false},
+			collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(): {generalName: {}}}, false},
 		{"gateway config for gateway", gateway, nil, map[resource.GroupVersionKind]map[string]struct{}{
-			collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(): {}}, true},
+			collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(): {generalName: {}}}, true},
 		{"quotaspec config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
-			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(): {}}, true},
+			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(): {generalName: {}}}, true},
 		{"quotaspec config for gateway", gateway, nil, map[resource.GroupVersionKind]map[string]struct{}{
-			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(): {}}, false},
+			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(): {generalName: {}}}, false},
 		{"invalid config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{
 			{Kind: invalidKind}: {}}, true},
 		{"serviceentry empty config for sidecar", sidecar, nil, map[resource.GroupVersionKind]map[string]struct{}{

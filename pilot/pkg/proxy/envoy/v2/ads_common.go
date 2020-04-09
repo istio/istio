@@ -17,26 +17,50 @@ package v2
 import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
-// PushAffectsProxy checks if a pushEv will affect a specified proxy. That means whether the push will be performed
+var configKindAffectedProxyTypes = map[resource.GroupVersionKind][]model.NodeType{
+	collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():           {model.Router},
+	collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind():        {model.SidecarProxy},
+	collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(): {model.SidecarProxy},
+}
+
+// ConfigAffectsProxy checks if a pushEv will affect a specified proxy. That means whether the push will be performed
 // towards the proxy.
-func PushAffectsProxy(pushEv *XdsEvent, proxy *model.Proxy) bool {
-	if proxy.Type != model.SidecarProxy {
-		return true
-	}
+func ConfigAffectsProxy(pushEv *XdsEvent, proxy *model.Proxy) bool {
+	// Empty changes means "all" to get a backward compatibility.
 	if len(pushEv.configsUpdated) == 0 {
 		return true
 	}
 
 	for kind, resources := range pushEv.configsUpdated {
+		// Also empty resources of a specific kind means "all".
 		if len(resources) == 0 {
 			return true
 		}
 
+		// If we've already know a specific configKind will affect some proxy types, check for that.
+		if kindAffectedTypes, f := configKindAffectedProxyTypes[kind]; f {
+			for _, t := range kindAffectedTypes {
+				if t == proxy.Type {
+					return true
+				}
+			}
+			continue
+		}
+
+		// Detailed config dependencies check.
 		for res := range resources {
-			ok, scoped := proxy.SidecarScope.DependsOnConfig(kind, res)
-			if !scoped || ok {
+			switch proxy.Type {
+			case model.SidecarProxy:
+				// Not scoping of all config types are known to SidecarScope. We consider the unknown cases as "affected".
+				ok, scoped := proxy.SidecarScope.DependsOnConfig(kind, res)
+				if !scoped || ok {
+					return true
+				}
+			// TODO We'll add the check for other proxy types later.
+			default:
 				return true
 			}
 		}
@@ -45,42 +69,13 @@ func PushAffectsProxy(pushEv *XdsEvent, proxy *model.Proxy) bool {
 	return false
 }
 
+// ProxyNeedsPush check if a proxy needs push for this push event.
 func ProxyNeedsPush(proxy *model.Proxy, pushEv *XdsEvent) bool {
-	targetNamespaces := pushEv.namespacesUpdated
-	configs := pushEv.configsUpdated
-
-	// appliesToProxy starts as false, we will set it to true if we encounter any configs that require a push
-	appliesToProxy := false
-	// If no config specified, this request applies to all proxies
-	if len(configs) == 0 {
-		appliesToProxy = true
-	}
-Loop:
-	for config := range configs {
-		switch config {
-		case collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():
-			if proxy.Type == model.Router {
-				return true
-			}
-		case collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(),
-			collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind():
-			if proxy.Type == model.SidecarProxy {
-				return true
-			}
-		default:
-			appliesToProxy = true
-			break Loop
-		}
-	}
-
-	if appliesToProxy {
-		appliesToProxy = PushAffectsProxy(pushEv, proxy)
-	}
-
-	if !appliesToProxy {
+	if !ConfigAffectsProxy(pushEv, proxy) {
 		return false
 	}
 
+	targetNamespaces := pushEv.namespacesUpdated
 	// If no only namespaces specified, this request applies to all proxies
 	if len(targetNamespaces) == 0 {
 		return true

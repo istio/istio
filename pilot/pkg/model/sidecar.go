@@ -452,7 +452,7 @@ func (sc *SidecarScope) DependsOnNamespace(namespace string) bool {
 }
 
 // DependsOnConfig determines if the proxy depends on the given config.
-// Returns whether depends on this config and whether this kind of config is scoped here.
+// Returns whether depends on this config and whether this kind of config is scoped(or known to be depended or not) here.
 func (sc *SidecarScope) DependsOnConfig(kind resource.GroupVersionKind, name string) (bool, bool) {
 	if sc == nil {
 		return false, false
