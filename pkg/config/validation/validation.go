@@ -1995,6 +1995,30 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			return errors.New("cannot cast to virtual service")
 		}
 
+		isDelegate := false
+		if len(virtualService.Hosts) == 0 {
+			if features.EnableVirtualServiceDelegate {
+				isDelegate = true
+			} else {
+				errs = appendErrors(errs, fmt.Errorf("virtual service must have at least one host"))
+			}
+		}
+
+		if isDelegate {
+			if len(virtualService.Gateways) != 0 {
+				// meaningless to specify gateways in delegate
+				errs = appendErrors(errs, fmt.Errorf("delegate virtual service must have no gateways specified"))
+			}
+			if len(virtualService.Tls) != 0 {
+				// meaningless to specify tls in delegate, we donot support tls delegate
+				errs = appendErrors(errs, fmt.Errorf("delegate virtual service must have no tls route specified"))
+			}
+			if len(virtualService.Tcp) != 0 {
+				// meaningless to specify tls in delegate, we donot support tcp delegate
+				errs = appendErrors(errs, fmt.Errorf("delegate virtual service must have no tcp route specified"))
+			}
+		}
+
 		appliesToMesh := false
 		if len(virtualService.Gateways) == 0 {
 			appliesToMesh = true
@@ -2005,15 +2029,6 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			if gatewayName == constants.IstioMeshGateway {
 				appliesToMesh = true
 				break
-			}
-		}
-
-		isDelegate := false
-		if len(virtualService.Hosts) == 0 {
-			if features.EnableVirtualServiceDelegate {
-				isDelegate = true
-			} else {
-				errs = appendErrors(errs, fmt.Errorf("virtual service must have at least one host"))
 			}
 		}
 

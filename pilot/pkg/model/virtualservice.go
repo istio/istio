@@ -22,7 +22,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/util/sets"
 )
 
 func mergeVirtualServicesIfNeeded(vServices []Config) (out []Config) {
@@ -188,6 +187,8 @@ func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *network
 	out := *delegate
 	if out.Name == "" {
 		out.Name = root.Name
+	} else if root.Name != "" {
+		out.Name = root.Name + "-" + out.Name
 	}
 	if out.Uri == nil {
 		out.Uri = root.Uri
@@ -231,25 +232,13 @@ func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *network
 	for k, v := range delegate.QueryParams {
 		out.QueryParams[k] = v
 	}
-	// sourcelabels
-	if len(root.SourceLabels) > 0 || len(delegate.SourceLabels) > 0 {
-		out.SourceLabels = make(map[string]string)
-	}
-	for k, v := range root.SourceLabels {
-		out.SourceLabels[k] = v
-	}
-	for k, v := range delegate.SourceLabels {
-		out.SourceLabels[k] = v
-	}
-	if len(out.Gateways) == 0 {
-		out.Gateways = root.Gateways
-	}
-	if out.SourceNamespace == "" {
-		out.SourceNamespace = root.SourceNamespace
-	}
+
 	if out.Port == 0 {
 		out.Port = root.Port
 	}
+
+	// SourceLabels, SourceNamespace and Gateways only apply to sidecar, ignore here
+
 	return &out
 }
 
@@ -282,31 +271,15 @@ func hasConflict(root, leaf *networking.HTTPMatchRequest) bool {
 		}
 	}
 
-	// source labels
-	for key, leafValue := range leaf.SourceLabels {
-		if rootValue, ok := root.SourceLabels[key]; ok && rootValue != leafValue {
-			return true
-		}
-	}
-
-	if len(leaf.Gateways) > 0 {
-		leafGws := sets.NewSet(leaf.Gateways...)
-		for _, gw := range root.Gateways {
-			if leafGws.Contains(gw) {
-				return true
-			}
-		}
-	}
-
 	if root.IgnoreUriCase != leaf.IgnoreUriCase {
-		return true
-	}
-	if root.SourceNamespace != "" && leaf.SourceNamespace != "" && root.SourceNamespace != leaf.SourceNamespace {
 		return true
 	}
 	if root.Port > 0 && leaf.Port > 0 && root.Port != leaf.Port {
 		return true
 	}
+
+	// sourceLabels, sourceNamespace and gateways do not apply to delegate
+	// and are empty, so no conflict for them.
 
 	return false
 }

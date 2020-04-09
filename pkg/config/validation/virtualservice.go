@@ -19,8 +19,6 @@ import (
 	"fmt"
 
 	networking "istio.io/api/networking/v1alpha3"
-
-	"istio.io/istio/pkg/config/labels"
 )
 
 func validateRootHTTPRoute(http *networking.HTTPRoute) (errs error) {
@@ -135,8 +133,17 @@ func validateChainingHTTPRoute(http *networking.HTTPRoute) (errs error) {
 			if match.Port != 0 {
 				errs = appendErrors(errs, ValidatePort(int(match.Port)))
 			}
-			errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
-			errs = appendErrors(errs, validateGatewayNames(match.Gateways))
+
+			// delegate only applies to gateway, so sourceLabels or sourceNamespace does not apply.
+			if len(match.SourceLabels) != 0 {
+				errs = appendErrors(errs, fmt.Errorf("sourceLabels match can not specify on delegate"))
+			}
+			if match.SourceNamespace != "" {
+				errs = appendErrors(errs, fmt.Errorf("sourceNamespace match can not specify on delegate"))
+			}
+			if len(match.Gateways) != 0 {
+				errs = appendErrors(errs, fmt.Errorf("gateways match can not specify on delegate"))
+			}
 		}
 	}
 

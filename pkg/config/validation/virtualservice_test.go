@@ -83,6 +83,48 @@ func TestValidateChainingVirtualService(t *testing.T) {
 			},
 			valid: false,
 		},
+		{
+			name: "delegate with TCP route",
+			in: &networking.VirtualService{
+				Hosts: []string{},
+				Tcp: []*networking.TCPRoute{{
+					Route: []*networking.RouteDestination{{
+						Destination: &networking.Destination{Host: "foo.baz"},
+					}},
+				}},
+			},
+			valid: false,
+		},
+		{
+			name: "delegate with gateway",
+			in: &networking.VirtualService{
+				Hosts:    []string{},
+				Gateways: []string{"test"},
+				Http: []*networking.HTTPRoute{{
+					Route: []*networking.HTTPRouteDestination{{
+						Destination: &networking.Destination{Host: "foo.baz"},
+					}},
+				}},
+			},
+			valid: false,
+		},
+		{
+			name: "delegate with sourceNamespace",
+			in: &networking.VirtualService{
+				Hosts: []string{},
+				Http: []*networking.HTTPRoute{{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							SourceNamespace: "test",
+						},
+					},
+					Route: []*networking.HTTPRouteDestination{{
+						Destination: &networking.Destination{Host: "foo.baz"},
+					}},
+				}},
+			},
+			valid: false,
+		},
 	}
 
 	for _, tc := range testCases {

@@ -1166,26 +1166,6 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 			},
 		},
 		{
-			name: "source labels/namespaces",
-			root: []*networking.HTTPMatchRequest{
-				{
-					SourceNamespace: "default",
-					SourceLabels:    map[string]string{"version": "v1"},
-				},
-			},
-			delegate: []*networking.HTTPMatchRequest{
-				{
-					SourceLabels: map[string]string{"app": "productpage"},
-				},
-			},
-			expected: []*networking.HTTPMatchRequest{
-				{
-					SourceLabels:    map[string]string{"app": "productpage", "version": "v1"},
-					SourceNamespace: "default",
-				},
-			},
-		},
-		{
 			name: "complicated merge",
 			root: []*networking.HTTPMatchRequest{
 				{
@@ -1197,8 +1177,7 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 							MatchType: &networking.StringMatch_Exact{Exact: "h1"},
 						},
 					},
-					SourceLabels: map[string]string{"app": "productpage"},
-					Port:         8080,
+					Port: 8080,
 					Authority: &networking.StringMatch{
 						MatchType: &networking.StringMatch_Exact{Exact: "productpage.com"},
 					},
@@ -1209,13 +1188,11 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 					Uri: &networking.StringMatch{
 						MatchType: &networking.StringMatch_Exact{Exact: "/productpage/v1"},
 					},
-					SourceLabels: map[string]string{"version": "v1"},
 				},
 				{
 					Uri: &networking.StringMatch{
 						MatchType: &networking.StringMatch_Exact{Exact: "/productpage/v2"},
 					},
-					SourceLabels: map[string]string{"version": "v2"},
 				},
 			},
 			expected: []*networking.HTTPMatchRequest{
@@ -1228,8 +1205,7 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 							MatchType: &networking.StringMatch_Exact{Exact: "h1"},
 						},
 					},
-					SourceLabels: map[string]string{"app": "productpage", "version": "v1"},
-					Port:         8080,
+					Port: 8080,
 					Authority: &networking.StringMatch{
 						MatchType: &networking.StringMatch_Exact{Exact: "productpage.com"},
 					},
@@ -1243,8 +1219,7 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 							MatchType: &networking.StringMatch_Exact{Exact: "h1"},
 						},
 					},
-					SourceLabels: map[string]string{"app": "productpage", "version": "v2"},
-					Port:         8080,
+					Port: 8080,
 					Authority: &networking.StringMatch{
 						MatchType: &networking.StringMatch_Exact{Exact: "productpage.com"},
 					}},
@@ -1262,8 +1237,7 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 							MatchType: &networking.StringMatch_Exact{Exact: "h1"},
 						},
 					},
-					SourceLabels: map[string]string{"app": "productpage"},
-					Port:         8080,
+					Port: 8080,
 					Authority: &networking.StringMatch{
 						MatchType: &networking.StringMatch_Exact{Exact: "productpage.com"},
 					},
@@ -1274,46 +1248,12 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 					Uri: &networking.StringMatch{
 						MatchType: &networking.StringMatch_Exact{Exact: "/productpage/v1"},
 					},
-					SourceLabels: map[string]string{"version": "v1"},
 				},
 				{
 					Uri: &networking.StringMatch{
 						MatchType: &networking.StringMatch_Exact{Exact: "/productpage/v2"},
 					},
-					SourceLabels: map[string]string{"version": "v2"},
-					Port:         9090, // conflicts
-				},
-			},
-			expected: nil,
-		},
-		{
-			name: "gateways",
-			root: []*networking.HTTPMatchRequest{
-				{
-					Gateways: nil,
-				},
-			},
-			delegate: []*networking.HTTPMatchRequest{
-				{
-					Gateways: []string{"mesh", "ingress-gateway"},
-				},
-			},
-			expected: []*networking.HTTPMatchRequest{
-				{
-					Gateways: []string{"mesh", "ingress-gateway"},
-				},
-			},
-		},
-		{
-			name: "gateways conflict",
-			root: []*networking.HTTPMatchRequest{
-				{
-					Gateways: []string{"mesh"},
-				},
-			},
-			delegate: []*networking.HTTPMatchRequest{
-				{
-					Gateways: []string{"mesh", "ingress-gateway"},
+					Port: 9090, // conflicts
 				},
 			},
 			expected: nil,
@@ -1502,84 +1442,6 @@ func TestHasConflict(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "source labels",
-			root: &networking.HTTPMatchRequest{
-				SourceLabels: nil,
-			},
-			leaf: &networking.HTTPMatchRequest{
-				SourceLabels: map[string]string{"app": "product"},
-			},
-			expected: false,
-		},
-		{
-			name: "source labels",
-			root: &networking.HTTPMatchRequest{
-				SourceLabels: map[string]string{"app": "product"},
-			},
-			leaf:     &networking.HTTPMatchRequest{},
-			expected: false,
-		},
-		{
-			name: "source labels",
-			root: &networking.HTTPMatchRequest{
-				SourceLabels: map[string]string{"version": "v1"},
-			},
-			leaf: &networking.HTTPMatchRequest{
-				SourceLabels: map[string]string{"app": "product"},
-			},
-			expected: false,
-		},
-		{
-			name: "source labels",
-			root: &networking.HTTPMatchRequest{
-				SourceLabels: map[string]string{"version": "v1"},
-			},
-			leaf: &networking.HTTPMatchRequest{
-				SourceLabels: map[string]string{"version": "v2"},
-			},
-			expected: true,
-		},
-		{
-			name: "source namespace",
-			root: &networking.HTTPMatchRequest{
-				SourceNamespace: "default",
-			},
-			leaf: &networking.HTTPMatchRequest{
-				SourceNamespace: "",
-			},
-			expected: false,
-		},
-		{
-			name: "source namespace",
-			root: &networking.HTTPMatchRequest{
-				SourceNamespace: "",
-			},
-			leaf: &networking.HTTPMatchRequest{
-				SourceNamespace: "default",
-			},
-			expected: false,
-		},
-		{
-			name: "source namespace",
-			root: &networking.HTTPMatchRequest{
-				SourceNamespace: "default",
-			},
-			leaf: &networking.HTTPMatchRequest{
-				SourceNamespace: "default",
-			},
-			expected: false,
-		},
-		{
-			name: "diff source namespace",
-			root: &networking.HTTPMatchRequest{
-				SourceNamespace: "default",
-			},
-			leaf: &networking.HTTPMatchRequest{
-				SourceNamespace: "istio",
-			},
-			expected: true,
-		},
-		{
 			name: "port",
 			root: &networking.HTTPMatchRequest{
 				Port: 0,
@@ -1606,26 +1468,6 @@ func TestHasConflict(t *testing.T) {
 			},
 			leaf: &networking.HTTPMatchRequest{
 				Port: 8090,
-			},
-			expected: true,
-		},
-		{
-			name: "gateway",
-			root: &networking.HTTPMatchRequest{
-				Gateways: nil,
-			},
-			leaf: &networking.HTTPMatchRequest{
-				Gateways: []string{"mesh"},
-			},
-			expected: false,
-		},
-		{
-			name: "gateway",
-			root: &networking.HTTPMatchRequest{
-				Gateways: []string{"mesh", "ingress-gateway"},
-			},
-			leaf: &networking.HTTPMatchRequest{
-				Gateways: []string{"mesh"},
 			},
 			expected: true,
 		},
@@ -1726,6 +1568,9 @@ func TestFuzzMergeHttpMatchRequest(t *testing.T) {
 
 	root := &networking.HTTPMatchRequest{}
 	f.Fuzz(root)
+	root.SourceNamespace = ""
+	root.SourceLabels = nil
+	root.Gateways = nil
 	root.IgnoreUriCase = false
 	root.XXX_sizecache = 0
 	root.XXX_unrecognized = nil
