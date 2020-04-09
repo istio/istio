@@ -8207,13 +8207,13 @@ var _chartsGatewaysIstioIngressTemplatesGatewayYaml = []byte(`{{ $gateway := ind
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
-  name: ingressgateway
+  name: {{ $gateway.name | default "ingressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
 spec:
   selector:
-    istio: ingressgateway
+{{ $gateway.labels | toYaml | indent 4 }}
   servers:
 {{- if $gateway.tls }}
   - port:
