@@ -53,7 +53,7 @@ endif
 _INTEGRATION_TEST_FLAGS += --istio.test.kube.config=$(_INTEGRATION_TEST_KUBECONFIG)
 
 # Generate integration test targets for kubernetes environment.
-test.integration.%.kube: | $(JUNIT_REPORT)
+test.integration.%.kube: gen-charts | $(JUNIT_REPORT)
 	$(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
 	--istio.test.env kube \
 	${_INTEGRATION_TEST_FLAGS} \
@@ -63,14 +63,14 @@ test.integration.%.kube: | $(JUNIT_REPORT)
 TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification | grep -v /examples)
 
 # Generate integration test targets for local environment.
-test.integration.%.local: | $(JUNIT_REPORT)
+test.integration.%.local: gen-charts | $(JUNIT_REPORT)
 	$(GO) test -p 1 ${T} -race ./tests/integration/$(subst .,/,$*)/... \
 	--istio.test.env native \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # Generate presubmit integration test targets for each component in kubernetes environment
-test.integration.%.kube.presubmit: istioctl | $(JUNIT_REPORT)
+test.integration.%.kube.presubmit: gen-charts istioctl | $(JUNIT_REPORT)
 	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
 	--istio.test.env kube \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
@@ -78,7 +78,7 @@ test.integration.%.kube.presubmit: istioctl | $(JUNIT_REPORT)
 
 # Presubmit integration tests targeting Kubernetes environment.
 .PHONY: test.integration.kube.presubmit
-test.integration.kube.presubmit: istioctl | $(JUNIT_REPORT)
+test.integration.kube.presubmit: gen-charts istioctl | $(JUNIT_REPORT)
 	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ${TEST_PACKAGES} -timeout 30m \
  	--istio.test.env kube \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
@@ -86,7 +86,7 @@ test.integration.kube.presubmit: istioctl | $(JUNIT_REPORT)
 
 # Defines a target to run a minimal reachability testing basic traffic
 .PHONY: test.integration.kube.reachability
-test.integration.kube.reachability: istioctl | $(JUNIT_REPORT)
+test.integration.kube.reachability: gen-charts istioctl | $(JUNIT_REPORT)
 	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ./tests/integration/security/ -timeout 30m \
 	--istio.test.env kube \
 	${_INTEGRATION_TEST_FLAGS} \
