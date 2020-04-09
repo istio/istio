@@ -19720,7 +19720,11 @@ spec:
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
             value: "{{ .Values.pilot.enableProtocolSniffingForInbound }}"
           - name: INJECTION_WEBHOOK_CONFIG_NAME
+          {{- if eq .Release.Namespace "istio-system" }}
             value: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+          {{- else }}
+            value: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
+          {{- end }}
           - name: ISTIOD_ADDR
             value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
           - name: PILOT_ENABLE_ANALYSIS
