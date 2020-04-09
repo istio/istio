@@ -583,6 +583,9 @@ func shortHostName(host string, attributes model.ServiceAttributes) string {
 }
 
 func StringToExactMatch(in []string) []*matcher.StringMatcher {
+	if len(in) == 0 {
+		return nil
+	}
 	res := make([]*matcher.StringMatcher, 0, len(in))
 	for _, s := range in {
 		res = append(res, &matcher.StringMatcher{
