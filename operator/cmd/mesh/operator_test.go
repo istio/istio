@@ -43,7 +43,7 @@ var (
 )
 
 func TestOperatorDump(t *testing.T) {
-	goldenFilepath := filepath.Join(repoRootDir, "cmd/mesh/testdata/operator/output/operator-init.yaml")
+	goldenFilepath := filepath.Join(operatorRootDir, "cmd/mesh/testdata/operator/output/operator-init.yaml")
 
 	odArgs := &operatorDumpArgs{
 		common: operatorCommonArgs{
@@ -82,7 +82,7 @@ func TestOperatorDump(t *testing.T) {
 }
 
 func TestOperatorInit(t *testing.T) {
-	goldenFilepath := filepath.Join(repoRootDir, "cmd/mesh/testdata/operator/output/operator-init.yaml")
+	goldenFilepath := filepath.Join(operatorRootDir, "cmd/mesh/testdata/operator/output/operator-init.yaml")
 	rootArgs := &rootArgs{}
 	oiArgs := &operatorInitArgs{
 		common: operatorCommonArgs{
@@ -153,7 +153,7 @@ func mockApplyManifest(manifestStr, componentName string, opts *kubectlcmd.Optio
 }
 
 func TestOperatorRemove(t *testing.T) {
-	goldenFilepath := filepath.Join(repoRootDir, "cmd/mesh/testdata/operator/output/operator-remove.yaml")
+	goldenFilepath := filepath.Join(operatorRootDir, "cmd/mesh/testdata/operator/output/operator-remove.yaml")
 
 	rootArgs := &rootArgs{}
 	orArgs := &operatorRemoveArgs{

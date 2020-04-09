@@ -44,11 +44,15 @@ const (
 	testDataSubdir   = "cmd/mesh/testdata/manifest-generate"
 )
 
+// chartSourceType defines where charts used in the test come from.
 type chartSourceType int
 
 const (
+	// Snapshot charts are in testdata/manifest-generate/data-snapshot
 	snapshotCharts chartSourceType = iota
+	// Compiled in charts come from assets.gen.go
 	compiledInCharts
+	// Live charts come from manifests/
 	liveCharts
 )
 
@@ -69,21 +73,22 @@ type testGroup []struct {
 	chartSource                 chartSourceType
 }
 
+// TestMain is required to create a local release package in /tmp from manifests and operator/data in the format that
+// istioctl expects.
 func TestMain(m *testing.M) {
 	wd, err := os.Getwd()
 	if err != nil {
 		panic(err)
 	}
-	repoRootDir = filepath.Join(wd, "../..")
-	manifestsDir = filepath.Join(repoRootDir, "manifests")
+	operatorRootDir = filepath.Join(wd, "../..")
+	manifestsDir = filepath.Join(operatorRootDir, "manifests")
 	liveReleaseDir, err = createLocalReleaseCharts()
 	defer os.RemoveAll(liveReleaseDir)
 	if err != nil {
 		panic(err)
 	}
 	liveInstallPackageDir = filepath.Join(liveReleaseDir, istioTestVersion, helm.OperatorSubdirFilePath)
-
-	snapshotInstallPackageDir = filepath.Join(repoRootDir, testDataSubdir, "data-snapshot")
+	snapshotInstallPackageDir = filepath.Join(operatorRootDir, testDataSubdir, "data-snapshot")
 
 	flag.Parse()
 	code := m.Run()
@@ -244,7 +249,7 @@ func TestManifestGenerateHelmValues(t *testing.T) {
 }
 
 func TestManifestGenerateOrdered(t *testing.T) {
-	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	// Since this is testing the special case of stable YAML output order, it
 	// does not use the established test group pattern
 	inPath := filepath.Join(testDataDir, "input/all_on.yaml")
@@ -264,7 +269,7 @@ func TestManifestGenerateOrdered(t *testing.T) {
 }
 
 func TestMultiICPSFiles(t *testing.T) {
-	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	inPathBase := filepath.Join(testDataDir, "input/all_off.yaml")
 	inPathOverride := filepath.Join(testDataDir, "input/telemetry_override_only.yaml")
 	got, err := runManifestGenerate([]string{inPathBase, inPathOverride}, "", snapshotCharts)
@@ -289,7 +294,7 @@ func TestMultiICPSFiles(t *testing.T) {
 }
 
 func TestBareSpec(t *testing.T) {
-	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	inPathBase := filepath.Join(testDataDir, "input/bare_spec.yaml")
 	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts)
 	if err != nil {
@@ -298,7 +303,7 @@ func TestBareSpec(t *testing.T) {
 }
 
 func TestInstallPackagePath(t *testing.T) {
-	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	serverDir, err := ioutil.TempDir(os.TempDir(), "istio-test-server-*")
 	if err != nil {
 		t.Fatal(err)
@@ -475,7 +480,7 @@ func findObject(objs object.K8sObjects, name, kind string) *object.K8sObject {
 // -ldflags "-X istio.io/pkg/version.buildHub=myhub -X istio.io/pkg/version.buildVersion=mytag"
 // results in these values showing up in a generated manifest.
 func TestLDFlags(t *testing.T) {
-	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	tmpHub, tmpTag := version.DockerInfo.Hub, version.DockerInfo.Tag
 	defer func() {
 		version.DockerInfo.Hub, version.DockerInfo.Tag = tmpHub, tmpTag
@@ -497,7 +502,7 @@ func TestLDFlags(t *testing.T) {
 }
 
 func runTestGroup(t *testing.T, tests testGroup) {
-	testDataDir = filepath.Join(repoRootDir, testDataSubdir)
+	testDataDir = filepath.Join(operatorRootDir, testDataSubdir)
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			inPath := filepath.Join(testDataDir, "input", tt.desc+".yaml")

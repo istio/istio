@@ -33,7 +33,7 @@ func TestGetVersionCompatibleMap(t *testing.T) {
 		binVersion  *goversion.Version
 	}
 
-	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-versions")
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-versions")
 	testdataVersionsFilePath := filepath.Join(testDataDir, "input", "versions.yaml")
 	operatorVersionsFilePath := "../../data/versions.yaml"
 	nonexistentFilePath := "__nonexistent-versions.yaml"

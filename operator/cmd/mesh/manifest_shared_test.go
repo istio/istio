@@ -29,8 +29,13 @@ const (
 )
 
 var (
-	repoRootDir  string
-	testDataDir  string
+	// All below paths are dynamically derived and absolute.
+
+	// Path to the operator root dir.
+	operatorRootDir string
+	// Dir for testdata for istioctl commands.
+	testDataDir string
+	// Path to the manifests/ dir in istio root dir.
 	manifestsDir string
 	// A release dir with the live profiles and charts is created in this dir for tests.
 	liveReleaseDir string
