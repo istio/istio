@@ -16,6 +16,7 @@
 package translate
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"reflect"
@@ -222,7 +223,7 @@ func (t *Translator) ProtoToValues(ii *v1alpha1.IstioOperatorSpec) (string, erro
 }
 
 // TranslateHelmValues creates a Helm values.yaml config data tree from iop using the given translator.
-func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, k8s *v1alpha1.KubernetesResourcesSpec,
+func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, spec interface{},
 	componentName name.ComponentName, resourceName string) (string, error) {
 	globalVals, globalUnvalidatedVals, apiVals := make(map[string]interface{}), make(map[string]interface{}), make(map[string]interface{})
 
@@ -267,7 +268,7 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, k8s *v
 		return "", err
 	}
 
-	mergedYAML, err = applyGatewayTranslations(mergedYAML, componentName, resourceName, k8s)
+	mergedYAML, err = applyGatewayTranslations(mergedYAML, componentName, resourceName, spec)
 	if err != nil {
 		return "", err
 	}
@@ -277,9 +278,13 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, k8s *v
 
 // applyGatewayTranslations writes gateway name gwName at the appropriate values path in iop and maps k8s.service.ports
 // to values. It returns the resulting YAML tree.
-func applyGatewayTranslations(iop []byte, componentName name.ComponentName, gwName string, k8s *v1alpha1.KubernetesResourcesSpec) ([]byte, error) {
+func applyGatewayTranslations(iop []byte, componentName name.ComponentName, gwName string, spec interface{}) ([]byte, error) {
 	if !componentName.IsGateway() {
 		return iop, nil
+	}
+	gw, err := specToGatewaySpec(spec)
+	if err != nil {
+		return nil, err
 	}
 	iopt := make(map[string]interface{})
 	if err := yaml.Unmarshal(iop, &iopt); err != nil {
@@ -288,16 +293,34 @@ func applyGatewayTranslations(iop []byte, componentName name.ComponentName, gwNa
 	switch componentName {
 	case name.IngressComponentName:
 		setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.name"), gwName)
-		if k8s != nil && k8s.Service != nil {
-			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.ports"), k8s.Service.Ports)
+		if gw.K8S != nil && gw.K8S.Service != nil {
+			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.ports"), gw.K8S.Service.Ports)
+		}
+		if gw.Label != nil {
+			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.labels"), gw.Label)
 		}
 	case name.EgressComponentName:
 		setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-egressgateway.name"), gwName)
-		if k8s != nil && k8s.Service != nil {
-			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-egressgateway.ports"), k8s.Service.Ports)
+		if gw.K8S != nil && gw.K8S.Service != nil {
+			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-egressgateway.ports"), gw.K8S.Service.Ports)
+		}
+		if gw.Label != nil {
+			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-egressgateway.labels"), gw.Label)
 		}
 	}
 	return yaml.Marshal(iopt)
+}
+
+func specToGatewaySpec(spec interface{}) (*v1alpha1.GatewaySpec, error) {
+	gw, ok := spec.(*v1alpha1.GatewaySpec)
+	if !ok {
+		gwVal, ok := spec.(v1alpha1.GatewaySpec)
+		if !ok {
+			return nil, errors.New("can't cast gateway component spec to v1alpha1.GatewaySpec")
+		}
+		return &gwVal, nil
+	}
+	return gw, nil
 }
 
 // setYAMLNodeByMapPath sets the value at the given path to val in treeNode. The path cannot traverse lists and
