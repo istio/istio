@@ -41,7 +41,7 @@ func isControllerInstalled(kubeconfig, context, operatorNamespace string) (bool,
 
 // chartsRootDir, helmBaseDir, componentName, namespace string) (Template, TemplateRenderer, error) {
 func renderOperatorManifest(_ *rootArgs, ocArgs *operatorCommonArgs, _ *Logger) (string, string, error) {
-	r, err := helm.NewHelmRenderer("", "istio-operator", istioControllerComponentName, ocArgs.operatorNamespace)
+	r, err := helm.NewHelmRenderer(snapshotInstallPackageDir, "istio-operator", istioControllerComponentName, ocArgs.operatorNamespace)
 	if err != nil {
 		return "", "", err
 	}

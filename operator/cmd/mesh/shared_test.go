@@ -25,7 +25,7 @@ import (
 )
 
 func TestReadLayeredYAMLs(t *testing.T) {
-	testDataDir = filepath.Join(repoRootDir, "pkg/util/testdata/yaml")
+	testDataDir = filepath.Join(operatorRootDir, "pkg/util/testdata/yaml")
 	tests := []struct {
 		name     string
 		overlays []string
