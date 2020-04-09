@@ -649,7 +649,7 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 				edsIncSvc: {},
 			}
 			server.EnvoyXdsServer.AdsPushAll(strconv.Itoa(j), &model.PushRequest{
-				Full: true,
+				Full: false,
 				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
 					model.ServiceEntryKind: updates,
 				},
