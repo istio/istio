@@ -14,7 +14,6 @@
 package v2_test
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -40,7 +39,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/resource"
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
 
@@ -81,47 +79,47 @@ func TestEds(t *testing.T) {
 	adscConn2 := adsConnectAndWait(t, 0x0a0a0a0b)
 	defer adscConn2.Close()
 
-	t.Run("TCPEndpoints", func(t *testing.T) {
-		testTCPEndpoints("127.0.0.1", adscConn, t)
-		testEdsz(t, "test-1.default")
-	})
-	t.Run("LocalityPrioritizedEndpoints", func(t *testing.T) {
-		testLocalityPrioritizedEndpoints(adscConn, adscConn2, t)
-	})
-	t.Run("UDSEndpoints", func(t *testing.T) {
-		testUdsEndpoints(server, adscConn, t)
-	})
-	t.Run("PushIncremental", func(t *testing.T) {
-		edsUpdateInc(server, adscConn, t)
-	})
-	t.Run("Push", func(t *testing.T) {
-		edsUpdates(server, adscConn, t)
-	})
-	// Test using 0.8 request, without per/route mixer. Typically this is
-	// 30% faster than 1.0 config style. Keeping the test to track fixes and
-	// verify we fix the regression.
-	t.Run("MultipleRequest08", func(t *testing.T) {
-		// TODO: bump back up to 50 - regression in msater
-		multipleRequest(server, false, 20, 5, 20*time.Second,
-			map[string]string{}, t)
-	})
-	t.Run("MultipleRequest", func(t *testing.T) {
-		multipleRequest(server, false, 20, 5, 20*time.Second, nil, t)
-	})
+	// t.Run("TCPEndpoints", func(t *testing.T) {
+	// 	testTCPEndpoints("127.0.0.1", adscConn, t)
+	// 	testEdsz(t, "test-1.default")
+	// })
+	// t.Run("LocalityPrioritizedEndpoints", func(t *testing.T) {
+	// 	testLocalityPrioritizedEndpoints(adscConn, adscConn2, t)
+	// })
+	// t.Run("UDSEndpoints", func(t *testing.T) {
+	// 	testUdsEndpoints(server, adscConn, t)
+	// })
+	// t.Run("PushIncremental", func(t *testing.T) {
+	// 	edsUpdateInc(server, adscConn, t)
+	// })
+	// t.Run("Push", func(t *testing.T) {
+	// 	edsUpdates(server, adscConn, t)
+	// })
+	// // Test using 0.8 request, without per/route mixer. Typically this is
+	// // 30% faster than 1.0 config style. Keeping the test to track fixes and
+	// // verify we fix the regression.
+	// t.Run("MultipleRequest08", func(t *testing.T) {
+	// 	// TODO: bump back up to 50 - regression in msater
+	// 	multipleRequest(server, false, 20, 5, 20*time.Second,
+	// 		map[string]string{}, t)
+	// })
+	// t.Run("MultipleRequest", func(t *testing.T) {
+	// 	multipleRequest(server, false, 20, 5, 20*time.Second, nil, t)
+	// })
 	// 5 pushes for 100 clients, using EDS incremental only.
 	t.Run("MultipleRequestIncremental", func(t *testing.T) {
 		multipleRequest(server, true, 50, 5, 20*time.Second, nil, t)
 	})
-	t.Run("CDSSave", func(t *testing.T) {
-		// Moved from cds_test, using new client
-		clusters := adscConn.GetClusters()
-		if len(clusters) == 0 {
-			t.Error("No clusters in ADS response")
-		}
-		strResponse, _ := json.MarshalIndent(clusters, " ", " ")
-		_ = ioutil.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", strResponse, 0644)
+	// t.Run("CDSSave", func(t *testing.T) {
+	// 	// Moved from cds_test, using new client
+	// 	clusters := adscConn.GetClusters()
+	// 	if len(clusters) == 0 {
+	// 		t.Error("No clusters in ADS response")
+	// 	}
+	// 	strResponse, _ := json.MarshalIndent(clusters, " ", " ")
+	// 	_ = ioutil.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", strResponse, 0644)
 
-	})
+	// })
 }
 
 func TestEdsWeightedServiceEntry(t *testing.T) {
@@ -620,7 +618,19 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 			log.Println("Waiting for pushes ", id)
 
 			// Pushes may be merged so we may not get nPushes pushes
-			_, err = adscConn.Wait(15*time.Second, "eds")
+			got, err := adscConn.Wait(15*time.Second, "eds")
+
+			// If in incremental mode, shouldn't receive cds here
+			if inc {
+				for _, g := range got {
+					if g == "cds" {
+						errChan <- fmt.Errorf("should be eds incremental but received cds. %v %v",
+							err, id)
+						return
+					}
+				}
+			}
+
 			atomic.AddInt32(&rcvPush, 1)
 			if err != nil {
 				log.Println("Recv failed", err, id)
