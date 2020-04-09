@@ -329,6 +329,44 @@ var udsLocal = &model.Config{
 	},
 }
 
+// ServiceEntry with a selector
+var selector = &model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:              serviceEntryKind.Kind,
+		Group:             serviceEntryKind.Group,
+		Version:           serviceEntryKind.Version,
+		Name:              "selector",
+		Namespace:         "selector",
+		CreationTimestamp: GlobalTime,
+		Labels:            map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+	},
+	Spec: &networking.ServiceEntry{
+		Hosts: []string{"selector.com"},
+		Ports: []*networking.Port{
+			{Number: 444, Name: "tcp-444", Protocol: "tcp"},
+			{Number: 445, Name: "http-445", Protocol: "http"},
+		},
+		WorkloadSelector: &networking.WorkloadSelector{
+			Labels: map[string]string{"app": "wle"},
+		},
+		Resolution: networking.ServiceEntry_STATIC,
+	},
+}
+
+func createWorkloadEntry(name, namespace string, spec *networking.WorkloadEntry) *model.Config {
+	return &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:              workloadEntryKind.Kind,
+			Group:             workloadEntryKind.Group,
+			Version:           workloadEntryKind.Version,
+			Name:              name,
+			Namespace:         namespace,
+			CreationTimestamp: GlobalTime,
+		},
+		Spec: spec,
+	}
+}
+
 func convertPortNameToProtocol(name string) protocol.Instance {
 	prefix := name
 	i := strings.Index(name, "-")
@@ -595,6 +633,71 @@ func TestConvertInstances(t *testing.T) {
 			sortServiceInstances(tt.out)
 			if err := compare(t, instances, tt.out); err != nil {
 				t.Fatalf("testcase: %v\n%v", tt.externalSvc.Name, err)
+			}
+		})
+	}
+}
+
+func TestConvertWorkloadInstances(t *testing.T) {
+	labels := map[string]string{
+		"app": "wle",
+	}
+	serviceInstanceTests := []struct {
+		name string
+		wle  *networking.WorkloadEntry
+		se   *model.Config
+		out  []*model.ServiceInstance
+	}{
+		{
+			name: "simple",
+			wle: &networking.WorkloadEntry{
+				Address: "1.1.1.1",
+				Labels:  labels,
+			},
+			se: selector,
+			out: []*model.ServiceInstance{
+				makeInstance(selector, "1.1.1.1", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], labels, PlainText),
+				makeInstance(selector, "1.1.1.1", 445, selector.Spec.(*networking.ServiceEntry).Ports[1], labels, PlainText),
+			},
+		},
+		{
+			name: "mtls",
+			wle: &networking.WorkloadEntry{
+				Address:        "1.1.1.1",
+				Labels:         labels,
+				ServiceAccount: "default",
+			},
+			se: selector,
+			out: []*model.ServiceInstance{
+				makeInstance(selector, "1.1.1.1", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], labels, MTLSUnlabelled),
+				makeInstance(selector, "1.1.1.1", 445, selector.Spec.(*networking.ServiceEntry).Ports[1], labels, MTLSUnlabelled),
+			},
+		},
+		{
+			name: "replace-port",
+			wle: &networking.WorkloadEntry{
+				Address: "1.1.1.1",
+				Labels:  labels,
+				Ports: map[string]uint32{
+					"http-445": 8080,
+				},
+			},
+			se: selector,
+			out: []*model.ServiceInstance{
+				makeInstance(selector, "1.1.1.1", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], labels, PlainText),
+				makeInstance(selector, "1.1.1.1", 8080, selector.Spec.(*networking.ServiceEntry).Ports[1], labels, PlainText),
+			},
+		},
+	}
+
+	for _, tt := range serviceInstanceTests {
+		t.Run(tt.name, func(t *testing.T) {
+			services := convertServices(*tt.se)
+			instances := convertWorkloadInstances(tt.wle, services, tt.se.Spec.(*networking.ServiceEntry))
+			sortServiceInstances(instances)
+			sortServiceInstances(tt.out)
+			if err := compare(t, instances, tt.out); err != nil {
+				t.Fatal(err)
 			}
 		})
 	}
