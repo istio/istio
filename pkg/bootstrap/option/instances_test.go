@@ -54,7 +54,7 @@ func TestOptions(t *testing.T) {
 			testName: "pilotSAN multi",
 			key:      "pilot_SAN",
 			option:   option.PilotSubjectAltName([]string{"fake", "other"}),
-			expected: `[{"exact":"fake","exact":"other"}]`,
+			expected: `[{"exact":"fake"},{"exact":"other"}]`,
 		},
 		{
 			testName: "mixerSAN",

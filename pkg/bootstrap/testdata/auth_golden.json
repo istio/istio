@@ -332,7 +332,7 @@
                 "trusted_ca": {
                   "filename": "./var/run/secrets/istio/root-cert.pem"
                 },
-                "verify_subject_alt_name": ["spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"]
+                "match_subject_alt_names": [{"exact":"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}]
               }
             }
           }
