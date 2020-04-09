@@ -37,7 +37,6 @@ import (
 	kubeLabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	kubeSchema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/runtime/serializer/versioning"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -224,7 +223,7 @@ var (
 	configGVK   = kubeApiAdmission.SchemeGroupVersion.WithKind(reflect.TypeOf(kubeApiAdmission.ValidatingWebhookConfiguration{}).Name())
 	endpointGVK = kubeApiCore.SchemeGroupVersion.WithKind(reflect.TypeOf(kubeApiCore.Endpoints{}).Name())
 
-	istioGatewayGVK = kubeSchema.GroupVersionResource{
+	istioGatewayGVK = schema.GroupVersionResource{
 		Group:    collections.IstioNetworkingV1Alpha3Gateways.Resource().Group(),
 		Version:  collections.IstioNetworkingV1Alpha3Gateways.Resource().Version(),
 		Resource: collections.IstioNetworkingV1Alpha3Gateways.Resource().Plural(),
@@ -427,7 +426,7 @@ func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason st
 		_, err = c.dynamicResourceInterface.Update(context.TODO(), invalid, updateOptions)
 	}
 	if err == nil {
-		return false, fmt.Sprintf("dummy invalid config not rejected")
+		return false, "dummy invalid config not rejected"
 	}
 	// We expect to get deniedRequestMessageFragment (the config was rejected, as expected)
 	if strings.Contains(err.Error(), deniedRequestMessageFragment) {

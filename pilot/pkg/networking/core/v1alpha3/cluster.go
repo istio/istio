@@ -31,7 +31,6 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
@@ -799,7 +798,7 @@ func applyTCPKeepalive(push *model.PushContext, cluster *apiv2.Cluster, settings
 	}
 }
 
-func setKeepAliveSettings(cluster *apiv2.Cluster, keepalive *v1alpha3.ConnectionPoolSettings_TCPSettings_TcpKeepalive) {
+func setKeepAliveSettings(cluster *apiv2.Cluster, keepalive *networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive) {
 	if keepalive.Probes > 0 {
 		cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveProbes = &wrappers.UInt32Value{Value: keepalive.Probes}
 	}

@@ -20,9 +20,7 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type"
 	envoy_type_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 	"github.com/gogo/protobuf/types"
@@ -436,10 +434,10 @@ func TestTranslateCORSPolicy(t *testing.T) {
 				MaxAge:           "120",
 				AllowCredentials: &wrappers.BoolValue{Value: true},
 				EnabledSpecifier: &route.CorsPolicy_FilterEnabled{
-					FilterEnabled: &envoy_api_v2_core.RuntimeFractionalPercent{
-						DefaultValue: &envoy_type.FractionalPercent{
+					FilterEnabled: &core.RuntimeFractionalPercent{
+						DefaultValue: &xdstype.FractionalPercent{
 							Numerator:   100,
-							Denominator: envoy_type.FractionalPercent_HUNDRED,
+							Denominator: xdstype.FractionalPercent_HUNDRED,
 						},
 					},
 				},
@@ -468,10 +466,10 @@ func TestTranslateCORSPolicy(t *testing.T) {
 					},
 				},
 				EnabledSpecifier: &route.CorsPolicy_FilterEnabled{
-					FilterEnabled: &envoy_api_v2_core.RuntimeFractionalPercent{
-						DefaultValue: &envoy_type.FractionalPercent{
+					FilterEnabled: &core.RuntimeFractionalPercent{
+						DefaultValue: &xdstype.FractionalPercent{
 							Numerator:   100,
-							Denominator: envoy_type.FractionalPercent_HUNDRED,
+							Denominator: xdstype.FractionalPercent_HUNDRED,
 						},
 					},
 				},
