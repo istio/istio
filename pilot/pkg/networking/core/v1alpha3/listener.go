@@ -1979,8 +1979,11 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 			}
 		}
 		if len(chain.destinationCIDRs) > 0 {
-			sort.Strings(chain.destinationCIDRs)
-			for _, d := range chain.destinationCIDRs {
+			sortedDestinationCIDRs := make([]string, 0, len(chain.destinationCIDRs))
+			sortedDestinationCIDRs = append(sortedDestinationCIDRs, chain.destinationCIDRs...)
+			sort.Strings(sortedDestinationCIDRs)
+
+			for _, d := range sortedDestinationCIDRs {
 				if len(d) == 0 {
 					continue
 				}
