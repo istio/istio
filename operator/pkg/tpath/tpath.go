@@ -141,6 +141,27 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 				}
 				continue
 			}
+			if lm, ok := le.(map[string]interface{}); ok {
+				k, v, err := util.PathKV(pe)
+				if err != nil {
+					return nil, false, fmt.Errorf("path %s: %s", fullPath, err)
+				}
+				if stringsEqual(lm[k], v) {
+					scope.Debugf("found matching kv %v:%v", k, v)
+					nn := &PathContext{
+						Parent: nc,
+						Node:   lm,
+					}
+					nc.KeyToChild = idx
+					nn.KeyToChild = k
+					if len(remainPath) == 1 {
+						scope.Debug("KV terminate")
+						return nn, true, nil
+					}
+					return getPathContext(nn, fullPath, remainPath[1:], createMissing)
+				}
+				continue
+			}
 			// leaf list, match based on value.
 			v, err := util.PathV(pe)
 			if err != nil {

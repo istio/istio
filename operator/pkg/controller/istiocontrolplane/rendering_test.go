@@ -189,7 +189,7 @@ func runTestGroup(t *testing.T, tests testGroup) {
 			diffSelect := "*:*:*"
 			if tt.diffSelect != "" {
 				diffSelect = tt.diffSelect
-				got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
+				got, err = compare.FilterManifest(got, diffSelect, "")
 				if err != nil {
 					t.Errorf("error selecting from output manifest: %v", err)
 				}

@@ -24,14 +24,11 @@ import (
 	"strings"
 	"testing"
 
-	klabels "k8s.io/apimachinery/pkg/labels"
-
-	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/tpath"
-	"istio.io/istio/pkg/test"
+	gm "github.com/onsi/gomega"
 
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/httpserver"
 	"istio.io/istio/operator/pkg/util/tgz"
@@ -60,6 +57,43 @@ type testGroup []struct {
 	useCompiledInCharts         bool
 }
 
+func TestManifestGeneratePrometheus(t *testing.T) {
+	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
+	g := gm.NewGomegaWithT(t)
+	_, objs, err := generateManifest("prometheus", "", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"ClusterRole::prometheus-istio-system",
+		"ClusterRoleBinding::prometheus-istio-system",
+		"ConfigMap:istio-system:prometheus",
+		"Deployment:istio-system:prometheus",
+		"Service:istio-system:prometheus",
+		"ServiceAccount:istio-system:prometheus",
+	}
+	g.Expect(objectHashesOrdered(objs)).Should(gm.ConsistOf(want))
+}
+
+func TestManifestGenerateComponentHubTag(t *testing.T) {
+	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
+	g := gm.NewGomegaWithT(t)
+	m, _, err := generateManifest("component_hub_tag", "", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g.Expect(filteredObjects(t, m, "Deployment:*:prometheus", "")).
+		Should(HavePathValueEqual(PathValue{"spec.template.spec.containers.[name:prometheus].image", "docker.io/prometheus:1.1.1"}))
+	g.Expect(filteredObjects(t, m, "Deployment:*:grafana", "")).
+		Should(HavePathValueEqual(PathValue{"spec.template.spec.containers.[name:grafana].image", "grafana/grafana:6.5.2"}))
+	g.Expect(filteredObjects(t, m, "Deployment:*:istio-ingressgateway", "")).
+		Should(HavePathValueEqual(PathValue{"spec.template.spec.containers.[name:istio-proxy].image", "istio-spec.hub/proxyv2:istio-spec.tag"}))
+	g.Expect(filteredObjects(t, m, "Deployment:*:istiod", "")).
+		Should(HavePathValueEqual(PathValue{"spec.template.spec.containers.[name:discovery].image", "component.pilot.hub/pilot:2"}))
+	g.Expect(filteredObjects(t, m, "Deployment:*:kiali", "")).
+		Should(HavePathValueEqual(PathValue{"spec.template.spec.containers.[name:kiali].image", "docker.io/testing/kiali:v1.15"}))
+}
+
 func TestManifestGenerateFlags(t *testing.T) {
 	flagOutputDir := createTempDirOrFail(t, "flag-output")
 	flagOutputValuesDir := createTempDirOrFail(t, "flag-output-values")
@@ -73,20 +107,12 @@ func TestManifestGenerateFlags(t *testing.T) {
 			showOutputFileInPullRequest: true,
 		},
 		{
-			desc:       "prometheus",
-			diffIgnore: "ConfigMap:*:istio",
-		},
-		{
 			desc:       "gateways",
 			diffIgnore: "ConfigMap:*:istio",
 		},
 		{
 			desc:       "gateways_override_default",
 			diffIgnore: "ConfigMap:*:istio",
-		},
-		{
-			desc:       "component_hub_tag",
-			diffSelect: "Deployment:*:*",
 		},
 		{
 			desc:       "flag_set_values",
@@ -248,7 +274,7 @@ func TestMultiICPSFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	diffSelect := "handler:*:prometheus"
-	got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
+	got, err = compare.FilterManifest(got, diffSelect, "")
 	if err != nil {
 		t.Errorf("error selecting from output manifest: %v", err)
 	}
@@ -383,71 +409,6 @@ func TestConfigSelectors(t *testing.T) {
 	}
 }
 
-func mustSelect(t test.Failer, selector map[string]string, labels map[string]string) {
-	t.Helper()
-	kselector := klabels.Set(selector).AsSelectorPreValidated()
-	if !kselector.Matches(klabels.Set(labels)) {
-		t.Fatalf("%v does not select %v", selector, labels)
-	}
-}
-
-func mustNotSelect(t test.Failer, selector map[string]string, labels map[string]string) {
-	t.Helper()
-	kselector := klabels.Set(selector).AsSelectorPreValidated()
-	if kselector.Matches(klabels.Set(labels)) {
-		t.Fatalf("%v selects %v when it should not", selector, labels)
-	}
-}
-
-func mustGetLabels(t test.Failer, obj object.K8sObject, path string) map[string]string {
-	t.Helper()
-	got := mustGetPath(t, obj, path)
-	conv, ok := got.(map[string]interface{})
-	if !ok {
-		t.Fatalf("could not convert %v", got)
-	}
-	ret := map[string]string{}
-	for k, v := range conv {
-		sv, ok := v.(string)
-		if !ok {
-			t.Fatalf("could not convert to string %v", v)
-		}
-		ret[k] = sv
-	}
-	return ret
-}
-
-func mustGetPath(t test.Failer, obj object.K8sObject, path string) interface{} {
-	t.Helper()
-	got, f, err := tpath.GetFromTreePath(obj.UnstructuredObject().UnstructuredContent(), util.PathFromString(path))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !f {
-		t.Fatalf("couldn't find path %v", path)
-	}
-	return got
-}
-
-func mustFindObject(t test.Failer, objs object.K8sObjects, name, kind string) object.K8sObject {
-	t.Helper()
-	o := findObject(objs, name, kind)
-	if o == nil {
-		t.Fatalf("expected %v/%v", name, kind)
-		return object.K8sObject{}
-	}
-	return *o
-}
-
-func findObject(objs object.K8sObjects, name, kind string) *object.K8sObject {
-	for _, o := range objs {
-		if o.Kind == kind && o.Name == name {
-			return o
-		}
-	}
-	return nil
-}
-
 // TestLDFlags checks whether building mesh command with
 // -ldflags "-X istio.io/pkg/version.buildHub=myhub -X istio.io/pkg/version.buildVersion=mytag"
 // results in these values showing up in a generated manifest.
@@ -466,6 +427,16 @@ func TestLDFlags(t *testing.T) {
 	if iops.Hub != version.DockerInfo.Hub || iops.Tag != version.DockerInfo.Tag {
 		t.Fatalf("DockerInfoHub, DockerInfoTag got: %s,%s, want: %s, %s", iops.Hub, iops.Tag, version.DockerInfo.Hub, version.DockerInfo.Tag)
 	}
+}
+
+func generateManifest(inFile, flags string, useCompiledInCharts bool) (string, object.K8sObjects, error) {
+	inPath := filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate/input", inFile+".yaml")
+	manifest, err := runManifestGenerate([]string{inPath}, flags, useCompiledInCharts)
+	if err != nil {
+		return "", nil, fmt.Errorf("error %s: %s", err, manifest)
+	}
+	objs, err := object.ParseK8sObjectsFromYAMLManifest(manifest)
+	return manifest, objs, err
 }
 
 func runTestGroup(t *testing.T, tests testGroup) {
@@ -501,7 +472,7 @@ func runTestGroup(t *testing.T, tests testGroup) {
 			diffSelect := "*:*:*"
 			if tt.diffSelect != "" {
 				diffSelect = tt.diffSelect
-				got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
+				got, err = compare.FilterManifest(got, diffSelect, "")
 				if err != nil {
 					t.Errorf("error selecting from output manifest: %v", err)
 				}
@@ -548,21 +519,6 @@ func runManifestGenerate(filenames []string, flags string, useCompiledInCharts b
 		args += " --set installPackagePath=" + filepath.Join(testDataDir, "data-snapshot")
 	}
 	return runCommand(args)
-}
-
-func createTempDirOrFail(t *testing.T, prefix string) string {
-	dir, err := ioutil.TempDir("", prefix)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return dir
-}
-
-func removeDirOrFail(t *testing.T, path string) {
-	err := os.RemoveAll(path)
-	if err != nil {
-		t.Fatal(err)
-	}
 }
 
 func createLocalReleaseCharts() (string, error) {

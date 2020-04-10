@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
+	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
 )
@@ -196,6 +197,15 @@ func (o *K8sObject) AddLabels(labels map[string]string) {
 
 // K8sObjects holds a collection of k8s objects, so that we can filter / sequence them
 type K8sObjects []*K8sObject
+
+// String implements the Stringer interface.
+func (o K8sObjects) String() string {
+	var out []string
+	for _, oo := range o {
+		out = append(out, oo.YAMLDebugString())
+	}
+	return strings.Join(out, helm.YAMLSeparator)
+}
 
 // ParseK8sObjectsFromYAMLManifest returns a K8sObjects representation of manifest.
 func ParseK8sObjectsFromYAMLManifest(manifest string) (K8sObjects, error) {

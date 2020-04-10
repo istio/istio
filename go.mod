@@ -101,7 +101,7 @@ require (
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/nwaples/rardecode v1.0.0 // indirect
-	github.com/onsi/gomega v1.8.1
+	github.com/onsi/gomega v1.9.0
 	github.com/open-policy-agent/opa v0.8.2
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/openshift/api v3.9.1-0.20191008181517-e4fd21196097+incompatible
@@ -139,6 +139,7 @@ require (
 	golang.org/x/net v0.0.0-20191014212845-da9a3fd4c582
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
+	golang.org/x/sys v0.0.0-20200116001909-b77594299b42
 	golang.org/x/time v0.0.0-20190921001708-c4c64cad1fd0
 	golang.org/x/tools v0.0.0-20191216173652-a0e659d51361
 	google.golang.org/api v0.15.0
