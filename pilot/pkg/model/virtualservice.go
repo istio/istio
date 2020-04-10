@@ -119,6 +119,8 @@ func mergeHTTPRoute(root *networking.HTTPRoute, delegate *networking.HTTPRoute) 
 
 	if delegate.Name == "" {
 		delegate.Name = root.Name
+	} else if root.Name != "" {
+		delegate.Name = root.Name + "-" + delegate.Name
 	}
 	if delegate.Rewrite == nil {
 		delegate.Rewrite = root.Rewrite
