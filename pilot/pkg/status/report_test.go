@@ -5,8 +5,9 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/onsi/gomega"
+
 	"gopkg.in/yaml.v2"
-	"gotest.tools/assert"
 )
 
 func TestReportSerialization(t *testing.T) {
@@ -21,11 +22,11 @@ func TestReportSerialization(t *testing.T) {
 		},
 	}
 	outbytes, err := yaml.Marshal(in)
-	assert.NilError(t, err)
+	gomega.Expect(err).To(gomega.BeNil())
 	fmt.Println(string(outbytes))
 	out := DistributionReport{}
 	err = yaml.Unmarshal(outbytes, &out)
-	assert.NilError(t, err)
+	gomega.Expect(err).To(gomega.BeNil())
 	if !reflect.DeepEqual(out, in) {
 		t.Errorf("Report Serialization mutated the Report. got = %v, want %v", out, in)
 	}
