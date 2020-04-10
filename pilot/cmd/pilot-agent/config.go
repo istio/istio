@@ -15,7 +15,9 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 
@@ -23,13 +25,14 @@ import (
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/proxy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
-	"istio.io/pkg/log"
 )
 
 // getTLSCerts returns all file based certificates from mesh config
@@ -58,8 +61,23 @@ func getTLSCerts(pc meshconfig.ProxyConfig) []string {
 	return certs
 }
 
+// TODO move this to API
+var proxyConfigAnnotation = "istio.io/meshConfig"
+
 func constructProxyConfig() (meshconfig.ProxyConfig, error) {
-	meshConfig, err := getMeshConfig()
+	annotations, err := readPodAnnotations()
+	if err != nil {
+		log.Warnf("failed to read pod annotations: %v", err)
+	}
+	var fileMeshContents string
+	if fileExists(meshConfigFile) {
+		contents, err := ioutil.ReadFile(meshConfigFile)
+		if err != nil {
+			return meshconfig.ProxyConfig{}, fmt.Errorf("failed to read mesh config file %v: %v", meshConfigFile, err)
+		}
+		fileMeshContents = string(contents)
+	}
+	meshConfig, err := getMeshConfig(fileMeshContents, annotations[proxyConfigAnnotation])
 	if err != nil {
 		return meshconfig.ProxyConfig{}, err
 	}
@@ -85,11 +103,54 @@ func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 	if err := validation.ValidateProxyConfig(&proxyConfig); err != nil {
 		return meshconfig.ProxyConfig{}, err
 	}
-	annotations, err := readPodAnnotations()
-	if err != nil {
-		log.Warnf("failed to read pod annotations: %v", err)
-	}
 	return applyAnnotations(proxyConfig, annotations), nil
+}
+
+// getMeshConfig gets the mesh config to use for proxy configuration
+// 1. First we take the default config
+// 2. Then we apply any settings from file (this comes from gateway mounting configmap)
+// 3. Then we apply settings from environment variable (this comes from sidecar injection sticking meshconfig here)
+// 4. Then we apply overrides from annotation (this comes from annotation on gateway, passed through downward API)
+func getMeshConfig(fileOverride, annotationOverride string) (meshconfig.MeshConfig, error) {
+	mc := mesh.DefaultMeshConfig()
+
+	log.Errorf("howardjohn: get mesh config")
+	if fileOverride != "" {
+		log.Infof("Apply mesh config from file %v", fileOverride)
+		fileMesh, err := mesh.ApplyMeshConfig(fileOverride, mc)
+		if err != nil || fileMesh == nil {
+			return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config from file [%v]: %v", fileOverride, err)
+		}
+		mc = *fileMesh
+	}
+
+	if meshConfig != "" {
+		log.Infof("Apply mesh config from env %v", meshConfig)
+		envMesh, err := mesh.ApplyMeshConfig(meshConfig, mc)
+		if err != nil || envMesh == nil {
+			return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config from environment [%v]: %v", meshConfig, err)
+		}
+		mc = *envMesh
+	}
+
+	if annotationOverride != "" {
+		log.Infof("Apply mesh config from annotation %v", annotationOverride)
+		annotationMesh, err := mesh.ApplyMeshConfig(annotationOverride, mc)
+		if err != nil || annotationMesh == nil {
+			return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config from annotation [%v]: %v", annotationOverride, err)
+		}
+		mc = *annotationMesh
+	}
+
+	return mc, nil
+}
+
+func fileExists(path string) bool {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		log.Errorf("howardjohn: %v %v", path, err)
+		return false
+	}
+	return true
 }
 
 func readPodAnnotations() (map[string]string, error) {
