@@ -2117,7 +2117,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 			}
 		}
 
-		if !needMatch && isFilterChainMatchEmpty(match) {
+		if !needMatch && filterChainMatchEmpty(match) {
 			match = nil
 		}
 		filterChains = append(filterChains, &listener.FilterChain{
@@ -2399,6 +2399,10 @@ func fallthroughOrConflict(existing, incoming *listener.FilterChain) (bool, bool
 	return false, false
 }
 
+func filterChainMatchEmpty(fcm *listener.FilterChainMatch) bool {
+	return fcm == nil || filterChainMatchEqual(fcm, &listener.FilterChainMatch{})
+}
+
 // filterChainMatchEqual retuns true if both filter chains are equal otherwise false.
 func filterChainMatchEqual(first *listener.FilterChainMatch, second *listener.FilterChainMatch) bool {
 	if first == nil || second == nil {
@@ -2545,46 +2549,8 @@ func insertFallthroughMetadata(chain *listener.FilterChain) {
 }
 
 func isMatchAllFilterChain(fc *listener.FilterChain) bool {
-	return isFilterChainMatchEmpty(fc.FilterChainMatch)
-}
-
-// isFilterChainMatchEmpty checks if a FCM is empty. This is used to avoid the perf overhead of
-// reflect.DeepEquals
-func isFilterChainMatchEmpty(fcm *listener.FilterChainMatch) bool {
-	if fcm == nil {
-		return true
-	}
-	if fcm.DestinationPort != nil {
-		return false
-	}
-	if fcm.PrefixRanges != nil {
-		return false
-	}
-	if fcm.AddressSuffix != "" {
-		return false
-	}
-	if fcm.SuffixLen != nil {
-		return false
-	}
-	if fcm.SourceType != listener.FilterChainMatch_ANY {
-		return false
-	}
-	if fcm.SourcePrefixRanges != nil {
-		return false
-	}
-	if fcm.SourcePorts != nil {
-		return false
-	}
-	if fcm.ServerNames != nil {
-		return false
-	}
-	if fcm.TransportProtocol != "" {
-		return false
-	}
-	if fcm.ApplicationProtocols != nil {
-		return false
-	}
-	return true
+	// See if it is empty filter chain.
+	return filterChainMatchEmpty(fc.FilterChainMatch)
 }
 
 func isFallthroughFilterChain(fc *listener.FilterChain) bool {

@@ -626,12 +626,13 @@ func TestGetActualWildcardAndLocalHost(t *testing.T) {
 	}
 }
 
+// Test to catch new fields in FilterChainMatch message.
 func TestFilterChainMatchFields(t *testing.T) {
 	fcm := listener.FilterChainMatch{}
 	e := reflect.ValueOf(&fcm).Elem()
-	// This isn't really testing the code, its just making sure an Envoy update won't silently break this method
+	// If this fails, that means new fields have been added to FilterChainMatch, filterChainMatchEqual function needs to be updated.
 	if e.NumField() != 13 {
-		t.Fatalf("Expected 13 fields, got %v. This means we need to update isFilterChainMatchEmpty", e.NumField())
+		t.Fatalf("Expected 13 fields, got %v. This means we need to update filterChainMatchEqual implementation", e.NumField())
 	}
 }
 

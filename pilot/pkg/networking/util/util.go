@@ -573,7 +573,7 @@ func BuildStatPrefix(statPattern string, host string, subset string, port *model
 	return prefix
 }
 
-// shotHostName constructs the name from kubernetes hosts based on attributes (name and namespace).
+// shortHostName constructs the name from kubernetes hosts based on attributes (name and namespace).
 // For other hosts like VMs, this method does not do any thing - just returns the passed in host as is.
 func shortHostName(host string, attributes model.ServiceAttributes) string {
 	if attributes.ServiceRegistry == string(serviceregistry.Kubernetes) {
