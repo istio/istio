@@ -45,10 +45,13 @@ func TestProxyNeedsPush(t *testing.T) {
 		want       bool
 	}
 
-	sidecar := &model.Proxy{Type: model.SidecarProxy, IPAddresses: []string{"127.0.0.1"}, Metadata: &model.NodeMetadata{}, SidecarScope: &model.SidecarScope{}}
+	sidecar := &model.Proxy{
+		Type: model.SidecarProxy, IPAddresses: []string{"127.0.0.1"}, Metadata: &model.NodeMetadata{},
+		SidecarScope: &model.SidecarScope{}}
 	gateway := &model.Proxy{Type: model.Router}
 
-	sidecarScopeKindNames := map[resource.GroupVersionKind]string{model.ServiceEntryKind: svcName, model.VirtualServiceKind: vsName, model.DestinationRuleKind: drName}
+	sidecarScopeKindNames := map[resource.GroupVersionKind]string{
+		model.ServiceEntryKind: svcName, model.VirtualServiceKind: vsName, model.DestinationRuleKind: drName}
 	for kind, name := range sidecarScopeKindNames {
 		sidecar.SidecarScope.AddConfigDependencies(kind, name)
 	}
@@ -80,29 +83,24 @@ func TestProxyNeedsPush(t *testing.T) {
 			namespace []string
 			want      bool
 		}{
-			{nil, true},  // empty namespace -> all
-			{[]string{nsName + invalidNameSuffix}, false},  // invalid namespace
+			{nil, true}, // empty namespace -> all
+			{[]string{nsName + invalidNameSuffix}, false}, // invalid namespace
 		}
 
 		for _, nsCase := range nsCases {
-			// empty
-			cases = append(cases, Case{
+			cases = append(cases, Case{ // empty
 				name:       fmt.Sprintf("%s empty config and namespace %v for sidecar", kind.Kind, nsCase.namespace),
 				proxy:      sidecar,
 				namespaces: nsCase.namespace,
 				configs:    map[resource.GroupVersionKind]map[string]struct{}{kind: {name: struct{}{}}},
 				want:       nsCase.want, // true && nsCase.want
-			})
-			// valid name
-			cases = append(cases, Case{
+			}, Case{ // valid name
 				name:       fmt.Sprintf("%s config and namespace %v for sidecar", kind.Kind, nsCase.namespace),
 				proxy:      sidecar,
 				namespaces: nsCase.namespace,
 				configs:    map[resource.GroupVersionKind]map[string]struct{}{kind: {name: struct{}{}}},
 				want:       nsCase.want,
-			})
-			// invalid name
-			cases = append(cases, Case{
+			}, Case{ // invalid name
 				name:       fmt.Sprintf("%s unmatched config and namespace %v for sidecar", kind.Kind, nsCase.namespace),
 				proxy:      sidecar,
 				namespaces: nsCase.namespace,
