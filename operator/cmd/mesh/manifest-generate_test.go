@@ -187,6 +187,8 @@ func TestManifestGeneratePilot(t *testing.T) {
 			desc:       "pilot_override_kubernetes",
 			diffSelect: "Deployment:*:istiod, Service:*:istiod",
 		},
+		// TODO https://github.com/istio/istio/issues/22347 this is broken for overriding things to default value
+		// This can be seen from REGISTRY_ONLY not applying
 		{
 			desc:       "pilot_merge_meshconfig",
 			diffSelect: "ConfigMap:*:istio$",
