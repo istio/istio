@@ -2403,7 +2403,7 @@ func filterChainMatchEmpty(fcm *listener.FilterChainMatch) bool {
 	return fcm == nil || filterChainMatchEqual(fcm, &listener.FilterChainMatch{})
 }
 
-// filterChainMatchEqual retuns true if both filter chains are equal otherwise false.
+// filterChainMatchEqual returns true if both filter chains are equal otherwise false.
 func filterChainMatchEqual(first *listener.FilterChainMatch, second *listener.FilterChainMatch) bool {
 	if first == nil || second == nil {
 		return first == second
