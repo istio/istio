@@ -28,7 +28,7 @@ import (
 	xdsUtil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -40,6 +40,7 @@ import (
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/pkg/log"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
@@ -1994,6 +1995,30 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			return errors.New("cannot cast to virtual service")
 		}
 
+		isDelegate := false
+		if len(virtualService.Hosts) == 0 {
+			if features.EnableVirtualServiceDelegate {
+				isDelegate = true
+			} else {
+				errs = appendErrors(errs, fmt.Errorf("virtual service must have at least one host"))
+			}
+		}
+
+		if isDelegate {
+			if len(virtualService.Gateways) != 0 {
+				// meaningless to specify gateways in delegate
+				errs = appendErrors(errs, fmt.Errorf("delegate virtual service must have no gateways specified"))
+			}
+			if len(virtualService.Tls) != 0 {
+				// meaningless to specify tls in delegate, we donot support tls delegate
+				errs = appendErrors(errs, fmt.Errorf("delegate virtual service must have no tls route specified"))
+			}
+			if len(virtualService.Tcp) != 0 {
+				// meaningless to specify tls in delegate, we donot support tcp delegate
+				errs = appendErrors(errs, fmt.Errorf("delegate virtual service must have no tcp route specified"))
+			}
+		}
+
 		appliesToMesh := false
 		if len(virtualService.Gateways) == 0 {
 			appliesToMesh = true
@@ -2005,10 +2030,6 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 				appliesToMesh = true
 				break
 			}
-		}
-
-		if len(virtualService.Hosts) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("virtual service must have at least one host"))
 		}
 
 		allHostsValid := true
@@ -2044,7 +2065,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			errs = appendErrors(errs, errors.New("http, tcp or tls must be provided in virtual service"))
 		}
 		for _, httpRoute := range virtualService.Http {
-			errs = appendErrors(errs, validateHTTPRoute(httpRoute))
+			errs = appendErrors(errs, validateHTTPRoute(httpRoute, isDelegate))
 		}
 		for _, tlsRoute := range virtualService.Tls {
 			errs = appendErrors(errs, validateTLSRoute(tlsRoute, virtualService))
@@ -2141,7 +2162,16 @@ func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
 	return
 }
 
-func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
+func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs error) {
+	if features.EnableVirtualServiceDelegate {
+		if delegate {
+			return validateDelegateHTTPRoute(http)
+		}
+		if http.Delegate != nil {
+			return validateRootHTTPRoute(http)
+		}
+	}
+
 	// check for conflicts
 	if http.Redirect != nil {
 		if len(http.Route) > 0 {
