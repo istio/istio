@@ -73,6 +73,7 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.UnknownAnnotation, "Service httpbin"},
 			{msg.MisplacedAnnotation, "Service details"},
+			{msg.InvalidAnnotation, "Pod invalid-annotations"},
 			{msg.MisplacedAnnotation, "Pod grafana-test"},
 			{msg.MisplacedAnnotation, "Deployment fortio-deploy"},
 			{msg.MisplacedAnnotation, "Namespace staging"},
