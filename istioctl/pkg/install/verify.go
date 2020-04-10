@@ -32,6 +32,7 @@ import (
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/kubernetes/scheme"
 
+	"istio.io/istio/istioctl/pkg/clioptions"
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/controlplane"
@@ -45,9 +46,28 @@ var (
 	verifyInstallCmd *cobra.Command
 )
 
+func verifyInstallIOPrevision(enableVerbose bool, istioNamespaceFlag string,
+	restClientGetter genericclioptions.RESTClientGetter,
+	writer io.Writer, opts clioptions.ControlPlaneOptions) error {
+
+	iop, err := operatorFromCluster(istioNamespaceFlag, opts.Revision, restClientGetter)
+	if err != nil {
+		return fmt.Errorf("could not load IstioOperator from cluster: %v", err)
+	}
+	crdCount, istioDeploymentCount, err := verifyPostInstallIstioOperator(enableVerbose,
+		istioNamespaceFlag,
+		iop,
+		fmt.Sprintf("in cluster operator %s", iop.GetName()),
+		restClientGetter,
+		writer)
+	return show(crdCount, istioDeploymentCount, err, writer)
+}
+
 func verifyInstall(enableVerbose bool, istioNamespaceFlag string,
 	restClientGetter genericclioptions.RESTClientGetter, options resource.FilenameOptions,
 	writer io.Writer, args []string) error {
+
+	// If no args, perform pre-check
 	if len(options.Filenames) == 0 {
 		if len(args) != 0 {
 			_, _ = fmt.Fprint(writer, verifyInstallCmd.UsageString())
@@ -66,18 +86,16 @@ func verifyInstall(enableVerbose bool, istioNamespaceFlag string,
 		return r.Err()
 	}
 	visitor := genericclioptions.ResourceFinderForResult(r).Do()
-	return verifyPostInstallAndShow(enableVerbose, istioNamespaceFlag, visitor, options.Filenames[0], restClientGetter, writer)
-
-}
-
-func verifyPostInstallAndShow(enableVerbose bool, istioNamespaceFlag string,
-	visitor resource.Visitor, filename string, restClientGetter genericclioptions.RESTClientGetter, writer io.Writer) error {
 	crdCount, istioDeploymentCount, err := verifyPostInstall(enableVerbose,
 		istioNamespaceFlag,
 		visitor,
-		filename,
+		strings.Join(options.Filenames, ","),
 		restClientGetter,
 		writer)
+	return show(crdCount, istioDeploymentCount, err, writer)
+}
+
+func show(crdCount, istioDeploymentCount int, err error, writer io.Writer) error {
 	if err != nil {
 		return err
 	}
@@ -156,24 +174,13 @@ func verifyPostInstall(enableVerbose bool, istioNamespaceFlag string,
 				}
 			}
 		case "IstioOperator":
-			result := info.Client.
-				Get().
-				Resource(kinds).
-				Namespace(namespace).
-				Name(name).
-				Do(context.TODO())
-			if result.Error() != nil {
-				return err
-			}
-			obj, _ := result.Get()
-			un, ok := obj.(*unstructured.Unstructured)
-			if !ok {
-				return fmt.Errorf("could not read IstioOperator")
-			}
+			// It is not a problem if the cluster does not include the IstioOperator
+			// we are checking.  Instead, verify the cluster has the things the
+			// IstioOperator specifies it should have.
 
 			// IstioOperator isn't part of pkg/config/schema/collections,
 			// usual conversion not available.  Convert unstructured to string
-			// and ask operator code to check.
+			// and ask operator code to unmarshal.
 
 			un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
 			by, err := json.Marshal(un)
@@ -242,9 +249,10 @@ func NewVerifyCommand() *cobra.Command {
 		}
 		enableVerbose  bool
 		istioNamespace string
+		opts           clioptions.ControlPlaneOptions
 	)
 	verifyInstallCmd = &cobra.Command{
-		Use:   "verify-install",
+		Use:   "verify-install [-f <deployment or istio operator file>] [--revision <revision>]",
 		Short: "Verifies Istio Installation Status or performs pre-check for the cluster before Istio installation",
 		Long: `
 		verify-install verifies Istio installation status against the installation file
@@ -258,11 +266,26 @@ func NewVerifyCommand() *cobra.Command {
 		Example: `
 		# Verify that Istio can be freshly installed
 		istioctl verify-install
-		
+
 		# Verify the deployment matches a custom Istio deployment configuration
 		istioctl verify-install -f $HOME/istio.yaml
+
+		# Verify the deployment matches the Istio Operator deployment definition
+		istioctl verify-install --revision <canary>
 `,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(fileNameFlags.ToOptions().Filenames) > 0 && opts.Revision != "" {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("supply either a file or revision, but not both")
+			}
+			return nil
+		},
 		RunE: func(c *cobra.Command, args []string) error {
+			// If --revision is specified, get the expected configuration from the IstioOperator
+			if c.Flags().Changed("revision") {
+				return verifyInstallIOPrevision(enableVerbose, istioNamespace, kubeConfigFlags,
+					c.OutOrStderr(), opts)
+			}
 			return verifyInstall(enableVerbose, istioNamespace, kubeConfigFlags,
 				fileNameFlags.ToOptions(), c.OutOrStderr(), args)
 		},
@@ -275,6 +298,7 @@ func NewVerifyCommand() *cobra.Command {
 	fileNameFlags.AddFlags(flags)
 	verifyInstallCmd.Flags().BoolVar(&enableVerbose, "enableVerbose", true,
 		"Enable verbose output")
+	opts.AttachControlPlaneFlags(verifyInstallCmd)
 	return verifyInstallCmd
 }
 
@@ -379,4 +403,75 @@ func verifyPostInstallIstioOperator(enableVerbose bool, istioNamespaceFlag strin
 	}
 
 	return generatedCrds, generatedDeployments, nil
+}
+
+// Find an IstioOperator matching revision in the cluster.  The IstioOperators
+// don't have a label for their revision, so we parse them and check .Spec.Revision
+func operatorFromCluster(istioNamespaceFlag string, revision string, restClientGetter genericclioptions.RESTClientGetter) (*v1alpha1.IstioOperator, error) {
+	client, err := restClientGetter.ToDiscoveryClient()
+	if err != nil {
+		return nil, err
+	}
+
+	// List the IstioOperators in istio-system
+	result := client.RESTClient().
+		Get().
+		Prefix("/apis/install.istio.io/v1alpha1"). // TODO Replace with VersionedParams?
+		Resource("IstioOperators").
+		Namespace(istioNamespaceFlag).
+		Do(context.TODO())
+	if result.Error() != nil {
+		return nil, result.Error()
+	}
+
+	// TODO use result.Object() insted of explicitly unmarshaling into Unstructured
+	raw, err := result.Raw()
+	if err != nil {
+		return nil, err
+	}
+	var un unstructured.Unstructured
+	err = json.Unmarshal(raw, &un)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert Unstructured 'items' into slice
+	unItems, ok := un.Object["items"]
+	if !ok {
+		return nil, fmt.Errorf("could not retrieve IstioOperators")
+	}
+	items, ok := unItems.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("could not decode IstioOperators")
+	}
+
+	for _, unItem := range items {
+		// Before we can convert to IstioOperator with UnmarshalIstioOperator()
+		// we must remove creationTimestamp
+		item, ok := unItem.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("could not decode inner IstioOperator")
+		}
+		metadata, ok := item["metadata"].(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("could not decode inner IstioOperator metadata")
+		}
+		delete(metadata, "creationTimestamp")
+
+		// Convert back into []byte for UnmarshalIstioOperator()
+		by, err := json.Marshal(item)
+		if err != nil {
+			return nil, err
+		}
+
+		iop, err := operator_istio.UnmarshalIstioOperator(string(by))
+		if err != nil {
+			return nil, err
+		}
+		if iop.Spec.Revision == revision {
+			return iop, nil
+		}
+	}
+
+	return nil, fmt.Errorf("control plane revision %q not found", revision)
 }
