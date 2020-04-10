@@ -451,7 +451,7 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 		return ""
 	}
 
-	return fmt.Sprintf("%s/%s/%s", region, zone, subzone)
+	return region + "/" + zone + "/" + subzone // Format: "%s/%s/%s"
 }
 
 // ManagementPorts implements a service catalog operation

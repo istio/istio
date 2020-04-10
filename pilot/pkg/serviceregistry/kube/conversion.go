@@ -110,7 +110,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 			ServiceRegistry: string(serviceregistry.Kubernetes),
 			Name:            svc.Name,
 			Namespace:       svc.Namespace,
-			UID:             fmt.Sprintf("istio://%s/services/%s", svc.Namespace, svc.Name),
+			UID:             formatUID(svc.Namespace, svc.Name),
 			ExportTo:        exportTo,
 		},
 	}
@@ -157,7 +157,7 @@ func ExternalNameServiceInstances(k8sSvc coreV1.Service, svc *model.Service) []*
 
 // ServiceHostname produces FQDN for a k8s service
 func ServiceHostname(name, namespace, domainSuffix string) host.Name {
-	return host.Name(fmt.Sprintf("%s.%s.svc.%s", name, namespace, domainSuffix))
+	return host.Name(name + "." + namespace + "." + "svc" + "." + domainSuffix) // Format: "%s.%s.svc.%s"
 }
 
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account
@@ -266,4 +266,8 @@ func ConvertProbesToPorts(t *coreV1.PodSpec) (model.PortList, error) {
 	sort.Slice(mgmtPorts, func(i, j int) bool { return mgmtPorts[i].Port < mgmtPorts[j].Port })
 
 	return mgmtPorts, errs
+}
+
+func formatUID(namespace, name string) string {
+	return "istio://" + namespace + "/services/" + name // Format : "istio://%s/services/%s"
 }
