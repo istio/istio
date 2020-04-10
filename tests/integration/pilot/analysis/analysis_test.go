@@ -39,18 +39,18 @@ func TestStatusExistsByDefault(t *testing.T) {
 
 func TestAnalysisWritesStatus(t *testing.T) {
 	framework.NewTest(t).
-	LabelFeatures("Usability.Observability.Status").
-	// TODO: make feature labels heirarchical constants like:
-	// Label(features.Usability.Observability.Status).
-	Run(func(ctx framework.TestContext) {
-		ns := namespace.NewOrFail(t, ctx, namespace.Config{
-			Prefix:   "default",
-			Inject:   true,
-			Revision: "",
-			Labels:   nil,
-		})
-		// Apply bad config (referencing invalid host)
-		g.ApplyConfigOrFail(t, ns, `
+		Features("Usability.Observability.Status").
+		// TODO: make feature labels heirarchical constants like:
+		// Label(features.Usability.Observability.Status).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix:   "default",
+				Inject:   true,
+				Revision: "",
+				Labels:   nil,
+			})
+			// Apply bad config (referencing invalid host)
+			g.ApplyConfigOrFail(t, ns, `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -64,12 +64,12 @@ spec:
     - destination:
         host: reviews
 `)
-		// Status should report error
-		retry.UntilSuccessOrFail(t, func() error {
-			return expectStatus(t, ctx, ns, true)
-		})
-		// Apply config to make this not invalid
-		g.ApplyConfigOrFail(t, ns, `
+			// Status should report error
+			retry.UntilSuccessOrFail(t, func() error {
+				return expectStatus(t, ctx, ns, true)
+			})
+			// Apply config to make this not invalid
+			g.ApplyConfigOrFail(t, ns, `
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -85,11 +85,11 @@ spec:
     hosts:
     - "*"
 `)
-		// Status should no longer report error
-		retry.UntilSuccessOrFail(t, func() error {
-			return expectStatus(t, ctx, ns, false)
+			// Status should no longer report error
+			retry.UntilSuccessOrFail(t, func() error {
+				return expectStatus(t, ctx, ns, false)
+			})
 		})
-	})
 }
 
 func expectStatus(t *testing.T, ctx resource.Context, ns namespace.Instance, hasError bool) error {

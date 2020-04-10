@@ -71,13 +71,13 @@ func (t *Test) Label(labels ...label.Instance) *Test {
 }
 
 // Label applies the given labels to this test.
-func (t *Test) LabelFeatures(labels ...label.Instance) *Test {
+func (t *Test) Features(labels ...label.Instance) *Test {
 	t.featureLabels = append(t.featureLabels, labels...)
 	return t
 }
 
 func (t *Test) NotImplementedYet(labels ...label.Instance) *Test {
-	t.LabelFeatures("Usability.Observability.Status.DefaultExists").
+	t.Features(labels...).
 		Run(func(_ TestContext) { t.goTest.Skip() })
 	return t
 }
