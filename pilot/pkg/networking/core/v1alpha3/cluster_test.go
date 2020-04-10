@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"sort"
 	"strings"
@@ -25,6 +26,7 @@ import (
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	apiv2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
+	v2Cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	envoyEndpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/proto"
@@ -1882,6 +1884,187 @@ func TestBuildInboundClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 	for _, cluster := range clusters {
 		g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
 		g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds()))
+	}
+}
+
+func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	configgen := NewConfigGenerator([]plugin.Plugin{})
+	serviceDiscovery := &fakes.ServiceDiscovery{}
+	destRule := &networking.DestinationRule{
+		Host: "backend.default.svc.cluster.local",
+		TrafficPolicy: &networking.TrafficPolicy{
+			PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+				{
+					Port: &networking.PortSelector{
+						Number: 80,
+					},
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+							MaxConnections: 100,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	configStore := &fakes.IstioConfigStore{
+		ListStub: func(typ resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
+			if typ == collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind() {
+				return []model.Config{
+					{ConfigMeta: model.ConfigMeta{
+						Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
+						Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
+						Name:    "acme",
+					},
+						Spec: destRule,
+					}}, nil
+			}
+			return nil, nil
+		},
+	}
+	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
+
+	proxy := &model.Proxy{
+		Metadata:     &model.NodeMetadata{},
+		SidecarScope: &model.SidecarScope{},
+	}
+
+	servicePort := &model.Port{
+		Name:     "default",
+		Port:     80,
+		Protocol: protocol.HTTP,
+	}
+
+	service := &model.Service{
+		Hostname:    host.Name("backend.default.svc.cluster.local"),
+		Address:     "1.1.1.1",
+		ClusterVIPs: make(map[string]string),
+		Ports:       model.PortList{servicePort},
+		Resolution:  model.Passthrough,
+	}
+
+	instances := []*model.ServiceInstance{
+		{
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.1",
+				EndpointPort: 10001,
+			},
+		},
+	}
+
+	exceptedCircuitBreakerThreshold := v2Cluster.CircuitBreakers_Thresholds{
+		MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
+		MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
+		MaxConnections:     &wrappers.UInt32Value{Value: 100},
+		MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
+	}
+
+	clusters := configgen.buildInboundClusters(proxy, env.PushContext, instances, []*model.Port{servicePort})
+	g.Expect(len(clusters)).ShouldNot(Equal(0))
+
+	for _, cluster := range clusters {
+		g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
+		if cluster.Name == "inbound|80||backend.default.svc.cluster.local" {
+			g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(&exceptedCircuitBreakerThreshold))
+		}
+	}
+}
+
+func TestBuildInboundClustersCircuitBreakerThresholds(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	configgen := NewConfigGenerator([]plugin.Plugin{})
+	serviceDiscovery := &fakes.ServiceDiscovery{}
+	destRule := &networking.DestinationRule{
+		Host: "backend.default.svc.cluster.local",
+		TrafficPolicy: &networking.TrafficPolicy{
+			PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+				{
+					Port: &networking.PortSelector{
+						Number: 8080,
+					},
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+							MaxConnections: 100,
+						},
+					},
+				},
+			},
+			ConnectionPool: &networking.ConnectionPoolSettings{
+				Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+					MaxConnections: 1000,
+				},
+			},
+		},
+	}
+
+	configStore := &fakes.IstioConfigStore{
+		ListStub: func(typ resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
+			if typ == collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind() {
+				return []model.Config{
+					{ConfigMeta: model.ConfigMeta{
+						Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
+						Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
+						Name:    "acme",
+					},
+						Spec: destRule,
+					}}, nil
+			}
+			return nil, nil
+		},
+	}
+	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
+
+	proxy := &model.Proxy{
+		Metadata:     &model.NodeMetadata{},
+		SidecarScope: &model.SidecarScope{},
+	}
+
+	servicePort := &model.Port{
+		Name:     "default",
+		Port:     80,
+		Protocol: protocol.HTTP,
+	}
+
+	service := &model.Service{
+		Hostname:    host.Name("backend.default.svc.cluster.local"),
+		Address:     "1.1.1.1",
+		ClusterVIPs: make(map[string]string),
+		Ports:       model.PortList{servicePort},
+		Resolution:  model.Passthrough,
+	}
+
+	instances := []*model.ServiceInstance{
+		{
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.1",
+				EndpointPort: 10001,
+			},
+		},
+	}
+
+	exceptedCircuitBreakerThreshold := v2Cluster.CircuitBreakers_Thresholds{
+		MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
+		MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
+		MaxConnections:     &wrappers.UInt32Value{Value: 1000},
+		MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
+	}
+
+	clusters := configgen.buildInboundClusters(proxy, env.PushContext, instances, []*model.Port{servicePort})
+	g.Expect(len(clusters)).ShouldNot(Equal(0))
+
+	for _, cluster := range clusters {
+		g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
+		if cluster.Name == "inbound|80||backend.default.svc.cluster.local" {
+			g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(&exceptedCircuitBreakerThreshold))
+		}
 	}
 }
 
