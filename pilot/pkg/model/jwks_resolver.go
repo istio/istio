@@ -410,8 +410,8 @@ func (r *JwksResolver) refresh() {
 				lastRefreshedTime: now,            // update the lastRefreshedTime if we get a success response from the network.
 				lastUsedTime:      e.lastUsedTime, // keep original lastUsedTime.
 			})
-			isNewKey, error := compareJWKSResponse(oldPubKey, newPubKey)
-			if error != nil {
+			isNewKey, err := compareJWKSResponse(oldPubKey, newPubKey)
+			if err != nil {
 				log.Errorf("Failed to refresh JWT public key from %q: %v", jwksURI, err)
 				return
 			}

@@ -351,7 +351,7 @@ func TestGetPublicKeyReorderedKey(t *testing.T) {
 		if c.expectedJwtPubkey != pk {
 			t.Errorf("GetPublicKey(%+v): expected (%s), got (%s)", c.in, c.expectedJwtPubkey, pk)
 		}
-		time.Sleep(30 * time.Millisecond)
+		r.refresh()
 	}
 
 	// Verify mock server http://localhost:9999/oauth2/v3/certs was only called once because of the cache.
