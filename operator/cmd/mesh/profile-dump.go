@@ -19,11 +19,10 @@ import (
 	"fmt"
 
 	"github.com/ghodss/yaml"
+	"github.com/spf13/cobra"
 
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
-
-	"github.com/spf13/cobra"
 )
 
 type profileDumpArgs struct {
@@ -87,8 +86,8 @@ func prependHeader(yml string) (string, error) {
 
 // Convert the generated YAML to pretty JSON.
 func yamlToPrettyJSON(yml string) (string, error) {
-	// YAML objects are not completely compatible with JSON
-	// objects. Let yaml.YAMLToJSON handle the edge cases and
+	// YAML parseObjectSetFromManifest are not completely compatible with JSON
+	// parseObjectSetFromManifest. Let yaml.YAMLToJSON handle the edge cases and
 	// we'll re-encode the result to pretty JSON.
 	uglyJSON, err := yaml.YAMLToJSON([]byte(yml))
 	if err != nil {

@@ -5,12 +5,14 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
+	"regexp"
 	"testing"
 
+	"github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	labels2 "k8s.io/apimachinery/pkg/labels"
 
-	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
@@ -28,7 +30,101 @@ func (pv *PathValue) String() string {
 	return fmt.Sprintf("%s:%v", pv.path, pv.value)
 }
 
-// HavePathValueEqual matches object.K8sObjects against a PathValue. All objects must match the PathValue.
+func parseObjectSetFromManifest(t test.Failer, manifest string) *objectSet {
+	ret := &objectSet{}
+	var err error
+	ret.objSlice, err = object.ParseK8sObjectsFromYAMLManifest(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, o := range ret.objSlice {
+		ret.append(o)
+	}
+	return ret
+}
+
+// objectSet is a set of objects maintained both as a slice (for ordering) and map (for speed).
+type objectSet struct {
+	objSlice object.K8sObjects
+	objMap   map[string]*object.K8sObject
+	keySlice []string
+}
+
+// append appends an object to o.
+func (o *objectSet) append(obj *object.K8sObject) {
+	h := obj.Hash()
+	o.objSlice = append(o.objSlice, obj)
+	if o.objMap == nil {
+		o.objMap = make(map[string]*object.K8sObject)
+	}
+	o.objMap[h] = obj
+	o.keySlice = append(o.keySlice, h)
+}
+
+// size reports the length of o.
+func (o *objectSet) size() int {
+	return len(o.keySlice)
+}
+
+// nameMatches returns a subset of o where objects names match the given regex.
+func (o *objectSet) nameMatches(nameRegex string) *objectSet {
+	ret := &objectSet{}
+	for k, v := range o.objMap {
+		_, _, objName := object.FromHash(k)
+		m, err := regexp.MatchString(nameRegex, objName)
+		if err != nil && m {
+			ret.append(v)
+		}
+	}
+	return ret
+}
+
+// nameEquals returns the object in o whose name matches "name", or nil if no object name matches.
+func (o *objectSet) nameEquals(name string) *object.K8sObject {
+	for k, v := range o.objMap {
+		_, _, objName := object.FromHash(k)
+		if objName == name {
+			return v
+		}
+	}
+	return nil
+}
+
+// kind returns a subset of o where kind matches the given value.
+func (o *objectSet) kind(kind string) *objectSet {
+	ret := &objectSet{}
+	for k, v := range o.objMap {
+		objKind, _, _ := object.FromHash(k)
+		if objKind == kind {
+			ret.append(v)
+		}
+	}
+	return ret
+}
+
+// namespace returns a subset of o where namespace matches the given value.
+func (o *objectSet) namespace(namespace string) *objectSet {
+	ret := &objectSet{}
+	for k, v := range o.objMap {
+		_, objNamespace, _ := object.FromHash(k)
+		if objNamespace == namespace {
+			ret.append(v)
+		}
+	}
+	return ret
+}
+
+// mustGetContainer returns the container tree with the given name in the deployment with the given name.
+// The function fails through g if no matching container is found.
+func mustGetContainer(g *gomega.WithT, objs *objectSet, deploymentName, containerName string) map[string]interface{} {
+	obj := objs.kind("Deployment").nameEquals(deploymentName)
+	g.Expect(obj).Should(Not(BeNil()))
+	container := obj.Container(containerName)
+	g.Expect(container).Should(Not(BeNil()))
+	return container
+}
+
+// HavePathValueEqual matches map[string]interface{} tree against a PathValue.
 func HavePathValueEqual(expected interface{}) types.GomegaMatcher {
 	return &HavePathValueEqualMatcher{
 		expected: expected,
@@ -42,16 +138,14 @@ type HavePathValueEqualMatcher struct {
 
 // Match implements the Matcher interface.
 func (m *HavePathValueEqualMatcher) Match(actual interface{}) (bool, error) {
-	objs := actual.(object.K8sObjects)
 	pv := m.expected.(PathValue)
-	for _, o := range objs {
-		got, f, err := tpath.GetPathContext(o.UnstructuredObject().UnstructuredContent(), util.PathFromString(pv.path))
-		if err != nil || !f {
-			return false, err
-		}
-		if !reflect.DeepEqual(got.Node, pv.value) {
-			return false, nil
-		}
+	node := actual.(map[string]interface{})
+	got, f, err := tpath.GetPathContext(node, util.PathFromString(pv.path))
+	if err != nil || !f {
+		return false, err
+	}
+	if !reflect.DeepEqual(got.Node, pv.value) {
+		return false, nil
 	}
 	return true, nil
 }
@@ -59,42 +153,15 @@ func (m *HavePathValueEqualMatcher) Match(actual interface{}) (bool, error) {
 // FailureMessage implements the Matcher interface.
 func (m *HavePathValueEqualMatcher) FailureMessage(actual interface{}) string {
 	pv := m.expected.(PathValue)
-	objs := actual.(object.K8sObjects)
-	return fmt.Sprintf("Expected the following objects to have path=value %s=%v\n\n%v", pv.path, pv.value, objs)
+	node := actual.(map[string]interface{})
+	return fmt.Sprintf("Expected the following parseObjectSetFromManifest to have path=value %s=%v\n\n%v", pv.path, pv.value, util.ToYAML(node))
 }
 
 // NegatedFailureMessage implements the Matcher interface.
 func (m *HavePathValueEqualMatcher) NegatedFailureMessage(actual interface{}) string {
 	pv := m.expected.(PathValue)
-	objs := actual.(object.K8sObjects)
-	return fmt.Sprintf("Expected the following objects not to have path=value %s=%v\n\n%v", pv.path, pv.value, objs)
-}
-
-// deployments returns all the Deployment objects in the manifest.
-func deployments(t test.Failer, manifest string) object.K8sObjects {
-	objs, err := object.ParseK8sObjectsFromYAMLManifest(filteredManifest(t, manifest, "Deployment:*:*", ""))
-	if err != nil {
-		t.Fatal(err)
-	}
-	return objs
-}
-
-// filteredManifest returns a manifest that has been filtered with selected and ignored resource expressions.
-func filteredManifest(t test.Failer, manifest, selectResources, ignoreResources string) string {
-	ret, err := compare.FilterManifest(manifest, selectResources, ignoreResources)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return ret
-}
-
-// filteredManifest returns objects from the manifest after it has been filtered with selected and ignored resource expressions.
-func filteredObjects(t test.Failer, manifest, selectResources, ignoreResources string) object.K8sObjects {
-	objs, err := object.ParseK8sObjectsFromYAMLManifest(filteredManifest(t, manifest, selectResources, ignoreResources))
-	if err != nil {
-		t.Fatal(err)
-	}
-	return objs
+	node := actual.(map[string]interface{})
+	return fmt.Sprintf("Expected the following parseObjectSetFromManifest not to have path=value %s=%v\n\n%v", pv.path, pv.value, util.ToYAML(node))
 }
 
 func mustSelect(t test.Failer, selector map[string]string, labels map[string]string) {

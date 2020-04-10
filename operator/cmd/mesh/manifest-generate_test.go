@@ -25,7 +25,7 @@ import (
 	"strings"
 	"testing"
 
-	gm "github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
 
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/helm"
@@ -95,7 +95,7 @@ func TestMain(m *testing.M) {
 
 func TestManifestGeneratePrometheus(t *testing.T) {
 	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
-	g := gm.NewGomegaWithT(t)
+	g := NewGomegaWithT(t)
 	_, objs, err := generateManifest("prometheus", "", liveCharts)
 	if err != nil {
 		t.Fatal(err)
@@ -108,26 +108,56 @@ func TestManifestGeneratePrometheus(t *testing.T) {
 		"Service:istio-system:prometheus",
 		"ServiceAccount:istio-system:prometheus",
 	}
-	g.Expect(objectHashesOrdered(objs)).Should(gm.ContainElements(want))
+	g.Expect(objectHashesOrdered(objs)).Should(ContainElements(want))
 }
 
 func TestManifestGenerateComponentHubTag(t *testing.T) {
 	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
-	g := gm.NewGomegaWithT(t)
+	g := NewGomegaWithT(t)
 	m, _, err := generateManifest("component_hub_tag", "", liveCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
-	g.Expect(filteredObjects(t, m, "Deployment:*:prometheus", "")).
-		Should(HavePathValueEqual(PathValue{"spec.template.spec.containers.[name:prometheus].image", "docker.io/prometheus:1.1.1"}))
-	g.Expect(filteredObjects(t, m, "Deployment:*:grafana", "")).
-		Should(HavePathValueEqual(PathValue{"spec.template.spec.containers.[name:grafana].image", "grafana/grafana:6.5.2"}))
-	g.Expect(filteredObjects(t, m, "Deployment:*:istio-ingressgateway", "")).
-		Should(HavePathValueEqual(PathValue{"spec.template.spec.containers.[name:istio-proxy].image", "istio-spec.hub/proxyv2:istio-spec.tag"}))
-	g.Expect(filteredObjects(t, m, "Deployment:*:istiod", "")).
-		Should(HavePathValueEqual(PathValue{"spec.template.spec.containers.[name:discovery].image", "component.pilot.hub/pilot:2"}))
-	g.Expect(filteredObjects(t, m, "Deployment:*:kiali", "")).
-		Should(HavePathValueEqual(PathValue{"spec.template.spec.containers.[name:kiali].image", "docker.io/testing/kiali:v1.15"}))
+	objs := parseObjectSetFromManifest(t, m)
+	g.Expect(objs.size()).Should(Not(Equal(0)))
+
+	tests := []struct {
+		deploymentName string
+		containerName  string
+		want           string
+	}{
+		{
+			deploymentName: "prometheus",
+			want:           "docker.io/prometheus:1.1.1",
+		},
+		{
+			deploymentName: "grafana",
+			want:           "grafana/grafana:6.5.2",
+		},
+		{
+			deploymentName: "istio-ingressgateway",
+			containerName:  "istio-proxy",
+			want:           "istio-spec.hub/proxyv2:istio-spec.tag",
+		},
+		{
+			deploymentName: "istiod",
+			containerName:  "discovery",
+			want:           "component.pilot.hub/pilot:2",
+		},
+		{
+			deploymentName: "kiali",
+			want:           "docker.io/testing/kiali:v1.15",
+		},
+	}
+
+	for _, tt := range tests {
+		containerName := tt.deploymentName
+		if tt.containerName != "" {
+			containerName = tt.containerName
+		}
+		container := mustGetContainer(g, objs, tt.deploymentName, containerName)
+		g.Expect(container).Should(HavePathValueEqual(PathValue{"image", tt.want}))
+	}
 }
 
 func TestManifestGenerateFlags(t *testing.T) {
@@ -366,7 +396,7 @@ func TestInstallPackagePath(t *testing.T) {
 
 }
 
-// This test enforces that objects that reference other objects do so properly, such as Service selecting deployment
+// This test enforces that parseObjectSetFromManifest that reference other parseObjectSetFromManifest do so properly, such as Service selecting deployment
 func TestConfigSelectors(t *testing.T) {
 	got, err := runManifestGenerate([]string{}, "", liveCharts)
 	if err != nil {
@@ -385,7 +415,7 @@ func TestConfigSelectors(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// First we fetch all the objects for our default install
+	// First we fetch all the parseObjectSetFromManifest for our default install
 	name := "istiod"
 	deployment := mustFindObject(t, objs, name, "Deployment")
 	service := mustFindObject(t, objs, name, "Service")
@@ -400,7 +430,7 @@ func TestConfigSelectors(t *testing.T) {
 		t.Fatalf("HPA does not match deployment: %v != %v", name, hpaName)
 	}
 
-	// Next we fetch all the objects for a revision install
+	// Next we fetch all the parseObjectSetFromManifest for a revision install
 	nameRev := "istiod-canary"
 	deploymentRev := mustFindObject(t, objsRev, nameRev, "Deployment")
 	serviceRev := mustFindObject(t, objsRev, nameRev, "Service")
