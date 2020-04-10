@@ -1028,3 +1028,112 @@ func TestBuildAddress(t *testing.T) {
 		})
 	}
 }
+
+func TestCidrRangeSliceEqual(t *testing.T) {
+	tests := []struct {
+		name   string
+		first  []*core.CidrRange
+		second []*core.CidrRange
+		want   bool
+	}{
+		{
+			"both nil",
+			nil,
+			nil,
+			true,
+		},
+		{
+			"unequal length",
+			[]*core.CidrRange{
+				{
+					AddressPrefix: "1.2.3.4",
+					PrefixLen: &wrappers.UInt32Value{
+						Value: 32,
+					},
+				},
+				{
+					AddressPrefix: "1.2.3.5",
+					PrefixLen: &wrappers.UInt32Value{
+						Value: 32,
+					},
+				},
+			},
+			[]*core.CidrRange{
+				{
+					AddressPrefix: "1.2.3.4",
+					PrefixLen: &wrappers.UInt32Value{
+						Value: 32,
+					},
+				},
+			},
+			false,
+		},
+		{
+			"equal cidr",
+			[]*core.CidrRange{
+				{
+					AddressPrefix: "1.2.3.4",
+					PrefixLen: &wrappers.UInt32Value{
+						Value: 32,
+					},
+				},
+			},
+			[]*core.CidrRange{
+				{
+					AddressPrefix: "1.2.3.4",
+					PrefixLen: &wrappers.UInt32Value{
+						Value: 32,
+					},
+				},
+			},
+			true,
+		},
+		{
+			"unequal cidr address prefix mismatch",
+			[]*core.CidrRange{
+				{
+					AddressPrefix: "1.2.3.4",
+					PrefixLen: &wrappers.UInt32Value{
+						Value: 32,
+					},
+				},
+			},
+			[]*core.CidrRange{
+				{
+					AddressPrefix: "1.2.3.5",
+					PrefixLen: &wrappers.UInt32Value{
+						Value: 32,
+					},
+				},
+			},
+			false,
+		},
+		{
+			"unequal cidr prefixlen mismatch",
+			[]*core.CidrRange{
+				{
+					AddressPrefix: "1.2.3.4",
+					PrefixLen: &wrappers.UInt32Value{
+						Value: 32,
+					},
+				},
+			},
+			[]*core.CidrRange{
+				{
+					AddressPrefix: "1.2.3.4",
+					PrefixLen: &wrappers.UInt32Value{
+						Value: 16,
+					},
+				},
+			},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := CidrRangeSliceEqual(tt.first, tt.second); got != tt.want {
+				t.Errorf("Unexpected CidrRangeSliceEqual() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

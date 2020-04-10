@@ -657,13 +657,7 @@ func ApplyCustomSDSToCommonTLSContext(tlsContext *envoyauth.CommonTlsContext, tl
 	}
 }
 
-func StringSliceEquals(a, b []string) bool {
-
-	// If one is nil, the other must also be nil.
-	if (a == nil) != (b == nil) {
-		return false
-	}
-
+func StringSliceEqual(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
 	}
@@ -677,12 +671,7 @@ func StringSliceEquals(a, b []string) bool {
 	return true
 }
 
-func UInt32SliceEquals(a, b []uint32) bool {
-	// If one is nil, the other must also be nil.
-	if (a == nil) != (b == nil) {
-		return false
-	}
-
+func UInt32SliceEqual(a, b []uint32) bool {
 	if len(a) != len(b) {
 		return false
 	}
@@ -696,12 +685,7 @@ func UInt32SliceEquals(a, b []uint32) bool {
 	return true
 }
 
-func CidrRangeSliceEquals(a, b []*core.CidrRange) bool {
-	// If one is nil, the other must also be nil.
-	if (a == nil) != (b == nil) {
-		return false
-	}
-
+func CidrRangeSliceEqual(a, b []*core.CidrRange) bool {
 	if len(a) != len(b) {
 		return false
 	}

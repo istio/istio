@@ -2378,6 +2378,8 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, pluginParams *plugin
 	return mergedFilterChains
 }
 
+// fallthroughOrConflict determines whether the incoming filter chain has conflict with existing.
+// It also identifies whether the existing filter chain is a fallthrough and hence should be replaced.
 func fallthroughOrConflict(existing, incoming *listener.FilterChain) (bool, bool) {
 	switch {
 	case isMatchAllFilterChain(existing):
@@ -2391,50 +2393,45 @@ func fallthroughOrConflict(existing, incoming *listener.FilterChain) (bool, bool
 			}
 			return false, true
 		}
-	case isEqualFilterChainMatch(existing.FilterChainMatch, incoming.FilterChainMatch):
+	case filterChainMatchEqual(existing.FilterChainMatch, incoming.FilterChainMatch):
 		return false, true
 	}
 	return false, false
 }
 
-func isEqualFilterChainMatch(one *listener.FilterChainMatch, other *listener.FilterChainMatch) bool {
-	if one == nil && other == nil {
-		return true
+// filterChainMatchEqual retuns true if both filter chains are equal otherwise false.
+func filterChainMatchEqual(first *listener.FilterChainMatch, second *listener.FilterChainMatch) bool {
+	if first == nil || second == nil {
+		return first == second
 	}
-	if one == nil && other != nil {
+	if first.TransportProtocol != second.TransportProtocol {
 		return false
 	}
-	if one != nil && other == nil {
+	if !util.StringSliceEqual(first.ApplicationProtocols, second.ApplicationProtocols) {
 		return false
 	}
-	if one.TransportProtocol != other.TransportProtocol {
+	if first.DestinationPort.GetValue() != second.DestinationPort.GetValue() {
 		return false
 	}
-	if !util.StringSliceEquals(one.ApplicationProtocols, other.ApplicationProtocols) {
+	if !util.CidrRangeSliceEqual(first.PrefixRanges, second.PrefixRanges) {
 		return false
 	}
-	if one.DestinationPort.GetValue() != other.DestinationPort.GetValue() {
+	if !util.CidrRangeSliceEqual(first.SourcePrefixRanges, second.SourcePrefixRanges) {
 		return false
 	}
-	if !util.CidrRangeSliceEquals(one.PrefixRanges, other.PrefixRanges) {
+	if first.AddressSuffix != second.AddressSuffix {
 		return false
 	}
-	if !util.CidrRangeSliceEquals(one.SourcePrefixRanges, other.SourcePrefixRanges) {
+	if first.SuffixLen.GetValue() != second.SuffixLen.GetValue() {
 		return false
 	}
-	if one.AddressSuffix != other.AddressSuffix {
+	if first.SourceType != second.SourceType {
 		return false
 	}
-	if one.SuffixLen.GetValue() != other.SuffixLen.GetValue() {
+	if !util.UInt32SliceEqual(first.SourcePorts, second.SourcePorts) {
 		return false
 	}
-	if one.SourceType != other.SourceType {
-		return false
-	}
-	if !util.UInt32SliceEquals(one.SourcePorts, other.SourcePorts) {
-		return false
-	}
-	if !util.StringSliceEquals(one.ServerNames, other.ServerNames) {
+	if !util.StringSliceEqual(first.ServerNames, second.ServerNames) {
 		return false
 	}
 	return true
