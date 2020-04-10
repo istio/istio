@@ -20,7 +20,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var scope = log.RegisterScope("statusController",
+var scope = log.RegisterScope("status",
 	"component for writing distribution status to istiio CRDs", 0)
 
 type Fraction struct {
@@ -34,7 +34,7 @@ func (fraction Fraction) Add(fraction2 Fraction) {
 }
 
 type DistributionController struct {
-	lock            sync.RWMutex
+	mu              sync.RWMutex
 	CurrentState    map[Resource]map[string]Fraction
 	ObservationTime map[string]time.Time
 	UpdateInterval  time.Duration
@@ -57,7 +57,10 @@ func (c *DistributionController) Start(restConfig *rest.Config, stop <-chan stru
 	}
 	c.CurrentState = make(map[Resource]map[string]Fraction)
 	c.ObservationTime = make(map[string]time.Time)
-	c.client = dynamic.NewForConfigOrDie(restConfig)
+	var err error
+	if c.client, err = dynamic.NewForConfig(restConfig); err != nil {
+		scope.Fatalf("Could not connect to kubernetes: %s", err)
+	}
 	// create watch
 	i := informers.NewSharedInformerFactory(kubernetes.NewForConfigOrDie(restConfig), 1*time.Minute).
 		Core().V1().ConfigMaps()
@@ -83,8 +86,8 @@ func (c *DistributionController) Start(restConfig *rest.Config, stop <-chan stru
 }
 
 func (c *DistributionController) handleReport(d DistributionReport) {
-	defer c.lock.Unlock()
-	c.lock.Lock()
+	defer c.mu.Unlock()
+	c.mu.Lock()
 	for resstr := range d.InProgressResources {
 		res := *ResourceFromString(resstr)
 		if _, ok := c.CurrentState[res]; !ok {
@@ -96,8 +99,8 @@ func (c *DistributionController) handleReport(d DistributionReport) {
 }
 
 func (c *DistributionController) writeAllStatus() (staleReporters []string) {
-	defer c.lock.RUnlock()
-	c.lock.RLock()
+	defer c.mu.RUnlock()
+	c.mu.RLock()
 	for config, fractions := range c.CurrentState {
 		var distributionState Fraction
 		for reporter, w := range fractions {
@@ -153,14 +156,14 @@ func (c *DistributionController) writeStatus(config Resource, distributionState 
 }
 
 func (c *DistributionController) pruneOldVersion(config Resource) {
-	defer c.lock.Unlock()
-	c.lock.Lock()
+	defer c.mu.Unlock()
+	c.mu.Lock()
 	delete(c.CurrentState, config)
 }
 
 func (c *DistributionController) removeStaleReporters(staleReporters []string) {
-	defer c.lock.Unlock()
-	c.lock.Lock()
+	defer c.mu.Unlock()
+	c.mu.Lock()
 	for key, fractions := range c.CurrentState {
 		for _, staleReporter := range staleReporters {
 			delete(fractions, staleReporter)

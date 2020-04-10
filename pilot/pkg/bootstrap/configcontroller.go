@@ -314,7 +314,7 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 
 	s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
 		if err := processing.Start(); err != nil {
-			//return err
+			log.Fatalf("Error starting Background Analysis: %s", err)
 		}
 
 		go func() {

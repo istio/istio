@@ -1,7 +1,6 @@
 package status
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -23,7 +22,6 @@ func TestReportSerialization(t *testing.T) {
 	}
 	outbytes, err := yaml.Marshal(in)
 	gomega.Expect(err).To(gomega.BeNil())
-	fmt.Println(string(outbytes))
 	out := DistributionReport{}
 	err = yaml.Unmarshal(outbytes, &out)
 	gomega.Expect(err).To(gomega.BeNil())
