@@ -3663,6 +3663,25 @@ func TestValidateServiceEntries(t *testing.T) {
 			Resolution: networking.ServiceEntry_NONE,
 		},
 			valid: true},
+		{name: "selector", in: networking.ServiceEntry{
+			Hosts:            []string{"google.com"},
+			WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"foo": "bar"}},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+			},
+		},
+			valid: true},
+		{name: "selector and endpoints", in: networking.ServiceEntry{
+			Hosts:            []string{"google.com"},
+			WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"foo": "bar"}},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+			},
+			Endpoints: []*networking.WorkloadEntry{
+				{Address: "1.1.1.1"},
+			},
+		},
+			valid: false},
 	}
 
 	for _, c := range cases {
