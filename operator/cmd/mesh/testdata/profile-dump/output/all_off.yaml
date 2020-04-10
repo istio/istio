@@ -290,7 +290,6 @@ spec:
       mountMtlsCerts: false
       mtls:
         auto: true
-        enabled: false
       multiCluster:
         clusterName: ""
         enabled: false

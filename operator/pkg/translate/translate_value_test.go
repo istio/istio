@@ -76,9 +76,6 @@ global:
   proxy:
     readinessInitialDelaySeconds: 2
   controlPlaneSecurityEnabled: false
-  mtls:
-    enabled:
-      false
 mixer:
   policy:
     enabled: true
@@ -137,8 +134,6 @@ components:
 values:
   global:
     controlPlaneSecurityEnabled: false
-    mtls:
-      enabled: false
     proxy:
       readinessInitialDelaySeconds: 2
     policyNamespace: istio-policy

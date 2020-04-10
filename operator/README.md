@@ -253,7 +253,7 @@ After running the command, the Helm charts are rendered using `data/profiles/sds
 
 The CLI `--set` option can be used to override settings within the profile.
 
-For example, to enable security, use `istioctl manifest generate --set values.global.mtls.enabled=true --set values.global.controlPlaneSecurityEnabled=true`
+For example, to enable auto mTLS, use `istioctl manifest generate --set values.global.mtls.auto=true --set values.global.controlPlaneSecurityEnabled=true`
 
 To override a setting that includes dots, escape them with a backslash (\).  Your shell may require enclosing quotes.
 

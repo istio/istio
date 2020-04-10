@@ -7263,8 +7263,7 @@ data:
         "meshNetworks": {},
         "mountMtlsCerts": false,
         "mtls": {
-          "auto": false,
-          "enabled": false
+          "auto": false
         },
         "multiCluster": {
           "clusterName": "",
