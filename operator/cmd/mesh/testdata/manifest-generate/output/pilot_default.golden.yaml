@@ -311,8 +311,7 @@ data:
         "meshNetworks": {},
         "mountMtlsCerts": false,
         "mtls": {
-          "auto": true,
-          "enabled": false
+          "auto": true
         },
         "multiCluster": {
           "clusterName": "",
