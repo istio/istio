@@ -17,13 +17,14 @@ package bootstrap
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pilot/pkg/status"
 	"net/url"
 	"os"
 	"path"
 	"strings"
 	"sync"
 	"time"
+
+	"istio.io/istio/pilot/pkg/status"
 
 	"istio.io/istio/galley/pkg/server/components"
 	"istio.io/istio/galley/pkg/server/settings"
@@ -326,10 +327,9 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 
 func (s *Server) initOtherStatusStuff(args *PilotArgs) {
 	s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
-		// watch and list the configmaps in the istio-system namespace
-		// periodically write status
-		status.DistributionController{}.Start(stop)
+		status.DistributionController{}.Start(s.kubeConfig, stop)
 	})
+	// TODO: even when not leading, write my internal distribution status to configmaps
 }
 
 func (s *Server) mcpController(

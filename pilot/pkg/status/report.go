@@ -1,14 +1,15 @@
 package status
 
 import (
+	"strings"
+
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"strings"
 )
 
 type DistributionReport struct {
-	Reporter string
-	DataPlaneCount int
+	Reporter            string
+	DataPlaneCount      int
 	InProgressResources map[string]int
 }
 
@@ -30,20 +31,20 @@ func ResourceFromString(s string) *Resource {
 	}
 	return &Resource{
 		GroupVersionResource: schema.GroupVersionResource{
-			Group: pieces[0],
-			Version: pieces[1],
+			Group:    pieces[0],
+			Version:  pieces[1],
 			Resource: pieces[2],
 		},
-		Namespace:            pieces[3],
-		Name:                 pieces[4],
+		Namespace: pieces[3],
+		Name:      pieces[4],
 	}
 }
 
 // TODO: maybe replace with a kubernetes resource identifier, if that's a thing
 type Resource struct {
 	schema.GroupVersionResource
-	Namespace string
-	Name string
+	Namespace       string
+	Name            string
 	ResourceVersion string
 }
 

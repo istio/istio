@@ -2,21 +2,22 @@ package status
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v2"
-	"gotest.tools/assert"
 	"reflect"
 	"testing"
+
+	"gopkg.in/yaml.v2"
+	"gotest.tools/assert"
 )
 
 func TestReportSerialization(t *testing.T) {
 	in := DistributionReport{
-		Reporter:            "Me",
-		DataPlaneCount:      10,
+		Reporter:       "Me",
+		DataPlaneCount: 10,
 		InProgressResources: map[string]int{
 			(&Resource{
-				Name: "water",
-				Namespace:"default",
-			}).String():1,
+				Name:      "water",
+				Namespace: "default",
+			}).String(): 1,
 		},
 	}
 	outbytes, err := yaml.Marshal(in)

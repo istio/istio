@@ -2,17 +2,19 @@ package status
 
 import (
 	"encoding/json"
-	"istio.io/istio/galley/pkg/config/analysis/diag"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/clock"
 	"reflect"
 	"testing"
+
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/clock"
+
+	"istio.io/istio/galley/pkg/config/analysis/diag"
 )
 
 var statusNoDistro = IstioStatus{
-	Conditions:         []IstioCondition{{
-		Type: HasValidationErrors,
-		Status: v1.ConditionTrue,
+	Conditions: []IstioCondition{{
+		Type:    HasValidationErrors,
+		Status:  v1.ConditionTrue,
 		Message: "just a test, here",
 	}},
 	ValidationMessages: []diag.Message{{
@@ -26,13 +28,13 @@ var statusNoDistro = IstioStatus{
 var emptyStatus = map[string]interface{}{}
 
 var statusStillPropagating = IstioStatus{
-	Conditions:         []IstioCondition{{
+	Conditions: []IstioCondition{{
 		Type:    HasValidationErrors,
 		Status:  v1.ConditionTrue,
 		Message: "just a test, here",
-	},{
-		Type: StillPropagating,
-		Status: v1.ConditionTrue,
+	}, {
+		Type:    StillPropagating,
+		Status:  v1.ConditionTrue,
 		Message: "1/2 dataplanes up to date.",
 	}},
 	ValidationMessages: nil,
@@ -96,7 +98,7 @@ func TestReconcileStatuses(t *testing.T) {
 			},
 		}, {
 			name: "Graceful handling of random status",
-			args:args{
+			args: args{
 				current: map[string]interface{}{"status": "random"},
 				desired: Fraction{2, 2},
 			},
@@ -116,7 +118,7 @@ func TestReconcileStatuses(t *testing.T) {
 			if got != tt.want {
 				t.Errorf("ReconcileStatuses() got = %v, want %v", got, tt.want)
 			}
-			if tt.want1!=nil {
+			if tt.want1 != nil {
 				for i := range tt.want1.Conditions {
 					if got1 != nil && i < len(got1.Conditions) {
 						tt.want1.Conditions[i].LastTransitionTime = got1.Conditions[i].LastTransitionTime
@@ -145,9 +147,9 @@ func Test_getTypedStatus(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "Nondestructive cast",
-			args:args{in:statusStillPropagating},
-			wantOut:statusStillPropagating,
+			name:    "Nondestructive cast",
+			args:    args{in: statusStillPropagating},
+			wantOut: statusStillPropagating,
 		},
 	}
 	for _, tt := range tests {

@@ -3,8 +3,10 @@ package status
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/ghodss/yaml"
-	"istio.io/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,15 +16,15 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/clock"
-	"sync"
-	"time"
+
+	"istio.io/pkg/log"
 )
 
 var scope = log.RegisterScope("statusController",
 	"component for writing distribution status to istiio CRDs", 0)
 
 type Fraction struct {
-	Numerator int
+	Numerator   int
 	Denominator int
 }
 
@@ -32,7 +34,7 @@ func (fraction Fraction) Add(fraction2 Fraction) {
 }
 
 type DistributionController struct {
-	lock sync.RWMutex
+	lock            sync.RWMutex
 	CurrentState    map[Resource]map[string]Fraction
 	ObservationTime map[string]time.Time
 	UpdateInterval  time.Duration
@@ -44,7 +46,7 @@ type DistributionController struct {
 func (c *DistributionController) Start(restConfig *rest.Config, stop <-chan struct{}) {
 	// default UpdateInterval
 	if c.UpdateInterval == 0 {
-		c.UpdateInterval = 100*time.Millisecond
+		c.UpdateInterval = 100 * time.Millisecond
 	}
 	// default StaleInterval
 	if c.StaleInterval == 0 {
@@ -53,18 +55,18 @@ func (c *DistributionController) Start(restConfig *rest.Config, stop <-chan stru
 	if c.clock == nil {
 		c.clock = clock.RealClock{}
 	}
-	c.CurrentState = make(map[Resource] map[string] Fraction)
+	c.CurrentState = make(map[Resource]map[string]Fraction)
 	c.ObservationTime = make(map[string]time.Time)
 	c.client = dynamic.NewForConfigOrDie(restConfig)
 	// create watch
 	i := informers.NewSharedInformerFactory(kubernetes.NewForConfigOrDie(restConfig), 1*time.Minute).
 		Core().V1().ConfigMaps()
-	i.Informer().AddEventHandler(DistroReportHandler{dc:*c})
+	i.Informer().AddEventHandler(DistroReportHandler{dc: *c})
 	// this will list all existing configmaps, as well as updates, right?
 	i.Informer().Run(stop)
-	
+
 	//create Status Writer
-	t:=c.clock.Tick(c.UpdateInterval)
+	t := c.clock.Tick(c.UpdateInterval)
 	go func() {
 		for {
 			select {
@@ -123,7 +125,7 @@ func (c *DistributionController) writeStatus(config Resource, distributionState 
 	// should this be moved to some sort of InformerCache for speed?
 	current, err := resourceInterface.Get(ctx, config.Name, v12.GetOptions{ResourceVersion: config.ResourceVersion})
 	if err != nil {
-		if errors.IsGone(err){
+		if errors.IsGone(err) {
 			// this resource has been deleted.  prune its state and move on.
 			c.pruneOldVersion(config)
 			return
@@ -197,7 +199,7 @@ func ReconcileStatuses(current map[string]interface{}, desired Fraction, clock c
 		scope.Warn("Encountered unexpected status content.  Overwriting status.")
 		scope.Debugf("Encountered unexpected status content.  Overwriting status: %v", current["status"])
 		currentStatus = IstioStatus{
-			Conditions:         []IstioCondition{desiredCondition},
+			Conditions: []IstioCondition{desiredCondition},
 		}
 		return true, &currentStatus
 	}
@@ -225,7 +227,8 @@ func ReconcileStatuses(current map[string]interface{}, desired Fraction, clock c
 type DistroReportHandler struct {
 	dc DistributionController
 }
-func (drh DistroReportHandler) OnAdd(obj interface{}){
+
+func (drh DistroReportHandler) OnAdd(obj interface{}) {
 	drh.HandleNew(obj)
 }
 
@@ -243,6 +246,6 @@ func (drh DistroReportHandler) HandleNew(obj interface{}) {
 	drh.dc.handleReport(dr)
 }
 
-func (drh DistroReportHandler) OnDelete(obj interface{}){
+func (drh DistroReportHandler) OnDelete(obj interface{}) {
 	// TODO: what do we do here?  will these ever be deleted?
 }
