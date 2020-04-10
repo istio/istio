@@ -30,7 +30,7 @@ data:
       connectTimeout: 10s
       controlPlaneAuthPolicy: NONE
       discoveryAddress: istiod.istio-system.svc:15012
-      drainDuration: 45s
+      drainDuration: 12s
       parentShutdownDuration: 1m0s
       proxyAdminPort: 15000
       proxyMetadata:
