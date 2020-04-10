@@ -279,3 +279,14 @@ messages:
         type: string
       - name: revisions
         type: string
+
+  - name: "InvalidAnnotation"
+    code: IST0125
+    level: Warning
+    description: "An Istio annotation that is not valid"
+    template: "Invalid annotation %s: %s"
+    args:
+      - name: annotation
+        type: string
+      - name: problem
+        type: string
