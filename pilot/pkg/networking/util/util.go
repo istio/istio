@@ -577,7 +577,7 @@ func BuildStatPrefix(statPattern string, host string, subset string, port *model
 // For other hosts like VMs, this method does not do any thing - just returns the passed in host as is.
 func shortHostName(host string, attributes model.ServiceAttributes) string {
 	if attributes.ServiceRegistry == string(serviceregistry.Kubernetes) {
-		return fmt.Sprintf("%s.%s", attributes.Name, attributes.Namespace)
+		return attributes.Name + "." + attributes.Namespace
 	}
 	return host
 }
