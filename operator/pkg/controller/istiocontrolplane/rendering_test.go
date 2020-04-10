@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/validate"
 )
 
@@ -226,6 +227,9 @@ func runManifestGenerate(iopStr string) (string, error) {
 
 	// Since controller code is running locally, we can point to a local filesystem path.
 	iop.Spec.InstallPackagePath = filepath.Join(testDataDir, "data-snapshot")
+	if err := name.ScanBundledAddonComponents(iop.Spec.InstallPackagePath); err != nil {
+		return "", err
+	}
 
 	testReconciler := helmreconciler.NewHelmReconciler(iop, nil, nil)
 	testInput := NewIstioRenderingInput(iop)

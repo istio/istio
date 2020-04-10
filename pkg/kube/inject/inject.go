@@ -61,7 +61,7 @@ var (
 		return nil
 	}
 
-	annotationRegistry = map[string]annotationValidationFunc{
+	AnnotationValidation = map[string]annotationValidationFunc{
 		annotation.SidecarInject.Name:                             alwaysValidFunc,
 		annotation.SidecarStatus.Name:                             alwaysValidFunc,
 		annotation.SidecarRewriteAppHTTPProbers.Name:              alwaysValidFunc,
@@ -93,7 +93,7 @@ var (
 
 func validateAnnotations(annotations map[string]string) (err error) {
 	for name, value := range annotations {
-		if v, ok := annotationRegistry[name]; ok {
+		if v, ok := AnnotationValidation[name]; ok {
 			if e := v(value); e != nil {
 				err = multierror.Append(err, fmt.Errorf("invalid value '%s' for annotation '%s': %v", value, name, e))
 			}
@@ -382,7 +382,7 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 	if log.DebugEnabled() {
 		// Build a log message for the annotations.
 		annotationStr := ""
-		for name := range annotationRegistry {
+		for name := range AnnotationValidation {
 			value, ok := annos[name]
 			if !ok {
 				value = "(unset)"
@@ -1106,7 +1106,7 @@ func rewriteCniPodSPec(annotations map[string]string, spec *SidecarInjectionSpec
 	if len(spec.PodRedirectAnnot) == 0 {
 		return
 	}
-	for k := range annotationRegistry {
+	for k := range AnnotationValidation {
 		if spec.PodRedirectAnnot[k] != "" {
 			if annotations[k] == spec.PodRedirectAnnot[k] {
 				continue

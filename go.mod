@@ -8,7 +8,11 @@ replace k8s.io/klog => github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf
 
 replace github.com/spf13/viper => github.com/istio/viper v1.3.3-0.20190515210538-2789fed3109c
 
+// For license
 replace github.com/docker/docker => github.com/docker/engine v1.4.2-0.20191011211953-adfac697dc5b
+
+// Old version had no license
+replace github.com/chzyer/logex => github.com/chzyer/logex v1.1.11-0.20170329064859-445be9e134b2
 
 require (
 	cloud.google.com/go v0.50.0
@@ -69,6 +73,7 @@ require (
 	github.com/golang/sync v0.0.0-20180314180146-1d60e4601c6f
 	github.com/google/cel-go v0.4.1
 	github.com/google/go-cmp v0.3.1
+	github.com/google/gofuzz v1.1.0
 	github.com/google/uuid v1.1.1
 	github.com/googleapis/gax-go v2.0.2+incompatible
 	github.com/googleapis/gax-go/v2 v2.0.5
@@ -149,7 +154,7 @@ require (
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.2.8
-	istio.io/api v0.0.0-20200407171655-fb462ece86fb
+	istio.io/api v0.0.0-20200409210158-852f8fa8e3f4
 	istio.io/gogo-genproto v0.0.0-20200326154102-997c228eecef
 	istio.io/pkg v0.0.0-20200327214633-ce134a9bd104
 	k8s.io/api v0.18.0
@@ -164,12 +169,3 @@ require (
 	sigs.k8s.io/service-apis v0.0.0-20200227172328-b9010cfacdbe
 	sigs.k8s.io/yaml v1.2.0
 )
-
-replace github.com/Azure/go-autorest/autorest => github.com/Azure/go-autorest/autorest v0.9.0
-
-replace github.com/Azure/go-autorest/autorest/adal => github.com/Azure/go-autorest/autorest/adal v0.5.0
-
-replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.2.0+incompatible
-
-// Old version had no license
-replace github.com/chzyer/logex => github.com/chzyer/logex v1.1.11-0.20170329064859-445be9e134b2

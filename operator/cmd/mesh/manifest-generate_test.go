@@ -15,6 +15,7 @@
 package mesh
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -38,6 +39,19 @@ import (
 const (
 	istioTestVersion = "istio-1.5.0"
 	testTGZFilename  = istioTestVersion + "-linux.tar.gz"
+	testDataSubdir   = "cmd/mesh/testdata/manifest-generate"
+)
+
+// chartSourceType defines where charts used in the test come from.
+type chartSourceType int
+
+const (
+	// Snapshot charts are in testdata/manifest-generate/data-snapshot
+	snapshotCharts chartSourceType = iota
+	// Compiled in charts come from assets.gen.go
+	compiledInCharts
+	// Live charts come from manifests/
+	liveCharts
 )
 
 type testGroup []struct {
@@ -54,13 +68,35 @@ type testGroup []struct {
 	outputDir                   string
 	diffSelect                  string
 	diffIgnore                  string
-	useCompiledInCharts         bool
+	chartSource                 chartSourceType
+}
+
+// TestMain is required to create a local release package in /tmp from manifests and operator/data in the format that
+// istioctl expects.
+func TestMain(m *testing.M) {
+	wd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	operatorRootDir = filepath.Join(wd, "../..")
+	manifestsDir = filepath.Join(operatorRootDir, "manifests")
+	liveReleaseDir, err = createLocalReleaseCharts()
+	defer os.RemoveAll(liveReleaseDir)
+	if err != nil {
+		panic(err)
+	}
+	liveInstallPackageDir = filepath.Join(liveReleaseDir, istioTestVersion, helm.OperatorSubdirFilePath)
+	snapshotInstallPackageDir = filepath.Join(operatorRootDir, testDataSubdir, "data-snapshot")
+
+	flag.Parse()
+	code := m.Run()
+	os.Exit(code)
 }
 
 func TestManifestGeneratePrometheus(t *testing.T) {
-	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	g := gm.NewGomegaWithT(t)
-	_, objs, err := generateManifest("prometheus", "", false)
+	_, objs, err := generateManifest("prometheus", "", liveCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,13 +108,13 @@ func TestManifestGeneratePrometheus(t *testing.T) {
 		"Service:istio-system:prometheus",
 		"ServiceAccount:istio-system:prometheus",
 	}
-	g.Expect(objectHashesOrdered(objs)).Should(gm.ConsistOf(want))
+	g.Expect(objectHashesOrdered(objs)).Should(gm.ContainElements(want))
 }
 
 func TestManifestGenerateComponentHubTag(t *testing.T) {
-	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	g := gm.NewGomegaWithT(t)
-	m, _, err := generateManifest("component_hub_tag", "", false)
+	m, _, err := generateManifest("component_hub_tag", "", liveCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,6 +214,8 @@ func TestManifestGeneratePilot(t *testing.T) {
 			desc:       "pilot_override_kubernetes",
 			diffSelect: "Deployment:*:istiod, Service:*:istiod",
 		},
+		// TODO https://github.com/istio/istio/issues/22347 this is broken for overriding things to default value
+		// This can be seen from REGISTRY_ONLY not applying
 		{
 			desc:       "pilot_merge_meshconfig",
 			diffSelect: "ConfigMap:*:istio$",
@@ -240,15 +278,15 @@ func TestManifestGenerateHelmValues(t *testing.T) {
 }
 
 func TestManifestGenerateOrdered(t *testing.T) {
-	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	// Since this is testing the special case of stable YAML output order, it
 	// does not use the established test group pattern
 	inPath := filepath.Join(testDataDir, "input/all_on.yaml")
-	got1, err := runManifestGenerate([]string{inPath}, "", false)
+	got1, err := runManifestGenerate([]string{inPath}, "", snapshotCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
-	got2, err := runManifestGenerate([]string{inPath}, "", false)
+	got2, err := runManifestGenerate([]string{inPath}, "", snapshotCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -260,10 +298,10 @@ func TestManifestGenerateOrdered(t *testing.T) {
 }
 
 func TestMultiICPSFiles(t *testing.T) {
-	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	inPathBase := filepath.Join(testDataDir, "input/all_off.yaml")
 	inPathOverride := filepath.Join(testDataDir, "input/telemetry_override_only.yaml")
-	got, err := runManifestGenerate([]string{inPathBase, inPathOverride}, "", false)
+	got, err := runManifestGenerate([]string{inPathBase, inPathOverride}, "", snapshotCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -285,28 +323,22 @@ func TestMultiICPSFiles(t *testing.T) {
 }
 
 func TestBareSpec(t *testing.T) {
-	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	inPathBase := filepath.Join(testDataDir, "input/bare_spec.yaml")
-	_, err := runManifestGenerate([]string{inPathBase}, "", false)
+	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestInstallPackagePath(t *testing.T) {
-	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
-	releaseDir, err := createLocalReleaseCharts()
-	defer os.RemoveAll(releaseDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	operatorArtifactDir := filepath.Join(releaseDir, istioTestVersion, helm.OperatorSubdirFilePath)
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	serverDir, err := ioutil.TempDir(os.TempDir(), "istio-test-server-*")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(serverDir)
-	if err := tgz.Create(releaseDir, filepath.Join(serverDir, testTGZFilename)); err != nil {
+	if err := tgz.Create(liveReleaseDir, filepath.Join(serverDir, testTGZFilename)); err != nil {
 		t.Fatal(err)
 	}
 	srv := httpserver.NewServer(serverDir)
@@ -316,13 +348,13 @@ func TestInstallPackagePath(t *testing.T) {
 			// manifest generation.
 			desc:       "install_package_path",
 			diffSelect: "Deployment:*:istiod",
-			flags:      "--set installPackagePath=" + operatorArtifactDir,
+			flags:      "--set installPackagePath=" + liveInstallPackageDir,
 		},
 		{
 			// Specify both charts and profile from local filesystem.
 			desc:       "install_package_path",
 			diffSelect: "Deployment:*:istiod",
-			flags:      fmt.Sprintf("--set installPackagePath=%s --set profile=%s/profiles/default.yaml", operatorArtifactDir, operatorArtifactDir),
+			flags:      fmt.Sprintf("--set installPackagePath=%s --set profile=%s/profiles/default.yaml", liveInstallPackageDir, liveInstallPackageDir),
 		},
 		{
 			// --force is needed for version mismatch.
@@ -336,7 +368,7 @@ func TestInstallPackagePath(t *testing.T) {
 
 // This test enforces that objects that reference other objects do so properly, such as Service selecting deployment
 func TestConfigSelectors(t *testing.T) {
-	got, err := runManifestGenerate([]string{}, "", true)
+	got, err := runManifestGenerate([]string{}, "", liveCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -344,7 +376,7 @@ func TestConfigSelectors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gotRev, e := runManifestGenerate([]string{}, "--set revision=canary", true)
+	gotRev, e := runManifestGenerate([]string{}, "--set revision=canary", liveCharts)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -413,6 +445,7 @@ func TestConfigSelectors(t *testing.T) {
 // -ldflags "-X istio.io/pkg/version.buildHub=myhub -X istio.io/pkg/version.buildVersion=mytag"
 // results in these values showing up in a generated manifest.
 func TestLDFlags(t *testing.T) {
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	tmpHub, tmpTag := version.DockerInfo.Hub, version.DockerInfo.Tag
 	defer func() {
 		version.DockerInfo.Hub, version.DockerInfo.Tag = tmpHub, tmpTag
@@ -420,7 +453,11 @@ func TestLDFlags(t *testing.T) {
 	version.DockerInfo.Hub = "testHub"
 	version.DockerInfo.Tag = "testTag"
 	l := NewLogger(true, os.Stdout, os.Stderr)
-	_, iops, err := GenerateConfig(nil, "", true, nil, l)
+	ysf, err := yamlFromSetFlags([]string{"installPackagePath=" + liveInstallPackageDir}, false, l)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, iops, err := GenerateConfig(nil, ysf, true, nil, l)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -429,9 +466,9 @@ func TestLDFlags(t *testing.T) {
 	}
 }
 
-func generateManifest(inFile, flags string, useCompiledInCharts bool) (string, object.K8sObjects, error) {
-	inPath := filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate/input", inFile+".yaml")
-	manifest, err := runManifestGenerate([]string{inPath}, flags, useCompiledInCharts)
+func generateManifest(inFile, flags string, chartSource chartSourceType) (string, object.K8sObjects, error) {
+	inPath := filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate/input", inFile+".yaml")
+	manifest, err := runManifestGenerate([]string{inPath}, flags, chartSource)
 	if err != nil {
 		return "", nil, fmt.Errorf("error %s: %s", err, manifest)
 	}
@@ -440,7 +477,7 @@ func generateManifest(inFile, flags string, useCompiledInCharts bool) (string, o
 }
 
 func runTestGroup(t *testing.T, tests testGroup) {
-	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
+	testDataDir = filepath.Join(operatorRootDir, testDataSubdir)
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			inPath := filepath.Join(testDataDir, "input", tt.desc+".yaml")
@@ -455,7 +492,7 @@ func runTestGroup(t *testing.T, tests testGroup) {
 				filenames = []string{inPath}
 			}
 
-			got, err := runManifestGenerate(filenames, tt.flags, tt.useCompiledInCharts)
+			got, err := runManifestGenerate(filenames, tt.flags, tt.chartSource)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -507,7 +544,7 @@ func runTestGroup(t *testing.T, tests testGroup) {
 
 // runManifestGenerate runs the manifest generate command. If filenames is set, passes the given filenames as -f flag,
 // flags is passed to the command verbatim. If you set both flags and path, make sure to not use -f in flags.
-func runManifestGenerate(filenames []string, flags string, useCompiledInCharts bool) (string, error) {
+func runManifestGenerate(filenames []string, flags string, chartSource chartSourceType) (string, error) {
 	args := "manifest generate"
 	for _, f := range filenames {
 		args += " -f " + f
@@ -515,8 +552,13 @@ func runManifestGenerate(filenames []string, flags string, useCompiledInCharts b
 	if flags != "" {
 		args += " " + flags
 	}
-	if !useCompiledInCharts {
+	switch chartSource {
+	case snapshotCharts:
 		args += " --set installPackagePath=" + filepath.Join(testDataDir, "data-snapshot")
+	case liveCharts:
+		args += " --set installPackagePath=" + liveInstallPackageDir
+	case compiledInCharts:
+	default:
 	}
 	return runCommand(args)
 }

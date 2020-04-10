@@ -22,6 +22,7 @@ import (
 	"time"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -57,43 +58,70 @@ func deleteConfigs(configs []*model.Config, store model.IstioConfigStore, t *tes
 	}
 }
 
-type channelTerminal struct {
+type Event struct {
+	kind      string
+	host      string
+	namespace string
+	endpoints int
 }
 
-// FakeXdsUpdater is used to test the event handlers.
 type FakeXdsUpdater struct {
+	// Events tracks notifications received by the updater
+	Events chan Event
 }
 
-func (fx *FakeXdsUpdater) EDSUpdate(_, _, _ string, _ []*model.IstioEndpoint) error {
+func (fx *FakeXdsUpdater) EDSUpdate(_, hostname string, namespace string, entry []*model.IstioEndpoint) error {
+	fx.Events <- Event{kind: "eds", host: hostname, namespace: namespace, endpoints: len(entry)}
 	return nil
 }
 
-func (fx *FakeXdsUpdater) ConfigUpdate(*model.PushRequest) {
+func (fx *FakeXdsUpdater) ConfigUpdate(_ *model.PushRequest) {
+	fx.Events <- Event{kind: "xds"}
 }
 
 func (fx *FakeXdsUpdater) ProxyUpdate(_, _ string) {
 }
 
-func (fx *FakeXdsUpdater) SvcUpdate(_, _ string, _ string, _ model.Event) {
+func (fx *FakeXdsUpdater) SvcUpdate(_, hostname string, namespace string, _ model.Event) {
+	fx.Events <- Event{kind: "svcupdate", host: hostname, namespace: namespace}
 }
 
-func initServiceDiscovery() (model.IstioConfigStore, *ServiceEntryStore, func()) {
+func waitForEvent(t *testing.T, ch chan Event) Event {
+	t.Helper()
+	select {
+	case e := <-ch:
+		return e
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out waiting for event")
+		return Event{}
+	}
+}
+
+type channelTerminal struct {
+}
+
+func initServiceDiscovery() (model.IstioConfigStore, *ServiceEntryStore, chan Event, func()) {
 	store := memory.Make(collections.Pilot)
 	configController := memory.NewController(store)
 
 	stop := make(chan struct{})
 	go configController.Run(stop)
 
+	eventch := make(chan Event, 10)
+
+	xdsUpdater := &FakeXdsUpdater{
+		Events: eventch,
+	}
+
 	istioStore := model.MakeIstioStore(configController)
-	xdsUpdater := &FakeXdsUpdater{}
 	serviceController := NewServiceDiscovery(configController, istioStore, xdsUpdater)
-	return istioStore, serviceController, func() {
+	return istioStore, serviceController, eventch, func() {
 		stop <- channelTerminal{}
 	}
 }
 
 func TestServiceDiscoveryServices(t *testing.T) {
-	store, sd, stopFn := initServiceDiscovery()
+	store, sd, _, stopFn := initServiceDiscovery()
 	defer stopFn()
 
 	expectedServices := []*model.Service{
@@ -118,7 +146,7 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	hostname := "*.google.com"
 	hostDNE := "does.not.exist.local"
 
-	store, sd, stopFn := initServiceDiscovery()
+	store, sd, _, stopFn := initServiceDiscovery()
 	defer stopFn()
 
 	createConfigs([]*model.Config{httpDNS, tcpStatic}, store, t)
@@ -146,9 +174,8 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 // TestServiceDiscoveryServiceUpdate test various add/update/delete events for ServiceEntry
 // nolint: lll
 func TestServiceDiscoveryServiceUpdate(t *testing.T) {
-	store, sd, stopFn := initServiceDiscovery()
+	store, sd, events, stopFn := initServiceDiscovery()
 	defer stopFn()
-
 	// httpStaticOverlayUpdated is the same as httpStaticOverlay but with an extra endpoint added to test updates
 	httpStaticOverlayUpdated := func() *model.Config {
 		c := httpStaticOverlay.DeepCopy()
@@ -204,6 +231,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		createConfigs([]*model.Config{httpStatic}, store, t)
 		instances := baseInstances
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
+		expectEvents(t, events, Event{kind: "xds"})
 	})
 
 	t.Run("add entry", func(t *testing.T) {
@@ -212,6 +240,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		instances := append(baseInstances,
 			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText))
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
+		expectEvents(t, events, Event{kind: "xds"})
 	})
 
 	t.Run("add endpoint", func(t *testing.T) {
@@ -221,10 +250,13 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
 			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
+		expectEvents(t, events, Event{kind: "eds", host: "*.google.com", namespace: httpStaticOverlay.Namespace, endpoints: len(instances)})
 
 		// Make a NOP change, expect that there are no changes
 		createConfigs([]*model.Config{httpStaticOverlayUpdatedNop}, store, t)
 		expectServiceInstances(t, sd, httpStaticOverlayUpdatedNop, 0, instances)
+		// TODO this could trigger no changes
+		expectEvents(t, events, Event{kind: "eds", host: "*.google.com", namespace: httpStaticOverlay.Namespace, endpoints: len(instances)})
 	})
 
 	t.Run("overlapping address", func(t *testing.T) {
@@ -240,6 +272,8 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"some-new-label": "bar"}, PlainText),
 		}
 		expectProxyInstances(t, sd, proxyInstances, "6.6.6.6")
+		// TODO 45 is wrong
+		expectEvents(t, events, Event{kind: "eds", host: "*.google.com", namespace: httpStaticOverlay.Namespace, endpoints: len(instances)})
 
 		// Remove the additional endpoint
 		createConfigs([]*model.Config{httpStaticOverlayUpdated}, store, t)
@@ -251,6 +285,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
 		}
 		expectProxyInstances(t, sd, proxyInstances, "6.6.6.6")
+		expectEvents(t, events, Event{kind: "eds", host: "*.google.com", namespace: httpStaticOverlay.Namespace, endpoints: len(instances)})
 	})
 
 	t.Run("update removes endpoint", func(t *testing.T) {
@@ -259,6 +294,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		instances := append(baseInstances,
 			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText))
 		expectServiceInstances(t, sd, httpStaticOverlay, 0, instances)
+		expectEvents(t, events, Event{kind: "eds", host: "*.google.com", namespace: httpStaticOverlay.Namespace, endpoints: len(instances)})
 	})
 
 	t.Run("different namespace", func(t *testing.T) {
@@ -270,8 +306,9 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		}
 		// This lookup is per-namespace, so we should only see the objects in the same namespace
 		expectServiceInstances(t, sd, httpStaticOverlayUpdatedNs, 0, instances)
+		// Expect a full push, as the Service has changed
+		expectEvents(t, events, Event{kind: "xds"})
 	})
-	// TODO add hostname updates
 
 	t.Run("delete entry", func(t *testing.T) {
 		// Delete the additional SE, expect it to get removed
@@ -283,16 +320,22 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			makeInstance(httpStaticOverlayUpdatedNs, "7.7.7.7", 4567, httpStaticOverlayUpdatedNs.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"namespace": "bar"}, PlainText),
 		}
 		expectServiceInstances(t, sd, httpStaticOverlayUpdatedNs, 0, instances)
-	})
+		// svc update is only triggered on deletion. Also expect a full push as the service has changed
+		expectEvents(t, events,
+			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
+			Event{kind: "xds"})
 
-	t.Run("change host", func(t *testing.T) {
-		// Update the SE for the same host, expect these instances to get added
+		// Add back the ServiceEntry, expect these instances to get added
 		createConfigs([]*model.Config{httpStaticOverlayUpdated}, store, t)
-		instances := append(baseInstances,
+		instances = append(baseInstances,
 			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
 			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
+		// Service change, so we need a full push
+		expectEvents(t, events, Event{kind: "xds"})
+	})
 
+	t.Run("change host", func(t *testing.T) {
 		// same as httpStaticOverlayUpdated but with an additional host
 		httpStaticHost := func() *model.Config {
 			c := httpStaticOverlayUpdated.DeepCopy()
@@ -301,7 +344,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			return &c
 		}()
 		createConfigs([]*model.Config{httpStaticHost}, store, t)
-		instances = append(baseInstances,
+		instances := append(baseInstances,
 			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
 			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
 		// This is not applied, just to make makeInstance pick the right service.
@@ -316,6 +359,92 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			makeInstance(otherHost, "6.6.6.6", 4567, httpStaticHost.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
 		}
 		expectServiceInstances(t, sd, httpStaticHost, 0, instances, instances2)
+		// Service change, so we need a full push
+		expectEvents(t, events, Event{kind: "xds"})
+	})
+}
+
+func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
+	store, sd, events, stopFn := initServiceDiscovery()
+	defer stopFn()
+
+	// Setup a couple workload entries for test. These will be selected by the `selector` SE
+	wle := createWorkloadEntry("wl", selector.Name,
+		&networking.WorkloadEntry{
+			Address:        "2.2.2.2",
+			Labels:         map[string]string{"app": "wle"},
+			ServiceAccount: "default",
+		})
+	wle2 := createWorkloadEntry("wl2", selector.Name,
+		&networking.WorkloadEntry{
+			Address:        "3.3.3.3",
+			Labels:         map[string]string{"app": "wle"},
+			ServiceAccount: "default",
+		})
+
+	t.Run("service entry", func(t *testing.T) {
+		// Add just the ServiceEntry with selector. We should see no instances
+		createConfigs([]*model.Config{selector}, store, t)
+		instances := []*model.ServiceInstance{}
+		expectProxyInstances(t, sd, instances, "2.2.2.2")
+		expectServiceInstances(t, sd, selector, 0, instances)
+		expectEvents(t, events, Event{kind: "xds"})
+	})
+
+	t.Run("add workload", func(t *testing.T) {
+		// Add a WLE, we expect this to update
+		createConfigs([]*model.Config{wle}, store, t)
+		instances := []*model.ServiceInstance{
+			makeInstance(selector, "2.2.2.2", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, MTLSUnlabelled),
+			makeInstance(selector, "2.2.2.2", 445, selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, MTLSUnlabelled),
+		}
+		expectProxyInstances(t, sd, instances, "2.2.2.2")
+		expectServiceInstances(t, sd, selector, 0, instances)
+		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
+	})
+
+	t.Run("another workload", func(t *testing.T) {
+		// Add a different WLE
+		createConfigs([]*model.Config{wle2}, store, t)
+		instances := []*model.ServiceInstance{
+			makeInstance(selector, "2.2.2.2", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, MTLSUnlabelled),
+			makeInstance(selector, "2.2.2.2", 445, selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, MTLSUnlabelled),
+		}
+		expectProxyInstances(t, sd, instances, "2.2.2.2")
+		instances = append(instances,
+			makeInstance(selector, "3.3.3.3", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, MTLSUnlabelled),
+			makeInstance(selector, "3.3.3.3", 445, selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, MTLSUnlabelled))
+		expectServiceInstances(t, sd, selector, 0, instances)
+		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 4})
+	})
+
+	t.Run("deletion", func(t *testing.T) {
+		// Delete the configs, it should be gone
+		deleteConfigs([]*model.Config{wle2}, store, t)
+		instances := []*model.ServiceInstance{
+			makeInstance(selector, "2.2.2.2", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, MTLSUnlabelled),
+			makeInstance(selector, "2.2.2.2", 445, selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, MTLSUnlabelled),
+		}
+		expectProxyInstances(t, sd, instances, "2.2.2.2")
+		expectServiceInstances(t, sd, selector, 0, instances)
+		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
+
+		// Delete the other config
+		deleteConfigs([]*model.Config{wle}, store, t)
+		instances = []*model.ServiceInstance{}
+		expectServiceInstances(t, sd, selector, 0, instances)
+		expectProxyInstances(t, sd, instances, "2.2.2.2")
+		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 0})
+
+		// Add the config back
+		createConfigs([]*model.Config{wle}, store, t)
+		instances = []*model.ServiceInstance{
+			makeInstance(selector, "2.2.2.2", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, MTLSUnlabelled),
+			makeInstance(selector, "2.2.2.2", 445, selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, MTLSUnlabelled),
+		}
+		expectProxyInstances(t, sd, instances, "2.2.2.2")
+		expectServiceInstances(t, sd, selector, 0, instances)
+		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
 	})
 }
 
@@ -334,6 +463,28 @@ func expectProxyInstances(t *testing.T, sd *ServiceEntryStore, expected []*model
 		}
 		return nil
 	}, retry.Converge(2), retry.Timeout(time.Second*5))
+}
+
+func expectEvents(t *testing.T, ch chan Event, events ...Event) {
+	t.Helper()
+	for _, event := range events {
+		got := waitForEvent(t, ch)
+		if got != event {
+			t.Fatalf("expected event %+v, got %+v", event, got)
+		}
+	}
+	// Drain events
+	for {
+		select {
+		case e := <-ch:
+			log.Warnf("ignoring event %+v", e)
+			if len(events) == 0 {
+				t.Fatalf("got unexpected event %+v", e)
+			}
+		default:
+			return
+		}
+	}
 }
 
 func expectServiceInstances(t *testing.T, sd *ServiceEntryStore, cfg *model.Config, port int, expected ...[]*model.ServiceInstance) {
@@ -356,11 +507,11 @@ func expectServiceInstances(t *testing.T, sd *ServiceEntryStore, cfg *model.Conf
 			}
 		}
 		return nil
-	}, retry.Converge(2), retry.Timeout(time.Second*5))
+	}, retry.Converge(2), retry.Timeout(time.Second*1))
 }
 
 func TestServiceDiscoveryGetProxyServiceInstances(t *testing.T) {
-	store, sd, stopFn := initServiceDiscovery()
+	store, sd, _, stopFn := initServiceDiscovery()
 	defer stopFn()
 
 	createConfigs([]*model.Config{httpStatic, tcpStatic}, store, t)
@@ -374,7 +525,7 @@ func TestServiceDiscoveryGetProxyServiceInstances(t *testing.T) {
 
 // Keeping this test for legacy - but it never happens in real life.
 func TestServiceDiscoveryInstances(t *testing.T) {
-	store, sd, stopFn := initServiceDiscovery()
+	store, sd, _, stopFn := initServiceDiscovery()
 	defer stopFn()
 
 	createConfigs([]*model.Config{httpDNS, tcpStatic}, store, t)
@@ -391,7 +542,7 @@ func TestServiceDiscoveryInstances(t *testing.T) {
 
 // Keeping this test for legacy - but it never happens in real life.
 func TestServiceDiscoveryInstances1Port(t *testing.T) {
-	store, sd, stopFn := initServiceDiscovery()
+	store, sd, _, stopFn := initServiceDiscovery()
 	defer stopFn()
 
 	createConfigs([]*model.Config{httpDNS, tcpStatic}, store, t)
@@ -404,7 +555,7 @@ func TestServiceDiscoveryInstances1Port(t *testing.T) {
 }
 
 func TestNonServiceConfig(t *testing.T) {
-	store, sd, stopFn := initServiceDiscovery()
+	store, sd, _, stopFn := initServiceDiscovery()
 	defer stopFn()
 
 	// Create a non-service configuration element. This should not affect the service registry at all.

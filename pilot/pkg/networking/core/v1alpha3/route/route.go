@@ -747,9 +747,7 @@ func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 
 	// CORS filter is enabled by default
 	out := route.CorsPolicy{}
-	if in.AllowOrigin != nil {
-		out.AllowOriginStringMatch = util.StringToExactMatch(in.AllowOrigin)
-	} else {
+	if in.AllowOrigins != nil {
 		out.AllowOriginStringMatch = convertToEnvoyMatch(in.AllowOrigins)
 	}
 

@@ -19,10 +19,11 @@ import (
 )
 
 var _ resource.Origin = &testOrigin{}
+var _ resource.Reference = &testReference{}
 
 type testOrigin struct {
 	name string
-	ref  string
+	ref  resource.Reference
 }
 
 func (o testOrigin) FriendlyName() string {
@@ -33,6 +34,14 @@ func (o testOrigin) Namespace() resource.Namespace {
 	return ""
 }
 
-func (o testOrigin) Reference() string {
+func (o testOrigin) Reference() resource.Reference {
 	return o.ref
+}
+
+type testReference struct {
+	name string
+}
+
+func (r testReference) String() string {
+	return r.name
 }
