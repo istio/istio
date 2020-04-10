@@ -28,8 +28,10 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	apimachinery_schema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/resource"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -408,58 +410,29 @@ func verifyPostInstallIstioOperator(enableVerbose bool, istioNamespaceFlag strin
 // Find an IstioOperator matching revision in the cluster.  The IstioOperators
 // don't have a label for their revision, so we parse them and check .Spec.Revision
 func operatorFromCluster(istioNamespaceFlag string, revision string, restClientGetter genericclioptions.RESTClientGetter) (*v1alpha1.IstioOperator, error) {
-	client, err := restClientGetter.ToDiscoveryClient()
+	restConfig, err := restClientGetter.ToRESTConfig()
 	if err != nil {
 		return nil, err
 	}
-
-	// List the IstioOperators in istio-system
-	result := client.RESTClient().
-		Get().
-		Prefix("/apis/install.istio.io/v1alpha1"). // TODO Replace with VersionedParams?
-		Resource("IstioOperators").
+	client, err := dynamic.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+	istioOperatorGVR := apimachinery_schema.GroupVersionResource{
+		Group:    v1alpha1.SchemeGroupVersion.Group,
+		Version:  v1alpha1.SchemeGroupVersion.Version,
+		Resource: "istiooperators",
+	}
+	ul, err := client.
+		Resource(istioOperatorGVR).
 		Namespace(istioNamespaceFlag).
-		Do(context.TODO())
-	if result.Error() != nil {
-		return nil, result.Error()
-	}
-
-	// TODO use result.Object() insted of explicitly unmarshaling into Unstructured
-	raw, err := result.Raw()
+		List(context.TODO(), meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
-	var un unstructured.Unstructured
-	err = json.Unmarshal(raw, &un)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert Unstructured 'items' into slice
-	unItems, ok := un.Object["items"]
-	if !ok {
-		return nil, fmt.Errorf("could not retrieve IstioOperators")
-	}
-	items, ok := unItems.([]interface{})
-	if !ok {
-		return nil, fmt.Errorf("could not decode IstioOperators")
-	}
-
-	for _, unItem := range items {
-		// Before we can convert to IstioOperator with UnmarshalIstioOperator()
-		// we must remove creationTimestamp
-		item, ok := unItem.(map[string]interface{})
-		if !ok {
-			return nil, fmt.Errorf("could not decode inner IstioOperator")
-		}
-		metadata, ok := item["metadata"].(map[string]interface{})
-		if !ok {
-			return nil, fmt.Errorf("could not decode inner IstioOperator metadata")
-		}
-		delete(metadata, "creationTimestamp")
-
-		// Convert back into []byte for UnmarshalIstioOperator()
-		by, err := json.Marshal(item)
+	for _, un := range ul.Items {
+		un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
+		by, err := json.Marshal(un.Object)
 		if err != nil {
 			return nil, err
 		}
@@ -472,6 +445,5 @@ func operatorFromCluster(istioNamespaceFlag string, revision string, restClientG
 			return iop, nil
 		}
 	}
-
 	return nil, fmt.Errorf("control plane revision %q not found", revision)
 }
