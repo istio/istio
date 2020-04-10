@@ -52,6 +52,7 @@ type Options struct {
 	DomainSuffix string
 	XDSUpdater   model.XDSUpdater
 	ConfigLedger ledger.Ledger
+	Revision     string
 }
 
 // controller is a temporary storage for the changes received
@@ -108,16 +109,30 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) (out 
 		// we replace the entire sub-map
 		for _, byNamespace := range byType {
 			for _, config := range byNamespace {
-				out = append(out, *config)
+				if c.objectInRevision(config) {
+					out = append(out, *config)
+				}
 			}
 		}
 		return out, nil
 	}
 
 	for _, config := range byType[namespace] {
-		out = append(out, *config)
+		if c.objectInRevision(config) {
+			out = append(out, *config)
+		}
 	}
 	return out, nil
+}
+
+func (c *controller) objectInRevision(o *model.Config) bool {
+	configEnv, f := o.Labels[model.RevisionLabel]
+	if !f {
+		// This is a global object, and always included
+		return true
+	}
+	// Otherwise, only return if the
+	return configEnv == c.options.Revision
 }
 
 // Apply receives changes from MCP server and creates the
