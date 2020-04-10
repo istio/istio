@@ -443,8 +443,8 @@ func renderMessage(m diag.Message) string {
 	origin := ""
 	if m.Resource != nil {
 		loc := ""
-		if m.Resource.Origin.Reference() != "" {
-			loc = " " + m.Resource.Origin.Reference()
+		if m.Resource.Origin.Reference() != nil {
+			loc = " " + m.Resource.Origin.Reference().String()
 		}
 		origin = " (" + m.Resource.Origin.FriendlyName() + loc + ")"
 	}

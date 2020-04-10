@@ -249,7 +249,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					},
 					ValidationContextType: &auth.CommonTlsContext_ValidationContext{
 						ValidationContext: &auth.CertificateValidationContext{
-							VerifySubjectAltName: []string{"subject.name.a.com", "subject.name.b.com"},
+							MatchSubjectAltNames: util.StringToExactMatch([]string{"subject.name.a.com", "subject.name.b.com"}),
 						},
 					},
 				},
@@ -360,7 +360,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
 						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 							DefaultValidationContext: &auth.CertificateValidationContext{
-								VerifySubjectAltName: []string{"subject.name.a.com", "subject.name.b.com"},
+								MatchSubjectAltNames: util.StringToExactMatch([]string{"subject.name.a.com", "subject.name.b.com"}),
 							},
 							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 								Name: "ingress-sds-resource-name-cacert",

@@ -24,7 +24,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/proto"
 
-	istio_mixer_v1_config "istio.io/api/policy/v1beta1"
 	pb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/lang/compiled"
@@ -60,7 +59,7 @@ type createInstanceTest struct {
 }
 
 // default set of known attributes
-var defaultAttributeInfos = map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo{
+var defaultAttributeInfos = map[string]*pb.AttributeManifest_AttributeInfo{
 	"ai": {
 		ValueType: pb.INT64,
 	},
@@ -157,9 +156,9 @@ var defaultAttributeInfos = map[string]*istio_mixer_v1_config.AttributeManifest_
 }
 
 func combineManifests(
-	base map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo,
-	manifests ...*istio_mixer_v1_config.AttributeManifest) map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo {
-	result := make(map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo)
+	base map[string]*pb.AttributeManifest_AttributeInfo,
+	manifests ...*pb.AttributeManifest) map[string]*pb.AttributeManifest_AttributeInfo {
+	result := make(map[string]*pb.AttributeManifest_AttributeInfo)
 	for k, v := range base {
 		result[k] = v
 	}

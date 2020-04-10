@@ -31,7 +31,6 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
@@ -799,7 +798,7 @@ func applyTCPKeepalive(push *model.PushContext, cluster *apiv2.Cluster, settings
 	}
 }
 
-func setKeepAliveSettings(cluster *apiv2.Cluster, keepalive *v1alpha3.ConnectionPoolSettings_TCPSettings_TcpKeepalive) {
+func setKeepAliveSettings(cluster *apiv2.Cluster, keepalive *networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive) {
 	if keepalive.Probes > 0 {
 		cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveProbes = &wrappers.UInt32Value{Value: keepalive.Probes}
 	}
@@ -975,7 +974,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 	if trustedCa != nil || len(tls.SubjectAltNames) > 0 {
 		certValidationContext = &auth.CertificateValidationContext{
 			TrustedCa:            trustedCa,
-			VerifySubjectAltName: tls.SubjectAltNames,
+			MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames),
 		}
 	}
 
@@ -1033,7 +1032,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-					DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: tls.SubjectAltNames},
+					DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
 					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName, opts.push.Mesh.SdsUdsPath),
 				},
 			}

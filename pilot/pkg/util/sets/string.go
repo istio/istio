@@ -55,3 +55,9 @@ func (s Set) UnsortedList() []string {
 	}
 	return res
 }
+
+// Contains returns whether the given item is in the set.
+func (s Set) Contains(item string) bool {
+	_, ok := s[item]
+	return ok
+}

@@ -23,12 +23,11 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/istio/pkg/test/env"
-
 	"github.com/kr/pretty"
 
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/test/env"
 )
 
 // applyParams is used to capture the inputs to operatorInit applyManifest call.
@@ -44,7 +43,7 @@ var (
 )
 
 func TestOperatorDump(t *testing.T) {
-	goldenFilepath := filepath.Join(repoRootDir, "cmd/mesh/testdata/operator/output/operator-init.yaml")
+	goldenFilepath := filepath.Join(operatorRootDir, "cmd/mesh/testdata/operator/output/operator-init.yaml")
 
 	odArgs := &operatorDumpArgs{
 		common: operatorCommonArgs{
@@ -65,7 +64,6 @@ func TestOperatorDump(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fmt.Println(gotYAML)
 	if refreshGoldenFiles() {
 		t.Logf("Refreshing golden file for %s", goldenFilepath)
 		if err := ioutil.WriteFile(goldenFilepath, []byte(gotYAML), 0644); err != nil {
@@ -84,7 +82,7 @@ func TestOperatorDump(t *testing.T) {
 }
 
 func TestOperatorInit(t *testing.T) {
-	goldenFilepath := filepath.Join(repoRootDir, "cmd/mesh/testdata/operator/output/operator-init.yaml")
+	goldenFilepath := filepath.Join(operatorRootDir, "cmd/mesh/testdata/operator/output/operator-init.yaml")
 	rootArgs := &rootArgs{}
 	oiArgs := &operatorInitArgs{
 		common: operatorCommonArgs{
@@ -155,7 +153,7 @@ func mockApplyManifest(manifestStr, componentName string, opts *kubectlcmd.Optio
 }
 
 func TestOperatorRemove(t *testing.T) {
-	goldenFilepath := filepath.Join(repoRootDir, "cmd/mesh/testdata/operator/output/operator-remove.yaml")
+	goldenFilepath := filepath.Join(operatorRootDir, "cmd/mesh/testdata/operator/output/operator-remove.yaml")
 
 	rootArgs := &rootArgs{}
 	orArgs := &operatorRemoveArgs{

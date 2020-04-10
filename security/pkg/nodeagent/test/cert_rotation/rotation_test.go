@@ -20,18 +20,14 @@ import (
 	"time"
 
 	"istio.io/istio/mixer/test/client/env"
-	testID "istio.io/istio/mixer/test/client/env"
 	sdsTest "istio.io/istio/security/pkg/nodeagent/test"
 )
-
-// listener.127.0.0.1_20377.server_ssl_socket_factory.ssl_context_update_by_sds
-// cluster.outbound_cluster_tls.client_ssl_socket_factory.ssl_context_update_by_sds
 
 func TestCertRotation(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/22729")
 	rotateInterval := 1 * time.Second
 	sdsTest.RotateCert(rotateInterval)
-	setup := sdsTest.SetupTest(t, testID.SDSCertRotation)
+	setup := sdsTest.SetupTest(t, env.SDSCertRotation)
 	defer setup.TearDown()
 
 	setup.StartProxy(t)

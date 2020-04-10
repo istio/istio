@@ -38,7 +38,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -562,7 +561,7 @@ func TestOutboundListenerConfigWithSidecarHTTPProxy(t *testing.T) {
 						Name:     "15080",
 					},
 					Bind:        "127.0.0.1",
-					CaptureMode: v1alpha3.CaptureMode_NONE,
+					CaptureMode: networking.CaptureMode_NONE,
 				},
 			},
 		},

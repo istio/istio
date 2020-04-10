@@ -704,20 +704,16 @@ func (s *Server) initEventHandlers() error {
 		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
 			Full:              true,
 			NamespacesUpdated: map[string]struct{}{si.Service.Attributes.Namespace: {}},
-			// TODO: extend and set service instance type, so no need re-init push context
-			ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{model.ServiceEntryKind: {}},
-			Reason:         []model.TriggerReason{model.ServiceUpdate},
+			ConfigsUpdated:    map[resource.GroupVersionKind]map[string]struct{}{model.ServiceEntryKind: {}},
+			Reason:            []model.TriggerReason{model.ServiceUpdate},
 		})
 	}
 	if err := s.ServiceController().AppendInstanceHandler(instanceHandler); err != nil {
 		return fmt.Errorf("append instance handler failed: %v", err)
 	}
 
-	// TODO(Nino-k): remove this case once incrementalUpdate is default
 	if s.configController != nil {
-		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
-		// (especially mixerclient HTTP and quota)
-		configHandler := func(old, curr model.Config, _ model.Event) {
+		configHandler := func(_, curr model.Config, _ model.Event) {
 			pushReq := &model.PushRequest{
 				Full:           true,
 				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{curr.GroupVersionKind(): {}},
@@ -732,6 +728,10 @@ func (s *Server) initEventHandlers() error {
 		for _, schema := range schemas {
 			// This resource type was handled in external/servicediscovery.go, no need to rehandle here.
 			if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Serviceentries.
+				Resource().GroupVersionKind() {
+				continue
+			}
+			if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Workloadentries.
 				Resource().GroupVersionKind() {
 				continue
 			}

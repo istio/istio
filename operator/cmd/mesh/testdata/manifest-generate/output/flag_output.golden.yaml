@@ -71,6 +71,8 @@ spec:
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
+        - name: DNS_ADDR
+          value: ""
         image: gcr.io/istio-testing/pilot:latest
         name: discovery
         ports:
@@ -110,40 +112,6 @@ spec:
         - mountPath: /var/lib/istio/inject
           name: inject
           readOnly: true
-      - args:
-        - -conf
-        - /var/lib/istio/coredns/Corefile
-        image: coredns/coredns:1.1.2
-        imagePullPolicy: IfNotPresent
-        livenessProbe:
-          failureThreshold: 5
-          httpGet:
-            path: /health
-            port: 15056
-            scheme: HTTP
-          initialDelaySeconds: 2
-          successThreshold: 1
-          timeoutSeconds: 5
-        name: dns
-        ports:
-        - containerPort: 15054
-          name: dns
-          protocol: UDP
-        - containerPort: 15055
-          name: metrics
-          protocol: TCP
-        securityContext:
-          capabilities:
-            drop:
-            - ALL
-          runAsGroup: 1337
-          runAsNonRoot: true
-          runAsUser: 1337
-        volumeMounts:
-        - mountPath: /var/run/secrets/istio-dns
-          name: local-certs
-        - mountPath: /var/lib/istio/coredns
-          name: config-volume
       securityContext:
         fsGroup: 1337
       serviceAccountName: istio-pilot-service-account

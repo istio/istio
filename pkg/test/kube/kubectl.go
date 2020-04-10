@@ -314,7 +314,7 @@ func containerArg(container string) string {
 
 func previousLogArg(previous bool) string {
 	if previous {
-		return fmt.Sprintf("-p")
+		return "-p"
 	}
 	return ""
 }
