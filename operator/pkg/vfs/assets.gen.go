@@ -6960,6 +6960,8 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: istiooperators.install.istio.io
+  labels:
+    release: istio
 spec:
   additionalPrinterColumns:
   - JSONPath: .spec.revision
@@ -13705,6 +13707,8 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: istiooperators.install.istio.io
+  labels:
+    release: istio
 spec:
   additionalPrinterColumns:
   - JSONPath: .spec.revision
@@ -17032,30 +17036,6 @@ data:
   meshNetworks: |-
     networks: {}
 
-  # Basic config for a sidecar CoreDNS server to resolve upstream and K8S requests.
-  # Will be needed until K8S DNS server adds a secure port, to avoid clear text
-  # MITM-exposed requests between istiod and K8S core DNS server.
-  Corefile: |-
-    .:15054 {
-        errors
-        log
-        health :15056 {
-          lameduck 5s
-        }
-
-        kubernetes cluster.local in-addr.arpa ip6.arpa {
-            pods insecure
-            fallthrough in-addr.arpa ip6.arpa
-            ttl 30
-        }
-        prometheus :9153
-
-        forward . /etc/resolv.conf
-        cache 30
-        reload
-        loadbalance
-    }
-
   mesh: |-
     accessLogEncoding: TEXT
     accessLogFile: ""
@@ -17882,8 +17862,6 @@ spec:
             value: "false"
           - name: CLUSTER_ID
             value: "Kubernetes"
-          - name: DNS_ADDR
-            value: ""
           resources:
             requests:
               cpu: 500m
@@ -19536,30 +19514,6 @@ data:
     networks: {}
   {{- end }}
 
-  # Basic config for a sidecar CoreDNS server to resolve upstream and K8S requests.
-  # Will be needed until K8S DNS server adds a secure port, to avoid clear text
-  # MITM-exposed requests between istiod and K8S core DNS server.
-  Corefile: |-
-    .:15054 {
-        errors
-        log
-        health :15056 {
-          lameduck 5s
-        }
-
-        kubernetes cluster.local in-addr.arpa ip6.arpa {
-            pods insecure
-            fallthrough in-addr.arpa ip6.arpa
-            ttl 30
-        }
-        prometheus :9153
-
-        forward . /etc/resolv.conf
-        cache 30
-        reload
-        loadbalance
-    }
-
   mesh: |-
 {{- if .Values.meshConfig }}
 {{ $mesh | toYaml | indent 4 }}
@@ -19731,8 +19685,6 @@ spec:
             value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
-          - name: DNS_ADDR
-            value: "{{ .Values.meshConfig.defaultConfig.proxyMetadata.DNS_AGENT }}"
           resources:
 {{- if .Values.pilot.resources }}
 {{ toYaml .Values.pilot.resources | trim | indent 12 }}
@@ -19766,44 +19718,6 @@ spec:
           - name: extracacerts
             mountPath: /cacerts
           {{- end }}
-
-        {{- if .Values.meshConfig.defaultConfig.proxyMetadata.DNS_AGENT }}
-        # CoreDNS sidecar. Ports are used internally, to run as non-root.
-        # This is a short-term solution - the code in istiod can also be used
-        # directly. The plan is to move coreDNS on the agent.
-        - name: dns
-          image: coredns/coredns:1.1.2
-          imagePullPolicy: IfNotPresent
-          args: [ "-conf", "/var/lib/istio/coredns/Corefile" ]
-          securityContext:
-            runAsUser: 1337
-            runAsGroup: 1337
-            runAsNonRoot: true
-            capabilities:
-              drop:
-                - ALL
-          volumeMounts:
-            - name: local-certs
-              mountPath: /var/run/secrets/istio-dns
-            - name: config-volume
-              mountPath: /var/lib/istio/coredns
-          ports:
-            - containerPort: 15054
-              name: dns
-              protocol: UDP
-            - containerPort: 15055
-              name: metrics
-              protocol: TCP
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 15056
-              scheme: HTTP
-            initialDelaySeconds: 2
-            timeoutSeconds: 5
-            successThreshold: 1
-            failureThreshold: 5
-        {{- end }}
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
