@@ -19,6 +19,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"path"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -38,27 +39,24 @@ var (
 
 // CAClient is the mocked CAClient for testing.
 type CAClient struct {
-	SignInvokeCount       uint64
-	unavailableErrorCount uint64
-	internalErrorCount    uint64
-	unavailableErrors     uint64
-	internalErrors        uint64
-	bundle                util.KeyCertBundle
-	certLifetime          time.Duration
-	GeneratedCerts        [][]string // Cache the generated certificates for verification purpose.
+	SignInvokeCount uint64
+	errorCount      uint64
+	errorCountMutex *sync.Mutex
+	errors          uint64
+	bundle          util.KeyCertBundle
+	certLifetime    time.Duration
+	GeneratedCerts  [][]string // Cache the generated certificates for verification purpose.
 }
 
-// NewMockCAClient creates an instance of CAClient. unavailableErrors and internalErrors are used to
-// specify the number of errors for each type of failure before CSRSign returns a valid response.
-// certLifetime specifies the TTL for the newly issued workload cert.
-func NewMockCAClient(unavailableErrors, internalErrors uint64, certLifetime time.Duration) (*CAClient, error) {
+// NewMockCAClient creates an instance of CAClient. errors is used to specify the number of errors
+// before CSRSign returns a valid response. certLifetime specifies the TTL for the newly issued workload cert.
+func NewMockCAClient(errors uint64, certLifetime time.Duration) (*CAClient, error) {
 	cl := CAClient{
-		SignInvokeCount:       0,
-		unavailableErrorCount: 0,
-		internalErrorCount:    0,
-		unavailableErrors:     unavailableErrors,
-		internalErrors:        internalErrors,
-		certLifetime:          certLifetime,
+		SignInvokeCount: 0,
+		errorCount:      0,
+		errorCountMutex: &sync.Mutex{},
+		errors:          errors,
+		certLifetime:    certLifetime,
 	}
 	bundle, err := util.NewVerifiedKeyCertBundleFromFile(caCertPath, caKeyPath, certChainPath, rootCertPath)
 	if err != nil {
@@ -73,14 +71,13 @@ func NewMockCAClient(unavailableErrors, internalErrors uint64, certLifetime time
 // CSRSign returns the certificate or errors depending on the settings.
 func (c *CAClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, exchangedToken string,
 	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
-	if atomic.LoadUint64(&c.unavailableErrorCount) < c.unavailableErrors {
-		atomic.AddUint64(&c.unavailableErrorCount, 1)
+	c.errorCountMutex.Lock()
+	if c.errorCount < c.errors {
+		c.errorCount++
+		c.errorCountMutex.Unlock()
 		return nil, status.Error(codes.Unavailable, "CA is unavailable")
 	}
-	if atomic.LoadUint64(&c.internalErrorCount) < c.internalErrors {
-		atomic.AddUint64(&c.internalErrorCount, 1)
-		return nil, status.Error(codes.Internal, "some internal error")
-	}
+	c.errorCountMutex.Unlock()
 
 	atomic.AddUint64(&c.SignInvokeCount, 1)
 	signingCert, signingKey, certChain, rootCert := c.bundle.GetAll()
@@ -107,25 +104,30 @@ func (c *CAClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, exc
 
 // TokenExchangeServer is the mocked token exchange server for testing.
 type TokenExchangeServer struct {
-	internalErrorCount uint64
-	internalErrors     uint64
+	errorCount      uint64
+	errorCountMutex *sync.Mutex
+	errors          uint64
 }
 
-// NewMockTokenExchangeServer creates an instance of TokenExchangeServer. internalErrors is used to
+// NewMockTokenExchangeServer creates an instance of TokenExchangeServer. errors is used to
 // specify the number of errors before ExchangeToken returns a dumb token.
-func NewMockTokenExchangeServer(internalErrors uint64) *TokenExchangeServer {
+func NewMockTokenExchangeServer(errors uint64) *TokenExchangeServer {
 	return &TokenExchangeServer{
-		internalErrorCount: 0,
-		internalErrors:     internalErrors,
+		errorCount:      0,
+		errorCountMutex: &sync.Mutex{},
+		errors:          errors,
 	}
 }
 
 // ExchangeToken returns a dumb token or errors depending on the settings.
 func (s *TokenExchangeServer) ExchangeToken(context.Context, string, string) (string, time.Time, int, error) {
-	if atomic.LoadUint64(&s.internalErrorCount) < s.internalErrors {
-		atomic.AddUint64(&s.internalErrorCount, 1)
+	s.errorCountMutex.Lock()
+	if s.errorCount < s.errors {
+		s.errorCount++
+		s.errorCountMutex.Unlock()
 		return "", time.Time{}, 503, fmt.Errorf("service unavailable")
 	}
+	s.errorCountMutex.Unlock()
 	// Since the secret cache uses the k8s token in the stored secret, we can just return anything here.
 	return "some-token", time.Now(), 200, nil
 }

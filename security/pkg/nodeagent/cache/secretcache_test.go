@@ -213,7 +213,8 @@ func TestWorkloadAgentGenerateSecretWithPluginProvider(t *testing.T) {
 }
 
 func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
-	fakeCACli, err := mock.NewMockCAClient(2, 2, time.Hour)
+	// The mocked CA client returns 2 errors before returning a valid response.
+	fakeCACli, err := mock.NewMockCAClient(2, time.Hour)
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
@@ -224,6 +225,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 	}
 
 	if isUsingPluginProvider {
+		// The mocked token exchanger server returns 3 errors before returning a valid response.
 		fakePlugin := mock.NewMockTokenExchangeServer(3)
 		opt.Plugins = []plugin.Plugin{fakePlugin}
 	}
@@ -307,7 +309,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 }
 
 func TestWorkloadAgentRefreshSecret(t *testing.T) {
-	fakeCACli, err := mock.NewMockCAClient(0, 0, time.Millisecond)
+	fakeCACli, err := mock.NewMockCAClient(0, time.Millisecond)
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
@@ -1026,7 +1028,7 @@ func notifyCb(_ ConnKey, _ *model.SecretItem) error {
 }
 
 func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
-	fakeCACli, err := mock.NewMockCAClient(0, 0, time.Millisecond)
+	fakeCACli, err := mock.NewMockCAClient(0, time.Millisecond)
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
