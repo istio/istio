@@ -76,6 +76,9 @@ var (
 // it by listener port. However to properly use such an optimization, we need to have an
 // eventing subsystem to invalidate the computed routes if any service changes/virtual services change.
 type VirtualHostWrapper struct {
+	// The namespace for the associated virtual service
+	Namespace string
+
 	// Port is the listener port for outbound sidecar (e.g. service port)
 	Port int
 
@@ -220,6 +223,7 @@ func buildSidecarVirtualHostsForVirtualService(
 			continue
 		}
 		out = append(out, VirtualHostWrapper{
+			Namespace:           virtualService.Namespace,
 			Port:                port,
 			Services:            portServices,
 			VirtualServiceHosts: hosts,
