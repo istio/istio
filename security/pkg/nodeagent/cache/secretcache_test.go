@@ -195,9 +195,8 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
 	opt := Options{
-		RotationInterval:         100 * time.Millisecond,
-		EvictionDuration:         0,
-		InitialBackoffInMilliSec: 10,
+		RotationInterval: 100 * time.Millisecond,
+		EvictionDuration: 0,
 	}
 
 	if isUsingPluginProvider {
@@ -261,28 +260,6 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 	if got, want := atomic.LoadUint64(&sc.rootCertChangedCount), uint64(0); got != want {
 		t.Errorf("Got unexpected rootCertChangedCount: Got: %v\n want: %v", got, want)
 	}
-
-	workloadKey := ConnKey{
-		ConnectionID: conID,
-		ResourceName: WorkloadKeyCertResourceName,
-	}
-	sc.configOptions.EvictionDuration = 100 * time.Millisecond // Evict quickly, to test eviction
-	// Wait until the workload secret is evicted.
-	wait := 200 * time.Millisecond
-	retries := 0
-	for ; retries < 3; retries++ {
-		time.Sleep(wait)
-		if _, found := sc.secrets.Load(workloadKey); found {
-			// Retry after some sleep.
-			wait *= 2
-			continue
-		}
-
-		break
-	}
-	if retries == 3 {
-		t.Fatalf("Secret eviction failure")
-	}
 }
 
 func TestWorkloadAgentRefreshSecret(t *testing.T) {
@@ -291,9 +268,8 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
 	opt := Options{
-		RotationInterval:         100 * time.Millisecond,
-		EvictionDuration:         0,
-		InitialBackoffInMilliSec: 10,
+		RotationInterval: 100 * time.Millisecond,
+		EvictionDuration: 0,
 	}
 	fetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: true,
@@ -666,9 +642,8 @@ func createSecretCache() *SecretCache {
 	ch := make(chan struct{})
 	fetcher.Run(ch)
 	opt := Options{
-		RotationInterval:         100 * time.Millisecond,
-		EvictionDuration:         0,
-		InitialBackoffInMilliSec: 10,
+		RotationInterval: 100 * time.Millisecond,
+		EvictionDuration: 0,
 	}
 	return NewSecretCache(fetcher, notifyCb, opt)
 }
@@ -887,9 +862,8 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
 	opt := Options{
-		RotationInterval:         100 * time.Millisecond,
-		EvictionDuration:         0,
-		InitialBackoffInMilliSec: 10,
+		RotationInterval: 100 * time.Millisecond,
+		EvictionDuration: 0,
 	}
 
 	fetcher := &secretfetcher.SecretFetcher{
