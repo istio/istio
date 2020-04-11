@@ -32211,6 +32211,7 @@ kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
   name: istio-grafana-pvc
+  namespace: {{ .Release.Namespace }}
   labels:
     app: grafana
     release: {{ .Release.Name }}
