@@ -332,6 +332,8 @@ var (
 
 	tracingConfig = buildTracingConfig()
 
+	emptyFilterChainMatch = &listener.FilterChainMatch{}
+
 	lmutex          sync.RWMutex
 	cachedAccessLog *accesslog.AccessLog
 )
@@ -2400,7 +2402,7 @@ func fallthroughOrConflict(existing, incoming *listener.FilterChain) (bool, bool
 }
 
 func filterChainMatchEmpty(fcm *listener.FilterChainMatch) bool {
-	return fcm == nil || filterChainMatchEqual(fcm, &listener.FilterChainMatch{})
+	return fcm == nil || filterChainMatchEqual(fcm, emptyFilterChainMatch)
 }
 
 // filterChainMatchEqual returns true if both filter chains are equal otherwise false.
