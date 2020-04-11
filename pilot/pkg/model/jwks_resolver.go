@@ -474,9 +474,8 @@ func compareJWKSResponse(oldKeyString string, newKeyString string) (bool, error)
 			key2Id, kid2Exists := key2["kid"]
 			if kid1Exists && kid2Exists {
 				return key1Id.(string) < key2Id.(string)
-			} else {
-				return fmt.Sprintf("%v", key1) < fmt.Sprintf("%v", key2)
 			}
+			return len(key1) < len(key2)
 		})
 		sort.Slice(newKeys, func(i, j int) bool {
 			key1 := newKeys[i].(map[string]interface{})
@@ -485,16 +484,15 @@ func compareJWKSResponse(oldKeyString string, newKeyString string) (bool, error)
 			key2Id, kid2Exists := key2["kid"]
 			if kid1Exists && kid2Exists {
 				return key1Id.(string) < key2Id.(string)
-			} else {
-				return len(key1) < len(key2)
 			}
+			return len(key1) < len(key2)
 		})
 
 		// Once sorted, return the result of deep comparison of the arrays of keys
 		return !reflect.DeepEqual(oldKeys, newKeys), nil
-	} else {
-		// If we aren't able to compare using keys, we should return true
-		// since we already checked exact equality of the responses
-		return true, nil
 	}
+
+	// If we aren't able to compare using keys, we should return true
+	// since we already checked exact equality of the responses
+	return true, nil
 }
