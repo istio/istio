@@ -178,33 +178,9 @@ FWy1
 		},
 		Type: "test-tls-secret",
 	}
-	// The cert chain in ./testdata/cert-chain.pem
-	testDataCertChain = []byte(`-----BEGIN CERTIFICATE-----
-MIIDnzCCAoegAwIBAgIJAON1ifrBZ2/BMA0GCSqGSIb3DQEBCwUAMIGLMQswCQYD
-VQQGEwJVUzETMBEGA1UECAwKQ2FsaWZvcm5pYTESMBAGA1UEBwwJU3Vubnl2YWxl
-MQ4wDAYDVQQKDAVJc3RpbzENMAsGA1UECwwEVGVzdDEQMA4GA1UEAwwHUm9vdCBD
-QTEiMCAGCSqGSIb3DQEJARYTdGVzdHJvb3RjYUBpc3Rpby5pbzAgFw0xODAxMjQx
-OTE1NTFaGA8yMTE3MTIzMTE5MTU1MVowWTELMAkGA1UEBhMCVVMxEzARBgNVBAgT
-CkNhbGlmb3JuaWExEjAQBgNVBAcTCVN1bm55dmFsZTEOMAwGA1UEChMFSXN0aW8x
-ETAPBgNVBAMTCElzdGlvIENBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC
-AQEAyzCxr/xu0zy5rVBiso9ffgl00bRKvB/HF4AX9/ytmZ6Hqsy13XIQk8/u/By9
-iCvVwXIMvyT0CbiJq/aPEj5mJUy0lzbrUs13oneXqrPXf7ir3HzdRw+SBhXlsh9z
-APZJXcF93DJU3GabPKwBvGJ0IVMJPIFCuDIPwW4kFAI7R/8A5LSdPrFx6EyMXl7K
-M8jekC0y9DnTj83/fY72WcWX7YTpgZeBHAeeQOPTZ2KYbFal2gLsar69PgFS0Tom
-ESO9M14Yit7mzB1WDK2z9g3r+zLxENdJ5JG/ZskKe+TO4Diqi5OJt/h8yspS1ck8
-LJtCole9919umByg5oruflqIlQIDAQABozUwMzALBgNVHQ8EBAMCAgQwDAYDVR0T
-BAUwAwEB/zAWBgNVHREEDzANggtjYS5pc3Rpby5pbzANBgkqhkiG9w0BAQsFAAOC
-AQEAltHEhhyAsve4K4bLgBXtHwWzo6SpFzdAfXpLShpOJNtQNERb3qg6iUGQdY+w
-A2BpmSkKr3Rw/6ClP5+cCG7fGocPaZh+c+4Nxm9suMuZBZCtNOeYOMIfvCPcCS+8
-PQ/0hC4/0J3WJKzGBssaaMufJxzgFPPtDJ998kY8rlROghdSaVt423/jXIAYnP3Y
-05n8TGERBj7TLdtIVbtUIx3JHAo3PWJywA6mEDovFMJhJERp9sDHIr1BbhXK1TFN
-Z6HNH6gInkSSMtvC4Ptejb749PTaePRPF7ID//eq/3AH8UK50F3TQcLjEqWUsJUn
-aFKltOc+RAjzDklcUPeG4Y6eMA==
------END CERTIFICATE-----`)
-	testDataCertChainExpireTime, _ = nodeagentutil.ParseCertAndGetExpiryTimestamp(testDataCertChain)
 )
 
-func TestWorkloadAgentGenerateSecret(t *testing.T) {
+func TestWorkloadAgentGenerateSecretWithoutPluginProvider(t *testing.T) {
 	testWorkloadAgentGenerateSecret(t, false)
 }
 
@@ -220,7 +196,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 	}
 	opt := Options{
 		RotationInterval:         100 * time.Millisecond,
-		EvictionDuration:         300 * time.Millisecond, // Evict quickly
+		EvictionDuration:         0,
 		InitialBackoffInMilliSec: 10,
 	}
 
@@ -290,6 +266,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 		ConnectionID: conID,
 		ResourceName: WorkloadKeyCertResourceName,
 	}
+	sc.configOptions.EvictionDuration = 100 * time.Millisecond // Evict quickly, to test eviction
 	// Wait until the workload secret is evicted.
 	wait := 200 * time.Millisecond
 	retries := 0
@@ -304,7 +281,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 		break
 	}
 	if retries == 3 {
-		t.Errorf("Unused secrets failed to be evicted from cache")
+		t.Fatalf("Secret eviction failure")
 	}
 }
 
@@ -315,7 +292,7 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 	}
 	opt := Options{
 		RotationInterval:         100 * time.Millisecond,
-		EvictionDuration:         300 * time.Second,
+		EvictionDuration:         0,
 		InitialBackoffInMilliSec: 10,
 	}
 	fetcher := &secretfetcher.SecretFetcher{
@@ -368,10 +345,8 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 func TestGatewayAgentGenerateSecret(t *testing.T) {
 	sc := createSecretCache()
 	fetcher := sc.fetcher
-	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
 	defer func() {
 		sc.Close()
-		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
 	connID1 := "proxy1-id"
@@ -500,10 +475,8 @@ func TestGatewayAgentGenerateSecretUsingFallbackSecret(t *testing.T) {
 		t.Errorf("Fallback secret name does not match. Expected %v but got %v",
 			k8sTLSFallbackSecretName, fetcher.FallbackSecretName)
 	}
-	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
 	defer func() {
 		sc.Close()
-		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
 	connID1 := "proxy1-id"
@@ -694,7 +667,7 @@ func createSecretCache() *SecretCache {
 	fetcher.Run(ch)
 	opt := Options{
 		RotationInterval:         100 * time.Millisecond,
-		EvictionDuration:         300 * time.Millisecond,
+		EvictionDuration:         0,
 		InitialBackoffInMilliSec: 10,
 	}
 	return NewSecretCache(fetcher, notifyCb, opt)
@@ -704,10 +677,8 @@ func createSecretCache() *SecretCache {
 func TestGatewayAgentDeleteSecret(t *testing.T) {
 	sc := createSecretCache()
 	fetcher := sc.fetcher
-	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
 	defer func() {
 		sc.Close()
-		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
 	fetcher.AddSecret(k8sTestGenericSecret)
@@ -750,10 +721,8 @@ func TestGatewayAgentDeleteSecret(t *testing.T) {
 func TestGatewayAgentUpdateSecret(t *testing.T) {
 	sc := createSecretCache()
 	fetcher := sc.fetcher
-	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
 	defer func() {
 		sc.Close()
-		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
 	fetcher.AddSecret(k8sTestGenericSecret)
@@ -906,88 +875,98 @@ func TestKeyCertificateExist(t *testing.T) {
 	}
 }
 
-func TestGenerateRootCertFromExistingFile(t *testing.T) {
-	sc := createSecretCache()
-	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
-	defer func() {
-		sc.Close()
-		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
-	}()
-
-	connID1 := "proxy1-id"
-	cases := []struct {
-		certPath        string
-		connID          string
-		expectedSecrets *model.SecretItem
-	}{
-		{
-			certPath: "./testdata/cert-chain.pem",
-			connID:   connID1,
-			expectedSecrets: &model.SecretItem{
-				ResourceName: RootCertReqResourceName,
-				RootCert:     testDataCertChain,
-				ExpireTime:   testDataCertChainExpireTime,
-			},
-		},
-	}
-
-	for _, c := range cases {
-		es := c.expectedSecrets
-		key := ConnKey{
-			ConnectionID: c.connID,
-			ResourceName: es.ResourceName,
-		}
-		gotSecret, err := sc.generateRootCertFromExistingFile("./testdata/cert-chain.pem",
-			"token", key)
-		if err != nil {
-			t.Fatalf("Failed to get secrets: %v", err)
-		}
-		if err := verifyRootCASecret(gotSecret, es); err != nil {
-			t.Errorf("Secret verification failed: %v", err)
-		}
-	}
+func notifyCb(_ ConnKey, _ *model.SecretItem) error {
+	return nil
 }
 
-func TestGenerateKeyCertFromExistingFiles(t *testing.T) {
-	sc := createSecretCache()
-	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
-	defer func() {
-		sc.Close()
-		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
-	}()
-
-	connID1 := "proxy1-id"
-	cases := []struct {
-		certPath        string
-		connID          string
-		expectedSecrets *model.SecretItem
-	}{
-		{
-			certPath: "./testdata/cert-chain.pem",
-			connID:   connID1,
-			expectedSecrets: &model.SecretItem{
-				ResourceName:     WorkloadKeyCertResourceName,
-				CertificateChain: testDataCertChain,
-				ExpireTime:       testDataCertChainExpireTime,
-				PrivateKey:       testDataCertChain,
-			},
-		},
+// TestWorkloadAgentGenerateSecretFromFile tests generating secrets from existing files on a
+// secretcache instance.
+func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
+	fakeCACli, err := mock.NewMockCAClient(0, time.Hour)
+	if err != nil {
+		t.Fatalf("Error creating Mock CA client: %v", err)
+	}
+	opt := Options{
+		RotationInterval:         100 * time.Millisecond,
+		EvictionDuration:         0,
+		InitialBackoffInMilliSec: 10,
 	}
 
-	for _, c := range cases {
-		es := c.expectedSecrets
-		key := ConnKey{
-			ConnectionID: c.connID,
-			ResourceName: es.ResourceName,
-		}
-		gotSecret, err := sc.generateKeyCertFromExistingFiles("./testdata/cert-chain.pem",
-			"./testdata/cert-chain.pem", "token", key)
-		if err != nil {
-			t.Fatalf("Failed to get secrets: %v", err)
-		}
-		if err := verifySecret(gotSecret, es); err != nil {
-			t.Errorf("Secret verification failed: %v", err)
-		}
+	fetcher := &secretfetcher.SecretFetcher{
+		UseCaClient: true,
+		CaClient:    fakeCACli,
+	}
+	sc := NewSecretCache(fetcher, notifyCb, opt)
+	defer func() {
+		sc.Close()
+	}()
+	rootCertPath := "./testdata/root-cert.pem"
+	keyPath := "./testdata/key.pem"
+	certChainPath := "./testdata/cert-chain.pem"
+	sc.existingRootCertFile = rootCertPath
+	sc.existingKeyFile = keyPath
+	sc.existingCertChainFile = certChainPath
+	certchain, err := ioutil.ReadFile(certChainPath)
+	if err != nil {
+		t.Fatalf("Error reading the cert chain file: %v", err)
+	}
+	privateKey, err := ioutil.ReadFile(keyPath)
+	if err != nil {
+		t.Fatalf("Error reading the private key file: %v", err)
+	}
+	rootCert, err := ioutil.ReadFile(rootCertPath)
+	if err != nil {
+		t.Fatalf("Error reading the root cert file: %v", err)
+	}
+
+	conID := "proxy1-id"
+	ctx := context.Background()
+	gotSecret, err := sc.GenerateSecret(ctx, conID, WorkloadKeyCertResourceName, "jwtToken1")
+	if err != nil {
+		t.Fatalf("Failed to get secrets: %v", err)
+	}
+	checkBool(t, "SecretExist", sc.SecretExist(conID, WorkloadKeyCertResourceName, "jwtToken1", gotSecret.Version), true)
+	expectedSecret := &model.SecretItem{
+		ResourceName:     WorkloadKeyCertResourceName,
+		CertificateChain: certchain,
+		PrivateKey:       privateKey,
+	}
+	if err := verifySecret(gotSecret, expectedSecret); err != nil {
+		t.Errorf("Secret verification failed: %v", err)
+	}
+
+	gotSecretRoot, err := sc.GenerateSecret(ctx, conID, RootCertReqResourceName, "jwtToken1")
+	if err != nil {
+		t.Fatalf("Failed to get secrets: %v", err)
+	}
+	checkBool(t, "SecretExist", sc.SecretExist(conID, RootCertReqResourceName, "jwtToken1", gotSecretRoot.Version), true)
+	if got, want := atomic.LoadUint64(&sc.rootCertChangedCount), uint64(0); got != want {
+		t.Errorf("rootCertChangedCount: got: %v, want: %v", got, want)
+	}
+
+	rootExpiration, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(rootCert)
+	if err != nil {
+		t.Fatalf("Failed to get the expiration time from the existing root file")
+	}
+	expectedSecret = &model.SecretItem{
+		ResourceName: RootCertReqResourceName,
+		RootCert:     rootCert,
+		ExpireTime:   rootExpiration,
+	}
+	if err := verifyRootCASecret(gotSecretRoot, expectedSecret); err != nil {
+		t.Errorf("Secret verification failed: %v", err)
+	}
+
+	key := ConnKey{
+		ConnectionID: conID,
+		ResourceName: WorkloadKeyCertResourceName,
+	}
+	cachedSecret, found := sc.secrets.Load(key)
+	if !found {
+		t.Errorf("Failed to find secret for proxy %q from secret store: %v", conID, err)
+	}
+	if !reflect.DeepEqual(*gotSecret, cachedSecret) {
+		t.Errorf("Secret key: got %+v, want %+v", *gotSecret, cachedSecret)
 	}
 }
 
@@ -997,12 +976,12 @@ func verifySecret(gotSecret *model.SecretItem, expectedSecret *model.SecretItem)
 			gotSecret.ResourceName)
 	}
 	if !bytes.Equal(expectedSecret.CertificateChain, gotSecret.CertificateChain) {
-		return fmt.Errorf("cert chain verification error: expected %v but got %v", expectedSecret.CertificateChain,
-			gotSecret.CertificateChain)
+		return fmt.Errorf("cert chain verification error: expected %s but got %s", string(expectedSecret.CertificateChain),
+			string(gotSecret.CertificateChain))
 	}
 	if !bytes.Equal(expectedSecret.PrivateKey, gotSecret.PrivateKey) {
-		return fmt.Errorf("k8sKey verification error: expected %v but got %v", expectedSecret.PrivateKey,
-			gotSecret.PrivateKey)
+		return fmt.Errorf("k8sKey verification error: expected %s but got %s", string(expectedSecret.PrivateKey),
+			string(gotSecret.PrivateKey))
 	}
 	return nil
 }
@@ -1021,101 +1000,6 @@ func verifyRootCASecret(gotSecret *model.SecretItem, expectedSecret *model.Secre
 			expectedSecret.ExpireTime, gotSecret.ExpireTime)
 	}
 	return nil
-}
-
-func notifyCb(_ ConnKey, _ *model.SecretItem) error {
-	return nil
-}
-
-func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
-	fakeCACli, err := mock.NewMockCAClient(0, time.Millisecond)
-	if err != nil {
-		t.Fatalf("Error creating Mock CA client: %v", err)
-	}
-	opt := Options{
-		RotationInterval:         100 * time.Millisecond,
-		EvictionDuration:         300 * time.Millisecond,
-		InitialBackoffInMilliSec: 10,
-	}
-
-	existingCertChainFile = "./testdata/cert-chain.pem"
-	existingKeyFile = "./testdata/privatekey.pem"
-	ExistingRootCertFile = "./testdata/cert-chain.pem"
-	certchain, err := ioutil.ReadFile(existingCertChainFile)
-	if err != nil {
-		t.Fatalf("Error reading the cert chain file: %v", err)
-	}
-
-	fetcher := &secretfetcher.SecretFetcher{
-		UseCaClient: true,
-		CaClient:    fakeCACli,
-	}
-	sc := NewSecretCache(fetcher, notifyCb, opt)
-	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
-	defer func() {
-		sc.Close()
-		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
-	}()
-
-	conID := "proxy1-id"
-	ctx := context.Background()
-	gotSecret, err := sc.GenerateSecret(ctx, conID, WorkloadKeyCertResourceName, "jwtToken1")
-	if err != nil {
-		t.Fatalf("Failed to get secrets: %v", err)
-	}
-
-	if got, want := gotSecret.CertificateChain, certchain; !bytes.Equal(got, want) {
-		t.Errorf("CertificateChain: got: %v, want: %v", got, want)
-	}
-	privateKey, _ := ioutil.ReadFile(existingKeyFile)
-	if got, want := gotSecret.PrivateKey, privateKey; !bytes.Equal(got, want) {
-		t.Errorf("PrivateKey: got: %v, want: %v", got, want)
-	}
-
-	checkBool(t, "SecretExist", sc.SecretExist(conID, WorkloadKeyCertResourceName, "jwtToken1", gotSecret.Version), true)
-
-	gotSecretRoot, err := sc.GenerateSecret(ctx, conID, RootCertReqResourceName, "jwtToken1")
-	if err != nil {
-		t.Fatalf("Failed to get secrets: %v", err)
-	}
-	if got, want := gotSecretRoot.RootCert, certchain; !bytes.Equal(got, want) {
-		t.Errorf("CertificateChain: got: %v, want: %v", got, want)
-	}
-
-	checkBool(t, "SecretExist", sc.SecretExist(conID, RootCertReqResourceName, "jwtToken1", gotSecretRoot.Version), true)
-
-	if got, want := atomic.LoadUint64(&sc.rootCertChangedCount), uint64(0); got != want {
-		t.Errorf("rootCertChangedCount: got: %v, want: %v", got, want)
-	}
-
-	key := ConnKey{
-		ConnectionID: conID,
-		ResourceName: WorkloadKeyCertResourceName,
-	}
-	cachedSecret, found := sc.secrets.Load(key)
-	if !found {
-		t.Errorf("Failed to find secret for proxy %q from secret store: %v", conID, err)
-	}
-	if !reflect.DeepEqual(*gotSecret, cachedSecret) {
-		t.Errorf("Secret key: got %+v, want %+v", *gotSecret, cachedSecret)
-	}
-
-	// Wait until unused secrets are evicted.
-	wait := 500 * time.Millisecond
-	retries := 0
-	for ; retries < 3; retries++ {
-		time.Sleep(wait)
-		if _, found := sc.secrets.Load(conID); found {
-			// Retry after some sleep.
-			wait *= 2
-			continue
-		}
-
-		break
-	}
-	if retries == 3 {
-		t.Errorf("Unused secrets failed to be evicted from cache")
-	}
 }
 
 func TestShouldRotate(t *testing.T) {

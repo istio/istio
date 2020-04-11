@@ -41,15 +41,6 @@ import (
 
 var (
 	cacheLog = log.RegisterScope("cache", "cache debugging", 0)
-
-	// The well-known path for an existing certificate chain file
-	existingCertChainFile = defaultCertChainFilePath
-
-	// The well-known path for an existing key file
-	existingKeyFile = defaultKeyFilePath
-
-	// ExistingRootCertFile is the well-known path for an existing root certificate file
-	ExistingRootCertFile = defaultRootCertFilePath
 )
 
 const (
@@ -89,8 +80,8 @@ const (
 	// The well-known path for an existing key file
 	defaultKeyFilePath = "./etc/certs/key.pem"
 
-	// The well-known path for an existing root certificate file
-	defaultRootCertFilePath = "./etc/certs/root-cert.pem"
+	// DefaultRootCertFilePath is the well-known path for an existing root certificate file
+	DefaultRootCertFilePath = "./etc/certs/root-cert.pem"
 )
 
 type k8sJwtPayload struct {
@@ -177,12 +168,6 @@ type SecretCache struct {
 	// callback function to invoke when detecting secret change.
 	notifyCallback func(connKey ConnKey, secret *model.SecretItem) error
 
-	// Right now always skip the check, since key rotation job checks token expire only when cert has expired;
-	// since token's TTL is much shorter than the cert, we could skip the check in normal cases.
-	// The flag is used in unit test, use uint32 instead of boolean because there is no atomic boolean
-	// type in golang, atomic is needed to avoid racing condition in unit test.
-	skipTokenExpireCheck uint32
-
 	// close channel.
 	closing chan bool
 
@@ -194,17 +179,27 @@ type SecretCache struct {
 	// Source of random numbers. It is not concurrency safe, requires lock protected.
 	rand      *rand.Rand
 	randMutex *sync.Mutex
+
+	// The paths for an existing certificate chain, key and root cert files. Istio agent will
+	// use them as the source of secrets if they exist.
+	existingCertChainFile string
+	existingKeyFile       string
+	existingRootCertFile  string
 }
 
 // NewSecretCache creates a new secret cache.
-func NewSecretCache(fetcher *secretfetcher.SecretFetcher, notifyCb func(ConnKey, *model.SecretItem) error, options Options) *SecretCache {
+func NewSecretCache(fetcher *secretfetcher.SecretFetcher,
+	notifyCb func(ConnKey, *model.SecretItem) error, options Options) *SecretCache {
 	ret := &SecretCache{
-		fetcher:        fetcher,
-		closing:        make(chan bool),
-		notifyCallback: notifyCb,
-		rootCertMutex:  &sync.RWMutex{},
-		configOptions:  options,
-		randMutex:      &sync.Mutex{},
+		fetcher:               fetcher,
+		closing:               make(chan bool),
+		notifyCallback:        notifyCb,
+		rootCertMutex:         &sync.RWMutex{},
+		configOptions:         options,
+		randMutex:             &sync.Mutex{},
+		existingCertChainFile: defaultCertChainFilePath,
+		existingKeyFile:       defaultKeyFilePath,
+		existingRootCertFile:  DefaultRootCertFilePath,
 	}
 	randSource := rand.NewSource(time.Now().UnixNano())
 	ret.rand = rand.New(randSource)
@@ -256,13 +251,13 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 	// the files under the well known path.
 	sdsFromFile := false
 	var err error
-	if connKey.ResourceName == RootCertReqResourceName && sc.rootCertificateExist(ExistingRootCertFile) {
+	if connKey.ResourceName == RootCertReqResourceName && sc.rootCertificateExist(sc.existingRootCertFile) {
 		sdsFromFile = true
-		ns, err = sc.generateRootCertFromExistingFile(ExistingRootCertFile, token, connKey)
+		ns, err = sc.generateRootCertFromExistingFile(sc.existingRootCertFile, token, connKey)
 	} else if connKey.ResourceName == WorkloadKeyCertResourceName &&
-		sc.keyCertificateExist(existingCertChainFile, existingKeyFile) {
+		sc.keyCertificateExist(sc.existingCertChainFile, sc.existingKeyFile) {
 		sdsFromFile = true
-		ns, err = sc.generateKeyCertFromExistingFiles(existingCertChainFile, existingKeyFile, token, connKey)
+		ns, err = sc.generateKeyCertFromExistingFiles(sc.existingCertChainFile, sc.existingKeyFile, token, connKey)
 	}
 
 	if sdsFromFile {
@@ -737,6 +732,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 		return sc.generateGatewaySecret(token, connKey, t)
 	}
 
+	fmt.Printf("generateSecret called.\n")
 	logPrefix := cacheLogPrefix(connKey.ResourceName)
 	// call authentication provider specific plugins to exchange token if necessary.
 	numOutgoingRequests.With(RequestType.Value(TokenExchange)).Increment()
