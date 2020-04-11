@@ -35,8 +35,10 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	// This test verifies that the certificate issued by CA to the sidecar
-	// is as expected and that strict mTLS works as expected.
+	// This test verifies:
+	// - The certificate issued by CA to the sidecar is as expected and that strict mTLS works as expected.
+	// - The CA certificate in the configmap of each namespace is as expected, which
+	//   is used for data plane to control plane TLS authentication.
 	framework.
 		NewSuite("cert_mtls_test", m).
 		// k8s is required because the plugin CA key and certificate are stored in a k8s secret.

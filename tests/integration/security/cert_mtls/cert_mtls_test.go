@@ -19,14 +19,18 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource/environment"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/cert"
 	"istio.io/istio/tests/integration/security/util/connection"
@@ -38,8 +42,15 @@ var (
 	testStruct    *testing.T
 )
 
-// TestCertMtls verifiess that the certificate issued by CA to the sidecar
-// is as expected and strict mTLS works as expected.
+const (
+	// The length of the example certificate chain.
+	exampleCertChainLength = 3
+)
+
+// TestCertMtls verifies:
+// - The certificate issued by CA to the sidecar is as expected and that strict mTLS works as expected.
+// - The CA certificate in the configmap of each namespace is as expected, which
+//   is used for data plane to control plane TLS authentication.
 func TestCertMtls(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
@@ -53,6 +64,10 @@ func TestCertMtls(t *testing.T) {
 			})
 			testCtx = ctx
 			testStruct = t
+
+			// Check that the CA certificate in the configmap of each namespace is as expected, which
+			// is used for data plane to control plane TLS authentication.
+			retry.UntilSuccessOrFail(t, checkCACert, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 
 			// Enforce strict mTLS for app b
 			var a, b echo.Instance
@@ -76,21 +91,22 @@ spec:
 
 			// Verify that the certificate issued to the sidecar is as expected.
 			connectTarget := fmt.Sprintf("b.%s:80", testNamespace.Name())
-			out, err := cert.GetCertOutput(testNamespace, "app=a", "istio-proxy",
+			out, err := cert.DumpCertFromSidecar(testNamespace, "app=a", "istio-proxy",
 				connectTarget)
 			if err != nil {
-				t.Errorf("GetCertOutput() returns an error: %v", err)
+				t.Errorf("DumpCertFromSidecar() returns an error: %v", err)
 				return
 			}
 			var certExp = regexp.MustCompile("(?sU)-----BEGIN CERTIFICATE-----(.+)-----END CERTIFICATE-----")
 			certs := certExp.FindAll([]byte(out), -1)
 			// Verify that the certificate chain length is as expected
-			if len(certs) != 3 {
-				t.Errorf("expect 3 certs in the cert chain but getting %v certs", len(certs))
+			if len(certs) != exampleCertChainLength {
+				t.Errorf("expect %v certs in the cert chain but getting %v certs",
+					exampleCertChainLength, len(certs))
 				return
 			}
 			var rootCert []byte
-			if rootCert, err = cert.ReadSampleCertFile("root-cert.pem"); err != nil {
+			if rootCert, err = cert.ReadSampleCertFromFile("root-cert.pem"); err != nil {
 				t.Errorf("error when reading expected CA cert: %v", err)
 				return
 			}
@@ -116,4 +132,28 @@ spec:
 			checker.CheckOrFail(ctx)
 			t.Log("mTLS check passed")
 		})
+}
+
+func checkCACert() error {
+	configMapName := "istio-ca-root-cert"
+	kEnv := testCtx.Environment().(*kube.Environment)
+	cm, err := kEnv.KubeClusters[0].GetConfigMap(configMapName, testNamespace.Name())
+	if err != nil {
+		return err
+	}
+	var certData string
+	var pluginCert []byte
+	var ok bool
+	if certData, ok = cm.Data[constants.CACertNamespaceConfigMapDataName]; !ok {
+		return fmt.Errorf("CA certificate %v not found", constants.CACertNamespaceConfigMapDataName)
+	}
+	testStruct.Logf("CA certificate %v found", constants.CACertNamespaceConfigMapDataName)
+	if pluginCert, err = cert.ReadSampleCertFromFile("root-cert.pem"); err != nil {
+		return err
+	}
+	if string(pluginCert) != certData {
+		return fmt.Errorf("CA certificate (%v) not matching plugin cert (%v)", certData, string(pluginCert))
+	}
+
+	return nil
 }

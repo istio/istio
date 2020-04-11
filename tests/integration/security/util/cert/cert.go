@@ -35,8 +35,8 @@ import (
 	"istio.io/pkg/log"
 )
 
-// GetCertOutput gets the certificate output from openssl s-client command.
-func GetCertOutput(ns namespace.Instance, fromSelector, fromContainer, connectTarget string) (string, error) {
+// DumpCertFromSidecar gets the certificate output from openssl s-client command.
+func DumpCertFromSidecar(ns namespace.Instance, fromSelector, fromContainer, connectTarget string) (string, error) {
 	retry := util.Retrier{
 		BaseDelay: 10 * time.Second,
 		Retries:   3,
@@ -55,9 +55,6 @@ func GetCertOutput(ns namespace.Instance, fromSelector, fromContainer, connectTa
 			fromPod, fromContainer, ns.Name(), connectTarget)
 		out, err = shell.Execute(false,
 			execCmd)
-		if err != nil {
-			return fmt.Errorf("error executing the cmd (%v): %v", execCmd, err)
-		}
 		if !strings.Contains(out, "-----BEGIN CERTIFICATE-----") {
 			return fmt.Errorf("the output doesn't contain certificate; the output: %v", out)
 		}
@@ -79,16 +76,16 @@ func CreateCASecret(ctx resource.Context) error {
 	}
 
 	var caCert, caKey, certChain, rootCert []byte
-	if caCert, err = ReadSampleCertFile("ca-cert.pem"); err != nil {
+	if caCert, err = ReadSampleCertFromFile("ca-cert.pem"); err != nil {
 		return err
 	}
-	if caKey, err = ReadSampleCertFile("ca-key.pem"); err != nil {
+	if caKey, err = ReadSampleCertFromFile("ca-key.pem"); err != nil {
 		return err
 	}
-	if certChain, err = ReadSampleCertFile("cert-chain.pem"); err != nil {
+	if certChain, err = ReadSampleCertFromFile("cert-chain.pem"); err != nil {
 		return err
 	}
-	if rootCert, err = ReadSampleCertFile("root-cert.pem"); err != nil {
+	if rootCert, err = ReadSampleCertFromFile("root-cert.pem"); err != nil {
 		return err
 	}
 
@@ -127,7 +124,7 @@ func CreateCASecret(ctx resource.Context) error {
 	return nil
 }
 
-func ReadSampleCertFile(f string) ([]byte, error) {
+func ReadSampleCertFromFile(f string) ([]byte, error) {
 	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, "samples/certs", f))
 	if err != nil {
 		return nil, err
