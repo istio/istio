@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schema/resource"
 )
 
 // Pilot can get EDS information from Kubernetes from two mutually exclusive sources, Endpoints and
@@ -69,8 +68,12 @@ func (e *kubeEndpoints) handleEvent(name string, namespace string, event model.E
 					Full:              true,
 					NamespacesUpdated: map[string]struct{}{namespace: {}},
 					// TODO: extend and set service instance type, so no need to re-init push context
-					ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{model.ServiceEntryKind: {svc.Name: {}}},
-					Reason:         []model.TriggerReason{model.EndpointUpdate},
+					ConfigsUpdated: map[model.ConfigKey]struct{}{model.ConfigKey{
+						Kind:      model.ServiceEntryKind,
+						Name:      svc.Name,
+						Namespace: svc.Namespace,
+					}: {}},
+					Reason: []model.TriggerReason{model.EndpointUpdate},
 				})
 				return nil
 			}

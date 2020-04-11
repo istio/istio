@@ -57,7 +57,6 @@ import (
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/dns"
 	"istio.io/istio/pkg/jwt"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
@@ -688,9 +687,11 @@ func (s *Server) initEventHandlers() error {
 		pushReq := &model.PushRequest{
 			Full:              true,
 			NamespacesUpdated: map[string]struct{}{svc.Attributes.Namespace: {}},
-			ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{model.ServiceEntryKind: {
-				string(svc.Hostname): struct{}{},
-			}},
+			ConfigsUpdated: map[model.ConfigKey]struct{}{model.ConfigKey{
+				Kind:      model.ServiceEntryKind,
+				Name:      string(svc.Hostname),
+				Namespace: svc.Attributes.Namespace,
+			}: {}},
 			Reason: []model.TriggerReason{model.ServiceUpdate},
 		}
 		s.EnvoyXdsServer.ConfigUpdate(pushReq)
@@ -706,9 +707,11 @@ func (s *Server) initEventHandlers() error {
 		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
 			Full:              true,
 			NamespacesUpdated: map[string]struct{}{si.Service.Attributes.Namespace: {}},
-			ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{model.ServiceEntryKind: {
-				string(si.Service.Hostname): struct{}{},
-			}},
+			ConfigsUpdated: map[model.ConfigKey]struct{}{model.ConfigKey{
+				Kind:      model.ServiceEntryKind,
+				Name:      string(si.Service.Hostname),
+				Namespace: si.Service.Attributes.Namespace,
+			}: {}},
 			Reason: []model.TriggerReason{model.ServiceUpdate},
 		})
 	}
@@ -719,9 +722,13 @@ func (s *Server) initEventHandlers() error {
 	if s.configController != nil {
 		configHandler := func(_, curr model.Config, _ model.Event) {
 			pushReq := &model.PushRequest{
-				Full:           true,
-				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{curr.GroupVersionKind(): {curr.Name: {}}},
-				Reason:         []model.TriggerReason{model.ConfigUpdate},
+				Full: true,
+				ConfigsUpdated: map[model.ConfigKey]struct{}{model.ConfigKey{
+					Kind:      curr.GroupVersionKind(),
+					Name:      curr.Name,
+					Namespace: curr.Namespace,
+				}: {}},
+				Reason: []model.TriggerReason{model.ConfigUpdate},
 			}
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
 		}

@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube/secretcontroller"
 )
 
@@ -144,9 +143,11 @@ func (m *Multicluster) updateHandler(svc *model.Service) {
 		req := &model.PushRequest{
 			Full:              true,
 			NamespacesUpdated: map[string]struct{}{svc.Attributes.Namespace: {}},
-			ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{model.ServiceEntryKind: {
-				string(svc.Hostname): {},
-			}},
+			ConfigsUpdated: map[model.ConfigKey]struct{}{model.ConfigKey{
+				Kind:      model.ServiceEntryKind,
+				Name:      string(svc.Hostname),
+				Namespace: svc.Attributes.Namespace,
+			}: {}},
 			Reason: []model.TriggerReason{model.UnknownTrigger},
 		}
 		m.XDSUpdater.ConfigUpdate(req)

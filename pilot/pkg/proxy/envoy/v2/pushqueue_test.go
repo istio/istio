@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schema/resource"
 )
 
 // Helper function to remove an item or timeout and return nil if there are no pending pushes
@@ -144,17 +143,21 @@ func TestProxyQueue(t *testing.T) {
 		firstTime := time.Now()
 		p.Enqueue(proxies[0], &model.PushRequest{
 			Full: false,
-			ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
-				model.ServiceEntryKind: {"foo": {}},
-			},
+			ConfigsUpdated: map[model.ConfigKey]struct{}{model.ConfigKey{
+				Kind:      model.ServiceEntryKind,
+				Name:      "foo",
+				Namespace: "",
+			}: {}},
 			Start: firstTime,
 		})
 
 		p.Enqueue(proxies[0], &model.PushRequest{
 			Full: false,
-			ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
-				model.ServiceEntryKind: {"bar": {}},
-			},
+			ConfigsUpdated: map[model.ConfigKey]struct{}{model.ConfigKey{
+				Kind:      model.ServiceEntryKind,
+				Name:      "bar",
+				Namespace: "ns1",
+			}: {}},
 			Start: firstTime.Add(time.Second),
 		})
 		_, info := p.Dequeue()
@@ -162,9 +165,17 @@ func TestProxyQueue(t *testing.T) {
 		if info.Start != firstTime {
 			t.Errorf("Expected start time to be %v, got %v", firstTime, info.Start)
 		}
-		expectedEds := map[string]struct{}{"foo": {}, "bar": {}}
-		if !reflect.DeepEqual(info.ConfigsUpdated[model.ServiceEntryKind], expectedEds) {
-			t.Errorf("Expected EdsUpdates to be %v, got %v", expectedEds, info.ConfigsUpdated[model.ServiceEntryKind])
+		expectedEds := map[model.ConfigKey]struct{}{{
+			Kind:      model.ServiceEntryKind,
+			Name:      "foo",
+			Namespace: "",
+		}: {}, {
+			Kind:      model.ServiceEntryKind,
+			Name:      "bar",
+			Namespace: "ns1",
+		}: {}}
+		if !reflect.DeepEqual(model.ConfigsOfKind(info.ConfigsUpdated, model.ServiceEntryKind), expectedEds) {
+			t.Errorf("Expected EdsUpdates to be %v, got %v", expectedEds, model.ConfigsOfKind(info.ConfigsUpdated, model.ServiceEntryKind))
 		}
 		if info.Full != false {
 			t.Errorf("Expected full to be false, got true")
@@ -216,9 +227,10 @@ func TestProxyQueue(t *testing.T) {
 			for eds := 0; eds < 100; eds++ {
 				for _, pr := range proxies {
 					p.Enqueue(pr, &model.PushRequest{
-						ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
-							model.ServiceEntryKind: {fmt.Sprintf("%d", eds): {}},
-						}})
+						ConfigsUpdated: map[model.ConfigKey]struct{}{model.ConfigKey{
+							Kind: model.ServiceEntryKind,
+							Name: fmt.Sprintf("%d", eds),
+						}: {}}})
 				}
 			}
 		}()
@@ -228,7 +240,7 @@ func TestProxyQueue(t *testing.T) {
 		go func() {
 			for {
 				con, info := p.Dequeue()
-				for eds := range info.ConfigsUpdated[model.ServiceEntryKind] {
+				for eds := range model.ConfigNamesOfKind(info.ConfigsUpdated, model.ServiceEntryKind) {
 					mu.Lock()
 					delete(expected, key(con, eds))
 					mu.Unlock()

@@ -45,6 +45,40 @@ const (
 	RevisionLabel = "istio.io/rev"
 )
 
+// ConfigKey describe a specific config item depends on or get changed.
+// In most cases name is config name except that for ServiceEntry it's Service.Hostname.
+type ConfigKey struct {
+	Kind      resource.GroupVersionKind
+	Name      string
+	Namespace string
+}
+
+// ConfigsOfKind extracts configs of the specified kind.
+func ConfigsOfKind(configs map[ConfigKey]struct{}, kind resource.GroupVersionKind) map[ConfigKey]struct{} {
+	ret := make(map[ConfigKey]struct{})
+
+	for conf := range configs {
+		if conf.Kind == kind {
+			ret[conf] = struct{}{}
+		}
+	}
+
+	return ret
+}
+
+// ConfigNamesOfKind extracts config names of the specified kind.
+func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind resource.GroupVersionKind) map[string]struct{} {
+	ret := make(map[string]struct{})
+
+	for conf := range configs {
+		if conf.Kind == kind {
+			ret[conf.Name] = struct{}{}
+		}
+	}
+
+	return ret
+}
+
 // ConfigMeta is metadata attached to each configuration unit.
 // The revision is optional, and if provided, identifies the
 // last update operation on the object.

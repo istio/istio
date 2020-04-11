@@ -32,6 +32,12 @@ const (
 	wildcardService   = host.Name("*")
 )
 
+var sidecarScopeKnownConfigTypes = map[resource.GroupVersionKind]struct{}{
+	ServiceEntryKind:    {},
+	VirtualServiceKind:  {},
+	DestinationRuleKind: {},
+}
+
 // SidecarScope is a wrapper over the Sidecar resource with some
 // preprocessed data to determine the list of services, virtualServices,
 // and destinationRules that are accessible to a given
@@ -86,10 +92,10 @@ type SidecarScope struct {
 	// Set of all namespaces this sidecar depends on. This is determined from the egress config
 	namespaceDependencies map[string]struct{}
 
-	// Set of known kinds of configs this sidecar depends on.
+	// Set of known configs this sidecar depends on.
 	// This field will be used to determine the config/resource scope
 	// which means which config changes will affect the proxies with this scope.
-	configDependencies map[resource.GroupVersionKind]map[string]struct{}
+	configDependencies map[ConfigKey]struct{}
 }
 
 // IstioEgressListenerWrapper is a wrapper for
@@ -153,7 +159,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		EgressListeners:       []*IstioEgressListenerWrapper{defaultEgressListener},
 		services:              defaultEgressListener.services,
 		destinationRules:      make(map[host.Name]*Config),
-		configDependencies:    make(map[resource.GroupVersionKind]map[string]struct{}),
+		configDependencies:    make(map[ConfigKey]struct{}),
 		namespaceDependencies: make(map[string]struct{}),
 	}
 
@@ -165,16 +171,28 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 			out.destinationRules[s.Hostname] = dr
 		}
 		out.namespaceDependencies[s.Attributes.Namespace] = struct{}{}
-		out.AddConfigDependencies(ServiceEntryKind, string(s.Hostname))
+		out.AddConfigDependencies(ConfigKey{
+			Kind:      ServiceEntryKind,
+			Name:      string(s.Hostname),
+			Namespace: s.Attributes.Namespace,
+		})
 	}
 
 	for _, dr := range out.destinationRules {
-		out.AddConfigDependencies(DestinationRuleKind, dr.Name)
+		out.AddConfigDependencies(ConfigKey{
+			Kind:      DestinationRuleKind,
+			Name:      dr.Name,
+			Namespace: dr.Namespace,
+		})
 	}
 
 	for _, el := range out.EgressListeners {
 		for _, vs := range el.virtualServices {
-			out.AddConfigDependencies(VirtualServiceKind, vs.Name)
+			out.AddConfigDependencies(ConfigKey{
+				Kind:      VirtualServiceKind,
+				Name:      vs.Name,
+				Namespace: vs.Namespace,
+			})
 		}
 	}
 
@@ -195,7 +213,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 
 	r := sidecarConfig.Spec.(*networking.Sidecar)
 	out := &SidecarScope{
-		configDependencies:    make(map[resource.GroupVersionKind]map[string]struct{}),
+		configDependencies:    make(map[ConfigKey]struct{}),
 		namespaceDependencies: make(map[string]struct{}),
 	}
 
@@ -219,7 +237,11 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 		}
 		if foundSvc, found := servicesAdded[s.Hostname]; !found {
 			servicesAdded[s.Hostname] = s
-			out.AddConfigDependencies(ServiceEntryKind, string(s.Hostname))
+			out.AddConfigDependencies(ConfigKey{
+				Kind:      ServiceEntryKind,
+				Name:      string(s.Hostname),
+				Namespace: s.Attributes.Namespace,
+			})
 			out.services = append(out.services, s)
 			out.namespaceDependencies[s.Attributes.Namespace] = struct{}{}
 		} else if foundSvc.Attributes.Namespace == s.Attributes.Namespace && s.Ports != nil && len(s.Ports) > 0 {
@@ -253,7 +275,11 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 		// want in the hosts field, and the potentially random choice below won't matter
 		for _, vs := range listener.virtualServices {
 			v := vs.Spec.(*networking.VirtualService)
-			out.AddConfigDependencies(VirtualServiceKind, vs.Name)
+			out.AddConfigDependencies(ConfigKey{
+				Kind:      VirtualServiceKind,
+				Name:      vs.Name,
+				Namespace: vs.Namespace,
+			})
 
 			for _, d := range virtualServiceDestinations(v) {
 				// Default to this hostname in our config namespace
@@ -293,7 +319,11 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 		dr := ps.DestinationRule(&dummyNode, s)
 		if dr != nil {
 			out.destinationRules[s.Hostname] = dr
-			out.AddConfigDependencies(DestinationRuleKind, dr.Name)
+			out.AddConfigDependencies(ConfigKey{
+				Kind:      DestinationRuleKind,
+				Name:      dr.Name,
+				Namespace: dr.Namespace,
+			})
 		}
 	}
 
@@ -453,38 +483,32 @@ func (sc *SidecarScope) DependsOnNamespace(namespace string) bool {
 
 // DependsOnConfig determines if the proxy depends on the given config.
 // Returns whether depends on this config and whether this kind of config is scoped(or known to be depended or not) here.
-func (sc *SidecarScope) DependsOnConfig(kind resource.GroupVersionKind, name string) (bool, bool) {
+func (sc *SidecarScope) DependsOnConfig(config ConfigKey) (bool, bool) {
 	if sc == nil {
 		return false, false
 	}
-
-	d, exists := sc.configDependencies[kind]
-	if !exists {
+	// This kind of config is unknown to sidecarScope.
+	if _, f := sidecarScopeKnownConfigTypes[config.Kind]; !f {
 		return false, false
 	}
-	_, exists = d[name]
+
+	_, exists := sc.configDependencies[config]
 	return exists, true
 }
 
 // AddConfigDependencies add extra config dependencies to this scope. This action should be done before the
 // SidecarScope being used to avoid concurrent read/write.
-func (sc *SidecarScope) AddConfigDependencies(kind resource.GroupVersionKind, dependencies ...string) {
+func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigKey) {
 	if sc == nil {
 		return
 	}
 
 	if sc.configDependencies == nil {
-		sc.configDependencies = make(map[resource.GroupVersionKind]map[string]struct{})
+		sc.configDependencies = make(map[ConfigKey]struct{})
 	}
 
-	kindDeps, f := sc.configDependencies[kind]
-	if !f {
-		kindDeps = make(map[string]struct{})
-		sc.configDependencies[kind] = kindDeps
-	}
-
-	for _, name := range dependencies {
-		kindDeps[name] = struct{}{}
+	for _, config := range dependencies {
+		sc.configDependencies[config] = struct{}{}
 	}
 }
 

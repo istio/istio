@@ -34,14 +34,9 @@ func ConfigAffectsProxy(pushEv *XdsEvent, proxy *model.Proxy) bool {
 		return true
 	}
 
-	for kind, resources := range pushEv.configsUpdated {
-		// Also empty resources of a specific kind means "all".
-		if len(resources) == 0 {
-			return true
-		}
-
+	for config := range pushEv.configsUpdated {
 		// If we've already know a specific configKind will affect some proxy types, check for that.
-		if kindAffectedTypes, f := configKindAffectedProxyTypes[kind]; f {
+		if kindAffectedTypes, f := configKindAffectedProxyTypes[config.Kind]; f {
 			for _, t := range kindAffectedTypes {
 				if t == proxy.Type {
 					return true
@@ -51,18 +46,16 @@ func ConfigAffectsProxy(pushEv *XdsEvent, proxy *model.Proxy) bool {
 		}
 
 		// Detailed config dependencies check.
-		for res := range resources {
-			switch proxy.Type {
-			case model.SidecarProxy:
-				// Not scoping of all config types are known to SidecarScope. We consider the unknown cases as "affected".
-				ok, scoped := proxy.SidecarScope.DependsOnConfig(kind, res)
-				if !scoped || ok {
-					return true
-				}
-			// TODO We'll add the check for other proxy types later.
-			default:
+		switch proxy.Type {
+		case model.SidecarProxy:
+			// Not scoping of all config types are known to SidecarScope. We consider the unknown cases as "affected".
+			ok, scoped := proxy.SidecarScope.DependsOnConfig(config)
+			if !scoped || ok {
 				return true
 			}
+		// TODO We'll add the check for other proxy types later.
+		default:
+			return true
 		}
 	}
 
@@ -125,7 +118,7 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 
 	if proxy.Type == model.SidecarProxy {
 		for config := range pushEv.configsUpdated {
-			switch config {
+			switch config.Kind {
 			case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
 				out[LDS] = true
 				out[RDS] = true
@@ -183,7 +176,7 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 		}
 	} else {
 		for config := range pushEv.configsUpdated {
-			switch config {
+			switch config.Kind {
 			case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
 				out[LDS] = true
 				out[RDS] = true
