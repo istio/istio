@@ -24,7 +24,6 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	envoy_api_v2_listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
@@ -2336,7 +2335,7 @@ func TestFilterChainMatchEqual(t *testing.T) {
 				ApplicationProtocols: mtlsHTTPALPNs,
 				DestinationPort:      &wrappers.UInt32Value{Value: 1999},
 				AddressSuffix:        "suffix",
-				SourceType:           envoy_api_v2_listener.FilterChainMatch_ANY,
+				SourceType:           listener.FilterChainMatch_ANY,
 				SuffixLen:            &wrappers.UInt32Value{Value: 3},
 				PrefixRanges: []*core.CidrRange{
 					{
@@ -2366,7 +2365,7 @@ func TestFilterChainMatchEqual(t *testing.T) {
 				ApplicationProtocols: plaintextHTTPALPNs,
 				DestinationPort:      &wrappers.UInt32Value{Value: 1999},
 				AddressSuffix:        "suffix",
-				SourceType:           envoy_api_v2_listener.FilterChainMatch_ANY,
+				SourceType:           listener.FilterChainMatch_ANY,
 				SuffixLen:            &wrappers.UInt32Value{Value: 3},
 				PrefixRanges: []*core.CidrRange{
 					{
