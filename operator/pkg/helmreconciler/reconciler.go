@@ -15,7 +15,15 @@
 package helmreconciler
 
 import (
+	"context"
 	"sync"
+	"time"
+
+	"istio.io/istio/operator/pkg/translate"
+	binversion "istio.io/istio/operator/version"
+	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -26,6 +34,12 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
+)
+
+const (
+	pollTimeout    = 60 * time.Second
+	pollInterval   = 2 * time.Second
+	istioNameSpace = "istio-system"
 )
 
 // HelmReconciler reconciles resources rendered by a set of helm charts for a specific instances of a custom resource,
@@ -207,13 +221,78 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1
 			break
 		}
 	}
-
+	// update status based on the in cluster resources status if manifests processed successfully,
+	// otherwise just use status obtained from processing manifests.
+	if overallStatus == v1alpha1.InstallStatus_HEALTHY {
+		cs, err := checkResourceStatus(h.client, manifests, &overallStatus)
+		if err != nil {
+			log.Errorf("failed to check resource status %v", err)
+		}
+		if cs != nil {
+			for cn := range componentStatus {
+				pending, exist := cs[cn]
+				if exist && pending {
+					componentStatus[cn].Status = v1alpha1.InstallStatus_UPDATING
+				}
+			}
+		}
+	}
 	out := &v1alpha1.InstallStatus{
 		Status:          overallStatus,
 		ComponentStatus: componentStatus,
 	}
 
 	return out
+}
+
+// checkResourceStatus check and wait for resource to be ready,
+// update overallStatus and return a map with componentName as key and pending state as value
+func checkResourceStatus(cs client.Client, manifests ChartManifestsMap,
+	overallStatus *v1alpha1.InstallStatus_Status) (map[string]bool, error) {
+	t, err := translate.NewTranslator(binversion.OperatorBinaryVersion.MinorVersion)
+	if err != nil {
+		return nil, err
+	}
+	componentPending := make(map[string]bool)
+	errPoll := wait.Poll(pollInterval, pollTimeout, func() (bool, error) {
+		for cn := range manifests {
+			cnMap, ok := t.ComponentMaps[name.ComponentName(cn)]
+			if ok {
+				dp := &appsv1.Deployment{}
+				key := client.ObjectKey{Namespace: istioNameSpace, Name: cnMap.ResourceName}
+				err := cs.Get(context.TODO(), key, dp)
+				if err != nil {
+					return false, err
+				}
+
+				if dp.Status.ReadyReplicas != dp.Status.UnavailableReplicas+dp.Status.AvailableReplicas {
+					componentPending[cn] = true
+					return false, nil
+				}
+			}
+		}
+
+		podList := &v1.PodList{}
+		err := cs.List(context.TODO(), podList, client.InNamespace(istioNameSpace))
+		if err != nil {
+			return false, err
+		}
+		for _, pod := range podList.Items {
+			if len(pod.Status.Conditions) > 0 {
+				for _, condition := range pod.Status.Conditions {
+					if condition.Type != v1.PodReady || condition.Status != v1.ConditionTrue {
+						return false, nil
+					}
+				}
+			}
+		}
+		return true, nil
+	})
+	if errPoll != nil {
+		*overallStatus = v1alpha1.InstallStatus_UPDATING
+		return componentPending, nil
+	}
+	return nil, nil
 }
 
 // Delete resources associated with the custom resource instance
