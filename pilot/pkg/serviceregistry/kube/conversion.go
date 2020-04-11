@@ -17,6 +17,7 @@ package kube
 import (
 	"context"
 	"fmt"
+	"k8s.io/client-go/tools/cache"
 	"net"
 	"sort"
 	"strconv"
@@ -113,6 +114,16 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 			UID:             formatUID(svc.Namespace, svc.Name),
 			ExportTo:        exportTo,
 		},
+	}
+
+	if svc.Spec.Type == coreV1.ServiceTypeNodePort {
+		// store the service port to node port mappings
+		portMap := make(map[uint32]uint32)
+		for _, p := range svc.Spec.Ports {
+			portMap[uint32(p.Port)]=uint32(p.NodePort)
+		}
+		istioService.Attributes.ClusterExternalPorts = map[string]map[uint32]uint32{clusterID: portMap}
+		// address mappings will be done elsewhere
 	}
 
 	if svc.Spec.Type == coreV1.ServiceTypeLoadBalancer && len(svc.Status.LoadBalancer.Ingress) > 0 {

@@ -154,6 +154,12 @@ func (m EndpointMode) String() string {
 
 var _ serviceregistry.Instance = &Controller{}
 
+// kubernetesNode represents a kubernetes node that is reachable externally
+type kubernetesNode struct {
+	address string
+	labels labels.Collection
+}
+
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
@@ -182,6 +188,10 @@ type Controller struct {
 	servicesMap map[host.Name]*model.Service
 	// externalNameSvcInstanceMap stores hostname ==> instance, is used to store instances for ExternalName k8s services
 	externalNameSvcInstanceMap map[host.Name][]*model.ServiceInstance
+	// the list of all externally reachable nodes in the clusters
+	nodeInfoList []*kubernetesNode
+	// same as above but just the addresses for faster retrieval
+	nodeAddressList []string
 
 	// CIDR ranger based on path-compressed prefix trie
 	ranger cidranger.Ranger
@@ -280,6 +290,10 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		// EDS needs to just know when service is deleted.
 		c.xdsUpdater.SvcUpdate(c.clusterID, svc.Name, svc.Namespace, event)
 	default:
+		if isNodePortService(svcConv) {
+			c.updateServiceNodePortIPs(svcConv)
+		}
+
 		// instance conversion is only required when service is added/updated.
 		instances := kube.ExternalNameServiceInstances(*svc, svcConv)
 		c.Lock()
@@ -302,7 +316,59 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 }
 
 func (c *Controller) onNodeEvent(obj interface{}, ev model.Event) error {
-	return c.checkReadyForEvents()
+	if err := c.checkReadyForEvents(); err != nil {
+		return err
+	}
+
+	var k8sNodes []*kubernetesNode
+	var extaddresses []string
+	rawNodes := c.nodes.GetStore().List()
+	for _, i := range rawNodes {
+		machine := i.(*v1.Node)
+		for _, address := range machine.Status.Addresses {
+			if address.Type == v1.NodeExternalIP {
+				k8sNodes = append(k8sNodes,
+					&kubernetesNode{address: address.Address,
+						labels: labels.Collection{machine.Labels, machine.Annotations}})
+				extaddresses = append(extaddresses, address.Address)
+			}
+		}
+	}
+
+	// TODO: There are a whole lot of race conditions here
+	// What happens during initial sync? If node event and service event occur simultaneously,
+	// this code will see a lot of contention, esp during the first sync/deluge of add events
+	if len(k8sNodes) > 0 {
+		c.Lock()
+		c.nodeInfoList = k8sNodes
+		c.nodeAddressList = extaddresses
+		// for every node port service, update its cluster external addresses
+		// this should be triggering just an EDS update and nothing else.
+		c.Lock()
+		for _, svc := range c.servicesMap {
+			if isNodePortService(svc) {
+				c.updateServiceNodePortIPs(svc)
+				// TODO: how to trigger eds update so that the gateway endpoints provided to envoys outside of this cluster
+				// are refreshed?
+			}
+		}
+		c.Unlock()
+	}
+	return nil
+}
+
+func isNodePortService(svc *model.Service) bool {
+	if svc.Attributes.ClusterExternalPorts != nil {
+		return true
+	}
+	return false
+}
+
+func (c *Controller) updateServiceNodePortIPs(svc *model.Service) {
+	// populate the cluster external IPs
+	// TODO: allow annotation driven way of restricting the set of nodes that the user wants to choose
+	// for this service. But for this, we need the k8s service object to get the annotations
+	svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: c.nodeAddressList}
 }
 
 func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otype string,

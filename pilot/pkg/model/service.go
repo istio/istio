@@ -338,6 +338,13 @@ type ServiceAttributes struct {
 	// Used by the aggregator to aggregate the Attributes.ClusterExternalAddresses
 	// for clusters where the service resides
 	ClusterExternalAddresses map[string][]string
+
+	// ClusterExternalPorts is a mapping between a cluster name and the service port
+	// to node port mappings for a given service. When accessing the service via
+	// node port IPs, we need to use the kubernetes assigned node ports of the service
+	// The port that the user provides in the meshNetworks config is the service port.
+	// We translate that to the appropriate node port here.
+	ClusterExternalPorts map[string]map[uint32]uint32
 }
 
 // ServiceDiscovery enumerates Istio service instances.
