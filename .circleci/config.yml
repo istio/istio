@@ -6,7 +6,8 @@ jobs:
   build:
     docker:
       # specify the version
-      - image: circleci/golang:1.13
+      - image: istio/ci:go1.11-k8s1.10.4-helm2.7.2-minikube0.25
+      # circleci/golang:1.13
 
       # Specify service dependencies here if necessary
       # CircleCI maintains a library of pre-built images
@@ -20,6 +21,8 @@ jobs:
     working_directory: /go/src/github.com/{{ORG_NAME}}/{{REPO_NAME}}
     steps:
       - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
 
       # specify any bash command here prefixed with `run: `
       - run: make build
