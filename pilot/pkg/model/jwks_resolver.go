@@ -464,19 +464,37 @@ func compareJWKSResponse(oldKeyString string, newKeyString string) (bool, error)
 	}
 
 	// Sort both sets of keys by "kid (key ID)" to be able to directly compare
-	oldKeys := oldJWKs["keys"].([]interface{})
-	sort.Slice(oldKeys, func(i, j int) bool {
-		key1 := oldKeys[i].(map[string]interface{})
-		key2 := oldKeys[j].(map[string]interface{})
-		return key1["kid"].(string) < key2["kid"].(string)
-	})
-	newKeys := newJWKs["keys"].([]interface{})
-	sort.Slice(newKeys, func(i, j int) bool {
-		key1 := newKeys[i].(map[string]interface{})
-		key2 := newKeys[j].(map[string]interface{})
-		return key1["kid"].(string) < key2["kid"].(string)
-	})
+	oldKeys, oldKeysExists := oldJWKs["keys"].([]interface{})
+	newKeys, newKeysExists := newJWKs["keys"].([]interface{})
+	if oldKeysExists && newKeysExists {
+		sort.Slice(oldKeys, func(i, j int) bool {
+			key1 := oldKeys[i].(map[string]interface{})
+			key2 := oldKeys[j].(map[string]interface{})
+			key1Id, kid1Exists := key1["kid"]
+			key2Id, kid2Exists := key2["kid"]
+			if kid1Exists && kid2Exists {
+				return key1Id.(string) < key2Id.(string)
+			} else {
+				return fmt.Sprintf("%v", key1) < fmt.Sprintf("%v", key2)
+			}
+		})
+		sort.Slice(newKeys, func(i, j int) bool {
+			key1 := newKeys[i].(map[string]interface{})
+			key2 := newKeys[j].(map[string]interface{})
+			key1Id, kid1Exists := key1["kid"]
+			key2Id, kid2Exists := key2["kid"]
+			if kid1Exists && kid2Exists {
+				return key1Id.(string) < key2Id.(string)
+			} else {
+				return len(key1) < len(key2)
+			}
+		})
 
-	// Once sorted, return the result of deep comparison of the arrays of keys
-	return !reflect.DeepEqual(oldKeys, newKeys), nil
+		// Once sorted, return the result of deep comparison of the arrays of keys
+		return !reflect.DeepEqual(oldKeys, newKeys), nil
+	} else {
+		// If we aren't able to compare using keys, we should return true
+		// since we already checked exact equality of the responses
+		return true, nil
+	}
 }

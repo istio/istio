@@ -47,6 +47,21 @@ const (
 	// JwtPubKey2 is the response to later calls for JWT public key returned by mock server.
 	JwtPubKey2 = `{ "keys": [ { "kid": "fakeKey2_1", "alg": "RS256", "kty": "RSA", "n": "ghi", "e": "lmn" },
 			{ "kid": "fakeKey2_2", "alg": "RS256", "kty": "RSA", "n": "789", "e": "1234" } ] }`
+
+	JwtPubKeyNoKid = `{ "keys": [ { "alg": "RS256", "kty": "RSA", "n": "abc", "e": "def" },
+			{ "alg": "RS256", "kty": "RSA", "n": "123", "e": "456" } ] }`
+
+	JwtPubKeyNoKid2 = `{ "keys": [ { "alg": "RS256", "kty": "RSA", "n": "ghi", "e": "lmn" },
+			{ "alg": "RS256", "kty": "RSA", "n": "789", "e": "123" } ] }`
+
+	JwtPubKeyNoKeys = `{ "pub": [ { "kid": "fakeKey1_1", "alg": "RS256", "kty": "RSA", "n": "abc", "e": "def" },
+			{ "kid": "fakeKey1_2", "alg": "RS256", "kty": "RSA", "n": "123", "e": "456" } ] }`
+
+	JwtPubKeyNoKeys2 = `{ "pub": [ { "kid": "fakeKey1_3", "alg": "RS256", "kty": "RSA", "n": "abc", "e": "def" },
+			{ "kid": "fakeKey1_4", "alg": "RS256", "kty": "RSA", "n": "123", "e": "456" } ] }`
+
+	JwtPubKeyExtraElements = `{ "keys": [ { "kid": "fakeKey1_1", "alg": "RS256", "kty": "RSA", "n": "abc", "e": "def", "bla": "blah" },
+			{ "kid": "fakeKey1_2", "alg": "RS256", "kty": "RSA", "n": "123", "e": "456", "bla": "blah" } ] }`
 )
 
 // MockOpenIDDiscoveryServer is the in-memory openID discovery server.
