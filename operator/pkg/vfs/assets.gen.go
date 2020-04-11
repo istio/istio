@@ -189,6 +189,7 @@ import (
 	"strings"
 	"time"
 )
+
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -3112,7 +3113,7 @@ spec:
                                   format: string
                                   type: string
                                 clientCertificate:
-                                  description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                                  description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                                   format: string
                                   type: string
                                 mode:
@@ -3123,7 +3124,7 @@ spec:
                                   - ISTIO_MUTUAL
                                   type: string
                                 privateKey:
-                                  description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                                  description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                                   format: string
                                   type: string
                                 sni:
@@ -3147,7 +3148,7 @@ spec:
                             format: string
                             type: string
                           clientCertificate:
-                            description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                            description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                             format: string
                             type: string
                           mode:
@@ -3158,7 +3159,7 @@ spec:
                             - ISTIO_MUTUAL
                             type: string
                           privateKey:
-                            description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                            description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                             format: string
                             type: string
                           sni:
@@ -3637,7 +3638,7 @@ spec:
                             format: string
                             type: string
                           clientCertificate:
-                            description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                            description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                             format: string
                             type: string
                           mode:
@@ -3648,7 +3649,7 @@ spec:
                             - ISTIO_MUTUAL
                             type: string
                           privateKey:
-                            description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                            description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                             format: string
                             type: string
                           sni:
@@ -3672,7 +3673,7 @@ spec:
                       format: string
                       type: string
                     clientCertificate:
-                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                       format: string
                       type: string
                     mode:
@@ -3683,7 +3684,7 @@ spec:
                       - ISTIO_MUTUAL
                       type: string
                     privateKey:
-                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                       format: string
                       type: string
                     sni:
@@ -4016,7 +4017,7 @@ spec:
                       behavior.
                     properties:
                       caCertificates:
-                        description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                        description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                         format: string
                         type: string
                       cipherSuites:
@@ -4058,11 +4059,11 @@ spec:
                         - ISTIO_MUTUAL
                         type: string
                       privateKey:
-                        description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                        description: REQUIRED if mode is ` + "`" + `SIMPLE` + "`" + ` or ` + "`" + `MUTUAL` + "`" + `.
                         format: string
                         type: string
                       serverCertificate:
-                        description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                        description: REQUIRED if mode is ` + "`" + `SIMPLE` + "`" + ` or ` + "`" + `MUTUAL` + "`" + `.
                         format: string
                         type: string
                       subjectAltNames:
@@ -4305,7 +4306,7 @@ spec:
                   localhostServerTls:
                     properties:
                       caCertificates:
-                        description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                        description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                         format: string
                         type: string
                       cipherSuites:
@@ -4347,11 +4348,11 @@ spec:
                         - ISTIO_MUTUAL
                         type: string
                       privateKey:
-                        description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                        description: REQUIRED if mode is ` + "`" + `SIMPLE` + "`" + ` or ` + "`" + `MUTUAL` + "`" + `.
                         format: string
                         type: string
                       serverCertificate:
-                        description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                        description: REQUIRED if mode is ` + "`" + `SIMPLE` + "`" + ` or ` + "`" + `MUTUAL` + "`" + `.
                         format: string
                         type: string
                       subjectAltNames:
@@ -4409,7 +4410,7 @@ spec:
                         format: string
                         type: string
                       clientCertificate:
-                        description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                        description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                         format: string
                         type: string
                       mode:
@@ -4420,7 +4421,7 @@ spec:
                         - ISTIO_MUTUAL
                         type: string
                       privateKey:
-                        description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                        description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                         format: string
                         type: string
                       sni:
@@ -4459,7 +4460,7 @@ spec:
                       format: string
                       type: string
                     clientCertificate:
-                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                       format: string
                       type: string
                     mode:
@@ -4470,7 +4471,7 @@ spec:
                       - ISTIO_MUTUAL
                       type: string
                     privateKey:
-                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                       format: string
                       type: string
                     sni:
@@ -4487,7 +4488,7 @@ spec:
                 serverTls:
                   properties:
                     caCertificates:
-                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                       format: string
                       type: string
                     cipherSuites:
@@ -4529,11 +4530,11 @@ spec:
                       - ISTIO_MUTUAL
                       type: string
                     privateKey:
-                      description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                      description: REQUIRED if mode is ` + "`" + `SIMPLE` + "`" + ` or ` + "`" + `MUTUAL` + "`" + `.
                       format: string
                       type: string
                     serverCertificate:
-                      description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                      description: REQUIRED if mode is ` + "`" + `SIMPLE` + "`" + ` or ` + "`" + `MUTUAL` + "`" + `.
                       format: string
                       type: string
                     subjectAltNames:
@@ -5116,15 +5117,15 @@ spec:
                         type: string
                     type: object
                   mirror_percent:
-                    description: Percentage of the traffic to be mirrored by the `+"`"+`mirror`+"`"+`
+                    description: Percentage of the traffic to be mirrored by the ` + "`" + `mirror` + "`" + `
                       field.
                     type: integer
                   mirrorPercent:
-                    description: Percentage of the traffic to be mirrored by the `+"`"+`mirror`+"`"+`
+                    description: Percentage of the traffic to be mirrored by the ` + "`" + `mirror` + "`" + `
                       field.
                     type: integer
                   mirrorPercentage:
-                    description: Percentage of the traffic to be mirrored by the `+"`"+`mirror`+"`"+`
+                    description: Percentage of the traffic to be mirrored by the ` + "`" + `mirror` + "`" + `
                       field.
                     properties:
                       value:
@@ -5873,7 +5874,7 @@ spec:
           properties:
             actions:
               description: The actions that will be executed when match evaluates
-                to `+"`"+`true`+"`"+`.
+                to ` + "`" + `true` + "`" + `.
               items:
                 properties:
                   handler:
@@ -5947,7 +5948,7 @@ spec:
                   properties:
                     attributeExpression:
                       description: Specifies an attribute expression to use to override
-                        the numerator in the `+"`"+`percent_sampled`+"`"+` field.
+                        the numerator in the ` + "`" + `percent_sampled` + "`" + ` field.
                       format: string
                       type: string
                     percentSampled:
@@ -5965,13 +5966,13 @@ spec:
                       type: object
                     useIndependentRandomness:
                       description: By default sampling will be based on the value
-                        of the request header `+"`"+`x-request-id`+"`"+`.
+                        of the request header ` + "`" + `x-request-id` + "`" + `.
                       type: boolean
                   type: object
                 rateLimit:
                   properties:
                     maxUnsampledEntries:
-                      description: Number of entries to allow during the `+"`"+`sampling_duration`+"`"+`
+                      description: Number of entries to allow during the ` + "`" + `sampling_duration` + "`" + `
                         before sampling is enforced.
                       format: int64
                       type: integer
@@ -9891,7 +9892,7 @@ spec:
                                   format: string
                                   type: string
                                 clientCertificate:
-                                  description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                                  description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                                   format: string
                                   type: string
                                 mode:
@@ -9902,7 +9903,7 @@ spec:
                                   - ISTIO_MUTUAL
                                   type: string
                                 privateKey:
-                                  description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                                  description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                                   format: string
                                   type: string
                                 sni:
@@ -9926,7 +9927,7 @@ spec:
                             format: string
                             type: string
                           clientCertificate:
-                            description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                            description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                             format: string
                             type: string
                           mode:
@@ -9937,7 +9938,7 @@ spec:
                             - ISTIO_MUTUAL
                             type: string
                           privateKey:
-                            description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                            description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                             format: string
                             type: string
                           sni:
@@ -10416,7 +10417,7 @@ spec:
                             format: string
                             type: string
                           clientCertificate:
-                            description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                            description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                             format: string
                             type: string
                           mode:
@@ -10427,7 +10428,7 @@ spec:
                             - ISTIO_MUTUAL
                             type: string
                           privateKey:
-                            description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                            description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                             format: string
                             type: string
                           sni:
@@ -10451,7 +10452,7 @@ spec:
                       format: string
                       type: string
                     clientCertificate:
-                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                       format: string
                       type: string
                     mode:
@@ -10462,7 +10463,7 @@ spec:
                       - ISTIO_MUTUAL
                       type: string
                     privateKey:
-                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                       format: string
                       type: string
                     sni:
@@ -10795,7 +10796,7 @@ spec:
                       behavior.
                     properties:
                       caCertificates:
-                        description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                        description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                         format: string
                         type: string
                       cipherSuites:
@@ -10837,11 +10838,11 @@ spec:
                         - ISTIO_MUTUAL
                         type: string
                       privateKey:
-                        description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                        description: REQUIRED if mode is ` + "`" + `SIMPLE` + "`" + ` or ` + "`" + `MUTUAL` + "`" + `.
                         format: string
                         type: string
                       serverCertificate:
-                        description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                        description: REQUIRED if mode is ` + "`" + `SIMPLE` + "`" + ` or ` + "`" + `MUTUAL` + "`" + `.
                         format: string
                         type: string
                       subjectAltNames:
@@ -11084,7 +11085,7 @@ spec:
                   localhostServerTls:
                     properties:
                       caCertificates:
-                        description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                        description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                         format: string
                         type: string
                       cipherSuites:
@@ -11126,11 +11127,11 @@ spec:
                         - ISTIO_MUTUAL
                         type: string
                       privateKey:
-                        description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                        description: REQUIRED if mode is ` + "`" + `SIMPLE` + "`" + ` or ` + "`" + `MUTUAL` + "`" + `.
                         format: string
                         type: string
                       serverCertificate:
-                        description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                        description: REQUIRED if mode is ` + "`" + `SIMPLE` + "`" + ` or ` + "`" + `MUTUAL` + "`" + `.
                         format: string
                         type: string
                       subjectAltNames:
@@ -11188,7 +11189,7 @@ spec:
                         format: string
                         type: string
                       clientCertificate:
-                        description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                        description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                         format: string
                         type: string
                       mode:
@@ -11199,7 +11200,7 @@ spec:
                         - ISTIO_MUTUAL
                         type: string
                       privateKey:
-                        description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                        description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                         format: string
                         type: string
                       sni:
@@ -11238,7 +11239,7 @@ spec:
                       format: string
                       type: string
                     clientCertificate:
-                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                       format: string
                       type: string
                     mode:
@@ -11249,7 +11250,7 @@ spec:
                       - ISTIO_MUTUAL
                       type: string
                     privateKey:
-                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                       format: string
                       type: string
                     sni:
@@ -11266,7 +11267,7 @@ spec:
                 serverTls:
                   properties:
                     caCertificates:
-                      description: REQUIRED if mode is `+"`"+`MUTUAL`+"`"+`.
+                      description: REQUIRED if mode is ` + "`" + `MUTUAL` + "`" + `.
                       format: string
                       type: string
                     cipherSuites:
@@ -11308,11 +11309,11 @@ spec:
                       - ISTIO_MUTUAL
                       type: string
                     privateKey:
-                      description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                      description: REQUIRED if mode is ` + "`" + `SIMPLE` + "`" + ` or ` + "`" + `MUTUAL` + "`" + `.
                       format: string
                       type: string
                     serverCertificate:
-                      description: REQUIRED if mode is `+"`"+`SIMPLE`+"`"+` or `+"`"+`MUTUAL`+"`"+`.
+                      description: REQUIRED if mode is ` + "`" + `SIMPLE` + "`" + ` or ` + "`" + `MUTUAL` + "`" + `.
                       format: string
                       type: string
                     subjectAltNames:
@@ -11895,15 +11896,15 @@ spec:
                         type: string
                     type: object
                   mirror_percent:
-                    description: Percentage of the traffic to be mirrored by the `+"`"+`mirror`+"`"+`
+                    description: Percentage of the traffic to be mirrored by the ` + "`" + `mirror` + "`" + `
                       field.
                     type: integer
                   mirrorPercent:
-                    description: Percentage of the traffic to be mirrored by the `+"`"+`mirror`+"`"+`
+                    description: Percentage of the traffic to be mirrored by the ` + "`" + `mirror` + "`" + `
                       field.
                     type: integer
                   mirrorPercentage:
-                    description: Percentage of the traffic to be mirrored by the `+"`"+`mirror`+"`"+`
+                    description: Percentage of the traffic to be mirrored by the ` + "`" + `mirror` + "`" + `
                       field.
                     properties:
                       value:
@@ -12652,7 +12653,7 @@ spec:
           properties:
             actions:
               description: The actions that will be executed when match evaluates
-                to `+"`"+`true`+"`"+`.
+                to ` + "`" + `true` + "`" + `.
               items:
                 properties:
                   handler:
@@ -12726,7 +12727,7 @@ spec:
                   properties:
                     attributeExpression:
                       description: Specifies an attribute expression to use to override
-                        the numerator in the `+"`"+`percent_sampled`+"`"+` field.
+                        the numerator in the ` + "`" + `percent_sampled` + "`" + ` field.
                       format: string
                       type: string
                     percentSampled:
@@ -12744,13 +12745,13 @@ spec:
                       type: object
                     useIndependentRandomness:
                       description: By default sampling will be based on the value
-                        of the request header `+"`"+`x-request-id`+"`"+`.
+                        of the request header ` + "`" + `x-request-id` + "`" + `.
                       type: boolean
                   type: object
                 rateLimit:
                   properties:
                     maxUnsampledEntries:
-                      description: Number of entries to allow during the `+"`"+`sampling_duration`+"`"+`
+                      description: Number of entries to allow during the ` + "`" + `sampling_duration` + "`" + `
                         before sampling is enforced.
                       format: int64
                       type: integer
@@ -13960,7 +13961,7 @@ webhooks:
         resources:
         - "*"
     # Fail open until the validation webhook is ready. The webhook controller
-    # will update this to `+"`"+`Fail`+"`"+` and patch in the `+"`"+`caBundle`+"`"+` when the webhook
+    # will update this to ` + "`" + `Fail` + "`" + ` and patch in the ` + "`" + `caBundle` + "`" + ` when the webhook
     # endpoint is ready.
     failurePolicy: Ignore
     sideEffects: None
@@ -14461,7 +14462,7 @@ webhooks:
         resources:
         - "*"
     # Fail open until the validation webhook is ready. The webhook controller
-    # will update this to `+"`"+`Fail`+"`"+` and patch in the `+"`"+`caBundle`+"`"+` when the webhook
+    # will update this to ` + "`" + `Fail` + "`" + ` and patch in the ` + "`" + `caBundle` + "`" + ` when the webhook
     # endpoint is ready.
     failurePolicy: Ignore
     sideEffects: None
@@ -14985,7 +14986,7 @@ spec:
 {{ toJson $gateway.podAnnotations | indent 16}}
 {{ end }}
           - name: ISTIO_META_CLUSTER_ID
-            value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
+            value: "{{ $.Values.global.multiCluster.clusterName | default ` + "`" + `Kubernetes` + "`" + ` }}"
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -15855,7 +15856,7 @@ spec:
 {{ toJson $gateway.podAnnotations | indent 16}}
 {{ end }}
           - name: ISTIO_META_CLUSTER_ID
-            value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
+            value: "{{ $.Values.global.multiCluster.clusterName | default ` + "`" + `Kubernetes` + "`" + ` }}"
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -16686,7 +16687,8 @@ data:
           "kubernetes": {
               "kubeconfig": "__KUBECONFIG_FILEPATH__",
               "cni_bin_dir": {{ quote .Values.cni.cniBinDir }},
-              "exclude_namespaces": [ {{ range $idx, $ns := .Values.cni.excludeNamespaces }}{{ if $idx }}, {{ end }}{{ quote $ns }}{{ end }} ]
+              "exclude_namespaces": [ {{ range $idx, $ns := .Values.cni.excludeNamespaces }}{{ if $idx }}, {{ end }}{{ quote $ns }}{{ end }} ],
+              "exclude_ip_ranges": {{ quote .Values.global.proxy.excludeIPRanges }}
           }
         }
 `)
@@ -17322,7 +17324,7 @@ data:
     template: |
       rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
       initContainers:
-      {{ if ne (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`NONE`+"`"+` }}
+      {{ if ne (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `NONE` + "`" + ` }}
       {{ if .Values.istio_cni.enabled -}}
       - name: istio-validation
       {{ else -}}
@@ -17342,28 +17344,28 @@ data:
         - "-u"
         - 1337
         - "-m"
-        - "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode }}"
+        - "{{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode }}"
         - "-i"
-        - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeOutboundIPRanges`+"`"+` .Values.global.proxy.includeIPRanges }}"
+        - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/includeOutboundIPRanges` + "`" + ` .Values.global.proxy.includeIPRanges }}"
         - "-x"
-        - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundIPRanges`+"`"+` .Values.global.proxy.excludeIPRanges }}"
+        - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeOutboundIPRanges` + "`" + ` .Values.global.proxy.excludeIPRanges }}"
         - "-b"
-        - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeInboundPorts`+"`"+` `+"`"+`*`+"`"+` }}"
+        - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/includeInboundPorts` + "`" + ` ` + "`" + `*` + "`" + ` }}"
         - "-d"
-        - "15090,{{ excludeInboundPort (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) (annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeInboundPorts`+"`"+` .Values.global.proxy.excludeInboundPorts) }}"
-        {{ if or (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+`) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
+        - "15090,{{ excludeInboundPort (annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort) (annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeInboundPorts` + "`" + ` .Values.global.proxy.excludeInboundPorts) }}"
+        {{ if or (isset .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/excludeOutboundPorts` + "`" + `) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
         - "-o"
-        - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+` .Values.global.proxy.excludeOutboundPorts }}"
+        - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeOutboundPorts` + "`" + ` .Values.global.proxy.excludeOutboundPorts }}"
         {{ end -}}
-        {{ if (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/kubevirtInterfaces`+"`"+`) -}}
+        {{ if (isset .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/kubevirtInterfaces` + "`" + `) -}}
         - "-k"
-        - "{{ index .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/kubevirtInterfaces`+"`"+` }}"
+        - "{{ index .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/kubevirtInterfaces` + "`" + ` }}"
         {{ end -}}
         {{ if .Values.istio_cni.enabled -}}
         - "--run-validation"
         - "--skip-rule-apply"
         {{ end -}}
-        imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
+        imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy ` + "`" + `Always` + "`" + ` }}"
       {{- if .Values.global.proxy_init.resources }}
         env:
         {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
@@ -17411,7 +17413,7 @@ data:
       {{- else }}
         image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
       {{- end }}
-        imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
+        imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy ` + "`" + `Always` + "`" + ` }}"
         resources: {}
         securityContext:
           allowPrivilegeEscalation: true
@@ -17428,8 +17430,8 @@ data:
       {{ end }}
       containers:
       - name: istio-proxy
-      {{- if contains "/" (annotation .ObjectMeta `+"`"+`sidecar.istio.io/proxyImage`+"`"+` .Values.global.proxy.image) }}
-        image: "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/proxyImage`+"`"+` .Values.global.proxy.image }}"
+      {{- if contains "/" (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/proxyImage` + "`" + ` .Values.global.proxy.image) }}
+        image: "{{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/proxyImage` + "`" + ` .Values.global.proxy.image }}"
       {{- else }}
         image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
       {{- end }}
@@ -17444,12 +17446,12 @@ data:
         - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
         - --serviceCluster
         {{ if ne "" (index .ObjectMeta.Labels "app") -}}
-        - "{{ index .ObjectMeta.Labels `+"`"+`app`+"`"+` }}.$(POD_NAMESPACE)"
+        - "{{ index .ObjectMeta.Labels ` + "`" + `app` + "`" + ` }}.$(POD_NAMESPACE)"
         {{ else -}}
-        - "{{ valueOrDefault .DeploymentMeta.Name `+"`"+`istio-proxy`+"`"+` }}.{{ valueOrDefault .DeploymentMeta.Namespace `+"`"+`default`+"`"+` }}"
+        - "{{ valueOrDefault .DeploymentMeta.Name ` + "`" + `istio-proxy` + "`" + ` }}.{{ valueOrDefault .DeploymentMeta.Namespace ` + "`" + `default` + "`" + ` }}"
         {{ end -}}
-        - --proxyLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/logLevel`+"`"+` .Values.global.proxy.logLevel}}
-        - --proxyComponentLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/componentLogLevel`+"`"+` .Values.global.proxy.componentLogLevel}}
+        - --proxyLogLevel={{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/logLevel` + "`" + ` .Values.global.proxy.logLevel}}
+        - --proxyComponentLogLevel={{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/componentLogLevel` + "`" + ` .Values.global.proxy.componentLogLevel}}
       {{- if .Values.global.sts.servicePort }}
         - --stsPort={{ .Values.global.sts.servicePort }}
       {{- end }}
@@ -17522,9 +17524,9 @@ data:
               {{- end}}
             ]
         - name: ISTIO_META_CLUSTER_ID
-          value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `+"`"+`Kubernetes`+"`"+` }}"
+          value: "{{ valueOrDefault .Values.global.multiCluster.clusterName ` + "`" + `Kubernetes` + "`" + ` }}"
         - name: ISTIO_META_INTERCEPTION_MODE
-          value: "{{ or (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/interceptionMode`+"`"+`) .ProxyConfig.InterceptionMode.String }}"
+          value: "{{ or (index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + `) .ProxyConfig.InterceptionMode.String }}"
         {{- if .Values.global.network }}
         - name: ISTIO_META_NETWORK
           value: "{{ .Values.global.network }}"
@@ -17540,9 +17542,9 @@ data:
         {{ end }}
         {{- if and .TypeMeta.APIVersion .DeploymentMeta.Name }}
         - name: ISTIO_META_OWNER
-          value: kubernetes://apis/{{ .TypeMeta.APIVersion }}/namespaces/{{ valueOrDefault .DeploymentMeta.Namespace `+"`"+`default`+"`"+` }}/{{ toLower .TypeMeta.Kind}}s/{{ .DeploymentMeta.Name }}
+          value: kubernetes://apis/{{ .TypeMeta.APIVersion }}/namespaces/{{ valueOrDefault .DeploymentMeta.Namespace ` + "`" + `default` + "`" + ` }}/{{ toLower .TypeMeta.Kind}}s/{{ .DeploymentMeta.Name }}
         {{- end}}
-        {{- if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
+        {{- if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + `) }}
         - name: ISTIO_BOOTSTRAP_OVERRIDE
           value: "/etc/istio/custom-bootstrap/custom_bootstrap.json"
         {{- end }}
@@ -17553,8 +17555,8 @@ data:
         - name: ISTIO_META_MESH_ID
           value: "{{ .Values.global.trustDomain }}"
         {{- end }}
-        {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
-        {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
+        {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations ` + "`" + `apm.datadoghq.com/env` + "`" + `) }}
+        {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations ` + "`" + `apm.datadoghq.com/env` + "`" + `) }}
         - name: {{ $key }}
           value: "{{ $value }}"
         {{- end }}
@@ -17563,25 +17565,25 @@ data:
         - name: {{ $key }}
           value: "{{ $value }}"
         {{- end }}
-        imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
-        {{ if ne (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) `+"`"+`0`+"`"+` }}
+        imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy ` + "`" + `Always` + "`" + ` }}"
+        {{ if ne (annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort) ` + "`" + `0` + "`" + ` }}
         readinessProbe:
           httpGet:
             path: /healthz/ready
             port: 15090
-          initialDelaySeconds: {{ annotation .ObjectMeta `+"`"+`readiness.status.sidecar.istio.io/initialDelaySeconds`+"`"+` .Values.global.proxy.readinessInitialDelaySeconds }}
-          periodSeconds: {{ annotation .ObjectMeta `+"`"+`readiness.status.sidecar.istio.io/periodSeconds`+"`"+` .Values.global.proxy.readinessPeriodSeconds }}
-          failureThreshold: {{ annotation .ObjectMeta `+"`"+`readiness.status.sidecar.istio.io/failureThreshold`+"`"+` .Values.global.proxy.readinessFailureThreshold }}
+          initialDelaySeconds: {{ annotation .ObjectMeta ` + "`" + `readiness.status.sidecar.istio.io/initialDelaySeconds` + "`" + ` .Values.global.proxy.readinessInitialDelaySeconds }}
+          periodSeconds: {{ annotation .ObjectMeta ` + "`" + `readiness.status.sidecar.istio.io/periodSeconds` + "`" + ` .Values.global.proxy.readinessPeriodSeconds }}
+          failureThreshold: {{ annotation .ObjectMeta ` + "`" + `readiness.status.sidecar.istio.io/failureThreshold` + "`" + ` .Values.global.proxy.readinessFailureThreshold }}
         {{ end -}}
         securityContext:
           allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
           capabilities:
-            {{ if or (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+`) (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+`) -}}
+            {{ if or (eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `TPROXY` + "`" + `) (eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/capNetBindService` + "`" + ` .Values.global.proxy.capNetBindService) ` + "`" + `true` + "`" + `) -}}
             add:
-            {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
+            {{ if eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `TPROXY` + "`" + ` -}}
             - NET_ADMIN
             {{- end }}
-            {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+` -}}
+            {{ if eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/capNetBindService` + "`" + ` .Values.global.proxy.capNetBindService) ` + "`" + `true` + "`" + ` -}}
             - NET_BIND_SERVICE
             {{- end }}
             {{- end }}
@@ -17591,7 +17593,7 @@ data:
           readOnlyRootFilesystem: {{ not .Values.global.proxy.enableCoreDump }}
           runAsGroup: 1337
           fsGroup: 1337
-          {{ if or (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+`) (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+`) -}}
+          {{ if or (eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `TPROXY` + "`" + `) (eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/capNetBindService` + "`" + ` .Values.global.proxy.capNetBindService) ` + "`" + `true` + "`" + `) -}}
           runAsNonRoot: false
           runAsUser: 0
           {{- else -}}
@@ -17599,23 +17601,23 @@ data:
           runAsUser: 1337
           {{- end }}
         resources:
-      {{- if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) }}
-        {{- if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) }}
+      {{- if or (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPU` + "`" + `) (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemory` + "`" + `) (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPULimit` + "`" + `) (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemoryLimit` + "`" + `) }}
+        {{- if or (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPU` + "`" + `) (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemory` + "`" + `) }}
           requests:
-            {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) -}}
-            cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+` }}"
+            {{ if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPU` + "`" + `) -}}
+            cpu: "{{ index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPU` + "`" + ` }}"
             {{ end }}
-            {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
-            memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+` }}"
+            {{ if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemory` + "`" + `) -}}
+            memory: "{{ index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemory` + "`" + ` }}"
             {{ end }}
         {{- end }}
-        {{- if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) }}
+        {{- if or (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPULimit` + "`" + `) (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemoryLimit` + "`" + `) }}
           limits:
-            {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) -}}
-            cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+` }}"
+            {{ if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPULimit` + "`" + `) -}}
+            cpu: "{{ index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPULimit` + "`" + ` }}"
             {{ end }}
-            {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) -}}
-            memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+` }}"
+            {{ if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemoryLimit` + "`" + `) -}}
+            memory: "{{ index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemoryLimit` + "`" + ` }}"
             {{ end }}
         {{- end }}
       {{- else }}
@@ -17628,7 +17630,7 @@ data:
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
         {{- end }}
-        {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
+        {{ if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + `) }}
         - mountPath: /etc/istio/custom-bootstrap
           name: custom-bootstrap-volume
         {{- end }}
@@ -17652,17 +17654,17 @@ data:
           name: lightstep-certs
           readOnly: true
         {{- end }}
-          {{- if isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolumeMount`+"`"+` }}
-          {{ range $index, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolumeMount`+"`"+`) }}
+          {{- if isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolumeMount` + "`" + ` }}
+          {{ range $index, $value := fromJSON (index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolumeMount` + "`" + `) }}
         - name: "{{  $index }}"
           {{ toYaml $value | indent 4 }}
           {{ end }}
           {{- end }}
       volumes:
-      {{- if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
+      {{- if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + `) }}
       - name: custom-bootstrap-volume
         configMap:
-          name: {{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+` "" }}
+          name: {{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + ` "" }}
       {{- end }}
       # SDS channel between istioagent and Envoy
       - emptyDir:
@@ -17702,8 +17704,8 @@ data:
           secretName: {{  printf "istio.%s" .Spec.ServiceAccountName }}
           {{  end -}}
       {{- end }}
-        {{- if isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolume`+"`"+` }}
-        {{range $index, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolume`+"`"+`) }}
+        {{- if isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolume` + "`" + ` }}
+        {{range $index, $value := fromJSON (index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolume` + "`" + `) }}
       - name: "{{ $index }}"
         {{ toYaml $value | indent 2 }}
         {{ end }}
@@ -17722,15 +17724,15 @@ data:
           {{- end }}
       {{- end }}
       podRedirectAnnot:
-        sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode }}"
-        traffic.sidecar.istio.io/includeOutboundIPRanges: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeOutboundIPRanges`+"`"+` .Values.global.proxy.includeIPRanges }}"
-        traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundIPRanges`+"`"+` .Values.global.proxy.excludeIPRanges }}"
-        traffic.sidecar.istio.io/includeInboundPorts: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeInboundPorts`+"`"+` (includeInboundPorts .Spec.Containers) }}"
-        traffic.sidecar.istio.io/excludeInboundPorts: "{{ excludeInboundPort (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) (annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeInboundPorts`+"`"+` .Values.global.proxy.excludeInboundPorts) }}"
-      {{ if or (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+`) (ne .Values.global.proxy.excludeOutboundPorts "") }}
-        traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+` .Values.global.proxy.excludeOutboundPorts }}"
+        sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode }}"
+        traffic.sidecar.istio.io/includeOutboundIPRanges: "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/includeOutboundIPRanges` + "`" + ` .Values.global.proxy.includeIPRanges }}"
+        traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeOutboundIPRanges` + "`" + ` .Values.global.proxy.excludeIPRanges }}"
+        traffic.sidecar.istio.io/includeInboundPorts: "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/includeInboundPorts` + "`" + ` (includeInboundPorts .Spec.Containers) }}"
+        traffic.sidecar.istio.io/excludeInboundPorts: "{{ excludeInboundPort (annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort) (annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeInboundPorts` + "`" + ` .Values.global.proxy.excludeInboundPorts) }}"
+      {{ if or (isset .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/excludeOutboundPorts` + "`" + `) (ne .Values.global.proxy.excludeOutboundPorts "") }}
+        traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeOutboundPorts` + "`" + ` .Values.global.proxy.excludeOutboundPorts }}"
       {{- end }}
-        traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/kubevirtInterfaces`+"`"+` }}"
+        traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/kubevirtInterfaces` + "`" + ` }}"
 
 ---
 # Source: istio-discovery/templates/service.yaml
@@ -18729,7 +18731,7 @@ var _chartsIstioControlIstioDiscoveryFilesInjectionTemplateYaml = []byte(`# Conf
 template: |
   rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
   initContainers:
-  {{ if ne (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`NONE`+"`"+` }}
+  {{ if ne (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `NONE` + "`" + ` }}
   {{ if .Values.istio_cni.enabled -}}
   - name: istio-validation
   {{ else -}}
@@ -18749,28 +18751,28 @@ template: |
     - "-u"
     - 1337
     - "-m"
-    - "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode }}"
     - "-i"
-    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeOutboundIPRanges`+"`"+` .Values.global.proxy.includeIPRanges }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/includeOutboundIPRanges` + "`" + ` .Values.global.proxy.includeIPRanges }}"
     - "-x"
-    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundIPRanges`+"`"+` .Values.global.proxy.excludeIPRanges }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeOutboundIPRanges` + "`" + ` .Values.global.proxy.excludeIPRanges }}"
     - "-b"
-    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeInboundPorts`+"`"+` `+"`"+`*`+"`"+` }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/includeInboundPorts` + "`" + ` ` + "`" + `*` + "`" + ` }}"
     - "-d"
-    - "15090,{{ excludeInboundPort (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) (annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeInboundPorts`+"`"+` .Values.global.proxy.excludeInboundPorts) }}"
-    {{ if or (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+`) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
+    - "15090,{{ excludeInboundPort (annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort) (annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeInboundPorts` + "`" + ` .Values.global.proxy.excludeInboundPorts) }}"
+    {{ if or (isset .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/excludeOutboundPorts` + "`" + `) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
     - "-o"
-    - "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+` .Values.global.proxy.excludeOutboundPorts }}"
+    - "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeOutboundPorts` + "`" + ` .Values.global.proxy.excludeOutboundPorts }}"
     {{ end -}}
-    {{ if (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/kubevirtInterfaces`+"`"+`) -}}
+    {{ if (isset .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/kubevirtInterfaces` + "`" + `) -}}
     - "-k"
-    - "{{ index .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/kubevirtInterfaces`+"`"+` }}"
+    - "{{ index .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/kubevirtInterfaces` + "`" + ` }}"
     {{ end -}}
     {{ if .Values.istio_cni.enabled -}}
     - "--run-validation"
     - "--skip-rule-apply"
     {{ end -}}
-    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
+    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy ` + "`" + `Always` + "`" + ` }}"
   {{- if .Values.global.proxy_init.resources }}
     env:
     {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
@@ -18818,7 +18820,7 @@ template: |
   {{- else }}
     image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
   {{- end }}
-    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
+    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy ` + "`" + `Always` + "`" + ` }}"
     resources: {}
     securityContext:
       allowPrivilegeEscalation: true
@@ -18835,8 +18837,8 @@ template: |
   {{ end }}
   containers:
   - name: istio-proxy
-  {{- if contains "/" (annotation .ObjectMeta `+"`"+`sidecar.istio.io/proxyImage`+"`"+` .Values.global.proxy.image) }}
-    image: "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/proxyImage`+"`"+` .Values.global.proxy.image }}"
+  {{- if contains "/" (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/proxyImage` + "`" + ` .Values.global.proxy.image) }}
+    image: "{{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/proxyImage` + "`" + ` .Values.global.proxy.image }}"
   {{- else }}
     image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
   {{- end }}
@@ -18851,12 +18853,12 @@ template: |
     - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
     - --serviceCluster
     {{ if ne "" (index .ObjectMeta.Labels "app") -}}
-    - "{{ index .ObjectMeta.Labels `+"`"+`app`+"`"+` }}.$(POD_NAMESPACE)"
+    - "{{ index .ObjectMeta.Labels ` + "`" + `app` + "`" + ` }}.$(POD_NAMESPACE)"
     {{ else -}}
-    - "{{ valueOrDefault .DeploymentMeta.Name `+"`"+`istio-proxy`+"`"+` }}.{{ valueOrDefault .DeploymentMeta.Namespace `+"`"+`default`+"`"+` }}"
+    - "{{ valueOrDefault .DeploymentMeta.Name ` + "`" + `istio-proxy` + "`" + ` }}.{{ valueOrDefault .DeploymentMeta.Namespace ` + "`" + `default` + "`" + ` }}"
     {{ end -}}
-    - --proxyLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/logLevel`+"`"+` .Values.global.proxy.logLevel}}
-    - --proxyComponentLogLevel={{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/componentLogLevel`+"`"+` .Values.global.proxy.componentLogLevel}}
+    - --proxyLogLevel={{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/logLevel` + "`" + ` .Values.global.proxy.logLevel}}
+    - --proxyComponentLogLevel={{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/componentLogLevel` + "`" + ` .Values.global.proxy.componentLogLevel}}
   {{- if .Values.global.sts.servicePort }}
     - --stsPort={{ .Values.global.sts.servicePort }}
   {{- end }}
@@ -18929,9 +18931,9 @@ template: |
           {{- end}}
         ]
     - name: ISTIO_META_CLUSTER_ID
-      value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `+"`"+`Kubernetes`+"`"+` }}"
+      value: "{{ valueOrDefault .Values.global.multiCluster.clusterName ` + "`" + `Kubernetes` + "`" + ` }}"
     - name: ISTIO_META_INTERCEPTION_MODE
-      value: "{{ or (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/interceptionMode`+"`"+`) .ProxyConfig.InterceptionMode.String }}"
+      value: "{{ or (index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + `) .ProxyConfig.InterceptionMode.String }}"
     {{- if .Values.global.network }}
     - name: ISTIO_META_NETWORK
       value: "{{ .Values.global.network }}"
@@ -18947,9 +18949,9 @@ template: |
     {{ end }}
     {{- if and .TypeMeta.APIVersion .DeploymentMeta.Name }}
     - name: ISTIO_META_OWNER
-      value: kubernetes://apis/{{ .TypeMeta.APIVersion }}/namespaces/{{ valueOrDefault .DeploymentMeta.Namespace `+"`"+`default`+"`"+` }}/{{ toLower .TypeMeta.Kind}}s/{{ .DeploymentMeta.Name }}
+      value: kubernetes://apis/{{ .TypeMeta.APIVersion }}/namespaces/{{ valueOrDefault .DeploymentMeta.Namespace ` + "`" + `default` + "`" + ` }}/{{ toLower .TypeMeta.Kind}}s/{{ .DeploymentMeta.Name }}
     {{- end}}
-    {{- if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
+    {{- if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + `) }}
     - name: ISTIO_BOOTSTRAP_OVERRIDE
       value: "/etc/istio/custom-bootstrap/custom_bootstrap.json"
     {{- end }}
@@ -18960,8 +18962,8 @@ template: |
     - name: ISTIO_META_MESH_ID
       value: "{{ .Values.global.trustDomain }}"
     {{- end }}
-    {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
-    {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`apm.datadoghq.com/env`+"`"+`) }}
+    {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations ` + "`" + `apm.datadoghq.com/env` + "`" + `) }}
+    {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations ` + "`" + `apm.datadoghq.com/env` + "`" + `) }}
     - name: {{ $key }}
       value: "{{ $value }}"
     {{- end }}
@@ -18970,25 +18972,25 @@ template: |
     - name: {{ $key }}
       value: "{{ $value }}"
     {{- end }}
-    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `+"`"+`Always`+"`"+` }}"
-    {{ if ne (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) `+"`"+`0`+"`"+` }}
+    imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy ` + "`" + `Always` + "`" + ` }}"
+    {{ if ne (annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort) ` + "`" + `0` + "`" + ` }}
     readinessProbe:
       httpGet:
         path: /healthz/ready
         port: 15090
-      initialDelaySeconds: {{ annotation .ObjectMeta `+"`"+`readiness.status.sidecar.istio.io/initialDelaySeconds`+"`"+` .Values.global.proxy.readinessInitialDelaySeconds }}
-      periodSeconds: {{ annotation .ObjectMeta `+"`"+`readiness.status.sidecar.istio.io/periodSeconds`+"`"+` .Values.global.proxy.readinessPeriodSeconds }}
-      failureThreshold: {{ annotation .ObjectMeta `+"`"+`readiness.status.sidecar.istio.io/failureThreshold`+"`"+` .Values.global.proxy.readinessFailureThreshold }}
+      initialDelaySeconds: {{ annotation .ObjectMeta ` + "`" + `readiness.status.sidecar.istio.io/initialDelaySeconds` + "`" + ` .Values.global.proxy.readinessInitialDelaySeconds }}
+      periodSeconds: {{ annotation .ObjectMeta ` + "`" + `readiness.status.sidecar.istio.io/periodSeconds` + "`" + ` .Values.global.proxy.readinessPeriodSeconds }}
+      failureThreshold: {{ annotation .ObjectMeta ` + "`" + `readiness.status.sidecar.istio.io/failureThreshold` + "`" + ` .Values.global.proxy.readinessFailureThreshold }}
     {{ end -}}
     securityContext:
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
       capabilities:
-        {{ if or (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+`) (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+`) -}}
+        {{ if or (eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `TPROXY` + "`" + `) (eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/capNetBindService` + "`" + ` .Values.global.proxy.capNetBindService) ` + "`" + `true` + "`" + `) -}}
         add:
-        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+` -}}
+        {{ if eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `TPROXY` + "`" + ` -}}
         - NET_ADMIN
         {{- end }}
-        {{ if eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+` -}}
+        {{ if eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/capNetBindService` + "`" + ` .Values.global.proxy.capNetBindService) ` + "`" + `true` + "`" + ` -}}
         - NET_BIND_SERVICE
         {{- end }}
         {{- end }}
@@ -18998,7 +19000,7 @@ template: |
       readOnlyRootFilesystem: {{ not .Values.global.proxy.enableCoreDump }}
       runAsGroup: 1337
       fsGroup: 1337
-      {{ if or (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`TPROXY`+"`"+`) (eq (annotation .ObjectMeta `+"`"+`sidecar.istio.io/capNetBindService`+"`"+` .Values.global.proxy.capNetBindService) `+"`"+`true`+"`"+`) -}}
+      {{ if or (eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode) ` + "`" + `TPROXY` + "`" + `) (eq (annotation .ObjectMeta ` + "`" + `sidecar.istio.io/capNetBindService` + "`" + ` .Values.global.proxy.capNetBindService) ` + "`" + `true` + "`" + `) -}}
       runAsNonRoot: false
       runAsUser: 0
       {{- else -}}
@@ -19006,23 +19008,23 @@ template: |
       runAsUser: 1337
       {{- end }}
     resources:
-  {{- if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) }}
-    {{- if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) }}
+  {{- if or (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPU` + "`" + `) (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemory` + "`" + `) (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPULimit` + "`" + `) (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemoryLimit` + "`" + `) }}
+    {{- if or (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPU` + "`" + `) (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemory` + "`" + `) }}
       requests:
-        {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) -}}
-        cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+` }}"
+        {{ if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPU` + "`" + `) -}}
+        cpu: "{{ index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPU` + "`" + ` }}"
         {{ end }}
-        {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
-        memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+` }}"
+        {{ if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemory` + "`" + `) -}}
+        memory: "{{ index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemory` + "`" + ` }}"
         {{ end }}
     {{- end }}
-    {{- if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) }}
+    {{- if or (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPULimit` + "`" + `) (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemoryLimit` + "`" + `) }}
       limits:
-        {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+`) -}}
-        cpu: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPULimit`+"`"+` }}"
+        {{ if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPULimit` + "`" + `) -}}
+        cpu: "{{ index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyCPULimit` + "`" + ` }}"
         {{ end }}
-        {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+`) -}}
-        memory: "{{ index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemoryLimit`+"`"+` }}"
+        {{ if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemoryLimit` + "`" + `) -}}
+        memory: "{{ index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/proxyMemoryLimit` + "`" + ` }}"
         {{ end }}
     {{- end }}
   {{- else }}
@@ -19035,7 +19037,7 @@ template: |
     - mountPath: /var/run/secrets/istio
       name: istiod-ca-cert
     {{- end }}
-    {{ if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
+    {{ if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + `) }}
     - mountPath: /etc/istio/custom-bootstrap
       name: custom-bootstrap-volume
     {{- end }}
@@ -19059,17 +19061,17 @@ template: |
       name: lightstep-certs
       readOnly: true
     {{- end }}
-      {{- if isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolumeMount`+"`"+` }}
-      {{ range $index, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolumeMount`+"`"+`) }}
+      {{- if isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolumeMount` + "`" + ` }}
+      {{ range $index, $value := fromJSON (index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolumeMount` + "`" + `) }}
     - name: "{{  $index }}"
       {{ toYaml $value | indent 4 }}
       {{ end }}
       {{- end }}
   volumes:
-  {{- if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
+  {{- if (isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + `) }}
   - name: custom-bootstrap-volume
     configMap:
-      name: {{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+` "" }}
+      name: {{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/bootstrapOverride` + "`" + ` "" }}
   {{- end }}
   # SDS channel between istioagent and Envoy
   - emptyDir:
@@ -19109,8 +19111,8 @@ template: |
       secretName: {{  printf "istio.%s" .Spec.ServiceAccountName }}
       {{  end -}}
   {{- end }}
-    {{- if isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolume`+"`"+` }}
-    {{range $index, $value := fromJSON (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/userVolume`+"`"+`) }}
+    {{- if isset .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolume` + "`" + ` }}
+    {{range $index, $value := fromJSON (index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/userVolume` + "`" + `) }}
   - name: "{{ $index }}"
     {{ toYaml $value | indent 2 }}
     {{ end }}
@@ -19129,15 +19131,15 @@ template: |
       {{- end }}
   {{- end }}
   podRedirectAnnot:
-    sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode }}"
-    traffic.sidecar.istio.io/includeOutboundIPRanges: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeOutboundIPRanges`+"`"+` .Values.global.proxy.includeIPRanges }}"
-    traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundIPRanges`+"`"+` .Values.global.proxy.excludeIPRanges }}"
-    traffic.sidecar.istio.io/includeInboundPorts: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeInboundPorts`+"`"+` (includeInboundPorts .Spec.Containers) }}"
-    traffic.sidecar.istio.io/excludeInboundPorts: "{{ excludeInboundPort (annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort) (annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeInboundPorts`+"`"+` .Values.global.proxy.excludeInboundPorts) }}"
-  {{ if or (isset .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+`) (ne .Values.global.proxy.excludeOutboundPorts "") }}
-    traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/excludeOutboundPorts`+"`"+` .Values.global.proxy.excludeOutboundPorts }}"
+    sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta ` + "`" + `sidecar.istio.io/interceptionMode` + "`" + ` .ProxyConfig.InterceptionMode }}"
+    traffic.sidecar.istio.io/includeOutboundIPRanges: "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/includeOutboundIPRanges` + "`" + ` .Values.global.proxy.includeIPRanges }}"
+    traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeOutboundIPRanges` + "`" + ` .Values.global.proxy.excludeIPRanges }}"
+    traffic.sidecar.istio.io/includeInboundPorts: "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/includeInboundPorts` + "`" + ` (includeInboundPorts .Spec.Containers) }}"
+    traffic.sidecar.istio.io/excludeInboundPorts: "{{ excludeInboundPort (annotation .ObjectMeta ` + "`" + `status.sidecar.istio.io/port` + "`" + ` .Values.global.proxy.statusPort) (annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeInboundPorts` + "`" + ` .Values.global.proxy.excludeInboundPorts) }}"
+  {{ if or (isset .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/excludeOutboundPorts` + "`" + `) (ne .Values.global.proxy.excludeOutboundPorts "") }}
+    traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta ` + "`" + `traffic.sidecar.istio.io/excludeOutboundPorts` + "`" + ` .Values.global.proxy.excludeOutboundPorts }}"
   {{- end }}
-    traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations `+"`"+`traffic.sidecar.istio.io/kubevirtInterfaces`+"`"+` }}"
+    traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations ` + "`" + `traffic.sidecar.istio.io/kubevirtInterfaces` + "`" + ` }}"
 `)
 
 func chartsIstioControlIstioDiscoveryFilesInjectionTemplateYamlBytes() ([]byte, error) {
@@ -19642,7 +19644,7 @@ spec:
             timeoutSeconds: 5
           env:
           - name: REVISION
-            value: "{{ .Values.revision | default `+"`"+`default`+"`"+` }}"
+            value: "{{ .Values.revision | default ` + "`" + `default` + "`" + ` }}"
           - name: JWT_POLICY
             value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
@@ -19687,7 +19689,7 @@ spec:
           - name: PILOT_ENABLE_ANALYSIS
             value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID
-            value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
+            value: "{{ $.Values.global.multiCluster.clusterName | default ` + "`" + `Kubernetes` + "`" + ` }}"
           resources:
 {{- if .Values.pilot.resources }}
 {{ toYaml .Values.pilot.resources | trim | indent 12 }}
@@ -36026,7 +36028,7 @@ var _chartsIstioTelemetryKialiValuesYaml = []byte(`#
 # addon kiali
 #
 kiali:
-  enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `+"`"+`true`+"`"+`.
+  enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be ` + "`" + `true` + "`" + `.
   replicaCount: 1
   hub: quay.io/kiali
   tag: v1.15
@@ -39871,7 +39873,7 @@ spec:
               value: "{{ .Values.global.trustDomain }}"
               {{- end }}
             - name: ISTIO_META_CLUSTER_ID
-              value: "{{ .Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
+              value: "{{ .Values.global.multiCluster.clusterName | default ` + "`" + `Kubernetes` + "`" + ` }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           readinessProbe:
             failureThreshold: 30
@@ -44541,7 +44543,7 @@ var _bindata = map[string]func() (*asset, error){
 	"translateConfig/translateConfig-1.4.yaml":                                          translateconfigTranslateconfig14Yaml,
 	"translateConfig/translateConfig-1.5.yaml":                                          translateconfigTranslateconfig15Yaml,
 	"translateConfig/translateConfig-1.6.yaml":                                          translateconfigTranslateconfig16Yaml,
-	"versions.yaml":                                                                     versionsYaml,
+	"versions.yaml": versionsYaml,
 }
 
 // AssetDir returns the file names below a certain
