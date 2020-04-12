@@ -796,9 +796,10 @@ func TestSourceACKAddUpdateDelete_Incremental(t *testing.T) {
 		inject        *WatchResponse
 	}{
 		{
-			name:          "ack add A0",
-			inject:        makeWatchResponse(test.FakeType0Collection, "1", true, test.Type0A[0]),
-			wantResources: test.MakeResources(true, test.FakeType0Collection, "1", "1", nil, test.Type0A[0]),
+			name:   "ack add A0",
+			inject: makeWatchResponse(test.FakeType0Collection, "1", true, test.Type0A[0]),
+			// the first response can not be consider as incremental
+			wantResources: test.MakeResources(false, test.FakeType0Collection, "1", "1", nil, test.Type0A[0]),
 			request:       test.MakeRequest(true, test.FakeType0Collection, "1", codes.OK),
 		},
 		{

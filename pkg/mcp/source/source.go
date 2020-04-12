@@ -342,7 +342,7 @@ func (con *connection) pushServerResponse(w *watch, resp *WatchResponse) error {
 		Collection:        resp.Collection,
 		Resources:         added,
 		RemovedResources:  removed,
-		Incremental:       incremental,
+		Incremental:       con.streamNonce > 0 && incremental, // the first response was not consider as incremental
 	}
 
 	// increment nonce
