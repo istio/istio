@@ -122,6 +122,17 @@ func (a *Accessor) GetPods(namespace string, selectors ...string) ([]kubeApiCore
 	return list.Items, nil
 }
 
+func (a *Accessor) GetDeployments(namespace string, selectors ...string) ([]appsv1.Deployment, error) {
+	s := strings.Join(selectors, ",")
+	list, err := a.set.AppsV1().Deployments(namespace).List(context.TODO(), kubeApiMeta.ListOptions{LabelSelector: s})
+
+	if err != nil {
+		return []appsv1.Deployment{}, err
+	}
+
+	return list.Items, nil
+}
+
 // GetEvents returns events in the given namespace, based on the involvedObject.
 func (a *Accessor) GetEvents(namespace string, involvedObject string) ([]kubeApiCore.Event, error) {
 	s := "involvedObject.name=" + involvedObject

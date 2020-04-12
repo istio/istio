@@ -68,10 +68,26 @@ func TestController(t *testing.T) {
 			if err != nil {
 				t.Fatal("failed to create test directory")
 			}
+			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
+			s, err := image.SettingsFromCommandLine()
+			if err != nil {
+				t.Fatal(err)
+			}
+			initCmd := []string{
+				"operator", "init",
+				"--hub=" + s.Hub,
+				"--tag=" + s.Tag,
+			}
+			// install istio with default config for the first time by running operator init command
+			istioCtl.InvokeOrFail(t, initCmd)
 
-			checkControllerInstallation(t, ctx, istioCtl, workDir, path.Join(ManifestTestDataPath, "all_on.yaml"))
-			checkControllerInstallation(t, ctx, istioCtl, workDir, path.Join(ProfilesPath, "default.yaml"))
-			checkControllerInstallation(t, ctx, istioCtl, workDir, path.Join(ProfilesPath, "demo.yaml"))
+			if err := cs.CreateNamespace(IstioNamespace, ""); err != nil {
+				t.Errorf("failed to create istio namespace: %v", err)
+			}
+
+			// later just run `kubectl apply -f newcr.yaml` to apply new installation cr files and verify.
+			installWithCRFile(t, ctx, cs, istioCtl, workDir, path.Join(ProfilesPath, "default.yaml"))
+			installWithCRFile(t, ctx, cs, istioCtl, workDir, path.Join(ProfilesPath, "demo.yaml"))
 		})
 }
 
@@ -89,7 +105,11 @@ func checkInstallStatus(cs kube.Cluster) error {
 		if err != nil {
 			return fmt.Errorf("failed to get istioOperator resource: %v", err)
 		}
-		usIOPStatus := us.UnstructuredContent()["status"].(map[string]interface{})
+		usIOPStatus := us.UnstructuredContent()["status"]
+		if usIOPStatus == nil {
+			return fmt.Errorf("cr status is not ready")
+		}
+		usIOPStatus = usIOPStatus.(map[string]interface{})
 		iopStatusString, err := json.Marshal(usIOPStatus)
 		if err != nil {
 			return fmt.Errorf("failed to marshal istioOperator status: %v", err)
@@ -118,12 +138,9 @@ func checkInstallStatus(cs kube.Cluster) error {
 	return nil
 }
 
-func checkControllerInstallation(t *testing.T, ctx framework.TestContext, istioCtl istioctl.Instance, workDir string, iopFile string) {
-	scopes.CI.Infof(fmt.Sprintf("=== Checking istio installation by operator controller with iop file: %s===\n", iopFile))
-	s, err := image.SettingsFromCommandLine()
-	if err != nil {
-		t.Fatal(err)
-	}
+func installWithCRFile(t *testing.T, ctx framework.TestContext, cs kube.Cluster,
+	istioCtl istioctl.Instance, workDir string, iopFile string) {
+	log.Infof(fmt.Sprintf("=== install istio with new operator cr file: %s===\n", iopFile))
 	iop, err := ioutil.ReadFile(iopFile)
 	if err != nil {
 		t.Fatalf("failed to read iop file: %v", err)
@@ -141,23 +158,22 @@ metadata:
 	if err := ioutil.WriteFile(iopCRFile, []byte(iopcr), os.ModePerm); err != nil {
 		t.Fatalf("failed to write iop cr file: %v", err)
 	}
-	initCmd := []string{
-		"operator", "init",
-		"--wait",
-		"-f", iopCRFile,
-		"--hub=" + s.Hub,
-		"--tag=" + s.Tag,
-	}
-	// install istio using operator controller
-	istioCtl.InvokeOrFail(t, initCmd)
-	cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
 
-	// takes time for reconciliation to be done
-	scopes.CI.Infof("waiting for reconciliation to be done")
+	if err := cs.Apply(IstioNamespace, iopCRFile); err != nil {
+		t.Fatalf("failed to apply IstioOperator CR file: %s, %v", iopCRFile, err)
+	}
+
+	verifyInstallation(t, ctx, istioCtl, iopCRFile, cs)
+}
+
+func verifyInstallation(t *testing.T, ctx framework.TestContext,
+	istioCtl istioctl.Instance, iopFile string, cs kube.Cluster) {
+	scopes.CI.Infof("=== verifying istio installation === ")
 	if err := checkInstallStatus(cs); err != nil {
 		t.Fatalf("IstioOperator status not healthy: %v", err)
 	}
-	if _, err := cs.CheckPodsAreReady(cs.NewPodFetch(IstioNamespace)); err != nil {
+
+	if _, err := cs.WaitUntilPodsAreReady(cs.NewPodFetch(IstioNamespace)); err != nil {
 		t.Fatalf("pods are not ready: %v", err)
 	}
 
@@ -165,7 +181,7 @@ metadata:
 		t.Fatalf("in cluster resources does not match with the generated ones: %v", err)
 	}
 	sanityCheck(t, ctx)
-	scopes.CI.Infof("=== Succeeded ===")
+	scopes.CI.Infof("=== succeeded ===")
 }
 
 func sanityCheck(t *testing.T, ctx resource.Context) {
@@ -208,7 +224,9 @@ func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Insta
 	// get manifests by running `manifest generate`
 	generateCmd := []string{
 		"manifest", "generate",
-		"-f", iopFile,
+	}
+	if iopFile != "" {
+		generateCmd = append(generateCmd, "-f", iopFile)
 	}
 	genManifests := istioCtl.InvokeOrFail(t, generateCmd)
 	genK8SObjects, err := object.ParseK8sObjectsFromYAMLManifest(genManifests)
@@ -220,64 +238,57 @@ func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Insta
 		Version:  "v1alpha3",
 		Resource: "envoyfilters",
 	}
-	var errors util.Errors
+
 	for _, genK8SObject := range genK8SObjects {
 		kind := genK8SObject.Kind
 		ns := genK8SObject.Namespace
 		name := genK8SObject.Name
 		log.Infof("checking kind: %s, namespace: %s, name: %s", kind, ns, name)
-		switch kind {
-		case "Service":
-			if _, err := cs.GetService(ns, name); err != nil {
-				errors = util.AppendErr(errors,
-					fmt.Errorf("failed to get expected service: %s from cluster", name))
+		retry.UntilSuccessOrFail(t, func() error {
+			switch kind {
+			case "Service":
+				if _, err := cs.GetService(ns, name); err != nil {
+					return fmt.Errorf("failed to get expected service: %s from cluster", name)
+				}
+			case "ServiceAccount":
+				if _, err := cs.GetServiceAccount(ns, name); err != nil {
+					return fmt.Errorf("failed to get expected serviceAccount: %s from cluster", name)
+				}
+			case "Deployment":
+				if _, err := cs.GetDeployment(IstioNamespace, name); err != nil {
+					return fmt.Errorf("failed to get expected deployment: %s from cluster", name)
+				}
+			case "ConfigMap":
+				if _, err := cs.GetConfigMap(ns, name); err != nil {
+					return fmt.Errorf("failed to get expected configMap: %s from cluster", name)
+				}
+			case "ValidatingWebhookConfiguration":
+				if exist := cs.ValidatingWebhookConfigurationExists(name); !exist {
+					return fmt.Errorf("failed to get expected ValidatingWebhookConfiguration: %s from cluster", name)
+				}
+			case "MutatingWebhookConfiguration":
+				if exist := cs.MutatingWebhookConfigurationExists(name); !exist {
+					return fmt.Errorf("failed to get expected MutatingWebhookConfiguration: %s from cluster", name)
+				}
+			case "CustomResourceDefinition":
+				if _, err := cs.GetCustomResourceDefinition(name); err != nil {
+					return fmt.Errorf("failed to get expected CustomResourceDefinition: %s from cluster", name)
+				}
+			case "EnvoyFilter":
+				if _, err := cs.GetUnstructured(efgvr, ns, name); err != nil {
+					return fmt.Errorf("failed to get expected Envoyfilter: %s from cluster", name)
+				}
+			case "PodDisruptionBudget":
+				if _, err := cs.GetPodDisruptionBudget(ns, name); err != nil {
+					return fmt.Errorf("failed to get expected PodDisruptionBudget: %s from cluster", name)
+				}
+			case "HorizontalPodAutoscaler":
+				if _, err := cs.GetHorizontalPodAutoscaler(ns, name); err != nil {
+					return fmt.Errorf("failed to get expected HorizontalPodAutoscaler: %s from cluster", name)
+				}
 			}
-		case "ServiceAccount":
-			if _, err := cs.GetServiceAccount(ns, name); err != nil {
-				errors = util.AppendErr(errors,
-					fmt.Errorf("failed to get expected serviceAccount: %s from cluster", name))
-			}
-		case "Deployment":
-			if _, err := cs.GetDeployment(ns, name); err != nil {
-				errors = util.AppendErr(errors,
-					fmt.Errorf("failed to get expected deployment: %s from cluster", name))
-			}
-		case "ConfigMap":
-			if _, err := cs.GetConfigMap(ns, name); err != nil {
-				errors = util.AppendErr(errors,
-					fmt.Errorf("failed to get expected configMap: %s from cluster", name))
-			}
-		case "ValidatingWebhookConfiguration":
-			if exist := cs.ValidatingWebhookConfigurationExists(name); !exist {
-				errors = util.AppendErr(errors,
-					fmt.Errorf("failed to get expected ValidatingWebhookConfiguration: %s from cluster", name))
-			}
-		case "MutatingWebhookConfiguration":
-			if exist := cs.MutatingWebhookConfigurationExists(name); !exist {
-				errors = util.AppendErr(errors,
-					fmt.Errorf("failed to get expected MutatingWebhookConfiguration: %s from cluster", name))
-			}
-		case "CustomResourceDefinition":
-			if _, err := cs.GetCustomResourceDefinition(name); err != nil {
-				errors = util.AppendErr(errors,
-					fmt.Errorf("failed to get expected CustomResourceDefinition: %s from cluster", name))
-			}
-		case "EnvoyFilter":
-			if _, err := cs.GetUnstructured(efgvr, ns, name); err != nil {
-				errors = util.AppendErr(errors,
-					fmt.Errorf("failed to get expected Envoyfilter: %s from cluster", name))
-			}
-		case "PodDisruptionBudget":
-			if _, err := cs.GetPodDisruptionBudget(ns, name); err != nil {
-				errors = util.AppendErr(errors,
-					fmt.Errorf("failed to get expected CustomResourceDefinition: %s from cluster", name))
-			}
-		case "HorizontalPodAutoscaler":
-			if _, err := cs.GetHorizontalPodAutoscaler(ns, name); err != nil {
-				errors = util.AppendErr(errors,
-					fmt.Errorf("failed to get expected CustomResourceDefinition: %s from cluster", name))
-			}
-		}
+			return nil
+		}, retry.Timeout(time.Second*30), retry.Delay(time.Millisecond*100))
 	}
-	return errors.ToError()
+	return nil
 }
