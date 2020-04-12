@@ -43,6 +43,9 @@ var (
 
 	// MCPSourceReqFreq is the frequency that is used by the rate limiter in MCP Sources
 	MCPSourceReqFreq = env.RegisterDurationVar("MCP_SOURCE_REQ_FREQ", time.Second, "")
+
+	// EnableIncrementalMCP is an option to enable incremental mcp
+	EnableIncrementalMCP = env.RegisterBoolVar("ENABLE_INCREMENTAL_MCP", false, "")
 )
 
 // RegisteredEnvVarNames returns the names of registered environment variables.
