@@ -489,20 +489,8 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 	cfg := pluginParams.Push.DestinationRule(pluginParams.Node, instance.Service)
 	if cfg != nil {
 		destinationRule := cfg.Spec.(*networking.DestinationRule)
-		var connectionPool *networking.ConnectionPoolSettings
 		if destinationRule.TrafficPolicy != nil {
-			for _, portTrafficPolicy := range destinationRule.TrafficPolicy.PortLevelSettings {
-				if portTrafficPolicy.GetPort().GetNumber() == uint32(instance.ServicePort.Port) {
-					// Prioritize port-level configuration
-					connectionPool = portTrafficPolicy.ConnectionPool
-					break
-				}
-			}
-			if connectionPool == nil {
-				connectionPool = destinationRule.TrafficPolicy.ConnectionPool
-			}
-		}
-		if connectionPool != nil {
+			connectionPool, _, _, _ := SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, instance.ServicePort)
 			// only connection pool settings make sense on the inbound path.
 			// upstream TLS settings/outlier detection/load balancer don't apply here.
 			applyConnectionPool(pluginParams.Push, localCluster, connectionPool)
