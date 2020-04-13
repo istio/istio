@@ -35,7 +35,8 @@ func TestValidateChainingVirtualService(t *testing.T) {
 		{
 			name: "root simple",
 			in: &networking.VirtualService{
-				Hosts: []string{"foo.bar"},
+				Hosts:    []string{"foo.bar"},
+				Gateways: []string{"test-gateway"},
 				Http: []*networking.HTTPRoute{{
 					Delegate: &networking.Delegate{
 						Name:      "test",
@@ -44,6 +45,19 @@ func TestValidateChainingVirtualService(t *testing.T) {
 				}},
 			},
 			valid: true,
+		},
+		{
+			name: "root applies to sidecar with delegate",
+			in: &networking.VirtualService{
+				Hosts: []string{"foo.bar"},
+				Http: []*networking.HTTPRoute{{
+					Delegate: &networking.Delegate{
+						Name:      "test",
+						Namespace: "test",
+					},
+				}},
+			},
+			valid: false,
 		},
 		{
 			name: "root with delegate and destination in one route",

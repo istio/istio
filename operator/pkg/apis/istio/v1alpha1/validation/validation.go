@@ -78,6 +78,7 @@ func deprecatedSettingsMessage(values *valuesv1alpha1.Values) string {
 		{"mixer.telemetry.reportBatchMaxEntries", "meshConfig.reportBatchMaxEntries", uint32(0)},
 		{"mixer.telemetry.reportBatchMaxTime", "meshConfig.reportBatchMaxTime", ""},
 		{"pilot.ingress", "meshConfig", nil},
+		{"global.mtls.enabled", "PeerAuthentication", nil},
 	}
 	for _, d := range deprecations {
 		v, f, _ := tpath.GetFromStructPath(values, firstCharsToUpper(d.old))

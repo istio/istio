@@ -131,8 +131,7 @@ type Config struct {
 
 // IsMtlsEnabled checks in Values flag and Values file.
 func (c *Config) IsMtlsEnabled() bool {
-	if c.Values["global.mtls.enabled"] == "true" ||
-		c.Values["global.mtls.auto"] == "true" {
+	if c.Values["global.mtls.auto"] == "true" {
 		return true
 	}
 
@@ -149,7 +148,7 @@ func (c *Config) IsMtlsEnabled() bool {
 				case map[interface{}]interface{}:
 					switch mtlsVal := globalVal["mtls"].(type) {
 					case map[interface{}]interface{}:
-						if !mtlsVal["enabled"].(bool) && !mtlsVal["auto"].(bool) {
+						if !mtlsVal["auto"].(bool) {
 							return false
 						}
 					}
