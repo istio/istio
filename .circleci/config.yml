@@ -2,6 +2,22 @@
 #
 # Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2
+initWorkingDir: &initWorkingDir
+  type: shell
+  name: Initialize Working Directory
+  pwd: /
+  command: |
+    sudo mkdir -p /go/src/istio.io/istio
+    sudo chown -R circleci /go
+    mkdir -p /go/out/tests
+    mkdir -p /go/out/logs
+    mkdir -p /home/circleci/logs
+    # TODO - temporary until 'machine' image is updated or customized
+    GOROOT=$(go env GOROOT)
+    sudo rm -r $(go env GOROOT)
+    sudo mkdir $GOROOT
+    #curl https://dl.google.com/go/go1.10.4.linux-amd64.tar.gz | sudo tar xz -C $GOROOT --strip-components=1
+
 jobs:
   build:
     docker:
@@ -24,6 +40,7 @@ jobs:
        GOPATH: /go
        SKIP_CLEANUP: true
     steps:
+      - <<: *initWorkingDir
       - checkout
       - setup_remote_docker:
           docker_layer_caching: false
