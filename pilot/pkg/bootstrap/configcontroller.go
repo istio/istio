@@ -327,7 +327,7 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 
 func (s *Server) initOtherStatusStuff(args *PilotArgs) {
 	s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
-		status.DistributionController{}.Start(s.kubeConfig, stop)
+		(&status.DistributionController{}).Start(s.kubeConfig, stop)
 	})
 	// TODO: even when not leading, write my internal distribution status to configmaps
 }
