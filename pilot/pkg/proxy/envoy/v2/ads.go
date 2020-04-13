@@ -30,6 +30,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+
 	istiolog "istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -135,8 +136,8 @@ func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 		stream:       stream,
 		LDSListeners: []*xdsapi.Listener{},
 		RouteConfigs: map[string]*xdsapi.RouteConfiguration{},
-		NonceSent: map[string]string{},
-		NonceAcked: map[string]string{},
+		NonceSent:    map[string]string{},
+		NonceAcked:   map[string]string{},
 	}
 }
 
@@ -426,9 +427,6 @@ func listEqualUnordered(a []string, b []string) bool {
 // using the generic structures. "Classical" CDS/LDS/RDS/EDS use separate logic -
 // this is used for the API-based LDS and generic messages.
 func (s *DiscoveryServer) handleAck(con *XdsConnection, discReq *xdsapi.DiscoveryRequest) bool {
-	// Handle watching Istio config types. This provides similar functionality with MCP.
-	// Alternative to using 8080:/debug/configz
-	// Names are based on the current stable naming in istiod.
 	if discReq.ErrorDetail != nil {
 		errCode := codes.Code(discReq.ErrorDetail.Code)
 		adsLog.Warnf("ADS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
@@ -438,19 +436,18 @@ func (s *DiscoveryServer) handleAck(con *XdsConnection, discReq *xdsapi.Discover
 	t := discReq.TypeUrl
 	if discReq.ResponseNonce != "" {
 		con.mu.RLock()
-		routeNonceSent := con.NonceSent[t]
-		routeVersionInfoSent := con.RouteVersionInfoSent
+		nonceSent := con.NonceSent[t]
 		con.mu.RUnlock()
-		if routeNonceSent != "" && routeNonceSent != discReq.ResponseNonce {
+
+		if nonceSent != "" && nonceSent != discReq.ResponseNonce {
 			adsLog.Debugf("ADS:RDS: Expired nonce received %s, sent %s, received %s",
-				con.ConID, routeNonceSent, discReq.ResponseNonce)
+				con.ConID, nonceSent, discReq.ResponseNonce)
 			rdsExpiredNonce.Increment()
 			return true
 		}
 		// GRPC doesn't send version info in NACKs for RDS. Technically if nonce matches
 		// previous response, it is an ACK/NACK.
-		if discReq.VersionInfo == routeVersionInfoSent ||
-				routeNonceSent == discReq.ResponseNonce	{
+		if nonceSent == discReq.ResponseNonce {
 			adsLog.Debugf("ADS: ACK %s %s %s", con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
 			con.mu.Lock()
 			con.RouteNonceAcked = discReq.ResponseNonce
@@ -462,9 +459,12 @@ func (s *DiscoveryServer) handleAck(con *XdsConnection, discReq *xdsapi.Discover
 	return false
 }
 
-// Handle a custom config resource
+// Handle watching Istio config types. This provides similar functionality with MCP.
+// Alternative to using 8080:/debug/configz
+// Names are based on the current stable naming in istiod.
 func (s *DiscoveryServer) handleResource(con *XdsConnection, discReq *xdsapi.DiscoveryRequest) error {
-
+	// TODO: push all watched resources on push context change
+	// TODO: selective push
 	if s.handleAck(con, discReq) {
 		return nil
 	}
@@ -496,8 +496,8 @@ func (s *DiscoveryServer) handleResource(con *XdsConnection, discReq *xdsapi.Dis
 				}
 			}
 			con.send(&xdsapi.DiscoveryResponse{
-				TypeUrl:discReq.TypeUrl,
-				Nonce: nonce(s.globalPushContext().Version),
+				TypeUrl:   discReq.TypeUrl,
+				Nonce:     nonce(s.globalPushContext().Version),
 				Resources: cfgRes,
 			})
 		}

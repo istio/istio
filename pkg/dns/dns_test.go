@@ -34,6 +34,7 @@ import (
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/serviceconfig"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -55,7 +56,7 @@ var (
 	istiodDNSAddr = "127.0.0.1:14053"
 	agentDNSAddr  = "127.0.0.1:14054"
 
-	grpcAddr  = "127.0.0.1:14056"
+	grpcAddr = "127.0.0.1:14056"
 
 	initErr error
 )
@@ -133,9 +134,9 @@ func initDS() (*v2.DiscoveryServer, error) {
 	sd.EDSUpdater = ds
 	ds.MemRegistry = sd
 	serviceControllers.AddRegistry(serviceregistry.Simple{
-		ProviderID: "Mem",
+		ProviderID:       "Mem",
 		ServiceDiscovery: sd,
-		Controller: sd.Controller,
+		Controller:       sd.Controller,
 	})
 	sd.AddHTTPService("fortio1.fortio.svc.cluster.local", "10.10.10.1", 8081)
 	//sd.AddEndpoint("fortio1.fortio.svc.cluster.local",
@@ -152,7 +153,6 @@ func initDS() (*v2.DiscoveryServer, error) {
 
 	go configController.Run(make(chan struct{}))
 
-
 	env.IstioConfigStore = istioConfigStore
 	env.ServiceDiscovery = serviceControllers
 
@@ -167,11 +167,11 @@ func initStore(store model.ConfigStore) {
 	se := collections.IstioNetworkingV1Alpha3Serviceentries.Resource()
 	store.Create(model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              se.Kind(),
-			Group:             se.Group(),
-			Version:           se.Version(),
-			Name:              "istiod",
-			Namespace:         "istio-system",
+			Type:      se.Kind(),
+			Group:     se.Group(),
+			Version:   se.Version(),
+			Name:      "istiod",
+			Namespace: "istio-system",
 		},
 		Spec: &networking.ServiceEntry{
 			Hosts: []string{
@@ -196,11 +196,11 @@ func initStore(store model.ConfigStore) {
 	})
 	store.Create(model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              se.Kind(),
-			Group:             se.Group(),
-			Version:           se.Version(),
-			Name:              "fortio",
-			Namespace:         "fortio",
+			Type:      se.Kind(),
+			Group:     se.Group(),
+			Version:   se.Version(),
+			Name:      "fortio",
+			Namespace: "fortio",
 		},
 		Spec: &networking.ServiceEntry{
 			Hosts: []string{
@@ -250,11 +250,11 @@ func TestDNSGRPC(t *testing.T) {
 		}
 
 		adscConn.Send(&xdsapi.DiscoveryRequest{
-			ResourceNames:        []string{"fortio.fortio.svc.cluster.local"},
-			TypeUrl:              adsc.ListenerType,
+			ResourceNames: []string{"fortio.fortio.svc.cluster.local"},
+			TypeUrl:       adsc.ListenerType,
 		})
 
-		got, err := adscConn.Wait(10 * time.Second, adsc.ListenerType)
+		got, err := adscConn.Wait(10*time.Second, adsc.ListenerType)
 		if err != nil {
 			t.Fatal("Failed to receive lds", err)
 		}
@@ -268,13 +268,10 @@ func TestDNSGRPC(t *testing.T) {
 			t.Fatal("Unmarshall error ", err)
 		}
 
-
-
 		adscConn.Send(&xdsapi.DiscoveryRequest{
-			ResourceNames:        []string{"istiod.istio-system.svc"},
-			TypeUrl:              adsc.ListenerType,
+			ResourceNames: []string{"istiod.istio-system.svc"},
+			TypeUrl:       adsc.ListenerType,
 		})
-
 
 	})
 	os.Setenv("GRPC_XDS_BOOTSTRAP", "testdata/xds_bootstrap.json")
@@ -290,11 +287,11 @@ func TestDNSGRPC(t *testing.T) {
 		}
 		tm := time.After(10 * time.Second)
 		select {
-			case s := <- ch:
-				log.Println("Got state ", s)
-				// TODO: timeout
-				case <- tm:
-					t.Error("Didn't resolve")
+		case s := <-ch:
+			log.Println("Got state ", s)
+		// TODO: timeout
+		case <-tm:
+			t.Error("Didn't resolve")
 		}
 	})
 
@@ -304,7 +301,6 @@ func TestDNSGRPC(t *testing.T) {
 		b := rb.Build(&testLBClientConn{}, balancer.BuildOptions{})
 
 		defer b.Close()
-
 
 	})
 
@@ -325,7 +321,6 @@ func TestDNSGRPC(t *testing.T) {
 
 	})
 }
-
 
 type testLBClientConn struct {
 	balancer.ClientConn
@@ -351,14 +346,14 @@ func (t *testClientConn) ReportError(err error) {
 func (t *testClientConn) ParseServiceConfig(jsonSC string) *serviceconfig.ParseResult {
 	// Will be called with something like:
 	//
-  //	"loadBalancingConfig":[
-  //	{
-  //		"cds_experimental":{
-  //			"Cluster": "istiod.istio-system.svc.cluster.local:14056"
-  //		}
-  //	}
-  //]
-  //}
+	//	"loadBalancingConfig":[
+	//	{
+	//		"cds_experimental":{
+	//			"Cluster": "istiod.istio-system.svc.cluster.local:14056"
+	//		}
+	//	}
+	//]
+	//}
 	return &serviceconfig.ParseResult{}
 }
 

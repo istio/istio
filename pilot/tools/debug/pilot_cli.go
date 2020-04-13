@@ -69,12 +69,13 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/grpc"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
 	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 

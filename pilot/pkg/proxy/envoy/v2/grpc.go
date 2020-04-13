@@ -21,10 +21,10 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	envoycore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	envoy_api_v2_route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	v2 "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	envoy_config_listener_v2 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v2"
-	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pkg/config/host"
 
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -32,6 +32,12 @@ import (
 
 // Support generation of 'ApiListener' LDS responses, used for native support of gRPC.
 // The same response can also be used by other apps using XDS directly.
+
+// GRPC proposal:
+// https://github.com/grpc/proposal/blob/master/A27-xds-global-load-balancing.md
+//
+// Note that this implementation is tested against gRPC, but it is generic - any other framework can
+// use this XDS mode to get load balancing info from Istio, including MC/VM/etc.
 
 // DNS can populate the name to cluster VIP mapping using this response.
 
@@ -87,7 +93,7 @@ func (s *DiscoveryServer) handleLDSApiType(con *XdsConnection, req *xdsapi.Disco
 					ll.ApiListener = &envoy_config_listener_v2.ApiListener{
 						ApiListener: util.MessageToAny(&v2.HttpConnectionManager{
 							RouteSpecifier: &v2.HttpConnectionManager_Rds{
-								Rds: &v2.Rds {
+								Rds: &v2.Rds{
 									RouteConfigName: name,
 								},
 							},
@@ -134,7 +140,7 @@ func (s *DiscoveryServer) handleAPICDS(con *XdsConnection, req *xdsapi.Discovery
 			continue
 		}
 		rc := &xdsapi.Cluster{
-			Name: n,
+			Name:                 n,
 			ClusterDiscoveryType: &xdsapi.Cluster_Type{Type: xdsapi.Cluster_EDS},
 			EdsClusterConfig: &xdsapi.Cluster_EdsClusterConfig{
 				ServiceName: "outbound|" + portn + "||" + hn,
@@ -142,7 +148,6 @@ func (s *DiscoveryServer) handleAPICDS(con *XdsConnection, req *xdsapi.Discovery
 					ConfigSourceSpecifier: &envoycore.ConfigSource_Ads{
 						Ads: &envoycore.AggregatedConfigSource{},
 					},
-
 				},
 			},
 		}
@@ -196,59 +201,40 @@ func (s *DiscoveryServer) handleSplitRDS(con *XdsConnection, req *xdsapi.Discove
 			continue
 		}
 		el := con.node.SidecarScope.GetEgressListenerForRDS(port, "")
-		vsvc := el.VirtualServices()
-		for _, s:= range vsvc {
-			vs, ok := s.Spec.(*networking.VirtualService)
-			if !ok {
-				continue
-			}
-			for _, vsh := range vs.Hosts {
-				if vsh == hn {
-					// Only generate the required route for grpc. Will need to generate more
-					// as GRPC adds more features.
-					rc := &envoy_api_v2_route.Route{
-						Match: &envoy_api_v2_route.RouteMatch{
-							PathSpecifier:        &envoy_api_v2_route.RouteMatch_Prefix{Prefix:""},
-						},
-					}
-					rr := util.MessageToAny(rc)
-					resp.Resources = append(resp.Resources, rr)
-				}
-			}
-		}
+		// TODO: use VirtualServices instead !
+		// Currently gRPC doesn't support matching the path.
 		svc := el.Services()
-		for _, s:= range svc {
+		for _, s := range svc {
 			if s.Hostname.Matches(host.Name(hn)) {
-					// Only generate the required route for grpc. Will need to generate more
-					// as GRPC adds more features.
-					rc := &xdsapi.RouteConfiguration{
-						Name: n,
-						VirtualHosts:[]*envoy_api_v2_route.VirtualHost{
-							&envoy_api_v2_route.VirtualHost{
-								Name: hn,
-								Domains: []string{hn, n},
+				// Only generate the required route for grpc. Will need to generate more
+				// as GRPC adds more features.
+				rc := &xdsapi.RouteConfiguration{
+					Name: n,
+					VirtualHosts: []*envoy_api_v2_route.VirtualHost{
+						&envoy_api_v2_route.VirtualHost{
+							Name:    hn,
+							Domains: []string{hn, n},
 
-								Routes: []*envoy_api_v2_route.Route{
-									&envoy_api_v2_route.Route{
-										Match: &envoy_api_v2_route.RouteMatch{
-											PathSpecifier: &envoy_api_v2_route.RouteMatch_Prefix{Prefix: ""},
-										},
-										Action: &envoy_api_v2_route.Route_Route{
-											Route: &envoy_api_v2_route.RouteAction{
-												ClusterSpecifier: &envoy_api_v2_route.RouteAction_Cluster{
-													//Cluster: "outbound|" + portn + "||" + hn,
-													Cluster: n,
-												},
+							Routes: []*envoy_api_v2_route.Route{
+								&envoy_api_v2_route.Route{
+									Match: &envoy_api_v2_route.RouteMatch{
+										PathSpecifier: &envoy_api_v2_route.RouteMatch_Prefix{Prefix: ""},
+									},
+									Action: &envoy_api_v2_route.Route_Route{
+										Route: &envoy_api_v2_route.RouteAction{
+											ClusterSpecifier: &envoy_api_v2_route.RouteAction_Cluster{
+												Cluster: n,
 											},
 										},
 									},
 								},
 							},
 						},
-					}
-					rr := util.MessageToAny(rc)
-					resp.Resources = append(resp.Resources, rr)
+					},
 				}
+				rr := util.MessageToAny(rc)
+				resp.Resources = append(resp.Resources, rr)
+			}
 		}
 	}
 	err := con.send(resp)
@@ -259,4 +245,3 @@ func (s *DiscoveryServer) handleSplitRDS(con *XdsConnection, req *xdsapi.Discove
 	}
 	return true
 }
-

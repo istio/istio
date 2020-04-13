@@ -137,7 +137,7 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 		VersionInfo: map[string]string{},
 		certDir:     certDir,
 		url:         url,
-		Received: map[string][]byte{},
+		Received:    map[string][]byte{},
 	}
 	if opts.Namespace == "" {
 		opts.Namespace = "default"
