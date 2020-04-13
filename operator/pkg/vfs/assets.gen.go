@@ -20004,7 +20004,9 @@ func chartsIstioControlIstioDiscoveryTemplatesServiceYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml = []byte(`{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
+var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml = []byte(`{{- if eq .Values.revision "" }}
+{{- /* Old versions not needed when revision is set, otherwise we will start applying v2 to old proxies */}}
+{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -20246,6 +20248,7 @@ spec:
 ---
 {{- end}}
 {{- end}}
+{{- end}}
 `)
 
 func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14YamlBytes() ([]byte, error) {
@@ -20263,7 +20266,9 @@ func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml() (*asset, erro
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml = []byte(`{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
+var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml = []byte(`{{- if eq .Values.revision "" }}
+{{- /* Old versions not needed when revision is set, otherwise we will start applying v2 to old proxies */}}
+{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -20740,6 +20745,7 @@ spec:
                   code:
                     local: { inline_string: envoy.wasm.null.stackdriver }
 ---
+{{- end}}
 {{- end}}
 {{- end}}
 `)
