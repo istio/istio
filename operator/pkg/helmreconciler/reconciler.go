@@ -15,17 +15,32 @@
 package helmreconciler
 
 import (
+	"context"
+	"fmt"
 	"sync"
+	"time"
+
+	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/operator/v1alpha1"
+	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
+	binversion "istio.io/istio/operator/version"
 	"istio.io/pkg/log"
+)
+
+const (
+	pollTimeout  = 100 * time.Second
+	pollInterval = 2 * time.Second
 )
 
 // HelmReconciler reconciles resources rendered by a set of helm charts for a specific instances of a custom resource,
@@ -207,13 +222,75 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1
 			break
 		}
 	}
-
+	// update status further based on the in cluster resources status if manifests processed successfully,
+	// otherwise just use status obtained from processing manifests.
+	if overallStatus == v1alpha1.InstallStatus_HEALTHY {
+		err := h.checkResourceStatus(&componentStatus, &overallStatus)
+		if err != nil {
+			log.Errorf("failed to check resource status %v", err)
+		}
+	}
 	out := &v1alpha1.InstallStatus{
 		Status:          overallStatus,
 		ComponentStatus: componentStatus,
 	}
 
 	return out
+}
+
+// checkResourceStatus check and wait for resource to be ready,
+// update overallStatus and componentStatus correspondingly
+func (h *HelmReconciler) checkResourceStatus(componentStatus *map[string]*v1alpha1.InstallStatus_VersionStatus,
+	overallStatus *v1alpha1.InstallStatus_Status) error {
+	cs := h.client
+	iop := h.GetInstance().(*v1alpha12.IstioOperator)
+	if iop == nil {
+		return fmt.Errorf("failed to get IstioOperator instance")
+	}
+	t, err := translate.NewTranslator(binversion.OperatorBinaryVersion.MinorVersion)
+	if err != nil {
+		return err
+	}
+	errPoll := wait.Poll(pollInterval, pollTimeout, func() (bool, error) {
+		for cn := range *componentStatus {
+			cnMap, ok := t.ComponentMaps[name.ComponentName(cn)]
+			if ok && cnMap.ResourceName != "" {
+				dp := &appsv1.Deployment{}
+				key := client.ObjectKey{Namespace: iop.Namespace, Name: cnMap.ResourceName}
+				err := cs.Get(context.TODO(), key, dp)
+				if err != nil {
+					log.Warnf("deployment: %v not found", cnMap.ResourceName)
+					continue
+				}
+
+				if dp.Status.ReadyReplicas != dp.Status.UnavailableReplicas+dp.Status.AvailableReplicas {
+					(*componentStatus)[cn].Status = v1alpha1.InstallStatus_UPDATING
+					return false, nil
+				}
+			}
+			(*componentStatus)[cn].Status = v1alpha1.InstallStatus_HEALTHY
+		}
+
+		podList := &v1.PodList{}
+		err := cs.List(context.TODO(), podList, client.InNamespace(iop.Namespace))
+		if err != nil {
+			return false, err
+		}
+		for _, pod := range podList.Items {
+			if len(pod.Status.Conditions) > 0 {
+				for _, condition := range pod.Status.Conditions {
+					if condition.Type == v1.PodReady && condition.Status != v1.ConditionTrue {
+						return false, nil
+					}
+				}
+			}
+		}
+		return true, nil
+	})
+	if errPoll != nil {
+		*overallStatus = v1alpha1.InstallStatus_UPDATING
+	}
+	return nil
 }
 
 // Delete resources associated with the custom resource instance
