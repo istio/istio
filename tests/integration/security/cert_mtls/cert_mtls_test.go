@@ -36,12 +36,6 @@ import (
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 
-var (
-	testNamespace namespace.Instance
-	testCtx       framework.TestContext
-	testStruct    *testing.T
-)
-
 const (
 	// The length of the example certificate chain.
 	exampleCertChainLength = 3
@@ -58,16 +52,16 @@ func TestCertMtls(t *testing.T) {
 			istioCfg := istio.DefaultConfigOrFail(t, ctx)
 
 			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
-			testNamespace = namespace.NewOrFail(t, ctx, namespace.Config{
+			testNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "test-cert-mtls",
 				Inject: true,
 			})
-			testCtx = ctx
-			testStruct = t
 
 			// Check that the CA certificate in the configmap of each namespace is as expected, which
 			// is used for data plane to control plane TLS authentication.
-			retry.UntilSuccessOrFail(t, checkCACert, retry.Delay(time.Second), retry.Timeout(10*time.Second))
+			retry.UntilSuccessOrFail(t, func() error {
+				return checkCACert(ctx, t, testNamespace)
+			}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 
 			// Enforce strict mTLS for app b
 			var a, b echo.Instance
@@ -134,7 +128,7 @@ spec:
 		})
 }
 
-func checkCACert() error {
+func checkCACert(testCtx framework.TestContext, t *testing.T, testNamespace namespace.Instance) error {
 	configMapName := "istio-ca-root-cert"
 	kEnv := testCtx.Environment().(*kube.Environment)
 	cm, err := kEnv.KubeClusters[0].GetConfigMap(configMapName, testNamespace.Name())
@@ -147,7 +141,7 @@ func checkCACert() error {
 	if certData, ok = cm.Data[constants.CACertNamespaceConfigMapDataName]; !ok {
 		return fmt.Errorf("CA certificate %v not found", constants.CACertNamespaceConfigMapDataName)
 	}
-	testStruct.Logf("CA certificate %v found", constants.CACertNamespaceConfigMapDataName)
+	t.Logf("CA certificate %v found", constants.CACertNamespaceConfigMapDataName)
 	if pluginCert, err = cert.ReadSampleCertFromFile("root-cert.pem"); err != nil {
 		return err
 	}
