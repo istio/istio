@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/kube/inject"
 )
 
 // getTLSCerts returns all file based certificates from mesh config
@@ -61,9 +62,6 @@ func getTLSCerts(pc meshconfig.ProxyConfig) []string {
 	return certs
 }
 
-// TODO move this to API
-var proxyConfigAnnotation = "istio.io/meshConfig"
-
 func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 	annotations, err := readPodAnnotations()
 	if err != nil {
@@ -77,7 +75,7 @@ func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 		}
 		fileMeshContents = string(contents)
 	}
-	meshConfig, err := getMeshConfig(fileMeshContents, annotations[proxyConfigAnnotation])
+	meshConfig, err := getMeshConfig(fileMeshContents, annotations[inject.ProxyConfigAnnotation])
 	if err != nil {
 		return meshconfig.ProxyConfig{}, err
 	}

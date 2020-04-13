@@ -426,9 +426,12 @@ func flippedContains(needle, haystack string) bool {
 	return strings.Contains(haystack, needle)
 }
 
+// TODO move this to API
+var MeshConfigAnnotation = "istio.io/meshConfig"
+
 // InjectionData renders sidecarTemplate with valuesConfig.
 func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *metav1.TypeMeta, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec,
-	metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (
+	metadata *metav1.ObjectMeta, meshConfig *meshconfig.MeshConfig) (
 	*SidecarInjectionSpec, string, error) {
 
 	// If DNSPolicy is not ClusterFirst, the Envoy sidecar may not able to connect to Istio Pilot.
@@ -449,12 +452,20 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 		return nil, "", multierror.Prefix(err, "could not parse configuration values:")
 	}
 
+	if mca, f := metadata.GetAnnotations()[MeshConfigAnnotation]; f {
+		newMesh, err := mesh.ApplyMeshConfig(mca, *meshConfig)
+		if err != nil {
+			log.Errorf("invalid annotation %v: %v", MeshConfigAnnotation, err)
+		} else {
+			meshConfig = newMesh
+		}
+	}
 	data := SidecarTemplateData{
 		TypeMeta:       typeMetadata,
 		DeploymentMeta: deploymentMetadata,
 		ObjectMeta:     metadata,
 		Spec:           spec,
-		ProxyConfig:    proxyConfig,
+		ProxyConfig:    meshConfig.GetDefaultConfig(),
 		MeshConfig:     meshConfig,
 		Values:         values,
 	}
@@ -724,7 +735,6 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 		deploymentMetadata,
 		podSpec,
 		metadata,
-		meshconfig.DefaultConfig,
 		meshconfig)
 	if err != nil {
 		return nil, err
