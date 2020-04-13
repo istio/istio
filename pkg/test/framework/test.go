@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/features"
+
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
@@ -31,7 +33,7 @@ type Test struct {
 	parent              *Test
 	goTest              *testing.T
 	labels              []label.Instance
-	featureLabels       []label.Instance
+	featureLabels       []features.Feature
 	s                   *suiteContext
 	requiredEnv         environment.Name
 	requiredMinClusters int
@@ -71,13 +73,13 @@ func (t *Test) Label(labels ...label.Instance) *Test {
 }
 
 // Label applies the given labels to this test.
-func (t *Test) Features(labels ...label.Instance) *Test {
-	t.featureLabels = append(t.featureLabels, labels...)
+func (t *Test) Features(features ...features.Feature) *Test {
+	t.featureLabels = append(t.featureLabels, features...)
 	return t
 }
 
-func (t *Test) NotImplementedYet(labels ...label.Instance) *Test {
-	t.Features(labels...).
+func (t *Test) NotImplementedYet(features ...features.Feature) *Test {
+	t.Features(features...).
 		Run(func(_ TestContext) { t.goTest.Skip() })
 	return t
 }

@@ -1,6 +1,5 @@
 package features
 
-
 // TODO: this file should be generated from YAML to make it more easy to modify.
 
 // WARNING: changes to existing elements in this file will cause corruption of test coverage data.
@@ -11,5 +10,6 @@ package features
 type Feature int
 
 const (
-	USABILITY_OBSERVABILITY_STATUS Feature =iota
+	USABILITY_OBSERVABILITY_STATUS Feature = iota
+	USABILITY_OBSERVABILITY_STATUS_DEFAULTEXISTS
 )

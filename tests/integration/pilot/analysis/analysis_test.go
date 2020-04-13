@@ -19,6 +19,8 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/features"
+
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/test/util/retry"
 
@@ -34,12 +36,12 @@ import (
 func TestStatusExistsByDefault(t *testing.T) {
 	// This test is not yet implemented
 	framework.NewTest(t).
-		NotImplementedYet("Usability.Observability.Status.DefaultExists")
+		NotImplementedYet(features.USABILITY_OBSERVABILITY_STATUS_DEFAULTEXISTS)
 }
 
 func TestAnalysisWritesStatus(t *testing.T) {
 	framework.NewTest(t).
-		Features("Usability.Observability.Status").
+		Features(features.USABILITY_OBSERVABILITY_STATUS).
 		// TODO: make feature labels heirarchical constants like:
 		// Label(features.Usability.Observability.Status).
 		Run(func(ctx framework.TestContext) {
