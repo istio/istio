@@ -818,6 +818,12 @@ const (
 	// InterceptionRedirect implies traffic intercepted by IPtables with REDIRECT mode
 	// This is our default mode
 	InterceptionRedirect TrafficInterceptionMode = "REDIRECT"
+
+	// InterceptionAPI is used for API clients, using ApiListener and higher level processing.
+	// It is similar with NONE - it doesn't generate the iptables filter chains - but has different
+	// response to listener.
+	// This mode also activates returning the high-level Istio and K8S configs.
+	InterceptionAPI TrafficInterceptionMode = "API"
 )
 
 // GetInterceptionMode extracts the interception mode associated with the proxy
@@ -834,6 +840,8 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 		return InterceptionRedirect
 	case "NONE":
 		return InterceptionNone
+	case "API":
+		return InterceptionAPI
 	}
 
 	return InterceptionRedirect

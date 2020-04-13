@@ -247,6 +247,9 @@ func TestDNSGRPC(t *testing.T) {
 	t.Run("adsc", func(t *testing.T) {
 		adscConn, err := adsc.Dial(grpcAddr, "", &adsc.Config{
 			IP: "1.2.3.4",
+			Meta: model.NodeMetadata {
+				InterceptionMode: model.InterceptionAPI,
+			}.ToStruct(),
 		})
 		if err != nil {
 			t.Fatal("Error connecting ", err)

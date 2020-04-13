@@ -240,7 +240,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 			switch discReq.TypeUrl {
 			case ClusterType:
-				if len(discReq.ResourceNames) > 0 {
+				if con.node.GetInterceptionMode() == model.InterceptionAPI {
 					if s.handleAPICDS(con, discReq) {
 						continue
 					}
@@ -268,7 +268,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 
 			case ListenerType:
-				if len(discReq.ResourceNames) > 0 {
+				if con.node.GetInterceptionMode() == model.InterceptionAPI {
 					// This is a LDS with resource names - used by gRPC, DNS or on-demand.
 					// Response is expected to be the simplified 'api' listener instead of iptables listener plus filters.
 					err = s.handleLDSApiType(con, discReq)
@@ -298,7 +298,8 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 			case RouteType:
 				// gRPC and hostname based routes.
-				if s.handleSplitRDS(con, discReq) {
+				if con.node.GetInterceptionMode() == model.InterceptionAPI {
+					s.handleSplitRDS(con, discReq)
 					continue
 				}
 				// Normal Istio RDS - per port
@@ -382,7 +383,11 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 
 			default:
-				s.handleResource(con, discReq)
+				if con.node.GetInterceptionMode() == model.InterceptionAPI {
+					s.handleResource(con, discReq)
+				} else {
+					adsLog.Warnf("ADS: Unknown watched resources %s", discReq.String())
+				}
 			}
 
 		case pushEv := <-con.pushChannel:
@@ -436,6 +441,8 @@ func (s *DiscoveryServer) handleAck(con *XdsConnection, discReq *xdsapi.Discover
 		adsLog.Warnf("ADS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
 		return true
 	}
+	// All NACKs should have ErrorDetail set !
+	// Relying on versionCode != sentVersionCode as nack is less reliable.
 
 	t := discReq.TypeUrl
 	// This is an ACK response to a previous message - but it may refer to a response on a previous connection to

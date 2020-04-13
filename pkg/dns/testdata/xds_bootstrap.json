@@ -5,6 +5,9 @@
     }
   ],
   "node": {
-    "id": "sidecar~10.0.0.1~foo.ns~ns.cluster.local"
+    "id": "sidecar~10.0.0.1~foo.ns~ns.cluster.local",
+    "metadata": {
+      "INTERCEPTION_MODE": "API"
+    }
   }
 }
