@@ -325,7 +325,7 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 	return nil
 }
 
-func (s *Server) initOtherStatusStuff(args *PilotArgs) {
+func (s *Server) initOtherStatusStuff() {
 	s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
 		(&status.DistributionController{}).Start(s.kubeConfig, stop)
 	})

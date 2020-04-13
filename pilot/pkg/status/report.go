@@ -15,6 +15,7 @@
 package status
 
 import (
+	"fmt"
 	"strings"
 
 	"gopkg.in/yaml.v2"
@@ -27,7 +28,7 @@ type DistributionReport struct {
 	InProgressResources map[string]int
 }
 
-func (r *DistributionReport) SetProgress(resource Resource, progress int) {
+func (r *DistributionReport) SetProgress(resource fmt.Stringer, progress int) {
 	r.InProgressResources[resource.String()] = progress
 }
 

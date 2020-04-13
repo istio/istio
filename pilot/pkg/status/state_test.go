@@ -21,25 +21,7 @@ import (
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/clock"
-
-	"istio.io/istio/galley/pkg/config/analysis/diag"
 )
-
-var statusNoDistro = IstioStatus{
-	Conditions: []IstioCondition{{
-		Type:    HasValidationErrors,
-		Status:  v1.ConditionTrue,
-		Message: "just a test, here",
-	}},
-	ValidationMessages: []diag.Message{{
-		Type:       &diag.MessageType{},
-		Parameters: nil,
-		Resource:   nil,
-		DocRef:     "",
-	}},
-}
-
-var emptyStatus = map[string]interface{}{}
 
 var statusStillPropagating = IstioStatus{
 	Conditions: []IstioCondition{{

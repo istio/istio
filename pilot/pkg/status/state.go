@@ -48,7 +48,7 @@ func (fraction Fraction) Add(fraction2 Fraction) {
 }
 
 type DistributionController struct {
-	mu              sync.RWMutex
+	mu              *sync.RWMutex
 	CurrentState    map[Resource]map[string]Fraction
 	ObservationTime map[string]time.Time
 	UpdateInterval  time.Duration
@@ -89,7 +89,7 @@ func (c *DistributionController) Start(restConfig *rest.Config, stop <-chan stru
 			select {
 			case <-stop:
 				return
-			case _ = <-t:
+			case <-t:
 				staleReporters := c.writeAllStatus()
 				if len(staleReporters) > 0 {
 					c.removeStaleReporters(staleReporters)
@@ -146,10 +146,10 @@ func (c *DistributionController) writeStatus(config Resource, distributionState 
 			// this resource has been deleted.  prune its state and move on.
 			c.pruneOldVersion(config)
 			return
-		} else {
-			scope.Errorf("Encountered unexpected error when retrieving status for %v: %s", config, err)
-			return
 		}
+		scope.Errorf("Encountered unexpected error when retrieving status for %v: %s", config, err)
+		return
+
 	}
 	if config.ResourceVersion != current.GetResourceVersion() {
 		// this distribution report is for an old version of the object.  Prune and continue.
