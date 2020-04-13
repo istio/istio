@@ -17,12 +17,13 @@ package framework
 import (
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/test/framework/features"
 	"os"
 	"path"
 	"reflect"
 	"strings"
 	"sync"
+
+	"istio.io/istio/pkg/test/framework/features"
 
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -168,8 +169,8 @@ type Outcome string
 
 const (
 	Passed  Outcome = "Passed"
-	Failed          = "Failed"
-	Skipped         = "Skipped"
+	Failed  Outcome = "Failed"
+	Skipped Outcome = "Skipped"
 )
 
 type TestOutcome struct {

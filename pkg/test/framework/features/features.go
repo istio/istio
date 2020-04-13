@@ -22,6 +22,6 @@ package features
 type Feature string
 
 const (
-	USABILITY_OBSERVABILITY_STATUS               Feature = "Usability.Observability.Status"
-	USABILITY_OBSERVABILITY_STATUS_DEFAULTEXISTS         = "Usability.Observability.Status.DefaultExists"
+	Usability_Observability_Status               Feature = "Usability.Observability.Status"
+	Usability_Observability_Status_DefaultExists         = "Usability.Observability.Status.DefaultExists"
 )
