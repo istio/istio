@@ -44,6 +44,7 @@ import (
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	operator_validate "istio.io/istio/operator/pkg/validate"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -173,6 +174,7 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 			// usual conversion not available.  Convert unstructured to string
 			// and ask operator code to check.
 
+			un.SetCreationTimestamp(metav1.Time{}) // UnmarshalIstioOperator chokes on these
 			by, err := json.Marshal(un)
 			if err != nil {
 				return err
