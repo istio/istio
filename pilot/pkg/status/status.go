@@ -16,10 +16,10 @@ package status
 
 import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 )
-import v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 type IstioStatus struct {
 	Conditions         []IstioCondition
