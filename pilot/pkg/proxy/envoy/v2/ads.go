@@ -17,17 +17,19 @@ package v2
 import (
 	"errors"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	gogo "github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-
 	istiolog "istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -83,6 +85,9 @@ type XdsConnection struct {
 	RouteVersionInfoSent                  string
 	EndpointNonceSent, EndpointNonceAcked string
 
+	NonceSent  map[string]string
+	NonceAcked map[string]string
+
 	// current list of clusters monitored by the client
 	Clusters []string
 
@@ -130,6 +135,8 @@ func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 		stream:       stream,
 		LDSListeners: []*xdsapi.Listener{},
 		RouteConfigs: map[string]*xdsapi.RouteConfiguration{},
+		NonceSent: map[string]string{},
+		NonceAcked: map[string]string{},
 	}
 }
 
@@ -220,8 +227,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// Remote side closed connection.
 				return receiveError
 			}
-			// This should be only set for the first request. Guard with ID check regardless.
-			if discReq.Node != nil && discReq.Node.Id != "" {
+			// This should be only set for the first request. Must be called even if the request has
+			// a missing node id (for example native gRPC)
+			if con.node == nil { // same condition is checked inside initConnection
 				if cancel, err := s.initConnection(discReq.Node, con); err != nil {
 					return err
 				} else if cancel != nil {
@@ -231,6 +239,11 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 			switch discReq.TypeUrl {
 			case ClusterType:
+				if len(discReq.ResourceNames) > 0 {
+					if s.handleAPICDS(con, discReq) {
+						continue
+					}
+				}
 				if con.CDSWatch {
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
@@ -254,6 +267,15 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 
 			case ListenerType:
+				if len(discReq.ResourceNames) > 0 {
+					// This is a LDS with resource names - used by gRPC, DNS or on-demand.
+					// Response is expected to be the simplified 'api' listener instead of iptables listener plus filters.
+					err = s.handleLDSApiType(con, discReq)
+					if err != nil {
+						return err
+					}
+					continue
+				}
 				if con.LDSWatch {
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
@@ -274,6 +296,11 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 
 			case RouteType:
+				// gRPC and hostname based routes.
+				if s.handleSplitRDS(con, discReq) {
+					continue
+				}
+				// Normal Istio RDS - per port
 				if discReq.ErrorDetail != nil {
 					errCode := codes.Code(discReq.ErrorDetail.Code)
 					adsLog.Warnf("ADS:RDS: ACK ERROR %v %s %s:%s", peerAddr, con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
@@ -354,7 +381,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 
 			default:
-				adsLog.Warnf("ADS: Unknown watched resources %s", discReq.String())
+				s.handleResource(con, discReq)
 			}
 
 		case pushEv := <-con.pushChannel:
@@ -393,6 +420,92 @@ func listEqualUnordered(a []string, b []string) bool {
 		}
 	}
 	return true
+}
+
+// handleAck will detect if the message is an ACK or NACK, and update/log/count
+// using the generic structures. "Classical" CDS/LDS/RDS/EDS use separate logic -
+// this is used for the API-based LDS and generic messages.
+func (s *DiscoveryServer) handleAck(con *XdsConnection, discReq *xdsapi.DiscoveryRequest) bool {
+	// Handle watching Istio config types. This provides similar functionality with MCP.
+	// Alternative to using 8080:/debug/configz
+	// Names are based on the current stable naming in istiod.
+	if discReq.ErrorDetail != nil {
+		errCode := codes.Code(discReq.ErrorDetail.Code)
+		adsLog.Warnf("ADS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
+		return true
+	}
+
+	t := discReq.TypeUrl
+	if discReq.ResponseNonce != "" {
+		con.mu.RLock()
+		routeNonceSent := con.NonceSent[t]
+		routeVersionInfoSent := con.RouteVersionInfoSent
+		con.mu.RUnlock()
+		if routeNonceSent != "" && routeNonceSent != discReq.ResponseNonce {
+			adsLog.Debugf("ADS:RDS: Expired nonce received %s, sent %s, received %s",
+				con.ConID, routeNonceSent, discReq.ResponseNonce)
+			rdsExpiredNonce.Increment()
+			return true
+		}
+		// GRPC doesn't send version info in NACKs for RDS. Technically if nonce matches
+		// previous response, it is an ACK/NACK.
+		if discReq.VersionInfo == routeVersionInfoSent ||
+				routeNonceSent == discReq.ResponseNonce	{
+			adsLog.Debugf("ADS: ACK %s %s %s", con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
+			con.mu.Lock()
+			con.RouteNonceAcked = discReq.ResponseNonce
+			con.mu.Unlock()
+		}
+		return true
+	}
+
+	return false
+}
+
+// Handle a custom config resource
+func (s *DiscoveryServer) handleResource(con *XdsConnection, discReq *xdsapi.DiscoveryRequest) error {
+
+	if s.handleAck(con, discReq) {
+		return nil
+	}
+
+	adsLog.Debugf("ADS: REQ %s %s ", con.ConID, discReq.TypeUrl)
+
+	// Example: networking.istio.io/v1alpha3/VirtualService
+	gvk := strings.SplitN(discReq.TypeUrl, "/", 3)
+	if len(gvk) == 3 {
+		cfg, err := s.globalPushContext().IstioConfigStore.List(resource.GroupVersionKind{
+			Group:   gvk[0],
+			Version: gvk[1],
+			Kind:    gvk[2],
+		}, "")
+		if err != nil {
+			adsLog.Warnf("ADS: Unknown watched resources %s %v", discReq.String(), err)
+		} else {
+			cfgRes := []*any.Any{}
+			for _, c := range cfg {
+				b := gogo.NewBuffer(nil)
+				err := b.Marshal(c.Spec)
+				if err == nil {
+					cfgRes = append(cfgRes, &any.Any{
+						TypeUrl: "type.googleapis.com/" + gogo.MessageName(c.Spec),
+						Value:   b.Bytes(),
+					})
+				} else {
+					adsLog.Warna("Any ", err)
+				}
+			}
+			con.send(&xdsapi.DiscoveryResponse{
+				TypeUrl:discReq.TypeUrl,
+				Nonce: nonce(s.globalPushContext().Version),
+				Resources: cfgRes,
+			})
+		}
+	} else {
+		adsLog.Warnf("ADS: Unknown watched resources %s", discReq.String())
+	}
+
+	return nil
 }
 
 // update the node associated with the connection, after receiving a a packet from envoy, also adds the connection

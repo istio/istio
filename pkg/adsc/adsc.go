@@ -105,6 +105,9 @@ type ADSC struct {
 	Updates     chan string
 	VersionInfo map[string]string
 
+	// Last received message, by type and resource
+	Received map[string][]byte
+
 	mutex sync.Mutex
 }
 
@@ -118,7 +121,7 @@ const (
 	// EndpointType is used for EDS and ADS endpoint discovery. Typically second request.
 	endpointType = typePrefix + "ClusterLoadAssignment"
 	// ListenerType is sent after clusters and endpoints.
-	listenerType = typePrefix + "Listener"
+	ListenerType = typePrefix + "Listener"
 	// RouteType is sent after listeners.
 	routeType = typePrefix + "RouteConfiguration"
 )
@@ -134,6 +137,7 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 		VersionInfo: map[string]string{},
 		certDir:     certDir,
 		url:         url,
+		Received: map[string][]byte{},
 	}
 	if opts.Namespace == "" {
 		opts.Namespace = "default"
@@ -264,7 +268,7 @@ func (a *ADSC) handleRecv() {
 		for _, rsc := range msg.Resources { // Any
 			a.VersionInfo[rsc.TypeUrl] = msg.VersionInfo
 			valBytes := rsc.Value
-			if rsc.TypeUrl == listenerType {
+			if rsc.TypeUrl == ListenerType {
 				ll := &xdsapi.Listener{}
 				_ = proto.Unmarshal(valBytes, ll)
 				listeners = append(listeners, ll)
@@ -281,6 +285,8 @@ func (a *ADSC) handleRecv() {
 				_ = proto.Unmarshal(valBytes, ll)
 				routes = append(routes, ll)
 			}
+
+			a.Received[rsc.TypeUrl] = valBytes
 		}
 
 		// TODO: add hook to inject nacks
@@ -540,7 +546,7 @@ func (a *ADSC) handleEDS(eds []*xdsapi.ClusterLoadAssignment) {
 		_ = a.stream.Send(&xdsapi.DiscoveryRequest{
 			ResponseNonce: time.Now().String(),
 			Node:          a.node(),
-			TypeUrl:       listenerType,
+			TypeUrl:       ListenerType,
 		})
 	}
 

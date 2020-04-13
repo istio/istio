@@ -13,11 +13,12 @@
 // limitations under the License.
 
 // Tool to get xDS configs from pilot. This tool simulate envoy sidecar gRPC call to get config,
-// so it will work even when sidecar haswhen sidecar hasn't connected (e.g in the case of pilot running on local machine))
+// so it will work even when sidecar hasn't connected (e.g in the case of pilot running on local machine))
 //
 // Usage:
 //
-// First, you can either manually expose pilot gRPC port or rely on this tool to port-forward pilot by omitting -pilot_url flag:
+// First, you can either manually expose pilot gRPC port, run locally or rely on this tool to port-forward
+// pilot by omitting -pilot_url flag:
 //
 // * By port-forward existing pilot:
 // ```bash
@@ -65,7 +66,10 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/grpc"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -73,7 +77,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
 
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -90,6 +93,7 @@ type PodInfo struct {
 	Namespace string
 	IP        string
 	ProxyType string
+	NodeID    string
 }
 
 func getAllPods(kubeconfig string) (*v1.PodList, error) {
@@ -104,7 +108,10 @@ func getAllPods(kubeconfig string) (*v1.PodList, error) {
 	return clientset.CoreV1().Pods(meta_v1.NamespaceAll).List(context.TODO(), meta_v1.ListOptions{})
 }
 
-func NewPodInfo(nameOrAppLabel string, kubeconfig string, proxyType string) *PodInfo {
+func NewPodInfo(nameOrAppLabel string, kubeconfig string, proxyType string, nodeID string) *PodInfo {
+	if nodeID != "" {
+		return &PodInfo{NodeID: nodeID}
+	}
 	log.Infof("Using kube config at %s", kubeconfig)
 	pods, err := getAllPods(kubeconfig)
 	if err != nil {
@@ -146,6 +153,9 @@ func NewPodInfo(nameOrAppLabel string, kubeconfig string, proxyType string) *Pod
 }
 
 func (p PodInfo) makeNodeID() string {
+	if p.NodeID != "" {
+		return p.NodeID
+	}
 	if p.ProxyType != "" {
 		return fmt.Sprintf("%s~%s~%s.%s~%s.svc.cluster.local", p.ProxyType, p.IP, p.Name, p.Namespace, p.Namespace)
 	}
@@ -169,7 +179,7 @@ func configTypeToTypeURL(configType string) string {
 	case "eds":
 		return v2.EndpointType
 	default:
-		panic(fmt.Sprintf("Unknown type %s", configType))
+		return configType
 	}
 }
 
@@ -198,6 +208,7 @@ func (p PodInfo) getXdsResponse(pilotURL string, req *xdsapi.DiscoveryRequest) (
 	if err != nil {
 		panic(err.Error())
 	}
+	log.Infoa("Sending ", proto.MarshalTextString(req))
 	err = stream.Send(req)
 	if err != nil {
 		panic(err.Error())
@@ -210,6 +221,10 @@ func (p PodInfo) getXdsResponse(pilotURL string, req *xdsapi.DiscoveryRequest) (
 }
 
 var homeVar = env.RegisterStringVar("HOME", "", "")
+
+// TODO: use the standard istio k8s resolve, with KUBECONFIG support
+// TODO: allow context env variable
+// TODO: split port forwarding to separate helper
 
 func resolveKubeConfigPath(kubeConfig string) string {
 	path := strings.Replace(kubeConfig, "~", homeVar.Get(), 1)
@@ -234,7 +249,7 @@ func portForwardPilot(kubeConfig, pilotURL string) (*os.Process, string, error) 
 		return nil, "", err
 	}
 	for _, pod := range pods.Items {
-		if app, ok := pod.ObjectMeta.Labels["istio"]; ok && app == "pilot" {
+		if app, ok := pod.ObjectMeta.Labels["app"]; ok && app == "istiod" {
 			podName = pod.Name
 		}
 	}
@@ -272,11 +287,17 @@ func main() {
 	kubeConfig := flag.String("kubeconfig", "~/.kube/config", "path to the kubeconfig file. Default is ~/.kube/config")
 	pilotURL := flag.String("pilot", "", "pilot address. Will try port forward if not provided.")
 	configType := flag.String("type", "lds", "lds, cds, or eds. Default lds.")
-	proxyType := flag.String("proxytype", "", "sidecar, ingress, router.")
+	proxyType := flag.String("proxytype", "sidecar", "sidecar, ingress, router.")
 	proxyTag := flag.String("proxytag", "", "Pod name or app label or istio label to identify the proxy.")
 	resources := flag.String("res", "", "Resource(s) to get config for. LDS/CDS should leave it empty.")
 	outputFile := flag.String("out", "", "output file. Leave blank to go to stdout")
+	nodeID := flag.String("node", "", "Node ID - if specified will be used instead of looking up the pod")
 	flag.Parse()
+
+	// Redirect output to file should not include logs
+	opt := log.DefaultOptions()
+	opt.OutputPaths = []string{"stderr"}
+	log.Configure(opt)
 
 	process, pilot, err := portForwardPilot(resolveKubeConfigPath(*kubeConfig), *pilotURL)
 	if err != nil {
@@ -291,24 +312,30 @@ func main() {
 			}
 		}
 	}()
-	pod := NewPodInfo(*proxyTag, resolveKubeConfigPath(*kubeConfig), *proxyType)
+	pod := NewPodInfo(*proxyTag, resolveKubeConfigPath(*kubeConfig), *proxyType, *nodeID)
 
 	var resp *xdsapi.DiscoveryResponse
-	switch *configType {
-	case "lds", "cds":
+	if *resources == "" {
 		resp, err = pod.getXdsResponse(pilot, pod.makeRequest(*configType))
-	case "rds", "eds":
+	} else {
 		resp, err = pod.getXdsResponse(pilot, pod.appendResources(pod.makeRequest(*configType), strings.Split(*resources, ",")))
-	default:
-		log.Errorf("Unknown config type: %q", *configType)
-		os.Exit(1)
 	}
-
 	if err != nil {
 		log.Errorf("Failed to get Xds response for %v. Error: %v", *resources, err)
 		return
 	}
-	strResponse, _ := gogoprotomarshal.ToJSONWithIndent(resp, " ")
+
+	// Fails with "unknown message type "envoy.api.v2.Listener"
+	// Envoy is now using golang/protobuf
+	strResponse, err := (&jsonpb.Marshaler{
+		Indent: "  ",
+	}).MarshalToString(resp)
+	if err != nil {
+		strResponse, err = gogoprotomarshal.ToJSONWithIndent(resp, " ")
+		if err != nil {
+			log.Fatala(err)
+		}
+	}
 	if outputFile == nil || *outputFile == "" {
 		fmt.Printf("%v\n", strResponse)
 	} else if err := ioutil.WriteFile(*outputFile, []byte(strResponse), 0644); err != nil {
