@@ -16,6 +16,8 @@ package mesh
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -23,6 +25,10 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
+	kubeCore "k8s.io/api/core/v1"
+
+	mesh "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/pkg/config/validation"
@@ -38,21 +44,25 @@ var (
 	boolValues = []bool{true, false}
 
 	// Ref: https://kubernetes.io/docs/concepts/configuration/overview/#container-images
-	imagePullPolicy = []string{"Always", "IfNotPresent", "Never"}
+	imagePullPolicy = []string{
+		string(kubeCore.PullAlways),
+		string(kubeCore.PullNever),
+		string(kubeCore.PullIfNotPresent),
+	}
 
-	// Keep this list updated as per following
+	// List of available profiles from operator/data/profiles
 	// https://preliminary.istio.io/docs/setup/additional-setup/config-profiles/
-	profile = []string{"default", "demo", "empty", "minimal", "preview", "remote", "separate"}
+	profile = getProfiles()
 
 	inboundClusterStatName = []string{"SERVICE", "SERVICE_FQDN", "SERVICE_PORT", "SERVICE_PORT_NAME"}
 
 	outboundClusterStatName = append(inboundClusterStatName, "SUBSET_NAME")
 
 	// https://preliminary.istio.io/docs/reference/config/istio.mesh.v1alpha1.html#MeshConfig-OutboundTrafficPolicy-Mode
-	outboundTrafficPolicyMode = []string{"REGISTRY_ONLY", "ALLOW_ANY"}
+	outboundTrafficPolicyMode = getEnumKeys(v1alpha1.OutboundTrafficPolicyConfig_Mode_value)
 
 	// https://preliminary.istio.io/docs/reference/config/istio.mesh.v1alpha1.html#MeshConfig-H2UpgradePolicy
-	h2UpgradePolicy = []string{"DO_NOT_UPGRADE", "UPGRADE"}
+	h2UpgradePolicy = getEnumKeys(mesh.MeshConfig_H2UpgradePolicy_value)
 
 	// https://preliminary.istio.io/docs/reference/config/istio.operator.v1alpha1/#IstioOperatorSpec
 	setFlagValues = map[string]interface{}{
@@ -342,4 +352,27 @@ func validatePort(flagValue string) error {
 		return err
 	}
 	return nil
+}
+
+func getProfiles() []string {
+	dirPath := "./operator/data/profiles"
+	profiles := make([]string, 0)
+	files, err := ioutil.ReadDir(dirPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "profile err %v\n", err)
+	}
+	for _, f := range files {
+		profiles = append(profiles, strings.TrimSuffix(f.Name(), ".yaml"))
+	}
+	return profiles
+}
+
+// getEnumKeys take enum values as input, iterate over
+// it and returns enum keys as a slice of string
+func getEnumKeys(enumVal map[string]int32) []string {
+	enumKeys := make([]string, 0)
+	for k := range enumVal {
+		enumKeys = append(enumKeys, k)
+	}
+	return enumKeys
 }
