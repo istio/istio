@@ -17,6 +17,7 @@ package framework
 import (
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pkg/test/framework/features"
 	"os"
 	"path"
 	"reflect"
@@ -174,7 +175,7 @@ const (
 type TestOutcome struct {
 	Name          string
 	Outcome       Outcome
-	FeatureLabels []label.Instance
+	FeatureLabels []features.Feature
 }
 
 func (s *suiteContext) registerOutcome(test *Test) {
