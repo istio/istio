@@ -17,7 +17,6 @@ package v1alpha3
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -332,6 +331,8 @@ var (
 	httpGrpcAccessLog = buildHTTPGrpcAccessLog()
 
 	tracingConfig = buildTracingConfig()
+
+	emptyFilterChainMatch = &listener.FilterChainMatch{}
 
 	lmutex          sync.RWMutex
 	cachedAccessLog *accesslog.AccessLog
@@ -2118,7 +2119,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 			}
 		}
 
-		if !needMatch && isFilterChainMatchEmpty(match) {
+		if !needMatch && filterChainMatchEmpty(match) {
 			match = nil
 		}
 		filterChains = append(filterChains, &listener.FilterChain{
@@ -2316,68 +2317,35 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, pluginParams *plugin
 	// TODO(rshriram) merge multiple identical filter chains with just a single destination CIDR based
 	// filter chain match, into a single filter chain and array of destinationcidr matches
 
-	// We checked TCP over HTTP, and HTTP over TCP conflicts above.
 	// The code below checks for TCP over TCP conflicts and merges listeners
 
-	// merge the newly built listener with the existing listener
-	// if and only if the filter chains have distinct conditions
-	// Extract the current filter chain matches
-	// For every new filter chain match being added, check if any previous match is same
-	// if so, skip adding this filter chain with a warning
-	// This is very unoptimized.
+	// Merge the newly built listener with the existing listener, if and only if the filter chains have distinct conditions.
+	// Extract the current filter chain matches, for every new filter chain match being added, check if there is a matching
+	// one in previous filter chains, if so, skip adding this filter chain with a warning.
 
 	currentListenerEntry := listenerMap[listenerMapKey]
-	newFilterChains := make([]*listener.FilterChain, 0,
-		len(currentListenerEntry.listener.FilterChains)+len(incoming))
-	newFilterChains = append(newFilterChains, currentListenerEntry.listener.FilterChains...)
+	mergedFilterChains := make([]*listener.FilterChain, 0, len(currentListenerEntry.listener.FilterChains)+len(incoming))
+	// Start with the current listener's filter chains.
+	mergedFilterChains = append(mergedFilterChains, currentListenerEntry.listener.FilterChains...)
 
 	for _, incomingFilterChain := range incoming {
-		conflictFound := false
-		replacedFallthrough := false
+		conflict := false
+		fallthroughChain := false
 
-	compareWithExisting:
-		for i, existingFilterChain := range newFilterChains {
-			if isMatchAllFilterChain(existingFilterChain) {
-				// This is a catch all filter chain.
-				// We can only merge with a non-catch all filter chain
-				// Else mark it as conflict
-				if isMatchAllFilterChain(incomingFilterChain) {
-					// replace fallthrough filter chain with the real service one
-					if isFallthroughFilterChain(existingFilterChain) {
-						replacedFallthrough = true
-						newFilterChains[i] = incomingFilterChain
-						continue
-					}
-					// NOTE: While pluginParams.Service can be nil,
-					// this code cannot be reached if Service is nil because a pluginParams.Service can be nil only
-					// for user defined Egress listeners with ports. And these should occur in the API before
-					// the wildcard egress listener. the check for the "locked" bit will eliminate the collision.
-					// User is also not allowed to add duplicate ports in the egress listener
-					var newHostname host.Name
-					if pluginParams.Service != nil {
-						newHostname = pluginParams.Service.Hostname
-					} else {
-						// user defined outbound listener via sidecar API
-						newHostname = "sidecar-config-egress-tcp-listener"
-					}
+		for i, existingFilterChain := range mergedFilterChains {
+			fallthroughChain, conflict = fallthroughOrConflict(existingFilterChain, incomingFilterChain)
 
-					conflictFound = true
-					outboundListenerConflict{
-						metric:          model.ProxyStatusConflictOutboundListenerTCPOverTCP,
-						node:            pluginParams.Node,
-						listenerName:    listenerMapKey,
-						currentServices: currentListenerEntry.services,
-						currentProtocol: currentListenerEntry.servicePort.Protocol,
-						newHostname:     newHostname,
-						newProtocol:     pluginParams.Port.Protocol,
-					}.addMetric(node, pluginParams.Push)
-					break compareWithExisting
-				}
+			if fallthroughChain {
+				mergedFilterChains[i] = incomingFilterChain
 				continue
 			}
 
-			// We have two non-catch all filter chains. Check for duplicates
-			if reflect.DeepEqual(existingFilterChain.FilterChainMatch, incomingFilterChain.FilterChainMatch) {
+			if conflict {
+				// NOTE: While pluginParams.Service can be nil,
+				// this code cannot be reached if Service is nil because a pluginParams.Service can be nil only
+				// for user defined Egress listeners with ports. And these should occur in the API before
+				// the wildcard egress listener. the check for the "locked" bit will eliminate the collision.
+				// User is also not allowed to add duplicate ports in the egress listener
 				var newHostname host.Name
 				if pluginParams.Service != nil {
 					newHostname = pluginParams.Service.Hostname
@@ -2386,7 +2354,6 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, pluginParams *plugin
 					newHostname = "sidecar-config-egress-tcp-listener"
 				}
 
-				conflictFound = true
 				outboundListenerConflict{
 					metric:          model.ProxyStatusConflictOutboundListenerTCPOverTCP,
 					node:            pluginParams.Node,
@@ -2396,22 +2363,84 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, pluginParams *plugin
 					newHostname:     newHostname,
 					newProtocol:     pluginParams.Port.Protocol,
 				}.addMetric(node, pluginParams.Push)
-				break compareWithExisting
+				break
 			}
-		}
 
-		if !conflictFound && !replacedFallthrough {
+		}
+		if !conflict && !fallthroughChain {
 			// There is no conflict with any filter chain in the existing listener.
 			// So append the new filter chains to the existing listener's filter chains
-			newFilterChains = append(newFilterChains, incomingFilterChain)
+			mergedFilterChains = append(mergedFilterChains, incomingFilterChain)
 			if pluginParams.Service != nil {
 				lEntry := listenerMap[listenerMapKey]
 				lEntry.services = append(lEntry.services, pluginParams.Service)
 			}
 		}
 	}
+	return mergedFilterChains
+}
 
-	return newFilterChains
+// fallthroughOrConflict determines whether the incoming filter chain has conflict with existing.
+// It also identifies whether the existing filter chain is a fallthrough and hence should be replaced.
+func fallthroughOrConflict(existing, incoming *listener.FilterChain) (bool, bool) {
+	switch {
+	case isMatchAllFilterChain(existing):
+		// This is a catch all filter chain.
+		// We can only merge with a non-catch all filter chain
+		// Else mark it as conflict
+		if isMatchAllFilterChain(incoming) {
+			// replace fallthrough filter chain with the real service one
+			if isFallthroughFilterChain(existing) {
+				return true, false
+			}
+			return false, true
+		}
+	case filterChainMatchEqual(existing.FilterChainMatch, incoming.FilterChainMatch):
+		return false, true
+	}
+	return false, false
+}
+
+func filterChainMatchEmpty(fcm *listener.FilterChainMatch) bool {
+	return fcm == nil || filterChainMatchEqual(fcm, emptyFilterChainMatch)
+}
+
+// filterChainMatchEqual returns true if both filter chains are equal otherwise false.
+func filterChainMatchEqual(first *listener.FilterChainMatch, second *listener.FilterChainMatch) bool {
+	if first == nil || second == nil {
+		return first == second
+	}
+	if first.TransportProtocol != second.TransportProtocol {
+		return false
+	}
+	if !util.StringSliceEqual(first.ApplicationProtocols, second.ApplicationProtocols) {
+		return false
+	}
+	if first.DestinationPort.GetValue() != second.DestinationPort.GetValue() {
+		return false
+	}
+	if !util.CidrRangeSliceEqual(first.PrefixRanges, second.PrefixRanges) {
+		return false
+	}
+	if !util.CidrRangeSliceEqual(first.SourcePrefixRanges, second.SourcePrefixRanges) {
+		return false
+	}
+	if first.AddressSuffix != second.AddressSuffix {
+		return false
+	}
+	if first.SuffixLen.GetValue() != second.SuffixLen.GetValue() {
+		return false
+	}
+	if first.SourceType != second.SourceType {
+		return false
+	}
+	if !util.UInt32SliceEqual(first.SourcePorts, second.SourcePorts) {
+		return false
+	}
+	if !util.StringSliceEqual(first.ServerNames, second.ServerNames) {
+		return false
+	}
+	return true
 }
 
 func mergeFilterChains(httpFilterChain, tcpFilterChain []*listener.FilterChain) []*listener.FilterChain {
@@ -2522,46 +2551,8 @@ func insertFallthroughMetadata(chain *listener.FilterChain) {
 }
 
 func isMatchAllFilterChain(fc *listener.FilterChain) bool {
-	return isFilterChainMatchEmpty(fc.FilterChainMatch)
-}
-
-// isFilterChainMatchEmpty checks if a FCM is empty. This is used to avoid the perf overhead of
-// reflect.DeepEquals
-func isFilterChainMatchEmpty(fcm *listener.FilterChainMatch) bool {
-	if fcm == nil {
-		return true
-	}
-	if fcm.DestinationPort != nil {
-		return false
-	}
-	if fcm.PrefixRanges != nil {
-		return false
-	}
-	if fcm.AddressSuffix != "" {
-		return false
-	}
-	if fcm.SuffixLen != nil {
-		return false
-	}
-	if fcm.SourceType != listener.FilterChainMatch_ANY {
-		return false
-	}
-	if fcm.SourcePrefixRanges != nil {
-		return false
-	}
-	if fcm.SourcePorts != nil {
-		return false
-	}
-	if fcm.ServerNames != nil {
-		return false
-	}
-	if fcm.TransportProtocol != "" {
-		return false
-	}
-	if fcm.ApplicationProtocols != nil {
-		return false
-	}
-	return true
+	// See if it is empty filter chain.
+	return filterChainMatchEmpty(fc.FilterChainMatch)
 }
 
 func isFallthroughFilterChain(fc *listener.FilterChain) bool {
