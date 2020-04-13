@@ -181,6 +181,7 @@ func switchIstioOperatorProfile(cl client.Client, key client.ObjectKey, profile 
 	}
 	return nil
 }
+
 func checkIOPStatus(cl client.Client, key client.ObjectKey, profile string) (bool, error) {
 	instance := &iop.IstioOperator{}
 	err := cl.Get(context.TODO(), key, instance)
