@@ -186,7 +186,7 @@ func (s *suiteContext) registerOutcome(test *Test) {
 	} else if test.goTest.Skipped() {
 		o = Skipped
 	}
-	newOutcome :=  TestOutcome{
+	newOutcome := TestOutcome{
 		Name:          test.goTest.Name(),
 		Outcome:       o,
 		FeatureLabels: test.featureLabels,
