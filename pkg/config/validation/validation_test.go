@@ -3682,6 +3682,14 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 		},
 			valid: false},
+		{name: "bad selector key", in: networking.ServiceEntry{
+			Hosts:            []string{"google.com"},
+			WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"": "bar"}},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+			},
+		},
+			valid: false},
 	}
 
 	for _, c := range cases {

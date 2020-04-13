@@ -2600,7 +2600,7 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 		}
 
 		if serviceEntry.WorkloadSelector != nil && serviceEntry.Endpoints != nil {
-			errs = appendErrors(errs, fmt.Errorf("service entry may not have selector and endpoints"))
+			errs = appendErrors(errs, fmt.Errorf("only one of WorkloadSelector or Endpoints is allowed in Service Entry"))
 		}
 
 		if len(serviceEntry.Hosts) == 0 {
