@@ -63,25 +63,25 @@ func TestMergeUpdateRequest(t *testing.T) {
 		{
 			"simple merge",
 			&PushRequest{
-				Full:              true,
-				Push:              push0,
-				Start:             t0,
+				Full:  true,
+				Push:  push0,
+				Start: t0,
 				ConfigsUpdated: map[ConfigKey]struct{}{
 					{Kind: resource.GroupVersionKind{Kind: "cfg1"}, Namespace: "ns1"}: {}},
 				Reason: []TriggerReason{ServiceUpdate, ServiceUpdate},
 			},
 			&PushRequest{
-				Full:              false,
-				Push:              push1,
-				Start:             t1,
+				Full:  false,
+				Push:  push1,
+				Start: t1,
 				ConfigsUpdated: map[ConfigKey]struct{}{
 					{Kind: resource.GroupVersionKind{Kind: "cfg2"}, Namespace: "ns2"}: {}},
 				Reason: []TriggerReason{EndpointUpdate},
 			},
 			PushRequest{
-				Full:              true,
-				Push:              push1,
-				Start:             t0,
+				Full:  true,
+				Push:  push1,
+				Start: t0,
 				ConfigsUpdated: map[ConfigKey]struct{}{
 					{Kind: resource.GroupVersionKind{Kind: "cfg1"}, Namespace: "ns1"}: {},
 					{Kind: resource.GroupVersionKind{Kind: "cfg2"}, Namespace: "ns2"}: {}},

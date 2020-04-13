@@ -1159,23 +1159,33 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 }
 
 func TestContainsEgressDependencies(t *testing.T) {
-	const svcName = "svc1.com"
-	cases := []struct {
-		name      string
-		egress    []string
-		namespace string
-		contains  bool
+	const (
+		svcName = "svc1.com"
+		nsName  = "ns"
+		drName  = "dr1"
+		vsName  = "vs1"
+	)
 
-		services        []host.Name
-		virtualServices []string
-		destinationRule []string
+	allContains := func(ns string, contains bool) map[ConfigKey]bool {
+		return map[ConfigKey]bool{
+			{ServiceEntryKind, svcName, ns}:   contains,
+			{VirtualServiceKind, vsName, ns}:  contains,
+			{DestinationRuleKind, drName, ns}: contains,
+		}
+	}
+
+	cases := []struct {
+		name   string
+		egress []string
+
+		contains map[ConfigKey]bool
 	}{
-		{"Just wildcard", []string{"*/*"}, "ns", true, []host.Name{svcName}, []string{"vs1"}, []string{"dr1"}},
-		{"Namespace and wildcard", []string{"ns/*", "*/*"}, "ns", true, []host.Name{svcName}, []string{"vs1"}, []string{"dr1"}},
-		{"Just Namespace", []string{"ns/*"}, "ns", true, []host.Name{svcName}, []string{"vs1"}, []string{"dr1"}},
-		{"Wrong Namespace", []string{"ns/*"}, "other-ns", false, nil, nil, nil},
-		{"No Sidecar", nil, "ns", true, []host.Name{svcName}, []string{"vs1"}, []string{"dr1"}},
-		{"No Sidecar Other Namespace", nil, "other-ns", false, nil, nil, nil},
+		{"Just wildcard", []string{"*/*"}, allContains(nsName, true)},
+		{"Namespace and wildcard", []string{"ns/*", "*/*"}, allContains(nsName, true)},
+		{"Just Namespace", []string{"ns/*"}, allContains(nsName, true)},
+		{"Wrong Namespace", []string{"ns/*"}, allContains("other-ns", false)},
+		{"No Sidecar", nil, allContains("ns", true)},
+		{"No Sidecar Other Namespace", nil, allContains("other-ns", false)},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1198,13 +1208,13 @@ func TestContainsEgressDependencies(t *testing.T) {
 
 			services := []*Service{
 				{Hostname: "nomatch", Attributes: ServiceAttributes{Namespace: "nomatch"}},
-				{Hostname: svcName, Attributes: ServiceAttributes{Namespace: "ns"}},
+				{Hostname: svcName, Attributes: ServiceAttributes{Namespace: nsName}},
 			}
 			virtualServices := []Config{
 				{
 					ConfigMeta: ConfigMeta{
-						Name:      "vs1",
-						Namespace: "ns",
+						Name:      vsName,
+						Namespace: nsName,
 					},
 					Spec: &networking.VirtualService{
 						Hosts: []string{svcName},
@@ -1214,8 +1224,8 @@ func TestContainsEgressDependencies(t *testing.T) {
 			destinationRules := []Config{
 				{
 					ConfigMeta: ConfigMeta{
-						Name:      "dr1",
-						Namespace: "ns",
+						Name:      drName,
+						Namespace: nsName,
 					},
 					Spec: &networking.DestinationRule{
 						Host:     svcName,
@@ -1231,20 +1241,9 @@ func TestContainsEgressDependencies(t *testing.T) {
 				sidecarScope = DefaultSidecarScopeForNamespace(ps, "default")
 			}
 
-			// TODO yonka: Improve this test case.
-			for _, name := range tt.services {
-				if ok, _ := sidecarScope.DependsOnConfig(ConfigKey{ServiceEntryKind, string(name), "ns"}); !ok {
-					t.Fatalf("Expected contains %v, but no %s", tt.services, name)
-				}
-			}
-			for _, name := range tt.virtualServices {
-				if ok, _ := sidecarScope.DependsOnConfig(ConfigKey{VirtualServiceKind, name, "ns"}); !ok {
-					t.Fatalf("Expected contains %v, but no %s", tt.virtualServices, name)
-				}
-			}
-			for _, name := range tt.destinationRule {
-				if ok, _ := sidecarScope.DependsOnConfig(ConfigKey{DestinationRuleKind, name, "ns"}); !ok {
-					t.Fatalf("Expected contains %v, but no %s", tt.destinationRule, name)
+			for k, v := range tt.contains {
+				if ok, _ := sidecarScope.DependsOnConfig(k); ok != v {
+					t.Fatalf("Expected contains %v-%v, but no match", k, v)
 				}
 			}
 		})

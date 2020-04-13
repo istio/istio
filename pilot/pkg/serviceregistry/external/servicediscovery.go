@@ -138,6 +138,8 @@ func getWorkloadEntryHandler(c *ServiceEntryStore) func(model.Config, model.Conf
 // getServiceEntryHandler defines the handler for service entries
 func getServiceEntryHandler(c *ServiceEntryStore) func(model.Config, model.Config, model.Event) {
 	return func(old, curr model.Config, event model.Event) {
+		// TODO(yonka): Apply full-push scoping to external ServiceEntryStore.
+
 		cs := convertServices(curr)
 
 		// If it is add/delete event we should always do a full push. If it is update event, we should do full push,
@@ -167,9 +169,9 @@ func getServiceEntryHandler(c *ServiceEntryStore) func(model.Config, model.Confi
 
 		if fp {
 			pushReq := &model.PushRequest{
-				Full:              true,
-				ConfigsUpdated:    map[model.ConfigKey]struct{}{},
-				Reason:            []model.TriggerReason{model.ServiceUpdate},
+				Full:           true,
+				ConfigsUpdated: map[model.ConfigKey]struct{}{},
+				Reason:         []model.TriggerReason{model.ServiceUpdate},
 			}
 			c.XdsUpdater.ConfigUpdate(pushReq)
 		} else {

@@ -388,9 +388,8 @@ func testOverlappingPorts(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.
 	server.EnvoyXdsServer.Push(&model.PushRequest{
 		Full: true,
 		ConfigsUpdated: map[model.ConfigKey]struct{}{{
-			Kind:      model.ServiceEntryKind,
-			Name:      "overlapping.cluster.local",
-			Namespace: "",
+			Kind: model.ServiceEntryKind,
+			Name: "overlapping.cluster.local",
 		}: {}}})
 	_, _ = adsc.Wait(5 * time.Second)
 

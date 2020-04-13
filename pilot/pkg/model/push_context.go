@@ -185,6 +185,9 @@ type PushRequest struct {
 	Full bool
 
 	// ConfigsUpdated keeps track of configs that have changed.
+	// This is used as an optimization to avoid unnecessary pushes to proxies that are scoped with a Sidecar.
+	// If this is empty, then all proxies will get an update.
+	// Otherwise only proxies depend on these configs will get an update.
 	// The kind of resources are defined in pkg/config/schemas.
 	ConfigsUpdated map[ConfigKey]struct{}
 
@@ -872,11 +875,11 @@ func (ps *PushContext) updateContext(
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
-		case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind():
+		case ServiceEntryKind:
 			servicesChanged = true
-		case collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind():
+		case DestinationRuleKind:
 			destinationRulesChanged = true
-		case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
+		case VirtualServiceKind:
 			virtualServicesChanged = true
 		case collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():
 			gatewayChanged = true

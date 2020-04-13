@@ -38,11 +38,10 @@ func TestProxyNeedsPush(t *testing.T) {
 	)
 
 	type Case struct {
-		name       string
-		proxy      *model.Proxy
-		namespaces []string
-		configs    map[model.ConfigKey]struct{}
-		want       bool
+		name    string
+		proxy   *model.Proxy
+		configs map[model.ConfigKey]struct{}
+		want    bool
 	}
 
 	sidecar := &model.Proxy{
@@ -55,46 +54,53 @@ func TestProxyNeedsPush(t *testing.T) {
 	for kind, name := range sidecarScopeKindNames {
 		sidecar.SidecarScope.AddConfigDependencies(model.ConfigKey{Kind: kind, Name: name, Namespace: nsName})
 	}
+	for kind, types := range configKindAffectedProxyTypes {
+		for _, nodeType := range types {
+			if nodeType == model.SidecarProxy {
+				sidecar.SidecarScope.AddConfigDependencies(model.ConfigKey{
+					Kind:      kind,
+					Name:      generalName,
+					Namespace: nsName,
+				})
+			}
+		}
+	}
 
 	cases := []Case{
-		{"no namespace or configs", sidecar, nil, nil, true},
-		{"gateway config for sidecar", sidecar, nil, map[model.ConfigKey]struct{}{
+		{"no namespace or configs", sidecar, nil, true},
+		{"gateway config for sidecar", sidecar, map[model.ConfigKey]struct{}{
 			{
 				Kind: collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(),
 				Name: generalName, Namespace: nsName}: {}}, false},
-		{"gateway config for gateway", gateway, nil, map[model.ConfigKey]struct{}{
+		{"gateway config for gateway", gateway, map[model.ConfigKey]struct{}{
 			{
 				Kind: collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(),
 				Name: generalName, Namespace: nsName}: {}}, true},
-		{"quotaspec config for sidecar", sidecar, nil, map[model.ConfigKey]struct{}{
+		{"quotaspec config for sidecar", sidecar, map[model.ConfigKey]struct{}{
 			{
 				Kind: collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(),
 				Name: generalName, Namespace: nsName}: {}}, true},
-		{"quotaspec config for gateway", gateway, nil, map[model.ConfigKey]struct{}{
+		{"quotaspec config for gateway", gateway, map[model.ConfigKey]struct{}{
 			{
 				Kind: collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(),
 				Name: generalName, Namespace: nsName}: {}}, false},
-		{"invalid config for sidecar", sidecar, nil, map[model.ConfigKey]struct{}{
+		{"invalid config for sidecar", sidecar, map[model.ConfigKey]struct{}{
 			{
 				Kind: resource.GroupVersionKind{Kind: invalidKind}, Name: generalName, Namespace: nsName}: {}},
 			true},
-		{"mixture matched and unmatched config for sidecar", sidecar, nil, map[model.ConfigKey]struct{}{
+		{"mixture matched and unmatched config for sidecar", sidecar, map[model.ConfigKey]struct{}{
 			{Kind: model.DestinationRuleKind, Name: drName, Namespace: nsName}:                   {},
 			{Kind: model.ServiceEntryKind, Name: svcName + invalidNameSuffix, Namespace: nsName}: {},
 		}, true},
-		{"mixture unmatched and unmatched config for sidecar", sidecar, nil, map[model.ConfigKey]struct{}{
+		{"mixture unmatched and unmatched config for sidecar", sidecar, map[model.ConfigKey]struct{}{
 			{Kind: model.DestinationRuleKind, Name: drName + invalidNameSuffix, Namespace: nsName}: {},
 			{Kind: model.ServiceEntryKind, Name: svcName + invalidNameSuffix, Namespace: nsName}:   {},
 		}, false},
+		{"empty configsUpdated for sidecar", sidecar, nil, true},
 	}
 
 	for kind, name := range sidecarScopeKindNames {
-		cases = append(cases, Case{ // empty
-			name:    fmt.Sprintf("%s empty config for sidecar", kind.Kind),
-			proxy:   sidecar,
-			configs: map[model.ConfigKey]struct{}{},
-			want:    true,
-		}, Case{ // valid name
+		cases = append(cases, Case{ // valid name
 			name:    fmt.Sprintf("%s config for sidecar", kind.Kind),
 			proxy:   sidecar,
 			configs: map[model.ConfigKey]struct{}{{Kind: kind, Name: name, Namespace: nsName}: {}},
@@ -107,12 +113,25 @@ func TestProxyNeedsPush(t *testing.T) {
 		})
 	}
 
+	// tests for kind-affect-proxy.
+	for kind, types := range configKindAffectedProxyTypes {
+		for _, nodeType := range types {
+			proxy := gateway
+			if nodeType == model.SidecarProxy {
+				proxy = sidecar
+			}
+			cases = append(cases, Case{
+				name:  fmt.Sprintf("kind %s affect %s", kind, nodeType),
+				proxy: proxy,
+				configs: map[model.ConfigKey]struct{}{
+					{Kind: kind, Name: generalName + invalidNameSuffix, Namespace: nsName}: {}},
+				want: true,
+			})
+		}
+	}
+
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			ns := map[string]struct{}{}
-			for _, n := range tt.namespaces {
-				ns[n] = struct{}{}
-			}
 			pushEv := &XdsEvent{configsUpdated: tt.configs}
 			got := ProxyNeedsPush(tt.proxy, pushEv)
 			if got != tt.want {

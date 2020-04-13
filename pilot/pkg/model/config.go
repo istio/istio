@@ -45,8 +45,8 @@ const (
 	RevisionLabel = "istio.io/rev"
 )
 
-// ConfigKey describe a specific config item depends on or get changed.
-// In most cases name is config name except that for ServiceEntry it's Service.Hostname.
+// ConfigKey describe a specific config item.
+// In most cases, the name is the config's name. However, for ServiceEntry it is service's FQDN.
 type ConfigKey struct {
 	Kind      resource.GroupVersionKind
 	Name      string

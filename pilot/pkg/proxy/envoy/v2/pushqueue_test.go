@@ -144,9 +144,8 @@ func TestProxyQueue(t *testing.T) {
 		p.Enqueue(proxies[0], &model.PushRequest{
 			Full: false,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      model.ServiceEntryKind,
-				Name:      "foo",
-				Namespace: "",
+				Kind: model.ServiceEntryKind,
+				Name: "foo",
 			}: {}},
 			Start: firstTime,
 		})

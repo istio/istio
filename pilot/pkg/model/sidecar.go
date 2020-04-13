@@ -89,12 +89,9 @@ type SidecarScope struct {
 	// be forwarded.
 	OutboundTrafficPolicy *networking.OutboundTrafficPolicy
 
-	// Set of all namespaces this sidecar depends on. This is determined from the egress config
-	namespaceDependencies map[string]struct{}
-
 	// Set of known configs this sidecar depends on.
 	// This field will be used to determine the config/resource scope
-	// which means which config changes will affect the proxies with this scope.
+	// which means which config changes will affect the proxies within this scope.
 	configDependencies map[ConfigKey]struct{}
 }
 
@@ -465,16 +462,6 @@ func (ilw *IstioEgressListenerWrapper) VirtualServices() []Config {
 	}
 
 	return ilw.virtualServices
-}
-
-// DependsOnNamespace determines if the Sidecar includes the given namespace.
-func (sc *SidecarScope) DependsOnNamespace(namespace string) bool {
-	if sc == nil {
-		return true
-	}
-
-	_, exists := sc.namespaceDependencies[namespace]
-	return exists
 }
 
 // DependsOnConfig determines if the proxy depends on the given config.

@@ -20,6 +20,7 @@ import (
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
+// configKindAffectedProxyTypes contains known config types which will affect certain node types.
 var configKindAffectedProxyTypes = map[resource.GroupVersionKind][]model.NodeType{
 	collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():           {model.Router},
 	collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind():        {model.SidecarProxy},
