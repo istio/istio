@@ -171,7 +171,7 @@ func (s *Server) handleReadyProbe(w http.ResponseWriter, _ *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
 
-		log.Infof("Envoy proxy is NOT ready: %s", err.Error())
+		log.Warnf("Envoy proxy is NOT ready: %s", err.Error())
 		s.lastProbeSuccessful = false
 	} else {
 		w.WriteHeader(http.StatusOK)
