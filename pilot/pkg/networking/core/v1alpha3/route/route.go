@@ -214,11 +214,11 @@ func buildSidecarVirtualHostsForVirtualService(
 	}
 	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
 	out := make([]VirtualHostWrapper, 0, len(serviceByPort))
+	routes, err := BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, listenPort, meshGateway)
+	if err != nil || len(routes) == 0 {
+		return out
+	}
 	for port, portServices := range serviceByPort {
-		routes, err := BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, listenPort, meshGateway)
-		if err != nil || len(routes) == 0 {
-			continue
-		}
 		out = append(out, VirtualHostWrapper{
 			Port:                port,
 			Services:            portServices,
