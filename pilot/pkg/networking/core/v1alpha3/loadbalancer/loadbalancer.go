@@ -19,11 +19,13 @@ import (
 	"math"
 	"sort"
 
-	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+
 	"istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
@@ -57,8 +59,8 @@ func GetLocalityLbSetting(
 }
 
 func ApplyLocalityLBSetting(
-	locality *core.Locality,
-	loadAssignment *apiv2.ClusterLoadAssignment,
+	locality *corev3.Locality,
+	loadAssignment *endpoint.ClusterLoadAssignment,
 	localityLB *v1alpha3.LocalityLoadBalancerSetting,
 	enableFailover bool,
 ) {
@@ -78,8 +80,8 @@ func ApplyLocalityLBSetting(
 
 // set locality loadbalancing weight
 func applyLocalityWeight(
-	locality *core.Locality,
-	loadAssignment *apiv2.ClusterLoadAssignment,
+	locality *corev3.Locality,
+	loadAssignment *endpoint.ClusterLoadAssignment,
 	distribute []*v1alpha3.LocalityLoadBalancerSetting_Distribute) {
 	if distribute == nil {
 		return
@@ -137,8 +139,8 @@ func applyLocalityWeight(
 
 // set locality loadbalancing priority
 func applyLocalityFailover(
-	locality *core.Locality,
-	loadAssignment *apiv2.ClusterLoadAssignment,
+	locality *corev3.Locality,
+	loadAssignment *endpoint.ClusterLoadAssignment,
 	failover []*v1alpha3.LocalityLoadBalancerSetting_Failover) {
 	// key is priority, value is the index of the LocalityLbEndpoints in ClusterLoadAssignment
 	priorityMap := map[int][]int{}

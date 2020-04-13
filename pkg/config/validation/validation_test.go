@@ -3135,7 +3135,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 						Operation: networking.EnvoyFilter_Patch_ADD,
 						Value: &types.Struct{
 							Fields: map[string]*types.Value{
-								"hosts": {
+								"foo": {
 									Kind: &types.Value_BoolValue{BoolValue: false},
 								},
 							},

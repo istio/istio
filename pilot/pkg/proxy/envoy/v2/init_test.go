@@ -21,6 +21,7 @@ import (
 	"net"
 	"time"
 
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
@@ -42,14 +43,14 @@ var nodeMetadata = &structpb.Struct{Fields: map[string]*structpb.Value{
 }}
 
 // Extract cluster load assignment from a discovery response.
-func getLoadAssignment(res1 *xdsapi.DiscoveryResponse) (*xdsapi.ClusterLoadAssignment, error) {
-	if res1.TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
+func getLoadAssignment(res1 *xdsapi.DiscoveryResponse) (*endpoint.ClusterLoadAssignment, error) {
+	if res1.TypeUrl != v2.EndpointTypeV3 {
 		return nil, errors.New("Invalid typeURL" + res1.TypeUrl)
 	}
-	if res1.Resources[0].TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
+	if res1.Resources[0].TypeUrl != v2.EndpointTypeV3 {
 		return nil, errors.New("Invalid resource typeURL" + res1.Resources[0].TypeUrl)
 	}
-	cla := &xdsapi.ClusterLoadAssignment{}
+	cla := &endpoint.ClusterLoadAssignment{}
 	err := ptypes.UnmarshalAny(res1.Resources[0], cla)
 	if err != nil {
 		return nil, err
@@ -104,7 +105,7 @@ func sendEDSReq(clusters []string, node string, edsstr ads.AggregatedDiscoverySe
 			Id:       node,
 			Metadata: nodeMetadata,
 		},
-		TypeUrl:       v2.EndpointType,
+		TypeUrl:       v2.EndpointTypeV3,
 		ResourceNames: clusters,
 	})
 	if err != nil {
@@ -115,7 +116,7 @@ func sendEDSReq(clusters []string, node string, edsstr ads.AggregatedDiscoverySe
 }
 
 func sendEDSNack(_ []string, node string, client ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
-	return sendXds(node, client, v2.EndpointType, "NOPE!")
+	return sendXds(node, client, v2.EndpointTypeV3, "NOPE!")
 }
 
 // If pilot is reset, envoy will connect with a nonce/version info set on the previous
@@ -127,7 +128,7 @@ func sendEDSReqReconnect(clusters []string, client ads.AggregatedDiscoveryServic
 			Id:       sidecarID(app3Ip, "app3"),
 			Metadata: nodeMetadata,
 		},
-		TypeUrl:       v2.EndpointType,
+		TypeUrl:       v2.EndpointTypeV3,
 		ResponseNonce: res.Nonce,
 		VersionInfo:   res.VersionInfo,
 		ResourceNames: clusters})

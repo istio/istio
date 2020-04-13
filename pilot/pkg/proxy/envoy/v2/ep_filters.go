@@ -15,7 +15,7 @@
 package v2
 
 import (
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -84,7 +84,7 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 
 			// There may be multiples gateways for one network. Add each gateway as an endpoint.
 			for _, gw := range gateways {
-				epAddr := util.BuildAddress(gw.Addr, gw.Port)
+				epAddr := util.BuildAddressV3(gw.Addr, gw.Port)
 				gwEp := &endpoint.LbEndpoint{
 					HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 						Endpoint: &endpoint.Endpoint{

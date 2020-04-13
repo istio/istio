@@ -29,6 +29,7 @@ import (
 	"google.golang.org/grpc/serviceconfig"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -147,7 +148,7 @@ func TestGRPC(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		s.Send(&xdsapi.DiscoveryRequest{})
+		t.Log(s.Send(&xdsapi.DiscoveryRequest{}))
 
 	})
 

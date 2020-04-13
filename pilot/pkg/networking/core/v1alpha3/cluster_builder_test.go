@@ -18,15 +18,15 @@ import (
 	"reflect"
 	"testing"
 
-	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	v2Cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
@@ -64,30 +64,30 @@ func TestApplyDestinationRule(t *testing.T) {
 
 	cases := []struct {
 		name                   string
-		cluster                *apiv2.Cluster
+		cluster                *cluster.Cluster
 		clusterMode            ClusterMode
 		service                *model.Service
 		port                   *model.Port
 		proxy                  *model.Proxy
 		networkView            map[string]bool
 		destRule               *networking.DestinationRule
-		expectedSubsetClusters []*apiv2.Cluster
+		expectedSubsetClusters []*cluster.Cluster
 	}{
 		// TODO(ramaraochavali): Add more tests to cover additional conditions.
 		{
 			name:                   "nil destination rule",
-			cluster:                &apiv2.Cluster{},
+			cluster:                &cluster.Cluster{},
 			clusterMode:            DefaultClusterMode,
 			service:                &model.Service{},
 			port:                   &model.Port{},
 			proxy:                  &model.Proxy{},
 			networkView:            map[string]bool{},
 			destRule:               nil,
-			expectedSubsetClusters: []*apiv2.Cluster{},
+			expectedSubsetClusters: []*cluster.Cluster{},
 		},
 		{
 			name:        "destination rule with subsets",
-			cluster:     &apiv2.Cluster{Name: "foo", ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_EDS}},
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
@@ -102,11 +102,11 @@ func TestApplyDestinationRule(t *testing.T) {
 					},
 				},
 			},
-			expectedSubsetClusters: []*apiv2.Cluster{
+			expectedSubsetClusters: []*cluster.Cluster{
 				{
 					Name:                 "outbound|8080|foobar|foo",
-					ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_EDS},
-					EdsClusterConfig: &apiv2.Cluster_EdsClusterConfig{
+					ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
+					EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
 						ServiceName: "outbound|8080|foobar|foo",
 					},
 				},
@@ -114,7 +114,7 @@ func TestApplyDestinationRule(t *testing.T) {
 		},
 		{
 			name:        "destination rule with subsets for SniDnat cluster",
-			cluster:     &apiv2.Cluster{Name: "foo", ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_EDS}},
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: SniDnatClusterMode,
 			service:     service,
 			port:        servicePort[0],
@@ -129,11 +129,11 @@ func TestApplyDestinationRule(t *testing.T) {
 					},
 				},
 			},
-			expectedSubsetClusters: []*apiv2.Cluster{
+			expectedSubsetClusters: []*cluster.Cluster{
 				{
 					Name:                 "outbound_.8080_.foobar_.foo",
-					ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_EDS},
-					EdsClusterConfig: &apiv2.Cluster_EdsClusterConfig{
+					ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
+					EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
 						ServiceName: "outbound_.8080_.foobar_.foo",
 					},
 				},
@@ -141,7 +141,7 @@ func TestApplyDestinationRule(t *testing.T) {
 		},
 		{
 			name:        "destination rule with subset traffic policy",
-			cluster:     &apiv2.Cluster{Name: "foo", ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_EDS}},
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
@@ -163,15 +163,15 @@ func TestApplyDestinationRule(t *testing.T) {
 					},
 				},
 			},
-			expectedSubsetClusters: []*apiv2.Cluster{
+			expectedSubsetClusters: []*cluster.Cluster{
 				{
 					Name:                 "outbound|8080|foobar|foo",
-					ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_EDS},
-					EdsClusterConfig: &apiv2.Cluster_EdsClusterConfig{
+					ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
+					EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
 						ServiceName: "outbound|8080|foobar|foo",
 					},
-					CircuitBreakers: &v2Cluster.CircuitBreakers{
-						Thresholds: []*v2Cluster.CircuitBreakers_Thresholds{
+					CircuitBreakers: &cluster.CircuitBreakers{
+						Thresholds: []*cluster.CircuitBreakers_Thresholds{
 							{
 								MaxRetries: &wrappers.UInt32Value{
 									Value: 10,
@@ -243,7 +243,7 @@ func TestApplyDestinationRule(t *testing.T) {
 	}
 }
 
-func compareClusters(t *testing.T, ec *apiv2.Cluster, gc *apiv2.Cluster) {
+func compareClusters(t *testing.T, ec *cluster.Cluster, gc *cluster.Cluster) {
 	// TODO(ramaraochavali): Expand the comparison to more fields.
 	t.Helper()
 	if ec.Name != gc.Name {
@@ -252,7 +252,7 @@ func compareClusters(t *testing.T, ec *apiv2.Cluster, gc *apiv2.Cluster) {
 	if ec.GetType() != gc.GetType() {
 		t.Errorf("Unexpected cluster discovery type want %v, got %v", ec.GetType(), gc.GetType())
 	}
-	if ec.GetType() == apiv2.Cluster_EDS && ec.EdsClusterConfig.ServiceName != gc.EdsClusterConfig.ServiceName {
+	if ec.GetType() == cluster.Cluster_EDS && ec.EdsClusterConfig.ServiceName != gc.EdsClusterConfig.ServiceName {
 		t.Errorf("Unexpected service name in EDS config want %v, got %v", ec.EdsClusterConfig.ServiceName, gc.EdsClusterConfig.ServiceName)
 	}
 	if ec.CircuitBreakers != nil {
@@ -266,23 +266,24 @@ func TestApplyEdsConfig(t *testing.T) {
 
 	cases := []struct {
 		name      string
-		cluster   *apiv2.Cluster
-		edsConfig *apiv2.Cluster_EdsClusterConfig
+		cluster   *cluster.Cluster
+		edsConfig *cluster.Cluster_EdsClusterConfig
 	}{
 		{
 			name:      "non eds type of cluster",
-			cluster:   &apiv2.Cluster{Name: "foo", ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_STRICT_DNS}},
+			cluster:   &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}},
 			edsConfig: nil,
 		},
 		{
 			name:    "eds type of cluster",
-			cluster: &apiv2.Cluster{Name: "foo", ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_EDS}},
-			edsConfig: &apiv2.Cluster_EdsClusterConfig{
+			cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			edsConfig: &cluster.Cluster_EdsClusterConfig{
 				ServiceName: "foo",
-				EdsConfig: &core.ConfigSource{
-					ConfigSourceSpecifier: &core.ConfigSource_Ads{
-						Ads: &core.AggregatedConfigSource{},
+				EdsConfig: &corev3.ConfigSource{
+					ConfigSourceSpecifier: &corev3.ConfigSource_Ads{
+						Ads: &corev3.AggregatedConfigSource{},
 					},
+					ResourceApiVersion:  corev3.ApiVersion_V3,
 					InitialFetchTimeout: features.InitialFetchTimeout,
 				},
 			},
@@ -309,32 +310,32 @@ func TestBuildDefaultCluster(t *testing.T) {
 	cases := []struct {
 		name            string
 		clusterName     string
-		discovery       apiv2.Cluster_DiscoveryType
+		discovery       cluster.Cluster_DiscoveryType
 		endpoints       []*endpoint.LocalityLbEndpoints
 		direction       model.TrafficDirection
 		external        bool
-		expectedCluster *apiv2.Cluster
+		expectedCluster *cluster.Cluster
 	}{
 		{
 			name:        "default EDS cluster",
 			clusterName: "foo",
-			discovery:   apiv2.Cluster_EDS,
+			discovery:   cluster.Cluster_EDS,
 			endpoints:   nil,
 			direction:   model.TrafficDirectionOutbound,
 			external:    false,
-			expectedCluster: &apiv2.Cluster{
+			expectedCluster: &cluster.Cluster{
 				Name:                 "foo",
-				ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_EDS},
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
 				ConnectTimeout:       &duration.Duration{Seconds: 10, Nanos: 1},
-				CircuitBreakers: &v2Cluster.CircuitBreakers{
-					Thresholds: []*v2Cluster.CircuitBreakers_Thresholds{&defaultCircuitBreakerThresholds},
+				CircuitBreakers: &cluster.CircuitBreakers{
+					Thresholds: []*cluster.CircuitBreakers_Thresholds{&defaultCircuitBreakerThresholds},
 				},
 			},
 		},
 		{
 			name:            "static cluster with no endpoints",
 			clusterName:     "foo",
-			discovery:       apiv2.Cluster_STATIC,
+			discovery:       cluster.Cluster_STATIC,
 			endpoints:       nil,
 			direction:       model.TrafficDirectionOutbound,
 			external:        false,
@@ -343,7 +344,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 		{
 			name:            "strict DNS cluster with no endpoints",
 			clusterName:     "foo",
-			discovery:       apiv2.Cluster_STRICT_DNS,
+			discovery:       cluster.Cluster_STRICT_DNS,
 			endpoints:       nil,
 			direction:       model.TrafficDirectionOutbound,
 			external:        false,
@@ -352,10 +353,10 @@ func TestBuildDefaultCluster(t *testing.T) {
 		{
 			name:        "static cluster with endpoints",
 			clusterName: "foo",
-			discovery:   apiv2.Cluster_STATIC,
+			discovery:   cluster.Cluster_STATIC,
 			endpoints: []*endpoint.LocalityLbEndpoints{
 				{
-					Locality: &core.Locality{
+					Locality: &corev3.Locality{
 						Region:  "region1",
 						Zone:    "zone1",
 						SubZone: "subzone1",
@@ -369,15 +370,15 @@ func TestBuildDefaultCluster(t *testing.T) {
 			},
 			direction: model.TrafficDirectionOutbound,
 			external:  false,
-			expectedCluster: &apiv2.Cluster{
+			expectedCluster: &cluster.Cluster{
 				Name:                 "foo",
-				ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_STATIC},
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 				ConnectTimeout:       &duration.Duration{Seconds: 10, Nanos: 1},
-				LoadAssignment: &apiv2.ClusterLoadAssignment{
+				LoadAssignment: &endpoint.ClusterLoadAssignment{
 					ClusterName: "foo",
 					Endpoints: []*endpoint.LocalityLbEndpoints{
 						{
-							Locality: &core.Locality{
+							Locality: &corev3.Locality{
 								Region:  "region1",
 								Zone:    "zone1",
 								SubZone: "subzone1",
@@ -390,8 +391,8 @@ func TestBuildDefaultCluster(t *testing.T) {
 						},
 					},
 				},
-				CircuitBreakers: &v2Cluster.CircuitBreakers{
-					Thresholds: []*v2Cluster.CircuitBreakers_Thresholds{&defaultCircuitBreakerThresholds},
+				CircuitBreakers: &cluster.CircuitBreakers{
+					Thresholds: []*cluster.CircuitBreakers_Thresholds{&defaultCircuitBreakerThresholds},
 				},
 			},
 		},
@@ -468,7 +469,7 @@ func TestBuildPassthroughClusters(t *testing.T) {
 				t.Errorf("Unexpected Ipv6 Passthrough Cluster, want %v got %v", tt.ipv6Expected, hasIpv6)
 			}
 			// Validate that Passthrough Cluster LB Policy is set correctly.
-			if clusters[0].GetType() != apiv2.Cluster_ORIGINAL_DST || clusters[0].GetLbPolicy() != apiv2.Cluster_CLUSTER_PROVIDED {
+			if clusters[0].GetType() != cluster.Cluster_ORIGINAL_DST || clusters[0].GetLbPolicy() != cluster.Cluster_CLUSTER_PROVIDED {
 				t.Errorf("Unexpected Discovery type or Lb policy, got Discovery type: %v, Lb Policy: %v", clusters[0].GetType(), clusters[0].GetLbPolicy())
 			}
 		})
