@@ -186,9 +186,12 @@ func (s *suiteContext) registerOutcome(test *Test) {
 	} else if test.goTest.Skipped() {
 		o = Skipped
 	}
-	s.testOutcomes = append(s.testOutcomes, TestOutcome{
+	newOutcome :=  TestOutcome{
 		Name:          test.goTest.Name(),
 		Outcome:       o,
 		FeatureLabels: test.featureLabels,
-	})
+	}
+	s.contextMu.Lock()
+	defer s.contextMu.Unlock()
+	s.testOutcomes = append(s.testOutcomes, newOutcome)
 }
