@@ -666,8 +666,22 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 			}
 		}
 	}
-
-	return out
+	if proxy == nil {
+		return out
+	}
+	// Make virtual services in the config namespace appear first
+	ordered := make([]Config, 0, len(out))
+	for _, c := range out {
+		if c.Namespace == proxy.ConfigNamespace {
+			ordered = append(ordered, c)
+		}
+	}
+	for _, c := range out {
+		if c.Namespace != proxy.ConfigNamespace {
+			ordered = append(ordered, c)
+		}
+	}
+	return ordered
 }
 
 // getSidecarScope returns a SidecarScope object associated with the

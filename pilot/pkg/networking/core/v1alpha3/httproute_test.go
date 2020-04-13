@@ -722,7 +722,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 					"*": true,
 				},
 			},
-			registryOnly:        true,
+			registryOnly: true,
 			// Select VS 2, because others are in a different NS
 			expectedDestination: "outbound|62||test.org",
 		},
@@ -730,7 +730,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			name:                  "no sidecar config with virtual services with different namespace",
 			routeName:             "60",
 			sidecarConfig:         nil,
-			virtualServiceConfigs: []*model.Config{ &virtualService2OtherNs},
+			virtualServiceConfigs: []*model.Config{&virtualService2OtherNs},
 			expectedHosts: map[string]map[string]bool{
 				"test-private-2.com:60": {
 					"test-private-2.com": true, "test-private-2.com:60": true, "9.9.9.10": true, "9.9.9.10:60": true,

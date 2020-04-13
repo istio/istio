@@ -270,38 +270,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 	virtualHostWrappers := istio_route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, nameToServiceMap,
 		virtualServices, listenerPort)
 	vHostPortMap := make(map[int][]*route.VirtualHost)
-
-	// Map of name -> namespace
-	// This is used to deduplicate domains. We should only one one domain or Envoy will reject the config
-	// In order to make the conflict resolution correct, we need to keep track of the namespace
-	// During a conflict, the VS from the same namespace wins. If they are in the same namespace, resolution
-	// is based on the virtual service order which is sorted by creation time earlier in the code.
-	uniques := make(map[string]string)
-	// First set up the uniques map. This will end up with the namespace we should use for each domain.
-	for _, virtualHostWrapper := range virtualHostWrappers {
-		// If none of the routes matched by source, skip this virtual host
-		if len(virtualHostWrapper.Routes) == 0 {
-			continue
-		}
-		vhostNamespace := virtualHostWrapper.Namespace
-
-		for _, hostname := range virtualHostWrapper.VirtualServiceHosts {
-			name := domainName(hostname, virtualHostWrapper.Port)
-			ns, found := uniques[name]
-			if !found || (vhostNamespace == node.ConfigNamespace && ns != node.ConfigNamespace) {
-				uniques[name] = vhostNamespace
-			}
-		}
-
-		for _, svc := range virtualHostWrapper.Services {
-			name := domainName(string(svc.Hostname), virtualHostWrapper.Port)
-			ns, found := uniques[name]
-			if !found || (vhostNamespace == node.ConfigNamespace && ns != node.ConfigNamespace) {
-				uniques[name] = vhostNamespace
-			}
-		}
-	}
-	// Next add all the virtual hosts
+	uniques := make(map[string]struct{})
 	for _, virtualHostWrapper := range virtualHostWrappers {
 		// If none of the routes matched by source, skip this virtual host
 		if len(virtualHostWrapper.Routes) == 0 {
@@ -311,11 +280,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 		virtualHosts := make([]*route.VirtualHost, 0, len(virtualHostWrapper.VirtualServiceHosts)+len(virtualHostWrapper.Services))
 		for _, hostname := range virtualHostWrapper.VirtualServiceHosts {
 			name := domainName(hostname, virtualHostWrapper.Port)
-			ns, f := uniques[name]
-			// If we are in the right namespace and found the domain in the uniques map, we should add the host
-			// If its not found, that means this domain:namespace pair must have already been added
-			if f && ns == virtualHostWrapper.Namespace {
-				delete(uniques, name)
+			if _, found := uniques[name]; !found {
+				uniques[name] = struct{}{}
 				virtualHosts = append(virtualHosts, &route.VirtualHost{
 					Name:                       name,
 					Domains:                    []string{hostname, domainName(hostname, virtualHostWrapper.Port)},
@@ -329,11 +295,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 
 		for _, svc := range virtualHostWrapper.Services {
 			name := domainName(string(svc.Hostname), virtualHostWrapper.Port)
-			ns, f := uniques[name]
-			// If we are in the right namespace and found the domain in the uniques map, we should add the host
-			// If its not found, that means this domain:namespace pair must have already been added
-			if f && ns == virtualHostWrapper.Namespace {
-				delete(uniques, name)
+			if _, found := uniques[name]; !found {
+				uniques[name] = struct{}{}
 				domains := generateVirtualHostDomains(svc, virtualHostWrapper.Port, node)
 				virtualHosts = append(virtualHosts, &route.VirtualHost{
 					Name:                       name,
