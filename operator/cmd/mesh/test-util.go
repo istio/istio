@@ -22,7 +22,6 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	labels2 "k8s.io/apimachinery/pkg/labels"
@@ -130,7 +129,7 @@ func (o *objectSet) namespace(namespace string) *objectSet {
 
 // mustGetContainer returns the container tree with the given name in the deployment with the given name.
 // The function fails through g if no matching container is found.
-func mustGetContainer(g *gomega.WithT, objs *objectSet, deploymentName, containerName string) map[string]interface{} {
+func mustGetContainer(g *WithT, objs *objectSet, deploymentName, containerName string) map[string]interface{} {
 	obj := objs.kind("Deployment").nameEquals(deploymentName)
 	g.Expect(obj).Should(Not(BeNil()))
 	container := obj.Container(containerName)
@@ -247,14 +246,6 @@ func objectHashesOrdered(objs object.K8sObjects) []string {
 	var out []string
 	for _, o := range objs {
 		out = append(out, o.Hash())
-	}
-	return out
-}
-
-func objectHashMap(objs object.K8sObjects) map[string]*object.K8sObject {
-	out := make(map[string]*object.K8sObject)
-	for _, o := range objs {
-		out[o.Hash()] = o
 	}
 	return out
 }
