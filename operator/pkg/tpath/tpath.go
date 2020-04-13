@@ -106,6 +106,9 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 			}
 			var foundNode interface{}
 			if idx >= len(lst) {
+				if !createMissing {
+					return nil, false, fmt.Errorf("index %d exceeds list length %d at path %s", idx, len(lst), remainPath)
+				}
 				foundNode = make(map[string]interface{})
 			} else {
 				foundNode = lst[idx]

@@ -77,20 +77,12 @@ func TestRenderCharts(t *testing.T) {
 			showOutputFileInPullRequest: true,
 		},
 		{
-			desc:       "prometheus",
-			diffIgnore: "ConfigMap:*:istio",
-		},
-		{
 			desc:       "gateways",
 			diffIgnore: "ConfigMap:*:istio",
 		},
 		{
 			desc:       "gateways_override_default",
 			diffIgnore: "ConfigMap:*:istio",
-		},
-		{
-			desc:       "component_hub_tag",
-			diffSelect: "Deployment:*:*",
 		},
 	})
 	removeDirOrFail(t, flagOutputDir)

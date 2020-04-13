@@ -131,7 +131,7 @@ a:
 			desc:      "ExtendNthLeafListEntry",
 			path:      `a.b.[1].list.[3]`,
 			value:     `v4`,
-			wantFound: true,
+			wantErr:   `index 3 exceeds list length 3 at path [3]`,
 			want: `
 a:
   b:
@@ -149,7 +149,7 @@ a:
 			desc:      "ExtendMoreThanOneLeafListEntry",
 			path:      `a.b.[1].list.[5]`,
 			value:     `v4`,
-			wantFound: true,
+			wantErr:   `index 5 exceeds list length 3 at path [5]`,
 			want: `
 a:
   b:
@@ -166,10 +166,10 @@ a:
 `,
 		},
 		{
-			desc:      "ExtendNthListEntry",
-			path:      `a.b.[2].name`,
-			value:     `n3`,
-			wantFound: true,
+			desc:    "ExtendNthListEntry",
+			path:    `a.b.[2].name`,
+			value:   `n3`,
+			wantErr: `index 2 exceeds list length 2 at path [2].name`,
 			want: `
 a:
   b:
@@ -184,10 +184,10 @@ a:
 `,
 		},
 		{
-			desc:      "ExtendMoreThanOneListEntry",
-			path:      `a.b.[4].name`,
-			value:     `n3`,
-			wantFound: true,
+			desc:    "ExtendMoreThanOneListEntry",
+			path:    `a.b.[4].name`,
+			value:   `n3`,
+			wantErr: `index 4 exceeds list length 2 at path [4].name`,
 			want: `
 a:
   b:
@@ -289,7 +289,7 @@ a:
 			desc:      "DeleteListEntryBogusIndex",
 			path:      `a.b.[1000000].list.[:v2]`,
 			wantFound: false,
-			wantErr:   `path a.b.[1000000].list.[:v2]: element [1000000] not found`,
+			wantErr:   `index 1000000 exceeds list length 2 at path [1000000].list.[:v2]`,
 		},
 		{
 			desc:      "AddMapEntry",
@@ -337,7 +337,7 @@ a:
 			desc:      "error key",
 			path:      `a.b.[].list`,
 			wantFound: false,
-			wantErr:   `path a.b.[].list: [] is not a valid value path element`,
+			wantErr:   `path a.b.[].list: [] is not a valid key:value path element`,
 		},
 		{
 			desc:      "invalid index",

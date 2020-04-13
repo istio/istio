@@ -172,7 +172,7 @@ func applyManifest(manifestStr, componentName string, opts *kubectlcmd.Options, 
 	} else {
 		l.logAndPrintf("Component %s installed successfully.", componentName)
 		if opts.Verbose {
-			l.logAndPrintf("The following parseObjectSetFromManifest were installed:\n%s", k8sObjectsString(objs))
+			l.logAndPrintf("The following objects were installed:\n%s", k8sObjectsString(objs))
 		}
 	}
 

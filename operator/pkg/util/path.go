@@ -29,8 +29,6 @@ const (
 	KVSeparator     = string(kvSeparatorRune)
 	kvSeparatorRune = ':'
 
-	// MaxIndex is the maximum array index
-	MaxIndex = 65535
 	// InsertIndex is the index that means "insert" when setting values
 	InsertIndex = -1
 
@@ -127,7 +125,7 @@ func IsNPathElement(pe string) bool {
 	}
 
 	n, err := strconv.Atoi(pe)
-	return err == nil && n <= MaxIndex && n >= InsertIndex
+	return err == nil && n >= InsertIndex
 }
 
 // PathKV returns the key and value string parts of the entire key/value path element.
