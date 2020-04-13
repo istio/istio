@@ -58,6 +58,9 @@ var (
 
 	grpcAddr = "127.0.0.1:14056"
 
+	// Address of the Istiod gRPC service, used in tests.
+	istiodSvcAddr = "istiod.istio-system.svc.cluster.local:14056"
+
 	initErr error
 )
 
@@ -250,7 +253,7 @@ func TestDNSGRPC(t *testing.T) {
 		}
 
 		adscConn.Send(&xdsapi.DiscoveryRequest{
-			ResourceNames: []string{"fortio.fortio.svc.cluster.local"},
+			ResourceNames: []string{istiodSvcAddr},
 			TypeUrl:       adsc.ListenerType,
 		})
 
@@ -279,7 +282,7 @@ func TestDNSGRPC(t *testing.T) {
 	t.Run("gRPC-resolve", func(t *testing.T) {
 		rb := resolver.Get("xds-experimental")
 		ch := make(chan resolver.State)
-		_, err := rb.Build(resolver.Target{Endpoint: "istiod.istio-system.svc.cluster.local:14056"},
+		_, err := rb.Build(resolver.Target{Endpoint: istiodSvcAddr},
 			&testClientConn{ch: ch}, resolver.BuildOptions{})
 
 		if err != nil {

@@ -306,6 +306,11 @@ func (a *ADSC) handleRecv() {
 		if len(routes) > 0 {
 			a.handleRDS(routes)
 		}
+		select {
+		case a.Updates <- msg.TypeUrl:
+		default:
+		}
+
 	}
 
 }
@@ -322,6 +327,11 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 		ldsSize += proto.Size(l)
 
 		// The last filter is the actual destination for inbound listener
+		if l.ApiListener != nil {
+			// This is an API Listener
+			// TODO: extract VIP and RDS or cluster
+			continue
+		}
 		filter := l.FilterChains[len(l.FilterChains)-1].Filters[0]
 
 		// The actual destination will be the next to the last if the last filter is a passthrough filter
@@ -640,6 +650,8 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 
 // EndpointsJSON returns the endpoints, formatted as JSON, for debugging.
 func (a *ADSC) EndpointsJSON() string {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	out, _ := json.MarshalIndent(a.eds, " ", " ")
 	return string(out)
 }
