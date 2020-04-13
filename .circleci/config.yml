@@ -42,8 +42,9 @@ jobs:
     steps:
       - <<: *initWorkingDir
       - checkout
+      - attach_workspace:
+          at:  /go
       - setup_remote_docker:
           docker_layer_caching: false
-
       # specify any bash command here prefixed with `run: `
       - run: make build
