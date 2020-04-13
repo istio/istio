@@ -18,7 +18,11 @@ jobs:
     #### expecting it in the form of
     ####   /go/src/github.com/circleci/go-tool
     ####   /go/src/bitbucket.org/circleci/go-tool
-    working_directory: /go/src/github.com/{{ORG_NAME}}/{{REPO_NAME}}
+    #working_directory: /go/src/github.com/{{ORG_NAME}}/{{REPO_NAME}}
+    working_directory: /go/src/istio.io/istio
+    environment:
+       GOPATH: /go
+       SKIP_CLEANUP: true
     steps:
       - checkout
       - setup_remote_docker:
