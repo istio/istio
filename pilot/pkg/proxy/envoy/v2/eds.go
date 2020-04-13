@@ -20,6 +20,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -515,8 +516,8 @@ func getOutlierDetectionAndLoadBalancerSettings(push *model.PushContext, proxy *
 	return outlierDetectionEnabled, lbSettings
 }
 
-func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, version string, noncePrefix string) *xdsapi.DiscoveryResponse {
-	out := &xdsapi.DiscoveryResponse{
+func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, version string, noncePrefix string) *ads.DiscoveryResponse {
+	out := &ads.DiscoveryResponse{
 		TypeUrl: EndpointType,
 		// Pilot does not really care for versioning. It always supplies what's currently
 		// available to it, irrespective of whether Envoy chooses to accept or reject EDS

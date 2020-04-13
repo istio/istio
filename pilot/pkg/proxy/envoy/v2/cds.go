@@ -18,14 +18,15 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 // clusters aggregate a DiscoveryResponse for pushing.
-func cdsDiscoveryResponse(response []*xdsapi.Cluster, noncePrefix string) *xdsapi.DiscoveryResponse {
-	out := &xdsapi.DiscoveryResponse{
+func cdsDiscoveryResponse(response []*xdsapi.Cluster, noncePrefix string) *ads.DiscoveryResponse {
+	out := &ads.DiscoveryResponse{
 		// All resources for CDS ought to be of the type ClusterLoadAssignment
 		TypeUrl: ClusterType,
 

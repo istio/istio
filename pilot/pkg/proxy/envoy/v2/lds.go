@@ -18,6 +18,7 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -46,8 +47,8 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, v
 }
 
 // LdsDiscoveryResponse returns a list of listeners for the given environment and source node.
-func ldsDiscoveryResponse(ls []*xdsapi.Listener, version string, noncePrefix string) *xdsapi.DiscoveryResponse {
-	resp := &xdsapi.DiscoveryResponse{
+func ldsDiscoveryResponse(ls []*xdsapi.Listener, version string, noncePrefix string) *ads.DiscoveryResponse {
+	resp := &ads.DiscoveryResponse{
 		TypeUrl:     ListenerType,
 		VersionInfo: version,
 		Nonce:       nonce(noncePrefix),

@@ -22,7 +22,8 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
@@ -46,8 +47,8 @@ var (
 // DiscoveryStream is a common interface for EDS and ADS. It also has a
 // shorter name.
 type DiscoveryStream interface {
-	Send(*xdsapi.DiscoveryResponse) error
-	Recv() (*xdsapi.DiscoveryRequest, error)
+	Send(*ads.DiscoveryResponse) error
+	Recv() (*ads.DiscoveryRequest, error)
 	grpc.ServerStream
 }
 
@@ -150,7 +151,7 @@ func isExpectedGRPCError(err error) bool {
 	return false
 }
 
-func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest, errP *error) {
+func receiveThread(con *XdsConnection, reqChannel chan *ads.DiscoveryRequest, errP *error) {
 	defer close(reqChannel) // indicates close of the remote side.
 	for {
 		req, err := con.stream.Recv()
@@ -175,7 +176,6 @@ func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 	}
 }
 
-// StreamAggregatedResources implements the ADS interface.
 func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 	peerInfo, ok := peer.FromContext(stream.Context())
 	peerAddr := "0.0.0.0"
@@ -209,7 +209,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	// go routine. If go grpc adds gochannel support for streams this will not be needed.
 	// This also detects close.
 	var receiveError error
-	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
+	reqChannel := make(chan *ads.DiscoveryRequest, 1)
 	go receiveThread(con, reqChannel, &receiveError)
 
 	for {
@@ -397,7 +397,7 @@ func listEqualUnordered(a []string, b []string) bool {
 
 // update the node associated with the connection, after receiving a a packet from envoy, also adds the connection
 // to the tracking map.
-func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (func(), error) {
+func (s *DiscoveryServer) initConnection(node *corev3.Node, con *XdsConnection) (func(), error) {
 	con.mu.RLock() // may not be needed - once per connection, but locking for consistency.
 	initialized := con.node != nil
 	con.mu.RUnlock()
@@ -422,7 +422,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (f
 }
 
 // initProxy initializes the Proxy from node.
-func (s *DiscoveryServer) initProxy(node *core.Node) (*model.Proxy, error) {
+func (s *DiscoveryServer) initProxy(node *corev3.Node) (*model.Proxy, error) {
 	meta, err := model.ParseMetadata(node.Metadata)
 	if err != nil {
 		return nil, err
@@ -448,7 +448,11 @@ func (s *DiscoveryServer) initProxy(node *core.Node) (*model.Proxy, error) {
 	// This is not preferable as only the connected Pilot is aware of this proxies location, but it
 	// can still help provide some client-side Envoy context when load balancing based on location.
 	if util.IsLocalityEmpty(proxy.Locality) {
-		proxy.Locality = node.Locality
+		proxy.Locality = &core.Locality{
+			Region:  node.Locality.GetRegion(),
+			Zone:    node.Locality.GetZone(),
+			SubZone: node.Locality.GetSubZone(),
+		}
 	}
 
 	// Discover supported IP Versions of proxy so that appropriate config can be delivered.
@@ -677,7 +681,7 @@ func (s *DiscoveryServer) removeCon(conID string) {
 }
 
 // Send with timeout
-func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
+func (conn *XdsConnection) send(res *ads.DiscoveryResponse) error {
 	done := make(chan error, 1)
 	// hardcoded for now - not sure if we need a setting
 	t := time.NewTimer(SendTimeout)

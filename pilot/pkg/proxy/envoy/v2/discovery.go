@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
