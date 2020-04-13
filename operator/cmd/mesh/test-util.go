@@ -154,7 +154,7 @@ type HavePathValueEqualMatcher struct {
 func (m *HavePathValueEqualMatcher) Match(actual interface{}) (bool, error) {
 	pv := m.expected.(PathValue)
 	node := actual.(map[string]interface{})
-	got, f, err := tpath.GetPathContext(node, util.PathFromString(pv.path))
+	got, f, err := tpath.GetPathContext(node, util.PathFromString(pv.path), false)
 	if err != nil || !f {
 		return false, err
 	}

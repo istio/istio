@@ -128,10 +128,10 @@ a:
 `,
 		},
 		{
-			desc:      "ExtendNthLeafListEntry",
-			path:      `a.b.[1].list.[3]`,
-			value:     `v4`,
-			wantErr:   `index 3 exceeds list length 3 at path [3]`,
+			desc:    "ExtendNthLeafListEntry",
+			path:    `a.b.[1].list.[3]`,
+			value:   `v4`,
+			wantErr: `index 3 exceeds list length 3 at path [3]`,
 			want: `
 a:
   b:
@@ -146,10 +146,10 @@ a:
 `,
 		},
 		{
-			desc:      "ExtendMoreThanOneLeafListEntry",
-			path:      `a.b.[1].list.[5]`,
-			value:     `v4`,
-			wantErr:   `index 5 exceeds list length 3 at path [5]`,
+			desc:    "ExtendMoreThanOneLeafListEntry",
+			path:    `a.b.[1].list.[5]`,
+			value:   `v4`,
+			wantErr: `index 5 exceeds list length 3 at path [5]`,
 			want: `
 a:
   b:
@@ -352,7 +352,7 @@ a:
 			if err := yaml.Unmarshal([]byte(rootYAML), &root); err != nil {
 				t.Fatal(err)
 			}
-			pc, gotFound, gotErr := GetPathContext(root, util.PathFromString(tt.path))
+			pc, gotFound, gotErr := GetPathContext(root, util.PathFromString(tt.path), false)
 			if gotErr, wantErr := errToString(gotErr), tt.wantErr; gotErr != wantErr {
 				t.Fatalf("GetPathContext(%s): gotErr:%s, wantErr:%s", tt.desc, gotErr, wantErr)
 			}
@@ -684,7 +684,7 @@ values:
 
 	for _, override := range overrides {
 
-		pc, _, err := GetPathContext(root, util.PathFromString(override.path))
+		pc, _, err := GetPathContext(root, util.PathFromString(override.path), true)
 		if err != nil {
 			t.Fatalf("GetPathContext(%q): %v", override.path, err)
 		}
@@ -753,7 +753,7 @@ values:
 			if err := yaml.Unmarshal([]byte(rootYAML), &root); err != nil {
 				t.Fatal(err)
 			}
-			pc, gotFound, gotErr := GetPathContext(root, util.PathFromString(tt.path))
+			pc, gotFound, gotErr := GetPathContext(root, util.PathFromString(tt.path), false)
 			if gotErr, wantErr := errToString(gotErr), tt.wantErr; gotErr != wantErr {
 				t.Fatalf("GetPathContext(%s): gotErr:%s, wantErr:%s", tt.desc, gotErr, wantErr)
 			}

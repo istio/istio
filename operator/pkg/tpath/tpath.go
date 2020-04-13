@@ -68,8 +68,8 @@ func (nc *PathContext) String() string {
 // a malformed path.
 // It also creates a tree of PathContexts during the traversal so that Parent nodes can be updated if required. This is
 // required when (say) appending to a list, where the parent list itself must be updated.
-func GetPathContext(root interface{}, path util.Path) (*PathContext, bool, error) {
-	return getPathContext(&PathContext{Node: root}, path, path, false)
+func GetPathContext(root interface{}, path util.Path, createMissing bool) (*PathContext, bool, error) {
+	return getPathContext(&PathContext{Node: root}, path, path, createMissing)
 }
 
 // getPathContext is the internal implementation of GetPathContext.
@@ -655,7 +655,7 @@ func GetConfigSubtree(manifest, path string) (string, error) {
 		return "", err
 	}
 
-	nc, _, err := GetPathContext(root, util.PathFromString(path))
+	nc, _, err := GetPathContext(root, util.PathFromString(path), false)
 	if err != nil {
 		return "", err
 	}

@@ -139,7 +139,7 @@ func (o *K8sObject) Unstructured() map[string]interface{} {
 func (o *K8sObject) Container(name string) map[string]interface{} {
 	u := o.Unstructured()
 	path := fmt.Sprintf("spec.template.spec.containers.[name:%s]", name)
-	node, f, err := tpath.GetPathContext(u, util.PathFromString(path))
+	node, f, err := tpath.GetPathContext(u, util.PathFromString(path), false)
 	if err == nil && f {
 		// Must be the type from the schema.
 		return node.Node.(map[string]interface{})
