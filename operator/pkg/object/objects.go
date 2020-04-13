@@ -227,9 +227,9 @@ func (o *K8sObject) AddLabels(labels map[string]string) {
 type K8sObjects []*K8sObject
 
 // String implements the Stringer interface.
-func (o K8sObjects) String() string {
+func (os K8sObjects) String() string {
 	var out []string
-	for _, oo := range o {
+	for _, oo := range os {
 		out = append(out, oo.YAMLDebugString())
 	}
 	return strings.Join(out, helm.YAMLSeparator)
