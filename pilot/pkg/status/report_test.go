@@ -35,6 +35,7 @@ func TestReportSerialization(t *testing.T) {
 		},
 	}
 	outbytes, err := yaml.Marshal(in)
+	gomega.RegisterTestingT(t)
 	gomega.Expect(err).To(gomega.BeNil())
 	out := DistributionReport{}
 	err = yaml.Unmarshal(outbytes, &out)
