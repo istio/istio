@@ -121,16 +121,6 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) (out 
 	return out, nil
 }
 
-func (c *controller) objectInRevision(o *model.Config) bool {
-	configEnv, f := o.Labels[model.RevisionLabel]
-	if !f {
-		// This is a global object, and always included
-		return true
-	}
-	// Otherwise, only return if the
-	return configEnv == c.options.Revision
-}
-
 // Apply receives changes from MCP server and creates the
 // corresponding config
 func (c *controller) Apply(change *sink.Change) error {
