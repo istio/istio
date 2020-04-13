@@ -36,12 +36,12 @@ import (
 func TestStatusExistsByDefault(t *testing.T) {
 	// This test is not yet implemented
 	framework.NewTest(t).
-		NotImplementedYet(features.Usability_Observability_Status_DefaultExists)
+		NotImplementedYet(features.UsabilityObservabilityStatusDefaultExists)
 }
 
 func TestAnalysisWritesStatus(t *testing.T) {
 	framework.NewTest(t).
-		Features(features.Usability_Observability_Status).
+		Features(features.UsabilityObservabilityStatus).
 		// TODO: make feature labels heirarchical constants like:
 		// Label(features.Usability.Observability.Status).
 		Run(func(ctx framework.TestContext) {
