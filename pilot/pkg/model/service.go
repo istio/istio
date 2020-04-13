@@ -31,7 +31,7 @@ import (
 	"sync"
 	"time"
 
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/mitchellh/copystructure"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -293,7 +293,7 @@ type IstioEndpoint struct {
 
 	// EnvoyEndpoint is a cached LbEndpoint, converted from the data, to
 	// avoid recomputation
-	EnvoyEndpoint *endpoint.LbEndpoint
+	EnvoyEndpoint *endpointv3.LbEndpoint
 
 	// ServiceAccount holds the associated service account.
 	ServiceAccount string

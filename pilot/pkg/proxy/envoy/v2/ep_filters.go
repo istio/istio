@@ -15,7 +15,7 @@
 package v2
 
 import (
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -26,7 +26,7 @@ import (
 // of the connected sidecar. The filter will filter out all endpoints which are not present within the
 // sidecar network and add a gateway endpoint to remote networks that have endpoints (if gateway exists).
 // Information for the mesh networks is provided as a MeshNetwork config map.
-func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endpoints []*endpoint.LocalityLbEndpoints) []*endpoint.LocalityLbEndpoints {
+func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endpoints []*endpointv3.LocalityLbEndpoints) []*endpointv3.LocalityLbEndpoints {
 	// calculate the multiples of weight.
 	// It is needed to normalize the LB Weight across different networks.
 	multiples := 1
@@ -38,13 +38,13 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 
 	// A new array of endpoints to be returned that will have both local and
 	// remote gateways (if any)
-	filtered := make([]*endpoint.LocalityLbEndpoints, 0)
+	filtered := make([]*endpointv3.LocalityLbEndpoints, 0)
 
 	// Go through all cluster endpoints and add those with the same network as the sidecar
 	// to the result. Also count the number of endpoints per each remote network while
 	// iterating so that it can be used as the weight for the gateway endpoint
 	for _, ep := range endpoints {
-		lbEndpoints := make([]*endpoint.LbEndpoint, 0)
+		lbEndpoints := make([]*endpointv3.LbEndpoint, 0)
 
 		// Weight (number of endpoints) for the EDS cluster for each remote networks
 		remoteEps := map[string]uint32{}
@@ -84,10 +84,10 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 
 			// There may be multiples gateways for one network. Add each gateway as an endpoint.
 			for _, gw := range gateways {
-				epAddr := util.BuildAddress(gw.Addr, gw.Port)
-				gwEp := &endpoint.LbEndpoint{
-					HostIdentifier: &endpoint.LbEndpoint_Endpoint{
-						Endpoint: &endpoint.Endpoint{
+				epAddr := util.BuildAddressV3(gw.Addr, gw.Port)
+				gwEp := &endpointv3.LbEndpoint{
+					HostIdentifier: &endpointv3.LbEndpoint_Endpoint{
+						Endpoint: &endpointv3.Endpoint{
 							Address: epAddr,
 						},
 					},
@@ -117,7 +117,7 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 
 // Checks whether there is an istio metadata string value for the provided key
 // within the endpoint metadata. If exists, it will return the value.
-func istioMetadata(ep *endpoint.LbEndpoint, key string) string {
+func istioMetadata(ep *endpointv3.LbEndpoint, key string) string {
 	if ep.Metadata != nil &&
 		ep.Metadata.FilterMetadata["istio"] != nil &&
 		ep.Metadata.FilterMetadata["istio"].Fields != nil &&
@@ -127,7 +127,7 @@ func istioMetadata(ep *endpoint.LbEndpoint, key string) string {
 	return ""
 }
 
-func createLocalityLbEndpoints(base *endpoint.LocalityLbEndpoints, lbEndpoints []*endpoint.LbEndpoint) *endpoint.LocalityLbEndpoints {
+func createLocalityLbEndpoints(base *endpointv3.LocalityLbEndpoints, lbEndpoints []*endpointv3.LbEndpoint) *endpointv3.LocalityLbEndpoints {
 	var weight *wrappers.UInt32Value
 	if len(lbEndpoints) == 0 {
 		weight = nil
@@ -137,7 +137,7 @@ func createLocalityLbEndpoints(base *endpoint.LocalityLbEndpoints, lbEndpoints [
 			weight.Value += lbEp.GetLoadBalancingWeight().Value
 		}
 	}
-	ep := &endpoint.LocalityLbEndpoints{
+	ep := &endpointv3.LocalityLbEndpoints{
 		Locality:            base.Locality,
 		LbEndpoints:         lbEndpoints,
 		LoadBalancingWeight: weight,

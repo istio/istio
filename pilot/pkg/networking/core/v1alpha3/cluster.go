@@ -289,7 +289,7 @@ func buildLocalityLbEndpoints(proxy *model.Proxy, push *model.PushContext, proxy
 		if instance.Endpoint.LbWeight > 0 {
 			ep.LoadBalancingWeight.Value = instance.Endpoint.LbWeight
 		}
-		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.UID, instance.Endpoint.Network, instance.Endpoint.TLSMode, push)
+		ep.Metadata = util.BuildLbEndpointMetadataV2(instance.Endpoint.UID, instance.Endpoint.Network, instance.Endpoint.TLSMode, push)
 		locality := instance.Endpoint.Locality.Label
 		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
 	}
@@ -950,9 +950,9 @@ func applyLocalityLBSetting(
 	}
 
 	// Failover should only be applied with outlier detection, or traffic will never failover.
-	enabledFailover := cluster.OutlierDetection != nil
+	//enabledFailover := cluster.OutlierDetection != nil
 	if cluster.LoadAssignment != nil {
-		loadbalancer.ApplyLocalityLBSetting(locality, cluster.LoadAssignment, localityLB, enabledFailover)
+		//loadbalancer.ApplyLocalityLBSetting(locality, cluster.LoadAssignment, localityLB, enabledFailover)
 	}
 }
 

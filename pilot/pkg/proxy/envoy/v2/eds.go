@@ -21,7 +21,7 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
@@ -69,19 +69,19 @@ var (
 // TODO: add prom metrics !
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
-func buildEnvoyLbEndpoint(e *model.IstioEndpoint, push *model.PushContext) *endpoint.LbEndpoint {
-	addr := util.BuildAddress(e.Address, e.EndpointPort)
+func buildEnvoyLbEndpoint(e *model.IstioEndpoint, push *model.PushContext) *endpointv3.LbEndpoint {
+	addr := util.BuildAddressV3(e.Address, e.EndpointPort)
 
 	epWeight := e.LbWeight
 	if epWeight == 0 {
 		epWeight = 1
 	}
-	ep := &endpoint.LbEndpoint{
+	ep := &endpointv3.LbEndpoint{
 		LoadBalancingWeight: &wrappers.UInt32Value{
 			Value: epWeight,
 		},
-		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
-			Endpoint: &endpoint.Endpoint{
+		HostIdentifier: &endpointv3.LbEndpoint_Endpoint{
+			Endpoint: &endpointv3.Endpoint{
 				Address: addr,
 			},
 		},
@@ -315,7 +315,7 @@ func connectionID(node string) string {
 // Initial implementation is computing the endpoints on the flight - caching will be added as needed, based on
 // perf tests. The logic to compute is based on the current UpdateClusterInc
 func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, push *model.PushContext,
-	clusterName string) *xdsapi.ClusterLoadAssignment {
+	clusterName string) *endpointv3.ClusterLoadAssignment {
 	_, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
 
 	// TODO: BUG. this code is incorrect if 1.1 isolation is used. With destination rule scoping
@@ -367,7 +367,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 
 	locEps := buildLocalityLbEndpointsFromShards(proxy, se, svc, svcPort, subsetLabels, clusterName, push)
 
-	return &xdsapi.ClusterLoadAssignment{
+	return &endpointv3.ClusterLoadAssignment{
 		ClusterName: clusterName,
 		Endpoints:   locEps,
 	}
@@ -375,7 +375,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 
 func (s *DiscoveryServer) generateEndpoints(
 	clusterName string, proxy *model.Proxy, push *model.PushContext, edsUpdatedServices map[string]struct{},
-) *xdsapi.ClusterLoadAssignment {
+) *endpointv3.ClusterLoadAssignment {
 	_, _, hostname, _ := model.ParseSubsetKey(clusterName)
 	if edsUpdatedServices != nil {
 		if _, ok := edsUpdatedServices[string(hostname)]; !ok {
@@ -394,7 +394,7 @@ func (s *DiscoveryServer) generateEndpoints(
 	// EDS filter on the endpoints
 	if push.Networks != nil && len(push.Networks.Networks) > 0 {
 		endpoints := EndpointsByNetworkFilter(push, proxy.Metadata.Network, l.Endpoints)
-		filteredCLA := &xdsapi.ClusterLoadAssignment{
+		filteredCLA := &endpointv3.ClusterLoadAssignment{
 			ClusterName: l.ClusterName,
 			Endpoints:   endpoints,
 			Policy:      l.Policy,
@@ -409,7 +409,7 @@ func (s *DiscoveryServer) generateEndpoints(
 	lbSetting := loadbalancer.GetLocalityLbSetting(push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
 	if lbSetting != nil {
 		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
-		clonedCLA := util.CloneClusterLoadAssignment(l)
+		clonedCLA := util.CloneClusterLoadAssignmentV3(l)
 		l = &clonedCLA
 		loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, lbSetting, enableFailover)
 	}
@@ -420,7 +420,7 @@ func (s *DiscoveryServer) generateEndpoints(
 // a client connects, for incremental updates and for full periodic updates.
 func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, version string, edsUpdatedServices map[string]struct{}) error {
 	pushStart := time.Now()
-	loadAssignments := make([]*xdsapi.ClusterLoadAssignment, 0)
+	loadAssignments := make([]*endpointv3.ClusterLoadAssignment, 0)
 	endpoints := 0
 	empty := 0
 
@@ -511,9 +511,9 @@ func getOutlierDetectionAndLoadBalancerSettings(push *model.PushContext, proxy *
 	return outlierDetectionEnabled, lbSettings
 }
 
-func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, version string, noncePrefix string) *xdsapi.DiscoveryResponse {
+func endpointDiscoveryResponse(loadAssignments []*endpointv3.ClusterLoadAssignment, version string, noncePrefix string) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
-		TypeUrl: EndpointType,
+		TypeUrl: EndpointTypeV3,
 		// Pilot does not really care for versioning. It always supplies what's currently
 		// available to it, irrespective of whether Envoy chooses to accept or reject EDS
 		// responses. Pilot believes in eventual consistency and that at some point, Envoy
@@ -537,8 +537,8 @@ func buildLocalityLbEndpointsFromShards(
 	svcPort *model.Port,
 	epLabels labels.Collection,
 	clusterName string,
-	push *model.PushContext) []*endpoint.LocalityLbEndpoints {
-	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
+	push *model.PushContext) []*endpointv3.LocalityLbEndpoints {
+	localityEpMap := make(map[string]*endpointv3.LocalityLbEndpoints)
 
 	// Determine whether or not the target service is considered local to the cluster
 	// and should, therefore, not be accessed from outside the cluster.
@@ -565,9 +565,9 @@ func buildLocalityLbEndpointsFromShards(
 
 			locLbEps, found := localityEpMap[ep.Locality.Label]
 			if !found {
-				locLbEps = &endpoint.LocalityLbEndpoints{
-					Locality:    util.ConvertLocality(ep.Locality.Label),
-					LbEndpoints: make([]*endpoint.LbEndpoint, 0, len(endpoints)),
+				locLbEps = &endpointv3.LocalityLbEndpoints{
+					Locality:    util.ConvertLocalityV3(ep.Locality.Label),
+					LbEndpoints: make([]*endpointv3.LbEndpoint, 0, len(endpoints)),
 				}
 				localityEpMap[ep.Locality.Label] = locLbEps
 			}
@@ -580,7 +580,7 @@ func buildLocalityLbEndpointsFromShards(
 	}
 	shards.mutex.Unlock()
 
-	locEps := make([]*endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
+	locEps := make([]*endpointv3.LocalityLbEndpoints, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {
 		var weight uint32
 		for _, ep := range locLbEps.LbEndpoints {
@@ -602,13 +602,13 @@ func buildLocalityLbEndpointsFromShards(
 }
 
 // cluster with no endpoints
-func buildEmptyClusterLoadAssignment(clusterName string) *xdsapi.ClusterLoadAssignment {
-	return &xdsapi.ClusterLoadAssignment{
+func buildEmptyClusterLoadAssignment(clusterName string) *endpointv3.ClusterLoadAssignment {
+	return &endpointv3.ClusterLoadAssignment{
 		ClusterName: clusterName,
 	}
 }
 
-func updateEdsStats(locEps []*endpoint.LocalityLbEndpoints, cluster string) {
+func updateEdsStats(locEps []*endpointv3.LocalityLbEndpoints, cluster string) {
 	edsInstances.With(clusterTag.Value(cluster)).Record(float64(len(locEps)))
 	epc := 0
 	for _, locLbEps := range locEps {

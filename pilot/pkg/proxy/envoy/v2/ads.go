@@ -309,7 +309,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					return err
 				}
 
-			case EndpointType:
+			case EndpointTypeV3:
 				if discReq.ErrorDetail != nil {
 					errCode := codes.Code(discReq.ErrorDetail.Code)
 					adsLog.Warnf("ADS:EDS: ACK ERROR %v %s %s:%s", peerAddr, con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
@@ -349,7 +349,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 
 			default:
-				adsLog.Warnf("ADS: Unknown watched resources %s", discReq.String())
+				adsLog.Warnf("ADS: Unknown watched resources %s", discReq.TypeUrl)
 			}
 
 		case pushEv := <-con.pushChannel:

@@ -26,6 +26,8 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -193,6 +195,30 @@ func BuildAddress(bind string, port uint32) *core.Address {
 	}
 }
 
+// BuildAddress returns a SocketAddress with the given ip and port or uds.
+func BuildAddressV3(bind string, port uint32) *corev3.Address {
+	if port != 0 {
+		return &corev3.Address{
+			Address: &corev3.Address_SocketAddress{
+				SocketAddress: &corev3.SocketAddress{
+					Address: bind,
+					PortSpecifier: &corev3.SocketAddress_PortValue{
+						PortValue: port,
+					},
+				},
+			},
+		}
+	}
+
+	return &corev3.Address{
+		Address: &corev3.Address_Pipe{
+			Pipe: &corev3.Pipe{
+				Path: strings.TrimPrefix(bind, model.UnixAddressPrefix),
+			},
+		},
+	}
+}
+
 // MessageToAnyWithError converts from proto message to proto Any
 func MessageToAnyWithError(msg proto.Message) (*any.Any, error) {
 	b := proto.NewBuffer(nil)
@@ -289,6 +315,20 @@ func ConvertLocality(locality string) *core.Locality {
 }
 
 // ConvertLocality converts '/' separated locality string to Locality struct.
+func ConvertLocalityV3(locality string) *corev3.Locality {
+	if locality == "" {
+		return &corev3.Locality{}
+	}
+
+	region, zone, subzone := SplitLocality(locality)
+	return &corev3.Locality{
+		Region:  region,
+		Zone:    zone,
+		SubZone: subzone,
+	}
+}
+
+// ConvertLocality converts '/' separated locality string to Locality struct.
 func LocalityToString(l *core.Locality) string {
 	if l == nil {
 		return ""
@@ -313,7 +353,7 @@ func IsLocalityEmpty(locality *core.Locality) bool {
 	return false
 }
 
-func LocalityMatch(proxyLocality *core.Locality, ruleLocality string) bool {
+func LocalityMatch(proxyLocality *corev3.Locality, ruleLocality string) bool {
 	ruleRegion, ruleZone, ruleSubzone := SplitLocality(ruleLocality)
 	regionMatch := ruleRegion == "*" || proxyLocality.GetRegion() == ruleRegion
 	zoneMatch := ruleZone == "*" || ruleZone == "" || proxyLocality.GetZone() == ruleZone
@@ -337,7 +377,7 @@ func SplitLocality(locality string) (region, zone, subzone string) {
 	}
 }
 
-func LbPriority(proxyLocality, endpointsLocality *core.Locality) int {
+func LbPriority(proxyLocality, endpointsLocality *corev3.Locality) int {
 	if proxyLocality.GetRegion() == endpointsLocality.GetRegion() {
 		if proxyLocality.GetZone() == endpointsLocality.GetZone() {
 			if proxyLocality.GetSubZone() == endpointsLocality.GetSubZone() {
@@ -361,6 +401,35 @@ func CloneCluster(cluster *xdsapi.Cluster) xdsapi.Cluster {
 	loadAssignment := CloneClusterLoadAssignment(cluster.LoadAssignment)
 	out.LoadAssignment = &loadAssignment
 
+	return out
+}
+
+
+// return a shallow copy ClusterLoadAssignment
+func CloneClusterLoadAssignmentV3(original *endpointv3.ClusterLoadAssignment) endpointv3.ClusterLoadAssignment {
+	out := endpointv3.ClusterLoadAssignment{}
+	if original == nil {
+		return out
+	}
+
+	out = *original
+	out.Endpoints = cloneLocalityLbEndpointsV3(out.Endpoints)
+
+	return out
+}
+
+// return a shallow copy LocalityLbEndpoints
+func cloneLocalityLbEndpointsV3(endpoints []*endpointv3.LocalityLbEndpoints) []*endpointv3.LocalityLbEndpoints {
+	out := make([]*endpointv3.LocalityLbEndpoints, 0, len(endpoints))
+	for _, ep := range endpoints {
+		clone := *ep
+		if ep.LoadBalancingWeight != nil {
+			clone.LoadBalancingWeight = &wrappers.UInt32Value{
+				Value: ep.GetLoadBalancingWeight().GetValue(),
+			}
+		}
+		out = append(out, &clone)
+	}
 	return out
 }
 
@@ -393,7 +462,7 @@ func cloneLocalityLbEndpoints(endpoints []*endpoint.LocalityLbEndpoints) []*endp
 }
 
 // return a shallow copy LbEndpoint
-func CloneLbEndpoint(endpoint *endpoint.LbEndpoint) *endpoint.LbEndpoint {
+func CloneLbEndpoint(endpoint *endpointv3.LbEndpoint) *endpointv3.LbEndpoint {
 	if endpoint == nil {
 		return nil
 	}
@@ -516,8 +585,9 @@ func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 	return retVal, nil
 }
 
+
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
-func BuildLbEndpointMetadata(uid string, network string, tlsMode string, push *model.PushContext) *core.Metadata {
+func BuildLbEndpointMetadataV2(uid string, network string, tlsMode string, push *model.PushContext) *core.Metadata {
 	if !push.IsMixerEnabled() {
 		// Only use UIDs when Mixer is enabled.
 		uid = ""
@@ -528,6 +598,46 @@ func BuildLbEndpointMetadata(uid string, network string, tlsMode string, push *m
 	}
 
 	metadata := &core.Metadata{
+		FilterMetadata: map[string]*pstruct.Struct{},
+	}
+
+	if uid != "" || network != "" {
+		metadata.FilterMetadata[IstioMetadataKey] = &pstruct.Struct{
+			Fields: map[string]*pstruct.Value{},
+		}
+
+		if uid != "" {
+			metadata.FilterMetadata[IstioMetadataKey].Fields["uid"] = &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: uid}}
+		}
+
+		if network != "" {
+			metadata.FilterMetadata[IstioMetadataKey].Fields["network"] = &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: network}}
+		}
+	}
+
+	if tlsMode != "" {
+		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &pstruct.Struct{
+			Fields: map[string]*pstruct.Value{
+				model.TLSModeLabelShortname: {Kind: &pstruct.Value_StringValue{StringValue: tlsMode}},
+			},
+		}
+	}
+
+	return metadata
+}
+
+// BuildLbEndpointMetadata adds metadata values to a lb endpoint
+func BuildLbEndpointMetadata(uid string, network string, tlsMode string, push *model.PushContext) *corev3.Metadata {
+	if !push.IsMixerEnabled() {
+		// Only use UIDs when Mixer is enabled.
+		uid = ""
+	}
+
+	if uid == "" && network == "" && tlsMode == model.DisabledTLSModeLabel {
+		return nil
+	}
+
+	metadata := &corev3.Metadata{
 		FilterMetadata: map[string]*pstruct.Struct{},
 	}
 

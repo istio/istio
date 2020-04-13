@@ -68,6 +68,9 @@ const (
 	ListenerType = typePrefix + "Listener"
 	// RouteType is sent after listeners.
 	RouteType = typePrefix + "RouteConfiguration"
+
+	// EndpointTypeV3 is used for EDS and ADS endpoint discovery. Typically second request.
+	EndpointTypeV3 = "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment"
 )
 
 func init() {
