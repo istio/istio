@@ -59,65 +59,52 @@ func TestProxyNeedsPush(t *testing.T) {
 	cases := []Case{
 		{"no namespace or configs", sidecar, nil, nil, true},
 		{"gateway config for sidecar", sidecar, nil, map[model.ConfigKey]struct{}{
-			model.ConfigKey{
+			{
 				Kind: collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(),
 				Name: generalName, Namespace: nsName}: {}}, false},
 		{"gateway config for gateway", gateway, nil, map[model.ConfigKey]struct{}{
-			model.ConfigKey{
+			{
 				Kind: collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(),
 				Name: generalName, Namespace: nsName}: {}}, true},
 		{"quotaspec config for sidecar", sidecar, nil, map[model.ConfigKey]struct{}{
-			model.ConfigKey{
+			{
 				Kind: collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(),
 				Name: generalName, Namespace: nsName}: {}}, true},
 		{"quotaspec config for gateway", gateway, nil, map[model.ConfigKey]struct{}{
-			model.ConfigKey{
+			{
 				Kind: collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(),
 				Name: generalName, Namespace: nsName}: {}}, false},
 		{"invalid config for sidecar", sidecar, nil, map[model.ConfigKey]struct{}{
-			model.ConfigKey{
+			{
 				Kind: resource.GroupVersionKind{Kind: invalidKind}, Name: generalName, Namespace: nsName}: {}},
 			true},
 		{"mixture matched and unmatched config for sidecar", sidecar, nil, map[model.ConfigKey]struct{}{
-			model.ConfigKey{Kind: model.DestinationRuleKind, Name: drName, Namespace: nsName}:                   {},
-			model.ConfigKey{Kind: model.ServiceEntryKind, Name: svcName + invalidNameSuffix, Namespace: nsName}: {},
+			{Kind: model.DestinationRuleKind, Name: drName, Namespace: nsName}:                   {},
+			{Kind: model.ServiceEntryKind, Name: svcName + invalidNameSuffix, Namespace: nsName}: {},
 		}, true},
 		{"mixture unmatched and unmatched config for sidecar", sidecar, nil, map[model.ConfigKey]struct{}{
-			model.ConfigKey{Kind: model.DestinationRuleKind, Name: drName + invalidNameSuffix, Namespace: nsName}: {},
-			model.ConfigKey{Kind: model.ServiceEntryKind, Name: svcName + invalidNameSuffix, Namespace: nsName}:   {},
+			{Kind: model.DestinationRuleKind, Name: drName + invalidNameSuffix, Namespace: nsName}: {},
+			{Kind: model.ServiceEntryKind, Name: svcName + invalidNameSuffix, Namespace: nsName}:   {},
 		}, false},
 	}
 
 	for kind, name := range sidecarScopeKindNames {
-		nsCases := []struct {
-			namespace []string
-			want      bool
-		}{
-			{nil, true}, // empty namespace -> all
-			{[]string{nsName + invalidNameSuffix}, false}, // invalid namespace
-		}
-
-		for _, nsCase := range nsCases {
-			cases = append(cases, Case{ // empty
-				name:       fmt.Sprintf("%s empty config and namespace %v for sidecar", kind.Kind, nsCase.namespace),
-				proxy:      sidecar,
-				namespaces: nsCase.namespace,
-				configs:    map[model.ConfigKey]struct{}{},
-				want:       nsCase.want, // true && nsCase.want
-			}, Case{ // valid name
-				name:       fmt.Sprintf("%s config and namespace %v for sidecar", kind.Kind, nsCase.namespace),
-				proxy:      sidecar,
-				namespaces: nsCase.namespace,
-				configs:    map[model.ConfigKey]struct{}{model.ConfigKey{Kind: kind, Name: name, Namespace: nsName}: {}},
-				want:       nsCase.want,
-			}, Case{ // invalid name
-				name:       fmt.Sprintf("%s unmatched config and namespace %v for sidecar", kind.Kind, nsCase.namespace),
-				proxy:      sidecar,
-				namespaces: nsCase.namespace,
-				configs:    map[model.ConfigKey]struct{}{model.ConfigKey{Kind: kind, Name: name + invalidNameSuffix, Namespace: nsName}: {}},
-				want:       false,
-			})
-		}
+		cases = append(cases, Case{ // empty
+			name:    fmt.Sprintf("%s empty config for sidecar", kind.Kind),
+			proxy:   sidecar,
+			configs: map[model.ConfigKey]struct{}{},
+			want:    true,
+		}, Case{ // valid name
+			name:    fmt.Sprintf("%s config for sidecar", kind.Kind),
+			proxy:   sidecar,
+			configs: map[model.ConfigKey]struct{}{{Kind: kind, Name: name, Namespace: nsName}: {}},
+			want:    true,
+		}, Case{ // invalid name
+			name:    fmt.Sprintf("%s unmatched config for sidecar", kind.Kind),
+			proxy:   sidecar,
+			configs: map[model.ConfigKey]struct{}{{Kind: kind, Name: name + invalidNameSuffix, Namespace: nsName}: {}},
+			want:    false,
+		})
 	}
 
 	for _, tt := range cases {
@@ -126,7 +113,7 @@ func TestProxyNeedsPush(t *testing.T) {
 			for _, n := range tt.namespaces {
 				ns[n] = struct{}{}
 			}
-			pushEv := &XdsEvent{namespacesUpdated: ns, configsUpdated: tt.configs}
+			pushEv := &XdsEvent{configsUpdated: tt.configs}
 			got := ProxyNeedsPush(tt.proxy, pushEv)
 			if got != tt.want {
 				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)

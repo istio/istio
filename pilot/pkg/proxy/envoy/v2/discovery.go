@@ -378,7 +378,6 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 					push:              info.Push,
 					done:              doneFunc,
 					start:             info.Start,
-					namespacesUpdated: info.NamespacesUpdated,
 					configsUpdated:    info.ConfigsUpdated,
 					noncePrefix:       info.Push.Version,
 				}

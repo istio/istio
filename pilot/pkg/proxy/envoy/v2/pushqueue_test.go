@@ -143,7 +143,7 @@ func TestProxyQueue(t *testing.T) {
 		firstTime := time.Now()
 		p.Enqueue(proxies[0], &model.PushRequest{
 			Full: false,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{model.ConfigKey{
+			ConfigsUpdated: map[model.ConfigKey]struct{}{{
 				Kind:      model.ServiceEntryKind,
 				Name:      "foo",
 				Namespace: "",
@@ -153,7 +153,7 @@ func TestProxyQueue(t *testing.T) {
 
 		p.Enqueue(proxies[0], &model.PushRequest{
 			Full: false,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{model.ConfigKey{
+			ConfigsUpdated: map[model.ConfigKey]struct{}{{
 				Kind:      model.ServiceEntryKind,
 				Name:      "bar",
 				Namespace: "ns1",
@@ -227,7 +227,7 @@ func TestProxyQueue(t *testing.T) {
 			for eds := 0; eds < 100; eds++ {
 				for _, pr := range proxies {
 					p.Enqueue(pr, &model.PushRequest{
-						ConfigsUpdated: map[model.ConfigKey]struct{}{model.ConfigKey{
+						ConfigsUpdated: map[model.ConfigKey]struct{}{{
 							Kind: model.ServiceEntryKind,
 							Name: fmt.Sprintf("%d", eds),
 						}: {}}})

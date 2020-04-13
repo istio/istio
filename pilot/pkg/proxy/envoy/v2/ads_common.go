@@ -64,30 +64,22 @@ func ConfigAffectsProxy(pushEv *XdsEvent, proxy *model.Proxy) bool {
 
 // ProxyNeedsPush check if a proxy needs push for this push event.
 func ProxyNeedsPush(proxy *model.Proxy, pushEv *XdsEvent) bool {
-	if !ConfigAffectsProxy(pushEv, proxy) {
-		return false
-	}
-
-	targetNamespaces := pushEv.namespacesUpdated
-	// If no only namespaces specified, this request applies to all proxies
-	if len(targetNamespaces) == 0 {
+	if ConfigAffectsProxy(pushEv, proxy) {
 		return true
 	}
 
 	// If the proxy's service updated, need push for it.
-	if len(proxy.ServiceInstances) > 0 {
-		ns := proxy.ServiceInstances[0].Service.Attributes.Namespace
-		if _, ok := targetNamespaces[ns]; ok {
+	if len(proxy.ServiceInstances) > 0 && pushEv.configsUpdated != nil {
+		svc := proxy.ServiceInstances[0].Service
+		if _, ok := pushEv.configsUpdated[model.ConfigKey{
+			Kind:      model.ServiceEntryKind,
+			Name:      string(svc.Hostname),
+			Namespace: svc.Attributes.Namespace,
+		}]; ok {
 			return true
 		}
 	}
 
-	// Otherwise, only apply if the egress listener will import the config present in the update
-	for ns := range targetNamespaces {
-		if proxy.SidecarScope.DependsOnNamespace(ns) {
-			return true
-		}
-	}
 	return false
 }
 

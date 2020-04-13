@@ -387,7 +387,7 @@ func testOverlappingPorts(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.
 
 	server.EnvoyXdsServer.Push(&model.PushRequest{
 		Full: true,
-		ConfigsUpdated: map[model.ConfigKey]struct{}{model.ConfigKey{
+		ConfigsUpdated: map[model.ConfigKey]struct{}{{
 			Kind:      model.ServiceEntryKind,
 			Name:      "overlapping.cluster.local",
 			Namespace: "",
@@ -659,7 +659,7 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 			// This will be throttled - we want to trigger a single push
 			server.EnvoyXdsServer.AdsPushAll(strconv.Itoa(j), &model.PushRequest{
 				Full: false,
-				ConfigsUpdated: map[model.ConfigKey]struct{}{model.ConfigKey{
+				ConfigsUpdated: map[model.ConfigKey]struct{}{{
 					Kind: model.ServiceEntryKind,
 					Name: edsIncSvc,
 				}: {}},

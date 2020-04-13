@@ -184,14 +184,6 @@ type PushRequest struct {
 	// Full determines whether a full push is required or not. If set to false, only endpoints will be sent.
 	Full bool
 
-	// NamespacesUpdated contains a list of namespaces whose services/endpoints were changed in the update.
-	// This is used as an optimization to avoid unnecessary pushes to proxies that are scoped with a Sidecar.
-	// Currently, this will only scope EDS updates, as config updates are more complicated.
-	// If this is empty, then all proxies will get an update.
-	// If this is present, then only proxies that import this namespace will get an update
-	// TODO Merge into ConfigsUpdated.
-	NamespacesUpdated map[string]struct{}
-
 	// ConfigsUpdated keeps track of configs that have changed.
 	// The kind of resources are defined in pkg/config/schemas.
 	ConfigsUpdated map[ConfigKey]struct{}
@@ -267,19 +259,6 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		}
 		for conf := range other.ConfigsUpdated {
 			merged.ConfigsUpdated[conf] = struct{}{}
-		}
-	}
-
-	// Merge the target namespaces
-	if len(first.NamespacesUpdated) > 0 && len(other.NamespacesUpdated) > 0 {
-		merged.NamespacesUpdated = make(map[string]struct{})
-		for update := range first.NamespacesUpdated {
-			merged.NamespacesUpdated[update] = struct{}{}
-		}
-		for update := range other.NamespacesUpdated {
-			if _, exists := merged.NamespacesUpdated[update]; !exists {
-				merged.NamespacesUpdated[update] = struct{}{}
-			}
 		}
 	}
 
@@ -889,7 +868,7 @@ func (ps *PushContext) updateContext(
 	pushReq *PushRequest) error {
 
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
-	authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, quotasChanged bool
+		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, quotasChanged bool
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {

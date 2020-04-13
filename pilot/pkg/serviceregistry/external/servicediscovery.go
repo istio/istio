@@ -168,7 +168,6 @@ func getServiceEntryHandler(c *ServiceEntryStore) func(model.Config, model.Confi
 		if fp {
 			pushReq := &model.PushRequest{
 				Full:              true,
-				NamespacesUpdated: map[string]struct{}{curr.Namespace: {}},
 				ConfigsUpdated:    map[model.ConfigKey]struct{}{},
 				Reason:            []model.TriggerReason{model.ServiceUpdate},
 			}

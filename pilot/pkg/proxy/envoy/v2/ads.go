@@ -102,8 +102,6 @@ type XdsEvent struct {
 	// Indicate whether the push is Full Push
 	full bool
 
-	namespacesUpdated map[string]struct{}
-
 	configsUpdated map[model.ConfigKey]struct{}
 
 	// Push context to use for the push.

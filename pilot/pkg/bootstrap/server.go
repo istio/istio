@@ -685,9 +685,8 @@ func (s *Server) initEventHandlers() error {
 	// Flush cached discovery responses whenever services configuration change.
 	serviceHandler := func(svc *model.Service, _ model.Event) {
 		pushReq := &model.PushRequest{
-			Full:              true,
-			NamespacesUpdated: map[string]struct{}{svc.Attributes.Namespace: {}},
-			ConfigsUpdated: map[model.ConfigKey]struct{}{model.ConfigKey{
+			Full: true,
+			ConfigsUpdated: map[model.ConfigKey]struct{}{{
 				Kind:      model.ServiceEntryKind,
 				Name:      string(svc.Hostname),
 				Namespace: svc.Attributes.Namespace,
@@ -705,9 +704,8 @@ func (s *Server) initEventHandlers() error {
 		// In all cases, this is simply an instance update and not a config update. So, we need to update
 		// EDS in all proxies, and do a full config push for the instance that just changed (add/update only).
 		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
-			Full:              true,
-			NamespacesUpdated: map[string]struct{}{si.Service.Attributes.Namespace: {}},
-			ConfigsUpdated: map[model.ConfigKey]struct{}{model.ConfigKey{
+			Full: true,
+			ConfigsUpdated: map[model.ConfigKey]struct{}{{
 				Kind:      model.ServiceEntryKind,
 				Name:      string(si.Service.Hostname),
 				Namespace: si.Service.Attributes.Namespace,
@@ -723,7 +721,7 @@ func (s *Server) initEventHandlers() error {
 		configHandler := func(_, curr model.Config, _ model.Event) {
 			pushReq := &model.PushRequest{
 				Full: true,
-				ConfigsUpdated: map[model.ConfigKey]struct{}{model.ConfigKey{
+				ConfigsUpdated: map[model.ConfigKey]struct{}{{
 					Kind:      curr.GroupVersionKind(),
 					Name:      curr.Name,
 					Namespace: curr.Namespace,

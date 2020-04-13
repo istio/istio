@@ -65,10 +65,9 @@ func (e *kubeEndpoints) handleEvent(name string, namespace string, event model.E
 			// if the service is headless service, trigger a full push.
 			if svc.Spec.ClusterIP == v1.ClusterIPNone {
 				e.c.xdsUpdater.ConfigUpdate(&model.PushRequest{
-					Full:              true,
-					NamespacesUpdated: map[string]struct{}{namespace: {}},
+					Full: true,
 					// TODO: extend and set service instance type, so no need to re-init push context
-					ConfigsUpdated: map[model.ConfigKey]struct{}{model.ConfigKey{
+					ConfigsUpdated: map[model.ConfigKey]struct{}{{
 						Kind:      model.ServiceEntryKind,
 						Name:      svc.Name,
 						Namespace: svc.Namespace,

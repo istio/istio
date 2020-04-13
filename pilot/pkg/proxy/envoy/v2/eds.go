@@ -207,9 +207,8 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			s.deleteEndpointShards(clusterID, serviceName, namespace)
 			adsLog.Infof("Incremental push, service %s has no endpoints", serviceName)
 			s.ConfigUpdate(&model.PushRequest{
-				Full:              false,
-				NamespacesUpdated: map[string]struct{}{namespace: {}},
-				ConfigsUpdated: map[model.ConfigKey]struct{}{model.ConfigKey{
+				Full: false,
+				ConfigsUpdated: map[model.ConfigKey]struct{}{{
 					Kind:      model.ServiceEntryKind,
 					Name:      serviceName,
 					Namespace: namespace,
@@ -269,9 +268,8 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	// It is done in DiscoveryServer.Push --> AdsPushAll
 	if !internal {
 		s.ConfigUpdate(&model.PushRequest{
-			Full:              requireFull,
-			NamespacesUpdated: map[string]struct{}{namespace: {}},
-			ConfigsUpdated: map[model.ConfigKey]struct{}{model.ConfigKey{
+			Full: requireFull,
+			ConfigsUpdated: map[model.ConfigKey]struct{}{{
 				Kind:      model.ServiceEntryKind,
 				Name:      serviceName,
 				Namespace: namespace,

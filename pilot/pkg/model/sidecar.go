@@ -156,11 +156,10 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	defaultEgressListener.virtualServices = ps.VirtualServices(&dummyNode, meshGateway)
 
 	out := &SidecarScope{
-		EgressListeners:       []*IstioEgressListenerWrapper{defaultEgressListener},
-		services:              defaultEgressListener.services,
-		destinationRules:      make(map[host.Name]*Config),
-		configDependencies:    make(map[ConfigKey]struct{}),
-		namespaceDependencies: make(map[string]struct{}),
+		EgressListeners:    []*IstioEgressListenerWrapper{defaultEgressListener},
+		services:           defaultEgressListener.services,
+		destinationRules:   make(map[host.Name]*Config),
+		configDependencies: make(map[ConfigKey]struct{}),
 	}
 
 	// Now that we have all the services that sidecars using this scope (in
@@ -170,7 +169,6 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		if dr := ps.DestinationRule(&dummyNode, s); dr != nil {
 			out.destinationRules[s.Hostname] = dr
 		}
-		out.namespaceDependencies[s.Attributes.Namespace] = struct{}{}
 		out.AddConfigDependencies(ConfigKey{
 			Kind:      ServiceEntryKind,
 			Name:      string(s.Hostname),
@@ -213,8 +211,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 
 	r := sidecarConfig.Spec.(*networking.Sidecar)
 	out := &SidecarScope{
-		configDependencies:    make(map[ConfigKey]struct{}),
-		namespaceDependencies: make(map[string]struct{}),
+		configDependencies: make(map[ConfigKey]struct{}),
 	}
 
 	out.EgressListeners = make([]*IstioEgressListenerWrapper, 0)
@@ -243,7 +240,6 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 				Namespace: s.Attributes.Namespace,
 			})
 			out.services = append(out.services, s)
-			out.namespaceDependencies[s.Attributes.Namespace] = struct{}{}
 		} else if foundSvc.Attributes.Namespace == s.Attributes.Namespace && s.Ports != nil && len(s.Ports) > 0 {
 			// merge the ports to service when each listener generates partial service
 			// we only merge if the found service is in the same namespace as the one we're trying to add
