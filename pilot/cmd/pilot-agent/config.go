@@ -75,7 +75,7 @@ func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 		}
 		fileMeshContents = string(contents)
 	}
-	meshConfig, err := getMeshConfig(fileMeshContents, annotations[inject.ProxyConfigAnnotation])
+	meshConfig, err := getMeshConfig(fileMeshContents, annotations[inject.MeshConfigAnnotation])
 	if err != nil {
 		return meshconfig.ProxyConfig{}, err
 	}
