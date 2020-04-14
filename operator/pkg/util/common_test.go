@@ -96,14 +96,14 @@ func TestIsHTTPURL(t *testing.T) {
 			desc: "empty-http",
 			in:   "http://",
 			want: false,
-			err:  errors.New("http:// starts with http but is not a valid URL."),
+			err:  errors.New(""),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			got, err := IsHTTPURL(tt.in)
-			if want, want_err := tt.want, tt.err; !(got == want) || ((err == nil && want_err != nil) || (err != nil && want_err == nil)) {
-				t.Errorf("%s: got :%v, wanted output: %v, got error: %v, wanted error: %v", tt.desc, got, want, err, want_err)
+			if want, wantErr := tt.want, tt.err; !(got == want) || ((err == nil && wantErr != nil) || (err != nil && wantErr == nil)) {
+				t.Errorf("%s: got :%v, wanted output: %v, got error: %v, wanted error: %v", tt.desc, got, want, err, wantErr)
 			}
 		})
 	}
