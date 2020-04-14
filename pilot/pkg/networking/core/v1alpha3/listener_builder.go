@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"sort"
+	"strconv"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -91,13 +92,27 @@ func amendFilterChainMatchFromInboundListener(chain *listener.FilterChain, l *xd
 	return chain, needTLS
 }
 
+func isBindtoPort(l *xdsapi.Listener) bool {
+	v1 := l.GetDeprecatedV1()
+	if v1 == nil {
+		// Default is true
+		return true
+	}
+	bp := v1.BindToPort
+	if bp == nil {
+		// Default is true
+		return true
+	}
+	return bp.Value
+}
+
 // Accumulate the filter chains from per proxy service listeners
 func reduceInboundListenerToFilterChains(listeners []*xdsapi.Listener) ([]*listener.FilterChain, bool) {
 	needTLS := false
 	chains := make([]*listener.FilterChain, 0)
 	for _, l := range listeners {
 		// default bindToPort is true and these listener should be skipped
-		if v1Opt := l.GetDeprecatedV1(); v1Opt == nil || v1Opt.BindToPort == nil || v1Opt.BindToPort.Value {
+		if isBindtoPort(l) {
 			// A listener on real port should not be intercepted by virtual inbound listener
 			continue
 		}
@@ -117,9 +132,7 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 	// UseOriginalDst: proto.BoolTrue,
 	lb.virtualInboundListener.UseOriginalDst = nil
 	lb.virtualInboundListener.ListenerFilters = append(lb.virtualInboundListener.ListenerFilters,
-		&listener.ListenerFilter{
-			Name: xdsutil.OriginalDestination,
-		},
+		originalDestinationFilter,
 	)
 	// TODO: Trim the inboundListeners properly. Those that have been added to filter chains should
 	// be removed while those that haven't been added need to remain in the inboundListeners list.
@@ -133,9 +146,7 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 
 	if needTLS || needTLSForPassThroughFilterChain {
 		lb.virtualInboundListener.ListenerFilters =
-			append(lb.virtualInboundListener.ListenerFilters, &listener.ListenerFilter{
-				Name: xdsutil.TlsInspector,
-			})
+			append(lb.virtualInboundListener.ListenerFilters, tlsInspectorFilter)
 	}
 
 	// Note: the HTTP inspector should be after TLS inspector.
@@ -143,14 +154,22 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 	// won't inspect the packet.
 	if features.EnableProtocolSniffingForInbound {
 		lb.virtualInboundListener.ListenerFilters =
-			append(lb.virtualInboundListener.ListenerFilters, &listener.ListenerFilter{
-				Name: xdsutil.HttpInspector,
-			})
+			append(lb.virtualInboundListener.ListenerFilters, httpInspectorFilter)
 	}
 
 	timeout := features.InboundProtocolDetectionTimeout
 	lb.virtualInboundListener.ListenerFiltersTimeout = ptypes.DurationProto(timeout)
 	lb.virtualInboundListener.ContinueOnListenerFiltersTimeout = true
+
+	// All listeners except bind_to_port=true listeners are now a part of virtual inbound and not needed
+	// we can filter these ones out.
+	bindToPortInbound := make([]*xdsapi.Listener, 0, len(lb.inboundListeners))
+	for _, i := range lb.inboundListeners {
+		if isBindtoPort(i) {
+			bindToPortInbound = append(bindToPortInbound, i)
+		}
+	}
+	lb.inboundListeners = bindToPortInbound
 
 	return lb
 }
@@ -173,6 +192,24 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(configgen *ConfigGenera
 	return lb
 }
 
+// addressKey takes a *core.Address and coverts it to a unique string identifier
+func addressKey(addr *core.Address) string {
+	switch t := addr.Address.(type) {
+	case *core.Address_SocketAddress:
+		var port string
+		switch pt := t.SocketAddress.PortSpecifier.(type) {
+		case *core.SocketAddress_NamedPort:
+			port = pt.NamedPort
+		case *core.SocketAddress_PortValue:
+			port = strconv.Itoa(int(pt.PortValue))
+		}
+		return t.SocketAddress.Address + "_" + port
+	case *core.Address_Pipe:
+		return t.Pipe.Path
+	}
+	return addr.String()
+}
+
 func (lb *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl) *ListenerBuilder {
 	// Do not generate any management port listeners if the user has specified a SidecarScope object
 	// with ingress listeners. Specifying the ingress listener implies that the user wants
@@ -191,12 +228,12 @@ func (lb *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl) *Lis
 	addresses := make(map[string]*xdsapi.Listener)
 	for _, listener := range lb.inboundListeners {
 		if listener != nil {
-			addresses[listener.Address.String()] = listener
+			addresses[addressKey(listener.Address)] = listener
 		}
 	}
 	for _, listener := range lb.outboundListeners {
 		if listener != nil {
-			addresses[listener.Address.String()] = listener
+			addresses[addressKey(listener.Address)] = listener
 		}
 	}
 
@@ -205,7 +242,7 @@ func (lb *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl) *Lis
 	// non overlapping listeners only.
 	for i := range mgmtListeners {
 		m := mgmtListeners[i]
-		addressString := m.Address.String()
+		addressString := addressKey(m.Address)
 		existingListener, ok := addresses[addressString]
 		if ok {
 			log.Debugf("Omitting listener for management address %s due to collision with service listener (%s)",
@@ -269,6 +306,7 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 		FilterChains:     filterChains,
 	}
 	lb.aggregateVirtualInboundListener(needTLSForPassThroughFilterChain)
+
 	return lb
 }
 
@@ -320,10 +358,10 @@ func (lb *ListenerBuilder) getListeners() []*xdsapi.Listener {
 			listeners = append(listeners, lb.virtualInboundListener)
 		}
 
-		log.Debugf("Build %d listeners for node %s including %d inbound, %d outbound, %d virtual and %d virtual inbound listeners",
+		log.Debugf("Build %d listeners for node %s including %d outbound, %d virtual and %d virtual inbound listeners",
 			nListener,
 			lb.node.ID,
-			nInbound, nOutbound,
+			nOutbound,
 			nVirtual, nVirtualInbound)
 		return listeners
 	}

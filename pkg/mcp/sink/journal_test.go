@@ -54,7 +54,7 @@ func TestJournal(t *testing.T) {
 	errorDetails, _ := status.FromError(errors.New("error"))
 	req := &mcp.RequestResources{
 		Collection:    "foo",
-		ResponseNonce: fmt.Sprintf("nonce-error"),
+		ResponseNonce: "nonce-error",
 		ErrorDetail:   errorDetails.Proto(),
 	}
 	j.RecordRequestResources(req)

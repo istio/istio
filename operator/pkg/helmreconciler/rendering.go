@@ -20,27 +20,24 @@ import (
 	"strings"
 	"sync"
 
-	"istio.io/api/operator/v1alpha1"
-	"istio.io/istio/operator/pkg/apis/istio"
-	"istio.io/istio/operator/pkg/tpath"
-
 	jsonpatch "github.com/evanphx/json-patch"
-	"k8s.io/apimachinery/pkg/runtime"
-
-	util2 "k8s.io/kubectl/pkg/util"
-
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/helm/pkg/manifest"
+	util2 "k8s.io/kubectl/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio"
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
@@ -109,28 +106,9 @@ func (h *HelmReconciler) RenderCharts(in RenderingInput) (ChartManifestsMap, err
 // MergeIOPSWithProfile overlays the values in iop on top of the defaults for the profile given by iop.profile and
 // returns the merged result.
 func MergeIOPSWithProfile(iop *valuesv1alpha1.IstioOperator) (*v1alpha1.IstioOperatorSpec, error) {
-	profile := iop.Spec.Profile
-
-	// This contains the IstioOperator CR.
-	baseIOPYAML, err := helm.ReadProfileYAML(profile)
+	profileYAML, err := helm.GetProfileYAML(iop.Spec.InstallPackagePath, iop.Spec.Profile)
 	if err != nil {
-		return nil, fmt.Errorf("could not read the profile values for %s: %s", profile, err)
-	}
-
-	if !helm.IsDefaultProfile(profile) {
-		// Profile definitions are relative to the default profile, so read that first.
-		dfn, err := helm.DefaultFilenameForProfile(profile)
-		if err != nil {
-			return nil, err
-		}
-		defaultYAML, err := helm.ReadProfileYAML(dfn)
-		if err != nil {
-			return nil, fmt.Errorf("could not read the default profile values for %s: %s", dfn, err)
-		}
-		baseIOPYAML, err = util.OverlayYAML(defaultYAML, baseIOPYAML)
-		if err != nil {
-			return nil, fmt.Errorf("could not overlay the profile over the default %s: %s", profile, err)
-		}
+		return nil, err
 	}
 
 	// Due to the fact that base profile is compiled in before a tag can be created, we must allow an additional
@@ -142,7 +120,7 @@ func MergeIOPSWithProfile(iop *valuesv1alpha1.IstioOperator) (*v1alpha1.IstioOpe
 		if err != nil {
 			return nil, err
 		}
-		baseIOPYAML, err = util.OverlayYAML(baseIOPYAML, buildHubTagOverlayYAML)
+		profileYAML, err = util.OverlayYAML(profileYAML, buildHubTagOverlayYAML)
 		if err != nil {
 			return nil, err
 		}
@@ -152,8 +130,17 @@ func MergeIOPSWithProfile(iop *valuesv1alpha1.IstioOperator) (*v1alpha1.IstioOpe
 	if err != nil {
 		return nil, err
 	}
+	mvs := binversion.OperatorBinaryVersion.MinorVersion
+	t, err := translate.NewReverseTranslator(mvs)
+	if err != nil {
+		return nil, fmt.Errorf("error creating values.yaml translator: %s", err)
+	}
+	overlayYAML, err = t.TranslateK8SfromValueToIOP(overlayYAML)
+	if err != nil {
+		return nil, fmt.Errorf("could not overlay k8s settings from values to IOP: %s", err)
+	}
 
-	mergedYAML, err := util.OverlayYAML(baseIOPYAML, overlayYAML)
+	mergedYAML, err := util.OverlayYAML(profileYAML, overlayYAML)
 	if err != nil {
 		return nil, err
 	}

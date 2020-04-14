@@ -86,7 +86,7 @@ defaultConfig:
 }
 
 func TestApplyMeshNetworksDefaults(t *testing.T) {
-	yml := fmt.Sprintf(`
+	yml := `
 networks:
   network1:
     endpoints:
@@ -100,7 +100,7 @@ networks:
     gateways:
     - registryServiceName: reg1
       port: 443
-`)
+`
 
 	want := mesh.EmptyMeshNetworks()
 	want.Networks = map[string]*meshconfig.Network{

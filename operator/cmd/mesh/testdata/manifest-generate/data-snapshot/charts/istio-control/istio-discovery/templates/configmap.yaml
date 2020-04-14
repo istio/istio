@@ -5,9 +5,11 @@
     {{- end }}
     # Set accessLogFile to empty string to disable access log.
     accessLogFile: "{{ .Values.global.proxy.accessLogFile }}"
-    accessLogFormat: {{ .Values.global.proxy.accessLogFormat | quote }}
-    accessLogEncoding: '{{ .Values.global.proxy.accessLogEncoding }}'
-    enableEnvoyAccessLogService: {{ .Values.global.proxy.envoyAccessLogService.enabled }}
+    accessLogFormat: "{{ .Values.global.proxy.accessLogFormat }}"
+    accessLogEncoding: "{{ .Values.global.proxy.accessLogEncoding | default "TEXT" }}"
+    {{- with .Values.global.proxy.envoyAccessLogService }}
+    enableEnvoyAccessLogService: {{ .enabled }}
+    {{- end }}
     {{- if .Values.global.remotePolicyAddress }}
     {{- if .Values.global.createRemoteSvcEndpoints }}
     mixerCheckServer: istio-policy.{{ .Release.Namespace }}:15004
@@ -62,7 +64,7 @@
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
     {{- if .Values.mixer.policy.enabled }}
-    disablePolicyChecks: {{ .Values.global.disablePolicyChecks }}
+    disablePolicyChecks: {{ .Values.global.disablePolicyChecks | default "true" }}
     {{- else }}
     disablePolicyChecks: true
     {{- end }}
@@ -75,7 +77,7 @@
     # the specified period, defaulting to non mTLS plain TCP
     # traffic. Set this field to tweak the period that Envoy will wait
     # for the client to send the first bits of data. (MUST BE >=1ms)
-    protocolDetectionTimeout: {{ .Values.global.proxy.protocolDetectionTimeout }}
+    protocolDetectionTimeout: {{ .Values.global.proxy.protocolDetectionTimeout | default "100ms" }}
     # This is the k8s ingress service name, update if you used a different name
     {{- if .Values.pilot.ingress }}
     {{- if .Values.pilot.ingress.ingressService }}
@@ -105,17 +107,12 @@
     enableAutoMtls: {{ .Values.global.mtls.auto }}
     {{- if .Values.global.useMCP }}
     configSources:
-    {{- if .Values.global.controlPlaneSecurityEnabled }}
-    - address: localhost:15019
-    {{- else }}
-    - address: istio-galley.{{ .Values.global.configNamespace }}:9901
-    {{- end }}
     {{- if .Values.pilot.configSource.subscribedResources }}
       subscribedResources:
     {{- range .Values.pilot.configSource.subscribedResources }}
         - {{ . }}
     {{- end }}
-    {{- end}}
+    {{- end }}
     {{- end }}
     outboundTrafficPolicy:
       mode: {{ .Values.global.outboundTrafficPolicy.mode }}
@@ -125,10 +122,10 @@
     {{- end }}
 
     # Configures DNS certificates provisioned through Chiron linked into Pilot.
-    # The DNS certificate provisioning is enabled by default now so it get tested.
-    # TODO (lei-tang): we'll decide whether enable it by default or not before Istio 1.4 Release.
+{{- if .Values.global.certificates }}
     certificates:
 {{ toYaml .Values.global.certificates | trim | indent 6 }}
+{{- end }}
 
     defaultConfig:
       #
@@ -155,7 +152,7 @@
       #
       # Set concurrency to a specific number to control the number of Proxy worker threads.
       # If set to 0 (default), then start worker thread for each CPU thread/core.
-      concurrency: {{ .Values.global.proxy.concurrency }}
+      concurrency: {{ .Values.global.proxy.concurrency | default 2 }}
       #
       {{- if eq .Values.global.proxy.tracer "lightstep" }}
       tracing:
@@ -211,6 +208,7 @@
       discoveryAddress: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{.Release.Namespace}}.svc:15012
       {{- end }}
 
+    {{- if .Values.global.proxy.envoyMetricsService }}
     {{- if .Values.global.proxy.envoyMetricsService.enabled }}
       #
       # Envoy's Metrics Service stats sink pushes Envoy metrics to a remote collector via the Metrics Service gRPC API.
@@ -225,8 +223,10 @@
 {{ toYaml .Values.global.proxy.envoyMetricsService.tcpKeepalive | trim | indent 10 }}
       {{- end}}
     {{- end}}
+    {{- end}}
 
 
+    {{- if .Values.global.proxy.envoyAccessLogService }}
     {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
       #
       # Envoy's AccessLog Service pushes access logs to a remote collector via the Access Log Service gRPC API.
@@ -240,6 +240,7 @@
         tcpKeepalive:
 {{ toYaml .Values.global.proxy.envoyAccessLogService.tcpKeepalive | trim | indent 10 }}
       {{- end}}
+    {{- end}}
     {{- end}}
 {{- end }}
 
@@ -268,8 +269,29 @@ data:
     networks: {}
   {{- end }}
 
-  values.yaml: |-
-{{ toYaml .Values.pilot | trim | indent 4 }}
+  # Basic config for a sidecar CoreDNS server to resolve upstream and K8S requests.
+  # Will be needed until K8S DNS server adds a secure port, to avoid clear text
+  # MITM-exposed requests between istiod and K8S core DNS server.
+  Corefile: |-
+    .:15054 {
+        errors
+        log
+        health :15056 {
+          lameduck 5s
+        }
+
+        kubernetes cluster.local in-addr.arpa ip6.arpa {
+            pods insecure
+            fallthrough in-addr.arpa ip6.arpa
+            ttl 30
+        }
+        prometheus :9153
+
+        forward . /etc/resolv.conf
+        cache 30
+        reload
+        loadbalance
+    }
 
   mesh: |-
 {{- if .Values.meshConfig }}

@@ -20,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/apimachinery/pkg/version"
 
 	istioKube "istio.io/istio/pkg/kube"
@@ -403,6 +403,11 @@ func (a *Accessor) GetSecret(ns string) kubeClientCore.SecretInterface {
 // GetConfigMap returns the config resource with the given name and namespace.
 func (a *Accessor) GetConfigMap(name, ns string) (*kubeApiCore.ConfigMap, error) {
 	return a.set.CoreV1().ConfigMaps(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
+}
+
+// DeleteConfigMap deletes the config resource with the given name and namespace.
+func (a *Accessor) DeleteConfigMap(name, ns string) error {
+	return a.set.CoreV1().ConfigMaps(ns).Delete(context.TODO(), name, kubeApiMeta.DeleteOptions{})
 }
 
 // CreateSecret takes the representation of a secret and creates it in the given namespace.

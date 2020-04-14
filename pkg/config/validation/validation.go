@@ -28,7 +28,7 @@ import (
 	xdsUtil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -40,6 +40,7 @@ import (
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/pkg/log"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
@@ -475,6 +476,24 @@ func validateExportTo(exportTo []string) (errs error) {
 	return
 }
 
+func validateAlphaWorkloadSelector(selector *networking.WorkloadSelector) error {
+	var errs error
+	if selector != nil {
+		for k, v := range selector.Labels {
+			if k == "" {
+				errs = appendErrors(errs,
+					fmt.Errorf("empty key is not supported in selector: %q", fmt.Sprintf("%s=%s", k, v)))
+			}
+			if strings.Contains(k, "*") || strings.Contains(v, "*") {
+				errs = appendErrors(errs,
+					fmt.Errorf("wildcard is not supported in selector: %q", fmt.Sprintf("%s=%s", k, v)))
+			}
+		}
+	}
+
+	return errs
+}
+
 // ValidateEnvoyFilter checks envoy filter config supplied by user
 var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 	func(_, _ string, msg proto.Message) (errs error) {
@@ -483,10 +502,8 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 			return fmt.Errorf("cannot cast to Envoy filter")
 		}
 
-		if rule.WorkloadSelector != nil {
-			if rule.WorkloadSelector.GetLabels() == nil {
-				errs = appendErrors(errs, fmt.Errorf("Envoy filter: workloadSelector cannot have empty labels")) // nolint: golint,stylecheck
-			}
+		if err := validateAlphaWorkloadSelector(rule.WorkloadSelector); err != nil {
+			return err
 		}
 
 		for _, cp := range rule.ConfigPatches {
@@ -640,10 +657,8 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 			return fmt.Errorf("cannot cast to Sidecar")
 		}
 
-		if rule.WorkloadSelector != nil {
-			if rule.WorkloadSelector.GetLabels() == nil {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: workloadSelector cannot have empty labels"))
-			}
+		if err := validateAlphaWorkloadSelector(rule.WorkloadSelector); err != nil {
+			return err
 		}
 
 		if len(rule.Egress) == 0 {
@@ -1994,7 +2009,32 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			return errors.New("cannot cast to virtual service")
 		}
 
+		isDelegate := false
+		if len(virtualService.Hosts) == 0 {
+			if features.EnableVirtualServiceDelegate {
+				isDelegate = true
+			} else {
+				errs = appendErrors(errs, fmt.Errorf("virtual service must have at least one host"))
+			}
+		}
+
+		if isDelegate {
+			if len(virtualService.Gateways) != 0 {
+				// meaningless to specify gateways in delegate
+				errs = appendErrors(errs, fmt.Errorf("delegate virtual service must have no gateways specified"))
+			}
+			if len(virtualService.Tls) != 0 {
+				// meaningless to specify tls in delegate, we donot support tls delegate
+				errs = appendErrors(errs, fmt.Errorf("delegate virtual service must have no tls route specified"))
+			}
+			if len(virtualService.Tcp) != 0 {
+				// meaningless to specify tls in delegate, we donot support tcp delegate
+				errs = appendErrors(errs, fmt.Errorf("delegate virtual service must have no tcp route specified"))
+			}
+		}
+
 		appliesToMesh := false
+		appliesToGateway := false
 		if len(virtualService.Gateways) == 0 {
 			appliesToMesh = true
 		}
@@ -2003,12 +2043,9 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		for _, gatewayName := range virtualService.Gateways {
 			if gatewayName == constants.IstioMeshGateway {
 				appliesToMesh = true
-				break
+			} else {
+				appliesToGateway = true
 			}
-		}
-
-		if len(virtualService.Hosts) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("virtual service must have at least one host"))
 		}
 
 		allHostsValid := true
@@ -2044,7 +2081,10 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			errs = appendErrors(errs, errors.New("http, tcp or tls must be provided in virtual service"))
 		}
 		for _, httpRoute := range virtualService.Http {
-			errs = appendErrors(errs, validateHTTPRoute(httpRoute))
+			if !appliesToGateway && httpRoute.Delegate != nil {
+				errs = appendErrors(errs, errors.New("http delegate only applies to gateway"))
+			}
+			errs = appendErrors(errs, validateHTTPRoute(httpRoute, isDelegate))
 		}
 		for _, tlsRoute := range virtualService.Tls {
 			errs = appendErrors(errs, validateTLSRoute(tlsRoute, virtualService))
@@ -2141,7 +2181,16 @@ func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
 	return
 }
 
-func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
+func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs error) {
+	if features.EnableVirtualServiceDelegate {
+		if delegate {
+			return validateDelegateHTTPRoute(http)
+		}
+		if http.Delegate != nil {
+			return validateRootHTTPRoute(http)
+		}
+	}
+
 	// check for conflicts
 	if http.Redirect != nil {
 		if len(http.Route) > 0 {
@@ -2549,6 +2598,14 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 		serviceEntry, ok := config.(*networking.ServiceEntry)
 		if !ok {
 			return fmt.Errorf("cannot cast to service entry")
+		}
+
+		if err := validateAlphaWorkloadSelector(serviceEntry.WorkloadSelector); err != nil {
+			return err
+		}
+
+		if serviceEntry.WorkloadSelector != nil && serviceEntry.Endpoints != nil {
+			errs = appendErrors(errs, fmt.Errorf("only one of WorkloadSelector or Endpoints is allowed in Service Entry"))
 		}
 
 		if len(serviceEntry.Hosts) == 0 {

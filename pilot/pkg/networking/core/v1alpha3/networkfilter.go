@@ -15,7 +15,6 @@
 package v1alpha3
 
 import (
-	"fmt"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -113,7 +112,7 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes []*networking.RouteDestination,
 	push *model.PushContext, port *model.Port, configMeta model.ConfigMeta) []*listener.Filter {
 
-	statPrefix := fmt.Sprintf("%s.%s", configMeta.Name, configMeta.Namespace)
+	statPrefix := configMeta.Name + "." + configMeta.Namespace
 	clusterSpecifier := &tcp_proxy.TcpProxy_WeightedClusters{
 		WeightedClusters: &tcp_proxy.TcpProxy_WeightedCluster{},
 	}

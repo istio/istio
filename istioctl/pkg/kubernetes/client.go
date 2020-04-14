@@ -37,6 +37,8 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/client-go/transport/spdy"
 
+	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/version"
 )
@@ -52,6 +54,7 @@ var (
 type Client struct {
 	Config *rest.Config
 	*rest.RESTClient
+	Revision string
 }
 
 // ExecClient is an interface for remote execution
@@ -82,7 +85,20 @@ func NewClient(kubeconfig, configContext string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Client{config, restClient}, nil
+	return &Client{config, restClient, ""}, nil
+}
+
+// NewExtendedClient is a constructor for the client wrapper that supports dual/multiple control plans
+func NewExtendedClient(kubeconfig, configContext string, opts clioptions.ControlPlaneOptions) (*Client, error) {
+	config, err := defaultRestConfig(kubeconfig, configContext)
+	if err != nil {
+		return nil, err
+	}
+	restClient, err := rest.RESTClientFor(config)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{config, restClient, opts.Revision}, nil
 }
 
 func defaultRestConfig(kubeconfig, configContext string) (*rest.Config, error) {
@@ -132,7 +148,7 @@ func (client *Client) PodExec(podName, podNamespace, container string, command [
 // AllPilotsDiscoveryDo makes an http request to each Pilot discovery instance
 func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, method, path string, body []byte) (map[string][]byte, error) {
 	pilots, err := client.GetIstioPods(pilotNamespace, map[string]string{
-		"labelSelector": "istio=pilot",
+		"labelSelector": "app=istiod",
 		"fieldSelector": "status.phase=Running",
 	})
 	if err != nil {
@@ -158,7 +174,7 @@ func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, method, path string, 
 // PilotDiscoveryDo makes an http request to a single Pilot discovery instance
 func (client *Client) PilotDiscoveryDo(pilotNamespace, method, path string, body []byte) ([]byte, error) {
 	pilots, err := client.GetIstioPods(pilotNamespace, map[string]string{
-		"labelSelector": "istio=pilot",
+		"labelSelector": "app=istiod",
 		"fieldSelector": "status.phase=Running",
 	})
 	if err != nil {
@@ -195,6 +211,15 @@ func (client *Client) ExtractExecResult(podName, podNamespace, container string,
 
 // GetIstioPods retrieves the pod objects for Istio deployments
 func (client *Client) GetIstioPods(namespace string, params map[string]string) ([]v1.Pod, error) {
+	if client.Revision != "" {
+		labelSelector, ok := params["labelSelector"]
+		if ok {
+			params["labelSelector"] = fmt.Sprintf("%s,%s=%s", labelSelector, model.RevisionLabel, client.Revision)
+		} else {
+			params["labelSelector"] = fmt.Sprintf("%s=%s", model.RevisionLabel, client.Revision)
+		}
+	}
+
 	req := client.Get().
 		Resource("pods").
 		Namespace(namespace)
@@ -257,6 +282,7 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 
 	labelToPodDetail := map[string]podDetail{
 		"pilot":            {"/usr/local/bin/pilot-discovery", "discovery"},
+		"istiod":           {"/usr/local/bin/pilot-discovery", "discovery"},
 		"citadel":          {"/usr/local/bin/istio_ca", "citadel"},
 		"egressgateway":    {"/usr/local/bin/pilot-agent", "istio-proxy"},
 		"galley":           {"/usr/local/bin/galley", "galley"},

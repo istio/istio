@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -34,7 +36,7 @@ func TestNamespaceController(t *testing.T) {
 	testdata := map[string]string{"key": "value"}
 	nc := NewNamespaceController(func() map[string]string {
 		return testdata
-	}, client)
+	}, controller.Options{}, client)
 
 	stop := make(chan struct{})
 	nc.Run(stop)

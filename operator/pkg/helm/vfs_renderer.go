@@ -72,6 +72,12 @@ func NewVFSRenderer(helmChartDirPath, componentName, namespace string) *VFSRende
 
 // Run implements the TemplateRenderer interface.
 func (h *VFSRenderer) Run() error {
+	// This can happen if a developer creates binaries using go build instead of make and tries to use compiled in
+	// charts.
+	if _, err := vfs.Stat(ChartsSubdirName); err != nil {
+		return fmt.Errorf("compiled in charts not found in this development build, use installPackagePath with local charts instead or run make gen")
+	}
+
 	scope.Debugf("Run VFSRenderer with helmChart=%s, componentName=%s, namespace=%s", h.helmChartDirPath, h.componentName, h.namespace)
 	if err := h.loadChart(); err != nil {
 		return err

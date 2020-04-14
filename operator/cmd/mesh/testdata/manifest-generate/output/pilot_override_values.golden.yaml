@@ -15,7 +15,7 @@ spec:
   strategy:
     rollingUpdate:
       maxSurge: 100%
-      maxUnavailable: 25%
+      maxUnavailable: 30%
   template:
     metadata:
       annotations:
@@ -71,12 +71,15 @@ spec:
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
+        - name: DNS_ADDR
+          value: ""
         image: docker.io/istio/pilot:1.1.4
         name: discovery
         ports:
         - containerPort: 8080
         - containerPort: 15010
         - containerPort: 15017
+        - containerPort: 15053
         readinessProbe:
           httpGet:
             path: /ready
@@ -134,4 +137,28 @@ spec:
       - configMap:
           name: istio
         name: config-volume
+---
+
+
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    app: istiod
+    istio.io/rev: default
+    release: istio
+  name: istiod
+  namespace: istio-control
+spec:
+  maxReplicas: 8
+  metrics:
+  - resource:
+      name: cpu
+      targetAverageUtilization: 80
+    type: Resource
+  minReplicas: 2
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: istiod
 ---

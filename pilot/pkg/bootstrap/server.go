@@ -58,6 +58,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/dns"
 	"istio.io/istio/pkg/jwt"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
@@ -142,6 +143,7 @@ type Server struct {
 	HTTPListener    net.Listener
 	GRPCListener    net.Listener
 	GRPCDNSListener net.Listener
+	DNSListener     net.Listener
 
 	// for test
 	forceStop bool
@@ -245,6 +247,23 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initDNSListener(args); err != nil {
 		return nil, fmt.Errorf("grpcDNS: %v", err)
 	}
+	// common https server for webhooks (e.g. injection, validation)
+	if err := s.initHTTPSWebhookServer(args); err != nil {
+		// Not crashing istiod - existing pods will keep working, new pods
+		// may fail if all webhook injectors are down.
+		// This typically happens if certs are missing.
+		log.Errorf("failed to start injectionWebhook server: %v", err)
+	}
+	// Will run the sidecar injector in pilot.
+	// Only operates if /var/lib/istio/inject exists
+	if err := s.initSidecarInjector(args); err != nil {
+		return nil, fmt.Errorf("sidecar injector: %v", err)
+	}
+	// Will run the config validater in pilot.
+	// Only operates if /var/lib/istio/validation exists
+	if err := s.initConfigValidation(args); err != nil {
+		return nil, fmt.Errorf("config validation: %v", err)
+	}
 	if err := s.initDiscoveryService(args); err != nil {
 		return nil, fmt.Errorf("discovery service: %v", err)
 	}
@@ -255,24 +274,19 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, fmt.Errorf("cluster registries: %v", err)
 	}
 
-	// common https server for webhooks (e.g. injection, validation)
-	if err := s.initHTTPSWebhookServer(args); err != nil {
-		// Not crashing istiod - existing pods will keep working, new pods
-		// may fail if all webhook injectors are down.
-		// This typically happens if certs are missing.
-		log.Errorf("failed to start injectionWebhook server: %v", err)
-	}
+	if dns.DNSAddr.Get() != "" {
+		if err := s.initDNSTLSListener(dns.DNSAddr.Get()); err != nil {
+			log.Warna("Failed to start DNS-over-TLS listener ", err)
+		}
 
-	// Will run the sidecar injector in pilot.
-	// Only operates if /var/lib/istio/inject exists
-	if err := s.initSidecarInjector(args); err != nil {
-		return nil, fmt.Errorf("sidecar injector: %v", err)
-	}
-
-	// Will run the config validater in pilot.
-	// Only operates if /var/lib/istio/validation exists
-	if err := s.initConfigValidation(args); err != nil {
-		return nil, fmt.Errorf("config validation: %v", err)
+		// Respond to CoreDNS gRPC queries.
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			if s.DNSListener != nil {
+				dnsSvc := dns.InitDNS()
+				dnsSvc.StartDNS(dns.DNSAddr.Get(), s.DNSListener)
+			}
+			return nil
+		})
 	}
 
 	// Run the SDS signing server.
@@ -282,7 +296,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	// 2) grpc server has been generated.
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		if s.ca != nil {
-			s.RunCA(s.secureGRPCServerDNS, s.ca, caOpts, stop)
+			s.RunCA(s.secureGRPCServerDNS, s.ca, caOpts, args.Config.ControllerOptions, stop)
 		}
 		return nil
 	})
@@ -522,6 +536,45 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	s.EnvoyXdsServer.Register(s.grpcServer)
 }
 
+// initialize DNS server listener - uses the same certs as gRPC
+func (s *Server) initDNSTLSListener(dns string) error {
+	if dns == "" {
+		return nil
+	}
+	certDir := dnsCertDir
+
+	key := path.Join(certDir, constants.KeyFilename)
+	cert := path.Join(certDir, constants.CertChainFilename)
+
+	certP, err := tls.LoadX509KeyPair(cert, key)
+	if err != nil {
+		return err
+	}
+
+	cp := x509.NewCertPool()
+	rootCertBytes := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+	cp.AppendCertsFromPEM(rootCertBytes)
+
+	// TODO: check if client certs can be used with coredns or others.
+	// If yes - we may require or optionally use them
+	cfg := &tls.Config{
+		Certificates: []tls.Certificate{certP},
+		ClientAuth:   tls.NoClientCert,
+		ClientCAs:    cp,
+	}
+
+	// create secure grpc listener
+	l, err := net.Listen("tcp", dns)
+	if err != nil {
+		return err
+	}
+
+	tl := tls.NewListener(l, cfg)
+	s.DNSListener = tl
+
+	return nil
+}
+
 // initialize secureGRPCServer - using DNS certs
 func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.Options) error {
 	certDir := dnsCertDir
@@ -651,20 +704,16 @@ func (s *Server) initEventHandlers() error {
 		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
 			Full:              true,
 			NamespacesUpdated: map[string]struct{}{si.Service.Attributes.Namespace: {}},
-			// TODO: extend and set service instance type, so no need re-init push context
-			ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{model.ServiceEntryKind: {}},
-			Reason:         []model.TriggerReason{model.ServiceUpdate},
+			ConfigsUpdated:    map[resource.GroupVersionKind]map[string]struct{}{model.ServiceEntryKind: {}},
+			Reason:            []model.TriggerReason{model.ServiceUpdate},
 		})
 	}
 	if err := s.ServiceController().AppendInstanceHandler(instanceHandler); err != nil {
 		return fmt.Errorf("append instance handler failed: %v", err)
 	}
 
-	// TODO(Nino-k): remove this case once incrementalUpdate is default
 	if s.configController != nil {
-		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
-		// (especially mixerclient HTTP and quota)
-		configHandler := func(old, curr model.Config, _ model.Event) {
+		configHandler := func(_, curr model.Config, _ model.Event) {
 			pushReq := &model.PushRequest{
 				Full:           true,
 				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{curr.GroupVersionKind(): {}},
@@ -679,6 +728,10 @@ func (s *Server) initEventHandlers() error {
 		for _, schema := range schemas {
 			// This resource type was handled in external/servicediscovery.go, no need to rehandle here.
 			if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Serviceentries.
+				Resource().GroupVersionKind() {
+				continue
+			}
+			if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Workloadentries.
 				Resource().GroupVersionKind() {
 				continue
 			}

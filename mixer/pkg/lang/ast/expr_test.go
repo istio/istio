@@ -20,7 +20,6 @@ import (
 	"strings"
 	"testing"
 
-	cfgpb "istio.io/api/policy/v1beta1"
 	dpb "istio.io/api/policy/v1beta1"
 )
 
@@ -234,16 +233,16 @@ type ad struct {
 	v    dpb.ValueType
 }
 type af struct {
-	v map[string]*cfgpb.AttributeManifest_AttributeInfo
+	v map[string]*dpb.AttributeManifest_AttributeInfo
 }
 
-func (a *af) GetAttribute(name string) *cfgpb.AttributeManifest_AttributeInfo { return a.v[name] }
-func (a *af) Attributes() map[string]*cfgpb.AttributeManifest_AttributeInfo   { return a.v }
+func (a *af) GetAttribute(name string) *dpb.AttributeManifest_AttributeInfo { return a.v[name] }
+func (a *af) Attributes() map[string]*dpb.AttributeManifest_AttributeInfo   { return a.v }
 
 func newAF(ds []*ad) *af {
-	m := make(map[string]*cfgpb.AttributeManifest_AttributeInfo)
+	m := make(map[string]*dpb.AttributeManifest_AttributeInfo)
 	for _, aa := range ds {
-		m[aa.name] = &cfgpb.AttributeManifest_AttributeInfo{ValueType: aa.v}
+		m[aa.name] = &dpb.AttributeManifest_AttributeInfo{ValueType: aa.v}
 	}
 	return &af{m}
 }

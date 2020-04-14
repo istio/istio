@@ -34,7 +34,11 @@ spec:
       labels:
         app: istiod
         istio.io/rev: {{ .Values.revision | default "default" }}
+        {{- if eq .Values.revision ""}}
         istio: pilot
+        {{- else }}
+        istio: istiod
+        {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
         {{- if .Values.pilot.podAnnotations }}
@@ -84,6 +88,7 @@ spec:
           - containerPort: 8080
           - containerPort: 15010
           - containerPort: 15017
+          - containerPort: 15053
           readinessProbe:
             httpGet:
               path: /ready
@@ -135,6 +140,8 @@ spec:
             value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
+          - name: DNS_ADDR
+            value: "{{ .Values.meshConfig.defaultConfig.proxyMetadata.DNS_AGENT }}"
           resources:
 {{- if .Values.pilot.resources }}
 {{ toYaml .Values.pilot.resources | trim | indent 12 }}
@@ -168,6 +175,44 @@ spec:
           - name: extracacerts
             mountPath: /cacerts
           {{- end }}
+
+        {{- if .Values.meshConfig.defaultConfig.proxyMetadata.DNS_AGENT }}
+        # CoreDNS sidecar. Ports are used internally, to run as non-root.
+        # This is a short-term solution - the code in istiod can also be used
+        # directly. The plan is to move coreDNS on the agent.
+        - name: dns
+          image: coredns/coredns:1.1.2
+          imagePullPolicy: IfNotPresent
+          args: [ "-conf", "/var/lib/istio/coredns/Corefile" ]
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: local-certs
+              mountPath: /var/run/secrets/istio-dns
+            - name: config-volume
+              mountPath: /var/lib/istio/coredns
+          ports:
+            - containerPort: 15054
+              name: dns
+              protocol: UDP
+            - containerPort: 15055
+              name: metrics
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 15056
+              scheme: HTTP
+            initialDelaySeconds: 2
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 5
+        {{- end }}
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.

@@ -17,18 +17,14 @@ package v2
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/tests/integration/mixer/outboundtrafficpolicy"
 )
 
 func TestOutboundTrafficPolicy_RegistryOnly_TelemetryV2(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/21385")
-
 	cases := []*outboundtrafficpolicy.TestCase{
 		{
 			Name:     "HTTP Traffic",
 			PortName: "http",
-			Scheme:   scheme.HTTP,
 			Expected: outboundtrafficpolicy.Expected{
 				Metric:          "istio_requests_total",
 				PromQueryFormat: `sum(istio_requests_total{destination_service_name="BlackHoleCluster",response_code="502"})`,
@@ -38,11 +34,18 @@ func TestOutboundTrafficPolicy_RegistryOnly_TelemetryV2(t *testing.T) {
 		{
 			Name:     "HTTPS Traffic",
 			PortName: "https",
-			// TODO: set up TLS here instead of just sending HTTP. We get a false positive here
-			Scheme: scheme.HTTP,
 			Expected: outboundtrafficpolicy.Expected{
 				Metric:          "istio_tcp_connections_closed_total",
-				PromQueryFormat: `sum(istio_tcp_connections_closed_total{destination_service="BlackHoleCluster",destination_service_name="BlackHoleCluster"})`,
+				PromQueryFormat: `sum(istio_tcp_connections_closed_total{destination_service_name="BlackHoleCluster"})`,
+				ResponseCode:    []string{},
+			},
+		},
+		{
+			Name:     "HTTPS Traffic Conflict",
+			PortName: "https-conflict",
+			Expected: outboundtrafficpolicy.Expected{
+				Metric:          "istio_tcp_connections_closed_total",
+				PromQueryFormat: `sum(istio_tcp_connections_closed_total{destination_service_name="BlackHoleCluster"})`,
 				ResponseCode:    []string{},
 			},
 		},
@@ -51,10 +54,9 @@ func TestOutboundTrafficPolicy_RegistryOnly_TelemetryV2(t *testing.T) {
 			PortName: "http",
 			Host:     "some-external-site.com",
 			Gateway:  true,
-			Scheme:   scheme.HTTP,
 			Expected: outboundtrafficpolicy.Expected{
 				Metric:          "istio_requests_total",
-				PromQueryFormat: `sum(istio_requests_total{destination_service_name="istio-egressgateway",response_code="200"})`,
+				PromQueryFormat: `sum(istio_requests_total{destination_service_name="istio-egressgateway.istio-system.svc.cluster.local",response_code="200"})`,
 				ResponseCode:    []string{"200"},
 			},
 		},
@@ -62,7 +64,15 @@ func TestOutboundTrafficPolicy_RegistryOnly_TelemetryV2(t *testing.T) {
 		{
 			Name:     "TCP",
 			PortName: "tcp",
-			Scheme:   scheme.TCP,
+			Expected: outboundtrafficpolicy.Expected{
+				Metric:          "istio_tcp_connections_closed_total",
+				PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="BlackHoleCluster",source_workload="client-v1"})`,
+				ResponseCode:    []string{},
+			},
+		},
+		{
+			Name:     "TCP Conflict",
+			PortName: "tcp-conflict",
 			Expected: outboundtrafficpolicy.Expected{
 				Metric:          "istio_tcp_connections_closed_total",
 				PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="BlackHoleCluster",source_workload="client-v1"})`,

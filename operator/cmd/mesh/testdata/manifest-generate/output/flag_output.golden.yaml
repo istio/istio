@@ -71,12 +71,15 @@ spec:
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
+        - name: DNS_ADDR
+          value: ""
         image: gcr.io/istio-testing/pilot:latest
         name: discovery
         ports:
         - containerPort: 8080
         - containerPort: 15010
         - containerPort: 15017
+        - containerPort: 15053
         readinessProbe:
           httpGet:
             path: /ready

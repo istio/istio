@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	mccpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 	mpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/host"
@@ -372,22 +371,22 @@ func buildUpstreamName(address string) string {
 	return model.BuildSubsetKey(model.TrafficDirectionOutbound, "", host.Name(hostname), v)
 }
 
-func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.TransportConfig {
+func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mpb.TransportConfig {
 	// default to mesh
-	policy := mccpb.NetworkFailPolicy_FAIL_CLOSE
+	policy := mpb.NetworkFailPolicy_FAIL_CLOSE
 	if mesh.PolicyCheckFailOpen {
-		policy = mccpb.NetworkFailPolicy_FAIL_OPEN
+		policy = mpb.NetworkFailPolicy_FAIL_OPEN
 	}
 
 	// apply proxy-level overrides
 	switch node.Metadata.PolicyCheck {
 	case policyCheckEnable:
-		policy = mccpb.NetworkFailPolicy_FAIL_CLOSE
+		policy = mpb.NetworkFailPolicy_FAIL_CLOSE
 	case policyCheckEnableAllow, policyCheckDisable:
-		policy = mccpb.NetworkFailPolicy_FAIL_OPEN
+		policy = mpb.NetworkFailPolicy_FAIL_OPEN
 	}
 
-	networkFailPolicy := &mccpb.NetworkFailPolicy{Policy: policy}
+	networkFailPolicy := &mpb.NetworkFailPolicy{Policy: policy}
 
 	networkFailPolicy.MaxRetry = defaultRetries
 	if len(node.Metadata.PolicyCheckRetries) > 0 {
@@ -419,7 +418,7 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.Trans
 		}
 	}
 
-	res := &mccpb.TransportConfig{
+	res := &mpb.TransportConfig{
 		CheckCluster:          buildUpstreamName(mesh.MixerCheckServer),
 		ReportCluster:         buildUpstreamName(mesh.MixerReportServer),
 		NetworkFailPolicy:     networkFailPolicy,
@@ -431,9 +430,9 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.Trans
 }
 
 func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) *http_conn.HttpFilter {
-	cfg := &mccpb.HttpClientConfig{
+	cfg := &mpb.HttpClientConfig{
 		DefaultDestinationService: defaultConfig,
-		ServiceConfigs: map[string]*mccpb.ServiceConfig{
+		ServiceConfigs: map[string]*mpb.ServiceConfig{
 			defaultConfig: {
 				DisableCheckCalls:  disablePolicyChecks(outbound, mesh, node),
 				DisableReportCalls: mesh.GetDisableMixerHttpReports(),
@@ -456,9 +455,9 @@ func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node
 }
 
 func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) *http_conn.HttpFilter {
-	cfg := &mccpb.HttpClientConfig{
+	cfg := &mpb.HttpClientConfig{
 		DefaultDestinationService: defaultConfig,
-		ServiceConfigs: map[string]*mccpb.ServiceConfig{
+		ServiceConfigs: map[string]*mpb.ServiceConfig{
 			defaultConfig: {
 				DisableCheckCalls:  disablePolicyChecks(inbound, mesh, node),
 				DisableReportCalls: mesh.GetDisableMixerHttpReports(),
@@ -476,19 +475,22 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node 
 	return out
 }
 
-func addFilterConfigToRoute(in *plugin.InputParams, httpRoute *route.Route, attrs attributes) {
-	httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mccpb.ServiceConfig{
+func addFilterConfigToRoute(in *plugin.InputParams, httpRoute *route.Route, attrs attributes,
+	quotaSpec []*mpb.QuotaSpec) {
+	httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mpb.ServiceConfig{
 		DisableCheckCalls:  disablePolicyChecks(outbound, in.Push.Mesh, in.Node),
 		DisableReportCalls: in.Push.Mesh.GetDisableMixerHttpReports(),
 		MixerAttributes:    &mpb.Attributes{Attributes: attrs},
 		ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
+		QuotaSpec:          quotaSpec,
 	})
 }
 
 func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, virtualHostname string, httpRoute *route.Route) *route.Route {
+	isPolicyCheckDisabled := disablePolicyChecks(outbound, in.Push.Mesh, in.Node)
 	// default config, to be overridden by per-weighted cluster
-	httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mccpb.ServiceConfig{
-		DisableCheckCalls:  disablePolicyChecks(outbound, in.Push.Mesh, in.Node),
+	httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mpb.ServiceConfig{
+		DisableCheckCalls:  isPolicyCheckDisabled,
 		DisableReportCalls: in.Push.Mesh.GetDisableMixerHttpReports(),
 	})
 	switch action := httpRoute.Action.(type) {
@@ -503,18 +505,18 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 				svc := in.Node.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
 				attrs = addDestinationServiceAttributes(make(attributes), svc)
 			}
-			addFilterConfigToRoute(in, httpRoute, attrs)
-
+			addFilterConfigToRoute(in, httpRoute, attrs, getQuotaSpec(in, hostname, isPolicyCheckDisabled))
 		case *route.RouteAction_WeightedClusters:
 			for _, weighted := range upstreams.WeightedClusters.Clusters {
 				_, _, hostname, _ := model.ParseSubsetKey(weighted.Name)
 				svc := in.Node.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
 				attrs := addDestinationServiceAttributes(make(attributes), svc)
-				weighted.TypedPerFilterConfig = addTypedServiceConfig(weighted.TypedPerFilterConfig, &mccpb.ServiceConfig{
-					DisableCheckCalls:  disablePolicyChecks(outbound, in.Push.Mesh, in.Node),
+				weighted.TypedPerFilterConfig = addTypedServiceConfig(weighted.TypedPerFilterConfig, &mpb.ServiceConfig{
+					DisableCheckCalls:  isPolicyCheckDisabled,
 					DisableReportCalls: in.Push.Mesh.GetDisableMixerHttpReports(),
 					MixerAttributes:    &mpb.Attributes{Attributes: attrs},
 					ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
+					QuotaSpec:          getQuotaSpec(in, hostname, isPolicyCheckDisabled),
 				})
 			}
 		case *route.RouteAction_ClusterHeader:
@@ -527,7 +529,7 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 		if virtualHostname == util.BlackHole {
 			hostname := host.Name(util.BlackHoleCluster)
 			attrs := addVirtualDestinationServiceAttributes(make(attributes), hostname)
-			addFilterConfigToRoute(in, httpRoute, attrs)
+			addFilterConfigToRoute(in, httpRoute, attrs, nil)
 		}
 	// route.Route_Redirect is not used currently, so no attributes are added here
 	case *route.Route_Redirect:
@@ -537,22 +539,22 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 	return httpRoute
 }
 
-func buildInboundRouteConfig(in *plugin.InputParams, instance *model.ServiceInstance) *mccpb.ServiceConfig {
+func buildInboundRouteConfig(in *plugin.InputParams, instance *model.ServiceInstance) *mpb.ServiceConfig {
 	configStore := in.Push.IstioConfigStore
 
 	attrs := addDestinationServiceAttributes(make(attributes), instance.Service)
-	out := &mccpb.ServiceConfig{
+	out := &mpb.ServiceConfig{
 		DisableCheckCalls:  disablePolicyChecks(inbound, in.Push.Mesh, in.Node),
 		DisableReportCalls: in.Push.Mesh.GetDisableMixerHttpReports(),
 		MixerAttributes:    &mpb.Attributes{Attributes: attrs},
 	}
 
 	if configStore != nil {
-		quotaSpecs := configStore.QuotaSpecByDestination(instance)
+		quotaSpecs := configStore.QuotaSpecByDestination(instance.Service.Hostname)
 		model.SortQuotaSpec(quotaSpecs)
 		for _, quotaSpec := range quotaSpecs {
 			bytes, _ := gogoproto.Marshal(quotaSpec.Spec)
-			converted := &mccpb.QuotaSpec{}
+			converted := &mpb.QuotaSpec{}
 			if err := proto.Unmarshal(bytes, converted); err != nil {
 				log.Warnf("failing to convert from gogo to golang: %v", err)
 				continue
@@ -570,7 +572,7 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 		attrs = addDestinationServiceAttributes(attrs, destination)
 	}
 
-	cfg := &mccpb.TcpClientConfig{
+	cfg := &mpb.TcpClientConfig{
 		DisableCheckCalls: disablePolicyChecks(outbound, mesh, node),
 		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 		Transport:         buildTransport(mesh, node),
@@ -585,7 +587,7 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 }
 
 func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) *listener.Filter {
-	cfg := &mccpb.TcpClientConfig{
+	cfg := &mpb.TcpClientConfig{
 		DisableCheckCalls: disablePolicyChecks(inbound, mesh, node),
 		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 		Transport:         buildTransport(mesh, node),
@@ -598,7 +600,7 @@ func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *
 	return out
 }
 
-func addTypedServiceConfig(filterConfigs map[string]*any.Any, config *mccpb.ServiceConfig) map[string]*any.Any {
+func addTypedServiceConfig(filterConfigs map[string]*any.Any, config *mpb.ServiceConfig) map[string]*any.Any {
 	if filterConfigs == nil {
 		filterConfigs = make(map[string]*any.Any)
 	}
@@ -697,4 +699,18 @@ func attrsCopy(attrs attributes) attributes {
 		out[k] = v
 	}
 	return out
+}
+
+func getQuotaSpec(in *plugin.InputParams, hostname host.Name, isPolicyCheckDisabled bool) []*mpb.QuotaSpec {
+	var quotaSpec []*mpb.QuotaSpec
+	if in.Push == nil || in.Push.IstioConfigStore == nil || isPolicyCheckDisabled {
+		return quotaSpec
+	}
+	config := in.Push.IstioConfigStore
+	quotaSpecs := config.QuotaSpecByDestination(hostname)
+	model.SortQuotaSpec(quotaSpecs)
+	for _, config := range quotaSpecs {
+		quotaSpec = append(quotaSpec, config.Spec.(*mpb.QuotaSpec))
+	}
+	return quotaSpec
 }

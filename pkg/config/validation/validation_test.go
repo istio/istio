@@ -2289,7 +2289,7 @@ func TestValidateHTTPRoute(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := validateHTTPRoute(tc.route); (err == nil) != tc.valid {
+			if err := validateHTTPRoute(tc.route, false); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
 			}
 		})
@@ -3663,6 +3663,33 @@ func TestValidateServiceEntries(t *testing.T) {
 			Resolution: networking.ServiceEntry_NONE,
 		},
 			valid: true},
+		{name: "selector", in: networking.ServiceEntry{
+			Hosts:            []string{"google.com"},
+			WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"foo": "bar"}},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+			},
+		},
+			valid: true},
+		{name: "selector and endpoints", in: networking.ServiceEntry{
+			Hosts:            []string{"google.com"},
+			WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"foo": "bar"}},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+			},
+			Endpoints: []*networking.WorkloadEntry{
+				{Address: "1.1.1.1"},
+			},
+		},
+			valid: false},
+		{name: "bad selector key", in: networking.ServiceEntry{
+			Hosts:            []string{"google.com"},
+			WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"": "bar"}},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+			},
+		},
+			valid: false},
 	}
 
 	for _, c := range cases {

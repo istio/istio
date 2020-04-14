@@ -373,13 +373,6 @@ var (
 		"Number of conflicting wildcard tcp listeners with current wildcard http listener.",
 	)
 
-	// ProxyStatusConflictOutboundListenerHTTPoverHTTPS metric tracks number of
-	// HTTP listeners that conflicted with well known HTTPS ports
-	ProxyStatusConflictOutboundListenerHTTPoverHTTPS = monitoring.NewGauge(
-		"pilot_conflict_outbound_listener_http_over_https",
-		"Number of conflicting HTTP listeners with well known HTTPS ports",
-	)
-
 	// ProxyStatusConflictOutboundListenerTCPOverTCP metric tracks number of
 	// TCP listeners that conflicted with existing TCP listeners on same port
 	ProxyStatusConflictOutboundListenerTCPOverTCP = monitoring.NewGauge(
@@ -458,7 +451,6 @@ var (
 		ProxyStatusNoService,
 		ProxyStatusEndpointNotReady,
 		ProxyStatusConflictOutboundListenerTCPOverHTTP,
-		ProxyStatusConflictOutboundListenerHTTPoverHTTPS,
 		ProxyStatusConflictOutboundListenerTCPOverTCP,
 		ProxyStatusConflictOutboundListenerHTTPOverTCP,
 		ProxyStatusConflictInboundListener,
@@ -1139,6 +1131,8 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	// the RDS code. See separateVSHostsAndServices in route/route.go
 	sortConfigByCreationTime(vservices)
 
+	vservices = mergeVirtualServicesIfNeeded(vservices)
+
 	// convert all shortnames in virtual services into FQDNs
 	for _, r := range vservices {
 		rule := r.Spec.(*networking.VirtualService)
@@ -1661,8 +1655,8 @@ func (ps *PushContext) NetworkGatewaysByNetwork(network string) []*Gateway {
 	return nil
 }
 
-func (ps *PushContext) QuotaSpecByDestination(instance *ServiceInstance) []Config {
-	return filterQuotaSpecsByDestination(instance, ps.QuotaSpecBinding, ps.QuotaSpec)
+func (ps *PushContext) QuotaSpecByDestination(hostname host.Name) []Config {
+	return filterQuotaSpecsByDestination(hostname, ps.QuotaSpecBinding, ps.QuotaSpec)
 }
 
 // BestEffortInferServiceMTLSMode infers the mTLS mode for the service + port from all authentication

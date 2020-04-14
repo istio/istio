@@ -98,7 +98,7 @@ func parseYAMLFiles(inFilenames []string, force bool, l *Logger) (overlayYAML st
 		return "", "", err
 	}
 	var fileOverlayIOP *iopv1alpha1.IstioOperator
-	fileOverlayIOP, overlayYAML, err = translate.UnmarshalIOPOrICP(y)
+	fileOverlayIOP, err = validate.UnmarshalIOP(y)
 	if err != nil {
 		return "", "", err
 	}
@@ -114,7 +114,7 @@ func parseYAMLFiles(inFilenames []string, force bool, l *Logger) (overlayYAML st
 		}
 		profile = fileOverlayIOP.Spec.Profile
 	}
-	return overlayYAML, profile, nil
+	return y, profile, nil
 }
 
 // profileFromSetOverlay takes a YAML string and if it contains a key called "profile" in the root, it returns the key
@@ -152,20 +152,9 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 
 	// To generate the base profileOrPath for overlaying with user values, we need the installPackagePath where the profiles
 	// can be found, and the selected profileOrPath. Both of these can come from either the user overlay file or --set flag.
-	outYAML, err := getProfileYAML(installPackagePath, profileOrPath)
+	outYAML, err := helm.GetProfileYAML(installPackagePath, profileOrPath)
 	if err != nil {
 		return "", nil, err
-	}
-
-	if err := translate.CheckIstioControlPlane(outYAML); err == nil {
-		translations, err := translate.ICPtoIOPTranslations(version.OperatorBinaryVersion)
-		if err != nil {
-			return "", nil, err
-		}
-		outYAML, err = translate.ICPToIOP(outYAML, translations)
-		if err != nil {
-			return "", nil, err
-		}
 	}
 
 	// Hub and tag are only known at build time and must be passed in here during runtime from build stamps.
@@ -186,6 +175,15 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 			return "", nil, err
 		}
 	}
+	mvs := version.OperatorBinaryVersion.MinorVersion
+	t, err := translate.NewReverseTranslator(mvs)
+	if err != nil {
+		return "", nil, fmt.Errorf("error creating values.yaml translator: %s", err)
+	}
+	userOverlayYAML, err = t.TranslateK8SfromValueToIOP(userOverlayYAML)
+	if err != nil {
+		return "", nil, fmt.Errorf("could not overlay k8s settings from values to IOP: %s", err)
+	}
 
 	// Merge user file and --set overlays.
 	outYAML, err = util.OverlayYAML(outYAML, userOverlayYAML)
@@ -193,6 +191,9 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 		return "", nil, fmt.Errorf("could not overlay user config over base: %s", err)
 	}
 
+	if err := name.ScanBundledAddonComponents(installPackagePath); err != nil {
+		return "", nil, err
+	}
 	// If enablement came from user values overlay (file or --set), translate into addonComponents paths and overlay that.
 	outYAML, err = translate.OverlayValuesEnablement(outYAML, fileOverlayYAML, setOverlayYAML)
 	if err != nil {
@@ -246,38 +247,6 @@ func rewriteURLToLocalInstallPath(installPackagePath, profileOrPath string, skip
 	}
 
 	return installPackagePath, profileOrPath, nil
-}
-
-// getProfileYAML returns the YAML for the given profile name, using the given profileOrPath string, which may be either
-// a profile label or a file path.
-func getProfileYAML(installPackagePath, profileOrPath string) (string, error) {
-	// If charts are a file path and profile is a name like default, transform it to the file path.
-	if installPackagePath != "" && helm.IsBuiltinProfileName(profileOrPath) {
-		profileOrPath = filepath.Join(installPackagePath, "profiles", profileOrPath+".yaml")
-	}
-	// This contains the IstioOperator CR.
-	baseCRYAML, err := helm.ReadProfileYAML(profileOrPath)
-	if err != nil {
-		return "", err
-	}
-
-	if !helm.IsDefaultProfile(profileOrPath) {
-		// Profile definitions are relative to the default profileOrPath, so read that first.
-		dfn, err := helm.DefaultFilenameForProfile(profileOrPath)
-		if err != nil {
-			return "", err
-		}
-		defaultYAML, err := helm.ReadProfileYAML(dfn)
-		if err != nil {
-			return "", err
-		}
-		baseCRYAML, err = util.OverlayYAML(defaultYAML, baseCRYAML)
-		if err != nil {
-			return "", err
-		}
-	}
-
-	return baseCRYAML, nil
 }
 
 // Due to the fact that base profile is compiled in before a tag can be created, we must allow an additional

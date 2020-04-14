@@ -18,16 +18,16 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/ghodss/yaml"
 
-	"istio.io/istio/operator/pkg/helm"
-	"istio.io/istio/operator/pkg/vfs"
-	"istio.io/istio/operator/version"
-
 	"istio.io/api/operator/v1alpha1"
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/operator/pkg/vfs"
+	"istio.io/istio/operator/version"
 )
 
 const (
@@ -50,7 +50,6 @@ const (
 	// are used for struct traversal.
 	IstioBaseComponentName ComponentName = "Base"
 	PilotComponentName     ComponentName = "Pilot"
-	GalleyComponentName    ComponentName = "Galley"
 	PolicyComponentName    ComponentName = "Policy"
 	TelemetryComponentName ComponentName = "Telemetry"
 
@@ -77,7 +76,6 @@ var (
 	AllCoreComponentNames = []ComponentName{
 		IstioBaseComponentName,
 		PilotComponentName,
-		GalleyComponentName,
 		PolicyComponentName,
 		TelemetryComponentName,
 		CNIComponentName,
@@ -95,6 +93,8 @@ var (
 	// ValuesEnablementPathMap defines a mapping between legacy values enablement paths and the corresponding enablement
 	// paths in IstioOperator.
 	ValuesEnablementPathMap = make(map[string]string)
+
+	scanAddons sync.Once
 )
 
 func init() {
@@ -102,9 +102,6 @@ func init() {
 		allComponentNamesMap[n] = true
 	}
 	if err := loadComponentNamesConfig(); err != nil {
-		panic(err)
-	}
-	if err := scanBundledAddonComponents(); err != nil {
 		panic(err)
 	}
 	generateValuesEnablementMap()
@@ -116,11 +113,6 @@ type ManifestMap map[ComponentName][]string
 // IsCoreComponent reports whether cn is a core component.
 func (cn ComponentName) IsCoreComponent() bool {
 	return allComponentNamesMap[cn]
-}
-
-// IsDeprecatedName reports whether cn is a deprecated component.
-func (cn ComponentName) IsDeprecatedName() bool {
-	return DeprecatedComponentNamesMap[cn]
 }
 
 // IsGateway reports whether cn is a gateway component.
@@ -195,17 +187,23 @@ func generateValuesEnablementMap() {
 	ValuesEnablementPathMap["spec.values.gateways.istio-egressgateway.enabled"] = "spec.components.egressGateways.[name:istio-egressgateway].enabled"
 }
 
-func scanBundledAddonComponents() error {
-	addonComponentNames, err := helm.GetAddonNamesFromCharts("", true)
-	if err != nil {
-		return fmt.Errorf("failed to scan bundled addon components: %v", err)
-	}
-	for _, an := range addonComponentNames {
-		BundledAddonComponentNamesMap[ComponentName(an)] = true
-		enablementName := strings.ToLower(an[:1]) + an[1:]
-		valuePath := fmt.Sprintf("spec.values.%s.enabled", enablementName)
-		iopPath := fmt.Sprintf("spec.addonComponents.%s.enabled", enablementName)
-		ValuesEnablementPathMap[valuePath] = iopPath
-	}
-	return nil
+var onceErr error
+
+func ScanBundledAddonComponents(chartsRootDir string) error {
+	scanAddons.Do(func() {
+		var addonComponentNames []string
+		addonComponentNames, onceErr = helm.GetAddonNamesFromCharts(chartsRootDir, true)
+		if onceErr != nil {
+			onceErr = fmt.Errorf("failed to scan bundled addon components: %v", onceErr)
+			return
+		}
+		for _, an := range addonComponentNames {
+			BundledAddonComponentNamesMap[ComponentName(an)] = true
+			enablementName := strings.ToLower(an[:1]) + an[1:]
+			valuePath := fmt.Sprintf("spec.values.%s.enabled", enablementName)
+			iopPath := fmt.Sprintf("spec.addonComponents.%s.enabled", enablementName)
+			ValuesEnablementPathMap[valuePath] = iopPath
+		}
+	})
+	return onceErr
 }

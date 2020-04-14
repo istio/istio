@@ -25,10 +25,11 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdscore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+
+	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -78,7 +79,6 @@ spec:
     match:
       context: SIDECAR_INBOUND
       listener:
-        portNumber: 80
         filterChain:
           filter:
             name: "envoy.http_connection_manager"
@@ -258,7 +258,6 @@ func TestEnvoyFilterHTTPFilterInsertBefore(t *testing.T) {
 
 func checkHTTPFilter(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
 	expected := map[string]struct{}{
-		"1.1.1.1_80":      {},
 		"0.0.0.0_80":      {},
 		"virtualInbound":  {},
 		"virtualOutbound": {},
@@ -274,28 +273,25 @@ func checkHTTPFilter(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
 			return false, err
 		}
 		got[c.Name] = struct{}{}
-		if c.Name == "1.1.1.1_80" {
+		if c.Name == "virtualInbound" {
 			listenerToCheck = c
 		}
 	}
 	if !reflect.DeepEqual(expected, got) {
 		return false, fmt.Errorf("excepted listeners %+v, got %+v", expected, got)
 	}
+	if listenerToCheck == nil {
+		return false, fmt.Errorf("missing inbound listener")
+	}
 
 	// check for hcm, http filters
+	matched := false
 	for _, fc := range listenerToCheck.FilterChains {
 		for _, networkFilter := range fc.Filters {
 			if networkFilter.Name == wellknown.HTTPConnectionManager {
 				hcm := &http_conn.HttpConnectionManager{}
-				if networkFilter.GetTypedConfig() != nil {
-					if err := ptypes.UnmarshalAny(networkFilter.GetTypedConfig(), hcm); err != nil {
-						return false, fmt.Errorf("failed to unmarshall HCM (Any) from 1.1.1.1_80 listener: %v", err)
-					}
-				} else {
-					// nolint: staticcheck
-					if err := conversion.StructToMessage(networkFilter.GetConfig(), hcm); err != nil {
-						return false, fmt.Errorf("failed to unmarshall HCM (Struct) from 1.1.1.1_80 listener: %v", err)
-					}
+				if err := ptypes.UnmarshalAny(networkFilter.GetTypedConfig(), hcm); err != nil {
+					return false, fmt.Errorf("failed to unmarshall HCM (Any) from inbound listener: %v", err)
 				}
 
 				if err := hcm.Validate(); err != nil {
@@ -306,8 +302,8 @@ func checkHTTPFilter(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
 					httpFiltersFound = append(httpFiltersFound, httpFilter.Name)
 				}
 				if !reflect.DeepEqual(expectedHTTPFilters, httpFiltersFound) {
-					return false, fmt.Errorf("excepted http filters %+v, got %+v",
-						expectedHTTPFilters, httpFiltersFound)
+					log.Warnf("hcm %v did match http filters: %v", hcm.ServerName, httpFiltersFound)
+					continue
 				}
 
 				accessLogFiltersFound := make([]string, 0)
@@ -315,12 +311,15 @@ func checkHTTPFilter(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
 					accessLogFiltersFound = append(accessLogFiltersFound, al.Name)
 				}
 				if !reflect.DeepEqual(expectedHTTPAccessLogFilteers, accessLogFiltersFound) {
-					return false, fmt.Errorf("excepted accesslog filters %+v, got %+v",
-						expectedHTTPAccessLogFilteers, accessLogFiltersFound)
+					log.Warnf("hcm %v did match access log filters filters: %v", hcm.ServerName, accessLogFiltersFound)
+					continue
 				}
-
+				matched = true
 			}
 		}
+	}
+	if !matched {
+		return false, fmt.Errorf("failed to find expected HCM")
 	}
 	return true, nil
 }
