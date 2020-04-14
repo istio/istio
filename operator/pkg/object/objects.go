@@ -108,7 +108,7 @@ func ParseYAMLToK8sObject(yaml []byte) (*K8sObject, error) {
 	out := &unstructured.Unstructured{}
 	err := decoder.Decode(out)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding object: %v", err)
+		return nil, fmt.Errorf("error decoding object %v: %v", string(yaml), err)
 	}
 	return NewK8sObject(out, nil, yaml), nil
 }

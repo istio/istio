@@ -317,11 +317,6 @@ data:
       []
     injectedAnnotations:
 
-    # Configmap optimized for Istiod. Please DO NOT MERGE all changes from istio - in particular those dependent on
-    # Values.yaml, which should not be used by istiod.
-    
-    # Istiod only uses SDS based config ( files will mapped/handled by SDS).
-    
     template: |
       rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
       initContainers:
