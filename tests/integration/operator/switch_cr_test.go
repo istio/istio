@@ -166,7 +166,7 @@ metadata:
 	verifyInstallation(t, ctx, istioCtl, iopCRFile, cs)
 }
 
-func verifyInstallation(t *testing.T, ctx framework.TestContext,
+func verifyInstallation(t *testing.T, ctx resource.Context,
 	istioCtl istioctl.Instance, iopFile string, cs kube.Cluster) {
 	scopes.CI.Infof("=== verifying istio installation === ")
 	if err := checkInstallStatus(cs); err != nil {
