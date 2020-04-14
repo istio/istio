@@ -52,6 +52,7 @@ type Options struct {
 	DomainSuffix string
 	XDSUpdater   model.XDSUpdater
 	ConfigLedger ledger.Ledger
+	Revision     string
 }
 
 // controller is a temporary storage for the changes received
@@ -167,18 +168,21 @@ func (c *controller) Apply(change *sink.Change) error {
 			continue
 		}
 
-		namedConfig, ok := innerStore[conf.Namespace]
-		if ok {
-			namedConfig[conf.Name] = conf
-		} else {
-			innerStore[conf.Namespace] = map[string]*model.Config{
-				conf.Name: conf,
+		// Skip configs not selected by this revision
+		if c.objectInRevision(conf) {
+			namedConfig, ok := innerStore[conf.Namespace]
+			if ok {
+				namedConfig[conf.Name] = conf
+			} else {
+				innerStore[conf.Namespace] = map[string]*model.Config{
+					conf.Name: conf,
+				}
 			}
-		}
 
-		_, err := c.ledger.Put(conf.Key(), obj.Metadata.Version)
-		if err != nil {
-			log.Warnf(ledgerLogf, err)
+			_, err := c.ledger.Put(conf.Key(), obj.Metadata.Version)
+			if err != nil {
+				log.Warnf(ledgerLogf, err)
+			}
 		}
 	}
 	for _, removed := range change.Removed {
@@ -224,6 +228,16 @@ func (c *controller) Apply(change *sink.Change) error {
 	}
 
 	return nil
+}
+
+func (c *controller) objectInRevision(o *model.Config) bool {
+	configEnv, f := o.Labels[model.RevisionLabel]
+	if !f {
+		// This is a global object, and always included
+		return true
+	}
+	// Otherwise, only return if the
+	return configEnv == c.options.Revision
 }
 
 // HasSynced returns true if the first batch of items has been popped

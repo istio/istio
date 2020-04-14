@@ -254,7 +254,7 @@ func (cl *Client) Get(typ resource.GroupVersionKind, name, namespace string) *mo
 		scope.Warna(err)
 		return nil
 	}
-	if cl.objectInEnvironment(out) {
+	if cl.objectInRevision(out) {
 		return out
 	}
 	return nil
@@ -397,18 +397,14 @@ func (cl *Client) List(kind resource.GroupVersionKind, namespace string) ([]mode
 		obj, err := crd.ConvertObject(s, item, cl.domainSuffix)
 		if err != nil {
 			errs = multierror.Append(errs, err)
-		} else if cl.objectInEnvironment(obj) {
+		} else if cl.objectInRevision(obj) {
 			out = append(out, *obj)
 		}
 	}
 	return out, errs
 }
 
-func (cl *Client) objectInEnvironment(o *model.Config) bool {
-	// If revision is not configured, we will select all objects
-	if cl.revision == "" {
-		return true
-	}
+func (cl *Client) objectInRevision(o *model.Config) bool {
 	configEnv, f := o.Labels[model.RevisionLabel]
 	if !f {
 		// This is a global object, and always included
