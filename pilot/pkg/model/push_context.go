@@ -1607,7 +1607,7 @@ func (ps *PushContext) initQuotaSpecBindings(env *Environment) error {
 	return err
 }
 
-// It is unfortunate that the field as named as registry.
+// It is unfortunate that the field is named as registry in the API.
 func getRemoteClustersFromMeshNetwork(network *meshconfig.Network) []string {
 	var clusterNames []string
 	for _, eps := range network.Endpoints {
