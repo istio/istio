@@ -17,22 +17,18 @@
 package controller
 
 import (
-	context2 "context"
+	"context"
 	"fmt"
-	"time"
 
 	"github.com/hashicorp/go-multierror"
 
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubeSchema "k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer" // import GKE cluster authentication plugin
-	"k8s.io/apimachinery/pkg/util/wait"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // import OIDC cluster authentication plugin, e.g. for Tectonic
-	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"  // import GKE cluster authentication plugin
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc" // import OIDC cluster authentication plugin, e.g. for Tectonic
 	"k8s.io/client-go/rest"
 
 	"istio.io/pkg/ledger"
@@ -41,7 +37,6 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 	kubecfg "istio.io/istio/pkg/kube"
 )
@@ -73,9 +68,6 @@ type restClient struct {
 
 	// types of the schema and objects in the schemas.
 	types []*crd.SchemaType
-
-	// restconfig for REST type descriptors
-	restconfig *rest.Config
 
 	// dynamic REST client for accessing config CRDs
 	dynamic *rest.RESTClient
@@ -142,7 +134,6 @@ func (rc *restClient) init(cfg *rest.Config) error {
 		return err
 	}
 
-	rc.restconfig = cfg
 	rc.dynamic = dynamic
 	return nil
 }
@@ -242,7 +233,7 @@ func (cl *Client) Get(typ resource.GroupVersionKind, name, namespace string) *mo
 		NamespaceIfScoped(namespace, !s.Resource().IsClusterScoped()).
 		Resource(s.Resource().Plural()).
 		Name(name).
-		Do(context2.TODO()).Into(config)
+		Do(context.TODO()).Into(config)
 
 	if err != nil {
 		scope.Warna(err)
@@ -286,7 +277,7 @@ func (cl *Client) Create(config model.Config) (string, error) {
 		NamespaceIfScoped(out.GetObjectMeta().Namespace, !s.Resource().IsClusterScoped()).
 		Resource(s.Resource().Plural()).
 		Body(out).
-		Do(context2.TODO()).Into(obj)
+		Do(context.TODO()).Into(obj)
 	if err != nil {
 		return "", err
 	}
@@ -324,7 +315,7 @@ func (cl *Client) Update(config model.Config) (string, error) {
 		Resource(s.Resource().Plural()).
 		Name(out.GetObjectMeta().Name).
 		Body(out).
-		Do(context2.TODO()).Into(obj)
+		Do(context.TODO()).Into(obj)
 	if err != nil {
 		return "", err
 	}
@@ -351,7 +342,7 @@ func (cl *Client) Delete(typ resource.GroupVersionKind, name, namespace string) 
 		NamespaceIfScoped(namespace, !s.Resource().IsClusterScoped()).
 		Resource(s.Resource().Plural()).
 		Name(name).
-		Do(context2.TODO()).Error()
+		Do(context.TODO()).Error()
 }
 
 func (cl *Client) Version() string {
@@ -390,7 +381,7 @@ func (cl *Client) List(kind resource.GroupVersionKind, namespace string) ([]mode
 	errs := rc.dynamic.Get().
 		NamespaceIfScoped(namespace, !s.Resource().IsClusterScoped()).
 		Resource(s.Resource().Plural()).
-		Do(context2.TODO()).Into(list)
+		Do(context.TODO()).Into(list)
 
 	out := make([]model.Config, 0)
 	for _, item := range list.GetItems() {
@@ -420,7 +411,7 @@ func (cl *Client) objectInEnvironment(o *model.Config) bool {
 
 // KnownCRDs returns all CRDs present in the cluster
 func (cl *Client) KnownCRDs() (map[string]struct{}, error) {
-	res, err := cl.crdClient.ApiextensionsV1beta1().CustomResourceDefinitions().List(context2.TODO(), meta_v1.ListOptions{})
+	res, err := cl.crdClient.ApiextensionsV1beta1().CustomResourceDefinitions().List(context.TODO(), meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -429,113 +420,4 @@ func (cl *Client) KnownCRDs() (map[string]struct{}, error) {
 		mp[r.Name] = struct{}{}
 	}
 	return mp, nil
-}
-
-// deprecated - only used for CRD controller unit tests
-func (cl *Client) RegisterMockResourceCRD() error {
-	schemas := []collection.Schema{collections.Mock}
-
-	// Use the mock
-	apiVersion := collections.Mock.Resource().APIVersion()
-	restClient, ok := cl.clientset[apiVersion]
-	if !ok {
-		return fmt.Errorf("apiVersion %q does not exist", apiVersion)
-	}
-
-	cs, err := apiextensionsclient.NewForConfig(restClient.restconfig)
-	if err != nil {
-		return err
-	}
-
-	skipCreate := true
-	for _, s := range schemas {
-		name := s.Resource().Plural() + "." + s.Resource().Group()
-		crd, errGet := cs.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context2.TODO(), name, meta_v1.GetOptions{})
-		if errGet != nil {
-			skipCreate = false
-			break // create the resources
-		}
-		for _, cond := range crd.Status.Conditions {
-			if cond.Type == apiextensionsv1beta1.Established &&
-				cond.Status == apiextensionsv1beta1.ConditionTrue {
-				continue
-			}
-
-			if cond.Type == apiextensionsv1beta1.NamesAccepted &&
-				cond.Status == apiextensionsv1beta1.ConditionTrue {
-				continue
-			}
-
-			scope.Warnf("Not established: %v", name)
-			skipCreate = false
-			break
-		}
-	}
-
-	if skipCreate {
-		return nil
-	}
-
-	for _, s := range schemas {
-		g := s.Resource().Group()
-		name := s.Resource().Plural() + "." + g
-		crdScope := apiextensionsv1beta1.NamespaceScoped
-		if s.Resource().IsClusterScoped() {
-			crdScope = apiextensionsv1beta1.ClusterScoped
-		}
-		crd := &apiextensionsv1beta1.CustomResourceDefinition{
-			ObjectMeta: meta_v1.ObjectMeta{
-				Name: name,
-			},
-			Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-				Group:   g,
-				Version: s.Resource().Version(),
-				Scope:   crdScope,
-				Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-					Plural: s.Resource().Plural(),
-					Kind:   s.Resource().Kind(),
-				},
-			},
-		}
-		scope.Infof("registering CRD %q", name)
-		_, err = cs.ApiextensionsV1beta1().CustomResourceDefinitions().Create(context2.TODO(), crd, meta_v1.CreateOptions{})
-		if err != nil && !apierrors.IsAlreadyExists(err) {
-			return err
-		}
-	}
-
-	// wait for CRD being established
-	errPoll := wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
-	descriptor:
-		for _, s := range schemas {
-			name := s.Resource().Plural() + "." + s.Resource().Group()
-			crd, errGet := cs.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context2.TODO(), name, meta_v1.GetOptions{})
-			if errGet != nil {
-				return false, errGet
-			}
-			for _, cond := range crd.Status.Conditions {
-				switch cond.Type {
-				case apiextensionsv1beta1.Established:
-					if cond.Status == apiextensionsv1beta1.ConditionTrue {
-						scope.Infof("established CRD %q", name)
-						continue descriptor
-					}
-				case apiextensionsv1beta1.NamesAccepted:
-					if cond.Status == apiextensionsv1beta1.ConditionFalse {
-						scope.Warnf("name conflict: %v", cond.Reason)
-					}
-				}
-			}
-			scope.Infof("missing status condition for %q", name)
-			return false, nil
-		}
-		return true, nil
-	})
-
-	if errPoll != nil {
-		scope.Error("failed to verify CRD creation")
-		return errPoll
-	}
-
-	return nil
 }
