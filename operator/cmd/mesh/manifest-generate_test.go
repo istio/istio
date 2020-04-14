@@ -611,3 +611,13 @@ func createLocalReleaseCharts() (string, error) {
 	}
 	return releaseDir, nil
 }
+
+func generateManifest(inFile, flags string, chartSource chartSourceType) (string, object.K8sObjects, error) {
+	inPath := filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate/input", inFile+".yaml")
+	manifest, err := runManifestGenerate([]string{inPath}, flags, chartSource)
+	if err != nil {
+		return "", nil, fmt.Errorf("error %s: %s", err, manifest)
+	}
+	objs, err := object.ParseK8sObjectsFromYAMLManifest(manifest)
+	return manifest, objs, err
+}
