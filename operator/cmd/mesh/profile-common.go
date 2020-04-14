@@ -19,8 +19,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ghodss/yaml"
-
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
@@ -177,8 +175,12 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 			return "", nil, err
 		}
 	}
-
-	userOverlayYAML, err = translateK8SfromValueToIOP(userOverlayYAML)
+	mvs := version.OperatorBinaryVersion.MinorVersion
+	t, err := translate.NewReverseTranslator(mvs)
+	if err != nil {
+		return "", nil, fmt.Errorf("error creating values.yaml translator: %s", err)
+	}
+	userOverlayYAML, err = t.TranslateK8SfromValueToIOP(userOverlayYAML)
 	if err != nil {
 		return "", nil, fmt.Errorf("could not overlay k8s settings from values to IOP: %s", err)
 	}
@@ -211,52 +213,6 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 	// InstallPackagePath may have been a URL, change to extracted to local file path.
 	finalIOPS.InstallPackagePath = installPackagePath
 	return util.ToYAMLWithJSONPB(finalIOPS), finalIOPS, nil
-}
-
-// translateK8SfromValueToIOP use reverse translation to convert k8s settings defined in values API to IOP API.
-// this ensures that user overlays that set k8s through spec.values
-// are not overridden by spec.components.X.k8s settings in the base profiles
-func translateK8SfromValueToIOP(userOverlayYaml string) (string, error) {
-	mvs := version.OperatorBinaryVersion.MinorVersion
-	t, err := translate.NewReverseTranslator(mvs)
-	if err != nil {
-		return "", fmt.Errorf("error creating values.yaml translator: %s", err)
-	}
-	valuesOverlay, err := tpath.GetConfigSubtree(userOverlayYaml, "spec.values")
-	if err != nil {
-		scope.Debugf("no spec.values section from userOverlayYaml %v", err)
-		return "", nil
-	}
-	var valuesOverlayTree = make(map[string]interface{})
-	err = yaml.Unmarshal([]byte(valuesOverlay), &valuesOverlayTree)
-	if err != nil {
-		return "", fmt.Errorf("error unmarshalling values overlay yaml into untype tree %v", err)
-	}
-	iopSpecTree := make(map[string]interface{})
-	if err = t.TranslateK8S(valuesOverlayTree, iopSpecTree); err != nil {
-		return "", err
-	}
-	warning, err := t.WarningForGatewayK8SSettings(valuesOverlay)
-	if err != nil {
-		return "", fmt.Errorf("error handling values gateway k8s settings: %v", err)
-	}
-	if warning != "" {
-		return "", fmt.Errorf(warning)
-	}
-	iopSpecTreeYAML, err := yaml.Marshal(iopSpecTree)
-	if err != nil {
-		return "", fmt.Errorf("error marshaling reverse translated tree %v", err)
-	}
-	iopTreeYAML, err := tpath.AddSpecRoot(string(iopSpecTreeYAML))
-	if err != nil {
-		return "", fmt.Errorf("error adding spec root: %v", err)
-	}
-	// overlay the reverse translated iopTreeYAML back to userOverlayYaml
-	finalYAML, err := util.OverlayYAML(userOverlayYaml, iopTreeYAML)
-	if err != nil {
-		return "", fmt.Errorf("failed to overlay the reverse translated iopTreeYAML: %v", err)
-	}
-	return finalYAML, err
 }
 
 // rewriteURLToLocalInstallPath checks installPackagePath and if it is a URL, it tries to download and extract the

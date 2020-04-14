@@ -334,6 +334,47 @@ func (t *ReverseTranslator) translateGateway(valueSpec map[string]interface{}, r
 	return nil
 }
 
+// TranslateK8SfromValueToIOP use reverse translation to convert k8s settings defined in values API to IOP API.
+// this ensures that user overlays that set k8s through spec.values
+// are not overridden by spec.components.X.k8s settings in the base profiles
+func (t *ReverseTranslator) TranslateK8SfromValueToIOP(userOverlayYaml string) (string, error) {
+	valuesOverlay, err := tpath.GetConfigSubtree(userOverlayYaml, "spec.values")
+	if err != nil {
+		scope.Debugf("no spec.values section from userOverlayYaml %v", err)
+		return "", nil
+	}
+	var valuesOverlayTree = make(map[string]interface{})
+	err = yaml.Unmarshal([]byte(valuesOverlay), &valuesOverlayTree)
+	if err != nil {
+		return "", fmt.Errorf("error unmarshalling values overlay yaml into untype tree %v", err)
+	}
+	iopSpecTree := make(map[string]interface{})
+	if err = t.TranslateK8S(valuesOverlayTree, iopSpecTree); err != nil {
+		return "", err
+	}
+	warning, err := t.WarningForGatewayK8SSettings(valuesOverlay)
+	if err != nil {
+		return "", fmt.Errorf("error handling values gateway k8s settings: %v", err)
+	}
+	if warning != "" {
+		return "", fmt.Errorf(warning)
+	}
+	iopSpecTreeYAML, err := yaml.Marshal(iopSpecTree)
+	if err != nil {
+		return "", fmt.Errorf("error marshaling reverse translated tree %v", err)
+	}
+	iopTreeYAML, err := tpath.AddSpecRoot(string(iopSpecTreeYAML))
+	if err != nil {
+		return "", fmt.Errorf("error adding spec root: %v", err)
+	}
+	// overlay the reverse translated iopTreeYAML back to userOverlayYaml
+	finalYAML, err := util.OverlayYAML(userOverlayYaml, iopTreeYAML)
+	if err != nil {
+		return "", fmt.Errorf("failed to overlay the reverse translated iopTreeYAML: %v", err)
+	}
+	return finalYAML, err
+}
+
 // translateStrategy translates Deployment Strategy related configurations from helm values.yaml tree.
 func translateStrategy(fieldName string, outPath string, value interface{}, cpSpecTree map[string]interface{}) error {
 	fieldMap := map[string]string{
