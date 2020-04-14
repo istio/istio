@@ -15,7 +15,7 @@
 package envoyfilter
 
 import (
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	"github.com/gogo/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -31,7 +31,7 @@ func ApplyClusterPatches(
 	patchContext networking.EnvoyFilter_PatchContext,
 	proxy *model.Proxy,
 	push *model.PushContext,
-	clusters []*xdsapi.Cluster) (out []*xdsapi.Cluster) {
+	clusters []*clusterv3.Cluster) (out []*clusterv3.Cluster) {
 	defer runtime.HandleCrash(func() {
 		log.Errorf("clusters patch caused panic, so the patches did not take effect")
 	})
@@ -70,13 +70,13 @@ func ApplyClusterPatches(
 	for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
 		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
 			if commonConditionMatch(patchContext, cp) {
-				clusters = append(clusters, proto.Clone(cp.Value).(*xdsapi.Cluster))
+				clusters = append(clusters, proto.Clone(cp.Value).(*clusterv3.Cluster))
 			}
 		}
 	}
 
 	if clustersRemoved {
-		trimmedClusters := make([]*xdsapi.Cluster, 0, len(clusters))
+		trimmedClusters := make([]*clusterv3.Cluster, 0, len(clusters))
 		for i := range clusters {
 			if clusters[i] == nil {
 				continue
@@ -88,7 +88,7 @@ func ApplyClusterPatches(
 	return clusters
 }
 
-func clusterMatch(cluster *xdsapi.Cluster, cp *model.EnvoyFilterConfigPatchWrapper) bool {
+func clusterMatch(cluster *clusterv3.Cluster, cp *model.EnvoyFilterConfigPatchWrapper) bool {
 	cMatch := cp.Match.GetCluster()
 	if cMatch == nil {
 		return true

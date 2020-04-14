@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 )
 
 var (
@@ -53,10 +53,10 @@ func TestAWSLocality(t *testing.T) {
 	cases := []struct {
 		name string
 		env  *awsEnv
-		want *core.Locality
+		want *corev3.Locality
 	}{
-		{"empty", &awsEnv{}, &core.Locality{}},
-		{"locality", &awsEnv{identity: localityIdentity}, &core.Locality{Region: "region", Zone: "zone"}},
+		{"empty", &awsEnv{}, &corev3.Locality{}},
+		{"locality", &awsEnv{identity: localityIdentity}, &corev3.Locality{Region: "region", Zone: "zone"}},
 	}
 
 	for _, v := range cases {

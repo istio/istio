@@ -22,6 +22,8 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -73,7 +75,7 @@ type XdsConnection struct {
 
 	LDSListeners []*xdsapi.Listener                    `json:"-"`
 	RouteConfigs map[string]*xdsapi.RouteConfiguration `json:"-"`
-	CDSClusters  []*xdsapi.Cluster
+	CDSClusters  []*clusterv3.Cluster
 
 	// Last nonce sent and ack'd (timestamps) used for debugging
 	ClusterNonceSent, ClusterNonceAcked   string
@@ -225,7 +227,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			}
 
 			switch discReq.TypeUrl {
-			case ClusterType:
+			case ClusterTypeV3:
 				if con.CDSWatch {
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
@@ -443,7 +445,14 @@ func (s *DiscoveryServer) initProxy(node *core.Node) (*model.Proxy, error) {
 	// This is not preferable as only the connected Pilot is aware of this proxies location, but it
 	// can still help provide some client-side Envoy context when load balancing based on location.
 	if util.IsLocalityEmpty(proxy.Locality) {
-		proxy.Locality = node.Locality
+		proxy.Locality = &corev3.Locality{
+			Region:               node.Locality.GetRegion(),
+			Zone:                 node.Locality.GetZone(),
+			SubZone:              node.Locality.GetSubZone(),
+			XXX_NoUnkeyedLiteral: struct{}{},
+			XXX_unrecognized:     nil,
+			XXX_sizecache:        0,
+		}
 	}
 
 	// Discover supported IP Versions of proxy so that appropriate config can be delivered.
@@ -683,11 +692,15 @@ func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 			switch res.TypeUrl {
 			case ClusterType:
 				conn.ClusterNonceSent = res.Nonce
+			case ClusterTypeV3:
+				conn.ClusterNonceSent = res.Nonce
 			case ListenerType:
 				conn.ListenerNonceSent = res.Nonce
 			case RouteType:
 				conn.RouteNonceSent = res.Nonce
 			case EndpointType:
+				conn.EndpointNonceSent = res.Nonce
+			case EndpointTypeV3:
 				conn.EndpointNonceSent = res.Nonce
 			}
 		}

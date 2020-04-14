@@ -19,8 +19,8 @@ import (
 	"sort"
 	"testing"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
@@ -71,7 +71,7 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 	// networks and examines the returned filtered endpoints
 	tests := []struct {
 		name      string
-		endpoints []*endpoint.LocalityLbEndpoints
+		endpoints []*endpointv3.LocalityLbEndpoints
 		conn      *XdsConnection
 		env       *model.Environment
 		want      []LocLbEpInfo
@@ -256,7 +256,7 @@ func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
 	// networks and examines the returned filtered endpoints
 	tests := []struct {
 		name      string
-		endpoints []*endpoint.LocalityLbEndpoints
+		endpoints []*endpointv3.LocalityLbEndpoints
 		conn      *XdsConnection
 		env       *model.Environment
 		want      []LocLbEpInfo
@@ -454,7 +454,7 @@ func environment() *model.Environment {
 
 // testEndpoints creates endpoints to be handed to the filter. It creates
 // 2 endpoints on network1, 1 endpoint on network2 and 1 endpoint on network4.
-func testEndpoints() []*endpoint.LocalityLbEndpoints {
+func testEndpoints() []*endpointv3.LocalityLbEndpoints {
 	lbEndpoints := createLbEndpoints(
 		[]*LbEpInfo{
 			{network: "network1", address: "10.0.0.1"},
@@ -464,7 +464,7 @@ func testEndpoints() []*endpoint.LocalityLbEndpoints {
 		},
 	)
 
-	return []*endpoint.LocalityLbEndpoints{
+	return []*endpointv3.LocalityLbEndpoints{
 		{
 			LbEndpoints: lbEndpoints,
 			LoadBalancingWeight: &wrappers.UInt32Value{
@@ -474,22 +474,22 @@ func testEndpoints() []*endpoint.LocalityLbEndpoints {
 	}
 }
 
-func createLbEndpoints(lbEpsInfo []*LbEpInfo) []*endpoint.LbEndpoint {
-	lbEndpoints := make([]*endpoint.LbEndpoint, len(lbEpsInfo))
+func createLbEndpoints(lbEpsInfo []*LbEpInfo) []*endpointv3.LbEndpoint {
+	lbEndpoints := make([]*endpointv3.LbEndpoint, len(lbEpsInfo))
 	for j, lbEpInfo := range lbEpsInfo {
-		lbEp := endpoint.LbEndpoint{
-			HostIdentifier: &endpoint.LbEndpoint_Endpoint{
-				Endpoint: &endpoint.Endpoint{
-					Address: &core.Address{
-						Address: &core.Address_SocketAddress{
-							SocketAddress: &core.SocketAddress{
+		lbEp := endpointv3.LbEndpoint{
+			HostIdentifier: &endpointv3.LbEndpoint_Endpoint{
+				Endpoint: &endpointv3.Endpoint{
+					Address: &corev3.Address{
+						Address: &corev3.Address_SocketAddress{
+							SocketAddress: &corev3.SocketAddress{
 								Address: lbEpInfo.address,
 							},
 						},
 					},
 				},
 			},
-			Metadata: &core.Metadata{
+			Metadata: &corev3.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
 					"istio": {
 						Fields: map[string]*structpb.Value{

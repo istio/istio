@@ -43,7 +43,7 @@ func TestServiceEntryStatic(t *testing.T) {
 				Id: nodeID.ServiceNode(),
 			},
 			ResourceNames: []string{"outbound|80||app.com"},
-			TypeUrl:       v2.EndpointType,
+			TypeUrl:       v2.EndpointTypeV3,
 		}
 
 		if err := p.StartDiscovery(req); err != nil {
@@ -86,7 +86,7 @@ func TestSidecarScopeIngressListener(t *testing.T) {
 			Node: &xdscore.Node{
 				Id: nodeID.ServiceNode(),
 			},
-			TypeUrl: v2.ClusterType,
+			TypeUrl: v2.ClusterTypeV3,
 		}
 
 		if err := p.StartDiscovery(req); err != nil {

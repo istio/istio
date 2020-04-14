@@ -21,6 +21,7 @@ import (
 	"net"
 	"time"
 
+	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
@@ -42,14 +43,14 @@ var nodeMetadata = &structpb.Struct{Fields: map[string]*structpb.Value{
 }}
 
 // Extract cluster load assignment from a discovery response.
-func getLoadAssignment(res1 *xdsapi.DiscoveryResponse) (*xdsapi.ClusterLoadAssignment, error) {
-	if res1.TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
+func getLoadAssignment(res1 *xdsapi.DiscoveryResponse) (*endpointv3.ClusterLoadAssignment, error) {
+	if res1.TypeUrl != v2.EndpointTypeV3 {
 		return nil, errors.New("Invalid typeURL" + res1.TypeUrl)
 	}
-	if res1.Resources[0].TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
+	if res1.Resources[0].TypeUrl != v2.EndpointTypeV3 {
 		return nil, errors.New("Invalid resource typeURL" + res1.Resources[0].TypeUrl)
 	}
-	cla := &xdsapi.ClusterLoadAssignment{}
+	cla := &endpointv3.ClusterLoadAssignment{}
 	err := ptypes.UnmarshalAny(res1.Resources[0], cla)
 	if err != nil {
 		return nil, err
@@ -104,7 +105,7 @@ func sendEDSReq(clusters []string, node string, edsstr ads.AggregatedDiscoverySe
 			Id:       node,
 			Metadata: nodeMetadata,
 		},
-		TypeUrl:       v2.EndpointType,
+		TypeUrl:       v2.EndpointTypeV3,
 		ResourceNames: clusters,
 	})
 	if err != nil {
@@ -121,7 +122,7 @@ func sendEDSNack(_ []string, node string, edsstr ads.AggregatedDiscoveryService_
 			Id:       node,
 			Metadata: nodeMetadata,
 		},
-		TypeUrl:     v2.EndpointType,
+		TypeUrl:     v2.EndpointTypeV3,
 		ErrorDetail: &status.Status{Message: "NOPE!"},
 	})
 	if err != nil {
@@ -140,7 +141,7 @@ func sendEDSReqReconnect(clusters []string, edsstr ads.AggregatedDiscoveryServic
 			Id:       sidecarID(app3Ip, "app3"),
 			Metadata: nodeMetadata,
 		},
-		TypeUrl:       v2.EndpointType,
+		TypeUrl:       v2.EndpointTypeV3,
 		ResponseNonce: res.Nonce,
 		VersionInfo:   res.VersionInfo,
 		ResourceNames: clusters})
@@ -236,7 +237,7 @@ func sendCDSReq(node string, edsstr ads.AggregatedDiscoveryService_StreamAggrega
 			Id:       node,
 			Metadata: nodeMetadata,
 		},
-		TypeUrl: v2.ClusterType})
+		TypeUrl: v2.ClusterTypeV3})
 	if err != nil {
 		return fmt.Errorf("CDS request failed: %s", err)
 	}
@@ -252,7 +253,7 @@ func sendCDSNack(node string, edsstr ads.AggregatedDiscoveryService_StreamAggreg
 			Metadata: nodeMetadata,
 		},
 		ErrorDetail: &status.Status{Message: "NOPE!"},
-		TypeUrl:     v2.ClusterType})
+		TypeUrl:     v2.ClusterTypeV3})
 	if err != nil {
 		return fmt.Errorf("CDS NACK failed: %s", err)
 	}

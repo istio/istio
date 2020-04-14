@@ -19,12 +19,13 @@ import (
 	"math"
 	"sort"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+
 	"istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
@@ -58,7 +59,7 @@ func GetLocalityLbSetting(
 }
 
 func ApplyLocalityLBSetting(
-	locality *core.Locality,
+	locality *corev3.Locality,
 	loadAssignment *endpointv3.ClusterLoadAssignment,
 	localityLB *v1alpha3.LocalityLoadBalancerSetting,
 	enableFailover bool,
@@ -69,11 +70,11 @@ func ApplyLocalityLBSetting(
 
 	// one of Distribute or Failover settings can be applied.
 	if localityLB.GetDistribute() != nil {
-		//applyLocalityWeight(locality, loadAssignment, localityLB.GetDistribute())
+		applyLocalityWeight(locality, loadAssignment, localityLB.GetDistribute())
 		// Failover needs outlier detection, otherwise Envoy will never drop down to a lower priority.
 		// Do not apply default failover when locality LB is disabled.
 	} else if enableFailover && (localityLB.Enabled == nil || localityLB.Enabled.Value) {
-		//applyLocalityFailover(locality, loadAssignment, localityLB.GetFailover())
+		applyLocalityFailover(locality, loadAssignment, localityLB.GetFailover())
 	}
 }
 

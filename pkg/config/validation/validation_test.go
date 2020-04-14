@@ -3173,7 +3173,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: `Envoy filter: unknown field "foo" in envoy_api_v2.Cluster`},
+		}, error: `Envoy filter: unknown field "foo" in envoy_config_cluster_v3.Cluster`},
 		{name: "happy config", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{

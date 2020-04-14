@@ -18,16 +18,17 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 // clusters aggregate a DiscoveryResponse for pushing.
-func cdsDiscoveryResponse(response []*xdsapi.Cluster, noncePrefix string) *xdsapi.DiscoveryResponse {
+func cdsDiscoveryResponse(response []*clusterv3.Cluster, noncePrefix string) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
 		// All resources for CDS ought to be of the type ClusterLoadAssignment
-		TypeUrl: ClusterType,
+		TypeUrl: ClusterTypeV3,
 
 		// Pilot does not really care for versioning. It always supplies what's currently
 		// available to it, irrespective of whether Envoy chooses to accept or reject CDS

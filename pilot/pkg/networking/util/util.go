@@ -21,9 +21,7 @@ import (
 	"strconv"
 	"strings"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -301,13 +299,13 @@ func IsTCPMetadataExchangeEnabled(node *model.Proxy) bool {
 }
 
 // ConvertLocality converts '/' separated locality string to Locality struct.
-func ConvertLocality(locality string) *core.Locality {
+func ConvertLocality(locality string) *corev3.Locality {
 	if locality == "" {
-		return &core.Locality{}
+		return &corev3.Locality{}
 	}
 
 	region, zone, subzone := SplitLocality(locality)
-	return &core.Locality{
+	return &corev3.Locality{
 		Region:  region,
 		Zone:    zone,
 		SubZone: subzone,
@@ -329,7 +327,7 @@ func ConvertLocalityV3(locality string) *corev3.Locality {
 }
 
 // ConvertLocality converts '/' separated locality string to Locality struct.
-func LocalityToString(l *core.Locality) string {
+func LocalityToString(l *corev3.Locality) string {
 	if l == nil {
 		return ""
 	}
@@ -346,7 +344,7 @@ func LocalityToString(l *core.Locality) string {
 }
 
 // IsLocalityEmpty checks if a locality is empty (checking region is good enough, based on how its initialized)
-func IsLocalityEmpty(locality *core.Locality) bool {
+func IsLocalityEmpty(locality *corev3.Locality) bool {
 	if locality == nil || (len(locality.GetRegion()) == 0) {
 		return true
 	}
@@ -390,52 +388,9 @@ func LbPriority(proxyLocality, endpointsLocality *corev3.Locality) int {
 	return 3
 }
 
-// return a shallow copy cluster
-func CloneCluster(cluster *xdsapi.Cluster) xdsapi.Cluster {
-	out := xdsapi.Cluster{}
-	if cluster == nil {
-		return out
-	}
-
-	out = *cluster
-	loadAssignment := CloneClusterLoadAssignment(cluster.LoadAssignment)
-	out.LoadAssignment = &loadAssignment
-
-	return out
-}
-
-
 // return a shallow copy ClusterLoadAssignment
-func CloneClusterLoadAssignmentV3(original *endpointv3.ClusterLoadAssignment) endpointv3.ClusterLoadAssignment {
+func CloneClusterLoadAssignment(original *endpointv3.ClusterLoadAssignment) endpointv3.ClusterLoadAssignment {
 	out := endpointv3.ClusterLoadAssignment{}
-	if original == nil {
-		return out
-	}
-
-	out = *original
-	out.Endpoints = cloneLocalityLbEndpointsV3(out.Endpoints)
-
-	return out
-}
-
-// return a shallow copy LocalityLbEndpoints
-func cloneLocalityLbEndpointsV3(endpoints []*endpointv3.LocalityLbEndpoints) []*endpointv3.LocalityLbEndpoints {
-	out := make([]*endpointv3.LocalityLbEndpoints, 0, len(endpoints))
-	for _, ep := range endpoints {
-		clone := *ep
-		if ep.LoadBalancingWeight != nil {
-			clone.LoadBalancingWeight = &wrappers.UInt32Value{
-				Value: ep.GetLoadBalancingWeight().GetValue(),
-			}
-		}
-		out = append(out, &clone)
-	}
-	return out
-}
-
-// return a shallow copy ClusterLoadAssignment
-func CloneClusterLoadAssignment(original *xdsapi.ClusterLoadAssignment) xdsapi.ClusterLoadAssignment {
-	out := xdsapi.ClusterLoadAssignment{}
 	if original == nil {
 		return out
 	}
@@ -447,8 +402,8 @@ func CloneClusterLoadAssignment(original *xdsapi.ClusterLoadAssignment) xdsapi.C
 }
 
 // return a shallow copy LocalityLbEndpoints
-func cloneLocalityLbEndpoints(endpoints []*endpoint.LocalityLbEndpoints) []*endpoint.LocalityLbEndpoints {
-	out := make([]*endpoint.LocalityLbEndpoints, 0, len(endpoints))
+func cloneLocalityLbEndpoints(endpoints []*endpointv3.LocalityLbEndpoints) []*endpointv3.LocalityLbEndpoints {
+	out := make([]*endpointv3.LocalityLbEndpoints, 0, len(endpoints))
 	for _, ep := range endpoints {
 		clone := *ep
 		if ep.LoadBalancingWeight != nil {
@@ -479,7 +434,25 @@ func CloneLbEndpoint(endpoint *endpointv3.LbEndpoint) *endpointv3.LbEndpoint {
 // BuildConfigInfoMetadata builds core.Metadata struct containing the
 // name.namespace of the config, the type, etc. Used by Mixer client
 // to generate attributes for policy and telemetry.
-func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
+func BuildConfigInfoMetadata(config model.ConfigMeta) *corev3.Metadata {
+	s := "/apis/" + config.Group + "/" + config.Version + "/namespaces/" + config.Namespace + "/" +
+		strcase.CamelCaseToKebabCase(config.Type) + "/" + config.Name
+	return &corev3.Metadata{
+		FilterMetadata: map[string]*pstruct.Struct{
+			IstioMetadataKey: {
+				Fields: map[string]*pstruct.Value{
+					"config": {
+						Kind: &pstruct.Value_StringValue{
+							StringValue: s,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func BuildConfigInfoMetadataV2(config model.ConfigMeta) *core.Metadata {
 	s := "/apis/" + config.Group + "/" + config.Version + "/namespaces/" + config.Namespace + "/" +
 		strcase.CamelCaseToKebabCase(config.Type) + "/" + config.Name
 	return &core.Metadata{
@@ -503,8 +476,8 @@ func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
 // This should be called after the initial "istio" metadata has been created for the
 // cluster. If the "istio" metadata field is not already defined, the subset information will
 // not be added (to prevent adding this information where not needed).
-func AddSubsetToMetadata(md *core.Metadata, subset string) *core.Metadata {
-	updatedMeta := &core.Metadata{}
+func AddSubsetToMetadata(md *corev3.Metadata, subset string) *corev3.Metadata {
+	updatedMeta := &corev3.Metadata{}
 	proto.Merge(updatedMeta, md)
 	if istioMeta, ok := updatedMeta.FilterMetadata[IstioMetadataKey]; ok {
 		istioMeta.Fields["subset"] = &pstruct.Value{
@@ -583,47 +556,6 @@ func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 	}
 
 	return retVal, nil
-}
-
-
-// BuildLbEndpointMetadata adds metadata values to a lb endpoint
-func BuildLbEndpointMetadataV2(uid string, network string, tlsMode string, push *model.PushContext) *core.Metadata {
-	if !push.IsMixerEnabled() {
-		// Only use UIDs when Mixer is enabled.
-		uid = ""
-	}
-
-	if uid == "" && network == "" && tlsMode == model.DisabledTLSModeLabel {
-		return nil
-	}
-
-	metadata := &core.Metadata{
-		FilterMetadata: map[string]*pstruct.Struct{},
-	}
-
-	if uid != "" || network != "" {
-		metadata.FilterMetadata[IstioMetadataKey] = &pstruct.Struct{
-			Fields: map[string]*pstruct.Value{},
-		}
-
-		if uid != "" {
-			metadata.FilterMetadata[IstioMetadataKey].Fields["uid"] = &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: uid}}
-		}
-
-		if network != "" {
-			metadata.FilterMetadata[IstioMetadataKey].Fields["network"] = &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: network}}
-		}
-	}
-
-	if tlsMode != "" {
-		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &pstruct.Struct{
-			Fields: map[string]*pstruct.Value{
-				model.TLSModeLabelShortname: {Kind: &pstruct.Value_StringValue{StringValue: tlsMode}},
-			},
-		}
-	}
-
-	return metadata
 }
 
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint

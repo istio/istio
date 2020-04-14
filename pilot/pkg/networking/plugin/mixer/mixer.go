@@ -23,9 +23,10 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/proto"
@@ -272,7 +273,7 @@ func (mixerplugin) OnVirtualListener(in *plugin.InputParams, mutable *networking
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (mixerplugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
+func (mixerplugin) OnOutboundCluster(in *plugin.InputParams, cluster *clusterv3.Cluster) {
 	if !in.Push.Mesh.SidecarToTelemetrySessionAffinity {
 		// if session affinity is not enabled, do nothing
 		return
@@ -282,16 +283,16 @@ func (mixerplugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Clu
 		// config telemetry service discovery to be strict_dns for session affinity.
 		// To enable session affinity, DNS needs to provide only one and the same telemetry instance IP
 		// (e.g. in k8s, telemetry service spec needs to have SessionAffinity: ClientIP)
-		cluster.ClusterDiscoveryType = &xdsapi.Cluster_Type{Type: xdsapi.Cluster_STRICT_DNS}
-		addr := util.BuildAddress(in.Service.Address, uint32(in.Port.Port))
-		cluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
+		cluster.ClusterDiscoveryType = &clusterv3.Cluster_Type{Type: clusterv3.Cluster_STRICT_DNS}
+		addr := util.BuildAddressV3(in.Service.Address, uint32(in.Port.Port))
+		cluster.LoadAssignment = &endpointv3.ClusterLoadAssignment{
 			ClusterName: cluster.Name,
-			Endpoints: []*endpoint.LocalityLbEndpoints{
+			Endpoints: []*endpointv3.LocalityLbEndpoints{
 				{
-					LbEndpoints: []*endpoint.LbEndpoint{
+					LbEndpoints: []*endpointv3.LbEndpoint{
 						{
-							HostIdentifier: &endpoint.LbEndpoint_Endpoint{
-								Endpoint: &endpoint.Endpoint{Address: addr},
+							HostIdentifier: &endpointv3.LbEndpoint_Endpoint{
+								Endpoint: &endpointv3.Endpoint{Address: addr},
 							},
 						},
 					},
@@ -303,7 +304,7 @@ func (mixerplugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Clu
 }
 
 // OnInboundCluster implements the Plugin interface method.
-func (mixerplugin) OnInboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
+func (mixerplugin) OnInboundCluster(in *plugin.InputParams, cluster *clusterv3.Cluster) {
 	// do nothing
 }
 

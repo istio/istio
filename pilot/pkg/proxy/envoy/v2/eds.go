@@ -409,7 +409,7 @@ func (s *DiscoveryServer) generateEndpoints(
 	lbSetting := loadbalancer.GetLocalityLbSetting(push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
 	if lbSetting != nil {
 		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
-		clonedCLA := util.CloneClusterLoadAssignmentV3(l)
+		clonedCLA := util.CloneClusterLoadAssignment(l)
 		l = &clonedCLA
 		loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, lbSetting, enableFailover)
 	}

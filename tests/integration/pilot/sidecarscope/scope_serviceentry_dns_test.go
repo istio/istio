@@ -41,7 +41,7 @@ func TestServiceEntryDNS(t *testing.T) {
 			Node: &xdscore.Node{
 				Id: nodeID.ServiceNode(),
 			},
-			TypeUrl: v2.ClusterType,
+			TypeUrl: v2.ClusterTypeV3,
 		}
 
 		if err := p.StartDiscovery(req); err != nil {
@@ -66,7 +66,7 @@ func TestServiceEntryDNSNoSelfImport(t *testing.T) {
 			Node: &xdscore.Node{
 				Id: nodeID.ServiceNode(),
 			},
-			TypeUrl: v2.ClusterType,
+			TypeUrl: v2.ClusterTypeV3,
 		}
 
 		if err := p.StartDiscovery(req); err != nil {

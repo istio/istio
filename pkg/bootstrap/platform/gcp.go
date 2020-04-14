@@ -21,7 +21,7 @@ import (
 	"sync"
 
 	"cloud.google.com/go/compute/metadata"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
 	"istio.io/pkg/env"
 
@@ -192,8 +192,8 @@ func zoneToRegion(z string) (string, error) {
 }
 
 // Locality returns the GCP-specific region and zone.
-func (e *gcpEnv) Locality() *core.Locality {
-	var l core.Locality
+func (e *gcpEnv) Locality() *corev3.Locality {
+	var l corev3.Locality
 	if metadata.OnGCE() {
 		z, zerr := metadata.Zone()
 		if zerr != nil {

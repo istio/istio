@@ -29,7 +29,7 @@ import (
 	"testing"
 	"time"
 
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 
 	"istio.io/api/networking/v1alpha3"
 
@@ -397,7 +397,7 @@ func testOverlappingPorts(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.
 	testEndpoints("10.0.0.53", "outbound|53||overlapping.cluster.local", adsc, t)
 }
 
-func verifyNoLocalityPriorities(eps []*endpoint.LocalityLbEndpoints, t *testing.T) {
+func verifyNoLocalityPriorities(eps []*endpointv3.LocalityLbEndpoints, t *testing.T) {
 	for _, ep := range eps {
 		if ep.GetPriority() != 0 {
 			t.Errorf("expected no locality priorities to apply, got priority %v.", ep.GetPriority())
@@ -405,7 +405,7 @@ func verifyNoLocalityPriorities(eps []*endpoint.LocalityLbEndpoints, t *testing.
 	}
 }
 
-func verifyLocalityPriorities(proxyLocality string, eps []*endpoint.LocalityLbEndpoints, t *testing.T) {
+func verifyLocalityPriorities(proxyLocality string, eps []*endpointv3.LocalityLbEndpoints, t *testing.T) {
 	items := strings.SplitN(proxyLocality, "/", 3)
 	region, zone, subzone := items[0], items[1], items[2]
 	for _, ep := range eps {

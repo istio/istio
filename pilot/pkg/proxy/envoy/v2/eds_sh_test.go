@@ -20,7 +20,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
@@ -205,7 +205,7 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarID string, 
 	}
 
 	for addr, weight := range expected.weights {
-		var match *endpoint.LbEndpoint
+		var match *endpointv3.LbEndpoint
 		for _, ep := range lbEndpoints {
 			if ep.GetEndpoint().Address.GetSocketAddress().Address == addr {
 				match = ep
@@ -316,7 +316,7 @@ func sendCDSReqWithMetadata(node string, metadata *structpb.Struct, edsstr ads.A
 			Id:       node,
 			Metadata: metadata,
 		},
-		TypeUrl: v2.ClusterType})
+		TypeUrl: v2.ClusterTypeV3})
 	if err != nil {
 		return fmt.Errorf("CDS request failed: %s", err)
 	}
@@ -332,7 +332,7 @@ func sendEDSReqWithMetadata(clusters []string, node string, metadata *structpb.S
 			Id:       node,
 			Metadata: metadata,
 		},
-		TypeUrl:       v2.EndpointType,
+		TypeUrl:       v2.EndpointTypeV3,
 		ResourceNames: clusters,
 	})
 	if err != nil {

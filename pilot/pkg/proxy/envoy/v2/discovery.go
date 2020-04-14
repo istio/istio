@@ -71,6 +71,7 @@ const (
 
 	// EndpointTypeV3 is used for EDS and ADS endpoint discovery. Typically second request.
 	EndpointTypeV3 = "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment"
+	ClusterTypeV3  = "type.googleapis.com/envoy.config.cluster.v3.Cluster"
 )
 
 func init() {

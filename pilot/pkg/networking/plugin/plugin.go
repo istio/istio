@@ -16,6 +16,7 @@ package plugin
 
 import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -89,11 +90,11 @@ type Plugin interface {
 	// OnOutboundCluster is called whenever a new cluster is added to the CDS output.
 	// This is called once per push cycle, and not for every sidecar/gateway, except for gateways with non-standard
 	// operating modes.
-	OnOutboundCluster(in *InputParams, cluster *xdsapi.Cluster)
+	OnOutboundCluster(in *InputParams, cluster *clusterv3.Cluster)
 
 	// OnInboundCluster is called whenever a new cluster is added to the CDS output.
 	// Called for each sidecar
-	OnInboundCluster(in *InputParams, cluster *xdsapi.Cluster)
+	OnInboundCluster(in *InputParams, cluster *clusterv3.Cluster)
 
 	// OnOutboundRouteConfiguration is called whenever a new set of virtual hosts (a set of virtual hosts with routes) is
 	// added to RDS in the outbound path.
