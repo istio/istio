@@ -1,0 +1,1 @@
+operator/scripts/create_release_charts.sh

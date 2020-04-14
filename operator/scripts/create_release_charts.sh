@@ -47,6 +47,5 @@ mkdir -p "${OUTPUT_DIR}"
 
 cp -R "${INSTALLER_DIR}/charts" "${OUTPUT_DIR}"
 cp -R "${INSTALLER_DIR}/profiles" "${OUTPUT_DIR}"
-cp -R "${OPERATOR_BASE_DIR}/data/examples" "${OUTPUT_DIR}"
-cp "${OPERATOR_BASE_DIR}/data/versions.yaml" "${OUTPUT_DIR}"
+cp -R "${OPERATOR_BASE_DIR}"/data/* "${OUTPUT_DIR}"
 
