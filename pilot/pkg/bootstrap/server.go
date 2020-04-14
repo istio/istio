@@ -247,6 +247,20 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initDNSListener(args); err != nil {
 		return nil, fmt.Errorf("grpcDNS: %v", err)
 	}
+	// common https server for webhooks (e.g. injection, validation)
+	if err := s.initHTTPSWebhookServer(args); err != nil {
+		return nil, fmt.Errorf("injectionWebhook server: %v", err)
+	}
+	// Will run the sidecar injector in pilot.
+	// Only operates if /var/lib/istio/inject exists
+	if err := s.initSidecarInjector(args); err != nil {
+		return nil, fmt.Errorf("sidecar injector: %v", err)
+	}
+	// Will run the config validater in pilot.
+	// Only operates if /var/lib/istio/validation exists
+	if err := s.initConfigValidation(args); err != nil {
+		return nil, fmt.Errorf("config validation: %v", err)
+	}
 	if err := s.initDiscoveryService(args); err != nil {
 		return nil, fmt.Errorf("discovery service: %v", err)
 	}
@@ -255,23 +269,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 	if err := s.initClusterRegistries(args); err != nil {
 		return nil, fmt.Errorf("cluster registries: %v", err)
-	}
-
-	// common https server for webhooks (e.g. injection, validation)
-	if err := s.initHTTPSWebhookServer(args); err != nil {
-		return nil, fmt.Errorf("injectionWebhook server: %v", err)
-	}
-
-	// Will run the sidecar injector in pilot.
-	// Only operates if /var/lib/istio/inject exists
-	if err := s.initSidecarInjector(args); err != nil {
-		return nil, fmt.Errorf("sidecar injector: %v", err)
-	}
-
-	// Will run the config validater in pilot.
-	// Only operates if /var/lib/istio/validation exists
-	if err := s.initConfigValidation(args); err != nil {
-		return nil, fmt.Errorf("config validation: %v", err)
 	}
 
 	if dns.DNSAddr.Get() != "" {

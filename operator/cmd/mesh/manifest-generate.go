@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
+
 	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/manifest"
