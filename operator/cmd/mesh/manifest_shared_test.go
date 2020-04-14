@@ -48,10 +48,8 @@ func runCommand(command string) (string, error) {
 	rootCmd := GetRootCmd(strings.Split(command, " "))
 	rootCmd.SetOutput(&out)
 
-	if err := rootCmd.Execute(); err != nil {
-		return "", err
-	}
-	return out.String(), nil
+	err := rootCmd.Execute()
+	return out.String(), err
 }
 
 func readFile(path string) (string, error) {
