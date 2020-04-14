@@ -190,8 +190,6 @@ type Controller struct {
 	nodeSelectorsForServices map[host.Name]labels.Instance
 	// externalNameSvcInstanceMap stores hostname ==> instance, is used to store instances for ExternalName k8s services
 	externalNameSvcInstanceMap map[host.Name][]*model.ServiceInstance
-	// the list of all externally reachable nodes in the clusters
-	nodeInfoMap map[string]*kubernetesNode
 
 	// CIDR ranger based on path-compressed prefix trie
 	ranger cidranger.Ranger
