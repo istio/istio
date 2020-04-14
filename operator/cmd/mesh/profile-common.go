@@ -175,6 +175,15 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 			return "", nil, err
 		}
 	}
+	mvs := version.OperatorBinaryVersion.MinorVersion
+	t, err := translate.NewReverseTranslator(mvs)
+	if err != nil {
+		return "", nil, fmt.Errorf("error creating values.yaml translator: %s", err)
+	}
+	userOverlayYAML, err = t.TranslateK8SfromValueToIOP(userOverlayYAML)
+	if err != nil {
+		return "", nil, fmt.Errorf("could not overlay k8s settings from values to IOP: %s", err)
+	}
 
 	// Merge user file and --set overlays.
 	outYAML, err = util.OverlayYAML(outYAML, userOverlayYAML)
