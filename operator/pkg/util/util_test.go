@@ -176,13 +176,10 @@ func sameStringSlice(x, y []string) bool {
 		if _, ok := diff[_y]; !ok {
 			return false
 		}
-		diff[_y] -= 1
+		diff[_y]--
 		if diff[_y] == 0 {
 			delete(diff, _y)
 		}
 	}
-	if len(diff) == 0 {
-		return true
-	}
-	return false
+	return len(diff) == 0
 }
