@@ -23,9 +23,11 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -97,6 +99,12 @@ func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxy *Pro
 	}
 }
 
+// Generator creates the response for a typeURL DiscoveryRequest. If no generator is associated
+// with a Proxy, the default (a networking.core.ConfigGenerator instance) will be used.
+type Generator interface{
+	Generate(node *Proxy, push *PushContext, w *WatchedResource) []*any.Any
+}
+
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
 // etc). The Proxy is initialized when a sidecar connects to Pilot, and populated from
 // 'node' info in the protocol as well as data extracted from registries.
@@ -158,6 +166,49 @@ type Proxy struct {
 
 	// GlobalUnicastIP stores the globacl unicast IP if available, otherwise nil
 	GlobalUnicastIP string
+
+	// Generator is used to generate resources for the node, based on the PushContext.
+	Generator Generator
+
+	// Active contains the list of watched resources for the proxy, keyed by the DiscoveryRequest type.
+	// It is nil if the Proxy uses the default generator
+	Active map[string]*WatchedResource
+}
+
+// WatchedResource tracks an active DiscoveryRequest type.
+type WatchedResource struct {
+	// TypeUrl is copied from the DiscoveryRequest that initiated watching this resource.
+	TypeUrl string
+
+	// Generator is the generator that will generate this resource.
+	Generator Generator
+
+	// ResourceNames tracks the list of resources that are actively watched. If empty, all resources of the
+	// TypeUrl type are watched.
+	ResourceNames []string
+
+	// NonceSent is the last nonce sent to a client.
+	NonceSent string
+
+	// NonceAcked is the last nonce acked by the client. If different from NonceSent the client is still
+	// processing the request and didn't ack/nack.
+	NonceAcked string
+
+	// VersionInfoSent is the last sent version info
+	VersionInfoSent string
+
+	// VersionInfoAcked is the last version info acked by the client. In empty, the client doesn't
+	// have any active working configuration.
+	VersionInfoAcked string
+
+	// LastSent tracks the time of the generated push, to determine the time it takes the client to ack.
+	LastSent time.Time
+
+	// Updates count the number of generated updates for the resource
+	Updates int
+
+	// LastSize tracks the size of the last update
+	LastSize int
 }
 
 var (
@@ -817,6 +868,12 @@ const (
 	// InterceptionRedirect implies traffic intercepted by IPtables with REDIRECT mode
 	// This is our default mode
 	InterceptionRedirect TrafficInterceptionMode = "REDIRECT"
+
+	// InterceptionAPI is used for API clients, using ApiListener and higher level processing.
+	// It is similar with NONE - it doesn't generate the iptables filter chains - but has different
+	// response to listener.
+	// This mode also activates returning the high-level Istio and K8S configs.
+	InterceptionAPI TrafficInterceptionMode = "API"
 )
 
 // GetInterceptionMode extracts the interception mode associated with the proxy
@@ -833,6 +890,8 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 		return InterceptionRedirect
 	case "NONE":
 		return InterceptionNone
+	case "API":
+		return InterceptionAPI
 	}
 
 	return InterceptionRedirect
