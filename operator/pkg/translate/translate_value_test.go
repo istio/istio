@@ -140,6 +140,7 @@ values:
     telemetryNamespace: istio-telemetry
   pilot:
     image: pilot
+    autoscaleEnabled: true
     traceSampling: 1
     podAntiAffinityLabelSelector:
     - key: istio
@@ -270,7 +271,7 @@ values:
 				ms := jsonpb.Marshaler{}
 				gotString, err := ms.MarshalToString(gotSpec)
 				if err != nil {
-					t.Errorf("error when marshal translated IstioOperatorSpec: %s", err)
+					t.Errorf("failed to marshal translated IstioOperatorSpec: %s", err)
 				}
 				cpYaml, _ := yaml.JSONToYAML([]byte(gotString))
 				if want := tt.want; !util.IsYAMLEqual(gotString, want) {
