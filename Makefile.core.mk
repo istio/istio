@@ -344,7 +344,7 @@ go-gen:
 	@PATH="${PATH}":/tmp/bin go generate ./...
 
 gen-charts:
-	@operator/scripts/run_update_charts.sh
+	@operator/scripts/create_assets_gen.sh
 
 refresh-goldens:
 	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./operator/...
