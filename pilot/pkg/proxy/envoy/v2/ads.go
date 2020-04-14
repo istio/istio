@@ -428,54 +428,6 @@ func listEqualUnordered(a []string, b []string) bool {
 	return true
 }
 
-// handleAck will detect if the message is an ACK or NACK, and update/log/count
-// using the generic structures. "Classical" CDS/LDS/RDS/EDS use separate logic -
-// this is used for the API-based LDS and generic messages.
-func (s *DiscoveryServer) handleAck(con *XdsConnection, discReq *xdsapi.DiscoveryRequest) bool {
-	if discReq.ResponseNonce == "" {
-		return false // not an ACK/NACK
-	}
-
-	if discReq.ErrorDetail != nil {
-		errCode := codes.Code(discReq.ErrorDetail.Code)
-		adsLog.Warnf("ADS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
-		return true
-	}
-	// All NACKs should have ErrorDetail set !
-	// Relying on versionCode != sentVersionCode as nack is less reliable.
-
-	t := discReq.TypeUrl
-	// This is an ACK response to a previous message - but it may refer to a response on a previous connection to
-	// a different XDS server instance.
-	con.mu.RLock()
-	nonceSent := con.NonceSent[t]
-	con.mu.RUnlock()
-
-	if nonceSent == "" {
-		// We didn't send the message - so it's not an ACK for a request we made.
-		// Treat it as a new request - send the data, since a previous XDS server sent it.
-		return false
-	}
-
-	if nonceSent != discReq.ResponseNonce {
-		adsLog.Debugf("ADS:RDS: Expired nonce received %s, sent %s, received %s",
-			con.ConID, nonceSent, discReq.ResponseNonce)
-		rdsExpiredNonce.Increment()
-		// This is an ACK for a resource sent on an older stream, or out of sync.
-		// Send a response back.
-		return false
-	}
-	// GRPC doesn't send version info in NACKs for RDS. Technically if nonce matches
-	// previous response, it is an ACK/NACK.
-	if nonceSent == discReq.ResponseNonce {
-		adsLog.Debugf("ADS: ACK %s %s %s", con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
-		con.mu.Lock()
-		con.RouteNonceAcked = discReq.ResponseNonce
-		con.mu.Unlock()
-	}
-	return true
-}
-
 // Handle watching Istio config types. This provides similar functionality with MCP.
 // Alternative to using 8080:/debug/configz
 // Names are based on the current stable naming in istiod.

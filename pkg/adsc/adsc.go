@@ -106,7 +106,7 @@ type ADSC struct {
 	VersionInfo map[string]string
 
 	// Last received message, by type and resource
-	Received map[string][]byte
+	Received map[string]*xdsapi.DiscoveryResponse
 
 	mutex sync.Mutex
 }
@@ -137,7 +137,7 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 		VersionInfo: map[string]string{},
 		certDir:     certDir,
 		url:         url,
-		Received:    map[string][]byte{},
+		Received:    map[string]*xdsapi.DiscoveryResponse{},
 	}
 	if opts.Namespace == "" {
 		opts.Namespace = "default"
@@ -285,9 +285,8 @@ func (a *ADSC) handleRecv() {
 				_ = proto.Unmarshal(valBytes, ll)
 				routes = append(routes, ll)
 			}
-
-			a.Received[rsc.TypeUrl] = valBytes
 		}
+		a.Received[msg.TypeUrl] = msg
 
 		// TODO: add hook to inject nacks
 		a.mutex.Lock()

@@ -256,7 +256,6 @@ func TestDNSGRPC(t *testing.T) {
 		}
 
 		adscConn.Send(&xdsapi.DiscoveryRequest{
-			ResourceNames: []string{istiodSvcAddr},
 			TypeUrl:       adsc.ListenerType,
 		})
 
@@ -268,17 +267,15 @@ func TestDNSGRPC(t *testing.T) {
 			t.Fatal("No LDS response")
 		}
 		data := adscConn.Received[adsc.ListenerType]
-		l := &xdsapi.Listener{}
-		err = proto.Unmarshal(data, l)
-		if err != nil {
-			t.Fatal("Unmarshall error ", err)
+		for _, rs := range data.Resources {
+			l := &xdsapi.Listener{}
+			err = proto.Unmarshal(rs.Value, l)
+			if err != nil {
+				t.Fatal("Unmarshall error ", err)
+			}
+
+			t.Log("LDS: ", l)
 		}
-
-		adscConn.Send(&xdsapi.DiscoveryRequest{
-			ResourceNames: []string{"istiod.istio-system.svc"},
-			TypeUrl:       adsc.ListenerType,
-		})
-
 	})
 	os.Setenv("GRPC_XDS_BOOTSTRAP", "testdata/xds_bootstrap.json")
 
