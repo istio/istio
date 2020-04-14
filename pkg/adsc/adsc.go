@@ -295,19 +295,17 @@ func (a *ADSC) handleRecv() {
 
 		if len(listeners) > 0 {
 			a.handleLDS(listeners)
-		}
-		if len(clusters) > 0 {
+		} else if len(clusters) > 0 {
 			a.handleCDS(clusters)
-		}
-		if len(eds) > 0 {
+		} else if len(eds) > 0 {
 			a.handleEDS(eds)
-		}
-		if len(routes) > 0 {
+		} else if len(routes) > 0 {
 			a.handleRDS(routes)
-		}
-		select {
-		case a.Updates <- msg.TypeUrl:
-		default:
+		} else {
+			select {
+			case a.Updates <- msg.TypeUrl:
+			default:
+			}
 		}
 
 	}

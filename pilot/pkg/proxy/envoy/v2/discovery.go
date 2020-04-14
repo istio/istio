@@ -222,7 +222,7 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 		return
 	}
 
-	if err := s.updateServiceShards(push); err != nil {
+	if err := s.UpdateServiceShards(push); err != nil {
 		return
 	}
 

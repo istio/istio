@@ -96,12 +96,12 @@ func buildEnvoyLbEndpoint(e *model.IstioEndpoint, push *model.PushContext) *endp
 	return ep
 }
 
-// updateServiceShards will list the endpoints and create the shards.
+// UpdateServiceShards will list the endpoints and create the shards.
 // This is used to reconcile and to support non-k8s registries (until they migrate).
 // Note that aggregated list is expensive (for large numbers) - we want to replace
 // it with a model where DiscoveryServer keeps track of all endpoint registries
 // directly, and calls them one by one.
-func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
+func (s *DiscoveryServer) UpdateServiceShards(push *model.PushContext) error {
 	var registries []serviceregistry.Instance
 	var nonK8sRegistries []serviceregistry.Instance
 	if agg, ok := s.Env.ServiceDiscovery.(*aggregate.Controller); ok {
@@ -263,7 +263,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	ep.ServiceAccounts = serviceAccounts
 	ep.mutex.Unlock()
 
-	// for internal update: this called by DiscoveryServer.Push --> updateServiceShards,
+	// for internal update: this called by DiscoveryServer.Push --> UpdateServiceShards,
 	// no need to trigger push here.
 	// It is done in DiscoveryServer.Push --> AdsPushAll
 	if !internal {

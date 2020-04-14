@@ -233,7 +233,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 			// Based on node metadata a different generator was selected, use it instead of the default
 			// behaviour.
-			if con.node.Generator != nil {
+			if con.node.Generator != nil && discReq.TypeUrl != EndpointType {
 				s.handleCustomGenerator(con, discReq)
 				continue
 			}
@@ -422,9 +422,9 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (f
 
 	// Based on node metadata and version, we can associate a different generator.
 	// TODO: use a map of generators, so it's easily customizable and to avoid deps
-	if con.node.GetInterceptionMode() == model.InterceptionAPI {
-		con.node.Active = map[string]*model.WatchedResource{}
-		con.node.Generator = &grpcgen.GrpcConfigGenerator{}
+	if proxy.GetInterceptionMode() == model.InterceptionAPI {
+		proxy.Active = map[string]*model.WatchedResource{}
+		proxy.Generator = &grpcgen.GrpcConfigGenerator{}
 	}
 
 	// First request so initialize connection id and start tracking it.

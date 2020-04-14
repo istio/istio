@@ -58,7 +58,7 @@ func (s *DiscoveryServer) handleReqAck(con *XdsConnection, discReq *xdsapi.Disco
 	// All NACKs should have ErrorDetail set !
 	// Relying on versionCode != sentVersionCode as nack is less reliable.
 
-	needGen := false
+	isAck := true
 
 	t := discReq.TypeUrl
 	con.mu.RLock()
@@ -68,7 +68,7 @@ func (s *DiscoveryServer) handleReqAck(con *XdsConnection, discReq *xdsapi.Disco
 			TypeUrl:  t,
 		}
 		con.node.Active[t] = w
-		needGen = true // newly watched resource
+		isAck = false // newly watched resource
 	}
 	con.mu.RUnlock()
 
@@ -79,7 +79,7 @@ func (s *DiscoveryServer) handleReqAck(con *XdsConnection, discReq *xdsapi.Disco
 	}
 
 	if discReq.ResponseNonce == "" {
-		needGen = true // initial request
+		isAck = false // initial request
 	}
 	// This is an ACK response to a previous message - but it may refer to a response on a previous connection to
 	// a different XDS server instance.
@@ -99,23 +99,23 @@ func (s *DiscoveryServer) handleReqAck(con *XdsConnection, discReq *xdsapi.Disco
 		rdsExpiredNonce.Increment()
 		// This is an ACK for a resource sent on an older stream, or out of sync.
 		// Send a response back.
-		needGen = true
+		isAck = false
 	}
 
 	// Change in the set of watched resource - regardless of ack, send new data.
 	if !listEqualUnordered(w.ResourceNames, discReq.ResourceNames) {
-		needGen = true
+		isAck = false
 		w.ResourceNames = discReq.ResourceNames
 	}
 
-	return w, !needGen
+	return w, isAck
 }
 
 
 // handleCustomGenerator uses model.Generator to generate the response.
 func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *xdsapi.DiscoveryRequest) error {
-	w, needGen := s.handleReqAck(con, req)
-	if !needGen {
+	w, isAck := s.handleReqAck(con, req)
+	if isAck {
 		return nil
 	}
 
@@ -139,6 +139,7 @@ func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *xdsapi.
 	}
 	w.LastSent = time.Now()
 	w.LastSize = proto.Size(resp)
+	w.NonceSent = resp.Nonce
 
 	return nil
 }
