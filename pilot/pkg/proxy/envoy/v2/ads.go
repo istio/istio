@@ -17,19 +17,17 @@ package v2
 import (
 	"errors"
 	"io"
-	"strings"
 	"sync"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	gogo "github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+	"istio.io/istio/pilot/pkg/networking/grpcgen"
 
 	istiolog "istio.io/pkg/log"
 
@@ -86,9 +84,6 @@ type XdsConnection struct {
 	RouteVersionInfoSent                  string
 	EndpointNonceSent, EndpointNonceAcked string
 
-	NonceSent  map[string]string
-	NonceAcked map[string]string
-
 	// current list of clusters monitored by the client
 	Clusters []string
 
@@ -136,8 +131,6 @@ func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 		stream:       stream,
 		LDSListeners: []*xdsapi.Listener{},
 		RouteConfigs: map[string]*xdsapi.RouteConfiguration{},
-		NonceSent:    map[string]string{},
-		NonceAcked:   map[string]string{},
 	}
 }
 
@@ -238,13 +231,15 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 			}
 
+			// Based on node metadata a different generator was selected, use it instead of the default
+			// behaviour.
+			if con.node.Generator != nil {
+				s.handleCustomGenerator(con, discReq)
+				continue
+			}
+
 			switch discReq.TypeUrl {
 			case ClusterType:
-				if con.node.GetInterceptionMode() == model.InterceptionAPI {
-					if s.handleAPICDS(con, discReq) {
-						continue
-					}
-				}
 				if con.CDSWatch {
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
@@ -268,15 +263,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 
 			case ListenerType:
-				if con.node.GetInterceptionMode() == model.InterceptionAPI {
-					// This is a LDS with resource names - used by gRPC, DNS or on-demand.
-					// Response is expected to be the simplified 'api' listener instead of iptables listener plus filters.
-					err = s.handleLDSApiType(con, discReq)
-					if err != nil {
-						return err
-					}
-					continue
-				}
 				if con.LDSWatch {
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
@@ -297,12 +283,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 
 			case RouteType:
-				// gRPC and hostname based routes.
-				if con.node.GetInterceptionMode() == model.InterceptionAPI {
-					s.handleSplitRDS(con, discReq)
-					continue
-				}
-				// Normal Istio RDS - per port
 				if discReq.ErrorDetail != nil {
 					errCode := codes.Code(discReq.ErrorDetail.Code)
 					adsLog.Warnf("ADS:RDS: ACK ERROR %v %s %s:%s", peerAddr, con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
@@ -383,11 +363,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 
 			default:
-				if con.node.GetInterceptionMode() == model.InterceptionAPI {
-					s.handleResource(con, discReq)
-				} else {
-					adsLog.Warnf("ADS: Unknown watched resources %s", discReq.String())
-				}
+				adsLog.Warnf("ADS: Unknown watched resources %s", discReq.String())
 			}
 
 		case pushEv := <-con.pushChannel:
@@ -428,55 +404,6 @@ func listEqualUnordered(a []string, b []string) bool {
 	return true
 }
 
-// Handle watching Istio config types. This provides similar functionality with MCP.
-// Alternative to using 8080:/debug/configz
-// Names are based on the current stable naming in istiod.
-func (s *DiscoveryServer) handleResource(con *XdsConnection, discReq *xdsapi.DiscoveryRequest) error {
-	// TODO: push all watched resources on push context change
-	// TODO: selective push
-	if s.HandleAck(con, discReq) {
-		return nil
-	}
-
-	adsLog.Debugf("ADS: REQ %s %s ", con.ConID, discReq.TypeUrl)
-
-	// Example: networking.istio.io/v1alpha3/VirtualService
-	gvk := strings.SplitN(discReq.TypeUrl, "/", 3)
-	if len(gvk) == 3 {
-		cfg, err := s.globalPushContext().IstioConfigStore.List(resource.GroupVersionKind{
-			Group:   gvk[0],
-			Version: gvk[1],
-			Kind:    gvk[2],
-		}, "")
-		if err != nil {
-			adsLog.Warnf("ADS: Unknown watched resources %s %v", discReq.String(), err)
-		} else {
-			cfgRes := []*any.Any{}
-			for _, c := range cfg {
-				b := gogo.NewBuffer(nil)
-				err := b.Marshal(c.Spec)
-				if err == nil {
-					cfgRes = append(cfgRes, &any.Any{
-						TypeUrl: "type.googleapis.com/" + gogo.MessageName(c.Spec),
-						Value:   b.Bytes(),
-					})
-				} else {
-					adsLog.Warna("Any ", err)
-				}
-			}
-			con.send(&xdsapi.DiscoveryResponse{
-				TypeUrl:   discReq.TypeUrl,
-				Nonce:     nonce(s.globalPushContext().Version),
-				Resources: cfgRes,
-			})
-		}
-	} else {
-		adsLog.Warnf("ADS: Unknown watched resources %s", discReq.String())
-	}
-
-	return nil
-}
-
 // update the node associated with the connection, after receiving a a packet from envoy, also adds the connection
 // to the tracking map.
 func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (func(), error) {
@@ -491,6 +418,13 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (f
 	proxy, err := s.initProxy(node)
 	if err != nil {
 		return nil, err
+	}
+
+	// Based on node metadata and version, we can associate a different generator.
+	// TODO: use a map of generators, so it's easily customizable and to avoid deps
+	if con.node.GetInterceptionMode() == model.InterceptionAPI {
+		con.node.Active = map[string]*model.WatchedResource{}
+		con.node.Generator = &grpcgen.GrpcConfigGenerator{}
 	}
 
 	// First request so initialize connection id and start tracking it.
