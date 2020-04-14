@@ -434,7 +434,7 @@ func listEqualUnordered(a []string, b []string) bool {
 func (s *DiscoveryServer) handleResource(con *XdsConnection, discReq *xdsapi.DiscoveryRequest) error {
 	// TODO: push all watched resources on push context change
 	// TODO: selective push
-	if s.handleAck(con, discReq) {
+	if s.HandleAck(con, discReq) {
 		return nil
 	}
 

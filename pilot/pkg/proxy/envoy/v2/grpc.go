@@ -15,18 +15,11 @@
 package v2
 
 import (
-	"net"
-	"strconv"
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	envoycore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	envoy_api_v2_route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	v2 "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	envoy_config_listener_v2 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v2"
 	"google.golang.org/grpc/codes"
-
-	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pilot/pkg/networking/grpcgen"
 
 	"istio.io/istio/pilot/pkg/networking/util"
 )
@@ -45,14 +38,18 @@ import (
 // The corresponding RDS response is also generated - currently gRPC has special differences
 // and can't understand normal Istio RDS - in particular expects "" instead of "/" as
 // default prefix, and is expects just the route for one host.
-// handleAck will detect if the message is an ACK or NACK, and update/log/count
+// HandleAck will detect if the message is an ACK or NACK, and update/log/count
 // using the generic structures. "Classical" CDS/LDS/RDS/EDS use separate logic -
 // this is used for the API-based LDS and generic messages.
 
+var (
+	// Interface is slightly different for now - LDS/CDS have extra param.
+	gen = &grpcgen.GrpcConfigGenerator{}
+)
 
-// handleAck checks if the message is an ack/nack and handles it, returning true.
+// HandleAck checks if the message is an ack/nack and handles it, returning true.
 // If false, the request should be processed.
-func (s *DiscoveryServer) handleAck(con *XdsConnection, discReq *xdsapi.DiscoveryRequest) bool {
+func (s *DiscoveryServer) HandleAck(con *XdsConnection, discReq *xdsapi.DiscoveryRequest) bool {
 	if discReq.ResponseNonce == "" {
 		return false // not an ACK/NACK
 	}
@@ -102,7 +99,7 @@ func (s *DiscoveryServer) handleAck(con *XdsConnection, discReq *xdsapi.Discover
 // The request may include a list of resource names, using the full_hostname[:port] format to select only
 // specific services.
 func (s *DiscoveryServer) handleLDSApiType(con *XdsConnection, req *xdsapi.DiscoveryRequest) error {
-	if s.handleAck(con, req) {
+	if s.HandleAck(con, req) {
 		return nil
 	}
 
@@ -114,56 +111,10 @@ func (s *DiscoveryServer) handleLDSApiType(con *XdsConnection, req *xdsapi.Disco
 	}
 	var err error
 
-	filter := map[string]bool{}
-	for _, name := range req.ResourceNames {
-		if strings.Contains(name, ":") {
-			n, _, err := net.SplitHostPort(name)
-			if err == nil {
-				name = n
-			}
-		}
-		filter[name] = true
-	}
-
-	for _, el := range con.node.SidecarScope.EgressListeners {
-		for _, sv := range el.Services() {
-			shost := string(sv.Hostname)
-			if len(filter) > 0 {
-				// DiscReq has a filter - only return services that match
-				if !filter[shost] {
-					continue
-				}
-			}
-			for _, p := range sv.Ports {
-				hp := net.JoinHostPort(shost, strconv.Itoa(p.Port))
-				ll := &xdsapi.Listener{
-					Name: hp,
-				}
-
-				ll.Address = &envoycore.Address{
-					Address: &envoycore.Address_SocketAddress{
-						SocketAddress: &envoycore.SocketAddress{
-							Address: sv.Address,
-							PortSpecifier: &envoycore.SocketAddress_PortValue{
-								PortValue: uint32(p.Port),
-							},
-						},
-					},
-				}
-				// TODO: for TCP listeners don't generate RDS, but some indication of cluster name.
-				ll.ApiListener = &envoy_config_listener_v2.ApiListener{
-					ApiListener: util.MessageToAny(&v2.HttpConnectionManager{
-						RouteSpecifier: &v2.HttpConnectionManager_Rds{
-							Rds: &v2.Rds{
-								RouteConfigName: hp,
-							},
-						},
-					}),
-				}
-				lr := util.MessageToAny(ll)
-				resp.Resources = append(resp.Resources, lr)
-			}
-		}
+	cl := gen.BuildListeners(con.node, push, req.ResourceNames)
+	for _, rc := range cl {
+		rr := util.MessageToAny(rc)
+		resp.Resources = append(resp.Resources, rr)
 	}
 
 	err = con.send(resp)
@@ -179,7 +130,7 @@ func (s *DiscoveryServer) handleLDSApiType(con *XdsConnection, req *xdsapi.Disco
 // Handle a gRPC CDS request, used with the 'ApiListener' style of requests.
 // The main difference is that the request includes Resources.
 func (s *DiscoveryServer) handleAPICDS(con *XdsConnection, req *xdsapi.DiscoveryRequest) bool {
-	if s.handleAck(con, req) {
+	if s.HandleAck(con, req) {
 		return true
 	}
 
@@ -190,26 +141,8 @@ func (s *DiscoveryServer) handleAPICDS(con *XdsConnection, req *xdsapi.Discovery
 		Nonce:       nonce(push.Version),
 	}
 
-	// gRPC doesn't currently support any of the APIs - returning just the expected EDS result.
-	// Since the code is relatively strict - we'll add info as needed.
-	for _, n := range req.ResourceNames {
-		hn, portn, err := net.SplitHostPort(n)
-		if err != nil {
-			adsLog.Warna("Failed to parse ", n, " ", err)
-			continue
-		}
-		rc := &xdsapi.Cluster{
-			Name:                 n,
-			ClusterDiscoveryType: &xdsapi.Cluster_Type{Type: xdsapi.Cluster_EDS},
-			EdsClusterConfig: &xdsapi.Cluster_EdsClusterConfig{
-				ServiceName: "outbound|" + portn + "||" + hn,
-				EdsConfig: &envoycore.ConfigSource{
-					ConfigSourceSpecifier: &envoycore.ConfigSource_Ads{
-						Ads: &envoycore.AggregatedConfigSource{},
-					},
-				},
-			},
-		}
+	cl := gen.BuildClusters(con.node, push, req.ResourceNames)
+	for _, rc := range cl {
 		rr := util.MessageToAny(rc)
 		resp.Resources = append(resp.Resources, rr)
 	}
@@ -233,7 +166,7 @@ func (s *DiscoveryServer) handleSplitRDS(con *XdsConnection, req *xdsapi.Discove
 		}
 	}
 
-	if s.handleAck(con, req) {
+	if s.HandleAck(con, req) {
 		return true
 	}
 	push := s.globalPushContext()
@@ -248,54 +181,12 @@ func (s *DiscoveryServer) handleSplitRDS(con *XdsConnection, req *xdsapi.Discove
 		VersionInfo: version,
 		Nonce:       nonce(push.Version),
 	}
-	for _, n := range req.ResourceNames {
-		hn, portn, err := net.SplitHostPort(n)
-		if err != nil {
-			adsLog.Warna("Failed to parse ", n, " ", err)
-			continue
-		}
-		port, err := strconv.Atoi(portn)
-		if err != nil {
-			adsLog.Warna("Failed to parse port ", n, " ", err)
-			continue
-		}
-		el := con.node.SidecarScope.GetEgressListenerForRDS(port, "")
-		// TODO: use VirtualServices instead !
-		// Currently gRPC doesn't support matching the path.
-		svc := el.Services()
-		for _, s := range svc {
-			if s.Hostname.Matches(host.Name(hn)) {
-				// Only generate the required route for grpc. Will need to generate more
-				// as GRPC adds more features.
-				rc := &xdsapi.RouteConfiguration{
-					Name: n,
-					VirtualHosts: []*envoy_api_v2_route.VirtualHost{
-						&envoy_api_v2_route.VirtualHost{
-							Name:    hn,
-							Domains: []string{hn, n},
-
-							Routes: []*envoy_api_v2_route.Route{
-								&envoy_api_v2_route.Route{
-									Match: &envoy_api_v2_route.RouteMatch{
-										PathSpecifier: &envoy_api_v2_route.RouteMatch_Prefix{Prefix: ""},
-									},
-									Action: &envoy_api_v2_route.Route_Route{
-										Route: &envoy_api_v2_route.RouteAction{
-											ClusterSpecifier: &envoy_api_v2_route.RouteAction_Cluster{
-												Cluster: n,
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				}
-				rr := util.MessageToAny(rc)
-				resp.Resources = append(resp.Resources, rr)
-			}
-		}
+	cl := gen.BuildHTTPRoutes(con.node, push, req.ResourceNames)
+	for _, rc := range cl {
+		rr := util.MessageToAny(rc)
+		resp.Resources = append(resp.Resources, rr)
 	}
+
 	err := con.send(resp)
 	if err != nil {
 		adsLog.Warnf("LDS: Send failure %s: %v", con.ConID, err)
