@@ -272,7 +272,7 @@ func (t *ReverseTranslator) WarningForGatewayK8SSettings(valuesOverlay string) (
 	}
 	var deprecatedFields []string
 	for inPath := range t.GatewayKubernetesMapping.IngressMapping {
-		_, found, err := tpath.GetPathContext(valuesOverlay, util.ToYAMLPath(inPath))
+		_, found, err := tpath.GetPathContext(valuesOverlay, util.ToYAMLPath(inPath), false)
 		if err != nil {
 			scope.Debug(err.Error())
 			continue
@@ -282,7 +282,7 @@ func (t *ReverseTranslator) WarningForGatewayK8SSettings(valuesOverlay string) (
 		}
 	}
 	for inPath := range t.GatewayKubernetesMapping.EgressMapping {
-		_, found, err := tpath.GetPathContext(valuesOverlay, util.ToYAMLPath(inPath))
+		_, found, err := tpath.GetPathContext(valuesOverlay, util.ToYAMLPath(inPath), false)
 		if err != nil {
 			scope.Debug(err.Error())
 			continue
