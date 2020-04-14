@@ -402,6 +402,15 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 	}
 	if plat != nil && len(plat.Metadata()) > 0 {
 		meta.PlatformMetadata = plat.Metadata()
+		// unlike k8s deployments where owner info is populated from the injector,
+		// vms must populate owner info from the platform metadata.
+		// TODO: with the advent of WorkloadEntry, this might need to be expanded
+		// to (a) be more general and (b) support workload name and labels extraction
+		if len(meta.Owner) == 0 {
+			// attempt to populate with GCE Owner information. If not a GCE instance,
+			// meta.Owner will remain unset.
+			meta.Owner = platform.GCEOwnerFromMetadata(plat.Metadata())
+		}
 	}
 	meta.ExchangeKeys = metadataExchangeKeys
 }

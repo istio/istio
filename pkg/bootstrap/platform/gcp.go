@@ -211,3 +211,29 @@ func (e *gcpEnv) Locality() *core.Locality {
 
 	return &l
 }
+
+func gceInstanceUID(project, zone, instance string) string {
+	return fmt.Sprintf("//compute.googleapis.com/projects/%s/zones/%s/instances/%s", project, zone, instance)
+}
+
+func gceInstanceCreatorUID(createdBy string) string {
+	return "//compute.googleapis.com/" + createdBy
+}
+
+// GCEOwnerFromMetadata attempts to derive the OWNER metadata for
+// a GCE Instance. It checks for "created-by" metadata first to
+// determine if the instance part of a managed instance group. If
+// it is, it returns the UID for an instance group manager. If not,
+// it checks to make sure that the metadata includes information for
+// a GCE Instance, and returns the UID for the instance itself. If
+// the metadata does not include instance information, the empty
+// string is returned.
+func GCEOwnerFromMetadata(meta map[string]string) string {
+	if cb, ok := meta[GCEInstanceCreatedBy]; ok {
+		return gceInstanceCreatorUID(cb)
+	}
+	if inst, ok := meta[GCEInstanceID]; ok {
+		return gceInstanceUID(meta[GCPProjectNumber], meta[GCPLocation], inst)
+	}
+	return ""
+}

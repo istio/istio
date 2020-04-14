@@ -193,3 +193,30 @@ func TestGCPMetadata(t *testing.T) {
 		})
 	}
 }
+
+func TestGCEOwnerFromMetadata(t *testing.T) {
+	cases := []struct {
+		name  string
+		input map[string]string
+		want  string
+	}{
+		{"empty", nil, ""},
+		{"no gce meta", map[string]string{"aws_meta": "test"}, ""},
+		{"created-by",
+			map[string]string{GCEInstanceCreatedBy: "projects/1/regions/us-central/instanceGroupManagers/4"},
+			"//compute.googleapis.com/projects/1/regions/us-central/instanceGroupManagers/4",
+		},
+		{"gce instance (not managed)",
+			map[string]string{GCEInstanceID: "14", GCPProjectNumber: "12", GCPLocation: "us-west-1c"},
+			"//compute.googleapis.com/projects/12/zones/us-west-1c/instances/14",
+		},
+	}
+
+	for _, v := range cases {
+		t.Run(v.name, func(tt *testing.T) {
+			if got := GCEOwnerFromMetadata(v.input); !reflect.DeepEqual(got, v.want) {
+				t.Errorf("GCEOwnerFromMetadata(%v) => %q, want: %q", v.input, got, v.want)
+			}
+		})
+	}
+}
