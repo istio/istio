@@ -353,9 +353,9 @@ refresh-goldens:
 
 update-golden: refresh-goldens
 
-gen: go-gen mirror-licenses format update-crds operator-proto gen-kustomize gen-charts update-golden
+gen: go-gen mirror-licenses format update-crds operator-proto gen-kustomize update-golden
 
-gen-check: gen check-clean-repo
+gen-check: gen check-clean-repo check-no-modify
 
 # Generate kustomize templates.
 gen-kustomize:
