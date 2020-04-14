@@ -97,22 +97,22 @@ func TestParseValue(t *testing.T) {
 func TestConsolidateLog(t *testing.T) {
 	tests := []struct {
 		desc string
-		in string
+		in   string
 		want string
 	}{
 		{
 			desc: "empty",
-			in: "",
+			in:   "",
 			want: "",
 		},
 		{
 			desc: "2 errors once",
-			in: "err1\nerr2\n",
+			in:   "err1\nerr2\n",
 			want: "err1 (repeated 1 times)\nerr2 (repeated 1 times)\n",
 		},
 		{
 			desc: "3 errors multiple times",
-			in: "err1\nerr2\nerr3\nerr1\nerr2\nerr3\nerr3\nerr3\n",
+			in:   "err1\nerr2\nerr3\nerr1\nerr2\nerr3\nerr3\nerr3\n",
 			want: "err1 (repeated 2 times)\nerr2 (repeated 2 times)\nerr3 (repeated 4 times)\n",
 		},
 	}
@@ -125,28 +125,27 @@ func TestConsolidateLog(t *testing.T) {
 	}
 }
 
-
 func TestStringBoolMapToSlice(t *testing.T) {
 	tests := []struct {
 		desc string
-		in map[string]bool
+		in   map[string]bool
 		want []string
 	}{
 		{
 			desc: "empty",
-			in: make(map[string]bool),
+			in:   make(map[string]bool),
 			want: make([]string, 0),
 		},
 		{
 			desc: "",
-			in: map[string]bool {
-				"yo": true,
-				"yolo": false,
-				"test1": true,
+			in: map[string]bool{
+				"yo":           true,
+				"yolo":         false,
+				"test1":        true,
 				"water bottle": false,
 				"baseball hat": true,
 			},
-			want: []string {
+			want: []string{
 				"yo",
 				"test1",
 				"baseball hat",
