@@ -1242,7 +1242,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 			}
 
 			for k, v := range tt.contains {
-				if ok, _ := sidecarScope.DependsOnConfig(k); ok != v {
+				if ok := sidecarScope.DependsOnConfig(k); ok != v {
 					t.Fatalf("Expected contains %v-%v, but no match", k, v)
 				}
 			}

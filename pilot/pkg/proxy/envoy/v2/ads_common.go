@@ -49,9 +49,8 @@ func ConfigAffectsProxy(pushEv *XdsEvent, proxy *model.Proxy) bool {
 		// Detailed config dependencies check.
 		switch proxy.Type {
 		case model.SidecarProxy:
-			// Not scoping of all config types are known to SidecarScope. We consider the unknown cases as "affected".
-			ok, scoped := proxy.SidecarScope.DependsOnConfig(config)
-			if !scoped || ok {
+			depended := proxy.SidecarScope.DependsOnConfig(config)
+			if depended {
 				return true
 			}
 		// TODO We'll add the check for other proxy types later.

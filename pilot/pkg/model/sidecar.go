@@ -465,18 +465,18 @@ func (ilw *IstioEgressListenerWrapper) VirtualServices() []Config {
 }
 
 // DependsOnConfig determines if the proxy depends on the given config.
-// Returns whether depends on this config and whether this kind of config is scoped(or known to be depended or not) here.
-func (sc *SidecarScope) DependsOnConfig(config ConfigKey) (bool, bool) {
+// Returns whether depends on this config or this kind of config is not scoped(unknown to be depended) here.
+func (sc *SidecarScope) DependsOnConfig(config ConfigKey) bool {
 	if sc == nil {
-		return false, false
+		return true
 	}
 	// This kind of config is unknown to sidecarScope.
 	if _, f := sidecarScopeKnownConfigTypes[config.Kind]; !f {
-		return false, false
+		return true
 	}
 
 	_, exists := sc.configDependencies[config]
-	return exists, true
+	return exists
 }
 
 // AddConfigDependencies add extra config dependencies to this scope. This action should be done before the
