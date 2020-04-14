@@ -490,9 +490,10 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 	if cfg != nil {
 		destinationRule := cfg.Spec.(*networking.DestinationRule)
 		if destinationRule.TrafficPolicy != nil {
+			connectionPool, _, _, _ := SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, instance.ServicePort)
 			// only connection pool settings make sense on the inbound path.
 			// upstream TLS settings/outlier detection/load balancer don't apply here.
-			applyConnectionPool(pluginParams.Push, localCluster, destinationRule.TrafficPolicy.ConnectionPool)
+			applyConnectionPool(pluginParams.Push, localCluster, connectionPool)
 			localCluster.Metadata = util.BuildConfigInfoMetadata(cfg.ConfigMeta)
 		}
 	}

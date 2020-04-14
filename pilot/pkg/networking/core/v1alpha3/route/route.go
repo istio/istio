@@ -132,7 +132,7 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
 				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
-				traceOperation := fmt.Sprintf("%s:%d/*", svc.Hostname, port.Port)
+				traceOperation := traceOperation(string(svc.Hostname), port.Port)
 				httpRoute := BuildDefaultHTTPOutboundRoute(node, cluster, traceOperation)
 
 				// if this host has no virtualservice, the consistentHash on its destinationRule will be useless
@@ -158,21 +158,38 @@ func separateVSHostsAndServices(virtualService model.Config,
 	rule := virtualService.Spec.(*networking.VirtualService)
 	hosts := make([]string, 0)
 	servicesInVirtualService := make([]*model.Service, 0)
+	wchosts := make([]host.Name, 0)
+
+	// As a performance optimization, process non wildcard hosts first, so that they can be
+	// looked up directly in the service registry map.
 	for _, hostname := range rule.Hosts {
+		vshost := host.Name(hostname)
+		if !vshost.IsWildCarded() {
+			if svc, exists := serviceRegistry[vshost]; exists {
+				servicesInVirtualService = append(servicesInVirtualService, svc)
+			} else {
+				hosts = append(hosts, hostname)
+			}
+		} else {
+			// Add it to the wildcard hosts so that they can be processed later.
+			wchosts = append(wchosts, vshost)
+		}
+	}
+
+	// Now process wild card hosts as they need to follow the slow path of looping through all services in the registry.
+	for _, hostname := range wchosts {
 		// Say host is *.global
-		vsHostname := host.Name(hostname)
 		foundSvcMatch := false
-		// TODO: Optimize me. This is O(n2) or worse. Need to prune at top level in config
 		// Say we have services *.foo.global, *.bar.global
 		for svcHost, svc := range serviceRegistry {
 			// *.foo.global matches *.global
-			if svcHost.Matches(vsHostname) {
+			if svcHost.Matches(hostname) {
 				servicesInVirtualService = append(servicesInVirtualService, svc)
 				foundSvcMatch = true
 			}
 		}
 		if !foundSvcMatch {
-			hosts = append(hosts, hostname)
+			hosts = append(hosts, string(hostname))
 		}
 	}
 	return hosts, servicesInVirtualService
@@ -214,11 +231,11 @@ func buildSidecarVirtualHostsForVirtualService(
 	}
 	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
 	out := make([]VirtualHostWrapper, 0, len(serviceByPort))
+	routes, err := BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, listenPort, meshGateway)
+	if err != nil || len(routes) == 0 {
+		return out
+	}
 	for port, portServices := range serviceByPort {
-		routes, err := BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, listenPort, meshGateway)
-		if err != nil || len(routes) == 0 {
-			continue
-		}
 		out = append(out, VirtualHostWrapper{
 			Port:                port,
 			Services:            portServices,
@@ -1091,4 +1108,9 @@ func isCatchAllRoute(r *route.Route) bool {
 	// A Match is catch all if and only if it has no header/query param match
 	// and URI has a prefix / or regex *.
 	return catchall && len(r.Match.Headers) == 0 && len(r.Match.QueryParameters) == 0
+}
+
+func traceOperation(host string, port int) string {
+	// Format : "%s:%d/*"
+	return host + ":" + strconv.Itoa(port) + "/*"
 }

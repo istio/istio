@@ -238,7 +238,7 @@ func TestManifestGeneratePilot(t *testing.T) {
 		},
 		{
 			desc:       "pilot_override_values",
-			diffSelect: "Deployment:*:istiod",
+			diffSelect: "Deployment:*:istiod,HorizontalPodAutoscaler:*:istiod",
 		},
 		{
 			desc:       "pilot_override_kubernetes",
@@ -396,7 +396,23 @@ func TestInstallPackagePath(t *testing.T) {
 
 }
 
-// This test enforces that parseObjectSetFromManifest that reference other parseObjectSetFromManifest do so properly, such as Service selecting deployment
+// TestTrailingWhitespace ensures there are no trailing spaces in the manifests
+// This is important because `kubectl edit` and other commands will get escaped if they are present
+// making it hard to read/edit
+func TestTrailingWhitespace(t *testing.T) {
+	got, err := runManifestGenerate([]string{}, "", liveCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(got, "\n")
+	for i, l := range lines {
+		if strings.HasSuffix(l, " ") {
+			t.Errorf("Line %v has a trailing space: [%v]. Context: %v", i, l, strings.Join(lines[i-5:i+5], ","))
+		}
+	}
+}
+
+// This test enforces that objects that reference other objects do so properly, such as Service selecting deployment
 func TestConfigSelectors(t *testing.T) {
 	got, err := runManifestGenerate([]string{}, "", liveCharts)
 	if err != nil {
@@ -415,7 +431,7 @@ func TestConfigSelectors(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// First we fetch all the parseObjectSetFromManifest for our default install
+	// First we fetch all the objects for our default install
 	name := "istiod"
 	deployment := mustFindObject(t, objs, name, "Deployment")
 	service := mustFindObject(t, objs, name, "Service")
@@ -430,7 +446,7 @@ func TestConfigSelectors(t *testing.T) {
 		t.Fatalf("HPA does not match deployment: %v != %v", name, hpaName)
 	}
 
-	// Next we fetch all the parseObjectSetFromManifest for a revision install
+	// Next we fetch all the objects for a revision install
 	nameRev := "istiod-canary"
 	deploymentRev := mustFindObject(t, objsRev, nameRev, "Deployment")
 	serviceRev := mustFindObject(t, objsRev, nameRev, "Service")
@@ -494,16 +510,6 @@ func TestLDFlags(t *testing.T) {
 	if iops.Hub != version.DockerInfo.Hub || iops.Tag != version.DockerInfo.Tag {
 		t.Fatalf("DockerInfoHub, DockerInfoTag got: %s,%s, want: %s, %s", iops.Hub, iops.Tag, version.DockerInfo.Hub, version.DockerInfo.Tag)
 	}
-}
-
-func generateManifest(inFile, flags string, chartSource chartSourceType) (string, object.K8sObjects, error) {
-	inPath := filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate/input", inFile+".yaml")
-	manifest, err := runManifestGenerate([]string{inPath}, flags, chartSource)
-	if err != nil {
-		return "", nil, fmt.Errorf("error %s: %s", err, manifest)
-	}
-	objs, err := object.ParseK8sObjectsFromYAMLManifest(manifest)
-	return manifest, objs, err
 }
 
 func runTestGroup(t *testing.T, tests testGroup) {

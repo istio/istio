@@ -6,10 +6,23 @@ spec:
   addonComponents:
     grafana:
       enabled: false
+      k8s:
+        env: []
+        nodeSelector: {}
+        replicaCount: 1
+        tolerations: []
     istiocoredns:
       enabled: false
+      k8s:
+        nodeSelector: {}
+        replicaCount: 1
+        tolerations: []
     kiali:
       enabled: false
+      k8s:
+        nodeSelector: {}
+        replicaCount: 1
+        tolerations: []
     prometheus:
       enabled: true
       k8s:
@@ -184,6 +197,7 @@ spec:
       tag: master-latest-daily
     gateways:
       istio-egressgateway:
+        autoscaleEnabled: true
         connectTimeout: 10s
         drainDuration: 45s
         podAntiAffinityLabelSelector: []
@@ -209,6 +223,7 @@ spec:
           suffix: global
       istio-ingressgateway:
         applicationPorts: ""
+        autoscaleEnabled: true
         debug: info
         domain: ""
         externalIPs: []
@@ -422,7 +437,6 @@ spec:
       persist: false
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
-      replicaCount: 1
       security:
         enabled: false
         passphraseKey: passphrase
@@ -433,14 +447,11 @@ spec:
         name: http
         type: ClusterIP
       storageClassName: ""
-      tolerations: []
     istiocoredns:
       coreDNSImage: coredns/coredns:1.1.2
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
-      replicaCount: 1
-      tolerations: []
     kiali:
       contextPath: /kiali
       createDemoSecret: false
@@ -455,22 +466,22 @@ spec:
       image: kiali
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
-      replicaCount: 1
       security:
         cert_file: /kiali-cert/cert-chain.pem
         enabled: true
         private_key_file: /kiali-cert/key.pem
       tag: v1.1.0
-      tolerations: []
     mixer:
       policy:
         adapters:
           kubernetesenv:
             enabled: true
+        autoscaleEnabled: true
         image: mixer
         podAntiAffinityLabelSelector: []
         podAntiAffinityTermLabelSelector: []
       telemetry:
+        autoscaleEnabled: true
         image: mixer
         loadshedding:
           latencyThreshold: 100ms
@@ -483,6 +494,7 @@ spec:
         useMCP: true
     pilot:
       appNamespaces: []
+      autoscaleEnabled: true
       configMap: true
       configNamespace: istio-config
       image: pilot

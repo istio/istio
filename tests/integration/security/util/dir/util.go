@@ -35,7 +35,7 @@ func ListDir(ns namespace.Instance, t *testing.T, labelSelector, container, dire
 		MaxDelay:  30 * time.Second,
 	}
 
-	podName, err := getPodName(ns, labelSelector)
+	podName, err := GetPodName(ns, labelSelector)
 	if err != nil {
 		t.Errorf("err getting pod name: %v", err)
 		return
@@ -61,7 +61,7 @@ func ListDir(ns namespace.Instance, t *testing.T, labelSelector, container, dire
 	}
 }
 
-func getPodName(ns namespace.Instance, labelSelector string) (string, error) {
+func GetPodName(ns namespace.Instance, labelSelector string) (string, error) {
 	retry := util.Retrier{
 		BaseDelay: 10 * time.Second,
 		Retries:   3,

@@ -6960,6 +6960,8 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: istiooperators.install.istio.io
+  labels:
+    release: istio
 spec:
   additionalPrinterColumns:
   - JSONPath: .spec.revision
@@ -13705,6 +13707,8 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: istiooperators.install.istio.io
+  labels:
+    release: istio
 spec:
   additionalPrinterColumns:
   - JSONPath: .spec.revision
@@ -16042,13 +16046,13 @@ metadata:
   name: {{ $gateway.name | default "istio-ingressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
-{{ $gateway.labels | toYaml | indent 4 }}
+{{ $gateway.labels | toYaml | trim | indent 4 }}
     release: {{ .Release.Name }}
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-{{ $gateway.labels | toYaml | indent 6 }}
+{{ $gateway.labels | toYaml | trim | indent 6 }}
       release: {{ .Release.Name }}
 {{- end }}
 `)
@@ -16302,7 +16306,7 @@ metadata:
   name: istio-ingressgateway-service-account
   namespace: {{ .Release.Namespace }}
   labels:
-{{ $gateway.labels | toYaml | indent 4 }}
+{{ $gateway.labels | toYaml | trim | indent 4 }}
     release: {{ .Release.Name }}
 `)
 
@@ -17032,30 +17036,6 @@ data:
   meshNetworks: |-
     networks: {}
 
-  # Basic config for a sidecar CoreDNS server to resolve upstream and K8S requests.
-  # Will be needed until K8S DNS server adds a secure port, to avoid clear text
-  # MITM-exposed requests between istiod and K8S core DNS server.
-  Corefile: |-
-    .:15054 {
-        errors
-        log
-        health :15056 {
-          lameduck 5s
-        }
-
-        kubernetes cluster.local in-addr.arpa ip6.arpa {
-            pods insecure
-            fallthrough in-addr.arpa ip6.arpa
-            ttl 30
-        }
-        prometheus :9153
-
-        forward . /etc/resolv.conf
-        cache 30
-        reload
-        loadbalance
-    }
-
   mesh: |-
     accessLogEncoding: TEXT
     accessLogFile: ""
@@ -17334,11 +17314,6 @@ data:
       []
     injectedAnnotations:
 
-    # Configmap optimized for Istiod. Please DO NOT MERGE all changes from istio - in particular those dependent on
-    # Values.yaml, which should not be used by istiod.
-    
-    # Istiod only uses SDS based config ( files will mapped/handled by SDS).
-    
     template: |
       rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
       initContainers:
@@ -17882,8 +17857,6 @@ spec:
             value: "false"
           - name: CLUSTER_ID
             value: "Kubernetes"
-          - name: DNS_ADDR
-            value: ""
           resources:
             requests:
               cpu: 500m
@@ -18082,6 +18055,7 @@ spec:
                 {
                   "debug": "false",
                   "stat_prefix": "istio",
+                  "disable_host_header_fallback": true,
                 }
               vm_config:
                 vm_id: stats_outbound
@@ -18279,6 +18253,7 @@ spec:
                   {
                     "debug": "false",
                     "stat_prefix": "istio",
+                    "disable_host_header_fallback": true,
                   }
                 vm_config:
                   vm_id: stats_outbound
@@ -18580,6 +18555,7 @@ spec:
                   {
                     "debug": "false",
                     "stat_prefix": "istio",
+                    "disable_host_header_fallback": true,
                   }
                 vm_config:
                   vm_id: stats_outbound
@@ -18740,12 +18716,7 @@ func chartsIstioControlIstioDiscoveryFilesGenIstioYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryFilesInjectionTemplateYaml = []byte(`# Configmap optimized for Istiod. Please DO NOT MERGE all changes from istio - in particular those dependent on
-# Values.yaml, which should not be used by istiod.
-
-# Istiod only uses SDS based config ( files will mapped/handled by SDS).
-
-template: |
+var _chartsIstioControlIstioDiscoveryFilesInjectionTemplateYaml = []byte(`template: |
   rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
   initContainers:
   {{ if ne (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`NONE`+"`"+` }}
@@ -19271,9 +19242,9 @@ var _chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml = []byte(`{{- define
     enableTracing: {{ .Values.global.enableTracing }}
     {{- end }}
     # Set accessLogFile to empty string to disable access log.
-    accessLogFile: "{{ .Values.global.proxy.accessLogFile }}"
-    accessLogFormat: "{{ .Values.global.proxy.accessLogFormat }}"
-    accessLogEncoding: "{{ .Values.global.proxy.accessLogEncoding | default "TEXT" }}"
+    accessLogFile: {{ .Values.global.proxy.accessLogFile | default "" | quote }}
+    accessLogFormat: {{ .Values.global.proxy.accessLogFormat | default "" | quote }}
+    accessLogEncoding: {{ .Values.global.proxy.accessLogEncoding | default "TEXT" | quote }}
     {{- with .Values.global.proxy.envoyAccessLogService }}
     enableEnvoyAccessLogService: {{ .enabled }}
     {{- end }}
@@ -19536,30 +19507,6 @@ data:
     networks: {}
   {{- end }}
 
-  # Basic config for a sidecar CoreDNS server to resolve upstream and K8S requests.
-  # Will be needed until K8S DNS server adds a secure port, to avoid clear text
-  # MITM-exposed requests between istiod and K8S core DNS server.
-  Corefile: |-
-    .:15054 {
-        errors
-        log
-        health :15056 {
-          lameduck 5s
-        }
-
-        kubernetes cluster.local in-addr.arpa ip6.arpa {
-            pods insecure
-            fallthrough in-addr.arpa ip6.arpa
-            ttl 30
-        }
-        prometheus :9153
-
-        forward . /etc/resolv.conf
-        cache 30
-        reload
-        loadbalance
-    }
-
   mesh: |-
 {{- if .Values.meshConfig }}
 {{ $mesh | toYaml | indent 4 }}
@@ -19731,8 +19678,6 @@ spec:
             value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
-          - name: DNS_ADDR
-            value: "{{ .Values.meshConfig.defaultConfig.proxyMetadata.DNS_AGENT }}"
           resources:
 {{- if .Values.pilot.resources }}
 {{ toYaml .Values.pilot.resources | trim | indent 12 }}
@@ -19766,44 +19711,6 @@ spec:
           - name: extracacerts
             mountPath: /cacerts
           {{- end }}
-
-        {{- if .Values.meshConfig.defaultConfig.proxyMetadata.DNS_AGENT }}
-        # CoreDNS sidecar. Ports are used internally, to run as non-root.
-        # This is a short-term solution - the code in istiod can also be used
-        # directly. The plan is to move coreDNS on the agent.
-        - name: dns
-          image: coredns/coredns:1.1.2
-          imagePullPolicy: IfNotPresent
-          args: [ "-conf", "/var/lib/istio/coredns/Corefile" ]
-          securityContext:
-            runAsUser: 1337
-            runAsGroup: 1337
-            runAsNonRoot: true
-            capabilities:
-              drop:
-                - ALL
-          volumeMounts:
-            - name: local-certs
-              mountPath: /var/run/secrets/istio-dns
-            - name: config-volume
-              mountPath: /var/lib/istio/coredns
-          ports:
-            - containerPort: 15054
-              name: dns
-              protocol: UDP
-            - containerPort: 15055
-              name: metrics
-              protocol: TCP
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 15056
-              scheme: HTTP
-            initialDelaySeconds: 2
-            timeoutSeconds: 5
-            successThreshold: 1
-            failureThreshold: 5
-        {{- end }}
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
@@ -20087,7 +19994,9 @@ func chartsIstioControlIstioDiscoveryTemplatesServiceYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml = []byte(`{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
+var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml = []byte(`{{- if eq .Values.revision "" }}
+{{- /* Old versions not needed when revision is set, otherwise we will start applying v2 to old proxies */}}
+{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -20214,6 +20123,7 @@ spec:
                 {
                   "debug": "false",
                   "stat_prefix": "istio",
+                  "disable_host_header_fallback": true,
                 }
               vm_config:
                 vm_id: stats_outbound
@@ -20328,6 +20238,7 @@ spec:
 ---
 {{- end}}
 {{- end}}
+{{- end}}
 `)
 
 func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14YamlBytes() ([]byte, error) {
@@ -20345,7 +20256,9 @@ func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml() (*asset, erro
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml = []byte(`{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
+var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml = []byte(`{{- if eq .Values.revision "" }}
+{{- /* Old versions not needed when revision is set, otherwise we will start applying v2 to old proxies */}}
+{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -20566,6 +20479,7 @@ spec:
                   {
                     "debug": "false",
                     "stat_prefix": "istio",
+                    "disable_host_header_fallback": true,
                   }
                 vm_config:
                   vm_id: stats_outbound
@@ -20823,6 +20737,7 @@ spec:
 ---
 {{- end}}
 {{- end}}
+{{- end}}
 `)
 
 func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15YamlBytes() ([]byte, error) {
@@ -21064,6 +20979,7 @@ spec:
                   {
                     "debug": "false",
                     "stat_prefix": "istio",
+                    "disable_host_header_fallback": true,
                   }
                 vm_config:
                   vm_id: stats_outbound
@@ -42772,7 +42688,6 @@ spec:
           maxNumberOfAnnotations: 200
           maxNumberOfMessageEvents: 200
       mtls:
-        enabled: false
         auto: true
       imagePullSecrets: []
       arch:

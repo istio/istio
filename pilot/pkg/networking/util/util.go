@@ -573,11 +573,11 @@ func BuildStatPrefix(statPattern string, host string, subset string, port *model
 	return prefix
 }
 
-// shotHostName constructs the name from kubernetes hosts based on attributes (name and namespace).
+// shortHostName constructs the name from kubernetes hosts based on attributes (name and namespace).
 // For other hosts like VMs, this method does not do any thing - just returns the passed in host as is.
 func shortHostName(host string, attributes model.ServiceAttributes) string {
 	if attributes.ServiceRegistry == string(serviceregistry.Kubernetes) {
-		return fmt.Sprintf("%s.%s", attributes.Name, attributes.Namespace)
+		return attributes.Name + "." + attributes.Namespace
 	}
 	return host
 }
@@ -593,4 +593,46 @@ func StringToExactMatch(in []string) []*matcher.StringMatcher {
 		})
 	}
 	return res
+}
+
+func StringSliceEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
+func UInt32SliceEqual(a, b []uint32) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
+func CidrRangeSliceEqual(a, b []*core.CidrRange) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i].GetAddressPrefix() != b[i].GetAddressPrefix() || a[i].GetPrefixLen().GetValue() != b[i].GetPrefixLen().GetValue() {
+			return false
+		}
+	}
+
+	return true
 }

@@ -251,7 +251,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					vHost.Routes = istio_route.CombineVHostRoutes(vHost.Routes, routes)
 				} else {
 					newVHost := &route.VirtualHost{
-						Name:    fmt.Sprintf("%s:%d", hostname, port),
+						Name:    domainName(string(hostname), port),
 						Domains: buildGatewayVirtualHostDomains(string(hostname)),
 						Routes:  routes,
 					}
@@ -268,7 +268,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	if len(vHostDedupMap) == 0 {
 		log.Warnf("constructed http route config for port %d with no vhosts; Setting up a default 404 vhost", port)
 		virtualHosts = []*route.VirtualHost{{
-			Name:    fmt.Sprintf("blackhole:%d", port),
+			Name:    domainName("blackhole", port),
 			Domains: []string{"*"},
 			Routes: []*route.Route{
 				{
