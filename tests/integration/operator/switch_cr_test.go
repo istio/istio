@@ -173,7 +173,7 @@ func verifyInstallation(t *testing.T, ctx framework.TestContext,
 		t.Fatalf("IstioOperator status not healthy: %v", err)
 	}
 
-	if _, err := cs.WaitUntilPodsAreReady(cs.NewPodFetch(IstioNamespace)); err != nil {
+	if _, err := cs.CheckPodsAreReady(cs.NewPodFetch(IstioNamespace)); err != nil {
 		t.Fatalf("pods are not ready: %v", err)
 	}
 
@@ -259,7 +259,7 @@ func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Insta
 					return fmt.Errorf("failed to get expected deployment: %s from cluster", name)
 				}
 			case "ConfigMap":
-				if _, err := cs.GetConfigMap(ns, name); err != nil {
+				if _, err := cs.GetConfigMap(name, ns); err != nil {
 					return fmt.Errorf("failed to get expected configMap: %s from cluster", name)
 				}
 			case "ValidatingWebhookConfiguration":

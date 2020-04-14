@@ -441,14 +441,14 @@ func (a *Accessor) GetSecret(ns string) kubeClientCore.SecretInterface {
 	return a.set.CoreV1().Secrets(ns)
 }
 
-// DeleteConfigMap deletes the config resource with the given name and namespace.
-func (a *Accessor) DeleteConfigMap(ns, name string) error {
-	return a.set.CoreV1().ConfigMaps(ns).Delete(context.TODO(), name, kubeApiMeta.DeleteOptions{})
+// GetConfigMap returns the config resource with the given name and namespace.
+func (a *Accessor) GetConfigMap(name, ns string) (*kubeApiCore.ConfigMap, error) {
+	return a.set.CoreV1().ConfigMaps(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
 }
 
-// GetConfigMap returns the config resource with the given name and namespace.
-func (a *Accessor) GetConfigMap(ns, name string) (*kubeApiCore.ConfigMap, error) {
-	return a.set.CoreV1().ConfigMaps(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
+// DeleteConfigMap deletes the config resource with the given name and namespace.
+func (a *Accessor) DeleteConfigMap(name, ns string) error {
+	return a.set.CoreV1().ConfigMaps(ns).Delete(context.TODO(), name, kubeApiMeta.DeleteOptions{})
 }
 
 // CreateSecret takes the representation of a secret and creates it in the given namespace.
