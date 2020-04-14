@@ -19,11 +19,10 @@ import (
 	"fmt"
 
 	"github.com/ghodss/yaml"
+	"github.com/spf13/cobra"
 
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
-
-	"github.com/spf13/cobra"
 )
 
 type profileDumpArgs struct {

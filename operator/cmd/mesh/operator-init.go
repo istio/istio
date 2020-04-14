@@ -21,11 +21,10 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-
 	"github.com/spf13/cobra"
 	"k8s.io/utils/pointer"
 
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
