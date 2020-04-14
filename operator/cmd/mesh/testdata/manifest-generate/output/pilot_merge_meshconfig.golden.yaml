@@ -29,7 +29,7 @@ data:
       configPath: /etc/istio/proxy
       connectTimeout: 10s
       controlPlaneAuthPolicy: NONE
-      discoveryAddress: istiod.istio-system.svc:15012
+      discoveryAddress: my-discovery:123
       drainDuration: 12s
       parentShutdownDuration: 1m0s
       proxyAdminPort: 15000
@@ -49,9 +49,9 @@ data:
     ingressService: istio-ingressgateway
     localityLbSetting:
       enabled: true
-    mixerCheckServer: foo
+    mixerCheckServer: foo:1234
     outboundTrafficPolicy:
-      mode: ALLOW_ANY
+      mode: REGISTRY_ONLY
     protocolDetectionTimeout: 100ms
     reportBatchMaxEntries: 100
     reportBatchMaxTime: 1s
