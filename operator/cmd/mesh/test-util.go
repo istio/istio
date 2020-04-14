@@ -22,7 +22,7 @@ import (
 	"regexp"
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	labels2 "k8s.io/apimachinery/pkg/labels"
 
@@ -129,11 +129,11 @@ func (o *objectSet) namespace(namespace string) *objectSet {
 
 // mustGetContainer returns the container tree with the given name in the deployment with the given name.
 // The function fails through g if no matching container is found.
-func mustGetContainer(g *WithT, objs *objectSet, deploymentName, containerName string) map[string]interface{} {
+func mustGetContainer(g *gomega.WithT, objs *objectSet, deploymentName, containerName string) map[string]interface{} {
 	obj := objs.kind("Deployment").nameEquals(deploymentName)
-	g.Expect(obj).Should(Not(BeNil()))
+	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
 	container := obj.Container(containerName)
-	g.Expect(container).Should(Not(BeNil()))
+	g.Expect(container).Should(gomega.Not(gomega.BeNil()))
 	return container
 }
 
