@@ -148,6 +148,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 		ConfigLedger: buildLedger(args.Config),
 		XDSUpdater:   s.EnvoyXdsServer,
+		Revision:     args.Revision,
 	}
 	reporter := monitoring.NewStatsContext("pilot")
 
@@ -319,7 +320,7 @@ func (s *Server) mcpController(
 	all := collections.Pilot.All()
 	cols := make([]sink.CollectionOptions, 0, len(all))
 	for _, c := range all {
-		cols = append(cols, sink.CollectionOptions{Name: c.Name().String(), Incremental: false})
+		cols = append(cols, sink.CollectionOptions{Name: c.Name().String(), Incremental: features.EnableIncrementalMCP})
 	}
 
 	mcpController := mcp.NewController(opts)

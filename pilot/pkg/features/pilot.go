@@ -290,4 +290,11 @@ var (
 
 	ClusterName = env.RegisterStringVar("CLUSTER_ID", "Kubernetes",
 		"Defines the cluster and service registry that this Istiod instance is belongs to")
+
+	EnableIncrementalMCP = env.RegisterBoolVar(
+		"PILOT_ENABLE_INCREMENTAL_MCP",
+		false,
+		"If enabled, pilot will set the incremental flag of the options in the mcp controller "+
+			"to true, and then galley may push data incrementally, it depends on whether the "+
+			"resource supports incremental. By default, this is false.").Get()
 )

@@ -625,12 +625,13 @@ func TestGetActualWildcardAndLocalHost(t *testing.T) {
 	}
 }
 
-func TestIsFilterChainMatchEmpty(t *testing.T) {
+// Test to catch new fields in FilterChainMatch message.
+func TestFilterChainMatchFields(t *testing.T) {
 	fcm := listener.FilterChainMatch{}
 	e := reflect.ValueOf(&fcm).Elem()
-	// This isn't really testing the code, its just making sure an Envoy update won't silently break this method
+	// If this fails, that means new fields have been added to FilterChainMatch, filterChainMatchEqual function needs to be updated.
 	if e.NumField() != 13 {
-		t.Fatalf("Expected 13 fields, got %v. This means we need to update isFilterChainMatchEmpty", e.NumField())
+		t.Fatalf("Expected 13 fields, got %v. This means we need to update filterChainMatchEqual implementation", e.NumField())
 	}
 }
 
@@ -2275,5 +2276,129 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 	}
 	if !rateLimitApplied {
 		t.Error("No rate limit applied when one should have been")
+	}
+}
+
+func TestFilterChainMatchEqual(t *testing.T) {
+	cases := []struct {
+		name   string
+		first  *listener.FilterChainMatch
+		second *listener.FilterChainMatch
+		want   bool
+	}{
+		{
+			name:   "both nil",
+			first:  nil,
+			second: nil,
+			want:   true,
+		},
+		{
+			name:   "one of them nil",
+			first:  nil,
+			second: &listener.FilterChainMatch{},
+			want:   false,
+		},
+		{
+			name:   "both empty",
+			first:  &listener.FilterChainMatch{},
+			second: &listener.FilterChainMatch{},
+			want:   true,
+		},
+		{
+			name: "with equal values",
+			first: &listener.FilterChainMatch{
+				TransportProtocol:    "TCP",
+				ApplicationProtocols: mtlsHTTPALPNs,
+			},
+			second: &listener.FilterChainMatch{
+				TransportProtocol:    "TCP",
+				ApplicationProtocols: mtlsHTTPALPNs,
+			},
+			want: true,
+		},
+		{
+			name: "with not equal values",
+			first: &listener.FilterChainMatch{
+				TransportProtocol:    "TCP",
+				ApplicationProtocols: mtlsHTTPALPNs,
+			},
+			second: &listener.FilterChainMatch{
+				TransportProtocol:    "TCP",
+				ApplicationProtocols: plaintextHTTPALPNs,
+			},
+			want: false,
+		},
+		{
+			name: "equal with all values",
+			first: &listener.FilterChainMatch{
+				TransportProtocol:    "TCP",
+				ApplicationProtocols: mtlsHTTPALPNs,
+				DestinationPort:      &wrappers.UInt32Value{Value: 1999},
+				AddressSuffix:        "suffix",
+				SourceType:           listener.FilterChainMatch_ANY,
+				SuffixLen:            &wrappers.UInt32Value{Value: 3},
+				PrefixRanges: []*core.CidrRange{
+					{
+						AddressPrefix: "10.244.0.18",
+						PrefixLen:     &wrappers.UInt32Value{Value: 32},
+					},
+					{
+						AddressPrefix: "fe80::1c97:c3ff:fed7:5940",
+						PrefixLen:     &wrappers.UInt32Value{Value: 128},
+					},
+				},
+				SourcePrefixRanges: []*core.CidrRange{
+					{
+						AddressPrefix: "10.244.0.18",
+						PrefixLen:     &wrappers.UInt32Value{Value: 32},
+					},
+					{
+						AddressPrefix: "fe80::1c97:c3ff:fed7:5940",
+						PrefixLen:     &wrappers.UInt32Value{Value: 128},
+					},
+				},
+				SourcePorts: []uint32{2000},
+				ServerNames: []string{"foo"},
+			},
+			second: &listener.FilterChainMatch{
+				TransportProtocol:    "TCP",
+				ApplicationProtocols: plaintextHTTPALPNs,
+				DestinationPort:      &wrappers.UInt32Value{Value: 1999},
+				AddressSuffix:        "suffix",
+				SourceType:           listener.FilterChainMatch_ANY,
+				SuffixLen:            &wrappers.UInt32Value{Value: 3},
+				PrefixRanges: []*core.CidrRange{
+					{
+						AddressPrefix: "10.244.0.18",
+						PrefixLen:     &wrappers.UInt32Value{Value: 32},
+					},
+					{
+						AddressPrefix: "fe80::1c97:c3ff:fed7:5940",
+						PrefixLen:     &wrappers.UInt32Value{Value: 128},
+					},
+				},
+				SourcePrefixRanges: []*core.CidrRange{
+					{
+						AddressPrefix: "10.244.0.18",
+						PrefixLen:     &wrappers.UInt32Value{Value: 32},
+					},
+					{
+						AddressPrefix: "fe80::1c97:c3ff:fed7:5940",
+						PrefixLen:     &wrappers.UInt32Value{Value: 128},
+					},
+				},
+				SourcePorts: []uint32{2000},
+				ServerNames: []string{"foo"},
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := filterChainMatchEqual(tt.first, tt.second); got != tt.want {
+				t.Fatalf("Expected filter chain match to return %v, but got %v", tt.want, got)
+			}
+		})
 	}
 }

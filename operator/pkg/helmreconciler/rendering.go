@@ -130,6 +130,15 @@ func MergeIOPSWithProfile(iop *valuesv1alpha1.IstioOperator) (*v1alpha1.IstioOpe
 	if err != nil {
 		return nil, err
 	}
+	mvs := binversion.OperatorBinaryVersion.MinorVersion
+	t, err := translate.NewReverseTranslator(mvs)
+	if err != nil {
+		return nil, fmt.Errorf("error creating values.yaml translator: %s", err)
+	}
+	overlayYAML, err = t.TranslateK8SfromValueToIOP(overlayYAML)
+	if err != nil {
+		return nil, fmt.Errorf("could not overlay k8s settings from values to IOP: %s", err)
+	}
 
 	mergedYAML, err := util.OverlayYAML(profileYAML, overlayYAML)
 	if err != nil {

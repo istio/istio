@@ -363,8 +363,8 @@ func (conf *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretC
 				}
 			} else if serverOptions.PilotCertProvider == "custom" {
 				log.Infof("istiod uses a custom root certificate mounted in a well known location %v",
-					cache.ExistingRootCertFile)
-				if rootCert, err = ioutil.ReadFile(cache.ExistingRootCertFile); err != nil {
+					cache.DefaultRootCertFilePath)
+				if rootCert, err = ioutil.ReadFile(cache.DefaultRootCertFilePath); err != nil {
 					certReadErr = true
 				}
 			} else {
@@ -398,8 +398,8 @@ func (conf *SDSAgent) newSecretCache(serverOptions sds.Options) (workloadSecretC
 					}
 				} else if serverOptions.PilotCertProvider == "custom" {
 					log.Infof("istiod uses a custom root certificate mounted in a well known location %v",
-						cache.ExistingRootCertFile)
-					if rootCert, err = ioutil.ReadFile(cache.ExistingRootCertFile); err != nil {
+						cache.DefaultRootCertFilePath)
+					if rootCert, err = ioutil.ReadFile(cache.DefaultRootCertFilePath); err != nil {
 						certReadErr = true
 					}
 				} else {

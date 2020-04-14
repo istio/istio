@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"sort"
 	"strings"
@@ -1882,6 +1883,151 @@ func TestBuildInboundClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 	for _, cluster := range clusters {
 		g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
 		g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds()))
+	}
+}
+
+func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	proxy := &model.Proxy{
+		Metadata:     &model.NodeMetadata{},
+		SidecarScope: &model.SidecarScope{},
+	}
+
+	servicePort := &model.Port{
+		Name:     "default",
+		Port:     80,
+		Protocol: protocol.HTTP,
+	}
+
+	service := &model.Service{
+		Hostname:    host.Name("backend.default.svc.cluster.local"),
+		Address:     "1.1.1.1",
+		ClusterVIPs: make(map[string]string),
+		Ports:       model.PortList{servicePort},
+		Resolution:  model.Passthrough,
+	}
+
+	instances := []*model.ServiceInstance{
+		{
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.1",
+				EndpointPort: 10001,
+			},
+		},
+	}
+
+	cases := []struct {
+		name     string
+		newEnv   func(model.ServiceDiscovery, model.IstioConfigStore) *model.Environment
+		destRule *networking.DestinationRule
+		expected apiv2_cluster.CircuitBreakers_Thresholds
+	}{
+		{
+			name: "port-level policy matched",
+			newEnv: func(sd model.ServiceDiscovery, cs model.IstioConfigStore) *model.Environment {
+				return newTestEnvironment(sd, testMesh, cs)
+			},
+			destRule: &networking.DestinationRule{
+				Host: "backend.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+							MaxConnections: 1000,
+						},
+					},
+					PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+						{
+							Port: &networking.PortSelector{
+								Number: 80,
+							},
+							ConnectionPool: &networking.ConnectionPoolSettings{
+								Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+									MaxConnections: 100,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: apiv2_cluster.CircuitBreakers_Thresholds{
+				MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
+				MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
+				MaxConnections:     &wrappers.UInt32Value{Value: 100},
+				MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
+			},
+		},
+		{
+			name: "port-level policy not matched",
+			newEnv: func(sd model.ServiceDiscovery, cs model.IstioConfigStore) *model.Environment {
+				return newTestEnvironment(sd, testMesh, cs)
+			},
+			destRule: &networking.DestinationRule{
+				Host: "backend.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+							MaxConnections: 1000,
+						},
+					},
+					PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+						{
+							Port: &networking.PortSelector{
+								Number: 8080,
+							},
+							ConnectionPool: &networking.ConnectionPoolSettings{
+								Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+									MaxConnections: 100,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: apiv2_cluster.CircuitBreakers_Thresholds{
+				MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
+				MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
+				MaxConnections:     &wrappers.UInt32Value{Value: 1000},
+				MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
+			},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+
+			configgen := NewConfigGenerator([]plugin.Plugin{})
+			serviceDiscovery := &fakes.ServiceDiscovery{}
+
+			configStore := &fakes.IstioConfigStore{
+				ListStub: func(typ resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
+					if typ == collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind() {
+						return []model.Config{
+							{ConfigMeta: model.ConfigMeta{
+								Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
+								Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
+								Name:    "acme",
+							},
+								Spec: c.destRule,
+							}}, nil
+					}
+					return nil, nil
+				},
+			}
+
+			env := c.newEnv(serviceDiscovery, configStore)
+			clusters := configgen.buildInboundClusters(proxy, env.PushContext, instances, []*model.Port{servicePort})
+			g.Expect(len(clusters)).ShouldNot(Equal(0))
+
+			for _, cluster := range clusters {
+				g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
+				if cluster.Name == "inbound|80|default|backend.default.svc.cluster.local" {
+					g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(&c.expected))
+				}
+			}
+		})
 	}
 }
 

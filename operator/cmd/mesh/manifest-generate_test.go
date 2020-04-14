@@ -181,7 +181,7 @@ func TestManifestGeneratePilot(t *testing.T) {
 		},
 		{
 			desc:       "pilot_override_values",
-			diffSelect: "Deployment:*:istiod",
+			diffSelect: "Deployment:*:istiod,HorizontalPodAutoscaler:*:istiod",
 		},
 		{
 			desc:       "pilot_override_kubernetes",
@@ -337,6 +337,22 @@ func TestInstallPackagePath(t *testing.T) {
 		},
 	})
 
+}
+
+// TestTrailingWhitespace ensures there are no trailing spaces in the manifests
+// This is important because `kubectl edit` and other commands will get escaped if they are present
+// making it hard to read/edit
+func TestTrailingWhitespace(t *testing.T) {
+	got, err := runManifestGenerate([]string{}, "", liveCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(got, "\n")
+	for i, l := range lines {
+		if strings.HasSuffix(l, " ") {
+			t.Errorf("Line %v has a trailing space: [%v]. Context: %v", i, l, strings.Join(lines[i-5:i+5], ","))
+		}
+	}
 }
 
 // This test enforces that objects that reference other objects do so properly, such as Service selecting deployment

@@ -4,9 +4,9 @@
     enableTracing: {{ .Values.global.enableTracing }}
     {{- end }}
     # Set accessLogFile to empty string to disable access log.
-    accessLogFile: "{{ .Values.global.proxy.accessLogFile }}"
-    accessLogFormat: "{{ .Values.global.proxy.accessLogFormat }}"
-    accessLogEncoding: "{{ .Values.global.proxy.accessLogEncoding | default "TEXT" }}"
+    accessLogFile: {{ .Values.global.proxy.accessLogFile | default "" | quote }}
+    accessLogFormat: {{ .Values.global.proxy.accessLogFormat | default "" | quote }}
+    accessLogEncoding: {{ .Values.global.proxy.accessLogEncoding | default "TEXT" | quote }}
     {{- with .Values.global.proxy.envoyAccessLogService }}
     enableEnvoyAccessLogService: {{ .enabled }}
     {{- end }}

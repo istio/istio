@@ -16,5 +16,8 @@ spec:
         requests:
           cpu: 222m
           memory: 333Mi
+      autoscaleMax: 8
+      autoscaleMin: 2
+      rollingMaxUnavailable: 30%
   unvalidatedValues:
       myCustomKey: someValue

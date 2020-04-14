@@ -16046,13 +16046,13 @@ metadata:
   name: {{ $gateway.name | default "istio-ingressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
-{{ $gateway.labels | toYaml | indent 4 }}
+{{ $gateway.labels | toYaml | trim | indent 4 }}
     release: {{ .Release.Name }}
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-{{ $gateway.labels | toYaml | indent 6 }}
+{{ $gateway.labels | toYaml | trim | indent 6 }}
       release: {{ .Release.Name }}
 {{- end }}
 `)
@@ -16306,7 +16306,7 @@ metadata:
   name: istio-ingressgateway-service-account
   namespace: {{ .Release.Namespace }}
   labels:
-{{ $gateway.labels | toYaml | indent 4 }}
+{{ $gateway.labels | toYaml | trim | indent 4 }}
     release: {{ .Release.Name }}
 `)
 
@@ -17314,11 +17314,6 @@ data:
       []
     injectedAnnotations:
 
-    # Configmap optimized for Istiod. Please DO NOT MERGE all changes from istio - in particular those dependent on
-    # Values.yaml, which should not be used by istiod.
-    
-    # Istiod only uses SDS based config ( files will mapped/handled by SDS).
-    
     template: |
       rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
       initContainers:
@@ -18721,12 +18716,7 @@ func chartsIstioControlIstioDiscoveryFilesGenIstioYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryFilesInjectionTemplateYaml = []byte(`# Configmap optimized for Istiod. Please DO NOT MERGE all changes from istio - in particular those dependent on
-# Values.yaml, which should not be used by istiod.
-
-# Istiod only uses SDS based config ( files will mapped/handled by SDS).
-
-template: |
+var _chartsIstioControlIstioDiscoveryFilesInjectionTemplateYaml = []byte(`template: |
   rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
   initContainers:
   {{ if ne (annotation .ObjectMeta `+"`"+`sidecar.istio.io/interceptionMode`+"`"+` .ProxyConfig.InterceptionMode) `+"`"+`NONE`+"`"+` }}
@@ -19252,9 +19242,9 @@ var _chartsIstioControlIstioDiscoveryTemplatesConfigmapYaml = []byte(`{{- define
     enableTracing: {{ .Values.global.enableTracing }}
     {{- end }}
     # Set accessLogFile to empty string to disable access log.
-    accessLogFile: "{{ .Values.global.proxy.accessLogFile }}"
-    accessLogFormat: "{{ .Values.global.proxy.accessLogFormat }}"
-    accessLogEncoding: "{{ .Values.global.proxy.accessLogEncoding | default "TEXT" }}"
+    accessLogFile: {{ .Values.global.proxy.accessLogFile | default "" | quote }}
+    accessLogFormat: {{ .Values.global.proxy.accessLogFormat | default "" | quote }}
+    accessLogEncoding: {{ .Values.global.proxy.accessLogEncoding | default "TEXT" | quote }}
     {{- with .Values.global.proxy.envoyAccessLogService }}
     enableEnvoyAccessLogService: {{ .enabled }}
     {{- end }}
@@ -20004,7 +19994,9 @@ func chartsIstioControlIstioDiscoveryTemplatesServiceYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml = []byte(`{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
+var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml = []byte(`{{- if eq .Values.revision "" }}
+{{- /* Old versions not needed when revision is set, otherwise we will start applying v2 to old proxies */}}
+{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -20246,6 +20238,7 @@ spec:
 ---
 {{- end}}
 {{- end}}
+{{- end}}
 `)
 
 func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14YamlBytes() ([]byte, error) {
@@ -20263,7 +20256,9 @@ func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_14Yaml() (*asset, erro
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml = []byte(`{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
+var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml = []byte(`{{- if eq .Values.revision "" }}
+{{- /* Old versions not needed when revision is set, otherwise we will start applying v2 to old proxies */}}
+{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -20740,6 +20735,7 @@ spec:
                   code:
                     local: { inline_string: envoy.wasm.null.stackdriver }
 ---
+{{- end}}
 {{- end}}
 {{- end}}
 `)
