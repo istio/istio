@@ -138,7 +138,7 @@ func checkInstallStatus(cs kube.Cluster) error {
 	return nil
 }
 
-func installWithCRFile(t *testing.T, ctx framework.TestContext, cs kube.Cluster,
+func installWithCRFile(t *testing.T, ctx resource.Context, cs kube.Cluster,
 	istioCtl istioctl.Instance, workDir string, iopFile string) {
 	log.Infof(fmt.Sprintf("=== install istio with new operator cr file: %s===\n", iopFile))
 	iop, err := ioutil.ReadFile(iopFile)
