@@ -168,6 +168,9 @@ type Proxy struct {
 	GlobalUnicastIP string
 
 	// Generator is used to generate resources for the node, based on the PushContext.
+	// If nil, the default networking/core v2 generator is used. This field can be set
+	// at connect time, based on node metadata, to trigger generation of a different style
+	// of configuration.
 	Generator Generator
 
 	// Active contains the list of watched resources for the proxy, keyed by the DiscoveryRequest type.
@@ -177,10 +180,14 @@ type Proxy struct {
 
 // WatchedResource tracks an active DiscoveryRequest type.
 type WatchedResource struct {
-	// TypeUrl is copied from the DiscoveryRequest that initiated watching this resource.
-	TypeUrl string
+	// TypeURL is copied from the DiscoveryRequest.TypeUrl that initiated watching this resource.
+	// The different spelling is due to linter.
+	TypeURL string
 
 	// Generator is the generator that will generate this resource.
+	// If not set, the default 'per proxy' Generator will be used, falling back to
+	// the mesh wide networking/core v2 generator. The specific set of Generators are
+	// based on node metadata, and selected by the implementation.
 	Generator Generator
 
 	// ResourceNames tracks the list of resources that are actively watched. If empty, all resources of the
