@@ -19,7 +19,7 @@
       "INCLUDE_INBOUND_PORTS": "9080",
       "app": "productpage",
       "traffic.sidecar.istio.io/includeInboundPorts": "9080",
-      "EXCHANGE_KEYS": "NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,CANONICAL_TELEMETRY_SERVICE,MESH_ID,SERVICE_ACCOUNT",
+      "EXCHANGE_KEYS": "NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,MESH_ID,SERVICE_ACCOUNT,CLUSTER_ID",
       "INSTANCE_IPS": "172.30.150.216,fe80::863:a7ff:fe55:26a9",
       "pod-template-hash": "7bbd79f8fd",
       "POD_PORTS": "[\n    {\"containerPort\":9080,\"protocol\":\"TCP\"}\n    ,{\"name\":\"http-envoy-prom\",\"containerPort\":15090,\"protocol\":\"TCP\"}\n]",
