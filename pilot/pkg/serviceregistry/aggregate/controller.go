@@ -177,11 +177,20 @@ func (c *Controller) Services() ([]*model.Service, error) {
 					services = append(services, sp)
 				}
 
-				s.Mutex.RLock()
+				// to avoid unnecessary locking, obtain a reference to the required maps
+				// this way, even if the underlying controller replaces the map, this code would be seeing
+				// an older version of the data, without any concurrency issues (:fingers crossed that go compiler treats
+				// map object assignment as pointer updates :)
+				clusterExternalAddresses := s.Attributes.ClusterExternalAddresses
+				clusterExternalPorts := s.Attributes.ClusterExternalPorts
+
+				if clusterExternalAddresses != nil {
+					sp.Attributes.ClusterExternalAddresses[r.Cluster()] = clusterExternalAddresses[r.Cluster()]
+				}
+				if clusterExternalPorts != nil {
+					sp.Attributes.ClusterExternalPorts[r.Cluster()] = clusterExternalPorts[r.Cluster()]
+				}
 				sp.ClusterVIPs[r.Cluster()] = s.Address
-				sp.Attributes.ClusterExternalAddresses[r.Cluster()] = s.Attributes.ClusterExternalAddresses[r.Cluster()]
-				sp.Attributes.ClusterExternalPorts[r.Cluster()] = s.Attributes.ClusterExternalPorts[r.Cluster()]
-				s.Mutex.RUnlock()
 			}
 		}
 		clusterAddressesMutex.Unlock()
@@ -230,11 +239,20 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 		if out == nil {
 			out = service.DeepCopy()
 		} else {
-			service.Mutex.RLock()
+			// to avoid unnecessary locking, obtain a reference to the required maps
+			// this way, even if the underlying controller replaces the map, this code would be seeing
+			// an older version of the data, without any concurrency issues (:fingers crossed that go compiler treats
+			// map object assignment as pointer updates :)
+			clusterExternalAddresses := service.Attributes.ClusterExternalAddresses
+			clusterExternalPorts := service.Attributes.ClusterExternalPorts
+
+			if clusterExternalAddresses != nil {
+				out.Attributes.ClusterExternalAddresses[r.Cluster()] = clusterExternalAddresses[r.Cluster()]
+			}
+			if clusterExternalPorts != nil {
+				out.Attributes.ClusterExternalPorts[r.Cluster()] = clusterExternalPorts[r.Cluster()]
+			}
 			out.ClusterVIPs[r.Cluster()] = service.Address
-			out.Attributes.ClusterExternalAddresses[r.Cluster()] = service.Attributes.ClusterExternalAddresses[r.Cluster()]
-			out.Attributes.ClusterExternalPorts[r.Cluster()] = service.Attributes.ClusterExternalPorts[r.Cluster()]
-			service.Mutex.RUnlock()
 		}
 	}
 	return out, errs

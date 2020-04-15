@@ -526,10 +526,10 @@ func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) {
 	for _, svc := range svcs {
 		if isNodePortGatewayService(svc) {
 			// update external address
-			svc.Mutex.Lock()
 			nodeSelector := c.nodeSelectorsForServices[svc.Hostname]
 			if nodeSelector == nil {
-				svc.Attributes.ClusterExternalAddresses[c.clusterID] = extAddresses
+				// always assign so that callers wont have to take a lock
+				svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: extAddresses}
 			} else {
 				var nodeAddresses []string
 				for _, n := range c.nodeInfoMap {
@@ -540,9 +540,9 @@ func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) {
 				if len(nodeAddresses) > 1 {
 					sort.Strings(nodeAddresses)
 				}
-				svc.Attributes.ClusterExternalAddresses[c.clusterID] = nodeAddresses
+				// always assign so that callers wont have to take a lock
+				svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: nodeAddresses}
 			}
-			svc.Mutex.Unlock()
 		}
 	}
 }

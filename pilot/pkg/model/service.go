@@ -611,8 +611,9 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 
 // GetServiceAddressForProxy returns a Service's IP address specific to the cluster where the node resides
 func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
-	s.Mutex.RLock()
-	defer s.Mutex.RUnlock()
+	// no locks needed here because in multicluster scenario, the aggregate controller returns
+	// a copy of the merged services. In single cluster scenario, there are no concurrent
+	// writers to this piece of data
 	if node.ClusterID != "" && s.ClusterVIPs[node.ClusterID] != "" {
 		return s.ClusterVIPs[node.ClusterID]
 	}
