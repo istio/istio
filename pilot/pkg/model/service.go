@@ -333,8 +333,6 @@ type ServiceAttributes struct {
 
 	// For Kubernetes platform
 
-	Mutex sync.RWMutex
-
 	// ClusterExternalAddresses is a mapping between a cluster name and the external
 	// address(es) to access the service from outside the cluster.
 	// Used by the aggregator to aggregate the Attributes.ClusterExternalAddresses
