@@ -16,8 +16,9 @@ package helm
 
 import (
 	"errors"
-	"k8s.io/helm/pkg/proto/hapi/chart"
 	"testing"
+
+	"k8s.io/helm/pkg/proto/hapi/chart"
 )
 
 func TestNewFileTemplateRenderer(t *testing.T) {
@@ -42,10 +43,10 @@ func TestNewFileTemplateRenderer(t *testing.T) {
 			},
 		},
 		{
-			desc: "initialized-notrunning",
+			desc:               "initialized-notrunning",
 			inHelmChartDirPath: "/goo/bar/goo",
-			inComponentName: "bazzycomponent",
-			inNamespace: "fooeynamespace",
+			inComponentName:    "bazzycomponent",
+			inNamespace:        "fooeynamespace",
 			want: FileTemplateRenderer{
 				namespace:        "fooeynamespace",
 				componentName:    "bazzycomponent",
@@ -53,7 +54,6 @@ func TestNewFileTemplateRenderer(t *testing.T) {
 				chart:            nil,
 				started:          false,
 			},
-
 		},
 	}
 	for _, tt := range tests {
@@ -68,15 +68,15 @@ func TestNewFileTemplateRenderer(t *testing.T) {
 // TODO(adiprerepa): find a way to pass a chart in and test it.
 func TestRenderManifest(t *testing.T) {
 	tests := []struct {
-		desc string
-		inValues string
-		inChart chart.Chart
+		desc                  string
+		inValues              string
+		inChart               chart.Chart
 		objFileTemplateReader FileTemplateRenderer
-		wantResult string
-		wantErr error
+		wantResult            string
+		wantErr               error
 	}{
 		{
-			desc: "empty",
+			desc:     "empty",
 			inValues: "",
 			inChart: chart.Chart{
 				Metadata:             nil,
@@ -96,10 +96,10 @@ func TestRenderManifest(t *testing.T) {
 				started:          false,
 			},
 			wantResult: "",
-			wantErr: errors.New("fileTemplateRenderer for  not started in renderChart"),
+			wantErr:    errors.New("fileTemplateRenderer for  not started in renderChart"),
 		},
 		{
-			desc: "not-started",
+			desc:     "not-started",
 			inValues: "foo-bar",
 			inChart: chart.Chart{
 				Metadata:             nil,
@@ -119,7 +119,7 @@ func TestRenderManifest(t *testing.T) {
 				started:          false,
 			},
 			wantResult: "",
-			wantErr: errors.New("fileTemplateRenderer for foo-component not started in renderChart"),
+			wantErr:    errors.New("fileTemplateRenderer for foo-component not started in renderChart"),
 		},
 	}
 	for _, tt := range tests {
