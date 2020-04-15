@@ -339,6 +339,7 @@ func (s *Server) initStatusController(args *PilotArgs) {
 		s.statusReporter.Start(stop)
 		return nil
 	})
+	s.environment.StatusReporter = s.statusReporter
 }
 
 func (s *Server) mcpController(
