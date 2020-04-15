@@ -1581,15 +1581,15 @@ func (ps *PushContext) initMeshNetworks() {
 			continue
 		}
 
-		clusterNames := getRemoteClustersFromMeshNetwork(networkConf)
+		registryNames := getNetworkRegistries(networkConf)
 		gateways := []*Gateway{}
 
 		for _, gw := range gws {
-			gateways = getGatewayAddresses(gw, clusterNames, ps.ServiceDiscovery)
-
-			log.Debugf("Endpoints from clusters(s) %v on network %v reachable through %d gateway(s)",
-				clusterNames, network, len(gateways))
+			gateways = append(gateways, getGatewayAddresses(gw, registryNames, ps.ServiceDiscovery)...)
 		}
+
+		log.Debugf("Endpoints from registries %v on network %v reachable through %d gateways",
+			registryNames, network, len(gateways))
 
 		ps.networkGateways[network] = gateways
 	}
@@ -1607,18 +1607,17 @@ func (ps *PushContext) initQuotaSpecBindings(env *Environment) error {
 	return err
 }
 
-// It is unfortunate that the field is named as registry in the API.
-func getRemoteClustersFromMeshNetwork(network *meshconfig.Network) []string {
-	var clusterNames []string
+func getNetworkRegistries(network *meshconfig.Network) []string {
+	var registryNames []string
 	for _, eps := range network.Endpoints {
 		if eps != nil && len(eps.GetFromRegistry()) > 0 {
-			clusterNames = append(clusterNames, eps.GetFromRegistry())
+			registryNames = append(registryNames, eps.GetFromRegistry())
 		}
 	}
-	return clusterNames
+	return registryNames
 }
 
-func getGatewayAddresses(gw *meshconfig.Network_IstioNetworkGateway, clusterNames []string, discovery ServiceDiscovery) []*Gateway {
+func getGatewayAddresses(gw *meshconfig.Network_IstioNetworkGateway, registryNames []string, discovery ServiceDiscovery) []*Gateway {
 	// First, if a gateway address is provided in the configuration use it. If the gateway address
 	// in the config was a hostname it got already resolved and replaced with an IP address
 	// when loading the config
@@ -1631,7 +1630,7 @@ func getGatewayAddresses(gw *meshconfig.Network_IstioNetworkGateway, clusterName
 		svc, _ := discovery.GetService(host.Name(gwSvcName))
 		if svc != nil && svc.Attributes.ClusterExternalAddresses != nil {
 			var gateways []*Gateway
-			for _, clusterName := range clusterNames {
+			for _, clusterName := range registryNames {
 				ips := svc.Attributes.ClusterExternalAddresses[clusterName]
 				remotePort := gw.Port
 				// check if we have node port mappings
