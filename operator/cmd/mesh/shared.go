@@ -34,14 +34,13 @@ var (
 )
 
 func initLogsOrExit(args *rootArgs) {
-	if err := configLogs(args.logToStdErr); err != nil {
+	if err := configLogs(args.logToStdErr, log.DefaultOptions()); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Could not configure logs: %s", err)
 		os.Exit(1)
 	}
 }
 
-func configLogs(logToStdErr bool) error {
-	opt := log.DefaultOptions()
+func configLogs(logToStdErr bool, opt *log.Options) error {
 	if logToStdErr {
 		opt.OutputPaths = []string{"stderr"}
 	}
