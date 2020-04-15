@@ -25,8 +25,6 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pilot/pkg/status"
-
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	"github.com/golang/protobuf/jsonpb"
@@ -73,7 +71,7 @@ type Environment struct {
 	// CONFIG AND PUSH
 	PushContext *PushContext
 
-	StatusReporter *status.Reporter
+	StatusReporter DistributionEventHandler
 
 	// DomainSuffix provides a default domain for the Istio server.
 	DomainSuffix string

@@ -42,9 +42,8 @@ func NewIstioContext(stop <-chan struct{}) context.Context {
 type Reporter struct {
 	mu                  sync.RWMutex
 	status              map[string]string
-	reverse_status      map[string][]string
+	reverseStatus       map[string][]string
 	dirty               bool
-	imu                 sync.RWMutex
 	inProgressResources []string
 	client              v1.ConfigMapInterface
 	cm                  *corev1.ConfigMap
@@ -64,7 +63,7 @@ func (r *Reporter) Start(stop <-chan struct{}) {
 				if r.cm != nil {
 					// TODO: is the use of a cancelled context here a problem?  Maybe set a short timeout context?
 					if err := r.client.Delete(ctx, r.cm.Name, v12.DeleteOptions{}); err != nil {
-
+						scope.Errorf("failed to properly clean up distribution report: %v", err)
 					}
 				}
 				return
@@ -86,7 +85,7 @@ func (r *Reporter) buildReport() (DistributionReport, []string) {
 		Reporter:       os.Getenv("POD"),
 		DataPlaneCount: len(r.status),
 	}
-	for nonce, dataplanes := range r.reverse_status {
+	for nonce, dataplanes := range r.reverseStatus {
 		for _, key := range r.inProgressResources {
 			// it might be more optimal to provide for a full dump of the config at a certain version?
 			res := ResourceFromString(key)
@@ -160,18 +159,18 @@ func (r *Reporter) RegisterEvent(conID string, xdsType string, nonce string) {
 	// TODO might need to batch this to prevent lock contention
 	key := conID + xdsType // TODO: delimit?
 	if old, ok := r.status[key]; ok {
-		if keys, ok := r.reverse_status[old]; ok {
+		if keys, ok := r.reverseStatus[old]; ok {
 			for i := range keys {
 				if keys[i] == key {
-					r.reverse_status[old] = append(keys[:i], keys[i+1:]...)
+					r.reverseStatus[old] = append(keys[:i], keys[i+1:]...)
 					break
 				}
 			}
-			if len(r.reverse_status[old]) < 1 {
-				delete(r.reverse_status, old)
+			if len(r.reverseStatus[old]) < 1 {
+				delete(r.reverseStatus, old)
 			}
 		}
 	}
 	r.status[key] = nonce
-	r.reverse_status[nonce] = append(r.reverse_status[nonce], key)
+	r.reverseStatus[nonce] = append(r.reverseStatus[nonce], key)
 }

@@ -99,7 +99,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 			}
 		}
 		if features.EnableStatus {
-			s.initStatusController(args)
+			s.initStatusController()
 		}
 	}
 
@@ -328,7 +328,7 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 	return nil
 }
 
-func (s *Server) initStatusController(args *PilotArgs) {
+func (s *Server) initStatusController() {
 	s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
 		(&status.DistributionController{}).Start(s.kubeConfig, stop)
 	})
