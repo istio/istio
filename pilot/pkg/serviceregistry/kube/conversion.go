@@ -43,6 +43,12 @@ const (
 	// responsible for it
 	IngressClassAnnotation = "kubernetes.io/ingress.class"
 
+	// TODO: move to API
+	// The value for this annotation is a set of key value pairs (node labels)
+	// that can be used to select a subset of nodes from the pool of k8s nodes
+	// It is used for multi-cluster scenario, and with nodePort type gateway service.
+	NodeSelectorAnnotation = "traffic.istio.io/nodeSelector"
+
 	managementPortPrefix = "mgmt-"
 )
 
@@ -80,20 +86,18 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 
 	var exportTo map[visibility.Instance]bool
 	serviceaccounts := make([]string, 0)
-	if svc.Annotations != nil {
-		if svc.Annotations[annotation.AlphaCanonicalServiceAccounts.Name] != "" {
-			serviceaccounts = append(serviceaccounts, strings.Split(svc.Annotations[annotation.AlphaCanonicalServiceAccounts.Name], ",")...)
+	if svc.Annotations[annotation.AlphaCanonicalServiceAccounts.Name] != "" {
+		serviceaccounts = append(serviceaccounts, strings.Split(svc.Annotations[annotation.AlphaCanonicalServiceAccounts.Name], ",")...)
+	}
+	if svc.Annotations[annotation.AlphaKubernetesServiceAccounts.Name] != "" {
+		for _, ksa := range strings.Split(svc.Annotations[annotation.AlphaKubernetesServiceAccounts.Name], ",") {
+			serviceaccounts = append(serviceaccounts, kubeToIstioServiceAccount(ksa, svc.Namespace))
 		}
-		if svc.Annotations[annotation.AlphaKubernetesServiceAccounts.Name] != "" {
-			for _, ksa := range strings.Split(svc.Annotations[annotation.AlphaKubernetesServiceAccounts.Name], ",") {
-				serviceaccounts = append(serviceaccounts, kubeToIstioServiceAccount(ksa, svc.Namespace))
-			}
-		}
-		if svc.Annotations[annotation.NetworkingExportTo.Name] != "" {
-			exportTo = make(map[visibility.Instance]bool)
-			for _, e := range strings.Split(svc.Annotations[annotation.NetworkingExportTo.Name], ",") {
-				exportTo[visibility.Instance(e)] = true
-			}
+	}
+	if svc.Annotations[annotation.NetworkingExportTo.Name] != "" {
+		exportTo = make(map[visibility.Instance]bool)
+		for _, e := range strings.Split(svc.Annotations[annotation.NetworkingExportTo.Name], ",") {
+			exportTo[visibility.Instance(e)] = true
 		}
 	}
 	sort.Strings(serviceaccounts)
@@ -115,7 +119,12 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 		},
 	}
 
-	if svc.Spec.Type == coreV1.ServiceTypeNodePort {
+	switch svc.Spec.Type {
+	case coreV1.ServiceTypeNodePort:
+		if svc.Annotations[NodeSelectorAnnotation] == "" {
+			// only do this for istio ingress-gateway services
+			break
+		}
 		// store the service port to node port mappings
 		portMap := make(map[uint32]uint32)
 		for _, p := range svc.Spec.Ports {
@@ -123,22 +132,22 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 		}
 		istioService.Attributes.ClusterExternalPorts = map[string]map[uint32]uint32{clusterID: portMap}
 		// address mappings will be done elsewhere
-	}
-
-	if svc.Spec.Type == coreV1.ServiceTypeLoadBalancer && len(svc.Status.LoadBalancer.Ingress) > 0 {
-		var lbAddrs []string
-		for _, ingress := range svc.Status.LoadBalancer.Ingress {
-			if len(ingress.IP) > 0 {
-				lbAddrs = append(lbAddrs, ingress.IP)
-			} else if len(ingress.Hostname) > 0 {
-				addrs, err := net.DefaultResolver.LookupHost(context.TODO(), ingress.Hostname)
-				if err == nil {
-					lbAddrs = append(lbAddrs, addrs...)
+	case coreV1.ServiceTypeLoadBalancer:
+		if len(svc.Status.LoadBalancer.Ingress) > 0 {
+			var lbAddrs []string
+			for _, ingress := range svc.Status.LoadBalancer.Ingress {
+				if len(ingress.IP) > 0 {
+					lbAddrs = append(lbAddrs, ingress.IP)
+				} else if len(ingress.Hostname) > 0 {
+					addrs, err := net.DefaultResolver.LookupHost(context.TODO(), ingress.Hostname)
+					if err == nil {
+						lbAddrs = append(lbAddrs, addrs...)
+					}
 				}
 			}
-		}
-		if len(lbAddrs) > 0 {
-			istioService.Attributes.ClusterExternalAddresses = map[string][]string{clusterID: lbAddrs}
+			if len(lbAddrs) > 0 {
+				istioService.Attributes.ClusterExternalAddresses = map[string][]string{clusterID: lbAddrs}
+			}
 		}
 	}
 

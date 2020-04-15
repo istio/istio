@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
+	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/metadata"
@@ -171,6 +172,9 @@ type Controller struct {
 	endpoints      kubeEndpointsController
 
 	nodeMetadataInformer cache.SharedIndexInformer
+	// Used to watch node accessible from remote cluster.
+	// In multi-cluster(shared control plane multi-networks) scenario, ingress gateway service can be of nodePort type.
+	// With this, we can populate mesh's gateway address with the node ips.
 	filteredNodeInformer cache.SharedIndexInformer
 	pods                 *PodCache
 	metrics              model.Metrics
@@ -237,14 +241,11 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 	metadataSharedInformer := metadatainformer.NewSharedInformerFactory(metadataClient, options.ResyncPeriod)
 	nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
 	c.nodeMetadataInformer = metadataSharedInformer.ForResource(nodeResource).Informer()
-	registerHandlers(c.nodeMetadataInformer, c.queue, "NodeMetadata", c.onNodeMetadataEvent)
-
 	// This is for getting the node IPs of a selected set of nodes
 	// TODO: introduce list options after the mesh config API update.
-	filteredNodeInformerFactory := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod,
-		informers.WithTweakListOptions(func(listOptions *metav1.ListOptions) {}))
-
-	c.filteredNodeInformer = filteredNodeInformerFactory.Core().V1().Nodes().Informer()
+	c.filteredNodeInformer = coreinformers.NewFilteredNodeInformer(client, options.ResyncPeriod,
+		cache.Indexers{},
+		func(options *metav1.ListOptions) {})
 	registerHandlers(c.filteredNodeInformer, c.queue, "Nodes", c.onNodeEvent)
 
 	podInformer := sharedInformers.Core().V1().Pods().Informer()
@@ -328,25 +329,16 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 	return nil
 }
 
-// TODO: move to API
-// The value for this annotation is a set of key value pairs (node labels)
-// that can be used to select a subset of nodes from the pool of k8s nodes
-const nodeSelectorAnnotation = "traffic.istio.io/nodeSelector"
-
 func getNodeSelectorsForService(svc v1.Service) labels.Instance {
-	if svc.Annotations != nil && svc.Annotations[nodeSelectorAnnotation] != "" {
+	if nodeSelector := svc.Annotations[kube.NodeSelectorAnnotation]; nodeSelector != "" {
 		var nodeSelectorKV map[string]string
-		if err := json.Unmarshal([]byte(svc.Annotations[nodeSelectorAnnotation]), &nodeSelectorKV); err != nil {
+		if err := json.Unmarshal([]byte(nodeSelector), &nodeSelectorKV); err != nil {
 			log.Debugf("failed to unmarshal node selector annotation value for service %s.%s: %v",
 				svc.Name, svc.Namespace, err)
 		}
 		return nodeSelectorKV
 	}
 	return nil
-}
-
-func (c *Controller) onNodeMetadataEvent(obj interface{}, event model.Event) error {
-	return c.checkReadyForEvents()
 }
 
 func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
@@ -467,37 +459,9 @@ func (c *Controller) Stop() {
 
 // Services implements a service catalog operation
 func (c *Controller) Services() ([]*model.Service, error) {
-	var k8sNodes []*kubernetesNode
-	var extAddresses []string
-	rawNodes := c.filteredNodeInformer.GetStore().List()
-	for _, i := range rawNodes {
-		machine := i.(*v1.Node)
-		for _, address := range machine.Status.Addresses {
-			if address.Type == v1.NodeExternalIP && address.Address != "" {
-				k8sNodes = append(k8sNodes,
-					&kubernetesNode{address: address.Address, labels: machine.Labels})
-				extAddresses = append(extAddresses, address.Address)
-			}
-		}
-	}
-
 	c.Lock()
 	out := make([]*model.Service, 0, len(c.servicesMap))
 	for _, svc := range c.servicesMap {
-		if isNodePortService(svc) {
-			nodeSelector := c.nodeSelectorsForServices[svc.Hostname]
-			if nodeSelector == nil {
-				svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: extAddresses}
-			} else {
-				var nodeAddresses []string
-				for _, n := range k8sNodes {
-					if nodeSelector.SubsetOf(n.labels) {
-						nodeAddresses = append(nodeAddresses, n.address)
-					}
-				}
-				svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: nodeAddresses}
-			}
-		}
 		out = append(out, svc)
 	}
 	c.Unlock()
@@ -509,8 +473,37 @@ func (c *Controller) Services() ([]*model.Service, error) {
 // GetService implements a service catalog operation by hostname specified.
 func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 	c.RLock()
-	defer c.RUnlock()
-	return c.servicesMap[hostname], nil
+	svc := c.servicesMap[hostname]
+	c.RUnlock()
+	if isNodePortService(svc) {
+		// update external address
+		var k8sNodes []*kubernetesNode
+		var extAddresses []string
+		rawNodes := c.filteredNodeInformer.GetStore().List()
+		for _, i := range rawNodes {
+			machine := i.(*v1.Node)
+			for _, address := range machine.Status.Addresses {
+				if address.Type == v1.NodeExternalIP && address.Address != "" {
+					k8sNodes = append(k8sNodes,
+						&kubernetesNode{address: address.Address, labels: machine.Labels})
+					extAddresses = append(extAddresses, address.Address)
+				}
+			}
+		}
+		nodeSelector := c.nodeSelectorsForServices[svc.Hostname]
+		if nodeSelector == nil {
+			svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: extAddresses}
+		} else {
+			var nodeAddresses []string
+			for _, n := range k8sNodes {
+				if nodeSelector.SubsetOf(n.labels) {
+					nodeAddresses = append(nodeAddresses, n.address)
+				}
+			}
+			svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: nodeAddresses}
+		}
+	}
+	return svc, nil
 }
 
 // getPodLocality retrieves the locality for a pod.

@@ -144,19 +144,6 @@ func (c *Controller) Services() ([]*model.Service, error) {
 					sp.ClusterVIPs = make(map[string]string)
 				}
 				sp.ClusterVIPs[r.Cluster()] = s.Address
-
-				if s.Attributes.ClusterExternalAddresses != nil && len(s.Attributes.ClusterExternalAddresses[r.Cluster()]) > 0 {
-					if sp.Attributes.ClusterExternalAddresses == nil {
-						sp.Attributes.ClusterExternalAddresses = make(map[string][]string)
-					}
-					sp.Attributes.ClusterExternalAddresses[r.Cluster()] = s.Attributes.ClusterExternalAddresses[r.Cluster()]
-				}
-				if s.Attributes.ClusterExternalPorts != nil && len(s.Attributes.ClusterExternalPorts[r.Cluster()]) > 0 {
-					if sp.Attributes.ClusterExternalPorts == nil {
-						sp.Attributes.ClusterExternalPorts = make(map[string]map[uint32]uint32)
-					}
-					sp.Attributes.ClusterExternalPorts[r.Cluster()] = s.Attributes.ClusterExternalPorts[r.Cluster()]
-				}
 				sp.Mutex.Unlock()
 			}
 		}
@@ -166,19 +153,49 @@ func (c *Controller) Services() ([]*model.Service, error) {
 }
 
 // GetService retrieves a service by hostname if exists
+// Currently only used to get get gateway service
+// TODO: merge with Services()
 func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 	var errs error
+	var out *model.Service
 	for _, r := range c.GetRegistries() {
 		service, err := r.GetService(hostname)
 		if err != nil {
 			errs = multierror.Append(errs, err)
-		} else if service != nil {
-			if errs != nil {
-				log.Warnf("GetService() found match but encountered an error: %v", errs)
-			}
-			return service, nil
+			continue
 		}
+		if r.Cluster() == "" { // Should we instead check for registry name to be on safe side?
+			// If the service does not have a cluster ID (consul, ServiceEntries, CloudFoundry, etc.)
+			// Do not bother checking for the cluster ID.
+			// DO NOT ASSIGN CLUSTER ID to non-k8s registries. This will prevent service entries with multiple
+			// VIPs or CIDR ranges in the address field
+			return service, nil
+		} else {
+			// Race condition: multiple threads may call Services, and multiple services
+			// may modify one of the service's cluster ID
+			clusterAddressesMutex.Lock()
+			// This is K8S typically
+			if out == nil {
+				out = service
+			}
 
+			out.Mutex.Lock()
+			// ClusterExternalAddresses and ClusterExternalAddresses are only used for getting gateway address
+			if len(service.Attributes.ClusterExternalAddresses[r.Cluster()]) > 0 {
+				if out.Attributes.ClusterExternalAddresses == nil {
+					out.Attributes.ClusterExternalAddresses = make(map[string][]string)
+				}
+				out.Attributes.ClusterExternalAddresses[r.Cluster()] = service.Attributes.ClusterExternalAddresses[r.Cluster()]
+			}
+			if len(service.Attributes.ClusterExternalPorts[r.Cluster()]) > 0 {
+				if out.Attributes.ClusterExternalPorts == nil {
+					out.Attributes.ClusterExternalPorts = make(map[string]map[uint32]uint32)
+				}
+				out.Attributes.ClusterExternalPorts[r.Cluster()] = service.Attributes.ClusterExternalPorts[r.Cluster()]
+			}
+			out.Mutex.Unlock()
+			clusterAddressesMutex.Unlock()
+		}
 	}
 	return nil, errs
 }
