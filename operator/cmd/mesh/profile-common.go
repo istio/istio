@@ -16,6 +16,7 @@ package mesh
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -240,10 +241,15 @@ func rewriteURLToLocalInstallPath(installPackagePath, profileOrPath string, skip
 			return "", "", err
 		}
 		// Transform a profileOrPath like "default" or "demo" into a filesystem path like
-		// /tmp/istio-install-packages/istio-1.5.1/install/kubernetes/operator/profiles/default.yaml.
-		profileOrPath = filepath.Join(installPackagePath, helm.OperatorSubdirFilePath, "profiles", profileOrPath+".yaml")
+		// /tmp/istio-install-packages/istio-1.5.1/manifests/profiles/default.yaml OR
+		// /tmp/istio-install-packages/istio-1.5.1/install/kubernetes/operator/profiles/default.yaml (before 1.6).
+		baseDir := filepath.Join(installPackagePath, helm.OperatorSubdirFilePath15)
+		if _, err := os.Stat(baseDir); os.IsNotExist(err) {
+			baseDir = filepath.Join(installPackagePath, helm.OperatorSubdirFilePath)
+		}
+		profileOrPath = filepath.Join(baseDir, "profiles", profileOrPath+".yaml")
 		// Rewrite installPackagePath to the local file path for further processing.
-		installPackagePath = filepath.Join(installPackagePath, helm.OperatorSubdirFilePath)
+		installPackagePath = baseDir
 	}
 
 	return installPackagePath, profileOrPath, nil

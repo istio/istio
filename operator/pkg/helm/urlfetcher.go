@@ -23,18 +23,20 @@ import (
 	"path/filepath"
 	"strings"
 
-	"istio.io/istio/operator/pkg/version"
-
 	"github.com/mholt/archiver"
 
 	"istio.io/istio/operator/pkg/httprequest"
+	"istio.io/istio/operator/pkg/version"
 )
 
 const (
 	// InstallationDirectory is temporary folder name for caching downloaded installation packages.
 	InstallationDirectory = "istio-install-packages"
 	// OperatorSubdirFilePath is file path of installation packages to helm charts.
-	OperatorSubdirFilePath = "install/kubernetes/operator"
+	OperatorSubdirFilePath = "manifests"
+	// OperatorSubdirFilePath15 is the file path of installation packages to helm charts for 1.5 and earlier.
+	// TODO: remove in 1.7.
+	OperatorSubdirFilePath15 = "install/kubernetes/operator"
 )
 
 // URLFetcher is used to fetch and manipulate charts from remote url
