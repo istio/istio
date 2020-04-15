@@ -768,6 +768,9 @@ func (s *DiscoveryServer) removeCon(conID string) {
 	}
 
 	xdsClients.Record(float64(len(s.adsClients)))
+	if s.Env.StatusReporter != nil {
+		go s.Env.StatusReporter.RegisterDisconnect(conID, []string{ClusterType, ListenerType, RouteType, EndpointType})
+	}
 }
 
 // Send with timeout

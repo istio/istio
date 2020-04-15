@@ -75,8 +75,6 @@ func (r *Reporter) Start(stop <-chan struct{}) {
 	}()
 }
 
-// TODO: handle dataplane disconnect
-
 func (r *Reporter) buildReport() (DistributionReport, []string) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -158,6 +156,13 @@ func (r *Reporter) RegisterEvent(conID string, xdsType string, nonce string) {
 	r.dirty = true
 	// TODO might need to batch this to prevent lock contention
 	key := conID + xdsType // TODO: delimit?
+	r.deleteKeyFromReverseMap(key)
+	r.status[key] = nonce
+	r.reverseStatus[nonce] = append(r.reverseStatus[nonce], key)
+}
+
+// must have lock before calling
+func (r *Reporter) deleteKeyFromReverseMap(key string) {
 	if old, ok := r.status[key]; ok {
 		if keys, ok := r.reverseStatus[old]; ok {
 			for i := range keys {
@@ -171,6 +176,15 @@ func (r *Reporter) RegisterEvent(conID string, xdsType string, nonce string) {
 			}
 		}
 	}
-	r.status[key] = nonce
-	r.reverseStatus[nonce] = append(r.reverseStatus[nonce], key)
+}
+
+func (r *Reporter) RegisterDisconnect(conID string, xdsTypes []string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.dirty = true
+	for _, xdsType := range xdsTypes {
+		key := conID + xdsType // TODO: delimit?
+		r.deleteKeyFromReverseMap(key)
+		delete(r.status, key)
+	}
 }

@@ -16,4 +16,5 @@ package model
 
 type DistributionEventHandler interface {
 	RegisterEvent(conID string, xdsType string, nonce string)
+	RegisterDisconnect(s string, urls []string)
 }
