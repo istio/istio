@@ -305,10 +305,11 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		// instance conversion is only required when service is added/updated.
 		instances := kube.ExternalNameServiceInstances(*svc, svcConv)
 		c.Lock()
-		if isNodePortService(svcConv) {
+		if isNodePortGatewayService(svcConv) {
 			// We need to know which services are using node selectors because during node events,
 			// we have to update all the node port services accordingly.
 			c.nodeSelectorsForServices[svcConv.Hostname] = getNodeSelectorsForService(*svc)
+			c.updateServiceExternalAddr(svcConv)
 		}
 
 		c.servicesMap[svcConv.Hostname] = svcConv
@@ -346,19 +347,22 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 		return err
 	}
 
+	// update all related services
+	c.updateServiceExternalAddr()
+
 	// TODO: optimize me. We just need a full EDS push
 	// Right now, triggers full push which in turn causes XDS to do Services()
 	// call that provides updated list of node IPs for each service. This will
 	// then get pushed to all the envoys.
 	// The hope here is that the debouncing logic in xds code will handle the
 	// initial onslaught of ADD events.
-	c.xdsUpdater.ConfigUpdate(&model.PushRequest{
-		Full: true,
-	})
+	// c.xdsUpdater.ConfigUpdate(&model.PushRequest{
+	// 	Full: true,
+	// })
 	return nil
 }
 
-func isNodePortService(svc *model.Service) bool {
+func isNodePortGatewayService(svc *model.Service) bool {
 	return svc.Attributes.ClusterExternalPorts != nil
 }
 
@@ -475,35 +479,47 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 	c.RLock()
 	svc := c.servicesMap[hostname]
 	c.RUnlock()
-	if isNodePortService(svc) {
-		// update external address
-		var k8sNodes []*kubernetesNode
-		var extAddresses []string
-		rawNodes := c.filteredNodeInformer.GetStore().List()
-		for _, i := range rawNodes {
-			machine := i.(*v1.Node)
-			for _, address := range machine.Status.Addresses {
-				if address.Type == v1.NodeExternalIP && address.Address != "" {
-					k8sNodes = append(k8sNodes,
-						&kubernetesNode{address: address.Address, labels: machine.Labels})
-					extAddresses = append(extAddresses, address.Address)
+	return svc, nil
+}
+
+// updateServiceExternalAddr updates ClusterExternalAddresses for ingress gateway service of nodePort type
+func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) {
+	// node event, update all nodePort gateway services
+	if len(svcs) == 0 {
+		svcs, _ = c.Services()
+	}
+	for _, svc := range svcs {
+		if isNodePortGatewayService(svc) {
+			// update external address
+			var k8sNodes []*kubernetesNode
+			var extAddresses []string
+			rawNodes := c.filteredNodeInformer.GetStore().List()
+			for _, i := range rawNodes {
+				machine := i.(*v1.Node)
+				for _, address := range machine.Status.Addresses {
+					if address.Type == v1.NodeExternalIP && address.Address != "" {
+						k8sNodes = append(k8sNodes,
+							&kubernetesNode{address: address.Address, labels: machine.Labels})
+						extAddresses = append(extAddresses, address.Address)
+					}
 				}
 			}
-		}
-		nodeSelector := c.nodeSelectorsForServices[svc.Hostname]
-		if nodeSelector == nil {
-			svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: extAddresses}
-		} else {
-			var nodeAddresses []string
-			for _, n := range k8sNodes {
-				if nodeSelector.SubsetOf(n.labels) {
-					nodeAddresses = append(nodeAddresses, n.address)
+			svc.Attributes.Mutex.Lock()
+			nodeSelector := c.nodeSelectorsForServices[svc.Hostname]
+			if nodeSelector == nil {
+				svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: extAddresses}
+			} else {
+				var nodeAddresses []string
+				for _, n := range k8sNodes {
+					if nodeSelector.SubsetOf(n.labels) {
+						nodeAddresses = append(nodeAddresses, n.address)
+					}
 				}
+				svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: nodeAddresses}
 			}
-			svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: nodeAddresses}
+			svc.Attributes.Mutex.Unlock()
 		}
 	}
-	return svc, nil
 }
 
 // getPodLocality retrieves the locality for a pod.
