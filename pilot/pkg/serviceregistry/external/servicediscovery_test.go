@@ -505,28 +505,6 @@ func expectProxyInstances(t *testing.T, sd *ServiceEntryStore, expected []*model
 	}, retry.Converge(2), retry.Timeout(time.Second*5))
 }
 
-func validateEvents(t *testing.T, ch chan Event, validator func(expect Event, got Event) bool, events ...Event) {
-	t.Helper()
-	for _, event := range events {
-		got := waitForEvent(t, ch)
-		if !validator(event, got) {
-			t.Fatalf("expected event %+v, got %+v", event, got)
-		}
-	}
-	// Drain events
-	for {
-		select {
-		case e := <-ch:
-			log.Warnf("ignoring event %+v", e)
-			if len(events) == 0 {
-				t.Fatalf("got unexpected event %+v", e)
-			}
-		default:
-			return
-		}
-	}
-}
-
 func expectEvents(t *testing.T, ch chan Event, events ...Event) {
 	cmpPushRequest := func(expectReq, gotReq *model.PushRequest) bool {
 		var expectConfigs, gotConfigs map[model.ConfigKey]struct{}
@@ -886,18 +864,4 @@ func sortPorts(ports []*model.Port) {
 		}
 		return ports[i].Port < ports[j].Port
 	})
-}
-
-func configsUpdatedValidator(expect, got Event) bool {
-	expectPushReq, gotPushReq := expect.pushReq, got.pushReq
-	expect.pushReq, got.pushReq = nil, nil
-	if got != expect {
-		return false
-	}
-
-	if reflect.DeepEqual(expectPushReq.ConfigsUpdated, gotPushReq.ConfigsUpdated) {
-		return false
-	}
-
-	return true
 }
