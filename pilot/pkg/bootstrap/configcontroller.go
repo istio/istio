@@ -99,7 +99,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 			}
 		}
 		if features.EnableStatus {
-			s.initStatusController()
+			s.initStatusController(args)
 		}
 	}
 
@@ -328,12 +328,13 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 	return nil
 }
 
-func (s *Server) initStatusController() {
+func (s *Server) initStatusController(args *PilotArgs) {
 	s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
 		(&status.DistributionController{}).Start(s.kubeConfig, stop)
 	})
 	s.statusReporter = &status.Reporter{
 		UpdateInterval: time.Millisecond * 500, // TODO: use args here?
+		PodName:        args.PodName,
 	}
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		s.statusReporter.Start(stop)

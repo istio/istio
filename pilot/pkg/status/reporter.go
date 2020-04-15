@@ -16,7 +16,6 @@ package status
 
 import (
 	"context"
-	"os"
 	"sync"
 	"time"
 
@@ -48,6 +47,7 @@ type Reporter struct {
 	client              v1.ConfigMapInterface
 	cm                  *corev1.ConfigMap
 	UpdateInterval      time.Duration
+	PodName             string
 	clock               clock.Clock
 	store               model.ConfigStore
 }
@@ -82,7 +82,7 @@ func (r *Reporter) buildReport() (DistributionReport, []string) {
 	defer r.mu.RUnlock()
 	finishedResources := []string{}
 	out := DistributionReport{
-		Reporter:       os.Getenv("POD"),
+		Reporter:       r.PodName,
 		DataPlaneCount: len(r.status),
 	}
 	for nonce, dataplanes := range r.reverseStatus {
