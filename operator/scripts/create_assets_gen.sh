@@ -24,18 +24,9 @@ OUT_DIR=$(mktemp -d -t istio-charts.XXXXXXXXXX) || { echo "Failed to create temp
 
 SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOTDIR="${SCRIPTPATH}/../.."
-
 OPERATOR_DIR="${ROOTDIR}/operator"
-INSTALLER_DIR="${ROOTDIR}/manifests"
 
-cp -Rf "${OPERATOR_DIR}"/data/* "${OUT_DIR}/."
-
-mkdir -p "${OUT_DIR}/charts"
-
-for c in base gateways istio-cni istiocoredns istio-telemetry istio-control istio-policy istio-operator
-do
-    cp -Rf "${INSTALLER_DIR}/${c}" "${OUT_DIR}/charts"
-done
+"${SCRIPTPATH}"/create_release_charts.sh -o "${OUT_DIR}"
 
 cd "${OUT_DIR}"
 go-bindata --nocompress --nometadata --pkg vfs -o "${OPERATOR_DIR}/pkg/vfs/assets.gen.go" ./...
