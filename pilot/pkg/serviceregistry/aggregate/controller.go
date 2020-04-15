@@ -171,15 +171,12 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 			// VIPs or CIDR ranges in the address field
 			return service, nil
 		} else {
-			// Race condition: multiple threads may call Services, and multiple services
-			// may modify one of the service's cluster ID
-			clusterAddressesMutex.Lock()
 			// This is K8S typically
 			if out == nil {
 				out = service
 			}
 
-			out.Mutex.Lock()
+			out.Attributes.Mutex.Lock()
 			// ClusterExternalAddresses and ClusterExternalAddresses are only used for getting gateway address
 			if len(service.Attributes.ClusterExternalAddresses[r.Cluster()]) > 0 {
 				if out.Attributes.ClusterExternalAddresses == nil {
@@ -193,8 +190,7 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 				}
 				out.Attributes.ClusterExternalPorts[r.Cluster()] = service.Attributes.ClusterExternalPorts[r.Cluster()]
 			}
-			out.Mutex.Unlock()
-			clusterAddressesMutex.Unlock()
+			out.Attributes.Mutex.Unlock()
 		}
 	}
 	return nil, errs
