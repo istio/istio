@@ -234,7 +234,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 				defer s.removeCon(con.ConID)
 			}
-			go s.Env.StatusReporter.RegisterEvent(con.ConID, discReq.TypeUrl, discReq.ResponseNonce)
+			if s.Env.StatusReporter != nil {
+				go s.Env.StatusReporter.RegisterEvent(con.ConID, discReq.TypeUrl, discReq.ResponseNonce)
+			}
 
 			// Based on node metadata a different generator was selected, use it instead of the default
 			// behavior.
