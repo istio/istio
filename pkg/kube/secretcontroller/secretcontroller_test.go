@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -165,19 +166,19 @@ func Test_SecretController(t *testing.T) {
 					mu.Lock()
 					defer mu.Unlock()
 					return added
-				}).Should(Equal(step.wantAdded))
+				}, 10*time.Second).Should(Equal(step.wantAdded))
 			case step.wantUpdated != "":
 				g.Eventually(func() string {
 					mu.Lock()
 					defer mu.Unlock()
 					return updated
-				}).Should(Equal(step.wantUpdated))
+				}, 10*time.Second).Should(Equal(step.wantUpdated))
 			case step.wantDeleted != "":
 				g.Eventually(func() string {
 					mu.Lock()
 					defer mu.Unlock()
 					return deleted
-				}).Should(Equal(step.wantDeleted))
+				}, 10*time.Second).Should(Equal(step.wantDeleted))
 			default:
 				g.Consistently(func() bool {
 					mu.Lock()

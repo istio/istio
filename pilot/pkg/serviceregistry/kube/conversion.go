@@ -115,6 +115,16 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 		},
 	}
 
+	if svc.Spec.Type == coreV1.ServiceTypeNodePort {
+		// store the service port to node port mappings
+		portMap := make(map[uint32]uint32)
+		for _, p := range svc.Spec.Ports {
+			portMap[uint32(p.Port)] = uint32(p.NodePort)
+		}
+		istioService.Attributes.ClusterExternalPorts = map[string]map[uint32]uint32{clusterID: portMap}
+		// address mappings will be done elsewhere
+	}
+
 	if svc.Spec.Type == coreV1.ServiceTypeLoadBalancer && len(svc.Status.LoadBalancer.Ingress) > 0 {
 		var lbAddrs []string
 		for _, ingress := range svc.Status.LoadBalancer.Ingress {

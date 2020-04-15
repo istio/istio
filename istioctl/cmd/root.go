@@ -72,6 +72,7 @@ func defaultLogOptions() *log.Options {
 	o.SetOutputLevel("installer", log.WarnLevel)
 	o.SetOutputLevel("translator", log.WarnLevel)
 	o.SetOutputLevel("kube", log.ErrorLevel)
+	o.SetOutputLevel("default", log.WarnLevel)
 
 	return o
 }
@@ -153,12 +154,12 @@ debug and diagnose their Istio mesh.
 	postInstallCmd.AddCommand(Webhook())
 	experimentalCmd.AddCommand(postInstallCmd)
 
-	manifestCmd := mesh.ManifestCmd()
+	manifestCmd := mesh.ManifestCmd(loggingOptions)
 	hideInheritedFlags(manifestCmd, "namespace", "istioNamespace")
 	rootCmd.AddCommand(manifestCmd)
 	operatorCmd := mesh.OperatorCmd()
 	rootCmd.AddCommand(operatorCmd)
-	installCmd := mesh.InstallCmd()
+	installCmd := mesh.InstallCmd(loggingOptions)
 	hideInheritedFlags(installCmd, "namespace", "istioNamespace")
 	rootCmd.AddCommand(installCmd)
 

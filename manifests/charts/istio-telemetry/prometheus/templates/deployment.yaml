@@ -103,10 +103,8 @@ spec:
             - name: CA_ADDR
               {{- if .Values.global.caAddress }}
               value: {{ .Values.global.caAddress }}
-              {{- else if .Values.global.configNamespace }}
-              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
               {{- else }}
-              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
+              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
               {{- end }}
             - name: POD_NAME
               valueFrom:

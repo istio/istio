@@ -16230,10 +16230,8 @@ spec:
           - name: CA_ADDR
           {{- if .Values.global.caAddress }}
             value: {{ .Values.global.caAddress }}
-          {{- else if .Values.global.configNamespace }}
-            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
           {{- else }}
-            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
+            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
           {{- end }}
           - name: NODE_NAME
             valueFrom:
@@ -18116,7 +18114,6 @@ data:
         },
         "caAddress": "",
         "certificates": [],
-        "configNamespace": "istio-system",
         "configRootNamespace": "istio-system",
         "configValidation": true,
         "controlPlaneSecurityEnabled": true,
@@ -18484,10 +18481,8 @@ data:
         - name: CA_ADDR
         {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
-        {{- else if .Values.global.configNamespace }}
-          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
-          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -19886,10 +19881,8 @@ var _chartsIstioControlIstioDiscoveryFilesInjectionTemplateYaml = []byte(`templa
     - name: CA_ADDR
     {{- if .Values.global.caAddress }}
       value: {{ .Values.global.caAddress }}
-    {{- else if .Values.global.configNamespace }}
-      value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
     {{- else }}
-      value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
+      value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
     {{- end }}
     - name: POD_NAME
       valueFrom:
@@ -22296,9 +22289,6 @@ pilot:
       cpu: 500m
       memory: 2048Mi
 
-  # Namespace for Istio config
-  configNamespace: istio-config
-
   # Applications namespace list pilot manages
   appNamespaces: []
 
@@ -23694,12 +23684,12 @@ spec:
     {{- if .Values.global.controlPlaneSecurityEnabled}}
           - --configStoreURL=mcps://istio-galley.{{ .Values.global.configNamespace }}.svc:15019
     {{- else }}
-          - --configStoreURL=mcp://istio-galley.{{ .Values.global.configNamespace }}.svc:9901
+          - --configStoreURL=mcp://istio-galley.{{ .Values.global.istioNamespace }}.svc:9901
     {{- end }}
 {{- else }}
           - --configStoreURL=k8s://
 {{- end }}
-          - --configDefaultNamespace={{ .Values.global.configNamespace }}
+          - --configDefaultNamespace={{ .Values.global.istioNamespace }}
           {{- if .Values.mixer.policy.adapters.useAdapterCRDs }}
           - --useAdapterCRDs=true
           {{- else }}
@@ -23814,10 +23804,8 @@ spec:
         - name: CA_ADDR
         {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
-        {{- else if .Values.global.configNamespace }}
-          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
-          value: istiod.istio-system.svc:15012
+          value: istiod.{{ .Values.global.istioNamespace }}.svc:15012
         {{- end }}
         resources:
 {{- if .Values.global.proxy.resources }}
@@ -36757,7 +36745,7 @@ data:
     istio_component_namespaces:
       grafana: {{ .Values.global.telemetryNamespace }}
       tracing: {{ .Values.global.telemetryNamespace }}
-      pilot: {{ .Values.global.configNamespace }}
+      pilot: {{ .Values.global.istioNamespace }}
       prometheus: {{ .Values.global.prometheusNamespace }}
     istio_namespace: {{ .Values.global.istioNamespace }}
     auth:
@@ -36779,7 +36767,7 @@ data:
 {{- end }}
     external_services:
       istio:
-        url_service_version: http://istio-pilot.{{ .Values.global.configNamespace }}:8080/version
+        url_service_version: http://istio-pilot.{{ .Values.global.istioNamespace }}:8080/version
       tracing:
         url: {{ .Values.kiali.dashboard.jaegerURL }}
         in_cluster_url: {{ .Values.kiali.dashboard.jaegerInClusterURL }}
@@ -38484,7 +38472,7 @@ data:
             combined_validation_context:
               default_validation_context:
                 verify_subject_alt_name:
-                - spiffe://{{ .Values.global.trustDomain }}/ns/{{ .Values.global.configNamespace }}/sa/istio-galley-service-account
+                - spiffe://{{ .Values.global.trustDomain }}/ns/{{ .Values.global.istioNamespace }}/sa/istio-galley-service-account
               validation_context_sds_secret_config:
                 name: ROOTCA
                 sds_config:
@@ -38495,7 +38483,7 @@ data:
                         cluster_name: sds-grpc
         hosts:
           - socket_address:
-              address: istio-galley.{{ .Values.global.configNamespace }}
+              address: istio-galley.{{ .Values.global.istioNamespace }}
               port_value: 15019
 
 
@@ -38847,7 +38835,7 @@ spec:
     {{- if .Values.global.controlPlaneSecurityEnabled}}
           - --configStoreURL=mcp://localhost:15019
     {{- else }}
-          - --configStoreURL=mcp://istio-galley.{{ .Values.global.configNamespace }}.svc:9901
+          - --configStoreURL=mcp://istio-galley.{{ .Values.global.istioNamespace }}.svc:9901
     {{- end }}
 {{- else }}
           - --configStoreURL=k8s://
@@ -38965,12 +38953,10 @@ spec:
         - name: "ISTIO_META_USER_SDS"
           value: "true"
         - name: CA_ADDR
-          {{- if .Values.global.caAddress }}
+      {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
-          {{- else if .Values.global.configNamespace }}
-          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
-          {{- else }}
-          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
+      {{- else }}
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
       {{- end }}
         resources:
 {{- if .Values.global.proxy.resources }}
@@ -40514,7 +40500,7 @@ data:
       - role: endpoints
         namespaces:
           names:
-          - {{ .Values.global.configNamespace }}
+          - {{ .Values.global.istioNamespace }}
 
       relabel_configs:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
@@ -40527,7 +40513,7 @@ data:
       - role: endpoints
         namespaces:
           names:
-          - {{ .Values.global.configNamespace }}
+          - {{ .Values.global.istioNamespace }}
 
       relabel_configs:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
@@ -40847,10 +40833,8 @@ spec:
             - name: CA_ADDR
               {{- if .Values.global.caAddress }}
               value: {{ .Values.global.caAddress }}
-              {{- else if .Values.global.configNamespace }}
-              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
               {{- else }}
-              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
+              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
               {{- end }}
             - name: POD_NAME
               valueFrom:
