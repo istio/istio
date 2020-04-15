@@ -418,7 +418,7 @@ func (s *TestSetup) WaitEnvoyReady() {
 	time.Sleep(1 * time.Second)
 
 	delay := 200 * time.Millisecond
-	total := 3 * time.Second
+	total := 10 * time.Second
 	var stats map[string]uint64
 	for attempt := 0; attempt < int(total/delay); attempt++ {
 		statsURL := fmt.Sprintf("http://localhost:%d/stats?format=json&usedonly", s.Ports().AdminPort)
