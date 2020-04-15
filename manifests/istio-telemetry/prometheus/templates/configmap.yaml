@@ -79,7 +79,7 @@ data:
       - role: endpoints
         namespaces:
           names:
-          - {{ .Values.global.configNamespace }}
+          - {{ .Values.global.istioNamespace }}
 
       relabel_configs:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
@@ -92,7 +92,7 @@ data:
       - role: endpoints
         namespaces:
           names:
-          - {{ .Values.global.configNamespace }}
+          - {{ .Values.global.istioNamespace }}
 
       relabel_configs:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
