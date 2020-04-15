@@ -116,7 +116,11 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 			Namespace:       svc.Namespace,
 			UID:             formatUID(svc.Namespace, svc.Name),
 			ExportTo:        exportTo,
+			// Allocate the map here to avoid the clunky if-nil-allocate checks in aggregate controller
+			ClusterExternalAddresses: map[string][]string{},
+			ClusterExternalPorts:     map[string]map[uint32]uint32{},
 		},
+		ClusterVIPs: map[string]string{clusterID: addr},
 	}
 
 	switch svc.Spec.Type {

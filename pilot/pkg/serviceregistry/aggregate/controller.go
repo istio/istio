@@ -40,8 +40,9 @@ var _ model.Controller = &Controller{}
 
 // Controller aggregates data across different registries and monitors for changes
 type Controller struct {
-	registries []serviceregistry.Instance
-	storeLock  sync.RWMutex
+	numK8SRegistries int
+	registries       []serviceregistry.Instance
+	storeLock        sync.RWMutex
 }
 
 // NewController creates a new Aggregate controller
@@ -56,9 +57,19 @@ func (c *Controller) AddRegistry(registry serviceregistry.Instance) {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
 
-	registries := c.registries
-	registries = append(registries, registry)
-	c.registries = registries
+	c.registries = append(c.registries, registry)
+
+	// Make a pass to determine if we have multiple kubernetes clusters connected to
+	// this istiod or not. This will simplify logic for Services() and GetService()
+	var numK8SClusters int
+	for _, r := range c.GetRegistries() {
+		// Assumes that clusters with named IDs are for kubernetes
+		// which is the case today.
+		if r.Cluster() != "" {
+			numK8SClusters++
+		}
+	}
+	c.numK8SRegistries = numK8SClusters
 }
 
 // DeleteRegistry deletes specified registry from the aggregated controller
@@ -78,6 +89,17 @@ func (c *Controller) DeleteRegistry(clusterID string) {
 	registries := c.registries
 	registries = append(registries[:index], registries[index+1:]...)
 	c.registries = registries
+	// Make a pass to determine if we have multiple kubernetes clusters connected to
+	// this istiod or not. This will simplify logic for Services() and GetService()
+	var numK8SClusters int
+	for _, r := range c.GetRegistries() {
+		// Assumes that clusters with named IDs are for kubernetes
+		// which is the case today.
+		if r.Cluster() != "" {
+			numK8SClusters++
+		}
+	}
+	c.numK8SRegistries = numK8SClusters
 	log.Infof("Registry for the cluster %s has been deleted.", clusterID)
 }
 
@@ -101,12 +123,33 @@ func (c *Controller) GetRegistryIndex(clusterID string) (int, bool) {
 
 // Services lists services from all platforms
 func (c *Controller) Services() ([]*model.Service, error) {
-	// smap is a map of hostname (string) to service, used to identify services that
-	// are installed in multiple clusters.
+	// smap is a map of hostname (string) to service, used to identify kubernetes
+	// services that are installed in multiple clusters. The smap contains a complete copy of
+	// the service object to eliminate unnecessary locking and race conditions. Map fields such as
+	// ClusterVIPs, ClusterExternalAddresses, etc. are merged across copies of the service from
+	// different clusters.
 	smap := make(map[host.Name]*model.Service)
-
 	services := make([]*model.Service, 0)
 	var errs error
+
+	if c.numK8SRegistries <= 1 {
+		for _, r := range c.GetRegistries() {
+			// We also assume that among multiple registries of different types, there are no
+			// duplicate service names.
+			svcs, err := r.Services()
+			if err != nil {
+				errs = multierror.Append(errs, err)
+				continue
+			}
+			services = append(services, svcs...)
+		}
+		return services, errs
+	}
+
+	// If we have multiple kubernetes clusters being managed by same istiod,
+	// we need to build a new canonical copy of services that has merged data
+	// from all underlying clusters.
+
 	// Locking Registries list while walking it to prevent inconsistent results
 	for _, r := range c.GetRegistries() {
 		svcs, err := r.Services()
@@ -128,36 +171,17 @@ func (c *Controller) Services() ([]*model.Service, error) {
 			for _, s := range svcs {
 				sp, ok := smap[s.Hostname]
 				if !ok {
-					// First time we see a service. The result will have a single service per hostname
-					// The first cluster will be listed first, so the services in the primary cluster
-					// will be used for default settings. If a service appears in multiple clusters,
-					// the order is less clear.
-					sp = s
+					// First time we see a service. Make a copy to prevent modifying the underlying registry's copy.
+					sp = s.DeepCopy()
 					smap[s.Hostname] = sp
 					services = append(services, sp)
 				}
 
-				sp.Mutex.Lock()
-				// If the registry has a cluster ID, keep track of the cluster and the
-				// local address inside the cluster.
-				if sp.ClusterVIPs == nil {
-					sp.ClusterVIPs = make(map[string]string)
-				}
+				s.Mutex.RLock()
 				sp.ClusterVIPs[r.Cluster()] = s.Address
-
-				if s.Attributes.ClusterExternalAddresses != nil && len(s.Attributes.ClusterExternalAddresses[r.Cluster()]) > 0 {
-					if sp.Attributes.ClusterExternalAddresses == nil {
-						sp.Attributes.ClusterExternalAddresses = make(map[string][]string)
-					}
-					sp.Attributes.ClusterExternalAddresses[r.Cluster()] = s.Attributes.ClusterExternalAddresses[r.Cluster()]
-				}
-				if s.Attributes.ClusterExternalPorts != nil && len(s.Attributes.ClusterExternalPorts[r.Cluster()]) > 0 {
-					if sp.Attributes.ClusterExternalPorts == nil {
-						sp.Attributes.ClusterExternalPorts = make(map[string]map[uint32]uint32)
-					}
-					sp.Attributes.ClusterExternalPorts[r.Cluster()] = s.Attributes.ClusterExternalPorts[r.Cluster()]
-				}
-				sp.Mutex.Unlock()
+				sp.Attributes.ClusterExternalAddresses[r.Cluster()] = s.Attributes.ClusterExternalAddresses[r.Cluster()]
+				sp.Attributes.ClusterExternalPorts[r.Cluster()] = s.Attributes.ClusterExternalPorts[r.Cluster()]
+				s.Mutex.RUnlock()
 			}
 		}
 		clusterAddressesMutex.Unlock()
@@ -171,6 +195,21 @@ func (c *Controller) Services() ([]*model.Service, error) {
 func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 	var errs error
 	var out *model.Service
+	if c.numK8SRegistries <= 1 {
+		for _, r := range c.GetRegistries() {
+			service, err := r.GetService(hostname)
+			if err != nil {
+				errs = multierror.Append(errs, err)
+				continue
+			}
+			if service == nil {
+				continue
+			}
+			return service, nil
+		}
+		return nil, errs
+	}
+
 	for _, r := range c.GetRegistries() {
 		service, err := r.GetService(hostname)
 		if err != nil {
@@ -189,26 +228,16 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 		}
 		// This is K8S typically
 		if out == nil {
-			out = service
+			out = service.DeepCopy()
 		} else {
-			out.Mutex.Lock()
-			// ClusterExternalAddresses and ClusterExternalAddresses are only used for getting gateway address
-			if len(service.Attributes.ClusterExternalAddresses[r.Cluster()]) > 0 {
-				if out.Attributes.ClusterExternalAddresses == nil {
-					out.Attributes.ClusterExternalAddresses = make(map[string][]string)
-				}
-				out.Attributes.ClusterExternalAddresses[r.Cluster()] = service.Attributes.ClusterExternalAddresses[r.Cluster()]
-			}
-			if len(service.Attributes.ClusterExternalPorts[r.Cluster()]) > 0 {
-				if out.Attributes.ClusterExternalPorts == nil {
-					out.Attributes.ClusterExternalPorts = make(map[string]map[uint32]uint32)
-				}
-				out.Attributes.ClusterExternalPorts[r.Cluster()] = service.Attributes.ClusterExternalPorts[r.Cluster()]
-			}
-			out.Mutex.Unlock()
+			service.Mutex.RLock()
+			out.ClusterVIPs[r.Cluster()] = service.Address
+			out.Attributes.ClusterExternalAddresses[r.Cluster()] = service.Attributes.ClusterExternalAddresses[r.Cluster()]
+			out.Attributes.ClusterExternalPorts[r.Cluster()] = service.Attributes.ClusterExternalPorts[r.Cluster()]
+			service.Mutex.RUnlock()
 		}
 	}
-	return nil, errs
+	return out, errs
 }
 
 // ManagementPorts retrieves set of health check ports by instance IP
