@@ -463,12 +463,12 @@ func (c *Controller) Stop() {
 
 // Services implements a service catalog operation
 func (c *Controller) Services() ([]*model.Service, error) {
-	c.Lock()
+	c.RLock()
 	out := make([]*model.Service, 0, len(c.servicesMap))
 	for _, svc := range c.servicesMap {
 		out = append(out, svc)
 	}
-	c.Unlock()
+	c.RUnlock()
 	sort.Slice(out, func(i, j int) bool { return out[i].Hostname < out[j].Hostname })
 
 	return out, nil
@@ -488,22 +488,22 @@ func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) {
 	if len(svcs) == 0 {
 		svcs, _ = c.Services()
 	}
+	var k8sNodes []*kubernetesNode
+	var extAddresses []string
+	rawNodes := c.filteredNodeInformer.GetStore().List()
+	for _, i := range rawNodes {
+		machine := i.(*v1.Node)
+		for _, address := range machine.Status.Addresses {
+			if address.Type == v1.NodeExternalIP && address.Address != "" {
+				k8sNodes = append(k8sNodes,
+					&kubernetesNode{address: address.Address, labels: machine.Labels})
+				extAddresses = append(extAddresses, address.Address)
+			}
+		}
+	}
 	for _, svc := range svcs {
 		if isNodePortGatewayService(svc) {
 			// update external address
-			var k8sNodes []*kubernetesNode
-			var extAddresses []string
-			rawNodes := c.filteredNodeInformer.GetStore().List()
-			for _, i := range rawNodes {
-				machine := i.(*v1.Node)
-				for _, address := range machine.Status.Addresses {
-					if address.Type == v1.NodeExternalIP && address.Address != "" {
-						k8sNodes = append(k8sNodes,
-							&kubernetesNode{address: address.Address, labels: machine.Labels})
-						extAddresses = append(extAddresses, address.Address)
-					}
-				}
-			}
 			svc.Mutex.Lock()
 			nodeSelector := c.nodeSelectorsForServices[svc.Hostname]
 			if nodeSelector == nil {
