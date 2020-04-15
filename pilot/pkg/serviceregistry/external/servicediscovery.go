@@ -19,7 +19,6 @@ import (
 	"sync"
 
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -138,53 +137,90 @@ func getWorkloadEntryHandler(c *ServiceEntryStore) func(model.Config, model.Conf
 // getServiceEntryHandler defines the handler for service entries
 func getServiceEntryHandler(c *ServiceEntryStore) func(model.Config, model.Config, model.Event) {
 	return func(old, curr model.Config, event model.Event) {
-		// TODO(yonka): Apply full-push scoping to external ServiceEntryStore.
-
 		cs := convertServices(curr)
+		configsUpdated := map[model.ConfigKey]struct{}{}
 
 		// If it is add/delete event we should always do a full push. If it is update event, we should do full push,
 		// only when services have changed - otherwise, just push endpoint updates.
-		fp := true
-		if event == model.EventUpdate {
+		var addedSvcs, deletedSvcs, updatedSvcs, unchangedSvcs []*model.Service
+
+		switch event {
+		case model.EventUpdate:
 			// This is not needed, update should always have old populated, but just in case.
 			if old.Spec != nil {
 				os := convertServices(old)
-				fp = servicesChanged(os, cs) || selectorChanged(old, curr)
+				if selectorChanged(old, curr) {
+					// Consider all services are updated.
+					mark := make(map[host.Name]*model.Service, len(cs))
+					for _, svc := range cs {
+						mark[svc.Hostname] = svc
+						updatedSvcs = append(updatedSvcs, svc)
+					}
+					for _, svc := range os {
+						if _, f := mark[svc.Hostname]; !f {
+							updatedSvcs = append(updatedSvcs, svc)
+						}
+					}
+				} else {
+					addedSvcs, deletedSvcs, updatedSvcs, unchangedSvcs = servicesDiff(cs, os)
+				}
 			} else {
+				unchangedSvcs = cs
 				log.Warnf("Spec is not available in the old service entry during update, proceeding with full push %v", old)
 			}
-		}
-
-		// If service entry is deleted, cleanup endpoint shards for services.
-		if event == model.EventDelete {
+		case model.EventDelete:
+			deletedSvcs = cs
+			// If service entry is deleted, cleanup endpoint shards for services.
 			for _, svc := range cs {
 				c.XdsUpdater.SvcUpdate(c.Cluster(), string(svc.Hostname), svc.Attributes.Namespace, event)
 			}
+		case model.EventAdd:
+			addedSvcs = cs
+		default:
+			unchangedSvcs = cs
 		}
+
+		for _, svcs := range [][]*model.Service{addedSvcs, deletedSvcs, updatedSvcs} {
+			for _, svc := range svcs {
+				configsUpdated[model.ConfigKey{
+					Kind:      model.ServiceEntryKind,
+					Name:      string(svc.Hostname),
+					Namespace: svc.Attributes.Namespace}] = struct{}{}
+			}
+		}
+
+		willFullPush := len(configsUpdated) > 0
+		refreshIndexes := willFullPush // If will trigger full-push, lazy-update instance index.
 
 		// Recomputing the index here is too expensive - lazy build when it is needed.
 		c.changeMutex.Lock()
-		c.refreshIndexes = fp // Only recompute indexes if services have changed.
+		c.refreshIndexes = refreshIndexes // Only recompute indexes if services have changed.
 		c.changeMutex.Unlock()
 
-		if fp {
+		if len(unchangedSvcs) > 0 && !willFullPush {
+			// If will do full-push, leave the edsUpdate to that.
+			// XXX We should do edsUpdate for all unchangedSvcs since we begin to calculate service
+			// data according to this "configsUpdated" and thus remove the "!willFullPush" condition.
+			instances := convertInstances(curr, unchangedSvcs)
+			if !refreshIndexes {
+				key := configKey{
+					kind:      serviceEntryConfigType,
+					name:      curr.Name,
+					namespace: curr.Namespace,
+				}
+				// If only instances have changed, just update the indexes for the changed instances.
+				c.updateExistingInstances(key, instances)
+			}
+			c.edsUpdate(instances)
+		}
+
+		if willFullPush {
 			pushReq := &model.PushRequest{
 				Full:           true,
-				ConfigsUpdated: map[model.ConfigKey]struct{}{},
+				ConfigsUpdated: configsUpdated,
 				Reason:         []model.TriggerReason{model.ServiceUpdate},
 			}
 			c.XdsUpdater.ConfigUpdate(pushReq)
-		} else {
-			instances := convertInstances(curr, cs)
-
-			key := configKey{
-				kind:      serviceEntryConfigType,
-				name:      curr.Name,
-				namespace: curr.Namespace,
-			}
-			// If only instances have changed, just update the indexes for the changed instances.
-			c.updateExistingInstances(key, instances)
-			c.edsUpdate(instances)
 		}
 	}
 }
@@ -505,27 +541,37 @@ func (d *ServiceEntryStore) GetIstioServiceAccounts(*model.Service, []int) []str
 	return nil
 }
 
-// This method compares if services have changed, that needs full push.
-func servicesChanged(os []*model.Service, ns []*model.Service) bool {
-	// Length of services have changed, needs full push.
-	if len(os) != len(ns) {
-		return true
-	}
-	oldservicehosts := make(map[string]*model.Service, len(os))
-	newservicehosts := make(map[string]*model.Service, len(ns))
+func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, []*model.Service, []*model.Service, []*model.Service) {
+	var (
+		added, deleted, updated, unchanged []*model.Service
+	)
 
+	oldServiceHosts := make(map[string]*model.Service, len(os))
+	newServiceHosts := make(map[string]*model.Service, len(ns))
 	for _, s := range os {
-		oldservicehosts[string(s.Hostname)] = s
+		oldServiceHosts[string(s.Hostname)] = s
 	}
 	for _, s := range ns {
-		newservicehosts[string(s.Hostname)] = s
+		newServiceHosts[string(s.Hostname)] = s
 	}
-	for host, service := range oldservicehosts {
-		if !reflect.DeepEqual(service, newservicehosts[host]) {
-			return true
+
+	for name, oldSvc := range oldServiceHosts {
+		newSvc, f := newServiceHosts[name]
+		if !f {
+			deleted = append(deleted, oldSvc)
+		} else if !reflect.DeepEqual(oldSvc, newSvc) {
+			updated = append(updated, newSvc)
+		} else {
+			unchanged = append(unchanged, newSvc)
 		}
 	}
-	return false
+	for name, newSvc := range newServiceHosts {
+		if _, f := oldServiceHosts[name]; !f {
+			added = append(added, newSvc)
+		}
+	}
+
+	return added, deleted, updated, unchanged
 }
 
 // This method compares if the selector on a service entry has changed, meaning that it needs full push.
