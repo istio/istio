@@ -251,6 +251,12 @@ var (
 			"Istio Resources",
 	).Get()
 
+	EnableStatus = env.RegisterBoolVar(
+		"PILOT_ENABLE_STATUS",
+		false,
+		"If enabled, pilot will update the CRD Status field of all istio resources with reconciliation status.",
+	).Get()
+
 	// IstiodService controls the istiod address - used for injection and as default value injected into pods
 	// if istiod is used. The name must be part of the DNS certificate served by pilot/istiod. The '.svc' is
 	// imposed by K8S - that's how the names for webhooks are defined, based on webhook service (which will be

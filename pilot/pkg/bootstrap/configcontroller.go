@@ -98,6 +98,9 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 				return err
 			}
 		}
+		if features.EnableStatus {
+			s.initStatusController(args)
+		}
 	}
 
 	// Used for tests.
@@ -325,11 +328,17 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 	return nil
 }
 
-func (s *Server) initOtherStatusStuff() {
+func (s *Server) initStatusController(args *PilotArgs) {
 	s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
 		(&status.DistributionController{}).Start(s.kubeConfig, stop)
 	})
-	// TODO: even when not leading, write my internal distribution status to configmaps
+	s.statusReporter = &status.Reporter{
+		UpdateInterval: time.Millisecond * 500, // TODO: use args here?
+	}
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		s.statusReporter.Start(stop)
+		return nil
+	})
 }
 
 func (s *Server) mcpController(

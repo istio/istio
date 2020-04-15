@@ -50,8 +50,9 @@ func ResourceFromString(s string) *Resource {
 			Version:  pieces[1],
 			Resource: pieces[2],
 		},
-		Namespace: pieces[3],
-		Name:      pieces[4],
+		Namespace:       pieces[3],
+		Name:            pieces[4],
+		ResourceVersion: pieces[5],
 	}
 }
 
