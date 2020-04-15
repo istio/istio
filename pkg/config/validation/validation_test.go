@@ -1559,83 +1559,28 @@ func TestValidateCORSPolicy(t *testing.T) {
 			ExposeHeaders: []string{"header3"},
 			MaxAge:        &types.Duration{Seconds: 2, Nanos: 42},
 		}, valid: false},
-		{name: "good origin ", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"example.com"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: true},
-		{name: "good origin with star", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"*"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: true},
-		{name: "good origin with http", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"http://example.com"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: true},
-		{name: "good origin with https", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"https://example.com"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: true},
-		{name: "good origin with https and port number", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"https://example.com:80"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: true},
-		{name: "good origin with port number", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"example.com:80"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: true},
-		{name: "bad origin", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"example.com", "error$.com"},
+		{name: "empty matchType AllowOrigins", in: &networking.CorsPolicy{
+			AllowOrigins: []*networking.StringMatch{
+				{MatchType: &networking.StringMatch_Exact{Exact: ""}},
+				{MatchType: &networking.StringMatch_Prefix{Prefix: ""}},
+				{MatchType: &networking.StringMatch_Regex{Regex: ""}},
+			},
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"header3"},
 			MaxAge:        &types.Duration{Seconds: 2},
 		}, valid: false},
-		{name: "bad origin with scheme only", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"http://", "https://"},
+		{name: "non empty matchType AllowOrigins", in: &networking.CorsPolicy{
+			AllowOrigins: []*networking.StringMatch{
+				{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+				{MatchType: &networking.StringMatch_Prefix{Prefix: "prefix"}},
+				{MatchType: &networking.StringMatch_Regex{Regex: "regex"}},
+			},
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"header3"},
 			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: false},
-		{name: "bad origin with bad port string", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"example.com:port"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: false},
-		{name: "bad origin with bad port number", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"example.com:100000"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: false},
-		{name: "bad origin with star", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"*.example.com"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: false},
+		}, valid: true},
 	}
 
 	for _, tc := range testCases {
