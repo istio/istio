@@ -119,7 +119,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 		// store the service port to node port mappings
 		portMap := make(map[uint32]uint32)
 		for _, p := range svc.Spec.Ports {
-			portMap[uint32(p.Port)]=uint32(p.NodePort)
+			portMap[uint32(p.Port)] = uint32(p.NodePort)
 		}
 		istioService.Attributes.ClusterExternalPorts = map[string]map[uint32]uint32{clusterID: portMap}
 		// address mappings will be done elsewhere

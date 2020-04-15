@@ -334,13 +334,11 @@ func getNodeSelectorsForService(svc v1.Service) labels.Instance {
 
 func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 	return c.checkReadyForEvents()
+	// TODO: This should trigger a generic EDS update event but not for the initial set of ADDs
 }
 
 func isNodePortService(svc *model.Service) bool {
-	if svc.Attributes.ClusterExternalPorts != nil {
-		return true
-	}
-	return false
+	return svc.Attributes.ClusterExternalPorts != nil
 }
 
 func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otype string,
