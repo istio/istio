@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 
 	binversion "istio.io/istio/operator/version"
+	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
 
@@ -49,7 +50,7 @@ type rootArgs struct {
 
 func addFlags(cmd *cobra.Command, rootArgs *rootArgs) {
 	cmd.PersistentFlags().BoolVarP(&rootArgs.logToStdErr, "logtostderr", "",
-		false, "Send logs to stderr.")
+		true, "Send logs to stderr.")
 	cmd.PersistentFlags().BoolVarP(&rootArgs.dryRun, "dry-run", "",
 		false, "Console/log output only, make no changes.")
 	cmd.PersistentFlags().BoolVarP(&rootArgs.verbose, "verbose", "",
@@ -68,7 +69,7 @@ func GetRootCmd(args []string) *cobra.Command {
 	rootCmd.SetArgs(args)
 	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 
-	rootCmd.AddCommand(ManifestCmd())
+	rootCmd.AddCommand(ManifestCmd(log.DefaultOptions()))
 	rootCmd.AddCommand(ProfileCmd())
 	rootCmd.AddCommand(OperatorCmd())
 	rootCmd.AddCommand(version.CobraCommand())

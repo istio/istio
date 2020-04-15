@@ -151,6 +151,12 @@ func (c *Controller) Services() ([]*model.Service, error) {
 					}
 					sp.Attributes.ClusterExternalAddresses[r.Cluster()] = s.Attributes.ClusterExternalAddresses[r.Cluster()]
 				}
+				if s.Attributes.ClusterExternalPorts != nil && len(s.Attributes.ClusterExternalPorts[r.Cluster()]) > 0 {
+					if sp.Attributes.ClusterExternalPorts == nil {
+						sp.Attributes.ClusterExternalPorts = make(map[string]map[uint32]uint32)
+					}
+					sp.Attributes.ClusterExternalPorts[r.Cluster()] = s.Attributes.ClusterExternalPorts[r.Cluster()]
+				}
 				sp.Mutex.Unlock()
 			}
 		}

@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/version"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -73,7 +74,7 @@ func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
 	cmd.PersistentFlags().StringVarP(&args.charts, "charts", "d", "", chartsFlagHelpStr)
 }
 
-func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Command {
+func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs, logOpts *log.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "apply",
 		Short: "Applies an Istio manifest, installing or reconfiguring Istio on a cluster.",
@@ -93,12 +94,12 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 `,
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runApplyCmd(cmd, rootArgs, maArgs)
+			return runApplyCmd(cmd, rootArgs, maArgs, logOpts)
 		}}
 }
 
 // InstallCmd in an alias for manifest apply.
-func InstallCmd() *cobra.Command {
+func InstallCmd(logOpts *log.Options) *cobra.Command {
 	rootArgs := &rootArgs{}
 	macArgs := &manifestApplyArgs{}
 
@@ -121,7 +122,7 @@ func InstallCmd() *cobra.Command {
 `,
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runApplyCmd(cmd, rootArgs, macArgs)
+			return runApplyCmd(cmd, rootArgs, macArgs, logOpts)
 		}}
 
 	addFlags(mac, rootArgs)
@@ -129,7 +130,7 @@ func InstallCmd() *cobra.Command {
 	return mac
 }
 
-func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyArgs) error {
+func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyArgs, logOpts *log.Options) error {
 	l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
 	// Warn users if they use `manifest apply` without any config args.
 	if len(maArgs.inFilenames) == 0 && len(maArgs.set) == 0 && !rootArgs.dryRun && !maArgs.skipConfirmation {
@@ -138,7 +139,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 			os.Exit(1)
 		}
 	}
-	if err := configLogs(rootArgs.logToStdErr); err != nil {
+	if err := configLogs(rootArgs.logToStdErr, logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 	if err := ApplyManifests(applyInstallFlagAlias(maArgs.set, maArgs.charts), maArgs.inFilenames, maArgs.force, rootArgs.dryRun, rootArgs.verbose,

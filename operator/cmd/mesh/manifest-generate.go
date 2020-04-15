@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/version"
+	"istio.io/pkg/log"
 )
 
 type manifestGenerateArgs struct {
@@ -54,7 +55,7 @@ func addManifestGenerateFlags(cmd *cobra.Command, args *manifestGenerateArgs) {
 	cmd.PersistentFlags().StringVarP(&args.charts, "charts", "d", "", chartsFlagHelpStr)
 }
 
-func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs) *cobra.Command {
+func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs, logOpts *log.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "generate",
 		Short: "Generates an Istio install manifest",
@@ -80,12 +81,13 @@ func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs) *cobr
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
-			return manifestGenerate(rootArgs, mgArgs, l)
+			return manifestGenerate(rootArgs, mgArgs, logOpts, l)
 		}}
+
 }
 
-func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, l *Logger) error {
-	if err := configLogs(args.logToStdErr); err != nil {
+func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log.Options, l *Logger) error {
+	if err := configLogs(args.logToStdErr, logopts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
