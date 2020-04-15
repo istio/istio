@@ -2356,25 +2356,8 @@ func validateCORSPolicy(policy *networking.CorsPolicy) (errs error) {
 		return
 	}
 
-	for _, hostname := range policy.AllowOrigin {
-		if hostname != "*" {
-			hostname = strings.TrimPrefix(hostname, "https://")
-			hostname = strings.TrimPrefix(hostname, "http://")
-			parts := strings.Split(hostname, ":")
-			if len(parts) > 2 {
-				errs = appendErrors(errs, fmt.Errorf("CORS Allow Origin must be '*' or of [http[s]://]host[:port] format"))
-			} else {
-				if len(parts) == 2 {
-					if port, err := strconv.Atoi(parts[1]); err != nil {
-						errs = appendErrors(errs, fmt.Errorf("port in CORS Allow Origin is not a number: %s", parts[1]))
-					} else {
-						errs = ValidatePort(port)
-					}
-					hostname = parts[0]
-				}
-				errs = appendErrors(errs, ValidateFQDN(hostname))
-			}
-		}
+	for _, origin := range policy.AllowOrigins {
+		errs = appendErrors(errs, validateAllowOrigins(origin))
 	}
 
 	for _, method := range policy.AllowMethods {
@@ -2397,6 +2380,22 @@ func validateCORSPolicy(policy *networking.CorsPolicy) (errs error) {
 	}
 
 	return
+}
+
+func validateAllowOrigins(origin *networking.StringMatch) error {
+	var match string
+	switch origin.MatchType.(type) {
+	case *networking.StringMatch_Exact:
+		match = origin.GetExact()
+	case *networking.StringMatch_Prefix:
+		match = origin.GetPrefix()
+	case *networking.StringMatch_Regex:
+		match = origin.GetRegex()
+	}
+	if match == "" {
+		return fmt.Errorf("'%v' is not a valid match type for CORS allow origins", match)
+	}
+	return nil
 }
 
 func validateHTTPMethod(method string) error {

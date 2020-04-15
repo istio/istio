@@ -1,5 +1,10 @@
 // Code generated for package vfs by go-bindata DO NOT EDIT. (@generated)
 // sources:
+// charts/.drone.yml
+// charts/.gitignore
+// charts/README-helm3.md
+// charts/README.md
+// charts/UPDATING-CHARTS.md
 // charts/base/Chart.yaml
 // charts/base/NOTES.txt
 // charts/base/files/crd-all.gen.yaml
@@ -39,6 +44,7 @@
 // charts/gateways/istio-ingress/templates/service.yaml
 // charts/gateways/istio-ingress/templates/serviceaccount.yaml
 // charts/gateways/istio-ingress/values.yaml
+// charts/global.yaml
 // charts/istio-cni/Chart.yaml
 // charts/istio-cni/templates/clusterrole.yaml
 // charts/istio-cni/templates/clusterrolebinding.yaml
@@ -229,6 +235,427 @@ func (fi bindataFileInfo) IsDir() bool {
 // Sys return file is sys mode
 func (fi bindataFileInfo) Sys() interface{} {
 	return nil
+}
+
+var _chartsDroneYml = []byte(`kind: pipeline
+name: default
+
+workspace:
+  base: /go
+  path: src/github.com/costinm/istio-install
+
+steps:
+  - name: run
+    image: istio/ci:go1.11-k8s1.10.4-helm2.7.2-minikube0.25
+    environment:
+      GOPATH: /home/circleci
+      DOCKER_HOST: tcp://docker-p:2375
+    commands:
+      - go get -u sigs.k8s.io/kind
+      - /home/circleci/bin/kind create cluster
+      - export PATH=$PATH:$GOPATH/bin
+      - export KUBECONFIG="$(kind get kubeconfig-path --name="kind")"
+      - kubectl apply -f base/
+      - bin/iop istio-control discovery istio-control/istio-discovery
+
+
+
+services:
+  - name: docker-p
+    image: plugins/docker
+    privileged: true
+    commands:
+      - /usr/local/bin/dockerd --data-root /var/lib/docker --host=tcp://0.0.0.0:2375
+
+#  - name: docker
+#    image: plugins/docker
+#    commands:
+#      - /usr/local/bin/dockerd --data-root /var/lib/docker
+
+#services:
+##  Doesn't work - require priv or trusted
+##  - name: docker
+##    image: docker:dind
+##    privileged: true
+##    volumes:
+##      - name: dockersock
+##        path: /var/run
+#
+#volumes:
+#  - name: dockersock
+#    temp: {}
+
+`)
+
+func chartsDroneYmlBytes() ([]byte, error) {
+	return _chartsDroneYml, nil
+}
+
+func chartsDroneYml() (*asset, error) {
+	bytes, err := chartsDroneYmlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/.drone.yml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsGitignore = []byte(`test/**/*.gen.yaml
+kustomize/**/*.gen.yaml
+`)
+
+func chartsGitignoreBytes() ([]byte, error) {
+	return _chartsGitignore, nil
+}
+
+func chartsGitignore() (*asset, error) {
+	bytes, err := chartsGitignoreBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/.gitignore", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsReadmeHelm3Md = []byte(`# Helm3 support
+
+## Install
+
+The install templates support both helm2 and helm3. Please do not introduce helm3-specific changes, many
+users are still using helm2 and the operator is currently using the helm2 code to generate.
+
+We have few charts:
+
+- 'base' creates cluster-wide CRDs, cluster bindings, cluster resources and the istio-system namespace.
+  It is possible to customize the namespace, but not recommended.
+
+`+"`"+``+"`"+``+"`"+`shell script
+ helm3 install  istio-base manifests/charts/base
+`+"`"+``+"`"+``+"`"+`
+
+- 'istiod' installs a revision of istiod.  You can install it multiple times, with different revision.
+TODO: get rid of global.yaml, anything still used should be in values.yaml for istio-discovery
+TODO: remove the need to pass -n istio-system
+
+`+"`"+``+"`"+``+"`"+`shell script
+ helm3 install -n istio-system istio-16 manifests/charts/istio-control/istio-discovery \
+    -f manifests/charts/global.yaml
+
+ helm3 install -n istio-system istio-canary manifests/charts/istio-control/istio-discovery \
+    -f manifests/charts/global.yaml  --set revision=canary --set clusterResources=false
+
+ helm3 install -n istio-system istio-mytest manifests/charts/istio-control/istio-discovery \
+    -f manifests/charts/global.yaml  --set revision=mytest --set clusterResources=false
+`+"`"+``+"`"+``+"`"+`
+
+- 'ingress' to install a Gateway
+
+Helm3 requires namespaces to be created explicitly, currently we don't support insalling multiple gateways in same
+namespace - nor is it a good practice. Ingress secrets and access should be separated from control plane.
+
+`+"`"+``+"`"+``+"`"+`shell script
+    helm3 install -n istio-system istio-ingress manifests/charts/gateways/istio-ingress -f manifests/charts/global.yaml
+
+    kubectl create ns istio-ingress-canary
+    helm3 install -n istio-ingress-canary istio-ingress-canary manifests/charts/gateways/istio-ingress \
+      -f manifests/charts/global.yaml --set revision=canary
+`+"`"+``+"`"+``+"`"+`
+
+## Namespaces
+
+One of the major changes in helm3 is that the 'release namespace' is no longer created.
+That means the first step can't use "-n istio-system" flag, instead we use .global.istioNamespace.
+It is possible - but not supported - to install multiple versions of the global, for example in
+multi-tenant cases. Each namespace will have a separate root CA, if the built-in CA is used.
+
+TODO: apply the same change for discovery and ingress, so passing -n is no longer needed.
+
+`)
+
+func chartsReadmeHelm3MdBytes() ([]byte, error) {
+	return _chartsReadmeHelm3Md, nil
+}
+
+func chartsReadmeHelm3Md() (*asset, error) {
+	bytes, err := chartsReadmeHelm3MdBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/README-helm3.md", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsReadmeMd = []byte(`# Istio Installer
+
+Note: If making any changes to the charts or values.yaml in this dir, first read [UPDATING-CHARTS.md](UPDATING-CHARTS.md)
+
+Istio installer is a modular, 'a-la-carte' installer for Istio. It is based on a
+fork of the Istio helm templates, refactored to increase modularity and isolation.
+
+Goals:
+- Improve upgrade experience: users should be able to gradually roll upgrades, with proper
+canary deployments for Istio components. It should be possible to deploy a new version while keeping the
+stable version in place and gradually migrate apps to the new version.
+
+- More flexibility: the new installer allows multiple 'environments', allowing applications to select
+a set of control plane settings and components. While the entire mesh respects the same APIs and config,
+apps may target different 'environments' which contain different instances and variants of Istio.
+
+- Better security: separate Istio components reside in different namespaces, allowing different teams or
+roles to manage different parts of Istio. For example, a security team would maintain the
+root CA and policy, a telemetry team may only have access to Mixer-telemetry and Prometheus,
+and a different team may maintain the control plane components (which are highly security sensitive).
+
+The install is organized in 'environments' - each environment consists of a set of components
+in different namespaces that are configured to work together. Regardless of 'environment',
+workloads can talk with each other and obey the Istio configuration resources, but each environment
+can use different Istio versions and different configuration defaults.
+
+`+"`"+`istioctl kube-inject`+"`"+` or the automatic sidecar injector are used to select the environment.
+In the case of the sidecar injector, the namespace label `+"`"+`istio-env: <NAME_OF_ENV>`+"`"+` is used instead
+of the conventional `+"`"+`istio-injected: true`+"`"+`. The name of the environment is defined as the namespace
+where the corresponding control plane components (config, discovery, auto-injection) are running.
+In the examples below, by default this is the `+"`"+`istio-control`+"`"+` namespace. Pod annotations can also
+be used to select a different 'environment'.
+
+## Installing
+
+The new installer is intended to be modular and very explicit about what is installed. It has
+far more steps than the Istio installer - but each step is smaller and focused on a specific
+feature, and can be performed by different people/teams at different times.
+
+It is strongly recommended that different namespaces are used, with different service accounts.
+In particular access to the security-critical production components (root CA, policy, control)
+should be locked down and restricted.  The new installer allows multiple instances of
+policy/control/telemetry - so testing/staging of new settings and versions can be performed
+by a different role than the prod version.
+
+The intended users of this repo are users running Istio in production who want to select, tune
+and understand each binary that gets deployed, and select which combination to use.
+
+Note: each component can be installed in parallel with an existing Istio 1.0 or 1.1 install in
+`+"`"+`istio-system`+"`"+`. The new components will not interfere with existing apps, but can interoperate
+and it is possible to gradually move apps from Istio 1.0/1.1 to the new environments and
+across environments ( for example canary -> prod )
+
+Note: there are still some cluster roles that may need to be fixed, most likely cluster permissions
+will need to move to the security component.
+
+## Everything is Optional
+
+Each component in the new installer is optional. Users can install the component defined in the new installer,
+use the equivalent component in `+"`"+`istio-system`+"`"+`, configured with the official installer, or use a different
+version or implementation.
+
+For example you may use your own Prometheus and Grafana installs, or you may use a specialized/custom
+certificate provisioning tool, or use components that are centrally managed and running in a different cluster.
+
+This is a work in progress - building on top of the multi-cluster installer.
+
+As an extreme, the goal is to be possible to run Istio workloads in a cluster without installing any Istio component
+in that cluster. Currently the minimum we require is the security provider (node agent or citadel).
+
+### Install Istio CRDs
+
+This is the first step of the install. Please do not remove or edit any CRD - config currently requires
+all CRDs to be present. On each upgrade it is recommended to reapply the file, to make sure
+you get all CRDs.  CRDs are separated by release and by component type in the CRD directory.
+
+Istio has strong integration with certmanager.  Some operators may want to keep their current certmanager
+CRDs in place and not have Istio modify them.  In this case, it is necessary to apply CRD files individually.
+
+`+"`"+``+"`"+``+"`"+`bash
+kubectl apply -k github.com/istio/installer/base
+`+"`"+``+"`"+``+"`"+`
+
+or
+
+`+"`"+``+"`"+``+"`"+`bash
+kubectl apply -f base/files
+`+"`"+``+"`"+``+"`"+`
+
+### Install Istio-CNI
+
+This is an optional step - CNI must run in a dedicated namespace, it is a 'singleton' and extremely
+security sensitive. Access to the CNI namespace must be highly restricted.
+
+**NOTE:** The environment variable `+"`"+`ISTIO_CLUSTER_ISGKE`+"`"+` is assumed to be set to `+"`"+`true`+"`"+` if the cluster
+is a GKE cluster.
+
+`+"`"+``+"`"+``+"`"+`bash
+ISTIO_CNI_ARGS=
+# TODO: What k8s data can we use for this check for whether GKE?
+if [[ "${ISTIO_CLUSTER_ISGKE}" == "true" ]]; then
+    ISTIO_CNI_ARGS="--set cni.cniBinDir=/home/kubernetes/bin"
+fi
+iop kube-system istio-cni $IBASE/istio-cni/ ${ISTIO_CNI_ARGS}
+`+"`"+``+"`"+``+"`"+`
+
+TODO. It is possible to add Istio-CNI later, and gradually migrate.
+
+### Install Control plane
+
+This can run in any cluster. A mesh should have at least one cluster should run Pilot or equivalent XDS server,
+and it is recommended to have Pilot running in each region and in multiple availability zones for multi cluster.
+
+`+"`"+``+"`"+``+"`"+`bash
+iop istio-control istio-discovery $IBASE/istio-control/istio-discovery \
+            --set global.istioNamespace=istio-system \
+            --set global.telemetryNamespace=istio-telemetry \
+            --set global.policyNamespace=istio-policy
+
+# Second istio-discovery, using master version of istio
+TAG=latest HUB=gcr.io/istio-testing iop istio-master istio-discovery-master $IBASE/istio-control/istio-discovery \
+            --set policy.enable=false \
+            --set global.istioNamespace=istio-master \
+            --set global.telemetryNamespace=istio-telemetry-master \
+            --set global.policyNamespace=istio-policy-master
+`+"`"+``+"`"+``+"`"+`
+
+### Gateways
+
+A cluster may use multiple Gateways, each with a different load balancer IP, domains and certificates.
+
+Since the domain certificates are stored in the gateway namespace, it is recommended to keep each
+gateway in a dedicated namespace and restrict access.
+
+For large-scale gateways it is optionally possible to use a dedicated pilot in the gateway namespace.
+
+### Telemetry
+
+`+"`"+``+"`"+``+"`"+`bash
+iop istio-telemetry istio-grafana $IBASE/istio-telemetry/grafana/
+iop istio-telemetry istio-mixer $IBASE/istio-telemetry/mixer-telemetry/ \
+        --set global.istioNamespace=istio-system \
+        --set global.telemetryNamespace=istio-telemetry \
+        --set global.policyNamespace=istio-policy
+iop istio-telemetry istio-prometheus $IBASE/istio-telemetry/prometheus/ \
+        --set global.istioNamespace=istio-system \
+        --set global.telemetryNamespace=istio-telemetry \
+        --set global.policyNamespace=istio-policy
+
+TAG=latest HUB=gcr.io/istio-testing iop istio-telemetry-master istio-grafana $IBASE/istio-telemetry/grafana/ \
+TAG=latest HUB=gcr.io/istio-testing iop istio-telemetry-master istio-mixer $IBASE/istio-telemetry/mixer-telemetry/ \
+        --set global.istioNamespace=istio-master \
+        --set global.telemetryNamespace=istio-telemetry-master \
+        --set global.policyNamespace=istio-policy-master
+TAG=latest HUB=gcr.io/istio-testing iop istio-telemetry-master istio-prometheus $IBASE/istio-telemetry/prometheus/ \
+        --set global.istioNamespace=istio-master \
+        --set global.telemetryNamespace=istio-telemetry-master \
+        --set global.policyNamespace=istio-policy-master
+`+"`"+``+"`"+``+"`"+`
+
+### Kiali
+
+`+"`"+``+"`"+``+"`"+`bash
+iop istio-telemetry kiali $IBASE/istio-telemetry/kiali \
+        --set global.istioNamespace=istio-system \
+        --set global.telemetryNamespace=istio-telemetry \
+        --set global.policyNamespace=istio-policy \
+        --set global.prometheusNamespace=istio-telemetry
+`+"`"+``+"`"+``+"`"+`
+
+### Additional test templates
+
+A number of helm test setups are general-purpose and should be installable in any cluster, to confirm
+Istio works properly and allow testing the specific install.
+`)
+
+func chartsReadmeMdBytes() ([]byte, error) {
+	return _chartsReadmeMd, nil
+}
+
+func chartsReadmeMd() (*asset, error) {
+	bytes, err := chartsReadmeMdBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/README.md", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsUpdatingChartsMd = []byte(`# Upating charts and values.yaml
+
+The charts in the `+"`"+`manifests`+"`"+` directory are used in istioctl to generate an installation manifest. The configuration
+settings contained in values.yaml files and passed through the CLI are validated against a
+[schema](../../operator/pkg/apis/istio/v1alpha1/values_types.proto).
+Whenever making changes in the charts, it's important to follow the below steps.
+
+## Step 0. Check that any schema change really belongs in values.yaml
+
+Is this a new parameter being added? If not, go to the next step.
+Dynamic, runtime config that is used to configure Istio components should go into the
+[MeshConfig API](https://github.com/istio/api/blob/master/mesh/v1alpha1/config.proto). Values.yaml is being deprecated and adding
+to it is discouraged. MeshConfig is the official API which follows API management practices and is dynamic
+(does not require component restarts).
+Exceptions to this rule are configuration items that affect K8s level settings (resources, mounts etc.)
+
+## Step 1. Make changes in charts and values.yaml in `+"`"+`manifests`+"`"+` directory
+
+## Step 2. Make corresponding values changes in [operator/data/profiles/default.yaml](../operator/data/profiles/default.yaml)
+
+The values.yaml in `+"`"+`manifests`+"`"+` are only used for direct Helm based installations, which is being deprecated.
+If any values.yaml changes are being made, the same changes must be made in the `+"`"+`operator/data/profiles/default.yaml`+"`"+`
+file, which must be in sync with the Helm values in `+"`"+`manifests`+"`"+`.
+
+## Step 3. Update the validation schema
+
+Istioctl uses a [schema](../../operator/pkg/apis/istio/v1alpha1/values_types.proto) to validate the values. Any changes to
+the schema must be added here, otherwise istioctl users will see errors.
+Once the schema file is updated, run:
+
+`+"`"+``+"`"+``+"`"+`bash
+$ make operator-proto
+`+"`"+``+"`"+``+"`"+`
+
+This will regenerate the Go structs used for schema validation.
+
+## Step 4. Update compiled-in charts
+
+Tests of istioctl use the compiled-in charts to ensure that the istioctl binary has the correct version of the charts.
+To regenerate the charts package, run:
+
+`+"`"+``+"`"+``+"`"+`bash
+$ make gen-charts
+`+"`"+``+"`"+``+"`"+`
+
+## Step 5. Update golden files
+
+The new charts/values will likely produce different installation manifests. Unit tests that expect a certain command
+output will fail for this reason. To update the golden output files, run:
+
+`+"`"+``+"`"+``+"`"+`bash
+$ make refresh-goldens
+`+"`"+``+"`"+``+"`"+`
+
+This will generate git diffs in the golden output files. Check that the changes are what you expect.
+
+## Step 6. Create a PR using outputs from Steps 1 to 5
+
+Your PR should pass all the checks if you followed these steps.
+`)
+
+func chartsUpdatingChartsMdBytes() ([]byte, error) {
+	return _chartsUpdatingChartsMd, nil
+}
+
+func chartsUpdatingChartsMd() (*asset, error) {
+	bytes, err := chartsUpdatingChartsMdBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/UPDATING-CHARTS.md", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
 }
 
 var _chartsBaseChartYaml = []byte(`apiVersion: v1
@@ -6955,7 +7382,7 @@ func chartsBaseFilesCrdMixerYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsBaseFilesCrdOperatorYaml = []byte(`# SYNC WITH manifests/istio-operator/templates
+var _chartsBaseFilesCrdOperatorYaml = []byte(`# SYNC WITH manifests/charts/istio-operator/templates
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
@@ -13702,7 +14129,7 @@ spec:
       storage: true
 ---
 
-# SYNC WITH manifests/istio-operator/templates
+# SYNC WITH manifests/charts/istio-operator/templates
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
@@ -15795,10 +16222,8 @@ spec:
           - name: CA_ADDR
           {{- if .Values.global.caAddress }}
             value: {{ .Values.global.caAddress }}
-          {{- else if .Values.global.configNamespace }}
-            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
           {{- else }}
-            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
+            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
           {{- end }}
           - name: NODE_NAME
             valueFrom:
@@ -16525,6 +16950,587 @@ func chartsGatewaysIstioIngressValuesYaml() (*asset, error) {
 	return a, nil
 }
 
+var _chartsGlobalYaml = []byte(`# Global and common settings for installing Istio.
+
+# This file is configured for a small scale production cluster.
+# Use user-values-medium or custom settings to tune up the CPU and scalling.
+# Additional values overrides can be used.
+
+# Each individual component will use values from this file, with defaults and 'advanced' settings included in
+# its own chart's values.yaml.
+
+# TODO: trim this file to commonly used settings, leave 'advanced' in the individual values.yaml (they can
+# still be overridden by users, but won't show in basic documentation.
+
+# This doesn't match istio defaults, which are more geared towards tests and bookinfo.
+
+global:
+  # Used to locate istio-pilot.
+  # Default is to install pilot in a dedicated namespace, istio-pilot11. You can use multiple namespaces, but
+  # for each 'profile' you need to match the control plane namespace and the value of istioNamespace
+  # It is assumed that istio-system is running either 1.0 or an upgraded version of 1.1, but only security components are
+  # used (citadel generating the secrets).
+  istioNamespace: istio-system
+
+  # Telemetry namespace, including tracing.
+  telemetryNamespace: istio-system
+
+  prometheusNamespace: istio-system
+
+  policyNamespace: istio-system
+
+  configRootNamespace: istio-system
+
+  ## End new settings
+  ## After this line we have the old Istio settings.
+
+  # Default hub for Istio images.
+  # Releases are published to docker hub under 'istio' project.
+  # Dev builds from prow are on gcr.io
+  hub: gcr.io/istio-testing
+
+  # Default tag for Istio images.
+  tag: latest
+
+  # Comma-separated minimum per-scope logging level of messages to output, in the form of <scope>:<level>,<scope>:<level>
+  # The control plane has different scopes depending on component, but can configure default log level across all components
+  # If empty, default scope and level will be used as configured in code
+  logging:
+    level: "default:info"
+
+  # To output all istio components logs in json format by adding --log_as_json argument to each container argument
+  logAsJson: false
+
+  # Enabled by default in master for maximising testing.
+  istiod:
+    enabled: true
+    enableAnalysis: false
+
+  proxy:
+    image: proxyv2
+
+    # cluster domain. Default value is "cluster.local".
+    clusterDomain: "cluster.local"
+
+    # Resources for the sidecar.
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 2000m
+        memory: 1024Mi
+
+    # Controls number of Proxy worker threads.
+    # If set to 0, then start worker thread for each CPU thread/core.
+    concurrency: 2
+
+    # Configures the access log for each sidecar.
+    # Options:
+    #   "" - disables access log
+    #   "/dev/stdout" - enables access log
+    accessLogFile: ""
+
+    # Configure how and what fields are displayed in sidecar access log. Setting to
+    # empty string will result in default log format
+    accessLogFormat: ""
+
+    # Configure the access log for sidecar to JSON or TEXT.
+    accessLogEncoding: TEXT
+
+    # Configure envoy gRPC access log service.
+    envoyAccessLogService:
+      enabled: false
+      host: # example: accesslog-service.istio-system
+      port: # example: 15000
+      tlsSettings:
+        mode: DISABLE # DISABLE, SIMPLE, MUTUAL, ISTIO_MUTUAL
+        clientCertificate: # example: /etc/istio/als/cert-chain.pem
+        privateKey:        # example: /etc/istio/als/key.pem
+        caCertificates:    # example: /etc/istio/als/root-cert.pem
+        sni:               # example: als.somedomain
+        subjectAltNames: []
+        # - als.somedomain
+      tcpKeepalive:
+        probes: 3
+        time: 10s
+        interval: 10s
+
+    # Log level for proxy, applies to gateways and sidecars.
+    # Expected values are: trace|debug|info|warning|error|critical|off
+    logLevel: warning
+
+    # Per Component log level for proxy, applies to gateways and sidecars. If a component level is
+    # not set, then the global "logLevel" will be used.
+    componentLogLevel: "misc:error"
+
+    # Automatic protocol detection uses a set of heuristics to
+    # determine whether the connection is using TLS or not (on the
+    # server side), as well as the application protocol being used
+    # (e.g., http vs tcp). These heuristics rely on the client sending
+    # the first bits of data. For server first protocols like MySQL,
+    # MongoDB, etc., Envoy will timeout on the protocol detection after
+    # the specified period, defaulting to non mTLS plain TCP
+    # traffic. Set this field to tweak the period that Envoy will wait
+    # for the client to send the first bits of data. (MUST BE >=1ms)
+    protocolDetectionTimeout: 100ms
+
+    #If set to true, istio-proxy container will have privileged securityContext
+    privileged: false
+
+    # If set, newly injected sidecars will have core dumps enabled.
+    enableCoreDump: false
+
+    # Default port for Pilot agent health checks. A value of 0 will disable health checking.
+    statusPort: 15020
+
+    # The initial delay for readiness probes in seconds.
+    readinessInitialDelaySeconds: 1
+
+    # The period between readiness probes.
+    readinessPeriodSeconds: 2
+
+    # The number of successive failed probes before indicating readiness failure.
+    readinessFailureThreshold: 30
+
+    # istio egress capture whitelist
+    # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
+    # example: includeIPRanges: "172.30.0.0/16,172.20.0.0/16"
+    # would only capture egress traffic on those two IP Ranges, all other outbound traffic would
+    # be allowed by the sidecar
+    includeIPRanges: "*"
+    excludeIPRanges: ""
+    excludeOutboundPorts: ""
+
+    # istio ingress capture whitelist
+    # examples:
+    #     Redirect only selected ports:            --includeInboundPorts="80,8080"
+    excludeInboundPorts: ""
+
+    # This controls the 'policy' in the sidecar injector.
+    autoInject: enabled
+
+    # Sets the destination Statsd in envoy (the value of the "--statsdUdpAddress" proxy argument
+    # would be <host>:<port>).
+    # Disabled by default.
+    # The istio-statsd-prom-bridge is deprecated and should not be used moving forward.
+    envoyStatsd:
+      # If enabled is set to true, host and port must also be provided. Istio no longer provides a statsd collector.
+      enabled: false
+      host: # example: statsd-svc.istio-system
+      port: # example: 9125
+
+    # Sets the Envoy Metrics Service address, used to push Envoy metrics to an external collector
+    # via the Metrics Service gRPC API. This contains detailed stats information emitted directly
+    # by Envoy and should not be confused with the the Istio telemetry. The Envoy stats are also
+    # available to scrape via the Envoy admin port at either /stats or /stats/prometheus.
+    #
+    # See https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/metrics/v2/metrics_service.proto
+    # for details about Envoy's Metrics Service API.
+    #
+    # Disabled by default.
+    envoyMetricsService:
+      enabled: false
+      host: # example: metrics-service.istio-system
+      port: # example: 15000
+      tlsSettings:
+        mode: DISABLE # DISABLE, SIMPLE, MUTUAL, ISTIO_MUTUAL
+        clientCertificate: # example: /etc/istio/ms/cert-chain.pem
+        privateKey:        # example: /etc/istio/ms/key.pem
+        caCertificates:    # example: /etc/istio/ms/root-cert.pem
+        sni:               # example: ms.somedomain
+        subjectAltNames: []
+        # - ms.somedomain
+      tcpKeepalive:
+        probes: 3
+        time: 10s
+        interval: 10s
+
+    # Specify which tracer to use. One of: zipkin, lightstep, datadog, stackdriver.
+    # If using stackdriver tracer outside GCP, set env GOOGLE_APPLICATION_CREDENTIALS to the GCP credential file.
+    tracer: "zipkin"
+
+  proxy_init:
+    # Base name for the proxy_init container, used to configure iptables.
+    image: proxyv2
+    resources:
+      limits:
+        cpu: 100m
+        memory: 50Mi
+      requests:
+        cpu: 10m
+        memory: 10Mi
+
+  # Specify image pull policy if default behavior isn't desired.
+  # Default behavior: latest images will be Always else IfNotPresent.
+  imagePullPolicy: ""
+
+  # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
+  # propagated, not recommended for tests.
+  controlPlaneSecurityEnabled: true
+
+  # Use the user-specified, secret volume mounted key and certs for Pilot and workloads.
+  mountMtlsCerts: false
+
+  # disablePolicyChecks disables mixer policy checks.
+  # if mixer.policy.enabled==true then disablePolicyChecks has affect.
+  # Will set the value with same name in istio config map - pilot needs to be restarted to take effect.
+  disablePolicyChecks: true
+
+  # policyCheckFailOpen allows traffic in cases when the mixer policy service cannot be reached.
+  # Default is false which means the traffic is denied when the client is unable to connect to Mixer.
+  policyCheckFailOpen: false
+
+  # EnableTracing sets the value with same name in istio config map, requires pilot restart to take effect.
+  enableTracing: true
+
+  # Configuration for each of the supported tracers
+  tracer:
+    # Configuration for envoy to send trace data to LightStep.
+    # Disabled by default.
+    # address: the <host>:<port> of the satellite pool
+    # accessToken: required for sending data to the pool
+    # secure: specifies whether data should be sent with TLS
+    # cacertPath: the path to the file containing the cacert to use when verifying TLS. If secure is true, this is
+    #   required. If a value is specified then a secret called "lightstep.cacert" must be created in the destination
+    #   namespace with the key matching the base of the provided cacertPath and the value being the cacert itself.
+    #
+    lightstep:
+      address: ""                # example: lightstep-satellite:443
+      accessToken: ""            # example: abcdefg1234567
+      secure: true               # example: true|false
+      cacertPath: ""             # example: /etc/lightstep/cacert.pem
+    zipkin:
+      # Host:Port for reporting trace data in zipkin format. If not specified, will default to
+      # zipkin service (port 9411) in the same namespace as the other istio components.
+      address: ""
+    datadog:
+      # Host:Port for submitting traces to the Datadog agent.
+      address: "$(HOST_IP):8126"
+    stackdriver:
+      # enables trace output to stdout.
+      debug: false
+      # The global default max number of attributes per span.
+      maxNumberOfAttributes: 200
+      # The global default max number of annotation events per span.
+      maxNumberOfAnnotations: 200
+      # The global default max number of message events per span.
+      maxNumberOfMessageEvents: 200
+
+  # Default mtls policy. If true, mtls between services will be enabled by default.
+  mtls:
+    # Default setting for service-to-service mtls. Can be set explicitly using
+    # destination rules or service annotations.
+    enabled: false
+    # If set to true, and a given service does not have a corresponding DestinationRule configured,
+    # or its DestinationRule does not have TLSSettings specified, Istio configures client side
+    # TLS configuration automatically, based on the server side mTLS authentication policy and the
+    # availibity of sidecars.
+    auto: true
+
+  # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
+  # to use for pulling any images in pods that reference this ServiceAccount.
+  # For components that don't use ServiceAccounts (i.e. grafana, servicegraph, tracing)
+  # ImagePullSecrets will be added to the corresponding Deployment(StatefulSet) objects.
+  # Must be set for any clustser configured with private docker registry.
+  imagePullSecrets: []
+    # - private-registry-key
+
+  # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
+  #   0 - Never scheduled
+  #   1 - Least preferred
+  #   2 - No preference
+  #   3 - Most preferred
+  arch:
+    amd64: 2
+    s390x: 2
+    ppc64le: 2
+
+  # Whether to restrict the applications namespace the controller manages;
+  # If not set, controller watches all namespaces
+  oneNamespace: false
+
+  # Default node selector to be applied to all deployments so that all pods can be
+  # constrained to run a particular nodes. Each component can overwrite these default
+  # values by adding its node selector block in the relevant section below and setting
+  # the desired values.
+  defaultNodeSelector: {}
+
+  # Default node tolerations to be applied to all deployments so that all pods can be
+  # scheduled to a particular nodes with matching taints. Each component can overwrite
+  # these default values by adding its tolerations block in the relevant section below
+  # and setting the desired values.
+  # Configure this field in case that all pods of Istio control plane are expected to
+  # be scheduled to particular nodes with specified taints.
+  defaultTolerations: []
+
+  # Whether to perform server-side validation of configuration.
+  configValidation: true
+
+  # Custom DNS config for the pod to resolve names of services in other
+  # clusters. Use this to add additional search domains, and other settings.
+  # see
+  # https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#dns-config
+  # This does not apply to gateway pods as they typically need a different
+  # set of DNS settings than the normal application pods (e.g., in
+  # multicluster scenarios).
+  # NOTE: If using templates, follow the pattern in the commented example below.
+  #podDNSSearchNamespaces:
+  #- global
+  #- "{{ valueOrDefault .DeploymentMeta.Namespace \"default\" }}.global"
+
+  # If set to true, the pilot and citadel mtls will be exposed on the
+  # ingress gateway
+  meshExpansion:
+    enabled: false
+    # If set to true, the pilot and citadel mtls and the plain text pilot ports
+    # will be exposed on an internal gateway
+    useILB: false
+
+  multiCluster:
+    # Set to true to connect two kubernetes clusters via their respective
+    # ingressgateway services when pods in each cluster cannot directly
+    # talk to one another. All clusters should be using Istio mTLS and must
+    # have a shared root CA for this model to work.
+    enabled: false
+    # Should be set to the name of the cluster this installation will run in. This is required for sidecar injection
+    # to properly label proxies
+    clusterName: ""
+
+  # A minimal set of requested resources to applied to all deployments so that
+  # Horizontal Pod Autoscaler will be able to function (if set).
+  # Each component can overwrite these default values by adding its own resources
+  # block in the relevant section below and setting the desired resources values.
+  defaultResources:
+    requests:
+      cpu: 10m
+    #   memory: 128Mi
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+
+  # enable pod distruption budget for the control plane, which is used to
+  # ensure Istio control plane components are gradually upgraded or recovered.
+  defaultPodDisruptionBudget:
+    enabled: true
+    # The values aren't mutable due to a current PodDisruptionBudget limitation
+    # minAvailable: 1
+
+  # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
+  # system-node-critical, it is better to configure this in order to make sure your Istio pods
+  # will not be killed because of low priority class.
+  # Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
+  # for more detail.
+  priorityClassName: ""
+
+  # Use the Mesh Control Protocol (MCP) for configuring Mixer and Pilot. Requires an MCP source.
+  useMCP: false
+
+  # The trust domain corresponds to the trust root of a system
+  # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+  # Indicate the domain used in SPIFFE identity URL
+  # The default depends on the environment.
+  #   kubernetes: cluster.local
+  #   else:  default dns domain
+  trustDomain: "cluster.local"
+
+  #  The trust domain aliases represent the aliases of trust_domain.
+  #  For example, if we have
+  #  trustDomain: td1
+  #  trustDomainAliases: ["td2", "td3"]
+  #  Any service with the identity "td1/ns/foo/sa/a-service-account", "td2/ns/foo/sa/a-service-account",
+  #  or "td3/ns/foo/sa/a-service-account" will be treated the same in the Istio mesh.
+  trustDomainAliases: []
+
+  # Mesh ID means Mesh Identifier. It should be unique within the scope where
+  # meshes will interact with each other, but it is not required to be
+  # globally/universally unique. For example, if any of the following are true,
+  # then two meshes must have different Mesh IDs:
+  # - Meshes will have their telemetry aggregated in one place
+  # - Meshes will be federated together
+  # - Policy will be written referencing one mesh from the other
+  #
+  # If an administrator expects that any of these conditions may become true in
+  # the future, they should ensure their meshes have different Mesh IDs
+  # assigned.
+  #
+  # Within a multicluster mesh, each cluster must be (manually or auto)
+  # configured to have the same Mesh ID value. If an existing cluster 'joins' a
+  # multicluster mesh, it will need to be migrated to the new mesh ID. Details
+  # of migration TBD, and it may be a disruptive operation to change the Mesh
+  # ID post-install.
+  #
+  # If the mesh admin does not specify a value, Istio will use the value of the
+  # mesh's Trust Domain. The best practice is to select a proper Trust Domain
+  # value.
+  meshID: ""
+
+  # Set the default behavior of the sidecar for handling outbound traffic from the application:
+  # ALLOW_ANY - outbound traffic to unknown destinations will be allowed, in case there are no
+  #   services or ServiceEntries for the destination port
+  # REGISTRY_ONLY - restrict outbound traffic to services defined in the service registry as well
+  #   as those defined through ServiceEntries
+  # ALLOW_ANY is the default in 1.1.  This means each pod will be able to make outbound requests
+  # to services outside of the mesh without any ServiceEntry.
+  # REGISTRY_ONLY was the default in 1.0.  If this behavior is desired, set the value below to REGISTRY_ONLY.
+  outboundTrafficPolicy:
+    mode: ALLOW_ANY
+
+  # The namespace where globally shared configurations should be present.
+  # DestinationRules that apply to the entire mesh (e.g., enabling mTLS),
+  # default Sidecar configs, etc. should be added to this namespace.
+  # configRootNamespace: istio-config
+
+  # set the default set of namespaces to which services, service entries, virtual services, destination
+  # rules should be exported to. Currently only one value can be provided in this list. This value
+  # should be one of the following two options:
+  # * implies these objects are visible to all namespaces, enabling any sidecar to talk to any other sidecar.
+  # . implies these objects are visible to only to sidecars in the same namespace, or if imported as a Sidecar.egress.host
+  defaultConfigVisibilitySettings: []
+#  - '*'
+  omitSidecarInjectorConfigMap: false
+  sds:
+    # SDS enabled. IF set to true, mTLS certificates for the sidecars will be
+    # distributed through the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
+    enabled: false
+    udsPath: ""
+    # The JWT token for SDS and the aud field of such JWT. See RFC 7519, section 4.1.3.
+    # When a CSR is sent from Citadel Agent to the CA (e.g. Citadel), this aud is to make sure the
+    # JWT is intended for the CA.
+    token:
+      aud: istio-ca
+
+  sts:
+    # The service port used by Security Token Service (STS) server to handle token exchange requests.
+    # Setting this port to a non-zero value enables STS server.
+    servicePort: 0
+
+  # The customized CA address to retrieve certificates for the pods in the cluster.
+  # CSR clients such as the Istio Agent and ingress gateways can use this to specify the CA endpoint.
+  caAddress: ""
+
+  # Configure the mesh networks to be used by the Split Horizon EDS.
+  #
+  # The following example defines two networks with different endpoints association methods.
+  # For `+"`"+`network1`+"`"+` all endpoints that their IP belongs to the provided CIDR range will be
+  # mapped to network1. The gateway for this network example is specified by its public IP
+  # address and port.
+  # The second network, `+"`"+`network2`+"`"+`, in this example is defined differently with all endpoints
+  # retrieved through the specified Multi-Cluster registry being mapped to network2. The
+  # gateway is also defined differently with the name of the gateway service on the remote
+  # cluster. The public IP for the gateway will be determined from that remote service (only
+  # LoadBalancer gateway service type is currently supported, for a NodePort type gateway service,
+  # it still need to be configured manually).
+  #
+  # meshNetworks:
+  #   network1:
+  #     endpoints:
+  #     - fromCidr: "192.168.0.1/24"
+  #     gateways:
+  #     - address: 1.1.1.1
+  #       port: 80
+  #   network2:
+  #     endpoints:
+  #     - fromRegistry: reg1
+  #     gateways:
+  #     - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
+  #       port: 443
+  #
+  meshNetworks: {}
+
+  # Network defines the network this cluster belong to. This name
+  # corresponds to the networks in the map of mesh networks.
+  network: ""
+
+  # Specifies the global locality load balancing settings.
+  # Locality-weighted load balancing allows administrators to control the distribution of traffic to
+  # endpoints based on the localities of where the traffic originates and where it will terminate.
+  # Please set either failover or distribute configuration but not both.
+  #
+  # localityLbSetting:
+  #   enabled: true
+  #   distribute:
+  #   - from: "us-central1/*"
+  #     to:
+  #       "us-central1/*": 80
+  #       "us-central2/*": 20
+  #
+  # localityLbSetting:
+  #   enabled: true
+  #   failover:
+  #   - from: us-east
+  #     to: eu-west
+  #   - from: us-west
+  #     to: us-east
+  localityLbSetting:
+    enabled: true
+
+  # Specifies whether helm test is enabled or not.
+  # This field is set to false by default, so 'helm template ...'
+  # will ignore the helm test yaml files when generating the template
+  enableHelmTest: false
+
+  # Configures DNS certificates provisioned through Chiron linked into Pilot.
+  # The DNS names in this file are all hard-coded; please ensure the namespaces
+  # in dnsNames are consistent with those of your services.
+  # Example:
+  # certificates:
+  #   - secretName: dns.istiod-service-account
+  #     dnsNames: [istiod.istio-system.svc, istiod.istio-system]
+  certificates: []
+
+  # Configure whether Operator manages webhook configurations. The current behavior
+  # of Istiod is to manage its own webhook configurations.
+  # When this option is set as true, Istio Operator, instead of webhooks, manages the
+  # webhook configurations. When this option is set as false, webhooks manage their
+  # own webhook configurations.
+  operatorManageWebhooks: false
+
+  # Settings for remote cluster.
+  createRemoteSvcEndpoints: false
+  
+  # configure remote pilot and istiod service and endpoint
+  remotePolicyAddress: ""
+  remotePilotAddress: ""
+  remoteTelemetryAddress: ""
+
+  # Configure the certificate provider for control plane communication.
+  # Currently, two providers are supported: "kubernetes" and "istiod".
+  # As some platforms may not have kubernetes signing APIs,
+  # Istiod is the default
+  pilotCertProvider: istiod
+
+  # Configure the policy for validating JWT.
+  # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
+  jwtPolicy: "third-party-jwt"
+
+# Internal setting - used when generating helm templates for kustomize.
+# clusterResources controls the inclusion of cluster-wide resources when generating the charts/installing.
+# For backward compat, it is set to 'true', resulting in the old-style installation.
+# When set to 'false', all cluster-wide resources will be omitted, and are expected to be installed
+# at the same time with the CRDs.
+clusterResources: true
+
+# Version is set as 'version' label and part of the resource names when installing.
+# It is used to support multiple version in same namespace, similar with normal app traffic shift.
+version: ""
+`)
+
+func chartsGlobalYamlBytes() ([]byte, error) {
+	return _chartsGlobalYaml, nil
+}
+
+func chartsGlobalYaml() (*asset, error) {
+	bytes, err := chartsGlobalYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/global.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _chartsIstioCniChartYaml = []byte(`apiVersion: v1
 name: istio-cni
 version: 1.1.0
@@ -17099,7 +18105,6 @@ data:
         },
         "caAddress": "",
         "certificates": [],
-        "configNamespace": "istio-system",
         "configRootNamespace": "istio-system",
         "configValidation": true,
         "controlPlaneSecurityEnabled": true,
@@ -17467,10 +18472,8 @@ data:
         - name: CA_ADDR
         {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
-        {{- else if .Values.global.configNamespace }}
-          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
-          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -18869,10 +19872,8 @@ var _chartsIstioControlIstioDiscoveryFilesInjectionTemplateYaml = []byte(`templa
     - name: CA_ADDR
     {{- if .Values.global.caAddress }}
       value: {{ .Values.global.caAddress }}
-    {{- else if .Values.global.configNamespace }}
-      value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
     {{- else }}
-      value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
+      value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
     {{- end }}
     - name: POD_NAME
       valueFrom:
@@ -21279,9 +22280,6 @@ pilot:
       cpu: 500m
       memory: 2048Mi
 
-  # Namespace for Istio config
-  configNamespace: istio-config
-
   # Applications namespace list pilot manages
   appNamespaces: []
 
@@ -21693,7 +22691,7 @@ func chartsIstioOperatorTemplatesClusterrole_bindingYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioOperatorTemplatesCrdOperatorYaml = []byte(`# SYNC WITH manifests/base/files
+var _chartsIstioOperatorTemplatesCrdOperatorYaml = []byte(`# SYNC WITH manifests/charts/base/files
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
@@ -22677,12 +23675,12 @@ spec:
     {{- if .Values.global.controlPlaneSecurityEnabled}}
           - --configStoreURL=mcps://istio-galley.{{ .Values.global.configNamespace }}.svc:15019
     {{- else }}
-          - --configStoreURL=mcp://istio-galley.{{ .Values.global.configNamespace }}.svc:9901
+          - --configStoreURL=mcp://istio-galley.{{ .Values.global.istioNamespace }}.svc:9901
     {{- end }}
 {{- else }}
           - --configStoreURL=k8s://
 {{- end }}
-          - --configDefaultNamespace={{ .Values.global.configNamespace }}
+          - --configDefaultNamespace={{ .Values.global.istioNamespace }}
           {{- if .Values.mixer.policy.adapters.useAdapterCRDs }}
           - --useAdapterCRDs=true
           {{- else }}
@@ -22797,10 +23795,8 @@ spec:
         - name: CA_ADDR
         {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
-        {{- else if .Values.global.configNamespace }}
-          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
-          value: istiod.istio-system.svc:15012
+          value: istiod.{{ .Values.global.istioNamespace }}.svc:15012
         {{- end }}
         resources:
 {{- if .Values.global.proxy.resources }}
@@ -35740,7 +36736,7 @@ data:
     istio_component_namespaces:
       grafana: {{ .Values.global.telemetryNamespace }}
       tracing: {{ .Values.global.telemetryNamespace }}
-      pilot: {{ .Values.global.configNamespace }}
+      pilot: {{ .Values.global.istioNamespace }}
       prometheus: {{ .Values.global.prometheusNamespace }}
     istio_namespace: {{ .Values.global.istioNamespace }}
     auth:
@@ -35762,7 +36758,7 @@ data:
 {{- end }}
     external_services:
       istio:
-        url_service_version: http://istio-pilot.{{ .Values.global.configNamespace }}:8080/version
+        url_service_version: http://istio-pilot.{{ .Values.global.istioNamespace }}:8080/version
       tracing:
         url: {{ .Values.kiali.dashboard.jaegerURL }}
         in_cluster_url: {{ .Values.kiali.dashboard.jaegerInClusterURL }}
@@ -37467,7 +38463,7 @@ data:
             combined_validation_context:
               default_validation_context:
                 verify_subject_alt_name:
-                - spiffe://{{ .Values.global.trustDomain }}/ns/{{ .Values.global.configNamespace }}/sa/istio-galley-service-account
+                - spiffe://{{ .Values.global.trustDomain }}/ns/{{ .Values.global.istioNamespace }}/sa/istio-galley-service-account
               validation_context_sds_secret_config:
                 name: ROOTCA
                 sds_config:
@@ -37478,7 +38474,7 @@ data:
                         cluster_name: sds-grpc
         hosts:
           - socket_address:
-              address: istio-galley.{{ .Values.global.configNamespace }}
+              address: istio-galley.{{ .Values.global.istioNamespace }}
               port_value: 15019
 
 
@@ -37830,7 +38826,7 @@ spec:
     {{- if .Values.global.controlPlaneSecurityEnabled}}
           - --configStoreURL=mcp://localhost:15019
     {{- else }}
-          - --configStoreURL=mcp://istio-galley.{{ .Values.global.configNamespace }}.svc:9901
+          - --configStoreURL=mcp://istio-galley.{{ .Values.global.istioNamespace }}.svc:9901
     {{- end }}
 {{- else }}
           - --configStoreURL=k8s://
@@ -37948,12 +38944,10 @@ spec:
         - name: "ISTIO_META_USER_SDS"
           value: "true"
         - name: CA_ADDR
-          {{- if .Values.global.caAddress }}
+      {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
-          {{- else if .Values.global.configNamespace }}
-          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
-          {{- else }}
-          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
+      {{- else }}
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
       {{- end }}
         resources:
 {{- if .Values.global.proxy.resources }}
@@ -39497,7 +40491,7 @@ data:
       - role: endpoints
         namespaces:
           names:
-          - {{ .Values.global.configNamespace }}
+          - {{ .Values.global.istioNamespace }}
 
       relabel_configs:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
@@ -39510,7 +40504,7 @@ data:
       - role: endpoints
         namespaces:
           names:
-          - {{ .Values.global.configNamespace }}
+          - {{ .Values.global.istioNamespace }}
 
       relabel_configs:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
@@ -39830,10 +40824,8 @@ spec:
             - name: CA_ADDR
               {{- if .Values.global.caAddress }}
               value: {{ .Values.global.caAddress }}
-              {{- else if .Values.global.configNamespace }}
-              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
               {{- else }}
-              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
+              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
               {{- end }}
             - name: POD_NAME
               valueFrom:
@@ -42611,7 +43603,7 @@ spec:
       enabled: false
 
   # Global values passed through to helm global.yaml.
-  # Please keep this in sync with manifests/global.yaml
+  # Please keep this in sync with manifests/charts/global.yaml
   values:
     # You may override parts of meshconfig by uncommenting the following lines.
     meshConfig:
@@ -44359,6 +45351,11 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
+	"charts/.drone.yml":                                                                 chartsDroneYml,
+	"charts/.gitignore":                                                                 chartsGitignore,
+	"charts/README-helm3.md":                                                            chartsReadmeHelm3Md,
+	"charts/README.md":                                                                  chartsReadmeMd,
+	"charts/UPDATING-CHARTS.md":                                                         chartsUpdatingChartsMd,
 	"charts/base/Chart.yaml":                                                            chartsBaseChartYaml,
 	"charts/base/NOTES.txt":                                                             chartsBaseNotesTxt,
 	"charts/base/files/crd-all.gen.yaml":                                                chartsBaseFilesCrdAllGenYaml,
@@ -44398,6 +45395,7 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/gateways/istio-ingress/templates/service.yaml":                              chartsGatewaysIstioIngressTemplatesServiceYaml,
 	"charts/gateways/istio-ingress/templates/serviceaccount.yaml":                       chartsGatewaysIstioIngressTemplatesServiceaccountYaml,
 	"charts/gateways/istio-ingress/values.yaml":                                         chartsGatewaysIstioIngressValuesYaml,
+	"charts/global.yaml":                                                                chartsGlobalYaml,
 	"charts/istio-cni/Chart.yaml":                                                       chartsIstioCniChartYaml,
 	"charts/istio-cni/templates/clusterrole.yaml":                                       chartsIstioCniTemplatesClusterroleYaml,
 	"charts/istio-cni/templates/clusterrolebinding.yaml":                                chartsIstioCniTemplatesClusterrolebindingYaml,
@@ -44582,6 +45580,11 @@ type bintree struct {
 
 var _bintree = &bintree{nil, map[string]*bintree{
 	"charts": &bintree{nil, map[string]*bintree{
+		".drone.yml":         &bintree{chartsDroneYml, map[string]*bintree{}},
+		".gitignore":         &bintree{chartsGitignore, map[string]*bintree{}},
+		"README-helm3.md":    &bintree{chartsReadmeHelm3Md, map[string]*bintree{}},
+		"README.md":          &bintree{chartsReadmeMd, map[string]*bintree{}},
+		"UPDATING-CHARTS.md": &bintree{chartsUpdatingChartsMd, map[string]*bintree{}},
 		"base": &bintree{nil, map[string]*bintree{
 			"Chart.yaml": &bintree{chartsBaseChartYaml, map[string]*bintree{}},
 			"NOTES.txt":  &bintree{chartsBaseNotesTxt, map[string]*bintree{}},
@@ -44637,6 +45640,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"values.yaml": &bintree{chartsGatewaysIstioIngressValuesYaml, map[string]*bintree{}},
 			}},
 		}},
+		"global.yaml": &bintree{chartsGlobalYaml, map[string]*bintree{}},
 		"istio-cni": &bintree{nil, map[string]*bintree{
 			"Chart.yaml": &bintree{chartsIstioCniChartYaml, map[string]*bintree{}},
 			"templates": &bintree{nil, map[string]*bintree{
