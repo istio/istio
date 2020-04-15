@@ -93,9 +93,6 @@ type SidecarScope struct {
 	// This field will be used to determine the config/resource scope
 	// which means which config changes will affect the proxies within this scope.
 	configDependencies map[ConfigKey]struct{}
-
-	// Backup of previous configDependencies. Used to check for dependencies of deleted configs.
-	prevConfigDependencies map[ConfigKey]struct{}
 }
 
 // IstioEgressListenerWrapper is a wrapper for
@@ -479,20 +476,10 @@ func (sc *SidecarScope) DependsOnConfig(config ConfigKey) bool {
 	}
 
 	_, exists := sc.configDependencies[config]
-	if !exists && sc.prevConfigDependencies != nil {
-		_, exists = sc.prevConfigDependencies[config]
-	}
 	return exists
 }
 
-// ApplyPrevious will obtain some data from previous sidecarScope.
-func (sc *SidecarScope) ApplyPrevious(prev *SidecarScope) {
-	if prev != nil {
-		sc.prevConfigDependencies = prev.configDependencies
-	}
-}
-
-// AddConfigDependencies adds extra config dependencies to this scope. This action should be done before the
+// AddConfigDependencies add extra config dependencies to this scope. This action should be done before the
 // SidecarScope being used to avoid concurrent read/write.
 func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigKey) {
 	if sc == nil {
