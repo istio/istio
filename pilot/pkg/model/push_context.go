@@ -1629,7 +1629,8 @@ func getGatewayAddresses(gw *meshconfig.Network_IstioNetworkGateway, registryNam
 	if gwSvcName := gw.GetRegistryServiceName(); gwSvcName != "" {
 		svc, _ := discovery.GetService(host.Name(gwSvcName))
 		if svc != nil {
-			svc.Attributes.Mutex.RLock()
+			svc.Mutex.RLock()
+			defer svc.Mutex.RLock()
 			if svc.Attributes.ClusterExternalAddresses != nil {
 				var gateways []*Gateway
 				for _, clusterName := range registryNames {
@@ -1651,7 +1652,6 @@ func getGatewayAddresses(gw *meshconfig.Network_IstioNetworkGateway, registryNam
 				}
 				return gateways
 			}
-			svc.Attributes.Mutex.RLock()
 		}
 	}
 

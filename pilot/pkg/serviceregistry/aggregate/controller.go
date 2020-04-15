@@ -164,19 +164,21 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 			errs = multierror.Append(errs, err)
 			continue
 		}
+		if service == nil {
+			continue
+		}
 		if r.Cluster() == "" { // Should we instead check for registry name to be on safe side?
 			// If the service does not have a cluster ID (consul, ServiceEntries, CloudFoundry, etc.)
 			// Do not bother checking for the cluster ID.
 			// DO NOT ASSIGN CLUSTER ID to non-k8s registries. This will prevent service entries with multiple
 			// VIPs or CIDR ranges in the address field
 			return service, nil
+		}
+		// This is K8S typically
+		if out == nil {
+			out = service
 		} else {
-			// This is K8S typically
-			if out == nil {
-				out = service
-			}
-
-			out.Attributes.Mutex.Lock()
+			out.Mutex.Lock()
 			// ClusterExternalAddresses and ClusterExternalAddresses are only used for getting gateway address
 			if len(service.Attributes.ClusterExternalAddresses[r.Cluster()]) > 0 {
 				if out.Attributes.ClusterExternalAddresses == nil {
@@ -190,7 +192,7 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 				}
 				out.Attributes.ClusterExternalPorts[r.Cluster()] = service.Attributes.ClusterExternalPorts[r.Cluster()]
 			}
-			out.Attributes.Mutex.Unlock()
+			out.Mutex.Unlock()
 		}
 	}
 	return nil, errs

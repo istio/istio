@@ -504,7 +504,7 @@ func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) {
 					}
 				}
 			}
-			svc.Attributes.Mutex.Lock()
+			svc.Mutex.Lock()
 			nodeSelector := c.nodeSelectorsForServices[svc.Hostname]
 			if nodeSelector == nil {
 				svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: extAddresses}
@@ -517,7 +517,7 @@ func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) {
 				}
 				svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: nodeAddresses}
 			}
-			svc.Attributes.Mutex.Unlock()
+			svc.Mutex.Unlock()
 		}
 	}
 }
