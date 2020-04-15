@@ -603,7 +603,7 @@ func createLocalReleaseCharts() (string, error) {
 		return "", err
 	}
 	releaseSubDir := filepath.Join(releaseDir, istioTestVersion, helm.OperatorSubdirFilePath)
-	cmd := exec.Command("../../release/create_release_charts.sh", "-o", releaseSubDir)
+	cmd := exec.Command("../../scripts/create_release_charts.sh", "-o", releaseSubDir)
 	if stdo, err := cmd.Output(); err != nil {
 		return "", fmt.Errorf("%s: \n%s", err, string(stdo))
 	}

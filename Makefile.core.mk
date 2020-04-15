@@ -330,7 +330,7 @@ lint-go-split:
 	@golangci-lint run -c ./common/config/.golangci.yml ./operator/...
 
 lint-helm-global:
-	find manifests -name 'Chart.yaml' -print0 | ${XARGS} -L 1 dirname | xargs -r helm lint --strict -f manifests/global.yaml
+	find manifests -name 'Chart.yaml' -print0 | ${XARGS} -L 1 dirname | xargs -r helm lint --strict -f manifests/charts/global.yaml
 
 lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global
 	@bin/check_samples.sh
@@ -344,7 +344,7 @@ go-gen:
 	@PATH="${PATH}":/tmp/bin go generate ./...
 
 gen-charts:
-	@operator/scripts/run_update_charts.sh
+	@operator/scripts/create_assets_gen.sh
 
 refresh-goldens:
 	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./operator/...
@@ -359,9 +359,9 @@ gen-check: gen check-clean-repo check-no-modify
 
 # Generate kustomize templates.
 gen-kustomize:
-	helm template -n istio-base manifests/base > manifests/base/files/gen-istio-cluster.yaml
-	helm template -n istio-base --namespace istio-system manifests/istio-control/istio-discovery \
-		-f manifests/global.yaml > manifests/istio-control/istio-discovery/files/gen-istio.yaml
+	helm template -n istio-base manifests/charts/base > manifests/charts/base/files/gen-istio-cluster.yaml
+	helm template -n istio-base --namespace istio-system manifests/charts/istio-control/istio-discovery \
+		-f manifests/charts/global.yaml > manifests/charts/istio-control/istio-discovery/files/gen-istio.yaml
 
 #-----------------------------------------------------------------------------
 # Target: go build

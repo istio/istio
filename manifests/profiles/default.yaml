@@ -229,7 +229,7 @@ spec:
       enabled: false
 
   # Global values passed through to helm global.yaml.
-  # Please keep this in sync with manifests/global.yaml
+  # Please keep this in sync with manifests/charts/global.yaml
   values:
     # You may override parts of meshconfig by uncommenting the following lines.
     meshConfig:
