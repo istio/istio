@@ -198,6 +198,12 @@ type Controller struct {
 	networkForRegistry string
 }
 
+// nodeLabelForNodePortServiceInclusion specifies the labels based on which we will filter the list
+// of nodes in the system to be used for computing the cluster external IPs of node port services.
+// Note that this is different from the nodeSelector label that is attached per service.
+// TODO: move to API
+const nodeLabelForNodePortServiceInclusion = "traffic.istio.io/useForNodePortServices"
+
 // NewController creates a new Kubernetes controller
 // Created by bootstrap and multicluster (see secretcontroler).
 func NewController(client kubernetes.Interface, metadataClient metadata.Interface, options Options) *Controller {
@@ -231,7 +237,12 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 		c.endpoints = newEndpointSliceController(c, sharedInformers)
 	}
 
-	c.nodes = sharedInformers.Core().V1().Nodes().Informer()
+	nodeInformerFactory := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod,
+		informers.WithTweakListOptions(func(listOptions *metav1.ListOptions) {
+			listOptions.LabelSelector = nodeLabelForNodePortServiceInclusion
+		}))
+
+	c.nodes = nodeInformerFactory.Core().V1().Nodes().Informer()
 	registerHandlers(c.nodes, c.queue, "Nodes", c.onNodeEvent)
 
 	podInformer := sharedInformers.Core().V1().Pods().Informer()
