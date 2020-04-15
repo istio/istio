@@ -69,9 +69,9 @@ var (
 		"OWNER",
 		"PLATFORM_METADATA",
 		"WORKLOAD_NAME",
-		"CANONICAL_TELEMETRY_SERVICE",
 		"MESH_ID",
 		"SERVICE_ACCOUNT",
+		"CLUSTER_ID",
 	}
 )
 
@@ -383,9 +383,6 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 			m := jsonStringToMap(val)
 			if len(m) > 0 {
 				meta.Labels = m
-				if telemetrySvc := m["istioTelemetryService"]; len(telemetrySvc) > 0 {
-					meta.CanonicalTelemetryService = m["istioTelemetryService"]
-				}
 			}
 		case "POD_NAME":
 			meta.InstanceName = val
