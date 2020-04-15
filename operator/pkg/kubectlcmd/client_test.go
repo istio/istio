@@ -34,12 +34,19 @@ func (s *collector) Run(c *exec.Cmd) error {
 
 func TestKubectlApply(t *testing.T) {
 	tests := []struct {
-		name       string
-		namespace  string
-		manifest   string
-		args       []string
-		err        error
-		expectArgs []string
+		name                   string
+		namespace              string
+		manifest               string
+		dryrun                 bool
+		args                   []string
+		err                    error
+		expectArgs             []string
+		isstdoutandstderrempty bool
+		kubeconfig             string
+		context                string
+		output                 string
+		verbose                bool
+		prune                  bool
 	}{
 		{
 			name:       "manifest",
@@ -60,6 +67,58 @@ func TestKubectlApply(t *testing.T) {
 			args:       []string{"--prune=true", "--prune-whitelist=hello-world"},
 			expectArgs: []string{"kubectl", "apply", "-n", "kube-system", "--prune=true", "--prune-whitelist=hello-world", "-f", "-"},
 		},
+		{
+			name:                   "dry run",
+			namespace:              "kube-system",
+			manifest:               "heynow",
+			dryrun:                 true,
+			isstdoutandstderrempty: true,
+			args:                   []string{},
+			expectArgs:             []string{},
+		},
+		{
+			name:                   "empty mainfest",
+			namespace:              "kube-system",
+			manifest:               "",
+			isstdoutandstderrempty: true,
+			args:                   []string{},
+			expectArgs:             []string{},
+		},
+		{
+			name:       "kubeconfig option",
+			namespace:  "kube-system",
+			manifest:   "heynow",
+			kubeconfig: "test",
+			expectArgs: []string{"kubectl", "apply", "--kubeconfig", "test", "-n", "kube-system", "-f", "-"},
+		},
+		{
+			name:       "context option",
+			namespace:  "kube-system",
+			manifest:   "heynow",
+			context:    "test",
+			expectArgs: []string{"kubectl", "apply", "--context", "test", "-n", "kube-system", "-f", "-"},
+		},
+		{
+			name:       "output option",
+			namespace:  "kube-system",
+			manifest:   "heynow",
+			output:     "test",
+			expectArgs: []string{"kubectl", "apply", "-n", "kube-system", "-o", "test", "-f", "-"},
+		},
+		{
+			name:       "verbose option",
+			namespace:  "kube-system",
+			manifest:   "heynow",
+			verbose:    true,
+			expectArgs: []string{"kubectl", "apply", "-n", "kube-system", "-f", "-"},
+		},
+		{
+			name:       "prune option",
+			namespace:  "kube-system",
+			manifest:   "heynow",
+			prune:      true,
+			expectArgs: []string{"kubectl", "apply", "-n", "kube-system", "--prune", "-f", "-"},
+		},
 	}
 
 	for _, test := range tests {
@@ -67,8 +126,14 @@ func TestKubectlApply(t *testing.T) {
 			cs := collector{Error: test.err}
 			kubectl := &Client{cmdSite: &cs}
 			opts := &Options{
-				Namespace: test.namespace,
-				ExtraArgs: test.args,
+				Namespace:  test.namespace,
+				ExtraArgs:  test.args,
+				DryRun:     test.dryrun,
+				Kubeconfig: test.kubeconfig,
+				Context:    test.context,
+				Output:     test.output,
+				Verbose:    test.verbose,
+				Prune:      &test.prune,
 			}
 			_, _, err := kubectl.Apply(test.manifest, opts)
 
@@ -76,6 +141,10 @@ func TestKubectlApply(t *testing.T) {
 				t.Error("expected error to occur")
 			} else if test.err == nil && err != nil {
 				t.Errorf("unexpected error: %v", err)
+			}
+
+			if test.isstdoutandstderrempty {
+				return
 			}
 
 			if len(cs.Cmds) != 1 {
@@ -101,12 +170,13 @@ func TestKubectlApply(t *testing.T) {
 
 func TestKubectlDelete(t *testing.T) {
 	tests := []struct {
-		name       string
-		namespace  string
-		manifest   string
-		args       []string
-		err        error
-		expectArgs []string
+		name                   string
+		namespace              string
+		manifest               string
+		args                   []string
+		err                    error
+		expectArgs             []string
+		isstdoutandstderrempty bool
 	}{
 		{
 			name:       "manifest",
@@ -119,6 +189,12 @@ func TestKubectlDelete(t *testing.T) {
 			namespace:  "kube-system",
 			manifest:   "heynow",
 			expectArgs: []string{"kubectl", "delete", "-n", "kube-system", "-f", "-"},
+		},
+		{
+			name:                   "empty manifest",
+			namespace:              "kube-system",
+			manifest:               "",
+			isstdoutandstderrempty: true,
 		},
 	}
 
@@ -138,6 +214,9 @@ func TestKubectlDelete(t *testing.T) {
 				t.Errorf("unexpected error: %v", err)
 			}
 
+			if test.isstdoutandstderrempty {
+				return
+			}
 			if len(cs.Cmds) != 1 {
 				t.Errorf("expected 1 command to be invoked, got: %d", len(cs.Cmds))
 			}
