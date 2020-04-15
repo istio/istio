@@ -356,7 +356,9 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 	var updatedNeeded bool
 	if event == model.EventDelete {
 		updatedNeeded = true
+		c.Lock()
 		delete(c.nodeInfoMap, machine.Name)
+		c.Unlock()
 	} else {
 		k8sNode := &kubernetesNode{labels: machine.Labels}
 		for _, address := range machine.Status.Addresses {
