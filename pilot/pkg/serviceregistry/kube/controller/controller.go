@@ -344,8 +344,20 @@ func getNodeSelectorsForService(svc v1.Service) labels.Instance {
 }
 
 func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
-	return c.checkReadyForEvents()
-	// TODO: This should trigger a generic EDS update event but not for the initial set of ADDs
+	if err := c.checkReadyForEvents(); err != nil {
+		return err
+	}
+
+	// TODO: optimize me. We just need a full EDS push
+	// Right now, triggers full push which in turn causes XDS to do Services()
+	// call that provides updated list of node IPs for each service. This will
+	// then get pushed to all the envoys.
+	// The hope here is that the debouncing logic in xds code will handle the
+	// initial onslaught of ADD events.
+	c.xdsUpdater.ConfigUpdate(&model.PushRequest{
+		Full: true,
+	})
+	return nil
 }
 
 func isNodePortService(svc *model.Service) bool {
