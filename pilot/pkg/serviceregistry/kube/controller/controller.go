@@ -38,6 +38,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/metadata"
+	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/pkg/log"
@@ -169,13 +170,14 @@ type Controller struct {
 	services       cache.SharedIndexInformer
 	endpoints      kubeEndpointsController
 
-	nodes           cache.SharedIndexInformer
-	pods            *PodCache
-	metrics         model.Metrics
-	networksWatcher mesh.NetworksWatcher
-	xdsUpdater      model.XDSUpdater
-	domainSuffix    string
-	clusterID       string
+	nodeMetadataInformer cache.SharedIndexInformer
+	filteredNodeInformer cache.SharedIndexInformer
+	pods                 *PodCache
+	metrics              model.Metrics
+	networksWatcher      mesh.NetworksWatcher
+	xdsUpdater           model.XDSUpdater
+	domainSuffix         string
+	clusterID            string
 
 	serviceHandlers []func(*model.Service, model.Event)
 
@@ -237,13 +239,19 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 		c.endpoints = newEndpointSliceController(c, sharedInformers)
 	}
 
-	nodeInformerFactory := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod,
-		informers.WithTweakListOptions(func(listOptions *metav1.ListOptions) {
-			listOptions.LabelSelector = nodeLabelForNodePortServiceInclusion
-		}))
+	// This is for getting the pod to node mapping, so that we can get the pod's locality.
+	metadataSharedInformer := metadatainformer.NewSharedInformerFactory(metadataClient, options.ResyncPeriod)
+	nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
+	c.nodeMetadataInformer = metadataSharedInformer.ForResource(nodeResource).Informer()
+	registerHandlers(c.nodeMetadataInformer, c.queue, "NodeMetadata", c.onNodeMetadataEvent)
 
-	c.nodes = nodeInformerFactory.Core().V1().Nodes().Informer()
-	registerHandlers(c.nodes, c.queue, "Nodes", c.onNodeEvent)
+	// This is for getting the node IPs of a selected set of nodes
+	// TODO: introduce list options after the mesh config API update.
+	filteredNodeInformerFactory := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod,
+		informers.WithTweakListOptions(func(listOptions *metav1.ListOptions) {}))
+
+	c.filteredNodeInformer = filteredNodeInformerFactory.Core().V1().Nodes().Informer()
+	registerHandlers(c.filteredNodeInformer, c.queue, "Nodes", c.onNodeEvent)
 
 	podInformer := sharedInformers.Core().V1().Pods().Informer()
 	c.pods = newPodCache(podInformer, c)
@@ -343,6 +351,10 @@ func getNodeSelectorsForService(svc v1.Service) labels.Instance {
 	return nil
 }
 
+func (c *Controller) onNodeMetadataEvent(obj interface{}, event model.Event) error {
+	return c.checkReadyForEvents()
+}
+
 func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 	if err := c.checkReadyForEvents(); err != nil {
 		return err
@@ -417,7 +429,8 @@ func (c *Controller) HasSynced() bool {
 	if !c.services.HasSynced() ||
 		!c.endpoints.HasSynced() ||
 		!c.pods.informer.HasSynced() ||
-		!c.nodes.HasSynced() {
+		!c.nodeMetadataInformer.HasSynced() ||
+		!c.filteredNodeInformer.HasSynced() {
 		return false
 	}
 	return true
@@ -437,10 +450,12 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	go c.services.Run(stop)
 	go c.pods.informer.Run(stop)
-	go c.nodes.Run(stop)
+	go c.nodeMetadataInformer.Run(stop)
+	go c.filteredNodeInformer.Run(stop)
 
 	// To avoid endpoints without labels or ports, wait for sync.
-	cache.WaitForCacheSync(stop, c.nodes.HasSynced, c.pods.informer.HasSynced,
+	cache.WaitForCacheSync(stop, c.nodeMetadataInformer.HasSynced, c.filteredNodeInformer.HasSynced,
+		c.pods.informer.HasSynced,
 		c.services.HasSynced)
 
 	go c.endpoints.Run(stop)
@@ -460,7 +475,7 @@ func (c *Controller) Stop() {
 func (c *Controller) Services() ([]*model.Service, error) {
 	var k8sNodes []*kubernetesNode
 	var extAddresses []string
-	rawNodes := c.nodes.GetStore().List()
+	rawNodes := c.filteredNodeInformer.GetStore().List()
 	for _, i := range rawNodes {
 		machine := i.(*v1.Node)
 		for _, address := range machine.Status.Addresses {
@@ -513,7 +528,7 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 
 	// NodeName is set by the scheduler after the pod is created
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#late-initialization
-	raw, exists, err := c.nodes.GetStore().GetByKey(pod.Spec.NodeName)
+	raw, exists, err := c.nodeMetadataInformer.GetStore().GetByKey(pod.Spec.NodeName)
 	if !exists || err != nil {
 		log.Warnf("unable to get node %q for pod %q from cache: %v", pod.Spec.NodeName, pod.Name, err)
 		nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
