@@ -16,6 +16,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -154,6 +155,12 @@ func (m EndpointMode) String() string {
 
 var _ serviceregistry.Instance = &Controller{}
 
+// kubernetesNode represents a kubernetes node that is reachable externally
+type kubernetesNode struct {
+	address string
+	labels  labels.Instance
+}
+
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
@@ -163,14 +170,14 @@ type Controller struct {
 	services       cache.SharedIndexInformer
 	endpoints      kubeEndpointsController
 
-	// TODO we can disable this when we only have EndpointSlice enabled
-	nodes           cache.SharedIndexInformer
-	pods            *PodCache
-	metrics         model.Metrics
-	networksWatcher mesh.NetworksWatcher
-	xdsUpdater      model.XDSUpdater
-	domainSuffix    string
-	clusterID       string
+	nodeMetadataInformer cache.SharedIndexInformer
+	filteredNodeInformer cache.SharedIndexInformer
+	pods                 *PodCache
+	metrics              model.Metrics
+	networksWatcher      mesh.NetworksWatcher
+	xdsUpdater           model.XDSUpdater
+	domainSuffix         string
+	clusterID            string
 
 	serviceHandlers []func(*model.Service, model.Event)
 
@@ -180,6 +187,9 @@ type Controller struct {
 	sync.RWMutex
 	// servicesMap stores hostname ==> service, it is used to reduce convertService calls.
 	servicesMap map[host.Name]*model.Service
+	// nodeSelectorsForServices stores hostname => label selectors that can be used to
+	// refine the set of node port IPs for a service.
+	nodeSelectorsForServices map[host.Name]labels.Instance
 	// externalNameSvcInstanceMap stores hostname ==> instance, is used to store instances for ExternalName k8s services
 	externalNameSvcInstanceMap map[host.Name][]*model.ServiceInstance
 
@@ -205,6 +215,7 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 		clusterID:                  options.ClusterID,
 		xdsUpdater:                 options.XDSUpdater,
 		servicesMap:                make(map[host.Name]*model.Service),
+		nodeSelectorsForServices:   make(map[host.Name]labels.Instance),
 		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
 		networksWatcher:            options.NetworksWatcher,
 		metrics:                    options.Metrics,
@@ -222,10 +233,19 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 		c.endpoints = newEndpointSliceController(c, sharedInformers)
 	}
 
+	// This is for getting the pod to node mapping, so that we can get the pod's locality.
 	metadataSharedInformer := metadatainformer.NewSharedInformerFactory(metadataClient, options.ResyncPeriod)
 	nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
-	c.nodes = metadataSharedInformer.ForResource(nodeResource).Informer()
-	registerHandlers(c.nodes, c.queue, "Nodes", c.onNodeEvent)
+	c.nodeMetadataInformer = metadataSharedInformer.ForResource(nodeResource).Informer()
+	registerHandlers(c.nodeMetadataInformer, c.queue, "NodeMetadata", c.onNodeMetadataEvent)
+
+	// This is for getting the node IPs of a selected set of nodes
+	// TODO: introduce list options after the mesh config API update.
+	filteredNodeInformerFactory := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod,
+		informers.WithTweakListOptions(func(listOptions *metav1.ListOptions) {}))
+
+	c.filteredNodeInformer = filteredNodeInformerFactory.Core().V1().Nodes().Informer()
+	registerHandlers(c.filteredNodeInformer, c.queue, "Nodes", c.onNodeEvent)
 
 	podInformer := sharedInformers.Core().V1().Pods().Informer()
 	c.pods = newPodCache(podInformer, c)
@@ -275,6 +295,7 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 	case model.EventDelete:
 		c.Lock()
 		delete(c.servicesMap, svcConv.Hostname)
+		delete(c.nodeSelectorsForServices, svcConv.Hostname)
 		delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
 		c.Unlock()
 		// EDS needs to just know when service is deleted.
@@ -283,6 +304,12 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		// instance conversion is only required when service is added/updated.
 		instances := kube.ExternalNameServiceInstances(*svc, svcConv)
 		c.Lock()
+		if isNodePortService(svcConv) {
+			// We need to know which services are using node selectors because during node events,
+			// we have to update all the node port services accordingly.
+			c.nodeSelectorsForServices[svcConv.Hostname] = getNodeSelectorsForService(*svc)
+		}
+
 		c.servicesMap[svcConv.Hostname] = svcConv
 		if instances == nil {
 			delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
@@ -301,8 +328,46 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 	return nil
 }
 
-func (c *Controller) onNodeEvent(obj interface{}, ev model.Event) error {
+// TODO: move to API
+// The value for this annotation is a set of key value pairs (node labels)
+// that can be used to select a subset of nodes from the pool of k8s nodes
+const nodeSelectorAnnotation = "traffic.istio.io/nodeSelector"
+
+func getNodeSelectorsForService(svc v1.Service) labels.Instance {
+	if svc.Annotations != nil && svc.Annotations[nodeSelectorAnnotation] != "" {
+		var nodeSelectorKV map[string]string
+		if err := json.Unmarshal([]byte(svc.Annotations[nodeSelectorAnnotation]), &nodeSelectorKV); err != nil {
+			log.Debugf("failed to unmarshal node selector annotation value for service %s.%s: %v",
+				svc.Name, svc.Namespace, err)
+		}
+		return nodeSelectorKV
+	}
+	return nil
+}
+
+func (c *Controller) onNodeMetadataEvent(obj interface{}, event model.Event) error {
 	return c.checkReadyForEvents()
+}
+
+func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
+	if err := c.checkReadyForEvents(); err != nil {
+		return err
+	}
+
+	// TODO: optimize me. We just need a full EDS push
+	// Right now, triggers full push which in turn causes XDS to do Services()
+	// call that provides updated list of node IPs for each service. This will
+	// then get pushed to all the envoys.
+	// The hope here is that the debouncing logic in xds code will handle the
+	// initial onslaught of ADD events.
+	c.xdsUpdater.ConfigUpdate(&model.PushRequest{
+		Full: true,
+	})
+	return nil
+}
+
+func isNodePortService(svc *model.Service) bool {
+	return svc.Attributes.ClusterExternalPorts != nil
 }
 
 func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otype string,
@@ -358,7 +423,8 @@ func (c *Controller) HasSynced() bool {
 	if !c.services.HasSynced() ||
 		!c.endpoints.HasSynced() ||
 		!c.pods.informer.HasSynced() ||
-		!c.nodes.HasSynced() {
+		!c.nodeMetadataInformer.HasSynced() ||
+		!c.filteredNodeInformer.HasSynced() {
 		return false
 	}
 	return true
@@ -378,10 +444,12 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	go c.services.Run(stop)
 	go c.pods.informer.Run(stop)
-	go c.nodes.Run(stop)
+	go c.nodeMetadataInformer.Run(stop)
+	go c.filteredNodeInformer.Run(stop)
 
 	// To avoid endpoints without labels or ports, wait for sync.
-	cache.WaitForCacheSync(stop, c.nodes.HasSynced, c.pods.informer.HasSynced,
+	cache.WaitForCacheSync(stop, c.nodeMetadataInformer.HasSynced, c.filteredNodeInformer.HasSynced,
+		c.pods.informer.HasSynced,
 		c.services.HasSynced)
 
 	go c.endpoints.Run(stop)
@@ -399,12 +467,40 @@ func (c *Controller) Stop() {
 
 // Services implements a service catalog operation
 func (c *Controller) Services() ([]*model.Service, error) {
-	c.RLock()
+	var k8sNodes []*kubernetesNode
+	var extAddresses []string
+	rawNodes := c.filteredNodeInformer.GetStore().List()
+	for _, i := range rawNodes {
+		machine := i.(*v1.Node)
+		for _, address := range machine.Status.Addresses {
+			if address.Type == v1.NodeExternalIP && address.Address != "" {
+				k8sNodes = append(k8sNodes,
+					&kubernetesNode{address: address.Address, labels: machine.Labels})
+				extAddresses = append(extAddresses, address.Address)
+			}
+		}
+	}
+
+	c.Lock()
 	out := make([]*model.Service, 0, len(c.servicesMap))
 	for _, svc := range c.servicesMap {
+		if isNodePortService(svc) {
+			nodeSelector := c.nodeSelectorsForServices[svc.Hostname]
+			if nodeSelector == nil {
+				svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: extAddresses}
+			} else {
+				var nodeAddresses []string
+				for _, n := range k8sNodes {
+					if nodeSelector.SubsetOf(n.labels) {
+						nodeAddresses = append(nodeAddresses, n.address)
+					}
+				}
+				svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: nodeAddresses}
+			}
+		}
 		out = append(out, svc)
 	}
-	c.RUnlock()
+	c.Unlock()
 	sort.Slice(out, func(i, j int) bool { return out[i].Hostname < out[j].Hostname })
 
 	return out, nil
@@ -426,7 +522,7 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 
 	// NodeName is set by the scheduler after the pod is created
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#late-initialization
-	raw, exists, err := c.nodes.GetStore().GetByKey(pod.Spec.NodeName)
+	raw, exists, err := c.nodeMetadataInformer.GetStore().GetByKey(pod.Spec.NodeName)
 	if !exists || err != nil {
 		log.Warnf("unable to get node %q for pod %q from cache: %v", pod.Spec.NodeName, pod.Name, err)
 		nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}

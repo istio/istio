@@ -115,7 +115,7 @@ func TestIPReuse(t *testing.T) {
 	defer c.Stop()
 	initTestEnv(t, c.client, fx)
 
-	cache.WaitForCacheSync(c.stop, c.nodes.HasSynced, c.pods.informer.HasSynced,
+	cache.WaitForCacheSync(c.stop, c.nodeMetadataInformer.HasSynced, c.pods.informer.HasSynced,
 		c.services.HasSynced, c.endpoints.HasSynced)
 
 	createPod(t, c, "128.0.0.1", "pod")
@@ -185,7 +185,7 @@ func testPodCache(t *testing.T, c *Controller, fx *FakeXdsUpdater) {
 		generatePod("128.0.0.2", "cpod2", "nsa", "", "", map[string]string{"app": "prod-app-1"}, map[string]string{}),
 		generatePod("128.0.0.3", "cpod3", "nsb", "", "", map[string]string{"app": "prod-app-2"}, map[string]string{}),
 	}
-	cache.WaitForCacheSync(c.stop, c.nodes.HasSynced, c.pods.informer.HasSynced,
+	cache.WaitForCacheSync(c.stop, c.nodeMetadataInformer.HasSynced, c.pods.informer.HasSynced,
 		c.services.HasSynced, c.endpoints.HasSynced)
 
 	for _, pod := range pods {
