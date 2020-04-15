@@ -284,7 +284,7 @@ func (c *Controller) Start(stop <-chan struct{}) {
 	req := &reconcileRequest{"initial request to kickstart reconciliation"}
 	c.queue.Add(req)
 
-	go c.runWorker()
+	c.runWorker()
 }
 
 func (c *Controller) startFileWatcher(stop <-chan struct{}) {

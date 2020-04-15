@@ -40,7 +40,6 @@ import (
 	"google.golang.org/grpc/keepalive"
 
 	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/env"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
@@ -68,13 +67,6 @@ import (
 )
 
 var (
-	// FilepathWalkInterval dictates how often the file system is walked for config
-	FilepathWalkInterval = 100 * time.Millisecond
-
-	// PilotCertDir is the default location for mTLS certificates used by pilot
-	// Visible for tests - at runtime can be set by PILOT_CERT_DIR environment variable.
-	PilotCertDir = "/etc/certs/"
-
 	// DefaultPlugins is the default list of plugins to enable, when no plugin(s)
 	// is specified through the command line
 	DefaultPlugins = []string{
@@ -84,9 +76,9 @@ var (
 		plugin.Mixer,
 	}
 
-	enableElection = env.RegisterBoolVar("MASTER_ELECTION",
-		true,
-		"Enable master election")
+	// PilotCertDir is the default location for mTLS certificates used by pilot
+	// Visible for tests - at runtime can be set by PILOT_CERT_DIR environment variable.
+	PilotCertDir = "/etc/certs/"
 )
 
 func init() {
@@ -151,8 +143,6 @@ type Server struct {
 	// nil if injection disabled
 	injectionWebhook *inject.Webhook
 
-	leaderElection *leaderelection.LeaderElection
-
 	webhookCertMu sync.Mutex
 	webhookCert   *tls.Certificate
 	jwtPath       string
@@ -186,7 +176,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initKubeClient(args); err != nil {
 		return nil, fmt.Errorf("kube client: %v", err)
 	}
-	s.initLeaderElection(args)
 	fileWatcher := filewatcher.NewWatcher()
 	if err := s.initMeshConfiguration(args, fileWatcher); err != nil {
 		return nil, fmt.Errorf("mesh: %v", err)
@@ -291,24 +280,30 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	// because it depends on the following conditions:
 	// 1) CA certificate has been created.
 	// 2) grpc server has been generated.
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		if s.ca != nil {
-			s.RunCA(s.secureGRPCServerDNS, s.ca, caOpts, args.Config.ControllerOptions, stop)
-		}
-		return nil
-	})
-
-	if s.leaderElection != nil && enableElection.Get() {
+	if s.ca != nil {
 		s.addStartFunc(func(stop <-chan struct{}) error {
-			// We mark this as a required termination as an optimization. Without this, when we exit the lock is
-			// still held for some time (30-60s or so). If we allow time for a graceful exit, then we can immediately drop the lock.
-			s.requiredTerminations.Add(1)
-			go func() {
-				s.leaderElection.Run(stop)
-				s.requiredTerminations.Done()
-			}()
+			s.RunCA(s.secureGRPCServerDNS, s.ca, caOpts)
 			return nil
 		})
+
+		if s.kubeClient != nil {
+			fetchData := func() map[string]string {
+				return map[string]string{
+					constants.CACertNamespaceConfigMapDataName: string(s.ca.GetCAKeyCertBundle().GetRootCertPem()),
+				}
+			}
+			s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+				leaderelection.
+					NewLeaderElection(args.Namespace, args.PodName, leaderelection.NamespaceController, s.kubeClient).
+					AddRunFunction(func(stop <-chan struct{}) {
+						log.Infof("Starting namespace controller")
+						nc := NewNamespaceController(fetchData, args.Config.ControllerOptions, s.kubeClient)
+						nc.Run(stop)
+					}).
+					Run(stop)
+				return nil
+			})
+		}
 	}
 
 	// TODO: don't run this if galley is started, one ctlz is enough
@@ -595,10 +590,6 @@ func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.
 	}
 
 	tlsCreds := credentials.NewTLS(cfg)
-	// certs not ready yet.
-	if err != nil {
-		return err
-	}
 
 	// Default is 15012 - istio-agent relies on this as a default to distinguish what cert auth to expect
 	dnsGrpc := fmt.Sprintf(":%s", port)
@@ -653,8 +644,30 @@ func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.Serve
 	return grpcOptions
 }
 
+// addStartFunc appends a function to be run. These are run synchronously in order,
+// so the function should start a go routine if it needs to do anything blocking
 func (s *Server) addStartFunc(fn startFunc) {
 	s.startFuncs = append(s.startFuncs, fn)
+}
+
+// addRequireStartFunc adds a function that should terminate before the serve shuts down
+// This is useful to do cleanup activities
+// This is does not guarantee they will terminate gracefully - best effort only
+// Function should be synchronous; once it returns it is considered "done"
+func (s *Server) addTerminatingStartFunc(fn startFunc) {
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		// We mark this as a required termination as an optimization. Without this, when we exit the lock is
+		// still held for some time (30-60s or so). If we allow time for a graceful exit, then we can immediately drop the lock.
+		s.requiredTerminations.Add(1)
+		go func() {
+			err := fn(stop)
+			if err != nil {
+				log.Errorf("failure in startup function: %v", err)
+			}
+			s.requiredTerminations.Done()
+		}()
+		return nil
+	})
 }
 
 func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
@@ -775,10 +788,4 @@ func (s *Server) initDNSListener(args *PilotArgs) error {
 	}
 
 	return nil
-}
-
-func (s *Server) initLeaderElection(args *PilotArgs) {
-	if s.kubeClient != nil {
-		s.leaderElection = leaderelection.NewLeaderElection(args.Namespace, args.PodName, s.kubeClient)
-	}
 }
