@@ -515,6 +515,7 @@ func TestInjectRequired(t *testing.T) {
 }
 
 func TestWebhookInject(t *testing.T) {
+	mesh.TestMode = true
 	cases := []struct {
 		inputFile    string
 		wantFile     string
