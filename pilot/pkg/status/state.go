@@ -17,6 +17,7 @@ package status
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/labels"
 	"sync"
 	"time"
 
@@ -48,7 +49,7 @@ func (fraction Progress) Add(fraction2 Progress) {
 }
 
 type DistributionController struct {
-	mu              *sync.RWMutex
+	mu              sync.RWMutex
 	CurrentState    map[Resource]map[string]Progress
 	ObservationTime map[string]time.Time
 	UpdateInterval  time.Duration
@@ -57,7 +58,7 @@ type DistributionController struct {
 	StaleInterval   time.Duration
 }
 
-func (c *DistributionController) Start(restConfig *rest.Config, stop <-chan struct{}) {
+func (c *DistributionController) Start(restConfig *rest.Config, namespace string, stop <-chan struct{}) {
 	// default UpdateInterval
 	if c.UpdateInterval == 0 {
 		c.UpdateInterval = 100 * time.Millisecond
@@ -76,8 +77,11 @@ func (c *DistributionController) Start(restConfig *rest.Config, stop <-chan stru
 		scope.Fatalf("Could not connect to kubernetes: %s", err)
 	}
 	// create watch
-	// TODO: limit this informer to the namespace and labels we expect...
-	i := informers.NewSharedInformerFactory(kubernetes.NewForConfigOrDie(restConfig), 1*time.Minute).
+	i := informers.NewSharedInformerFactoryWithOptions(kubernetes.NewForConfigOrDie(restConfig), 1*time.Minute,
+		informers.WithNamespace(namespace),
+		informers.WithTweakListOptions(func(listOptions *metav1.ListOptions) {
+			listOptions.LabelSelector = labels.Set(map[string]string{labelKey: "true"}).AsSelector().String()
+	})).
 		Core().V1().ConfigMaps()
 	i.Informer().AddEventHandler(DistroReportHandler{dc: *c})
 	// this will list all existing configmaps, as well as updates, right?
@@ -255,13 +259,17 @@ func (drh DistroReportHandler) OnUpdate(oldObj, newObj interface{}) {
 }
 
 func (drh DistroReportHandler) HandleNew(obj interface{}) {
-	cm := obj.(v1.ConfigMap)
+	cm := obj.(*v1.ConfigMap)
 	dr, err := ReportFromYaml([]byte(cm.Data["somekey"]))
 	if err != nil {
 		scope.Warnf("received malformed distributionReport %s, discarding: %v", cm.Name, err)
 		return
 	}
-	drh.dc.handleReport(dr)
+	if _, ok := cm.Labels[labelKey]; ok {
+		// TODO: can't we limit the informer to this label to save on messages?
+		// what about namespaces?
+		drh.dc.handleReport(dr)
+	}
 }
 
 func (drh DistroReportHandler) OnDelete(obj interface{}) {

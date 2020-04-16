@@ -330,14 +330,14 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 
 func (s *Server) initStatusController(args *PilotArgs) {
 	s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
-		(&status.DistributionController{}).Start(s.kubeConfig, stop)
+		(&status.DistributionController{}).Start(s.kubeConfig, args.Namespace, stop)
 	})
 	s.statusReporter = &status.Reporter{
 		UpdateInterval: time.Millisecond * 500, // TODO: use args here?
 		PodName:        args.PodName,
 	}
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		s.statusReporter.Start(s.kubeConfig, args.Namespace, stop)
+		s.statusReporter.Start(s.kubeConfig, args.Namespace, s.configController, stop)
 		return nil
 	})
 	s.environment.StatusReporter = s.statusReporter

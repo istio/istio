@@ -16,13 +16,17 @@ package status
 
 import (
 	"context"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"k8s.io/client-go/rest"
 
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -59,27 +63,31 @@ const dataField = "distribution-report"
 
 // Starts the reporter, which watches dataplane ack's and resource changes so that it can update status leader
 // with distribution information
-func (r *Reporter) Start(restConfig *rest.Config, namespace string, stop <-chan struct{}) {
+func (r *Reporter) Start(restConfig *rest.Config, namespace string, store model.ConfigStore, stop <-chan struct{}) {
 	ctx := NewIstioContext(stop)
 	if r.clock == nil {
 		r.clock = clock.RealClock{}
 	}
+	r.store = store
 	// default UpdateInterval
 	if r.UpdateInterval == 0 {
 		r.UpdateInterval = 500 * time.Millisecond
 	}
-	t := r.clock.Tick(r.UpdateInterval)
 	clientSet, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		scope.Fatalf("Could not connect to kubernetes: %s", err)
 	}
+	r.status = make(map[string]string)
+	r.reverseStatus = make(map[string][]string)
 	r.client = clientSet.CoreV1().ConfigMaps(namespace)
 	r.cm = &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   (r.PodName + "-distribution"),
 			Labels: map[string]string{labelKey: "true"},
 		},
+		Data: make(map[string]string),
 	}
+	t := r.clock.Tick(r.UpdateInterval)
 	go func() {
 		for {
 			select {
@@ -116,7 +124,7 @@ func (r *Reporter) buildReport() (DistributionReport, []Resource) {
 			// check to see if this version of the config contains this version of the resource
 			// it might be more optimal to provide for a full dump of the config at a certain version?
 			key := res.String()
-			if dpVersion, err := r.store.GetResourceAtVersion(nonce,
+			if dpVersion, err := r.store.GetResourceAtVersion(nonce[:v2.VersionLen],
 				res.ToModelKey()); err == nil && dpVersion == res.ResourceVersion {
 				if _, ok := out.InProgressResources[key]; !ok {
 					out.InProgressResources[key] = len(dataplanes)
@@ -124,7 +132,12 @@ func (r *Reporter) buildReport() (DistributionReport, []Resource) {
 					out.InProgressResources[key] += len(dataplanes)
 				}
 			} else if err != nil {
-				scope.Errorf("Encountered error retrieving version %s of key %s from Store: %v", nonce, key, err)
+				// TODO: hitting this line 1000s of times for envoy filters.
+				//  Is there a way to filter out resources that don't go through xds?
+				if res.Resource != "envoyfilters" {
+					scope.Errorf("Encountered error retrieving version %s of key %s from Store: %v", nonce, key, err)
+				}
+				continue
 			}
 			if out.InProgressResources[key] >= out.DataPlaneCount {
 				// if this resource is done reconciling, let's not worry about it anymore
@@ -181,14 +194,25 @@ func (r *Reporter) writeReport(ctx context.Context) {
 	}
 	r.cm.Data[dataField] = string(reportbytes)
 	// TODO: short circuit this write in the leader
-	r.cm, err = r.client.Update(ctx, r.cm, metav1.UpdateOptions{
-		TypeMeta:     metav1.TypeMeta{},
-		DryRun:       nil,
-		FieldManager: "",
-	})
+	_, err = CreateOrUpdateConfigMap(r.client, r.cm, ctx)
 	if err != nil {
 		scope.Errorf("Error writing Distribution Report: %v", err)
 	}
+}
+
+// this is lifted with few modifications from kubeadm's apiclient
+func CreateOrUpdateConfigMap(client v1.ConfigMapInterface, cm *corev1.ConfigMap, ctx context.Context) (res *corev1.ConfigMap, err error) {
+	if res, err = client.Create(ctx, cm, metav1.CreateOptions{}); err != nil {
+		if !apierrors.IsAlreadyExists(err) && !apierrors.IsInvalid(err) {
+			scope.Errorf("%v", err)
+			return nil, errors.Wrap(err, "unable to create ConfigMap")
+		}
+
+		if res, err = client.Update(context.TODO(), cm, metav1.UpdateOptions{}); err != nil {
+			return nil, errors.Wrap(err, "unable to update ConfigMap")
+		}
+	}
+	return res, nil
 }
 
 // Register that a dataplane has acknowledged a new version of the config.

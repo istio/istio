@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package analysis
+package status
 
 import (
 	"testing"
@@ -36,7 +36,7 @@ var (
 // here to reuse a single install across tests.
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("pilot_analysis_test", m).
+		NewSuite("pilot_status_test", m).
 		RequireSingleCluster().
 		RequireEnvironment(environment.Kube).
 		SetupOnEnv(environment.Kube, istio.Setup(&i, func(cfg *istio.Config) {
@@ -46,10 +46,6 @@ values:
   pilot:
     env:
       PILOT_ENABLE_STATUS: true
-  global:
-    istiod:
-      enabled: true
-      enableAnalysis: true
 `
 		})).
 		Setup(func(ctx resource.Context) (err error) {
