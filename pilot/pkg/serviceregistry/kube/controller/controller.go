@@ -313,14 +313,17 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 	default:
 		// instance conversion is only required when service is added/updated.
 		instances := kube.ExternalNameServiceInstances(*svc, svcConv)
-		c.Lock()
+		var nodeSelector labels.Instance
 		if isNodePortGatewayService(svcConv) {
 			// We need to know which services are using node selectors because during node events,
 			// we have to update all the node port services accordingly.
-			c.nodeSelectorsForServices[svcConv.Hostname] = getNodeSelectorsForService(*svc)
+			nodeSelector = getNodeSelectorsForService(*svc)
 			c.updateServiceExternalAddr(svcConv)
 		}
-
+		c.Lock()
+		if len(nodeSelector) > 0 {
+			c.nodeSelectorsForServices[svcConv.Hostname] = getNodeSelectorsForService(*svc)
+		}
 		c.servicesMap[svcConv.Hostname] = svcConv
 		if instances == nil {
 			delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
@@ -399,10 +402,8 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 	}
 
 	if updatedNeeded {
-		c.Lock()
 		// update all related services
 		c.updateServiceExternalAddr()
-		c.Unlock()
 		c.xdsUpdater.ConfigUpdate(&model.PushRequest{
 			Full: true,
 		})
@@ -411,6 +412,8 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 }
 
 func isNodePortGatewayService(svc *model.Service) bool {
+	svc.Mutex.RLock()
+	defer svc.Mutex.RUnlock()
 	return svc.Attributes.ClusterExternalPorts != nil
 }
 
@@ -538,7 +541,9 @@ func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) {
 	}
 	for _, svc := range svcs {
 		if isNodePortGatewayService(svc) {
+			c.RLock()
 			nodeSelector := c.nodeSelectorsForServices[svc.Hostname]
+			c.RUnlock()
 			// update external address
 			svc.Mutex.Lock()
 			if nodeSelector == nil {

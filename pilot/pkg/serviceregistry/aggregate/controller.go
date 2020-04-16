@@ -178,7 +178,9 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 		if out == nil {
 			out = service
 		} else {
+			// TODO(hzxuzhonghu): This kind of lock is really tricky and error prone, need to refactor.
 			out.Mutex.Lock()
+			service.Mutex.RLock()
 			// ClusterExternalAddresses and ClusterExternalAddresses are only used for getting gateway address
 			if len(service.Attributes.ClusterExternalAddresses[r.Cluster()]) > 0 {
 				if out.Attributes.ClusterExternalAddresses == nil {
@@ -192,6 +194,7 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 				}
 				out.Attributes.ClusterExternalPorts[r.Cluster()] = service.Attributes.ClusterExternalPorts[r.Cluster()]
 			}
+			service.Mutex.RUnlock()
 			out.Mutex.Unlock()
 		}
 	}

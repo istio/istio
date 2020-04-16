@@ -1628,30 +1628,31 @@ func getGatewayAddresses(gw *meshconfig.Network_IstioNetworkGateway, registryNam
 	// Second, try to find the gateway addresses by the provided service name
 	if gwSvcName := gw.GetRegistryServiceName(); gwSvcName != "" {
 		svc, _ := discovery.GetService(host.Name(gwSvcName))
-		if svc != nil {
-			svc.Mutex.RLock()
-			defer svc.Mutex.RLock()
-			if svc.Attributes.ClusterExternalAddresses != nil {
-				var gateways []*Gateway
-				for _, clusterName := range registryNames {
-					ips := svc.Attributes.ClusterExternalAddresses[clusterName]
-					remotePort := gw.Port
-					// check if we have node port mappings
-					if svc.Attributes.ClusterExternalPorts != nil {
-						if nodePortMap, exists := svc.Attributes.ClusterExternalPorts[clusterName]; exists {
-							// what we now have is a service port. If there is a mapping for cluster external ports,
-							// look it up and get the node port for the remote port
-							if nodePort, exists := nodePortMap[remotePort]; exists {
-								remotePort = nodePort
-							}
+		if svc == nil {
+			return nil
+		}
+		svc.Mutex.RLock()
+		defer svc.Mutex.RLock()
+		if svc.Attributes.ClusterExternalAddresses != nil {
+			var gateways []*Gateway
+			for _, clusterName := range registryNames {
+				ips := svc.Attributes.ClusterExternalAddresses[clusterName]
+				remotePort := gw.Port
+				// check if we have node port mappings
+				if svc.Attributes.ClusterExternalPorts != nil {
+					if nodePortMap, exists := svc.Attributes.ClusterExternalPorts[clusterName]; exists {
+						// what we now have is a service port. If there is a mapping for cluster external ports,
+						// look it up and get the node port for the remote port
+						if nodePort, exists := nodePortMap[remotePort]; exists {
+							remotePort = nodePort
 						}
 					}
-					for _, ip := range ips {
-						gateways = append(gateways, &Gateway{ip, remotePort})
-					}
 				}
-				return gateways
+				for _, ip := range ips {
+					gateways = append(gateways, &Gateway{ip, remotePort})
+				}
 			}
+			return gateways
 		}
 	}
 
