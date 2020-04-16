@@ -30,18 +30,19 @@ import (
 	"strings"
 	"text/template"
 
-	"istio.io/istio/pkg/config/mesh"
-
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pkg/config/mesh"
+
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pilot/pkg/model"
 
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/batch/v2alpha1"
@@ -89,8 +90,17 @@ var (
 		annotation.SidecarTrafficExcludeOutboundPorts.Name:        ValidateExcludeOutboundPorts,
 		annotation.SidecarTrafficKubevirtInterfaces.Name:          alwaysValidFunc,
 		annotation.PrometheusMergeMetrics.Name:                    validateBool,
+		MeshConfigAnnotation:                                      validateMeshConfig,
 	}
 )
+
+func validateMeshConfig(value string) error {
+	_, err := mesh.ApplyMeshConfigDefaults(value)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 func validateAnnotations(annotations map[string]string) (err error) {
 	for name, value := range annotations {
@@ -426,7 +436,7 @@ func flippedContains(needle, haystack string) bool {
 	return strings.Contains(haystack, needle)
 }
 
-// TODO move this to API
+// MeshConfigAnnotation determines the mesh config overrides for a workloadTODO move this to API
 var MeshConfigAnnotation = "istio.io/meshConfig"
 
 // InjectionData renders sidecarTemplate with valuesConfig.
