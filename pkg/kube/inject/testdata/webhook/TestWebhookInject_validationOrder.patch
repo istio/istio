@@ -59,8 +59,23 @@
     "op": "add",
     "path": "/metadata/annotations",
     "value": {
-      "sidecar.istio.io/status": "{\"version\":\"unit-test-fake-version\",\"initContainers\":[\"istio-init\",\"istio-validation\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\",\"istio-certs\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
+      "prometheus.io/path": "/stats/prometheus"
     }
+  },
+  {
+    "op": "add",
+    "path": "/metadata/annotations/prometheus.io~1port",
+    "value": "15020"
+  },
+  {
+    "op": "add",
+    "path": "/metadata/annotations/prometheus.io~1scrape",
+    "value": "true"
+  },
+  {
+    "op": "add",
+    "path": "/metadata/annotations/sidecar.istio.io~1status",
+    "value": "{\"version\":\"unit-test-fake-version\",\"initContainers\":[\"istio-init\",\"istio-validation\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\",\"istio-certs\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
   },
   {
     "op": "add",

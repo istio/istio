@@ -27,6 +27,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gogo/protobuf/types"
+
+	meshconfig "istio.io/api/mesh/v1alpha1"
+
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
@@ -1314,8 +1318,23 @@ func TestRunAndServe(t *testing.T) {
       "op":"add",
       "path":"/metadata/annotations",
       "value":{
-         "sidecar.istio.io/status":"{\"version\":\"461c380844de8df1d1e2a80a09b6d7b58b8313c4a7d6796530eb124740a1440f\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
+         "prometheus.io/path":"/stats/prometheus"
       }
+   },
+   {
+      "op": "add",
+      "path": "/metadata/annotations/prometheus.io~1port",
+      "value": "15020"
+   },
+   {
+      "op": "add",
+      "path": "/metadata/annotations/prometheus.io~1scrape",
+      "value": "true"
+   },
+   {
+      "op":"add",
+      "path":"/metadata/annotations/sidecar.istio.io~1status",
+      "value": "{\"version\":\"461c380844de8df1d1e2a80a09b6d7b58b8313c4a7d6796530eb124740a1440f\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
    },
     {
       "op":"add",
@@ -1524,6 +1543,53 @@ func BenchmarkInjectServe(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		wh.serveInject(httptest.NewRecorder(), req)
+	}
+}
+
+func TestEnablePrometheusAggregation(t *testing.T) {
+	tests := []struct {
+		name string
+		mesh *meshconfig.MeshConfig
+		anno map[string]string
+		want bool
+	}{
+		{
+			"no settings",
+			nil,
+			nil,
+			true,
+		},
+		{
+			"mesh on",
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: true}},
+			nil,
+			true,
+		},
+		{
+			"mesh off",
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: false}},
+			nil,
+			false,
+		},
+		{
+			"annotation on",
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: false}},
+			map[string]string{annotation.PrometheusMergeMetrics.Name: "true"},
+			true,
+		},
+		{
+			"annotation off",
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: true}},
+			map[string]string{annotation.PrometheusMergeMetrics.Name: "false"},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := enablePrometheusMerge(tt.mesh, tt.anno); got != tt.want {
+				t.Errorf("enablePrometheusMerge() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
