@@ -20,21 +20,17 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/spf13/cobra"
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
-
 	"istio.io/istio/operator/pkg/controlplane"
+	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/version"
 	"istio.io/pkg/log"
-
-	"istio.io/istio/operator/pkg/helm"
-
-	"github.com/spf13/cobra"
-
-	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/name"
 )
 
 type manifestGenerateArgs struct {
@@ -47,6 +43,8 @@ type manifestGenerateArgs struct {
 	set []string
 	// force proceeds even if there are validation errors
 	force bool
+	// charts is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
+	charts string
 }
 
 func addManifestGenerateFlags(cmd *cobra.Command, args *manifestGenerateArgs) {
@@ -54,6 +52,7 @@ func addManifestGenerateFlags(cmd *cobra.Command, args *manifestGenerateArgs) {
 	cmd.PersistentFlags().StringVarP(&args.outFilename, "output", "o", "", "Manifest output directory path")
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, SetFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false, "Proceed even with validation errors")
+	cmd.PersistentFlags().StringVarP(&args.charts, "charts", "d", "", chartsFlagHelpStr)
 }
 
 func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs, logOpts *log.Options) *cobra.Command {
@@ -92,7 +91,7 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
-	ysf, err := yamlFromSetFlags(mgArgs.set, mgArgs.force, l)
+	ysf, err := yamlFromSetFlags(applyInstallFlagAlias(mgArgs.set, mgArgs.charts), mgArgs.force, l)
 	if err != nil {
 		return err
 	}

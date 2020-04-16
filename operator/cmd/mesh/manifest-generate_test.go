@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/httpserver"
 	"istio.io/istio/operator/pkg/util/tgz"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/pkg/version"
 )
 
@@ -74,11 +75,8 @@ type testGroup []struct {
 // TestMain is required to create a local release package in /tmp from manifests and operator/data in the format that
 // istioctl expects.
 func TestMain(m *testing.M) {
-	wd, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	operatorRootDir = filepath.Join(wd, "../..")
+	var err error
+	operatorRootDir = filepath.Join(env.IstioSrc, "operator")
 	manifestsDir = filepath.Join(operatorRootDir, "manifests")
 	liveReleaseDir, err = createLocalReleaseCharts()
 	defer os.RemoveAll(liveReleaseDir)
@@ -605,7 +603,7 @@ func createLocalReleaseCharts() (string, error) {
 		return "", err
 	}
 	releaseSubDir := filepath.Join(releaseDir, istioTestVersion, helm.OperatorSubdirFilePath)
-	cmd := exec.Command("../../release/create_release_charts.sh", "-o", releaseSubDir)
+	cmd := exec.Command("../../scripts/create_release_charts.sh", "-o", releaseSubDir)
 	if stdo, err := cmd.Output(); err != nil {
 		return "", fmt.Errorf("%s: \n%s", err, string(stdo))
 	}

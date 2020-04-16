@@ -18,8 +18,6 @@
 set -o errexit
 set -o pipefail
 
-INSTALLER_CHARTS=(base gateways istio-cni istiocoredns istio-telemetry istio-control istio-policy istio-operator)
-
 function usage() {
   echo "$0
     -o <path> path where output/artifacts are stored  (required)"
@@ -47,21 +45,7 @@ INSTALLER_DIR="${SCRIPT_DIR}/../../manifests"
 
 mkdir -p "${OUTPUT_DIR}"
 
-function copy_installer_charts() {
-    local OUTPUT_CHARTS_DIR="${OUTPUT_DIR}/charts"
-    mkdir -p "${OUTPUT_CHARTS_DIR}"
+cp -R "${INSTALLER_DIR}/charts" "${OUTPUT_DIR}"
+cp -R "${INSTALLER_DIR}/profiles" "${OUTPUT_DIR}"
+cp -R "${OPERATOR_BASE_DIR}"/data/* "${OUTPUT_DIR}"
 
-    for chart in "${INSTALLER_CHARTS[@]}"
-    do
-	    cp -R "${INSTALLER_DIR}/${chart}" "${OUTPUT_CHARTS_DIR}"
-    done
-}
-
-function copy_operator_data() {
-    cp -R "${OPERATOR_BASE_DIR}/data/profiles" "${OUTPUT_DIR}"
-    cp -R "${OPERATOR_BASE_DIR}/data/examples" "${OUTPUT_DIR}"
-    cp "${OPERATOR_BASE_DIR}/data/versions.yaml" "${OUTPUT_DIR}"
-}
-
-copy_installer_charts
-copy_operator_data
