@@ -37,19 +37,19 @@ import (
 var scope = log.RegisterScope("status",
 	"component for writing distribution status to istiio CRDs", 0)
 
-type Fraction struct {
-	Numerator   int
-	Denominator int
+type Progress struct {
+	AckedInstances int
+	TotalInstances int
 }
 
-func (fraction Fraction) Add(fraction2 Fraction) {
-	fraction.Denominator += fraction2.Denominator
-	fraction.Numerator += fraction2.Numerator
+func (fraction Progress) Add(fraction2 Progress) {
+	fraction.TotalInstances += fraction2.TotalInstances
+	fraction.AckedInstances += fraction2.AckedInstances
 }
 
 type DistributionController struct {
 	mu              *sync.RWMutex
-	CurrentState    map[Resource]map[string]Fraction
+	CurrentState    map[Resource]map[string]Progress
 	ObservationTime map[string]time.Time
 	UpdateInterval  time.Duration
 	client          dynamic.Interface
@@ -69,7 +69,7 @@ func (c *DistributionController) Start(restConfig *rest.Config, stop <-chan stru
 	if c.clock == nil {
 		c.clock = clock.RealClock{}
 	}
-	c.CurrentState = make(map[Resource]map[string]Fraction)
+	c.CurrentState = make(map[Resource]map[string]Progress)
 	c.ObservationTime = make(map[string]time.Time)
 	var err error
 	if c.client, err = dynamic.NewForConfig(restConfig); err != nil {
@@ -105,9 +105,9 @@ func (c *DistributionController) handleReport(d DistributionReport) {
 	for resstr := range d.InProgressResources {
 		res := *ResourceFromString(resstr)
 		if _, ok := c.CurrentState[res]; !ok {
-			c.CurrentState[res] = make(map[string]Fraction)
+			c.CurrentState[res] = make(map[string]Progress)
 		}
-		c.CurrentState[res][d.Reporter] = Fraction{d.InProgressResources[resstr], d.DataPlaneCount}
+		c.CurrentState[res][d.Reporter] = Progress{d.InProgressResources[resstr], d.DataPlaneCount}
 	}
 	c.ObservationTime[d.Reporter] = c.clock.Now()
 }
@@ -116,7 +116,7 @@ func (c *DistributionController) writeAllStatus() (staleReporters []string) {
 	defer c.mu.RUnlock()
 	c.mu.RLock()
 	for config, fractions := range c.CurrentState {
-		var distributionState Fraction
+		var distributionState Progress
 		for reporter, w := range fractions {
 			// check for stale data here
 			if c.clock.Since(c.ObservationTime[reporter]) > c.StaleInterval {
@@ -132,7 +132,7 @@ func (c *DistributionController) writeAllStatus() (staleReporters []string) {
 	return
 }
 
-func (c *DistributionController) writeStatus(config Resource, distributionState Fraction) {
+func (c *DistributionController) writeStatus(config Resource, distributionState Progress) {
 	// Note: I'd like to use Pilot's ConfigStore here to avoid duplicate reads and writes, but
 	// the update() function is not implemented, and the Get() function returns the resource
 	// in a different format than is needed for k8s.updateStatus.
@@ -201,15 +201,15 @@ func boolToConditionStatus(b bool) v1beta1.ConditionStatus {
 	return v12.ConditionFalse
 }
 
-func ReconcileStatuses(current map[string]interface{}, desired Fraction, clock clock.Clock) (bool, *IstioStatus) {
+func ReconcileStatuses(current map[string]interface{}, desired Progress, clock clock.Clock) (bool, *IstioStatus) {
 	needsReconcile := false
 	currentStatus, err := getTypedStatus(current["status"])
 	desiredCondition := IstioCondition{
 		Type:               StillPropagating,
-		Status:             boolToConditionStatus(desired.Numerator != desired.Denominator),
+		Status:             boolToConditionStatus(desired.AckedInstances != desired.TotalInstances),
 		LastProbeTime:      v12.NewTime(clock.Now()),
 		LastTransitionTime: v12.NewTime(clock.Now()),
-		Message:            fmt.Sprintf("%d/%d dataplanes up to date.", desired.Numerator, desired.Denominator),
+		Message:            fmt.Sprintf("%d/%d proxies up to date.", desired.AckedInstances, desired.TotalInstances),
 	}
 	if err != nil {
 		// the status field is in an unexpected state.

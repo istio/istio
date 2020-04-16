@@ -39,7 +39,7 @@ var statusStillPropagating = IstioStatus{
 func TestReconcileStatuses(t *testing.T) {
 	type args struct {
 		current map[string]interface{}
-		desired Fraction
+		desired Progress
 	}
 	tests := []struct {
 		name  string
@@ -51,14 +51,14 @@ func TestReconcileStatuses(t *testing.T) {
 			name: "Don't Reconcile when other fields are the only diff",
 			args: args{
 				current: map[string]interface{}{"status": statusStillPropagating},
-				desired: Fraction{1, 2},
+				desired: Progress{1, 2},
 			},
 			want: false,
 		}, {
 			name: "Simple Reconcile to true",
 			args: args{
 				current: map[string]interface{}{"status": statusStillPropagating},
-				desired: Fraction{1, 3},
+				desired: Progress{1, 3},
 			},
 			want: true,
 			want1: &IstioStatus{
@@ -77,7 +77,7 @@ func TestReconcileStatuses(t *testing.T) {
 			name: "Simple Reconcile to false",
 			args: args{
 				current: map[string]interface{}{"status": statusStillPropagating},
-				desired: Fraction{2, 2},
+				desired: Progress{2, 2},
 			},
 			want: true,
 			want1: &IstioStatus{
@@ -96,7 +96,7 @@ func TestReconcileStatuses(t *testing.T) {
 			name: "Graceful handling of random status",
 			args: args{
 				current: map[string]interface{}{"status": "random"},
-				desired: Fraction{2, 2},
+				desired: Progress{2, 2},
 			},
 			want: true,
 			want1: &IstioStatus{
