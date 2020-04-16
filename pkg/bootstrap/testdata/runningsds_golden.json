@@ -199,9 +199,6 @@
           {
           "prefix": "wasm"
           },
-          {
-          "suffix": "ssl_context_update_by_sds"
-          },
         ]
       }
     }
