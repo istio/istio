@@ -671,17 +671,6 @@ func isCoreComponentEnabled(c *CommonComponentFields) bool {
 	return enabled
 }
 
-func getK8sResourceSpec(c *CommonComponentFields) *v1alpha1.KubernetesResourcesSpec {
-	switch t := c.componentSpec.(type) {
-	case *v1alpha1.GatewaySpec:
-		return t.K8S
-	case *v1alpha1.ComponentSpec:
-		return t.K8S
-	default:
-	}
-	return nil
-}
-
 // disabledYAMLStr returns the YAML comment string that the given component is disabled.
 func disabledYAMLStr(componentName name.ComponentName, resourceName string) string {
 	fullName := string(componentName)

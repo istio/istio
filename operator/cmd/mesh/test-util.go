@@ -138,12 +138,6 @@ func (o *objectSet) namespace(namespace string) *objectSet {
 	return ret
 }
 
-// mustExistObject asserts that o is not nil and returns o if the condition is satisfied.
-func mustExistObject(g *gomega.WithT, o *object.K8sObject) *object.K8sObject {
-	g.Expect(o).Should(gomega.Not(gomega.BeNil()))
-	return o
-}
-
 // mustGetService returns the service with the given name or fails if it's not found in objs.
 func mustGetService(g *gomega.WithT, objs *objectSet, name string) *object.K8sObject {
 	obj := objs.kind(serviceStr).nameEquals(name)
@@ -246,7 +240,7 @@ func (m *HavePathValueContainMatcher) Match(actual interface{}) (bool, error) {
 		return false, err
 	}
 	if overlay != gotValStr {
-		return false, fmt.Errorf("Actual value:\n\n%s\ndoesn't contain expected subset:\n\n%s", gotValStr, subsetValStr)
+		return false, fmt.Errorf("actual value:\n\n%s\ndoesn't contain expected subset:\n\n%s", gotValStr, subsetValStr)
 	}
 	return true, nil
 }
