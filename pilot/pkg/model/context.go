@@ -101,6 +101,8 @@ func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxy *Pro
 
 // Generator creates the response for a typeURL DiscoveryRequest. If no generator is associated
 // with a Proxy, the default (a networking.core.ConfigGenerator instance) will be used.
+// The server may associate a different generator based on client metadata. Different
+// WatchedResources may use same or different Generator.
 type Generator interface{
 	Generate(node *Proxy, push *PushContext, w *WatchedResource) []*any.Any
 }
@@ -183,12 +185,6 @@ type WatchedResource struct {
 	// TypeURL is copied from the DiscoveryRequest.TypeUrl that initiated watching this resource.
 	// The different spelling is due to linter.
 	TypeURL string
-
-	// Generator is the generator that will generate this resource.
-	// If not set, the default 'per proxy' Generator will be used, falling back to
-	// the mesh wide networking/core v2 generator. The specific set of Generators are
-	// based on node metadata, and selected by the implementation.
-	Generator Generator
 
 	// ResourceNames tracks the list of resources that are actively watched. If empty, all resources of the
 	// TypeUrl type are watched.
@@ -873,11 +869,6 @@ const (
 	// This is our default mode
 	InterceptionRedirect TrafficInterceptionMode = "REDIRECT"
 
-	// InterceptionAPI is used for API clients, using ApiListener and higher level processing.
-	// It is similar with NONE - it doesn't generate the iptables filter chains - but has different
-	// response to listener.
-	// This mode also activates returning the high-level Istio and K8S configs.
-	InterceptionAPI TrafficInterceptionMode = "API"
 )
 
 // GetInterceptionMode extracts the interception mode associated with the proxy
