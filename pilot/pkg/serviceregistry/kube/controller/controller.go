@@ -503,7 +503,9 @@ func (c *Controller) Services() ([]*model.Service, error) {
 func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 	c.RLock()
 	svc := c.servicesMap[hostname]
-	c.updateServiceExternalAddr([]*model.Service{svc})
+	if svc != nil {
+		c.updateServiceExternalAddr([]*model.Service{svc})
+	}
 	c.RUnlock()
 	return svc, nil
 }
