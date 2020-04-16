@@ -31,7 +31,7 @@ var statusStillPropagating = IstioStatus{
 	}, {
 		Type:    StillPropagating,
 		Status:  v1.ConditionTrue,
-		Message: "1/2 dataplanes up to date.",
+		Message: "1/2 proxies up to date.",
 	}},
 	ValidationMessages: nil,
 }
@@ -69,7 +69,7 @@ func TestReconcileStatuses(t *testing.T) {
 				}, {
 					Type:    StillPropagating,
 					Status:  v1.ConditionTrue,
-					Message: "1/3 dataplanes up to date.",
+					Message: "1/3 proxies up to date.",
 				}},
 				ValidationMessages: nil,
 			},
@@ -88,7 +88,7 @@ func TestReconcileStatuses(t *testing.T) {
 				}, {
 					Type:    StillPropagating,
 					Status:  v1.ConditionFalse,
-					Message: "2/2 dataplanes up to date.",
+					Message: "2/2 proxies up to date.",
 				}},
 				ValidationMessages: nil,
 			},
@@ -103,7 +103,7 @@ func TestReconcileStatuses(t *testing.T) {
 				Conditions: []IstioCondition{{
 					Type:    StillPropagating,
 					Status:  v1.ConditionFalse,
-					Message: "2/2 dataplanes up to date.",
+					Message: "2/2 proxies up to date.",
 				}},
 			},
 		},
