@@ -168,12 +168,12 @@ func TestManifestGenerateGateways(t *testing.T) {
 		t.Fatal(err)
 	}
 	objs := parseObjectSetFromManifest(t, m)
-	g.Expect(objs.kind(deploymentStr).size()).Should(Equal(3))
 	g.Expect(objs.kind(hpaStr).size()).Should(Equal(3))
 	g.Expect(objs.kind(pdbStr).size()).Should(Equal(3))
 	g.Expect(objs.kind(serviceStr).size()).Should(Equal(3))
 
-	// istio-ingressgateway and user-ingressgateway share these.
+	// Two namespaces so two sets of these.
+	// istio-ingressgateway and user-ingressgateway share these as they are in the same namespace (istio-system).
 	g.Expect(objs.kind(roleStr).size()).Should(Equal(2))
 	g.Expect(objs.kind(roleBindingStr).size()).Should(Equal(2))
 	g.Expect(objs.kind(saStr).size()).Should(Equal(2))
@@ -203,12 +203,12 @@ func TestManifestGenerateGateways(t *testing.T) {
 	g.Expect(s).Should(HavePathValueEqual(PathValue{"spec.ports.[2]", portVal("tcp-dns", 5353, -1)}))
 
 	for _, o := range objs.kind(hpaStr).objSlice {
-		g.Expect(o.Unstructured()).Should(HavePathValueEqual(PathValue{"spec.minReplicas", int64(1)}))
-		g.Expect(o.Unstructured()).Should(HavePathValueEqual(PathValue{"spec.maxReplicas", int64(5)}))
+		ou := o.Unstructured()
+		g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.minReplicas", int64(1)}))
+		g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.maxReplicas", int64(5)}))
 	}
 
-	rb := mustExistObject(g, objs.kind(roleBindingStr).nameEquals("istio-ingressgateway-sds")).Unstructured()
-	g.Expect(rb).Should(HavePathValueEqual(PathValue{"roleRef.name", "istio-ingressgateway-sds"}))
+	checkRoleBindingsReferenceRoles(g, objs)
 }
 
 func TestManifestGenerateFlags(t *testing.T) {

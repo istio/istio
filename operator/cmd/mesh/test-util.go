@@ -158,6 +158,13 @@ func mustGetDeployment(g *gomega.WithT, objs *objectSet, deploymentName string) 
 	return obj
 }
 
+// mustGetRole returns the role with the given name or fails if it's not found in objs.
+func mustGetRole(g *gomega.WithT, objs *objectSet, name string) *object.K8sObject {
+	obj := objs.kind(roleStr).nameEquals(name)
+	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
+	return obj
+}
+
 // mustGetContainer returns the container tree with the given name in the deployment with the given name.
 func mustGetContainer(g *gomega.WithT, objs *objectSet, deploymentName, containerName string) map[string]interface{} {
 	obj := mustGetDeployment(g, objs, deploymentName)
@@ -248,14 +255,14 @@ func (m *HavePathValueContainMatcher) Match(actual interface{}) (bool, error) {
 func (m *HavePathValueContainMatcher) FailureMessage(actual interface{}) string {
 	pv := m.expected.(PathValue)
 	node := actual.(map[string]interface{})
-	return fmt.Sprintf("Expected the following parseObjectSetFromManifest to have path=value %s=%v\n\n%v", pv.path, pv.value, util.ToYAML(node))
+	return fmt.Sprintf("Expected path %s with value \n\n%v\nto be a subset of \n\n%v", pv.path, pv.value, util.ToYAML(node))
 }
 
 // NegatedFailureMessage implements the Matcher interface.
 func (m *HavePathValueContainMatcher) NegatedFailureMessage(actual interface{}) string {
 	pv := m.expected.(PathValue)
 	node := actual.(map[string]interface{})
-	return fmt.Sprintf("Expected the following parseObjectSetFromManifest not to have path=value %s=%v\n\n%v", pv.path, pv.value, util.ToYAML(node))
+	return fmt.Sprintf("Expected path %s with value \n\n%v\nto NOT be a subset of \n\n%v", pv.path, pv.value, util.ToYAML(node))
 }
 
 func mustSelect(t test.Failer, selector map[string]string, labels map[string]string) {
@@ -323,6 +330,15 @@ func findObject(objs object.K8sObjects, name, kind string) *object.K8sObject {
 	return nil
 }
 
+// mustGetValueAtPath returns the value at the given path in the unstructured tree t. Fails if the path is not found
+// in the tree.
+func mustGetValueAtPath(g *gomega.WithT, t map[string]interface{}, path string) interface{} {
+	got, f, err := tpath.GetPathContext(t, util.PathFromString(path), false)
+	g.Expect(err).Should(gomega.BeNil(), "path %s should exist (%s)", path, err)
+	g.Expect(f).Should(gomega.BeTrue(), "path %s should exist", path)
+	return got.Node
+}
+
 func objectHashesOrdered(objs object.K8sObjects) []string {
 	var out []string
 	for _, o := range objs {
@@ -376,4 +392,13 @@ func portVal(name string, port, targetPort int64) map[string]interface{} {
 		out["targetPort"] = targetPort
 	}
 	return out
+}
+
+// checkRoleBindingsReferenceRoles fails if any RoleBinding in objs references a Role that isn't found in objs.
+func checkRoleBindingsReferenceRoles(g *gomega.WithT, objs *objectSet) {
+	for _, o := range objs.kind(roleBindingStr).objSlice {
+		ou := o.Unstructured()
+		rrname := mustGetValueAtPath(g, ou, "roleRef.name")
+		mustGetRole(g, objs, rrname.(string))
+	}
 }
