@@ -4,22 +4,25 @@ metadata:
   creationTimestamp: null
 spec:
   addonComponents:
-    citadel:
-      enabled: true
+    grafana:
+      enabled: false
+      k8s:
+        env: []
+        nodeSelector: {}
+        replicaCount: 1
+        tolerations: []
+    istiocoredns:
+      enabled: false
       k8s:
         nodeSelector: {}
         replicaCount: 1
-        strategy:
-          rollingUpdate:
-            maxSurge: 100%
-            maxUnavailable: 25%
         tolerations: []
-    grafana:
-      enabled: false
-    istiocoredns:
-      enabled: false
     kiali:
       enabled: false
+      k8s:
+        nodeSelector: {}
+        replicaCount: 1
+        tolerations: []
     prometheus:
       enabled: true
       k8s:
@@ -61,19 +64,6 @@ spec:
             maxUnavailable: 25%
         tolerations: []
       name: istio-egressgateway
-    galley:
-      enabled: true
-      k8s:
-        nodeSelector: {}
-        replicaCount: 1
-        resources:
-          requests:
-            cpu: 100m
-        strategy:
-          rollingUpdate:
-            maxSurge: 100%
-            maxUnavailable: 25%
-        tolerations: []
     ingressGateways:
     - enabled: true
       k8s:
@@ -195,15 +185,6 @@ spec:
   hub: gcr.io/istio-release
   tag: master-latest-daily
   values:
-    certmanager:
-      enabled: false
-      hub: quay.io/jetstack
-      image: cert-manager-controller
-      podAntiAffinityLabelSelector: []
-      podAntiAffinityTermLabelSelector: []
-      replicaCount: 1
-      tag: v0.6.2
-      tolerations: []
     cni:
       cniBinDir: /opt/cni/bin
       cniConfDir: /etc/cni/net.d
@@ -214,12 +195,9 @@ spec:
       logLevel: info
       pullPolicy: Always
       tag: master-latest-daily
-    galley:
-      image: galley
-      podAntiAffinityLabelSelector: []
-      podAntiAffinityTermLabelSelector: []
     gateways:
       istio-egressgateway:
+        autoscaleEnabled: true
         connectTimeout: 10s
         drainDuration: 45s
         podAntiAffinityLabelSelector: []
@@ -245,6 +223,7 @@ spec:
           suffix: global
       istio-ingressgateway:
         applicationPorts: ""
+        autoscaleEnabled: true
         debug: info
         domain: ""
         externalIPs: []
@@ -458,7 +437,6 @@ spec:
       persist: false
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
-      replicaCount: 1
       security:
         enabled: false
         passphraseKey: passphrase
@@ -469,14 +447,11 @@ spec:
         name: http
         type: ClusterIP
       storageClassName: ""
-      tolerations: []
     istiocoredns:
       coreDNSImage: coredns/coredns:1.1.2
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
-      replicaCount: 1
-      tolerations: []
     kiali:
       contextPath: /kiali
       createDemoSecret: false
@@ -491,22 +466,22 @@ spec:
       image: kiali
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
-      replicaCount: 1
       security:
         cert_file: /kiali-cert/cert-chain.pem
         enabled: true
         private_key_file: /kiali-cert/key.pem
       tag: v1.1.0
-      tolerations: []
     mixer:
       policy:
         adapters:
           kubernetesenv:
             enabled: true
+        autoscaleEnabled: true
         image: mixer
         podAntiAffinityLabelSelector: []
         podAntiAffinityTermLabelSelector: []
       telemetry:
+        autoscaleEnabled: true
         image: mixer
         loadshedding:
           latencyThreshold: 100ms
@@ -519,6 +494,7 @@ spec:
         useMCP: true
     pilot:
       appNamespaces: []
+      autoscaleEnabled: true
       configMap: true
       configNamespace: istio-config
       image: pilot
@@ -548,38 +524,6 @@ spec:
           enabled: false
           port: 32090
       tag: v2.8.0
-    security:
-      dnsCerts:
-        istio-galley-service-account:
-          istio-config: istio-galley.istio-config.svc
-          istio-control: istio-galley.istio-control.svc
-          istio-control-master: istio-galley.istio-control-master.svc
-          istio-master: istio-galley.istio-master.svc
-          istio-pilot11: istio-galley.istio-pilot11.svc
-        istio-pilot-service-account:
-          istio-control: istio-pilot-service-account.istio-control
-          istio-pilot11: istio-pilot-service-account.istio-system
-        istio-sidecar-injector-service-account:
-          istio-control: istio-sidecar-injector.istio-control.svc
-          istio-control-master: istio-sidecar-injector.istio-control-master.svc
-          istio-master: istio-sidecar-injector.istio-master.svc
-          istio-pilot11: istio-sidecar-injector.istio-pilot11.svc
-          istio-remote: istio-sidecar-injector.istio-remote.svc
-      enableNamespacesByDefault: true
-      image: citadel
-      podAntiAffinityLabelSelector: []
-      podAntiAffinityTermLabelSelector: []
-      selfSigned: true
-      trustDomain: cluster.local
-      workloadCertTtl: 2160h
-    sidecarInjectorWebhook:
-      alwaysInjectSelector: []
-      enableNamespacesByDefault: false
-      enabled: true
-      injectLabel: istio-injection
-      neverInjectSelector: []
-      rewriteAppHTTPProbe: true
-      selfSigned: false
     tracing:
       enabled: false
       jaeger:

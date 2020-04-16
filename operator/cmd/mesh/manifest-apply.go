@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/log"
+	istiolog "istio.io/pkg/log"
 )
 
 const (
@@ -56,6 +57,8 @@ type manifestApplyArgs struct {
 	// set is a string with element format "path=value" where path is an IstioOperator path and the value is a
 	// value to set the node at that path to.
 	set []string
+	// charts is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
+	charts string
 }
 
 func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
@@ -69,9 +72,10 @@ func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
 	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false, "Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
 		"of a Deployment are in a ready state before the command exits. It will wait for a maximum duration of --readiness-timeout seconds")
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, SetFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.charts, "charts", "d", "", chartsFlagHelpStr)
 }
 
-func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Command {
+func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs, logOpts *istiolog.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "apply",
 		Short: "Applies an Istio manifest, installing or reconfiguring Istio on a cluster.",
@@ -91,12 +95,12 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 `,
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runApplyCmd(cmd, rootArgs, maArgs)
+			return runApplyCmd(cmd, rootArgs, maArgs, logOpts)
 		}}
 }
 
 // InstallCmd in an alias for manifest apply.
-func InstallCmd() *cobra.Command {
+func InstallCmd(logOpts *istiolog.Options) *cobra.Command {
 	rootArgs := &rootArgs{}
 	macArgs := &manifestApplyArgs{}
 
@@ -119,7 +123,7 @@ func InstallCmd() *cobra.Command {
 `,
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runApplyCmd(cmd, rootArgs, macArgs)
+			return runApplyCmd(cmd, rootArgs, macArgs, logOpts)
 		}}
 
 	addFlags(mac, rootArgs)
@@ -127,7 +131,7 @@ func InstallCmd() *cobra.Command {
 	return mac
 }
 
-func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyArgs) error {
+func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyArgs, logOpts *istiolog.Options) error {
 	l := log.NewConsoleLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
 	// Warn users if they use `manifest apply` without any config args.
 	if len(maArgs.inFilenames) == 0 && len(maArgs.set) == 0 && !rootArgs.dryRun && !maArgs.skipConfirmation {
@@ -136,10 +140,10 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 			os.Exit(1)
 		}
 	}
-	if err := configLogs(rootArgs.logToStdErr); err != nil {
+	if err := configLogs(rootArgs.logToStdErr, logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
-	if err := ApplyManifests(maArgs.set, maArgs.inFilenames, maArgs.force, rootArgs.dryRun, rootArgs.verbose,
+	if err := ApplyManifests(applyInstallFlagAlias(maArgs.set, maArgs.charts), maArgs.inFilenames, maArgs.force, rootArgs.dryRun, rootArgs.verbose,
 		maArgs.kubeConfigPath, maArgs.context, maArgs.wait, maArgs.readinessTimeout, l); err != nil {
 		return fmt.Errorf("failed to apply manifests: %v", err)
 	}

@@ -26,7 +26,6 @@ var (
 			name.PilotComponentName,
 			name.PolicyComponentName,
 			name.TelemetryComponentName,
-			name.GalleyComponentName,
 			name.IngressComponentName,
 			name.EgressComponentName,
 			name.CNIComponentName,

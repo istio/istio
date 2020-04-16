@@ -18,14 +18,19 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"io/ioutil"
+	"path"
 	"reflect"
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/env"
+	util "istio.io/istio/tests/integration/mixer"
+
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -37,10 +42,11 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/structpath"
-	util "istio.io/istio/tests/integration/mixer"
 )
 
 const (
+	// This service entry exists to create conflicts on various ports
+	// As defined below, the tcp-conflict and https-conflict ports are 9443 and 9091
 	ServiceEntry = `
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
@@ -51,14 +57,11 @@ spec:
   - istio.io
   location: MESH_EXTERNAL
   ports:
-  - name: http
-    number: 80
-    protocol: HTTP
   - name: http-for-https
-    number: 443
+    number: 9443
     protocol: HTTP
-  - name: http-tcp
-    number: 9090
+  - name: http-for-tcp
+    number: 9091
     protocol: HTTP
   resolution: DNS
 `
@@ -91,15 +94,6 @@ spec:
       protocol: HTTP
     hosts:
     - "some-external-site.com"
-  - port:
-      number: 443
-      name: https
-      protocol: TLS
-    hosts:
-    - "some-external-site.com"
-    tls:
-      mode: PASSTHROUGH
-
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -136,30 +130,6 @@ spec:
         request:
           add:
             handled-by-egress-gateway: "true"
-    - match:
-      - gateways:
-        - mesh # from sidecars, route to egress gateway service
-        port: 443
-      route:
-      - destination:
-          host: istio-egressgateway.istio-system.svc.cluster.local
-          port:
-            number: 443
-        weight: 100
-    - match:
-      - gateways:
-        - istio-egressgateway
-        port: 443
-      route:
-      - destination:
-          host: destination.{{.AppNamespace}}.svc.cluster.local
-          port:
-            number: 443
-        weight: 100
-      headers:
-        request:
-          add:
-            handled-by-egress-gateway: "true"
 `
 )
 
@@ -169,7 +139,6 @@ type TestCase struct {
 	PortName string
 	Host     string
 	Gateway  bool
-	Scheme   scheme.Instance
 	Expected Expected
 }
 
@@ -213,6 +182,14 @@ func createSidecarScope(t *testing.T, tPolicy TrafficPolicy, appsNamespace names
 	}
 }
 
+func mustReadCert(t *testing.T, f string) string {
+	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs", f))
+	if err != nil {
+		t.Fatalf("failed to read %v: %v", f, err)
+	}
+	return string(b)
+}
+
 // We want to test "external" traffic. To do this without actually hitting an external endpoint,
 // we can import only the service namespace, so the apps are not known
 func createGateway(t *testing.T, appsNamespace namespace.Instance, serviceNamespace namespace.Instance, g galley.Instance) {
@@ -254,16 +231,24 @@ func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode 
 	//    Metric is istio_requests_total i.e. HTTP
 	//
 	// 2. https case:
-	//    client ----> Hits listener 0.0.0.0_443
+	//    client ----> Hits no listener -> 0.0.0.0_150001 -> ALLOW_ANY/REGISTRY_ONLY
 	//    Metric is istio_tcp_connections_closed_total i.e. TCP
 	//
-	// 3. http_egress
+	// 3. https conflict case:
+	//    client ----> Hits listener 0.0.0.0_9443
+	//    Metric is istio_tcp_connections_closed_total i.e. TCP
+	//
+	// 4. http_egress
 	//    client ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
 	//      VS Routing (add Egress Header) --> Egress Gateway --> destination
 	//    Metric is istio_requests_total i.e. HTTP with destination as destination
 	//
-	// 4. TCP
-	//    client ---TCP request at port 9090----> Hits listener 0.0.0.0_9090 -> 0.0.0.0_150001 -> ALLOW_ANY/REGISTRY_ONLY
+	// 5. TCP
+	//    client ---TCP request at port 9090----> Matches no listener -> 0.0.0.0_150001 -> ALLOW_ANY/REGISTRY_ONLY
+	//    Metric is istio_tcp_connections_closed_total i.e. TCP
+	//
+	// 5. TCP conflict
+	//    client ---TCP request at port 9091 ----> Hits listener 0.0.0.0_9091 ->  ALLOW_ANY/REGISTRY_ONLY
 	//    Metric is istio_tcp_connections_closed_total i.e. TCP
 	//
 	framework.
@@ -280,7 +265,6 @@ func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode 
 						resp, err := client.Call(echo.CallOptions{
 							Target:   dest,
 							PortName: tc.PortName,
-							Scheme:   tc.Scheme,
 							Headers: map[string][]string{
 								"Host": {tc.Host},
 							},
@@ -346,23 +330,45 @@ func setupEcho(t *testing.T, ctx resource.Context, mode TrafficPolicy) (echo.Ins
 			Galley:    g,
 			Ports: []echo.Port{
 				{
+					// Plain HTTP port, will match no listeners and fall through
 					Name:         "http",
 					Protocol:     protocol.HTTP,
-					InstancePort: 8090,
 					ServicePort:  80,
+					InstancePort: 8080,
 				},
 				{
+					// HTTPS port, will match no listeners and fall through
 					Name:         "https",
 					Protocol:     protocol.HTTPS,
-					InstancePort: 8091,
 					ServicePort:  443,
+					InstancePort: 8443,
+					TLS:          true,
 				},
 				{
-					Name:         "tcp",
-					Protocol:     protocol.TCP,
-					InstancePort: 8092,
-					ServicePort:  9090,
+					// HTTPS port, there will be an HTTP service defined on this port that will match
+					Name:        "https-conflict",
+					Protocol:    protocol.HTTPS,
+					ServicePort: 9443,
+					TLS:         true,
 				},
+				{
+					// TCP port, will match no listeners and fall through
+					Name:        "tcp",
+					Protocol:    protocol.TCP,
+					ServicePort: 9090,
+				},
+				{
+					// TCP port, there will be an HTTP service defined on this port that will match
+					Name:        "tcp-conflict",
+					Protocol:    protocol.TCP,
+					ServicePort: 9091,
+				},
+			},
+			TLSSettings: &common.TLSSettings{
+				// Echo has these test certs baked into the docker image
+				RootCert:   mustReadCert(t, "cacert.pem"),
+				ClientCert: mustReadCert(t, "cert.crt"),
+				Key:        mustReadCert(t, "cert.key"),
 			},
 		}).BuildOrFail(t)
 

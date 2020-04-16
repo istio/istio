@@ -27,8 +27,7 @@ import (
 	"os/signal"
 	"strings"
 
-	multierror "github.com/hashicorp/go-multierror"
-
+	"github.com/hashicorp/go-multierror"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -37,6 +36,8 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/client-go/transport/spdy"
 
+	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/version"
 )
@@ -52,6 +53,7 @@ var (
 type Client struct {
 	Config *rest.Config
 	*rest.RESTClient
+	Revision string
 }
 
 // ExecClient is an interface for remote execution
@@ -82,7 +84,20 @@ func NewClient(kubeconfig, configContext string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Client{config, restClient}, nil
+	return &Client{config, restClient, ""}, nil
+}
+
+// NewExtendedClient is a constructor for the client wrapper that supports dual/multiple control plans
+func NewExtendedClient(kubeconfig, configContext string, opts clioptions.ControlPlaneOptions) (*Client, error) {
+	config, err := defaultRestConfig(kubeconfig, configContext)
+	if err != nil {
+		return nil, err
+	}
+	restClient, err := rest.RESTClientFor(config)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{config, restClient, opts.Revision}, nil
 }
 
 func defaultRestConfig(kubeconfig, configContext string) (*rest.Config, error) {
@@ -132,7 +147,7 @@ func (client *Client) PodExec(podName, podNamespace, container string, command [
 // AllPilotsDiscoveryDo makes an http request to each Pilot discovery instance
 func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, method, path string, body []byte) (map[string][]byte, error) {
 	pilots, err := client.GetIstioPods(pilotNamespace, map[string]string{
-		"labelSelector": "istio=pilot",
+		"labelSelector": "app=istiod",
 		"fieldSelector": "status.phase=Running",
 	})
 	if err != nil {
@@ -158,7 +173,7 @@ func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, method, path string, 
 // PilotDiscoveryDo makes an http request to a single Pilot discovery instance
 func (client *Client) PilotDiscoveryDo(pilotNamespace, method, path string, body []byte) ([]byte, error) {
 	pilots, err := client.GetIstioPods(pilotNamespace, map[string]string{
-		"labelSelector": "istio=pilot",
+		"labelSelector": "app=istiod",
 		"fieldSelector": "status.phase=Running",
 	})
 	if err != nil {
@@ -185,16 +200,25 @@ func (client *Client) EnvoyDo(podName, podNamespace, method, path string, body [
 func (client *Client) ExtractExecResult(podName, podNamespace, container string, cmd []string) ([]byte, error) {
 	stdout, stderr, err := client.PodExec(podName, podNamespace, container, cmd)
 	if err != nil {
-		if stderr.String() != "" {
-			return nil, fmt.Errorf("error execing into %v/%v %v container: %v\n%s", podName, podNamespace, container, err, stderr.String())
+		if stderr != nil && stderr.String() != "" {
+			return nil, fmt.Errorf("error exec'ing into %s/%s %s container: %v\n%s", podName, podNamespace, container, err, stderr.String())
 		}
-		return nil, fmt.Errorf("error execing into %v/%v %v container: %v", podName, podNamespace, container, err)
+		return nil, fmt.Errorf("error exec'ing into %s/%s %s container: %v", podName, podNamespace, container, err)
 	}
 	return stdout.Bytes(), nil
 }
 
 // GetIstioPods retrieves the pod objects for Istio deployments
 func (client *Client) GetIstioPods(namespace string, params map[string]string) ([]v1.Pod, error) {
+	if client.Revision != "" {
+		labelSelector, ok := params["labelSelector"]
+		if ok {
+			params["labelSelector"] = fmt.Sprintf("%s,%s=%s", labelSelector, model.RevisionLabel, client.Revision)
+		} else {
+			params["labelSelector"] = fmt.Sprintf("%s=%s", model.RevisionLabel, client.Revision)
+		}
+	}
+
 	req := client.Get().
 		Resource("pods").
 		Namespace(namespace)
@@ -257,6 +281,7 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 
 	labelToPodDetail := map[string]podDetail{
 		"pilot":            {"/usr/local/bin/pilot-discovery", "discovery"},
+		"istiod":           {"/usr/local/bin/pilot-discovery", "discovery"},
 		"citadel":          {"/usr/local/bin/istio_ca", "citadel"},
 		"egressgateway":    {"/usr/local/bin/pilot-agent", "istio-proxy"},
 		"galley":           {"/usr/local/bin/galley", "galley"},
@@ -292,7 +317,7 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 			stdout, stderr, err := client.PodExec(pod.Name, pod.Namespace, detail.container, cmdJSON)
 
 			if err != nil {
-				errs = multierror.Append(errs, fmt.Errorf("error execing into %v %v container: %v", pod.Name, detail.container, err))
+				errs = multierror.Append(errs, fmt.Errorf("error exec'ing into %s %s container: %v", pod.Name, detail.container, err))
 				continue
 			}
 
@@ -305,7 +330,7 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 				if strings.HasPrefix(stderr.String(), "Error: unknown shorthand flag") {
 					stdout, err := client.ExtractExecResult(pod.Name, pod.Namespace, detail.container, cmd)
 					if err != nil {
-						errs = multierror.Append(errs, fmt.Errorf("error execing into %v %v container: %v", pod.Name, detail.container, err))
+						errs = multierror.Append(errs, fmt.Errorf("error exec'ing into %s %s container: %v", pod.Name, detail.container, err))
 						continue
 					}
 
@@ -315,7 +340,7 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 						continue
 					}
 				} else {
-					errs = multierror.Append(errs, fmt.Errorf("error execing into %v %v container: %v", pod.Name, detail.container, stderr.String()))
+					errs = multierror.Append(errs, fmt.Errorf("error execing into %s %s container: %v", pod.Name, detail.container, stderr.String()))
 					continue
 				}
 			}

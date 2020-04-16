@@ -23,7 +23,7 @@ import (
 )
 
 func TestManifestMigrate(t *testing.T) {
-	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-migrate")
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-migrate")
 	tests := []struct {
 		desc string
 	}{
@@ -32,9 +32,6 @@ func TestManifestMigrate(t *testing.T) {
 		},
 		{
 			desc: "overlay_values",
-		},
-		{
-			desc: "default_icp_iop",
 		},
 	}
 	for _, tt := range tests {

@@ -373,13 +373,6 @@ var (
 		"Number of conflicting wildcard tcp listeners with current wildcard http listener.",
 	)
 
-	// ProxyStatusConflictOutboundListenerHTTPoverHTTPS metric tracks number of
-	// HTTP listeners that conflicted with well known HTTPS ports
-	ProxyStatusConflictOutboundListenerHTTPoverHTTPS = monitoring.NewGauge(
-		"pilot_conflict_outbound_listener_http_over_https",
-		"Number of conflicting HTTP listeners with well known HTTPS ports",
-	)
-
 	// ProxyStatusConflictOutboundListenerTCPOverTCP metric tracks number of
 	// TCP listeners that conflicted with existing TCP listeners on same port
 	ProxyStatusConflictOutboundListenerTCPOverTCP = monitoring.NewGauge(
@@ -458,7 +451,6 @@ var (
 		ProxyStatusNoService,
 		ProxyStatusEndpointNotReady,
 		ProxyStatusConflictOutboundListenerTCPOverHTTP,
-		ProxyStatusConflictOutboundListenerHTTPoverHTTPS,
 		ProxyStatusConflictOutboundListenerTCPOverTCP,
 		ProxyStatusConflictOutboundListenerHTTPOverTCP,
 		ProxyStatusConflictInboundListener,
@@ -1139,6 +1131,8 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	// the RDS code. See separateVSHostsAndServices in route/route.go
 	sortConfigByCreationTime(vservices)
 
+	vservices = mergeVirtualServicesIfNeeded(vservices)
+
 	// convert all shortnames in virtual services into FQDNs
 	for _, r := range vservices {
 		rule := r.Spec.(*networking.VirtualService)
@@ -1587,18 +1581,15 @@ func (ps *PushContext) initMeshNetworks() {
 			continue
 		}
 
-		registryNames := getNetworkRegistres(networkConf)
+		registryNames := getNetworkRegistries(networkConf)
 		gateways := []*Gateway{}
 
 		for _, gw := range gws {
-			gatewayAddresses := getGatewayAddresses(gw, registryNames, ps.ServiceDiscovery)
-
-			log.Debugf("Endpoints from registry(s) %v on network %v reachable through gateway(s) %v",
-				registryNames, network, gatewayAddresses)
-			for _, addr := range gatewayAddresses {
-				gateways = append(gateways, &Gateway{addr, gw.Port})
-			}
+			gateways = append(gateways, getGatewayAddresses(gw, registryNames, ps.ServiceDiscovery)...)
 		}
+
+		log.Debugf("Endpoints from registries %v on network %v reachable through %d gateways",
+			registryNames, network, len(gateways))
 
 		ps.networkGateways[network] = gateways
 	}
@@ -1616,7 +1607,7 @@ func (ps *PushContext) initQuotaSpecBindings(env *Environment) error {
 	return err
 }
 
-func getNetworkRegistres(network *meshconfig.Network) []string {
+func getNetworkRegistries(network *meshconfig.Network) []string {
 	var registryNames []string
 	for _, eps := range network.Endpoints {
 		if eps != nil && len(eps.GetFromRegistry()) > 0 {
@@ -1626,21 +1617,40 @@ func getNetworkRegistres(network *meshconfig.Network) []string {
 	return registryNames
 }
 
-func getGatewayAddresses(gw *meshconfig.Network_IstioNetworkGateway, registryNames []string, discovery ServiceDiscovery) []string {
+func getGatewayAddresses(gw *meshconfig.Network_IstioNetworkGateway, registryNames []string, discovery ServiceDiscovery) []*Gateway {
 	// First, if a gateway address is provided in the configuration use it. If the gateway address
 	// in the config was a hostname it got already resolved and replaced with an IP address
 	// when loading the config
 	if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
-		return []string{gw.GetAddress()}
+		return []*Gateway{{gw.GetAddress(), gw.Port}}
 	}
 
 	// Second, try to find the gateway addresses by the provided service name
 	if gwSvcName := gw.GetRegistryServiceName(); gwSvcName != "" {
 		svc, _ := discovery.GetService(host.Name(gwSvcName))
-		if svc != nil {
-			var gateways []string
-			for _, registryName := range registryNames {
-				gateways = append(gateways, svc.Attributes.ClusterExternalAddresses[registryName]...)
+		if svc == nil {
+			return nil
+		}
+		svc.Mutex.RLock()
+		defer svc.Mutex.RLock()
+		if svc.Attributes.ClusterExternalAddresses != nil {
+			var gateways []*Gateway
+			for _, clusterName := range registryNames {
+				ips := svc.Attributes.ClusterExternalAddresses[clusterName]
+				remotePort := gw.Port
+				// check if we have node port mappings
+				if svc.Attributes.ClusterExternalPorts != nil {
+					if nodePortMap, exists := svc.Attributes.ClusterExternalPorts[clusterName]; exists {
+						// what we now have is a service port. If there is a mapping for cluster external ports,
+						// look it up and get the node port for the remote port
+						if nodePort, exists := nodePortMap[remotePort]; exists {
+							remotePort = nodePort
+						}
+					}
+				}
+				for _, ip := range ips {
+					gateways = append(gateways, &Gateway{ip, remotePort})
+				}
 			}
 			return gateways
 		}
@@ -1661,8 +1671,8 @@ func (ps *PushContext) NetworkGatewaysByNetwork(network string) []*Gateway {
 	return nil
 }
 
-func (ps *PushContext) QuotaSpecByDestination(instance *ServiceInstance) []Config {
-	return filterQuotaSpecsByDestination(instance, ps.QuotaSpecBinding, ps.QuotaSpec)
+func (ps *PushContext) QuotaSpecByDestination(hostname host.Name) []Config {
+	return filterQuotaSpecsByDestination(hostname, ps.QuotaSpecBinding, ps.QuotaSpec)
 }
 
 // BestEffortInferServiceMTLSMode infers the mTLS mode for the service + port from all authentication

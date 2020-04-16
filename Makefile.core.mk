@@ -108,10 +108,13 @@ export JUNIT_OUT ?= $(ARTIFACTS)/junit.xml
 export REPO_ROOT := $(shell git rev-parse --show-toplevel)
 
 # Make directories needed by the build system
-$(shell mkdir -p $(ISTIO_OUT))
 $(shell mkdir -p $(ISTIO_OUT_LINUX))
 $(shell mkdir -p $(ISTIO_OUT_LINUX)/logs)
 $(shell mkdir -p $(dir $(JUNIT_OUT)))
+
+# Need seperate target for init:
+$(ISTIO_OUT):
+	@mkdir -p $@
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT_LINUX}/docker_temp
@@ -327,7 +330,7 @@ lint-go-split:
 	@golangci-lint run -c ./common/config/.golangci.yml ./operator/...
 
 lint-helm-global:
-	find manifests -name 'Chart.yaml' -print0 | ${XARGS} -L 1 dirname | xargs -r helm lint --strict -f manifests/global.yaml
+	find manifests -name 'Chart.yaml' -print0 | ${XARGS} -L 1 dirname | xargs -r helm lint --strict -f manifests/charts/global.yaml
 
 lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global
 	@bin/check_samples.sh
@@ -341,7 +344,7 @@ go-gen:
 	@PATH="${PATH}":/tmp/bin go generate ./...
 
 gen-charts:
-	@operator/scripts/run_update_charts.sh
+	@operator/scripts/create_assets_gen.sh
 
 refresh-goldens:
 	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./operator/...
@@ -350,15 +353,15 @@ refresh-goldens:
 
 update-golden: refresh-goldens
 
-gen: go-gen mirror-licenses format update-crds operator-proto gen-kustomize gen-charts update-golden
+gen: go-gen mirror-licenses format update-crds operator-proto gen-kustomize update-golden
 
-gen-check: gen check-clean-repo
+gen-check: gen check-clean-repo check-no-modify
 
 # Generate kustomize templates.
 gen-kustomize:
-	helm template -n istio-base manifests/base > manifests/base/files/gen-istio-cluster.yaml
-	helm template -n istio-base --namespace istio-system manifests/istio-control/istio-discovery \
-		-f manifests/global.yaml > manifests/istio-control/istio-discovery/files/gen-istio.yaml
+	helm template -n istio-base manifests/charts/base > manifests/charts/base/files/gen-istio-cluster.yaml
+	helm template -n istio-base --namespace istio-system manifests/charts/istio-control/istio-discovery \
+		-f manifests/charts/global.yaml > manifests/charts/istio-control/istio-discovery/files/gen-istio.yaml
 
 #-----------------------------------------------------------------------------
 # Target: go build
@@ -376,7 +379,7 @@ ${ISTIO_OUT}/release/istioctl-linux-amd64: depend
 ${ISTIO_OUT}/release/istioctl-linux-armv7: depend
 	STATIC=0 GOOS=linux GOARCH=arm GOARM=7 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/release/istioctl-linux-arm64: depend
-	STATIC=0 GOOS=linux GOARCH=arm64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl	
+	STATIC=0 GOOS=linux GOARCH=arm64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/release/istioctl-osx: depend
 	STATIC=0 GOOS=darwin LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/release/istioctl-win.exe: depend

@@ -19,7 +19,6 @@ import (
 	"testing"
 
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	envoy_api_v2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	v2Cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
@@ -171,8 +170,8 @@ func TestApplyDestinationRule(t *testing.T) {
 					EdsClusterConfig: &apiv2.Cluster_EdsClusterConfig{
 						ServiceName: "outbound|8080|foobar|foo",
 					},
-					CircuitBreakers: &envoy_api_v2_cluster.CircuitBreakers{
-						Thresholds: []*envoy_api_v2_cluster.CircuitBreakers_Thresholds{
+					CircuitBreakers: &v2Cluster.CircuitBreakers{
+						Thresholds: []*v2Cluster.CircuitBreakers_Thresholds{
 							{
 								MaxRetries: &wrappers.UInt32Value{
 									Value: 10,

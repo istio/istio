@@ -25,7 +25,6 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	coreV1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -178,7 +177,7 @@ func newFakeControllerWithOptions(opts fakeControllerOptions) (*Controller, *Fak
 	// TODO: fix it, so we can remove `stop` channel
 	go c.Run(c.stop)
 	// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
-	cache.WaitForCacheSync(c.stop, c.nodes.HasSynced, c.pods.informer.HasSynced,
+	cache.WaitForCacheSync(c.stop, c.nodeMetadataInformer.HasSynced, c.pods.informer.HasSynced,
 		c.services.HasSynced)
 	return c, fx
 }
@@ -926,7 +925,7 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 func TestWorkloadHealthCheckInfo(t *testing.T) {
 	cases := []struct {
 		name     string
-		pod      *v1.Pod
+		pod      *coreV1.Pod
 		expected model.ProbeList
 	}{
 		{
@@ -1285,65 +1284,65 @@ func TestController_ExternalNameService(t *testing.T) {
 }
 
 func TestCompareEndpoints(t *testing.T) {
-	addressA := v1.EndpointAddress{IP: "1.2.3.4", Hostname: "a"}
-	addressB := v1.EndpointAddress{IP: "1.2.3.4", Hostname: "b"}
-	portA := v1.EndpointPort{Name: "a"}
-	portB := v1.EndpointPort{Name: "b"}
+	addressA := coreV1.EndpointAddress{IP: "1.2.3.4", Hostname: "a"}
+	addressB := coreV1.EndpointAddress{IP: "1.2.3.4", Hostname: "b"}
+	portA := coreV1.EndpointPort{Name: "a"}
+	portB := coreV1.EndpointPort{Name: "b"}
 	cases := []struct {
 		name string
-		a    *v1.Endpoints
-		b    *v1.Endpoints
+		a    *coreV1.Endpoints
+		b    *coreV1.Endpoints
 		want bool
 	}{
-		{"both empty", &v1.Endpoints{}, &v1.Endpoints{}, true},
+		{"both empty", &coreV1.Endpoints{}, &coreV1.Endpoints{}, true},
 		{
 			"just not ready endpoints",
-			&v1.Endpoints{Subsets: []v1.EndpointSubset{
-				{NotReadyAddresses: []v1.EndpointAddress{addressA}},
+			&coreV1.Endpoints{Subsets: []coreV1.EndpointSubset{
+				{NotReadyAddresses: []coreV1.EndpointAddress{addressA}},
 			}},
-			&v1.Endpoints{},
+			&coreV1.Endpoints{},
 			false,
 		},
 		{
 			"not ready to ready",
-			&v1.Endpoints{Subsets: []v1.EndpointSubset{
-				{NotReadyAddresses: []v1.EndpointAddress{addressA}},
+			&coreV1.Endpoints{Subsets: []coreV1.EndpointSubset{
+				{NotReadyAddresses: []coreV1.EndpointAddress{addressA}},
 			}},
-			&v1.Endpoints{Subsets: []v1.EndpointSubset{
-				{Addresses: []v1.EndpointAddress{addressA}},
+			&coreV1.Endpoints{Subsets: []coreV1.EndpointSubset{
+				{Addresses: []coreV1.EndpointAddress{addressA}},
 			}},
 			false,
 		},
 		{
 			"ready and not ready address",
-			&v1.Endpoints{Subsets: []v1.EndpointSubset{
+			&coreV1.Endpoints{Subsets: []coreV1.EndpointSubset{
 				{
-					NotReadyAddresses: []v1.EndpointAddress{addressB},
-					Addresses:         []v1.EndpointAddress{addressA},
+					NotReadyAddresses: []coreV1.EndpointAddress{addressB},
+					Addresses:         []coreV1.EndpointAddress{addressA},
 				},
 			}},
-			&v1.Endpoints{Subsets: []v1.EndpointSubset{
-				{Addresses: []v1.EndpointAddress{addressA}},
+			&coreV1.Endpoints{Subsets: []coreV1.EndpointSubset{
+				{Addresses: []coreV1.EndpointAddress{addressA}},
 			}},
 			true,
 		},
 		{
 			"different addresses",
-			&v1.Endpoints{Subsets: []v1.EndpointSubset{
-				{Addresses: []v1.EndpointAddress{addressB}},
+			&coreV1.Endpoints{Subsets: []coreV1.EndpointSubset{
+				{Addresses: []coreV1.EndpointAddress{addressB}},
 			}},
-			&v1.Endpoints{Subsets: []v1.EndpointSubset{
-				{Addresses: []v1.EndpointAddress{addressA}},
+			&coreV1.Endpoints{Subsets: []coreV1.EndpointSubset{
+				{Addresses: []coreV1.EndpointAddress{addressA}},
 			}},
 			false,
 		},
 		{
 			"different ports",
-			&v1.Endpoints{Subsets: []v1.EndpointSubset{
-				{Addresses: []v1.EndpointAddress{addressA}, Ports: []v1.EndpointPort{portA}},
+			&coreV1.Endpoints{Subsets: []coreV1.EndpointSubset{
+				{Addresses: []coreV1.EndpointAddress{addressA}, Ports: []coreV1.EndpointPort{portA}},
 			}},
-			&v1.Endpoints{Subsets: []v1.EndpointSubset{
-				{Addresses: []v1.EndpointAddress{addressA}, Ports: []v1.EndpointPort{portB}},
+			&coreV1.Endpoints{Subsets: []coreV1.EndpointSubset{
+				{Addresses: []coreV1.EndpointAddress{addressA}, Ports: []coreV1.EndpointPort{portB}},
 			}},
 			false,
 		},
@@ -1366,7 +1365,7 @@ func createEndpoints(controller *Controller, name, namespace string, portNames, 
 	var portNum int32 = 1001
 	eas := make([]coreV1.EndpointAddress, 0)
 	for _, ip := range ips {
-		eas = append(eas, coreV1.EndpointAddress{IP: ip, TargetRef: &v1.ObjectReference{
+		eas = append(eas, coreV1.EndpointAddress{IP: ip, TargetRef: &coreV1.ObjectReference{
 			Kind:      "Pod",
 			Name:      name,
 			Namespace: namespace,
@@ -1604,7 +1603,7 @@ func deleteExternalNameService(controller *Controller, name, namespace string, t
 func addPods(t *testing.T, controller *Controller, pods ...*coreV1.Pod) {
 	for _, pod := range pods {
 		p, _ := controller.client.CoreV1().Pods(pod.Namespace).Get(context.TODO(), pod.Name, metaV1.GetOptions{})
-		var newPod *v1.Pod
+		var newPod *coreV1.Pod
 		var err error
 		if p == nil {
 			newPod, err = controller.client.CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metaV1.CreateOptions{})

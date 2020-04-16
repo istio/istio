@@ -103,3 +103,11 @@ func fetchExtractInstallPackageHTTP(releaseTarURL string) (string, error) {
 	}
 	return uf.DestDir(), nil
 }
+
+// --charts is an alias for --set installPackagePath=
+func applyInstallFlagAlias(flags []string, charts string) []string {
+	if charts != "" {
+		flags = append(flags, fmt.Sprintf("installPackagePath=%s", charts))
+	}
+	return flags
+}

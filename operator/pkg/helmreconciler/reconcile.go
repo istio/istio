@@ -49,7 +49,6 @@ var (
 		name.PilotComponentName: {
 			name.PolicyComponentName,
 			name.TelemetryComponentName,
-			name.GalleyComponentName,
 			name.CNIComponentName,
 			name.IngressComponentName,
 			name.EgressComponentName,

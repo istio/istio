@@ -23,6 +23,31 @@ kind: Namespace
 metadata:
   name: bar
 ---
+# Namespace is explicitly enabled in the new style
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    istio.io/rev: canary
+  name: canary-test
+---
+# Namespace is explicitly enabled in the new style, but refers to a non-existant control plane
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    istio.io/rev: pidgeon
+  name: pidgeon-test
+---
+# Namespace has both old and new labels
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: busted
+  labels:
+    istio-injection: enabled
+    istio.io/rev: canary
+---
 # Pod that's injected. No warning
 apiVersion: v1
 kind: Pod
@@ -55,6 +80,21 @@ metadata:
   namespace: default
   annotations:
     sidecar.istio.io/inject: "false"
+spec:
+  containers:
+  - image: gcr.io/google-samples/microservices-demo/adservice:v0.1.1
+    name: server
+---
+# Control plane pod proving the existence of istio.io/rev 'canary'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: istiod-canary-1234567890-12345
+  namespace: istio-system
+  labels:
+    app: istiod
+    istio: pilot
+    istio.io/rev: canary
 spec:
   containers:
   - image: gcr.io/google-samples/microservices-demo/adservice:v0.1.1

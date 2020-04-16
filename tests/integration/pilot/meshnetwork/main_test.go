@@ -216,7 +216,7 @@ func checkEDSInVM(t *testing.T, ns, k8sSvcClusterName, endpointIP, gatewayIP str
 	node := &model.Proxy{
 		Type:            model.SidecarProxy,
 		IPAddresses:     []string{endpointIP},
-		ID:              fmt.Sprintf("httpbin.com"),
+		ID:              "httpbin.com",
 		ConfigNamespace: ns,
 		Metadata: &model.NodeMetadata{
 			InstanceIPs:      []string{endpointIP},

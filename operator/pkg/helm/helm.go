@@ -67,10 +67,8 @@ func NewHelmRenderer(operatorDataDir, helmSubdir, componentName, namespace strin
 	switch {
 	case operatorDataDir == "":
 		return NewVFSRenderer(dir, componentName, namespace), nil
-	case util.IsFilePath(operatorDataDir):
-		return NewFileTemplateRenderer(filepath.Join(operatorDataDir, dir), componentName, namespace), nil
 	default:
-		return nil, fmt.Errorf("unknown helm renderer with ChartsSubdirName=%s", operatorDataDir)
+		return NewFileTemplateRenderer(filepath.Join(operatorDataDir, dir), componentName, namespace), nil
 	}
 }
 
@@ -284,4 +282,39 @@ func getAddonName(metadata *chart.Metadata) *string {
 		}
 	}
 	return nil
+}
+
+// GetProfileYAML returns the YAML for the given profile name, using the given profileOrPath string, which may be either
+// a profile label or a file path.
+func GetProfileYAML(installPackagePath, profileOrPath string) (string, error) {
+	if profileOrPath == "" {
+		profileOrPath = "default"
+	}
+	// If charts are a file path and profile is a name like default, transform it to the file path.
+	if installPackagePath != "" && IsBuiltinProfileName(profileOrPath) {
+		profileOrPath = filepath.Join(installPackagePath, "profiles", profileOrPath+".yaml")
+	}
+	// This contains the IstioOperator CR.
+	baseCRYAML, err := ReadProfileYAML(profileOrPath)
+	if err != nil {
+		return "", err
+	}
+
+	if !IsDefaultProfile(profileOrPath) {
+		// Profile definitions are relative to the default profileOrPath, so read that first.
+		dfn, err := DefaultFilenameForProfile(profileOrPath)
+		if err != nil {
+			return "", err
+		}
+		defaultYAML, err := ReadProfileYAML(dfn)
+		if err != nil {
+			return "", err
+		}
+		baseCRYAML, err = util.OverlayYAML(defaultYAML, baseCRYAML)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return baseCRYAML, nil
 }

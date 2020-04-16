@@ -99,6 +99,21 @@ func (s *TestSetup) Ports() *Ports {
 	return s.ports
 }
 
+// SDSPath gets SDS path. The path does not change after proxy restarts.
+func (s *TestSetup) SDSPath() string {
+	return fmt.Sprintf("/tmp/sdstestudspath.%v", s.ports.MixerPort)
+}
+
+// JWTTokenPath gets JWT token path. The path does not change after proxy restarts.
+func (s *TestSetup) JWTTokenPath() string {
+	return fmt.Sprintf("/tmp/envoy-token-%v.jwt", s.ports.STSPort)
+}
+
+// CACertPath gets CA cert file path. The path does not change after proxy restarts.
+func (s *TestSetup) CACertPath() string {
+	return fmt.Sprintf("/tmp/ca-certificates-%v.crt", s.ports.STSPort)
+}
+
 // SetMixerCheckReferenced set Referenced in mocked Check response
 func (s *TestSetup) SetMixerCheckReferenced(ref *mixerpb.ReferencedAttributes) {
 	s.mixer.checkReferenced = ref
@@ -363,6 +378,28 @@ func (s *TestSetup) WaitForStatsUpdateAndGetStats(waitDuration int) (string, err
 		return "", fmt.Errorf("sending stats request returns unexpected status code: %d", code)
 	}
 	return respBody, nil
+}
+
+// GetStatsMap fetches Envoy stats with retry, and returns stats in a map.
+func (s *TestSetup) GetStatsMap() (map[string]uint64, error) {
+	delay := 200 * time.Millisecond
+	total := 3 * time.Second
+	var errGet error
+	var code int
+	var statsJSON string
+	for attempt := 0; attempt < int(total/delay); attempt++ {
+		statsURL := fmt.Sprintf("http://localhost:%d/stats?format=json&usedonly", s.Ports().AdminPort)
+		code, statsJSON, errGet = HTTPGet(statsURL)
+		if errGet != nil {
+			log.Printf("sending stats request returns an error: %v", errGet)
+		} else if code != 200 {
+			log.Printf("sending stats request returns unexpected status code: %d", code)
+		} else {
+			return s.unmarshalStats(statsJSON), nil
+		}
+		time.Sleep(delay)
+	}
+	return nil, fmt.Errorf("failed to get stats, err: %v, code: %d", errGet, code)
 }
 
 type statEntry struct {

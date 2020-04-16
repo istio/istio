@@ -25,16 +25,4 @@ spec:
   roleRef:
     kind: ServiceRole
     name: "mongodb-viewer"
----
-apiVersion: "authentication.istio.io/v1alpha1"
-kind: Policy
-metadata:
-  name: policy-with-jwt
-  namespace: deprecation-policy
-spec:
-  targets:
-  - name: productpage
-  origins:
-  - jwt:
-      issuer: "testing@secure.istio.io"
-      jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.4/security/tools/jwt/samples/jwks.json"
+

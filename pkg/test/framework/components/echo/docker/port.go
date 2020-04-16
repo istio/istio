@@ -82,6 +82,9 @@ func (m *portMap) toEchoArgs() []string {
 		} else {
 			echoArgs = append(echoArgs, "--port", strconv.Itoa(portNumber))
 		}
+		if port.containerPort.TLS {
+			echoArgs = append(echoArgs, "--tls", strconv.Itoa(portNumber))
+		}
 	}
 	return echoArgs
 }

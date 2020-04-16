@@ -132,7 +132,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *log2.ConsoleLogger) (err 
 	if err != nil {
 		return err
 	}
-	// Generate IOPS objects
+	// Generate IOPS parseObjectSetFromManifest
 	targetIOPSYaml, targetIOPS, err := GenerateConfig(args.inFilenames, ysf, args.force, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate IOPS from file %s, error: %s", args.inFilenames, err)

@@ -20,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/apimachinery/pkg/version"
 
 	istioKube "istio.io/istio/pkg/kube"
@@ -28,7 +28,11 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 
 	kubeApiAdmissions "k8s.io/api/admissionregistration/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/api/autoscaling/v2beta1"
 	kubeApiCore "k8s.io/api/core/v1"
+	"k8s.io/api/policy/v1beta1"
+	v1 "k8s.io/api/rbac/v1"
 	kubeApiExt "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -113,6 +117,17 @@ func (a *Accessor) GetPods(namespace string, selectors ...string) ([]kubeApiCore
 
 	if err != nil {
 		return []kubeApiCore.Pod{}, err
+	}
+
+	return list.Items, nil
+}
+
+func (a *Accessor) GetDeployments(namespace string, selectors ...string) ([]appsv1.Deployment, error) {
+	s := strings.Join(selectors, ",")
+	list, err := a.set.AppsV1().Deployments(namespace).List(context.TODO(), kubeApiMeta.ListOptions{LabelSelector: s})
+
+	if err != nil {
+		return []appsv1.Deployment{}, err
 	}
 
 	return list.Items, nil
@@ -353,9 +368,15 @@ func (a *Accessor) WaitForValidatingWebhookDeletion(name string, opts ...retry.O
 	return err
 }
 
-// ValidatingWebhookConfigurationExists indicates whether a mutating validating with the given name exists.
+// ValidatingWebhookConfigurationExists indicates whether a validating webhook with the given name exists.
 func (a *Accessor) ValidatingWebhookConfigurationExists(name string) bool {
 	_, err := a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(context.TODO(), name, kubeApiMeta.GetOptions{})
+	return err == nil
+}
+
+// MutatingWebhookConfigurationExists indicates whether a mutating webhook with the given name exists.
+func (a *Accessor) MutatingWebhookConfigurationExists(name string) bool {
+	_, err := a.set.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(context.TODO(), name, kubeApiMeta.GetOptions{})
 	return err == nil
 }
 
@@ -385,14 +406,34 @@ func (a *Accessor) GetCustomResourceDefinitions() ([]kubeApiExt.CustomResourceDe
 	return crd.Items, nil
 }
 
+// GetCustomResourceDefinition gets the CRD with the given name
+func (a *Accessor) GetCustomResourceDefinition(name string) (*kubeApiExt.CustomResourceDefinition, error) {
+	return a.extSet.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.TODO(), name, kubeApiMeta.GetOptions{})
+}
+
 // DeleteCustomResourceDefinitions deletes the CRD with the given name.
 func (a *Accessor) DeleteCustomResourceDefinitions(name string) error {
 	return a.extSet.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(context.TODO(), name, *deleteOptionsForeground())
 }
 
+// GetPodDisruptionBudget gets the PodDisruptionBudget with the given name
+func (a *Accessor) GetPodDisruptionBudget(ns, name string) (*v1beta1.PodDisruptionBudget, error) {
+	return a.set.PolicyV1beta1().PodDisruptionBudgets(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
+}
+
+// GetHorizontalPodAutoscaler gets the HorizontalPodAutoscaler with the given name
+func (a *Accessor) GetHorizontalPodAutoscaler(ns, name string) (*v2beta1.HorizontalPodAutoscaler, error) {
+	return a.set.AutoscalingV2beta1().HorizontalPodAutoscalers(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
+}
+
 // GetService returns the service entry with the given name/namespace.
 func (a *Accessor) GetService(ns string, name string) (*kubeApiCore.Service, error) {
 	return a.set.CoreV1().Services(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
+}
+
+// GetDeployment returns the deployment with the given name/namespace.
+func (a *Accessor) GetDeployment(ns string, name string) (*appsv1.Deployment, error) {
+	return a.set.AppsV1().Deployments(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
 }
 
 // GetSecret returns secret resource with the given namespace.
@@ -403,6 +444,11 @@ func (a *Accessor) GetSecret(ns string) kubeClientCore.SecretInterface {
 // GetConfigMap returns the config resource with the given name and namespace.
 func (a *Accessor) GetConfigMap(name, ns string) (*kubeApiCore.ConfigMap, error) {
 	return a.set.CoreV1().ConfigMaps(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
+}
+
+// DeleteConfigMap deletes the config resource with the given name and namespace.
+func (a *Accessor) DeleteConfigMap(name, ns string) error {
+	return a.set.CoreV1().ConfigMaps(ns).Delete(context.TODO(), name, kubeApiMeta.DeleteOptions{})
 }
 
 // CreateSecret takes the representation of a secret and creates it in the given namespace.
@@ -419,8 +465,8 @@ func (a *Accessor) DeleteSecret(namespace, name string) (err error) {
 	return err
 }
 
-func (a *Accessor) GetServiceAccount(namespace string) kubeClientCore.ServiceAccountInterface {
-	return a.set.CoreV1().ServiceAccounts(namespace)
+func (a *Accessor) GetServiceAccount(namespace, name string) (*kubeApiCore.ServiceAccount, error) {
+	return a.set.CoreV1().ServiceAccounts(namespace).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
 }
 
 // GetKubernetesVersion returns the Kubernetes server version
@@ -522,6 +568,16 @@ func (a *Accessor) GetNamespace(ns string) (*kubeApiCore.Namespace, error) {
 func (a *Accessor) DeleteClusterRole(role string) error {
 	scopes.Framework.Debugf("Deleting ClusterRole: %s", role)
 	return a.set.RbacV1().ClusterRoles().Delete(context.TODO(), role, *deleteOptionsForeground())
+}
+
+// GetClusterRole gets a ClusterRole with the given name
+func (a *Accessor) GetClusterRole(role string) (*v1.ClusterRole, error) {
+	return a.set.RbacV1().ClusterRoles().Get(context.TODO(), role, kubeApiMeta.GetOptions{})
+}
+
+// GetClusterRoleBinding gets a ClusterRoleBinding with the given name
+func (a *Accessor) GetClusterRoleBinding(role string) (*v1.ClusterRoleBinding, error) {
+	return a.set.RbacV1().ClusterRoleBindings().Get(context.TODO(), role, kubeApiMeta.GetOptions{})
 }
 
 // GetUnstructured returns an unstructured k8s resource object based on the provided schema, namespace, and name.

@@ -249,7 +249,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					},
 					ValidationContextType: &auth.CommonTlsContext_ValidationContext{
 						ValidationContext: &auth.CertificateValidationContext{
-							VerifySubjectAltName: []string{"subject.name.a.com", "subject.name.b.com"},
+							MatchSubjectAltNames: util.StringToExactMatch([]string{"subject.name.a.com", "subject.name.b.com"}),
 						},
 					},
 				},
@@ -360,7 +360,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
 						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 							DefaultValidationContext: &auth.CertificateValidationContext{
-								VerifySubjectAltName: []string{"subject.name.a.com", "subject.name.b.com"},
+								MatchSubjectAltNames: util.StringToExactMatch([]string{"subject.name.a.com", "subject.name.b.com"}),
 							},
 							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 								Name: "ingress-sds-resource-name-cacert",
@@ -914,8 +914,8 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			p := &fakePlugin{}
 			configgen := NewConfigGenerator([]plugin.Plugin{p})
 			env := buildEnv(t, tt.gateways, tt.virtualServices)
-			proxy14Gateway.SetGatewaysForProxy(env.PushContext)
-			route := configgen.buildGatewayHTTPRouteConfig(&proxy14Gateway, env.PushContext, tt.routeName)
+			proxyGateway.SetGatewaysForProxy(env.PushContext)
+			route := configgen.buildGatewayHTTPRouteConfig(&proxyGateway, env.PushContext, tt.routeName)
 			if route == nil {
 				t.Fatal("got an empty route configuration")
 			}
@@ -985,9 +985,10 @@ func TestBuildGatewayListeners(t *testing.T) {
 		p := &fakePlugin{}
 		configgen := NewConfigGenerator([]plugin.Plugin{p})
 		env := buildEnv(t, []pilot_model.Config{{Spec: tt.gateway}}, []pilot_model.Config{})
-		proxy14Gateway.SetGatewaysForProxy(env.PushContext)
-		proxy14Gateway.ServiceInstances = tt.node.ServiceInstances
-		builder := configgen.buildGatewayListeners(&proxy14Gateway, env.PushContext, &ListenerBuilder{})
+		proxyGateway.SetGatewaysForProxy(env.PushContext)
+		proxyGateway.ServiceInstances = tt.node.ServiceInstances
+		proxyGateway.DiscoverIPVersions()
+		builder := configgen.buildGatewayListeners(&proxyGateway, env.PushContext, &ListenerBuilder{})
 		var listeners []string
 		for _, l := range builder.gatewayListeners {
 			listeners = append(listeners, l.Name)
@@ -995,7 +996,7 @@ func TestBuildGatewayListeners(t *testing.T) {
 		sort.Strings(listeners)
 		sort.Strings(tt.expectedListeners)
 		if !reflect.DeepEqual(listeners, tt.expectedListeners) {
-			t.Fatalf("Expected listeners: %v, got: %v\n%v", tt.expectedListeners, listeners, proxy14Gateway.MergedGateway.Servers)
+			t.Fatalf("Expected listeners: %v, got: %v\n%v", tt.expectedListeners, listeners, proxyGateway.MergedGateway.Servers)
 		}
 	}
 }

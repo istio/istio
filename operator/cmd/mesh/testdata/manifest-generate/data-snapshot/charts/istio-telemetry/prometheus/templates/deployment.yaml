@@ -56,8 +56,10 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/prometheus
+          {{- if .Values.prometheus.provisionPrometheusCert }}
           - mountPath: /etc/istio-certs
             name: istio-certs
+          {{- end }}
 
 {{- if .Values.prometheus.provisionPrometheusCert }}
         - name: istio-proxy
@@ -180,14 +182,6 @@ spec:
       - name: istio-certs
         emptyDir:
           medium: Memory
-{{- else }}
-      - name: istio-certs
-        secret:
-          defaultMode: 420
-{{- if not .Values.security.enabled }}
-          optional: true
-{{- end }}
-          secretName: istio.default
 {{- end }}
 
 {{- if .Values.prometheus.provisionPrometheusCert }}

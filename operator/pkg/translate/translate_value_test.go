@@ -36,8 +36,6 @@ func TestValueToProto(t *testing.T) {
 		{
 			desc: "K8s resources translation",
 			valueYAML: `
-galley:
-  enabled: false
 pilot:
   enabled: true
   rollingMaxSurge: 100%
@@ -78,9 +76,6 @@ global:
   proxy:
     readinessInitialDelaySeconds: 2
   controlPlaneSecurityEnabled: false
-  mtls:
-    enabled:
-      false
 mixer:
   policy:
     enabled: true
@@ -95,8 +90,6 @@ tag: 1.2.3
 meshConfig: 
    rootNamespace: istio-system
 components:
-   galley:
-     enabled: false
    telemetry:
      enabled: false
    policy:
@@ -141,14 +134,13 @@ components:
 values:
   global:
     controlPlaneSecurityEnabled: false
-    mtls:
-      enabled: false
     proxy:
       readinessInitialDelaySeconds: 2
     policyNamespace: istio-policy
     telemetryNamespace: istio-telemetry
   pilot:
     image: pilot
+    autoscaleEnabled: true
     traceSampling: 1
     podAntiAffinityLabelSelector:
     - key: istio
@@ -163,10 +155,6 @@ values:
 		{
 			desc: "All Enabled",
 			valueYAML: `
-certmanager:
-  enabled: true
-galley:
-  enabled: true
 global:
   hub: docker.io/istio
   istioNamespace: istio-system
@@ -192,8 +180,6 @@ gateways:
         cpu: 1000m
         memory: 1G
     enabled: true
-sidecarInjectorWebhook:
-  enabled: true
 `,
 			want: `
 hub: docker.io/istio
@@ -204,8 +190,6 @@ components:
   telemetry:
     enabled: true
   policy:
-    enabled: true
-  galley:
     enabled: true
   pilot:
     enabled: true
@@ -228,17 +212,11 @@ values:
   global:
     policyNamespace: istio-policy
     telemetryNamespace: istio-telemetry
-  certmanager:
-    enabled: true
-  sidecarInjectorWebhook:
-    enabled: true
 `,
 		},
 		{
 			desc: "Some components Disabled",
 			valueYAML: `
-galley:
-  enabled: false
 pilot:
   enabled: true
 global:
@@ -261,8 +239,6 @@ components:
      enabled: false
    policy:
      enabled: true
-   galley:
-     enabled: false
    pilot:
      enabled: true
 meshConfig:
@@ -295,7 +271,7 @@ values:
 				ms := jsonpb.Marshaler{}
 				gotString, err := ms.MarshalToString(gotSpec)
 				if err != nil {
-					t.Errorf("error when marshal translated IstioOperatorSpec: %s", err)
+					t.Errorf("failed to marshal translated IstioOperatorSpec: %s", err)
 				}
 				cpYaml, _ := yaml.JSONToYAML([]byte(gotString))
 				if want := tt.want; !util.IsYAMLEqual(gotString, want) {

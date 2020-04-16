@@ -155,6 +155,9 @@ type Proxy struct {
 
 	// Indicates wheteher proxy supports IPv4 addresses
 	ipv4Support bool
+
+	// GlobalUnicastIP stores the globacl unicast IP if available, otherwise nil
+	GlobalUnicastIP string
 }
 
 var (
@@ -312,9 +315,6 @@ type NodeMetadata struct {
 
 	// PodPorts defines the ports on a pod. This is used to lookup named ports.
 	PodPorts PodPortList `json:"POD_PORTS,omitempty"`
-
-	// CanonicalTelemetryService specifies the service name to use for all node telemetry.
-	CanonicalTelemetryService string `json:"CANONICAL_TELEMETRY_SERVICE,omitempty"`
 
 	// LocalityLabel defines the locality specified for the pod
 	LocalityLabel string `json:"istio-locality,omitempty"`
@@ -588,6 +588,9 @@ func (node *Proxy) DiscoverIPVersions() {
 			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
 			// skip it to prevent a panic.
 			continue
+		}
+		if addr.IsGlobalUnicast() {
+			node.GlobalUnicastIP = addr.String()
 		}
 		if addr.To4() != nil {
 			node.ipv4Support = true

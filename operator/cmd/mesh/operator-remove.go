@@ -119,7 +119,7 @@ func deleteManifest(manifestStr, componentName string, opts *kubectlcmd.Options,
 	} else {
 		l.LogAndPrintf("Component %s deleted successfully.", componentName)
 		if opts.Verbose {
-			l.LogAndPrintf("The following objects were deleted:\n%s", k8sObjectsString(objs))
+			l.LogAndPrintf("The following parseObjectSetFromManifest were deleted:\n%s", k8sObjectsString(objs))
 		}
 	}
 

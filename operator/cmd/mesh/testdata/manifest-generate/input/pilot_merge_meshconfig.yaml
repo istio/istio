@@ -7,7 +7,10 @@ spec:
   meshConfig:
     rootNamespace: istio-control
     mixerCheckServer: foo
+    outboundTrafficPolicy:
+      mode: REGISTRY_ONLY
     defaultConfig:
+      drainDuration: 12s
       proxyMetadata:
         TERMINATION_DRAIN_DURATION_SECONDS: "120"
   components:
