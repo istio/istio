@@ -19,6 +19,8 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/client-go/rest"
+
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,7 +45,7 @@ type Reporter struct {
 	status              map[string]string
 	reverseStatus       map[string][]string
 	dirty               bool
-	inProgressResources []string
+	inProgressResources []Resource
 	client              v1.ConfigMapInterface
 	cm                  *corev1.ConfigMap
 	UpdateInterval      time.Duration
@@ -52,10 +54,22 @@ type Reporter struct {
 	store               model.ConfigStore
 }
 
-func (r *Reporter) Start(stop <-chan struct{}) {
+// Starts the reporter, which watches dataplane ack's and resource changes so that it can update status leader
+// with distribution information
+func (r *Reporter) Start(restConfig *rest.Config, namespace string, stop <-chan struct{}) {
 	ctx := NewIstioContext(stop)
 	t := r.clock.Tick(r.UpdateInterval)
-	r.client = kubernetes.NewForConfigOrDie(nil).CoreV1().ConfigMaps("foo")
+	clientSet, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		scope.Fatalf("Could not connect to kubernetes: %s", err)
+	}
+	r.client = clientSet.CoreV1().ConfigMaps(namespace)
+	r.cm = &corev1.ConfigMap{
+		ObjectMeta: v12.ObjectMeta{
+			Name:   (r.PodName + "_DistRpt"),
+			Labels: map[string]string{"IstioDistributionReport": "Value"},
+		},
+	}
 	go func() {
 		for {
 			select {
@@ -75,60 +89,76 @@ func (r *Reporter) Start(stop <-chan struct{}) {
 	}()
 }
 
-func (r *Reporter) buildReport() (DistributionReport, []string) {
+// build a distribution report to send to status leader
+func (r *Reporter) buildReport() (DistributionReport, []Resource) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	finishedResources := []string{}
+	var finishedResources []Resource
 	out := DistributionReport{
-		Reporter:       r.PodName,
-		DataPlaneCount: len(r.status),
+		Reporter:            r.PodName,
+		DataPlaneCount:      len(r.status),
+		InProgressResources: map[string]int{},
 	}
+	// for every version (nonce) of the config currently in play
 	for nonce, dataplanes := range r.reverseStatus {
-		for _, key := range r.inProgressResources {
+		// for every resource in flight
+		for _, res := range r.inProgressResources {
+			// check to see if this version of the config contains this version of the resource
 			// it might be more optimal to provide for a full dump of the config at a certain version?
-			res := ResourceFromString(key)
+			key := res.String()
 			if dpVersion, err := r.store.GetResourceAtVersion(nonce,
-				model.Key(res.Resource, res.Name, res.Namespace)); err == nil {
-				if dpVersion == res.ResourceVersion {
-					if _, ok := out.InProgressResources[key]; !ok {
-						out.InProgressResources[key] = len(dataplanes)
-					} else {
-						out.InProgressResources[key] += len(dataplanes)
-					}
+				res.ToModelKey()); err == nil && dpVersion == res.ResourceVersion {
+				if _, ok := out.InProgressResources[key]; !ok {
+					out.InProgressResources[key] = len(dataplanes)
+				} else {
+					out.InProgressResources[key] += len(dataplanes)
 				}
-			} else {
+			} else if err != nil {
 				scope.Errorf("Encountered error retrieving version %s of key %s from Store: %v", nonce, key, err)
 			}
 			if out.InProgressResources[key] >= out.DataPlaneCount {
-				finishedResources = append(finishedResources, key)
+				// if this resource is done reconciling, let's not worry about it anymore
+				finishedResources = append(finishedResources, res)
+				// deleting it here doesn't work because we have a read lock and are inside an iterator.
+				// TODO: this will leak when a resource never reaches 100% before it is replaced.
+				// TODO: do deletes propagate through this thing?
 			}
 		}
 	}
 	return out, finishedResources
 }
 
-func (r *Reporter) removeCompletedResource(s []string) {
+// For efficiency, we don't want to be checking on resources that have already reached 100% distribution.
+// When this happens, we remove them from our watch list.
+func (r *Reporter) removeCompletedResource(s []Resource) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	result := []string{}
-	hashtable := make(map[string]bool)
+	var result []Resource
+	hashtable := make(map[Resource]bool)
 	for _, item := range s {
 		hashtable[item] = true
 	}
-	for _, resource := range r.inProgressResources {
-		if _, ok := hashtable[resource]; !ok {
-			result = append(result, resource)
+	for _, ipr := range r.inProgressResources {
+		if _, ok := hashtable[ipr]; !ok {
+			result = append(result, ipr)
 		}
 	}
 	r.inProgressResources = result
 }
 
-func (r *Reporter) AddInProgressResource(res string) {
+// This function must be called every time a resource change is detected by pilot.  This allows us to lookup
+// only the resources we expect to be in flight, not the ones that have already distributed
+func (r *Reporter) AddInProgressResource(res model.Config) {
+	myRes := ResourceFromModelConfig(res)
+	if myRes == nil {
+		scope.Errorf("Unable to locate schema for %v, will not update status.", res)
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.inProgressResources = append(r.inProgressResources, res)
+	r.inProgressResources = append(r.inProgressResources, *myRes)
 }
 
+// generate a distribution report and write it to a ConfigMap for the leader to read.
 func (r *Reporter) writeReport(ctx context.Context) {
 	report, finishedResources := r.buildReport()
 	go r.removeCompletedResource(finishedResources)
@@ -150,6 +180,9 @@ func (r *Reporter) writeReport(ctx context.Context) {
 	}
 }
 
+// Register that a dataplane has acknowledged a new version of the config.
+// Theoretically, we could use the ads connections themselves to harvest this data,
+// but the mutex there is pretty hot, and it seems best to trade memory for time.
 func (r *Reporter) RegisterEvent(conID string, xdsType string, nonce string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -161,7 +194,8 @@ func (r *Reporter) RegisterEvent(conID string, xdsType string, nonce string) {
 	r.reverseStatus[nonce] = append(r.reverseStatus[nonce], key)
 }
 
-// must have lock before calling
+// This is a helper function for keeping our reverseStatus map in step with status.
+// must have write lock before calling.
 func (r *Reporter) deleteKeyFromReverseMap(key string) {
 	if old, ok := r.status[key]; ok {
 		if keys, ok := r.reverseStatus[old]; ok {
@@ -178,6 +212,7 @@ func (r *Reporter) deleteKeyFromReverseMap(key string) {
 	}
 }
 
+// When a dataplane disconnects, we should no longer count it, nor expect it to ack config.
 func (r *Reporter) RegisterDisconnect(conID string, xdsTypes []string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

@@ -22,7 +22,8 @@ import (
 )
 
 type FakeStore struct {
-	store map[resource.GroupVersionKind]map[string][]Config
+	store  map[resource.GroupVersionKind]map[string][]Config
+	ledger ledger.Ledger
 }
 
 func NewFakeStore() *FakeStore {
@@ -69,17 +70,18 @@ func (*FakeStore) Update(config Config) (newRevision string, err error) { return
 
 func (*FakeStore) Delete(typ resource.GroupVersionKind, name, namespace string) error { return nil }
 
-func (*FakeStore) Version() string {
-	return "not implemented"
+func (f *FakeStore) Version() string {
+	return f.ledger.RootHash()
 }
-func (*FakeStore) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
-	return "not implemented", nil
+func (f *FakeStore) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+	return f.ledger.GetPreviousValue(version, key)
 }
 
 func (s *FakeStore) GetLedger() ledger.Ledger {
-	panic("implement me")
+	return s.ledger
 }
 
-func (s *FakeStore) SetLedger(ledger.Ledger) error {
-	panic("implement me")
+func (s *FakeStore) SetLedger(l ledger.Ledger) error {
+	s.ledger = l
+	return nil
 }

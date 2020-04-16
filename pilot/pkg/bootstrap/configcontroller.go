@@ -337,7 +337,7 @@ func (s *Server) initStatusController(args *PilotArgs) {
 		PodName:        args.PodName,
 	}
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		s.statusReporter.Start(stop)
+		s.statusReporter.Start(s.kubeConfig, args.Namespace, stop)
 		return nil
 	})
 	s.environment.StatusReporter = s.statusReporter

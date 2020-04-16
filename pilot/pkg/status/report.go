@@ -18,6 +18,10 @@ import (
 	"fmt"
 	"strings"
 
+	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema/resource"
+
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -40,7 +44,7 @@ func ReportFromYaml(content []byte) (DistributionReport, error) {
 
 func ResourceFromString(s string) *Resource {
 	pieces := strings.Split(s, "/")
-	if len(pieces) == 6 {
+	if len(pieces) != 6 {
 		scope.Errorf("cannot unmarshal %s into resource identifier", s)
 		return nil
 	}
@@ -64,6 +68,37 @@ type Resource struct {
 	ResourceVersion string
 }
 
-func (r *Resource) String() string {
+func (r Resource) String() string {
 	return strings.Join([]string{r.Group, r.Version, r.Resource, r.Namespace, r.Name, r.ResourceVersion}, "/")
+}
+
+func (r *Resource) ToModelKey() string {
+	// we have a resource here, but model keys use kind.  Use the schema to find the correct kind.
+	found, _ := crd.SupportedSchemas.FindByPlural(r.Resource)
+	return model.Key(found.Resource().Kind(), r.Name, r.Namespace)
+}
+
+func ResourceFromModelConfig(c model.Config) *Resource {
+	gvr := GVKtoGVR(c.GroupVersionKind())
+	if gvr == nil {
+		return nil
+	}
+	return &Resource{
+		GroupVersionResource: *gvr,
+		Namespace:            c.Namespace,
+		Name:                 c.Name,
+		ResourceVersion:      c.ResourceVersion,
+	}
+}
+
+func GVKtoGVR(in resource.GroupVersionKind) *schema.GroupVersionResource {
+	found, ok := crd.SupportedSchemas.FindByGroupVersionKind(in)
+	if !ok {
+		return nil
+	}
+	return &schema.GroupVersionResource{
+		Group:    in.Group,
+		Version:  in.Version,
+		Resource: found.Resource().Plural(),
+	}
 }

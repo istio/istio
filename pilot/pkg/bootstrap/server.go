@@ -742,7 +742,7 @@ func (s *Server) initEventHandlers() error {
 			}
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
 			if s.statusReporter != nil {
-				s.statusReporter.AddInProgressResource(curr.Key())
+				s.statusReporter.AddInProgressResource(curr)
 			}
 		}
 		schemas := collections.Pilot.All()
