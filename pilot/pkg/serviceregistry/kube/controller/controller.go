@@ -27,6 +27,7 @@ import (
 	"time"
 
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/klog"
 
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
@@ -66,6 +67,8 @@ const (
 	NodeZoneLabelGA = "topology.kubernetes.io/zone"
 	// IstioSubzoneLabel is custom subzone label for locality-based routing in Kubernetes see: https://github.com/istio/istio/issues/19114
 	IstioSubzoneLabel = "topology.istio.io/subzone"
+	// NodePortServiceLabel is the label indicating whether nodes can be used to redirect traffic to nodePort type ingress gateway service.
+	NodePortServiceLabel = "traffic.istio.io/usedForNodePortServices"
 	// IstioNamespace used by default for Istio cluster-wide installation
 	IstioNamespace = "istio-system"
 	// IstioConfigMap is used by default
@@ -194,6 +197,10 @@ type Controller struct {
 	// nodeSelectorsForServices stores hostname => label selectors that can be used to
 	// refine the set of node port IPs for a service.
 	nodeSelectorsForServices map[host.Name]labels.Instance
+	// map of node name and its address+labels - this is the only thing we need from nodes
+	// for vm to k8s or cross cluster. When node port services select specific nodes by labels,
+	// we run through the label selectors here to pick only ones that we need.
+	nodeInfoMap map[string]kubernetesNode
 	// externalNameSvcInstanceMap stores hostname ==> instance, is used to store instances for ExternalName k8s services
 	externalNameSvcInstanceMap map[host.Name][]*model.ServiceInstance
 
@@ -220,6 +227,7 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 		xdsUpdater:                 options.XDSUpdater,
 		servicesMap:                make(map[host.Name]*model.Service),
 		nodeSelectorsForServices:   make(map[host.Name]labels.Instance),
+		nodeInfoMap:                make(map[string]kubernetesNode),
 		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
 		networksWatcher:            options.NetworksWatcher,
 		metrics:                    options.Metrics,
@@ -242,10 +250,11 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 	nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
 	c.nodeMetadataInformer = metadataSharedInformer.ForResource(nodeResource).Informer()
 	// This is for getting the node IPs of a selected set of nodes
-	// TODO: introduce list options after the mesh config API update.
 	c.filteredNodeInformer = coreinformers.NewFilteredNodeInformer(client, options.ResyncPeriod,
 		cache.Indexers{},
-		func(options *metav1.ListOptions) {})
+		func(options *metav1.ListOptions) {
+			options.LabelSelector = NodePortServiceLabel + "=true"
+		})
 	registerHandlers(c.filteredNodeInformer, c.queue, "Nodes", c.onNodeEvent)
 
 	podInformer := sharedInformers.Core().V1().Pods().Informer()
@@ -346,19 +355,58 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 	if err := c.checkReadyForEvents(); err != nil {
 		return err
 	}
+	node, ok := obj.(*v1.Node)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			log.Errorf("couldn't get object from tombstone %+v", obj)
+			return nil
+		}
+		node, ok = tombstone.Obj.(*v1.Node)
+		if !ok {
+			log.Errorf("tombstone contained object that is not a node %#v", obj)
+			return nil
+		}
+	}
+	var updatedNeeded bool
+	if event == model.EventDelete {
+		updatedNeeded = true
+		c.Lock()
+		delete(c.nodeInfoMap, node.Name)
+		c.Unlock()
+	} else {
+		k8sNode := kubernetesNode{labels: node.Labels}
+		for _, address := range node.Status.Addresses {
+			if address.Type == v1.NodeExternalIP && address.Address != "" {
+				k8sNode.address = address.Address
+				break
+			}
+		}
+		if k8sNode.address == "" {
+			klog.Warningf("selected node %s without external ip address is unqualified ", node.Name)
+			return nil
+		}
 
-	// update all related services
-	c.updateServiceExternalAddr()
+		c.Lock()
+		// check if the node exists as this add event could be due to controller resync
+		// if the stored object changes, then fire an update event. Otherwise, ignore this event.
+		currentNode, exists := c.nodeInfoMap[node.Name]
+		if !exists || !reflect.DeepEqual(currentNode, k8sNode) {
+			c.nodeInfoMap[node.Name] = k8sNode
+			updatedNeeded = true
+		}
+		c.Unlock()
+	}
 
-	// TODO: optimize me. We just need a full EDS push
-	// Right now, triggers full push which in turn causes XDS to do Services()
-	// call that provides updated list of node IPs for each service. This will
-	// then get pushed to all the envoys.
-	// The hope here is that the debouncing logic in xds code will handle the
-	// initial onslaught of ADD events.
-	// c.xdsUpdater.ConfigUpdate(&model.PushRequest{
-	// 	Full: true,
-	// })
+	if updatedNeeded {
+		c.Lock()
+		// update all related services
+		c.updateServiceExternalAddr()
+		c.Unlock()
+		c.xdsUpdater.ConfigUpdate(&model.PushRequest{
+			Full: true,
+		})
+	}
 	return nil
 }
 
@@ -488,29 +536,20 @@ func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) {
 	if len(svcs) == 0 {
 		svcs, _ = c.Services()
 	}
-	var k8sNodes []*kubernetesNode
-	var extAddresses []string
-	rawNodes := c.filteredNodeInformer.GetStore().List()
-	for _, i := range rawNodes {
-		machine := i.(*v1.Node)
-		for _, address := range machine.Status.Addresses {
-			if address.Type == v1.NodeExternalIP && address.Address != "" {
-				k8sNodes = append(k8sNodes,
-					&kubernetesNode{address: address.Address, labels: machine.Labels})
-				extAddresses = append(extAddresses, address.Address)
-			}
-		}
-	}
 	for _, svc := range svcs {
 		if isNodePortGatewayService(svc) {
+			nodeSelector := c.nodeSelectorsForServices[svc.Hostname]
 			// update external address
 			svc.Mutex.Lock()
-			nodeSelector := c.nodeSelectorsForServices[svc.Hostname]
 			if nodeSelector == nil {
+				var extAddresses []string
+				for _, n := range c.nodeInfoMap {
+					extAddresses = append(extAddresses, n.address)
+				}
 				svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: extAddresses}
 			} else {
 				var nodeAddresses []string
-				for _, n := range k8sNodes {
+				for _, n := range c.nodeInfoMap {
 					if nodeSelector.SubsetOf(n.labels) {
 						nodeAddresses = append(nodeAddresses, n.address)
 					}
