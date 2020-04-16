@@ -18,10 +18,9 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc/codes"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/grpcgen"
+	"istio.io/istio/pilot/pkg/networking/apigen"
 )
 
 // gen2 provides experimental support for extended generation mechanism.
@@ -48,7 +47,7 @@ import (
 
 var (
 	// Interface is slightly different for now - LDS/CDS have extra param.
-	gen = &grpcgen.GrpcConfigGenerator{}
+	gen = &apigen.GrpcConfigGenerator{}
 )
 
 // handleReqAck checks if the message is an ack/nack and handles it, returning true.
@@ -127,8 +126,10 @@ func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *xdsapi.
 	}
 
 	cl := con.node.Generator.Generate(con.node, push, w)
+	sz := 0
 	for _, rc := range cl {
 		resp.Resources = append(resp.Resources, rc)
+		sz += len(rc.Value)
 	}
 
 	err := con.send(resp)
@@ -138,7 +139,7 @@ func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *xdsapi.
 		return err
 	}
 	w.LastSent = time.Now()
-	w.LastSize = proto.Size(resp)
+	w.LastSize = sz // just resource size - doesn't include header and types
 	w.NonceSent = resp.Nonce
 
 	return nil

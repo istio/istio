@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package grpcgen
+package apigen
 
 import (
 	"net"
@@ -24,8 +24,9 @@ import (
 	envoy_api_v2_route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	v2 "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	envoy_config_listener_v2 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v2"
-	gogo "github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/any"
+	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/schema/resource"
@@ -242,6 +243,10 @@ func (g *GrpcConfigGenerator) handleConfigResource(node *model.Proxy, push *mode
 	resp := []*any.Any{}
 
 	// Example: networking.istio.io/v1alpha3/VirtualService
+	// Note: this is the style used by MCP and its config. Pilot is using 'Group/Version/Kind' as the
+	// key, which is similar. However the actual type in the Any should be a real proto.
+	// For example: correct type is 'type.googlepis.com/istio.networking.v1alpha3.EnvoyFilter
+	// We use: networking.istio.io/v1alpha3/EnvoyFilter
 	gvk := strings.SplitN(w.TypeUrl, "/", 3)
 	if len(gvk) == 3 {
 		cfg, err := push.IstioConfigStore.List(resource.GroupVersionKind{
@@ -254,12 +259,19 @@ func (g *GrpcConfigGenerator) handleConfigResource(node *model.Proxy, push *mode
 			return resp
 		}
 		for _, c := range cfg {
-			b := gogo.NewBuffer(nil)
-			err := b.Marshal(c.Spec)
+			// Right now model.Config is not a proto - until we change it, mcp.Resource.
+			// This also helps migrating MCP users.
+
+			b, err := configToResource(&c)
+			if err != nil {
+				log.Warna("Resource error ", err, " ", c.Namespace, "/", c.Name)
+				continue
+			}
+			bany, err := types.MarshalAny(b)
 			if err == nil {
 				resp = append(resp, &any.Any{
-					TypeUrl: "type.googleapis.com/" + gogo.MessageName(c.Spec),
-					Value:   b.Bytes(),
+					TypeUrl: bany.TypeUrl,
+					Value:  bany.Value,
 				})
 			} else {
 				log.Warna("Any ", err)
@@ -268,6 +280,33 @@ func (g *GrpcConfigGenerator) handleConfigResource(node *model.Proxy, push *mode
 	}
 
 	return resp
+}
+
+// Convert from model.Config, which has no associated proto, to MCP Resource proto.
+// TODO: define a proto matching Config - to avoid useless superficial conversions.
+func configToResource(c *model.Config) (*mcp.Resource, error) {
+	r := &mcp.Resource{}
+
+	// MCP, K8S and Istio configs use gogo configs
+	// On the wire it's the same as golang proto.
+	a, err := types.MarshalAny(c.Spec)
+	if err != nil {
+		return nil, err
+	}
+	r.Body = a
+	ts, err := types.TimestampProto(c.CreationTimestamp)
+	if err != nil {
+		return nil, err
+	}
+	r.Metadata = &mcp.Metadata{
+		Name:                 c.Namespace + "/" + c.Name,
+		CreateTime:           ts,
+		Version:              c.ResourceVersion,
+		Labels: c.Labels,
+		Annotations: c.Annotations,
+	}
+
+	return r, nil
 }
 
 

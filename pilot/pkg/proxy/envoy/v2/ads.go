@@ -27,7 +27,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-	"istio.io/istio/pilot/pkg/networking/grpcgen"
+	"istio.io/istio/pilot/pkg/networking/apigen"
 
 	istiolog "istio.io/pkg/log"
 
@@ -424,7 +424,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (f
 	// TODO: use a map of generators, so it's easily customizable and to avoid deps
 	if proxy.GetInterceptionMode() == model.InterceptionAPI {
 		proxy.Active = map[string]*model.WatchedResource{}
-		proxy.Generator = &grpcgen.GrpcConfigGenerator{}
+		proxy.Generator = &apigen.GrpcConfigGenerator{}
 	}
 
 	// First request so initialize connection id and start tracking it.

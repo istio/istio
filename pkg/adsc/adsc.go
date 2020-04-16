@@ -22,21 +22,25 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"strings"
 	"sync"
 	"time"
-
-	"istio.io/istio/pilot/pkg/networking/util"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-
+	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pkg/config/schema/collections"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -102,13 +106,20 @@ type ADSC struct {
 	Metadata *pstruct.Struct
 
 	// Updates includes the type of the last update received from the server.
-	Updates     chan string
+	Updates     chan *xdsapi.DiscoveryResponse
 	VersionInfo map[string]string
 
-	// Last received message, by type and resource
+	// Last received message, by type
 	Received map[string]*xdsapi.DiscoveryResponse
 
 	mutex sync.Mutex
+
+	// Retrieved configurations can be stored using the common istio model interface.
+	Store model.IstioConfigStore
+
+	// Retrieved endpoints can be stored in the memory registry. This is used for CDS and EDS responses.
+	Registry *v2.MemServiceDiscovery
+
 }
 
 const (
@@ -117,7 +128,7 @@ const (
 	// Constants used for XDS
 
 	// ClusterType is used for cluster discovery. Typically first request received
-	clusterType = typePrefix + "Cluster"
+	ClusterType = typePrefix + "Cluster"
 	// EndpointType is used for EDS and ADS endpoint discovery. Typically second request.
 	endpointType = typePrefix + "ClusterLoadAssignment"
 	// ListenerType is sent after clusters and endpoints.
@@ -133,7 +144,7 @@ var (
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
 func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 	adsc := &ADSC{
-		Updates:     make(chan string, 100),
+		Updates:     make(chan *xdsapi.DiscoveryResponse, 100),
 		VersionInfo: map[string]string{},
 		certDir:     certDir,
 		url:         url,
@@ -257,7 +268,7 @@ func (a *ADSC) handleRecv() {
 			adscLog.Infof("Connection closed for node %v with err: %v", a.nodeID, err)
 			a.Close()
 			a.WaitClear()
-			a.Updates <- "close"
+			a.Updates <- nil
 			return
 		}
 
@@ -272,7 +283,7 @@ func (a *ADSC) handleRecv() {
 				ll := &xdsapi.Listener{}
 				_ = proto.Unmarshal(valBytes, ll)
 				listeners = append(listeners, ll)
-			} else if rsc.TypeUrl == clusterType {
+			} else if rsc.TypeUrl == ClusterType {
 				ll := &xdsapi.Cluster{}
 				_ = proto.Unmarshal(valBytes, ll)
 				clusters = append(clusters, ll)
@@ -284,6 +295,34 @@ func (a *ADSC) handleRecv() {
 				ll := &xdsapi.RouteConfiguration{}
 				_ = proto.Unmarshal(valBytes, ll)
 				routes = append(routes, ll)
+			} else {
+				gvk := strings.SplitN(msg.TypeUrl, "/", 3)
+				if len(gvk) != 3 {
+					continue
+				}
+				// Generic - fill up the store
+				if a.Store != nil {
+					m := &mcp.Resource{}
+					types.UnmarshalAny(&types.Any{
+						TypeUrl: rsc.TypeUrl,
+						Value: rsc.Value,
+					}, m)
+					val, err := mcpToPilot(m)
+					val.Group = gvk[0]
+					val.Version = gvk[1]
+					val.Type = gvk[2]
+					if err != nil {
+						adscLog.Warna("Invalid data ", err, " ", string(valBytes))
+					} else {
+						cfg := a.Store.Get(val.GroupVersionKind(), val.Name, val.Namespace)
+						if cfg == nil {
+							a.Store.Create(*val)
+						} else {
+							a.Store.Update(*val)
+						}
+					}
+				}
+
 			}
 		}
 		a.Received[msg.TypeUrl] = msg
@@ -301,15 +340,48 @@ func (a *ADSC) handleRecv() {
 			a.handleEDS(eds)
 		} else if len(routes) > 0 {
 			a.handleRDS(routes)
-		} else {
-			select {
-			case a.Updates <- msg.TypeUrl:
-			default:
-			}
+		}
+		select {
+		case a.Updates <- msg:
+		default:
 		}
 
 	}
+}
 
+func mcpToPilot(m *mcp.Resource) (*model.Config, error) {
+	if m == nil || m.Metadata == nil {
+		return &model.Config{}, nil
+	}
+	c := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			ResourceVersion: m.Metadata.Version,
+			Labels: m.Metadata.Labels,
+			Annotations: m.Metadata.Annotations,
+		},
+	}
+	nsn := strings.Split(m.Metadata.Name, "/")
+	if len(nsn) != 2 {
+		return nil, fmt.Errorf("Invalid name %s", m.Metadata.Name)
+	}
+	c.Namespace = nsn[0]
+	c.Name = nsn[1]
+	var err error
+	c.CreationTimestamp, err = types.TimestampFromProto(m.Metadata.CreateTime)
+	if err != nil {
+		return nil, err
+	}
+
+	pb, err := types.EmptyAny(m.Body)
+	if err != nil {
+		return nil, err
+	}
+	err = types.UnmarshalAny(m.Body, pb)
+	if err != nil {
+		return nil, err
+	}
+	c.Spec = pb
+	return c, nil
 }
 
 // nolint: staticcheck
@@ -381,11 +453,6 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 	}
 	a.httpListeners = lh
 	a.tcpListeners = lt
-
-	select {
-	case a.Updates <- "lds":
-	default:
-	}
 }
 
 // compact representations, for simplified debugging/testing
@@ -505,11 +572,6 @@ func (a *ADSC) handleCDS(ll []*xdsapi.Cluster) {
 	defer a.mutex.Unlock()
 	a.edsClusters = edscds
 	a.clusters = cds
-
-	select {
-	case a.Updates <- "cds":
-	default:
-	}
 }
 
 func (a *ADSC) node() *core.Node {
@@ -560,11 +622,6 @@ func (a *ADSC) handleEDS(eds []*xdsapi.ClusterLoadAssignment) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	a.eds = la
-
-	select {
-	case a.Updates <- "eds":
-	default:
-	}
 }
 
 func (a *ADSC) handleRDS(configurations []*xdsapi.RouteConfiguration) {
@@ -602,12 +659,6 @@ func (a *ADSC) handleRDS(configurations []*xdsapi.RouteConfiguration) {
 	a.mutex.Lock()
 	a.routes = rds
 	a.mutex.Unlock()
-
-	select {
-	case a.Updates <- "rds":
-	default:
-	}
-
 }
 
 // WaitClear will clear the waiting events, so next call to Wait will get
@@ -628,19 +679,61 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 	t := time.NewTimer(to)
 	want := map[string]struct{}{}
 	for _, update := range updates {
+		switch update {
+		case "lds":
+			update = ListenerType
+		case "cds":
+			update = ClusterType
+		case "eds":
+			update = endpointType
+		case "rds":
+			update = routeType
+		}
 		want[update] = struct{}{}
 	}
 	got := make([]string, 0, len(updates))
 	for {
 		select {
 		case t := <-a.Updates:
-			delete(want, t)
-			got = append(got, t)
+			if t == nil {
+				return got, fmt.Errorf("Closed")
+			}
+			delete(want, t.TypeUrl)
+			got = append(got, t.TypeUrl)
 			if len(want) == 0 {
 				return got, nil
 			}
 		case <-t.C:
 			return got, fmt.Errorf("timeout, still waiting for updates: %v", want)
+		}
+	}
+}
+
+// WaitVersion waits for a new or updated for a typeURL.
+func (a *ADSC) WaitVersion(to time.Duration, typeURL, lastVersion string) (*xdsapi.DiscoveryResponse, error) {
+	t := time.NewTimer(to)
+	ex := a.Received[typeURL]
+	if ex != nil {
+		if lastVersion == "" {
+			return ex, nil
+		}
+		if lastVersion != ex.VersionInfo {
+			return ex, nil
+		}
+	}
+
+	for {
+		select {
+		case t := <-a.Updates:
+			if t == nil {
+				return nil, fmt.Errorf("Closed")
+			}
+			if t.TypeUrl == typeURL {
+				return t, nil
+			}
+
+		case <-t.C:
+			return nil, fmt.Errorf("timeout, still waiting for updates: %v", typeURL)
 		}
 	}
 }
@@ -660,8 +753,19 @@ func (a *ADSC) Watch() {
 	_ = a.stream.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node:          a.node(),
-		TypeUrl:       clusterType,
+		TypeUrl:       ClusterType,
 	})
+}
+
+// WatchConfig will use the new experimental API watching, similar with MCP.
+func (a *ADSC) WatchConfig() {
+	for _, sch := range collections.Pilot.All() {
+		_ = a.stream.Send(&xdsapi.DiscoveryRequest{
+			ResponseNonce: time.Now().String(),
+			Node:          a.node(),
+			TypeUrl:       sch.Resource().Group() + "/" + sch.Resource().Version() + "/" + sch.Resource().Kind(),
+		})
+	}
 }
 
 func (a *ADSC) sendRsc(typeurl string, rsc []string) {

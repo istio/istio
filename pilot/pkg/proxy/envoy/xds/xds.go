@@ -44,8 +44,9 @@ type Server struct {
 // Creates an basic, functional discovery server, using the same code as Istiod, but
 // backed by an in-memory config and endpoint stores.
 //
-// Can be used in tests, or as a minimal XDS discovery server with no dependency on K8S and
-// the complex bootstrap used by Istiod.
+// Can be used in tests, or as a minimal XDS discovery server with no dependency on K8S or
+// the complex bootstrap used by Istiod. A memory registry and memory config store are used to
+// generate the configs - they can be programmatically updated.
 func NewXDS() *Server {
 	// Start an XDS server. Also see bench_test in envoy_v2
 	env := &model.Environment{
