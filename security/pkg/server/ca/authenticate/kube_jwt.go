@@ -21,33 +21,25 @@ import (
 
 	"golang.org/x/net/context"
 
-	"k8s.io/client-go/kubernetes"
+	"istio.io/pkg/log"
 
 	v1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	authenticationclient "k8s.io/client-go/kubernetes/typed/authentication/v1"
-
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/security/pkg/k8s/tokenreview"
+
+	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 )
 
 const (
 	// identityTemplate is the SPIFFE format template of the identity.
-	identityTemplate               = "spiffe://%s/ns/%s/sa/%s"
-	KubeJWTAuthenticatorType       = "KubeJWTAuthenticator"
-	RemoteKubeJWTAuthenticatorType = "RemoteKubeJWTAuthenticator"
+	identityTemplate         = "spiffe://%s/ns/%s/sa/%s"
+	KubeJWTAuthenticatorType = "KubeJWTAuthenticator"
 )
 
 type tokenReviewClient interface {
 	ValidateK8sJwt(targetJWT, jwtPolicy string) ([]string, error)
-}
-
-// RemoteJWTAuthenticator authenticates remote K8s JWTs.
-type RemoteJWTAuthenticator struct {
-	client      authenticationclient.TokenReviewInterface
-	trustDomain string
-	jwtPolicy   string
 }
 
 // KubeJWTAuthenticator authenticates K8s JWTs.
@@ -55,10 +47,12 @@ type KubeJWTAuthenticator struct {
 	client      tokenReviewClient
 	trustDomain string
 	jwtPolicy   string
+	mc          *kubecontroller.Multicluster
 }
 
 // NewKubeJWTAuthenticator creates a new kubeJWTAuthenticator.
-func NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath, trustDomain, jwtPolicy string) (*KubeJWTAuthenticator, error) {
+func NewKubeJWTAuthenticator(mc *kubecontroller.Multicluster, k8sAPIServerURL, caCertPath, jwtPath,
+	trustDomain, jwtPolicy string) (*KubeJWTAuthenticator, error) {
 	// Read the CA certificate of the k8s apiserver
 	caCert, err := ioutil.ReadFile(caCertPath)
 	if err != nil {
@@ -72,15 +66,7 @@ func NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath, trustDomain, 
 		client:      tokenreview.NewK8sSvcAcctAuthn(k8sAPIServerURL, caCert, string(reviewerJWT)),
 		trustDomain: trustDomain,
 		jwtPolicy:   jwtPolicy,
-	}, nil
-}
-
-// NewRemoteJWTAuthenticator creates a new JWTAuthenticator for remote cluster.
-func NewRemoteJWTAuthenticator(client kubernetes.Interface, trustDomain, jwtPolicy string) (*RemoteJWTAuthenticator, error) {
-	return &RemoteJWTAuthenticator{
-		client:      client.AuthenticationV1().TokenReviews(),
-		trustDomain: trustDomain,
-		jwtPolicy:   jwtPolicy,
+		mc:          mc,
 	}, nil
 }
 
@@ -97,7 +83,18 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*Caller, error
 	}
 	id, err := a.client.ValidateK8sJwt(targetJWT, a.jwtPolicy)
 	if err != nil {
-		return nil, fmt.Errorf("failed to validate the JWT: %v", err)
+		// try to validate using remote cluster
+		id, err = a.validateRemoteK8sJwt(targetJWT)
+		if err != nil {
+			return nil, fmt.Errorf("failed to validate the JWT: %v", err)
+		}
+	}
+	if len(id) != 2 {
+		// try to validate using remote cluster
+		id, err = a.validateRemoteK8sJwt(targetJWT)
+		if err != nil {
+			return nil, fmt.Errorf("failed to validate the JWT: %v", err)
+		}
 	}
 	if len(id) != 2 {
 		return nil, fmt.Errorf("failed to parse the JWT. Validation result length is not 2, but %d", len(id))
@@ -110,40 +107,8 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*Caller, error
 	}, nil
 }
 
-// Authenticate authenticates the call using the remote K8s JWT from the context.
-// The returned Caller.Identities is in SPIFFE format.
-func (a *RemoteJWTAuthenticator) Authenticate(ctx context.Context) (*Caller, error) {
-	targetJWT, err := extractBearerToken(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("target JWT extraction error: %v", err)
-	}
-
-	id, err := a.validateRemoteK8sJwt(targetJWT)
-	if err != nil {
-		return nil, fmt.Errorf("failed to validate the JWT: %v", err)
-	}
-	if len(id) != 2 {
-		return nil, fmt.Errorf("failed to parse the JWT. Validation result length is not 2, but %d", len(id))
-	}
-	callerNamespace := id[0]
-	callerServiceAccount := id[1]
-	return &Caller{
-		AuthSource: AuthSourceIDToken,
-		Identities: []string{fmt.Sprintf(identityTemplate, a.trustDomain, callerNamespace, callerServiceAccount)},
-	}, nil
-}
-
-func (a *RemoteJWTAuthenticator) validateRemoteK8sJwt(targetJWT string) ([]string, error) {
-	// SDS requires JWT to be trustworthy (has aud, exp, and mounted to the pod).
-	isTrustworthyJwt, err := tokenreview.IsTrustworthyJwt(targetJWT)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check if jwt is trustworthy: %v", err)
-	}
-	if !isTrustworthyJwt && a.jwtPolicy == jwt.JWTPolicyThirdPartyJWT {
-		return nil, fmt.Errorf("legacy JWTs are not allowed and the provided jwt is not trustworthy")
-	}
+func (a *KubeJWTAuthenticator) validateRemoteK8sJwt(targetJWT string) ([]string, error) {
 	tokenReview := &v1.TokenReview{}
-
 	if a.jwtPolicy == jwt.JWTPolicyThirdPartyJWT {
 		tokenReview.APIVersion = "authentication.k8s.io/v1"
 		tokenReview.Kind = "TokenReview"
@@ -160,35 +125,38 @@ func (a *RemoteJWTAuthenticator) validateRemoteK8sJwt(targetJWT string) ([]strin
 	} else {
 		return nil, fmt.Errorf("invalid JWT policy: %v", a.jwtPolicy)
 	}
-	reviewRes, err := a.client.Create(context.TODO(), tokenReview, metav1.CreateOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to validate the JWT: %v", err)
-	}
-
-	if reviewRes.Status.Error != "" {
-		return nil, fmt.Errorf("the service account authentication returns an error: %v", reviewRes.Status.Error)
-	}
-	inServiceAccountGroup := false
-	for _, group := range reviewRes.Status.User.Groups {
-		if group == "system:serviceaccounts" {
-			inServiceAccountGroup = true
-			break
+	remoteClients := a.mc.GetRemoteKubeControllers()
+	for k, v := range remoteClients {
+		reviewRes, err := v.AuthenticationV1().TokenReviews().Create(context.TODO(), tokenReview, metav1.CreateOptions{})
+		if err != nil {
+			log.Warnf("failed to validate the JWT against cluster %q: %v", k, err)
+			continue
 		}
+		if reviewRes.Status.Error != "" {
+			log.Warnf("the service account authentication returns an error: %v", reviewRes.Status.Error)
+			continue
+		}
+		inServiceAccountGroup := false
+		for _, group := range reviewRes.Status.User.Groups {
+			if group == "system:serviceaccounts" {
+				inServiceAccountGroup = true
+				break
+			}
+		}
+		if !inServiceAccountGroup {
+			log.Warnf("the token is not a service account")
+			continue
+		}
+		// "username" is in the form of system:serviceaccount:{namespace}:{service account name}",
+		// e.g., "username":"system:serviceaccount:default:example-pod-sa"
+		subStrings := strings.Split(reviewRes.Status.User.Username, ":")
+		if len(subStrings) != 4 {
+			log.Warnf("invalid username field in the token review result")
+			continue
+		}
+		namespace := subStrings[2]
+		saName := subStrings[3]
+		return []string{namespace, saName}, nil
 	}
-	if !inServiceAccountGroup {
-		return nil, fmt.Errorf("the token is not a service account")
-	}
-	// "username" is in the form of system:serviceaccount:{namespace}:{service account name}",
-	// e.g., "username":"system:serviceaccount:default:example-pod-sa"
-	subStrings := strings.Split(reviewRes.Status.User.Username, ":")
-	if len(subStrings) != 4 {
-		return nil, fmt.Errorf("invalid username field in the token review result")
-	}
-	namespace := subStrings[2]
-	saName := subStrings[3]
-	return []string{namespace, saName}, nil
-}
-
-func (a *RemoteJWTAuthenticator) AuthenticatorType() string {
-	return RemoteKubeJWTAuthenticatorType
+	return nil, fmt.Errorf("no remote cluster found")
 }

@@ -134,7 +134,7 @@ func (authn *K8sSvcAcctAuthn) reviewServiceAccountAtK8sAPIServer(targetToken, jw
 // jwtPolicy: the policy for validating JWT.
 func (authn *K8sSvcAcctAuthn) ValidateK8sJwt(targetToken, jwtPolicy string) ([]string, error) {
 	// SDS requires JWT to be trustworthy (has aud, exp, and mounted to the pod).
-	isTrustworthyJwt, err := IsTrustworthyJwt(targetToken)
+	isTrustworthyJwt, err := isTrustworthyJwt(targetToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check if jwt is trustworthy: %v", err)
 	}
@@ -210,8 +210,8 @@ func (authn *K8sSvcAcctAuthn) ValidateK8sJwt(targetToken, jwtPolicy string) ([]s
 	return []string{namespace, saName}, nil
 }
 
-// IsTrustworthyJwt checks if a jwt is a trustworthy jwt type.
-func IsTrustworthyJwt(jwt string) (bool, error) {
+// isTrustworthyJwt checks if a jwt is a trustworthy jwt type.
+func isTrustworthyJwt(jwt string) (bool, error) {
 	type trustWorthyJwtPayload struct {
 		Aud []string `json:"aud"`
 		Exp int      `json:"exp"`

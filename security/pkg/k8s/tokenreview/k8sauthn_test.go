@@ -258,7 +258,7 @@ func TestIsTrustworthyJwt(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		isTrustworthyJwt, err := IsTrustworthyJwt(tc.Jwt)
+		isTrustworthyJwt, err := isTrustworthyJwt(tc.Jwt)
 		if err != nil {
 			t.Errorf("%s failed with error %v", tc.Name, err.Error())
 		}

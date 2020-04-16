@@ -154,7 +154,9 @@ func (m *Multicluster) GetRemoteKubeControllers() map[string]kubernetes.Interfac
 	m.m.Lock()
 	res := make(map[string]kubernetes.Interface)
 	for k, v := range m.remoteKubeControllers {
-		res[k] = v.rc.client
+		if v != nil && v.rc != nil {
+			res[k] = v.rc.client
+		}
 	}
 	m.m.Unlock()
 	return res

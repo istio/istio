@@ -243,18 +243,8 @@ func NewWithGRPC(mc *kubecontroller.Multicluster, grpc *grpc.Server, ca Certific
 
 	// Only add k8s jwt authenticator if SDS is enabled.
 	if sdsEnabled {
-		authenticator, err := authenticate.NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath,
+		authenticator, err := authenticate.NewKubeJWTAuthenticator(mc, k8sAPIServerURL, caCertPath, jwtPath,
 			trustDomain, jwtPolicy)
-		remoteClients := mc.GetRemoteKubeControllers()
-		for _, v := range remoteClients {
-			remoteAuthenticator, err := authenticate.NewRemoteJWTAuthenticator(v, trustDomain, jwtPolicy)
-			if err == nil {
-				authenticators = append(authenticators, remoteAuthenticator)
-				serverCaLog.Info("added remote K8s JWT authenticator")
-			} else {
-				serverCaLog.Warnf("failed to add remote JWT authenticator: %v", err)
-			}
-		}
 		if err == nil {
 			authenticators = append(authenticators, authenticator)
 			serverCaLog.Info("added K8s JWT authenticator")

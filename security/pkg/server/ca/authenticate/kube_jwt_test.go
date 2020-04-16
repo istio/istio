@@ -80,7 +80,7 @@ func TestNewKubeJWTAuthenticator(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		authenticator, err := NewKubeJWTAuthenticator(url, tc.caCertPath, tc.jwtPath, trustDomain, jwtPolicy)
+		authenticator, err := NewKubeJWTAuthenticator(nil, url, tc.caCertPath, tc.jwtPath, trustDomain, jwtPolicy)
 		if len(tc.expectedErrMsg) > 0 {
 			if err == nil {
 				t.Errorf("Case %s: Succeeded. Error expected: %v", id, err)
@@ -129,7 +129,7 @@ func TestAuthenticate(t *testing.T) {
 				},
 			},
 			client:         &mockTokenReviewClient{id: nil, err: fmt.Errorf("test error")},
-			expectedErrMsg: "failed to validate the JWT: test error",
+			expectedErrMsg: "failed to validate the JWT: invalid JWT policy: ",
 		},
 		"Wrong identity length": {
 			metadata: metadata.MD{
@@ -140,7 +140,7 @@ func TestAuthenticate(t *testing.T) {
 				},
 			},
 			client:         &mockTokenReviewClient{id: []string{"foo"}, err: nil},
-			expectedErrMsg: "failed to parse the JWT. Validation result length is not 2, but 1",
+			expectedErrMsg: "failed to validate the JWT: invalid JWT policy: ",
 		},
 		"Successful": {
 			metadata: metadata.MD{
