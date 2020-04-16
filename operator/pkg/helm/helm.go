@@ -67,10 +67,8 @@ func NewHelmRenderer(operatorDataDir, helmSubdir, componentName, namespace strin
 	switch {
 	case operatorDataDir == "":
 		return NewVFSRenderer(dir, componentName, namespace), nil
-	case util.IsFilePath(operatorDataDir):
-		return NewFileTemplateRenderer(filepath.Join(operatorDataDir, dir), componentName, namespace), nil
 	default:
-		return nil, fmt.Errorf("unknown helm renderer with ChartsSubdirName=%s", operatorDataDir)
+		return NewFileTemplateRenderer(filepath.Join(operatorDataDir, dir), componentName, namespace), nil
 	}
 }
 

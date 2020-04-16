@@ -374,9 +374,6 @@ type NodeMetadata struct {
 	// PodPorts defines the ports on a pod. This is used to lookup named ports.
 	PodPorts PodPortList `json:"POD_PORTS,omitempty"`
 
-	// CanonicalTelemetryService specifies the service name to use for all node telemetry.
-	CanonicalTelemetryService string `json:"CANONICAL_TELEMETRY_SERVICE,omitempty"`
-
 	// LocalityLabel defines the locality specified for the pod
 	LocalityLabel string `json:"istio-locality,omitempty"`
 
