@@ -1409,9 +1409,11 @@ func TestHttpProxyListener_CustomTags(t *testing.T) {
 		name string
 		in  map[string]*meshconfig.Tracing_CustomTag
 		out []*envoy_type_tracing_v2.CustomTag
+		isGateway bool
 	}{
 		{
-			name: "custom-tags",
+			name: "custom-tags-sidecar",
+			isGateway: false,
 			in: map[string]*meshconfig.Tracing_CustomTag{
 				"custom_tag_env": {
 					Type: &meshconfig.Tracing_CustomTag_Environment{
@@ -1468,6 +1470,21 @@ func TestHttpProxyListener_CustomTags(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "custom-tags-gateways",
+			isGateway: true,
+			in: map[string]*meshconfig.Tracing_CustomTag{
+				"custom_tag_request_header": {
+					Type: &meshconfig.Tracing_CustomTag_Header{
+						Header: &meshconfig.Tracing_RequestHeader{
+							Name:         "custom_tag_request_header_name",
+							DefaultValue: "custom-defaulted-value-request-header",
+						},
+					},
+				},
+			},
+			out: nil,
+		},
 	}
 	p := &fakePlugin{}
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
@@ -1485,6 +1502,10 @@ func TestHttpProxyListener_CustomTags(t *testing.T) {
 			Tracing: &meshconfig.Tracing{
 				CustomTags: tc.in,
 			},
+		}
+
+		if tc.isGateway {
+			proxy.Type = model.Router
 		}
 
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")

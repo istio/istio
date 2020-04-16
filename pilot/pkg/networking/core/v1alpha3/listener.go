@@ -1989,14 +1989,14 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	}
 
 	if pluginParams.Push.Mesh.EnableTracing {
-		connectionManager.Tracing = buildTracingConfig(pluginParams.Push.Mesh.DefaultConfig)
+		connectionManager.Tracing = buildTracingConfig(pluginParams.Push.Mesh.DefaultConfig, pluginParams.Node.Type)
 		connectionManager.GenerateRequestId = proto.BoolTrue
 	}
 
 	return connectionManager
 }
 
-func buildTracingConfig(config *meshconfig.ProxyConfig) *http_conn.HttpConnectionManager_Tracing {
+func buildTracingConfig(config *meshconfig.ProxyConfig, proxyType model.NodeType) *http_conn.HttpConnectionManager_Tracing {
 	tc := authn_model.GetTraceConfig()
 	tracingCfg := &http_conn.HttpConnectionManager_Tracing{
 		ClientSampling: &envoy_type.Percent{
@@ -2010,7 +2010,9 @@ func buildTracingConfig(config *meshconfig.ProxyConfig) *http_conn.HttpConnectio
 		},
 	}
 
-	if len(config.Tracing.CustomTags) != 0 {
+	// custom tags should only be used for sidecar proxies and should not include
+	// gateways due to client requests from outside of the mesh
+	if len(config.Tracing.CustomTags) != 0 && proxyType == model.SidecarProxy {
 		tracingCfg.CustomTags = buildCustomTags(config.Tracing.CustomTags)
 	}
 
