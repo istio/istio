@@ -18,6 +18,7 @@ spec:
       creationTimestamp: null
       labels:
         app: nginx
+        istio.io/rev: ""
         security.istio.io/tlsMode: istio
       name: nginx
     spec:
@@ -73,6 +74,11 @@ spec:
           value: |-
             [
                 {"containerPort":80}
+            ]
+        - name: ISTIO_META_APP_CONTAINERS
+          value: |-
+            [
+                nginx
             ]
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes

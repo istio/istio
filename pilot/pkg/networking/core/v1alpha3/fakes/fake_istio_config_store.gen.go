@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
@@ -58,17 +59,6 @@ type IstioConfigStore struct {
 	}
 	deleteReturnsOnCall map[int]struct {
 		result1 error
-	}
-	EnvoyFilterStub        func(labels.Collection) *model.Config
-	envoyFilterMutex       sync.RWMutex
-	envoyFilterArgsForCall []struct {
-		arg1 labels.Collection
-	}
-	envoyFilterReturns struct {
-		result1 *model.Config
-	}
-	envoyFilterReturnsOnCall map[int]struct {
-		result1 *model.Config
 	}
 	GatewaysStub        func(labels.Collection) []model.Config
 	gatewaysMutex       sync.RWMutex
@@ -132,10 +122,10 @@ type IstioConfigStore struct {
 		result1 []model.Config
 		result2 error
 	}
-	QuotaSpecByDestinationStub        func(*model.ServiceInstance) []model.Config
+	QuotaSpecByDestinationStub        func(host.Name) []model.Config
 	quotaSpecByDestinationMutex       sync.RWMutex
 	quotaSpecByDestinationArgsForCall []struct {
-		arg1 *model.ServiceInstance
+		arg1 host.Name
 	}
 	quotaSpecByDestinationReturns struct {
 		result1 []model.Config
@@ -470,66 +460,6 @@ func (fake *IstioConfigStore) DeleteReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *IstioConfigStore) EnvoyFilter(arg1 labels.Collection) *model.Config {
-	fake.envoyFilterMutex.Lock()
-	ret, specificReturn := fake.envoyFilterReturnsOnCall[len(fake.envoyFilterArgsForCall)]
-	fake.envoyFilterArgsForCall = append(fake.envoyFilterArgsForCall, struct {
-		arg1 labels.Collection
-	}{arg1})
-	fake.recordInvocation("EnvoyFilter", []interface{}{arg1})
-	fake.envoyFilterMutex.Unlock()
-	if fake.EnvoyFilterStub != nil {
-		return fake.EnvoyFilterStub(arg1)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	fakeReturns := fake.envoyFilterReturns
-	return fakeReturns.result1
-}
-
-func (fake *IstioConfigStore) EnvoyFilterCallCount() int {
-	fake.envoyFilterMutex.RLock()
-	defer fake.envoyFilterMutex.RUnlock()
-	return len(fake.envoyFilterArgsForCall)
-}
-
-func (fake *IstioConfigStore) EnvoyFilterCalls(stub func(labels.Collection) *model.Config) {
-	fake.envoyFilterMutex.Lock()
-	defer fake.envoyFilterMutex.Unlock()
-	fake.EnvoyFilterStub = stub
-}
-
-func (fake *IstioConfigStore) EnvoyFilterArgsForCall(i int) labels.Collection {
-	fake.envoyFilterMutex.RLock()
-	defer fake.envoyFilterMutex.RUnlock()
-	argsForCall := fake.envoyFilterArgsForCall[i]
-	return argsForCall.arg1
-}
-
-func (fake *IstioConfigStore) EnvoyFilterReturns(result1 *model.Config) {
-	fake.envoyFilterMutex.Lock()
-	defer fake.envoyFilterMutex.Unlock()
-	fake.EnvoyFilterStub = nil
-	fake.envoyFilterReturns = struct {
-		result1 *model.Config
-	}{result1}
-}
-
-func (fake *IstioConfigStore) EnvoyFilterReturnsOnCall(i int, result1 *model.Config) {
-	fake.envoyFilterMutex.Lock()
-	defer fake.envoyFilterMutex.Unlock()
-	fake.EnvoyFilterStub = nil
-	if fake.envoyFilterReturnsOnCall == nil {
-		fake.envoyFilterReturnsOnCall = make(map[int]struct {
-			result1 *model.Config
-		})
-	}
-	fake.envoyFilterReturnsOnCall[i] = struct {
-		result1 *model.Config
-	}{result1}
-}
-
 func (fake *IstioConfigStore) Gateways(arg1 labels.Collection) []model.Config {
 	fake.gatewaysMutex.Lock()
 	ret, specificReturn := fake.gatewaysReturnsOnCall[len(fake.gatewaysArgsForCall)]
@@ -832,11 +762,11 @@ func (fake *IstioConfigStore) ListReturnsOnCall(i int, result1 []model.Config, r
 	}{result1, result2}
 }
 
-func (fake *IstioConfigStore) QuotaSpecByDestination(arg1 *model.ServiceInstance) []model.Config {
+func (fake *IstioConfigStore) QuotaSpecByDestination(arg1 host.Name) []model.Config {
 	fake.quotaSpecByDestinationMutex.Lock()
 	ret, specificReturn := fake.quotaSpecByDestinationReturnsOnCall[len(fake.quotaSpecByDestinationArgsForCall)]
 	fake.quotaSpecByDestinationArgsForCall = append(fake.quotaSpecByDestinationArgsForCall, struct {
-		arg1 *model.ServiceInstance
+		arg1 host.Name
 	}{arg1})
 	fake.recordInvocation("QuotaSpecByDestination", []interface{}{arg1})
 	fake.quotaSpecByDestinationMutex.Unlock()
@@ -856,13 +786,13 @@ func (fake *IstioConfigStore) QuotaSpecByDestinationCallCount() int {
 	return len(fake.quotaSpecByDestinationArgsForCall)
 }
 
-func (fake *IstioConfigStore) QuotaSpecByDestinationCalls(stub func(*model.ServiceInstance) []model.Config) {
+func (fake *IstioConfigStore) QuotaSpecByDestinationCalls(stub func(host.Name) []model.Config) {
 	fake.quotaSpecByDestinationMutex.Lock()
 	defer fake.quotaSpecByDestinationMutex.Unlock()
 	fake.QuotaSpecByDestinationStub = stub
 }
 
-func (fake *IstioConfigStore) QuotaSpecByDestinationArgsForCall(i int) *model.ServiceInstance {
+func (fake *IstioConfigStore) QuotaSpecByDestinationArgsForCall(i int) host.Name {
 	fake.quotaSpecByDestinationMutex.RLock()
 	defer fake.quotaSpecByDestinationMutex.RUnlock()
 	argsForCall := fake.quotaSpecByDestinationArgsForCall[i]
@@ -1354,8 +1284,6 @@ func (fake *IstioConfigStore) Invocations() map[string][][]interface{} {
 	defer fake.createMutex.RUnlock()
 	fake.deleteMutex.RLock()
 	defer fake.deleteMutex.RUnlock()
-	fake.envoyFilterMutex.RLock()
-	defer fake.envoyFilterMutex.RUnlock()
 	fake.gatewaysMutex.RLock()
 	defer fake.gatewaysMutex.RUnlock()
 	fake.getMutex.RLock()

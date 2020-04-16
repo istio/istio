@@ -15,6 +15,7 @@
 package util
 
 import (
+	"context"
 	"fmt"
 
 	v1 "k8s.io/api/core/v1"
@@ -37,14 +38,14 @@ func CreateNamespaceWithPrefix(cl kubernetes.Interface, prefix string, inject bo
 	if inject {
 		injectionValue = "enabled"
 	}
-	ns, err := cl.CoreV1().Namespaces().Create(&v1.Namespace{
+	ns, err := cl.CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{
 		ObjectMeta: meta_v1.ObjectMeta{
 			GenerateName: prefix,
 			Labels: map[string]string{
 				"istio-injection": injectionValue,
 			},
 		},
-	})
+	}, meta_v1.CreateOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -55,7 +56,7 @@ func CreateNamespaceWithPrefix(cl kubernetes.Interface, prefix string, inject bo
 // DeleteNamespace removes a namespace
 func DeleteNamespace(cl kubernetes.Interface, ns string) {
 	if ns != "" && ns != "default" {
-		if err := cl.CoreV1().Namespaces().Delete(ns, &meta_v1.DeleteOptions{}); err != nil {
+		if err := cl.CoreV1().Namespaces().Delete(context.TODO(), ns, meta_v1.DeleteOptions{}); err != nil {
 			log.Warnf("Error deleting namespace: %v", err)
 		}
 		log.Infof("Deleted namespace %s", ns)

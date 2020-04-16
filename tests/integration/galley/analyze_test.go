@@ -31,10 +31,12 @@ import (
 )
 
 const (
-	serviceRoleBindingFile = "testdata/servicerolebinding.yaml"
-	serviceRoleFile        = "testdata/servicerole.yaml"
-	invalidFile            = "testdata/invalid.yaml"
-	dirWithConfig          = "testdata/some-dir/"
+	serviceRoleBindingFile     = "testdata/servicerolebinding.yaml"
+	serviceRoleFile            = "testdata/servicerole.yaml"
+	invalidFile                = "testdata/invalid.yaml"
+	invalidExtensionFile       = "testdata/invalid.md"
+	jsonServiceRoleBindingFile = "testdata/servicerolebinding.json"
+	dirWithConfig              = "testdata/some-dir/"
 )
 
 var analyzerFoundIssuesError = cmd.AnalyzerFoundIssuesError{}
@@ -129,7 +131,7 @@ func TestDirectoryWithRecursion(t *testing.T) {
 		})
 }
 
-func TestFileParseError(t *testing.T) {
+func TestInvalidFileError(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
@@ -142,12 +144,38 @@ func TestFileParseError(t *testing.T) {
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
+			// Skip the file with invalid extension and produce no errors.
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, invalidExtensionFile)
+			g.Expect(output[0]).To(ContainSubstring(fmt.Sprintf("Skipping file %v, recognized file extensions are: [.json .yaml .yml]", invalidExtensionFile)))
+			g.Expect(err).To(BeNil())
+
 			// Parse error as the yaml file itself is not valid yaml.
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, invalidFile)
+			output, err = istioctlSafe(t, istioCtl, ns.Name(), false, invalidFile)
 			g.Expect(output[0]).To(ContainSubstring("Error(s) adding files"))
 			g.Expect(output[1]).To(ContainSubstring(fmt.Sprintf("errors parsing content \"%s\"", invalidFile)))
 
 			g.Expect(err).To(MatchError(cmd.FileParseError{}))
+		})
+}
+
+func TestJsonInputFile(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			g := NewGomegaWithT(t)
+
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+
+			// Validation error if we have a service role binding without a service role
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, jsonServiceRoleBindingFile)
+			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
+			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
+
 		})
 }
 
@@ -250,6 +278,7 @@ func TestAllNamespaces(t *testing.T) {
 func TestTimeout(t *testing.T) {
 	framework.
 		NewTest(t).
+		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			g := NewGomegaWithT(t)
 

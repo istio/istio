@@ -63,53 +63,83 @@ func TestMergeUpdateRequest(t *testing.T) {
 		{
 			"simple merge",
 			&PushRequest{
-				Full:               true,
-				Push:               push0,
-				Start:              t0,
-				NamespacesUpdated:  map[string]struct{}{"ns1": {}},
-				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{{Kind: "cfg1"}: {}},
-				Reason:             []TriggerReason{ServiceUpdate, ServiceUpdate},
+				Full:              true,
+				Push:              push0,
+				Start:             t0,
+				NamespacesUpdated: map[string]struct{}{"ns1": {}},
+				ConfigsUpdated:    map[resource.GroupVersionKind]map[string]struct{}{{Kind: "cfg1"}: {}},
+				Reason:            []TriggerReason{ServiceUpdate, ServiceUpdate},
 			},
 			&PushRequest{
-				Full:               false,
-				Push:               push1,
-				Start:              t1,
-				NamespacesUpdated:  map[string]struct{}{"ns2": {}},
-				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{{Kind: "cfg2"}: {}},
-				Reason:             []TriggerReason{EndpointUpdate},
+				Full:              false,
+				Push:              push1,
+				Start:             t1,
+				NamespacesUpdated: map[string]struct{}{"ns2": {}},
+				ConfigsUpdated:    map[resource.GroupVersionKind]map[string]struct{}{{Kind: "cfg2"}: {}},
+				Reason:            []TriggerReason{EndpointUpdate},
 			},
 			PushRequest{
-				Full:               true,
-				Push:               push1,
-				Start:              t0,
-				NamespacesUpdated:  map[string]struct{}{"ns1": {}, "ns2": {}},
-				ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{{Kind: "cfg1"}: {}, {Kind: "cfg2"}: {}},
-				Reason:             []TriggerReason{ServiceUpdate, ServiceUpdate, EndpointUpdate},
+				Full:              true,
+				Push:              push1,
+				Start:             t0,
+				NamespacesUpdated: map[string]struct{}{"ns1": {}, "ns2": {}},
+				ConfigsUpdated:    map[resource.GroupVersionKind]map[string]struct{}{{Kind: "cfg1"}: {}, {Kind: "cfg2"}: {}},
+				Reason:            []TriggerReason{ServiceUpdate, ServiceUpdate, EndpointUpdate},
 			},
 		},
 		{
 			"incremental eds merge",
-			&PushRequest{Full: false, EdsUpdates: map[string]struct{}{"svc-1": {}}},
-			&PushRequest{Full: false, EdsUpdates: map[string]struct{}{"svc-2": {}}},
-			PushRequest{Full: false, EdsUpdates: map[string]struct{}{"svc-1": {}, "svc-2": {}}},
+			&PushRequest{Full: false,
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+					ServiceEntryKind: {"svc-1": {}}}},
+			&PushRequest{Full: false,
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+					ServiceEntryKind: {"svc-2": {}}}},
+			PushRequest{Full: false,
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+					ServiceEntryKind: {"svc-1": {}, "svc-2": {}}}},
 		},
 		{
 			"skip eds merge: left full",
 			&PushRequest{Full: true},
-			&PushRequest{Full: false, EdsUpdates: map[string]struct{}{"svc-2": {}}},
+			&PushRequest{Full: false,
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+					ServiceEntryKind: {"svc-2": {}}}},
 			PushRequest{Full: true},
 		},
 		{
+			"two kinds of resources: left full",
+			&PushRequest{Full: true,
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+					{Kind: "cfg1"}: {}}},
+			&PushRequest{Full: false,
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+					ServiceEntryKind: {"svc-2": {}}}},
+			PushRequest{Full: true,
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+					ServiceEntryKind: {},
+					{Kind: "cfg1"}:   {},
+				}},
+		},
+		{
 			"skip eds merge: right full",
-			&PushRequest{Full: false, EdsUpdates: map[string]struct{}{"svc-1": {}}},
+			&PushRequest{Full: false,
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+					ServiceEntryKind: {"svc-1": {}}}},
 			&PushRequest{Full: true},
 			PushRequest{Full: true},
 		},
 		{
 			"incremental merge",
-			&PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns1": {}}, EdsUpdates: map[string]struct{}{"svc-1": {}}},
-			&PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns2": {}}, EdsUpdates: map[string]struct{}{"svc-2": {}}},
-			PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns1": {}, "ns2": {}}, EdsUpdates: map[string]struct{}{"svc-1": {}, "svc-2": {}}},
+			&PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns1": {}},
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+					ServiceEntryKind: {"svc-1": {}}}},
+			&PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns2": {}},
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+					ServiceEntryKind: {"svc-2": {}}}},
+			PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns1": {}, "ns2": {}},
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+					ServiceEntryKind: {"svc-1": {}, "svc-2": {}}}},
 		},
 		{
 			"skip namespace merge: one empty",
@@ -119,9 +149,9 @@ func TestMergeUpdateRequest(t *testing.T) {
 		},
 		{
 			"skip config type merge: one empty",
-			&PushRequest{Full: true, ConfigTypesUpdated: nil},
-			&PushRequest{Full: true, ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{{Kind: "cfg2"}: {}}},
-			PushRequest{Full: true, ConfigTypesUpdated: nil},
+			&PushRequest{Full: true, ConfigsUpdated: nil},
+			&PushRequest{Full: true, ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{{Kind: "cfg2"}: {}}},
+			PushRequest{Full: true, ConfigsUpdated: nil},
 		},
 	}
 
@@ -427,11 +457,11 @@ func scopeToSidecar(scope *SidecarScope) string {
 func TestSetDestinationRule(t *testing.T) {
 	ps := NewPushContext()
 	ps.defaultDestinationRuleExportTo = map[visibility.Instance]bool{visibility.Public: true}
-	testhost := "test.test-namespace1.svc.cluster.local"
+	testhost := "httpbin.org"
 	destinationRuleNamespace1 := Config{
 		ConfigMeta: ConfigMeta{
 			Name:      "rule1",
-			Namespace: "test-namespace1",
+			Namespace: "test",
 		},
 		Spec: &networking.DestinationRule{
 			Host: testhost,
@@ -448,7 +478,7 @@ func TestSetDestinationRule(t *testing.T) {
 	destinationRuleNamespace2 := Config{
 		ConfigMeta: ConfigMeta{
 			Name:      "rule2",
-			Namespace: "istio-system",
+			Namespace: "test",
 		},
 		Spec: &networking.DestinationRule{
 			Host: testhost,
@@ -463,12 +493,13 @@ func TestSetDestinationRule(t *testing.T) {
 		},
 	}
 	ps.SetDestinationRules([]Config{destinationRuleNamespace1, destinationRuleNamespace2})
-	subsetsLocal := len(ps.namespaceLocalDestRules["test-namespace1"].destRule[host.Name(testhost)].config.Spec.(*networking.DestinationRule).Subsets)
-	subsetsExport := len(ps.namespaceExportedDestRules["test-namespace1"].destRule[host.Name(testhost)].config.Spec.(*networking.DestinationRule).Subsets)
-	if subsetsLocal != 2 {
-		t.Fatalf("want %d, but got %d", 2, subsetsLocal)
+	subsetsLocal := ps.namespaceLocalDestRules["test"].destRule[host.Name(testhost)].Spec.(*networking.DestinationRule).Subsets
+	subsetsExport := ps.namespaceExportedDestRules["test"].destRule[host.Name(testhost)].Spec.(*networking.DestinationRule).Subsets
+	if len(subsetsLocal) != 4 {
+		t.Errorf("want %d, but got %d", 4, len(subsetsLocal))
 	}
-	if subsetsExport != 2 {
-		t.Fatalf("want %d, but got %d", 2, subsetsExport)
+
+	if len(subsetsExport) != 4 {
+		t.Errorf("want %d, but got %d", 4, len(subsetsExport))
 	}
 }

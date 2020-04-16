@@ -43,7 +43,7 @@ func ProxyConfig(value *meshAPI.ProxyConfig) Instance {
 }
 
 func PilotSubjectAltName(value []string) Instance {
-	return newOption("pilot_SAN", value)
+	return newOption("pilot_SAN", value).withConvert(sanConverter(value))
 }
 
 func MixerSubjectAltName(value []string) Instance {
@@ -190,7 +190,7 @@ func EnvoyMetricsServiceAddress(value string) Instance {
 	return newOptionOrSkipIfZero("envoy_metrics_service_address", value).withConvert(addressConverter(value))
 }
 
-func EnvoyMetricsServiceTLS(value *networkingAPI.TLSSettings, metadata *model.NodeMetadata) Instance {
+func EnvoyMetricsServiceTLS(value *networkingAPI.ClientTLSSettings, metadata *model.NodeMetadata) Instance {
 	return newOptionOrSkipIfZero("envoy_metrics_service_tls", value).
 		withConvert(tlsConverter(value, "envoy_metrics_service", metadata))
 }
@@ -203,7 +203,7 @@ func EnvoyAccessLogServiceAddress(value string) Instance {
 	return newOptionOrSkipIfZero("envoy_accesslog_service_address", value).withConvert(addressConverter(value))
 }
 
-func EnvoyAccessLogServiceTLS(value *networkingAPI.TLSSettings, metadata *model.NodeMetadata) Instance {
+func EnvoyAccessLogServiceTLS(value *networkingAPI.ClientTLSSettings, metadata *model.NodeMetadata) Instance {
 	return newOptionOrSkipIfZero("envoy_accesslog_service_tls", value).
 		withConvert(tlsConverter(value, "envoy_accesslog_service", metadata))
 }
@@ -234,6 +234,10 @@ func PilotCertProvider(value string) Instance {
 
 func STSPort(value int) Instance {
 	return newOption("sts_port", value)
+}
+
+func GCPProjectID(value string) Instance {
+	return newOption("gcp_project_id", value)
 }
 
 func STSEnabled(value bool) Instance {

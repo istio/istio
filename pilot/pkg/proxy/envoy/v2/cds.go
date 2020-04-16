@@ -48,7 +48,7 @@ func cdsDiscoveryResponse(response []*xdsapi.Cluster, noncePrefix string) *xdsap
 func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, version string) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
 	pushStart := time.Now()
-	rawClusters := s.generateRawClusters(con.node, push)
+	rawClusters := s.ConfigGenerator.BuildClusters(con.node, push)
 
 	if s.DebugConfigs {
 		con.CDSClusters = rawClusters
@@ -67,19 +67,4 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, v
 	adsLog.Infof("CDS: PUSH for node:%s clusters:%d services:%d version:%s",
 		con.node.ID, len(rawClusters), len(push.Services(nil)), version)
 	return nil
-}
-
-func (s *DiscoveryServer) generateRawClusters(node *model.Proxy, push *model.PushContext) []*xdsapi.Cluster {
-	rawClusters := s.ConfigGenerator.BuildClusters(node, push)
-
-	for _, c := range rawClusters {
-		if err := c.Validate(); err != nil {
-			adsLog.Errorf("CDS: Generated invalid cluster for node:%s: %v, %v", node.ID, err, c)
-			cdsBuildErrPushes.Increment()
-			totalXDSInternalErrors.Increment()
-			// Generating invalid clusters is a bug.
-			// Instead of panic, which will break down the whole cluster. Just ignore it here, let envoy process it.
-		}
-	}
-	return rawClusters
 }

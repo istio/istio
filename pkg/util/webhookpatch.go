@@ -15,6 +15,7 @@
 package util
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -29,7 +30,7 @@ import (
 // PatchMutatingWebhookConfig patches a CA bundle into the specified webhook config.
 func PatchMutatingWebhookConfig(client admissionregistrationv1beta1client.MutatingWebhookConfigurationInterface,
 	webhookConfigName, webhookName string, caBundle []byte) error {
-	config, err := client.Get(webhookConfigName, metav1.GetOptions{})
+	config, err := client.Get(context.TODO(), webhookConfigName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -59,7 +60,7 @@ func PatchMutatingWebhookConfig(client admissionregistrationv1beta1client.Mutati
 	}
 
 	if string(patch) != "{}" {
-		_, err = client.Patch(webhookConfigName, types.StrategicMergePatchType, patch)
+		_, err = client.Patch(context.TODO(), webhookConfigName, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
 	}
 	return err
 }

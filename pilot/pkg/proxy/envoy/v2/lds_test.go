@@ -42,8 +42,9 @@ import (
 
 // TestLDS using isolated namespaces
 func TestLDSIsolated(t *testing.T) {
-	_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
-	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForInbound.Name) }()
+	defaultInboundValue := features.EnableProtocolSniffingForInbound
+	features.EnableProtocolSniffingForInbound = true
+	defer func() { features.EnableProtocolSniffingForInbound = defaultInboundValue }()
 	_, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
@@ -232,8 +233,8 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 		return
 	}
 
-	// Expect 7 listeners : 2 orig_dst, 1 http inbound + 4 outbound (http, tcp1, istio-policy and istio-telemetry)
-	if (len(adsResponse.GetHTTPListeners()) + len(adsResponse.GetTCPListeners())) != 7 {
+	// Expect 6 listeners : 2 orig_dst, 4 outbound (http, tcp1, istio-policy and istio-telemetry)
+	if (len(adsResponse.GetHTTPListeners()) + len(adsResponse.GetTCPListeners())) != 6 {
 		t.Fatalf("Expected 7 listeners, got %d\n", len(adsResponse.GetHTTPListeners())+len(adsResponse.GetTCPListeners()))
 	}
 
@@ -418,11 +419,11 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 		return
 	}
 
-	// Expect 3 HTTP listeners for outbound 8081, inbound 9080 and one virtualInbound which has the same inbound 9080
+	// Expect 2 HTTP listeners for outbound 8081 and one virtualInbound which has the same inbound 9080
 	// as a filter chain. Since the adsclient code treats any listener with a HTTP connection manager filter in ANY
 	// filter chain,  as a HTTP listener, we end up getting both 9080 and virtualInbound.
-	if len(adsResponse.GetHTTPListeners()) != 3 {
-		t.Fatalf("Expected 3 http listeners, got %d", len(adsResponse.GetHTTPListeners()))
+	if len(adsResponse.GetHTTPListeners()) != 2 {
+		t.Fatalf("Expected 2 http listeners, got %d", len(adsResponse.GetHTTPListeners()))
 	}
 
 	// TODO: This is flimsy. The ADSC code treats any listener with http connection manager as a HTTP listener
@@ -434,11 +435,6 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 		}
 	} else {
 		t.Fatal("Expected listener for 0.0.0.0_8081")
-	}
-
-	// Also check that the other two listeners are 98.1.1.1_9080, and virtualInbound
-	if l := adsResponse.GetHTTPListeners()["98.1.1.1_9080"]; l == nil {
-		t.Fatal("Expected listener for 98.1.1.1_9080")
 	}
 
 	if l := adsResponse.GetHTTPListeners()["virtualInbound"]; l == nil {
@@ -456,8 +452,9 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 
 // TestLDS using default sidecar in root namespace
 func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
-	_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
-	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForInbound.Name) }()
+	defaultInboundValue := features.EnableProtocolSniffingForInbound
+	features.EnableProtocolSniffingForInbound = true
+	defer func() { features.EnableProtocolSniffingForInbound = defaultInboundValue }()
 	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
 		args.Plugins = bootstrap.DefaultPlugins
 		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/envoyfilter-without-service"

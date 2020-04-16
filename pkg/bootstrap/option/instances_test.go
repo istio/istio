@@ -48,7 +48,13 @@ func TestOptions(t *testing.T) {
 			testName: "pilotSAN",
 			key:      "pilot_SAN",
 			option:   option.PilotSubjectAltName([]string{"fake"}),
-			expected: []string{"fake"},
+			expected: `[{"exact":"fake"}]`,
+		},
+		{
+			testName: "pilotSAN multi",
+			key:      "pilot_SAN",
+			option:   option.PilotSubjectAltName([]string{"fake", "other"}),
+			expected: `[{"exact":"fake"},{"exact":"other"}]`,
 		},
 		{
 			testName: "mixerSAN",
@@ -519,8 +525,8 @@ func TestOptions(t *testing.T) {
 		{
 			testName: "envoy metrics tls",
 			key:      "envoy_metrics_service_tls",
-			option: option.EnvoyMetricsServiceTLS(&networkingAPI.TLSSettings{
-				Mode: networkingAPI.TLSSettings_ISTIO_MUTUAL,
+			option: option.EnvoyMetricsServiceTLS(&networkingAPI.ClientTLSSettings{
+				Mode: networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
 			}, &model.NodeMetadata{}),
 			expected: "{\"common_tls_context\":{\"tls_certificates\":[{\"certificate_chain\":{\"filename\":\"/etc/certs/root-cert.pem\"},\"private_key\":{\"filename\":\"/etc/certs/key.pem\"}}],\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/certs/cert-chain.pem\"}},\"alpn_protocols\":[\"istio\",\"h2\"]},\"sni\":\"envoy_metrics_service\"}", // nolint: lll
 		},
@@ -589,8 +595,8 @@ func TestOptions(t *testing.T) {
 		{
 			testName: "envoy access log tls",
 			key:      "envoy_accesslog_service_tls",
-			option: option.EnvoyAccessLogServiceTLS(&networkingAPI.TLSSettings{
-				Mode: networkingAPI.TLSSettings_ISTIO_MUTUAL,
+			option: option.EnvoyAccessLogServiceTLS(&networkingAPI.ClientTLSSettings{
+				Mode: networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
 			}, &model.NodeMetadata{}),
 			expected: "{\"common_tls_context\":{\"tls_certificates\":[{\"certificate_chain\":{\"filename\":\"/etc/certs/root-cert.pem\"},\"private_key\":{\"filename\":\"/etc/certs/key.pem\"}}],\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/certs/cert-chain.pem\"}},\"alpn_protocols\":[\"istio\",\"h2\"]},\"sni\":\"envoy_accesslog_service\"}", // nolint: lll
 		},
@@ -685,6 +691,12 @@ func TestOptions(t *testing.T) {
 			key:      "sts_port",
 			option:   option.STSPort(5555),
 			expected: 5555,
+		},
+		{
+			testName: "project id",
+			key:      "gcp_project_id",
+			option:   option.GCPProjectID("project"),
+			expected: "project",
 		},
 	}
 

@@ -98,17 +98,14 @@ var (
 		monitoring.WithLabels(typeTag),
 	)
 
-	cdsPushes         = pushes.With(typeTag.Value("cds"))
-	cdsSendErrPushes  = pushes.With(typeTag.Value("cds_senderr"))
-	cdsBuildErrPushes = pushes.With(typeTag.Value("cds_builderr"))
-	edsPushes         = pushes.With(typeTag.Value("eds"))
-	edsSendErrPushes  = pushes.With(typeTag.Value("eds_senderr"))
-	ldsPushes         = pushes.With(typeTag.Value("lds"))
-	ldsSendErrPushes  = pushes.With(typeTag.Value("lds_senderr"))
-	ldsBuildErrPushes = pushes.With(typeTag.Value("lds_builderr"))
-	rdsPushes         = pushes.With(typeTag.Value("rds"))
-	rdsSendErrPushes  = pushes.With(typeTag.Value("rds_senderr"))
-	rdsBuildErrPushes = pushes.With(typeTag.Value("rds_builderr"))
+	cdsPushes        = pushes.With(typeTag.Value("cds"))
+	cdsSendErrPushes = pushes.With(typeTag.Value("cds_senderr"))
+	edsPushes        = pushes.With(typeTag.Value("eds"))
+	edsSendErrPushes = pushes.With(typeTag.Value("eds_senderr"))
+	ldsPushes        = pushes.With(typeTag.Value("lds"))
+	ldsSendErrPushes = pushes.With(typeTag.Value("lds_senderr"))
+	rdsPushes        = pushes.With(typeTag.Value("rds"))
+	rdsSendErrPushes = pushes.With(typeTag.Value("rds_senderr"))
 
 	pushTime = monitoring.NewDistribution(
 		"pilot_xds_push_time",

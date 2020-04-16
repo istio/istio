@@ -16,8 +16,11 @@ package monitor_test
 
 import (
 	"errors"
+	"syscall"
 	"testing"
 	"time"
+
+	"istio.io/pkg/appsignals"
 
 	"github.com/onsi/gomega"
 
@@ -29,8 +32,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 )
-
-const checkInterval = 100 * time.Millisecond
 
 var gatewayGvk = collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind()
 
@@ -98,18 +99,24 @@ func TestMonitorForChange(t *testing.T) {
 			err = nil
 		case 3:
 			configs = updateConfigSet
-		case 8:
+		case 6:
 			configs = []*model.Config{}
 		}
 
 		callCount++
 		return configs, err
 	}
-	mon := monitor.NewMonitor("", store, checkInterval, someConfigFunc)
+	mon := monitor.NewMonitor("", store, someConfigFunc, "")
 	stop := make(chan struct{})
 	defer func() { stop <- struct{}{} }() // shut it down
 	mon.Start(stop)
 
+	go func() {
+		for i := 0; i < 10; i++ {
+			appsignals.Notify("test", syscall.SIGUSR1)
+			time.Sleep(time.Millisecond * 100)
+		}
+	}()
 	g.Eventually(func() error {
 		c, err := store.List(gatewayGvk, "")
 		g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -128,6 +135,9 @@ func TestMonitorForChange(t *testing.T) {
 	g.Eventually(func() error {
 		c, err := store.List(gatewayGvk, "")
 		g.Expect(err).NotTo(gomega.HaveOccurred())
+		if len(c) == 0 {
+			return errors.New("no config")
+		}
 
 		gateway := c[0].Spec.(*networking.Gateway)
 		if gateway.Servers[0].Port.Protocol != "HTTP2" {
@@ -170,11 +180,17 @@ func TestMonitorForError(t *testing.T) {
 		callCount++
 		return configs, err
 	}
-	mon := monitor.NewMonitor("", store, checkInterval, someConfigFunc)
+	mon := monitor.NewMonitor("", store, someConfigFunc, "")
 	stop := make(chan struct{})
 	defer func() { stop <- struct{}{} }() // shut it down
 	mon.Start(stop)
 
+	go func() {
+		for i := 0; i < 10; i++ {
+			appsignals.Notify("test", syscall.SIGUSR1)
+			time.Sleep(time.Millisecond * 10)
+		}
+	}()
 	//Test ensures that after a coplilot connection error the data remains
 	//nil data return and error return keeps the existing data aka createConfigSet
 	<-delay

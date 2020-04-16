@@ -15,6 +15,7 @@
 package local
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -261,7 +262,7 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 
 	// Since we're using a running k8s source, try to get mesh config from the configmap
 	if err := sa.addRunningKubeMeshConfigSource(client); err != nil {
-		_, err := client.CoreV1().Namespaces().Get(sa.istioNamespace.String(), metav1.GetOptions{})
+		_, err := client.CoreV1().Namespaces().Get(context.TODO(), sa.istioNamespace.String(), metav1.GetOptions{})
 		if kerrors.IsNotFound(err) {
 			scope.Analysis.Warnf("%v namespace not found. Istio may not be installed in the target cluster. "+
 				"Using default mesh configuration values for analysis", sa.istioNamespace.String())
@@ -316,7 +317,7 @@ func (sa *SourceAnalyzer) AddDefaultResources() error {
 }
 
 func (sa *SourceAnalyzer) addRunningKubeMeshConfigSource(client kubernetes.Interface) error {
-	meshConfigMap, err := client.CoreV1().ConfigMaps(string(sa.istioNamespace)).Get(meshConfigMapName, metav1.GetOptions{})
+	meshConfigMap, err := client.CoreV1().ConfigMaps(string(sa.istioNamespace)).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("could not read configmap %q from namespace %q: %v", meshConfigMapName, sa.istioNamespace, err)
 	}

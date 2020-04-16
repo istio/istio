@@ -15,18 +15,32 @@
 package helmreconciler
 
 import (
+	"context"
+	"fmt"
 	"sync"
+	"time"
+
+	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/operator/v1alpha1"
-	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
+	binversion "istio.io/istio/operator/version"
 	"istio.io/pkg/log"
+)
+
+const (
+	pollTimeout  = 100 * time.Second
+	pollInterval = 2 * time.Second
 )
 
 // HelmReconciler reconciles resources rendered by a set of helm charts for a specific instances of a custom resource,
@@ -34,14 +48,16 @@ import (
 type HelmReconciler struct {
 	client             client.Client
 	customizer         RenderingCustomizer
-	instance           *iop.IstioOperator
+	instance           runtime.Object
 	needUpdateAndPrune bool
 }
 
-// NewHelmReconciler creates a HelmReconciler and returns a ptr to it.
-func NewHelmReconciler(instance *iop.IstioOperator) *HelmReconciler {
+// NewHelmReconciler creates a HelmReconciler and returns a ptr to it
+func NewHelmReconciler(instance runtime.Object, customizer RenderingCustomizer, client client.Client) *HelmReconciler {
 	return &HelmReconciler{
-		instance: instance,
+		instance:   instance,
+		client:     client,
+		customizer: customizer,
 	}
 }
 
@@ -55,7 +71,7 @@ type Factory struct {
 // instance is the custom resource to be reconciled/deleted.
 // client is the kubernetes client
 // logger is the logger
-func (f *Factory) New(instance *iop.IstioOperator, client client.Client) (*HelmReconciler, error) {
+func (f *Factory) New(instance runtime.Object, client client.Client) (*HelmReconciler, error) {
 	delegate, err := f.CustomizerFactory.NewCustomizer(instance)
 	if err != nil {
 		return nil, err
@@ -206,13 +222,85 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1
 			break
 		}
 	}
-
+	// update status further based on the in cluster resources status if manifests processed successfully,
+	// otherwise just use status obtained from processing manifests.
+	if overallStatus == v1alpha1.InstallStatus_HEALTHY {
+		err := h.checkResourceStatus(&componentStatus, &overallStatus)
+		if err != nil {
+			log.Errorf("failed to check resource status %v", err)
+		}
+	}
 	out := &v1alpha1.InstallStatus{
 		Status:          overallStatus,
 		ComponentStatus: componentStatus,
 	}
 
 	return out
+}
+
+// checkResourceStatus check and wait for resource to be ready,
+// update overallStatus and componentStatus correspondingly
+func (h *HelmReconciler) checkResourceStatus(componentStatus *map[string]*v1alpha1.InstallStatus_VersionStatus,
+	overallStatus *v1alpha1.InstallStatus_Status) error {
+	cs := h.client
+	iop := h.GetInstance().(*v1alpha12.IstioOperator)
+	if iop == nil {
+		return fmt.Errorf("failed to get IstioOperator instance")
+	}
+	t, err := translate.NewTranslator(binversion.OperatorBinaryVersion.MinorVersion)
+	if err != nil {
+		return err
+	}
+	errPoll := wait.Poll(pollInterval, pollTimeout, func() (bool, error) {
+		for cn := range *componentStatus {
+			cnMap, ok := t.ComponentMaps[name.ComponentName(cn)]
+			if ok && cnMap.ResourceName != "" {
+				dp := &appsv1.Deployment{}
+				key := client.ObjectKey{Namespace: iop.Namespace, Name: cnMap.ResourceName}
+				err := cs.Get(context.TODO(), key, dp)
+				if err != nil {
+					log.Warnf("deployment: %v not found", cnMap.ResourceName)
+					continue
+				}
+
+				if dp.Status.ReadyReplicas != dp.Status.UnavailableReplicas+dp.Status.AvailableReplicas {
+					(*componentStatus)[cn].Status = v1alpha1.InstallStatus_UPDATING
+					return false, nil
+				}
+			}
+			(*componentStatus)[cn].Status = v1alpha1.InstallStatus_HEALTHY
+		}
+
+		podList := &v1.PodList{}
+		err := cs.List(context.TODO(), podList, client.InNamespace(iop.Namespace))
+		if err != nil {
+			return false, err
+		}
+		for _, pod := range podList.Items {
+			if len(pod.Status.Conditions) > 0 {
+				for _, condition := range pod.Status.Conditions {
+					if condition.Type == v1.PodReady && condition.Status != v1.ConditionTrue {
+						return false, nil
+					}
+				}
+			}
+			if pod.Status.Phase != v1.PodSucceeded && pod.Status.Phase != v1.PodRunning {
+				return false, nil
+			}
+			if pod.Status.Phase == v1.PodRunning {
+				for _, containerStatus := range pod.Status.ContainerStatuses {
+					if !containerStatus.Ready {
+						return false, nil
+					}
+				}
+			}
+		}
+		return true, nil
+	})
+	if errPoll != nil {
+		*overallStatus = v1alpha1.InstallStatus_UPDATING
+	}
+	return nil
 }
 
 // Delete resources associated with the custom resource instance
@@ -271,18 +359,13 @@ func (h *HelmReconciler) GetClient() client.Client {
 	return h.client
 }
 
-// GetCustomizer returns the customizer associated with this HelmReconciler
-func (h *HelmReconciler) GetCustomizer() RenderingCustomizer {
-	return h.customizer
-}
-
 // GetInstance returns the instance associated with this HelmReconciler
-func (h *HelmReconciler) GetInstance() *iop.IstioOperator {
+func (h *HelmReconciler) GetInstance() runtime.Object {
 	return h.instance
 }
 
 // SetInstance set the instance associated with this HelmReconciler
-func (h *HelmReconciler) SetInstance(instance *iop.IstioOperator) {
+func (h *HelmReconciler) SetInstance(instance runtime.Object) {
 	h.instance = instance
 }
 

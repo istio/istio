@@ -21,6 +21,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
+	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/version"
@@ -58,6 +59,11 @@ func TestVersion(t *testing.T) {
 			expectedOutput: "Error: --output must be 'yaml' or 'json'\n",
 			wantException:  true,
 		},
+		{ // case 4 remote, --revision flag
+			configs: []model.Config{},
+			args:    strings.Split("version --remote=true --short=false --revision canary", " "),
+			// ignore the output, all output checks are now in istio/pkg
+		},
 	}
 
 	for i, c := range cases {
@@ -87,7 +93,7 @@ func (client mockExecVersionConfig) GetIstioVersions(namespace string) (*version
 	return &meshInfo, nil
 }
 
-func mockExecClientVersionTest(_, _ string) (kubernetes.ExecClient, error) {
+func mockExecClientVersionTest(_, _ string, _ clioptions.ControlPlaneOptions) (kubernetes.ExecClient, error) {
 	return &mockExecVersionConfig{}, nil
 }
 
@@ -95,6 +101,6 @@ func (client mockExecVersionConfig) PodsForSelector(namespace, labelSelector str
 	return &v1.PodList{}, nil
 }
 
-func (client mockExecVersionConfig) BuildPortForwarder(podName string, ns string, localPort int, podPort int) (*kubernetes.PortForward, error) {
+func (client mockExecVersionConfig) BuildPortForwarder(podName, ns, localAddr string, localPort, podPort int) (*kubernetes.PortForward, error) {
 	return nil, fmt.Errorf("mock k8s does not forward")
 }

@@ -20,6 +20,7 @@ spec:
       creationTimestamp: null
       labels:
         app: app
+        istio.io/rev: ""
         security.istio.io/tlsMode: istio
     spec:
       containers:
@@ -81,6 +82,13 @@ spec:
           value: |-
             [
                 {"name":"foo","containerPort":123}
+            ]
+        - name: ISTIO_META_APP_CONTAINERS
+          value: |-
+            [
+                name1,
+                name2,
+                name3
             ]
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes

@@ -158,6 +158,12 @@ func recoverValue(value ref.Val) (interface{}, error) {
 		return value.Value(), nil
 	case wrapperType:
 		return value.Value(), nil
+	case types.ListType:
+		size := value.(traits.Sizer).Size()
+		if size.Type() == types.IntType && size.Value().(int64) == 0 {
+			return []string{}, nil
+		}
+		return value.Value(), nil
 	}
 	return nil, fmt.Errorf("failed to recover of type %s", value.Type())
 }

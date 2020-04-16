@@ -144,28 +144,6 @@ gateways:
     tolerations: []
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
-sidecarInjectorWebhook:
-  enabled: true
-  enableNamespacesByDefault: false
-  rewriteAppHTTPProbe: true
-  selfSigned: false
-  injectLabel: istio-injection
-  neverInjectSelector: []
-  alwaysInjectSelector: []
-galley:
-  enabled: true
-  image: galley
-  replicaCount: 1
-  rollingMaxSurge: 100%
-  rollingMaxUnavailable: 25%
-  resources:
-    requests:
-      cpu: 100m
-  mesh: {}
-  nodeSelector: {}
-  tolerations: []
-  podAntiAffinityLabelSelector: []
-  podAntiAffinityTermLabelSelector: []
 mixer:
   policy:
     enabled: true
@@ -243,8 +221,6 @@ pilot:
   podAntiAffinityTermLabelSelector: []
   keepaliveMaxServerConnectionAge: 30m
   deploymentLabels:
-  meshNetworks:
-    networks: {}
   configMap: true
   ingress:
     ingressService: istio-ingressgateway
@@ -253,45 +229,12 @@ pilot:
   policy:
     enabled: false
   useMCP: true
-security:
-  enabled: true
-  replicaCount: 1
-  rollingMaxSurge: 100%
-  rollingMaxUnavailable: 25%
-  image: citadel
-  selfSigned: true 
-  trustDomain: cluster.local 
-  workloadCertTtl: 2160h
-  enableNamespacesByDefault: true
-  dnsCerts:
-    istio-pilot-service-account.istio-control: istio-pilot-service-account.istio-control
-    istio-pilot-service-account.istio-pilot11: istio-pilot-service-account.istio-system
-    istio-sidecar-injector-service-account.istio-remote: istio-sidecar-injector.istio-remote.svc
-    istio-sidecar-injector-service-account.istio-pilot11: istio-sidecar-injector.istio-pilot11.svc
-    istio-sidecar-injector-service-account.istio-control: istio-sidecar-injector.istio-control.svc
-    istio-sidecar-injector-service-account.istio-master: istio-sidecar-injector.istio-master.svc
-    istio-sidecar-injector-service-account.istio-control-master: istio-sidecar-injector.istio-control-master.svc
-    istio-galley-service-account.istio-pilot11: istio-galley.istio-pilot11.svc
-    istio-galley-service-account.istio-control: istio-galley.istio-control.svc
-    istio-galley-service-account.istio-master: istio-galley.istio-master.svc
-    istio-galley-service-account.istio-control-master: istio-galley.istio-control-master.svc
-    istio-galley-service-account.istio-config: istio-galley.istio-config.svc
-  nodeSelector: {}
-  tolerations: []
-  podAntiAffinityLabelSelector: []
-  podAntiAffinityTermLabelSelector: []
 grafana:
   enabled: false
   replicaCount: 1
   image:
     repository: grafana/grafana
     tag: 6.1.6
-  ingress:
-    enabled: false
-    hosts:
-      - grafana.local
-    annotations:
-    tls:
   persist: false
   storageClassName: ""
   accessMode: ReadWriteMany
@@ -351,12 +294,6 @@ prometheus:
   podAntiAffinityTermLabelSelector: []
   scrapeInterval: 15s
   contextPath: /prometheus
-  ingress:
-    enabled: false
-    hosts:
-      - prometheus.local
-    annotations:
-    tls:
   service:
     annotations: {}
     nodePort:
@@ -403,11 +340,6 @@ tracing:
     name: http
     type: ClusterIP
     externalPort: 9411
-  ingress:
-    enabled: false
-    hosts:
-    annotations:
-    tls:
 kiali:
   enabled: false
   replicaCount: 1
@@ -419,12 +351,6 @@ kiali:
   tolerations: []
   podAntiAffinityLabelSelector: []
   podAntiAffinityTermLabelSelector: []
-  ingress:
-    enabled: false
-    hosts:
-      - kiali.local
-    annotations:
-    tls:
   dashboard:
     auth:
       strategy: login 
@@ -439,17 +365,6 @@ kiali:
     enabled: true
     cert_file: /kiali-cert/cert-chain.pem
     private_key_file: /kiali-cert/key.pem
-certmanager:
-  enabled: false
-  replicaCount: 1
-  hub: quay.io/jetstack
-  image: cert-manager-controller
-  tag: v0.6.2
-  resources: {}
-  nodeSelector: {}
-  tolerations: []
-  podAntiAffinityLabelSelector: []
-  podAntiAffinityTermLabelSelector: []
 cni:
   enabled: false
   hub: gcr.io/istio-release
@@ -475,10 +390,6 @@ global:
   logging:
     level: "default:info"
   monitoringPort: 15014
-  k8sIngress:
-    enabled: false
-    gatewayName: ingressgateway
-    enableHttps: false
   proxy:
     image: proxyv2
     clusterDomain: "cluster.local"
@@ -510,7 +421,6 @@ global:
         interval: 10s
     logLevel: ""
     componentLogLevel: ""
-    dnsRefreshRate: 300s
     protocolDetectionTimeout: 10ms
     privileged: false
     enableCoreDump: false
@@ -521,8 +431,6 @@ global:
     includeIPRanges: "*"
     excludeIPRanges: ""
     excludeOutboundPorts: ""
-    kubevirtInterfaces: ""
-    includeInboundPorts: "*"
     excludeInboundPorts: ""
     autoInject: enabled
     envoyStatsd:

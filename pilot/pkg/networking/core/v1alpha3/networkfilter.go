@@ -15,7 +15,6 @@
 package v1alpha3
 
 import (
-	"fmt"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -44,8 +43,8 @@ var (
 	// redisOpTimeout is the default operation timeout for the Redis proxy filter.
 	redisOpTimeout = 5 * time.Second
 
-	// grpcAccessLog is used when access log service is enabled in mesh config.
-	grpcAccessLog = buildGrpcAccessLog()
+	// tcpGrpcAccessLog is used when access log service is enabled in mesh config.
+	tcpGrpcAccessLog = buildTCPGrpcAccessLog()
 )
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
@@ -61,25 +60,25 @@ func buildInboundNetworkFilters(push *model.PushContext, node *model.Proxy, inst
 		StatPrefix:       statPrefix,
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
 	}
-	tcpFilter := setAccessLogAndBuildTCPFilter(push, node, tcpProxy)
+	tcpFilter := setAccessLogAndBuildTCPFilter(push, tcpProxy)
 	return buildNetworkFiltersStack(node, instance.ServicePort, tcpFilter, statPrefix, clusterName)
 }
 
 // setAccessLog sets the AccessLog configuration in the given TcpProxy instance.
-func setAccessLog(push *model.PushContext, node *model.Proxy, config *tcp_proxy.TcpProxy) {
+func setAccessLog(push *model.PushContext, config *tcp_proxy.TcpProxy) {
 	if push.Mesh.AccessLogFile != "" {
 		config.AccessLog = append(config.AccessLog, maybeBuildAccessLog(push.Mesh))
 	}
 
-	if push.Mesh.EnableEnvoyAccessLogService && util.IsIstioVersionGE14(node) {
-		config.AccessLog = append(config.AccessLog, grpcAccessLog)
+	if push.Mesh.EnableEnvoyAccessLogService {
+		config.AccessLog = append(config.AccessLog, tcpGrpcAccessLog)
 	}
 }
 
 // setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given
 // TcpProxy instance and builds a TCP filter out of it.
-func setAccessLogAndBuildTCPFilter(push *model.PushContext, node *model.Proxy, config *tcp_proxy.TcpProxy) *listener.Filter {
-	setAccessLog(push, node, config)
+func setAccessLogAndBuildTCPFilter(push *model.PushContext, config *tcp_proxy.TcpProxy) *listener.Filter {
+	setAccessLog(push, config)
 
 	tcpFilter := &listener.Filter{
 		Name:       wellknown.TCPProxy,
@@ -104,7 +103,7 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 		tcpProxy.IdleTimeout = ptypes.DurationProto(idleTimeout)
 	}
 
-	tcpFilter := setAccessLogAndBuildTCPFilter(push, node, tcpProxy)
+	tcpFilter := setAccessLogAndBuildTCPFilter(push, tcpProxy)
 	return buildNetworkFiltersStack(node, port, tcpFilter, statPrefix, clusterName)
 }
 
@@ -113,7 +112,7 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes []*networking.RouteDestination,
 	push *model.PushContext, port *model.Port, configMeta model.ConfigMeta) []*listener.Filter {
 
-	statPrefix := fmt.Sprintf("%s.%s", configMeta.Name, configMeta.Namespace)
+	statPrefix := configMeta.Name + "." + configMeta.Namespace
 	clusterSpecifier := &tcp_proxy.TcpProxy_WeightedClusters{
 		WeightedClusters: &tcp_proxy.TcpProxy_WeightedCluster{},
 	}
@@ -142,7 +141,7 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 
 	// TODO: Need to handle multiple cluster names for Redis
 	clusterName := clusterSpecifier.WeightedClusters.Clusters[0].Name
-	tcpFilter := setAccessLogAndBuildTCPFilter(push, node, proxyConfig)
+	tcpFilter := setAccessLogAndBuildTCPFilter(push, proxyConfig)
 	return buildNetworkFiltersStack(node, port, tcpFilter, statPrefix, clusterName)
 }
 
@@ -154,19 +153,19 @@ func buildNetworkFiltersStack(_ *model.Proxy, port *model.Port, tcpFilter *liste
 	case protocol.Mongo:
 		filterstack = append(filterstack, buildMongoFilter(statPrefix), tcpFilter)
 	case protocol.Redis:
-		if features.EnableRedisFilter.Get() {
+		if features.EnableRedisFilter {
 			// redis filter has route config, it is a terminating filter, no need append tcp filter.
 			filterstack = append(filterstack, buildRedisFilter(statPrefix, clusterName))
 		} else {
 			filterstack = append(filterstack, tcpFilter)
 		}
 	case protocol.MySQL:
-		if features.EnableMysqlFilter.Get() {
+		if features.EnableMysqlFilter {
 			filterstack = append(filterstack, buildMySQLFilter(statPrefix))
 		}
 		filterstack = append(filterstack, tcpFilter)
 	case protocol.Thrift:
-		if features.EnableThriftFilter.Get() {
+		if features.EnableThriftFilter {
 			// Thrift filter has route config, it is a terminating filter, no need append tcp filter.
 			filterstack = append(filterstack, buildThriftFilter(statPrefix))
 		} else {
@@ -285,7 +284,7 @@ func buildMySQLFilter(statPrefix string) *listener.Filter {
 	return out
 }
 
-func buildGrpcAccessLog() *accesslog.AccessLog {
+func buildTCPGrpcAccessLog() *accesslog.AccessLog {
 	fl := &accesslogconfig.TcpGrpcAccessLogConfig{
 		CommonConfig: &accesslogconfig.CommonGrpcAccessLogConfig{
 			LogName: tcpEnvoyAccessLogFriendlyName,

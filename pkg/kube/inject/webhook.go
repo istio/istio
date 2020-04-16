@@ -81,6 +81,7 @@ type Webhook struct {
 	cert       *tls.Certificate
 	mon        *monitor
 	env        *model.Environment
+	revision   string
 }
 
 // env will be used for other things besides meshConfig - when webhook is running in Istiod it can take advantage
@@ -158,6 +159,9 @@ type WebhookParameters struct {
 
 	// Use an existing mux instead of creating our own.
 	Mux *http.ServeMux
+
+	// The istio.io/rev this injector is responsible for
+	Revision string
 }
 
 // NewWebhook creates a new instance of a mutating webhook for automatic sidecar injection.
@@ -204,6 +208,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		keyFile:                p.KeyFile,
 		cert:                   &pair,
 		env:                    p.Env,
+		revision:               p.Revision,
 	}
 
 	var mux *http.ServeMux
@@ -547,7 +552,7 @@ func updateAnnotation(target map[string]string, added map[string]string) (patch 
 	return patch
 }
 
-func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotations map[string]string, sic *SidecarInjectionSpec,
+func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, revision string, annotations map[string]string, sic *SidecarInjectionSpec,
 	workloadName string, statusPort int32) ([]byte, error) {
 
 	var patch []rfc6902PatchOperation
@@ -595,6 +600,7 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	patch = append(patch, addLabels(pod.Labels, map[string]string{
 		model.TLSModeLabelName:                       model.IstioMutualTLSModeLabel,
 		model.IstioCanonicalServiceLabelName:         canonicalSvc,
+		model.RevisionLabel:                          revision,
 		model.IstioCanonicalServiceRevisionLabelName: canonicalRev})...)
 
 	if rewrite {
@@ -779,7 +785,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		annotations[k] = v
 	}
 
-	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec, deployMeta.Name, wh.meshConfig.GetDefaultConfig().GetStatusPort())
+	patchBytes, err := createPatch(&pod, injectionStatus(&pod), wh.revision, annotations, spec, deployMeta.Name, wh.meshConfig.GetDefaultConfig().GetStatusPort())
 	if err != nil {
 		handleError(fmt.Sprintf("AdmissionResponse: err=%v spec=%v\n", err, spec))
 		return toAdmissionResponse(err)

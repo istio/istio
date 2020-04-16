@@ -50,7 +50,7 @@ const (
 	lightstepAccessTokenBase = "lightstep_access_token.txt"
 
 	// required stats are used by readiness checks.
-	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,http_mixer_filter,tcp_mixer_filter,server,cluster.xds-grpc"
+	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,http_mixer_filter,tcp_mixer_filter,server,cluster.xds-grpc,wasm"
 	requiredEnvoyStatsMatcherInclusionSuffix   = "ssl_context_update_by_sds"
 
 	// Prefixes of V2 metrics.
@@ -69,9 +69,9 @@ var (
 		"OWNER",
 		"PLATFORM_METADATA",
 		"WORKLOAD_NAME",
-		"CANONICAL_TELEMETRY_SERVICE",
 		"MESH_ID",
 		"SERVICE_ACCOUNT",
+		"CLUSTER_ID",
 	}
 )
 
@@ -124,8 +124,13 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.ProvCert(cfg.ProvCert))
 
 	if cfg.STSPort > 0 {
-		opts = append(opts, option.STSEnabled(true),
+		opts = append(opts,
+			option.STSEnabled(true),
 			option.STSPort(cfg.STSPort))
+		md := cfg.PlatEnv.Metadata()
+		if projectID, found := md[platform.GCPProject]; found {
+			opts = append(opts, option.GCPProjectID(projectID))
+		}
 	}
 
 	// Support passing extra info from node environment as metadata
@@ -238,7 +243,6 @@ func getProxyConfigOptions(config *meshAPI.ProxyConfig, metadata *model.NodeMeta
 	opts := make([]option.Instance, 0)
 
 	opts = append(opts, option.ProxyConfig(config),
-		option.ConnectTimeout(config.ConnectTimeout),
 		option.Cluster(config.ServiceCluster),
 		option.PilotGRPCAddress(config.DiscoveryAddress),
 		option.DiscoveryAddress(config.DiscoveryAddress),
@@ -372,6 +376,7 @@ func jsonStringToMap(jsonStr string) (m map[string]string) {
 }
 
 func extractAttributesMetadata(envVars []string, plat platform.Environment, meta *model.NodeMetadata) {
+	var additionalMetaExchangeKeys []string
 	for _, varStr := range envVars {
 		name, val := parseEnvVar(varStr)
 		switch name {
@@ -379,9 +384,6 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 			m := jsonStringToMap(val)
 			if len(m) > 0 {
 				meta.Labels = m
-				if telemetrySvc := m["istioTelemetryService"]; len(telemetrySvc) > 0 {
-					meta.CanonicalTelemetryService = m["istioTelemetryService"]
-				}
 			}
 		case "POD_NAME":
 			meta.InstanceName = val
@@ -394,12 +396,18 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 			meta.WorkloadName = val
 		case "SERVICE_ACCOUNT":
 			meta.ServiceAccount = val
+		case "ISTIO_ADDITIONAL_METADATA_EXCHANGE_KEYS":
+			// comma separated list of keys
+			additionalMetaExchangeKeys = strings.Split(val, ",")
 		}
 	}
 	if plat != nil && len(plat.Metadata()) > 0 {
 		meta.PlatformMetadata = plat.Metadata()
 	}
-	meta.ExchangeKeys = metadataExchangeKeys
+	meta.ExchangeKeys = []string{}
+	meta.ExchangeKeys = append(meta.ExchangeKeys, metadataExchangeKeys...)
+	meta.ExchangeKeys = append(meta.ExchangeKeys, additionalMetaExchangeKeys...)
+
 }
 
 // getNodeMetaData function uses an environment variable contract

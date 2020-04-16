@@ -20,6 +20,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"google.golang.org/grpc"
@@ -117,6 +118,9 @@ type Options struct {
 
 	// Existing certs, for VM or existing certificates
 	CertsDir string
+
+	// whether  ControlPlaneAuthPolicy is MUTUAL_TLS
+	TLSEnabled bool
 }
 
 // Server is the gPRC server that exposes SDS through UDS.
@@ -331,6 +335,12 @@ func setUpUds(udsPath string) (net.Listener, error) {
 		// Anything other than "file not found" is an error.
 		sdsServiceLog.Errorf("Failed to remove unix://%s: %v", udsPath, err)
 		return nil, fmt.Errorf("failed to remove unix://%s", udsPath)
+	}
+
+	// Attempt to create the folder in case it doesn't exist
+	if err := os.MkdirAll(filepath.Dir(udsPath), 0750); err != nil {
+		// If we cannot create it, just warn here - we will fail later if there is a real error
+		sdsServiceLog.Warnf("Failed to create directory for %v: %v", udsPath, err)
 	}
 
 	var err error

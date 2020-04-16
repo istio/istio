@@ -22,6 +22,7 @@ spec:
       creationTimestamp: null
       labels:
         app: hello
+        istio.io/rev: ""
         security.istio.io/tlsMode: istio
         tier: backend
         track: stable
@@ -74,11 +75,16 @@ spec:
               fieldPath: status.hostIP
         - name: MESH_CONFIG
           value: |
-            {"defaultConfig":{"drainDuration":"23s","parentShutdownDuration":"42s","connectTimeout":"42s"}}
+            {"defaultConfig":{"drainDuration":"23s","parentShutdownDuration":"42s"}}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
                 {"name":"http","containerPort":80}
+            ]
+        - name: ISTIO_META_APP_CONTAINERS
+          value: |-
+            [
+                hello
             ]
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes

@@ -19,6 +19,7 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/pilot/test/util"
 )
@@ -65,6 +66,18 @@ default           Cert Chain     true                          WARMING     10224
 			args:          strings.Split("proxy-status random-gibberish-podname-61789237418234", " "),
 			wantException: true,
 		},
+		{ // case 6: new --revision argument
+			args:           strings.Split("proxy-status --revision canary", " "),
+			expectedString: "NAME     CDS     LDS     EDS     RDS     PILOT",
+		},
+		{ // case 7 "proxy-status podName.namespace --revision"
+			execClientConfig: cannedConfig,
+			args:             strings.Split("proxy-status details-v1-5b7f94f9bc-wp5tb.default --revision canary", " "),
+			expectedOutput: `Clusters Match
+Listeners Match
+Routes Match
+`,
+		},
 	}
 
 	for i, c := range cases {
@@ -77,8 +90,9 @@ default           Cert Chain     true                          WARMING     10224
 
 // mockClientExecFactoryGenerator generates a function with the same signature as
 // kubernetes.NewExecClient() that returns a mock client.
-func mockClientExecSDSFactoryGenerator(testResults map[string][]byte) func(kubeconfig, configContext string) (kubernetes.ExecClientSDS, error) {
-	outFactory := func(kubeconfig, configContext string) (kubernetes.ExecClientSDS, error) {
+// nolint: lll
+func mockClientExecSDSFactoryGenerator(testResults map[string][]byte) func(kubeconfig, configContext string, _ clioptions.ControlPlaneOptions) (kubernetes.ExecClientSDS, error) {
+	outFactory := func(kubeconfig, configContext string, _ clioptions.ControlPlaneOptions) (kubernetes.ExecClientSDS, error) {
 		return mockExecConfig{
 			results: testResults,
 		}, nil

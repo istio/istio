@@ -17,11 +17,13 @@ package validation
 import (
 	"fmt"
 	"reflect"
+	"strings"
+
+	"istio.io/istio/operator/pkg/tpath"
 
 	"istio.io/api/operator/v1alpha1"
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -29,19 +31,63 @@ const (
 )
 
 // ValidateConfig  calls validation func for every defined element in Values
-func ValidateConfig(failOnMissingValidation bool, iopvalues map[string]interface{}, iopls *v1alpha1.IstioOperatorSpec) util.Errors {
+func ValidateConfig(failOnMissingValidation bool, iopvalues map[string]interface{},
+	iopls *v1alpha1.IstioOperatorSpec) (util.Errors, string) {
 	var validationErrors util.Errors
+	var warningMessage string
 	iopvalString := util.ToYAML(iopvalues)
 	values := &valuesv1alpha1.Values{}
 	if err := util.UnmarshalValuesWithJSONPB(iopvalString, values, true); err != nil {
-		return util.NewErrs(err)
+		return util.NewErrs(err), ""
 	}
 	validationErrors = util.AppendErrs(validationErrors, validateSubTypes(reflect.ValueOf(values).Elem(), failOnMissingValidation, values, iopls))
 	// TODO: change back to return err when have other validation cases, warning for automtls check only.
 	if err := validateFeatures(values, iopls).ToError(); err != nil {
-		log.Warnf("feature validation: %v", err.Error())
+		warningMessage = fmt.Sprintf("feature validation warning: %v\n", err.Error())
 	}
-	return validationErrors
+	warningMessage += deprecatedSettingsMessage(values)
+	return validationErrors, warningMessage
+}
+
+// Converts from helm paths to struct paths
+// global.proxy.accessLogFormat -> Global.Proxy.AccessLogFormat
+func firstCharsToUpper(s string) string {
+	res := []string{}
+	for _, ss := range strings.Split(s, ".") {
+		res = append(res, strings.Title(ss))
+	}
+	return strings.Join(res, ".")
+}
+
+func deprecatedSettingsMessage(values *valuesv1alpha1.Values) string {
+	messages := []string{}
+	deprecations := []struct {
+		old string
+		new string
+		// In ordered to distinguish between unset for non-pointer values, we need to specify the default value
+		def interface{}
+	}{
+		{"global.certificates", "meshConfig.certificates", nil},
+		{"global.proxy.accessLogFormat", "meshConfig.accessLogFormat", ""},
+		{"global.proxy.accessLogFile", "meshConfig.accessLogFile", ""},
+		{"global.proxy.concurrency", "meshConfig.concurrency", uint32(0)},
+		{"global.disablePolicyChecks", "meshConfig.disablePolicyChecks", nil},
+		{"global.proxy.envoyAccessLogService", "meshConfig.envoyAccessLogService", nil},
+		{"global.proxy.envoyMetricsService", "meshConfig.envoyMetricsService", nil},
+		{"global.proxy.protocolDetectionTimeout", "meshConfig.protocolDetectionTimeout", ""},
+		{"mixer.telemetry.reportBatchMaxEntries", "meshConfig.reportBatchMaxEntries", uint32(0)},
+		{"mixer.telemetry.reportBatchMaxTime", "meshConfig.reportBatchMaxTime", ""},
+		{"pilot.ingress", "meshConfig", nil},
+		{"global.mtls.enabled", "PeerAuthentication", nil},
+	}
+	for _, d := range deprecations {
+		v, f, _ := tpath.GetFromStructPath(values, firstCharsToUpper(d.old))
+		if f && v != d.def {
+			messages = append(messages, fmt.Sprintf("! %s is deprecated; use %s instead", d.old, d.new))
+		}
+	}
+
+	return strings.Join(messages, "\n")
 }
 
 // validateFeatures check whether the config sematically make sense. For example, feature X and feature Y can't be enabled together.

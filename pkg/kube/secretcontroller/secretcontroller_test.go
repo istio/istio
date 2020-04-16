@@ -15,15 +15,20 @@
 package secretcontroller
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/metadata"
+	metafake "k8s.io/client-go/metadata/fake"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
@@ -39,6 +44,12 @@ func mockValidateClientConfig(_ clientcmdapi.Config) error {
 
 func mockCreateInterfaceFromClusterConfig(_ *clientcmdapi.Config) (kubernetes.Interface, error) {
 	return fake.NewSimpleClientset(), nil
+}
+
+func mockCreateMetadataInterfaceFromClusterConfig(_ *clientcmdapi.Config) (metadata.Interface, error) {
+	scheme := runtime.NewScheme()
+	metav1.AddMetaToScheme(scheme)
+	return metafake.NewSimpleMetadataClient(scheme), nil
 }
 
 func makeSecret(secret, clusterID string, kubeconfig []byte) *v1.Secret {
@@ -63,14 +74,14 @@ var (
 	deleted string
 )
 
-func addCallback(_ kubernetes.Interface, id string) error {
+func addCallback(_ kubernetes.Interface, _ metadata.Interface, id string) error {
 	mu.Lock()
 	defer mu.Unlock()
 	added = id
 	return nil
 }
 
-func updateCallback(_ kubernetes.Interface, id string) error {
+func updateCallback(_ kubernetes.Interface, _ metadata.Interface, id string) error {
 	mu.Lock()
 	defer mu.Unlock()
 	updated = id
@@ -95,6 +106,7 @@ func Test_SecretController(t *testing.T) {
 	LoadKubeConfig = mockLoadKubeConfig
 	ValidateClientConfig = mockValidateClientConfig
 	CreateInterfaceFromClusterConfig = mockCreateInterfaceFromClusterConfig
+	CreateMetadataInterfaceFromClusterConfig = mockCreateMetadataInterfaceFromClusterConfig
 
 	clientset := fake.NewSimpleClientset()
 
@@ -138,13 +150,13 @@ func Test_SecretController(t *testing.T) {
 
 			switch {
 			case step.add != nil:
-				_, err := clientset.CoreV1().Secrets(secretNamespace).Create(step.add)
+				_, err := clientset.CoreV1().Secrets(secretNamespace).Create(context.TODO(), step.add, metav1.CreateOptions{})
 				g.Expect(err).Should(BeNil())
 			case step.update != nil:
-				_, err := clientset.CoreV1().Secrets(secretNamespace).Update(step.update)
+				_, err := clientset.CoreV1().Secrets(secretNamespace).Update(context.TODO(), step.update, metav1.UpdateOptions{})
 				g.Expect(err).Should(BeNil())
 			case step.delete != nil:
-				g.Expect(clientset.CoreV1().Secrets(secretNamespace).Delete(step.delete.Name, &metav1.DeleteOptions{})).
+				g.Expect(clientset.CoreV1().Secrets(secretNamespace).Delete(context.TODO(), step.delete.Name, metav1.DeleteOptions{})).
 					Should(Succeed())
 			}
 
@@ -154,19 +166,19 @@ func Test_SecretController(t *testing.T) {
 					mu.Lock()
 					defer mu.Unlock()
 					return added
-				}).Should(Equal(step.wantAdded))
+				}, 10*time.Second).Should(Equal(step.wantAdded))
 			case step.wantUpdated != "":
 				g.Eventually(func() string {
 					mu.Lock()
 					defer mu.Unlock()
 					return updated
-				}).Should(Equal(step.wantUpdated))
+				}, 10*time.Second).Should(Equal(step.wantUpdated))
 			case step.wantDeleted != "":
 				g.Eventually(func() string {
 					mu.Lock()
 					defer mu.Unlock()
 					return deleted
-				}).Should(Equal(step.wantDeleted))
+				}, 10*time.Second).Should(Equal(step.wantDeleted))
 			default:
 				g.Consistently(func() bool {
 					mu.Lock()

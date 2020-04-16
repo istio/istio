@@ -72,7 +72,7 @@ function build_images() {
   # Build just the images needed for tests
   targets="docker.pilot docker.proxyv2 "
   targets+="docker.app docker.test_policybackend "
-  targets+="docker.mixer docker.galley "
+  targets+="docker.mixer "
   DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets}" make dockerx
 }
 
@@ -137,7 +137,7 @@ function cleanup_kind_clusters() {
 
 function setup_kind_cluster() {
   IP_FAMILY="${1:-ipv4}"
-  IMAGE="${2:-kindest/node:v1.17.0}"
+  IMAGE="${2:-kindest/node:v1.18.0}"
   NAME="${3:-istio-testing}"
   CONFIG="${4:-}"
   # Delete any previous KinD cluster
@@ -210,6 +210,9 @@ EOF
     # Create the clusters.
     # TODO: add IPv6
     KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "ipv4" "${IMAGE}" "${CLUSTER_NAME}" "${CLUSTER_YAML}"
+
+    # Replace with --internal which allows cross-cluster api server access
+    kind get kubeconfig --name "${CLUSTER_NAME}" --internal > "${CLUSTER_KUBECONFIG}"
   done
 
   # Export variables for the kube configs for the clusters.

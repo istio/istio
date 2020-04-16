@@ -2,63 +2,8 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 101
+number_of_entries: 93
 ---
-<h2 id="AddonIngressConfig">AddonIngressConfig</h2>
-<section>
-<p>Configuration for the addon ingress.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="AddonIngressConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Controls whether addon ingress is enabled.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="AddonIngressConfig-hosts">
-<td><code>hosts</code></td>
-<td><code>string[]</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="AddonIngressConfig-annotations">
-<td><code>annotations</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="AddonIngressConfig-tls">
-<td><code>tls</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="ArchConfig">ArchConfig</h2>
 <section>
 <p>ArchConfig specifies the pod scheduling target architecture(amd64, ppc64le, s390x) for all the Istio control plane components.</p>
@@ -385,183 +330,6 @@ No
 
 <p>See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/</p>
 
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="CertManagerConfig">CertManagerConfig</h2>
-<section>
-<p>Configuration for CertManager.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="CertManagerConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Controls whether CertManager is enabled.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CertManagerConfig-hub">
-<td><code>hub</code></td>
-<td><code>string</code></td>
-<td>
-<p>Image hub for the CertManager Deployment.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CertManagerConfig-tag">
-<td><code>tag</code></td>
-<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
-<td>
-<p>Image tag for the CertManager Deployment.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CertManagerConfig-image">
-<td><code>image</code></td>
-<td><code>string</code></td>
-<td>
-<p>Image name for the CertManager Deployment.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CertManagerConfig-email">
-<td><code>email</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CertManagerConfig-extraArgs">
-<td><code>extraArgs</code></td>
-<td><code>string[]</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CertManagerConfig-podDnsPolicy">
-<td><code>podDnsPolicy</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CertManagerConfig-podDnsConfig">
-<td><code>podDnsConfig</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CertManagerConfig-replicaCount" class="deprecated ">
-<td><code>replicaCount</code></td>
-<td><code>uint32</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CertManagerConfig-nodeSelector" class="deprecated ">
-<td><code>nodeSelector</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-<p>K8s node selector.</p>
-
-<p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CertManagerConfig-resources" class="deprecated ">
-<td><code>resources</code></td>
-<td><code><a href="#Resources">Resources</a></code></td>
-<td>
-<p>K8s resources settings.</p>
-
-<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CertManagerConfig-podAntiAffinityLabelSelector" class="deprecated ">
-<td><code>podAntiAffinityLabelSelector</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CertManagerConfig-podAntiAffinityTermLabelSelector" class="deprecated ">
-<td><code>podAntiAffinityTermLabelSelector</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CertManagerConfig-tolerations" class="deprecated ">
-<td><code>tolerations</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CertManagerConfig-podAnnotations" class="deprecated ">
-<td><code>podAnnotations</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CertManagerConfig-podLabels" class="deprecated ">
-<td><code>podLabels</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
 </td>
 <td>
 No
@@ -1198,197 +966,6 @@ No
 </tbody>
 </table>
 </section>
-<h2 id="GalleyConfig">GalleyConfig</h2>
-<section>
-<p>GalleyConfig is a set of Configuration for Galley.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="GalleyConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Controls whether Galley is enabled</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="GalleyConfig-image">
-<td><code>image</code></td>
-<td><code>string</code></td>
-<td>
-<p>Image name used for Galley.</p>
-
-<p>This can be set either to image name if hub is also set in global.hub, or can be set to the full hub:name string.</p>
-
-<p>Examples: custom-galley, docker.io/someuser:custom-galley</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="GalleyConfig-mesh">
-<td><code>mesh</code></td>
-<td><code>map&lt;string,&nbsp;string&gt;</code></td>
-<td>
-<p>TODO: Galley appears to use the mesh config - need to find which fields are used and need to be configured (https://github.com/istio/istio/issues/15865).</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="GalleyConfig-enableAnalysis">
-<td><code>enableAnalysis</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Enable analysis and status update in Galley</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="GalleyConfig-hub">
-<td><code>hub</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="GalleyConfig-tag">
-<td><code>tag</code></td>
-<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="GalleyConfig-podAntiAffinityLabelSelector" class="deprecated ">
-<td><code>podAntiAffinityLabelSelector</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-<p>See EgressGatewayConfig.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="GalleyConfig-podAntiAffinityTermLabelSelector" class="deprecated ">
-<td><code>podAntiAffinityTermLabelSelector</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-<p>See EgressGatewayConfig.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="GalleyConfig-replicaCount" class="deprecated ">
-<td><code>replicaCount</code></td>
-<td><code>uint32</code></td>
-<td>
-<p>Number of replicas in the Galley Deployment.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="GalleyConfig-resources" class="deprecated ">
-<td><code>resources</code></td>
-<td><code><a href="#Resources">Resources</a></code></td>
-<td>
-<p>K8s resources settings.</p>
-
-<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="GalleyConfig-rollingMaxSurge" class="deprecated ">
-<td><code>rollingMaxSurge</code></td>
-<td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
-<td>
-<p>K8s rolling update strategy</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="GalleyConfig-rollingMaxUnavailable" class="deprecated ">
-<td><code>rollingMaxUnavailable</code></td>
-<td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
-<td>
-<p>K8s rolling update strategy</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="GalleyConfig-tolerations" class="deprecated ">
-<td><code>tolerations</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="GalleyConfig-enableServiceDiscovery" class="deprecated ">
-<td><code>enableServiceDiscovery</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="GalleyConfig-nodeSelector" class="deprecated ">
-<td><code>nodeSelector</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-<p>K8s node selector.</p>
-
-<p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="GalleyConfig-podAnnotations" class="deprecated ">
-<td><code>podAnnotations</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="GatewayLabelsConfig">GatewayLabelsConfig</h2>
 <section>
 <p>GatewayLabelsConfig is a set of Configuration for gateway labels.</p>
@@ -1665,17 +1242,6 @@ Please set either failover or distribute configuration but not both.</p>
     to: eu-west
   - from: us-west
     to: us-east</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="GlobalConfig-k8sIngress">
-<td><code>k8sIngress</code></td>
-<td><code><a href="#KubernetesIngressConfig">KubernetesIngressConfig</a></code></td>
-<td>
-<p>Specifies the Configuration for the legacy kubernetes Ingress.</p>
 
 </td>
 <td>
@@ -2233,6 +1799,17 @@ No
 </tr>
 </thead>
 <tbody>
+<tr id="IstiodConfig-enableAnalysis">
+<td><code>enableAnalysis</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>If enabled, istiod will perform config analysis</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="IstiodConfig-enabled" class="deprecated ">
 <td><code>enabled</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
@@ -2854,56 +2431,6 @@ No
 <p>Enables the Kubernetes env adapter in Mixer.</p>
 
 <p>See: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/kubernetesenv/</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="KubernetesIngressConfig">KubernetesIngressConfig</h2>
-<section>
-<p>Configuration for the legacy kubernetes Ingress.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="KubernetesIngressConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Enables gateway for legacy k8s Ingress.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KubernetesIngressConfig-enableHttps">
-<td><code>enableHttps</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Enables HTTPS legacy k8s Ingress.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KubernetesIngressConfig-gatewayName">
-<td><code>gatewayName</code></td>
-<td><code>string</code></td>
-<td>
-<p>Sets the gateway name for legacy k8s Ingress.</p>
 
 </td>
 <td>
@@ -3771,132 +3298,6 @@ No
 </tbody>
 </table>
 </section>
-<h2 id="NodeAgentConfig">NodeAgentConfig</h2>
-<section>
-<p>Configuration for Node Agent Daemonset.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="NodeAgentConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Controls whether Node Agent is enabled.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="NodeAgentConfig-env">
-<td><code>env</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-<p>Environment variables passed to the Node Agent container.</p>
-
-<p>Examples:
-env:
-  ENV<em>VAR</em>1: value1
-  ENV<em>VAR</em>2: value2</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="NodeAgentConfig-image">
-<td><code>image</code></td>
-<td><code>string</code></td>
-<td>
-<p>Image name for the Node Agent DaemonSet.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="NodeAgentConfig-hub">
-<td><code>hub</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="NodeAgentConfig-tag">
-<td><code>tag</code></td>
-<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="NodeAgentConfig-nodeSelector" class="deprecated ">
-<td><code>nodeSelector</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-<p>K8s node selector.</p>
-
-<p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="NodeAgentConfig-tolerations" class="deprecated ">
-<td><code>tolerations</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="NodeAgentConfig-podAntiAffinityLabelSelector" class="deprecated ">
-<td><code>podAntiAffinityLabelSelector</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="NodeAgentConfig-podAntiAffinityTermLabelSelector" class="deprecated ">
-<td><code>podAntiAffinityTermLabelSelector</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="NodeAgentConfig-podAnnotations" class="deprecated ">
-<td><code>podAnnotations</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-<p>K8s annotations for pods.</p>
-
-<p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="OutboundTrafficPolicyConfig">OutboundTrafficPolicyConfig</h2>
 <section>
 <p>OutboundTrafficPolicyConfig controls the default behavior of the sidecar for handling outbound traffic from the application.</p>
@@ -4057,17 +3458,6 @@ No
 <p>Labels that are added to Pilot pods.</p>
 
 <p>See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="PilotConfig-meshNetworks">
-<td><code>meshNetworks</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-<p>Used to override control plane networks.</p>
 
 </td>
 <td>
@@ -4856,15 +4246,6 @@ No
 No
 </td>
 </tr>
-<tr id="PrometheusConfig-ingress">
-<td><code>ingress</code></td>
-<td><code><a href="#AddonIngressConfig">AddonIngressConfig</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="PrometheusConfig-service">
 <td><code>service</code></td>
 <td><code><a href="#PrometheusServiceConfig">PrometheusServiceConfig</a></code></td>
@@ -5235,19 +4616,6 @@ No
 No
 </td>
 </tr>
-<tr id="ProxyConfig-dnsRefreshRate">
-<td><code>dnsRefreshRate</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">Duration</a></code></td>
-<td>
-<p>Configures the DNS refresh rate for Envoy cluster of type STRICT_DNS.</p>
-
-<p>This must be given it terms of seconds. For example, 300s is valid but 5m is invalid.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="ProxyConfig-enableCoreDump">
 <td><code>enableCoreDump</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
@@ -5320,22 +4688,6 @@ No
 No
 </td>
 </tr>
-<tr id="ProxyConfig-includeInboundPorts">
-<td><code>includeInboundPorts</code></td>
-<td><code>string</code></td>
-<td>
-<p>Specifies the Istio ingress ports to capture.</p>
-
-<p>Examples:
-&ldquo;&rdquo;:          Redirect no inbound traffic to Envoy.
-&ldquo;*&rdquo;:         Redirect all inbound traffic to Envoy.
-&ldquo;80,8080&rdquo;:   Redirect only selected ports.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="ProxyConfig-includeIPRanges">
 <td><code>includeIPRanges</code></td>
 <td><code>string</code></td>
@@ -5344,17 +4696,6 @@ No
 
 <p>Example: &ldquo;172.30.0.0/16,172.20.0.0/16&rdquo;
 This would only capture egress traffic on those two IP Ranges, all other outbound traffic would # be allowed by the sidecar.&rdquo;</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="ProxyConfig-kubevirtInterfaces">
-<td><code>kubevirtInterfaces</code></td>
-<td><code>string</code></td>
-<td>
-<p>Comma separated list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound. By default, no interfaces are configured.</p>
 
 </td>
 <td>
@@ -5856,243 +5197,6 @@ No
 </tbody>
 </table>
 </section>
-<h2 id="SecurityConfig">SecurityConfig</h2>
-<section>
-<p>Configuration for Citadel.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="SecurityConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Controls whether Citadel is enabled.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SecurityConfig-image">
-<td><code>image</code></td>
-<td><code>string</code></td>
-<td>
-<p>Image name used for Citadel.</p>
-
-<p>This can be set either to image name if hub is also set, or can be set to the full hub:name string.</p>
-
-<p>Examples: custom-citadel, docker.io/someuser:custom-citadel</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SecurityConfig-selfSigned">
-<td><code>selfSigned</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Controls whether self-signed CA is used for citadel to generate the certificate/key pair.</p>
-
-<p>Setting to false if you want to use your own root CA for Citade Deployment.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SecurityConfig-trustDomain">
-<td><code>trustDomain</code></td>
-<td><code>string</code></td>
-<td>
-<p>The trust domain corresponds to the trust root of a system
-Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
-Indicate the domain used in SPIFFE identity URL
-The default depends on the environment.
-  kubernetes: cluster.local
-   else:  default dns domain</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SecurityConfig-dnsCerts">
-<td><code>dnsCerts</code></td>
-<td><code>map&lt;string,&nbsp;string&gt;</code></td>
-<td>
-<p>The DNS Certs specifies the customized DNS name and corresponding service account.</p>
-
-<p>Example:
-  istio-pilot-service-account.istio-control: istio-pilot.istio-control.svc
-  istio-galley-service-account.istio-config: istio-galley.istio-config.svc</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SecurityConfig-createMeshPolicy">
-<td><code>createMeshPolicy</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Controls whether the mesh-wide authentication policy is created or not.</p>
-
-<p>Setting to true creates the mesh-wide authentication policy with name &ldquo;default&rdquo;.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SecurityConfig-enableNamespacesByDefault">
-<td><code>enableNamespacesByDefault</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SecurityConfig-citadelHealthCheck">
-<td><code>citadelHealthCheck</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SecurityConfig-env">
-<td><code>env</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SecurityConfig-workloadCertTtl">
-<td><code>workloadCertTtl</code></td>
-<td><code>string</code></td>
-<td>
-<p>How long workload certs are valid for</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SecurityConfig-replicaCount" class="deprecated ">
-<td><code>replicaCount</code></td>
-<td><code>uint32</code></td>
-<td>
-<p>Number of replicas in the Citadel Deployment.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SecurityConfig-nodeSelector" class="deprecated ">
-<td><code>nodeSelector</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-<p>K8s node selector.</p>
-
-<p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SecurityConfig-podAnnotations" class="deprecated ">
-<td><code>podAnnotations</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-<p>K8s annotations for pods.</p>
-
-<p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SecurityConfig-tolerations" class="deprecated ">
-<td><code>tolerations</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SecurityConfig-resources" class="deprecated ">
-<td><code>resources</code></td>
-<td><code><a href="#Resources">Resources</a></code></td>
-<td>
-<p>K8s resources settings.</p>
-
-<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SecurityConfig-rollingMaxSurge" class="deprecated ">
-<td><code>rollingMaxSurge</code></td>
-<td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
-<td>
-<p>K8s rolling update strategy</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SecurityConfig-rollingMaxUnavailable" class="deprecated ">
-<td><code>rollingMaxUnavailable</code></td>
-<td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
-<td>
-<p>K8s rolling update strategy</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SecurityConfig-podAntiAffinityLabelSelector" class="deprecated ">
-<td><code>podAntiAffinityLabelSelector</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SecurityConfig-podAntiAffinityTermLabelSelector" class="deprecated ">
-<td><code>podAntiAffinityTermLabelSelector</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="ServiceConfig">ServiceConfig</h2>
 <section>
 <p>ServiceConfig is described in istio.io documentation.</p>
@@ -6160,56 +5264,12 @@ No
 </tr>
 </thead>
 <tbody>
-<tr id="SidecarInjectorConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Controls whether Sidecar Injector is enabled.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="SidecarInjectorConfig-enableNamespacesByDefault">
 <td><code>enableNamespacesByDefault</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
 <td>
 <p>Enables sidecar auto-injection in namespaces by default.</p>
 
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SidecarInjectorConfig-image">
-<td><code>image</code></td>
-<td><code>string</code></td>
-<td>
-<p>Image name used for Sidecar Injector.</p>
-
-<p>This can be set either to image name if hub is also set, or can be set to the full hub:name string.</p>
-
-<p>Examples: custom-sidecar<em>injector, docker.io/someuser:custom-sidecar</em>injector</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SidecarInjectorConfig-hub">
-<td><code>hub</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SidecarInjectorConfig-tag">
-<td><code>tag</code></td>
-<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
-<td>
 </td>
 <td>
 No
@@ -6252,19 +5312,6 @@ No
 No
 </td>
 </tr>
-<tr id="SidecarInjectorConfig-selfSigned">
-<td><code>selfSigned</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Controls whether self-signed CA is used for Sidecar Injector to generate the certificate/key pair.</p>
-
-<p>Setting to false if you want to use your own root CA.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="SidecarInjectorConfig-injectLabel">
 <td><code>injectLabel</code></td>
 <td><code>string</code></td>
@@ -6291,118 +5338,6 @@ No
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
 <p>Enable objectSelector to filter out pods with no need for sidecar before calling istio-sidecar-injector.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SidecarInjectorConfig-lifecycle">
-<td><code>lifecycle</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SidecarInjectorConfig-nodeSelector" class="deprecated ">
-<td><code>nodeSelector</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-<p>K8s node selector. Each component can overwrite the default values by adding its node selector block in the relevant section and setting the desired values.</p>
-
-<p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SidecarInjectorConfig-podAntiAffinityLabelSelector" class="deprecated ">
-<td><code>podAntiAffinityLabelSelector</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-<p>See EgressGatewayConfig.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SidecarInjectorConfig-podAntiAffinityTermLabelSelector" class="deprecated ">
-<td><code>podAntiAffinityTermLabelSelector</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-<p>See EgressGatewayConfig.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SidecarInjectorConfig-replicaCount" class="deprecated ">
-<td><code>replicaCount</code></td>
-<td><code>uint32</code></td>
-<td>
-<p>Number of replicas in the Sidecar Injector Deployment.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SidecarInjectorConfig-resources" class="deprecated ">
-<td><code>resources</code></td>
-<td><code><a href="#Resources">Resources</a></code></td>
-<td>
-<p>K8s resources settings.</p>
-
-<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SidecarInjectorConfig-tolerations" class="deprecated ">
-<td><code>tolerations</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SidecarInjectorConfig-podAnnotations" class="deprecated ">
-<td><code>podAnnotations</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-<p>K8s annotations for pods.</p>
-
-<p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SidecarInjectorConfig-rollingMaxSurge" class="deprecated ">
-<td><code>rollingMaxSurge</code></td>
-<td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
-<td>
-<p>K8s rolling update strategy</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SidecarInjectorConfig-rollingMaxUnavailable" class="deprecated ">
-<td><code>rollingMaxUnavailable</code></td>
-<td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
-<td>
-<p>K8s rolling update strategy</p>
 
 </td>
 <td>
@@ -6887,17 +5822,6 @@ No
 No
 </td>
 </tr>
-<tr id="TracingConfig-ingress">
-<td><code>ingress</code></td>
-<td><code><a href="#TracingIngressConfig">TracingIngressConfig</a></code></td>
-<td>
-<p>Controls legacy k8s ingress for addon tracing components.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="TracingConfig-jaeger">
 <td><code>jaeger</code></td>
 <td><code><a href="#TracingJaegerConfig">TracingJaegerConfig</a></code></td>
@@ -7093,61 +6017,6 @@ No
 <tbody>
 <tr id="TracingOpencensusExportersConfig-stackdriver">
 <td><code>stackdriver</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="TracingIngressConfig">TracingIngressConfig</h2>
-<section>
-<p>Controls legacy k8s ingress for addon tracing components.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="TracingIngressConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Enables k8s ingress for addon tracing components.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="TracingIngressConfig-annotations">
-<td><code>annotations</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="TracingIngressConfig-hosts">
-<td><code>hosts</code></td>
-<td><code>string[]</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="TracingIngressConfig-tls">
-<td><code>tls</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
 </td>
@@ -7652,57 +6521,6 @@ No
 </tbody>
 </table>
 </section>
-<h2 id="KialiIngressConfig">KialiIngressConfig</h2>
-<section>
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="KialiIngressConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiIngressConfig-annotations">
-<td><code>annotations</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiIngressConfig-tls">
-<td><code>tls</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiIngressConfig-hosts">
-<td><code>hosts</code></td>
-<td><code>string[]</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="KialiConfig">KialiConfig</h2>
 <section>
 <p>Configuration for Kiali addon.</p>
@@ -7778,15 +6596,6 @@ No
 <tr id="KialiConfig-dashboard">
 <td><code>dashboard</code></td>
 <td><code><a href="#KialiDashboardConfig">KialiDashboardConfig</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="KialiConfig-ingress">
-<td><code>ingress</code></td>
-<td><code><a href="#KialiIngressConfig">KialiIngressConfig</a></code></td>
 <td>
 </td>
 <td>
@@ -7946,15 +6755,6 @@ No
 </tr>
 </thead>
 <tbody>
-<tr id="Values-certmanager">
-<td><code>certmanager</code></td>
-<td><code><a href="#CertManagerConfig">CertManagerConfig</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="Values-cni">
 <td><code>cni</code></td>
 <td><code><a href="#CNIConfig">CNIConfig</a></code></td>
@@ -7967,15 +6767,6 @@ No
 <tr id="Values-istiocoredns">
 <td><code>istiocoredns</code></td>
 <td><code><a href="#CoreDNSConfig">CoreDNSConfig</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="Values-galley">
-<td><code>galley</code></td>
-<td><code><a href="#GalleyConfig">GalleyConfig</a></code></td>
 <td>
 </td>
 <td>
@@ -8041,15 +6832,6 @@ No
 <tr id="Values-prometheus">
 <td><code>prometheus</code></td>
 <td><code><a href="#PrometheusConfig">PrometheusConfig</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="Values-security">
-<td><code>security</code></td>
-<td><code><a href="#SecurityConfig">SecurityConfig</a></code></td>
 <td>
 </td>
 <td>
@@ -8141,10 +6923,12 @@ No
 No
 </td>
 </tr>
-<tr id="Values-nodeagent" class="deprecated ">
-<td><code>nodeagent</code></td>
-<td><code><a href="#NodeAgentConfig">NodeAgentConfig</a></code></td>
+<tr id="Values-meshConfig">
+<td><code>meshConfig</code></td>
+<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
 <td>
+<p>TODO can this import the real mesh config API?</p>
+
 </td>
 <td>
 No

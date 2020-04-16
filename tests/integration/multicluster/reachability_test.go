@@ -20,6 +20,8 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -55,6 +57,8 @@ func TestMulticlusterReachability(t *testing.T) {
 			// Now verify that they can talk to each other.
 			for _, src := range []echo.Instance{a, b} {
 				for _, dest := range []echo.Instance{a, b} {
+					src := src
+					dest := dest
 					subTestName := fmt.Sprintf("%s->%s://%s:%s%s",
 						src.Config().Service,
 						"http",
@@ -64,23 +68,7 @@ func TestMulticlusterReachability(t *testing.T) {
 
 					ctx.NewSubTest(subTestName).
 						RunParallel(func(ctx framework.TestContext) {
-							if err := retry.UntilSuccess(func() error {
-								results, err := src.Call(echo.CallOptions{
-									Target:   dest,
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-								})
-								if err == nil {
-									err = results.CheckOK()
-								}
-								if err != nil {
-									return fmt.Errorf("%s to %s:%s using %s: expected success but failed: %v",
-										src, dest, "http", scheme.HTTP, err)
-								}
-								return nil
-							}, retry.Timeout(retryTimeout), retry.Delay(retryDelay)); err != nil {
-								t.Fatal(err)
-							}
+							_ = callOrFail(ctx, src, dest)
 						})
 				}
 			}
@@ -89,8 +77,7 @@ func TestMulticlusterReachability(t *testing.T) {
 
 func newEchoConfig(service string, ns namespace.Instance, cluster resource.Cluster) echo.Config {
 	return echo.Config{
-		Galley:         g,
-		Pilot:          p,
+		Pilot:          pilots[cluster.Index()],
 		Service:        service,
 		Namespace:      ns,
 		Cluster:        cluster,
@@ -117,4 +104,26 @@ func newEchoConfig(service string, ns namespace.Instance, cluster resource.Clust
 			},
 		},
 	}
+}
+
+func callOrFail(ctx test.Failer, src, dest echo.Instance) client.ParsedResponses {
+	ctx.Helper()
+	var results client.ParsedResponses
+	retry.UntilSuccessOrFail(ctx, func() (err error) {
+		results, err = src.Call(echo.CallOptions{
+			Target:   dest,
+			PortName: "http",
+			Scheme:   scheme.HTTP,
+			Count:    5,
+		})
+		if err == nil {
+			err = results.CheckOK()
+		}
+		if err != nil {
+			return fmt.Errorf("%s to %s:%s using %s: expected success but failed: %v",
+				src.Config().Service, dest.Config().Service, "http", scheme.HTTP, err)
+		}
+		return nil
+	}, retry.Timeout(retryTimeout), retry.Delay(retryDelay))
+	return results
 }

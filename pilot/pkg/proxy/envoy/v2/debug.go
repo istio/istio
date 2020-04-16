@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube/inject"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -121,6 +122,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	s.addDebugHandler(mux, "/debug/endpointz", "Debug support for endpoints", s.endpointz)
 	s.addDebugHandler(mux, "/debug/endpointShardz", "Info about the endpoint shards", s.endpointShardz)
 	s.addDebugHandler(mux, "/debug/configz", "Debug support for config", s.configz)
+	s.addDebugHandler(mux, "/debug/resourcesz", "Debug support for watched resources", s.resourcez)
 
 	s.addDebugHandler(mux, "/debug/authorizationz", "Internal authorization policies", s.Authorizationz)
 	s.addDebugHandler(mux, "/debug/config_dump", "ConfigDump in the form of the Envoy admin config dump API for passed in proxyID", s.ConfigDump)
@@ -365,6 +367,20 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// Resource debugging.
+func (s *DiscoveryServer) resourcez(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
+	schemas := []resource.GroupVersionKind{}
+	s.Env.Schemas().ForEach(func(schema collection.Schema) bool {
+		schemas = append(schemas, schema.Resource().GroupVersionKind())
+		return false
+	})
+
+	if b, err := json.MarshalIndent(schemas, "", "  "); err == nil {
+		_, _ = w.Write(b)
+	}
+}
+
 // AuthorizationDebug holds debug information for authorization policy.
 type AuthorizationDebug struct {
 	AuthorizationPolicies *model.AuthorizationPolicies `json:"authorization_policies"`
@@ -456,7 +472,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
 func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump, error) {
 	dynamicActiveClusters := make([]*adminapi.ClustersConfigDump_DynamicCluster, 0)
-	clusters := s.generateRawClusters(conn.node, s.globalPushContext())
+	clusters := s.ConfigGenerator.BuildClusters(conn.node, s.globalPushContext())
 
 	for _, cs := range clusters {
 		cluster, err := ptypes.MarshalAny(cs)
@@ -474,7 +490,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	}
 
 	dynamicActiveListeners := make([]*adminapi.ListenersConfigDump_DynamicListener, 0)
-	listeners := s.generateRawListeners(conn, s.globalPushContext())
+	listeners := s.ConfigGenerator.BuildListeners(conn.node, s.globalPushContext())
 	for _, cs := range listeners {
 		listener, err := ptypes.MarshalAny(cs)
 		if err != nil {
@@ -492,7 +508,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 		return nil, err
 	}
 
-	routes := s.generateRawRoutes(conn, s.globalPushContext())
+	routes := s.ConfigGenerator.BuildHTTPRoutes(conn.node, s.globalPushContext(), conn.Routes)
 	routeConfigAny := util.MessageToAny(&adminapi.RoutesConfigDump{})
 	if len(routes) > 0 {
 		dynamicRouteConfig := make([]*adminapi.RoutesConfigDump_DynamicRouteConfig, 0)

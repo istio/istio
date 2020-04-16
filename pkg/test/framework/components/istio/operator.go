@@ -21,8 +21,11 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 
 	"github.com/hashicorp/go-multierror"
+
+	"istio.io/istio/pkg/test/util/yml"
 
 	"istio.io/istio/pkg/test/cert/ca"
 	"istio.io/istio/pkg/test/deployment"
@@ -34,20 +37,14 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 )
 
-func DefaultValidatingWebhookConfigurationName(config Config) string {
-	return fmt.Sprintf("istiod-%v", config.SystemNamespace)
-
-}
-
-const (
-	DefaultMutatingWebhookConfigurationName = "istio-sidecar-injector"
-)
-
 type operatorComponent struct {
 	id          resource.ID
 	settings    Config
 	ctx         resource.Context
 	environment *kube.Environment
+	// installManifest includes the yamls use to install Istio. These can be deleted on cleanup
+	// The key is the cluster name
+	installManifest map[string]string
 }
 
 var _ io.Closer = &operatorComponent{}
@@ -63,26 +60,32 @@ func (i *operatorComponent) Settings() Config {
 	return i.settings
 }
 
+// When we cleanup, we should not delete CRDs. This will filter out all the crds
+func removeCRDs(istioYaml string) string {
+	allParts := yml.SplitString(istioYaml)
+	nonCrds := make([]string, 0, len(allParts))
+
+	// Make the regular expression multi-line and anchor to the beginning of the line.
+	r := regexp.MustCompile(`(?m)^kind: CustomResourceDefinition$`)
+
+	for _, p := range allParts {
+		if r.Match([]byte(p)) {
+			continue
+		}
+		nonCrds = append(nonCrds, p)
+	}
+
+	return yml.JoinString(nonCrds...)
+}
+
 func (i *operatorComponent) Close() (err error) {
 	scopes.CI.Infof("=== BEGIN: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
 	defer scopes.CI.Infof("=== DONE: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
 	if i.settings.DeployIstio {
 		for _, cluster := range i.environment.KubeClusters {
-			if e := cluster.DeleteNamespace(i.settings.SystemNamespace); e != nil {
-				err = multierror.Append(err, fmt.Errorf("failed deleting system namespace %s in cluster %s: %v",
-					i.settings.SystemNamespace, cluster.Name(), e))
+			if e := cluster.DeleteContents("", removeCRDs(i.installManifest[cluster.Name()])); e != nil {
+				err = multierror.Append(err, e)
 			}
-			if e := cluster.WaitForNamespaceDeletion(i.settings.SystemNamespace); e != nil {
-				err = multierror.Append(err, fmt.Errorf("failed waiting for deletion of system namespace %s in cluster %s: %v",
-					i.settings.SystemNamespace, cluster.Name(), e))
-			}
-
-			// Note: when cleaning up an Istio deployment, ValidatingWebhookConfiguration
-			// and MutatingWebhookConfiguration must be cleaned up. Otherwise, next
-			// Istio deployment in the cluster will be impacted, causing flaky test results.
-			// Clean up ValidatingWebhookConfiguration and MutatingWebhookConfiguration if they exist
-			_ = cluster.DeleteValidatingWebhook(DefaultValidatingWebhookConfigurationName(i.settings))
-			_ = cluster.DeleteMutatingWebhook(DefaultMutatingWebhookConfigurationName)
 		}
 	}
 	return
@@ -132,9 +135,10 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	scopes.CI.Infof("================================")
 
 	i := &operatorComponent{
-		environment: env,
-		settings:    cfg,
-		ctx:         ctx,
+		environment:     env,
+		settings:        cfg,
+		ctx:             ctx,
+		installManifest: map[string]string{},
 	}
 	i.id = ctx.TrackResource(i)
 
@@ -203,35 +207,43 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 	if err != nil {
 		return err
 	}
-
 	defaultsIOPFile := cfg.IOPFile
 	if !path.IsAbs(defaultsIOPFile) {
 		defaultsIOPFile = filepath.Join(env.IstioSrc, defaultsIOPFile)
 	}
 
+	installSettings := []string{
+		"-f", defaultsIOPFile,
+		"-f", iopFile,
+		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
+	}
+	// Include all user-specified values.
+	for k, v := range cfg.Values {
+		installSettings = append(installSettings, "--set", fmt.Sprintf("values.%s=%s", k, v))
+	}
+	if c.environment.IsMulticluster() {
+		// Set the clusterName for the local cluster.
+		// This MUST match the clusterName in the remote secret for this cluster.
+		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
+	}
+
+	// Save the manifest generate output so we can later cleanup
+	genCmd := []string{"manifest", "generate"}
+	genCmd = append(genCmd, installSettings...)
+	out, err := istioCtl.Invoke(genCmd)
+	if err != nil {
+		return err
+	}
+	c.installManifest[cluster.Name()] = out
+
+	// Actually run the manifest apply command
 	cmd := []string{
 		"manifest", "apply",
 		"--skip-confirmation",
 		"--logtostderr",
-		"-f", defaultsIOPFile,
-		"-f", iopFile,
-		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
 		"--wait",
 	}
-	// If control plane values set, assume this includes the full set of values, and .Values is
-	// just for helm use case. Otherwise, include all values.
-	if cfg.ControlPlaneValues == "" {
-		for k, v := range cfg.Values {
-			cmd = append(cmd, "--set", fmt.Sprintf("values.%s=%s", k, v))
-		}
-	}
-
-	if c.environment.IsMulticluster() {
-		// Set the clusterName for the local cluster.
-		// This MUST match the clusterName in the remote secret for this cluster.
-		cmd = append(cmd, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
-	}
-
+	cmd = append(cmd, installSettings...)
 	scopes.CI.Infof("Running istio control plane on cluster %s %v", cluster.Name(), cmd)
 	if _, err := istioCtl.Invoke(cmd); err != nil {
 		return fmt.Errorf("manifest apply failed: %v", err)
@@ -242,14 +254,6 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 
 func waitForControlPlane(dumper resource.Dumper, cluster kube.Cluster, cfg Config) error {
 	if !cfg.SkipWaitForValidationWebhook {
-		// Wait for the validation webhook to come online before continuing.
-		if _, _, err := cluster.WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istiod"); err != nil {
-			err = fmt.Errorf("error waiting %s/%s service endpoints: %v", cfg.SystemNamespace, "istiod", err)
-			scopes.CI.Info(err.Error())
-			dumper.Dump()
-			return err
-		}
-
 		// Wait for webhook to come online. The only reliable way to do that is to see if we can submit invalid config.
 		if err := waitForValidationWebhook(cluster.Accessor, cfg); err != nil {
 			dumper.Dump()

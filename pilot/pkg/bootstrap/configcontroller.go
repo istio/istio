@@ -148,6 +148,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 		ConfigLedger: buildLedger(args.Config),
 		XDSUpdater:   s.EnvoyXdsServer,
+		Revision:     args.Revision,
 	}
 	reporter := monitoring.NewStatsContext("pilot")
 
@@ -220,17 +221,17 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 func mcpSecurityOptions(ctx context.Context, configSource *meshconfig.ConfigSource) (grpc.DialOption, error) {
 	securityOption := grpc.WithInsecure()
 	if configSource.TlsSettings != nil &&
-		configSource.TlsSettings.Mode != networkingapi.TLSSettings_DISABLE {
+		configSource.TlsSettings.Mode != networkingapi.ClientTLSSettings_DISABLE {
 		var credentialOption *creds.Options
 		switch configSource.TlsSettings.Mode {
-		case networkingapi.TLSSettings_SIMPLE:
-		case networkingapi.TLSSettings_MUTUAL:
+		case networkingapi.ClientTLSSettings_SIMPLE:
+		case networkingapi.ClientTLSSettings_MUTUAL:
 			credentialOption = &creds.Options{
 				CertificateFile:   configSource.TlsSettings.ClientCertificate,
 				KeyFile:           configSource.TlsSettings.PrivateKey,
 				CACertificateFile: configSource.TlsSettings.CaCertificates,
 			}
-		case networkingapi.TLSSettings_ISTIO_MUTUAL:
+		case networkingapi.ClientTLSSettings_ISTIO_MUTUAL:
 			credentialOption = &creds.Options{
 				CertificateFile:   path.Join(constants.AuthCertsPath, constants.CertChainFilename),
 				KeyFile:           path.Join(constants.AuthCertsPath, constants.KeyFilename),
@@ -319,7 +320,7 @@ func (s *Server) mcpController(
 	all := collections.Pilot.All()
 	cols := make([]sink.CollectionOptions, 0, len(all))
 	for _, c := range all {
-		cols = append(cols, sink.CollectionOptions{Name: c.Name().String(), Incremental: false})
+		cols = append(cols, sink.CollectionOptions{Name: c.Name().String(), Incremental: features.EnableIncrementalMCP})
 	}
 
 	mcpController := mcp.NewController(opts)
@@ -365,7 +366,7 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 
 func (s *Server) makeFileMonitor(fileDir string, configController model.ConfigStore) error {
 	fileSnapshot := configmonitor.NewFileSnapshot(fileDir, collections.Pilot)
-	fileMonitor := configmonitor.NewMonitor("file-monitor", configController, FilepathWalkInterval, fileSnapshot.ReadConfigFiles)
+	fileMonitor := configmonitor.NewMonitor("file-monitor", configController, fileSnapshot.ReadConfigFiles, fileDir)
 
 	// Defer starting the file monitor until after the service is created.
 	s.addStartFunc(func(stop <-chan struct{}) error {

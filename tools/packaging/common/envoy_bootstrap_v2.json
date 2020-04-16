@@ -175,6 +175,10 @@
       {
           "regex": "(destination_canonical_revision=\\.=(.+?);\\.;)",
           "tag_name": "destination_canonical_revision"
+      },
+      {
+        "regex": "(wasm_filter\\.(.+?)\\.)",
+        "tag_name": "wasm_filter"
       }
     ],
     "stats_matcher": {
@@ -283,7 +287,7 @@
         "name": "sds-grpc",
         "type": "STATIC",
         "http2_protocol_options": {},
-        "connect_timeout": "{{ .connect_timeout }}",
+        "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         "load_assignment": {
           "cluster_name": "sds-grpc",
@@ -292,7 +296,7 @@
               "endpoint": {
                 "address":{
                   "pipe": {
-                    "path": "/etc/istio/proxy/SDS"
+                    "path": "./etc/istio/proxy/SDS"
                   }
                 }
               }
@@ -305,7 +309,7 @@
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
-        "connect_timeout": "{{ .connect_timeout }}",
+        "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         {{- if eq .config.ControlPlaneAuthPolicy 1 }}
         "transport_socket": {
@@ -341,7 +345,7 @@
                   "filename": "./var/run/secrets/istio/root-cert.pem"
                   {{- end }}
                 },
-                "verify_subject_alt_name": {{ toJSON .pilot_SAN }}
+                "match_subject_alt_names": {{ .pilot_SAN }}
               }
             }
           }
@@ -573,7 +577,10 @@
                     ]
                   },
                   "http_filters": [{
-                    "name": "envoy.router"
+                    "name": "envoy.router",
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.config.filter.http.router.v2.Router"
+                    }
                   }]
                 }
               }
@@ -650,8 +657,16 @@
               "scope": "https://www.googleapis.com/auth/cloud-platform",
             }
           }
-        }
-      }
+        },
+        "initial_metadata": [
+        {{ if .gcp_project_id }}
+          {
+            "key": "x-goog-user-project",
+            "value": "{{ .gcp_project_id }}"
+          }
+        {{ end }}
+        ]
+      },
       {{ end }}
       "stdout_exporter_enabled": {{ .stackdriverDebug }},
       "incoming_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],

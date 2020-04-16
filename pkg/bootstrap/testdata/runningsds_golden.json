@@ -7,7 +7,7 @@
       "zone": "zoneB",
       "sub_zone": "sub_zoneC",
     },
-    "metadata": {"CONFIG_NAMESPACE":"test","EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,CANONICAL_TELEMETRY_SERVICE,MESH_ID,SERVICE_ACCOUNT","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","INTERCEPTION_MODE":"REDIRECT","ISTIO_PROXY_SHA":"istio-proxy:sha","ISTIO_VERSION":"release-3.1","LABELS":{"app":"test","istio-locality":"regionA.zoneB.sub_zoneC","version":"v1alpha1"},"NAME":"svc-0-0-0-6944fb884d-4pgx8","NAMESPACE":"test","POD_NAME":"svc-0-0-0-6944fb884d-4pgx8","SDS":"true","TRUSTJWT":"true","app":"test","istio-locality":"regionA.zoneB.sub_zoneC","istio.io/insecurepath":"{\"paths\":[\"/metrics\",\"/live\"]}","version":"v1alpha1"}
+    "metadata": {"CONFIG_NAMESPACE":"test","EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,MESH_ID,SERVICE_ACCOUNT,CLUSTER_ID","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","INTERCEPTION_MODE":"REDIRECT","ISTIO_PROXY_SHA":"istio-proxy:sha","ISTIO_VERSION":"release-3.1","LABELS":{"app":"test","istio-locality":"regionA.zoneB.sub_zoneC","version":"v1alpha1"},"NAME":"svc-0-0-0-6944fb884d-4pgx8","NAMESPACE":"test","POD_NAME":"svc-0-0-0-6944fb884d-4pgx8","SDS":"true","TRUSTJWT":"true","app":"test","istio-locality":"regionA.zoneB.sub_zoneC","istio.io/insecurepath":"{\"paths\":[\"/metrics\",\"/live\"]}","version":"v1alpha1"}
   },
   "stats_config": {
     "use_all_default_tags": false,
@@ -163,6 +163,10 @@
       {
           "regex": "(destination_canonical_revision=\\.=(.+?);\\.;)",
           "tag_name": "destination_canonical_revision"
+      },
+      {
+        "regex": "(wasm_filter\\.(.+?)\\.)",
+        "tag_name": "wasm_filter"
       }
     ],
     "stats_matcher": {
@@ -191,6 +195,9 @@
           },
           {
           "prefix": "cluster.xds-grpc"
+          },
+          {
+          "prefix": "wasm"
           },
           {
           "suffix": "ssl_context_update_by_sds"
@@ -277,7 +284,7 @@
         "name": "sds-grpc",
         "type": "STATIC",
         "http2_protocol_options": {},
-        "connect_timeout": "7s",
+        "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         "load_assignment": {
           "cluster_name": "sds-grpc",
@@ -286,7 +293,7 @@
               "endpoint": {
                 "address":{
                   "pipe": {
-                    "path": "/etc/istio/proxy/SDS"
+                    "path": "./etc/istio/proxy/SDS"
                   }
                 }
               }
@@ -299,7 +306,7 @@
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
         "dns_lookup_family": "V4_ONLY",
-        "connect_timeout": "7s",
+        "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         "transport_socket": {
           "name": "envoy.transport_sockets.tls",
@@ -328,7 +335,7 @@
                 "trusted_ca": {
                   "filename": "./var/run/secrets/istio/root-cert.pem"
                 },
-                "verify_subject_alt_name": ["spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"]
+                "match_subject_alt_names": [{"exact":"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}]
               }
             }
           }
@@ -442,7 +449,10 @@
                     ]
                   },
                   "http_filters": [{
-                    "name": "envoy.router"
+                    "name": "envoy.router",
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.config.filter.http.router.v2.Router"
+                    }
                   }]
                 }
               }

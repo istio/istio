@@ -7,6 +7,9 @@ spec:
     ingressGateways:
     - enabled: true
       k8s:
+        hpaSpec:
+          maxReplicas: 20
+          minReplicas: 20
         nodeSelector:
           scalers.istio: dedicated
         tolerations:
@@ -17,6 +20,9 @@ spec:
       name: istio-ingressgateway
     pilot:
       k8s:
+        hpaSpec:
+          maxReplicas: 20
+          minReplicas: 20
         nodeSelector:
           scalers.istio: dedicated
         tolerations:
@@ -31,16 +37,12 @@ spec:
   values:
     gateways:
       istio-ingressgateway:
-        autoscaleMax: 20
-        autoscaleMin: 20
         podAntiAffinityTermLabelSelector:
         - key: istio
           operator: In
           topologyKey: kubernetes.io/hostname
           values: ingressgateway
     pilot:
-      autoscaleMax: 20
-      autoscaleMin: 20
       podAntiAffinityTermLabelSelector:
       - key: istio
         operator: In

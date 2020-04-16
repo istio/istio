@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    app: istiod
+    istio: pilot
+    release: {{ .Release.Name }}
+spec:
+  ports:
+    - port: 15010
+      name: grpc-xds # plaintext
+    - port: 15012
+      name: https-dns # mTLS with k8s-signed cert
+    - port: 443
+      name: https-webhook # validation and injection
+      targetPort: 15017
+    - port: 15014
+      name: http-monitoring # prometheus stats
+    - name: dns
+      port: 53
+      targetPort: 15053
+      protocol: UDP
+    - name: dns-tls
+      port: 853
+      targetPort: 15053
+      protocol: TCP
+  selector:
+    app: istiod
+    {{- if ne .Values.revision ""}}
+    istio.io/rev: {{ .Values.revision }}
+    {{- else }}
+    # Label used by the 'default' service. For versioned deployments we match with app and version.
+    # This avoids default deployment picking the canary
+    istio: pilot
+    {{- end }}
+---

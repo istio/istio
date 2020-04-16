@@ -20,5 +20,10 @@ type Origin interface {
 
 	Namespace() Namespace
 
-	Reference() string
+	Reference() Reference
+}
+
+// Reference provides more information about an Origin. This is also source-implementation dependant.
+type Reference interface {
+	String() string
 }

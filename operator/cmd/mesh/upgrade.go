@@ -131,7 +131,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 	if err != nil {
 		return err
 	}
-	// Generate IOPS objects
+	// Generate IOPS parseObjectSetFromManifest
 	targetIOPSYaml, targetIOPS, err := GenerateConfig(args.inFilenames, ysf, args.force, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate IOPS from file %s, error: %s", args.inFilenames, err)
@@ -172,10 +172,12 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 		if err != nil {
 			return fmt.Errorf("failed to read override IOPS from file: %v, error: %v", args.inFilenames, err)
 		}
-		// Grab the IstioOperatorSpec subtree.
-		overrideIOPSYaml, err = tpath.GetSpecSubtree(overrideIOPSYaml)
-		if err != nil {
-			return fmt.Errorf("failed to get spec subtree from IOPS yaml, error: %v", err)
+		if overrideIOPSYaml != "" {
+			// Grab the IstioOperatorSpec subtree.
+			overrideIOPSYaml, err = tpath.GetSpecSubtree(overrideIOPSYaml)
+			if err != nil {
+				return fmt.Errorf("failed to get spec subtree from IOPS yaml, error: %v", err)
+			}
 		}
 	}
 

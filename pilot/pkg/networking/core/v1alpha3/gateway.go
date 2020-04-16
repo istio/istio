@@ -136,11 +136,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 		}
 
 		pluginParams := &plugin.InputParams{
-			ListenerProtocol:           listenerProtocol,
-			DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_GATEWAY,
-			Node:                       node,
-			Push:                       push,
-			ServiceInstance:            si,
+			ListenerProtocol: listenerProtocol,
+			Node:             node,
+			Push:             push,
+			ServiceInstance:  si,
 			Port: &model.Port{
 				Name:     servers[0].Port.Name,
 				Port:     int(portNumber),
@@ -252,7 +251,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					vHost.Routes = istio_route.CombineVHostRoutes(vHost.Routes, routes)
 				} else {
 					newVHost := &route.VirtualHost{
-						Name:    fmt.Sprintf("%s:%d", hostname, port),
+						Name:    domainName(string(hostname), port),
 						Domains: buildGatewayVirtualHostDomains(string(hostname)),
 						Routes:  routes,
 					}
@@ -269,7 +268,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	if len(vHostDedupMap) == 0 {
 		log.Warnf("constructed http route config for port %d with no vhosts; Setting up a default 404 vhost", port)
 		virtualHosts = []*route.VirtualHost{{
-			Name:    fmt.Sprintf("blackhole:%d", port),
+			Name:    domainName("blackhole", port),
 			Domains: []string{"*"},
 			Routes: []*route.Route{
 				{
@@ -420,9 +419,9 @@ func buildGatewayListenerTLSContext(
 	if server.Tls.CredentialName != "" {
 		// If SDS is enabled at gateway, and credential name is specified at gateway config, create
 		// SDS config for gateway to fetch key/cert at gateway agent.
-		util.ApplyCustomSDSToCommonTLSContext(tls.CommonTlsContext, server.Tls, authn_model.IngressGatewaySdsUdsPath)
-	} else if server.Tls.Mode == networking.Server_TLSOptions_ISTIO_MUTUAL {
-		util.ApplyToCommonTLSContext(tls.CommonTlsContext, metadata, sdsPath, server.Tls.SubjectAltNames)
+		authn_model.ApplyCustomSDSToCommonTLSContext(tls.CommonTlsContext, server.Tls, authn_model.IngressGatewaySdsUdsPath)
+	} else if server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
+		authn_model.ApplyToCommonTLSContext(tls.CommonTlsContext, metadata, sdsPath, server.Tls.SubjectAltNames)
 	} else {
 		// Fall back to the read-from-file approach when SDS is not enabled or Tls.CredentialName is not specified.
 		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
@@ -451,22 +450,22 @@ func buildGatewayListenerTLSContext(
 			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
 				ValidationContext: &auth.CertificateValidationContext{
 					TrustedCa:            trustedCa,
-					VerifySubjectAltName: server.Tls.SubjectAltNames,
+					MatchSubjectAltNames: util.StringToExactMatch(server.Tls.SubjectAltNames),
 				},
 			}
 		}
 	}
 
 	tls.RequireClientCertificate = proto.BoolFalse
-	if server.Tls.Mode == networking.Server_TLSOptions_MUTUAL ||
-		server.Tls.Mode == networking.Server_TLSOptions_ISTIO_MUTUAL {
+	if server.Tls.Mode == networking.ServerTLSSettings_MUTUAL ||
+		server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
 		tls.RequireClientCertificate = proto.BoolTrue
 	}
 
 	// Set TLS parameters if they are non-default
 	if len(server.Tls.CipherSuites) > 0 ||
-		server.Tls.MinProtocolVersion != networking.Server_TLSOptions_TLS_AUTO ||
-		server.Tls.MaxProtocolVersion != networking.Server_TLSOptions_TLS_AUTO {
+		server.Tls.MinProtocolVersion != networking.ServerTLSSettings_TLS_AUTO ||
+		server.Tls.MaxProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
 
 		tls.CommonTlsContext.TlsParams = &auth.TlsParameters{
 			TlsMinimumProtocolVersion: convertTLSProtocol(server.Tls.MinProtocolVersion),
@@ -478,7 +477,7 @@ func buildGatewayListenerTLSContext(
 	return tls
 }
 
-func convertTLSProtocol(in networking.Server_TLSOptions_TLSProtocol) auth.TlsParameters_TlsProtocol {
+func convertTLSProtocol(in networking.ServerTLSSettings_TLSProtocol) auth.TlsParameters_TlsProtocol {
 	out := auth.TlsParameters_TlsProtocol(in) // There should be a one-to-one enum mapping
 	if out < auth.TlsParameters_TLS_AUTO || out > auth.TlsParameters_TLSv1_3 {
 		log.Warnf("was not able to map TLS protocol to Envoy TLS protocol")
@@ -590,7 +589,7 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, push *model.Push
 
 	filterChains := make([]*filterChainOpts, 0)
 
-	if server.Tls.Mode == networking.Server_TLSOptions_AUTO_PASSTHROUGH {
+	if server.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
 		// auto passthrough does not require virtual services. It sets up envoy.filters.network.sni_cluster filter
 		filterChains = append(filterChains, &filterChainOpts{
 			sniHosts:       getSNIHostsForServer(server),

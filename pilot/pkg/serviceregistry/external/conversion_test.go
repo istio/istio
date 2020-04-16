@@ -87,7 +87,7 @@ var httpStatic = &model.Config{
 			{Number: 80, Name: "http-port", Protocol: "http"},
 			{Number: 8080, Name: "http-alt-port", Protocol: "http"},
 		},
-		Endpoints: []*networking.ServiceEntry_Endpoint{
+		Endpoints: []*networking.WorkloadEntry{
 			{
 				Address: "2.2.2.2",
 				Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
@@ -102,6 +102,32 @@ var httpStatic = &model.Config{
 				Address: "4.4.4.4",
 				Ports:   map[string]uint32{"http-port": 1080},
 				Labels:  map[string]string{"foo": "bar"},
+			},
+		},
+		Location:   networking.ServiceEntry_MESH_EXTERNAL,
+		Resolution: networking.ServiceEntry_STATIC,
+	},
+}
+
+// Shares the same host as httpStatic, but adds some endpoints. We expect these to be merge
+var httpStaticOverlay = &model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:              serviceEntryKind.Kind,
+		Group:             serviceEntryKind.Group,
+		Version:           serviceEntryKind.Version,
+		Name:              "httpStaticOverlay",
+		Namespace:         "httpStatic",
+		CreationTimestamp: GlobalTime,
+	},
+	Spec: &networking.ServiceEntry{
+		Hosts: []string{"*.google.com"},
+		Ports: []*networking.Port{
+			{Number: 4567, Name: "http-port", Protocol: "http"},
+		},
+		Endpoints: []*networking.WorkloadEntry{
+			{
+				Address: "5.5.5.5",
+				Labels:  map[string]string{"overlay": "bar"},
 			},
 		},
 		Location:   networking.ServiceEntry_MESH_EXTERNAL,
@@ -146,7 +172,7 @@ var httpDNS = &model.Config{
 			{Number: 80, Name: "http-port", Protocol: "http"},
 			{Number: 8080, Name: "http-alt-port", Protocol: "http"},
 		},
-		Endpoints: []*networking.ServiceEntry_Endpoint{
+		Endpoints: []*networking.WorkloadEntry{
 			{
 				Address: "us.google.com",
 				Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
@@ -180,7 +206,7 @@ var tcpDNS = &model.Config{
 		Ports: []*networking.Port{
 			{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 		},
-		Endpoints: []*networking.ServiceEntry_Endpoint{
+		Endpoints: []*networking.WorkloadEntry{
 			{
 				Address: "lon.google.com",
 				Labels:  map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
@@ -211,7 +237,7 @@ var tcpStatic = &model.Config{
 		Ports: []*networking.Port{
 			{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 		},
-		Endpoints: []*networking.ServiceEntry_Endpoint{
+		Endpoints: []*networking.WorkloadEntry{
 			{
 				Address: "1.1.1.1",
 				Labels:  map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
@@ -296,11 +322,49 @@ var udsLocal = &model.Config{
 		Ports: []*networking.Port{
 			{Number: 6553, Name: "grpc-1", Protocol: "grpc"},
 		},
-		Endpoints: []*networking.ServiceEntry_Endpoint{
+		Endpoints: []*networking.WorkloadEntry{
 			{Address: "unix:///test/sock", Labels: map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel}},
 		},
 		Resolution: networking.ServiceEntry_STATIC,
 	},
+}
+
+// ServiceEntry with a selector
+var selector = &model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:              serviceEntryKind.Kind,
+		Group:             serviceEntryKind.Group,
+		Version:           serviceEntryKind.Version,
+		Name:              "selector",
+		Namespace:         "selector",
+		CreationTimestamp: GlobalTime,
+		Labels:            map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+	},
+	Spec: &networking.ServiceEntry{
+		Hosts: []string{"selector.com"},
+		Ports: []*networking.Port{
+			{Number: 444, Name: "tcp-444", Protocol: "tcp"},
+			{Number: 445, Name: "http-445", Protocol: "http"},
+		},
+		WorkloadSelector: &networking.WorkloadSelector{
+			Labels: map[string]string{"app": "wle"},
+		},
+		Resolution: networking.ServiceEntry_STATIC,
+	},
+}
+
+func createWorkloadEntry(name, namespace string, spec *networking.WorkloadEntry) *model.Config {
+	return &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:              workloadEntryKind.Kind,
+			Group:             workloadEntryKind.Group,
+			Version:           workloadEntryKind.Version,
+			Name:              name,
+			Namespace:         namespace,
+			CreationTimestamp: GlobalTime,
+		},
+		Spec: spec,
+	}
 }
 
 func convertPortNameToProtocol(name string) protocol.Instance {
@@ -344,8 +408,18 @@ func makeService(hostname host.Name, configNamespace, address string, ports map[
 	return svc
 }
 
+// MTLSMode is the expected instance mtls settings. This is for test setup only
+type MTLSMode int
+
+const (
+	MTLS = iota
+	// Like mTLS, but no label is defined on the endpoint
+	MTLSUnlabelled
+	PlainText
+)
+
 func makeInstance(cfg *model.Config, address string, port int,
-	svcPort *networking.Port, svcLabels map[string]string, mtlsReady bool) *model.ServiceInstance {
+	svcPort *networking.Port, svcLabels map[string]string, mtlsMode MTLSMode) *model.ServiceInstance {
 	services := convertServices(*cfg)
 	svc := services[0] // default
 	for _, s := range services {
@@ -355,12 +429,14 @@ func makeInstance(cfg *model.Config, address string, port int,
 		}
 	}
 	tlsMode := model.DisabledTLSModeLabel
-	if mtlsReady {
+	if mtlsMode == MTLS || mtlsMode == MTLSUnlabelled {
+		tlsMode = model.IstioMutualTLSModeLabel
+	}
+	if mtlsMode == MTLS {
 		if svcLabels == nil {
 			svcLabels = map[string]string{}
 		}
 		svcLabels[model.TLSModeLabelName] = model.IstioMutualTLSModeLabel
-		tlsMode = model.IstioMutualTLSModeLabel
 	}
 	return &model.ServiceInstance{
 		Service: svc,
@@ -495,57 +571,57 @@ func TestConvertInstances(t *testing.T) {
 			// service entry static
 			externalSvc: httpStatic,
 			out: []*model.ServiceInstance{
-				makeInstance(httpStatic, "2.2.2.2", 7080, httpStatic.Spec.(*networking.ServiceEntry).Ports[0], nil, true),
-				makeInstance(httpStatic, "2.2.2.2", 18080, httpStatic.Spec.(*networking.ServiceEntry).Ports[1], nil, true),
-				makeInstance(httpStatic, "3.3.3.3", 1080, httpStatic.Spec.(*networking.ServiceEntry).Ports[0], nil, true),
-				makeInstance(httpStatic, "3.3.3.3", 8080, httpStatic.Spec.(*networking.ServiceEntry).Ports[1], nil, true),
-				makeInstance(httpStatic, "4.4.4.4", 1080, httpStatic.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"foo": "bar"}, false),
-				makeInstance(httpStatic, "4.4.4.4", 8080, httpStatic.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"foo": "bar"}, false),
+				makeInstance(httpStatic, "2.2.2.2", 7080, httpStatic.Spec.(*networking.ServiceEntry).Ports[0], nil, MTLS),
+				makeInstance(httpStatic, "2.2.2.2", 18080, httpStatic.Spec.(*networking.ServiceEntry).Ports[1], nil, MTLS),
+				makeInstance(httpStatic, "3.3.3.3", 1080, httpStatic.Spec.(*networking.ServiceEntry).Ports[0], nil, MTLS),
+				makeInstance(httpStatic, "3.3.3.3", 8080, httpStatic.Spec.(*networking.ServiceEntry).Ports[1], nil, MTLS),
+				makeInstance(httpStatic, "4.4.4.4", 1080, httpStatic.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"foo": "bar"}, PlainText),
+				makeInstance(httpStatic, "4.4.4.4", 8080, httpStatic.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"foo": "bar"}, PlainText),
 			},
 		},
 		{
 			// service entry DNS with no endpoints
 			externalSvc: httpDNSnoEndpoints,
 			out: []*model.ServiceInstance{
-				makeInstance(httpDNSnoEndpoints, "google.com", 80, httpDNSnoEndpoints.Spec.(*networking.ServiceEntry).Ports[0], nil, false),
-				makeInstance(httpDNSnoEndpoints, "google.com", 8080, httpDNSnoEndpoints.Spec.(*networking.ServiceEntry).Ports[1], nil, false),
-				makeInstance(httpDNSnoEndpoints, "www.wikipedia.org", 80, httpDNSnoEndpoints.Spec.(*networking.ServiceEntry).Ports[0], nil, false),
-				makeInstance(httpDNSnoEndpoints, "www.wikipedia.org", 8080, httpDNSnoEndpoints.Spec.(*networking.ServiceEntry).Ports[1], nil, false),
+				makeInstance(httpDNSnoEndpoints, "google.com", 80, httpDNSnoEndpoints.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+				makeInstance(httpDNSnoEndpoints, "google.com", 8080, httpDNSnoEndpoints.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
+				makeInstance(httpDNSnoEndpoints, "www.wikipedia.org", 80, httpDNSnoEndpoints.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+				makeInstance(httpDNSnoEndpoints, "www.wikipedia.org", 8080, httpDNSnoEndpoints.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
 			},
 		},
 		{
 			// service entry dns
 			externalSvc: httpDNS,
 			out: []*model.ServiceInstance{
-				makeInstance(httpDNS, "us.google.com", 7080, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], nil, true),
-				makeInstance(httpDNS, "us.google.com", 18080, httpDNS.Spec.(*networking.ServiceEntry).Ports[1], nil, true),
-				makeInstance(httpDNS, "uk.google.com", 1080, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], nil, true),
-				makeInstance(httpDNS, "uk.google.com", 8080, httpDNS.Spec.(*networking.ServiceEntry).Ports[1], nil, true),
-				makeInstance(httpDNS, "de.google.com", 80, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"foo": "bar"}, true),
-				makeInstance(httpDNS, "de.google.com", 8080, httpDNS.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"foo": "bar"}, true),
+				makeInstance(httpDNS, "us.google.com", 7080, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], nil, MTLS),
+				makeInstance(httpDNS, "us.google.com", 18080, httpDNS.Spec.(*networking.ServiceEntry).Ports[1], nil, MTLS),
+				makeInstance(httpDNS, "uk.google.com", 1080, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], nil, MTLS),
+				makeInstance(httpDNS, "uk.google.com", 8080, httpDNS.Spec.(*networking.ServiceEntry).Ports[1], nil, MTLS),
+				makeInstance(httpDNS, "de.google.com", 80, httpDNS.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"foo": "bar"}, MTLS),
+				makeInstance(httpDNS, "de.google.com", 8080, httpDNS.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"foo": "bar"}, MTLS),
 			},
 		},
 		{
 			// service entry tcp DNS
 			externalSvc: tcpDNS,
 			out: []*model.ServiceInstance{
-				makeInstance(tcpDNS, "lon.google.com", 444, tcpDNS.Spec.(*networking.ServiceEntry).Ports[0], nil, true),
-				makeInstance(tcpDNS, "in.google.com", 444, tcpDNS.Spec.(*networking.ServiceEntry).Ports[0], nil, true),
+				makeInstance(tcpDNS, "lon.google.com", 444, tcpDNS.Spec.(*networking.ServiceEntry).Ports[0], nil, MTLS),
+				makeInstance(tcpDNS, "in.google.com", 444, tcpDNS.Spec.(*networking.ServiceEntry).Ports[0], nil, MTLS),
 			},
 		},
 		{
 			// service entry tcp static
 			externalSvc: tcpStatic,
 			out: []*model.ServiceInstance{
-				makeInstance(tcpStatic, "1.1.1.1", 444, tcpStatic.Spec.(*networking.ServiceEntry).Ports[0], nil, true),
-				makeInstance(tcpStatic, "2.2.2.2", 444, tcpStatic.Spec.(*networking.ServiceEntry).Ports[0], nil, true),
+				makeInstance(tcpStatic, "1.1.1.1", 444, tcpStatic.Spec.(*networking.ServiceEntry).Ports[0], nil, MTLS),
+				makeInstance(tcpStatic, "2.2.2.2", 444, tcpStatic.Spec.(*networking.ServiceEntry).Ports[0], nil, MTLS),
 			},
 		},
 		{
 			// service entry unix domain socket static
 			externalSvc: udsLocal,
 			out: []*model.ServiceInstance{
-				makeInstance(udsLocal, "/test/sock", 0, udsLocal.Spec.(*networking.ServiceEntry).Ports[0], nil, true),
+				makeInstance(udsLocal, "/test/sock", 0, udsLocal.Spec.(*networking.ServiceEntry).Ports[0], nil, MTLS),
 			},
 		},
 	}
@@ -557,6 +633,71 @@ func TestConvertInstances(t *testing.T) {
 			sortServiceInstances(tt.out)
 			if err := compare(t, instances, tt.out); err != nil {
 				t.Fatalf("testcase: %v\n%v", tt.externalSvc.Name, err)
+			}
+		})
+	}
+}
+
+func TestConvertWorkloadInstances(t *testing.T) {
+	labels := map[string]string{
+		"app": "wle",
+	}
+	serviceInstanceTests := []struct {
+		name string
+		wle  *networking.WorkloadEntry
+		se   *model.Config
+		out  []*model.ServiceInstance
+	}{
+		{
+			name: "simple",
+			wle: &networking.WorkloadEntry{
+				Address: "1.1.1.1",
+				Labels:  labels,
+			},
+			se: selector,
+			out: []*model.ServiceInstance{
+				makeInstance(selector, "1.1.1.1", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], labels, PlainText),
+				makeInstance(selector, "1.1.1.1", 445, selector.Spec.(*networking.ServiceEntry).Ports[1], labels, PlainText),
+			},
+		},
+		{
+			name: "mtls",
+			wle: &networking.WorkloadEntry{
+				Address:        "1.1.1.1",
+				Labels:         labels,
+				ServiceAccount: "default",
+			},
+			se: selector,
+			out: []*model.ServiceInstance{
+				makeInstance(selector, "1.1.1.1", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], labels, MTLSUnlabelled),
+				makeInstance(selector, "1.1.1.1", 445, selector.Spec.(*networking.ServiceEntry).Ports[1], labels, MTLSUnlabelled),
+			},
+		},
+		{
+			name: "replace-port",
+			wle: &networking.WorkloadEntry{
+				Address: "1.1.1.1",
+				Labels:  labels,
+				Ports: map[string]uint32{
+					"http-445": 8080,
+				},
+			},
+			se: selector,
+			out: []*model.ServiceInstance{
+				makeInstance(selector, "1.1.1.1", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], labels, PlainText),
+				makeInstance(selector, "1.1.1.1", 8080, selector.Spec.(*networking.ServiceEntry).Ports[1], labels, PlainText),
+			},
+		},
+	}
+
+	for _, tt := range serviceInstanceTests {
+		t.Run(tt.name, func(t *testing.T) {
+			services := convertServices(*tt.se)
+			instances := convertWorkloadInstances(tt.wle, services, tt.se.Spec.(*networking.ServiceEntry))
+			sortServiceInstances(instances)
+			sortServiceInstances(tt.out)
+			if err := compare(t, instances, tt.out); err != nil {
+				t.Fatal(err)
 			}
 		})
 	}

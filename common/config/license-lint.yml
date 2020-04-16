@@ -1,5 +1,6 @@
 unrestricted_licenses:
   - Apache-2.0
+  - CC-BY-3.0
   - ISC
   - AFL-2.1
   - AFL-3.0
@@ -9,6 +10,7 @@ unrestricted_licenses:
   - BSD-1-Clause
   - BSD-2-Clause
   - BSD-3-Clause
+  - 0BSD
   - FTL
   - LPL-1.02
   - MS-PL
@@ -32,6 +34,7 @@ reciprocal_licenses:
   - MPL-1.0
   - MPL-1.1
   - MPL-2.0
+  - MPL-2.0-no-copyleft-exception
   - Ruby
 
 restricted_licenses:
@@ -113,6 +116,7 @@ whitelisted_modules:
   - github.com/rcrowley/go-metrics
   - github.com/russross/blackfriday
   - github.com/russross/blackfriday/v2
+  - gopkg.in/russross/blackfriday.v2
   - github.com/sean-/seed
   - github.com/smartystreets/assertions
   - github.com/smartystreets/goconvey
@@ -146,6 +150,23 @@ whitelisted_modules:
 
   # The core library is MIT licensed, but a submodule imports a BSD-3 license that licensee fails to correctly identify
   - github.com/vektah/gqlparser
+
+  # Apache 2.0
+  - github.com/spf13/cobra
+  - github.com/spf13/afero
+
+  # BSD-3 by pointer to another repo (github.com/gonum/license/blob/master/LICENSE)
+  - gonum.org/v1/plot
+
+  # FTL (https://github.com/golang/freetype/blob/master/licenses/ftl.txt)
+  - github.com/golang/freetype
+
+  # CC-BY-3
+  - github.com/ajstarks/svgo
+
+  # MIT
+  - github.com/dgryski/go-metro
+  - github.com/hhatto/gorst
 
   - github.com/ziutek/mymysql
   - gopkg.in/check.v1

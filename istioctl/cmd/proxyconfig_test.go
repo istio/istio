@@ -22,6 +22,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
+	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/security/pkg/nodeagent/sds"
@@ -262,6 +263,7 @@ func verifyExecTestOutput(t *testing.T, c execTestCase) {
 
 	// Override the exec client factory used by proxyconfig.go and proxystatus.go
 	clientExecFactory = mockClientExecFactoryGenerator(c.execClientConfig)
+	envoyClientFactory = mockEnvoyClientFactoryGenerator(c.execClientConfig)
 
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)
@@ -296,7 +298,18 @@ func verifyExecTestOutput(t *testing.T, c execTestCase) {
 
 // mockClientExecFactoryGenerator generates a function with the same signature as
 // kubernetes.NewExecClient() that returns a mock client.
-func mockClientExecFactoryGenerator(testResults map[string][]byte) func(kubeconfig, configContext string) (kubernetes.ExecClient, error) {
+// nolint: lll
+func mockClientExecFactoryGenerator(testResults map[string][]byte) func(kubeconfig, configContext string, _ clioptions.ControlPlaneOptions) (kubernetes.ExecClient, error) {
+	outFactory := func(kubeconfig, configContext string, _ clioptions.ControlPlaneOptions) (kubernetes.ExecClient, error) {
+		return mockExecConfig{
+			results: testResults,
+		}, nil
+	}
+
+	return outFactory
+}
+
+func mockEnvoyClientFactoryGenerator(testResults map[string][]byte) func(kubeconfig, configContext string) (kubernetes.ExecClient, error) {
 	outFactory := func(kubeconfig, configContext string) (kubernetes.ExecClient, error) {
 		return mockExecConfig{
 			results: testResults,
@@ -336,7 +349,7 @@ func (client mockExecConfig) PodsForSelector(namespace, labelSelector string) (*
 	return &v1.PodList{}, nil
 }
 
-func (client mockExecConfig) BuildPortForwarder(podName string, ns string, localPort int, podPort int) (*kubernetes.PortForward, error) {
+func (client mockExecConfig) BuildPortForwarder(podName string, ns string, localAddr string, localPort int, podPort int) (*kubernetes.PortForward, error) {
 	return nil, fmt.Errorf("mock k8s does not forward")
 }
 

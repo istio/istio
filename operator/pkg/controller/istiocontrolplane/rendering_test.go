@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/validate"
 )
 
@@ -76,20 +77,12 @@ func TestRenderCharts(t *testing.T) {
 			showOutputFileInPullRequest: true,
 		},
 		{
-			desc:       "prometheus",
-			diffIgnore: "ConfigMap:*:istio",
-		},
-		{
 			desc:       "gateways",
 			diffIgnore: "ConfigMap:*:istio",
 		},
 		{
 			desc:       "gateways_override_default",
 			diffIgnore: "ConfigMap:*:istio",
-		},
-		{
-			desc:       "component_hub_tag",
-			diffSelect: "Deployment:*:*",
 		},
 	})
 	removeDirOrFail(t, flagOutputDir)
@@ -189,7 +182,7 @@ func runTestGroup(t *testing.T, tests testGroup) {
 			diffSelect := "*:*:*"
 			if tt.diffSelect != "" {
 				diffSelect = tt.diffSelect
-				got, err = compare.SelectAndIgnoreFromOutput(got, diffSelect, "")
+				got, err = compare.FilterManifest(got, diffSelect, "")
 				if err != nil {
 					t.Errorf("error selecting from output manifest: %v", err)
 				}
@@ -224,7 +217,13 @@ func runManifestGenerate(iopStr string) (string, error) {
 		return "", err
 	}
 
-	testReconciler := helmreconciler.NewHelmReconciler(iop)
+	// Since controller code is running locally, we can point to a local filesystem path.
+	iop.Spec.InstallPackagePath = filepath.Join(testDataDir, "data-snapshot")
+	if err := name.ScanBundledAddonComponents(iop.Spec.InstallPackagePath); err != nil {
+		return "", err
+	}
+
+	testReconciler := helmreconciler.NewHelmReconciler(iop, nil, nil)
 	testInput := NewIstioRenderingInput(iop)
 
 	mm, err := testReconciler.RenderCharts(testInput)

@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 
 	kubeCore "k8s.io/api/core/v1"
 )
@@ -107,7 +108,6 @@ type Config struct {
 
 	// Override values specifically for the ICP crd
 	// This is mostly required for cases where --set cannot be used
-	// If specified, Values will be ignored
 	ControlPlaneValues string
 
 	// Overrides for the Helm values file.
@@ -131,8 +131,7 @@ type Config struct {
 
 // IsMtlsEnabled checks in Values flag and Values file.
 func (c *Config) IsMtlsEnabled() bool {
-	if c.Values["global.mtls.enabled"] == "true" ||
-		c.Values["global.mtls.auto"] == "true" {
+	if c.Values["global.mtls.auto"] == "true" {
 		return true
 	}
 
@@ -149,7 +148,7 @@ func (c *Config) IsMtlsEnabled() bool {
 				case map[interface{}]interface{}:
 					switch mtlsVal := globalVal["mtls"].(type) {
 					case map[interface{}]interface{}:
-						if !mtlsVal["enabled"].(bool) && !mtlsVal["auto"].(bool) {
+						if !mtlsVal["auto"].(bool) {
 							return false
 						}
 					}
@@ -209,7 +208,7 @@ func DefaultConfig(ctx resource.Context) (Config, error) {
 	}
 
 	if err := checkFileExists(iopFile); err != nil {
-		return Config{}, err
+		scopes.Framework.Warnf("Default IOPFile missing: %v", err)
 	}
 
 	deps, err := image.SettingsFromCommandLine()

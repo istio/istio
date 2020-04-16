@@ -26,6 +26,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
+	"istio.io/istio/pkg/dns"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/env"
@@ -190,6 +192,8 @@ var (
 				log.Infof("Effective config: %s", out)
 			}
 
+			// If not set, set a default based on platform - podNamespace.svc.cluster.local for
+			// K8S
 			role.DNSDomain = getDNSDomain(podNamespace, role.DNSDomain)
 			log.Infof("Proxy role: %#v", role)
 
@@ -215,7 +219,7 @@ var (
 			var pilotSAN, mixerSAN []string
 			if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 				setSpiffeTrustDomain(podNamespace, role.DNSDomain)
-				// Obtain the Mixer SAN, which uses SPIFFEE certs. Used below to create a Envoy proxy.
+				// Obtain the Mixer SAN, which uses SPIFFE certs. Used below to create a Envoy proxy.
 				mixerSAN = getSAN(getControlPlaneNamespace(podNamespace, proxyConfig.DiscoveryAddress), envoyDiscovery.MixerSvcAccName, mixerIdentity)
 				// Obtain Pilot SAN, using DNS.
 				pilotSAN = []string{getPilotSan(proxyConfig.DiscoveryAddress)}
@@ -288,6 +292,24 @@ var (
 					return err
 				}
 				defer stsServer.Stop()
+			}
+
+			// Start a local DNS server on 15053, forwarding to DNS-over-TLS server
+			// This will not have any impact on app unless interception is enabled.
+			// We can't start on 53 - istio-agent runs as user istio-proxy.
+			// This is available to apps even if interception is not enabled.
+
+			// TODO: replace hardcoded .global. Right now the ingress templates are
+			// hardcoding it as well, so there is little benefit to do it only here.
+			if dns.DNSTLSEnableAgent.Get() != "" {
+				// In the injection template the only place where global.proxy.clusterDomain
+				// is made available is in the --domain param.
+				// Instead of introducing a new config, use that.
+
+				dnsSrv := dns.InitDNSAgent(proxyConfig.DiscoveryAddress,
+					role.DNSDomain, sa.RootCert,
+					[]string{".global."})
+				dnsSrv.StartDNS(dns.DNSAgentAddr, nil)
 			}
 
 			envoyProxy := envoy.NewProxy(envoy.ProxyConfig{

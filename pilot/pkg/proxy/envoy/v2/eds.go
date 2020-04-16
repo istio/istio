@@ -34,8 +34,8 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
@@ -171,7 +171,7 @@ func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, namespace string, 
 // Only clusters that changed are updated/pushed.
 func (s *DiscoveryServer) edsIncremental(version string, req *model.PushRequest) {
 	adsLog.Infof("XDS:EDSInc Pushing:%s Services:%v ConnectedEndpoints:%d",
-		version, req.EdsUpdates, s.adsClientCount())
+		version, req.ConfigsUpdated[model.ServiceEntryKind], s.adsClientCount())
 	s.startPush(req)
 }
 
@@ -187,8 +187,8 @@ func (s *DiscoveryServer) EDSUpdate(clusterID, serviceName string, namespace str
 	return nil
 }
 
-// edsUpdate updates edsUpdates by clusterID, serviceName, IstioEndpoints,
-// and requests a full/eds push.
+// edsUpdate updates EDS by clusterID, serviceName, IstioEndpoints,
+// and requests a Full/EDS push.
 func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace string,
 	istioEndpoints []*model.IstioEndpoint, internal bool) {
 	// edsShardUpdate replaces a subset (shard) of endpoints, as result of an incremental
@@ -210,8 +210,10 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			s.ConfigUpdate(&model.PushRequest{
 				Full:              false,
 				NamespacesUpdated: map[string]struct{}{namespace: {}},
-				EdsUpdates:        map[string]struct{}{serviceName: {}},
-				Reason:            []model.TriggerReason{model.EndpointUpdate},
+				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+					model.ServiceEntryKind: {serviceName: {}},
+				},
+				Reason: []model.TriggerReason{model.EndpointUpdate},
 			})
 		}
 		return
@@ -269,12 +271,14 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 		if !requireFull {
 			edsUpdates = map[string]struct{}{serviceName: {}}
 		}
+
 		s.ConfigUpdate(&model.PushRequest{
-			Full:               requireFull,
-			NamespacesUpdated:  map[string]struct{}{namespace: {}},
-			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
-			EdsUpdates:         edsUpdates,
-			Reason:             []model.TriggerReason{model.EndpointUpdate},
+			Full:              requireFull,
+			NamespacesUpdated: map[string]struct{}{namespace: {}},
+			ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
+				model.ServiceEntryKind: edsUpdates,
+			},
+			Reason: []model.TriggerReason{model.EndpointUpdate},
 		})
 	}
 }
@@ -365,7 +369,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 		return buildEmptyClusterLoadAssignment(clusterName)
 	}
 
-	locEps := buildLocalityLbEndpointsFromShards(se, svcPort, subsetLabels, clusterName, push)
+	locEps := buildLocalityLbEndpointsFromShards(proxy, se, svc, svcPort, subsetLabels, clusterName, push)
 
 	return &xdsapi.ClusterLoadAssignment{
 		ClusterName: clusterName,
@@ -486,6 +490,7 @@ func getOutlierDetectionAndLoadBalancerSettings(push *model.PushContext, proxy *
 	_, subsetName, hostname, portNumber := model.ParseSubsetKey(clusterName)
 	var outlierDetectionEnabled = false
 	var lbSettings *networkingapi.LoadBalancerSettings
+
 	destinationRule, port := getDestinationRule(push, proxy, hostname, portNumber)
 	if destinationRule == nil || port == nil {
 		return false, nil
@@ -504,6 +509,7 @@ func getOutlierDetectionAndLoadBalancerSettings(push *model.PushContext, proxy *
 			if outlierDetection != nil {
 				outlierDetectionEnabled = true
 			}
+			break
 		}
 	}
 	return outlierDetectionEnabled, lbSettings
@@ -529,17 +535,29 @@ func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, 
 
 // build LocalityLbEndpoints for a cluster from existing EndpointShards.
 func buildLocalityLbEndpointsFromShards(
+	proxy *model.Proxy,
 	shards *EndpointShards,
+	svc *model.Service,
 	svcPort *model.Port,
 	epLabels labels.Collection,
 	clusterName string,
 	push *model.PushContext) []*endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 
+	// Determine whether or not the target service is considered local to the cluster
+	// and should, therefore, not be accessed from outside the cluster.
+	isClusterLocal := mesh.IsClusterLocal(push.Mesh, svc.Attributes.Namespace)
+
 	shards.mutex.Lock()
 	// The shards are updated independently, now need to filter and merge
 	// for this cluster
-	for _, endpoints := range shards.Shards {
+	for clusterID, endpoints := range shards.Shards {
+		// If the downstream service is configured as cluster-local, only include endpoints that
+		// reside in the same cluster.
+		if isClusterLocal && (clusterID != proxy.ClusterID) {
+			continue
+		}
+
 		for _, ep := range endpoints {
 			if svcPort.Name != ep.ServicePortName {
 				continue

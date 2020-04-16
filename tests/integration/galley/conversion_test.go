@@ -110,7 +110,7 @@ func runTest(t *testing.T, ctx resource.Context, fset *conversion.FileSet, gal g
 	}
 
 	for collection, e := range expected {
-		validator := galley.NewGoldenSnapshotValidator(ns.Name(), e)
+		validator := galley.NewGoldenSnapshotValidator(e)
 		if err = gal.WaitForSnapshot(collection, validator); err != nil {
 			t.Fatalf("failed waiting for %s:\n%v\n", collection, err)
 		}

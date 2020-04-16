@@ -18,14 +18,13 @@ import (
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	authpb "istio.io/api/security/v1beta1"
 
-	istiolog "istio.io/pkg/log"
-
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
+	istiolog "istio.io/pkg/log"
 )
 
 var (
-	rbacLog = istiolog.RegisterScope("rbac", "rbac debugging", 0)
+	authzLog = istiolog.RegisterScope("authorization", "Istio Authorization Policy", 0)
 )
 
 type ServiceRoleConfig struct {
@@ -244,7 +243,7 @@ func (policy *AuthorizationPolicies) addServiceRoleBindings(bindings []Config) {
 		spec := binding.Spec.(*rbacproto.ServiceRoleBinding)
 		name := spec.RoleRef.Name
 		if name == "" {
-			rbacLog.Errorf("ignored invalid binding %s in %s with empty RoleRef.Name",
+			authzLog.Errorf("ignored invalid binding %s in %s with empty RoleRef.Name",
 				binding.Name, binding.Namespace)
 			return
 		}

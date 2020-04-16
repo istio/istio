@@ -1,2 +1,0 @@
-{{ .Files.Get "files/crd-all.gen.yaml" }}
-{{ .Files.Get "files/crd-mixer.yaml" }}

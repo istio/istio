@@ -21,11 +21,10 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-
 	"github.com/spf13/cobra"
 	"k8s.io/utils/pointer"
 
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
@@ -118,8 +117,8 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l *Logger, apply man
 		l.logAndFatal(err)
 	}
 
-	scope.Infof("Installing operator charts with the following values:\n%s", vals)
-	scope.Infof("Using the following manifest to install operator:\n%s\n", mstr)
+	scope.Debugf("Installing operator charts with the following values:\n%s", vals)
+	scope.Debugf("Using the following manifest to install operator:\n%s\n", mstr)
 
 	opts := &kubectlcmd.Options{
 		DryRun:      args.dryRun,

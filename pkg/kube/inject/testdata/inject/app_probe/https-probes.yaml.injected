@@ -22,6 +22,7 @@ spec:
       creationTimestamp: null
       labels:
         app: hello
+        istio.io/rev: ""
         security.istio.io/tlsMode: istio
         tier: backend
         track: stable
@@ -104,6 +105,12 @@ spec:
             [
                 {"name":"http","containerPort":80}
                 ,{"name":"http","containerPort":90}
+            ]
+        - name: ISTIO_META_APP_CONTAINERS
+          value: |-
+            [
+                hello,
+                world
             ]
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes

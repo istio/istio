@@ -27,31 +27,27 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/operator/pkg/tpath"
-
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
-
-	"istio.io/istio/operator/pkg/name"
-
-	"istio.io/api/annotation"
-
-	operator "istio.io/istio/operator/cmd/mesh"
-
-	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/mcp/testing/testcerts"
-
 	"k8s.io/api/admission/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+
+	"istio.io/api/annotation"
+	operatormesh "istio.io/istio/operator/cmd/mesh"
+	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/tpath"
+	util2 "istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/mcp/testing/testcerts"
 )
 
 const yamlSeparator = "\n---"
@@ -884,11 +880,19 @@ func createTestWebhookFromHelmConfigMap(t *testing.T) (*Webhook, func()) {
 // This allows us to fully simulate what will actually happen at run time.
 func loadInjectionConfigMap(t testing.TB, settings string) (template *Config, values string) {
 	t.Helper()
+	// add --set installPackagePath=<path to charts snapshot>
+	installPackagePathYAML := "installPackagePath: " + defaultInstallPackageDir()
+	settings, err := util2.OverlayYAML(settings, installPackagePathYAML)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	oy, err := tpath.AddSpecRoot(settings)
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifests, _, err := operator.GenManifests(nil, oy, false, nil, nil)
+	l := operatormesh.NewLogger(true, os.Stdout, os.Stderr)
+	manifests, _, err := operatormesh.GenManifests(nil, oy, false, nil, l)
 	if err != nil {
 		t.Fatalf("failed to generate manifests: %v", err)
 	}
@@ -1313,12 +1317,17 @@ func TestRunAndServe(t *testing.T) {
          "sidecar.istio.io/status":"{\"version\":\"461c380844de8df1d1e2a80a09b6d7b58b8313c4a7d6796530eb124740a1440f\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
       }
    },
-   {
-      "op": "add",
-      "path": "/metadata/labels",
-      "value": {
-         "security.istio.io/tlsMode": "istio"
+    {
+      "op":"add",
+      "path":"/metadata/labels",
+      "value":{
+         "istio.io/rev":""
       }
+    },
+    {
+      "op":"add",
+      "path":"/metadata/labels/security.istio.io~1tlsMode",
+      "value":"istio"
     },
     {
       "op": "add",
@@ -1516,4 +1525,13 @@ func BenchmarkInjectServe(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		wh.serveInject(httptest.NewRecorder(), req)
 	}
+}
+
+// defaultInstallPackageDir returns a path to a snapshot of the helm charts used for testing.
+func defaultInstallPackageDir() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	return filepath.Join(wd, "../../../operator/cmd/mesh/testdata/manifest-generate/data-snapshot")
 }

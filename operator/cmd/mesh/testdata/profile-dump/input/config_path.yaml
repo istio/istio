@@ -15,7 +15,5 @@ spec:
       enabled: false
     citadel:
       enabled: false
-    galley:
-      enabled: false
     cni:
       enabled: false

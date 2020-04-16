@@ -142,7 +142,7 @@ type processedDestRules struct {
 	// List of dest rule hosts. We match with the most specific host first
 	hosts []host.Name
 	// Map of dest rule host and the merged destination rules for that host
-	destRule map[host.Name]*combinedDestinationRule
+	destRule map[host.Name]*Config
 }
 
 // XDSUpdater is used for direct updates of the xDS model and incremental push.
@@ -192,15 +192,11 @@ type PushRequest struct {
 	// If this is present, then only proxies that import this namespace will get an update
 	NamespacesUpdated map[string]struct{}
 
-	// ConfigTypesUpdated contains the types of configs that have changed.
-	// The config types are those defined in pkg/config/schemas
-	// Applicable only when Full is set to true.
-	ConfigTypesUpdated map[resource.GroupVersionKind]struct{}
-
-	// EdsUpdates keeps track of all service updated since last full push.
-	// Key is the hostname (serviceName).
-	// This is used by incremental eds.
-	EdsUpdates map[string]struct{}
+	// ConfigsUpdated keeps track of configs that have changed.
+	// The outer map key is the resource kinds changed and the inner map key is the changed
+	// resource names.
+	// The kind of resources are defined in pkg/config/schemas.
+	ConfigsUpdated map[resource.GroupVersionKind]map[string]struct{}
 
 	// Push stores the push context to use for the update. This may initially be nil, as we will
 	// debounce changes before a PushContext is eventually created.
@@ -236,6 +232,10 @@ const (
 	DebugTrigger TriggerReason = "debug"
 )
 
+var (
+	ServiceEntryKind = collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind()
+)
+
 // Merge two update requests together
 func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 	if first == nil {
@@ -259,18 +259,34 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		Reason: append(first.Reason, other.Reason...),
 	}
 
-	// Only merge EdsUpdates when incremental eds push needed.
-	if !merged.Full {
-		merged.EdsUpdates = make(map[string]struct{})
-		// Merge the updates
-		for update := range first.EdsUpdates {
-			merged.EdsUpdates[update] = struct{}{}
+	// Do not merge when any one is empty
+	if len(first.ConfigsUpdated) > 0 && len(other.ConfigsUpdated) > 0 {
+		merged.ConfigsUpdated = make(map[resource.GroupVersionKind]map[string]struct{})
+		for kind := range first.ConfigsUpdated {
+			merged.ConfigsUpdated[kind] = make(map[string]struct{})
 		}
-		for update := range other.EdsUpdates {
-			merged.EdsUpdates[update] = struct{}{}
+		for kind := range other.ConfigsUpdated {
+			if _, exists := merged.ConfigsUpdated[kind]; !exists {
+				merged.ConfigsUpdated[kind] = make(map[string]struct{})
+			}
 		}
-	} else {
-		merged.EdsUpdates = nil
+
+		if !merged.Full {
+			for kind := range merged.ConfigsUpdated {
+				d1 := first.ConfigsUpdated[kind]
+				d2 := other.ConfigsUpdated[kind]
+
+				for update := range d1 {
+					merged.ConfigsUpdated[kind][update] = struct{}{}
+				}
+
+				for update := range d2 {
+					if _, exists := merged.ConfigsUpdated[kind][update]; !exists {
+						merged.ConfigsUpdated[kind][update] = struct{}{}
+					}
+				}
+			}
+		}
 	}
 
 	// Merge the target namespaces
@@ -280,18 +296,9 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 			merged.NamespacesUpdated[update] = struct{}{}
 		}
 		for update := range other.NamespacesUpdated {
-			merged.NamespacesUpdated[update] = struct{}{}
-		}
-	}
-
-	// Merge the config updates
-	if len(first.ConfigTypesUpdated) > 0 && len(other.ConfigTypesUpdated) > 0 {
-		merged.ConfigTypesUpdated = make(map[resource.GroupVersionKind]struct{})
-		for update := range first.ConfigTypesUpdated {
-			merged.ConfigTypesUpdated[update] = struct{}{}
-		}
-		for update := range other.ConfigTypesUpdated {
-			merged.ConfigTypesUpdated[update] = struct{}{}
+			if _, exists := merged.NamespacesUpdated[update]; !exists {
+				merged.NamespacesUpdated[update] = struct{}{}
+			}
 		}
 	}
 
@@ -303,12 +310,6 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 type ProxyPushStatus struct {
 	Proxy   string `json:"proxy,omitempty"`
 	Message string `json:"message,omitempty"`
-}
-
-type combinedDestinationRule struct {
-	subsets map[string]struct{} // list of subsets seen so far
-	// We are not doing ports
-	config *Config
 }
 
 // IsMixerEnabled returns true if mixer is enabled in the Mesh config.
@@ -370,13 +371,6 @@ var (
 	ProxyStatusConflictOutboundListenerTCPOverHTTP = monitoring.NewGauge(
 		"pilot_conflict_outbound_listener_tcp_over_current_http",
 		"Number of conflicting wildcard tcp listeners with current wildcard http listener.",
-	)
-
-	// ProxyStatusConflictOutboundListenerHTTPoverHTTPS metric tracks number of
-	// HTTP listeners that conflicted with well known HTTPS ports
-	ProxyStatusConflictOutboundListenerHTTPoverHTTPS = monitoring.NewGauge(
-		"pilot_conflict_outbound_listener_http_over_https",
-		"Number of conflicting HTTP listeners with well known HTTPS ports",
 	)
 
 	// ProxyStatusConflictOutboundListenerTCPOverTCP metric tracks number of
@@ -457,7 +451,6 @@ var (
 		ProxyStatusNoService,
 		ProxyStatusEndpointNotReady,
 		ProxyStatusConflictOutboundListenerTCPOverHTTP,
-		ProxyStatusConflictOutboundListenerHTTPoverHTTPS,
 		ProxyStatusConflictOutboundListenerTCPOverTCP,
 		ProxyStatusConflictOutboundListenerHTTPOverTCP,
 		ProxyStatusConflictInboundListener,
@@ -754,16 +747,19 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 	// proxies like the istio-ingressgateway or istio-egressgateway.
 	// If there are no service specific dest rules, we will end up picking up the same
 	// rules anyway, later in the code
+
+	// 1. select destination rule from proxy config namespace
 	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
 		// search through the DestinationRules in proxy's namespace first
 		if ps.namespaceLocalDestRules[proxy.ConfigNamespace] != nil {
 			if hostname, ok := MostSpecificHostMatch(service.Hostname,
 				ps.namespaceLocalDestRules[proxy.ConfigNamespace].hosts); ok {
-				return ps.namespaceLocalDestRules[proxy.ConfigNamespace].destRule[hostname].config
+				return ps.namespaceLocalDestRules[proxy.ConfigNamespace].destRule[hostname]
 			}
 		}
 	}
 
+	// 2. select destination rule from service namespace
 	svcNs := service.Attributes.Namespace
 
 	// This can happen when finding the subset labels for a proxy in root namespace.
@@ -778,22 +774,22 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 		}
 	}
 
-	// if no private/public rule matched in the calling proxy's namespace,
+	// 3. if no private/public rule matched in the calling proxy's namespace,
 	// check the target service's namespace for public rules
 	if svcNs != "" && ps.namespaceExportedDestRules[svcNs] != nil {
 		if hostname, ok := MostSpecificHostMatch(service.Hostname,
 			ps.namespaceExportedDestRules[svcNs].hosts); ok {
-			return ps.namespaceExportedDestRules[svcNs].destRule[hostname].config
+			return ps.namespaceExportedDestRules[svcNs].destRule[hostname]
 		}
 	}
 
-	// if no public/private rule in calling proxy's namespace matched, and no public rule in the
+	// 4. if no public/private rule in calling proxy's namespace matched, and no public rule in the
 	// target service's namespace matched, search for any public destination rule in the config root namespace
 	// NOTE: This does mean that we are effectively ignoring private dest rules in the config root namespace
 	if ps.namespaceExportedDestRules[ps.Mesh.RootNamespace] != nil {
 		if hostname, ok := MostSpecificHostMatch(service.Hostname,
 			ps.namespaceExportedDestRules[ps.Mesh.RootNamespace].hosts); ok {
-			return ps.namespaceExportedDestRules[ps.Mesh.RootNamespace].destRule[hostname].config
+			return ps.namespaceExportedDestRules[ps.Mesh.RootNamespace].destRule[hostname]
 		}
 	}
 
@@ -844,7 +840,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	ps.initDefaultExportMaps()
 
 	// create new or incremental update
-	if pushReq == nil || oldPushContext == nil || !oldPushContext.initDone || len(pushReq.ConfigTypesUpdated) == 0 {
+	if pushReq == nil || oldPushContext == nil || !oldPushContext.initDone || len(pushReq.ConfigsUpdated) == 0 {
 		if err := ps.createNewContext(env); err != nil {
 			return err
 		}
@@ -879,7 +875,7 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 	}
 
 	if err := ps.initAuthorizationPolicies(env); err != nil {
-		rbacLog.Errorf("failed to initialize authorization policies: %v", err)
+		authzLog.Errorf("failed to initialize authorization policies: %v", err)
 		return err
 	}
 
@@ -914,7 +910,7 @@ func (ps *PushContext) updateContext(
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, quotasChanged bool
 
-	for k := range pushReq.ConfigTypesUpdated {
+	for k := range pushReq.ConfigsUpdated {
 		switch k {
 		case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind():
 			servicesChanged = true
@@ -992,7 +988,7 @@ func (ps *PushContext) updateContext(
 
 	if authzChanged {
 		if err := ps.initAuthorizationPolicies(env); err != nil {
-			rbacLog.Errorf("failed to initialize authorization policies: %v", err)
+			authzLog.Errorf("failed to initialize authorization policies: %v", err)
 			return err
 		}
 	} else {
@@ -1134,6 +1130,8 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	// registry DNS names in the VS.  This should cut down processing in
 	// the RDS code. See separateVSHostsAndServices in route/route.go
 	sortConfigByCreationTime(vservices)
+
+	vservices = mergeVirtualServicesIfNeeded(vservices)
 
 	// convert all shortnames in virtual services into FQDNs
 	for _, r := range vservices {
@@ -1370,16 +1368,12 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 		if _, exist := namespaceLocalDestRules[configs[i].Namespace]; !exist {
 			namespaceLocalDestRules[configs[i].Namespace] = &processedDestRules{
 				hosts:    make([]host.Name, 0),
-				destRule: map[host.Name]*combinedDestinationRule{},
+				destRule: map[host.Name]*Config{},
 			}
 		}
 		// Merge this destination rule with any public/private dest rules for same host in the same namespace
 		// If there are no duplicates, the dest rule will be added to the list
-		namespaceLocalDestRules[configs[i].Namespace].hosts = ps.combineSingleDestinationRule(
-			namespaceLocalDestRules[configs[i].Namespace].hosts,
-			namespaceLocalDestRules[configs[i].Namespace].destRule,
-			configs[i])
-
+		ps.mergeDestinationRule(namespaceLocalDestRules[configs[i].Namespace], configs[i])
 		isPubliclyExported := false
 		if len(rule.ExportTo) == 0 {
 			// No exportTo in destinationRule. Use the global default
@@ -1401,15 +1395,12 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 			if _, exist := namespaceExportedDestRules[configs[i].Namespace]; !exist {
 				namespaceExportedDestRules[configs[i].Namespace] = &processedDestRules{
 					hosts:    make([]host.Name, 0),
-					destRule: map[host.Name]*combinedDestinationRule{},
+					destRule: map[host.Name]*Config{},
 				}
 			}
 			// Merge this destination rule with any public dest rule for the same host in the same namespace
 			// If there are no duplicates, the dest rule will be added to the list
-			namespaceExportedDestRules[configs[i].Namespace].hosts = ps.combineSingleDestinationRule(
-				namespaceExportedDestRules[configs[i].Namespace].hosts,
-				namespaceExportedDestRules[configs[i].Namespace].destRule,
-				configs[i])
+			ps.mergeDestinationRule(namespaceExportedDestRules[configs[i].Namespace], configs[i])
 		}
 	}
 
@@ -1429,7 +1420,7 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
 	var err error
 	if ps.AuthzPolicies, err = GetAuthorizationPolicies(env); err != nil {
-		rbacLog.Errorf("failed to initialize authorization policies: %v", err)
+		authzLog.Errorf("failed to initialize authorization policies: %v", err)
 		return err
 	}
 	return nil
@@ -1513,7 +1504,6 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 				}
 			}
 		}
-		out.DeprecatedFilters = append(out.DeprecatedFilters, efw.DeprecatedFilters...)
 	}
 
 	return out
@@ -1547,7 +1537,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 	out := make([]Config, 0)
 
 	var configs []Config
-	if features.ScopeGatewayToNamespace.Get() {
+	if features.ScopeGatewayToNamespace {
 		configs = ps.gatewaysByNamespace[proxy.ConfigNamespace]
 	} else {
 		configs = ps.allGateways
@@ -1591,18 +1581,15 @@ func (ps *PushContext) initMeshNetworks() {
 			continue
 		}
 
-		registryNames := getNetworkRegistres(networkConf)
+		registryNames := getNetworkRegistries(networkConf)
 		gateways := []*Gateway{}
 
 		for _, gw := range gws {
-			gatewayAddresses := getGatewayAddresses(gw, registryNames, ps.ServiceDiscovery)
-
-			log.Debugf("Endpoints from registry(s) %v on network %v reachable through gateway(s) %v",
-				registryNames, network, gatewayAddresses)
-			for _, addr := range gatewayAddresses {
-				gateways = append(gateways, &Gateway{addr, gw.Port})
-			}
+			gateways = append(gateways, getGatewayAddresses(gw, registryNames, ps.ServiceDiscovery)...)
 		}
+
+		log.Debugf("Endpoints from registries %v on network %v reachable through %d gateways",
+			registryNames, network, len(gateways))
 
 		ps.networkGateways[network] = gateways
 	}
@@ -1620,7 +1607,7 @@ func (ps *PushContext) initQuotaSpecBindings(env *Environment) error {
 	return err
 }
 
-func getNetworkRegistres(network *meshconfig.Network) []string {
+func getNetworkRegistries(network *meshconfig.Network) []string {
 	var registryNames []string
 	for _, eps := range network.Endpoints {
 		if eps != nil && len(eps.GetFromRegistry()) > 0 {
@@ -1630,21 +1617,35 @@ func getNetworkRegistres(network *meshconfig.Network) []string {
 	return registryNames
 }
 
-func getGatewayAddresses(gw *meshconfig.Network_IstioNetworkGateway, registryNames []string, discovery ServiceDiscovery) []string {
+func getGatewayAddresses(gw *meshconfig.Network_IstioNetworkGateway, registryNames []string, discovery ServiceDiscovery) []*Gateway {
 	// First, if a gateway address is provided in the configuration use it. If the gateway address
 	// in the config was a hostname it got already resolved and replaced with an IP address
 	// when loading the config
 	if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
-		return []string{gw.GetAddress()}
+		return []*Gateway{{gw.GetAddress(), gw.Port}}
 	}
 
 	// Second, try to find the gateway addresses by the provided service name
 	if gwSvcName := gw.GetRegistryServiceName(); gwSvcName != "" {
 		svc, _ := discovery.GetService(host.Name(gwSvcName))
-		if svc != nil {
-			var gateways []string
-			for _, registryName := range registryNames {
-				gateways = append(gateways, svc.Attributes.ClusterExternalAddresses[registryName]...)
+		if svc != nil && svc.Attributes.ClusterExternalAddresses != nil {
+			var gateways []*Gateway
+			for _, clusterName := range registryNames {
+				ips := svc.Attributes.ClusterExternalAddresses[clusterName]
+				remotePort := gw.Port
+				// check if we have node port mappings
+				if svc.Attributes.ClusterExternalPorts != nil {
+					if nodePortMap, exists := svc.Attributes.ClusterExternalPorts[clusterName]; exists {
+						// what we now have is a service port. If there is a mapping for cluster external ports,
+						// look it up and get the node port for the remote port
+						if nodePort, exists := nodePortMap[remotePort]; exists {
+							remotePort = nodePort
+						}
+					}
+				}
+				for _, ip := range ips {
+					gateways = append(gateways, &Gateway{ip, remotePort})
+				}
 			}
 			return gateways
 		}
@@ -1665,8 +1666,8 @@ func (ps *PushContext) NetworkGatewaysByNetwork(network string) []*Gateway {
 	return nil
 }
 
-func (ps *PushContext) QuotaSpecByDestination(instance *ServiceInstance) []Config {
-	return filterQuotaSpecsByDestination(instance, ps.QuotaSpecBinding, ps.QuotaSpec)
+func (ps *PushContext) QuotaSpecByDestination(hostname host.Name) []Config {
+	return filterQuotaSpecsByDestination(hostname, ps.QuotaSpecBinding, ps.QuotaSpec)
 }
 
 // BestEffortInferServiceMTLSMode infers the mTLS mode for the service + port from all authentication

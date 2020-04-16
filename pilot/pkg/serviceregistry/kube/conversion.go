@@ -50,7 +50,7 @@ func convertPort(port coreV1.ServicePort) *model.Port {
 	return &model.Port{
 		Name:     port.Name,
 		Port:     int(port.Port),
-		Protocol: kube.ConvertProtocol(port.Port, port.Name, port.Protocol),
+		Protocol: kube.ConvertProtocol(port.Port, port.Name, port.Protocol, port.AppProtocol),
 	}
 }
 
@@ -110,9 +110,19 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 			ServiceRegistry: string(serviceregistry.Kubernetes),
 			Name:            svc.Name,
 			Namespace:       svc.Namespace,
-			UID:             fmt.Sprintf("istio://%s/services/%s", svc.Namespace, svc.Name),
+			UID:             formatUID(svc.Namespace, svc.Name),
 			ExportTo:        exportTo,
 		},
+	}
+
+	if svc.Spec.Type == coreV1.ServiceTypeNodePort {
+		// store the service port to node port mappings
+		portMap := make(map[uint32]uint32)
+		for _, p := range svc.Spec.Ports {
+			portMap[uint32(p.Port)] = uint32(p.NodePort)
+		}
+		istioService.Attributes.ClusterExternalPorts = map[string]map[uint32]uint32{clusterID: portMap}
+		// address mappings will be done elsewhere
 	}
 
 	if svc.Spec.Type == coreV1.ServiceTypeLoadBalancer && len(svc.Status.LoadBalancer.Ingress) > 0 {
@@ -157,7 +167,7 @@ func ExternalNameServiceInstances(k8sSvc coreV1.Service, svc *model.Service) []*
 
 // ServiceHostname produces FQDN for a k8s service
 func ServiceHostname(name, namespace, domainSuffix string) host.Name {
-	return host.Name(fmt.Sprintf("%s.%s.svc.%s", name, namespace, domainSuffix))
+	return host.Name(name + "." + namespace + "." + "svc" + "." + domainSuffix) // Format: "%s.%s.svc.%s"
 }
 
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account
@@ -266,4 +276,8 @@ func ConvertProbesToPorts(t *coreV1.PodSpec) (model.PortList, error) {
 	sort.Slice(mgmtPorts, func(i, j int) bool { return mgmtPorts[i].Port < mgmtPorts[j].Port })
 
 	return mgmtPorts, errs
+}
+
+func formatUID(namespace, name string) string {
+	return "istio://" + namespace + "/services/" + name // Format : "istio://%s/services/%s"
 }

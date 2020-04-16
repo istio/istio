@@ -131,45 +131,6 @@ spec:
   # Security feature
   security:
     enabled: true
-    components:
-      citadel:
-        enabled: true
-        k8s:
-          strategy:
-            rollingUpdate:
-              maxSurge: "100%"
-              maxUnavailable: "25%"
-      certManager:
-        enabled: false
-
-  # Config management feature
-  configManagement:
-    enabled: true
-    components:
-      galley:
-        enabled: true
-        k8s:
-          replicaCount: 1
-          resources:
-            requests:
-              cpu: 100m
-          strategy:
-            rollingUpdate:
-              maxSurge: "100%"
-              maxUnavailable: "25%"
-
-  # Auto injection feature
-  autoInjection:
-    enabled: true
-    components:
-      injector:
-        enabled: true
-        k8s:
-          replicaCount: 1
-          strategy:
-            rollingUpdate:
-              maxSurge: "100%"
-              maxUnavailable: "25%"
 
   # Istio Gateway feature
   gateways:
@@ -238,10 +199,6 @@ spec:
       logging:
         level: "default:info"
       logAsJson: false
-      k8sIngress:
-        enabled: false
-        gatewayName: ingressgateway
-        enableHttps: false
       proxy:
         image: proxyv2
         clusterDomain: "cluster.local"
@@ -262,7 +219,7 @@ spec:
           port: # example: 15000
         logLevel: warning
         componentLogLevel: "misc:error"
-        dnsRefreshRate: 300s
+
         protocolDetectionTimeout: 100ms
         privileged: false
         enableCoreDump: false
@@ -273,8 +230,6 @@ spec:
         includeIPRanges: "*"
         excludeIPRanges: ""
         excludeOutboundPorts: ""
-        kubevirtInterfaces: ""
-        includeInboundPorts: "*"
         excludeInboundPorts: ""
         autoInject: enabled
         envoyStatsd:
@@ -381,8 +336,6 @@ spec:
       enableProtocolSniffingForOutbound: true
       enableProtocolSniffingForInbound: false
       deploymentLabels:
-      meshNetworks:
-        networks: {}
       configMap: true
       ingress:
         ingressService: istio-ingressgateway
@@ -444,17 +397,6 @@ spec:
           kubernetesenv:
             enabled: true
           useAdapterCRDs: false
-
-    galley:
-      image: galley
-      enableAnalysis: false
-
-    security:
-      image: citadel
-      selfSigned: true # indicate if self-signed CA is used.
-      enableNamespacesByDefault: true
-      dnsCerts:
-        istio-pilot-service-account.istio-control: istio-pilot.istio-control
 
     certmanager:
       hub: quay.io/jetstack
@@ -556,12 +498,6 @@ spec:
       retention: 6h
       scrapeInterval: 15s
       contextPath: /prometheus
-      ingress:
-        enabled: false
-        hosts:
-          - prometheus.local
-        annotations:
-        tls:
       security:
         enabled: true
       nodeSelector: {}
@@ -591,12 +527,6 @@ spec:
         externalPort: 3000
         loadBalancerIP:
         loadBalancerSourceRanges:
-      ingress:
-        enabled: false
-        hosts:
-          - grafana.local
-        annotations:
-        tls:
       datasources:
         datasources.yaml:
           apiVersion: 1
@@ -668,11 +598,6 @@ spec:
         name: http-query
         type: ClusterIP
         externalPort: 9411
-      ingress:
-        enabled: false
-        hosts:
-        annotations:
-        tls:
     istiocoredns:
       enabled: false
       coreDNSImage: coredns/coredns
@@ -688,12 +613,6 @@ spec:
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
-      ingress:
-        enabled: false
-        hosts:
-          - kiali.local
-        annotations:
-        tls:
       dashboard:
         secretName: kiali
         usernameKey: username

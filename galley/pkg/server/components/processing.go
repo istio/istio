@@ -176,6 +176,13 @@ func (p *Processing) Start() (err error) {
 		ConnRateLimiter:    mcpSourceRateLimiter,
 	}
 
+	// set incremental flag of all collections to true when incremental mcp enabled
+	if envvar.EnableIncrementalMCP.Get() {
+		for i := range options.CollectionsOptions {
+			options.CollectionsOptions[i].Incremental = true
+		}
+	}
+
 	md := grpcMetadata.MD{
 		versionMetadataKey: []string{version.Info.Version},
 	}
@@ -247,7 +254,9 @@ func (p *Processing) Start() (err error) {
 		}()
 	}
 
-	startWG.Wait()
+	if p.args.EnableServer {
+		startWG.Wait()
+	}
 
 	return nil
 }

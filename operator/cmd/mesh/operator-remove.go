@@ -77,7 +77,7 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l *Logger, delet
 		l.logAndFatal(err)
 	}
 
-	scope.Infof("Using the following manifest to remove operator:\n%s\n", mstr)
+	scope.Debugf("Using the following manifest to remove operator:\n%s\n", mstr)
 
 	opts := &kubectlcmd.Options{
 		DryRun:      args.dryRun,
@@ -118,7 +118,7 @@ func deleteManifest(manifestStr, componentName string, opts *kubectlcmd.Options,
 	} else {
 		l.logAndPrintf("Component %s deleted successfully.", componentName)
 		if opts.Verbose {
-			l.logAndPrintf("The following objects were deleted:\n%s", k8sObjectsString(objs))
+			l.logAndPrintf("The following parseObjectSetFromManifest were deleted:\n%s", k8sObjectsString(objs))
 		}
 	}
 

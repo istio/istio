@@ -15,8 +15,11 @@
 package bootstrap
 
 import (
+	"context"
 	"fmt"
 	"time"
+
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,7 +39,7 @@ const (
 	// Every namespaceResyncPeriod, namespaceUpdated() will be invoked
 	// for every namespace. This value must be configured so Citadel
 	// can update its CA certificate in a ConfigMap in every namespace.
-	namespaceResyncPeriod = time.Second * 30
+	namespaceResyncPeriod = time.Second * 60
 	// The name of the ConfigMap in each namespace storing the root cert of non-Kube CA.
 	CACertNamespaceConfigMap = "istio-ca-root-cert"
 )
@@ -60,14 +63,14 @@ type NamespaceController struct {
 }
 
 // NewNamespaceController returns a pointer to a newly constructed NamespaceController instance.
-func NewNamespaceController(data func() map[string]string, kubeClient kubernetes.Interface) *NamespaceController {
+func NewNamespaceController(data func() map[string]string, options controller.Options, kubeClient kubernetes.Interface) *NamespaceController {
 	c := &NamespaceController{
 		getData: data,
 		client:  kubeClient.CoreV1(),
 		queue:   queue.NewQueue(time.Second),
 	}
 
-	configmapInformer := informer.NewFilteredConfigMapInformer(kubeClient, metav1.NamespaceAll, 0,
+	configmapInformer := informer.NewFilteredConfigMapInformer(kubeClient, metav1.NamespaceAll, options.ResyncPeriod,
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
 		func(options *metav1.ListOptions) {
 			options.LabelSelector = fields.SelectorFromSet(configMapLabel).String()
@@ -93,7 +96,7 @@ func NewNamespaceController(data func() map[string]string, kubeClient kubernetes
 				}
 			}
 			c.queue.Push(func() error {
-				ns, err := kubeClient.CoreV1().Namespaces().Get(cm.Namespace, metav1.GetOptions{})
+				ns, err := kubeClient.CoreV1().Namespaces().Get(context.TODO(), cm.Namespace, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -108,9 +111,14 @@ func NewNamespaceController(data func() map[string]string, kubeClient kubernetes
 	})
 	c.configMapController = configmapInformer
 
-	namespaceInformer := informer.NewNamespaceInformer(kubeClient, 0, cache.Indexers{})
+	namespaceInformer := informer.NewNamespaceInformer(kubeClient, options.ResyncPeriod, cache.Indexers{})
 	namespaceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
+			c.queue.Push(func() error {
+				return c.namespaceChange(obj)
+			})
+		},
+		UpdateFunc: func(_, obj interface{}) {
 			c.queue.Push(func() error {
 				return c.namespaceChange(obj)
 			})

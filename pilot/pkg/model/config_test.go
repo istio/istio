@@ -22,9 +22,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 
-	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	authz "istio.io/api/security/v1beta1"
@@ -32,6 +30,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+	mccpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 	mock_config "istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -387,14 +386,18 @@ func TestMostSpecificHostMatch(t *testing.T) {
 		{[]host.Name{"*.foo.com", "foo.com"}, "*.foo.com", "*.foo.com"},
 
 		// this passes because we sort alphabetically
-		{[]host.Name{"bar.com", "foo.com"}, "*.com", "bar.com"},
+		{[]host.Name{"bar.com", "foo.com"}, "*.com", ""},
 
-		{[]host.Name{"bar.com", "*.foo.com"}, "*foo.com", "*.foo.com"},
-		{[]host.Name{"foo.com", "*.foo.com"}, "*foo.com", "foo.com"},
+		{[]host.Name{"bar.com", "*.foo.com"}, "*foo.com", ""},
+		{[]host.Name{"foo.com", "*.foo.com"}, "*foo.com", ""},
 
 		// should prioritize closest match
 		{[]host.Name{"*.bar.com", "foo.bar.com"}, "foo.bar.com", "foo.bar.com"},
 		{[]host.Name{"*.foo.bar.com", "bar.foo.bar.com"}, "bar.foo.bar.com", "bar.foo.bar.com"},
+
+		// should not match non-wildcards for wildcard needle
+		{[]host.Name{"bar.foo.com", "foo.bar.com"}, "*.foo.com", ""},
+		{[]host.Name{"foo.bar.foo.com", "bar.foo.bar.com"}, "*.bar.foo.com", ""},
 	}
 
 	for idx, tt := range tests {
@@ -626,11 +629,7 @@ func TestIstioConfigStore_QuotaSpecByDestination(t *testing.T) {
 		},
 	}
 	ii := model.MakeIstioStore(l)
-	cfgs := ii.QuotaSpecByDestination(&model.ServiceInstance{
-		Service: &model.Service{
-			Hostname: host.Name("a." + ns + ".svc.cluster.local"),
-		},
-	})
+	cfgs := ii.QuotaSpecByDestination(host.Name("a." + ns + ".svc.cluster.local"))
 
 	if len(cfgs) != 1 {
 		t.Fatalf("did not find 1 matched quota")
@@ -781,55 +780,6 @@ func TestIstioConfigStore_Gateway(t *testing.T) {
 	cfgs := ii.Gateways(workloadLabels)
 
 	if !reflect.DeepEqual(expectedConfig, cfgs) {
-		t.Errorf("Got different Config, Excepted:\n%v\n, Got: \n%v\n", expectedConfig, cfgs)
-	}
-}
-
-func TestIstioConfigStore_EnvoyFilter(t *testing.T) {
-	ns := "ns1"
-	workloadLabels := labels.Collection{}
-
-	l := &fakeStore{
-		cfg: map[resource.GroupVersionKind][]model.Config{
-			collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind(): {
-				{
-					ConfigMeta: model.ConfigMeta{
-						Name:      "request-count",
-						Namespace: ns,
-					},
-					Spec: &networking.EnvoyFilter{
-						Filters: []*networking.EnvoyFilter_Filter{
-							{
-								InsertPosition: &networking.EnvoyFilter_InsertPosition{
-									Index: networking.EnvoyFilter_InsertPosition_FIRST,
-								},
-								FilterType:   networking.EnvoyFilter_Filter_NETWORK,
-								FilterName:   "envoy.foo",
-								FilterConfig: &types.Struct{},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	ii := model.MakeIstioStore(l)
-	mergedFilterConfig := &networking.EnvoyFilter{
-		Filters: []*networking.EnvoyFilter_Filter{
-			{
-				InsertPosition: &networking.EnvoyFilter_InsertPosition{
-					Index: networking.EnvoyFilter_InsertPosition_FIRST,
-				},
-				FilterType:   networking.EnvoyFilter_Filter_NETWORK,
-				FilterName:   "envoy.foo",
-				FilterConfig: &types.Struct{},
-			},
-		},
-	}
-	expectedConfig := &model.Config{Spec: mergedFilterConfig}
-	cfgs := ii.EnvoyFilter(workloadLabels)
-
-	if !reflect.DeepEqual(*expectedConfig, *cfgs) {
 		t.Errorf("Got different Config, Excepted:\n%v\n, Got: \n%v\n", expectedConfig, cfgs)
 	}
 }

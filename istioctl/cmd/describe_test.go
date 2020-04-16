@@ -153,8 +153,8 @@ var (
 					},
 				},
 				TrafficPolicy: &networking.TrafficPolicy{
-					Tls: &networking.TLSSettings{
-						Mode: networking.TLSSettings_ISTIO_MUTUAL,
+					Tls: &networking.ClientTLSSettings{
+						Mode: networking.ClientTLSSettings_ISTIO_MUTUAL,
 					},
 				},
 			},
@@ -604,8 +604,7 @@ RBAC policies: ratings-reader
    Pod Ports: 15090 (istio-proxy)
 --------------------
 Service: productpage
-   Port:  9080/UnsupportedProtocol targets pod port 9080
-   9080 is unnamed which does not follow Istio conventions
+   Port:  9080/auto-detect targets pod port 9080
 DestinationRule: productpage for "productpage"
    No Traffic Policy
 
@@ -624,8 +623,7 @@ VirtualService: bookinfo
    Pod Ports: 15090 (istio-proxy)
 --------------------
 Service: ratings
-   Port:  9080/UnsupportedProtocol targets pod port 9080
-   9080 is unnamed which does not follow Istio conventions
+   Port:  9080/auto-detect targets pod port 9080
 DestinationRule: ratings for "ratings"
    Matching subsets: v1
    Traffic Policy TLS Mode: ISTIO_MUTUAL
@@ -659,8 +657,7 @@ RBAC policies: ratings-reader
    Pod Ports: 15090 (istio-proxy)
 --------------------
 Service: productpage
-   Port:  9080/UnsupportedProtocol targets pod port 9080
-   9080 is unnamed which does not follow Istio conventions
+   Port:  9080/auto-detect targets pod port 9080
 DestinationRule: productpage for "productpage"
    No Traffic Policy
 

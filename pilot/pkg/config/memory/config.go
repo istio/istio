@@ -199,13 +199,9 @@ func (cr *store) Update(config model.Config) (string, error) {
 		return "", errNotFound
 	}
 
-	oldConfig, exists := ns.Load(config.Name)
+	_, exists = ns.Load(config.Name)
 	if !exists {
 		return "", errNotFound
-	}
-
-	if config.ResourceVersion != oldConfig.(model.Config).ResourceVersion {
-		return "", errors.New("old revision")
 	}
 
 	rev := time.Now().String()
