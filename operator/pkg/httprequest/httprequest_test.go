@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright 2020 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ func TestGet(t *testing.T) {
 		if req.URL.String() != url {
 			t.Errorf("Made request to wrong URL, want: %s, got: %s", url, req.URL.String())
 		}
-		rw.Write([]byte("fooey-baroque"))
+		rw.Write([]byte(expected))
 	}))
 	defer server.Close()
 	response, err := Get(server.URL + url)
