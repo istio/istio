@@ -2020,15 +2020,15 @@ func buildTracingConfig(config *meshconfig.ProxyConfig) *http_conn.HttpConnectio
 func buildCustomTags(customTags map[string]*meshconfig.Tracing_CustomTag) []*envoy_type_tracing_v2.CustomTag {
 	var tags []*envoy_type_tracing_v2.CustomTag
 
-	for tagName, t := range customTags {
-		switch c := t.Type.(type) {
+	for tagName, tagInfo := range customTags {
+		switch tag := tagInfo.Type.(type) {
 		case *meshconfig.Tracing_CustomTag_Environment:
 			env := &envoy_type_tracing_v2.CustomTag{
 				Tag: tagName,
 				Type: &envoy_type_tracing_v2.CustomTag_Environment_{
 					Environment: &envoy_type_tracing_v2.CustomTag_Environment{
-						Name:         c.Environment.Name,
-						DefaultValue: c.Environment.DefaultValue,
+						Name:         tag.Environment.Name,
+						DefaultValue: tag.Environment.DefaultValue,
 					},
 				},
 			}
@@ -2038,8 +2038,8 @@ func buildCustomTags(customTags map[string]*meshconfig.Tracing_CustomTag) []*env
 				Tag: tagName,
 				Type: &envoy_type_tracing_v2.CustomTag_RequestHeader{
 					RequestHeader: &envoy_type_tracing_v2.CustomTag_Header{
-						Name:         c.Header.Name,
-						DefaultValue: c.Header.DefaultValue,
+						Name:         tag.Header.Name,
+						DefaultValue: tag.Header.DefaultValue,
 					},
 				},
 			}
@@ -2049,13 +2049,21 @@ func buildCustomTags(customTags map[string]*meshconfig.Tracing_CustomTag) []*env
 				Tag: tagName,
 				Type: &envoy_type_tracing_v2.CustomTag_Literal_{
 					Literal: &envoy_type_tracing_v2.CustomTag_Literal{
-						Value: c.Literal.Value,
+						Value: tag.Literal.Value,
 					},
 				},
 			}
 			tags = append(tags, env)
 		}
 	}
+
+	// looping over customTags, a map, results in the returned value
+	// being non-deterministic when multiple tags were defined; sort by the tag name
+	// to rectify this
+	sort.Slice(tags[:], func(i, j int) bool {
+		return tags[i].Tag < tags[j].Tag
+	})
+
 	return tags
 }
 
