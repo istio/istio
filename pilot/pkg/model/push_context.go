@@ -1629,20 +1629,16 @@ func getGatewayAddresses(gw *meshconfig.Network_IstioNetworkGateway, registryNam
 	if gwSvcName := gw.GetRegistryServiceName(); gwSvcName != "" {
 		svc, _ := discovery.GetService(host.Name(gwSvcName))
 		if svc != nil {
-			// to avoid unnecessary locking, obtain a reference to the required maps
-			// this way, even if the underlying controller replaces the map, this code would be seeing
-			// an older version of the data, without any concurrency issues (:fingers crossed that go compiler treats
-			// map object assignment as pointer updates :)
-			clusterExternalAddresses := svc.Attributes.ClusterExternalAddresses
-			clusterExternalPorts := svc.Attributes.ClusterExternalPorts
-			if clusterExternalAddresses != nil {
+			svc.Mutex.RLock()
+			defer svc.Mutex.RLock()
+			if svc.Attributes.ClusterExternalAddresses != nil {
 				var gateways []*Gateway
 				for _, clusterName := range registryNames {
-					ips := clusterExternalAddresses[clusterName]
+					ips := svc.Attributes.ClusterExternalAddresses[clusterName]
 					remotePort := gw.Port
 					// check if we have node port mappings
-					if clusterExternalPorts != nil {
-						if nodePortMap, exists := clusterExternalPorts[clusterName]; exists {
+					if svc.Attributes.ClusterExternalPorts != nil {
+						if nodePortMap, exists := svc.Attributes.ClusterExternalPorts[clusterName]; exists {
 							// what we now have is a service port. If there is a mapping for cluster external ports,
 							// look it up and get the node port for the remote port
 							if nodePort, exists := nodePortMap[remotePort]; exists {
