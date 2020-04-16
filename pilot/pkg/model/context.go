@@ -887,8 +887,6 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 		return InterceptionRedirect
 	case "NONE":
 		return InterceptionNone
-	case "API":
-		return InterceptionAPI
 	}
 
 	return InterceptionRedirect
