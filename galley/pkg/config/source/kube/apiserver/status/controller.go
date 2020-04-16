@@ -193,11 +193,11 @@ mainloop:
 		// If there are no other subfields left, also delete the status field
 		if st.desiredStatus != nil {
 			statusMap[subfield] = st.desiredStatus
-			statusMap = updateAnalysisCondition(statusMap)
+			statusMap = updateAnalysisCondition(statusMap, true)
 			u.Object["status"] = statusMap
 		} else {
 			delete(statusMap, subfield)
-			statusMap = removeAnalysisCondition(statusMap)
+			statusMap = updateAnalysisCondition(statusMap, false)
 			if len(statusMap) == 0 {
 				delete(u.Object, "status")
 			}
@@ -232,16 +232,27 @@ func removeAnalysisCondition(statusMap map[string]interface{}) map[string]interf
 	return statusMap
 }
 
-func updateAnalysisCondition(statusMap map[string]interface{}) map[string]interface{} {
+func updateAnalysisCondition(statusMap map[string]interface{}, status bool) map[string]interface{} {
 	statusMap = removeAnalysisCondition(statusMap)
 	uconds := statusMap["conditions"].([]interface{})
+	var cstatus metav1.ConditionStatus
+	var message, reason string
+	if status {
+		cstatus = metav1.ConditionTrue
+		reason = "errorsFound"
+		message = "Errors Found.  See validationMessages field for more details"
+	} else {
+		cstatus = metav1.ConditionFalse
+		reason = "noErrorsFound"
+		message = "No errors Found."
+	}
 	uconds = append(uconds, status2.IstioCondition{
 		Type:               status2.HasValidationErrors,
-		Status:             metav1.ConditionTrue,
+		Status:             cstatus,
 		LastProbeTime:      metav1.NewTime(time.Now()),
 		LastTransitionTime: metav1.NewTime(time.Now()),
-		Reason:             "TODO",
-		Message:            "Later Vader",
+		Reason:             reason,
+		Message:            message,
 	})
 	statusMap["conditions"] = uconds
 	return statusMap

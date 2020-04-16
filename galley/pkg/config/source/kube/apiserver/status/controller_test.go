@@ -16,9 +16,12 @@ package status
 
 import (
 	"fmt"
+	status2 "istio.io/istio/pilot/pkg/status"
 	v1 "k8s.io/api/core/v1"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
 	"testing"
+	"time"
 
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -397,6 +400,116 @@ func expectedMessage(m diag.Message) *diag.Message {
 	}
 }
 
+func Test_updateAnalysisCondition(t *testing.T) {
+	sometime := v12.NewTime(time.Now())
+
+	type args struct {
+		statusMap map[string]interface{}
+		status bool
+	}
+	tests := []struct {
+		name string
+		args args
+		want map[string]interface{}
+	}{
+		{
+			name: "update existing condition to true",
+			args:args{statusMap:map[string]interface{}{
+				"conditions":[]interface{}{
+					map[string]interface{}{
+						"condition rude":"true",
+					},
+					map[string]interface{}{
+						"type":"HasValidationErrors",
+						"status":v1.ConditionTrue,
+					},
+				},
+				"validationMessage":"foo",
+			}, status:true},
+			want:map[string]interface{}{
+				"conditions":[]interface{}{
+					map[string]interface{}{
+						"condition rude":"true",
+					},
+					status2.IstioCondition{
+						Type: status2.HasValidationErrors,
+						Status:v12.ConditionTrue,
+						Reason:"errorsFound",
+						Message:"Errors Found.  See validationMessages field for more details",
+						LastTransitionTime:sometime,
+						LastProbeTime:sometime,
+					},
+					//map[string]interface{}{
+					//	"type":"HasValidationErrors",
+					//	"status":v1.ConditionTrue,
+					//	"reason":             "errorsFound",
+					//	"message":            "Errors Found.  See validationMessages field for more details",
+					//	""
+					//},
+				},
+				"validationMessage":"foo",
+			},
+		},{
+			name: "update existing condition to false",
+			args:args{statusMap:map[string]interface{}{
+				"conditions":[]interface{}{
+					map[string]interface{}{
+						"condition rude":"true",
+					},
+					map[string]interface{}{
+						"type":"HasValidationErrors",
+						"status":v1.ConditionTrue,
+					},
+				},
+				"validationMessage":"foo",
+			}, status:false},
+			want:map[string]interface{}{
+				"conditions":[]interface{}{
+					map[string]interface{}{
+						"condition rude":"true",
+					},
+					status2.IstioCondition{
+						Type: status2.HasValidationErrors,
+						Status:v12.ConditionFalse,
+						Reason:"noErrorsFound",
+						Message:"No errors Found.",
+						LastTransitionTime:sometime,
+						LastProbeTime:sometime,
+					},
+					//map[string]interface{}{
+					//	"type":"HasValidationErrors",
+					//	"status":v1.ConditionTrue,
+					//	"reason":             "errorsFound",
+					//	"message":            "Errors Found.  See validationMessages field for more details",
+					//	""
+					//},
+				},
+				"validationMessage":"foo",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := updateAnalysisCondition(tt.args.statusMap, tt.args.status)
+			// we don't care about timestamps, because they are irritating to test
+			var newCond []interface{}
+			for _, ucond := range got["conditions"].([]interface{}) {
+				if cond, ok := ucond.(status2.IstioCondition); ok {
+					cond.LastProbeTime = sometime
+					cond.LastTransitionTime = sometime
+					newCond = append(newCond, cond)
+				} else {
+					newCond = append(newCond, ucond)
+				}
+			}
+			got["conditions"] = newCond
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("updateAnalysisCondition() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func Test_removeAnalysisCondition(t *testing.T) {
 	type args struct {
 		statusMap map[string]interface{}
@@ -415,7 +528,7 @@ func Test_removeAnalysisCondition(t *testing.T) {
 					},
 					map[string]interface{}{
 						"type":"HasValidationErrors",
-						"status":v1.ConditionTrue,
+						"status":v12.ConditionTrue,
 					},
 				},
 				"validationMessage":"foo",
