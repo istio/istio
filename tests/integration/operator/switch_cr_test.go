@@ -48,9 +48,10 @@ import (
 )
 
 const (
-	IstioNamespace = "istio-system"
-	retryDelay     = time.Second
-	retryTimeOut   = 100 * time.Second
+	IstioNamespace    = "istio-system"
+	OperatorNamespace = "istio-operator"
+	retryDelay        = time.Second
+	retryTimeOut      = 100 * time.Second
 )
 
 var (
@@ -75,6 +76,7 @@ func TestController(t *testing.T) {
 			}
 			initCmd := []string{
 				"operator", "init",
+				"--wait",
 				"--hub=" + s.Hub,
 				"--tag=" + s.Tag,
 			}
@@ -82,7 +84,12 @@ func TestController(t *testing.T) {
 			istioCtl.InvokeOrFail(t, initCmd)
 
 			if err := cs.CreateNamespace(IstioNamespace, ""); err != nil {
-				t.Errorf("failed to create istio namespace: %v", err)
+				_, err := cs.GetNamespace(IstioNamespace)
+				if err == nil {
+					log.Info("istio namespace already exist")
+				} else {
+					t.Errorf("failed to create istio namespace: %v", err)
+				}
 			}
 
 			// later just run `kubectl apply -f newcr.yaml` to apply new installation cr files and verify.
@@ -101,13 +108,20 @@ func checkInstallStatus(cs kube.Cluster) error {
 	}
 
 	retryFunc := func() error {
-		us, err := cs.GetUnstructured(gvr, "istio-system", "test-istiocontrolplane")
+		us, err := cs.GetUnstructured(gvr, IstioNamespace, "test-istiocontrolplane")
 		if err != nil {
 			return fmt.Errorf("failed to get istioOperator resource: %v", err)
 		}
 		usIOPStatus := us.UnstructuredContent()["status"]
 		if usIOPStatus == nil {
-			return fmt.Errorf("cr status is not ready")
+			if _, err := cs.GetService(OperatorNamespace, "istio-operator"); err != nil {
+				return fmt.Errorf("istio operator svc is not ready: %v", err)
+			}
+			if _, err := cs.CheckPodsAreReady(cs.NewPodFetch(OperatorNamespace)); err != nil {
+				return fmt.Errorf("istio operator pod is not ready: %v", err)
+			}
+
+			return fmt.Errorf("status not found from the istioOperator resource")
 		}
 		usIOPStatus = usIOPStatus.(map[string]interface{})
 		iopStatusString, err := json.Marshal(usIOPStatus)
