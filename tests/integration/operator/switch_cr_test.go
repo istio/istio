@@ -56,7 +56,7 @@ const (
 
 var (
 	ManifestTestDataPath = filepath.Join(env.IstioSrc, "operator/cmd/mesh/testdata/manifest-generate/input")
-	ProfilesPath         = filepath.Join(env.IstioSrc, "operator/data/profiles")
+	ProfilesPath         = filepath.Join(env.IstioSrc, "manifests/profiles")
 )
 
 func TestController(t *testing.T) {
