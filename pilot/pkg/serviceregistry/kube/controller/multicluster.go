@@ -18,10 +18,10 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/pkg/log"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
-
-	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -148,4 +148,14 @@ func (m *Multicluster) updateHandler() {
 		}
 		m.XDSUpdater.ConfigUpdate(req)
 	}
+}
+
+func (m *Multicluster) GetRemoteKubeControllers() map[string]kubernetes.Interface {
+	m.m.Lock()
+	res := make(map[string]kubernetes.Interface)
+	for k, v := range m.remoteKubeControllers {
+		res[k] = v.rc.client
+	}
+	m.m.Unlock()
+	return res
 }

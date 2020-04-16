@@ -34,6 +34,8 @@ import (
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	pb "istio.io/istio/security/proto"
 	"istio.io/pkg/log"
+
+	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 )
 
 // Config for Vault prototyping purpose
@@ -223,11 +225,11 @@ func (s *Server) Run() error {
 // New creates a new instance of `IstioCAServiceServer`.
 func New(ca CertificateAuthority, ttl time.Duration, forCA bool,
 	hostlist []string, port int, trustDomain string, sdsEnabled bool, jwtPolicy string) (*Server, error) {
-	return NewWithGRPC(nil, ca, ttl, forCA, hostlist, port, trustDomain, sdsEnabled, jwtPolicy)
+	return NewWithGRPC(nil, nil, ca, ttl, forCA, hostlist, port, trustDomain, sdsEnabled, jwtPolicy)
 }
 
 // New creates a new instance of `IstioCAServiceServer`, running inside an existing gRPC server.
-func NewWithGRPC(grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, forCA bool,
+func NewWithGRPC(mc *kubecontroller.Multicluster, grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, forCA bool,
 	hostlist []string, port int, trustDomain string, sdsEnabled bool, jwtPolicy string) (*Server, error) {
 
 	if len(hostlist) == 0 {
@@ -243,6 +245,16 @@ func NewWithGRPC(grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, 
 	if sdsEnabled {
 		authenticator, err := authenticate.NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath,
 			trustDomain, jwtPolicy)
+		remoteClients := mc.GetRemoteKubeControllers()
+		for _, v := range remoteClients {
+			remoteAuthenticator, err := authenticate.NewRemoteJWTAuthenticator(v, trustDomain, jwtPolicy)
+			if err == nil {
+				authenticators = append(authenticators, remoteAuthenticator)
+				serverCaLog.Info("added remote K8s JWT authenticator")
+			} else {
+				serverCaLog.Warnf("failed to add remote JWT authenticator: %v", err)
+			}
+		}
 		if err == nil {
 			authenticators = append(authenticators, authenticator)
 			serverCaLog.Info("added K8s JWT authenticator")
