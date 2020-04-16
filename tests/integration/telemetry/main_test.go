@@ -47,6 +47,7 @@ components:
   ingressGateways:
   - name: istio-ingressgateway
     enabled: true
+    k8s:
       service:
         ports:
           - port: 15020
