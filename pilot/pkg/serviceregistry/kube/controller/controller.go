@@ -67,8 +67,6 @@ const (
 	NodeZoneLabelGA = "topology.kubernetes.io/zone"
 	// IstioSubzoneLabel is custom subzone label for locality-based routing in Kubernetes see: https://github.com/istio/istio/issues/19114
 	IstioSubzoneLabel = "topology.istio.io/subzone"
-	// NodePortServiceLabel is the label indicating whether nodes can be used to redirect traffic to nodePort type ingress gateway service.
-	NodePortServiceLabel = "traffic.istio.io/usedForNodePortServices"
 	// IstioNamespace used by default for Istio cluster-wide installation
 	IstioNamespace = "istio-system"
 	// IstioConfigMap is used by default
@@ -252,9 +250,7 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 	// This is for getting the node IPs of a selected set of nodes
 	c.filteredNodeInformer = coreinformers.NewFilteredNodeInformer(client, options.ResyncPeriod,
 		cache.Indexers{},
-		func(options *metav1.ListOptions) {
-			options.LabelSelector = NodePortServiceLabel + "=true"
-		})
+		func(options *metav1.ListOptions) {})
 	registerHandlers(c.filteredNodeInformer, c.queue, "Nodes", c.onNodeEvent)
 
 	podInformer := sharedInformers.Core().V1().Pods().Informer()
