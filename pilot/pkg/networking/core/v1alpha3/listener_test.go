@@ -1406,13 +1406,13 @@ func TestHttpProxyListener(t *testing.T) {
 
 func TestHttpProxyListener_CustomTags(t *testing.T) {
 	var customTagsTest = []struct {
-		name string
-		in  map[string]*meshconfig.Tracing_CustomTag
-		out []*envoy_type_tracing_v2.CustomTag
+		name      string
+		in        map[string]*meshconfig.Tracing_CustomTag
+		out       []*envoy_type_tracing_v2.CustomTag
 		isGateway bool
 	}{
 		{
-			name: "custom-tags-sidecar",
+			name:      "custom-tags-sidecar",
 			isGateway: false,
 			in: map[string]*meshconfig.Tracing_CustomTag{
 				"custom_tag_env": {
@@ -1471,7 +1471,7 @@ func TestHttpProxyListener_CustomTags(t *testing.T) {
 			},
 		},
 		{
-			name: "custom-tags-gateways",
+			name:      "custom-tags-gateways",
 			isGateway: true,
 			in: map[string]*meshconfig.Tracing_CustomTag{
 				"custom_tag_request_header": {
@@ -1512,11 +1512,11 @@ func TestHttpProxyListener_CustomTags(t *testing.T) {
 		httpProxy := configgen.buildHTTPProxy(&proxy, env.PushContext)
 
 		f := httpProxy.FilterChains[0].Filters[0]
-		verifyHttpConnectionManagerFilter(t, f, tc.out, tc.name)
+		verifyHTTPConnectionManagerFilter(t, f, tc.out, tc.name)
 	}
 }
 
-func verifyHttpConnectionManagerFilter(t *testing.T, f *listener.Filter, expected []*envoy_type_tracing_v2.CustomTag, name string) {
+func verifyHTTPConnectionManagerFilter(t *testing.T, f *listener.Filter, expected []*envoy_type_tracing_v2.CustomTag, name string) {
 	t.Helper()
 	if f.Name == "envoy.http_connection_manager" {
 		cmgr := &http_filter.HttpConnectionManager{}

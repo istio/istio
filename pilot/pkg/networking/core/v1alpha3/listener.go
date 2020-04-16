@@ -2062,7 +2062,7 @@ func buildCustomTags(customTags map[string]*meshconfig.Tracing_CustomTag) []*env
 	// looping over customTags, a map, results in the returned value
 	// being non-deterministic when multiple tags were defined; sort by the tag name
 	// to rectify this
-	sort.Slice(tags[:], func(i, j int) bool {
+	sort.Slice(tags, func(i, j int) bool {
 		return tags[i].Tag < tags[j].Tag
 	})
 
