@@ -173,9 +173,6 @@
           "prefix": "reporter="
           },
           {
-          "prefix": "component"
-          },
-          {
           "prefix": "cluster_manager"
           },
           {
@@ -199,6 +196,9 @@
           {
           "suffix": "ssl_context_update_by_sds"
           },
+          {
+          "prefix": "component"
+          }
         ]
       }
     }
