@@ -151,6 +151,9 @@ type Proxy struct {
 	// the sidecarScope associated with the proxy
 	SidecarScope *SidecarScope
 
+	// the sidecarScope associated with the proxy previously
+	PrevSidecarScope *SidecarScope
+
 	// The merged gateways associated with the proxy if this is a Router
 	MergedGateway *MergedGateway
 
@@ -574,6 +577,8 @@ func (node *Proxy) GetRouterMode() RouterMode {
 // Listener generation code will still use the SidecarScope object directly
 // as it needs the set of services for each listener port.
 func (node *Proxy) SetSidecarScope(ps *PushContext) {
+	sidecarScope := node.SidecarScope
+
 	if node.Type == SidecarProxy {
 		workloadLabels := labels.Collection{node.Metadata.Labels}
 		node.SidecarScope = ps.getSidecarScope(node, workloadLabels)
@@ -581,7 +586,7 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 		// Gateways should just have a default scope with egress: */*
 		node.SidecarScope = DefaultSidecarScopeForNamespace(ps, node.ConfigNamespace)
 	}
-
+	node.PrevSidecarScope = sidecarScope
 }
 
 // SetGatewaysForProxy merges the Gateway objects associated with this

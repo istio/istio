@@ -98,6 +98,12 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		}
 	}
 
+	// Used for tests.
+	memStore := memory.Make(collections.Pilot)
+	memConfigController := memory.NewController(memStore)
+	s.ConfigStores = append(s.ConfigStores, memConfigController)
+	s.EnvoyXdsServer.MemConfigController = memConfigController
+
 	// If running in ingress mode (requires k8s), wrap the config controller.
 	if hasKubeRegistry(args.Service.Registries) && meshConfig.IngressControllerMode != meshconfig.MeshConfig_OFF {
 		// Wrap the config controller with a cache.

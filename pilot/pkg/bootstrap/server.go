@@ -56,7 +56,6 @@ import (
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/dns"
 	"istio.io/istio/pkg/jwt"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
@@ -696,10 +695,13 @@ func (s *Server) initEventHandlers() error {
 	// Flush cached discovery responses whenever services configuration change.
 	serviceHandler := func(svc *model.Service, _ model.Event) {
 		pushReq := &model.PushRequest{
-			Full:              true,
-			NamespacesUpdated: map[string]struct{}{svc.Attributes.Namespace: {}},
-			ConfigsUpdated:    map[resource.GroupVersionKind]map[string]struct{}{model.ServiceEntryKind: {}},
-			Reason:            []model.TriggerReason{model.ServiceUpdate},
+			Full: true,
+			ConfigsUpdated: map[model.ConfigKey]struct{}{{
+				Kind:      model.ServiceEntryKind,
+				Name:      string(svc.Hostname),
+				Namespace: svc.Attributes.Namespace,
+			}: {}},
+			Reason: []model.TriggerReason{model.ServiceUpdate},
 		}
 		s.EnvoyXdsServer.ConfigUpdate(pushReq)
 	}
@@ -712,10 +714,13 @@ func (s *Server) initEventHandlers() error {
 		// In all cases, this is simply an instance update and not a config update. So, we need to update
 		// EDS in all proxies, and do a full config push for the instance that just changed (add/update only).
 		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
-			Full:              true,
-			NamespacesUpdated: map[string]struct{}{si.Service.Attributes.Namespace: {}},
-			ConfigsUpdated:    map[resource.GroupVersionKind]map[string]struct{}{model.ServiceEntryKind: {}},
-			Reason:            []model.TriggerReason{model.ServiceUpdate},
+			Full: true,
+			ConfigsUpdated: map[model.ConfigKey]struct{}{{
+				Kind:      model.ServiceEntryKind,
+				Name:      string(si.Service.Hostname),
+				Namespace: si.Service.Attributes.Namespace,
+			}: {}},
+			Reason: []model.TriggerReason{model.ServiceUpdate},
 		})
 	}
 	if err := s.ServiceController().AppendInstanceHandler(instanceHandler); err != nil {
@@ -725,9 +730,13 @@ func (s *Server) initEventHandlers() error {
 	if s.configController != nil {
 		configHandler := func(_, curr model.Config, _ model.Event) {
 			pushReq := &model.PushRequest{
-				Full:           true,
-				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{curr.GroupVersionKind(): {}},
-				Reason:         []model.TriggerReason{model.ConfigUpdate},
+				Full: true,
+				ConfigsUpdated: map[model.ConfigKey]struct{}{{
+					Kind:      curr.GroupVersionKind(),
+					Name:      curr.Name,
+					Namespace: curr.Namespace,
+				}: {}},
+				Reason: []model.TriggerReason{model.ConfigUpdate},
 			}
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
 		}

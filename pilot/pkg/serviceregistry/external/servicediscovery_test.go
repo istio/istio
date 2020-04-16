@@ -16,6 +16,7 @@ package external
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
@@ -63,6 +64,7 @@ type Event struct {
 	host      string
 	namespace string
 	endpoints int
+	pushReq   *model.PushRequest
 }
 
 type FakeXdsUpdater struct {
@@ -75,8 +77,8 @@ func (fx *FakeXdsUpdater) EDSUpdate(_, hostname string, namespace string, entry 
 	return nil
 }
 
-func (fx *FakeXdsUpdater) ConfigUpdate(_ *model.PushRequest) {
-	fx.Events <- Event{kind: "xds"}
+func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
+	fx.Events <- Event{kind: "xds", pushReq: req}
 }
 
 func (fx *FakeXdsUpdater) ProxyUpdate(_, _ string) {
@@ -231,7 +233,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		createConfigs([]*model.Config{httpStatic}, store, t)
 		instances := baseInstances
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
-		expectEvents(t, events, Event{kind: "xds"})
+		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: serviceEntryKind, Name: httpStatic.Spec.(*networking.ServiceEntry).Hosts[0], Namespace: httpStatic.Namespace}: {}}}})
 	})
 
 	t.Run("add entry", func(t *testing.T) {
@@ -240,7 +242,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		instances := append(baseInstances,
 			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText))
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
-		expectEvents(t, events, Event{kind: "xds"})
+		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: serviceEntryKind, Name: httpStaticOverlay.Spec.(*networking.ServiceEntry).Hosts[0], Namespace: httpStaticOverlay.Namespace}: {}}}})
 	})
 
 	t.Run("add endpoint", func(t *testing.T) {
@@ -307,7 +309,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		// This lookup is per-namespace, so we should only see the objects in the same namespace
 		expectServiceInstances(t, sd, httpStaticOverlayUpdatedNs, 0, instances)
 		// Expect a full push, as the Service has changed
-		expectEvents(t, events, Event{kind: "xds"})
+		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: serviceEntryKind, Name: httpStaticOverlayUpdatedNs.Spec.(*networking.ServiceEntry).Hosts[0], Namespace: httpStaticOverlayUpdatedNs.Namespace}: {}}}})
 	})
 
 	t.Run("delete entry", func(t *testing.T) {
@@ -323,7 +325,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		// svc update is only triggered on deletion. Also expect a full push as the service has changed
 		expectEvents(t, events,
 			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
-			Event{kind: "xds"})
+			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: serviceEntryKind, Name: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace}: {}}}})
 
 		// Add back the ServiceEntry, expect these instances to get added
 		createConfigs([]*model.Config{httpStaticOverlayUpdated}, store, t)
@@ -332,7 +334,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
 		// Service change, so we need a full push
-		expectEvents(t, events, Event{kind: "xds"})
+		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: serviceEntryKind, Name: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace}: {}}}})
 	})
 
 	t.Run("change host", func(t *testing.T) {
@@ -360,7 +362,45 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		}
 		expectServiceInstances(t, sd, httpStaticHost, 0, instances, instances2)
 		// Service change, so we need a full push
-		expectEvents(t, events, Event{kind: "xds"})
+		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: serviceEntryKind, Name: "other.com", Namespace: httpStaticOverlayUpdated.Namespace}: {}}}}) // service added
+
+		// restore this config and remove the added host.
+		createConfigs([]*model.Config{httpStaticOverlayUpdated}, store, t)
+		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: serviceEntryKind, Name: "other.com", Namespace: httpStaticOverlayUpdated.Namespace}: {}}}}) // service deleted
+	})
+
+	t.Run("change workload selector", func(t *testing.T) {
+		// same as selector but with an additional host
+		selector1 := func() *model.Config {
+			c := httpStaticOverlay.DeepCopy()
+			se := c.Spec.(*networking.ServiceEntry)
+			se.Hosts = append(se.Hosts, "selector1.com")
+			se.Endpoints = nil
+			se.WorkloadSelector = &networking.WorkloadSelector{
+				Labels: map[string]string{"app": "wle"},
+			}
+			return &c
+		}()
+		createConfigs([]*model.Config{selector1}, store, t)
+		// Service change, so we need a full push
+		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{
+			{Kind: serviceEntryKind, Name: "*.google.com", Namespace: selector1.Namespace}:  {},
+			{Kind: serviceEntryKind, Name: "selector1.com", Namespace: selector1.Namespace}: {},
+		}}}) // service added
+
+		selector1Updated := func() *model.Config {
+			c := selector1.DeepCopy()
+			se := c.Spec.(*networking.ServiceEntry)
+			se.WorkloadSelector = &networking.WorkloadSelector{
+				Labels: map[string]string{"app": "wle1"},
+			}
+			return &c
+		}()
+		createConfigs([]*model.Config{selector1Updated}, store, t)
+		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{
+			{Kind: serviceEntryKind, Name: "*.google.com", Namespace: selector1.Namespace}:  {},
+			{Kind: serviceEntryKind, Name: "selector1.com", Namespace: selector1.Namespace}: {},
+		}}}) // service updated
 	})
 }
 
@@ -466,10 +506,29 @@ func expectProxyInstances(t *testing.T, sd *ServiceEntryStore, expected []*model
 }
 
 func expectEvents(t *testing.T, ch chan Event, events ...Event) {
+	cmpPushRequest := func(expectReq, gotReq *model.PushRequest) bool {
+		var expectConfigs, gotConfigs map[model.ConfigKey]struct{}
+		if expectReq != nil {
+			expectConfigs = expectReq.ConfigsUpdated
+		}
+		if gotReq != nil {
+			gotConfigs = gotReq.ConfigsUpdated
+		}
+
+		return reflect.DeepEqual(expectConfigs, gotConfigs)
+	}
+
 	t.Helper()
 	for _, event := range events {
 		got := waitForEvent(t, ch)
-		if got != event {
+		if event.pushReq != nil {
+			if !cmpPushRequest(event.pushReq, got.pushReq) {
+				t.Fatalf("expected event %+v %+v, got %+v %+v", event, event.pushReq, got, got.pushReq)
+			}
+		}
+
+		event.pushReq, got.pushReq = nil, nil
+		if event != got {
 			t.Fatalf("expected event %+v, got %+v", event, got)
 		}
 	}
@@ -587,8 +646,8 @@ func TestNonServiceConfig(t *testing.T) {
 	})
 }
 
-func TestServicesChanged(t *testing.T) {
-
+// nolint: lll
+func TestServicesDiff(t *testing.T) {
 	var updatedHTTPDNS = &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:              collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
@@ -624,130 +683,132 @@ func TestServicesChanged(t *testing.T) {
 		},
 	}
 
-	var updatedHTTPDNSPort = &model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:              collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
-			Name:              "httpDNS",
-			Namespace:         "httpDNS",
-			CreationTimestamp: GlobalTime,
-			Labels:            map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
-		},
-		Spec: &networking.ServiceEntry{
-			Hosts: []string{"*.google.com", "*.mail.com"},
-			Ports: []*networking.Port{
-				{Number: 80, Name: "http-port", Protocol: "http"},
-				{Number: 8080, Name: "http-alt-port", Protocol: "http"},
-				{Number: 9090, Name: "http-new-port", Protocol: "http"},
-			},
-			Endpoints: []*networking.WorkloadEntry{
-				{
-					Address: "us.google.com",
-					Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
-					Labels:  map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
-				},
-				{
-					Address: "uk.google.com",
-					Ports:   map[string]uint32{"http-port": 1080},
-					Labels:  map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
-				},
-				{
-					Address: "de.google.com",
-					Labels:  map[string]string{"foo": "bar", model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
-				},
-			},
-			Location:   networking.ServiceEntry_MESH_EXTERNAL,
-			Resolution: networking.ServiceEntry_DNS,
-		},
+	var updatedHTTPDNSPort = func() *model.Config {
+		c := updatedHTTPDNS.DeepCopy()
+		se := c.Spec.(*networking.ServiceEntry)
+		var ports []*networking.Port
+		ports = append(ports, se.Ports...)
+		ports = append(ports, &networking.Port{Number: 9090, Name: "http-new-port", Protocol: "http"})
+		se.Ports = ports
+		return &c
+	}()
+
+	var updatedEndpoint = func() *model.Config {
+		c := updatedHTTPDNS.DeepCopy()
+		se := c.Spec.(*networking.ServiceEntry)
+		var endpoints []*networking.WorkloadEntry
+		endpoints = append(endpoints, se.Endpoints...)
+		endpoints = append(endpoints, &networking.WorkloadEntry{
+			Address: "in.google.com",
+			Labels:  map[string]string{"foo": "bar", model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+		})
+		se.Endpoints = endpoints
+		return &c
+	}()
+
+	stringsToHosts := func(hosts []string) []host.Name {
+		ret := make([]host.Name, len(hosts))
+		for i, hostname := range hosts {
+			ret[i] = host.Name(hostname)
+		}
+		return ret
 	}
 
-	var updatedEndpoint = &model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:              collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
-			Name:              "httpDNS",
-			Namespace:         "httpDNS",
-			CreationTimestamp: GlobalTime,
-			Labels:            map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
-		},
-		Spec: &networking.ServiceEntry{
-			Hosts: []string{"*.google.com", "*.mail.com"},
-			Ports: []*networking.Port{
-				{Number: 80, Name: "http-port", Protocol: "http"},
-				{Number: 8080, Name: "http-alt-port", Protocol: "http"},
-			},
-			Endpoints: []*networking.WorkloadEntry{
-				{
-					Address: "us.google.com",
-					Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
-					Labels:  map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
-				},
-				{
-					Address: "uk.google.com",
-					Ports:   map[string]uint32{"http-port": 1080},
-					Labels:  map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
-				},
-				{
-					Address: "de.google.com",
-					Labels:  map[string]string{"foo": "bar", model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
-				},
-				{
-					Address: "in.google.com",
-					Labels:  map[string]string{"foo": "bar", model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
-				},
-			},
-			Location:   networking.ServiceEntry_MESH_EXTERNAL,
-			Resolution: networking.ServiceEntry_DNS,
-		},
-	}
 	cases := []struct {
 		name string
 		a    *model.Config
 		b    *model.Config
-		want bool
+
+		added     []host.Name
+		deleted   []host.Name
+		updated   []host.Name
+		unchanged []host.Name
 	}{
 		{
-			"same config",
-			httpDNS,
-			httpDNS,
-			false,
+			name:      "same config",
+			a:         updatedHTTPDNS,
+			b:         updatedHTTPDNS,
+			unchanged: stringsToHosts(updatedHTTPDNS.Spec.(*networking.ServiceEntry).Hosts),
 		},
 		{
-			"different config",
-			httpDNS,
-			httpNoneInternal,
-			true,
+			name: "different config",
+			a:    updatedHTTPDNS,
+			b: func() *model.Config {
+				c := updatedHTTPDNS.DeepCopy()
+				c.Name = "httpDNS1"
+				return &c
+			}(),
+			unchanged: stringsToHosts(updatedHTTPDNS.Spec.(*networking.ServiceEntry).Hosts),
 		},
 		{
-			"different resolution",
-			tcpDNS,
-			tcpStatic,
-			true,
+			name: "different resolution",
+			a:    updatedHTTPDNS,
+			b: func() *model.Config {
+				c := updatedHTTPDNS.DeepCopy()
+				c.Spec.(*networking.ServiceEntry).Resolution = networking.ServiceEntry_NONE
+				return &c
+			}(),
+			updated: stringsToHosts(updatedHTTPDNS.Spec.(*networking.ServiceEntry).Hosts),
 		},
 		{
-			"config modified with additional host",
-			httpDNS,
-			updatedHTTPDNS,
-			true,
+			name: "config modified with added/deleted host",
+			a:    updatedHTTPDNS,
+			b: func() *model.Config {
+				c := updatedHTTPDNS.DeepCopy()
+				se := c.Spec.(*networking.ServiceEntry)
+				se.Hosts = []string{"*.google.com", "host.com"}
+				return &c
+			}(),
+			added:     []host.Name{"host.com"},
+			deleted:   []host.Name{"*.mail.com"},
+			unchanged: []host.Name{"*.google.com"},
 		},
 		{
-			"config modified with additional port",
-			updatedHTTPDNS,
-			updatedHTTPDNSPort,
-			true,
+			name:    "config modified with additional port",
+			a:       updatedHTTPDNS,
+			b:       updatedHTTPDNSPort,
+			updated: stringsToHosts(updatedHTTPDNS.Spec.(*networking.ServiceEntry).Hosts),
 		},
 		{
-			"same config with additional endpoint",
-			updatedHTTPDNS,
-			updatedEndpoint,
-			false,
+			name:      "same config with additional endpoint",
+			a:         updatedHTTPDNS,
+			b:         updatedEndpoint,
+			unchanged: stringsToHosts(updatedHTTPDNS.Spec.(*networking.ServiceEntry).Hosts),
 		},
 	}
+
+	servicesHostnames := func(services []*model.Service) map[host.Name]struct{} {
+		ret := make(map[host.Name]struct{})
+		for _, svc := range services {
+			ret[svc.Hostname] = struct{}{}
+		}
+		return ret
+	}
+	hostnamesToMap := func(hostnames []host.Name) map[host.Name]struct{} {
+		ret := make(map[host.Name]struct{})
+		for _, hostname := range hostnames {
+			ret[hostname] = struct{}{}
+		}
+		return ret
+	}
+
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			as := convertServices(*tt.a)
 			bs := convertServices(*tt.b)
-			got := servicesChanged(as, bs)
-			if got != tt.want {
-				t.Errorf("ServicesChanged got %v, want %v", got, tt.want)
+			added, deleted, updated, unchanged := servicesDiff(as, bs)
+			for i, item := range []struct {
+				hostnames []host.Name
+				services  []*model.Service
+			}{
+				{tt.added, added},
+				{tt.deleted, deleted},
+				{tt.updated, updated},
+				{tt.unchanged, unchanged},
+			} {
+				if !reflect.DeepEqual(servicesHostnames(item.services), hostnamesToMap(item.hostnames)) {
+					t.Errorf("ServicesChanged %d got %v, want %v", i, servicesHostnames(item.services), hostnamesToMap(item.hostnames))
+				}
 			}
 		})
 	}
