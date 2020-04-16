@@ -103,7 +103,7 @@ func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxy *Pro
 // with a Proxy, the default (a networking.core.ConfigGenerator instance) will be used.
 // The server may associate a different generator based on client metadata. Different
 // WatchedResources may use same or different Generator.
-type Generator interface{
+type Generator interface {
 	Generate(node *Proxy, push *PushContext, w *WatchedResource) []*any.Any
 }
 
@@ -418,6 +418,9 @@ type NodeMetadata struct {
 	// protocol. It will enable the "AcceptHttp_10" option on the http options for outbound HTTP listeners.
 	// Alpha in 1.1, based on feedback may be turned into an API or change. Set to "1" to enable.
 	HTTP10 string `json:"HTTP10,omitempty"`
+
+	// Generator indicates the client wants to use a custom Generator plugin.
+	Generator string `json:"GENERATOR,omitempty"`
 
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
@@ -868,7 +871,6 @@ const (
 	// InterceptionRedirect implies traffic intercepted by IPtables with REDIRECT mode
 	// This is our default mode
 	InterceptionRedirect TrafficInterceptionMode = "REDIRECT"
-
 )
 
 // GetInterceptionMode extracts the interception mode associated with the proxy
