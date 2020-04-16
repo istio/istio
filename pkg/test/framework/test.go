@@ -34,6 +34,7 @@ type Test struct {
 	goTest              *testing.T
 	labels              []label.Instance
 	featureLabels       []features.Feature
+	notImplemented      bool
 	s                   *suiteContext
 	requiredEnv         environment.Name
 	requiredMinClusters int
@@ -79,8 +80,9 @@ func (t *Test) Features(features ...features.Feature) *Test {
 }
 
 func (t *Test) NotImplementedYet(features ...features.Feature) *Test {
+	t.notImplemented = true
 	t.Features(features...).
-		Run(func(_ TestContext) { t.goTest.Skip() })
+		Run(func(_ TestContext) { t.goTest.Skip("Test Not Yet Impemented") })
 	return t
 }
 

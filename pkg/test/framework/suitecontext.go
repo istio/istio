@@ -168,26 +168,31 @@ func (s *suiteContext) CreateTmpDirectory(prefix string) (string, error) {
 type Outcome string
 
 const (
-	Passed  Outcome = "Passed"
-	Failed  Outcome = "Failed"
-	Skipped Outcome = "Skipped"
+	Passed         Outcome = "Passed"
+	Failed         Outcome = "Failed"
+	Skipped        Outcome = "Skipped"
+	NotImplemented Outcome = "NotImplemented"
 )
 
 type TestOutcome struct {
 	Name          string
+	Type          string
 	Outcome       Outcome
 	FeatureLabels []features.Feature
 }
 
 func (s *suiteContext) registerOutcome(test *Test) {
 	o := Passed
-	if test.goTest.Failed() {
+	if test.notImplemented {
+		o = NotImplemented
+	} else if test.goTest.Failed() {
 		o = Failed
 	} else if test.goTest.Skipped() {
 		o = Skipped
 	}
 	newOutcome := TestOutcome{
 		Name:          test.goTest.Name(),
+		Type:          "integration",
 		Outcome:       o,
 		FeatureLabels: test.featureLabels,
 	}
