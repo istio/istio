@@ -16,6 +16,8 @@ package status
 
 import (
 	"fmt"
+	v1 "k8s.io/api/core/v1"
+	"reflect"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -392,5 +394,47 @@ func expectedMessage(m diag.Message) *diag.Message {
 		Parameters: m.Parameters,
 		Resource:   m.Resource,
 		DocRef:     DocRef,
+	}
+}
+
+func Test_removeAnalysisCondition(t *testing.T) {
+	type args struct {
+		statusMap map[string]interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want map[string]interface{}
+	}{
+		{
+			name: "remove existing condition",
+			args:args{statusMap:map[string]interface{}{
+				"conditions":[]interface{}{
+					map[string]interface{}{
+						"condition rude":"true",
+					},
+					map[string]interface{}{
+						"type":"HasValidationErrors",
+						"status":v1.ConditionTrue,
+					},
+				},
+				"validationMessage":"foo",
+			}},
+			want:map[string]interface{}{
+				"conditions":[]interface{}{
+					map[string]interface{}{
+						"condition rude":"true",
+					},
+				},
+				"validationMessage":"foo",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := removeAnalysisCondition(tt.args.statusMap); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("removeAnalysisCondition() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

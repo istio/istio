@@ -16,7 +16,10 @@ package status
 
 import (
 	"context"
+	"github.com/ghodss/yaml"
+	status2 "istio.io/istio/pilot/pkg/status"
 	"sync"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
@@ -190,9 +193,11 @@ mainloop:
 		// If there are no other subfields left, also delete the status field
 		if st.desiredStatus != nil {
 			statusMap[subfield] = st.desiredStatus
+			statusMap = updateAnalysisCondition(statusMap)
 			u.Object["status"] = statusMap
 		} else {
 			delete(statusMap, subfield)
+			statusMap = removeAnalysisCondition(statusMap)
 			if len(statusMap) == 0 {
 				delete(u.Object, "status")
 			}
@@ -205,4 +210,39 @@ mainloop:
 		}
 	}
 	wg.Done()
+}
+
+func getTypedCondition(in interface{}) (out status2.IstioCondition, err error) {
+	var statusBytes []byte
+	if statusBytes, err = yaml.Marshal(in); err == nil {
+		err = yaml.Unmarshal(statusBytes, &out)
+	}
+	return
+}
+
+func removeAnalysisCondition(statusMap map[string]interface{}) map[string]interface{} {
+	uconds := statusMap["conditions"].([]interface{})
+	for i, ucond := range uconds {
+		if cond, err := getTypedCondition(ucond); err == nil && cond.Type == status2.HasValidationErrors {
+			uconds = append(uconds[:i], uconds[i+1:]...)
+			break
+		}
+	}
+	statusMap["conditions"] = uconds
+	return statusMap
+}
+
+func updateAnalysisCondition(statusMap map[string]interface{}) map[string]interface{} {
+	statusMap = removeAnalysisCondition(statusMap)
+	uconds := statusMap["conditions"].([]interface{})
+	uconds = append(uconds, status2.IstioCondition{
+		Type:               status2.HasValidationErrors,
+		Status:             metav1.ConditionTrue,
+		LastProbeTime:      metav1.NewTime(time.Now()),
+		LastTransitionTime: metav1.NewTime(time.Now()),
+		Reason:             "TODO",
+		Message:            "Later Vader",
+	})
+	statusMap["conditions"] = uconds
+	return statusMap
 }
