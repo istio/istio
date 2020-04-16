@@ -314,7 +314,6 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 			// We need to know which services are using node selectors because during node events,
 			// we have to update all the node port services accordingly.
 			c.nodeSelectorsForServices[svcConv.Hostname] = getNodeSelectorsForService(*svc)
-			c.updateServiceExternalAddr(svcConv)
 		}
 
 		c.servicesMap[svcConv.Hostname] = svcConv
@@ -373,7 +372,6 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 		currentNode, exists := c.nodeInfoMap[machine.Name]
 		if !exists || !reflect.DeepEqual(currentNode, k8sNode) {
 			c.nodeInfoMap[machine.Name] = k8sNode
-			c.updateServiceExternalAddr()
 			updatedNeeded = true
 		}
 		c.Unlock()
@@ -494,6 +492,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 	for _, svc := range c.servicesMap {
 		out = append(out, svc)
 	}
+	c.updateServiceExternalAddr(out)
 	c.RUnlock()
 	sort.Slice(out, func(i, j int) bool { return out[i].Hostname < out[j].Hostname })
 
@@ -504,17 +503,13 @@ func (c *Controller) Services() ([]*model.Service, error) {
 func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 	c.RLock()
 	svc := c.servicesMap[hostname]
+	c.updateServiceExternalAddr([]*model.Service{svc})
 	c.RUnlock()
 	return svc, nil
 }
 
 // updateServiceExternalAddr updates ClusterExternalAddresses for ingress gateway service of nodePort type
-func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) {
-	// node event, update all nodePort gateway services
-	if len(svcs) == 0 {
-		svcs, _ = c.Services()
-	}
-
+func (c *Controller) updateServiceExternalAddr(svcs []*model.Service) {
 	var extAddresses []string
 	for _, n := range c.nodeInfoMap {
 		extAddresses = append(extAddresses, n.address)
@@ -524,7 +519,6 @@ func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) {
 	for _, svc := range svcs {
 		if isNodePortGatewayService(svc) {
 			// update external address
-			svc.Mutex.Lock()
 			nodeSelector := c.nodeSelectorsForServices[svc.Hostname]
 			if nodeSelector == nil {
 				svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: extAddresses}
@@ -540,7 +534,6 @@ func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) {
 				}
 				svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: nodeAddresses}
 			}
-			svc.Mutex.Unlock()
 		}
 	}
 }
