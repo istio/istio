@@ -84,6 +84,9 @@ type DiscoveryServer struct {
 	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
 	MemRegistry *MemServiceDiscovery
 
+	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
+	MemConfigController model.ConfigStoreCache
+
 	// ConfigGenerator is responsible for generating data plane configuration using Istio networking
 	// APIs and service registry info
 	ConfigGenerator core.ConfigGenerator

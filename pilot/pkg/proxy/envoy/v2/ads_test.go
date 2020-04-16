@@ -20,10 +20,12 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/tests/util"
@@ -160,6 +162,234 @@ func TestAdsClusterUpdate(t *testing.T) {
 
 	cluster2 := "outbound|80||hello.default.svc.cluster.local"
 	sendEDSReqAndVerify(cluster2)
+}
+
+func TestAdsPushScoping(t *testing.T) {
+	server, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+
+	const (
+		svcSuffix = ".testPushScoping.com"
+		ns1       = "ns1"
+	)
+
+	removeServiceByNames := func(ns string, names ...string) {
+		configsUpdated := map[model.ConfigKey]struct{}{}
+
+		for _, name := range names {
+			hostname := host.Name(name)
+			server.EnvoyXdsServer.MemRegistry.RemoveService(hostname)
+			configsUpdated[model.ConfigKey{
+				Kind:      model.ServiceEntryKind,
+				Name:      string(hostname),
+				Namespace: ns,
+			}] = struct{}{}
+		}
+
+		server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true, ConfigsUpdated: configsUpdated})
+
+	}
+	removeService := func(ns string, indexes ...int) {
+		var names []string
+
+		for _, i := range indexes {
+			names = append(names, fmt.Sprintf("svc%d%s", i, svcSuffix))
+		}
+
+		removeServiceByNames(ns, names...)
+	}
+	addServiceByNames := func(ns string, names ...string) {
+		configsUpdated := map[model.ConfigKey]struct{}{}
+
+		for _, name := range names {
+			hostname := host.Name(name)
+			configsUpdated[model.ConfigKey{
+				Kind:      model.ServiceEntryKind,
+				Name:      string(hostname),
+				Namespace: ns,
+			}] = struct{}{}
+
+			server.EnvoyXdsServer.MemRegistry.AddService(hostname, &model.Service{
+				Hostname: hostname,
+				Address:  "10.11.0.1",
+				Ports: []*model.Port{
+					{
+						Name:     "http-main",
+						Port:     2080,
+						Protocol: protocol.HTTP,
+					},
+				},
+				Attributes: model.ServiceAttributes{
+					Namespace: ns,
+				},
+			})
+		}
+
+		server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true, ConfigsUpdated: configsUpdated})
+	}
+	addService := func(ns string, indexes ...int) {
+		var hostnames []string
+		for _, i := range indexes {
+			hostnames = append(hostnames, fmt.Sprintf("svc%d%s", i, svcSuffix))
+		}
+		addServiceByNames(ns, hostnames...)
+	}
+
+	addServiceInstance := func(hostname host.Name, indexes ...int) {
+		for _, i := range indexes {
+			server.EnvoyXdsServer.MemRegistry.AddEndpoint(hostname, "http-main", 2080, "192.168.1.10", i)
+		}
+
+		server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
+			{Kind: model.ServiceEntryKind, Name: string(hostname), Namespace: model.IstioDefaultConfigNamespace}: {},
+		}})
+	}
+
+	sc := &networking.Sidecar{
+		Egress: []*networking.IstioEgressListener{
+			{
+				Hosts: []string{model.IstioDefaultConfigNamespace + "/*" + svcSuffix},
+			},
+		},
+	}
+	sidecarKind := collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind()
+	if _, err := server.EnvoyXdsServer.MemConfigController.Create(model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:    sidecarKind.Kind,
+			Version: sidecarKind.Version,
+			Group:   sidecarKind.Group,
+			Name:    "sc", Namespace: model.IstioDefaultConfigNamespace},
+		Spec: sc,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	addService(model.IstioDefaultConfigNamespace, 1, 2, 3)
+
+	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
+	defer adscConn.Close()
+
+	type svcCase struct {
+		ev          model.Event
+		indexes     []int
+		names       []string
+		instIndexes []struct {
+			name    string
+			indexes []int
+		}
+		ns string
+
+		expectUpdates   []string
+		unexpectUpdates []string
+	}
+	svcCases := []svcCase{
+		// Add a scoped service.
+		{
+			ev:            model.EventAdd,
+			indexes:       []int{4},
+			ns:            model.IstioDefaultConfigNamespace,
+			expectUpdates: []string{"lds"},
+		}, // then: default 1,2,3,4
+		// Add instances to a scoped service.
+		{
+			ev: model.EventAdd,
+			instIndexes: []struct {
+				name    string
+				indexes []int
+			}{{fmt.Sprintf("svc%d%s", 4, svcSuffix), []int{1, 2}}},
+			ns:            model.IstioDefaultConfigNamespace,
+			expectUpdates: []string{"eds"},
+		}, // then: default 1,2,3,4
+		// Add a unscoped(name not match) service.
+		{
+			ev:              model.EventAdd,
+			names:           []string{"foo.com"},
+			ns:              model.IstioDefaultConfigNamespace,
+			unexpectUpdates: []string{"lds"},
+		}, // then: default 1,2,3,4, foo.com; ns1: 11
+		// Add instances to an unscoped service.
+		{
+			ev: model.EventAdd,
+			instIndexes: []struct {
+				name    string
+				indexes []int
+			}{{"foo.com", []int{1, 2}}},
+			ns:              model.IstioDefaultConfigNamespace,
+			unexpectUpdates: []string{"eds"},
+		}, // then: default 1,2,3,4
+		// Add a unscoped(ns not match) service.
+		{
+			ev:              model.EventAdd,
+			indexes:         []int{11},
+			ns:              ns1,
+			unexpectUpdates: []string{"lds"},
+		}, // then: default 1,2,3,4, foo.com; ns1: 11
+		// Remove a scoped service.
+		{
+			ev:            model.EventDelete,
+			indexes:       []int{4},
+			ns:            model.IstioDefaultConfigNamespace,
+			expectUpdates: []string{"lds"},
+		}, // then: default 1,2,3, foo.com; ns: 11
+		// Remove a unscoped(name not match) service.
+		{
+			ev:              model.EventDelete,
+			names:           []string{"foo.com"},
+			ns:              model.IstioDefaultConfigNamespace,
+			unexpectUpdates: []string{"lds"},
+		}, // then: default 1,2,3; ns1: 11
+		// Remove a unscoped(ns not match) service.
+		{
+			ev:              model.EventDelete,
+			indexes:         []int{11},
+			ns:              ns1,
+			unexpectUpdates: []string{"lds"},
+		}, // then: default 1,2,3
+	}
+
+	for i, c := range svcCases {
+		fmt.Printf("begin %d case %v\n", i, c)
+
+		var wantUpdates []string
+		wantUpdates = append(wantUpdates, c.expectUpdates...)
+		wantUpdates = append(wantUpdates, c.unexpectUpdates...)
+
+		switch c.ev {
+		case model.EventAdd:
+			if len(c.indexes) > 0 {
+				addService(c.ns, c.indexes...)
+			}
+			if len(c.names) > 0 {
+				addServiceByNames(c.ns, c.names...)
+			}
+			if len(c.instIndexes) > 0 {
+				for _, instIndex := range c.instIndexes {
+					addServiceInstance(host.Name(instIndex.name), instIndex.indexes...)
+				}
+			}
+		case model.EventDelete:
+			if len(c.indexes) > 0 {
+				removeService(c.ns, c.indexes...)
+			}
+			if len(c.names) > 0 {
+				removeServiceByNames(c.ns, c.names...)
+			}
+		default:
+			t.Fatalf("wrong event for case %v", c)
+		}
+
+		time.Sleep(200 * time.Millisecond)
+		upd, _ := adscConn.Wait(5*time.Second, wantUpdates...) // XXX slow for unexpect ...
+		for _, expect := range c.expectUpdates {
+			if !contains(upd, expect) {
+				t.Fatalf("expect %s but not contains (%v) for case %v", expect, upd, c)
+			}
+		}
+		for _, unexpect := range c.unexpectUpdates {
+			if contains(upd, unexpect) {
+				t.Fatalf("unexpect %s but contains (%v) for case %v", unexpect, upd, c)
+			}
+		}
+	}
 }
 
 func TestAdsUpdate(t *testing.T) {
