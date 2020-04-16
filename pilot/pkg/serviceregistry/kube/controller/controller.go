@@ -358,7 +358,6 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 		updatedNeeded = true
 		c.Lock()
 		delete(c.nodeInfoMap, machine.Name)
-		c.updateServiceExternalAddr()
 		c.Unlock()
 	} else {
 		k8sNode := &kubernetesNode{labels: machine.Labels}
@@ -510,7 +509,6 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 }
 
 // updateServiceExternalAddr updates ClusterExternalAddresses for ingress gateway service of nodePort type
-// Assumes that the caller holds the lock for the controller
 func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) {
 	// node event, update all nodePort gateway services
 	if len(svcs) == 0 {
@@ -529,7 +527,7 @@ func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) {
 			svc.Mutex.Lock()
 			nodeSelector := c.nodeSelectorsForServices[svc.Hostname]
 			if nodeSelector == nil {
-				svc.Attributes.ClusterExternalAddresses[c.clusterID] = extAddresses
+				svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: extAddresses}
 			} else {
 				var nodeAddresses []string
 				for _, n := range c.nodeInfoMap {
@@ -540,7 +538,7 @@ func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) {
 				if len(nodeAddresses) > 1 {
 					sort.Strings(nodeAddresses)
 				}
-				svc.Attributes.ClusterExternalAddresses[c.clusterID] = nodeAddresses
+				svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: nodeAddresses}
 			}
 			svc.Mutex.Unlock()
 		}
