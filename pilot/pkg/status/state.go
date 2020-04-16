@@ -23,7 +23,7 @@ import (
 	"github.com/ghodss/yaml"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1beta1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
@@ -76,6 +76,7 @@ func (c *DistributionController) Start(restConfig *rest.Config, stop <-chan stru
 		scope.Fatalf("Could not connect to kubernetes: %s", err)
 	}
 	// create watch
+	// TODO: limit this informer to the namespace and labels we expect...
 	i := informers.NewSharedInformerFactory(kubernetes.NewForConfigOrDie(restConfig), 1*time.Minute).
 		Core().V1().ConfigMaps()
 	i.Informer().AddEventHandler(DistroReportHandler{dc: *c})
@@ -140,7 +141,7 @@ func (c *DistributionController) writeStatus(config Resource, distributionState 
 	resourceInterface := c.client.Resource(config.GroupVersionResource).
 		Namespace(config.Namespace)
 	// should this be moved to some sort of InformerCache for speed?
-	current, err := resourceInterface.Get(ctx, config.Name, v12.GetOptions{ResourceVersion: config.ResourceVersion})
+	current, err := resourceInterface.Get(ctx, config.Name, metav1.GetOptions{ResourceVersion: config.ResourceVersion})
 	if err != nil {
 		if errors.IsGone(err) {
 			// this resource has been deleted.  prune its state and move on.
@@ -161,7 +162,7 @@ func (c *DistributionController) writeStatus(config Resource, distributionState 
 		// technically, we should be updating probe time even when reconciling isn't needed, but
 		// I'm skipping that for efficiency.
 		current.Object["status"] = desiredStatus
-		_, err := resourceInterface.UpdateStatus(ctx, current, v12.UpdateOptions{})
+		_, err := resourceInterface.UpdateStatus(ctx, current, metav1.UpdateOptions{})
 		if err != nil {
 			scope.Errorf("Encountered unexpected error updating status for %v, will try again later: %s", config, err)
 			return
@@ -196,9 +197,9 @@ func getTypedStatus(in interface{}) (out IstioStatus, err error) {
 
 func boolToConditionStatus(b bool) v1beta1.ConditionStatus {
 	if b {
-		return v12.ConditionTrue
+		return metav1.ConditionTrue
 	}
-	return v12.ConditionFalse
+	return metav1.ConditionFalse
 }
 
 func ReconcileStatuses(current map[string]interface{}, desired Progress, clock clock.Clock) (bool, *IstioStatus) {
@@ -207,8 +208,8 @@ func ReconcileStatuses(current map[string]interface{}, desired Progress, clock c
 	desiredCondition := IstioCondition{
 		Type:               StillPropagating,
 		Status:             boolToConditionStatus(desired.AckedInstances != desired.TotalInstances),
-		LastProbeTime:      v12.NewTime(clock.Now()),
-		LastTransitionTime: v12.NewTime(clock.Now()),
+		LastProbeTime:      metav1.NewTime(clock.Now()),
+		LastTransitionTime: metav1.NewTime(clock.Now()),
 		Message:            fmt.Sprintf("%d/%d proxies up to date.", desired.AckedInstances, desired.TotalInstances),
 	}
 	if err != nil {

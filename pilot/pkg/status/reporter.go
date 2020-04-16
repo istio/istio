@@ -23,7 +23,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/utils/clock"
@@ -54,10 +54,20 @@ type Reporter struct {
 	store               model.ConfigStore
 }
 
+const labelKey = "internal.istio.io/distribution-report"
+const dataField = "distribution-report"
+
 // Starts the reporter, which watches dataplane ack's and resource changes so that it can update status leader
 // with distribution information
 func (r *Reporter) Start(restConfig *rest.Config, namespace string, stop <-chan struct{}) {
 	ctx := NewIstioContext(stop)
+	if r.clock == nil {
+		r.clock = clock.RealClock{}
+	}
+	// default UpdateInterval
+	if r.UpdateInterval == 0 {
+		r.UpdateInterval = 500 * time.Millisecond
+	}
 	t := r.clock.Tick(r.UpdateInterval)
 	clientSet, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
@@ -65,9 +75,9 @@ func (r *Reporter) Start(restConfig *rest.Config, namespace string, stop <-chan 
 	}
 	r.client = clientSet.CoreV1().ConfigMaps(namespace)
 	r.cm = &corev1.ConfigMap{
-		ObjectMeta: v12.ObjectMeta{
-			Name:   (r.PodName + "_DistRpt"),
-			Labels: map[string]string{"IstioDistributionReport": "Value"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   (r.PodName + "-distribution"),
+			Labels: map[string]string{labelKey: "true"},
 		},
 	}
 	go func() {
@@ -76,7 +86,7 @@ func (r *Reporter) Start(restConfig *rest.Config, namespace string, stop <-chan 
 			case <-ctx.Done():
 				if r.cm != nil {
 					// TODO: is the use of a cancelled context here a problem?  Maybe set a short timeout context?
-					if err := r.client.Delete(ctx, r.cm.Name, v12.DeleteOptions{}); err != nil {
+					if err := r.client.Delete(ctx, r.cm.Name, metav1.DeleteOptions{}); err != nil {
 						scope.Errorf("failed to properly clean up distribution report: %v", err)
 					}
 				}
@@ -169,10 +179,10 @@ func (r *Reporter) writeReport(ctx context.Context) {
 		scope.Errorf("Error serializing Distribution Report: %v", err)
 		return
 	}
-	r.cm.Data["keyfield"] = string(reportbytes)
+	r.cm.Data[dataField] = string(reportbytes)
 	// TODO: short circuit this write in the leader
-	r.cm, err = r.client.Update(ctx, r.cm, v12.UpdateOptions{
-		TypeMeta:     v12.TypeMeta{},
+	r.cm, err = r.client.Update(ctx, r.cm, metav1.UpdateOptions{
+		TypeMeta:     metav1.TypeMeta{},
 		DryRun:       nil,
 		FieldManager: "",
 	})
