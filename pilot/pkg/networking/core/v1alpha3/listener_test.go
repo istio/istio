@@ -1406,14 +1406,14 @@ func TestHttpProxyListener(t *testing.T) {
 
 func TestHttpProxyListener_CustomTags(t *testing.T) {
 	var customTagsTest = []struct {
-		name      string
-		in        map[string]*meshconfig.Tracing_CustomTag
-		out       []*envoy_type_tracing_v2.CustomTag
-		isGateway bool
+		name   string
+		in     map[string]*meshconfig.Tracing_CustomTag
+		out    []*envoy_type_tracing_v2.CustomTag
+		tproxy model.Proxy
 	}{
 		{
-			name:      "custom-tags-sidecar",
-			isGateway: false,
+			name:   "custom-tags-sidecar",
+			tproxy: proxy,
 			in: map[string]*meshconfig.Tracing_CustomTag{
 				"custom_tag_env": {
 					Type: &meshconfig.Tracing_CustomTag_Environment{
@@ -1471,8 +1471,8 @@ func TestHttpProxyListener_CustomTags(t *testing.T) {
 			},
 		},
 		{
-			name:      "custom-tags-gateways",
-			isGateway: true,
+			name:   "custom-tags-gateways",
+			tproxy: proxyGateway,
 			in: map[string]*meshconfig.Tracing_CustomTag{
 				"custom_tag_request_header": {
 					Type: &meshconfig.Tracing_CustomTag_Header{
@@ -1495,7 +1495,7 @@ func TestHttpProxyListener_CustomTags(t *testing.T) {
 			t.Fatalf("error in initializing push context: %s", err)
 		}
 
-		proxy.ServiceInstances = nil
+		tc.tproxy.ServiceInstances = nil
 		env.Mesh().ProxyHttpPort = 15007
 		env.Mesh().EnableTracing = true
 		env.Mesh().DefaultConfig = &meshconfig.ProxyConfig{
@@ -1504,12 +1504,8 @@ func TestHttpProxyListener_CustomTags(t *testing.T) {
 			},
 		}
 
-		if tc.isGateway {
-			proxy.Type = model.Router
-		}
-
-		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
-		httpProxy := configgen.buildHTTPProxy(&proxy, env.PushContext)
+		tc.tproxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
+		httpProxy := configgen.buildHTTPProxy(&tc.tproxy, env.PushContext)
 
 		f := httpProxy.FilterChains[0].Filters[0]
 		verifyHTTPConnectionManagerFilter(t, f, tc.out, tc.name)
