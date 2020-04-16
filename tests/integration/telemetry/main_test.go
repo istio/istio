@@ -47,20 +47,20 @@ components:
   ingressGateways:
   - name: istio-ingressgateway
     enabled: true
-    service:
-      ports:
-        - port: 15020
-          targetPort: 15020
-          name: status-port
-        - port: 80
-          targetPort: 8080
-          name: http2
-        - port: 443
-          targetPort: 8443
-          name: https
-        - port: 31400
-          targetPort: 31400
-          name: tcp
+      service:
+        ports:
+          - port: 15020
+            targetPort: 15020
+            name: status-port
+          - port: 80
+            targetPort: 8080
+            name: http2
+          - port: 443
+            targetPort: 8443
+            name: https
+          - port: 31400
+            targetPort: 31400
+            name: tcp
 values:
   global:
     proxy:
