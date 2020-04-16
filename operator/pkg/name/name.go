@@ -191,6 +191,12 @@ var onceErr error
 
 func ScanBundledAddonComponents(chartsRootDir string) error {
 	scanAddons.Do(func() {
+		if chartsRootDir == "" {
+			if onceErr = helm.CheckCompiledInCharts(); onceErr != nil {
+				return
+			}
+		}
+
 		var addonComponentNames []string
 		addonComponentNames, onceErr = helm.GetAddonNamesFromCharts(chartsRootDir, true)
 		if onceErr != nil {
