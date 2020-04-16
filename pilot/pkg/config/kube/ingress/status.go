@@ -32,7 +32,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/leaderelection"
+
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	queue2 "istio.io/istio/pkg/queue"
@@ -60,16 +60,16 @@ type StatusSyncer struct {
 
 // Run the syncer until stopCh is closed
 func (s *StatusSyncer) Run(stopCh <-chan struct{}) {
+	go s.queue.Run(stopCh)
+	go s.runUpdateStatus(stopCh)
 	go s.informer.Run(stopCh)
 	<-stopCh
-	// TODO: should we remove current IPs on shutting down?
 }
 
 // NewStatusSyncer creates a new instance
 func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 	client kubernetes.Interface,
-	options controller2.Options,
-	l *leaderelection.LeaderElection) (*StatusSyncer, error) {
+	options controller2.Options) (*StatusSyncer, error) {
 
 	// we need to use the defined ingress class to allow multiple leaders
 	// in order to update information about ingress status
@@ -97,14 +97,6 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 		ingressClass:        ingressClass,
 		defaultIngressClass: defaultIngressClass,
 		ingressService:      mesh.IngressService,
-	}
-
-	if l != nil {
-		l.AddRunFunction(func(stop <-chan struct{}) {
-			log.Infof("Starting ingress status controller")
-			go st.queue.Run(stop)
-			go st.runUpdateStatus(stop)
-		})
 	}
 
 	return &st, nil

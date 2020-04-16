@@ -26,6 +26,7 @@ import (
 
 	"istio.io/istio/galley/pkg/server/components"
 	"istio.io/istio/galley/pkg/server/settings"
+	"istio.io/istio/pilot/pkg/leaderelection"
 
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pilot/pkg/features"
@@ -103,11 +104,18 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		s.ConfigStores = append(s.ConfigStores,
 			ingress.NewController(s.kubeClient, meshConfig, args.Config.ControllerOptions))
 
-		if ingressSyncer, errSyncer := ingress.NewStatusSyncer(meshConfig, s.kubeClient, args.Config.ControllerOptions, s.leaderElection); errSyncer != nil {
-			log.Warnf("Disabled ingress status syncer due to %v", errSyncer)
+		ingressSyncer, err := ingress.NewStatusSyncer(meshConfig, s.kubeClient, args.Config.ControllerOptions)
+		if err != nil {
+			log.Warnf("Disabled ingress status syncer due to %v", err)
 		} else {
-			s.addStartFunc(func(stop <-chan struct{}) error {
-				go ingressSyncer.Run(stop)
+			s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+				leaderelection.
+					NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, s.kubeClient).
+					AddRunFunction(func(stop <-chan struct{}) {
+						log.Infof("Starting ingress controller")
+						ingressSyncer.Run(stop)
+					}).
+					Run(stop)
 				return nil
 			})
 		}

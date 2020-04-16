@@ -30,10 +30,12 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
+const testLock = "test-lock"
+
 func createElection(t *testing.T, name string, expectLeader bool, client kubernetes.Interface,
 	fns ...func(stop <-chan struct{})) (*LeaderElection, chan struct{}) {
 	t.Helper()
-	l := NewLeaderElection("ns", name, client)
+	l := NewLeaderElection("ns", name, testLock, client)
 	l.ttl = time.Second
 	gotLeader := make(chan struct{})
 	l.AddRunFunction(func(stop <-chan struct{}) {
@@ -76,7 +78,7 @@ func TestLeaderElection(t *testing.T) {
 func TestLeaderElectionConfigMapRemoved(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	_, stop := createElection(t, "pod1", true, client)
-	if err := client.CoreV1().ConfigMaps("ns").Delete(context.TODO(), "istio-leader", v1.DeleteOptions{}); err != nil {
+	if err := client.CoreV1().ConfigMaps("ns").Delete(context.TODO(), testLock, v1.DeleteOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	retry.UntilSuccessOrFail(t, func() error {
