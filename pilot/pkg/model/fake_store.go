@@ -70,11 +70,11 @@ func (*FakeStore) Update(config Config) (newRevision string, err error) { return
 
 func (*FakeStore) Delete(typ resource.GroupVersionKind, name, namespace string) error { return nil }
 
-func (f *FakeStore) Version() string {
-	return f.ledger.RootHash()
+func (s *FakeStore) Version() string {
+	return s.ledger.RootHash()
 }
-func (f *FakeStore) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
-	return f.ledger.GetPreviousValue(version, key)
+func (s *FakeStore) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+	return s.ledger.GetPreviousValue(version, key)
 }
 
 func (s *FakeStore) GetLedger() ledger.Ledger {

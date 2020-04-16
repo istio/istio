@@ -152,6 +152,7 @@ func (r *Reporter) AddInProgressResource(res model.Config) {
 	myRes := ResourceFromModelConfig(res)
 	if myRes == nil {
 		scope.Errorf("Unable to locate schema for %v, will not update status.", res)
+		return
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()

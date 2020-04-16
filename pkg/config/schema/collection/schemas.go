@@ -121,9 +121,9 @@ func (s Schemas) FindByGroupVersionKind(gvk resource.GroupVersionKind) (Schema, 
 }
 
 // FindByKind searches and returns the first schema with the given kind
-func (s Schemas) FindByPlural(Plural string) (Schema, bool) {
+func (s Schemas) FindByPlural(plural string) (Schema, bool) {
 	for _, rs := range s.byAddOrder {
-		if rs.Resource().Plural() == Plural {
+		if rs.Resource().Plural() == plural {
 			return rs, true
 		}
 	}
