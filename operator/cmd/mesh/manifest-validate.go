@@ -355,7 +355,7 @@ func validatePort(flagValue string) error {
 }
 
 func getProfiles() []string {
-	dirPath := "./operator/data/profiles"
+	dirPath := "./manifests/profiles"
 	profiles := make([]string, 0)
 	files, err := ioutil.ReadDir(dirPath)
 	if err != nil {
