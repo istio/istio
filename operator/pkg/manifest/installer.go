@@ -23,7 +23,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -48,14 +47,12 @@ import (
 	kubectlutil "k8s.io/kubectl/pkg/util/deployment"
 	"k8s.io/utils/pointer"
 
-	"istio.io/api/operator/v1alpha1"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
-	pkgversion "istio.io/istio/operator/pkg/version"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/log"
 )
@@ -222,23 +219,6 @@ func renderRecursive(manifests name.ManifestMap, installTree componentTree, outp
 	return nil
 }
 
-// ApplyAll applies all given manifests using kubectl client.
-func ApplyAll(manifests name.ManifestMap, version pkgversion.Version, iop *v1alpha1.IstioOperatorSpec, opts *kubectlcmd.Options) (CompositeOutput, error) {
-	scope.Infof("Preparing manifests for these components:")
-	for c := range manifests {
-		scope.Infof("- %s", c)
-	}
-	scope.Infof("Component dependencies tree: \n%s", installTreeString())
-	if _, _, err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
-		return nil, err
-	}
-	// Set up the namespace for installation
-	if err := CreateNamespace(iop.Namespace); err != nil {
-		return nil, err
-	}
-	return applyRecursive(manifests, version, iop.Revision, opts)
-}
-
 func CreateNamespace(namespace string) error {
 	if namespace == "" {
 		// Setup default namespace
@@ -274,51 +254,6 @@ func Apply(manifest string, opts *kubectlcmd.Options) error {
 		return fmt.Errorf("%s\n%s\n%s", err, stdoutApply, stderrApply)
 	}
 	return nil
-}
-
-func applyRecursive(manifests name.ManifestMap, version pkgversion.Version, revision string, opts *kubectlcmd.Options) (CompositeOutput, error) {
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	out := CompositeOutput{}
-	allAppliedObjects := object.K8sObjects{}
-	for c, m := range manifests {
-		c := c
-		m := m
-		wg.Add(1)
-		go func() {
-			if s := dependencyWaitCh[c]; s != nil {
-				scope.Infof("%s is waiting on a prerequisite...", c)
-				<-s
-				scope.Infof("Prerequisite for %s has completed, proceeding with install.", c)
-			}
-			applyOut, appliedObjects := ApplyManifest(c, strings.Join(m, helm.YAMLSeparator), version.String(), revision, *opts)
-			mu.Lock()
-			out[c] = applyOut
-			allAppliedObjects = append(allAppliedObjects, appliedObjects...)
-			mu.Unlock()
-
-			// If we are depending on a component, we may depend on it actually running (eg Deployment is ready)
-			// For example, for the validation webhook to become ready, so we should wait for it always.
-			if len(componentDependencies[c]) > 0 {
-				no := *opts
-				no.WaitTimeout = internalDepTimeout
-				if err := WaitForResources(appliedObjects, k8sClientset, opts.WaitTimeout, opts.DryRun); err != nil {
-					scope.Errorf("Failed to wait for resource: %v", err)
-				}
-			}
-			// Signal all the components that depend on us.
-			for _, ch := range componentDependencies[c] {
-				scope.Infof("unblocking child %s.", ch)
-				dependencyWaitCh[ch] <- struct{}{}
-			}
-			wg.Done()
-		}()
-	}
-	wg.Wait()
-	if opts.Wait {
-		return out, WaitForResources(allAppliedObjects, k8sClientset, opts.WaitTimeout, opts.DryRun)
-	}
-	return out, nil
 }
 
 func ApplyManifest(componentName name.ComponentName, manifestStr, version, revision string,

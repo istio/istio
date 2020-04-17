@@ -249,9 +249,30 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (object.K8s
 	return processedObjects, nil
 }
 
+// applyLabelsAndAnnotations applies owner labels and annotations to the object.
+func applyLabelsAndAnnotations(p PruningDetails, obj runtime.Object) error {
+	for key, value := range p.GetOwnerLabels() {
+		err := util.SetLabel(obj, key, value)
+		if err != nil {
+			return err
+		}
+	}
+	for key, value := range p.GetOwnerAnnotations() {
+		err := util.SetAnnotation(obj, key, value)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // ProcessObject creates or updates an object in the API server depending on whether it already exists.
 // It mutates obj.
 func (h *HelmReconciler) ProcessObject(chartName string, obj *unstructured.Unstructured) error {
+	if err := applyLabelsAndAnnotations(h.pruningDetails, obj); err != nil {
+		return err
+	}
+
 	if obj.GetKind() == "List" {
 		allErrors := []error{}
 		list, err := obj.ToList()
