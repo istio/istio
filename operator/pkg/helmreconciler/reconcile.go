@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
-	llog "istio.io/istio/operator/pkg/util/log"
 	"istio.io/pkg/log"
 )
 
@@ -90,13 +89,9 @@ type HelmReconciler struct {
 type Options struct {
 	// DryRun executes all actions but does not write anything to the cluster.
 	DryRun bool
-	// Logger is a logger for user facing output.
-	Logger llog.Logger
 }
 
-var defaultOptions = &Options{
-	Logger: llog.NewDefaultLogger(),
-}
+var defaultOptions = &Options{}
 
 // NewHelmReconciler creates a HelmReconciler and returns a ptr to it
 func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *valuesv1alpha1.IstioOperator, opts *Options) (*HelmReconciler, error) {
@@ -254,7 +249,7 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1
 			// For example, for the validation webhook to become ready, so we should wait for it always.
 			if len(componentDependencies[cn]) > 0 {
 				if err := manifest.WaitForResources(processedObjs, h.clientSet, internalDepTimeout, h.opts.DryRun); err != nil {
-					h.opts.Logger.LogAndErrorf("Failed to wait for resource: %v", err)
+					log.Errorf("Failed to wait for resource: %v", err)
 				}
 			}
 

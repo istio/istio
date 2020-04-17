@@ -172,12 +172,12 @@ func (spanLogger) Report(span *jaeger.Span) {
 // Close implements the Close() method of jaeger.Reporter.
 func (spanLogger) Close() {}
 
-// Error implements the Error() method of log.ConsoleLogger.
+// Error implements the Error() method of log.Logger.
 func (spanLogger) Error(msg string) {
 	log.Error(msg)
 }
 
-// Infof implements the Infof() method of log.ConsoleLogger.
+// Infof implements the Infof() method of log.Logger.
 func (spanLogger) Infof(msg string, args ...interface{}) {
 	log.Infof(msg, args...)
 }

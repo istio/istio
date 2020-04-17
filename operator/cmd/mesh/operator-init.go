@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/operator/pkg/util/log"
 	"istio.io/istio/operator/version"
 	buildversion "istio.io/pkg/version"
 )
@@ -59,7 +58,7 @@ const (
 )
 
 // manifestApplier is used for test dependency injection.
-type manifestApplier func(manifestStr, componentName string, opts *kubectlcmd.Options, verbose bool, l *log.ConsoleLogger) bool
+type manifestApplier func(manifestStr, componentName string, opts *kubectlcmd.Options, verbose bool, l *Logger) bool
 
 var (
 	defaultManifestApplier = applyManifest
@@ -96,26 +95,26 @@ func operatorInitCmd(rootArgs *rootArgs, oiArgs *operatorInitArgs) *cobra.Comman
 		Long:  "The init subcommand installs the Istio operator controller in the cluster.",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			l := log.NewConsoleLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
 			operatorInit(rootArgs, oiArgs, l, defaultManifestApplier)
 		}}
 }
 
 // operatorInit installs the Istio operator controller into the cluster.
-func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l *log.ConsoleLogger, apply manifestApplier) {
+func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l *Logger, apply manifestApplier) {
 	initLogsOrExit(args)
 
 	// Error here likely indicates Deployment is missing. If some other K8s error, we will hit it again later.
 	already, _ := isControllerInstalled(oiArgs.kubeConfigPath, oiArgs.context, oiArgs.common.operatorNamespace)
 	if already {
-		l.LogAndPrintf("Operator controller is already installed in %s namespace, updating.", oiArgs.common.operatorNamespace)
+		l.logAndPrintf("Operator controller is already installed in %s namespace, updating.", oiArgs.common.operatorNamespace)
 	}
 
-	l.LogAndPrintf("Using operator Deployment image: %s/operator:%s", oiArgs.common.hub, oiArgs.common.tag)
+	l.logAndPrintf("Using operator Deployment image: %s/operator:%s", oiArgs.common.hub, oiArgs.common.tag)
 
 	vals, mstr, err := renderOperatorManifest(args, &oiArgs.common, l)
 	if err != nil {
-		l.LogAndFatal(err)
+		l.logAndFatal(err)
 	}
 
 	scope.Debugf("Installing operator charts with the following values:\n%s", vals)
@@ -133,7 +132,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l *log.ConsoleLogger
 	// If CR was passed, we must create a namespace for it and install CR into it.
 	customResource, istioNamespace, err := getCRAndNamespaceFromFile(oiArgs.inFilename, l)
 	if err != nil {
-		l.LogAndFatal(err)
+		l.logAndFatal(err)
 	}
 
 	success := apply(mstr, istioControllerComponentName, opts, args.verbose, l)
@@ -144,22 +143,22 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l *log.ConsoleLogger
 	}
 
 	if !success {
-		l.LogAndPrint("\n*** Errors were logged during apply operation. Please check component installation logs above. ***\n")
+		l.logAndPrint("\n*** Errors were logged during apply operation. Please check component installation logs above. ***\n")
 		return
 	}
 
-	l.LogAndPrint("\n*** Success. ***\n")
+	l.logAndPrint("\n*** Success. ***\n")
 }
 
-func applyManifest(manifestStr, componentName string, opts *kubectlcmd.Options, verbose bool, l *log.ConsoleLogger) bool {
-	l.LogAndPrint("")
+func applyManifest(manifestStr, componentName string, opts *kubectlcmd.Options, verbose bool, l *Logger) bool {
+	l.logAndPrint("")
 	// Specifically don't prune operator installation since it leads to a lot of resources being reapplied.
 	opts.Prune = pointer.BoolPtr(false)
 	out, objs := manifest.ApplyManifest(name.ComponentName(componentName), manifestStr, version.OperatorBinaryVersion.String(), "", *opts)
 
 	_, clientSet, err := manifest.InitK8SRestClient(opts.Kubeconfig, opts.Context)
 	if err != nil {
-		l.LogAndFatal(err.Error())
+		l.logAndFatal(err.Error())
 	}
 	if opts.Wait {
 		err := manifest.WaitForResources(objs, clientSet, opts.WaitTimeout, opts.DryRun)
@@ -171,27 +170,27 @@ func applyManifest(manifestStr, componentName string, opts *kubectlcmd.Options, 
 	success := true
 	if out.Err != nil {
 		cs := fmt.Sprintf("Component %s install returned the following errors:", componentName)
-		l.LogAndPrintf("\n%s\n%s", cs, strings.Repeat("=", len(cs)))
-		l.LogAndPrint("Error: ", out.Err, "\n")
+		l.logAndPrintf("\n%s\n%s", cs, strings.Repeat("=", len(cs)))
+		l.logAndPrint("Error: ", out.Err, "\n")
 		success = false
 	} else {
-		l.LogAndPrintf("Component %s installed successfully.", componentName)
+		l.logAndPrintf("Component %s installed successfully.", componentName)
 		if opts.Verbose {
-			l.LogAndPrintf("The following objects were installed:\n%s", k8sObjectsString(objs))
+			l.logAndPrintf("The following objects were installed:\n%s", k8sObjectsString(objs))
 		}
 	}
 
 	if !ignoreError(out.Stderr) {
-		l.LogAndPrint("Error detail:\n", out.Stderr, "\n")
+		l.logAndPrint("Error detail:\n", out.Stderr, "\n")
 		success = false
 	}
 	if !ignoreError(out.Stderr) {
-		l.LogAndPrint(out.Stdout, "\n")
+		l.logAndPrint(out.Stdout, "\n")
 	}
 	return success
 }
 
-func getCRAndNamespaceFromFile(filePath string, l *log.ConsoleLogger) (customResource string, istioNamespace string, err error) {
+func getCRAndNamespaceFromFile(filePath string, l *Logger) (customResource string, istioNamespace string, err error) {
 	if filePath == "" {
 		return "", "", nil
 	}

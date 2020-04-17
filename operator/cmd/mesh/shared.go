@@ -52,6 +52,84 @@ func configLogs(logToStdErr bool, opt *log.Options) error {
 	return log.Configure(&opt2)
 }
 
+//Logger is the struct used for mesh command
+type Logger struct {
+	logToStdErr bool
+	stdOut      io.Writer
+	stdErr      io.Writer
+}
+
+// NewLogger creates a new logger and returns a pointer to it.
+// stdOut and stdErr can be used to capture output for testing.
+func NewLogger(logToStdErr bool, stdOut, stdErr io.Writer) *Logger {
+	return &Logger{
+		logToStdErr: logToStdErr,
+		stdOut:      stdOut,
+		stdErr:      stdErr,
+	}
+}
+
+// TODO: this really doesn't belong here. Figure out if it's generally needed and possibly move to istio.io/pkg/log.
+func (l *Logger) logAndPrint(v ...interface{}) {
+	if len(v) == 0 {
+		return
+	}
+	s := fmt.Sprint(v...)
+	if !l.logToStdErr {
+		l.print(s + "\n")
+	} else {
+		log.Infof(s)
+	}
+}
+
+func (l *Logger) logAndError(v ...interface{}) {
+	if len(v) == 0 {
+		return
+	}
+	s := fmt.Sprint(v...)
+	if !l.logToStdErr {
+		l.printErr(s + "\n")
+	} else {
+		log.Infof(s)
+	}
+}
+
+func (l *Logger) logAndFatal(a ...interface{}) {
+	l.logAndError(a...)
+	os.Exit(-1)
+}
+
+func (l *Logger) logAndPrintf(format string, a ...interface{}) {
+	s := fmt.Sprintf(format, a...)
+	if !l.logToStdErr {
+		l.print(s + "\n")
+	} else {
+		log.Infof(s)
+	}
+}
+
+func (l *Logger) logAndErrorf(format string, a ...interface{}) {
+	s := fmt.Sprintf(format, a...)
+	if !l.logToStdErr {
+		l.printErr(s + "\n")
+	} else {
+		log.Infof(s)
+	}
+}
+
+func (l *Logger) logAndFatalf(format string, a ...interface{}) {
+	l.logAndErrorf(format, a...)
+	os.Exit(-1)
+}
+
+func (l *Logger) print(s string) {
+	_, _ = l.stdOut.Write([]byte(s))
+}
+
+func (l *Logger) printErr(s string) {
+	_, _ = l.stdErr.Write([]byte(s))
+}
+
 func refreshGoldenFiles() bool {
 	return os.Getenv("REFRESH_GOLDEN") == "true"
 }

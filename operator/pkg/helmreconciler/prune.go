@@ -149,7 +149,7 @@ func (h *HelmReconciler) PruneUnlistedResources(gvks []schema.GroupVersionKind, 
 				continue
 			}
 			if h.opts.DryRun {
-				h.opts.Logger.LogAndPrintf("Not pruning object %s because of dry run.", oh)
+				log.Infof("Not pruning object %s because of dry run.", oh)
 				continue
 			}
 

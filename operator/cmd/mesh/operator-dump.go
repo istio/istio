@@ -17,7 +17,6 @@ package mesh
 import (
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/operator/pkg/util/log"
 	buildversion "istio.io/pkg/version"
 )
 
@@ -49,16 +48,16 @@ func operatorDumpCmd(rootArgs *rootArgs, odArgs *operatorDumpArgs) *cobra.Comman
 		Long:  "The dump subcommand dumps the Istio operator controller manifest.",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			l := log.NewConsoleLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
 			operatorDump(rootArgs, odArgs, l)
 		}}
 }
 
-func operatorDump(args *rootArgs, odArgs *operatorDumpArgs, l *log.ConsoleLogger) {
+func operatorDump(args *rootArgs, odArgs *operatorDumpArgs, l *Logger) {
 	_, mstr, err := renderOperatorManifest(args, &odArgs.common, l)
 	if err != nil {
-		l.LogAndFatal(err)
+		l.logAndFatal(err)
 	}
 
-	l.Print(mstr)
+	l.print(mstr)
 }

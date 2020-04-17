@@ -29,9 +29,8 @@ import (
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
-	"istio.io/istio/operator/pkg/util/log"
 	"istio.io/istio/operator/version"
-	istiolog "istio.io/pkg/log"
+	"istio.io/pkg/log"
 )
 
 type manifestGenerateArgs struct {
@@ -56,7 +55,7 @@ func addManifestGenerateFlags(cmd *cobra.Command, args *manifestGenerateArgs) {
 	cmd.PersistentFlags().StringVarP(&args.charts, "charts", "d", "", chartsFlagHelpStr)
 }
 
-func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs, logOpts *istiolog.Options) *cobra.Command {
+func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs, logOpts *log.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "generate",
 		Short: "Generates an Istio install manifest",
@@ -81,13 +80,13 @@ func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs, logOp
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			l := log.NewConsoleLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
 			return manifestGenerate(rootArgs, mgArgs, logOpts, l)
 		}}
 
 }
 
-func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *istiolog.Options, l *log.ConsoleLogger) error {
+func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log.Options, l *Logger) error {
 	if err := configLogs(args.logToStdErr, logopts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
@@ -104,7 +103,7 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *ist
 
 	if mgArgs.outFilename == "" {
 		for _, m := range orderedManifests(manifests) {
-			l.Print(m + "\n")
+			l.print(m + "\n")
 		}
 	} else {
 		if err := os.MkdirAll(mgArgs.outFilename, os.ModePerm); err != nil {
@@ -123,7 +122,7 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *ist
 // If force is set, validation errors will not cause processing to abort but will result in warnings going to the
 // supplied logger.
 func GenManifests(inFilename []string, setOverlayYAML string, force bool,
-	kubeConfig *rest.Config, l *log.ConsoleLogger) (name.ManifestMap, *v1alpha1.IstioOperatorSpec, error) {
+	kubeConfig *rest.Config, l *Logger) (name.ManifestMap, *v1alpha1.IstioOperatorSpec, error) {
 	mergedYAML, _, err := GenerateConfig(inFilename, setOverlayYAML, force, kubeConfig, l)
 	if err != nil {
 		return nil, nil, err

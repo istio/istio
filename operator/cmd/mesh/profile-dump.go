@@ -23,7 +23,6 @@ import (
 
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/operator/pkg/util/log"
 )
 
 type profileDumpArgs struct {
@@ -67,7 +66,7 @@ func profileDumpCmd(rootArgs *rootArgs, pdArgs *profileDumpArgs) *cobra.Command 
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			l := log.NewConsoleLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
 			return profileDump(args, rootArgs, pdArgs, l)
 		}}
 
@@ -105,7 +104,7 @@ func yamlToPrettyJSON(yml string) (string, error) {
 	return string(prettyJSON), nil
 }
 
-func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *log.ConsoleLogger) error {
+func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *Logger) error {
 	initLogsOrExit(rootArgs)
 
 	if len(args) == 1 && pdArgs.inFilenames != nil {
@@ -147,9 +146,9 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *
 		if err != nil {
 			return err
 		}
-		l.Print(j + "\n")
+		l.print(j + "\n")
 	case yamlOutput:
-		l.Print(y + "\n")
+		l.print(y + "\n")
 	}
 
 	return nil

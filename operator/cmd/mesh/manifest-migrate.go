@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
-	log2 "istio.io/istio/operator/pkg/util/log"
 	"istio.io/istio/operator/pkg/validate"
 	binversion "istio.io/istio/operator/version"
 )
@@ -61,7 +60,7 @@ func manifestMigrateCmd(rootArgs *rootArgs, mmArgs *manifestMigrateArgs) *cobra.
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			l := log2.NewConsoleLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
 
 			if len(args) == 0 {
 				return migrateFromClusterConfig(rootArgs, mmArgs, l)
@@ -76,21 +75,21 @@ func valueFileFilter(path string) bool {
 }
 
 // migrateFromFiles handles migration for local values.yaml files
-func migrateFromFiles(rootArgs *rootArgs, mmArgs *manifestMigrateArgs, args []string, l *log2.ConsoleLogger) error {
+func migrateFromFiles(rootArgs *rootArgs, mmArgs *manifestMigrateArgs, args []string, l *Logger) error {
 	initLogsOrExit(rootArgs)
 	value, err := util.ReadFilesWithFilter(args[0], valueFileFilter)
 	if err != nil {
 		return err
 	}
 	if value == "" {
-		l.LogAndPrint("no valid value.yaml file specified")
+		l.logAndPrint("no valid value.yaml file specified")
 		return nil
 	}
 	return translateFunc([]byte(value), mmArgs.force, l)
 }
 
 // translateFunc translates the input values and output the result
-func translateFunc(values []byte, force bool, l *log2.ConsoleLogger) error {
+func translateFunc(values []byte, force bool, l *Logger) error {
 	// Try to translate Helm values.yaml.
 	mvs := binversion.OperatorBinaryVersion.MinorVersion
 	ts, err := translate.NewReverseTranslator(mvs)
@@ -121,15 +120,15 @@ func translateFunc(values []byte, force bool, l *log2.ConsoleLogger) error {
 		return fmt.Errorf("error converting JSON: %s\n%s", gotString, err)
 	}
 
-	l.Print(string(isCPYaml) + "\n")
+	l.print(string(isCPYaml) + "\n")
 	return nil
 }
 
 // migrateFromClusterConfig handles migration for in cluster config.
-func migrateFromClusterConfig(rootArgs *rootArgs, mmArgs *manifestMigrateArgs, l *log2.ConsoleLogger) error {
+func migrateFromClusterConfig(rootArgs *rootArgs, mmArgs *manifestMigrateArgs, l *Logger) error {
 	initLogsOrExit(rootArgs)
 
-	l.LogAndPrint("translating in cluster specs\n")
+	l.logAndPrint("translating in cluster specs\n")
 
 	c := kubectlcmd.New()
 	opts := &kubectlcmd.Options{
@@ -141,7 +140,7 @@ func migrateFromClusterConfig(rootArgs *rootArgs, mmArgs *manifestMigrateArgs, l
 		return err
 	}
 	if stderr != "" {
-		l.LogAndPrint("error: ", stderr, "\n")
+		l.logAndPrint("error: ", stderr, "\n")
 	}
 	var value map[string]interface{}
 	if len(output) > 1 {

@@ -239,11 +239,11 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (object.K8s
 	}
 
 	if len(errs) != 0 {
-		h.opts.Logger.LogAndPrintf("✘ Component %s installation had errors: \n%s\n", manifest.Name, util.ToString(errs.Dedup(), "\n"))
+		log.Infof("✘ Component %s installation had errors: \n%s\n", manifest.Name, util.ToString(errs.Dedup(), "\n"))
 		return processedObjects, errs.ToError()
 	}
 	if len(allObjects) != 0 {
-		h.opts.Logger.LogAndPrintf("✔ Component %s installed.", manifest.Name)
+		log.Infof("✔ Component %s installed.", manifest.Name)
 	}
 
 	return processedObjects, nil
@@ -299,7 +299,7 @@ func (h *HelmReconciler) ProcessObject(chartName string, obj *unstructured.Unstr
 	objectStr := fmt.Sprintf("%s/%s/%s", obj.GetKind(), obj.GetNamespace(), obj.GetName())
 
 	if h.opts.DryRun {
-		h.opts.Logger.LogAndPrintf("Not applying object %s because of dry run.", objectStr)
+		log.Infof("Not applying object %s because of dry run.", objectStr)
 		return nil
 	}
 

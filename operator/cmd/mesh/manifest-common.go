@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/operator/pkg/util/log"
 	"istio.io/istio/operator/pkg/validate"
 )
 
@@ -47,7 +46,7 @@ func ignoreError(stderr string) bool {
 
 // yamlFromSetFlags takes a slice of --set flag key-value pairs and returns a YAML tree representation.
 // If force is set, validation errors cause warning messages to be written to logger rather than causing error.
-func yamlFromSetFlags(setOverlay []string, force bool, l *log.ConsoleLogger) (string, error) {
+func yamlFromSetFlags(setOverlay []string, force bool, l *Logger) (string, error) {
 	out, err := makeTreeFromSetList(setOverlay)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate tree from the set overlay, error: %v", err)
@@ -56,7 +55,7 @@ func yamlFromSetFlags(setOverlay []string, force bool, l *log.ConsoleLogger) (st
 		if !force {
 			return "", fmt.Errorf("validation errors (use --force to override): \n%s", err)
 		}
-		l.LogAndErrorf("Validation errors (continuing because of --force):\n%s", err)
+		l.logAndErrorf("Validation errors (continuing because of --force):\n%s", err)
 	}
 	return out, nil
 }

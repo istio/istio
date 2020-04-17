@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/util/log"
 )
 
 type operatorRemoveArgs struct {
@@ -33,7 +32,7 @@ type operatorRemoveArgs struct {
 	force bool
 }
 
-type manifestDeleter func(manifestStr, componentName string, opts *kubectlcmd.Options, l *log.ConsoleLogger) bool
+type manifestDeleter func(manifestStr, componentName string, opts *kubectlcmd.Options, l *Logger) bool
 
 var (
 	defaultManifestDeleter = deleteManifest
@@ -51,31 +50,31 @@ func operatorRemoveCmd(rootArgs *rootArgs, orArgs *operatorRemoveArgs) *cobra.Co
 		Long:  "The remove subcommand removes the Istio operator controller from the cluster.",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			l := log.NewConsoleLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
+			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
 			operatorRemove(rootArgs, orArgs, l, defaultManifestDeleter)
 		}}
 }
 
 // operatorRemove removes the Istio operator controller from the cluster.
-func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l *log.ConsoleLogger, deleteManifestFunc manifestDeleter) {
+func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l *Logger, deleteManifestFunc manifestDeleter) {
 	initLogsOrExit(args)
 
 	installed, err := isControllerInstalled(orArgs.kubeConfigPath, orArgs.context, orArgs.common.operatorNamespace)
 	if installed && err != nil {
-		l.LogAndFatal(err)
+		l.logAndFatal(err)
 	}
 	if !installed {
-		l.LogAndPrintf("Operator controller is not installed in %s namespace (no Deployment detected).", orArgs.common.operatorNamespace)
+		l.logAndPrintf("Operator controller is not installed in %s namespace (no Deployment detected).", orArgs.common.operatorNamespace)
 		if !orArgs.force {
-			l.LogAndFatal("Aborting, use --force to override.")
+			l.logAndFatal("Aborting, use --force to override.")
 		}
 	}
 
-	l.LogAndPrintf("Using operator Deployment image: %s/operator:%s", orArgs.common.hub, orArgs.common.tag)
+	l.logAndPrintf("Using operator Deployment image: %s/operator:%s", orArgs.common.hub, orArgs.common.tag)
 
 	_, mstr, err := renderOperatorManifest(args, &orArgs.common, l)
 	if err != nil {
-		l.LogAndFatal(err)
+		l.logAndFatal(err)
 	}
 
 	scope.Debugf("Using the following manifest to remove operator:\n%s\n", mstr)
@@ -89,23 +88,23 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l *log.ConsoleLo
 	}
 
 	if _, _, err := manifest.InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
-		l.LogAndFatal(err)
+		l.logAndFatal(err)
 	}
 
 	success := deleteManifestFunc(mstr, "Operator", opts, l)
 	if !success {
-		l.LogAndPrint("\n*** Errors were logged during manifest deletion. Please check logs above. ***\n")
+		l.logAndPrint("\n*** Errors were logged during manifest deletion. Please check logs above. ***\n")
 		return
 	}
 
-	l.LogAndPrint("\n*** Success. ***\n")
+	l.logAndPrint("\n*** Success. ***\n")
 }
 
-func deleteManifest(manifestStr, componentName string, opts *kubectlcmd.Options, l *log.ConsoleLogger) bool {
-	l.LogAndPrintf("Deleting manifest for component %s...", componentName)
+func deleteManifest(manifestStr, componentName string, opts *kubectlcmd.Options, l *Logger) bool {
+	l.logAndPrintf("Deleting manifest for component %s...", componentName)
 	objs, err := object.ParseK8sObjectsFromYAMLManifest(manifestStr)
 	if err != nil {
-		l.LogAndPrint("Parse error: ", err, "\n")
+		l.logAndPrint("Parse error: ", err, "\n")
 		return false
 	}
 	stdout, stderr, err := kubectlcmd.New().Delete(manifestStr, opts)
@@ -113,19 +112,19 @@ func deleteManifest(manifestStr, componentName string, opts *kubectlcmd.Options,
 	success := true
 	if err != nil {
 		cs := fmt.Sprintf("Component %s delete returned the following errors:", componentName)
-		l.LogAndPrintf("\n%s\n%s", cs, strings.Repeat("=", len(cs)))
-		l.LogAndPrint("Error: ", err, "\n")
+		l.logAndPrintf("\n%s\n%s", cs, strings.Repeat("=", len(cs)))
+		l.logAndPrint("Error: ", err, "\n")
 		success = false
 	} else {
-		l.LogAndPrintf("Component %s deleted successfully.", componentName)
+		l.logAndPrintf("Component %s deleted successfully.", componentName)
 		if opts.Verbose {
-			l.LogAndPrintf("The following parseObjectSetFromManifest were deleted:\n%s", k8sObjectsString(objs))
+			l.logAndPrintf("The following parseObjectSetFromManifest were deleted:\n%s", k8sObjectsString(objs))
 		}
 	}
 
 	if !ignoreError(stderr) {
-		l.LogAndPrint("Error detail:\n", stderr, "\n")
-		l.LogAndPrint(stdout, "\n")
+		l.logAndPrint("Error detail:\n", stderr, "\n")
+		l.logAndPrint(stdout, "\n")
 		success = false
 	}
 	return success

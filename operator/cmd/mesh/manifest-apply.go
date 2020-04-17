@@ -28,8 +28,7 @@ import (
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
-	"istio.io/istio/operator/pkg/util/log"
-	istiolog "istio.io/pkg/log"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -75,7 +74,7 @@ func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
 	cmd.PersistentFlags().StringVarP(&args.charts, "charts", "d", "", chartsFlagHelpStr)
 }
 
-func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs, logOpts *istiolog.Options) *cobra.Command {
+func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs, logOpts *log.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "apply",
 		Short: "Applies an Istio manifest, installing or reconfiguring Istio on a cluster.",
@@ -100,7 +99,7 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs, logOpts *is
 }
 
 // InstallCmd in an alias for manifest apply.
-func InstallCmd(logOpts *istiolog.Options) *cobra.Command {
+func InstallCmd(logOpts *log.Options) *cobra.Command {
 	rootArgs := &rootArgs{}
 	macArgs := &manifestApplyArgs{}
 
@@ -131,8 +130,8 @@ func InstallCmd(logOpts *istiolog.Options) *cobra.Command {
 	return mac
 }
 
-func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyArgs, logOpts *istiolog.Options) error {
-	l := log.NewConsoleLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
+func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyArgs, logOpts *log.Options) error {
+	l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
 	// Warn users if they use `manifest apply` without any config args.
 	if len(maArgs.inFilenames) == 0 && len(maArgs.set) == 0 && !rootArgs.dryRun && !maArgs.skipConfirmation {
 		if !confirm("This will install the default Istio profile into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
@@ -158,7 +157,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 //  verbose full manifests are output
 //  wait    block until Services and Deployments are ready, or timeout after waitTimeout
 func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRun bool, verbose bool,
-	kubeConfigPath string, context string, wait bool, waitTimeout time.Duration, l *log.ConsoleLogger) error {
+	kubeConfigPath string, context string, wait bool, waitTimeout time.Duration, l *Logger) error {
 
 	ysf, err := yamlFromSetFlags(setOverlay, force, l)
 	if err != nil {
@@ -191,27 +190,27 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 		return err
 	}
 
-	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, &helmreconciler.Options{DryRun: dryRun, Logger: l})
+	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, &helmreconciler.Options{DryRun: dryRun})
 	if err != nil {
 		return err
 	}
 	if err := reconciler.Reconcile(); err != nil {
-		l.LogAndPrint("\n\n✘ Errors were logged during apply operation. Please check component installation logs above.\n")
+		l.logAndPrint("\n\n✘ Errors were logged during apply operation. Please check component installation logs above.\n")
 		return fmt.Errorf("errors were logged during apply operation")
 	}
 	if wait {
 		objs, err := object.ParseK8sObjectsFromYAMLManifest(reconciler.GetManifests().String())
 		if err != nil {
-			l.LogAndPrintf("\n\n✘ Errors in manifest:\n%s\n", err)
+			l.logAndPrintf("\n\n✘ Errors in manifest:\n%s\n", err)
 			return fmt.Errorf("errors during wait")
 		}
 		if err := manifest.WaitForResources(objs, clientSet, waitTimeout, dryRun); err != nil {
-			l.LogAndPrintf("\n\n✘ Errors during wait:\n%s\n", err)
+			l.logAndPrintf("\n\n✘ Errors during wait:\n%s\n", err)
 			return fmt.Errorf("errors during wait")
 		}
 	}
 
-	l.LogAndPrint("\n\n✔ Installation complete\n")
+	l.logAndPrint("\n\n✔ Installation complete\n")
 
 	// Save state to cluster in IstioOperator CR.
 	iopStr, err := translate.IOPStoIOPstr(iops, crName, iopv1alpha1.Namespace(iops))
