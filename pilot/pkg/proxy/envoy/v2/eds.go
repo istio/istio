@@ -443,7 +443,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 		loadAssignments = append(loadAssignments, l)
 	}
 
-	response := endpointDiscoveryResponse(loadAssignments, version, push.Version)
+	response := endpointDiscoveryResponse(loadAssignments, version, push.Version, con.RequestedTypes.EDS)
 	err := con.send(response)
 	edsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
@@ -511,9 +511,10 @@ func getOutlierDetectionAndLoadBalancerSettings(push *model.PushContext, proxy *
 	return outlierDetectionEnabled, lbSettings
 }
 
-func endpointDiscoveryResponse(loadAssignments []*endpointv3.ClusterLoadAssignment, version string, noncePrefix string) *xdsapi.DiscoveryResponse {
+func endpointDiscoveryResponse(loadAssignments []*endpointv3.ClusterLoadAssignment,
+	version, noncePrefix, typeURL string) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
-		TypeUrl: EndpointTypeV3,
+		TypeUrl: typeURL,
 		// Pilot does not really care for versioning. It always supplies what's currently
 		// available to it, irrespective of whether Envoy chooses to accept or reject EDS
 		// responses. Pilot believes in eventual consistency and that at some point, Envoy
@@ -523,6 +524,7 @@ func endpointDiscoveryResponse(loadAssignments []*endpointv3.ClusterLoadAssignme
 	}
 	for _, loadAssignment := range loadAssignments {
 		resource := util.MessageToAny(loadAssignment)
+		resource.TypeUrl = typeURL
 		out.Resources = append(out.Resources, resource)
 	}
 

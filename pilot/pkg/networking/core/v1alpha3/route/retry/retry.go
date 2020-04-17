@@ -19,12 +19,13 @@ import (
 	"strconv"
 	"strings"
 
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
-	previouspriorities "github.com/envoyproxy/go-control-plane/envoy/config/retry/previous_priorities"
+	previouspriorities "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/priority/previous_priorities/v3"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
@@ -33,12 +34,12 @@ var (
 )
 
 // DefaultPolicy gets a copy of the default retry policy.
-func DefaultPolicy() *route.RetryPolicy {
-	policy := route.RetryPolicy{
+func DefaultPolicy() *routev3.RetryPolicy {
+	policy := routev3.RetryPolicy{
 		NumRetries:           &wrappers.UInt32Value{Value: 2},
 		RetryOn:              "connect-failure,refused-stream,unavailable,cancelled,retriable-status-codes",
 		RetriableStatusCodes: []uint32{http.StatusServiceUnavailable},
-		RetryHostPredicate: []*route.RetryPolicy_RetryHostPredicate{
+		RetryHostPredicate: []*routev3.RetryPolicy_RetryHostPredicate{
 			{
 				// to configure retries to prefer hosts that haven’t been attempted already,
 				// the builtin `envoy.retry_host_predicates.previous_hosts` predicate can be used.
@@ -65,7 +66,7 @@ func DefaultPolicy() *route.RetryPolicy {
 // is appended when encountering parts that are valid HTTP status codes.
 //
 // - PerTryTimeout: set from in.PerTryTimeout (if specified)
-func ConvertPolicy(in *networking.HTTPRetry) *route.RetryPolicy {
+func ConvertPolicy(in *networking.HTTPRetry) *routev3.RetryPolicy {
 	if in == nil {
 		// No policy was set, use a default.
 		return DefaultPolicy()
@@ -91,9 +92,9 @@ func ConvertPolicy(in *networking.HTTPRetry) *route.RetryPolicy {
 	}
 
 	if in.RetryRemoteLocalities != nil && in.RetryRemoteLocalities.GetValue() {
-		out.RetryPriority = &route.RetryPolicy_RetryPriority{
+		out.RetryPriority = &routev3.RetryPolicy_RetryPriority{
 			Name: "envoy.retry_priorities.previous_priorities",
-			ConfigType: &route.RetryPolicy_RetryPriority_TypedConfig{
+			ConfigType: &routev3.RetryPolicy_RetryPriority_TypedConfig{
 				TypedConfig: defaultRetryPriorityTypedConfig,
 			},
 		}

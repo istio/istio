@@ -17,11 +17,11 @@ package envoyfilter
 import (
 	"testing"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/google/go-cmp/cmp"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 )
@@ -29,7 +29,7 @@ import (
 func Test_virtualHostMatch(t *testing.T) {
 	type args struct {
 		cp *model.EnvoyFilterConfigPatchWrapper
-		vh *route.VirtualHost
+		vh *routev3.VirtualHost
 	}
 	tests := []struct {
 		name string
@@ -54,7 +54,7 @@ func Test_virtualHostMatch(t *testing.T) {
 		{
 			name: "full match",
 			args: args{
-				vh: &route.VirtualHost{
+				vh: &routev3.VirtualHost{
 					Name: "scooby",
 				},
 				cp: &model.EnvoyFilterConfigPatchWrapper{
@@ -74,7 +74,7 @@ func Test_virtualHostMatch(t *testing.T) {
 		{
 			name: "mismatch",
 			args: args{
-				vh: &route.VirtualHost{
+				vh: &routev3.VirtualHost{
 					Name: "scoobydoo",
 				},
 				cp: &model.EnvoyFilterConfigPatchWrapper{
@@ -103,7 +103,7 @@ func Test_virtualHostMatch(t *testing.T) {
 
 func Test_routeConfigurationMatch(t *testing.T) {
 	type args struct {
-		rc           *xdsapi.RouteConfiguration
+		rc           *routev3.RouteConfiguration
 		patchContext networking.EnvoyFilter_PatchContext
 		cp           *model.EnvoyFilterConfigPatchWrapper
 	}
@@ -133,7 +133,7 @@ func Test_routeConfigurationMatch(t *testing.T) {
 						},
 					},
 				},
-				rc: &xdsapi.RouteConfiguration{Name: "scooby.90"},
+				rc: &routev3.RouteConfiguration{Name: "scooby.90"},
 			},
 			want: false,
 		},
@@ -148,7 +148,7 @@ func Test_routeConfigurationMatch(t *testing.T) {
 						},
 					},
 				},
-				rc: &xdsapi.RouteConfiguration{Name: "80"},
+				rc: &routev3.RouteConfiguration{Name: "80"},
 			},
 			want: true,
 		},
@@ -163,7 +163,7 @@ func Test_routeConfigurationMatch(t *testing.T) {
 						},
 					},
 				},
-				rc: &xdsapi.RouteConfiguration{Name: "90"},
+				rc: &routev3.RouteConfiguration{Name: "90"},
 			},
 			want: false,
 		},
@@ -182,7 +182,7 @@ func Test_routeConfigurationMatch(t *testing.T) {
 						},
 					},
 				},
-				rc: &xdsapi.RouteConfiguration{Name: "https.443.app1.gw1.ns1"},
+				rc: &routev3.RouteConfiguration{Name: "https.443.app1.gw1.ns1"},
 			},
 			want: true,
 		},
@@ -201,7 +201,7 @@ func Test_routeConfigurationMatch(t *testing.T) {
 						},
 					},
 				},
-				rc: &xdsapi.RouteConfiguration{Name: "http.80"},
+				rc: &routev3.RouteConfiguration{Name: "http.80"},
 			},
 			want: false,
 		},
@@ -318,25 +318,25 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 		},
 	}
 
-	sidecarOutboundRC := &xdsapi.RouteConfiguration{
+	sidecarOutboundRC := &routev3.RouteConfiguration{
 		Name: "80",
-		VirtualHosts: []*route.VirtualHost{
+		VirtualHosts: []*routev3.VirtualHost{
 			{
 				Name:    "foo.com",
 				Domains: []string{"domain"},
-				Routes: []*route.Route{
+				Routes: []*routev3.Route{
 					{
 						Name: "foo",
-						Action: &route.Route_Route{
-							Route: &route.RouteAction{
+						Action: &routev3.Route_Route{
+							Route: &routev3.RouteAction{
 								PrefixRewrite: "/",
 							},
 						},
 					},
 					{
 						Name: "bar",
-						Action: &route.Route_Redirect{
-							Redirect: &route.RedirectAction{
+						Action: &routev3.Route_Redirect{
+							Redirect: &routev3.RedirectAction{
 								ResponseCode: 301,
 							},
 						},
@@ -346,17 +346,17 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 		},
 		RequestHeadersToRemove: []string{"h1", "h2"},
 	}
-	patchedSidecarOutputRC := &xdsapi.RouteConfiguration{
+	patchedSidecarOutputRC := &routev3.RouteConfiguration{
 		Name: "80",
-		VirtualHosts: []*route.VirtualHost{
+		VirtualHosts: []*routev3.VirtualHost{
 			{
 				Name:    "foo.com",
 				Domains: []string{"domain", "domain:80"},
-				Routes: []*route.Route{
+				Routes: []*routev3.Route{
 					{
 						Name: "foo",
-						Action: &route.Route_Route{
-							Route: &route.RouteAction{
+						Action: &routev3.Route_Route{
+							Route: &routev3.RouteAction{
 								PrefixRewrite: "/foo",
 							},
 						},
@@ -369,26 +369,26 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 		},
 		RequestHeadersToRemove: []string{"h1", "h2", "h3", "h4"},
 	}
-	sidecarInboundRC := &xdsapi.RouteConfiguration{
+	sidecarInboundRC := &routev3.RouteConfiguration{
 		Name: "inbound|http|80",
-		VirtualHosts: []*route.VirtualHost{
+		VirtualHosts: []*routev3.VirtualHost{
 			{
 				Name: "vhost2",
 			},
 		},
 	}
-	patchedSidecarInboundRC := &xdsapi.RouteConfiguration{
+	patchedSidecarInboundRC := &routev3.RouteConfiguration{
 		Name: "inbound|http|80",
-		VirtualHosts: []*route.VirtualHost{
+		VirtualHosts: []*routev3.VirtualHost{
 			{
 				Name: "new-vhost",
 			},
 		},
 	}
 
-	gatewayRC := &xdsapi.RouteConfiguration{
+	gatewayRC := &routev3.RouteConfiguration{
 		Name: "80",
-		VirtualHosts: []*route.VirtualHost{
+		VirtualHosts: []*routev3.VirtualHost{
 			{
 				Name:    "vhost1",
 				Domains: []string{"domain"},
@@ -399,9 +399,9 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 			},
 		},
 	}
-	patchedGatewayRC := &xdsapi.RouteConfiguration{
+	patchedGatewayRC := &routev3.RouteConfiguration{
 		Name: "80",
-		VirtualHosts: []*route.VirtualHost{
+		VirtualHosts: []*routev3.VirtualHost{
 			{
 				Name:    "gateway",
 				Domains: []string{"gateway", "domain:80"},
@@ -424,12 +424,12 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 		patchContext       networking.EnvoyFilter_PatchContext
 		proxy              *model.Proxy
 		push               *model.PushContext
-		routeConfiguration *xdsapi.RouteConfiguration
+		routeConfiguration *routev3.RouteConfiguration
 	}
 	tests := []struct {
 		name string
 		args args
-		want *xdsapi.RouteConfiguration
+		want *routev3.RouteConfiguration
 	}{
 		{
 			name: "sidecar outbound rds patch",
@@ -475,7 +475,7 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 
 func Test_routeMatch(t *testing.T) {
 	type args struct {
-		httpRoute *route.Route
+		httpRoute *routev3.Route
 		cp        *model.EnvoyFilterConfigPatchWrapper
 	}
 	tests := []struct {
@@ -503,7 +503,7 @@ func Test_routeMatch(t *testing.T) {
 		{
 			name: "full match by name",
 			args: args{
-				httpRoute: &route.Route{
+				httpRoute: &routev3.Route{
 					Name: "scooby",
 				},
 				cp: &model.EnvoyFilterConfigPatchWrapper{
@@ -525,8 +525,8 @@ func Test_routeMatch(t *testing.T) {
 		{
 			name: "full match by action",
 			args: args{
-				httpRoute: &route.Route{
-					Action: &route.Route_Redirect{Redirect: &route.RedirectAction{}},
+				httpRoute: &routev3.Route{
+					Action: &routev3.Route_Redirect{Redirect: &routev3.RedirectAction{}},
 				},
 				cp: &model.EnvoyFilterConfigPatchWrapper{
 					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
@@ -547,8 +547,8 @@ func Test_routeMatch(t *testing.T) {
 		{
 			name: "mis match by action",
 			args: args{
-				httpRoute: &route.Route{
-					Action: &route.Route_Redirect{Redirect: &route.RedirectAction{}},
+				httpRoute: &routev3.Route{
+					Action: &routev3.Route_Redirect{Redirect: &routev3.RedirectAction{}},
 				},
 				cp: &model.EnvoyFilterConfigPatchWrapper{
 					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{

@@ -21,7 +21,8 @@ import (
 
 	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -581,7 +582,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 							Dns:     true,
 						},
 						ServerName: EnvoyServerName,
-						HttpProtocolOptions: &core.Http1ProtocolOptions{
+						HttpProtocolOptions: &corev3.Http1ProtocolOptions{
 							AcceptHttp_10: true,
 						},
 					},
@@ -644,7 +645,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 							Dns:     true,
 						},
 						ServerName:          EnvoyServerName,
-						HttpProtocolOptions: &core.Http1ProtocolOptions{},
+						HttpProtocolOptions: &corev3.Http1ProtocolOptions{},
 					},
 				},
 			},
@@ -705,7 +706,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 							Dns:     true,
 						},
 						ServerName:          EnvoyServerName,
-						HttpProtocolOptions: &core.Http1ProtocolOptions{},
+						HttpProtocolOptions: &corev3.Http1ProtocolOptions{},
 					},
 				},
 			},
@@ -766,7 +767,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 							Dns:     true,
 						},
 						ServerName:          EnvoyServerName,
-						HttpProtocolOptions: &core.Http1ProtocolOptions{},
+						HttpProtocolOptions: &corev3.Http1ProtocolOptions{},
 					},
 				},
 			},

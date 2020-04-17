@@ -23,9 +23,9 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -269,7 +269,7 @@ func GogoDurationToDuration(d *types.Duration) *duration.Duration {
 //
 // Envoy computes a hash of RDS to see if things have changed - hash is affected by order of elements in the filter. Therefore
 // we sort virtual hosts by name before handing them back so the ordering is stable across HTTP Route Configs.
-func SortVirtualHosts(hosts []*route.VirtualHost) {
+func SortVirtualHosts(hosts []*routev3.VirtualHost) {
 	sort.SliceStable(hosts, func(i, j int) bool {
 		return hosts[i].Name < hosts[j].Name
 	})

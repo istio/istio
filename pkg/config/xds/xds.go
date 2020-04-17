@@ -21,9 +21,9 @@ import (
 
 	xdsAPI "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	httpConn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	httpConn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
@@ -45,7 +45,7 @@ func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *typ
 	case networking.EnvoyFilter_LISTENER:
 		obj = &xdsAPI.Listener{}
 	case networking.EnvoyFilter_ROUTE_CONFIGURATION:
-		obj = &xdsAPI.RouteConfiguration{}
+		obj = &routev3.RouteConfiguration{}
 	case networking.EnvoyFilter_FILTER_CHAIN:
 		obj = &listener.FilterChain{}
 	case networking.EnvoyFilter_HTTP_FILTER:
@@ -53,9 +53,9 @@ func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *typ
 	case networking.EnvoyFilter_NETWORK_FILTER:
 		obj = &listener.Filter{}
 	case networking.EnvoyFilter_VIRTUAL_HOST:
-		obj = &route.VirtualHost{}
+		obj = &routev3.VirtualHost{}
 	case networking.EnvoyFilter_HTTP_ROUTE:
-		obj = &route.Route{}
+		obj = &routev3.Route{}
 	default:
 		return nil, fmt.Errorf("Envoy filter: unknown object type for applyTo %s", applyTo.String()) // nolint: golint,stylecheck
 	}

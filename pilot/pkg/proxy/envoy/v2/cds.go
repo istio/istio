@@ -25,10 +25,10 @@ import (
 )
 
 // clusters aggregate a DiscoveryResponse for pushing.
-func cdsDiscoveryResponse(response []*clusterv3.Cluster, noncePrefix string) *xdsapi.DiscoveryResponse {
+func cdsDiscoveryResponse(response []*clusterv3.Cluster, noncePrefix, tp string) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
 		// All resources for CDS ought to be of the type ClusterLoadAssignment
-		TypeUrl: ClusterTypeV3,
+		TypeUrl: tp,
 
 		// Pilot does not really care for versioning. It always supplies what's currently
 		// available to it, irrespective of whether Envoy chooses to accept or reject CDS
@@ -40,6 +40,7 @@ func cdsDiscoveryResponse(response []*clusterv3.Cluster, noncePrefix string) *xd
 
 	for _, c := range response {
 		cc := util.MessageToAny(c)
+		cc.TypeUrl = tp
 		out.Resources = append(out.Resources, cc)
 	}
 
@@ -54,7 +55,7 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, v
 	if s.DebugConfigs {
 		con.CDSClusters = rawClusters
 	}
-	response := cdsDiscoveryResponse(rawClusters, push.Version)
+	response := cdsDiscoveryResponse(rawClusters, push.Version, con.RequestedTypes.CDS)
 	err := con.send(response)
 	cdsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {

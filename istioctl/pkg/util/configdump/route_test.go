@@ -109,7 +109,7 @@ func TestWrapper_GetDynamicRouteDump(t *testing.T) {
 			}
 			got, err := w.GetDynamicRouteDump(tt.stripVersion)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Wrapper.GetRouteConfigDump() error = %v, wantErr %v", err, tt.wantErr)
+				t.Fatalf("Wrapper.GetRouteConfigDump() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if got == nil && tt.wantErr {
 				return

@@ -36,13 +36,14 @@
                   "filters": [
                     {
                       "name": "envoy.http_connection_manager",
-                      "config": {
-                        "http_filters": {
+                      "typed_config": {
+                        "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
+                        "http_filters": [{
                           "name": "envoy.router"
-                        },
+                        }],
                         "stat_prefix": "stats",
                         "route_config": {
-                          "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
+                          "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
                           "virtual_hosts": [
                             {
                               "domains": [
@@ -3218,14 +3219,15 @@
                 "filters": [
                   {
                     "name": "envoy.http_connection_manager",
-                    "config": {
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                       "codec_type": "AUTO",
-                      "http_filters": {
+                      "http_filters": [{
                         "name": "envoy.router"
-                      },
+                      }],
                       "stat_prefix": "stats",
                       "route_config": {
-                        "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
+                        "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
                         "virtual_hosts": [
                           {
                             "routes": [
@@ -3295,7 +3297,8 @@
                 "filters": [
                   {
                     "name": "envoy.http_connection_manager",
-                    "config": {
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                       "tracing": {
                         "random_sampling": {
                           "value": 100
@@ -3345,7 +3348,8 @@
                         },
                         {
                           "name": "istio_authn",
-                          "config": {
+                          "typed_config": {
+                            "@type": "type.googleapis.com/istio.envoy.config.filter.http.authn.v2alpha1.FilterConfig",
                             "jwt_output_payload_locations": {
                               "testing@secure.istio.io": "istio-sec-5406b7840708063f65cbdf52153ca364a476d68b"
                             },
@@ -3369,7 +3373,8 @@
                         },
                         {
                           "name": "envoy.filters.http.rbac",
-                          "config": {
+                          "typed_config": {
+                            "@type": "type.googleapis.com/envoy.config.filter.http.rbac.v2.RBAC",
                             "rules": {
                               "policies": {
                                 "service-viewer": {
@@ -5381,7 +5386,8 @@
                 "filters": [
                   {
                     "name": "envoy.http_connection_manager",
-                    "config": {
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                       "tracing": {
                         "random_sampling": {
                           "value": 100
@@ -5499,7 +5505,8 @@
                 "filters": [
                   {
                     "name": "envoy.http_connection_manager",
-                    "config": {
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                       "generate_request_id": true,
                       "stream_idle_timeout": "0s",
                       "upgrade_configs": [
@@ -5617,7 +5624,8 @@
                 "filters": [
                   {
                     "name": "envoy.http_connection_manager",
-                    "config": {
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                       "rds": {
                         "route_config_name": "9411",
                         "config_source": {
@@ -5735,7 +5743,8 @@
                 "filters": [
                   {
                     "name": "envoy.http_connection_manager",
-                    "config": {
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                       "upgrade_configs": [
                         {
                           "upgrade_type": "websocket"
@@ -5853,7 +5862,8 @@
                 "filters": [
                   {
                     "name": "envoy.http_connection_manager",
-                    "config": {
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                       "tracing": {
                         "client_sampling": {
                           "value": 100
@@ -5971,7 +5981,8 @@
                 "filters": [
                   {
                     "name": "envoy.http_connection_manager",
-                    "config": {
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                       "stream_idle_timeout": "0s",
                       "generate_request_id": true,
                       "upgrade_configs": [
@@ -6089,7 +6100,8 @@
                 "filters": [
                   {
                     "name": "envoy.http_connection_manager",
-                    "config": {
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                       "generate_request_id": true,
                       "stream_idle_timeout": "0s",
                       "upgrade_configs": [
@@ -6207,7 +6219,8 @@
                 "filters": [
                   {
                     "name": "envoy.http_connection_manager",
-                    "config": {
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                       "use_remote_address": false,
                       "rds": {
                         "config_source": {
@@ -6325,7 +6338,8 @@
                 "filters": [
                   {
                     "name": "envoy.http_connection_manager",
-                    "config": {
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                       "tracing": {
                         "client_sampling": {
                           "value": 100
@@ -6443,7 +6457,8 @@
                 "filters": [
                   {
                     "name": "envoy.http_connection_manager",
-                    "config": {
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                       "stat_prefix": "0.0.0.0_15014",
                       "rds": {
                         "route_config_name": "15014",
@@ -6561,7 +6576,8 @@
                 "filters": [
                   {
                     "name": "envoy.http_connection_manager",
-                    "config": {
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                       "tracing": {
                         "overall_sampling": {
                           "value": 100
@@ -6679,7 +6695,8 @@
                 "filters": [
                   {
                     "name": "envoy.http_connection_manager",
-                    "config": {
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                       "generate_request_id": true,
                       "stream_idle_timeout": "0s",
                       "upgrade_configs": [
@@ -6797,7 +6814,8 @@
                 "filters": [
                   {
                     "name": "envoy.http_connection_manager",
-                    "config": {
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                       "rds": {
                         "config_source": {
                           "ads": {}
@@ -6915,7 +6933,8 @@
                 "filters": [
                   {
                     "name": "envoy.http_connection_manager",
-                    "config": {
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                       "tracing": {
                         "overall_sampling": {
                           "value": 100
@@ -7091,7 +7110,7 @@
       "static_route_configs": [
         {
           "route_config": {
-            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
+            "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
             "name": "inbound|9080|http|productpage.default.svc.cluster.local",
             "virtual_hosts": [
               {
@@ -7142,7 +7161,7 @@
         },
         {
           "route_config": {
-            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
+            "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
             "virtual_hosts": [
               {
                 "name": "backend",
@@ -7169,7 +7188,7 @@
         {
           "version_info": "2019-04-02T19:54:27Z/16",
           "route_config": {
-            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
+            "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
             "name": "8080",
             "virtual_hosts": [
               {
@@ -7260,7 +7279,7 @@
         {
           "version_info": "2019-04-02T19:54:27Z/16",
           "route_config": {
-            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
+            "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
             "name": "15010",
             "virtual_hosts": [
               {
@@ -7351,7 +7370,7 @@
         {
           "version_info": "2019-04-02T19:54:27Z/16",
           "route_config": {
-            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
+            "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
             "name": "15004",
             "virtual_hosts": [
               {
@@ -7522,7 +7541,7 @@
         {
           "version_info": "2019-04-02T19:54:27Z/16",
           "route_config": {
-            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
+            "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
             "name": "9091",
             "virtual_hosts": [
               {
@@ -7693,7 +7712,7 @@
         {
           "version_info": "2019-04-02T19:54:27Z/16",
           "route_config": {
-            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
+            "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
             "name": "80",
             "virtual_hosts": [
               {
@@ -8270,7 +8289,7 @@
         {
           "version_info": "2019-04-02T19:54:27Z/16",
           "route_config": {
-            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
+            "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
             "name": "9080",
             "virtual_hosts": [
               {
@@ -8609,7 +8628,7 @@
         {
           "version_info": "2019-04-02T19:54:27Z/16",
           "route_config": {
-            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
+            "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
             "name": "8060",
             "virtual_hosts": [
               {
@@ -8700,7 +8719,7 @@
         {
           "version_info": "2019-04-02T19:54:27Z/16",
           "route_config": {
-            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
+            "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
             "name": "8000",
             "virtual_hosts": [
               {
@@ -8793,7 +8812,7 @@
         {
           "version_info": "2019-04-02T19:54:27Z/16",
           "route_config": {
-            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
+            "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
             "name": "9901",
             "virtual_hosts": [
               {
@@ -8884,7 +8903,7 @@
         {
           "version_info": "2019-04-02T19:54:27Z/16",
           "route_config": {
-            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
+            "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
             "name": "9090",
             "virtual_hosts": [
               {
@@ -8975,7 +8994,7 @@
         {
           "version_info": "2019-04-02T19:54:27Z/16",
           "route_config": {
-            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
+            "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
             "name": "9411",
             "virtual_hosts": [
               {
@@ -9066,7 +9085,7 @@
         {
           "version_info": "2019-04-02T19:54:27Z/16",
           "route_config": {
-            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
+            "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
             "name": "3000",
             "virtual_hosts": [
               {
@@ -9157,7 +9176,7 @@
         {
           "version_info": "2019-04-02T19:54:27Z/16",
           "route_config": {
-            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
+            "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
             "name": "20001",
             "virtual_hosts": [
               {
@@ -9248,7 +9267,7 @@
         {
           "version_info": "2019-04-02T19:54:27Z/16",
           "route_config": {
-            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
+            "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
             "name": "15014",
             "virtual_hosts": [
               {

@@ -28,13 +28,15 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	accesslogconfig "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
-	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
+	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	grpc_stats "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/grpc_stats/v2alpha"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/thrift_proxy/v2alpha1"
 	thrift_ratelimit "github.com/envoyproxy/go-control-plane/envoy/config/filter/thrift/rate_limit/v2alpha1"
 	ratelimit "github.com/envoyproxy/go-control-plane/envoy/config/ratelimit/v2"
-	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	typev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
@@ -90,10 +92,6 @@ const (
 
 	// VirtualOutboundCatchAllTCPFilterChainName is the name of the catch all tcp filter chain
 	VirtualOutboundCatchAllTCPFilterChainName = "virtualOutbound-catchall-tcp"
-
-	// VirtualOutboundTrafficLoopFilterChainName is the name of the filter chain that handles
-	// pod IP traffic loops
-	VirtualOutboundTrafficLoopFilterChainName = "virtualOutbound-trafficloop"
 
 	// VirtualInboundListenerName is the name for traffic capture listener
 	VirtualInboundListenerName = "virtualInbound"
@@ -641,14 +639,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 	}
 	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
 	if pluginParams.ServiceInstance.ServicePort.Protocol.IsHTTP2() {
-		httpOpts.connectionManager.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
+		httpOpts.connectionManager.Http2ProtocolOptions = &corev3.Http2ProtocolOptions{}
 		if pluginParams.ServiceInstance.ServicePort.Protocol == protocol.GRPCWeb {
 			httpOpts.addGRPCWebFilter = true
 		}
 	}
 
 	if features.HTTP10 || node.Metadata.HTTP10 == "1" {
-		httpOpts.connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{
+		httpOpts.connectionManager.HttpProtocolOptions = &corev3.Http1ProtocolOptions{
 			AcceptHttp_10: true,
 		}
 	}
@@ -1137,7 +1135,7 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
 	_, listenAddress := getActualWildcardAndLocalHost(node)
 
-	httpOpts := &core.Http1ProtocolOptions{
+	httpOpts := &corev3.Http1ProtocolOptions{
 		AllowAbsoluteUrl: proto.BoolTrue,
 	}
 	if features.HTTP10 || node.Metadata.HTTP10 == "1" {
@@ -1266,7 +1264,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 
 	if features.HTTP10 || pluginParams.Node.Metadata.HTTP10 == "1" {
 		httpOpts.connectionManager = &http_conn.HttpConnectionManager{
-			HttpProtocolOptions: &core.Http1ProtocolOptions{
+			HttpProtocolOptions: &corev3.Http1ProtocolOptions{
 				AcceptHttp_10: true,
 			},
 		}
@@ -1836,7 +1834,7 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, push *model.PushContext
 
 // httpListenerOpts are options for an HTTP listener
 type httpListenerOpts struct {
-	routeConfig *xdsapi.RouteConfiguration
+	routeConfig *routev3.RouteConfiguration
 	rds         string
 	// If set, use this as a basis
 	connectionManager *http_conn.HttpConnectionManager
@@ -1956,7 +1954,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 
 	idleTimeout, err := time.ParseDuration(pluginParams.Node.Metadata.IdleTimeout)
 	if idleTimeout > 0 && err == nil {
-		connectionManager.CommonHttpProtocolOptions = &core.HttpProtocolOptions{
+		connectionManager.CommonHttpProtocolOptions = &corev3.HttpProtocolOptions{
 			IdleTimeout: ptypes.DurationProto(idleTimeout),
 		}
 	}
@@ -1967,10 +1965,11 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	if httpOpts.rds != "" {
 		rds := &http_conn.HttpConnectionManager_Rds{
 			Rds: &http_conn.Rds{
-				ConfigSource: &core.ConfigSource{
-					ConfigSourceSpecifier: &core.ConfigSource_Ads{
-						Ads: &core.AggregatedConfigSource{},
+				ConfigSource: &corev3.ConfigSource{
+					ConfigSourceSpecifier: &corev3.ConfigSource_Ads{
+						Ads: &corev3.AggregatedConfigSource{},
 					},
+					ResourceApiVersion:  corev3.ApiVersion_V3,
 					InitialFetchTimeout: features.InitialFetchTimeout,
 				},
 				RouteConfigName: httpOpts.rds,
@@ -1978,6 +1977,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 		}
 		connectionManager.RouteSpecifier = rds
 	} else {
+		// TODO
 		connectionManager.RouteSpecifier = &http_conn.HttpConnectionManager_RouteConfig{RouteConfig: httpOpts.routeConfig}
 	}
 
@@ -2000,13 +2000,13 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 func buildTracingConfig() *http_conn.HttpConnectionManager_Tracing {
 	tc := authn_model.GetTraceConfig()
 	return &http_conn.HttpConnectionManager_Tracing{
-		ClientSampling: &envoy_type.Percent{
+		ClientSampling: &typev3.Percent{
 			Value: tc.ClientSampling,
 		},
-		RandomSampling: &envoy_type.Percent{
+		RandomSampling: &typev3.Percent{
 			Value: tc.RandomSampling,
 		},
-		OverallSampling: &envoy_type.Percent{
+		OverallSampling: &typev3.Percent{
 			Value: tc.OverallSampling,
 		},
 	}

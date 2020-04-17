@@ -51,8 +51,8 @@ func NewClusterBuilder(proxy *model.Proxy, push *model.PushContext) *ClusterBuil
 
 // applyDestinationRule applies the destination rule if it exists for the Service. It returns the subset clusters if any created as it
 // applies the destination rule.
-func (cb *ClusterBuilder) applyDestinationRule(proxy *model.Proxy, cluster *clusterv3.Cluster, clusterMode ClusterMode, service *model.Service, port *model.Port,
-	proxyNetworkView map[string]bool) []*clusterv3.Cluster {
+func (cb *ClusterBuilder) applyDestinationRule(proxy *model.Proxy, cluster *clusterv3.Cluster,
+	clusterMode ClusterMode, service *model.Service, port *model.Port, proxyNetworkView map[string]bool) []*clusterv3.Cluster {
 	destRule := cb.push.DestinationRule(cb.proxy, service)
 	destinationRule := castDestinationRuleOrDefault(destRule)
 

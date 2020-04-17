@@ -18,13 +18,14 @@ import (
 	"reflect"
 	"testing"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	xdstype "github.com/envoyproxy/go-control-plane/envoy/type"
-	envoy_type_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	matcherv3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	typev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -124,15 +125,15 @@ func TestIsCatchAllMatch(t *testing.T) {
 func TestIsCatchAllRoute(t *testing.T) {
 	cases := []struct {
 		name  string
-		route *route.Route
+		route *routev3.Route
 		want  bool
 	}{
 		{
 			name: "catch all prefix",
-			route: &route.Route{
+			route: &routev3.Route{
 				Name: "catch-all",
-				Match: &route.RouteMatch{
-					PathSpecifier: &route.RouteMatch_Prefix{
+				Match: &routev3.RouteMatch{
+					PathSpecifier: &routev3.RouteMatch_Prefix{
 						Prefix: "/",
 					},
 				},
@@ -141,11 +142,11 @@ func TestIsCatchAllRoute(t *testing.T) {
 		},
 		{
 			name: "catch all regex",
-			route: &route.Route{
+			route: &routev3.Route{
 				Name: "catch-all",
-				Match: &route.RouteMatch{
-					PathSpecifier: &route.RouteMatch_Regex{
-						Regex: "*",
+				Match: &routev3.RouteMatch{
+					PathSpecifier: &routev3.RouteMatch_HiddenEnvoyDeprecatedRegex{
+						HiddenEnvoyDeprecatedRegex: "*",
 					},
 				},
 			},
@@ -153,17 +154,17 @@ func TestIsCatchAllRoute(t *testing.T) {
 		},
 		{
 			name: "uri regex with headers",
-			route: &route.Route{
+			route: &routev3.Route{
 				Name: "non-catch-all",
-				Match: &route.RouteMatch{
-					PathSpecifier: &route.RouteMatch_Regex{
-						Regex: "*",
+				Match: &routev3.RouteMatch{
+					PathSpecifier: &routev3.RouteMatch_HiddenEnvoyDeprecatedRegex{
+						HiddenEnvoyDeprecatedRegex: "*",
 					},
-					Headers: []*route.HeaderMatcher{
+					Headers: []*routev3.HeaderMatcher{
 						{
 							Name: "Authentication",
-							HeaderMatchSpecifier: &route.HeaderMatcher_RegexMatch{
-								RegexMatch: "Bearer .+?\\..+?\\..+?",
+							HeaderMatchSpecifier: &routev3.HeaderMatcher_HiddenEnvoyDeprecatedRegexMatch{
+								HiddenEnvoyDeprecatedRegexMatch: "Bearer .+?\\..+?\\..+?",
 							},
 						},
 					},
@@ -173,16 +174,16 @@ func TestIsCatchAllRoute(t *testing.T) {
 		},
 		{
 			name: "uri regex with query params",
-			route: &route.Route{
+			route: &routev3.Route{
 				Name: "non-catch-all",
-				Match: &route.RouteMatch{
-					PathSpecifier: &route.RouteMatch_Regex{
-						Regex: "*",
+				Match: &routev3.RouteMatch{
+					PathSpecifier: &routev3.RouteMatch_HiddenEnvoyDeprecatedRegex{
+						HiddenEnvoyDeprecatedRegex: "*",
 					},
-					QueryParameters: []*route.QueryParameterMatcher{
+					QueryParameters: []*routev3.QueryParameterMatcher{
 						{
 							Name: "Authentication",
-							QueryParameterMatchSpecifier: &route.QueryParameterMatcher_PresentMatch{
+							QueryParameterMatchSpecifier: &routev3.QueryParameterMatcher_PresentMatch{
 								PresentMatch: true,
 							},
 						},
@@ -414,24 +415,24 @@ func TestTranslateCORSPolicy(t *testing.T) {
 			{MatchType: &networking.StringMatch_Regex{Regex: "regex"}},
 		},
 	}
-	expectedCorsPolicy := &route.CorsPolicy{
-		AllowOriginStringMatch: []*envoy_type_matcher.StringMatcher{
-			{MatchPattern: &envoy_type_matcher.StringMatcher_Exact{Exact: "exact"}},
-			{MatchPattern: &envoy_type_matcher.StringMatcher_Prefix{Prefix: "prefix"}},
+	expectedCorsPolicy := &routev3.CorsPolicy{
+		AllowOriginStringMatch: []*matcherv3.StringMatcher{
+			{MatchPattern: &matcherv3.StringMatcher_Exact{Exact: "exact"}},
+			{MatchPattern: &matcherv3.StringMatcher_Prefix{Prefix: "prefix"}},
 			{
-				MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
-					SafeRegex: &envoy_type_matcher.RegexMatcher{
+				MatchPattern: &matcherv3.StringMatcher_SafeRegex{
+					SafeRegex: &matcherv3.RegexMatcher{
 						EngineType: regexEngine,
 						Regex:      "regex",
 					},
 				},
 			},
 		},
-		EnabledSpecifier: &route.CorsPolicy_FilterEnabled{
-			FilterEnabled: &core.RuntimeFractionalPercent{
-				DefaultValue: &xdstype.FractionalPercent{
+		EnabledSpecifier: &routev3.CorsPolicy_FilterEnabled{
+			FilterEnabled: &corev3.RuntimeFractionalPercent{
+				DefaultValue: &typev3.FractionalPercent{
 					Numerator:   100,
-					Denominator: xdstype.FractionalPercent_HUNDRED,
+					Denominator: typev3.FractionalPercent_HUNDRED,
 				},
 			},
 		},
@@ -445,7 +446,7 @@ func TestMirrorPercent(t *testing.T) {
 	cases := []struct {
 		name  string
 		route *networking.HTTPRoute
-		want  *core.RuntimeFractionalPercent
+		want  *corev3.RuntimeFractionalPercent
 	}{
 		{
 			name: "zero mirror percent",
@@ -460,10 +461,10 @@ func TestMirrorPercent(t *testing.T) {
 			route: &networking.HTTPRoute{
 				Mirror: &networking.Destination{},
 			},
-			want: &core.RuntimeFractionalPercent{
-				DefaultValue: &xdstype.FractionalPercent{
+			want: &corev3.RuntimeFractionalPercent{
+				DefaultValue: &typev3.FractionalPercent{
 					Numerator:   100,
-					Denominator: xdstype.FractionalPercent_HUNDRED,
+					Denominator: typev3.FractionalPercent_HUNDRED,
 				},
 			},
 		},
@@ -473,10 +474,10 @@ func TestMirrorPercent(t *testing.T) {
 				Mirror:        &networking.Destination{},
 				MirrorPercent: &types.UInt32Value{Value: 50},
 			},
-			want: &core.RuntimeFractionalPercent{
-				DefaultValue: &xdstype.FractionalPercent{
+			want: &corev3.RuntimeFractionalPercent{
+				DefaultValue: &typev3.FractionalPercent{
 					Numerator:   50,
-					Denominator: xdstype.FractionalPercent_HUNDRED,
+					Denominator: typev3.FractionalPercent_HUNDRED,
 				},
 			},
 		},
@@ -494,10 +495,10 @@ func TestMirrorPercent(t *testing.T) {
 				Mirror:           &networking.Destination{},
 				MirrorPercentage: &networking.Percent{Value: 50.0},
 			},
-			want: &core.RuntimeFractionalPercent{
-				DefaultValue: &xdstype.FractionalPercent{
+			want: &corev3.RuntimeFractionalPercent{
+				DefaultValue: &typev3.FractionalPercent{
 					Numerator:   500000,
-					Denominator: xdstype.FractionalPercent_MILLION,
+					Denominator: typev3.FractionalPercent_MILLION,
 				},
 			},
 		},
@@ -508,10 +509,10 @@ func TestMirrorPercent(t *testing.T) {
 				MirrorPercent:    &types.UInt32Value{Value: 40},
 				MirrorPercentage: &networking.Percent{Value: 50.0},
 			},
-			want: &core.RuntimeFractionalPercent{
-				DefaultValue: &xdstype.FractionalPercent{
+			want: &corev3.RuntimeFractionalPercent{
+				DefaultValue: &typev3.FractionalPercent{
 					Numerator:   500000,
-					Denominator: xdstype.FractionalPercent_MILLION,
+					Denominator: typev3.FractionalPercent_MILLION,
 				},
 			},
 		},

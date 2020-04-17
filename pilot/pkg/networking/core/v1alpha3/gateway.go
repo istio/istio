@@ -23,8 +23,9 @@ import (
 	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/hashicorp/go-multierror"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -195,7 +196,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 }
 
 func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Proxy, push *model.PushContext,
-	routeName string) *xdsapi.RouteConfiguration {
+	routeName string) *routev3.RouteConfiguration {
 
 	services := push.Services(node)
 
@@ -224,7 +225,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		nameToServiceMap[svc.Hostname] = svc
 	}
 
-	vHostDedupMap := make(map[host.Name]*route.VirtualHost)
+	vHostDedupMap := make(map[host.Name]*routev3.VirtualHost)
 	for _, server := range servers {
 		gatewayName := merged.GatewayNameForServer[server]
 		virtualServices := push.VirtualServices(node, map[string]bool{gatewayName: true})
@@ -250,13 +251,13 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				if vHost, exists := vHostDedupMap[hostname]; exists {
 					vHost.Routes = istio_route.CombineVHostRoutes(vHost.Routes, routes)
 				} else {
-					newVHost := &route.VirtualHost{
+					newVHost := &routev3.VirtualHost{
 						Name:    domainName(string(hostname), port),
 						Domains: buildGatewayVirtualHostDomains(string(hostname)),
 						Routes:  routes,
 					}
 					if server.Tls != nil && server.Tls.HttpsRedirect {
-						newVHost.RequireTls = route.VirtualHost_ALL
+						newVHost.RequireTls = routev3.VirtualHost_ALL
 					}
 					vHostDedupMap[hostname] = newVHost
 				}
@@ -264,19 +265,19 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		}
 	}
 
-	var virtualHosts []*route.VirtualHost
+	var virtualHosts []*routev3.VirtualHost
 	if len(vHostDedupMap) == 0 {
 		log.Warnf("constructed http route config for port %d with no vhosts; Setting up a default 404 vhost", port)
-		virtualHosts = []*route.VirtualHost{{
+		virtualHosts = []*routev3.VirtualHost{{
 			Name:    domainName("blackhole", port),
 			Domains: []string{"*"},
-			Routes: []*route.Route{
+			Routes: []*routev3.Route{
 				{
-					Match: &route.RouteMatch{
-						PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
+					Match: &routev3.RouteMatch{
+						PathSpecifier: &routev3.RouteMatch_Prefix{Prefix: "/"},
 					},
-					Action: &route.Route_DirectResponse{
-						DirectResponse: &route.DirectResponseAction{
+					Action: &routev3.Route_DirectResponse{
+						DirectResponse: &routev3.DirectResponseAction{
 							Status: 404,
 						},
 					},
@@ -286,7 +287,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		// add a name to the route
 		virtualHosts[0].Routes[0].Name = istio_route.DefaultRouteName
 	} else {
-		virtualHosts = make([]*route.VirtualHost, 0, len(vHostDedupMap))
+		virtualHosts = make([]*routev3.VirtualHost, 0, len(vHostDedupMap))
 		for _, v := range vHostDedupMap {
 			virtualHosts = append(virtualHosts, v)
 		}
@@ -294,7 +295,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 
 	util.SortVirtualHosts(virtualHosts)
 
-	routeCfg := &xdsapi.RouteConfiguration{
+	routeCfg := &routev3.RouteConfiguration{
 		// Retain the routeName as its used by EnvoyFilter patching logic
 		Name:             routeName,
 		VirtualHosts:     virtualHosts,
@@ -322,7 +323,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 
 	serverProto := protocol.Parse(server.Port.Protocol)
 
-	httpProtoOpts := &core.Http1ProtocolOptions{}
+	httpProtoOpts := &corev3.Http1ProtocolOptions{}
 
 	if features.HTTP10 || node.Metadata.HTTP10 == "1" {
 		httpProtoOpts.AcceptHttp_10 = true

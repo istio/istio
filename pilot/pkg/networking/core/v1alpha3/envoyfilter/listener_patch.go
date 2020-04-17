@@ -17,7 +17,7 @@ package envoyfilter
 import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdslistener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/proto"
@@ -458,10 +458,6 @@ func doHTTPFilterOperation(patchContext networking.EnvoyFilter_PatchContext,
 			if userHTTPFilter.GetTypedConfig() != nil {
 				// user has any typed struct
 				if retVal, err = util.MergeAnyWithAny(httpFilter.GetTypedConfig(), userHTTPFilter.GetTypedConfig()); err != nil {
-					retVal = httpFilter.GetTypedConfig()
-				}
-			} else if userHTTPFilter.GetConfig() != nil { //nolint:staticcheck
-				if retVal, err = util.MergeAnyWithStruct(httpFilter.GetTypedConfig(), userHTTPFilter.GetConfig()); err != nil { //nolint:staticcheck
 					retVal = httpFilter.GetTypedConfig()
 				}
 			}

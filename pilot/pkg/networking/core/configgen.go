@@ -17,6 +17,7 @@ package core
 import (
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -35,7 +36,7 @@ type ConfigGenerator interface {
 	BuildClusters(node *model.Proxy, push *model.PushContext) []*clusterv3.Cluster
 
 	// BuildHTTPRoutes returns the list of HTTP routes for the given proxy. This is the RDS output
-	BuildHTTPRoutes(node *model.Proxy, push *model.PushContext, routeNames []string) []*v2.RouteConfiguration
+	BuildHTTPRoutes(node *model.Proxy, push *model.PushContext, routeNames []string) []*routev3.RouteConfiguration
 
 	// ConfigChanged is invoked when mesh config is changed, giving a chance to rebuild any cached config.
 	MeshConfigChanged(mesh *meshconfig.MeshConfig)

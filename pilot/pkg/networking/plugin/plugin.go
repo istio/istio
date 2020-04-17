@@ -15,8 +15,8 @@
 package plugin
 
 import (
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -98,10 +98,10 @@ type Plugin interface {
 
 	// OnOutboundRouteConfiguration is called whenever a new set of virtual hosts (a set of virtual hosts with routes) is
 	// added to RDS in the outbound path.
-	OnOutboundRouteConfiguration(in *InputParams, routeConfiguration *xdsapi.RouteConfiguration)
+	OnOutboundRouteConfiguration(in *InputParams, routeConfiguration *routev3.RouteConfiguration)
 
 	// OnInboundRouteConfiguration is called whenever a new set of virtual hosts are added to the inbound path.
-	OnInboundRouteConfiguration(in *InputParams, routeConfiguration *xdsapi.RouteConfiguration)
+	OnInboundRouteConfiguration(in *InputParams, routeConfiguration *routev3.RouteConfiguration)
 
 	// OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain
 	// configuration, like FilterChainMatch and TLSContext.

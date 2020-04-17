@@ -19,14 +19,15 @@ import (
 	"testing"
 	"time"
 
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	gogoTypes "github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
 	. "github.com/onsi/gomega"
 
-	envoyroute "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	previouspriorities "github.com/envoyproxy/go-control-plane/envoy/config/retry/previous_priorities"
+	previouspriorities "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/priority/previous_priorities/v3"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/util"
 )
@@ -202,14 +203,14 @@ func TestRetryRemoteLocalities(t *testing.T) {
 	previousPrioritiesConfig := &previouspriorities.PreviousPrioritiesConfig{
 		UpdateFrequency: int32(2),
 	}
-	expected := &envoyroute.RetryPolicy_RetryPriority{
+	expected := &routev3.RetryPolicy_RetryPriority{
 		Name: "envoy.retry_priorities.previous_priorities",
-		ConfigType: &envoyroute.RetryPolicy_RetryPriority_TypedConfig{
+		ConfigType: &routev3.RetryPolicy_RetryPriority_TypedConfig{
 			TypedConfig: util.MessageToAny(previousPrioritiesConfig),
 		},
 	}
 
 	if !reflect.DeepEqual(policy.RetryPriority, expected) {
-		t.Fatalf("Expected %v, actual %v", expected, policy.RetryPriority)
+		t.Fatalf("Expected \n%v, actual \n%v", expected, policy.RetryPriority)
 	}
 }

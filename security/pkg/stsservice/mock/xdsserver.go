@@ -25,13 +25,13 @@ import (
 	"testing"
 	"time"
 
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"istio.io/pkg/log"
 
 	api "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	hcm "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v2"
@@ -60,15 +60,15 @@ func (l *DynamicListener) makeListener() *api.Listener {
 		CodecType:  hcm.HttpConnectionManager_AUTO,
 		StatPrefix: "http",
 		RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
-			RouteConfig: &api.RouteConfiguration{
+			RouteConfig: &routev3.RouteConfiguration{
 				Name: "testListener",
-				VirtualHosts: []*route.VirtualHost{{
+				VirtualHosts: []*routev3.VirtualHost{{
 					Name:    "backend",
 					Domains: []string{"*"},
-					Routes: []*route.Route{{
-						Match: &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}},
-						Action: &route.Route_Route{Route: &route.RouteAction{
-							ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "backend"},
+					Routes: []*routev3.Route{{
+						Match: &routev3.RouteMatch{PathSpecifier: &routev3.RouteMatch_Prefix{Prefix: "/"}},
+						Action: &routev3.Route_Route{Route: &routev3.RouteAction{
+							ClusterSpecifier: &routev3.RouteAction_Cluster{Cluster: "backend"},
 						}},
 					}}}}}},
 		HttpFilters: []*hcm.HttpFilter{{

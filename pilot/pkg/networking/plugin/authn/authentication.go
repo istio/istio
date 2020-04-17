@@ -17,8 +17,8 @@ package authn
 import (
 	"fmt"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
@@ -95,11 +95,11 @@ func (Plugin) OnInboundCluster(in *plugin.InputParams, cluster *clusterv3.Cluste
 }
 
 // OnOutboundRouteConfiguration implements the Plugin interface method.
-func (Plugin) OnOutboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.RouteConfiguration) {
+func (Plugin) OnOutboundRouteConfiguration(in *plugin.InputParams, route *routev3.RouteConfiguration) {
 }
 
 // OnInboundRouteConfiguration implements the Plugin interface method.
-func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.RouteConfiguration) {
+func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *routev3.RouteConfiguration) {
 }
 
 // OnOutboundCluster implements the Plugin interface method.

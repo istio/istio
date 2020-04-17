@@ -20,6 +20,7 @@ import (
 	"time"
 
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
@@ -69,9 +70,9 @@ const (
 	// RouteType is sent after listeners.
 	RouteType = typePrefix + "RouteConfiguration"
 
-	// EndpointTypeV3 is used for EDS and ADS endpoint discovery. Typically second request.
-	EndpointTypeV3 = "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment"
-	ClusterTypeV3  = "type.googleapis.com/envoy.config.cluster.v3.Cluster"
+	EndpointTypeV3 = resourcev3.EndpointType
+	ClusterTypeV3  = resourcev3.ClusterType
+	RouteTypeV3    = resourcev3.RouteType
 )
 
 func init() {

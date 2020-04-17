@@ -25,8 +25,8 @@ import (
 	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	fault "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/fault/v2"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -334,7 +334,9 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_MERGE,
-				Value:     buildPatchStruct(`{"config": {"upstream_cluster": "scooby"}}`),
+				Value: buildPatchStruct(`{"typed_config": {
+"@type": "type.googleapis.com/envoy.extensions.filters.http.fault.v3.HTTPFault",
+"upstream_cluster": "scooby"}}`),
 			},
 		},
 		{
@@ -357,7 +359,7 @@ func TestApplyListenerPatches(t *testing.T) {
 				Value: buildPatchStruct(`
 {"name": "envoy.http_connection_manager", 
  "typed_config": {
-        "@type": "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager",
+        "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
          "xffNumTrustedHops": "4"
  }
 }`),

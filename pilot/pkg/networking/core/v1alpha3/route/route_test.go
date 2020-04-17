@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	envoyroute "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/onsi/gomega"
@@ -360,9 +360,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
-		hashPolicy := &envoyroute.RouteAction_HashPolicy{
-			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_Cookie_{
-				Cookie: &envoyroute.RouteAction_HashPolicy_Cookie{
+		hashPolicy := &routev3.RouteAction_HashPolicy{
+			PolicySpecifier: &routev3.RouteAction_HashPolicy_Cookie_{
+				Cookie: &routev3.RouteAction_HashPolicy_Cookie{
 					Name: "hash-cookie",
 					Ttl:  gogo.DurationToProtoDuration(&ttl),
 				},
@@ -412,9 +412,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
-		hashPolicy := &envoyroute.RouteAction_HashPolicy{
-			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_QueryParameter_{
-				QueryParameter: &envoyroute.RouteAction_HashPolicy_QueryParameter{
+		hashPolicy := &routev3.RouteAction_HashPolicy{
+			PolicySpecifier: &routev3.RouteAction_HashPolicy_QueryParameter_{
+				QueryParameter: &routev3.RouteAction_HashPolicy_QueryParameter{
 					Name: "query",
 				},
 			},
@@ -462,9 +462,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
-		hashPolicy := &envoyroute.RouteAction_HashPolicy{
-			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_Cookie_{
-				Cookie: &envoyroute.RouteAction_HashPolicy_Cookie{
+		hashPolicy := &routev3.RouteAction_HashPolicy{
+			PolicySpecifier: &routev3.RouteAction_HashPolicy_Cookie_{
+				Cookie: &routev3.RouteAction_HashPolicy_Cookie{
 					Name: "other-cookie",
 					Ttl:  nil,
 				},
@@ -509,9 +509,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
-		hashPolicy := &envoyroute.RouteAction_HashPolicy{
-			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_Cookie_{
-				Cookie: &envoyroute.RouteAction_HashPolicy_Cookie{
+		hashPolicy := &routev3.RouteAction_HashPolicy{
+			PolicySpecifier: &routev3.RouteAction_HashPolicy_Cookie_{
+				Cookie: &routev3.RouteAction_HashPolicy_Cookie{
 					Name: "port-level-settings-cookie",
 					Ttl:  nil,
 				},
@@ -561,9 +561,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
-		hashPolicy := &envoyroute.RouteAction_HashPolicy{
-			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_Cookie_{
-				Cookie: &envoyroute.RouteAction_HashPolicy_Cookie{
+		hashPolicy := &routev3.RouteAction_HashPolicy{
+			PolicySpecifier: &routev3.RouteAction_HashPolicy_Cookie_{
+				Cookie: &routev3.RouteAction_HashPolicy_Cookie{
 					Name: "other-cookie",
 					Ttl:  nil,
 				},
@@ -601,9 +601,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
-		hashPolicy := &envoyroute.RouteAction_HashPolicy{
-			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_Cookie_{
-				Cookie: &envoyroute.RouteAction_HashPolicy_Cookie{
+		hashPolicy := &routev3.RouteAction_HashPolicy{
+			PolicySpecifier: &routev3.RouteAction_HashPolicy_Cookie_{
+				Cookie: &routev3.RouteAction_HashPolicy_Cookie{
 					Name: "hash-cookie",
 					Ttl:  nil,
 				},
@@ -626,9 +626,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
-		redirectAction, ok := routes[0].Action.(*envoyroute.Route_Redirect)
+		redirectAction, ok := routes[0].Action.(*routev3.Route_Redirect)
 		g.Expect(ok).NotTo(gomega.BeFalse())
-		g.Expect(redirectAction.Redirect.ResponseCode).To(gomega.Equal(envoyroute.RedirectAction_PERMANENT_REDIRECT))
+		g.Expect(redirectAction.Redirect.ResponseCode).To(gomega.Equal(routev3.RedirectAction_PERMANENT_REDIRECT))
 	})
 	t.Run("for no virtualservice but has destinationrule with consistentHash loadbalancer", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
@@ -646,7 +646,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 				Spec: networkingDestinationRule,
 			}})
 		vhosts := route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, serviceRegistry, []model.Config{}, 8080)
-		g.Expect(vhosts[0].Routes[0].Action.(*envoyroute.Route_Route).Route.HashPolicy).NotTo(gomega.BeNil())
+		g.Expect(vhosts[0].Routes[0].Action.(*routev3.Route_Route).Route.HashPolicy).NotTo(gomega.BeNil())
 	})
 	t.Run("for no virtualservice but has destinationrule with portLevel consistentHash loadbalancer", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
@@ -666,14 +666,14 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		vhosts := route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, serviceRegistry, []model.Config{}, 8080)
 
-		hashPolicy := &envoyroute.RouteAction_HashPolicy{
-			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_Cookie_{
-				Cookie: &envoyroute.RouteAction_HashPolicy_Cookie{
+		hashPolicy := &routev3.RouteAction_HashPolicy{
+			PolicySpecifier: &routev3.RouteAction_HashPolicy_Cookie_{
+				Cookie: &routev3.RouteAction_HashPolicy_Cookie{
 					Name: "hash-cookie-1",
 				},
 			},
 		}
-		g.Expect(vhosts[0].Routes[0].Action.(*envoyroute.Route_Route).Route.HashPolicy).To(gomega.ConsistOf(hashPolicy))
+		g.Expect(vhosts[0].Routes[0].Action.(*routev3.Route_Route).Route.HashPolicy).To(gomega.ConsistOf(hashPolicy))
 	})
 }
 
@@ -1325,46 +1325,46 @@ var networkingSubsetWithPortLevelSettings = &networking.Subset{
 }
 
 func TestCombineVHostRoutes(t *testing.T) {
-	first := []*envoyroute.Route{
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path1"}}},
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix1"}}},
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: ".*?regex1"}}},
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/"}}},
+	first := []*routev3.Route{
+		{Match: &routev3.RouteMatch{PathSpecifier: &routev3.RouteMatch_Path{Path: "/path1"}}},
+		{Match: &routev3.RouteMatch{PathSpecifier: &routev3.RouteMatch_Prefix{Prefix: "/prefix1"}}},
+		{Match: &routev3.RouteMatch{PathSpecifier: &routev3.RouteMatch_HiddenEnvoyDeprecatedRegex{HiddenEnvoyDeprecatedRegex: ".*?regex1"}}},
+		{Match: &routev3.RouteMatch{PathSpecifier: &routev3.RouteMatch_Prefix{Prefix: "/"}}},
 	}
-	second := []*envoyroute.Route{
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path12"}}},
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix12"}}},
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: ".*?regex12"}}},
-		{Match: &envoyroute.RouteMatch{
-			PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: "*"},
-			Headers: []*envoyroute.HeaderMatcher{
+	second := []*routev3.Route{
+		{Match: &routev3.RouteMatch{PathSpecifier: &routev3.RouteMatch_Path{Path: "/path12"}}},
+		{Match: &routev3.RouteMatch{PathSpecifier: &routev3.RouteMatch_Prefix{Prefix: "/prefix12"}}},
+		{Match: &routev3.RouteMatch{PathSpecifier: &routev3.RouteMatch_HiddenEnvoyDeprecatedRegex{HiddenEnvoyDeprecatedRegex: ".*?regex12"}}},
+		{Match: &routev3.RouteMatch{
+			PathSpecifier: &routev3.RouteMatch_HiddenEnvoyDeprecatedRegex{HiddenEnvoyDeprecatedRegex: "*"},
+			Headers: []*routev3.HeaderMatcher{
 				{
 					Name:                 "foo",
-					HeaderMatchSpecifier: &envoyroute.HeaderMatcher_ExactMatch{ExactMatch: "bar"},
+					HeaderMatchSpecifier: &routev3.HeaderMatcher_ExactMatch{ExactMatch: "bar"},
 					InvertMatch:          false,
 				},
 			},
 		}},
 	}
 
-	want := []*envoyroute.Route{
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path1"}}},
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix1"}}},
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: ".*?regex1"}}},
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path12"}}},
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix12"}}},
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: ".*?regex12"}}},
-		{Match: &envoyroute.RouteMatch{
-			PathSpecifier: &envoyroute.RouteMatch_Regex{Regex: "*"},
-			Headers: []*envoyroute.HeaderMatcher{
+	want := []*routev3.Route{
+		{Match: &routev3.RouteMatch{PathSpecifier: &routev3.RouteMatch_Path{Path: "/path1"}}},
+		{Match: &routev3.RouteMatch{PathSpecifier: &routev3.RouteMatch_Prefix{Prefix: "/prefix1"}}},
+		{Match: &routev3.RouteMatch{PathSpecifier: &routev3.RouteMatch_HiddenEnvoyDeprecatedRegex{HiddenEnvoyDeprecatedRegex: ".*?regex1"}}},
+		{Match: &routev3.RouteMatch{PathSpecifier: &routev3.RouteMatch_Path{Path: "/path12"}}},
+		{Match: &routev3.RouteMatch{PathSpecifier: &routev3.RouteMatch_Prefix{Prefix: "/prefix12"}}},
+		{Match: &routev3.RouteMatch{PathSpecifier: &routev3.RouteMatch_HiddenEnvoyDeprecatedRegex{HiddenEnvoyDeprecatedRegex: ".*?regex12"}}},
+		{Match: &routev3.RouteMatch{
+			PathSpecifier: &routev3.RouteMatch_HiddenEnvoyDeprecatedRegex{HiddenEnvoyDeprecatedRegex: "*"},
+			Headers: []*routev3.HeaderMatcher{
 				{
 					Name:                 "foo",
-					HeaderMatchSpecifier: &envoyroute.HeaderMatcher_ExactMatch{ExactMatch: "bar"},
+					HeaderMatchSpecifier: &routev3.HeaderMatcher_ExactMatch{ExactMatch: "bar"},
 					InvertMatch:          false,
 				},
 			},
 		}},
-		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/"}}},
+		{Match: &routev3.RouteMatch{PathSpecifier: &routev3.RouteMatch_Prefix{Prefix: "/"}}},
 	}
 
 	got := route.CombineVHostRoutes(first, second)

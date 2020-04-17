@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pkg/test"
 
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -272,7 +272,7 @@ func BenchmarkRouteGeneration(b *testing.B) {
 			var response interface{}
 			for n := 0; n < b.N; n++ {
 				r := configgen.BuildHTTPRoutes(&proxy, env.PushContext, routeNames)
-				response = routeDiscoveryResponse(r, "", "")
+				response = routeDiscoveryResponse(r, "", "", RouteTypeV3)
 			}
 			_ = response
 		})
@@ -287,7 +287,7 @@ func BenchmarkClusterGeneration(b *testing.B) {
 			var response interface{}
 			for n := 0; n < b.N; n++ {
 				c := configgen.BuildClusters(&proxy, env.PushContext)
-				response = cdsDiscoveryResponse(c, "")
+				response = cdsDiscoveryResponse(c, "", ClusterType)
 			}
 			_ = response
 		})
@@ -356,7 +356,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 					loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, s.Env.Mesh().LocalityLbSetting, true)
 					loadAssignments = append(loadAssignments, l)
 				}
-				response = endpointDiscoveryResponse(loadAssignments, version, push.Version)
+				response = endpointDiscoveryResponse(loadAssignments, version, push.Version, EndpointTypeV3)
 			}
 		})
 	}

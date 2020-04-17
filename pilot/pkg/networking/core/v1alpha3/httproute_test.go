@@ -20,7 +20,7 @@ import (
 	"sort"
 	"testing"
 
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 
 	meshapi "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -832,7 +832,7 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
 
-	vHostCache := make(map[int][]*route.VirtualHost)
+	vHostCache := make(map[int][]*routev3.VirtualHost)
 	routeCfg := configgen.buildSidecarOutboundHTTPRouteConfig(&proxy, env.PushContext, routeName, vHostCache)
 	if routeCfg == nil {
 		t.Fatalf("got nil route for %s", routeName)

@@ -27,8 +27,8 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
-	hcm_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	rbac_tcp_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
+	hcm_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -86,10 +86,6 @@ func getHTTPConnectionManager(filter *listener.Filter) *hcm_filter.HttpConnectio
 
 func getHTTPFilterConfig(filter *hcm_filter.HttpFilter, out proto.Message) error {
 	switch c := filter.ConfigType.(type) {
-	case *hcm_filter.HttpFilter_Config:
-		if err := conversion.StructToMessage(c.Config, out); err != nil {
-			return err
-		}
 	case *hcm_filter.HttpFilter_TypedConfig:
 		if err := ptypes.UnmarshalAny(c.TypedConfig, out); err != nil {
 			return err

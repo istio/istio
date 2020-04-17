@@ -19,8 +19,7 @@ import (
 	"strconv"
 	"strings"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/golang/protobuf/ptypes"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -44,20 +43,20 @@ const inboundVirtualHostPrefix = string(model.TrafficDirectionInbound) + "|http|
 
 // BuildHTTPRoutes produces a list of routes for the proxy
 func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(node *model.Proxy, push *model.PushContext,
-	routeNames []string) []*xdsapi.RouteConfiguration {
-	routeConfigurations := make([]*xdsapi.RouteConfiguration, 0)
+	routeNames []string) []*routev3.RouteConfiguration {
+	routeConfigurations := make([]*routev3.RouteConfiguration, 0)
 
 	switch node.Type {
 	case model.SidecarProxy:
-		vHostCache := make(map[int][]*route.VirtualHost)
+		vHostCache := make(map[int][]*routev3.VirtualHost)
 		for _, routeName := range routeNames {
 			rc := configgen.buildSidecarOutboundHTTPRouteConfig(node, push, routeName, vHostCache)
 			if rc != nil {
 				rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, push, rc)
 			} else {
-				rc = &xdsapi.RouteConfiguration{
+				rc = &routev3.RouteConfiguration{
 					Name:             routeName,
-					VirtualHosts:     []*route.VirtualHost{},
+					VirtualHosts:     []*routev3.VirtualHost{},
 					ValidateClusters: proto.BoolFalse,
 				}
 			}
@@ -69,9 +68,9 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(node *model.Proxy, push *m
 			if rc != nil {
 				rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_GATEWAY, node, push, rc)
 			} else {
-				rc = &xdsapi.RouteConfiguration{
+				rc = &routev3.RouteConfiguration{
 					Name:             routeName,
-					VirtualHosts:     []*route.VirtualHost{},
+					VirtualHosts:     []*routev3.VirtualHost{},
 					ValidateClusters: proto.BoolFalse,
 				}
 			}
@@ -81,22 +80,22 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(node *model.Proxy, push *m
 	return routeConfigurations
 }
 
-// buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
+// buildSidecarInboundHTTPRouteConfig builds the routev3 config with a single wildcard virtual host on the inbound path
 // TODO: trace decorators, inbound timeouts
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(
-	node *model.Proxy, push *model.PushContext, instance *model.ServiceInstance, clusterName string) *xdsapi.RouteConfiguration {
+	node *model.Proxy, push *model.PushContext, instance *model.ServiceInstance, clusterName string) *routev3.RouteConfiguration {
 	traceOperation := traceOperation(string(instance.Service.Hostname), instance.ServicePort.Port)
 	defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(node, clusterName, traceOperation)
 
-	inboundVHost := &route.VirtualHost{
+	inboundVHost := &routev3.VirtualHost{
 		Name:    inboundVirtualHostPrefix + strconv.Itoa(instance.ServicePort.Port), // Format: "inbound|http|%d"
 		Domains: []string{"*"},
-		Routes:  []*route.Route{defaultRoute},
+		Routes:  []*routev3.Route{defaultRoute},
 	}
 
-	r := &xdsapi.RouteConfiguration{
+	r := &routev3.RouteConfiguration{
 		Name:             clusterName,
-		VirtualHosts:     []*route.VirtualHost{inboundVHost},
+		VirtualHosts:     []*routev3.VirtualHost{inboundVHost},
 		ValidateClusters: proto.BoolFalse,
 	}
 
@@ -130,9 +129,9 @@ func traceOperation(host string, port int) string {
 // buildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
 // Based on port, will determine all virtual hosts that listen on the port.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *model.Proxy, push *model.PushContext,
-	routeName string, vHostCache map[int][]*route.VirtualHost) *xdsapi.RouteConfiguration {
+	routeName string, vHostCache map[int][]*routev3.VirtualHost) *routev3.RouteConfiguration {
 
-	var virtualHosts []*route.VirtualHost
+	var virtualHosts []*routev3.VirtualHost
 	listenerPort := 0
 	useSniffing := false
 	var err error
@@ -190,7 +189,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 		virtualHosts = append(virtualHosts, buildCatchAllVirtualHost(node))
 	}
 
-	out := &xdsapi.RouteConfiguration{
+	out := &routev3.RouteConfiguration{
 		Name:             routeName,
 		VirtualHosts:     virtualHosts,
 		ValidateClusters: proto.BoolFalse,
@@ -217,15 +216,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 }
 
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext,
-	routeName string, listenerPort int) []*route.VirtualHost {
+	routeName string, listenerPort int) []*routev3.VirtualHost {
 
 	var virtualServices []model.Config
 	var services []*model.Service
 
 	// Get the services from the egress listener.  When sniffing is enabled, we send
-	// route name as foo.bar.com:8080 which is going to match against the wildcard
-	// egress listener only. A route with sniffing would not have been generated if there
-	// was a sidecar with explicit port (and hence protocol declaration). A route with
+	// routev3 name as foo.bar.com:8080 which is going to match against the wildcard
+	// egress listener only. A routev3 with sniffing would not have been generated if there
+	// was a sidecar with explicit port (and hence protocol declaration). A routev3 with
 	// sniffing is generated only in the case of the catch all egress listener.
 	egressListener := node.SidecarScope.GetEgressListenerForRDS(listenerPort, routeName)
 	// We should never be getting a nil egress listener because the code that setup this RDS
@@ -269,7 +268,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 	// Get list of virtual services bound to the mesh gateway
 	virtualHostWrappers := istio_route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, nameToServiceMap,
 		virtualServices, listenerPort)
-	vHostPortMap := make(map[int][]*route.VirtualHost)
+	vHostPortMap := make(map[int][]*routev3.VirtualHost)
 	uniques := make(map[string]struct{})
 	for _, virtualHostWrapper := range virtualHostWrappers {
 		// If none of the routes matched by source, skip this virtual host
@@ -277,12 +276,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 			continue
 		}
 
-		virtualHosts := make([]*route.VirtualHost, 0, len(virtualHostWrapper.VirtualServiceHosts)+len(virtualHostWrapper.Services))
+		virtualHosts := make([]*routev3.VirtualHost, 0, len(virtualHostWrapper.VirtualServiceHosts)+len(virtualHostWrapper.Services))
 		for _, hostname := range virtualHostWrapper.VirtualServiceHosts {
 			name := domainName(hostname, virtualHostWrapper.Port)
 			if _, found := uniques[name]; !found {
 				uniques[name] = struct{}{}
-				virtualHosts = append(virtualHosts, &route.VirtualHost{
+				virtualHosts = append(virtualHosts, &routev3.VirtualHost{
 					Name:                       name,
 					Domains:                    []string{hostname, domainName(hostname, virtualHostWrapper.Port)},
 					Routes:                     virtualHostWrapper.Routes,
@@ -298,7 +297,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 			if _, found := uniques[name]; !found {
 				uniques[name] = struct{}{}
 				domains := generateVirtualHostDomains(svc, virtualHostWrapper.Port, node)
-				virtualHosts = append(virtualHosts, &route.VirtualHost{
+				virtualHosts = append(virtualHosts, &routev3.VirtualHost{
 					Name:                       name,
 					Domains:                    domains,
 					Routes:                     virtualHostWrapper.Routes,
@@ -312,7 +311,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 		vHostPortMap[virtualHostWrapper.Port] = append(vHostPortMap[virtualHostWrapper.Port], virtualHosts...)
 	}
 
-	var tmpVirtualHosts []*route.VirtualHost
+	var tmpVirtualHosts []*routev3.VirtualHost
 	if listenerPort == 0 {
 		tmpVirtualHosts = mergeAllVirtualHosts(vHostPortMap)
 	} else {
@@ -325,8 +324,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 // Returns the set of virtual hosts that correspond to the listener that has HTTP protocol detection
 // setup. This listener should only get the virtual hosts that correspond to this service+port and not
 // all virtual hosts that are usually supplied for 0.0.0.0:PORT.
-func getVirtualHostsForSniffedServicePort(vhosts []*route.VirtualHost, routeName string) []*route.VirtualHost {
-	var virtualHosts []*route.VirtualHost
+func getVirtualHostsForSniffedServicePort(vhosts []*routev3.VirtualHost, routeName string) []*routev3.VirtualHost {
+	var virtualHosts []*routev3.VirtualHost
 	for _, vh := range vhosts {
 		for _, domain := range vh.Domains {
 			if domain == routeName {
@@ -408,8 +407,8 @@ func generateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 
 // mergeAllVirtualHosts across all ports. On routes for ports other than port 80,
 // virtual hosts without an explicit port suffix (IP:PORT) should not be added
-func mergeAllVirtualHosts(vHostPortMap map[int][]*route.VirtualHost) []*route.VirtualHost {
-	var virtualHosts []*route.VirtualHost
+func mergeAllVirtualHosts(vHostPortMap map[int][]*routev3.VirtualHost) []*routev3.VirtualHost {
+	var virtualHosts []*routev3.VirtualHost
 	for p, vhosts := range vHostPortMap {
 		if p == 80 {
 			virtualHosts = append(virtualHosts, vhosts...)
@@ -483,7 +482,7 @@ func getUniqueAndSharedDNSDomain(fqdnHostname, proxyDomain string) (string, stri
 	return uniqHostame, sharedSuffixes
 }
 
-func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
+func buildCatchAllVirtualHost(node *model.Proxy) *routev3.VirtualHost {
 	if util.IsAllowAnyOutbound(node) {
 		egressCluster := util.PassthroughCluster
 		notimeout := ptypes.DurationProto(0)
@@ -496,18 +495,18 @@ func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 				nil, 0)
 		}
 
-		return &route.VirtualHost{
+		return &routev3.VirtualHost{
 			Name:    util.Passthrough,
 			Domains: []string{"*"},
-			Routes: []*route.Route{
+			Routes: []*routev3.Route{
 				{
 					Name: util.Passthrough,
-					Match: &route.RouteMatch{
-						PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
+					Match: &routev3.RouteMatch{
+						PathSpecifier: &routev3.RouteMatch_Prefix{Prefix: "/"},
 					},
-					Action: &route.Route_Route{
-						Route: &route.RouteAction{
-							ClusterSpecifier: &route.RouteAction_Cluster{Cluster: egressCluster},
+					Action: &routev3.Route_Route{
+						Route: &routev3.RouteAction{
+							ClusterSpecifier: &routev3.RouteAction_Cluster{Cluster: egressCluster},
 							// Disable timeout instead of assuming some defaults.
 							Timeout: notimeout,
 							// If not configured at all, the grpc-timeout header is not used and
@@ -521,17 +520,17 @@ func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 		}
 	}
 
-	return &route.VirtualHost{
+	return &routev3.VirtualHost{
 		Name:    util.BlackHole,
 		Domains: []string{"*"},
-		Routes: []*route.Route{
+		Routes: []*routev3.Route{
 			{
 				Name: util.BlackHole,
-				Match: &route.RouteMatch{
-					PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
+				Match: &routev3.RouteMatch{
+					PathSpecifier: &routev3.RouteMatch_Prefix{Prefix: "/"},
 				},
-				Action: &route.Route_DirectResponse{
-					DirectResponse: &route.DirectResponseAction{
+				Action: &routev3.Route_DirectResponse{
+					DirectResponse: &routev3.DirectResponseAction{
 						Status: 502,
 					},
 				},

@@ -21,7 +21,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/golang/protobuf/ptypes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -420,7 +420,7 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 		serviceByHostnameAndNamespace map[host.Name]map[string]*model.Service
 		push                          *model.PushContext
 		node                          *model.Proxy
-		httpRoute                     route.Route
+		httpRoute                     routev3.Route
 		quotaSpec                     []*mccpb.QuotaSpec
 	}{
 		{
@@ -433,10 +433,10 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 					PolicyCheck: "enable",
 				},
 			},
-			httpRoute: route.Route{
-				Match: &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}},
-				Action: &route.Route_Route{Route: &route.RouteAction{
-					ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "outbound|||svc.ns3.svc.cluster.local"},
+			httpRoute: routev3.Route{
+				Match: &routev3.RouteMatch{PathSpecifier: &routev3.RouteMatch_Prefix{Prefix: "/"}},
+				Action: &routev3.Route_Route{Route: &routev3.RouteAction{
+					ClusterSpecifier: &routev3.RouteAction_Cluster{Cluster: "outbound|||svc.ns3.svc.cluster.local"},
 				}}},
 			serviceByHostnameAndNamespace: map[host.Name]map[string]*model.Service{
 				host.Name("svc.ns3"): {
@@ -457,10 +457,10 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 					PolicyCheck: "enable",
 				},
 			},
-			httpRoute: route.Route{
-				Match: &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}},
-				Action: &route.Route_Route{Route: &route.RouteAction{
-					ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "outbound|||a.ns3.svc.cluster.local"},
+			httpRoute: routev3.Route{
+				Match: &routev3.RouteMatch{PathSpecifier: &routev3.RouteMatch_Prefix{Prefix: "/"}},
+				Action: &routev3.Route_Route{Route: &routev3.RouteAction{
+					ClusterSpecifier: &routev3.RouteAction_Cluster{Cluster: "outbound|||a.ns3.svc.cluster.local"},
 				}}},
 			serviceByHostnameAndNamespace: map[host.Name]map[string]*model.Service{
 				host.Name("a.ns3"): {

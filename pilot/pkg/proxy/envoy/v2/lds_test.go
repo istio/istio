@@ -26,7 +26,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdsapi_listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	xdsapi_http_connection_manager "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	xdsapi_http_connection_manager "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/labels"

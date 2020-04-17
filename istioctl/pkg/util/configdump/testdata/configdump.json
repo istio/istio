@@ -250,7 +250,7 @@
                         "deprecated_v1": true,
                         "value": {
                           "route_config": {
-                            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
+                            "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
                             "routes": [
                               {
                                 "cluster": "outbound|443||istio-galley.istio-system.svc.cluster.local",
@@ -369,7 +369,7 @@
                           }
                         ],
                         "route_config": {
-                          "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
+                          "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
                           "name": "8080",
                           "validate_clusters": false,
                           "virtual_hosts": [
@@ -424,7 +424,7 @@
       "staticRouteConfigs": [
         {
           "routeConfig": {
-            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
+            "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
             "name": "inbound|9080||productpage.default.svc.cluster.local",
             "virtualHosts": [
               {
@@ -481,7 +481,7 @@
           "versionInfo": "2018-06-19 06:21:16.597131985 +0000 UTC m=+38444.053119011",
           "lastUpdated": "2018-05-29T20:35:10.051043472Z",
           "routeConfig": {
-            "@type": "type.googleapis.com/envoy.api.v2.RouteConfiguration",
+            "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
             "name": "15004",
             "virtualHosts": [
               {

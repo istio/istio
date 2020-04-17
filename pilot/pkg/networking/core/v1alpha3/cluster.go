@@ -872,7 +872,8 @@ func applyOutlierDetection(cluster *clusterv3.Cluster, outlier *networking.Outli
 	}
 }
 
-func applyLoadBalancer(cluster *clusterv3.Cluster, lb *networking.LoadBalancerSettings, port *model.Port, proxy *model.Proxy, meshConfig *meshconfig.MeshConfig) {
+func applyLoadBalancer(cluster *clusterv3.Cluster, lb *networking.LoadBalancerSettings,
+	port *model.Port, proxy *model.Proxy, meshConfig *meshconfig.MeshConfig) {
 	lbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
 	if cluster.OutlierDetection != nil {
 		if cluster.CommonLbConfig == nil {

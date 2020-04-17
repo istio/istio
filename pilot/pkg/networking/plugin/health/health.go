@@ -18,11 +18,11 @@ import (
 	"fmt"
 	"reflect"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	hcfilter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/health_check/v2"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -135,11 +135,11 @@ func (Plugin) OnInboundCluster(in *plugin.InputParams, cluster *clusterv3.Cluste
 }
 
 // OnOutboundRouteConfiguration implements the Plugin interface method.
-func (Plugin) OnOutboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.RouteConfiguration) {
+func (Plugin) OnOutboundRouteConfiguration(in *plugin.InputParams, route *routev3.RouteConfiguration) {
 }
 
 // OnInboundRouteConfiguration implements the Plugin interface method.
-func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.RouteConfiguration) {
+func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *routev3.RouteConfiguration) {
 }
 
 // OnOutboundCluster implements the Plugin interface method.

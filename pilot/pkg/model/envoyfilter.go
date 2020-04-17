@@ -74,7 +74,11 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 			Operation: cp.Patch.Operation,
 		}
 		// there won't be an error here because validation catches mismatched types
-		cpw.Value, _ = xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value)
+		var err error
+		cpw.Value, err = xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value)
+		if err != nil {
+			log.Errorf("failed to build object from EnvoyFilter: %v", err)
+		}
 		if cp.Match == nil {
 			// create a match all object
 			cpw.Match = &networking.EnvoyFilter_EnvoyConfigObjectMatch{Context: networking.EnvoyFilter_ANY}

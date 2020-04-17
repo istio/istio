@@ -21,13 +21,12 @@ import (
 	"strings"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -309,7 +308,7 @@ func (mixerplugin) OnInboundCluster(in *plugin.InputParams, cluster *clusterv3.C
 }
 
 // OnOutboundRouteConfiguration implements the Plugin interface method.
-func (mixerplugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
+func (mixerplugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *routev3.RouteConfiguration) {
 	if in.Push.Mesh.MixerCheckServer == "" && in.Push.Mesh.MixerReportServer == "" {
 		return
 	}
@@ -323,7 +322,7 @@ func (mixerplugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeCon
 }
 
 // OnInboundRouteConfiguration implements the Plugin interface method.
-func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
+func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *routev3.RouteConfiguration) {
 	if in.Push.Mesh.MixerCheckServer == "" && in.Push.Mesh.MixerReportServer == "" {
 		return
 	}
@@ -476,7 +475,7 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node 
 	return out
 }
 
-func addFilterConfigToRoute(in *plugin.InputParams, httpRoute *route.Route, attrs attributes,
+func addFilterConfigToRoute(in *plugin.InputParams, httpRoute *routev3.Route, attrs attributes,
 	quotaSpec []*mpb.QuotaSpec) {
 	httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mpb.ServiceConfig{
 		DisableCheckCalls:  disablePolicyChecks(outbound, in.Push.Mesh, in.Node),
@@ -487,7 +486,7 @@ func addFilterConfigToRoute(in *plugin.InputParams, httpRoute *route.Route, attr
 	})
 }
 
-func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, virtualHostname string, httpRoute *route.Route) *route.Route {
+func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, virtualHostname string, httpRoute *routev3.Route) *routev3.Route {
 	isPolicyCheckDisabled := disablePolicyChecks(outbound, in.Push.Mesh, in.Node)
 	// default config, to be overridden by per-weighted cluster
 	httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mpb.ServiceConfig{
@@ -495,9 +494,9 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 		DisableReportCalls: in.Push.Mesh.GetDisableMixerHttpReports(),
 	})
 	switch action := httpRoute.Action.(type) {
-	case *route.Route_Route:
+	case *routev3.Route_Route:
 		switch upstreams := action.Route.ClusterSpecifier.(type) {
-		case *route.RouteAction_Cluster:
+		case *routev3.RouteAction_Cluster:
 			_, _, hostname, _ := model.ParseSubsetKey(upstreams.Cluster)
 			var attrs attributes
 			if hostname == "" && upstreams.Cluster == util.PassthroughCluster {
@@ -507,7 +506,7 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 				attrs = addDestinationServiceAttributes(make(attributes), svc)
 			}
 			addFilterConfigToRoute(in, httpRoute, attrs, getQuotaSpec(in, hostname, isPolicyCheckDisabled))
-		case *route.RouteAction_WeightedClusters:
+		case *routev3.RouteAction_WeightedClusters:
 			for _, weighted := range upstreams.WeightedClusters.Clusters {
 				_, _, hostname, _ := model.ParseSubsetKey(weighted.Name)
 				svc := in.Node.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
@@ -520,20 +519,20 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 					QuotaSpec:          getQuotaSpec(in, hostname, isPolicyCheckDisabled),
 				})
 			}
-		case *route.RouteAction_ClusterHeader:
+		case *routev3.RouteAction_ClusterHeader:
 		default:
 			log.Warn("Unknown cluster type in mixer#OnOutboundRouteConfiguration")
 		}
-	// route.Route_DirectResponse is used for the BlackHole cluster configuration,
+	// routev3.Route_DirectResponse is used for the BlackHole cluster configuration,
 	// hence adding the attributes for the mixer filter
-	case *route.Route_DirectResponse:
+	case *routev3.Route_DirectResponse:
 		if virtualHostname == util.BlackHole {
 			hostname := host.Name(util.BlackHoleCluster)
 			attrs := addVirtualDestinationServiceAttributes(make(attributes), hostname)
 			addFilterConfigToRoute(in, httpRoute, attrs, nil)
 		}
 	// route.Route_Redirect is not used currently, so no attributes are added here
-	case *route.Route_Redirect:
+	case *routev3.Route_Redirect:
 	default:
 		log.Warn("Unknown route type in mixer#OnOutboundRouteConfiguration")
 	}
