@@ -92,7 +92,6 @@ var (
 	nonNamespacedResources = []schema.GroupVersionKind{
 		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: "MutatingWebhookConfiguration"},
 		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: "ValidatingWebhookConfiguration"},
-		{Group: "certmanager.k8s.io", Version: "v1beta1", Kind: "ClusterIssuer"},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRole"},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"},
 		{Group: "authentication.istio.io", Version: "v1alpha1", Kind: "MeshPolicy"},
