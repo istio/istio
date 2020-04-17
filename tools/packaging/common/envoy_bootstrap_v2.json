@@ -4,12 +4,18 @@
     "cluster": "{{ .cluster }}",
     "locality": {
       {{- if .region }}
-      "region": "{{ .region }}",
+      "region": "{{ .region }}"
       {{- end }}
       {{- if .zone }}
-      "zone": "{{ .zone }}",
+      {{- if .region }}
+      ,
+      {{- end }}
+      "zone": "{{ .zone }}"
       {{- end }}
       {{- if .sub_zone }}
+      {{- if or .region .zone }}
+      ,
+      {{- end }}
       "sub_zone": "{{ .sub_zone }}"
       {{- end }}
     },
