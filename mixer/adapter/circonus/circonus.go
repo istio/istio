@@ -22,6 +22,7 @@ import (
 	"context"
 	"fmt"
 	"log" //nolint:adapterlinter
+
 	"net/url"
 	"time"
 
@@ -52,7 +53,7 @@ type (
 var _ metric.HandlerBuilder = &builder{}
 var _ metric.Handler = &handler{}
 
-// bridge stdlog to env.ConsoleLogger()
+// bridge stdlog to env.Logger()
 type logToEnvLogger struct {
 	env adapter.Env
 }
@@ -69,7 +70,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 			},
 		},
 		Log:      log.New(bridge, "", 0),
-		Debug:    true, // enable [DEBUG] level logging for env.ConsoleLogger
+		Debug:    true, // enable [DEBUG] level logging for env.Logger
 		Interval: "0s", // flush via ScheduleDaemon based ticker
 	}
 
@@ -198,7 +199,7 @@ func GetInfo() adapter.Info {
 	return info
 }
 
-// logToEnvLogger converts CGM log package writes to env.ConsoleLogger()
+// logToEnvLogger converts CGM log package writes to env.Logger()
 func (b logToEnvLogger) Write(msg []byte) (int, error) {
 	if bytes.HasPrefix(msg, []byte("[ERROR]")) {
 		_ = b.env.Logger().Errorf(string(msg))

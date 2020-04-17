@@ -103,7 +103,11 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *value
 	if opts == nil {
 		opts = defaultOptions
 	}
-	cs, err := kubernetes.NewForConfig(restConfig)
+	var cs *kubernetes.Clientset
+	var err error
+	if restConfig != nil {
+		cs, err = kubernetes.NewForConfig(restConfig)
+	}
 	if err != nil {
 		return nil, err
 	}

@@ -50,7 +50,7 @@ func NewEnv(cfgID int64, name string, gp *pool.GoroutinePool) adapter.Env {
 	}
 }
 
-// ConsoleLogger from adapter.Env.
+// Logger from adapter.Env.
 func (e env) Logger() adapter.Logger {
 	return e.logger
 }
