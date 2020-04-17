@@ -225,8 +225,10 @@ func (r *Reporter) RegisterEvent(conID string, xdsType string, nonce string) {
 	// TODO might need to batch this to prevent lock contention
 	key := conID + xdsType // TODO: delimit?
 	r.deleteKeyFromReverseMap(key)
-	r.status[key] = nonce
-	r.reverseStatus[nonce] = append(r.reverseStatus[nonce], key)
+	version := nonce[:v2.VersionLen]
+	// touch
+	r.status[key] = version
+	r.reverseStatus[nonce] = append(r.reverseStatus[version], key)
 }
 
 // This is a helper function for keeping our reverseStatus map in step with status.
