@@ -33,6 +33,14 @@ import (
 	"istio.io/istio/pilot/pkg/util/runtime"
 )
 
+const (
+	// VirtualOutboundListenerName is the name for traffic capture listener
+	VirtualOutboundListenerName = "virtualOutbound"
+
+	// VirtualInboundListenerName is the name for traffic capture listener
+	VirtualInboundListenerName = "virtualInbound"
+)
+
 // ApplyListenerPatches applies patches to LDS output
 func ApplyListenerPatches(
 	patchContext networking.EnvoyFilter_PatchContext,
@@ -483,7 +491,8 @@ func listenerMatch(listener *xdsapi.Listener, cp *model.EnvoyFilterConfigPatchWr
 	// We should either make that field in API as a wrapper type or switch to int
 	if cMatch.PortNumber != 0 {
 		sockAddr := listener.Address.GetSocketAddress()
-		if sockAddr == nil || sockAddr.GetPortValue() != cMatch.PortNumber {
+		if (sockAddr == nil || sockAddr.GetPortValue() != cMatch.PortNumber) &&
+			listener.Name != VirtualInboundListenerName && listener.Name != VirtualOutboundListenerName {
 			return false
 		}
 	}
@@ -527,6 +536,11 @@ func filterChainMatch(fc *xdslistener.FilterChain, cp *model.EnvoyFilterConfigPa
 			return false
 		}
 	}
+
+	if cMatch.PortNumber > 0 && fc.FilterChainMatch != nil && fc.FilterChainMatch.DestinationPort != nil && fc.FilterChainMatch.DestinationPort.Value != cMatch.PortNumber {
+		return false
+	}
+
 	return true
 }
 
