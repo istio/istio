@@ -23,6 +23,8 @@ import (
 	"strings"
 	"sync"
 
+	"istio.io/istio/pkg/test/framework/features"
+
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -50,7 +52,8 @@ type suiteContext struct {
 	contextMu    sync.Mutex
 	contextNames map[string]struct{}
 
-	suiteLabels label.Set
+	suiteLabels  label.Set
+	testOutcomes []TestOutcome
 }
 
 func newSuiteContext(s *resource.Settings, envFn resource.EnvironmentFactory, labels label.Set) (*suiteContext, error) {
@@ -156,8 +159,44 @@ func (s *suiteContext) CreateTmpDirectory(prefix string) (string, error) {
 		scopes.Framework.Errorf("Error creating temp dir: runID='%s', prefix='%s', workDir='%v', err='%v'",
 			s.settings.RunID, prefix, s.workDir, err)
 	} else {
-		scopes.Framework.Debugf("Created a temp dir: runID='%s', name='%s'", s.settings.RunID, dir)
+		scopes.Framework.Debugf("Created a temp dir: runID='%s', Name='%s'", s.settings.RunID, dir)
 	}
 
 	return dir, err
+}
+
+type Outcome string
+
+const (
+	Passed         Outcome = "Passed"
+	Failed         Outcome = "Failed"
+	Skipped        Outcome = "Skipped"
+	NotImplemented Outcome = "NotImplemented"
+)
+
+type TestOutcome struct {
+	Name          string
+	Type          string
+	Outcome       Outcome
+	FeatureLabels []features.Feature
+}
+
+func (s *suiteContext) registerOutcome(test *Test) {
+	o := Passed
+	if test.notImplemented {
+		o = NotImplemented
+	} else if test.goTest.Failed() {
+		o = Failed
+	} else if test.goTest.Skipped() {
+		o = Skipped
+	}
+	newOutcome := TestOutcome{
+		Name:          test.goTest.Name(),
+		Type:          "integration",
+		Outcome:       o,
+		FeatureLabels: test.featureLabels,
+	}
+	s.contextMu.Lock()
+	defer s.contextMu.Unlock()
+	s.testOutcomes = append(s.testOutcomes, newOutcome)
 }

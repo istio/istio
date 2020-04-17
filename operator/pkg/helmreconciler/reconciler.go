@@ -284,6 +284,16 @@ func (h *HelmReconciler) checkResourceStatus(componentStatus *map[string]*v1alph
 					}
 				}
 			}
+			if pod.Status.Phase != v1.PodSucceeded && pod.Status.Phase != v1.PodRunning {
+				return false, nil
+			}
+			if pod.Status.Phase == v1.PodRunning {
+				for _, containerStatus := range pod.Status.ContainerStatuses {
+					if !containerStatus.Ready {
+						return false, nil
+					}
+				}
+			}
 		}
 		return true, nil
 	})

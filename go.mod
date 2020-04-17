@@ -106,7 +106,7 @@ require (
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/nwaples/rardecode v1.0.0 // indirect
-	github.com/onsi/gomega v1.8.1
+	github.com/onsi/gomega v1.9.0
 	github.com/open-policy-agent/opa v0.8.2
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/openshift/api v3.9.1-0.20191008181517-e4fd21196097+incompatible
@@ -153,7 +153,7 @@ require (
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.2.8
-	istio.io/api v0.0.0-20200412172238-96ed8fb94ca7
+	istio.io/api v0.0.0-20200416233651-7dddf3e33eca
 	istio.io/gogo-genproto v0.0.0-20200326154102-997c228eecef
 	istio.io/pkg v0.0.0-20200327214633-ce134a9bd104
 	k8s.io/api v0.18.1
@@ -162,6 +162,7 @@ require (
 	k8s.io/cli-runtime v0.18.0
 	k8s.io/client-go v0.18.0
 	k8s.io/helm v2.16.0+incompatible
+	k8s.io/klog v1.0.0
 	k8s.io/kubectl v0.18.0
 	k8s.io/utils v0.0.0-20200324210504-a9aa75ae1b89
 	sigs.k8s.io/controller-runtime v0.5.1-0.20200327213554-2d4c4877f906

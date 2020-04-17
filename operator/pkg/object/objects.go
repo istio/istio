@@ -30,6 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
+	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
 )
@@ -80,6 +82,16 @@ func Hash(kind, namespace, name string) string {
 	return strings.Join([]string{kind, namespace, name}, ":")
 }
 
+// FromHash parses kind, namespace and name from a hash.
+func FromHash(hash string) (kind, namespace, name string) {
+	hv := strings.Split(hash, ":")
+	if len(hv) != 3 {
+		return "Bad hash string: " + hash, "", ""
+	}
+	kind, namespace, name = hv[0], hv[1], hv[2]
+	return
+}
+
 // HashNameKind returns a unique, insecure hash based on kind and name.
 func HashNameKind(kind, name string) string {
 	return strings.Join([]string{kind, name}, ":")
@@ -108,7 +120,7 @@ func ParseYAMLToK8sObject(yaml []byte) (*K8sObject, error) {
 	out := &unstructured.Unstructured{}
 	err := decoder.Decode(out)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding object: %v", err)
+		return nil, fmt.Errorf("error decoding object %v: %v", string(yaml), err)
 	}
 	return NewK8sObject(out, nil, yaml), nil
 }
@@ -116,6 +128,23 @@ func ParseYAMLToK8sObject(yaml []byte) (*K8sObject, error) {
 // UnstructuredObject exposes the raw object, primarily for testing
 func (o *K8sObject) UnstructuredObject() *unstructured.Unstructured {
 	return o.object
+}
+
+// UnstructuredObject exposes the raw object content, primarily for testing
+func (o *K8sObject) Unstructured() map[string]interface{} {
+	return o.UnstructuredObject().UnstructuredContent()
+}
+
+// Container returns a container subtree for Deployment objects if one is found, or nil otherwise.
+func (o *K8sObject) Container(name string) map[string]interface{} {
+	u := o.Unstructured()
+	path := fmt.Sprintf("spec.template.spec.containers.[name:%s]", name)
+	node, f, err := tpath.GetPathContext(u, util.PathFromString(path), false)
+	if err == nil && f {
+		// Must be the type from the schema.
+		return node.Node.(map[string]interface{})
+	}
+	return nil
 }
 
 // GroupVersionKind returns the GroupVersionKind for the K8sObject
@@ -196,6 +225,15 @@ func (o *K8sObject) AddLabels(labels map[string]string) {
 
 // K8sObjects holds a collection of k8s objects, so that we can filter / sequence them
 type K8sObjects []*K8sObject
+
+// String implements the Stringer interface.
+func (os K8sObjects) String() string {
+	var out []string
+	for _, oo := range os {
+		out = append(out, oo.YAMLDebugString())
+	}
+	return strings.Join(out, helm.YAMLSeparator)
+}
 
 // ParseK8sObjectsFromYAMLManifest returns a K8sObjects representation of manifest.
 func ParseK8sObjectsFromYAMLManifest(manifest string) (K8sObjects, error) {

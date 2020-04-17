@@ -16,6 +16,7 @@ package mesh
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -175,6 +176,15 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 			return "", nil, err
 		}
 	}
+	mvs := version.OperatorBinaryVersion.MinorVersion
+	t, err := translate.NewReverseTranslator(mvs)
+	if err != nil {
+		return "", nil, fmt.Errorf("error creating values.yaml translator: %s", err)
+	}
+	userOverlayYAML, err = t.TranslateK8SfromValueToIOP(userOverlayYAML)
+	if err != nil {
+		return "", nil, fmt.Errorf("could not overlay k8s settings from values to IOP: %s", err)
+	}
 
 	// Merge user file and --set overlays.
 	outYAML, err = util.OverlayYAML(outYAML, userOverlayYAML)
@@ -231,10 +241,15 @@ func rewriteURLToLocalInstallPath(installPackagePath, profileOrPath string, skip
 			return "", "", err
 		}
 		// Transform a profileOrPath like "default" or "demo" into a filesystem path like
-		// /tmp/istio-install-packages/istio-1.5.1/install/kubernetes/operator/profiles/default.yaml.
-		profileOrPath = filepath.Join(installPackagePath, helm.OperatorSubdirFilePath, "profiles", profileOrPath+".yaml")
+		// /tmp/istio-install-packages/istio-1.5.1/manifests/profiles/default.yaml OR
+		// /tmp/istio-install-packages/istio-1.5.1/install/kubernetes/operator/profiles/default.yaml (before 1.6).
+		baseDir := filepath.Join(installPackagePath, helm.OperatorSubdirFilePath15)
+		if _, err := os.Stat(baseDir); os.IsNotExist(err) {
+			baseDir = filepath.Join(installPackagePath, helm.OperatorSubdirFilePath)
+		}
+		profileOrPath = filepath.Join(baseDir, "profiles", profileOrPath+".yaml")
 		// Rewrite installPackagePath to the local file path for further processing.
-		installPackagePath = filepath.Join(installPackagePath, helm.OperatorSubdirFilePath)
+		installPackagePath = baseDir
 	}
 
 	return installPackagePath, profileOrPath, nil

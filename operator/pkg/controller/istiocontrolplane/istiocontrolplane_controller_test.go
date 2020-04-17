@@ -28,8 +28,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/operator/v1alpha1"
+
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/name"
@@ -112,8 +112,8 @@ func testSwitchProfile(t *testing.T, c testCase) {
 		Spec: &v1alpha1.IstioOperatorSpec{
 			Profile:            c.initialProfile,
 			InstallPackagePath: installPackagePath,
-			MeshConfig: &mesh.MeshConfig{
-				RootNamespace: "istio-system",
+			MeshConfig: map[string]interface{}{
+				"rootNamespace": "istio-system",
 			},
 		},
 	}

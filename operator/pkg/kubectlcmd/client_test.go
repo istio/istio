@@ -15,10 +15,13 @@
 package kubectlcmd
 
 import (
+	"errors"
 	"io/ioutil"
 	"os/exec"
 	"reflect"
 	"testing"
+
+	"k8s.io/utils/pointer"
 )
 
 // collector is a commandSite implementation that stubs cmd.Run() calls for tests
@@ -35,8 +38,13 @@ func (s *collector) Run(c *exec.Cmd) error {
 func TestKubectlApply(t *testing.T) {
 	tests := []struct {
 		name       string
-		namespace  string
 		manifest   string
+		kubeconfig string
+		context    string
+		namespace  string
+		output     string
+		prune      *bool
+		dryrun     bool
 		args       []string
 		err        error
 		expectArgs []string
@@ -48,17 +56,64 @@ func TestKubectlApply(t *testing.T) {
 			expectArgs: []string{"kubectl", "apply", "-f", "-"},
 		},
 		{
-			name:       "manifest with apply",
+			name:       "manifest with namespace",
 			namespace:  "kube-system",
 			manifest:   "heynow",
 			expectArgs: []string{"kubectl", "apply", "-n", "kube-system", "-f", "-"},
 		},
 		{
+			name:       "manifest with context",
+			context:    "ctx",
+			manifest:   "heynow",
+			expectArgs: []string{"kubectl", "apply", "--context", "ctx", "-f", "-"},
+		},
+		{
+			name:       "manifest with kubeconfig",
+			kubeconfig: "~/.kube/config",
+			manifest:   "heynow",
+			expectArgs: []string{"kubectl", "apply", "--kubeconfig", "~/.kube/config", "-f", "-"},
+		},
+		{
+			name:       "manifest with output",
+			output:     "out",
+			manifest:   "heynow",
+			expectArgs: []string{"kubectl", "apply", "-o", "out", "-f", "-"},
+		},
+		{
 			name:       "manifest with prune",
+			prune:      pointer.BoolPtr(true),
+			manifest:   "heynow",
+			expectArgs: []string{"kubectl", "apply", "--prune", "-f", "-"},
+		},
+		{
+			name:       "manifest with verbose",
+			context:    "ctx",
+			manifest:   "heynow",
+			expectArgs: []string{"kubectl", "apply", "--context", "ctx", "-f", "-"},
+		},
+		{
+			name:       "manifest with prune args",
 			namespace:  "kube-system",
 			manifest:   "heynow",
 			args:       []string{"--prune=true", "--prune-whitelist=hello-world"},
 			expectArgs: []string{"kubectl", "apply", "-n", "kube-system", "--prune=true", "--prune-whitelist=hello-world", "-f", "-"},
+		},
+		{
+			name:       "dry run",
+			dryrun:     true,
+			manifest:   "heynow",
+			expectArgs: nil,
+		},
+		{
+			name:       "empty manifest",
+			manifest:   "",
+			expectArgs: nil,
+		},
+		{
+			name:       "command err",
+			manifest:   "heynow",
+			expectArgs: []string{"kubectl", "apply", "-f", "-"},
+			err:        errors.New("an error"),
 		},
 	}
 
@@ -67,8 +122,14 @@ func TestKubectlApply(t *testing.T) {
 			cs := collector{Error: test.err}
 			kubectl := &Client{cmdSite: &cs}
 			opts := &Options{
-				Namespace: test.namespace,
-				ExtraArgs: test.args,
+				Kubeconfig: test.kubeconfig,
+				Context:    test.context,
+				Namespace:  test.namespace,
+				Output:     test.output,
+				Prune:      test.prune,
+				ExtraArgs:  test.args,
+				DryRun:     test.dryrun,
+				Verbose:    true,
 			}
 			_, _, err := kubectl.Apply(test.manifest, opts)
 
@@ -78,7 +139,12 @@ func TestKubectlApply(t *testing.T) {
 				t.Errorf("unexpected error: %v", err)
 			}
 
-			if len(cs.Cmds) != 1 {
+			if test.expectArgs == nil {
+				if len(cs.Cmds) != 0 {
+					t.Errorf("expected 0 commands to be invoked, got: %d", len(cs.Cmds))
+				}
+				return
+			} else if len(cs.Cmds) != 1 {
 				t.Errorf("expected 1 command to be invoked, got: %d", len(cs.Cmds))
 			}
 
@@ -120,6 +186,12 @@ func TestKubectlDelete(t *testing.T) {
 			manifest:   "heynow",
 			expectArgs: []string{"kubectl", "delete", "-n", "kube-system", "-f", "-"},
 		},
+		{
+			name:       "empty manifest",
+			namespace:  "",
+			manifest:   "",
+			expectArgs: nil,
+		},
 	}
 
 	for _, test := range tests {
@@ -138,7 +210,12 @@ func TestKubectlDelete(t *testing.T) {
 				t.Errorf("unexpected error: %v", err)
 			}
 
-			if len(cs.Cmds) != 1 {
+			if test.expectArgs == nil {
+				if len(cs.Cmds) != 0 {
+					t.Errorf("expected 0 commands to be invoked, got: %d", len(cs.Cmds))
+				}
+				return
+			} else if len(cs.Cmds) != 1 {
 				t.Errorf("expected 1 command to be invoked, got: %d", len(cs.Cmds))
 			}
 

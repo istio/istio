@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	md "cloud.google.com/go/compute/metadata"
+	envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
 	"istio.io/istio/pkg/config/constants"
 
@@ -55,8 +56,9 @@ const (
 
 	// Prefixes of V2 metrics.
 	// "reporter" prefix is for istio standard metrics.
-	// "component" prefix is for istio_build metric.
-	v2Prefixes = "reporter=,component,"
+	// "component" suffix is for istio_build metric.
+	v2Prefixes = "reporter=,"
+	v2Suffix   = ",component"
 )
 
 var (
@@ -69,9 +71,9 @@ var (
 		"OWNER",
 		"PLATFORM_METADATA",
 		"WORKLOAD_NAME",
-		"CANONICAL_TELEMETRY_SERVICE",
 		"MESH_ID",
 		"SERVICE_ACCOUNT",
+		"CLUSTER_ID",
 	}
 )
 
@@ -229,10 +231,13 @@ func getNodeMetadataOptions(meta *model.NodeMetadata, rawMeta map[string]interfa
 }
 
 func getLocalityOptions(meta *model.NodeMetadata, platEnv platform.Environment) []option.Instance {
-	l := util.ConvertLocality(model.GetLocalityLabelOrDefault(meta.LocalityLabel, ""))
-	if l == nil {
-		// Populate the platform locality if available.
+	var l *envoy_api_v2_core.Locality
+	if meta.Labels[model.LocalityLabel] == "" {
 		l = platEnv.Locality()
+		// The locality string was not set, try to get locality from platform
+	} else {
+		localityString := model.GetLocalityLabelOrDefault(meta.Labels[model.LocalityLabel], "")
+		l = util.ConvertLocality(localityString)
 	}
 
 	return []option.Instance{option.Region(l.Region), option.Zone(l.Zone), option.SubZone(l.SubZone)}
@@ -376,6 +381,7 @@ func jsonStringToMap(jsonStr string) (m map[string]string) {
 }
 
 func extractAttributesMetadata(envVars []string, plat platform.Environment, meta *model.NodeMetadata) {
+	var additionalMetaExchangeKeys []string
 	for _, varStr := range envVars {
 		name, val := parseEnvVar(varStr)
 		switch name {
@@ -383,9 +389,6 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 			m := jsonStringToMap(val)
 			if len(m) > 0 {
 				meta.Labels = m
-				if telemetrySvc := m["istioTelemetryService"]; len(telemetrySvc) > 0 {
-					meta.CanonicalTelemetryService = m["istioTelemetryService"]
-				}
 			}
 		case "POD_NAME":
 			meta.InstanceName = val
@@ -398,12 +401,18 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 			meta.WorkloadName = val
 		case "SERVICE_ACCOUNT":
 			meta.ServiceAccount = val
+		case "ISTIO_ADDITIONAL_METADATA_EXCHANGE_KEYS":
+			// comma separated list of keys
+			additionalMetaExchangeKeys = strings.Split(val, ",")
 		}
 	}
 	if plat != nil && len(plat.Metadata()) > 0 {
 		meta.PlatformMetadata = plat.Metadata()
 	}
-	meta.ExchangeKeys = metadataExchangeKeys
+	meta.ExchangeKeys = []string{}
+	meta.ExchangeKeys = append(meta.ExchangeKeys, metadataExchangeKeys...)
+	meta.ExchangeKeys = append(meta.ExchangeKeys, additionalMetaExchangeKeys...)
+
 }
 
 // getNodeMetaData function uses an environment variable contract

@@ -33,7 +33,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config/schema/resource"
 )
 
 var (
@@ -104,11 +103,7 @@ type XdsEvent struct {
 	// Indicate whether the push is Full Push
 	full bool
 
-	namespacesUpdated map[string]struct{}
-
-	// If GroupVersionKind is service entry and not empty, it is used to indicate the event
-	// is caused by a change in the clusters. Only EDS for the listed clusters will be sent.
-	configsUpdated map[resource.GroupVersionKind]map[string]struct{}
+	configsUpdated map[model.ConfigKey]struct{}
 
 	// Push context to use for the push.
 	push *model.PushContext
@@ -516,7 +511,7 @@ func (s *DiscoveryServer) DeltaAggregatedResources(stream ads.AggregatedDiscover
 func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) error {
 	// TODO: update the service deps based on NetworkScope
 	if !pushEv.full {
-		edsUpdatedServices := pushEv.configsUpdated[model.ServiceEntryKind]
+		edsUpdatedServices := model.ConfigNamesOfKind(pushEv.configsUpdated, model.ServiceEntryKind)
 
 		if !ProxyNeedsPush(con.node, pushEv) {
 			adsLog.Debugf("Skipping EDS push to %v, no updates required", con.ConID)
@@ -640,7 +635,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 
 	// Make sure the ConfigsUpdated map exists
 	if req.ConfigsUpdated == nil {
-		req.ConfigsUpdated = make(map[resource.GroupVersionKind]map[string]struct{})
+		req.ConfigsUpdated = make(map[model.ConfigKey]struct{})
 	}
 
 	s.startPush(req)

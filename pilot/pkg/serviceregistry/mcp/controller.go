@@ -52,6 +52,7 @@ type Options struct {
 	DomainSuffix string
 	XDSUpdater   model.XDSUpdater
 	ConfigLedger ledger.Ledger
+	Revision     string
 }
 
 // controller is a temporary storage for the changes received
@@ -129,6 +130,7 @@ func (c *controller) Apply(change *sink.Change) error {
 	}
 
 	kind := s.Resource().GroupVersionKind()
+	configUpdated := map[model.ConfigKey]struct{}{} // If non-incremental, we use empty configUpdated to indicate all.
 
 	// innerStore is [namespace][name]
 	innerStore := make(map[string]map[string]*model.Config)
@@ -145,6 +147,13 @@ func (c *controller) Apply(change *sink.Change) error {
 			}
 		}
 
+		if change.Incremental {
+			configUpdated[model.ConfigKey{
+				Kind:      kind,
+				Name:      name,
+				Namespace: namespace,
+			}] = struct{}{}
+		}
 		conf := &model.Config{
 			ConfigMeta: model.ConfigMeta{
 				Type:              kind.Kind,
@@ -167,21 +176,30 @@ func (c *controller) Apply(change *sink.Change) error {
 			continue
 		}
 
-		namedConfig, ok := innerStore[conf.Namespace]
-		if ok {
-			namedConfig[conf.Name] = conf
-		} else {
-			innerStore[conf.Namespace] = map[string]*model.Config{
-				conf.Name: conf,
+		// Skip configs not selected by this revision
+		if c.objectInRevision(conf) {
+			namedConfig, ok := innerStore[conf.Namespace]
+			if ok {
+				namedConfig[conf.Name] = conf
+			} else {
+				innerStore[conf.Namespace] = map[string]*model.Config{
+					conf.Name: conf,
+				}
 			}
-		}
 
-		_, err := c.ledger.Put(conf.Key(), obj.Metadata.Version)
-		if err != nil {
-			log.Warnf(ledgerLogf, err)
+			_, err := c.ledger.Put(conf.Key(), obj.Metadata.Version)
+			if err != nil {
+				log.Warnf(ledgerLogf, err)
+			}
 		}
 	}
 	for _, removed := range change.Removed {
+		namespace, name := extractNameNamespace(removed)
+		configUpdated[model.ConfigKey{
+			Kind:      kind,
+			Name:      name,
+			Namespace: namespace,
+		}] = struct{}{}
 		err := c.ledger.Delete(kube.KeyFunc(change.Collection, removed))
 		if err != nil {
 			log.Warnf(ledgerLogf, err)
@@ -218,12 +236,22 @@ func (c *controller) Apply(change *sink.Change) error {
 	} else if c.options.XDSUpdater != nil {
 		c.options.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			Full:           true,
-			ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{kind: {}},
+			ConfigsUpdated: configUpdated,
 			Reason:         []model.TriggerReason{model.ConfigUpdate},
 		})
 	}
 
 	return nil
+}
+
+func (c *controller) objectInRevision(o *model.Config) bool {
+	configEnv, f := o.Labels[model.RevisionLabel]
+	if !f {
+		// This is a global object, and always included
+		return true
+	}
+	// Otherwise, only return if the
+	return configEnv == c.options.Revision
 }
 
 // HasSynced returns true if the first batch of items has been popped

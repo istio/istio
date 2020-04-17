@@ -101,7 +101,9 @@ func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxy *Pro
 
 // Generator creates the response for a typeURL DiscoveryRequest. If no generator is associated
 // with a Proxy, the default (a networking.core.ConfigGenerator instance) will be used.
-type Generator interface{
+// The server may associate a different generator based on client metadata. Different
+// WatchedResources may use same or different Generator.
+type Generator interface {
 	Generate(node *Proxy, push *PushContext, w *WatchedResource) []*any.Any
 }
 
@@ -149,6 +151,9 @@ type Proxy struct {
 	// the sidecarScope associated with the proxy
 	SidecarScope *SidecarScope
 
+	// the sidecarScope associated with the proxy previously
+	PrevSidecarScope *SidecarScope
+
 	// The merged gateways associated with the proxy if this is a Router
 	MergedGateway *MergedGateway
 
@@ -168,6 +173,9 @@ type Proxy struct {
 	GlobalUnicastIP string
 
 	// Generator is used to generate resources for the node, based on the PushContext.
+	// If nil, the default networking/core v2 generator is used. This field can be set
+	// at connect time, based on node metadata, to trigger generation of a different style
+	// of configuration.
 	Generator Generator
 
 	// Active contains the list of watched resources for the proxy, keyed by the DiscoveryRequest type.
@@ -177,11 +185,9 @@ type Proxy struct {
 
 // WatchedResource tracks an active DiscoveryRequest type.
 type WatchedResource struct {
-	// TypeUrl is copied from the DiscoveryRequest that initiated watching this resource.
-	TypeUrl string
-
-	// Generator is the generator that will generate this resource.
-	Generator Generator
+	// TypeURL is copied from the DiscoveryRequest.TypeUrl that initiated watching this resource.
+	// The different spelling is due to linter.
+	TypeURL string
 
 	// ResourceNames tracks the list of resources that are actively watched. If empty, all resources of the
 	// TypeUrl type are watched.
@@ -367,9 +373,6 @@ type NodeMetadata struct {
 	// PodPorts defines the ports on a pod. This is used to lookup named ports.
 	PodPorts PodPortList `json:"POD_PORTS,omitempty"`
 
-	// CanonicalTelemetryService specifies the service name to use for all node telemetry.
-	CanonicalTelemetryService string `json:"CANONICAL_TELEMETRY_SERVICE,omitempty"`
-
 	// LocalityLabel defines the locality specified for the pod
 	LocalityLabel string `json:"istio-locality,omitempty"`
 
@@ -418,6 +421,9 @@ type NodeMetadata struct {
 	// protocol. It will enable the "AcceptHttp_10" option on the http options for outbound HTTP listeners.
 	// Alpha in 1.1, based on feedback may be turned into an API or change. Set to "1" to enable.
 	HTTP10 string `json:"HTTP10,omitempty"`
+
+	// Generator indicates the client wants to use a custom Generator plugin.
+	Generator string `json:"GENERATOR,omitempty"`
 
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
@@ -571,6 +577,8 @@ func (node *Proxy) GetRouterMode() RouterMode {
 // Listener generation code will still use the SidecarScope object directly
 // as it needs the set of services for each listener port.
 func (node *Proxy) SetSidecarScope(ps *PushContext) {
+	sidecarScope := node.SidecarScope
+
 	if node.Type == SidecarProxy {
 		workloadLabels := labels.Collection{node.Metadata.Labels}
 		node.SidecarScope = ps.getSidecarScope(node, workloadLabels)
@@ -578,7 +586,7 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 		// Gateways should just have a default scope with egress: */*
 		node.SidecarScope = DefaultSidecarScopeForNamespace(ps, node.ConfigNamespace)
 	}
-
+	node.PrevSidecarScope = sidecarScope
 }
 
 // SetGatewaysForProxy merges the Gateway objects associated with this
