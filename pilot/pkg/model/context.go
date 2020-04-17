@@ -738,7 +738,6 @@ func ParseServiceNodeWithMetadata(s string, metadata *NodeMetadata) (*Proxy, err
 		out.IPAddresses = metadata.InstanceIPs
 	} else if isValidIPAddress(parts[1]) {
 		//Fall back, use IP from node id, it's only for backward-compatibility, IP should come from metadata
-		// TODO: if this is empty, fallback to remote IP
 		out.IPAddresses = append(out.IPAddresses, parts[1])
 	}
 
@@ -877,12 +876,6 @@ const (
 	// InterceptionRedirect implies traffic intercepted by IPtables with REDIRECT mode
 	// This is our default mode
 	InterceptionRedirect TrafficInterceptionMode = "REDIRECT"
-
-	// InterceptionAPI is used for API clients, using ApiListener and higher level processing.
-	// It is similar with NONE - it doesn't generate the iptables filter chains - but has different
-	// response to listener.
-	// This mode also activates returning the high-level Istio and K8S configs.
-	InterceptionAPI TrafficInterceptionMode = "API"
 )
 
 // GetInterceptionMode extracts the interception mode associated with the proxy
@@ -899,8 +892,6 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 		return InterceptionRedirect
 	case "NONE":
 		return InterceptionNone
-	case "API":
-		return InterceptionAPI
 	}
 
 	return InterceptionRedirect
