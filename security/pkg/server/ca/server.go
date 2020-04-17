@@ -224,13 +224,13 @@ func (s *Server) Run() error {
 
 // New creates a new instance of `IstioCAServiceServer`.
 func New(ca CertificateAuthority, ttl time.Duration, forCA bool,
-	hostlist []string, port int, trustDomain string, sdsEnabled bool, jwtPolicy string) (*Server, error) {
-	return NewWithGRPC(nil, nil, ca, ttl, forCA, hostlist, port, trustDomain, sdsEnabled, jwtPolicy)
+	hostlist []string, port int, trustDomain string, sdsEnabled bool, jwtPolicy, clusterID string) (*Server, error) {
+	return NewWithGRPC(nil, nil, ca, ttl, forCA, hostlist, port, trustDomain, sdsEnabled, jwtPolicy, "")
 }
 
 // New creates a new instance of `IstioCAServiceServer`, running inside an existing gRPC server.
 func NewWithGRPC(mc *kubecontroller.Multicluster, grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, forCA bool,
-	hostlist []string, port int, trustDomain string, sdsEnabled bool, jwtPolicy string) (*Server, error) {
+	hostlist []string, port int, trustDomain string, sdsEnabled bool, jwtPolicy, clusterID string) (*Server, error) {
 
 	if len(hostlist) == 0 {
 		return nil, fmt.Errorf("failed to create grpc server hostlist empty")
@@ -244,7 +244,7 @@ func NewWithGRPC(mc *kubecontroller.Multicluster, grpc *grpc.Server, ca Certific
 	// Only add k8s jwt authenticator if SDS is enabled.
 	if sdsEnabled {
 		authenticator, err := authenticate.NewKubeJWTAuthenticator(mc, k8sAPIServerURL, caCertPath, jwtPath,
-			trustDomain, jwtPolicy)
+			trustDomain, jwtPolicy, clusterID)
 		if err == nil {
 			authenticators = append(authenticators, authenticator)
 			serverCaLog.Info("added K8s JWT authenticator")

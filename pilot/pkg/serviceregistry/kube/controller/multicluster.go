@@ -150,7 +150,7 @@ func (m *Multicluster) updateHandler() {
 	}
 }
 
-func (m *Multicluster) GetRemoteKubeControllers() map[string]kubernetes.Interface {
+func (m *Multicluster) GetRemoteKubeClients() map[string]kubernetes.Interface {
 	m.m.Lock()
 	res := make(map[string]kubernetes.Interface)
 	for k, v := range m.remoteKubeControllers {

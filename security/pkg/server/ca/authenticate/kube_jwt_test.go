@@ -34,7 +34,7 @@ type mockTokenReviewClient struct {
 	err error
 }
 
-func (c mockTokenReviewClient) ValidateK8sJwt(jwt, jwtPolicy string) ([]string, error) {
+func (c mockTokenReviewClient) ValidateK8sJwt(jwt, jwtPolicy string, clusterID string) ([]string, error) {
 	if c.id != nil {
 		return c.id, nil
 	}
@@ -80,7 +80,7 @@ func TestNewKubeJWTAuthenticator(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		authenticator, err := NewKubeJWTAuthenticator(nil, url, tc.caCertPath, tc.jwtPath, trustDomain, jwtPolicy)
+		authenticator, err := NewKubeJWTAuthenticator(nil, url, tc.caCertPath, tc.jwtPath, trustDomain, jwtPolicy, "kubernetes")
 		if len(tc.expectedErrMsg) > 0 {
 			if err == nil {
 				t.Errorf("Case %s: Succeeded. Error expected: %v", id, err)
@@ -96,6 +96,7 @@ func TestNewKubeJWTAuthenticator(t *testing.T) {
 			client:      tokenreview.NewK8sSvcAcctAuthn(url, caCertFileContent, string(jwtFileContent)),
 			trustDomain: trustDomain,
 			jwtPolicy:   jwtPolicy,
+			clusterID:   "kubernetes",
 		}
 		if !reflect.DeepEqual(authenticator, expectedAuthenticator) {
 			t.Errorf("Case %q: Unexpected authentication result: want %v but got %v",

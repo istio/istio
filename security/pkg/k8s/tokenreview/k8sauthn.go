@@ -16,6 +16,7 @@ package tokenreview
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -26,8 +27,12 @@ import (
 	"strings"
 
 	"istio.io/istio/pkg/jwt"
+	"istio.io/pkg/log"
+
+	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 
 	k8sauth "k8s.io/api/authentication/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -132,7 +137,7 @@ func (authn *K8sSvcAcctAuthn) reviewServiceAccountAtK8sAPIServer(targetToken, jw
 // Otherwise, return the error.
 // targetToken: the JWT of the K8s service account to be reviewed
 // jwtPolicy: the policy for validating JWT.
-func (authn *K8sSvcAcctAuthn) ValidateK8sJwt(targetToken, jwtPolicy string) ([]string, error) {
+func (authn *K8sSvcAcctAuthn) ValidateK8sJwt(targetToken, jwtPolicy, clusterID string) ([]string, error) {
 	// SDS requires JWT to be trustworthy (has aud, exp, and mounted to the pod).
 	isTrustworthyJwt, err := isTrustworthyJwt(targetToken)
 	if err != nil {
@@ -162,52 +167,7 @@ func (authn *K8sSvcAcctAuthn) ValidateK8sJwt(targetToken, jwtPolicy string) ([]s
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal response body returns an error: %v", err)
 	}
-	if tokenReview.Status.Error != "" {
-		return nil, fmt.Errorf("the service account authentication returns an error: %v", tokenReview.Status.Error)
-	}
-	// An example SA token:
-	// {"alg":"RS256","typ":"JWT"}
-	// {"iss":"kubernetes/serviceaccount",
-	//  "kubernetes.io/serviceaccount/namespace":"default",
-	//  "kubernetes.io/serviceaccount/secret.name":"example-pod-sa-token-h4jqx",
-	//  "kubernetes.io/serviceaccount/service-account.name":"example-pod-sa",
-	//  "kubernetes.io/serviceaccount/service-account.uid":"ff578a9e-65d3-11e8-aad2-42010a8a001d",
-	//  "sub":"system:serviceaccount:default:example-pod-sa"
-	//  }
-
-	// An example token review status
-	// "status":{
-	//   "authenticated":true,
-	//   "user":{
-	//     "username":"system:serviceaccount:default:example-pod-sa",
-	//     "uid":"ff578a9e-65d3-11e8-aad2-42010a8a001d",
-	//     "groups":["system:serviceaccounts","system:serviceaccounts:default","system:authenticated"]
-	//    }
-	// }
-
-	if !tokenReview.Status.Authenticated {
-		return nil, fmt.Errorf("the token is not authenticated")
-	}
-	inServiceAccountGroup := false
-	for _, group := range tokenReview.Status.User.Groups {
-		if group == "system:serviceaccounts" {
-			inServiceAccountGroup = true
-			break
-		}
-	}
-	if !inServiceAccountGroup {
-		return nil, fmt.Errorf("the token is not a service account")
-	}
-	// "username" is in the form of system:serviceaccount:{namespace}:{service account name}",
-	// e.g., "username":"system:serviceaccount:default:example-pod-sa"
-	subStrings := strings.Split(tokenReview.Status.User.Username, ":")
-	if len(subStrings) != 4 {
-		return nil, fmt.Errorf("invalid username field in the token review result")
-	}
-	namespace := subStrings[2]
-	saName := subStrings[3]
-
-	return []string{namespace, saName}, nil
+	return getTokenReviewResult(tokenReview, clusterID)
 }
 
 // isTrustworthyJwt checks if a jwt is a trustworthy jwt type.
@@ -236,4 +196,90 @@ func isTrustworthyJwt(jwt string) (bool, error) {
 	// Trustworthy JWTs are JWTs with expiration and audiences, whereas legacy JWTs do not have these
 	// fields.
 	return structuredPayload.Aud != nil && structuredPayload.Exp > 0, nil
+}
+
+func getTokenReviewResult(tokenReview *k8sauth.TokenReview, clusterID string) ([]string, error) {
+	if tokenReview.Status.Error != "" {
+		return nil, fmt.Errorf("the service account authentication returns an error against cluster %v: %v",
+			clusterID, tokenReview.Status.Error)
+	}
+	// An example SA token:
+	// {"alg":"RS256","typ":"JWT"}
+	// {"iss":"kubernetes/serviceaccount",
+	//  "kubernetes.io/serviceaccount/namespace":"default",
+	//  "kubernetes.io/serviceaccount/secret.name":"example-pod-sa-token-h4jqx",
+	//  "kubernetes.io/serviceaccount/service-account.name":"example-pod-sa",
+	//  "kubernetes.io/serviceaccount/service-account.uid":"ff578a9e-65d3-11e8-aad2-42010a8a001d",
+	//  "sub":"system:serviceaccount:default:example-pod-sa"
+	//  }
+
+	// An example token review status
+	// "status":{
+	//   "authenticated":true,
+	//   "user":{
+	//     "username":"system:serviceaccount:default:example-pod-sa",
+	//     "uid":"ff578a9e-65d3-11e8-aad2-42010a8a001d",
+	//     "groups":["system:serviceaccounts","system:serviceaccounts:default","system:authenticated"]
+	//    }
+	// }
+
+	if !tokenReview.Status.Authenticated {
+		return nil, fmt.Errorf("the token is not authenticated against cluster %v", clusterID)
+	}
+	inServiceAccountGroup := false
+	for _, group := range tokenReview.Status.User.Groups {
+		if group == "system:serviceaccounts" {
+			inServiceAccountGroup = true
+			break
+		}
+	}
+	if !inServiceAccountGroup {
+		return nil, fmt.Errorf("found the jwt token in cluster %v, however the token is "+
+			"not associated with a service account", clusterID)
+	}
+	// "username" is in the form of system:serviceaccount:{namespace}:{service account name}",
+	// e.g., "username":"system:serviceaccount:default:example-pod-sa"
+	subStrings := strings.Split(tokenReview.Status.User.Username, ":")
+	if len(subStrings) != 4 {
+		return nil, fmt.Errorf("found the jwt token in cluster %v, however found invalid username field "+
+			"in the token review result", clusterID)
+	}
+	namespace := subStrings[2]
+	saName := subStrings[3]
+	return []string{namespace, saName}, nil
+}
+
+//ValidateRemoteK8sJwt validates aaainst a remote k8s JWT at API server.
+func ValidateRemoteK8sJwt(targetJWT, jwtPolicy string, mc *kubecontroller.Multicluster) ([]string, error) {
+	tokenReview := &k8sauth.TokenReview{}
+	if jwtPolicy == jwt.JWTPolicyThirdPartyJWT {
+		tokenReview.APIVersion = "authentication.k8s.io/v1"
+		tokenReview.Kind = "TokenReview"
+		tokenReview.Spec = k8sauth.TokenReviewSpec{
+			Token:     targetJWT,
+			Audiences: []string{defaultAudience},
+		}
+	} else if jwtPolicy == jwt.JWTPolicyFirstPartyJWT {
+		tokenReview.APIVersion = "authentication.k8s.io/v1"
+		tokenReview.Kind = "TokenReview"
+		tokenReview.Spec = k8sauth.TokenReviewSpec{
+			Token: targetJWT,
+		}
+	} else {
+		return nil, fmt.Errorf("invalid JWT policy: %v", jwtPolicy)
+	}
+	remoteClients := mc.GetRemoteKubeClients()
+	for k, v := range remoteClients {
+		reviewRes, err := v.AuthenticationV1().TokenReviews().Create(context.TODO(), tokenReview, metav1.CreateOptions{})
+		if err != nil {
+			log.Warnf("failed to validate the JWT against cluster %q: due to %v", k, err)
+			continue
+		}
+		id, err := getTokenReviewResult(reviewRes, k)
+		if err != nil {
+			continue
+		}
+		return id, nil
+	}
+	return nil, fmt.Errorf("no remote cluster found")
 }

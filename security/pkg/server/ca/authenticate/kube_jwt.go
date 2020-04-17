@@ -17,16 +17,9 @@ package authenticate
 import (
 	"fmt"
 	"io/ioutil"
-	"strings"
 
 	"golang.org/x/net/context"
 
-	"istio.io/pkg/log"
-
-	v1 "k8s.io/api/authentication/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/security/pkg/k8s/tokenreview"
 
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -39,7 +32,7 @@ const (
 )
 
 type tokenReviewClient interface {
-	ValidateK8sJwt(targetJWT, jwtPolicy string) ([]string, error)
+	ValidateK8sJwt(targetJWT, jwtPolicy, clusterID string) ([]string, error)
 }
 
 // KubeJWTAuthenticator authenticates K8s JWTs.
@@ -48,11 +41,12 @@ type KubeJWTAuthenticator struct {
 	trustDomain string
 	jwtPolicy   string
 	mc          *kubecontroller.Multicluster
+	clusterID   string
 }
 
 // NewKubeJWTAuthenticator creates a new kubeJWTAuthenticator.
 func NewKubeJWTAuthenticator(mc *kubecontroller.Multicluster, k8sAPIServerURL, caCertPath, jwtPath,
-	trustDomain, jwtPolicy string) (*KubeJWTAuthenticator, error) {
+	trustDomain, jwtPolicy, clusterID string) (*KubeJWTAuthenticator, error) {
 	// Read the CA certificate of the k8s apiserver
 	caCert, err := ioutil.ReadFile(caCertPath)
 	if err != nil {
@@ -67,6 +61,7 @@ func NewKubeJWTAuthenticator(mc *kubecontroller.Multicluster, k8sAPIServerURL, c
 		trustDomain: trustDomain,
 		jwtPolicy:   jwtPolicy,
 		mc:          mc,
+		clusterID:   clusterID,
 	}, nil
 }
 
@@ -81,17 +76,10 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*Caller, error
 	if err != nil {
 		return nil, fmt.Errorf("target JWT extraction error: %v", err)
 	}
-	id, err := a.client.ValidateK8sJwt(targetJWT, a.jwtPolicy)
-	if err != nil {
+	id, err := a.client.ValidateK8sJwt(targetJWT, a.jwtPolicy, a.clusterID)
+	if err != nil || len(id) != 2 {
 		// try to validate using remote cluster
-		id, err = a.validateRemoteK8sJwt(targetJWT)
-		if err != nil {
-			return nil, fmt.Errorf("failed to validate the JWT: %v", err)
-		}
-	}
-	if len(id) != 2 {
-		// try to validate using remote cluster
-		id, err = a.validateRemoteK8sJwt(targetJWT)
+		id, err = tokenreview.ValidateRemoteK8sJwt(targetJWT, a.jwtPolicy, a.mc)
 		if err != nil {
 			return nil, fmt.Errorf("failed to validate the JWT: %v", err)
 		}
@@ -105,58 +93,4 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*Caller, error
 		AuthSource: AuthSourceIDToken,
 		Identities: []string{fmt.Sprintf(identityTemplate, a.trustDomain, callerNamespace, callerServiceAccount)},
 	}, nil
-}
-
-func (a *KubeJWTAuthenticator) validateRemoteK8sJwt(targetJWT string) ([]string, error) {
-	tokenReview := &v1.TokenReview{}
-	if a.jwtPolicy == jwt.JWTPolicyThirdPartyJWT {
-		tokenReview.APIVersion = "authentication.k8s.io/v1"
-		tokenReview.Kind = "TokenReview"
-		tokenReview.Spec = v1.TokenReviewSpec{
-			Token:     targetJWT,
-			Audiences: []string{"istio-ca"},
-		}
-	} else if a.jwtPolicy == jwt.JWTPolicyFirstPartyJWT {
-		tokenReview.APIVersion = "authentication.k8s.io/v1"
-		tokenReview.Kind = "TokenReview"
-		tokenReview.Spec = v1.TokenReviewSpec{
-			Token: targetJWT,
-		}
-	} else {
-		return nil, fmt.Errorf("invalid JWT policy: %v", a.jwtPolicy)
-	}
-	remoteClients := a.mc.GetRemoteKubeControllers()
-	for k, v := range remoteClients {
-		reviewRes, err := v.AuthenticationV1().TokenReviews().Create(context.TODO(), tokenReview, metav1.CreateOptions{})
-		if err != nil {
-			log.Warnf("failed to validate the JWT against cluster %q: %v", k, err)
-			continue
-		}
-		if reviewRes.Status.Error != "" {
-			log.Warnf("the service account authentication returns an error: %v", reviewRes.Status.Error)
-			continue
-		}
-		inServiceAccountGroup := false
-		for _, group := range reviewRes.Status.User.Groups {
-			if group == "system:serviceaccounts" {
-				inServiceAccountGroup = true
-				break
-			}
-		}
-		if !inServiceAccountGroup {
-			log.Warnf("the token is not a service account")
-			continue
-		}
-		// "username" is in the form of system:serviceaccount:{namespace}:{service account name}",
-		// e.g., "username":"system:serviceaccount:default:example-pod-sa"
-		subStrings := strings.Split(reviewRes.Status.User.Username, ":")
-		if len(subStrings) != 4 {
-			log.Warnf("invalid username field in the token review result")
-			continue
-		}
-		namespace := subStrings[2]
-		saName := subStrings[3]
-		return []string{namespace, saName}, nil
-	}
-	return nil, fmt.Errorf("no remote cluster found")
 }
