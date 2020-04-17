@@ -15,8 +15,8 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"5510cb7611f68bbf301060554596b4567ef0e6d87bbe3eee49d6c18fd0dcd172","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
-        traffic.sidecar.istio.io/excludeInboundPorts: "15020"
+        sidecar.istio.io/status: '{"version":"3509d555c994d88dd0aab2c26f6f59d09e8e53f0e9cd563ebb542aabcb746369","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
+        traffic.sidecar.istio.io/excludeInboundPorts: 15090,15020
         traffic.sidecar.istio.io/includeInboundPorts: 80,90
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
       creationTimestamp: null

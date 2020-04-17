@@ -19,7 +19,7 @@ spec:
         sidecar.istio.io/interceptionMode: REDIRECT
         sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
         status.sidecar.istio.io/port: "123"
-        traffic.sidecar.istio.io/excludeInboundPorts: "123"
+        traffic.sidecar.istio.io/excludeInboundPorts: 15090,123
         traffic.sidecar.istio.io/includeInboundPorts: "80"
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
       creationTimestamp: null
