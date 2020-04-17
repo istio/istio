@@ -38,7 +38,7 @@ func (r *DistributionReport) SetProgress(resource fmt.Stringer, progress int) {
 
 func ReportFromYaml(content []byte) (DistributionReport, error) {
 	out := DistributionReport{}
-	err := yaml.Unmarshal(content, out)
+	err := yaml.Unmarshal(content, &out)
 	return out, err
 }
 

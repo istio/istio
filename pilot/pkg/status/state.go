@@ -43,9 +43,9 @@ type Progress struct {
 	TotalInstances int
 }
 
-func (fraction Progress) Add(fraction2 Progress) {
-	fraction.TotalInstances += fraction2.TotalInstances
-	fraction.AckedInstances += fraction2.AckedInstances
+func (p *Progress) PlusEquals(p2 Progress) {
+	p.TotalInstances += p2.TotalInstances
+	p.AckedInstances += p2.AckedInstances
 }
 
 type DistributionController struct {
@@ -59,6 +59,7 @@ type DistributionController struct {
 }
 
 func (c *DistributionController) Start(restConfig *rest.Config, namespace string, stop <-chan struct{}) {
+	scope.Info("Starting status leader controller")
 	// default UpdateInterval
 	if c.UpdateInterval == 0 {
 		c.UpdateInterval = 100 * time.Millisecond
@@ -85,7 +86,7 @@ func (c *DistributionController) Start(restConfig *rest.Config, namespace string
 		Core().V1().ConfigMaps()
 	i.Informer().AddEventHandler(DistroReportHandler{dc: *c})
 	// this will list all existing configmaps, as well as updates, right?
-	i.Informer().Run(stop)
+	go i.Informer().Run(stop)
 
 	//create Status Writer
 	t := c.clock.Tick(c.UpdateInterval)
@@ -130,7 +131,7 @@ func (c *DistributionController) writeAllStatus() (staleReporters []string) {
 				staleReporters = append(staleReporters, reporter)
 				continue
 			}
-			distributionState.Add(w)
+			distributionState.PlusEquals(w)
 		}
 		go c.writeStatus(config, distributionState)
 	}
@@ -259,17 +260,20 @@ func (drh DistroReportHandler) OnUpdate(oldObj, newObj interface{}) {
 }
 
 func (drh DistroReportHandler) HandleNew(obj interface{}) {
-	cm := obj.(*v1.ConfigMap)
-	dr, err := ReportFromYaml([]byte(cm.Data["somekey"]))
+	cm, ok := obj.(*v1.ConfigMap)
+	if !ok {
+		scope.Warnf("expected configmap, but received %v, discarding", obj)
+		return
+	}
+	rptStr := cm.Data[dataField]
+	scope.Debugf("using report: %s", rptStr)
+	dr, err := ReportFromYaml([]byte(cm.Data[dataField]))
 	if err != nil {
 		scope.Warnf("received malformed distributionReport %s, discarding: %v", cm.Name, err)
 		return
 	}
-	if _, ok := cm.Labels[labelKey]; ok {
-		// TODO: can't we limit the informer to this label to save on messages?
-		// what about namespaces?
-		drh.dc.handleReport(dr)
-	}
+	drh.dc.handleReport(dr)
+
 }
 
 func (drh DistroReportHandler) OnDelete(obj interface{}) {

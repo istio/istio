@@ -16,13 +16,12 @@ package status
 
 import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"istio.io/istio/galley/pkg/config/analysis/diag"
 )
 
 type IstioStatus struct {
-	Conditions         []IstioCondition
-	ValidationMessages []diag.Message
+	Conditions         []IstioCondition `json:"conditions"`
+	// TODO: Messages should be typed for ease of use.
+	ValidationMessages []interface{} `json:"validationMessages"`
 }
 
 // IstioConditionType is a valid value for IstioCondition.Type

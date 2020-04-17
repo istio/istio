@@ -111,5 +111,8 @@ func expectStatus(t *testing.T, ctx resource.Context, ns namespace.Instance, has
 	if strings.Contains(status, msg.ReferencedResourceNotFound.Code()) != hasError {
 		return fmt.Errorf("expected error=%v, but got %v", hasError, status)
 	}
+	if _, ok :=x.Object["status"].(map[string]interface{})["Conditions"]; !ok {
+		return fmt.Errorf("expected conditions to exist, but got %v", status)
+	}
 	return nil
 }

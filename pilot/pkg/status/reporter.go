@@ -124,8 +124,8 @@ func (r *Reporter) buildReport() (DistributionReport, []Resource) {
 			// check to see if this version of the config contains this version of the resource
 			// it might be more optimal to provide for a full dump of the config at a certain version?
 			key := res.String()
-			if dpVersion, err := r.store.GetResourceAtVersion(nonce[:v2.VersionLen],
-				res.ToModelKey()); err == nil && dpVersion == res.ResourceVersion {
+			dpVersion, err := r.store.GetResourceAtVersion(nonce[:v2.VersionLen], res.ToModelKey())
+			if err == nil && dpVersion == res.ResourceVersion {
 				if _, ok := out.InProgressResources[key]; !ok {
 					out.InProgressResources[key] = len(dataplanes)
 				} else {
@@ -225,10 +225,15 @@ func (r *Reporter) RegisterEvent(conID string, xdsType string, nonce string) {
 	// TODO might need to batch this to prevent lock contention
 	key := conID + xdsType // TODO: delimit?
 	r.deleteKeyFromReverseMap(key)
-	version := nonce[:v2.VersionLen]
+	var version string
+	if len(nonce)>12 {
+		version = nonce[:v2.VersionLen]
+	} else {
+		version = nonce
+	}
 	// touch
 	r.status[key] = version
-	r.reverseStatus[nonce] = append(r.reverseStatus[version], key)
+	r.reverseStatus[version] = append(r.reverseStatus[version], key)
 }
 
 // This is a helper function for keeping our reverseStatus map in step with status.

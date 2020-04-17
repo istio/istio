@@ -743,6 +743,7 @@ func (s *Server) initEventHandlers() error {
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
 			if s.statusReporter != nil {
 				s.statusReporter.AddInProgressResource(curr)
+				// TODO: this probably is wrong for deletes
 			}
 		}
 		schemas := collections.Pilot.All()
