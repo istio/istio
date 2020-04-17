@@ -585,6 +585,9 @@ func (a *ADSC) node() *core.Node {
 			}}
 	} else {
 		n.Metadata = a.Metadata
+		if a.Metadata.Fields["ISTIO_VERSION"] == nil {
+			a.Metadata.Fields["ISTIO_VERSION"] = &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: "65536.65536.65536"}}
+		}
 	}
 	return n
 }

@@ -230,7 +230,6 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 			if discPort == "15012" {
 				log.Fatala("Missing JWT, can't authenticate with control plane. Try using plain text (15010)")
 			}
-			return ac
 		}
 	}
 
@@ -251,6 +250,8 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 	if discPort == "15012" {
 		ac.RequireCerts = true
 	}
+
+	xdsServer = initXDS()
 
 	return ac
 }
@@ -301,6 +302,8 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 	if err != nil {
 		return nil, err
 	}
+
+	startXDS(xdsServer)
 
 	return server, nil
 }

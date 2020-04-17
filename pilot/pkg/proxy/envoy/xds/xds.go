@@ -48,7 +48,9 @@ type Server struct {
 // the complex bootstrap used by Istiod. A memory registry and memory config store are used to
 // generate the configs - they can be programmatically updated.
 func NewXDS() *Server {
-	// Start an XDS server. Also see bench_test in envoy_v2
+	// Prepare a working XDS server, with aggregate config and registry stores and a memory store for each.
+	// TODO: refactor bootstrap code to use this server, and add more registries.
+
 	env := &model.Environment{
 		PushContext: model.NewPushContext(),
 	}
