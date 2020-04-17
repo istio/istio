@@ -232,7 +232,7 @@ spec:
   # Please keep this in sync with manifests/global.yaml
   values:
     # You may override parts of meshconfig by uncommenting the following lines.
-    meshConfig:
+    meshConfig: {}
       # Opt-out of global http2 upgrades.
       # Destination rule is used to opt-in.
       # h2_upgrade_policy: DO_NOT_UPGRADE
