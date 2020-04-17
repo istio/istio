@@ -119,16 +119,6 @@ function setup_e2e_cluster() {
   setup_cluster
 }
 
-function clone_cni() {
-  # Clone the CNI repo so the CNI artifacts can be built.
-  if [[ "$PWD" == "${GOPATH}/src/istio.io/istio" ]]; then
-      TMP_DIR=$PWD
-      cd ../ || return
-      git clone -b "${GIT_BRANCH}" "https://github.com/istio/cni.git"
-      cd "${TMP_DIR}" || return
-  fi
-}
-
 function cleanup_kind_cluster() {
   NAME="${1}"
   echo "Test exited with exit code $?."
@@ -184,18 +174,31 @@ function setup_kind_cluster() {
 function cni_run_daemon_kind() {
   echo 'Run the CNI daemon set'
   ISTIO_CNI_HUB=${ISTIO_CNI_HUB:-gcr.io/istio-testing}
-  ISTIO_CNI_TAG=${ISTIO_CNI_TAG:-latest}
+  ISTIO_CNI_TAG=${ISTIO_CNI_TAG:-"1.4-dev"}
 
-  # TODO: this should not be pulling from external charts, instead the tests should checkout the CNI repo
-  chartdir=$(mktemp -d)
-  helm init --client-only
-  helm repo add istio.io https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/master-latest-daily/charts/
-  helm fetch --devel --untar --untardir "${chartdir}" istio.io/istio-cni
+  local cni_sha
+  local tmp_dir
 
-  helm template --values "${chartdir}"/istio-cni/values.yaml --name=istio-cni --namespace=kube-system --set "excludeNamespaces={}" \
-    --set-string hub="${ISTIO_CNI_HUB}" --set-string tag="${ISTIO_CNI_TAG}" --set-string pullPolicy=IfNotPresent --set logLevel="${CNI_LOGLVL:-debug}"  "${chartdir}"/istio-cni >  "${chartdir}"/istio-cni_install.yaml
+  cni_sha=$(grep CNI_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
+  tmp_dir=$(mktemp -d)
 
-  kubectl apply -f  "${chartdir}"/istio-cni_install.yaml
+  git clone https://github.com/istio/cni.git "${tmp_dir}"
+  pushd "${tmp_dir}" || exit 1
+  git checkout "${cni_sha}"
+
+  helm template --values deployments/kubernetes/install/helm/istio-cni/values.yaml \
+                --name=istio-cni --namespace=kube-system \
+                --set "excludeNamespaces={}" \
+                --set-string hub="${ISTIO_CNI_HUB}" --set-string tag="${ISTIO_CNI_TAG}" \
+                --set-string repair.hub="${ISTIO_CNI_HUB}" --set-string repair.tag="${ISTIO_CNI_TAG}" \
+                --set-string pullPolicy=IfNotPresent \
+                --set logLevel="${CNI_LOGLVL:-debug}" \
+                deployments/kubernetes/install/helm/istio-cni > istio-cni_install.yaml
+
+  kubectl apply -f istio-cni_install.yaml
+
+  popd || exit 1
+  rm -rf "${tmp_dir}"
 }
 
 # setup_cluster_reg is used to set up a cluster registry for multicluster testing
