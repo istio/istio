@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+
 	"istio.io/istio/pkg/config/mesh"
 
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
