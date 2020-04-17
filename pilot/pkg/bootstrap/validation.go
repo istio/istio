@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/mixer/pkg/validate"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/webhooks/validation/controller"
 	"istio.io/istio/pkg/webhooks/validation/server"
@@ -105,10 +106,15 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 		if err != nil {
 			return err
 		}
-
-		s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
-			log.Infof("Starting validation controller")
-			whController.Start(stop)
+		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+			leaderelection.
+				NewLeaderElection(args.Namespace, args.PodName, leaderelection.ValidationController, s.kubeClient).
+				AddRunFunction(func(stop <-chan struct{}) {
+					log.Infof("Starting validation controller")
+					whController.Start(stop)
+				}).
+				Run(stop)
+			return nil
 		})
 	}
 	return nil

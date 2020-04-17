@@ -98,9 +98,9 @@ func (s *CAServer) start(port int) error {
 	port = listener.Addr().(*net.TCPAddr).Port
 	s.URL = fmt.Sprintf("localhost:%d", port)
 	go func() {
-		log.Infof("start CA server on %s", s.URL)
+		caServerLog.Infof("start CA server on %s", s.URL)
 		if err := s.GRPCServer.Serve(listener); err != nil {
-			log.Errorf("CA Server failed to serve in %q: %v", s.URL, err)
+			caServerLog.Errorf("CA Server failed to serve in %q: %v", s.URL, err)
 		}
 	}()
 	return nil
@@ -143,6 +143,7 @@ func (s *CAServer) sendEmpty() bool {
 // CreateCertificate handles CSR.
 func (s *CAServer) CreateCertificate(ctx context.Context, request *pb.IstioCertificateRequest) (
 	*pb.IstioCertificateResponse, error) {
+	caServerLog.Infof("received CSR request")
 	if s.shouldReject() {
 		caServerLog.Info("force rejecting CSR request")
 		return nil, status.Error(codes.Unavailable, "CA server is not available")

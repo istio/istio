@@ -89,8 +89,8 @@ type CommonComponentFields struct {
 	resourceName string
 	// index is the index of the component (only used for components with multiple instances like gateways).
 	index int
-	// spec for the actual component.
-	spec interface{}
+	// componentSpec for the actual component e.g. GatewaySpec, ComponentSpec.
+	componentSpec interface{}
 	// started reports whether the component is in initialized and running.
 	started  bool
 	renderer helm.TemplateRenderer
@@ -429,7 +429,7 @@ func NewIngressComponent(resourceName string, index int, spec *v1alpha1.GatewayS
 			componentName: cn,
 			resourceName:  resourceName,
 			index:         index,
-			spec:          spec,
+			componentSpec: spec,
 		},
 	}
 }
@@ -462,7 +462,7 @@ func (c *IngressComponent) Namespace() string {
 // Enabled implements the IstioComponent interface.
 func (c *IngressComponent) Enabled() bool {
 	// type assert is guaranteed to work in this context.
-	return boolValue(c.spec.(*v1alpha1.GatewaySpec).Enabled)
+	return boolValue(c.componentSpec.(*v1alpha1.GatewaySpec).Enabled)
 }
 
 // EgressComponent is the egress gateway component.
@@ -478,7 +478,7 @@ func NewEgressComponent(resourceName string, index int, spec *v1alpha1.GatewaySp
 			Options:       opts,
 			componentName: cn,
 			index:         index,
-			spec:          spec,
+			componentSpec: spec,
 			resourceName:  resourceName,
 		},
 	}
@@ -512,7 +512,7 @@ func (c *EgressComponent) Namespace() string {
 // Enabled implements the IstioComponent interface.
 func (c *EgressComponent) Enabled() bool {
 	// type assert is guaranteed to work in this context.
-	return boolValue(c.spec.(*v1alpha1.GatewaySpec).Enabled)
+	return boolValue(c.componentSpec.(*v1alpha1.GatewaySpec).Enabled)
 }
 
 // AddonComponent is an external component.
@@ -528,7 +528,7 @@ func NewAddonComponent(addonName, resourceName string, spec *v1alpha1.ExternalCo
 			componentName: name.AddonComponentName,
 			resourceName:  resourceName,
 			addonName:     addonName,
-			spec:          spec,
+			componentSpec: spec,
 		},
 	}
 }
@@ -561,7 +561,7 @@ func (c *AddonComponent) Namespace() string {
 // Enabled implements the IstioComponent interface.
 func (c *AddonComponent) Enabled() bool {
 	// type assert is guaranteed to work in this context.
-	return boolValue(c.spec.(*v1alpha1.ExternalComponentSpec).Enabled)
+	return boolValue(c.componentSpec.(*v1alpha1.ExternalComponentSpec).Enabled)
 }
 
 // runComponent performs startup tasks for the component defined by the given CommonComponentFields.
@@ -588,7 +588,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 		return disabledYAMLStr(cf.componentName, cf.resourceName), nil
 	}
 
-	mergedYAML, err := cf.Translator.TranslateHelmValues(cf.InstallSpec, getK8sResourceSpec(cf), cf.componentName, cf.resourceName)
+	mergedYAML, err := cf.Translator.TranslateHelmValues(cf.InstallSpec, cf.componentSpec, cf.componentName)
 	if err != nil {
 		return "", err
 	}
@@ -669,17 +669,6 @@ func isCoreComponentEnabled(c *CommonComponentFields) bool {
 		return false
 	}
 	return enabled
-}
-
-func getK8sResourceSpec(c *CommonComponentFields) *v1alpha1.KubernetesResourcesSpec {
-	switch t := c.spec.(type) {
-	case *v1alpha1.GatewaySpec:
-		return t.K8S
-	case *v1alpha1.ComponentSpec:
-		return t.K8S
-	default:
-	}
-	return nil
 }
 
 // disabledYAMLStr returns the YAML comment string that the given component is disabled.

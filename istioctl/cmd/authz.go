@@ -15,44 +15,22 @@
 package cmd
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 
-	"istio.io/istio/pkg/kube"
-
 	"github.com/spf13/cobra"
 
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
-
-	"istio.io/pkg/log"
-
 	"istio.io/istio/istioctl/pkg/authz"
-	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
-	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/config/memory"
-	"istio.io/istio/pilot/pkg/model"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	"istio.io/istio/pilot/pkg/security/authz/converter"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/pkg/log"
 )
 
 var (
-	printAll                 bool
-	configDumpFile           string
-	v1Files                  []string
-	serviceFiles             []string
-	rootNamespace            string
-	allowNoClusterRbacConfig bool
+	printAll       bool
+	configDumpFile string
 )
 
 var (
@@ -106,86 +84,6 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			return nil
 		},
 	}
-
-	convertOpts clioptions.ControlPlaneOptions
-	convertCmd  = &cobra.Command{
-		Use:   "convert",
-		Short: "Convert v1alpha1 RBAC policy to v1beta1 authorization policy",
-		Long: `Convert Istio v1alpha1 RBAC policy to v1beta1 authorization policy. By default,
-The command talks to Istio Pilot and Kubernetes API server to get all the information
-needed for the conversion, including the v1alpha1 RBAC policies in the current cluster,
-the value of the root namespace and the Kubernetes services that provide the mapping from the
-service name to workload selector.
-
-The tool can also be used in an offline mode when specified with flag -f. In this mode,
-the tool doesn't access the network and all needed information is provided
-through the command line.
-
-Note: The converter tool makes a best effort attempt to keep the syntax unchanged during
-the conversion. However, in some cases, strict mapping with equivalent syntax is not
-possible (e.g., constraints no longer supported in the new workload oriented model).
-
-PLEASE ALWAYS REVIEW THE CONVERTED POLICIES BEFORE APPLYING.
-`,
-		Example: `  # Convert the v1alpha1 RBAC policy in the current cluster:
-  istioctl x authz convert > authorization-policies.yaml
-
-  # Convert the v1alpha1 RBAC policy in the given file: 
-  istioctl x authz convert -f v1alpha1-policy-1.yaml,v1alpha1-policy-2.yaml
-  -s my-services.yaml -r my-root-namespace > authorization-policies.yaml
-`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			var err error
-			var authorizationPolicies *model.AuthorizationPolicies
-
-			if len(v1Files) != 0 {
-				if len(serviceFiles) == 0 {
-					return fmt.Errorf("service must be provided when -f is used")
-				}
-				if rootNamespace == "" {
-					return fmt.Errorf("root namespace must not be empty when -f is used")
-				}
-
-				authorizationPolicies, err = createAuthorizationPoliciesFromFiles(v1Files, rootNamespace)
-				if err != nil {
-					return fmt.Errorf("failed to create the AuthorizationPolicies: %v", err)
-				}
-			} else {
-				authorizationPolicies, err = getAuthorizationPoliciesFromCluster(convertOpts)
-				if err != nil {
-					return fmt.Errorf("failed to get the v1alpha1 RBAC policies: %v", err)
-				}
-				if rootNamespace != "" && authorizationPolicies.RootNamespace != rootNamespace {
-					log.Warnf("override root namespace from %q to %q", authorizationPolicies.RootNamespace, rootNamespace)
-					authorizationPolicies.RootNamespace = rootNamespace
-				}
-			}
-
-			var namespaceToServiceToSelector map[string]converter.ServiceToWorkloadLabels
-			namespaceToServiceToSelector, err = getNamespaceToServiceToSelector(serviceFiles, authorizationPolicies.ListV1alpha1Namespaces())
-			if err != nil {
-				return fmt.Errorf("failed to get the Kubernetes service definitions: %v", err)
-			}
-
-			out, err := converter.Convert(authorizationPolicies, namespaceToServiceToSelector, allowNoClusterRbacConfig)
-			if err != nil {
-				return err
-			}
-
-			writer := cmd.OutOrStdout()
-			_, err = writer.Write([]byte(out))
-			if err != nil {
-				return fmt.Errorf("failed to write to stdout: %v", err)
-			}
-			return nil
-		},
-		PersistentPreRunE: func(c *cobra.Command, args []string) error {
-			// The istioctl x auth convert command is typically redirected to a .yaml file;
-			// Redirect log messages to stderr, not stdout
-			_ = c.Root().PersistentFlags().Set("log_target", "stderr")
-			return c.Root().PersistentPreRunE(c, args)
-		},
-	}
 )
 
 func getConfigDumpFromFile(filename string) (*configdump.Wrapper, error) {
@@ -237,118 +135,6 @@ func getConfigDumpFromPod(podName, podNamespace string) (*configdump.Wrapper, er
 	return envoyConfig, nil
 }
 
-func createAuthorizationPoliciesFromFiles(files []string, rootNamespace string) (*model.AuthorizationPolicies, error) {
-	var authorizationPolicies *model.AuthorizationPolicies
-	var configs []model.Config
-	for _, file := range files {
-		rbacFileBuf, err := ioutil.ReadFile(file)
-		if err != nil {
-			return nil, err
-		}
-		configFromFile, _, err := crd.ParseInputs(string(rbacFileBuf))
-		if err != nil {
-			return nil, err
-		}
-		configs = append(configs, configFromFile...)
-	}
-	store := model.MakeIstioStore(memory.Make(collections.Pilot))
-	for _, config := range configs {
-		if _, err := store.Create(config); err != nil {
-			return nil, err
-		}
-	}
-	env := &model.Environment{
-		IstioConfigStore: store,
-	}
-	var err error
-	authorizationPolicies, err = model.GetAuthorizationPolicies(env)
-	if err != nil {
-		return nil, err
-	}
-	authorizationPolicies.RootNamespace = rootNamespace
-	return authorizationPolicies, nil
-}
-
-func getAuthorizationPoliciesFromCluster(opts clioptions.ControlPlaneOptions) (*model.AuthorizationPolicies, error) {
-	var authorizationPolicies *model.AuthorizationPolicies
-	kubeClient, err := clientExecFactory(kubeconfig, configContext, opts)
-	if err != nil {
-		return nil, err
-	}
-	results, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET", "/debug/authorizationz", nil)
-	if err != nil {
-		return nil, err
-	}
-	if len(results) == 0 {
-		return nil, fmt.Errorf("received empty response for authorization information")
-	}
-	for _, result := range results {
-		authzDebug := v2.AuthorizationDebug{}
-		if err := json.Unmarshal(result, &authzDebug); err != nil {
-			log.Debugf("JSON unmarshal failed: %v", err)
-			continue
-		}
-		authorizationPolicies = authzDebug.AuthorizationPolicies
-		// Break once we found a successful response from Pilot.
-		break
-	}
-	if authorizationPolicies == nil {
-		return nil, fmt.Errorf("no v1alpha1 RBAC policy")
-	}
-	return authorizationPolicies, nil
-}
-
-func getNamespaceToServiceToSelector(files, namespaces []string) (map[string]converter.ServiceToWorkloadLabels, error) {
-	var services []v1.Service
-	if len(files) != 0 {
-		for _, filename := range files {
-			fileBuf, err := ioutil.ReadFile(filename)
-			if err != nil {
-				return nil, err
-			}
-			reader := bytes.NewReader(fileBuf)
-			yamlDecoder := kubeyaml.NewYAMLOrJSONDecoder(reader, 512*1024)
-			for {
-				svc := v1.Service{}
-				err = yamlDecoder.Decode(&svc)
-				if err == io.EOF {
-					break
-				}
-				if err != nil {
-					return nil, err
-				}
-				services = append(services, svc)
-			}
-		}
-	} else {
-		k8sClient, err := kube.CreateClientset("", "")
-		if err != nil {
-			return nil, fmt.Errorf("failed to create the Kubernetes client: %v", err)
-		}
-		for _, ns := range namespaces {
-			rets, err := k8sClient.CoreV1().Services(ns).List(context.TODO(), metav1.ListOptions{})
-			if err != nil {
-				return nil, err
-			}
-			services = append(services, rets.Items...)
-		}
-	}
-
-	namespaceToServiceToSelector := make(map[string]converter.ServiceToWorkloadLabels)
-	for _, svc := range services {
-		if len(svc.Spec.Selector) == 0 {
-			log.Warnf("ignored service with empty selector: %s.%s", svc.Name, svc.Namespace)
-			continue
-		}
-		if _, found := namespaceToServiceToSelector[svc.Namespace]; !found {
-			namespaceToServiceToSelector[svc.Namespace] = make(converter.ServiceToWorkloadLabels)
-		}
-		namespaceToServiceToSelector[svc.Namespace][svc.Name] = svc.Spec.Selector
-	}
-
-	return namespaceToServiceToSelector, nil
-}
-
 // AuthZ groups commands used for inspecting and interacting the authorization policy.
 // Note: this is still under active development and is not ready for real use.
 func AuthZ() *cobra.Command {
@@ -357,21 +143,13 @@ func AuthZ() *cobra.Command {
 		Short: "Inspect and interact with authorization policies",
 		Long: `Commands to inspect and interact with the authorization policies
   check - check Envoy config dump for authorization configuration
-  convert - convert v1alpha1 RBAC policies to v1beta1 authorization policies
 `,
 		Example: `  # Check Envoy authorization configuration for pod httpbin-88ddbcfdd-nt5jb:
   istioctl x authz check httpbin-88ddbcfdd-nt5jb
-
-  # Convert the v1alpha1 RBAC policies in the current cluster:
-  istioctl x authz convert > authorization-policies.yaml
-
-  # Convert the v1alpha1 RBAC policies in the file with the given services and root namespace:
-  istioctl x authz convert -f rbac-policies.yaml -s my-service.yaml -r istio-system > authorization-policies.yaml
 `,
 	}
 
 	cmd.AddCommand(checkCmd)
-	cmd.AddCommand(convertCmd)
 	return cmd
 }
 
@@ -380,13 +158,4 @@ func init() {
 		"Show additional information (e.g. SNI and ALPN)")
 	checkCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"The json file with Envoy config dump to be checked")
-	convertCmd.PersistentFlags().StringSliceVarP(&v1Files, "file", "f", []string{},
-		"The yaml file with v1alpha1 RBAC policies to be converted")
-	convertCmd.PersistentFlags().StringSliceVarP(&serviceFiles, "service", "s", []string{},
-		"The yaml file with Kubernetes services for the mapping from the service name to workload selector, used with -f")
-	convertCmd.PersistentFlags().StringVarP(&rootNamespace, "rootNamespace", "r", "istio-system",
-		"Override the root namespace used in the conversion")
-	convertCmd.PersistentFlags().BoolVarP(&allowNoClusterRbacConfig, "allowNoClusterRbacConfig", "", false,
-		"Continue the conversion even if there is no ClusterRbacConfig in the cluster")
-	convertOpts.AttachControlPlaneFlags(convertCmd)
 }
