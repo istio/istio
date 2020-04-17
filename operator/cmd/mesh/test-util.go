@@ -183,7 +183,7 @@ type HavePathValueEqualMatcher struct {
 func (m *HavePathValueEqualMatcher) Match(actual interface{}) (bool, error) {
 	pv := m.expected.(PathValue)
 	node := actual.(map[string]interface{})
-	got, f, err := tpath.GetPathContext(node, util.PathFromString(pv.path), false)
+	got, f, err := tpath.GetPathContext(node, util.PathFromString(pv.path))
 	if err != nil || !f {
 		return false, err
 	}
@@ -226,7 +226,7 @@ type HavePathValueContainMatcher struct {
 func (m *HavePathValueContainMatcher) Match(actual interface{}) (bool, error) {
 	pv := m.expected.(PathValue)
 	node := actual.(map[string]interface{})
-	got, f, err := tpath.GetPathContext(node, util.PathFromString(pv.path), false)
+	got, f, err := tpath.GetPathContext(node, util.PathFromString(pv.path))
 	if err != nil || !f {
 		return false, err
 	}
@@ -327,7 +327,7 @@ func findObject(objs object.K8sObjects, name, kind string) *object.K8sObject {
 // mustGetValueAtPath returns the value at the given path in the unstructured tree t. Fails if the path is not found
 // in the tree.
 func mustGetValueAtPath(g *gomega.WithT, t map[string]interface{}, path string) interface{} {
-	got, f, err := tpath.GetPathContext(t, util.PathFromString(path), false)
+	got, f, err := tpath.GetPathContext(t, util.PathFromString(path))
 	g.Expect(err).Should(gomega.BeNil(), "path %s should exist (%s)", path, err)
 	g.Expect(f).Should(gomega.BeTrue(), "path %s should exist", path)
 	return got.Node

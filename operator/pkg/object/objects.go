@@ -22,6 +22,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"istio.io/istio/operator/pkg/tpath"
 	"sort"
 	"strings"
 
@@ -80,6 +81,16 @@ func Hash(kind, namespace, name string) string {
 	return strings.Join([]string{kind, namespace, name}, ":")
 }
 
+// FromHash parses kind, namespace and name from a hash.
+func FromHash(hash string) (kind, namespace, name string) {
+	hv := strings.Split(hash, ":")
+	if len(hv) != 3 {
+		return "Bad hash string: " + hash, "", ""
+	}
+	kind, namespace, name = hv[0], hv[1], hv[2]
+	return
+}
+
 // HashNameKind returns a unique, insecure hash based on kind and name.
 func HashNameKind(kind, name string) string {
 	return strings.Join([]string{kind, name}, ":")
@@ -125,6 +136,23 @@ func ParseYAMLToK8sObject(yaml []byte) (*K8sObject, error) {
 // UnstructuredObject exposes the raw object, primarily for testing
 func (o *K8sObject) UnstructuredObject() *unstructured.Unstructured {
 	return o.object
+}
+
+// UnstructuredObject exposes the raw object content, primarily for testing
+func (o *K8sObject) Unstructured() map[string]interface{} {
+	return o.UnstructuredObject().UnstructuredContent()
+}
+
+// Container returns a container subtree for Deployment objects if one is found, or nil otherwise.
+func (o *K8sObject) Container(name string) map[string]interface{} {
+	u := o.Unstructured()
+	path := fmt.Sprintf("spec.template.spec.containers.[name:%s]", name)
+	node, f, err := tpath.GetPathContext(u, util.PathFromString(path))
+	if err == nil && f {
+		// Must be the type from the schema.
+		return node.Node.(map[string]interface{})
+	}
+	return nil
 }
 
 // GroupKind returns the GroupKind for the K8sObject
