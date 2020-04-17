@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pkg/test/shell"
 	"os"
 	"path"
 	"path/filepath"
@@ -148,6 +149,12 @@ func checkInstallStatus(cs kube.Cluster) error {
 	}
 	err := retry.UntilSuccess(retryFunc, retry.Timeout(retryTimeOut), retry.Delay(retryDelay))
 	if err != nil {
+		content, err := shell.Execute(false, "kubectl logs -n %s -l %s --tail=10000000",
+			OperatorNamespace, "name=istio-operator")
+		if err != nil {
+			return fmt.Errorf("unable to get logs from istio-operator: %v , content %v", err, content)
+		}
+		log.Infof("operator log: %s", content)
 		return fmt.Errorf("istioOperator status is not healthy: %v", err)
 	}
 	return nil
