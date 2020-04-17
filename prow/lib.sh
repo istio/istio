@@ -176,11 +176,14 @@ function cni_run_daemon_kind() {
   ISTIO_CNI_HUB=${ISTIO_CNI_HUB:-gcr.io/istio-testing}
   ISTIO_CNI_TAG=${ISTIO_CNI_TAG:-"1.4-dev"}
 
-  local cni_sha=$(grep CNI_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
-  local tmp_dir=$(mktemp -d)
+  local cni_sha
+  local tmp_dir
+
+  cni_sha=$(grep CNI_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
+  tmp_dir=$(mktemp -d)
 
   git clone https://github.com/istio/cni.git "${tmp_dir}"
-  pushd "${tmp_dir}"
+  pushd "${tmp_dir}" || exit 1
   git checkout "${cni_sha}"
 
   helm template --values deployments/kubernetes/install/helm/istio-cni/values.yaml \
@@ -194,7 +197,7 @@ function cni_run_daemon_kind() {
 
   kubectl apply -f istio-cni_install.yaml
 
-  popd
+  popd || exit 1
   rm -rf "${tmp_dir}"
 }
 
