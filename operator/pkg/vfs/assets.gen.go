@@ -14688,9 +14688,9 @@ data:
   config: |-
     policy: {{ .Values.global.proxy.autoInject }}
     alwaysInjectSelector:
-      {{ toYaml .Values.sidecarInjectorWebhook.alwaysInjectSelector | trim | indent 6 }}
+{{ toYaml .Values.sidecarInjectorWebhook.alwaysInjectSelector | trim | indent 6 }}
     neverInjectSelector:
-      {{ toYaml .Values.sidecarInjectorWebhook.neverInjectSelector | trim | indent 6 }}
+{{ toYaml .Values.sidecarInjectorWebhook.neverInjectSelector | trim | indent 6 }}
     injectedAnnotations:
       {{- range $key, $val := .Values.sidecarInjectorWebhook.injectedAnnotations }}
       "{{ $key }}": "{{ $val }}"
