@@ -27,6 +27,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
@@ -34,8 +36,6 @@ import (
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -217,13 +217,13 @@ func (c *PilotComponent) overlayMeshConfig(baseYAML string) (string, error) {
 			continue
 		}
 
-		meshOverride, err := gogoprotomarshal.ToYAML(c.CommonComponentFields.InstallSpec.MeshConfig)
+		meshOverride, err := yaml.Marshal(c.CommonComponentFields.InstallSpec.MeshConfig)
 		if err != nil {
 			return "", err
 		}
 
 		// Merge the MeshConfig yaml on top of whatever is in the configMap already
-		meshStr, err = util.OverlayYAML(meshStr, meshOverride)
+		meshStr, err = util.OverlayYAML(meshStr, string(meshOverride))
 		if err != nil {
 			return "", err
 		}

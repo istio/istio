@@ -18,15 +18,23 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/ghodss/yaml"
+
 	"istio.io/api/operator/v1alpha1"
+
 	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/config/mesh"
 )
 
 var (
 	// DefaultValidations maps a data path to a validation function.
 	DefaultValidations = map[string]ValidatorFunc{
+		"Values": func(path util.Path, i interface{}) util.Errors {
+			return CheckValues(i)
+		},
+		"MeshConfig":                         validateMeshConfig,
 		"Hub":                                validateHub,
 		"Tag":                                validateTag,
 		"AddonComponents":                    validateAddonComponents,
@@ -55,7 +63,6 @@ func CheckIstioOperatorSpec(is *v1alpha1.IstioOperatorSpec, checkRequiredFields 
 		return util.Errors{}
 	}
 
-	errs = CheckValues(is.Values)
 	return util.AppendErrs(errs, Validate(DefaultValidations, is, nil, checkRequiredFields))
 }
 
@@ -152,6 +159,18 @@ func validateLeaf(validations map[string]ValidatorFunc, path util.Path, val inte
 	}
 	scope.Debug(msg)
 	return vf(path, val)
+}
+
+func validateMeshConfig(path util.Path, root interface{}) util.Errors {
+	vs, err := yaml.Marshal(root)
+	if err != nil {
+		return util.Errors{err}
+	}
+	// This method will also perform validation automatically
+	if _, validErr := mesh.ApplyMeshConfigDefaults(string(vs)); validErr != nil {
+		return util.Errors{validErr}
+	}
+	return nil
 }
 
 func validateHub(path util.Path, val interface{}) util.Errors {
