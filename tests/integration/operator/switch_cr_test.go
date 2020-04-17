@@ -79,7 +79,7 @@ func TestController(t *testing.T) {
 				"--wait",
 				"--hub=" + s.Hub,
 				"--tag=" + s.Tag,
-				"--charts" + ManifestPath,
+				"--charts=" + ManifestPath,
 			}
 			// install istio with default config for the first time by running operator init command
 			istioCtl.InvokeOrFail(t, initCmd)
