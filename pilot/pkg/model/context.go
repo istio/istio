@@ -23,9 +23,11 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -97,6 +99,14 @@ func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxy *Pro
 	}
 }
 
+// Generator creates the response for a typeURL DiscoveryRequest. If no generator is associated
+// with a Proxy, the default (a networking.core.ConfigGenerator instance) will be used.
+// The server may associate a different generator based on client metadata. Different
+// WatchedResources may use same or different Generator.
+type Generator interface {
+	Generate(node *Proxy, push *PushContext, w *WatchedResource) []*any.Any
+}
+
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
 // etc). The Proxy is initialized when a sidecar connects to Pilot, and populated from
 // 'node' info in the protocol as well as data extracted from registries.
@@ -141,6 +151,9 @@ type Proxy struct {
 	// the sidecarScope associated with the proxy
 	SidecarScope *SidecarScope
 
+	// the sidecarScope associated with the proxy previously
+	PrevSidecarScope *SidecarScope
+
 	// The merged gateways associated with the proxy if this is a Router
 	MergedGateway *MergedGateway
 
@@ -158,6 +171,50 @@ type Proxy struct {
 
 	// GlobalUnicastIP stores the globacl unicast IP if available, otherwise nil
 	GlobalUnicastIP string
+
+	// Generator is used to generate resources for the node, based on the PushContext.
+	// If nil, the default networking/core v2 generator is used. This field can be set
+	// at connect time, based on node metadata, to trigger generation of a different style
+	// of configuration.
+	Generator Generator
+
+	// Active contains the list of watched resources for the proxy, keyed by the DiscoveryRequest type.
+	// It is nil if the Proxy uses the default generator
+	Active map[string]*WatchedResource
+}
+
+// WatchedResource tracks an active DiscoveryRequest type.
+type WatchedResource struct {
+	// TypeURL is copied from the DiscoveryRequest.TypeUrl that initiated watching this resource.
+	// The different spelling is due to linter.
+	TypeURL string
+
+	// ResourceNames tracks the list of resources that are actively watched. If empty, all resources of the
+	// TypeUrl type are watched.
+	ResourceNames []string
+
+	// NonceSent is the last nonce sent to a client.
+	NonceSent string
+
+	// NonceAcked is the last nonce acked by the client. If different from NonceSent the client is still
+	// processing the request and didn't ack/nack.
+	NonceAcked string
+
+	// VersionInfoSent is the last sent version info
+	VersionInfoSent string
+
+	// VersionInfoAcked is the last version info acked by the client. In empty, the client doesn't
+	// have any active working configuration.
+	VersionInfoAcked string
+
+	// LastSent tracks the time of the generated push, to determine the time it takes the client to ack.
+	LastSent time.Time
+
+	// Updates count the number of generated updates for the resource
+	Updates int
+
+	// LastSize tracks the size of the last update
+	LastSize int
 }
 
 var (
@@ -365,6 +422,9 @@ type NodeMetadata struct {
 	// Alpha in 1.1, based on feedback may be turned into an API or change. Set to "1" to enable.
 	HTTP10 string `json:"HTTP10,omitempty"`
 
+	// Generator indicates the client wants to use a custom Generator plugin.
+	Generator string `json:"GENERATOR,omitempty"`
+
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
 	Raw map[string]interface{} `json:"-"`
@@ -517,6 +577,8 @@ func (node *Proxy) GetRouterMode() RouterMode {
 // Listener generation code will still use the SidecarScope object directly
 // as it needs the set of services for each listener port.
 func (node *Proxy) SetSidecarScope(ps *PushContext) {
+	sidecarScope := node.SidecarScope
+
 	if node.Type == SidecarProxy {
 		workloadLabels := labels.Collection{node.Metadata.Labels}
 		node.SidecarScope = ps.getSidecarScope(node, workloadLabels)
@@ -524,7 +586,7 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 		// Gateways should just have a default scope with egress: */*
 		node.SidecarScope = DefaultSidecarScopeForNamespace(ps, node.ConfigNamespace)
 	}
-
+	node.PrevSidecarScope = sidecarScope
 }
 
 // SetGatewaysForProxy merges the Gateway objects associated with this
