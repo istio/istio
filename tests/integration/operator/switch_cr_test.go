@@ -55,8 +55,8 @@ const (
 )
 
 var (
-	ManifestTestDataPath = filepath.Join(env.IstioSrc, "operator/cmd/mesh/testdata/manifest-generate/input")
-	ProfilesPath         = filepath.Join(env.IstioSrc, "manifests/profiles")
+	ManifestPath = filepath.Join(env.IstioSrc, "manifests")
+	ProfilesPath = filepath.Join(env.IstioSrc, "manifests/profiles")
 )
 
 func TestController(t *testing.T) {
@@ -79,6 +79,7 @@ func TestController(t *testing.T) {
 				"--wait",
 				"--hub=" + s.Hub,
 				"--tag=" + s.Tag,
+				"--charts" + ManifestPath,
 			}
 			// install istio with default config for the first time by running operator init command
 			istioCtl.InvokeOrFail(t, initCmd)

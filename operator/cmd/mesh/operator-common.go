@@ -29,6 +29,8 @@ type operatorCommonArgs struct {
 	operatorNamespace string
 	// istioNamespace is the namespace Istio is installed into.
 	istioNamespace string
+	// charts is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
+	charts string
 }
 
 const (
@@ -41,7 +43,11 @@ func isControllerInstalled(kubeconfig, context, operatorNamespace string) (bool,
 
 // chartsRootDir, helmBaseDir, componentName, namespace string) (Template, TemplateRenderer, error) {
 func renderOperatorManifest(_ *rootArgs, ocArgs *operatorCommonArgs, _ *Logger) (string, string, error) {
-	r, err := helm.NewHelmRenderer(snapshotInstallPackageDir, "istio-operator", istioControllerComponentName, ocArgs.operatorNamespace)
+	installPackagePath := snapshotInstallPackageDir
+	if ocArgs.charts != "" {
+		installPackagePath = ocArgs.charts
+	}
+	r, err := helm.NewHelmRenderer(installPackagePath, "istio-operator", istioControllerComponentName, ocArgs.operatorNamespace)
 	if err != nil {
 		return "", "", err
 	}
