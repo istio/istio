@@ -21,6 +21,8 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 
+	"istio.io/istio/pkg/config/mesh"
+
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 
@@ -452,6 +454,7 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 
 // TestLDS using default sidecar in root namespace
 func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
+	mesh.TestMode = true
 	defaultInboundValue := features.EnableProtocolSniffingForInbound
 	features.EnableProtocolSniffingForInbound = true
 	defer func() { features.EnableProtocolSniffingForInbound = defaultInboundValue }()
