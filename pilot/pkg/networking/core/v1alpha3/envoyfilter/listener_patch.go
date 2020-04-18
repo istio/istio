@@ -492,6 +492,8 @@ func listenerMatch(listener *xdsapi.Listener, cp *model.EnvoyFilterConfigPatchWr
 	if cMatch.PortNumber != 0 {
 		sockAddr := listener.Address.GetSocketAddress()
 		if (sockAddr == nil || sockAddr.GetPortValue() != cMatch.PortNumber) &&
+			// skip virtual inbound and outbound listener port checks
+			// to support portNumber listener filter field within those special listeners
 			listener.Name != VirtualInboundListenerName && listener.Name != VirtualOutboundListenerName {
 			return false
 		}
@@ -537,7 +539,10 @@ func filterChainMatch(fc *xdslistener.FilterChain, cp *model.EnvoyFilterConfigPa
 		}
 	}
 
-	if cMatch.PortNumber > 0 && fc.FilterChainMatch != nil && fc.FilterChainMatch.DestinationPort != nil && fc.FilterChainMatch.DestinationPort.Value != cMatch.PortNumber {
+	// check match for destination port within the FilterChainMatch
+	if cMatch.PortNumber > 0 &&
+		fc.FilterChainMatch != nil && fc.FilterChainMatch.DestinationPort != nil &&
+		fc.FilterChainMatch.DestinationPort.Value != cMatch.PortNumber {
 		return false
 	}
 
