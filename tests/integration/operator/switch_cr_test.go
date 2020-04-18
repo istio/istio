@@ -19,12 +19,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/test/shell"
 	"os"
 	"path"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/shell"
 
 	"github.com/golang/protobuf/jsonpb"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -171,8 +172,11 @@ func installWithCRFile(t *testing.T, ctx resource.Context, cs kube.Cluster,
 metadata:
   name: test-istiocontrolplane
   namespace: istio-system
+spec:
+  installPackagePath: %s
 `
-	iopcr, err := util.OverlayYAML(string(iop), metadataYAML)
+	overlayYAML := fmt.Sprintf(metadataYAML, ManifestPath)
+	iopcr, err := util.OverlayYAML(string(iop), overlayYAML)
 	if err != nil {
 		t.Fatalf("failed to overlay iop with metadata: %v", err)
 	}
