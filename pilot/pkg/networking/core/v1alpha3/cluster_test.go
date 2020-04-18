@@ -387,24 +387,6 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 						Spec: destRule,
 					}}, nil
 			}
-			if typ == collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind() && authnPolicy != nil {
-				// Set the policy name conforming to the authentication rule:
-				// - namespace wide policy (i.e has not target selector) must be name "default"
-				// - service-specific policy can be named anything but 'default'
-				policyName := "default"
-				if authnPolicy.Targets != nil {
-					policyName = "acme"
-				}
-				return []model.Config{
-					{ConfigMeta: model.ConfigMeta{
-						Type:      collections.IstioAuthenticationV1Alpha1Policies.Resource().Kind(),
-						Version:   collections.IstioAuthenticationV1Alpha1Policies.Resource().Version(),
-						Name:      policyName,
-						Namespace: TestServiceNamespace,
-					},
-						Spec: authnPolicy,
-					}}, nil
-			}
 			if typ == collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind() && peerAuthn != nil {
 				policyName := "default"
 				if peerAuthn.Selector != nil {
