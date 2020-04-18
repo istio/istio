@@ -19,14 +19,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/test/framework/image"
 	"os"
 	"path"
 	"path/filepath"
 	"testing"
 	"time"
-
-	"istio.io/istio/pkg/test/shell"
 
 	"github.com/golang/protobuf/jsonpb"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -42,9 +39,11 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/pkg/log"
 )
