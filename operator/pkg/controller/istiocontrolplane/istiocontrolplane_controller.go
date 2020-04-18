@@ -191,7 +191,9 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		reconciler.Delete()
+		if err := reconciler.Delete(); err != nil {
+			return reconcile.Result{}, err
+		}
 		finalizers.Delete(finalizer)
 		iop.SetFinalizers(finalizers.List())
 		finalizerError := r.client.Update(context.TODO(), iop)

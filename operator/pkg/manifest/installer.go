@@ -63,9 +63,6 @@ const (
 	// cRDPollTimeout is the maximum wait time for all CRDs to be created.
 	cRDPollTimeout = 60 * time.Second
 
-	// Time to wait for internal dependencies before proceeding to installing the next component.
-	internalDepTimeout = 10 * time.Minute
-
 	// operatorReconcileStr indicates that the operator will reconcile the resource.
 	operatorReconcileStr = "Reconcile"
 )
@@ -643,7 +640,7 @@ func waitForCRDs(objects object.K8sObjects, stdout string, dryRun bool) error {
 
 // WaitForResources polls to get the current status of all pods, PVCs, and Services
 // until all are ready or a timeout is reached
-func WaitForResources(objects object.K8sObjects, cs *kubernetes.Clientset, waitTimeout time.Duration, dryRun bool) error {
+func WaitForResources(objects object.K8sObjects, cs kubernetes.Interface, waitTimeout time.Duration, dryRun bool) error {
 	if dryRun {
 		logAndPrint("Not waiting for resources ready in dry run mode.")
 		return nil

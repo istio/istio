@@ -214,6 +214,9 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 
 	// Save state to cluster in IstioOperator CR.
 	iopStr, err := translate.IOPStoIOPstr(iops, crName, iopv1alpha1.Namespace(iops))
+	if err != nil {
+		return err
+	}
 	obj, err := object.ParseYAMLToK8sObject([]byte(iopStr))
 	if err != nil {
 		return err
