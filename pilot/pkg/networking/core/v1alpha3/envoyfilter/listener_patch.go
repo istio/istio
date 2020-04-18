@@ -487,20 +487,24 @@ func listenerMatch(listener *xdsapi.Listener, cp *model.EnvoyFilterConfigPatchWr
 		return true
 	}
 
+	if cMatch.Name != "" && cMatch.Name != listener.Name {
+		return false
+	}
+
+	// skip listener port check for special virtual inbound and outbound listeners
+	// to support portNumber listener filter field within those special listeners as well
+	if cp.ApplyTo != networking.EnvoyFilter_LISTENER &&
+		(listener.Name == VirtualInboundListenerName || listener.Name == VirtualOutboundListenerName) {
+		return true
+	}
+
 	// FIXME: Ports on a listener can be 0. the API only takes uint32 for ports
 	// We should either make that field in API as a wrapper type or switch to int
 	if cMatch.PortNumber != 0 {
 		sockAddr := listener.Address.GetSocketAddress()
-		if (sockAddr == nil || sockAddr.GetPortValue() != cMatch.PortNumber) &&
-			// skip virtual inbound and outbound listener port checks
-			// to support portNumber listener filter field within those special listeners
-			listener.Name != VirtualInboundListenerName && listener.Name != VirtualOutboundListenerName {
+		if sockAddr == nil || sockAddr.GetPortValue() != cMatch.PortNumber {
 			return false
 		}
-	}
-
-	if cMatch.Name != "" && cMatch.Name != listener.Name {
-		return false
 	}
 
 	return true
