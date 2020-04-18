@@ -251,8 +251,6 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 		ac.RequireCerts = true
 	}
 
-	xdsServer = initXDS()
-
 	return ac
 }
 
@@ -303,7 +301,7 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 		return nil, err
 	}
 
-	startXDS(xdsServer)
+	startXDS()
 
 	return server, nil
 }

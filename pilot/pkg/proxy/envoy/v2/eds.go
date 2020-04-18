@@ -95,6 +95,11 @@ func buildEnvoyLbEndpoint(e *model.IstioEndpoint, push *model.PushContext) *endp
 	return ep
 }
 
+// Generate implements the generator for EDS responses.
+func (s *DiscoveryServer) Generate() {
+
+}
+
 // UpdateServiceShards will list the endpoints and create the shards.
 // This is used to reconcile and to support non-k8s registries (until they migrate).
 // Note that aggregated list is expensive (for large numbers) - we want to replace

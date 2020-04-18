@@ -47,7 +47,7 @@ import (
 
 var (
 	// Interface is slightly different for now - LDS/CDS have extra param.
-	gen = &apigen.GrpcConfigGenerator{}
+	gen = &apigen.ApiGenerator{}
 )
 
 // handleReqAck checks if the message is an ack/nack and handles it, returning true.
@@ -64,7 +64,7 @@ func (s *DiscoveryServer) handleReqAck(con *XdsConnection, discReq *xdsapi.Disco
 	w := con.node.Active[t]
 	if w == nil {
 		w = &model.WatchedResource{
-			TypeUrl:  t,
+			TypeURL:  t,
 		}
 		con.node.Active[t] = w
 		isAck = false // newly watched resource
@@ -120,7 +120,7 @@ func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *xdsapi.
 
 	push := s.globalPushContext()
 	resp := &xdsapi.DiscoveryResponse{
-		TypeUrl:     w.TypeUrl,
+		TypeUrl:     w.TypeURL,
 		VersionInfo: push.Version, // TODO: we can now generate per-type version !
 		Nonce:       nonce(push.Version),
 	}

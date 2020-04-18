@@ -19,9 +19,13 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"time"
 
 	"google.golang.org/grpc"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
+	"istio.io/istio/pkg/adsc"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -49,10 +53,13 @@ var (
 	localGrpcServer *grpc.Server
 
 	xdsServer *xds.Server
+	cfg *meshconfig.ProxyConfig
 )
 
-func initXDS() *xds.Server {
+func Init(mc *meshconfig.ProxyConfig) *xds.Server {
 	s := xds.NewXDS()
+	xdsServer = s
+	cfg = mc
 
 	// GrpcServer server over UDS, shared by SDS and XDS
 	serverOptions.GrpcServer = grpc.NewServer()
@@ -74,7 +81,26 @@ func initXDS() *xds.Server {
 	return s
 }
 
-func startXDS(s *xds.Server) {
+func startXDS() {
+
+	ads, err := adsc.Dial(cfg.DiscoveryAddress, "", &adsc.Config{
+		Meta: model.NodeMetadata {
+			Generator: "api",
+		}.ToStruct(),
+	})
+	if err != nil {
+		log.Fatalf("Failed to connect to XDS server")
+	}
+
+	ads.Store = xdsServer.MemoryConfigStore
+	ads.Registry = xdsServer.DiscoveryServer.MemRegistry
+
+	ads.WatchConfig()
+	ads.Wait(1 * time.Second, adsc.ListenerType)
+
+	// TODO: wait for config to sync before starting the rest
+	// TODO: handle push
+
 	if udsListener != nil {
 		go func() {
 			if err := serverOptions.GrpcServer.Serve(udsListener); err != nil {

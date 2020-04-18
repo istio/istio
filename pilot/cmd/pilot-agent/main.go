@@ -208,6 +208,8 @@ var (
 				log.Info("Using existing certs")
 			}
 
+			istio_agent.Init(&proxyConfig)
+
 			sa := istio_agent.NewSDSAgent(proxyConfig.DiscoveryAddress, proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 				pilotCertProvider, jwtPath, outputKeyCertToDir)
 

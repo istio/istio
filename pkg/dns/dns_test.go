@@ -127,7 +127,7 @@ func TestADSC(t *testing.T) {
 		adscConn, err := adsc.Dial(grpcUpstreamAddr, "", &adsc.Config{
 			IP: "1.2.3.4",
 			Meta: model.NodeMetadata {
-				InterceptionMode: model.InterceptionAPI,
+				Generator: "api",
 			}.ToStruct(),
 		})
 		if err != nil {

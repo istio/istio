@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config/schema/collections"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -28,6 +29,8 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 )
 
+// TODO: rename 'external' to service_entries or other specific name, the term 'external' is too broad
+
 func convertPort(port *networking.Port) *model.Port {
 	return &model.Port{
 		Name:     port.Name,
@@ -36,6 +39,47 @@ func convertPort(port *networking.Port) *model.Port {
 	}
 }
 
+func ServiceToServiceEntry(svc *model.Service) *model.Config {
+	gvk := collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind()
+	se := &networking.ServiceEntry{
+		Hosts:                []string{string(svc.Hostname)},
+		Addresses:            []string{svc.Address},
+		Ports:                nil,
+		//Location:             0,
+		//Resolution:           0,
+		//Endpoints:            nil,
+		//WorkloadSelector:     nil,
+		//ExportTo:             nil,
+		SubjectAltNames:      nil,
+	}
+	for _, p := range svc.Ports {
+		se.Ports = append(se.Ports, &networking.Port{
+			Number:               uint32(p.Port),
+			Protocol:             string(p.Protocol),
+			Name:                 p.Name,
+		})
+	}
+
+	cfg := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:              gvk.Kind,
+			Group:             gvk.Group,
+			Version:           gvk.Version,
+			Name:              "synthetic-" + string(svc.Hostname),
+			//Namespace:         "",
+			//Domain:            "",
+			//Labels:            nil,
+			//Annotations:       nil,
+			//ResourceVersion:   "",
+			CreationTimestamp: svc.CreationTime,
+		},
+		Spec: se,
+	}
+
+	return cfg
+}
+
+// convertServices transforms a ServiceEntry config to a list of internal Service objects.
 func convertServices(cfg model.Config) []*model.Service {
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	creationTime := cfg.CreationTimestamp

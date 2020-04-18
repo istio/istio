@@ -99,6 +99,8 @@ func NewXDS() *Server {
 }
 
 func (s *Server) StartGRPC(addr string) error {
+
+
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		return err
