@@ -254,6 +254,7 @@ func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Insta
 	// get manifests by running `manifest generate`
 	generateCmd := []string{
 		"manifest", "generate",
+		"--charts", ManifestPath,
 	}
 	if originalIOPFile != "" {
 		generateCmd = append(generateCmd, "-f", originalIOPFile)
