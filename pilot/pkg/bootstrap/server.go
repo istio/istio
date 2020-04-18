@@ -81,9 +81,8 @@ var (
 )
 
 func init() {
-	// get the grpc server wired up
-	// This should only be set before any RPCs are sent or received by this program.
-	grpc.EnableTracing = true
+	// Disable gRPC tracing. It has performance impacts (See https://github.com/grpc/grpc-go/issues/695)
+	grpc.EnableTracing = false
 
 	// Export pilot version as metric for fleet analytics.
 	pilotVersion := prom.NewGaugeVec(prom.GaugeOpts{
