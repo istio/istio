@@ -226,6 +226,7 @@ func createConfig(t *testing.T, g galley.Instance, config Config, yaml string, n
 }
 
 func TestMain(m *testing.M) {
+	mesh.TestMode = true
 	framework.
 		NewSuite("envoyfilter_test", m).
 		RequireEnvironment(environment.Native).
