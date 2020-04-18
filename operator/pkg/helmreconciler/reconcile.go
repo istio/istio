@@ -87,6 +87,8 @@ type HelmReconciler struct {
 
 // Options are options for HelmReconciler.
 type Options struct {
+	// ControllerMode controls performing controller related actions like updating status in the cluster CR.
+	ControllerMode bool
 	// DryRun executes all actions but does not write anything to the cluster.
 	DryRun bool
 }
@@ -143,6 +145,9 @@ func (h *HelmReconciler) Reconcile() error {
 
 // beginReconcile updates the status field on the IstioOperator instance before reconciling.
 func (h *HelmReconciler) beginReconcile() error {
+	if !h.opts.ControllerMode || h.opts.DryRun {
+		return nil
+	}
 	isop := &valuesv1alpha1.IstioOperator{}
 	namespacedName := types.NamespacedName{
 		Name:      h.iop.Name,
@@ -171,7 +176,7 @@ func (h *HelmReconciler) beginReconcile() error {
 
 // endReconcile updates the status field on the IstioOperator instance based on the resulting err parameter.
 func (h *HelmReconciler) endReconcile(status *v1alpha1.InstallStatus) error {
-	if h.opts.DryRun {
+	if !h.opts.ControllerMode || h.opts.DryRun {
 		return nil
 	}
 	iop := &valuesv1alpha1.IstioOperator{}
