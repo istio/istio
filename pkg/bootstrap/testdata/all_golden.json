@@ -173,9 +173,6 @@
           "prefix": "reporter="
           },
           {
-          "prefix": "component"
-          },
-          {
           "prefix": "cluster_manager"
           },
           {
@@ -196,6 +193,12 @@
           {
           "prefix": "wasm"
           },
+          {
+          "suffix": "ssl_context_update_by_sds"
+          },
+          {
+          "prefix": "component"
+          }
         ]
       }
     }
@@ -547,7 +550,7 @@
           "socket_address": {"address": "10.1.1.1", "port_value": 9125}
         }
       }
-    },
+    }
     
   ]
   

@@ -7,4 +7,3 @@
 *.gen.go linguist-generated=true
 *.gen.yaml linguist-generated=true
 *_pb2.py linguist-generated=true
-*.golden.yaml linguist-generated=true

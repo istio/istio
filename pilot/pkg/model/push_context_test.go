@@ -63,94 +63,36 @@ func TestMergeUpdateRequest(t *testing.T) {
 		{
 			"simple merge",
 			&PushRequest{
-				Full:              true,
-				Push:              push0,
-				Start:             t0,
-				NamespacesUpdated: map[string]struct{}{"ns1": {}},
-				ConfigsUpdated:    map[resource.GroupVersionKind]map[string]struct{}{{Kind: "cfg1"}: {}},
-				Reason:            []TriggerReason{ServiceUpdate, ServiceUpdate},
+				Full:  true,
+				Push:  push0,
+				Start: t0,
+				ConfigsUpdated: map[ConfigKey]struct{}{
+					{Kind: resource.GroupVersionKind{Kind: "cfg1"}, Namespace: "ns1"}: {}},
+				Reason: []TriggerReason{ServiceUpdate, ServiceUpdate},
 			},
 			&PushRequest{
-				Full:              false,
-				Push:              push1,
-				Start:             t1,
-				NamespacesUpdated: map[string]struct{}{"ns2": {}},
-				ConfigsUpdated:    map[resource.GroupVersionKind]map[string]struct{}{{Kind: "cfg2"}: {}},
-				Reason:            []TriggerReason{EndpointUpdate},
+				Full:  false,
+				Push:  push1,
+				Start: t1,
+				ConfigsUpdated: map[ConfigKey]struct{}{
+					{Kind: resource.GroupVersionKind{Kind: "cfg2"}, Namespace: "ns2"}: {}},
+				Reason: []TriggerReason{EndpointUpdate},
 			},
 			PushRequest{
-				Full:              true,
-				Push:              push1,
-				Start:             t0,
-				NamespacesUpdated: map[string]struct{}{"ns1": {}, "ns2": {}},
-				ConfigsUpdated:    map[resource.GroupVersionKind]map[string]struct{}{{Kind: "cfg1"}: {}, {Kind: "cfg2"}: {}},
-				Reason:            []TriggerReason{ServiceUpdate, ServiceUpdate, EndpointUpdate},
+				Full:  true,
+				Push:  push1,
+				Start: t0,
+				ConfigsUpdated: map[ConfigKey]struct{}{
+					{Kind: resource.GroupVersionKind{Kind: "cfg1"}, Namespace: "ns1"}: {},
+					{Kind: resource.GroupVersionKind{Kind: "cfg2"}, Namespace: "ns2"}: {}},
+				Reason: []TriggerReason{ServiceUpdate, ServiceUpdate, EndpointUpdate},
 			},
-		},
-		{
-			"incremental eds merge",
-			&PushRequest{Full: false,
-				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
-					ServiceEntryKind: {"svc-1": {}}}},
-			&PushRequest{Full: false,
-				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
-					ServiceEntryKind: {"svc-2": {}}}},
-			PushRequest{Full: false,
-				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
-					ServiceEntryKind: {"svc-1": {}, "svc-2": {}}}},
-		},
-		{
-			"skip eds merge: left full",
-			&PushRequest{Full: true},
-			&PushRequest{Full: false,
-				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
-					ServiceEntryKind: {"svc-2": {}}}},
-			PushRequest{Full: true},
-		},
-		{
-			"two kinds of resources: left full",
-			&PushRequest{Full: true,
-				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
-					{Kind: "cfg1"}: {}}},
-			&PushRequest{Full: false,
-				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
-					ServiceEntryKind: {"svc-2": {}}}},
-			PushRequest{Full: true,
-				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
-					ServiceEntryKind: {},
-					{Kind: "cfg1"}:   {},
-				}},
-		},
-		{
-			"skip eds merge: right full",
-			&PushRequest{Full: false,
-				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
-					ServiceEntryKind: {"svc-1": {}}}},
-			&PushRequest{Full: true},
-			PushRequest{Full: true},
-		},
-		{
-			"incremental merge",
-			&PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns1": {}},
-				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
-					ServiceEntryKind: {"svc-1": {}}}},
-			&PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns2": {}},
-				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
-					ServiceEntryKind: {"svc-2": {}}}},
-			PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns1": {}, "ns2": {}},
-				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
-					ServiceEntryKind: {"svc-1": {}, "svc-2": {}}}},
-		},
-		{
-			"skip namespace merge: one empty",
-			&PushRequest{Full: true, NamespacesUpdated: nil},
-			&PushRequest{Full: true, NamespacesUpdated: map[string]struct{}{"ns2": {}}},
-			PushRequest{Full: true, NamespacesUpdated: nil},
 		},
 		{
 			"skip config type merge: one empty",
 			&PushRequest{Full: true, ConfigsUpdated: nil},
-			&PushRequest{Full: true, ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{{Kind: "cfg2"}: {}}},
+			&PushRequest{Full: true, ConfigsUpdated: map[ConfigKey]struct{}{{
+				Kind: resource.GroupVersionKind{Kind: "cfg2"}}: {}}},
 			PushRequest{Full: true, ConfigsUpdated: nil},
 		},
 	}

@@ -158,6 +158,57 @@ func TestManifestGenerateComponentHubTag(t *testing.T) {
 	}
 }
 
+func TestManifestGenerateGateways(t *testing.T) {
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
+	g := NewGomegaWithT(t)
+	m, _, err := generateManifest("gateways", "", liveCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	objs := parseObjectSetFromManifest(t, m)
+	g.Expect(objs.kind(hpaStr).size()).Should(Equal(3))
+	g.Expect(objs.kind(pdbStr).size()).Should(Equal(3))
+	g.Expect(objs.kind(serviceStr).size()).Should(Equal(3))
+
+	// Two namespaces so two sets of these.
+	// istio-ingressgateway and user-ingressgateway share these as they are in the same namespace (istio-system).
+	g.Expect(objs.kind(roleStr).size()).Should(Equal(2))
+	g.Expect(objs.kind(roleBindingStr).size()).Should(Equal(2))
+	g.Expect(objs.kind(saStr).size()).Should(Equal(2))
+
+	dobj := mustGetDeployment(g, objs, "istio-ingressgateway")
+	d := dobj.Unstructured()
+	c := dobj.Container("istio-proxy")
+	g.Expect(d).Should(HavePathValueContain(PathValue{"metadata.labels", toMap("aaa:aaa-val,bbb:bbb-val")}))
+	g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "111m"}))
+
+	dobj = mustGetDeployment(g, objs, "user-ingressgateway")
+	d = dobj.Unstructured()
+	c = dobj.Container("istio-proxy")
+	g.Expect(d).Should(HavePathValueContain(PathValue{"metadata.labels", toMap("ccc:ccc-val,ddd:ddd-val")}))
+	g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "222m"}))
+
+	dobj = mustGetDeployment(g, objs, "ilb-gateway")
+	d = dobj.Unstructured()
+	c = dobj.Container("istio-proxy")
+	s := mustGetService(g, objs, "ilb-gateway").Unstructured()
+	g.Expect(d).Should(HavePathValueEqual(PathValue{"metadata.labels", toMap("app:istio-ingressgateway,istio:ingressgateway,release: istio")}))
+	g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "333m"}))
+	g.Expect(c).Should(HavePathValueEqual(PathValue{"volumeMounts.[name:ilbgateway-certs].name", "ilbgateway-certs"}))
+	g.Expect(s).Should(HavePathValueEqual(PathValue{"metadata.annotations", toMap("cloud.google.com/load-balancer-type: internal")}))
+	g.Expect(s).Should(HavePathValueEqual(PathValue{"spec.ports.[0]", portVal("grpc-pilot-mtls", 15011, -1)}))
+	g.Expect(s).Should(HavePathValueEqual(PathValue{"spec.ports.[1]", portVal("tcp-citadel-grpc-tls", 8060, 8060)}))
+	g.Expect(s).Should(HavePathValueEqual(PathValue{"spec.ports.[2]", portVal("tcp-dns", 5353, -1)}))
+
+	for _, o := range objs.kind(hpaStr).objSlice {
+		ou := o.Unstructured()
+		g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.minReplicas", int64(1)}))
+		g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.maxReplicas", int64(5)}))
+	}
+
+	checkRoleBindingsReferenceRoles(g, objs)
+}
+
 func TestManifestGenerateFlags(t *testing.T) {
 	flagOutputDir := createTempDirOrFail(t, "flag-output")
 	flagOutputValuesDir := createTempDirOrFail(t, "flag-output-values")
@@ -431,10 +482,10 @@ func TestConfigSelectors(t *testing.T) {
 
 	// First we fetch all the objects for our default install
 	name := "istiod"
-	deployment := mustFindObject(t, objs, name, "Deployment")
-	service := mustFindObject(t, objs, name, "Service")
-	pdb := mustFindObject(t, objs, name, "PodDisruptionBudget")
-	hpa := mustFindObject(t, objs, name, "HorizontalPodAutoscaler")
+	deployment := mustFindObject(t, objs, name, deploymentStr)
+	service := mustFindObject(t, objs, name, serviceStr)
+	pdb := mustFindObject(t, objs, name, pdbStr)
+	hpa := mustFindObject(t, objs, name, hpaStr)
 	podLabels := mustGetLabels(t, deployment, "spec.template.metadata.labels")
 	// Check all selectors align
 	mustSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabels)
@@ -446,10 +497,10 @@ func TestConfigSelectors(t *testing.T) {
 
 	// Next we fetch all the objects for a revision install
 	nameRev := "istiod-canary"
-	deploymentRev := mustFindObject(t, objsRev, nameRev, "Deployment")
-	serviceRev := mustFindObject(t, objsRev, nameRev, "Service")
-	pdbRev := mustFindObject(t, objsRev, nameRev, "PodDisruptionBudget")
-	hpaRev := mustFindObject(t, objsRev, nameRev, "HorizontalPodAutoscaler")
+	deploymentRev := mustFindObject(t, objsRev, nameRev, deploymentStr)
+	serviceRev := mustFindObject(t, objsRev, nameRev, serviceStr)
+	pdbRev := mustFindObject(t, objsRev, nameRev, pdbStr)
+	hpaRev := mustFindObject(t, objsRev, nameRev, hpaStr)
 	podLabelsRev := mustGetLabels(t, deploymentRev, "spec.template.metadata.labels")
 	// Check all selectors align for revision
 	mustSelect(t, mustGetLabels(t, pdbRev, "spec.selector.matchLabels"), podLabelsRev)

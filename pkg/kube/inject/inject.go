@@ -759,7 +759,7 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 	}
 
 	if len(spec.PodRedirectAnnot) != 0 {
-		rewriteCniPodSPec(metadata.Annotations, spec)
+		rewriteCniPodSpec(metadata.Annotations, spec)
 	}
 
 	metadata.Annotations[annotation.SidecarStatus.Name] = status
@@ -1095,10 +1095,10 @@ func potentialPodName(metadata *metav1.ObjectMeta) string {
 	return ""
 }
 
-// rewriteCniPodSPec will check if values from the sidecar injector Helm
+// rewriteCniPodSpec will check if values from the sidecar injector Helm
 // values need to be inserted as Pod annotations so the CNI will apply
 // the proper redirection rules.
-func rewriteCniPodSPec(annotations map[string]string, spec *SidecarInjectionSpec) {
+func rewriteCniPodSpec(annotations map[string]string, spec *SidecarInjectionSpec) {
 
 	if spec == nil {
 		return
