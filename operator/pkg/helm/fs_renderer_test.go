@@ -70,15 +70,15 @@ func TestRenderManifest(t *testing.T) {
 		desc                  string
 		inValues              string
 		inChart               chart.Chart
-		startRender 		  bool
-		inPath  			  string
+		startRender           bool
+		inPath                string
 		objFileTemplateReader FileTemplateRenderer
 		wantResult            string
 		wantErr               error
 	}{
 		{
-			desc:     "not-started",
-			inValues: "",
+			desc:        "not-started",
+			inValues:    "",
 			startRender: false,
 			inChart: chart.Chart{
 				Metadata:             nil,
@@ -101,11 +101,11 @@ func TestRenderManifest(t *testing.T) {
 			wantErr:    errors.New("fileTemplateRenderer for  not started in renderChart"),
 		},
 		{
-			desc:     "started-random-template",
+			desc: "started-random-template",
 			inValues: `
 description: test
 `,
-			inPath: "testdata/render/Chart.yaml",
+			inPath:      "testdata/render/Chart.yaml",
 			startRender: true,
 			objFileTemplateReader: FileTemplateRenderer{
 				namespace:        "name-space",
@@ -123,12 +123,12 @@ keywords:
 
 ---
 `,
-			wantErr:    nil,
+			wantErr: nil,
 		},
 		{
-			desc:     "bad-file-path",
-			inValues: "",
-			inPath: "foo/bar/Chart.yaml",
+			desc:        "bad-file-path",
+			inValues:    "",
+			inPath:      "foo/bar/Chart.yaml",
 			startRender: true,
 			objFileTemplateReader: FileTemplateRenderer{
 				namespace:        "name-space",
