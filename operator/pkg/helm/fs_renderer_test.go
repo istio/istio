@@ -65,19 +65,21 @@ func TestNewFileTemplateRenderer(t *testing.T) {
 	}
 }
 
-// TODO(adiprerepa): find a way to pass a chart in and test it.
 func TestRenderManifest(t *testing.T) {
 	tests := []struct {
 		desc                  string
 		inValues              string
 		inChart               chart.Chart
+		startRender 		  bool
+		inPath  			  string
 		objFileTemplateReader FileTemplateRenderer
 		wantResult            string
 		wantErr               error
 	}{
 		{
-			desc:     "empty",
+			desc:     "not-started",
 			inValues: "",
+			startRender: false,
 			inChart: chart.Chart{
 				Metadata:             nil,
 				Templates:            nil,
@@ -99,33 +101,58 @@ func TestRenderManifest(t *testing.T) {
 			wantErr:    errors.New("fileTemplateRenderer for  not started in renderChart"),
 		},
 		{
-			desc:     "not-started",
-			inValues: "foo-bar",
-			inChart: chart.Chart{
-				Metadata:             nil,
-				Templates:            nil,
-				Dependencies:         nil,
-				Values:               nil,
-				Files:                nil,
-				XXX_NoUnkeyedLiteral: struct{}{},
-				XXX_unrecognized:     nil,
-				XXX_sizecache:        0,
-			},
+			desc:     "started-random-template",
+			inValues: `
+description: test
+`,
+			inPath: "testdata/render/Chart.yaml",
+			startRender: true,
 			objFileTemplateReader: FileTemplateRenderer{
 				namespace:        "name-space",
 				componentName:    "foo-component",
-				helmChartDirPath: "/foo/bar",
-				chart:            nil,
-				started:          false,
+				helmChartDirPath: "testdata/render",
+			},
+			wantResult: `apiVersion: v1
+description: 
+name: addon
+version: 1.1.0
+appVersion: 1.1.0
+tillerVersion: ">=2.7.2"
+keywords:
+  - istio-addon
+
+---
+`,
+			wantErr:    nil,
+		},
+		{
+			desc:     "bad-file-path",
+			inValues: "",
+			inPath: "foo/bar/Chart.yaml",
+			startRender: true,
+			objFileTemplateReader: FileTemplateRenderer{
+				namespace:        "name-space",
+				componentName:    "foo-component",
+				helmChartDirPath: "foo/bar",
 			},
 			wantResult: "",
-			wantErr:    errors.New("fileTemplateRenderer for foo-component not started in renderChart"),
+			wantErr:    errors.New("stat foo/bar: no such file or directory"),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			if res, err := tt.objFileTemplateReader.RenderManifest(tt.inValues); !(tt.wantResult == res) || tt.wantErr.Error() != err.Error() {
-				t.Errorf("%s: expected %s, got %s", tt.desc, tt.wantResult, res)
+			if tt.startRender {
+				err := tt.objFileTemplateReader.Run()
+				if err != nil && tt.wantErr != nil {
+					if err.Error() != tt.wantErr.Error() {
+						t.Errorf("%s: expected err :%v got %v", tt.desc, tt.wantErr.Error(), err.Error())
+					}
+				}
+			}
+			if res, err := tt.objFileTemplateReader.RenderManifest(tt.inValues); res != tt.wantResult ||
+				((tt.wantErr != nil && err == nil) || (tt.wantErr == nil && err != nil)) {
+				t.Errorf("%s: \nexpected vals: \n%v\n\nexpected err:%v\ngot vals:\n%v\n\n got err %v",
+					tt.desc, tt.wantResult, tt.wantErr, res, err)
 			}
 		})
 	}
