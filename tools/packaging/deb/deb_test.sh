@@ -44,7 +44,7 @@ function startIstiodLocal() {
     export ISTIOD_ADDR=istiod.istio-system.svc:15012
     cd /
     /usr/local/bin/pilot-discovery discovery -n istio-system \
-      --configDir /var/lib/istio/config --secureGrpcAddr "" --registries Mock &
+      --configDir /var/lib/istio/config --registries Mock &
     sleep 1
 }
 
