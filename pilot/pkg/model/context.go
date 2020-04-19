@@ -99,7 +99,7 @@ func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxy *Pro
 	}
 }
 
-// Request is an alias for array of marshalled resources.
+// Request is an alias for array of marshaled resources.
 type Response = []*any.Any
 
 // ResourceGenerator creates the response for a typeURL DiscoveryRequest. If no generator is associated
@@ -188,8 +188,8 @@ type Proxy struct {
 
 // VersionNonce holds information about ack/nack status in the protocol.
 type VersionNonce struct {
-	version string
-	nonce   string
+	Version string
+	Nonce   string
 }
 
 // WatchedResource tracks an active DiscoveryRequest type.
