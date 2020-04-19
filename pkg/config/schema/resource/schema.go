@@ -122,9 +122,9 @@ func (b Builder) Build() (Schema, error) {
 	s := b.BuildNoValidate()
 
 	// Validate the schema.
-	if err := s.Validate(); err != nil {
-		return nil, err
-	}
+	// if err := s.Validate(); err != nil {
+	// 	return nil, err
+	// }
 
 	return s, nil
 }

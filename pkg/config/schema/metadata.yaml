@@ -57,6 +57,11 @@ collections:
     group: "networking.istio.io"
     pilot: true
 
+  - name: "istio/networking/v1beta1/destinationrules"
+    kind: "DestinationRule"
+    group: "networking.istio.io"
+    pilot: true
+
   - name: "istio/networking/v1alpha3/envoyfilters"
     kind: "EnvoyFilter"
     group: "networking.istio.io"
@@ -67,7 +72,17 @@ collections:
     group: "networking.istio.io"
     pilot: true
 
+  - name: "istio/networking/v1beta1/gateways"
+    kind: "Gateway"
+    group: "networking.istio.io"
+    pilot: true
+
   - name: "istio/networking/v1alpha3/serviceentries"
+    kind: "ServiceEntry"
+    group: "networking.istio.io"
+    pilot: true
+
+  - name: "istio/networking/v1beta1/serviceentries"
     kind: "ServiceEntry"
     group: "networking.istio.io"
     pilot: true
@@ -77,12 +92,27 @@ collections:
     group: "networking.istio.io"
     pilot: true
 
+  - name: "istio/networking/v1beta1/workloadentries"
+    kind: "WorkloadEntry"
+    group: "networking.istio.io"
+    pilot: true
+
   - name: "istio/networking/v1alpha3/sidecars"
     kind: "Sidecar"
     group: "networking.istio.io"
     pilot: true
 
+  - name: "istio/networking/v1beta1/sidecars"
+    kind: "Sidecar"
+    group: "networking.istio.io"
+    pilot: true
+
   - name: "istio/networking/v1alpha3/virtualservices"
+    kind: "VirtualService"
+    group: "networking.istio.io"
+    pilot: true
+
+  - name: "istio/networking/v1beta1/virtualservices"
     kind: "VirtualService"
     group: "networking.istio.io"
     pilot: true
@@ -243,6 +273,10 @@ collections:
     kind: "DestinationRule"
     group: "networking.istio.io"
 
+  - name: "k8s/networking.istio.io/v1beta1/destinationrules"
+    kind: "DestinationRule"
+    group: "networking.istio.io"
+
   - name: "k8s/networking.istio.io/v1alpha3/envoyfilters"
     kind: "EnvoyFilter"
     group: "networking.istio.io"
@@ -251,7 +285,15 @@ collections:
     kind: "Gateway"
     group: "networking.istio.io"
 
+  - name: "k8s/networking.istio.io/v1beta1/gateways"
+    kind: "Gateway"
+    group: "networking.istio.io"
+
   - name: "k8s/networking.istio.io/v1alpha3/serviceentries"
+    kind: "ServiceEntry"
+    group: "networking.istio.io"
+
+  - name: "k8s/networking.istio.io/v1beta1/serviceentries"
     kind: "ServiceEntry"
     group: "networking.istio.io"
 
@@ -259,11 +301,23 @@ collections:
     kind: "WorkloadEntry"
     group: "networking.istio.io"
 
+  - name: "k8s/networking.istio.io/v1beta1/workloadentries"
+    kind: "WorkloadEntry"
+    group: "networking.istio.io"
+
   - name: "k8s/networking.istio.io/v1alpha3/sidecars"
     kind: "Sidecar"
     group: "networking.istio.io"
 
+  - name: "k8s/networking.istio.io/v1beta1/sidecars"
+    kind: "Sidecar"
+    group: "networking.istio.io"
+
   - name: "k8s/networking.istio.io/v1alpha3/virtualservices"
+    kind: "VirtualService"
+    group: "networking.istio.io"
+
+  - name: "k8s/networking.istio.io/v1beta1/virtualservices"
     kind: "VirtualService"
     group: "networking.istio.io"
 
@@ -467,13 +521,29 @@ resources:
     protoPackage: "istio.io/api/networking/v1alpha3"
     description: "describes v1alpha3 route rules"
 
+  - kind: "VirtualService"
+    plural: "virtualservices"
+    group: "networking.istio.io"
+    version: "v1beta1"
+    proto: "istio.networking.v1beta1.VirtualService"
+    protoPackage: "istio.io/api/networking/v1beta1"
+    description: "describes v1beta1 route rules"
+
   - kind: "Gateway"
     plural: "gateways"
     group: "networking.istio.io"
     version: "v1alpha3"
     proto: "istio.networking.v1alpha3.Gateway"
     protoPackage: "istio.io/api/networking/v1alpha3"
-    description: "describes a gateway (how a proxy is exposed on the network)"
+    description: "describes a v1alpha3 gateway (how a proxy is exposed on the network)"
+
+  - kind: "Gateway"
+    plural: "gateways"
+    group: "networking.istio.io"
+    version: "v1beta1"
+    proto: "istio.networking.v1beta1.Gateway"
+    protoPackage: "istio.io/api/networking/v1beta1"
+    description: "describes a v1beta1 gateway (how a proxy is exposed on the network)"
 
   - kind: "ServiceEntry"
     plural: "serviceentries"
@@ -481,7 +551,15 @@ resources:
     version: "v1alpha3"
     proto: "istio.networking.v1alpha3.ServiceEntry"
     protoPackage: "istio.io/api/networking/v1alpha3"
-    description: "describes service entries"
+    description: "describes v1alpha3 service entries"
+
+  - kind: "ServiceEntry"
+    plural: "serviceentries"
+    group: "networking.istio.io"
+    version: "v1beta1"
+    proto: "istio.networking.v1beta1.ServiceEntry"
+    protoPackage: "istio.io/api/networking/v1beta1"
+    description: "describes v1beta1 service entries"
 
   - kind: "WorkloadEntry"
     plural: "workloadentries"
@@ -489,7 +567,15 @@ resources:
     version: "v1alpha3"
     proto: "istio.networking.v1alpha3.WorkloadEntry"
     protoPackage: "istio.io/api/networking/v1alpha3"
-    description: "describes workload entries"
+    description: "describes v1alpha3 workload entries"
+
+  - kind: "WorkloadEntry"
+    plural: "workloadentries"
+    group: "networking.istio.io"
+    version: "v1beta1"
+    proto: "istio.networking.v1beta1.WorkloadEntry"
+    protoPackage: "istio.io/api/networking/v1beta1"
+    description: "describes v1beta1 workload entries"
 
   - kind: "DestinationRule"
     plural: "destinationrules"
@@ -497,7 +583,15 @@ resources:
     version: "v1alpha3"
     proto: "istio.networking.v1alpha3.DestinationRule"
     protoPackage: "istio.io/api/networking/v1alpha3"
-    description: "describes destination rules"
+    description: "describes v1alpha3 destination rules"
+
+  - kind: "DestinationRule"
+    plural: "destinationrules"
+    group: "networking.istio.io"
+    version: "v1beta1"
+    proto: "istio.networking.v1beta1.DestinationRule"
+    protoPackage: "istio.io/api/networking/v1beta1"
+    description: "describes v1beta1 destination rules"
 
   - kind: "EnvoyFilter"
     plural: "envoyfilters"
@@ -513,6 +607,14 @@ resources:
     version: "v1alpha3"
     proto: "istio.networking.v1alpha3.Sidecar"
     protoPackage: "istio.io/api/networking/v1alpha3"
+    description: "describes the listeners associated with sidecars in a namespace"
+
+  - kind: "Sidecar"
+    plural: "sidecars"
+    group: "networking.istio.io"
+    version: "v1beta1"
+    proto: "istio.networking.v1beta1.Sidecar"
+    protoPackage: "istio.io/api/networking/v1beta1"
     description: "describes the listeners associated with sidecars in a namespace"
 
   - kind: "HTTPAPISpec"
@@ -578,8 +680,8 @@ resources:
     proto: "istio.rbac.v1alpha1.RbacConfig"
     protoPackage: "istio.io/api/rbac/v1alpha1"
     description: "describes the mesh level RBAC config.\n
-                   Deprecated: use ClusterRbacConfig instead.\n
-                   See https://github.com/istio/istio/issues/8825 for more details."
+      Deprecated: use ClusterRbacConfig instead.\n
+      See https://github.com/istio/istio/issues/8825 for more details."
 
   - kind: "ClusterRbacConfig"
     plural: "clusterrbacconfigs"

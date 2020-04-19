@@ -44,6 +44,7 @@ type Collection struct {
 	Description  string `json:"description"`
 	Group        string `json:"group"`
 	Kind         string `json:"kind"`
+	Version      string `json:"version"`
 	Disabled     bool   `json:"disabled"`
 	Pilot        bool   `json:"pilot"`
 }
