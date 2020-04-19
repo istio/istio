@@ -47,7 +47,7 @@ endif
 
 # If neither $(INTEGRATION_TEST_KUBECONFIG) nor $(KUBECONFIG) specified, use default.
 ifeq ($(_INTEGRATION_TEST_KUBECONFIG),)
-    _INTEGRATION_TEST_KUBECONFIG = ~/.kube/config
+    _INTEGRATION_TEST_KUBECONFIG = /home/.kube/config
 endif
 
 _INTEGRATION_TEST_FLAGS += --istio.test.kube.config=$(_INTEGRATION_TEST_KUBECONFIG)
