@@ -226,16 +226,6 @@ func rewriteURLToLocalInstallPath(installPackagePath, profileOrPath string, skip
 		return "", "", err
 	}
 	if isURL {
-		if !skipValidation {
-			_, ver, err := helm.URLToDirname(installPackagePath)
-			if err != nil {
-				return "", "", err
-			}
-			if ver.Minor != version.OperatorBinaryVersion.Minor {
-				return "", "", fmt.Errorf("chart minor version %s doesn't match istioctl version %s, use --force to override", ver, version.OperatorCodeBaseVersion)
-			}
-		}
-
 		installPackagePath, err = fetchExtractInstallPackageHTTP(installPackagePath)
 		if err != nil {
 			return "", "", err

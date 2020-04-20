@@ -58,7 +58,7 @@ func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance,
 				p = protocol.TCP
 			}
 		default:
-			// should not reach here
+			// Should not reach here.
 		}
 	}
 
@@ -75,7 +75,10 @@ func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance,
 		return ListenerProtocolTCP
 	case protocol.UDP:
 		return ListenerProtocolUnknown
+	case protocol.Unsupported:
+		return ListenerProtocolAuto
 	default:
+		// Should not reach here.
 		return ListenerProtocolAuto
 	}
 }
