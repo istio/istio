@@ -1,5 +1,20 @@
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio
+  namespace: istio-system
+  labels:
+    istio.io/rev: default
+    release: istio
 data:
+
+  # Configuration file for the mesh networks to be used by the Split Horizon EDS.
+  meshNetworks: |-
+    networks: {}
+
+  # Basic config for a sidecar CoreDNS server to resolve upstream and K8S requests.
+  # Will be needed until K8S DNS server adds a secure port, to avoid clear text
+  # MITM-exposed requests between istiod and K8S core DNS server.
   Corefile: |-
     .:15054 {
         errors
@@ -20,10 +35,11 @@ data:
         reload
         loadbalance
     }
+
   mesh: |-
     accessLogEncoding: TEXT
-    accessLogFile: null
-    accessLogFormat: null
+    accessLogFile: 
+    accessLogFormat: 
     defaultConfig:
       concurrency: 2
       configPath: /etc/istio/proxy
@@ -52,19 +68,11 @@ data:
     mixerCheckServer: foo:1234
     outboundTrafficPolicy:
       mode: REGISTRY_ONLY
-    protocolDetectionTimeout: 100ms
+    protocolDetectionTimeout: 12s
     reportBatchMaxEntries: 100
     reportBatchMaxTime: 1s
     rootNamespace: istio-control
     sdsUdsPath: unix:/etc/istio/proxy/SDS
     trustDomain: cluster.local
     trustDomainAliases: null
-  meshNetworks: 'networks: {}'
-kind: ConfigMap
-metadata:
-  labels:
-    istio.io/rev: default
-    release: istio
-  name: istio
-  namespace: istio-system
 ---
