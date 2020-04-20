@@ -40,6 +40,8 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(common.GetIstioInstance(), setupConfig)).
 		Setup(common.TestSetup).
+		// Application scraping will not work with permissive mode
+		Setup(common.SetupStrictMTLS).
 		Run()
 }
 

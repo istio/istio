@@ -221,6 +221,7 @@ spec:
   values:
     # You may override parts of meshconfig by uncommenting the following lines.
     meshConfig:
+      enablePrometheusMerge: false
       # Opt-out of global http2 upgrades.
       # Destination rule is used to opt-in.
       # h2_upgrade_policy: DO_NOT_UPGRADE

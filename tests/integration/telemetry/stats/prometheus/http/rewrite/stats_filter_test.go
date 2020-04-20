@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package wasm
+package rewrite
 
 import (
 	"testing"
@@ -25,24 +25,22 @@ import (
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus/http"
 )
 
-// TestWasmStatsFilter verifies the stats filter could emit expected client and server side
-// metrics when running with Wasm runtime.
+// TestStatsFilter verifies the stats filter could emit expected client and server side metrics.
 // This test focuses on stats filter and metadata exchange filter could work coherently with
-// proxy bootstrap config with Wasm runtime. To avoid flake, it does not verify correctness
-// of metrics, which should be covered by integration test in proxy repo.
-func TestWasmStatsFilter(t *testing.T) {
+// proxy bootstrap config. To avoid flake, it does not verify correctness of metrics, which
+// should be covered by integration test in proxy repo.
+// This test exercises the enablePrometheusMerge code path
+func TestStatsFilter(t *testing.T) {
 	common.TestStatsFilter(t)
 }
 
 func TestMain(m *testing.M) {
-	framework.NewSuite("stats_filter_wasm_test", m).
+	framework.NewSuite("stats_filter_test", m).
 		RequireEnvironment(environment.Kube).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(common.GetIstioInstance(), setupConfig)).
 		Setup(common.TestSetup).
-		// Application scraping will not work with permissive mode
-		Setup(common.SetupStrictMTLS).
 		Run()
 }
 
@@ -50,12 +48,11 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	// disable mixer telemetry and enable telemetry v2 with Wasm
+	// disable mixer telemetry and enable telemetry v2
 	cfg.Values["telemetry.enabled"] = "true"
 	cfg.Values["telemetry.v1.enabled"] = "false"
 	cfg.Values["telemetry.v2.enabled"] = "true"
-	cfg.Values["telemetry.v2.metadataExchange.wasmEnabled"] = "true"
 	cfg.Values["telemetry.v2.prometheus.enabled"] = "true"
-	cfg.Values["telemetry.v2.prometheus.wasmEnabled"] = "true"
 	cfg.Values["prometheus.enabled"] = "true"
+	cfg.Values["meshConfig.enablePrometheusMerge"] = "true"
 }
