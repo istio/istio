@@ -5,10 +5,10 @@ apiMapping:
     outPath: "global.tag"
   K8SDefaults:
     outPath: "global.resources"
-  MeshConfig.rootNamespace:
-    outPath: "global.istioNamespace"
   Revision:
     outPath: "revision"
+  MeshConfig:
+    outPath: "meshConfig"
 kubernetesMapping:
   "Components.{{.ComponentName}}.K8S.Affinity":
     outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.affinity"
