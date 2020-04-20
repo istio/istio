@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -267,8 +266,7 @@ func ParseK8sObjectsFromYAMLManifest(manifest string) (K8sObjects, error) {
 		}
 		o, err := ParseYAMLToK8sObject([]byte(yaml))
 		if err != nil {
-			log.Errorf("Failed to parse YAML to a k8s object: %v", err.Error())
-			continue
+			return nil, fmt.Errorf("failed to parse YAML to a k8s object: %s", err)
 		}
 
 		objects = append(objects, o)

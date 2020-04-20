@@ -187,7 +187,7 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 		}
 		log.Info("Deleting IstioOperator")
 
-		reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.config, iop, &helmreconciler.Options{ControllerMode: true})
+		reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.config, iop, nil)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -264,12 +264,19 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 		}
 		globalValues["jwtPolicy"] = string(jwtPolicy)
 	}
-	reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.config, iopMerged, &helmreconciler.Options{ControllerMode: true})
+	reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.config, iopMerged, nil)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	if err := reconciler.Reconcile(); err != nil {
+	if err := reconciler.SetStatusBegin(); err != nil {
+		return reconcile.Result{}, err
+	}
+	status, err := reconciler.Reconcile()
+	if err != nil {
 		log.Errorf("reconciling err: %s", err)
+	}
+	if err := reconciler.SetStatusComplete(status); err != nil {
+		return reconcile.Result{}, err
 	}
 
 	return reconcile.Result{}, err
