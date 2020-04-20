@@ -75,7 +75,7 @@ func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 		}
 		fileMeshContents = string(contents)
 	}
-	meshConfig, err := getMeshConfig(fileMeshContents, annotations[inject.MeshConfigAnnotation])
+	meshConfig, err := getMeshConfig(fileMeshContents, annotations[inject.ProxyConfigAnnotation])
 	if err != nil {
 		return meshconfig.ProxyConfig{}, err
 	}
@@ -112,7 +112,6 @@ func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 func getMeshConfig(fileOverride, annotationOverride string) (meshconfig.MeshConfig, error) {
 	mc := mesh.DefaultMeshConfig()
 
-	log.Errorf("howardjohn: get mesh config")
 	if fileOverride != "" {
 		log.Infof("Apply mesh config from file %v", fileOverride)
 		fileMesh, err := mesh.ApplyMeshConfig(fileOverride, mc)
@@ -133,7 +132,7 @@ func getMeshConfig(fileOverride, annotationOverride string) (meshconfig.MeshConf
 
 	if annotationOverride != "" {
 		log.Infof("Apply mesh config from annotation %v", annotationOverride)
-		annotationMesh, err := mesh.ApplyMeshConfig(annotationOverride, mc)
+		annotationMesh, err := mesh.ApplyProxyConfig(annotationOverride, mc)
 		if err != nil || annotationMesh == nil {
 			return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config from annotation [%v]: %v", annotationOverride, err)
 		}

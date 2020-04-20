@@ -37,6 +37,8 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -90,16 +92,16 @@ var (
 		annotation.SidecarTrafficExcludeOutboundPorts.Name:        ValidateExcludeOutboundPorts,
 		annotation.SidecarTrafficKubevirtInterfaces.Name:          alwaysValidFunc,
 		annotation.PrometheusMergeMetrics.Name:                    validateBool,
-		MeshConfigAnnotation:                                      validateMeshConfig,
+		ProxyConfigAnnotation:                                     validateProxyConfig,
 	}
 )
 
-func validateMeshConfig(value string) error {
-	_, err := mesh.ApplyMeshConfigDefaults(value)
-	if err != nil {
-		return err
+func validateProxyConfig(value string) error {
+	config := mesh.DefaultProxyConfig()
+	if err := gogoprotomarshal.ApplyYAML(value, &config); err != nil {
+		return fmt.Errorf("failed to convert to apply proxy config: %v", err)
 	}
-	return nil
+	return validation.ValidateProxyConfig(&config)
 }
 
 func validateAnnotations(annotations map[string]string) (err error) {
@@ -436,8 +438,8 @@ func flippedContains(needle, haystack string) bool {
 	return strings.Contains(haystack, needle)
 }
 
-// MeshConfigAnnotation determines the mesh config overrides for a workloadTODO move this to API
-var MeshConfigAnnotation = "istio.io/meshConfig"
+// ProxyConfigAnnotation determines the mesh config overrides for a workloadTODO move this to API
+var ProxyConfigAnnotation = "istio.io/proxyConfig"
 
 // InjectionData renders sidecarTemplate with valuesConfig.
 func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *metav1.TypeMeta, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec,
@@ -462,12 +464,11 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 		return nil, "", multierror.Prefix(err, "could not parse configuration values:")
 	}
 
-	if mca, f := metadata.GetAnnotations()[MeshConfigAnnotation]; f {
-		newMesh, err := mesh.ApplyMeshConfig(mca, *meshConfig)
-		if err != nil {
-			log.Errorf("invalid annotation %v: %v", MeshConfigAnnotation, err)
-		} else {
-			meshConfig = newMesh
+	if pca, f := metadata.GetAnnotations()[ProxyConfigAnnotation]; f {
+		var merr error
+		meshConfig, merr = mesh.ApplyProxyConfig(pca, *meshConfig)
+		if merr != nil {
+			return nil, "", merr
 		}
 	}
 	data := SidecarTemplateData{

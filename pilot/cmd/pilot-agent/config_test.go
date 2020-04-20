@@ -53,7 +53,10 @@ defaultConfig:
 		},
 		{
 			name:       "Annotation Override",
-			annotation: overrides,
+			annotation: `discoveryAddress: foo:123
+proxyMetadata:
+  SOME: setting
+drainDuration: 1s`,
 			expect:     overridesExpected,
 		},
 		{
@@ -83,11 +86,10 @@ defaultConfig:
   proxyMetadata:
     OTHER: option`,
 			annotation: `
-defaultConfig:
-  discoveryAddress: annotation:123
-  proxyMetadata:
-    ANNOTATION: something
-  drainDuration: 5s
+discoveryAddress: annotation:123
+proxyMetadata:
+  ANNOTATION: something
+drainDuration: 5s
 `,
 			expect: func() meshconfig.ProxyConfig {
 				m := mesh.DefaultProxyConfig()

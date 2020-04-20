@@ -15,10 +15,12 @@
 package mesh
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"istio.io/api/networking/v1alpha3"
 
 	"github.com/gogo/protobuf/types"
@@ -189,6 +191,16 @@ func IsClusterLocal(mesh *meshconfig.MeshConfig, namespace string) bool {
 		}
 	}
 	return false
+}
+
+// ApplyProxyConfig applies the give proxy config yaml to a mesh config object. The passed in mesh config
+// will not be modified.
+func ApplyProxyConfig(yaml string, meshConfig meshconfig.MeshConfig) (*meshconfig.MeshConfig, error) {
+	mc := proto.Clone(&meshConfig).(*meshconfig.MeshConfig)
+	if err := gogoprotomarshal.ApplyYAML(yaml, mc.DefaultConfig); err != nil {
+		return nil, fmt.Errorf("could not parse proxy config: %v", err)
+	}
+	return mc, nil
 }
 
 // ApplyMeshConfig returns a new MeshConfig decoded from the

@@ -29,6 +29,35 @@ import (
 	"istio.io/istio/pkg/config/validation"
 )
 
+func TestApplyProxyConfig(t *testing.T) {
+	config := mesh.DefaultMeshConfig()
+	defaultDiscovery := config.DefaultConfig.DiscoveryAddress
+
+	t.Run("apply single", func(t *testing.T) {
+		mc, err := mesh.ApplyProxyConfig("discoveryAddress: foo", config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if mc.DefaultConfig.DiscoveryAddress != "foo" {
+			t.Fatalf("expected discoveryAddress: foo, got %q", mc.DefaultConfig.DiscoveryAddress)
+		}
+	})
+
+	t.Run("apply again", func(t *testing.T) {
+		mc, err := mesh.ApplyProxyConfig("drainDuration: 5s", config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Ensure we didn't modify the passed in mesh config
+		if mc.DefaultConfig.DiscoveryAddress != defaultDiscovery{
+			t.Fatalf("expected discoveryAddress: %q, got %q", defaultDiscovery, mc.DefaultConfig.DiscoveryAddress)
+		}
+		if mc.DefaultConfig.DrainDuration.Seconds != 5 {
+			t.Fatalf("expected drainDuration: 5s, got %q", mc.DefaultConfig.DrainDuration.Seconds)
+		}
+	})
+}
+
 func TestDefaultProxyConfig(t *testing.T) {
 	proxyConfig := mesh.DefaultProxyConfig()
 	if err := validation.ValidateProxyConfig(&proxyConfig); err != nil {
