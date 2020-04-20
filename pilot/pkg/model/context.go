@@ -309,11 +309,11 @@ func (s *StringBool) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// ProxyConfig can only be marshalled using (gogo) jsonpb. However, the rest of node meta is not a proto
-// To allow marshalling, we need to define a custom type that calls out to the gogo marshaller
-type JsonProxyConfig meshconfig.ProxyConfig
+// ProxyConfig can only be marshaled using (gogo) jsonpb. However, the rest of node meta is not a proto
+// To allow marshaling, we need to define a custom type that calls out to the gogo marshaller
+type NodeMetaProxyConfig meshconfig.ProxyConfig
 
-func (s JsonProxyConfig) MarshalJSON() ([]byte, error) {
+func (s NodeMetaProxyConfig) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	pc := meshconfig.ProxyConfig(s)
 	if err := (&gogojsonpb.Marshaler{}).Marshal(&buf, &pc); err != nil {
@@ -322,7 +322,7 @@ func (s JsonProxyConfig) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (s *JsonProxyConfig) UnmarshalJSON(data []byte) error {
+func (s *NodeMetaProxyConfig) UnmarshalJSON(data []byte) error {
 	pc := (*meshconfig.ProxyConfig)(s)
 	return gogojsonpb.Unmarshal(bytes.NewReader(data), pc)
 }
@@ -337,7 +337,7 @@ type NodeMetadata struct {
 	// Note that this setting may be configured different for each proxy, due user overrides
 	// or from different versions of proxies connecting. While Pilot has access to the meshConfig.defaultConfig,
 	// this field should be preferred if it is present.
-	ProxyConfig *JsonProxyConfig `json:"PROXY_CONFIG,omitempty"`
+	ProxyConfig *NodeMetaProxyConfig `json:"PROXY_CONFIG,omitempty"`
 
 	// IstioVersion specifies the Istio version associated with the proxy
 	IstioVersion string `json:"ISTIO_VERSION,omitempty"`

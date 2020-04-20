@@ -71,7 +71,7 @@ func TestNodeMetadata(t *testing.T) {
 		},
 		{
 			"proxy config",
-			model.NodeMetadata{ProxyConfig: (*model.JsonProxyConfig)(&meshconfig.ProxyConfig{
+			model.NodeMetadata{ProxyConfig: (*model.NodeMetaProxyConfig)(&meshconfig.ProxyConfig{
 				ConfigPath:             "foo",
 				DrainDuration:          types.DurationProto(time.Second * 5),
 				ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
@@ -82,8 +82,9 @@ func TestNodeMetadata(t *testing.T) {
 					},
 				},
 			})},
+			// nolint: lll
 			`{"PROXY_CONFIG":{"configPath":"foo","drainDuration":"5s","controlPlaneAuthPolicy":"MUTUAL_TLS","envoyAccessLogService":{"address":"address","tlsSettings":{"subjectAltNames":["san"]}}}}`,
-			model.NodeMetadata{ProxyConfig: (*model.JsonProxyConfig)(&meshconfig.ProxyConfig{
+			model.NodeMetadata{ProxyConfig: (*model.NodeMetaProxyConfig)(&meshconfig.ProxyConfig{
 				ConfigPath:             "foo",
 				DrainDuration:          types.DurationProto(time.Second * 5),
 				ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
