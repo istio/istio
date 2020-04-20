@@ -25,7 +25,10 @@ set -e
 
 LOCAL_ARCH=$(uname -m)
 export LOCAL_ARCH
-if [[ ${LOCAL_ARCH} == x86_64 ]]; then
+# Pass environment set target architecture to build system
+if [[ ${TARGET_ARCH} ]]; then
+    export TARGET_ARCH
+elif [[ ${LOCAL_ARCH} == x86_64 ]]; then
     export TARGET_ARCH=amd64
 elif [[ ${LOCAL_ARCH} == armv8* ]]; then
     export TARGET_ARCH=arm64
@@ -40,7 +43,10 @@ fi
 
 LOCAL_OS=$(uname)
 export LOCAL_OS
-if [[ $LOCAL_OS == Linux ]]; then
+# Pass environment set target operating-system to build system
+if [[ ${TARGET_OS} ]]; then
+    export TARGET_OS
+elif [[ $LOCAL_OS == Linux ]]; then
     export TARGET_OS=linux
     readlink_flags="-f"
 elif [[ $LOCAL_OS == Darwin ]]; then
@@ -53,7 +59,7 @@ fi
 
 # Build image to use
 if [[ "${IMAGE_VERSION:-}" == "" ]]; then
-  export IMAGE_VERSION=master-2020-03-24T16-16-03
+  export IMAGE_VERSION=master-2020-04-16T19-28-05
 fi
 if [[ "${IMAGE_NAME:-}" == "" ]]; then
   export IMAGE_NAME=build-tools
@@ -76,7 +82,7 @@ export IMG="${IMG:-gcr.io/istio-testing/${IMAGE_NAME}:${IMAGE_VERSION}}"
 
 export CONTAINER_CLI="${CONTAINER_CLI:-docker}"
 
-export ENV_BLOCKLIST="${ENV_BLOCKLIST:-^_\|PATH\|SHELL\|EDITOR\|TMUX\|USER\|HOME\|PWD\|TERM\|GO\|rvm\|SSH\|TMPDIR}"
+export ENV_BLOCKLIST="${ENV_BLOCKLIST:-^_\|PATH\|SHELL\|EDITOR\|TMUX\|USER\|HOME\|PWD\|TERM\|GO\|rvm\|SSH\|TMPDIR\|CC\|CXX}"
 
 # Remove functions from the list of exported variables, they mess up with the `env` command.
 for f in $(declare -F -x | cut -d ' ' -f 3);

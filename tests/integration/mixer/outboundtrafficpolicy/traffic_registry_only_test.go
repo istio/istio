@@ -16,8 +16,6 @@ package outboundtrafficpolicy
 
 import (
 	"testing"
-
-	"istio.io/istio/pkg/test/echo/common/scheme"
 )
 
 func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
@@ -25,7 +23,6 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 		{
 			Name:     "HTTP Traffic",
 			PortName: "http",
-			Scheme:   scheme.HTTP,
 			Expected: Expected{
 				Metric:          "istio_requests_total",
 				PromQueryFormat: `sum(istio_requests_total{destination_service_name="BlackHoleCluster",response_code="502"})`,
@@ -35,8 +32,15 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 		{
 			Name:     "HTTPS Traffic",
 			PortName: "https",
-			// TODO: set up TLS here instead of just sending HTTP. We get a false positive here
-			Scheme: scheme.HTTP,
+			Expected: Expected{
+				Metric:          "istio_tcp_connections_closed_total",
+				PromQueryFormat: `sum(istio_tcp_connections_closed_total{destination_service="BlackHoleCluster",destination_service_name="BlackHoleCluster"})`,
+				ResponseCode:    []string{},
+			},
+		},
+		{
+			Name:     "HTTPS Traffic Conflict",
+			PortName: "https-conflict",
 			Expected: Expected{
 				Metric:          "istio_tcp_connections_closed_total",
 				PromQueryFormat: `sum(istio_tcp_connections_closed_total{destination_service="BlackHoleCluster",destination_service_name="BlackHoleCluster"})`,
@@ -48,7 +52,6 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 			PortName: "http",
 			Host:     "some-external-site.com",
 			Gateway:  true,
-			Scheme:   scheme.HTTP,
 			Expected: Expected{
 				Metric:          "istio_requests_total",
 				PromQueryFormat: `sum(istio_requests_total{destination_service_name="istio-egressgateway",response_code="200"})`,
@@ -59,8 +62,18 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 		{
 			Name:     "TCP",
 			PortName: "tcp",
-			Scheme:   scheme.TCP,
 			Expected: Expected{
+				// TODO(https://github.com/istio/istio/issues/22735) add metrics
+				Metric:          "",
+				PromQueryFormat: "",
+				ResponseCode:    []string{},
+			},
+		},
+		{
+			Name:     "TCP Conflict",
+			PortName: "tcp-conflict",
+			Expected: Expected{
+				// TODO(https://github.com/istio/istio/issues/22735) add metrics
 				Metric:          "",
 				PromQueryFormat: "",
 				ResponseCode:    []string{},

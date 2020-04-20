@@ -18,11 +18,11 @@ dynamic_resources:
         channel_credentials:
           ssl_credentials:
             root_certs:
-              filename: /tmp/sts-ca-certificates.crt
+              filename: {{.CACertPath}}
         call_credentials:
           sts_service:
             token_exchange_service_uri: http://127.0.0.1:{{.Ports.STSPort}}/token
-            subject_token_path: /tmp/sts-envoy-token.jwt
+            subject_token_path: {{.JWTTokenPath}}
             subject_token_type: urn:ietf:params:oauth:token-type:jwt
             scope: https://www.googleapis.com/auth/cloud-platform
 static_resources:

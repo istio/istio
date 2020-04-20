@@ -71,12 +71,15 @@ spec:
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
+        - name: DNS_ADDR
+          value: ""
         image: docker.io/istio/pilot:1.1.4
         name: discovery
         ports:
         - containerPort: 1234
         - containerPort: 15010
         - containerPort: 15017
+        - containerPort: 15053
         readinessProbe:
           httpGet:
             path: /ready
@@ -158,6 +161,14 @@ spec:
     targetPort: 15017
   - name: http-monitoring
     port: 15014
+  - name: dns
+    port: 53
+    protocol: UDP
+    targetPort: 15053
+  - name: dns-tls
+    port: 853
+    protocol: TCP
+    targetPort: 15053
   selector:
     app: istiod
     istio: pilot

@@ -208,6 +208,7 @@ func checkMetric(p prometheus.Instance, query string, excluded []string) error {
 	return nil
 }
 
+// nolint: interfacer
 func waitForMetrics(t framework.TestContext, instance prometheus.Instance) {
 	// These are sentinel metrics that will be used to evaluate if prometheus
 	// scraping has occurred and data is available via promQL.
@@ -244,7 +245,7 @@ spec:
     hosts:
     - "*"
   - port:
-      number: 15029
+      number: 31400
       name: tcp
       protocol: TCP
     hosts:
@@ -270,7 +271,7 @@ spec:
           number: 80
   tcp:
   - match:
-    - port: 15029
+    - port: 31400
     route:
     - destination:
         host: server

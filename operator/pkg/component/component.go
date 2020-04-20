@@ -27,6 +27,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
@@ -34,8 +36,6 @@ import (
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -89,8 +89,8 @@ type CommonComponentFields struct {
 	resourceName string
 	// index is the index of the component (only used for components with multiple instances like gateways).
 	index int
-	// spec for the actual component.
-	spec interface{}
+	// componentSpec for the actual component e.g. GatewaySpec, ComponentSpec.
+	componentSpec interface{}
 	// started reports whether the component is in initialized and running.
 	started  bool
 	renderer helm.TemplateRenderer
@@ -104,8 +104,6 @@ func NewCoreComponent(cn name.ComponentName, opts *Options) IstioComponent {
 		component = NewCRDComponent(opts)
 	case name.PilotComponentName:
 		component = NewPilotComponent(opts)
-	case name.GalleyComponentName:
-		component = NewGalleyComponent(opts)
 	case name.PolicyComponentName:
 		component = NewPolicyComponent(opts)
 	case name.TelemetryComponentName:
@@ -219,13 +217,13 @@ func (c *PilotComponent) overlayMeshConfig(baseYAML string) (string, error) {
 			continue
 		}
 
-		meshOverride, err := gogoprotomarshal.ToYAML(c.CommonComponentFields.InstallSpec.MeshConfig)
+		meshOverride, err := yaml.Marshal(c.CommonComponentFields.InstallSpec.MeshConfig)
 		if err != nil {
 			return "", err
 		}
 
 		// Merge the MeshConfig yaml on top of whatever is in the configMap already
-		meshStr, err = util.OverlayYAML(meshStr, meshOverride)
+		meshStr, err = util.OverlayYAML(meshStr, string(meshOverride))
 		if err != nil {
 			return "", err
 		}
@@ -371,52 +369,6 @@ func (c *TelemetryComponent) Enabled() bool {
 	return isCoreComponentEnabled(c.CommonComponentFields)
 }
 
-// GalleyComponent is the pilot component.
-type GalleyComponent struct {
-	*CommonComponentFields
-}
-
-// NewGalleyComponent creates a new PilotComponent and returns a pointer to it.
-func NewGalleyComponent(opts *Options) *GalleyComponent {
-	cn := name.GalleyComponentName
-	return &GalleyComponent{
-		&CommonComponentFields{
-			Options:       opts,
-			componentName: cn,
-		},
-	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *GalleyComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *GalleyComponent) RenderManifest() (string, error) {
-	return renderManifest(c, c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *GalleyComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *GalleyComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
-}
-
-// Namespace implements the IstioComponent interface.
-func (c *GalleyComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// Enabled implements the IstioComponent interface.
-func (c *GalleyComponent) Enabled() bool {
-	return isCoreComponentEnabled(c.CommonComponentFields)
-}
-
 // CNIComponent is the egress gateway component.
 type CNIComponent struct {
 	*CommonComponentFields
@@ -477,7 +429,7 @@ func NewIngressComponent(resourceName string, index int, spec *v1alpha1.GatewayS
 			componentName: cn,
 			resourceName:  resourceName,
 			index:         index,
-			spec:          spec,
+			componentSpec: spec,
 		},
 	}
 }
@@ -510,7 +462,7 @@ func (c *IngressComponent) Namespace() string {
 // Enabled implements the IstioComponent interface.
 func (c *IngressComponent) Enabled() bool {
 	// type assert is guaranteed to work in this context.
-	return boolValue(c.spec.(*v1alpha1.GatewaySpec).Enabled)
+	return boolValue(c.componentSpec.(*v1alpha1.GatewaySpec).Enabled)
 }
 
 // EgressComponent is the egress gateway component.
@@ -526,7 +478,7 @@ func NewEgressComponent(resourceName string, index int, spec *v1alpha1.GatewaySp
 			Options:       opts,
 			componentName: cn,
 			index:         index,
-			spec:          spec,
+			componentSpec: spec,
 			resourceName:  resourceName,
 		},
 	}
@@ -560,7 +512,7 @@ func (c *EgressComponent) Namespace() string {
 // Enabled implements the IstioComponent interface.
 func (c *EgressComponent) Enabled() bool {
 	// type assert is guaranteed to work in this context.
-	return boolValue(c.spec.(*v1alpha1.GatewaySpec).Enabled)
+	return boolValue(c.componentSpec.(*v1alpha1.GatewaySpec).Enabled)
 }
 
 // AddonComponent is an external component.
@@ -576,7 +528,7 @@ func NewAddonComponent(addonName, resourceName string, spec *v1alpha1.ExternalCo
 			componentName: name.AddonComponentName,
 			resourceName:  resourceName,
 			addonName:     addonName,
-			spec:          spec,
+			componentSpec: spec,
 		},
 	}
 }
@@ -609,7 +561,7 @@ func (c *AddonComponent) Namespace() string {
 // Enabled implements the IstioComponent interface.
 func (c *AddonComponent) Enabled() bool {
 	// type assert is guaranteed to work in this context.
-	return boolValue(c.spec.(*v1alpha1.ExternalComponentSpec).Enabled)
+	return boolValue(c.componentSpec.(*v1alpha1.ExternalComponentSpec).Enabled)
 }
 
 // runComponent performs startup tasks for the component defined by the given CommonComponentFields.
@@ -636,7 +588,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 		return disabledYAMLStr(cf.componentName, cf.resourceName), nil
 	}
 
-	mergedYAML, err := cf.Translator.TranslateHelmValues(cf.InstallSpec, getK8sResourceSpec(cf), cf.componentName, cf.resourceName)
+	mergedYAML, err := cf.Translator.TranslateHelmValues(cf.InstallSpec, cf.componentSpec, cf.componentName)
 	if err != nil {
 		return "", err
 	}
@@ -671,7 +623,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 	if cf.componentName == name.IngressComponentName || cf.componentName == name.EgressComponentName {
 		pathToK8sOverlay += fmt.Sprintf("%d.", cf.index)
 	}
-	pathToK8sOverlay += fmt.Sprintf("K8S.Overlays")
+	pathToK8sOverlay += "K8S.Overlays"
 	var overlays []*v1alpha1.K8SObjectOverlay
 	found, err := tpath.SetFromPath(cf.InstallSpec, pathToK8sOverlay, &overlays)
 	if err != nil {
@@ -717,17 +669,6 @@ func isCoreComponentEnabled(c *CommonComponentFields) bool {
 		return false
 	}
 	return enabled
-}
-
-func getK8sResourceSpec(c *CommonComponentFields) *v1alpha1.KubernetesResourcesSpec {
-	switch t := c.spec.(type) {
-	case *v1alpha1.GatewaySpec:
-		return t.K8S
-	case *v1alpha1.ComponentSpec:
-		return t.K8S
-	default:
-	}
-	return nil
 }
 
 // disabledYAMLStr returns the YAML comment string that the given component is disabled.

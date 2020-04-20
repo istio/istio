@@ -51,7 +51,7 @@ func TestConformance(t *testing.T) {
 			ctx.Fatalf("error loading test cases: %v", err)
 		}
 
-		gal := galley.NewOrFail(ctx, ctx, galley.Config{CreateClient: true})
+		gal := galley.NewOrFail(ctx, ctx, galley.Config{})
 		p := pilot.NewOrFail(ctx, ctx, pilot.Config{Galley: gal})
 
 		for _, ca := range cases {
@@ -134,7 +134,7 @@ func runStage(ctx framework.TestContext, pil pilot.Instance, gal galley.Instance
 		gal.DeleteConfigOrFail(ctx, ns, i)
 	}()
 
-	if s.MCP != nil {
+	if gal.Address() != "" && s.MCP != nil {
 		validateMCPState(ctx, gal, ns, s)
 	}
 	if s.Traffic != nil {

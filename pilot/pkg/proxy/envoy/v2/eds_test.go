@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
@@ -311,7 +310,7 @@ func addTestClientEndpoints(server *bootstrap.Server) {
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("test-1.default", &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
-			Address:         fmt.Sprintf("10.10.10.10"),
+			Address:         "10.10.10.10",
 			ServicePortName: "http",
 			EndpointPort:    80,
 			Locality:        model.Locality{Label: asdcLocality},
@@ -324,7 +323,7 @@ func addTestClientEndpoints(server *bootstrap.Server) {
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("test-1.default", &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
-			Address:         fmt.Sprintf("10.10.10.11"),
+			Address:         "10.10.10.11",
 			ServicePortName: "http",
 			EndpointPort:    80,
 			Locality:        model.Locality{Label: asdc2Locality},
@@ -388,10 +387,10 @@ func testOverlappingPorts(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.
 
 	server.EnvoyXdsServer.Push(&model.PushRequest{
 		Full: true,
-		ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
-			model.ServiceEntryKind: {
-				"overlapping.cluster.local": {},
-			}}})
+		ConfigsUpdated: map[model.ConfigKey]struct{}{{
+			Kind: model.ServiceEntryKind,
+			Name: "overlapping.cluster.local",
+		}: {}}})
 	_, _ = adsc.Wait(5 * time.Second)
 
 	// After the incremental push, we should still see the endpoint
@@ -620,7 +619,19 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 			log.Println("Waiting for pushes ", id)
 
 			// Pushes may be merged so we may not get nPushes pushes
-			_, err = adscConn.Wait(15*time.Second, "eds")
+			got, err := adscConn.Wait(15*time.Second, "eds")
+
+			// If in incremental mode, shouldn't receive cds|rds|lds here
+			if inc {
+				for _, g := range got {
+					if g == "cds" || g == "rds" || g == "lds" {
+						errChan <- fmt.Errorf("should be eds incremental but received cds. %v %v",
+							err, id)
+						return
+					}
+				}
+			}
+
 			atomic.AddInt32(&rcvPush, 1)
 			if err != nil {
 				log.Println("Recv failed", err, id)
@@ -645,14 +656,12 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 	for j := 0; j < nPushes; j++ {
 		if inc {
 			// This will be throttled - we want to trigger a single push
-			updates := map[string]struct{}{
-				edsIncSvc: {},
-			}
 			server.EnvoyXdsServer.AdsPushAll(strconv.Itoa(j), &model.PushRequest{
-				Full: true,
-				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
-					model.ServiceEntryKind: updates,
-				},
+				Full: false,
+				ConfigsUpdated: map[model.ConfigKey]struct{}{{
+					Kind: model.ServiceEntryKind,
+					Name: edsIncSvc,
+				}: {}},
 				Push: server.EnvoyXdsServer.Env.PushContext,
 			})
 		} else {

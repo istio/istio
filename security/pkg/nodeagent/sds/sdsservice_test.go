@@ -993,14 +993,16 @@ func TestDebugEndpoints(t *testing.T) {
 		arg := Options{
 			EnableIngressGatewaySDS: false,
 			EnableWorkloadSDS:       true,
-			RecycleInterval:         2 * time.Second,
+			RecycleInterval:         30 * time.Second,
 			WorkloadUDSPath:         socket,
 		}
 		st := &mockSecretStore{
 			checkToken: true,
 		}
-
+		sdsClientsMutex.Lock()
 		sdsClients = map[cache.ConnKey]*sdsConnection{}
+		sdsClientsMutex.Unlock()
+
 		server, err := NewServer(arg, st, nil)
 		if err != nil {
 			t.Fatalf("failed to start grpc server for sds: %v", err)

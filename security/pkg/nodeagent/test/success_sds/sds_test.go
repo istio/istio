@@ -19,12 +19,11 @@ import (
 	"testing"
 
 	"istio.io/istio/mixer/test/client/env"
-	testID "istio.io/istio/mixer/test/client/env"
 	sdsTest "istio.io/istio/security/pkg/nodeagent/test"
 )
 
 func TestProxySDS(t *testing.T) {
-	setup := sdsTest.SetupTest(t, testID.SDSTest)
+	setup := sdsTest.SetupTest(t, env.SDSTest)
 	defer setup.TearDown()
 
 	setup.StartProxy(t)

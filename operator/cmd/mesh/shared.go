@@ -27,15 +27,20 @@ import (
 	"istio.io/pkg/log"
 )
 
+var (
+	// Path to the operator install base dir in the snapshot. This symbol is required here because it's referenced
+	// in "operator dump" e2e command tests and there's no other way to inject a path into the snapshot into the command.
+	snapshotInstallPackageDir string
+)
+
 func initLogsOrExit(args *rootArgs) {
-	if err := configLogs(args.logToStdErr); err != nil {
+	if err := configLogs(args.logToStdErr, log.DefaultOptions()); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Could not configure logs: %s", err)
 		os.Exit(1)
 	}
 }
 
-func configLogs(logToStdErr bool) error {
-	opt := log.DefaultOptions()
+func configLogs(logToStdErr bool, opt *log.Options) error {
 	if logToStdErr {
 		opt.OutputPaths = []string{"stderr"}
 	}

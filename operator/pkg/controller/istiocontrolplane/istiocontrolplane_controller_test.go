@@ -17,6 +17,7 @@ package istiocontrolplane
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,8 +28,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/operator/v1alpha1"
+
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/name"
@@ -55,6 +56,7 @@ var (
 		string(name.EgressComponentName):    healthyVersionStatus,
 		string(name.AddonComponentName):     healthyVersionStatus,
 	}
+	installPackagePath string
 )
 
 type testCase struct {
@@ -65,6 +67,11 @@ type testCase struct {
 
 // TestIOPController_SwitchProfile
 func TestIOPController_SwitchProfile(t *testing.T) {
+	// Since controller code is running locally, we can point to a local filesystem path.
+	installPackagePath = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate/data-snapshot")
+	if err := name.ScanBundledAddonComponents(installPackagePath); err != nil {
+		t.Fatal(err)
+	}
 	cases := []testCase{
 		{
 			description:    "switch profile from minimal to default",
@@ -103,9 +110,10 @@ func testSwitchProfile(t *testing.T, c testCase) {
 			Namespace: namespace,
 		},
 		Spec: &v1alpha1.IstioOperatorSpec{
-			Profile: c.initialProfile,
-			MeshConfig: &mesh.MeshConfig{
-				RootNamespace: "istio-system",
+			Profile:            c.initialProfile,
+			InstallPackagePath: installPackagePath,
+			MeshConfig: map[string]interface{}{
+				"rootNamespace": "istio-system",
 			},
 		},
 	}
@@ -173,6 +181,7 @@ func switchIstioOperatorProfile(cl client.Client, key client.ObjectKey, profile 
 	}
 	return nil
 }
+
 func checkIOPStatus(cl client.Client, key client.ObjectKey, profile string) (bool, error) {
 	instance := &iop.IstioOperator{}
 	err := cl.Get(context.TODO(), key, instance)

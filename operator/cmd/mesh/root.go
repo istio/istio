@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 
 	binversion "istio.io/istio/operator/version"
+	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
 
@@ -28,6 +29,10 @@ const (
 (--set profile=demo), enable or disable components (--set components.policy.enabled=true), or override Istio
 settings (--set values.grafana.enabled=true). See documentation for more info:
 https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb/#IstioControlPlaneSpec`
+	chartsFlagHelpStr = `Specify a path to a directory of charts and profiles
+(e.g. ~/Downloads/istio-1.5.0/install/kubernetes/operator)
+or release tar URL (e.g. https://github.com/istio/istio/releases/download/1.5.1/istio-1.5.1-linux.tar.gz).
+`
 	skipConfirmationFlagHelpStr = `skipConfirmation determines whether the user is prompted for confirmation.
 If set to true, the user is not prompted and a Yes response is assumed in all cases.`
 	filenameFlagHelpStr = `Path to file containing IstioOperator custom resource
@@ -45,7 +50,7 @@ type rootArgs struct {
 
 func addFlags(cmd *cobra.Command, rootArgs *rootArgs) {
 	cmd.PersistentFlags().BoolVarP(&rootArgs.logToStdErr, "logtostderr", "",
-		false, "Send logs to stderr.")
+		true, "Send logs to stderr.")
 	cmd.PersistentFlags().BoolVarP(&rootArgs.dryRun, "dry-run", "",
 		false, "Console/log output only, make no changes.")
 	cmd.PersistentFlags().BoolVarP(&rootArgs.verbose, "verbose", "",
@@ -64,7 +69,7 @@ func GetRootCmd(args []string) *cobra.Command {
 	rootCmd.SetArgs(args)
 	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 
-	rootCmd.AddCommand(ManifestCmd())
+	rootCmd.AddCommand(ManifestCmd(log.DefaultOptions()))
 	rootCmd.AddCommand(ProfileCmd())
 	rootCmd.AddCommand(OperatorCmd())
 	rootCmd.AddCommand(version.CobraCommand())

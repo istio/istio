@@ -18,8 +18,6 @@
 
 # EgressGateways istio-egressgateway component is disabled.
 
-# Galley component is disabled.
-
 # Resources for IngressGateways component
 
 apiVersion: autoscaling/v2beta1
@@ -28,7 +26,9 @@ metadata:
   name: istio-ingressgateway
   namespace: istio-system
   labels:
+    aaa: aaa-val
     app: istio-ingressgateway
+    bbb: bbb-val
     istio: ingressgateway
     
     release: istio
@@ -51,7 +51,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
+    aaa: aaa-val
     app: istio-ingressgateway
+    bbb: bbb-val
     istio: ingressgateway
     release: istio
   name: istio-ingressgateway
@@ -59,7 +61,9 @@ metadata:
 spec:
   selector:
     matchLabels:
+      aaa: aaa-val
       app: istio-ingressgateway
+      bbb: bbb-val
       istio: ingressgateway
   strategy:
     rollingUpdate:
@@ -70,7 +74,9 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
       labels:
+        aaa: aaa-val
         app: istio-ingressgateway
+        bbb: bbb-val
         chart: gateways
         heritage: Tiller
         istio: ingressgateway
@@ -267,7 +273,9 @@ metadata:
   name: istio-ingressgateway
   namespace: istio-system
   labels:
+    aaa: aaa-val
     app: istio-ingressgateway
+    bbb: bbb-val
     istio: ingressgateway
     
     release: istio
@@ -275,7 +283,9 @@ spec:
   minAvailable: 1
   selector:
     matchLabels:
+      aaa: aaa-val
       app: istio-ingressgateway
+      bbb: bbb-val
       istio: ingressgateway
       
       release: istio
@@ -320,14 +330,18 @@ metadata:
   namespace: istio-system
   annotations:
   labels:
+    aaa: aaa-val
     app: istio-ingressgateway
+    bbb: bbb-val
     istio: ingressgateway
     
     release: istio
 spec:
   type: LoadBalancer
   selector:
+    aaa: aaa-val
     app: istio-ingressgateway
+    bbb: bbb-val
     istio: ingressgateway
     
   ports:
@@ -372,7 +386,9 @@ metadata:
   name: istio-ingressgateway-service-account
   namespace: istio-system
   labels:
+    aaa: aaa-val
     app: istio-ingressgateway
+    bbb: bbb-val
     istio: ingressgateway
     
     release: istio
@@ -388,6 +404,8 @@ metadata:
   namespace: istio-system
   labels:
     app: istio-ingressgateway
+    ccc: ccc-val
+    ddd: ddd-val
     istio: ingressgateway
     
     release: istio
@@ -411,6 +429,8 @@ kind: Deployment
 metadata:
   labels:
     app: istio-ingressgateway
+    ccc: ccc-val
+    ddd: ddd-val
     istio: ingressgateway
     release: istio
   name: user-ingressgateway
@@ -419,6 +439,8 @@ spec:
   selector:
     matchLabels:
       app: istio-ingressgateway
+      ccc: ccc-val
+      ddd: ddd-val
       istio: ingressgateway
   strategy:
     rollingUpdate:
@@ -430,7 +452,9 @@ spec:
         sidecar.istio.io/inject: "false"
       labels:
         app: istio-ingressgateway
+        ccc: ccc-val
         chart: gateways
+        ddd: ddd-val
         heritage: Tiller
         istio: ingressgateway
         release: istio
@@ -627,6 +651,8 @@ metadata:
   namespace: istio-system
   labels:
     app: istio-ingressgateway
+    ccc: ccc-val
+    ddd: ddd-val
     istio: ingressgateway
     
     release: istio
@@ -635,6 +661,8 @@ spec:
   selector:
     matchLabels:
       app: istio-ingressgateway
+      ccc: ccc-val
+      ddd: ddd-val
       istio: ingressgateway
       
       release: istio
@@ -680,6 +708,8 @@ metadata:
   annotations:
   labels:
     app: istio-ingressgateway
+    ccc: ccc-val
+    ddd: ddd-val
     istio: ingressgateway
     
     release: istio
@@ -687,6 +717,8 @@ spec:
   type: LoadBalancer
   selector:
     app: istio-ingressgateway
+    ccc: ccc-val
+    ddd: ddd-val
     istio: ingressgateway
     
   ports:
@@ -732,6 +764,8 @@ metadata:
   namespace: istio-system
   labels:
     app: istio-ingressgateway
+    ccc: ccc-val
+    ddd: ddd-val
     istio: ingressgateway
     
     release: istio

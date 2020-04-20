@@ -565,8 +565,6 @@ metadata:
 
 # EgressGateways istio-egressgateway component is disabled.
 
-# Galley component is disabled.
-
 # IngressGateways istio-ingressgateway component is disabled.
 
 ---

@@ -19,7 +19,6 @@ import (
 	"strings"
 	"sync"
 
-	"k8s.io/api/extensions/v1beta1"
 	ingress "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -193,7 +192,7 @@ func (g *virtualServiceXform) removeIngress(oldIngress *resource.Instance, h eve
 }
 
 func iterateHosts(i *resource.Instance, fn func(string)) {
-	spec := i.Message.(*v1beta1.IngressSpec)
+	spec := i.Message.(*ingress.IngressSpec)
 	for _, r := range spec.Rules {
 		host := getHost(&r)
 		fn(host)
@@ -203,9 +202,9 @@ func iterateHosts(i *resource.Instance, fn func(string)) {
 func iterateRemovedHosts(o, n *resource.Instance, fn func(string)) {
 	// Use N^2 algorithm, to avoid garbage generation.
 loop:
-	for _, ro := range o.Message.(*v1beta1.IngressSpec).Rules {
+	for _, ro := range o.Message.(*ingress.IngressSpec).Rules {
 		if n != nil {
-			for _, rn := range n.Message.(*v1beta1.IngressSpec).Rules {
+			for _, rn := range n.Message.(*ingress.IngressSpec).Rules {
 				if getHost(&ro) == getHost(&rn) {
 					continue loop
 				}
@@ -239,7 +238,7 @@ func (g *virtualServiceXform) notifyDelete(h event.Handler, name resource.FullNa
 	h.Handle(e)
 }
 
-func getHost(r *v1beta1.IngressRule) string {
+func getHost(r *ingress.IngressRule) string {
 	host := r.Host
 	if host == "" {
 		host = "*"

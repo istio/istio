@@ -41,7 +41,7 @@ import (
 )
 
 func TestGoldenConversion(t *testing.T) {
-	cases := []string{"simple", "tls"}
+	cases := []string{"simple", "tls", "overlay"}
 	for _, tt := range cases {
 		t.Run(tt, func(t *testing.T) {
 			input, err := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt))

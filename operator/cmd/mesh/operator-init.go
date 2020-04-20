@@ -21,11 +21,10 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-
 	"github.com/spf13/cobra"
 	"k8s.io/utils/pointer"
 
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
@@ -87,6 +86,7 @@ func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
 		"The namespace the operator controller is installed into")
 	cmd.PersistentFlags().StringVar(&args.common.istioNamespace, "istioNamespace", "istio-system",
 		"The namespace Istio is installed into")
+	cmd.PersistentFlags().StringVarP(&args.common.charts, "charts", "d", "", chartsFlagHelpStr)
 }
 
 func operatorInitCmd(rootArgs *rootArgs, oiArgs *operatorInitArgs) *cobra.Command {

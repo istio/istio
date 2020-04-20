@@ -38,10 +38,6 @@ import (
 )
 
 const (
-	// K8sDeploymentResourceType is the resource type of kubernetes deployment.
-	K8sDeploymentResourceType = "Deployment"
-	// K8sDaemonSetResourceType is the resource type of kubernetes daemonset.
-	K8sDaemonSetResourceType = "DaemonSet"
 	// HelmValuesEnabledSubpath is the subpath from the component root to the enabled parameter.
 	HelmValuesEnabledSubpath = "enabled"
 	// HelmValuesNamespaceSubpath is the subpath from the component root to the namespace parameter.
@@ -54,8 +50,6 @@ const (
 	TranslateConfigFolder = "translateConfig"
 	// TranslateConfigPrefix is the prefix of IstioOperator's translation configuration file
 	TranslateConfigPrefix = "translateConfig-"
-	// ICPToIOPConfigPrefix is the prefix of IstioControPlane-to-IstioOperator translation configuration file
-	ICPToIOPConfigPrefix = "translate-ICP-IOP-"
 
 	// devDbg generates lots of output useful in development.
 	devDbg = false
@@ -227,24 +221,8 @@ func (t *Translator) ProtoToValues(ii *v1alpha1.IstioOperatorSpec) (string, erro
 	return string(y), errs.ToError()
 }
 
-// ValuesOverlaysToHelmValues translates from component value overlays to helm value overlay paths.
-func (t *Translator) ValuesOverlaysToHelmValues(in map[string]interface{}, cname name.ComponentName) map[string]interface{} {
-	out := make(map[string]interface{})
-	toPath := t.ComponentMaps[cname].ToHelmValuesTreeRoot
-	pv := strings.Split(toPath, ".")
-	cur := out
-	for len(pv) > 1 {
-		cur[pv[0]] = make(map[string]interface{})
-		cur = cur[pv[0]].(map[string]interface{})
-		pv = pv[1:]
-	}
-	cur[pv[0]] = in
-	return out
-}
-
 // TranslateHelmValues creates a Helm values.yaml config data tree from iop using the given translator.
-func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, k8s *v1alpha1.KubernetesResourcesSpec,
-	componentName name.ComponentName, resourceName string) (string, error) {
+func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, componentsSpec interface{}, componentName name.ComponentName) (string, error) {
 	globalVals, globalUnvalidatedVals, apiVals := make(map[string]interface{}), make(map[string]interface{}), make(map[string]interface{})
 
 	// First, translate the IstioOperator API to helm Values.
@@ -288,7 +266,7 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, k8s *v
 		return "", err
 	}
 
-	mergedYAML, err = applyGatewayTranslations(mergedYAML, componentName, resourceName, k8s)
+	mergedYAML, err = applyGatewayTranslations(mergedYAML, componentName, componentsSpec)
 	if err != nil {
 		return "", err
 	}
@@ -298,7 +276,7 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, k8s *v
 
 // applyGatewayTranslations writes gateway name gwName at the appropriate values path in iop and maps k8s.service.ports
 // to values. It returns the resulting YAML tree.
-func applyGatewayTranslations(iop []byte, componentName name.ComponentName, gwName string, k8s *v1alpha1.KubernetesResourcesSpec) ([]byte, error) {
+func applyGatewayTranslations(iop []byte, componentName name.ComponentName, componentSpec interface{}) ([]byte, error) {
 	if !componentName.IsGateway() {
 		return iop, nil
 	}
@@ -306,14 +284,22 @@ func applyGatewayTranslations(iop []byte, componentName name.ComponentName, gwNa
 	if err := yaml.Unmarshal(iop, &iopt); err != nil {
 		return nil, err
 	}
+	gwSpec := componentSpec.(*v1alpha1.GatewaySpec)
+	k8s := gwSpec.K8S
 	switch componentName {
 	case name.IngressComponentName:
-		setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.name"), gwName)
+		setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.name"), gwSpec.Name)
+		if len(gwSpec.Label) != 0 {
+			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.labels"), gwSpec.Label)
+		}
 		if k8s != nil && k8s.Service != nil {
 			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.ports"), k8s.Service.Ports)
 		}
 	case name.EgressComponentName:
-		setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-egressgateway.name"), gwName)
+		setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-egressgateway.name"), gwSpec.Name)
+		if len(gwSpec.Label) != 0 {
+			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-egressgateway.labels"), gwSpec.Label)
+		}
 		if k8s != nil && k8s.Service != nil {
 			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-egressgateway.ports"), k8s.Service.Ports)
 		}
@@ -485,15 +471,6 @@ func (t *Translator) IsComponentEnabled(cn name.ComponentName, iop *v1alpha1.Ist
 		return false, nil
 	}
 	return IsComponentEnabledInSpec(cn, iop)
-}
-
-// AllComponentsNames returns a slice of all components used in t.
-func (t *Translator) AllComponentsNames() []name.ComponentName {
-	var out []name.ComponentName
-	for cn := range t.ComponentMaps {
-		out = append(out, cn)
-	}
-	return out
 }
 
 // insertLeaf inserts a leaf with value into root at path, which is first mapped using t.APIMapping.

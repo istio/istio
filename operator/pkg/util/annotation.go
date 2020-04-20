@@ -19,35 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// HasAnnotation is a helper function returning true if the specified object contains the specified annotation.
-func HasAnnotation(resource runtime.Object, annotation string) bool {
-	annotations, err := meta.NewAccessor().Annotations(resource)
-	if err != nil {
-		// if we can't access annotations, then it doesn't have this annotation
-		return false
-	}
-	if annotations == nil {
-		return false
-	}
-	_, ok := annotations[annotation]
-	return ok
-}
-
-// DeleteAnnotation is a helper function which deletes the specified annotation from the specified object.
-func DeleteAnnotation(resource runtime.Object, annotation string) {
-	resourceAccessor, err := meta.Accessor(resource)
-	if err != nil {
-		// if we can't access annotations, then it doesn't have this annotation, so nothing to delete
-		return
-	}
-	annotations := resourceAccessor.GetAnnotations()
-	if annotations == nil {
-		return
-	}
-	delete(annotations, annotation)
-	resourceAccessor.SetAnnotations(annotations)
-}
-
 // GetAnnotation is a helper function which returns the value of the specified annotation on the specified object.
 // returns ok=false if the annotation was not found on the object.
 func GetAnnotation(resource runtime.Object, annotation string) (value string, ok bool) {

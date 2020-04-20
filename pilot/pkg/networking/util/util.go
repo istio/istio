@@ -22,11 +22,11 @@ import (
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	envoyauth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
@@ -42,9 +42,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/util/strcase"
 )
@@ -52,14 +50,14 @@ import (
 const (
 	// BlackHoleCluster to catch traffic from routes with unresolved clusters. Traffic arriving here goes nowhere.
 	BlackHoleCluster = "BlackHoleCluster"
-	// BlackHoleRouteName is the name of the route that blocks all traffic.
-	BlackHoleRouteName = "block_all"
+	// BlackHole is the name of the virtual host and route name used to block all traffic
+	BlackHole = "block_all"
 	// PassthroughCluster to forward traffic to the original destination requested. This cluster is used when
 	// traffic does not match any listener in envoy.
 	PassthroughCluster = "PassthroughCluster"
-	// PassthroughRouteName is the name of the route that forwards traffic to the
+	// Passthrough is the name of the virtual host used to forward traffic to the
 	// PassthroughCluster
-	PassthroughRouteName = "allow_any"
+	Passthrough = "allow_any"
 	// PassthroughFilterChain to catch traffic that doesn't match other filter chains.
 	PassthroughFilterChain = "PassthroughFilterChain"
 
@@ -575,84 +573,66 @@ func BuildStatPrefix(statPattern string, host string, subset string, port *model
 	return prefix
 }
 
-// shotHostName constructs the name from kubernetes hosts based on attributes (name and namespace).
+// shortHostName constructs the name from kubernetes hosts based on attributes (name and namespace).
 // For other hosts like VMs, this method does not do any thing - just returns the passed in host as is.
 func shortHostName(host string, attributes model.ServiceAttributes) string {
 	if attributes.ServiceRegistry == string(serviceregistry.Kubernetes) {
-		return fmt.Sprintf("%s.%s", attributes.Name, attributes.Namespace)
+		return attributes.Name + "." + attributes.Namespace
 	}
 	return host
 }
 
-// ApplyToCommonTLSContext completes the commonTlsContext for `ISTIO_MUTUAL` TLS mode
-func ApplyToCommonTLSContext(tlsContext *envoyauth.CommonTlsContext, metadata *model.NodeMetadata, sdsPath string, subjectAltNames []string) {
-	// configure TLS with SDS
-	if metadata.SdsEnabled && sdsPath != "" {
-		// configure egress with SDS
-		tlsContext.ValidationContextType = &envoyauth.CommonTlsContext_CombinedValidationContext{
-			CombinedValidationContext: &envoyauth.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext: &envoyauth.CertificateValidationContext{VerifySubjectAltName: subjectAltNames},
-				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(
-					authn_model.SDSRootResourceName, sdsPath),
-			},
-		}
-		tlsContext.TlsCertificateSdsSecretConfigs = []*envoyauth.SdsSecretConfig{
-			authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName, sdsPath),
-		}
-	} else {
-		// SDS disabled, fall back on using mounted certificates
-		base := metadata.SdsBase + constants.AuthCertsPath
-		tlsServerRootCert := model.GetOrDefault(metadata.TLSServerRootCert, base+constants.RootCertFilename)
-
-		tlsContext.ValidationContextType = authn_model.ConstructValidationContext(tlsServerRootCert, subjectAltNames)
-
-		tlsServerCertChain := model.GetOrDefault(metadata.TLSServerCertChain, base+constants.CertChainFilename)
-		tlsServerKey := model.GetOrDefault(metadata.TLSServerKey, base+constants.KeyFilename)
-
-		tlsContext.TlsCertificates = []*envoyauth.TlsCertificate{
-			{
-				CertificateChain: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: tlsServerCertChain,
-					},
-				},
-				PrivateKey: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: tlsServerKey,
-					},
-				},
-			},
-		}
+func StringToExactMatch(in []string) []*matcher.StringMatcher {
+	if len(in) == 0 {
+		return nil
 	}
+	res := make([]*matcher.StringMatcher, 0, len(in))
+	for _, s := range in {
+		res = append(res, &matcher.StringMatcher{
+			MatchPattern: &matcher.StringMatcher_Exact{Exact: s},
+		})
+	}
+	return res
 }
 
-// ApplyCustomSDSToCommonTLSContext applies the customized sds to CommonTlsContext
-// Used for building both gateway/sidecar TLS context
-func ApplyCustomSDSToCommonTLSContext(tlsContext *envoyauth.CommonTlsContext, tlsOpts *networking.ServerTLSSettings, sdsUdsPath string) {
-	// create SDS config for gateway/sidecar to fetch key/cert from agent.
-	tlsContext.TlsCertificateSdsSecretConfigs = []*envoyauth.SdsSecretConfig{
-		authn_model.ConstructSdsSecretConfigWithCustomUds(tlsOpts.CredentialName, sdsUdsPath),
+func StringSliceEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
 	}
-	// If tls mode is MUTUAL, create SDS config for gateway/sidecar to fetch certificate validation context
-	// at gateway agent. Otherwise, use the static certificate validation context config.
-	if tlsOpts.Mode == networking.ServerTLSSettings_MUTUAL {
-		defaultValidationContext := &envoyauth.CertificateValidationContext{
-			VerifySubjectAltName:  tlsOpts.SubjectAltNames,
-			VerifyCertificateSpki: tlsOpts.VerifyCertificateSpki,
-			VerifyCertificateHash: tlsOpts.VerifyCertificateHash,
-		}
-		tlsContext.ValidationContextType = &envoyauth.CommonTlsContext_CombinedValidationContext{
-			CombinedValidationContext: &envoyauth.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext: defaultValidationContext,
-				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfigWithCustomUds(
-					tlsOpts.CredentialName+authn_model.SdsCaSuffix, sdsUdsPath),
-			},
-		}
-	} else if len(tlsOpts.SubjectAltNames) > 0 {
-		tlsContext.ValidationContextType = &envoyauth.CommonTlsContext_ValidationContext{
-			ValidationContext: &envoyauth.CertificateValidationContext{
-				VerifySubjectAltName: tlsOpts.SubjectAltNames,
-			},
+
+	for i := range a {
+		if a[i] != b[i] {
+			return false
 		}
 	}
+
+	return true
+}
+
+func UInt32SliceEqual(a, b []uint32) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
+func CidrRangeSliceEqual(a, b []*core.CidrRange) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i].GetAddressPrefix() != b[i].GetAddressPrefix() || a[i].GetPrefixLen().GetValue() != b[i].GetPrefixLen().GetValue() {
+			return false
+		}
+	}
+
+	return true
 }

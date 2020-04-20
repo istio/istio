@@ -4,13 +4,19 @@
     "cluster": "{{ .cluster }}",
     "locality": {
       {{- if .region }}
-      "region": "{{ .region }}",
+      "region": "{{ .region }}"
       {{- end }}
       {{- if .zone }}
-      "zone": "{{ .zone }}",
+      {{- if .region }}
+      ,
+      {{- end }}
+      "zone": "{{ .zone }}"
       {{- end }}
       {{- if .sub_zone }}
-      "sub_zone": "{{ .sub_zone }}",
+      {{- if or .region .zone }}
+      ,
+      {{- end }}
+      "sub_zone": "{{ .sub_zone }}"
       {{- end }}
     },
     "metadata": {{ .meta_json_str }}
@@ -187,9 +193,6 @@
           {
           "prefix": "reporter="
           },
-          {
-          "prefix": "component"
-          },
           {{- range $a, $s := .inclusionPrefix }}
           {
           "prefix": "{{$s}}"
@@ -205,6 +208,9 @@
           "regex": "{{js $s}}"
           },
           {{- end }}
+          {
+          "prefix": "component"
+          }
         ]
       }
     }
@@ -345,7 +351,7 @@
                   "filename": "./var/run/secrets/istio/root-cert.pem"
                   {{- end }}
                 },
-                "verify_subject_alt_name": {{ toJSON .pilot_SAN }}
+                "match_subject_alt_names": {{ .pilot_SAN }}
               }
             }
           }
@@ -577,7 +583,10 @@
                     ]
                   },
                   "http_filters": [{
-                    "name": "envoy.router"
+                    "name": "envoy.router",
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.config.filter.http.router.v2.Router"
+                    }
                   }]
                 }
               }
@@ -654,8 +663,16 @@
               "scope": "https://www.googleapis.com/auth/cloud-platform",
             }
           }
-        }
-      }
+        },
+        "initial_metadata": [
+        {{ if .gcp_project_id }}
+          {
+            "key": "x-goog-user-project",
+            "value": "{{ .gcp_project_id }}"
+          }
+        {{ end }}
+        ]
+      },
       {{ end }}
       "stdout_exporter_enabled": {{ .stackdriverDebug }},
       "incoming_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],
@@ -695,7 +712,7 @@
           "socket_address": {{ .statsd }}
         }
       }
-    },
+    }
     {{ end }}
   ]
   {{ end }}

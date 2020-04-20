@@ -18,11 +18,10 @@ import (
 	"fmt"
 	"strings"
 
-	"istio.io/istio/operator/pkg/helm"
-
 	"github.com/ghodss/yaml"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
@@ -102,4 +101,12 @@ func fetchExtractInstallPackageHTTP(releaseTarURL string) (string, error) {
 		return "", err
 	}
 	return uf.DestDir(), nil
+}
+
+// --charts is an alias for --set installPackagePath=
+func applyInstallFlagAlias(flags []string, charts string) []string {
+	if charts != "" {
+		flags = append(flags, fmt.Sprintf("installPackagePath=%s", charts))
+	}
+	return flags
 }

@@ -148,8 +148,29 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 
 		httpRoutes := make([]*networking.HTTPRoute, 0)
 		for _, httpPath := range rule.HTTP.Paths {
-			httpMatch := &networking.HTTPMatchRequest{
-				Uri: createStringMatch(httpPath.Path),
+			httpMatch := &networking.HTTPMatchRequest{}
+			if httpPath.PathType != nil {
+				switch *httpPath.PathType {
+				case v1beta1.PathTypeExact:
+					httpMatch.Uri = &networking.StringMatch{
+						MatchType: &networking.StringMatch_Exact{Exact: httpPath.Path},
+					}
+				case v1beta1.PathTypePrefix:
+					// From the spec: /foo/bar matches /foo/bar/baz, but does not match /foo/barbaz
+					// Envoy prefix match behaves differently, so insert a / if we don't have one
+					path := httpPath.Path
+					if !strings.HasSuffix(path, "/") {
+						path += "/"
+					}
+					httpMatch.Uri = &networking.StringMatch{
+						MatchType: &networking.StringMatch_Prefix{Prefix: path},
+					}
+				default:
+					// Fallback to the legacy string matching
+					httpMatch.Uri = createFallbackStringMatch(httpPath.Path)
+				}
+			} else {
+				httpMatch.Uri = createFallbackStringMatch(httpPath.Path)
 			}
 
 			httpRoute := ingressBackendToHTTPRoute(&httpPath.Backend, ingress.Namespace, domainSuffix)
@@ -180,10 +201,10 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 			vs := old.Spec.(*networking.VirtualService)
 			vs.Http = append(vs.Http, httpRoutes...)
 			sort.SliceStable(vs.Http, func(i, j int) bool {
-				r1 := vs.Http[i].Match[0].Uri
-				r2 := vs.Http[j].Match[0].Uri
-				_, r1Ex := r1.MatchType.(*networking.StringMatch_Exact)
-				_, r2Ex := r2.MatchType.(*networking.StringMatch_Exact)
+				r1 := vs.Http[i].Match[0].GetUri()
+				r2 := vs.Http[j].Match[0].GetUri()
+				_, r1Ex := r1.GetMatchType().(*networking.StringMatch_Exact)
+				_, r2Ex := r2.GetMatchType().(*networking.StringMatch_Exact)
 				// TODO: default at the end
 				if r1Ex && !r2Ex {
 					return true
@@ -264,7 +285,7 @@ func shouldProcessIngressWithClass(mesh *meshconfig.MeshConfig, ingress *v1beta1
 	}
 }
 
-func createStringMatch(s string) *networking.StringMatch {
+func createFallbackStringMatch(s string) *networking.StringMatch {
 	if s == "" {
 		return nil
 	}

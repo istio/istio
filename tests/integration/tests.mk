@@ -70,7 +70,7 @@ test.integration.%.local: | $(JUNIT_REPORT)
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # Generate presubmit integration test targets for each component in kubernetes environment
-test.integration.%.kube.presubmit: istioctl | $(JUNIT_REPORT)
+test.integration.%.kube.presubmit: | $(JUNIT_REPORT)
 	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
 	--istio.test.env kube \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
@@ -78,7 +78,7 @@ test.integration.%.kube.presubmit: istioctl | $(JUNIT_REPORT)
 
 # Presubmit integration tests targeting Kubernetes environment.
 .PHONY: test.integration.kube.presubmit
-test.integration.kube.presubmit: istioctl | $(JUNIT_REPORT)
+test.integration.kube.presubmit: | $(JUNIT_REPORT)
 	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ${TEST_PACKAGES} -timeout 30m \
  	--istio.test.env kube \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
@@ -86,7 +86,7 @@ test.integration.kube.presubmit: istioctl | $(JUNIT_REPORT)
 
 # Defines a target to run a minimal reachability testing basic traffic
 .PHONY: test.integration.kube.reachability
-test.integration.kube.reachability: istioctl | $(JUNIT_REPORT)
+test.integration.kube.reachability: | $(JUNIT_REPORT)
 	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ./tests/integration/security/ -timeout 30m \
 	--istio.test.env kube \
 	${_INTEGRATION_TEST_FLAGS} \

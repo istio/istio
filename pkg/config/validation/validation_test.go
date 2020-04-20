@@ -1559,83 +1559,28 @@ func TestValidateCORSPolicy(t *testing.T) {
 			ExposeHeaders: []string{"header3"},
 			MaxAge:        &types.Duration{Seconds: 2, Nanos: 42},
 		}, valid: false},
-		{name: "good origin ", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"example.com"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: true},
-		{name: "good origin with star", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"*"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: true},
-		{name: "good origin with http", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"http://example.com"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: true},
-		{name: "good origin with https", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"https://example.com"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: true},
-		{name: "good origin with https and port number", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"https://example.com:80"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: true},
-		{name: "good origin with port number", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"example.com:80"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: true},
-		{name: "bad origin", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"example.com", "error$.com"},
+		{name: "empty matchType AllowOrigins", in: &networking.CorsPolicy{
+			AllowOrigins: []*networking.StringMatch{
+				{MatchType: &networking.StringMatch_Exact{Exact: ""}},
+				{MatchType: &networking.StringMatch_Prefix{Prefix: ""}},
+				{MatchType: &networking.StringMatch_Regex{Regex: ""}},
+			},
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"header3"},
 			MaxAge:        &types.Duration{Seconds: 2},
 		}, valid: false},
-		{name: "bad origin with scheme only", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"http://", "https://"},
+		{name: "non empty matchType AllowOrigins", in: &networking.CorsPolicy{
+			AllowOrigins: []*networking.StringMatch{
+				{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+				{MatchType: &networking.StringMatch_Prefix{Prefix: "prefix"}},
+				{MatchType: &networking.StringMatch_Regex{Regex: "regex"}},
+			},
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"header3"},
 			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: false},
-		{name: "bad origin with bad port string", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"example.com:port"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: false},
-		{name: "bad origin with bad port number", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"example.com:100000"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: false},
-		{name: "bad origin with star", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"*.example.com"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: false},
+		}, valid: true},
 	}
 
 	for _, tc := range testCases {
@@ -2289,7 +2234,7 @@ func TestValidateHTTPRoute(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := validateHTTPRoute(tc.route); (err == nil) != tc.valid {
+			if err := validateHTTPRoute(tc.route, false); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
 			}
 		})
@@ -3663,6 +3608,33 @@ func TestValidateServiceEntries(t *testing.T) {
 			Resolution: networking.ServiceEntry_NONE,
 		},
 			valid: true},
+		{name: "selector", in: networking.ServiceEntry{
+			Hosts:            []string{"google.com"},
+			WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"foo": "bar"}},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+			},
+		},
+			valid: true},
+		{name: "selector and endpoints", in: networking.ServiceEntry{
+			Hosts:            []string{"google.com"},
+			WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"foo": "bar"}},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+			},
+			Endpoints: []*networking.WorkloadEntry{
+				{Address: "1.1.1.1"},
+			},
+		},
+			valid: false},
+		{name: "bad selector key", in: networking.ServiceEntry{
+			Hosts:            []string{"google.com"},
+			WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"": "bar"}},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+			},
+		},
+			valid: false},
 	}
 
 	for _, c := range cases {

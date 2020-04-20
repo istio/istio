@@ -23,11 +23,10 @@ import (
 	"sort"
 	"strings"
 
-	"istio.io/istio/operator/pkg/manifest"
-
 	"github.com/google/go-cmp/cmp"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
@@ -274,8 +273,8 @@ func ManifestDiffWithRenameSelectIgnore(a, b, renameResources, selectResources, 
 	return manifestDiff(aosm, bosm, im, verbose)
 }
 
-// SelectAndIgnoreFromOutput selects and ignores subset from the manifest string
-func SelectAndIgnoreFromOutput(ms string, selectResources string, ignoreResources string) (string, error) {
+// FilterManifest selects and ignores subset from the manifest string
+func FilterManifest(ms string, selectResources string, ignoreResources string) (string, error) {
 	sm := getObjPathMap(selectResources)
 	im := getObjPathMap(ignoreResources)
 	ao, err := object.ParseK8sObjectsFromYAMLManifest(ms)

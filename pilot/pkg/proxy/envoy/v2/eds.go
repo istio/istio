@@ -34,8 +34,8 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/resource"
 )
 
 // EDS returns the list of endpoints (IP:port and in future labels) associated with a real
@@ -170,7 +170,7 @@ func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, namespace string, 
 // Only clusters that changed are updated/pushed.
 func (s *DiscoveryServer) edsIncremental(version string, req *model.PushRequest) {
 	adsLog.Infof("XDS:EDSInc Pushing:%s Services:%v ConnectedEndpoints:%d",
-		version, req.ConfigsUpdated[model.ServiceEntryKind], s.adsClientCount())
+		version, model.ConfigNamesOfKind(req.ConfigsUpdated, model.ServiceEntryKind), s.adsClientCount())
 	s.startPush(req)
 }
 
@@ -207,11 +207,12 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			s.deleteEndpointShards(clusterID, serviceName, namespace)
 			adsLog.Infof("Incremental push, service %s has no endpoints", serviceName)
 			s.ConfigUpdate(&model.PushRequest{
-				Full:              false,
-				NamespacesUpdated: map[string]struct{}{namespace: {}},
-				ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
-					model.ServiceEntryKind: {serviceName: {}},
-				},
+				Full: false,
+				ConfigsUpdated: map[model.ConfigKey]struct{}{{
+					Kind:      model.ServiceEntryKind,
+					Name:      serviceName,
+					Namespace: namespace,
+				}: {}},
 				Reason: []model.TriggerReason{model.EndpointUpdate},
 			})
 		}
@@ -266,17 +267,13 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	// no need to trigger push here.
 	// It is done in DiscoveryServer.Push --> AdsPushAll
 	if !internal {
-		var edsUpdates map[string]struct{}
-		if !requireFull {
-			edsUpdates = map[string]struct{}{serviceName: {}}
-		}
-
 		s.ConfigUpdate(&model.PushRequest{
-			Full:              requireFull,
-			NamespacesUpdated: map[string]struct{}{namespace: {}},
-			ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{
-				model.ServiceEntryKind: edsUpdates,
-			},
+			Full: requireFull,
+			ConfigsUpdated: map[model.ConfigKey]struct{}{{
+				Kind:      model.ServiceEntryKind,
+				Name:      serviceName,
+				Namespace: namespace,
+			}: {}},
 			Reason: []model.TriggerReason{model.EndpointUpdate},
 		})
 	}
@@ -368,7 +365,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 		return buildEmptyClusterLoadAssignment(clusterName)
 	}
 
-	locEps := buildLocalityLbEndpointsFromShards(se, svcPort, subsetLabels, clusterName, push)
+	locEps := buildLocalityLbEndpointsFromShards(proxy, se, svc, svcPort, subsetLabels, clusterName, push)
 
 	return &xdsapi.ClusterLoadAssignment{
 		ClusterName: clusterName,
@@ -534,17 +531,29 @@ func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, 
 
 // build LocalityLbEndpoints for a cluster from existing EndpointShards.
 func buildLocalityLbEndpointsFromShards(
+	proxy *model.Proxy,
 	shards *EndpointShards,
+	svc *model.Service,
 	svcPort *model.Port,
 	epLabels labels.Collection,
 	clusterName string,
 	push *model.PushContext) []*endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 
+	// Determine whether or not the target service is considered local to the cluster
+	// and should, therefore, not be accessed from outside the cluster.
+	isClusterLocal := mesh.IsClusterLocal(push.Mesh, svc.Attributes.Namespace)
+
 	shards.mutex.Lock()
 	// The shards are updated independently, now need to filter and merge
 	// for this cluster
-	for _, endpoints := range shards.Shards {
+	for clusterID, endpoints := range shards.Shards {
+		// If the downstream service is configured as cluster-local, only include endpoints that
+		// reside in the same cluster.
+		if isClusterLocal && (clusterID != proxy.ClusterID) {
+			continue
+		}
+
 		for _, ep := range endpoints {
 			if svcPort.Name != ep.ServicePortName {
 				continue

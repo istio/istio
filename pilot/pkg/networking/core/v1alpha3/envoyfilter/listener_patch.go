@@ -33,6 +33,14 @@ import (
 	"istio.io/istio/pilot/pkg/util/runtime"
 )
 
+const (
+	// VirtualOutboundListenerName is the name for traffic capture listener
+	VirtualOutboundListenerName = "virtualOutbound"
+
+	// VirtualInboundListenerName is the name for traffic capture listener
+	VirtualInboundListenerName = "virtualInbound"
+)
+
 // ApplyListenerPatches applies patches to LDS output
 func ApplyListenerPatches(
 	patchContext networking.EnvoyFilter_PatchContext,
@@ -479,6 +487,17 @@ func listenerMatch(listener *xdsapi.Listener, cp *model.EnvoyFilterConfigPatchWr
 		return true
 	}
 
+	if cMatch.Name != "" && cMatch.Name != listener.Name {
+		return false
+	}
+
+	// skip listener port check for special virtual inbound and outbound listeners
+	// to support portNumber listener filter field within those special listeners as well
+	if cp.ApplyTo != networking.EnvoyFilter_LISTENER &&
+		(listener.Name == VirtualInboundListenerName || listener.Name == VirtualOutboundListenerName) {
+		return true
+	}
+
 	// FIXME: Ports on a listener can be 0. the API only takes uint32 for ports
 	// We should either make that field in API as a wrapper type or switch to int
 	if cMatch.PortNumber != 0 {
@@ -486,10 +505,6 @@ func listenerMatch(listener *xdsapi.Listener, cp *model.EnvoyFilterConfigPatchWr
 		if sockAddr == nil || sockAddr.GetPortValue() != cMatch.PortNumber {
 			return false
 		}
-	}
-
-	if cMatch.Name != "" && cMatch.Name != listener.Name {
-		return false
 	}
 
 	return true
@@ -527,6 +542,14 @@ func filterChainMatch(fc *xdslistener.FilterChain, cp *model.EnvoyFilterConfigPa
 			return false
 		}
 	}
+
+	// check match for destination port within the FilterChainMatch
+	if cMatch.PortNumber > 0 &&
+		fc.FilterChainMatch != nil && fc.FilterChainMatch.DestinationPort != nil &&
+		fc.FilterChainMatch.DestinationPort.Value != cMatch.PortNumber {
+		return false
+	}
+
 	return true
 }
 

@@ -48,17 +48,6 @@ egressGateways:
         maxSurge: 100%
         maxUnavailable: 25%
   name: istio-egressgateway
-galley:
-  enabled: false
-  k8s:
-    replicaCount: 1
-    resources:
-      requests:
-        cpu: 100m
-    strategy:
-      rollingUpdate:
-        maxSurge: 100%
-        maxUnavailable: 25%
 ingressGateways:
 - enabled: true
   k8s:

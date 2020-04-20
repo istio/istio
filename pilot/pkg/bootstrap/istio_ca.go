@@ -26,12 +26,11 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
 
 	"istio.io/istio/pilot/pkg/features"
 
-	oidc "github.com/coreos/go-oidc"
+	"github.com/coreos/go-oidc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -163,7 +162,7 @@ func (s *Server) EnableCA() bool {
 // Protected by installer options: the CA will be started only if the JWT token in /var/run/secrets
 // is mounted. If it is missing - for example old versions of K8S that don't support such tokens -
 // we will not start the cert-signing server, since pods will have no way to authenticate.
-func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts *CAOptions, stopCh <-chan struct{}) {
+func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts *CAOptions) {
 	if !s.EnableCA() {
 		return
 	}
@@ -226,18 +225,6 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 		log.Warnf("Failed to start GRPC server with error: %v", serverErr)
 	}
 	log.Info("Istiod CA has started")
-
-	if s.kubeClient != nil {
-		s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
-			nc := NewNamespaceController(func() map[string]string {
-				return map[string]string{
-					constants.CACertNamespaceConfigMapDataName: string(ca.GetCAKeyCertBundle().GetRootCertPem()),
-				}
-			}, s.kubeClient)
-			nc.Run(stop)
-		})
-	}
-
 }
 
 type jwtAuthenticator struct {

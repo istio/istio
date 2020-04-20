@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util"
 )
 
@@ -168,6 +169,29 @@ values:
       includeIPRanges: ""
 `,
 		},
+		{
+			desc: "Bad mesh config",
+			yamlStr: `
+meshConfig:
+  defaultConfig:
+    discoveryAddress: missingport
+`,
+			wantErrs: makeErrors([]string{`1 error occurred:
+	* invalid discovery address: unable to split "missingport": address missingport: missing port in address
+
+`}),
+		},
+		{
+			desc: "Good mesh config",
+			yamlStr: `
+meshConfig:
+  defaultConfig:
+    discoveryAddress: istiod:15012
+`,
+		},
+	}
+	if err := name.ScanBundledAddonComponents("../../cmd/mesh/testdata/manifest-generate/data-snapshot"); err != nil {
+		t.Fatal(err)
 	}
 
 	for _, tt := range tests {
@@ -177,6 +201,7 @@ values:
 			if err != nil {
 				t.Fatalf("unmarshalWithJSONPB(%s): got error %s", tt.desc, err)
 			}
+
 			errs := CheckIstioOperatorSpec(ispec, false)
 			if gotErrs, wantErrs := errs, tt.wantErrs; !util.EqualErrors(gotErrs, wantErrs) {
 				t.Errorf("ProtoToValues(%s)(%v): gotErrs:%s, wantErrs:%s", tt.desc, tt.yamlStr, gotErrs, wantErrs)

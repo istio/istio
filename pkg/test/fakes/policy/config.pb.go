@@ -153,7 +153,9 @@ func init() {
 	proto.RegisterType((*Params_CheckParams)(nil), "policy.Params.CheckParams")
 }
 
-func init() { proto.RegisterFile("pkg/test/fakes/policy/config.proto", fileDescriptor_6befd09209a3cf70) }
+func init() {
+	proto.RegisterFile("pkg/test/fakes/policy/config.proto", fileDescriptor_6befd09209a3cf70)
+}
 
 var fileDescriptor_6befd09209a3cf70 = []byte{
 	// 354 bytes of a gzipped FileDescriptorProto

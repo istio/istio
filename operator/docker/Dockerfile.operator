@@ -18,4 +18,7 @@ FROM ${BASE_DISTRIBUTION}
 # install operator binary
 COPY operator /usr/local/bin/
 
+# add operator manifests
+COPY manifests/ /var/lib/istio/manifests/
+
 ENTRYPOINT ["/usr/local/bin/operator"]

@@ -6,8 +6,13 @@ spec:
   tag: 1.1.4
   meshConfig:
     rootNamespace: istio-control
-    mixerCheckServer: foo
+    mixerCheckServer: foo:1234
+    outboundTrafficPolicy:
+      mode: REGISTRY_ONLY
     defaultConfig:
+      discoveryAddress: my-discovery:123
+      drainDuration: 12s
+      controlPlaneAuthPolicy: NONE
       proxyMetadata:
         TERMINATION_DRAIN_DURATION_SECONDS: "120"
   components:

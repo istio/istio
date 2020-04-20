@@ -19,9 +19,11 @@ import (
 	"encoding/pem"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	ghc "google.golang.org/grpc/health/grpc_health_v1"
 
 	"istio.io/istio/pkg/mcp/status"
@@ -43,6 +45,10 @@ type CAServer struct {
 	keyPem        []byte
 	keyCertBundle util.KeyCertBundle
 	certLifetime  time.Duration
+
+	rejectCSR       bool
+	emptyCert       bool
+	faultInjectLock *sync.Mutex
 }
 
 // NewCAServer creates a new CA server that listens on port.
@@ -68,11 +74,12 @@ func NewCAServer(port int) (*CAServer, error) {
 	}
 
 	server := &CAServer{
-		certPem:       cert,
-		keyPem:        key,
-		certLifetime:  24 * time.Hour,
-		keyCertBundle: keyCertBundle,
-		GRPCServer:    grpc.NewServer(),
+		certPem:         cert,
+		keyPem:          key,
+		certLifetime:    24 * time.Hour,
+		keyCertBundle:   keyCertBundle,
+		GRPCServer:      grpc.NewServer(),
+		faultInjectLock: &sync.Mutex{},
 	}
 	// Register CA service at gRPC server.
 	pb.RegisterIstioCertificateServiceServer(server.GRPCServer, server)
@@ -91,17 +98,63 @@ func (s *CAServer) start(port int) error {
 	port = listener.Addr().(*net.TCPAddr).Port
 	s.URL = fmt.Sprintf("localhost:%d", port)
 	go func() {
-		log.Infof("start CA server on %s", s.URL)
+		caServerLog.Infof("start CA server on %s", s.URL)
 		if err := s.GRPCServer.Serve(listener); err != nil {
-			log.Errorf("CA Server failed to serve in %q: %v", s.URL, err)
+			caServerLog.Errorf("CA Server failed to serve in %q: %v", s.URL, err)
 		}
 	}()
 	return nil
 }
 
+// RejectCSR specifies whether to send error response to CSR.
+func (s *CAServer) RejectCSR(reject bool) {
+	s.faultInjectLock.Lock()
+	s.rejectCSR = reject
+	s.faultInjectLock.Unlock()
+	if reject {
+		caServerLog.Info("force CA server to return error to CSR")
+	}
+}
+
+func (s *CAServer) shouldReject() bool {
+	var reject bool
+	s.faultInjectLock.Lock()
+	reject = s.rejectCSR
+	s.faultInjectLock.Unlock()
+	return reject
+}
+
+// SendEmptyCert force CA server send empty cert chain.
+func (s *CAServer) SendEmptyCert() {
+	s.faultInjectLock.Lock()
+	s.emptyCert = true
+	s.faultInjectLock.Unlock()
+	caServerLog.Info("force CA server to send empty cert chain")
+}
+
+func (s *CAServer) sendEmpty() bool {
+	var empty bool
+	s.faultInjectLock.Lock()
+	empty = s.emptyCert
+	s.faultInjectLock.Unlock()
+	return empty
+}
+
 // CreateCertificate handles CSR.
 func (s *CAServer) CreateCertificate(ctx context.Context, request *pb.IstioCertificateRequest) (
 	*pb.IstioCertificateResponse, error) {
+	caServerLog.Infof("received CSR request")
+	if s.shouldReject() {
+		caServerLog.Info("force rejecting CSR request")
+		return nil, status.Error(codes.Unavailable, "CA server is not available")
+	}
+	if s.sendEmpty() {
+		caServerLog.Info("force sending empty cert chain in CSR response")
+		response := &pb.IstioCertificateResponse{
+			CertChain: []string{},
+		}
+		return response, nil
+	}
 	cert, err := s.sign([]byte(request.Csr), []string{"client-identity"}, time.Duration(request.ValidityDuration)*time.Second, false)
 	if err != nil {
 		caServerLog.Errorf("failed to sign CSR: %+v", err)

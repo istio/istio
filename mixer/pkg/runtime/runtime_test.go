@@ -25,8 +25,6 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	cfgpb "istio.io/api/policy/v1beta1"
-	configpb "istio.io/api/policy/v1beta1"
-	dpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/mixer/pkg/runtime/testing/data"
@@ -126,11 +124,11 @@ func TestRuntime_OnConfigChange(t *testing.T) {
 			Type: store.Update,
 			Key:  store.Key{Kind: constant.AttributeManifestKind, Name: "attrs"},
 			Value: &store.Resource{
-				Spec: &configpb.AttributeManifest{
+				Spec: &cfgpb.AttributeManifest{
 					Name: "attrs",
-					Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+					Attributes: map[string]*cfgpb.AttributeManifest_AttributeInfo{
 						"foo": {
-							ValueType: dpb.STRING,
+							ValueType: cfgpb.STRING,
 						},
 					},
 				},
@@ -203,10 +201,10 @@ func TestRuntime_InFlightRequestsDuringConfigChange(t *testing.T) {
 			Type: store.Update,
 			Key:  store.Key{Kind: constant.AttributeManifestKind, Name: "attrs"},
 			Value: &store.Resource{
-				Spec: &configpb.AttributeManifest{
-					Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+				Spec: &cfgpb.AttributeManifest{
+					Attributes: map[string]*cfgpb.AttributeManifest_AttributeInfo{
 						"identityAttr": {
-							ValueType: dpb.STRING,
+							ValueType: cfgpb.STRING,
 						},
 					},
 				},

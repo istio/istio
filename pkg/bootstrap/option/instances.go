@@ -43,7 +43,7 @@ func ProxyConfig(value *meshAPI.ProxyConfig) Instance {
 }
 
 func PilotSubjectAltName(value []string) Instance {
-	return newOption("pilot_SAN", value)
+	return newOption("pilot_SAN", value).withConvert(sanConverter(value))
 }
 
 func MixerSubjectAltName(value []string) Instance {

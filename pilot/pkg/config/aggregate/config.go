@@ -17,16 +17,16 @@ package aggregate
 
 import (
 	"errors"
-	"fmt"
 
 	"istio.io/pkg/ledger"
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
-	"istio.io/pkg/log"
 )
 
 var errorUnsupported = errors.New("unsupported operation: the config aggregator is read-only")
@@ -139,7 +139,7 @@ func (cr *store) Get(typ resource.GroupVersionKind, name, namespace string) *mod
 // List all configs in the stores.
 func (cr *store) List(typ resource.GroupVersionKind, namespace string) ([]model.Config, error) {
 	if len(cr.stores[typ]) == 0 {
-		return nil, fmt.Errorf("missing type %q", typ)
+		return nil, nil
 	}
 	var errs *multierror.Error
 	var configs []model.Config

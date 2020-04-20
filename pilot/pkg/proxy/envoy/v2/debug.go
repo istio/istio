@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube/inject"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -121,6 +122,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	s.addDebugHandler(mux, "/debug/endpointz", "Debug support for endpoints", s.endpointz)
 	s.addDebugHandler(mux, "/debug/endpointShardz", "Info about the endpoint shards", s.endpointShardz)
 	s.addDebugHandler(mux, "/debug/configz", "Debug support for config", s.configz)
+	s.addDebugHandler(mux, "/debug/resourcesz", "Debug support for watched resources", s.resourcez)
 
 	s.addDebugHandler(mux, "/debug/authorizationz", "Internal authorization policies", s.Authorizationz)
 	s.addDebugHandler(mux, "/debug/config_dump", "ConfigDump in the form of the Envoy admin config dump API for passed in proxyID", s.ConfigDump)
@@ -362,6 +364,20 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 
 	if err == nil {
 		_, _ = fmt.Fprint(w, "\n{}]")
+	}
+}
+
+// Resource debugging.
+func (s *DiscoveryServer) resourcez(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
+	schemas := []resource.GroupVersionKind{}
+	s.Env.Schemas().ForEach(func(schema collection.Schema) bool {
+		schemas = append(schemas, schema.Resource().GroupVersionKind())
+		return false
+	})
+
+	if b, err := json.MarshalIndent(schemas, "", "  "); err == nil {
+		_, _ = w.Write(b)
 	}
 }
 
