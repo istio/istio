@@ -395,8 +395,8 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 	}
 	defer func() {
 		// Drain and close the body to let the Transport reuse the connection
-		io.Copy(ioutil.Discard, response.Body)
-		response.Body.Close()
+		_, _ = io.Copy(ioutil.Discard, response.Body)
+		_ = response.Body.Close()
 	}()
 
 	// We only write the status code to the response.
