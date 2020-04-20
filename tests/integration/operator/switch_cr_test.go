@@ -102,7 +102,15 @@ func TestController(t *testing.T) {
 			installWithCRFile(t, ctx, cs, s, istioCtl, path.Join(ProfilesPath, "default.yaml"))
 			installWithCRFile(t, ctx, cs, s, istioCtl, path.Join(ProfilesPath, "demo.yaml"))
 			// cleanup created resources
-			cleanup(t, cs)
+			t.Cleanup(func() {
+				scopes.CI.Infof("cleaning up resources")
+				if err := cs.Delete(IstioNamespace, iopCRFile); err != nil {
+					t.Errorf("faild to delete test IstioOperator CR: %v", err)
+				}
+				if err := cs.DeleteNamespace(OperatorNamespace); err != nil {
+					t.Errorf("failed to delete operator namespace: %v", err)
+				}
+			})
 		})
 }
 
@@ -218,7 +226,7 @@ func verifyInstallation(t *testing.T, ctx resource.Context,
 }
 
 func sanityCheck(t *testing.T, ctx resource.Context) {
-	log.Info("running sanity test")
+	scopes.CI.Infof("running sanity test")
 	var client, server echo.Instance
 	test := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "default",
@@ -326,13 +334,4 @@ func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Insta
 		}, retry.Timeout(time.Second*30), retry.Delay(time.Millisecond*100))
 	}
 	return nil
-}
-
-func cleanup(t *testing.T, cs kube.Cluster) {
-	if err := cs.Delete(IstioNamespace, iopCRFile); err != nil {
-		t.Errorf("faild to delete test IstioOperator CR: %v", err)
-	}
-	if err := cs.DeleteNamespace(OperatorNamespace); err != nil {
-		t.Errorf("failed to delete operator namespace: %v", err)
-	}
 }
