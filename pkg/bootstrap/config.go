@@ -27,6 +27,7 @@ import (
 	md "cloud.google.com/go/compute/metadata"
 	envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/constants"
 
 	"github.com/gogo/protobuf/types"
@@ -135,7 +136,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	}
 
 	// Support passing extra info from node environment as metadata
-	meta, rawMeta, err := getNodeMetaData(cfg.LocalEnv, cfg.PlatEnv, cfg.NodeIPs, cfg.STSPort)
+	meta, rawMeta, err := getNodeMetaData(cfg.LocalEnv, cfg.PlatEnv, cfg.NodeIPs, cfg.STSPort, cfg.Proxy)
 	if err != nil {
 		return nil, err
 	}
@@ -418,7 +419,8 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 // ISTIO_METAJSON_* env variables contain json_string in the value.
 // 					The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
-func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string, stsPort int) (*model.NodeMetadata, map[string]interface{}, error) {
+func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
+	stsPort int, pc *meshconfig.ProxyConfig) (*model.NodeMetadata, map[string]interface{}, error) {
 	meta := &model.NodeMetadata{}
 	untypedMeta := map[string]interface{}{}
 
@@ -453,6 +455,8 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 	if stsPort != 0 {
 		meta.StsPort = strconv.Itoa(stsPort)
 	}
+
+	meta.ProxyConfig = (*model.JsonProxyConfig)(pc)
 
 	// Add all pod labels found from filesystem
 	// These are typically volume mounted by the downward API

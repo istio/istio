@@ -26,6 +26,7 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
@@ -308,12 +309,33 @@ func (s *StringBool) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// ProxyConfig can only be marshalled using (gogo) jsonpb. However, the rest of node meta is not a proto
+// To allow marshalling, we need to define a custom type that calls out to the gogo marshaller
+type JsonProxyConfig meshconfig.ProxyConfig
+
+func (s JsonProxyConfig) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	pc := meshconfig.ProxyConfig(s)
+	if err := (&gogojsonpb.Marshaler{}).Marshal(&buf, &pc); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (s *JsonProxyConfig) UnmarshalJSON(data []byte) error {
+	pc := (*meshconfig.ProxyConfig)(s)
+	return gogojsonpb.Unmarshal(bytes.NewReader(data), pc)
+}
+
 // NodeMetadata defines the metadata associated with a proxy
 // Fields should not be assumed to exist on the proxy, especially newly added fields which will not exist
 // on older versions.
 // The JSON field names should never change, as they are needed for backward compatibility with older proxies
 // nolint: maligned
 type NodeMetadata struct {
+	// ProxyConfig defines the proxy config specified for a proxy.
+	ProxyConfig *JsonProxyConfig `json:"PROXY_CONFIG,omitempty"`
+
 	// IstioVersion specifies the Istio version associated with the proxy
 	IstioVersion string `json:"ISTIO_VERSION,omitempty"`
 
