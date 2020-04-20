@@ -27,8 +27,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/protobuf/ptypes"
-
 	v1 "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	v2 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
@@ -37,10 +35,12 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/ptypes"
 	diff "gopkg.in/d4l3k/messagediff.v1"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/bootstrap/platform"
 )
@@ -462,6 +462,12 @@ func correctForEnvDifference(in []byte, excludeLocality bool) []byte {
 			pattern:     regexp.MustCompile(`("access_token_file": ").*(lightstep_access_token.txt")`),
 			replacement: []byte("$1/test-path/$2"),
 		},
+		{
+			// Example: "customConfigFile":"../../tools/packaging/common/envoy_bootstrap_v2.json"
+			// The path may change in CI/other machines
+			pattern:     regexp.MustCompile(`("customConfigFile":").*(envoy_bootstrap_v2.json")`),
+			replacement: []byte(`"customConfigFile":"envoy_bootstrap_v2.json"`),
+		},
 	}
 	if excludeLocality {
 		// zone and region can vary based on the environment, so it shouldn't be considered in the diff.
@@ -568,7 +574,7 @@ func TestNodeMetadataEncodeEnvWithIstioMetaPrefix(t *testing.T) {
 		notIstioMetaKey + "=bar",
 		anIstioMetaKey + "=baz",
 	}
-	nm, _, err := getNodeMetaData(envs, nil, nil, 0)
+	nm, _, err := getNodeMetaData(envs, nil, nil, 0, &meshconfig.ProxyConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -591,7 +597,7 @@ func TestNodeMetadata(t *testing.T) {
 		"ISTIO_META_ISTIO_VERSION=1.0.0",
 		`ISTIO_METAJSON_LABELS={"foo":"bar"}`,
 	}
-	nm, _, err := getNodeMetaData(envs, nil, nil, 0)
+	nm, _, err := getNodeMetaData(envs, nil, nil, 0, &meshconfig.ProxyConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}
