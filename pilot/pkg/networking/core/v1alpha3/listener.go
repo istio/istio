@@ -2008,24 +2008,28 @@ func buildTracingConfig(config *meshconfig.ProxyConfig, proxyType model.NodeType
 	}
 
 	if config.Tracing != nil && proxyType == model.SidecarProxy {
-		// only specify a MaxPathTagLength if meshconfig has specified one
-		// otherwise, rely on upstream envoy defaults
-		if config.Tracing.MaxPathTagLength != 0 {
-			tracingCfg.MaxPathTagLength =
-				&wrappers.UInt32Value{
-					Value: config.Tracing.MaxPathTagLength,
-				}
-		}
-
-		// custom tags should only be used for sidecar proxies and should not include
-		// gateways due to client requests from outside of the mesh
-		if len(config.Tracing.CustomTags) != 0 {
-			tracingCfg.CustomTags = buildCustomTags(config.Tracing.CustomTags)
-
-		}
+		buildSidecarTracingConfig(config, proxyType, tracingCfg)
 	}
 
 	return tracingCfg
+}
+
+func buildSidecarTracingConfig(config *meshconfig.ProxyConfig, proxyType model.NodeType, tracingCfg *http_conn.HttpConnectionManager_Tracing) {
+	// only specify a MaxPathTagLength if meshconfig has specified one
+	// otherwise, rely on upstream envoy defaults
+	if config.Tracing.MaxPathTagLength != 0 {
+		tracingCfg.MaxPathTagLength =
+			&wrappers.UInt32Value{
+				Value: config.Tracing.MaxPathTagLength,
+			}
+	}
+
+	// custom tags should only be used for sidecar proxies and should not include
+	// gateways due to client requests from outside of the mesh
+	if len(config.Tracing.CustomTags) != 0 {
+		tracingCfg.CustomTags = buildCustomTags(config.Tracing.CustomTags)
+
+	}
 }
 
 func buildCustomTags(customTags map[string]*meshconfig.Tracing_CustomTag) []*envoy_type_tracing_v2.CustomTag {
