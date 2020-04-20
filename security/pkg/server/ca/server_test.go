@@ -32,7 +32,6 @@ import (
 
 	"istio.io/istio/security/pkg/pki/ca"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
-	"istio.io/istio/security/pkg/pki/util"
 
 	caerror "istio.io/istio/security/pkg/pki/error"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
@@ -168,12 +167,12 @@ func TestExtractCertChainExpiryTimestamp(t *testing.T) {
 		t.Errorf("failed to gen root cert for Citadel self signed cert %v", err)
 	}
 
-	rootCert, err := util.ParsePemEncodedCertificate(rootCertBytes)
+	rootCert, err := pkiutil.ParsePemEncodedCertificate(rootCertBytes)
 	if err != nil {
 		t.Errorf("failed to parsing pem for root cert %v", err)
 	}
 
-	rootKey, err := util.ParsePemEncodedKey(rootKeyBytes)
+	rootKey, err := pkiutil.ParsePemEncodedKey(rootKeyBytes)
 	if err != nil {
 		t.Errorf("failed to parsing pem for root key cert %v", err)
 	}
