@@ -249,19 +249,15 @@ func getTokenReviewResult(tokenReview *k8sauth.TokenReview, clusterID string) ([
 	return []string{namespace, saName}, nil
 }
 
-//ValidateRemoteK8sJwt validates aaainst a remote k8s JWT at API server.
+//ValidateRemoteK8sJwt validates against a remote k8s JWT at API server.
 func ValidateRemoteK8sJwt(targetJWT, jwtPolicy string, mc *kubecontroller.Multicluster) ([]string, error) {
 	tokenReview := &k8sauth.TokenReview{}
 	if jwtPolicy == jwt.JWTPolicyThirdPartyJWT {
-		tokenReview.APIVersion = "authentication.k8s.io/v1"
-		tokenReview.Kind = "TokenReview"
 		tokenReview.Spec = k8sauth.TokenReviewSpec{
 			Token:     targetJWT,
 			Audiences: []string{defaultAudience},
 		}
 	} else if jwtPolicy == jwt.JWTPolicyFirstPartyJWT {
-		tokenReview.APIVersion = "authentication.k8s.io/v1"
-		tokenReview.Kind = "TokenReview"
 		tokenReview.Spec = k8sauth.TokenReviewSpec{
 			Token: targetJWT,
 		}
