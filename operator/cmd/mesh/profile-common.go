@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"istio.io/istio/operator/version"
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
@@ -31,7 +32,6 @@ import (
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
-	"istio.io/istio/operator/version"
 	"istio.io/pkg/log"
 	pkgversion "istio.io/pkg/version"
 )
@@ -226,16 +226,6 @@ func rewriteURLToLocalInstallPath(installPackagePath, profileOrPath string, skip
 		return "", "", err
 	}
 	if isURL {
-		if !skipValidation {
-			_, ver, err := helm.URLToDirname(installPackagePath)
-			if err != nil {
-				return "", "", err
-			}
-			if ver.Minor != version.OperatorBinaryVersion.Minor {
-				return "", "", fmt.Errorf("chart minor version %s doesn't match istioctl version %s, use --force to override", ver, version.OperatorCodeBaseVersion)
-			}
-		}
-
 		installPackagePath, err = fetchExtractInstallPackageHTTP(installPackagePath)
 		if err != nil {
 			return "", "", err
