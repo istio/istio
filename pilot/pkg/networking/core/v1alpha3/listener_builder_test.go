@@ -142,6 +142,7 @@ func prepareListeners(t *testing.T, services []*model.Service, mgmtPort []int) [
 	builder := NewListenerBuilder(&proxy, env.PushContext)
 	return builder.buildSidecarInboundListeners(ldsEnv.configgen).
 		buildManagementListeners(ldsEnv.configgen).
+		buildHTTPProxyListener(ldsEnv.configgen).
 		buildVirtualOutboundListener(ldsEnv.configgen).
 		buildVirtualInboundListener(ldsEnv.configgen).
 		getListeners()
