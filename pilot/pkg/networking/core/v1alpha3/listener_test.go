@@ -1559,8 +1559,10 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &envoy_type.Percent{
 					Value: 100.0,
 				},
-				MaxPathTagLength: nil,
-				CustomTags:       nil,
+				MaxPathTagLength: &wrappers.UInt32Value{
+					Value: 100,
+				},
+				CustomTags: nil,
 			},
 		},
 	}
@@ -1578,9 +1580,9 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 		env.Mesh().EnableTracing = true
 		env.Mesh().DefaultConfig = &meshconfig.ProxyConfig{
 			Tracing: &meshconfig.Tracing{
-				CustomTags:           tc.in.CustomTags,
-				MaxPathTagLength:     tc.in.MaxPathTagLength,
-				Sampling:             tc.in.Sampling,
+				CustomTags:       tc.in.CustomTags,
+				MaxPathTagLength: tc.in.MaxPathTagLength,
+				Sampling:         tc.in.Sampling,
 			},
 		}
 
