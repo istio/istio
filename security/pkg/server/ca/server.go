@@ -117,7 +117,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	return response, nil
 }
 
-func recordCertExpiry(ca CertificateAuthority) {
+func recordCertsExpiry(ca CertificateAuthority) {
 	caKeyCertBundler := ca.GetCAKeyCertBundle()
 	rootCertExpiryTimestamp.Record(extractRootCertExpiryTimestamp(caKeyCertBundler))
 
@@ -290,7 +290,7 @@ func NewWithGRPC(grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, 
 		}
 	}
 
-	recordCertExpiry(ca)
+	recordCertsExpiry(ca)
 
 	server := &Server{
 		Authenticators: authenticators,
