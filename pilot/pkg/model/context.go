@@ -100,14 +100,14 @@ func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxy *Pro
 }
 
 // Request is an alias for array of marshaled resources.
-type Response = []*any.Any
+type Resources = []*any.Any
 
-// ResourceGenerator creates the response for a typeURL DiscoveryRequest. If no generator is associated
+// XdsResourceGenerator creates the response for a typeURL DiscoveryRequest. If no generator is associated
 // with a Proxy, the default (a networking.core.ConfigGenerator instance) will be used.
 // The server may associate a different generator based on client metadata. Different
 // WatchedResources may use same or different Generator.
-type ResourceGenerator interface {
-	Generate(proxy *Proxy, push *PushContext, w *WatchedResource) Response
+type XdsResourceGenerator interface {
+	Generate(proxy *Proxy, push *PushContext, w *WatchedResource) Resources
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
@@ -175,11 +175,11 @@ type Proxy struct {
 	// GlobalUnicastIP stores the globacl unicast IP if available, otherwise nil
 	GlobalUnicastIP string
 
-	// Generator is used to generate resources for the node, based on the PushContext.
+	// XdsResourceGenerator is used to generate resources for the node, based on the PushContext.
 	// If nil, the default networking/core v2 generator is used. This field can be set
 	// at connect time, based on node metadata, to trigger generation of a different style
 	// of configuration.
-	Generator ResourceGenerator
+	XdsResourceGenerator XdsResourceGenerator
 
 	// Active contains the list of watched resources for the proxy, keyed by the DiscoveryRequest type.
 	// It is nil if the Proxy uses the default generator
