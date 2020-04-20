@@ -122,7 +122,7 @@ func recordCertsExpiry(ca CertificateAuthority) {
 	rootCertExpiryTimestamp.Record(extractRootCertExpiryTimestamp(caKeyCertBundler))
 
 	cc := caKeyCertBundler.GetCertChainPem()
-	if cc != nil && len(cc) > 0 {
+	if len(cc) > 0 {
 		certChainExpiryTimestamp.Record(extractCertChainExpiryTimestamp(caKeyCertBundler))
 	}
 }
