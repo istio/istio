@@ -458,6 +458,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(push *model.PushCont
 		builder.buildSidecarInboundListeners(configgen).
 			buildSidecarOutboundListeners(configgen).
 			buildManagementListeners(configgen).
+			buildHTTPProxyListener(configgen).
 			buildVirtualOutboundListener(configgen).
 			buildVirtualInboundListener(configgen)
 	}
@@ -1118,11 +1119,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 	}
 
 	tcpListeners = append(tcpListeners, httpListeners...)
-	httpProxy := configgen.buildHTTPProxy(node, push)
-	if httpProxy != nil {
-		tcpListeners = append(tcpListeners, httpProxy)
-	}
-
 	removeListenerFilterTimeout(tcpListeners)
 	return tcpListeners
 }
