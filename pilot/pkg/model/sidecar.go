@@ -478,6 +478,10 @@ func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigKey) {
 		return
 	}
 
+	if sc.configDependencies == nil {
+		sc.configDependencies = make(map[ConfigKey]struct{})
+	}
+
 	for _, config := range dependencies {
 		sc.configDependencies[config] = struct{}{}
 	}
