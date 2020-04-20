@@ -20,7 +20,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"istio.io/istio/operator/version"
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
@@ -32,6 +31,7 @@ import (
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
+	"istio.io/istio/operator/version"
 	"istio.io/pkg/log"
 	pkgversion "istio.io/pkg/version"
 )
