@@ -334,6 +334,9 @@ func (s *JsonProxyConfig) UnmarshalJSON(data []byte) error {
 // nolint: maligned
 type NodeMetadata struct {
 	// ProxyConfig defines the proxy config specified for a proxy.
+	// Note that this setting may be configured different for each proxy, due user overrides
+	// or from different versions of proxies connecting. While Pilot has access to the meshConfig.defaultConfig,
+	// this field should be preferred if it is present.
 	ProxyConfig *JsonProxyConfig `json:"PROXY_CONFIG,omitempty"`
 
 	// IstioVersion specifies the Istio version associated with the proxy
