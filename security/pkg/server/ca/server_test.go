@@ -32,6 +32,7 @@ import (
 
 	"istio.io/istio/security/pkg/pki/ca"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
+	"istio.io/istio/security/pkg/pki/util"
 
 	caerror "istio.io/istio/security/pkg/pki/error"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
@@ -142,7 +143,85 @@ func TestExtractRootCertExpiryTimestamp(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		sec := extractRootCertExpiryTimestamp(ca) - float64(time.Now().Unix())
+		sec := extractRootCertExpiryTimestamp(ca.GetCAKeyCertBundle()) - float64(time.Now().Unix())
+		if sec < tc.ttlRange[0] || sec > tc.ttlRange[1] {
+			t.Errorf("[%v] Failed, expect within range [%v, %v], got %v", tc.name, tc.ttlRange[0], tc.ttlRange[1], sec)
+		}
+		if tc.sleep != 0 {
+			time.Sleep(time.Duration(tc.sleep) * time.Second)
+		}
+	}
+}
+
+// Test the cert chain expiry timestamp can be extracted correctly.
+func TestExtractCertChainExpiryTimestamp(t *testing.T) {
+	rootCertBytes, rootKeyBytes, err := pkiutil.GenCertKeyFromOptions(pkiutil.CertOptions{
+		Host:         "citadel.testing.istio.io",
+		Org:          "MyOrg",
+		NotBefore:    time.Now(),
+		IsCA:         true,
+		IsSelfSigned: true,
+		TTL:          time.Hour,
+		RSAKeySize:   2048,
+	})
+	if err != nil {
+		t.Errorf("failed to gen root cert for Citadel self signed cert %v", err)
+	}
+
+	rootCert, err := util.ParsePemEncodedCertificate(rootCertBytes)
+	if err != nil {
+		t.Errorf("failed to parsing pem for root cert %v", err)
+	}
+
+	rootKey, err := util.ParsePemEncodedKey(rootKeyBytes)
+	if err != nil {
+		t.Errorf("failed to parsing pem for root key cert %v", err)
+	}
+
+	certChainBytes, certChainKeyBytes, err := pkiutil.GenCertKeyFromOptions(pkiutil.CertOptions{
+		Host:         "citadel.testing.istio.io",
+		Org:          "MyOrg",
+		NotBefore:    time.Now(),
+		TTL:          time.Second * 5,
+		IsServer:     true,
+		IsCA:         true,
+		IsSelfSigned: false,
+		RSAKeySize:   2048,
+		SignerCert:   rootCert,
+		SignerPriv:   rootKey,
+	})
+	if err != nil {
+		t.Errorf("failed to gen cert chain for Citadel self signed cert %v", err)
+	}
+
+	kb, err := pkiutil.NewVerifiedKeyCertBundleFromPem(
+		certChainBytes, certChainKeyBytes, certChainBytes, rootCertBytes)
+	if err != nil {
+		t.Errorf("failed to create key cert bundle %v", err)
+	}
+
+	ca := &mockca.FakeCA{
+		KeyCertBundle: kb,
+	}
+
+	testCases := []struct {
+		name     string
+		ttlRange []float64
+		sleep    int
+	}{
+		{
+			name:     "ttl-valid",
+			ttlRange: []float64{3, 5},
+			sleep:    3,
+		},
+		{
+			name:     "ttl-valid-3s-less",
+			ttlRange: []float64{0, 2},
+			sleep:    3,
+		},
+	}
+	for _, tc := range testCases {
+		sec := extractCertChainExpiryTimestamp(ca.GetCAKeyCertBundle()) - float64(time.Now().Unix())
 		if sec < tc.ttlRange[0] || sec > tc.ttlRange[1] {
 			t.Errorf("[%v] Failed, expect within range [%v, %v], got %v", tc.name, tc.ttlRange[0], tc.ttlRange[1], sec)
 		}

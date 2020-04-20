@@ -117,9 +117,19 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	return response, nil
 }
 
+func recordCertExpiry(ca CertificateAuthority) {
+	caKeyCertBundler := ca.GetCAKeyCertBundle()
+	rootCertExpiryTimestamp.Record(extractRootCertExpiryTimestamp(caKeyCertBundler))
+
+	cc := ca.GetCAKeyCertBundle().GetCertChainPem()
+	if cc != nil && len(cc) > 0 {
+		certChainExpiryTimestamp.Record(extractCertChainExpiryTimestamp(caKeyCertBundler))
+	}
+}
+
 // extractRootCertExpiryTimestamp returns the unix timestamp when the root becomes expires.
-func extractRootCertExpiryTimestamp(ca CertificateAuthority) float64 {
-	rb := ca.GetCAKeyCertBundle().GetRootCertPem()
+func extractRootCertExpiryTimestamp(keyCertBundle util.KeyCertBundle) float64 {
+	rb := keyCertBundle.GetRootCertPem()
 	cert, err := util.ParsePemEncodedCertificate(rb)
 	if err != nil {
 		serverCaLog.Errorf("Failed to parse the root cert: %v", err)
@@ -128,6 +138,22 @@ func extractRootCertExpiryTimestamp(ca CertificateAuthority) float64 {
 	end := cert.NotAfter
 	if end.Before(time.Now()) {
 		serverCaLog.Errorf("Expired Citadel Root found, x509.NotAfter %v, please transit your root", end)
+	}
+	return float64(end.Unix())
+}
+
+// extractCertChainExpiryTimestamp returns the unix timestamp when the cert chain becomes expires.
+func extractCertChainExpiryTimestamp(keyCertBundle util.KeyCertBundle) float64 {
+	cc := keyCertBundle.GetCertChainPem()
+	cert, err := util.ParsePemEncodedCertificate(cc)
+	if err != nil {
+		serverCaLog.Errorf("Failed to parse the cert chain: %v", err)
+		return -1
+	}
+
+	end := cert.NotAfter
+	if end.Before(time.Now()) {
+		serverCaLog.Errorf("Expired Citadel cert chain found, x509.NotAfter %v, please transit your cert chain", end)
 	}
 	return float64(end.Unix())
 }
@@ -264,7 +290,7 @@ func NewWithGRPC(grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, 
 		}
 	}
 
-	rootCertExpiryTimestamp.Record(extractRootCertExpiryTimestamp(ca))
+	recordCertExpiry(ca)
 
 	server := &Server{
 		Authenticators: authenticators,
