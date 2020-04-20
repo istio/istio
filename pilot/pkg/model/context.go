@@ -99,12 +99,15 @@ func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxy *Pro
 	}
 }
 
-// Generator creates the response for a typeURL DiscoveryRequest. If no generator is associated
+// Request is an alias for array of marshaled resources.
+type Response = []*any.Any
+
+// ResourceGenerator creates the response for a typeURL DiscoveryRequest. If no generator is associated
 // with a Proxy, the default (a networking.core.ConfigGenerator instance) will be used.
 // The server may associate a different generator based on client metadata. Different
 // WatchedResources may use same or different Generator.
-type Generator interface {
-	Generate(node *Proxy, push *PushContext, w *WatchedResource) []*any.Any
+type ResourceGenerator interface {
+	Generate(proxy *Proxy, push *PushContext, w *WatchedResource) Response
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
@@ -176,36 +179,35 @@ type Proxy struct {
 	// If nil, the default networking/core v2 generator is used. This field can be set
 	// at connect time, based on node metadata, to trigger generation of a different style
 	// of configuration.
-	Generator Generator
+	Generator ResourceGenerator
 
 	// Active contains the list of watched resources for the proxy, keyed by the DiscoveryRequest type.
 	// It is nil if the Proxy uses the default generator
 	Active map[string]*WatchedResource
 }
 
+// VersionNonce holds information about ack/nack status in the protocol.
+type VersionNonce struct {
+	Version string
+	Nonce   string
+}
+
 // WatchedResource tracks an active DiscoveryRequest type.
 type WatchedResource struct {
-	// TypeURL is copied from the DiscoveryRequest.TypeUrl that initiated watching this resource.
-	// The different spelling is due to linter.
-	TypeURL string
+	// TypeUrl is copied from the DiscoveryRequest.TypeUrl that initiated watching this resource.
+	// nolint
+	TypeUrl string
 
 	// ResourceNames tracks the list of resources that are actively watched. If empty, all resources of the
 	// TypeUrl type are watched.
 	ResourceNames []string
 
-	// NonceSent is the last nonce sent to a client.
-	NonceSent string
+	// CurrentVersionNonce is the version and nonce sent to a client.
+	CurrentVersionNonce VersionNonce
 
-	// NonceAcked is the last nonce acked by the client. If different from NonceSent the client is still
-	// processing the request and didn't ack/nack.
-	NonceAcked string
-
-	// VersionInfoSent is the last sent version info
-	VersionInfoSent string
-
-	// VersionInfoAcked is the last version info acked by the client. In empty, the client doesn't
-	// have any active working configuration.
-	VersionInfoAcked string
+	// LastVersionNonce is the last version and nonce acked/nacked by the client. If different from CurrentVersionNonce
+	// the client is still processing the request and didn't ack/nack.
+	LastVersionNonce VersionNonce
 
 	// LastSent tracks the time of the generated push, to determine the time it takes the client to ack.
 	LastSent time.Time
