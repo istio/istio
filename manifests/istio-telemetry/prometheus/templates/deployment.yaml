@@ -260,7 +260,7 @@ spec:
       - name: lightstep-certs
         secret:
           optional: true
-        secretName: lightstep.cacert
+          secretName: lightstep.cacert
         {{- end }}
 {{- end }}
 
