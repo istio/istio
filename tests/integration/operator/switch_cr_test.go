@@ -99,8 +99,8 @@ func TestController(t *testing.T) {
 			}
 			iopCRFile = filepath.Join(workDir, "iop_cr.yaml")
 			// later just run `kubectl apply -f newcr.yaml` to apply new installation cr files and verify.
-			installWithCRFile(t, ctx, cs, s, istioCtl, workDir, path.Join(ProfilesPath, "default.yaml"))
-			installWithCRFile(t, ctx, cs, s, istioCtl, workDir, path.Join(ProfilesPath, "demo.yaml"))
+			installWithCRFile(t, ctx, cs, s, istioCtl, path.Join(ProfilesPath, "default.yaml"))
+			installWithCRFile(t, ctx, cs, s, istioCtl, path.Join(ProfilesPath, "demo.yaml"))
 			// cleanup created resources
 			cleanup(t, cs)
 		})
@@ -167,7 +167,7 @@ func checkInstallStatus(cs kube.Cluster) error {
 }
 
 func installWithCRFile(t *testing.T, ctx resource.Context, cs kube.Cluster, s *image.Settings,
-	istioCtl istioctl.Instance, workDir string, iopFile string) {
+	istioCtl istioctl.Instance, iopFile string) {
 	log.Infof(fmt.Sprintf("=== install istio with new operator cr file: %s===\n", iopFile))
 	originalIOPYAML, err := ioutil.ReadFile(iopFile)
 	if err != nil {
