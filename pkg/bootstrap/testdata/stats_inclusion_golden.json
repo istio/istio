@@ -202,9 +202,6 @@
           "prefix": "wasm"
           },
           {
-          "suffix": "ssl_context_update_by_sds"
-          },
-          {
           "regex": "http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time"
           },
           {
