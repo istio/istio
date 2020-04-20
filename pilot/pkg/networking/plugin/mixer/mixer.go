@@ -115,6 +115,28 @@ func skipMixerHTTPFilter(dir direction, mesh *meshconfig.MeshConfig, node *model
 	return disablePolicyChecks(dir, mesh, node) && mesh.GetDisableMixerHttpReports()
 }
 
+func (mixerplugin) OnOutboundPassthroughFilterChain(in *plugin.InputParams, mutable *networking.MutableObjects) error {
+	if in.Push.Mesh.MixerCheckServer == "" && in.Push.Mesh.MixerReportServer == "" {
+		return nil
+	}
+	svc := util.FallThroughFilterChainBlackHoleService
+	if util.IsAllowAnyOutbound(in.Node) {
+		svc = util.FallThroughFilterChainPassthroughService
+	}
+	attrs := createOutboundListenerAttributes(in)
+	fallThroughFilter := buildOutboundTCPFilter(in.Push.Mesh, attrs, in.Node, svc)
+
+	for _, filterChain := range mutable.FilterChains {
+		filterChain.TCP = append(filterChain.TCP, fallThroughFilter)
+		length := len(filterChain.TCP)
+		// swap
+		tmp := filterChain.TCP[length-1]
+		filterChain.TCP[length-2] = filterChain.TCP[length-1]
+		filterChain.TCP[length-1] = tmp
+	}
+	return nil
+}
+
 // OnOutboundListener implements the Callbacks interface method.
 func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
 	if in.Push.Mesh.MixerCheckServer == "" && in.Push.Mesh.MixerReportServer == "" {

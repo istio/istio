@@ -1116,8 +1116,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 			httpListeners = append(httpListeners, l.listener)
 		}
 	}
-
 	tcpListeners = append(tcpListeners, httpListeners...)
+	for _, listener := range tcpListeners {
+		configgen.appendListenerFallthroughRouteForCompleteListener(listener, node, push)
+	}
 	httpProxy := configgen.buildHTTPProxy(node, push)
 	if httpProxy != nil {
 		tcpListeners = append(tcpListeners, httpProxy)
@@ -1585,7 +1587,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 	// Lets build the new listener with the filter chains. In the end, we will
 	// merge the filter chains with any existing listener on the same port/bind point
 	l := buildListener(listenerOpts)
-	appendListenerFallthroughRoute(l, &listenerOpts, pluginParams.Node, currentListenerEntry)
+	// TODO(lambdai): fallthrough filter chain is actually more complicated than a single filter chain.
+	// Note that the fall through route is built at the very end of all outbound listeners
 	l.TrafficDirection = core.TrafficDirection_OUTBOUND
 
 	mutable := &istionetworking.MutableObjects{
@@ -2153,6 +2156,48 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	}
 
 	return listener
+}
+
+//
+func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteListener(l *xdsapi.Listener, node *model.Proxy, push *model.PushContext) {
+	wildcardMatch := &listener.FilterChainMatch{}
+	for _, fc := range l.FilterChains {
+		if isMatchAllFilterChain(fc) {
+			// We can only have one wildcard match. If the filter chain already has one, skip it
+			// This happens in the case of HTTP, which will get a fallthrough route added later,
+			// or TCP, which is not supported
+			return
+		}
+	}
+
+	fallthroughNetworkFilters := buildOutboundCatchAllNetworkFiltersOnly(push, node)
+
+	in := &plugin.InputParams{
+		Node: node,
+		Push: push,
+	}
+	mutable := &istionetworking.MutableObjects{
+		FilterChains: []istionetworking.FilterChain{
+			{
+				TCP: fallthroughNetworkFilters,
+			},
+		},
+	}
+
+	for _, p := range configgen.Plugins {
+		err := p.OnOutboundPassthroughFilterChain(in, mutable)
+		if err != nil {
+			log.Debugf("fail to set passthrough filter chain for listener: %#v", l.Name)
+			return
+		}
+	}
+
+	outboundPassThroughFilterChain := &listener.FilterChain{
+		FilterChainMatch: wildcardMatch,
+		Name:             util.PassthroughFilterChain,
+		Filters:          mutable.FilterChains[0].TCP,
+	}
+	l.FilterChains = append(l.FilterChains, outboundPassThroughFilterChain)
 }
 
 // appendListenerFallthroughRoute adds a filter that will match all traffic and direct to the

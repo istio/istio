@@ -52,6 +52,10 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *networking.Mut
 	return buildFilter(in, mutable)
 }
 
+func (Plugin) OnOutboundPassthroughFilterChain(in *plugin.InputParams, mutable *networking.MutableObjects) error {
+	return nil
+}
+
 // OnInboundListener is called whenever a new listener is added to the LDS output for a given service
 // Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
 // on the inbound path

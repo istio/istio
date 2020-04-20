@@ -51,6 +51,10 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *networking.Mut
 	return nil
 }
 
+func (Plugin) OnOutboundPassthroughFilterChain(in *plugin.InputParams, mutable *networking.MutableObjects) error {
+	return nil
+}
+
 // OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []networking.FilterChain {
 	return nil
