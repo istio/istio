@@ -2007,7 +2007,7 @@ func buildTracingConfig(config *meshconfig.ProxyConfig, proxyType model.NodeType
 		},
 	}
 
-	if config.Tracing != nil {
+	if config.Tracing != nil && proxyType == model.SidecarProxy {
 		// only specify a MaxPathTagLength if meshconfig has specified one
 		// otherwise, rely on upstream envoy defaults
 		if config.Tracing.MaxPathTagLength != 0 {
@@ -2019,7 +2019,7 @@ func buildTracingConfig(config *meshconfig.ProxyConfig, proxyType model.NodeType
 
 		// custom tags should only be used for sidecar proxies and should not include
 		// gateways due to client requests from outside of the mesh
-		if len(config.Tracing.CustomTags) != 0 && proxyType == model.SidecarProxy {
+		if len(config.Tracing.CustomTags) != 0 {
 			tracingCfg.CustomTags = buildCustomTags(config.Tracing.CustomTags)
 
 		}

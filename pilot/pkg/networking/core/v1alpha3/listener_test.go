@@ -1534,9 +1534,10 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 			},
 		},
 		{
-			name:   "custom-tags-gateways",
+			name:   "custom-tracing-gateways",
 			tproxy: proxyGateway,
 			in: &meshconfig.Tracing{
+				MaxPathTagLength: 100,
 				CustomTags: map[string]*meshconfig.Tracing_CustomTag{
 					"custom_tag_request_header": {
 						Type: &meshconfig.Tracing_CustomTag_Header{
@@ -1558,6 +1559,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &envoy_type.Percent{
 					Value: 100.0,
 				},
+				MaxPathTagLength: nil,
 				CustomTags:       nil,
 			},
 		},
