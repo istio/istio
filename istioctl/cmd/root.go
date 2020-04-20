@@ -139,6 +139,7 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(Analyze())
 
 	rootCmd.AddCommand(install.NewVerifyCommand())
+	experimentalCmd.AddCommand(install.NewPrecheckCommand())
 	experimentalCmd.AddCommand(AuthZ())
 	rootCmd.AddCommand(seeExperimentalCmd("authz"))
 	experimentalCmd.AddCommand(graduatedCmd("convert-ingress"))
