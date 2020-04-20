@@ -564,14 +564,14 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 
 		// Check if there is an explicit import of form ns/* or ns/host
 		if importedHosts, nsFound := ilw.listenerHosts[configNamespace]; nsFound {
-			if svc := matchingServices(importedHosts, s, ilw); svc != nil {
+			if svc := matchingService(importedHosts, s, ilw); svc != nil {
 				importedServices = append(importedServices, svc)
 			}
 		}
 
 		// Check if there is an import of form */host or */*
 		if wnsFound {
-			if svc := matchingServices(wildcardHosts, s, ilw); svc != nil {
+			if svc := matchingService(wildcardHosts, s, ilw); svc != nil {
 				importedServices = append(importedServices, svc)
 			}
 		}
@@ -598,7 +598,8 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 	return filteredServices
 }
 
-func matchingServices(importedHosts []host.Name, service *Service, ilw *IstioEgressListenerWrapper) *Service {
+// Return the original service or a trimmed service which has a subset of the ports in original service.
+func matchingService(importedHosts []host.Name, service *Service, ilw *IstioEgressListenerWrapper) *Service {
 	// If a listener is defined with a port, we should match services with port except in the following case.
 	//  - If Port's protocol is proxy protocol(HTTP_PROXY) in which case the egress listener is used as generic egress http proxy.
 	needsPortMatch := ilw.IstioListener != nil && ilw.IstioListener.Port.GetNumber() != 0 &&
