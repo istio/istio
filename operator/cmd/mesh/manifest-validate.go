@@ -64,6 +64,12 @@ var (
 	// https://preliminary.istio.io/docs/reference/config/istio.mesh.v1alpha1.html#MeshConfig-H2UpgradePolicy
 	h2UpgradePolicy = getEnumKeys(mesh.MeshConfig_H2UpgradePolicy_value)
 
+	// https://preliminary.istio.io/docs/reference/config/istio.mesh.v1alpha1.html#MeshConfig-AccessLogEncoding
+	accessLogEncoding = getEnumKeys(mesh.MeshConfig_AccessLogEncoding_value)
+
+	// https://preliminary.istio.io/docs/reference/config/istio.mesh.v1alpha1.html#MeshConfig-IngressControllerMode
+	ingressControllerMode = getEnumKeys(mesh.MeshConfig_IngressControllerMode_value)
+
 	// https://preliminary.istio.io/docs/reference/config/istio.operator.v1alpha1/#IstioOperatorSpec
 	setFlagValues = map[string]interface{}{
 		"profile": profile,
@@ -101,6 +107,8 @@ var (
 		"values.meshConfig.outboundClusterStatName":         validateClusterStatName,
 		"values.global.outboundTrafficPolicy.mode":          outboundTrafficPolicyMode,
 		"values.meshConfig.h2UpgradePolicy":                 h2UpgradePolicy,
+		"values.global.proxy.accessLogEncoding":             accessLogEncoding,
+		"values.pilot.ingress.ingressControllerMode":        ingressControllerMode,
 
 		"security.components.nodeAgent.enabled": boolValues,
 

@@ -173,6 +173,38 @@ func TestValidateSetFlags(t *testing.T) {
 				"DONOTUPGRADE", "values.meshConfig.h2UpgradePolicy",
 				strings.Join(h2UpgradePolicy, ", ")),
 		},
+		{
+			name: "Test valid accessLogEncoding",
+			args: []string{
+				"values.global.proxy.accessLogEncoding=JSON",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid accessLogEncoding",
+			args: []string{
+				"values.global.proxy.accessLogEncoding=JSONP",
+			},
+			want: fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %q",
+				"JSONP", "values.global.proxy.accessLogEncoding",
+				strings.Join(accessLogEncoding, ", ")),
+		},
+		{
+			name: "Test valid ingressControllerMode",
+			args: []string{
+				"values.pilot.ingress.ingressControllerMode=STRICT",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid ingressControllerMode",
+			args: []string{
+				"values.pilot.ingress.ingressControllerMode=JSON",
+			},
+			want: fmt.Errorf("\n Unsupported value: %q, supported values for: %q is %q",
+				"JSON", "values.pilot.ingress.ingressControllerMode",
+				strings.Join(ingressControllerMode, ", ")),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
