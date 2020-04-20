@@ -189,5 +189,5 @@ func (c *nativeComponent) GetDiscoveryAddress() *net.TCPAddr {
 
 // GetSecureDiscoveryAddress gets the discovery address for pilot.
 func (c *nativeComponent) GetSecureDiscoveryAddress() *net.TCPAddr {
-	return c.server.GRPCDNSListener.Addr().(*net.TCPAddr)
+	return c.server.SecureGrpcListener.Addr().(*net.TCPAddr)
 }
