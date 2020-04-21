@@ -52,7 +52,7 @@ const (
 	IstioNamespace    = "istio-system"
 	OperatorNamespace = "istio-operator"
 	retryDelay        = time.Second
-	retryTimeOut      = 240 * time.Second
+	retryTimeOut      = 300 * time.Second
 )
 
 var (
@@ -132,6 +132,7 @@ func checkInstallStatus(cs kube.Cluster) error {
 		Resource: "istiooperators",
 	}
 
+	var unhealthyCN []string
 	retryFunc := func() error {
 		us, err := cs.GetUnstructured(gvr, IstioNamespace, "test-istiocontrolplane")
 		if err != nil {
@@ -159,12 +160,14 @@ func checkInstallStatus(cs kube.Cluster) error {
 			return fmt.Errorf("failed to unmarshal istioOperator status: %v", err)
 		}
 		errs := util.Errors{}
+		unhealthyCN = []string{}
 		if status.Status != api.InstallStatus_HEALTHY {
 			errs = util.AppendErr(errs, fmt.Errorf("got IstioOperator status: %v", status.Status))
 		}
 
 		for cn, cnstatus := range status.ComponentStatus {
 			if cnstatus.Status != api.InstallStatus_HEALTHY {
+				unhealthyCN = append(unhealthyCN, cn)
 				errs = util.AppendErr(errs, fmt.Errorf("got component: %s status: %v", cn, cnstatus.Status))
 			}
 		}
@@ -175,9 +178,15 @@ func checkInstallStatus(cs kube.Cluster) error {
 		content, shellerr := shell.Execute(false, "kubectl logs -n %s -l %s --tail=10000000",
 			OperatorNamespace, "name=istio-operator")
 		if shellerr != nil {
-			return fmt.Errorf("unable to get logs from istio-operator: %v , content %v", err, content)
+			return fmt.Errorf("unable to get logs from istio-operator: %v ", err)
 		}
 		log.Infof("operator log: %s", content)
+		content, shellerr = shell.Execute(false, "kubectl logs -n %s -l %s --tail=10000000",
+			IstioNamespace, "app=prometheus")
+		if shellerr != nil {
+			return fmt.Errorf("unable to get logs from component %v", err)
+		}
+		log.Infof("component log: %s", content)
 		return fmt.Errorf("istioOperator status is not healthy: %v", err)
 	}
 	return nil
