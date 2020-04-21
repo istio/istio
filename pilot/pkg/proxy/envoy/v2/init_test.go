@@ -201,10 +201,10 @@ func sendCDSNack(node string, client ads.AggregatedDiscoveryService_StreamAggreg
 	return sendXds(node, client, v2.ClusterType, "NOPE!")
 }
 
-func sendXds(node string, client ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, typeUrl string, error string) error {
+func sendXds(node string, client ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, typeUrl string, errMsg string) error {
 	var errorDetail *status.Status
-	if error != "" {
-		errorDetail = &status.Status{Message: error}
+	if errMsg != "" {
+		errorDetail = &status.Status{Message: errMsg}
 	}
 	err := client.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
