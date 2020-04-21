@@ -302,8 +302,6 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		delete(c.nodeSelectorsForServices, svcConv.Hostname)
 		delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
 		c.Unlock()
-		// EDS needs to just know when service is deleted.
-		c.xdsUpdater.SvcUpdate(c.clusterID, svc.Name, svc.Namespace, event)
 	default:
 		// instance conversion is only required when service is added/updated.
 		instances := kube.ExternalNameServiceInstances(*svc, svcConv)
@@ -325,9 +323,9 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 			c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
 		}
 		c.Unlock()
-		c.xdsUpdater.SvcUpdate(c.clusterID, svc.Name, svc.Namespace, event)
 	}
 
+	c.xdsUpdater.SvcUpdate(c.clusterID, svc.Name, svc.Namespace, event)
 	// Notify service handlers.
 	for _, f := range c.serviceHandlers {
 		f(svcConv, event)
@@ -497,7 +495,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	log.Infof("Controller terminated")
 }
 
-// Stop the controller. Mostly for tests, to simplify the code (defer c.Stop())
+// Stop the controller. Only for tests, to simplify the code (defer c.Stop())
 func (c *Controller) Stop() {
 	if c.stop != nil {
 		close(c.stop)
