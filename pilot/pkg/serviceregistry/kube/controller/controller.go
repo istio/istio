@@ -524,7 +524,7 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 }
 
 // getNodePortServices returns nodePort type gateway service
-func (c *Controller) getNodePortGatewayServices() ([]*model.Service, error) {
+func (c *Controller) getNodePortGatewayServices() []*model.Service {
 	c.RLock()
 	defer c.RUnlock()
 	out := make([]*model.Service, 0, len(c.nodeSelectorsForServices))
@@ -535,14 +535,14 @@ func (c *Controller) getNodePortGatewayServices() ([]*model.Service, error) {
 		}
 	}
 
-	return out, nil
+	return out
 }
 
 // updateServiceExternalAddr updates ClusterExternalAddresses for ingress gateway service of nodePort type
 func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) {
 	// node event, update all nodePort gateway services
 	if len(svcs) == 0 {
-		svcs, _ = c.getNodePortGatewayServices()
+		svcs = c.getNodePortGatewayServices()
 	}
 	for _, svc := range svcs {
 		c.RLock()
