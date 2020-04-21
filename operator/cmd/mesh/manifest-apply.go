@@ -190,6 +190,8 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 		return err
 	}
 
+	// Needed in case we are running a test through this path that doesn't start a new process.
+	helmreconciler.FlushObjectCaches()
 	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, &helmreconciler.Options{DryRun: dryRun})
 	if err != nil {
 		return err
