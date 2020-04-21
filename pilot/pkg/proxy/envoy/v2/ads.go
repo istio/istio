@@ -16,6 +16,7 @@ package v2
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -95,6 +96,18 @@ type XdsConnection struct {
 	LDSWatch bool
 	// CDSWatch is set if the remote server is watching Clusters
 	CDSWatch bool
+
+	// Envoy may request different versions of configuration (XDS v2 vs v3). While internally Pilot will
+	// only generate one version or the other, because the protos are wire compatible we can cast to the
+	// requested version. This struct keeps track of the types requested for each resource type.
+	// For example, if Envoy requests Clusters v3, we would track that here. Pilot would generate a v2
+	// cluster response, but change the TypeUrl in the response to be v3.
+	RequestedTypes struct {
+		CDS string
+		EDS string
+		RDS string
+		LDS string
+	}
 }
 
 // XdsEvent represents a config or registry event that results in a push.
@@ -224,18 +237,30 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 			switch discReq.TypeUrl {
 			case ClusterType:
+				if err := s.handleTypeURL(con, discReq.TypeUrl, &con.RequestedTypes.CDS); err != nil {
+					return err
+				}
 				if err := s.handleCds(con, discReq); err != nil {
 					return err
 				}
 			case ListenerType:
+				if err := s.handleTypeURL(con, discReq.TypeUrl, &con.RequestedTypes.LDS); err != nil {
+					return err
+				}
 				if err := s.handleLds(con, discReq); err != nil {
 					return err
 				}
 			case RouteType:
+				if err := s.handleTypeURL(con, discReq.TypeUrl, &con.RequestedTypes.RDS); err != nil {
+					return err
+				}
 				if err := s.handleRds(con, discReq); err != nil {
 					return err
 				}
 			case EndpointType:
+				if err := s.handleTypeURL(con, discReq.TypeUrl, &con.RequestedTypes.EDS); err != nil {
+					return err
+				}
 				if err := s.handleEds(con, discReq); err != nil {
 					return err
 				}
@@ -261,6 +286,17 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			}
 		}
 	}
+}
+
+func (s *DiscoveryServer) handleTypeURL(con *XdsConnection, typeURL string, requestedType *string) error {
+	if *requestedType == "" {
+		con.mu.Lock()
+		*requestedType = typeURL
+		con.mu.Unlock()
+	} else if *requestedType != typeURL {
+		return fmt.Errorf("invalid type %v, expected %v", typeURL, *requestedType)
+	}
+	return nil
 }
 
 func (s *DiscoveryServer) handleLds(con *XdsConnection, discReq *xdsapi.DiscoveryRequest) error {

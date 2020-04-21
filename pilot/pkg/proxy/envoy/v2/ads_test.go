@@ -122,6 +122,22 @@ func TestAdsReconnect(t *testing.T) {
 	t.Log("Received ", m)
 }
 
+func TestAdsVersioning(t *testing.T) {
+	s, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+
+	client, cancel, err := connectADS(util.MockPilotGrpcAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cancel()
+	node := sidecarID(app3Ip, "app3")
+
+	if err := sendXds(node, client, v2.ClusterType, ""); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestAdsClusterUpdate(t *testing.T) {
 	_, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
