@@ -687,6 +687,10 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 // InstancesByPort implements a service catalog operation
 func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
+	res, _ := c.endpoints.InstancesByPort(c, svc, reqSvcPort, labelsList)
+	if len(res) > 0 {
+		return res, nil
+	}
 
 	c.RLock()
 	instances := c.externalNameSvcInstanceMap[svc.Hostname]
@@ -698,11 +702,9 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 				inScopeInstances = append(inScopeInstances, i)
 			}
 		}
-
 		return inScopeInstances, nil
 	}
-
-	return c.endpoints.InstancesByPort(c, svc, reqSvcPort, labelsList)
+	return nil, nil
 }
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
