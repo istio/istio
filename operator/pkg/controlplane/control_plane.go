@@ -62,7 +62,7 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 			out.components = append(out.components, component.NewEgressComponent(c.Name, idx, c, &o))
 		}
 	}
-	for _, cn := range OrderedKeys(installSpec.AddonComponents) {
+	for _, cn := range orderedKeys(installSpec.AddonComponents) {
 		c := installSpec.AddonComponents[cn]
 		rn := ""
 		// For well-known addon components like Prometheus, the resource names are included
@@ -77,7 +77,7 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 	return out, nil
 }
 
-func OrderedKeys(m map[string]*v1alpha1.ExternalComponentSpec) []string {
+func orderedKeys(m map[string]*v1alpha1.ExternalComponentSpec) []string {
 	var keys []string
 	for k := range m {
 		keys = append(keys, k)

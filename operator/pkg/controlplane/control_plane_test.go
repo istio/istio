@@ -16,9 +16,10 @@ package controlplane
 
 import (
 	"fmt"
-	"istio.io/istio/operator/pkg/util"
 	"reflect"
 	"testing"
+
+	"istio.io/istio/operator/pkg/util"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/component"
@@ -52,7 +53,7 @@ func TestOrderedKeys(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			if got := OrderedKeys(tt.in); !(reflect.DeepEqual(got, tt.want)) {
+			if got := orderedKeys(tt.in); !(reflect.DeepEqual(got, tt.want)) {
 				t.Errorf("%s: got %+v want %+v", tt.desc, got, tt.want)
 			}
 		})
@@ -137,10 +138,10 @@ func TestIstioOperator_RenderManifest(t *testing.T) {
 		Translator:  &translate.Translator{},
 	}
 	tests := []struct {
-		desc string
-		testOperator *IstioOperator
+		desc          string
+		testOperator  *IstioOperator
 		wantManifests name.ManifestMap
-		wantErrs util.Errors
+		wantErrs      util.Errors
 	}{
 		{
 			desc: "components-not-started-operator-started",
