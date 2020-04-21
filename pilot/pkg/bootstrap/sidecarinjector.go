@@ -37,6 +37,8 @@ import (
 var (
 	injectionWebhookConfigName = env.RegisterStringVar("INJECTION_WEBHOOK_CONFIG_NAME", "istio-sidecar-injector",
 		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.")
+	defaultTlsCertFile = env.RegisterStringVar("TLS_SERVER_CERT_CHAIN", filepath.Join(dnsCertDir, "cert-chain.pem"), "File containing the x509 Certificate for HTTPS.")
+	defaultTlsKeyFile  = env.RegisterStringVar("TLS_SERVER_KEY", filepath.Join(dnsCertDir, "key.pem"), "File containing the x509 private key matching --tlsCertFile.")
 )
 
 const (
@@ -66,8 +68,8 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 		ValuesFile: filepath.Join(injectPath, "values"),
 		MeshFile:   args.Mesh.ConfigFile,
 		Env:        s.environment,
-		CertFile:   filepath.Join(dnsCertDir, "cert-chain.pem"),
-		KeyFile:    filepath.Join(dnsCertDir, "key.pem"),
+		CertFile:   defaultTlsCertFile.Get(),
+		KeyFile:    defaultTlsKeyFile.Get(),
 		// Disable monitoring. The injection metrics will be picked up by Pilots metrics exporter already
 		MonitoringPort: -1,
 		Mux:            s.httpsMux,
