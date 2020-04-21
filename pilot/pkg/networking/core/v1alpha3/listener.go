@@ -331,6 +331,10 @@ var (
 	// httpGrpcAccessLog is used when access log service is enabled in mesh config.
 	httpGrpcAccessLog = buildHTTPGrpcAccessLog()
 
+	// pilotTraceSamplingEnv is value of PILOT_TRACE_SAMPLING env bounded
+	// by [0.0, 100.0]; if outside the range it is set to 100.0
+	pilotTraceSamplingEnv = getPilotRandomSamplingEnv()
+
 	emptyFilterChainMatch = &listener.FilterChainMatch{}
 
 	lmutex          sync.RWMutex
@@ -2027,10 +2031,9 @@ func getPilotRandomSamplingEnv() float64 {
 }
 
 func updateTraceSamplingConfig(config *meshconfig.ProxyConfig, cfg *http_conn.HttpConnectionManager_Tracing) {
-	sampling := getPilotRandomSamplingEnv()
+	sampling := pilotTraceSamplingEnv
 
 	if config.Tracing != nil && config.Tracing.Sampling != 0.0 {
-		log.Infof("Both PILOT_TRACE_SAMPLING and MeshConfig.ProxyConfig.Tracing.Sampling set; choosing MeshConfig.ProxyConfig.Tracing.Sampling")
 		sampling = config.Tracing.Sampling
 	}
 	cfg.ClientSampling = &envoy_type.Percent{

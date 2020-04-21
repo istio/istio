@@ -1618,9 +1618,9 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 
 	for _, tc := range customTagsTest {
 		featuresSet := false
-		envPilotRandomSampling := features.TraceSampling
+		capturedSamplingValue := pilotTraceSamplingEnv
 		if tc.envPilotSampling != 0.0 {
-			features.TraceSampling = tc.envPilotSampling
+			pilotTraceSamplingEnv = tc.envPilotSampling
 			featuresSet = true
 		}
 
@@ -1647,7 +1647,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 		verifyHTTPConnectionManagerFilter(t, f, tc.out, tc.name)
 
 		if featuresSet {
-			features.TraceSampling = envPilotRandomSampling
+			pilotTraceSamplingEnv = capturedSamplingValue
 		}
 	}
 }
