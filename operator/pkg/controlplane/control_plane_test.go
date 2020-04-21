@@ -15,6 +15,8 @@
 package controlplane
 
 import (
+	"fmt"
+	"istio.io/istio/operator/pkg/util"
 	"reflect"
 	"testing"
 
@@ -120,11 +122,131 @@ func TestNewIstioOperator(t *testing.T) {
 			},
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			if gotOperator, err := NewIstioOperator(tt.inInstallSpec, tt.inTranslator); ((err != nil && tt.wantErr == nil) || (err == nil && tt.wantErr != nil)) || !gotOperator.ComponentsEqual(tt.wantIstioOperator.components) {
 				t.Errorf("%s: wanted components & err %+v %v, got components & err %+v %v", tt.desc, tt.wantIstioOperator.components, tt.wantErr, gotOperator.components, err)
+			}
+		})
+	}
+}
+
+func TestIstioOperator_RenderManifest(t *testing.T) {
+	coreComponentOptions := &component.Options{
+		InstallSpec: &v1alpha1.IstioOperatorSpec{},
+		Translator:  &translate.Translator{},
+	}
+	tests := []struct {
+		desc string
+		testOperator *IstioOperator
+		wantManifests name.ManifestMap
+		wantErrs util.Errors
+	}{
+		{
+			desc: "components-not-started-operator-started",
+			testOperator: &IstioOperator{
+				components: []component.IstioComponent{
+					&component.CRDComponent{
+						CommonComponentFields: &component.CommonComponentFields{
+							Options:       coreComponentOptions,
+							ComponentName: name.IstioBaseComponentName,
+						},
+					},
+					&component.PilotComponent{
+						CommonComponentFields: &component.CommonComponentFields{
+							Options: &component.Options{
+								InstallSpec: &v1alpha1.IstioOperatorSpec{},
+								Translator:  &translate.Translator{},
+							},
+							ResourceName:  "test-resource",
+							ComponentName: name.PilotComponentName,
+						},
+					},
+					&component.PolicyComponent{
+						CommonComponentFields: &component.CommonComponentFields{
+							Options:       coreComponentOptions,
+							ComponentName: name.PolicyComponentName,
+						},
+					},
+					&component.TelemetryComponent{
+						CommonComponentFields: &component.CommonComponentFields{
+							ComponentName: name.TelemetryComponentName,
+							Options:       coreComponentOptions,
+						},
+					},
+					&component.CNIComponent{
+						CommonComponentFields: &component.CommonComponentFields{
+							ComponentName: name.CNIComponentName,
+							Options:       coreComponentOptions,
+						},
+					},
+				},
+				started: true,
+			},
+			wantManifests: map[name.ComponentName][]string{},
+			wantErrs: []error{
+				fmt.Errorf("component Base not started in RenderManifest"),
+				fmt.Errorf("component Pilot not started in RenderManifest"),
+				fmt.Errorf("component Policy not started in RenderManifest"),
+				fmt.Errorf("component Telemetry not started in RenderManifest"),
+				fmt.Errorf("component Cni not started in RenderManifest"),
+			},
+		},
+		{
+			desc: "operator-not-started",
+			testOperator: &IstioOperator{
+				components: []component.IstioComponent{
+					&component.CRDComponent{
+						CommonComponentFields: &component.CommonComponentFields{
+							Options:       coreComponentOptions,
+							ComponentName: name.IstioBaseComponentName,
+						},
+					},
+					&component.PilotComponent{
+						CommonComponentFields: &component.CommonComponentFields{
+							Options: &component.Options{
+								InstallSpec: &v1alpha1.IstioOperatorSpec{},
+								Translator:  &translate.Translator{},
+							},
+							ResourceName:  "test-resource",
+							ComponentName: name.PilotComponentName,
+						},
+					},
+					&component.PolicyComponent{
+						CommonComponentFields: &component.CommonComponentFields{
+							Options:       coreComponentOptions,
+							ComponentName: name.PolicyComponentName,
+						},
+					},
+					&component.TelemetryComponent{
+						CommonComponentFields: &component.CommonComponentFields{
+							ComponentName: name.TelemetryComponentName,
+							Options:       coreComponentOptions,
+						},
+					},
+					&component.CNIComponent{
+						CommonComponentFields: &component.CommonComponentFields{
+							ComponentName: name.CNIComponentName,
+							Options:       coreComponentOptions,
+						},
+					},
+				},
+				started: false,
+			},
+			wantManifests: map[name.ComponentName][]string{},
+			wantErrs: []error{
+				fmt.Errorf("istioControlPlane must be Run before calling RenderManifest"),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			if gotManifests, gotErrs := tt.testOperator.RenderManifest(); !reflect.DeepEqual(gotManifests, tt.wantManifests) || !reflect.DeepEqual(gotErrs, tt.wantErrs) {
+				// reflect.DeepEqual returns false on size 0 maps
+				if !(len(gotManifests) == 0) && (len(tt.wantManifests) == 0) {
+					t.Errorf("%s: expected manifest map %+v errs %+v, got manifest map %+v errs %+v",
+						tt.desc, tt.wantManifests, tt.wantErrs, gotManifests, gotErrs)
+				}
 			}
 		})
 	}
