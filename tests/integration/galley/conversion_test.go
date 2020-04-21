@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"istio.io/istio/galley/testdatasets/conversion"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
@@ -29,6 +30,7 @@ import (
 )
 
 func TestConversion(t *testing.T) {
+	mesh.TestMode = true
 	dataset, err := conversion.Load()
 	if err != nil {
 		t.Fatalf("Error loading data set: %v", err)

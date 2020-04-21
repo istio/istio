@@ -35,9 +35,11 @@ import (
 	thrift_ratelimit "github.com/envoyproxy/go-control-plane/envoy/config/filter/thrift/rate_limit/v2alpha1"
 	ratelimit "github.com/envoyproxy/go-control-plane/envoy/config/ratelimit/v2"
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
+	envoy_type_tracing_v2 "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -330,8 +332,6 @@ var (
 	// httpGrpcAccessLog is used when access log service is enabled in mesh config.
 	httpGrpcAccessLog = buildHTTPGrpcAccessLog()
 
-	tracingConfig = buildTracingConfig()
-
 	emptyFilterChainMatch = &listener.FilterChainMatch{}
 
 	lmutex          sync.RWMutex
@@ -458,6 +458,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(push *model.PushCont
 		builder.buildSidecarInboundListeners(configgen).
 			buildSidecarOutboundListeners(configgen).
 			buildManagementListeners(configgen).
+			buildHTTPProxyListener(configgen).
 			buildVirtualOutboundListener(configgen).
 			buildVirtualInboundListener(configgen)
 	}
@@ -1118,11 +1119,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 	}
 
 	tcpListeners = append(tcpListeners, httpListeners...)
-	httpProxy := configgen.buildHTTPProxy(node, push)
-	if httpProxy != nil {
-		tcpListeners = append(tcpListeners, httpProxy)
-	}
-
 	removeListenerFilterTimeout(tcpListeners)
 	return tcpListeners
 }
@@ -1990,16 +1986,16 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	}
 
 	if pluginParams.Push.Mesh.EnableTracing {
-		connectionManager.Tracing = tracingConfig
+		connectionManager.Tracing = buildTracingConfig(pluginParams.Push.Mesh.DefaultConfig, pluginParams.Node.Type)
 		connectionManager.GenerateRequestId = proto.BoolTrue
 	}
 
 	return connectionManager
 }
 
-func buildTracingConfig() *http_conn.HttpConnectionManager_Tracing {
+func buildTracingConfig(config *meshconfig.ProxyConfig, proxyType model.NodeType) *http_conn.HttpConnectionManager_Tracing {
 	tc := authn_model.GetTraceConfig()
-	return &http_conn.HttpConnectionManager_Tracing{
+	tracingCfg := &http_conn.HttpConnectionManager_Tracing{
 		ClientSampling: &envoy_type.Percent{
 			Value: tc.ClientSampling,
 		},
@@ -2010,6 +2006,75 @@ func buildTracingConfig() *http_conn.HttpConnectionManager_Tracing {
 			Value: tc.OverallSampling,
 		},
 	}
+
+	if config.Tracing != nil {
+		// only specify a MaxPathTagLength if meshconfig has specified one
+		// otherwise, rely on upstream envoy defaults
+		if config.Tracing.MaxPathTagLength != 0 {
+			tracingCfg.MaxPathTagLength =
+				&wrappers.UInt32Value{
+					Value: config.Tracing.MaxPathTagLength,
+				}
+		}
+
+		// custom tags should only be used for sidecar proxies and should not include
+		// gateways due to client requests from outside of the mesh
+		if len(config.Tracing.CustomTags) != 0 && proxyType == model.SidecarProxy {
+			tracingCfg.CustomTags = buildCustomTags(config.Tracing.CustomTags)
+		}
+	}
+
+	return tracingCfg
+}
+
+func buildCustomTags(customTags map[string]*meshconfig.Tracing_CustomTag) []*envoy_type_tracing_v2.CustomTag {
+	var tags []*envoy_type_tracing_v2.CustomTag
+
+	for tagName, tagInfo := range customTags {
+		switch tag := tagInfo.Type.(type) {
+		case *meshconfig.Tracing_CustomTag_Environment:
+			env := &envoy_type_tracing_v2.CustomTag{
+				Tag: tagName,
+				Type: &envoy_type_tracing_v2.CustomTag_Environment_{
+					Environment: &envoy_type_tracing_v2.CustomTag_Environment{
+						Name:         tag.Environment.Name,
+						DefaultValue: tag.Environment.DefaultValue,
+					},
+				},
+			}
+			tags = append(tags, env)
+		case *meshconfig.Tracing_CustomTag_Header:
+			header := &envoy_type_tracing_v2.CustomTag{
+				Tag: tagName,
+				Type: &envoy_type_tracing_v2.CustomTag_RequestHeader{
+					RequestHeader: &envoy_type_tracing_v2.CustomTag_Header{
+						Name:         tag.Header.Name,
+						DefaultValue: tag.Header.DefaultValue,
+					},
+				},
+			}
+			tags = append(tags, header)
+		case *meshconfig.Tracing_CustomTag_Literal:
+			env := &envoy_type_tracing_v2.CustomTag{
+				Tag: tagName,
+				Type: &envoy_type_tracing_v2.CustomTag_Literal_{
+					Literal: &envoy_type_tracing_v2.CustomTag_Literal{
+						Value: tag.Literal.Value,
+					},
+				},
+			}
+			tags = append(tags, env)
+		}
+	}
+
+	// looping over customTags, a map, results in the returned value
+	// being non-deterministic when multiple tags were defined; sort by the tag name
+	// to rectify this
+	sort.Slice(tags, func(i, j int) bool {
+		return tags[i].Tag < tags[j].Tag
+	})
+
+	return tags
 }
 
 func buildThriftRatelimit(domain string, thriftconfig *meshconfig.MeshConfig_ThriftConfig) *thrift_ratelimit.RateLimit {

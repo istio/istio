@@ -92,10 +92,10 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 	if cfg.MeshConfig != nil {
 		m = cfg.MeshConfig
 	}
-	m.AccessLogFile = "/var/log/istio/access.log"
+	m.AccessLogFile = "./var/log/istio/access.log"
 	// The local tests will use SDS, so we need to override the mesh to specify the UDS path
 	// TODO(howardjohn) should we make this mesh wide default?
-	m.SdsUdsPath = "unix:/etc/istio/proxy/SDS"
+	m.SdsUdsPath = "unix:./etc/istio/proxy/SDS"
 
 	if cfg.ServiceArgs.Registries == nil {
 		cfg.ServiceArgs = bootstrap.ServiceArgs{
@@ -189,5 +189,5 @@ func (c *nativeComponent) GetDiscoveryAddress() *net.TCPAddr {
 
 // GetSecureDiscoveryAddress gets the discovery address for pilot.
 func (c *nativeComponent) GetSecureDiscoveryAddress() *net.TCPAddr {
-	return c.server.GRPCDNSListener.Addr().(*net.TCPAddr)
+	return c.server.SecureGrpcListener.Addr().(*net.TCPAddr)
 }
