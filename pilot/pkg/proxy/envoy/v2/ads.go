@@ -289,6 +289,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	}
 }
 
+// handleTypeURL records the type url received in an XDS response. If this conflicts with a previously sent type,
+// an error is returned. For example, if a v2 cluster request was sent initially, then a v3 response was received, we will throw an error.
+// This is to ensure that when we do pushes, we are sending a consistent type, rather than flipping between v2 and v3.
+// A proper XDS client will not send mixed versions.
 func (s *DiscoveryServer) handleTypeURL(con *XdsConnection, typeURL string, requestedType *string) error {
 	if *requestedType == "" {
 		con.mu.Lock()
