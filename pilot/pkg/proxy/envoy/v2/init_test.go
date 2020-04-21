@@ -201,7 +201,7 @@ func sendCDSNack(node string, client ads.AggregatedDiscoveryService_StreamAggreg
 	return sendXds(node, client, v2.ClusterType, "NOPE!")
 }
 
-func sendXds(node string, client ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, typeUrl string, errMsg string) error {
+func sendXds(node string, client ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, typeURL string, errMsg string) error {
 	var errorDetail *status.Status
 	if errMsg != "" {
 		errorDetail = &status.Status{Message: errMsg}
@@ -213,9 +213,9 @@ func sendXds(node string, client ads.AggregatedDiscoveryService_StreamAggregated
 			Metadata: nodeMetadata,
 		},
 		ErrorDetail: errorDetail,
-		TypeUrl:     typeUrl})
+		TypeUrl:     typeURL})
 	if err != nil {
-		return fmt.Errorf("%v Request failed: %s", typeUrl, err)
+		return fmt.Errorf("%v Request failed: %s", typeURL, err)
 	}
 
 	return nil
