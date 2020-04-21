@@ -16,6 +16,7 @@ package memory
 
 import (
 	"errors"
+	"time"
 
 	"istio.io/pkg/ledger"
 
@@ -27,6 +28,9 @@ import (
 type controller struct {
 	monitor     Monitor
 	configStore model.ConfigStore
+	schemas     *collection.Schemas
+	sync        map[string]time.Time
+	syncCh      chan string
 }
 
 // NewController return an implementation of model.ConfigStoreCache
@@ -40,12 +44,35 @@ func NewController(cs model.ConfigStore) model.ConfigStoreCache {
 	return out
 }
 
+// NewControllerSync will check for sync.
+// Sync is indicated by calling Create() with a config with empty name and namespace.
+// (TODO: we can also use a special (invalid in normal configs) name to make it more clear).
+// The channel is used to indicate when each resource has synced, to avoid calling HasSynced in a loop.
+func NewControllerSync(cs model.ConfigStore, schemas *collection.Schemas, syncCh chan string) model.ConfigStoreCache {
+	out := &controller{
+		configStore: cs,
+		monitor:     NewMonitor(cs),
+		schemas: schemas,
+		sync: map[string]time.Time{},
+		syncCh: syncCh,
+	}
+	return out
+}
+
 func (c *controller) RegisterEventHandler(kind resource.GroupVersionKind, f func(model.Config, model.Config, model.Event)) {
 	c.monitor.AppendEventHandler(kind, f)
 }
 
 // Memory implementation is always synchronized with cache
 func (c *controller) HasSynced() bool {
+	if c.schemas != nil {
+		for _, s := range c.schemas.All() {
+			t := c.sync[s.Resource().GroupVersionKind().String()]
+			if t.IsZero() {
+				return false
+			}
+		}
+	}
 	return true
 }
 
@@ -78,6 +105,23 @@ func (c *controller) Get(kind resource.GroupVersionKind, key, namespace string) 
 }
 
 func (c *controller) Create(config model.Config) (revision string, err error) {
+	if c.sync != nil {
+		key := resource.GroupVersionKind{
+			Group: config.Group,
+			Version: config.Version,
+			Kind: config.Type,
+		}.String()
+
+		c.sync[key] = time.Now()
+
+		if config.Name == "" && config.Namespace == "" {
+			// Empty config - can't use nil due to interface
+			select {
+				case c.syncCh <- key:
+			}
+			return "", nil
+		}
+	}
 	if revision, err = c.configStore.Create(config); err == nil {
 		c.monitor.ScheduleProcessEvent(ConfigEvent{
 			config: config,

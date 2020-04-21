@@ -20,35 +20,10 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"google.golang.org/grpc/codes"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/apigen"
 )
 
 // gen2 provides experimental support for extended generation mechanism.
 
-// Support generation of 'ApiListener' LDS responses, used for native support of gRPC.
-// The same response can also be used by other apps using XDS directly.
-
-// GRPC proposal:
-// https://github.com/grpc/proposal/blob/master/A27-xds-global-load-balancing.md
-//
-// Note that this implementation is tested against gRPC, but it is generic - any other framework can
-// use this XDS mode to get load balancing info from Istio, including MC/VM/etc.
-
-// DNS can populate the name to cluster VIP mapping using this response.
-
-// The corresponding RDS response is also generated - currently gRPC has special differences
-// and can't understand normal Istio RDS - in particular expects "" instead of "/" as
-// default prefix, and is expects just the route for one host.
-// handleReqAck will detect if the message is an ACK or NACK, and update/log/count
-// using the generic structures. "Classical" CDS/LDS/RDS/EDS use separate logic -
-// this is used for the API-based LDS and generic messages.
-
-
-
-var (
-	// Interface is slightly different for now - LDS/CDS have extra param.
-	gen = &apigen.ApiGenerator{}
-)
 
 // handleReqAck checks if the message is an ack/nack and handles it, returning true.
 // If false, the request should be processed by calling the generator.
@@ -64,7 +39,7 @@ func (s *DiscoveryServer) handleReqAck(con *XdsConnection, discReq *xdsapi.Disco
 	w := con.node.Active[t]
 	if w == nil {
 		w = &model.WatchedResource{
-			TypeURL:  t,
+			TypeUrl:  t,
 		}
 		con.node.Active[t] = w
 		isAck = false // newly watched resource
@@ -120,12 +95,12 @@ func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *xdsapi.
 
 	push := s.globalPushContext()
 	resp := &xdsapi.DiscoveryResponse{
-		TypeUrl:     w.TypeURL,
+		TypeUrl:     w.TypeUrl,
 		VersionInfo: push.Version, // TODO: we can now generate per-type version !
 		Nonce:       nonce(push.Version),
 	}
 
-	cl := con.node.Generator.Generate(con.node, push, w)
+	cl := con.node.XdsResourceGenerator.Generate(con.node, push, w)
 	sz := 0
 	for _, rc := range cl {
 		resp.Resources = append(resp.Resources, rc)
@@ -153,7 +128,7 @@ func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *xdsapi.
 func (s *DiscoveryServer) pushGeneratorV2(con *XdsConnection, push *model.PushContext, currentVersion string, rt string, w *model.WatchedResource) error {
 	// TODO: generators may send incremental changes if both sides agree on the protocol.
 	// This is specific to each generator type.
-	cl := con.node.Generator.Generate(con.node, push, w)
+	cl := con.node.XdsResourceGenerator.Generate(con.node, push, w)
 	if cl == nil {
 		return nil // No push needed.
 	}
@@ -164,7 +139,7 @@ func (s *DiscoveryServer) pushGeneratorV2(con *XdsConnection, push *model.PushCo
 	// version of the requested type.
 
 	resp := &xdsapi.DiscoveryResponse{
-		TypeUrl:     w.TypeURL,
+		TypeUrl:     w.TypeUrl,
 		VersionInfo: currentVersion,
 		Nonce:       nonce(push.Version),
 	}

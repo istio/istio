@@ -187,12 +187,6 @@ type Proxy struct {
 	Active map[string]*WatchedResource
 }
 
-// VersionNonce holds information about ack/nack status in the protocol.
-type VersionNonce struct {
-	Version string
-	Nonce   string
-}
-
 // WatchedResource tracks an active DiscoveryRequest type.
 type WatchedResource struct {
 	// TypeUrl is copied from the DiscoveryRequest.TypeUrl that initiated watching this resource.
@@ -203,12 +197,22 @@ type WatchedResource struct {
 	// TypeUrl type are watched.
 	ResourceNames []string
 
-	// CurrentVersionNonce is the version and nonce sent to a client.
-	CurrentVersionNonce VersionNonce
+	// VersionSent is the version of the resource included in the last sent response.
+	// It corresponds to the [Cluster/Route/Listener]VersionSent in the XDS package.
+	VersionSent string
 
-	// LastVersionNonce is the last version and nonce acked/nacked by the client. If different from CurrentVersionNonce
-	// the client is still processing the request and didn't ack/nack.
-	LastVersionNonce VersionNonce
+	// NonceSent is the nonce sent in the last sent response. If it is equal with NonceAcked, the
+	// last message has been processed. If empty: we never sent a message of this type.
+	NonceSent string
+
+	// VersionAcked represents the version that was applied successfully. It can be different from
+	// VersionSent: if NonceSent == NonceAcked and versions are different it means the client rejected
+	// the last version, and VersionAcked is the last accepted and active config.
+	// If empty it means the client has no accepted/valid version, and is not ready.
+	VersionAcked string
+
+	// NonceAcked is the last acked message.
+	NonceAcked string
 
 	// LastSent tracks the time of the generated push, to determine the time it takes the client to ack.
 	LastSent time.Time

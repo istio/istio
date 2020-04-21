@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/constants"
 
 	"istio.io/istio/pilot/pkg/security/model"
@@ -181,7 +182,8 @@ type SDSAgent struct {
 	CitadelClient caClientInterface.Client
 
 	// CAEndpoint is the CA endpoint to which node agent sends CSR request.
-	CAEndpoint string
+	CAEndpoint  string
+	proxyConfig *meshconfig.ProxyConfig
 }
 
 // NewSDSAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -192,8 +194,12 @@ type SDSAgent struct {
 //
 // If node agent and JWT are mounted: it indicates user injected a config using hostPath, and will be used.
 //
-func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, outputKeyCertToDir string) *SDSAgent {
-	ac := &SDSAgent{}
+func NewSDSAgent(proxyConfig *meshconfig.ProxyConfig, pilotCertProvider, jwtPath, outputKeyCertToDir string) *SDSAgent {
+	ac := &SDSAgent{
+		proxyConfig: proxyConfig,
+	}
+	discAddr := proxyConfig.DiscoveryAddress
+	tlsRequired := proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS
 
 	ac.PilotCertProvider = pilotCertProvider
 	ac.OutputKeyCertToDir = outputKeyCertToDir
@@ -230,6 +236,7 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 			if discPort == "15012" {
 				log.Fatala("Missing JWT, can't authenticate with control plane. Try using plain text (15010)")
 			}
+                        // continue to initialize the agent. 
 		}
 	}
 
@@ -273,12 +280,15 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 	serverOptions.PilotCertProvider = conf.PilotCertProvider
 	// Next to the envoy config, writeable dir (mounted as mem)
 	serverOptions.WorkloadUDSPath = LocalSDS
-	serverOptions.UseLocalJWT = conf.CertsPath == "" // true if we don't have a key.pem
+	serverOptions.UseLocalJWT = conf.JWTPath != "" // true if we a JWT exists
 	serverOptions.CertsDir = conf.CertsPath
 	serverOptions.JWTPath = conf.JWTPath
 	serverOptions.OutputKeyCertToDir = conf.OutputKeyCertToDir
 	serverOptions.CAEndpoint = conf.CAEndpoint
 	serverOptions.TLSEnabled = conf.RequireCerts
+
+	// TODO: env control
+	initXDS(conf.proxyConfig)
 
 	// TODO: remove the caching, workload has a single cert
 	workloadSecretCache, _ := conf.newSecretCache(serverOptions)

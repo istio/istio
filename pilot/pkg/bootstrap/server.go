@@ -203,6 +203,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	if features.JwtPolicy.Get() != jwt.JWTPolicyThirdPartyJWT {
 		log.Info("JWT policy is third-party-jwt")
+	}
 
 	switch features.JwtPolicy.Get() {
 	case jwt.JWTPolicyThirdPartyJWT:
@@ -210,7 +211,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	case jwt.JWTPolicyFirstPartyJWT:
 		s.jwtPath = securityModel.K8sSAJwtFileName
 	default:
-		err := fmt.Errorf("unknown JWT policy %v, default to certificates ", features.JwtPolicy.Get())
+		log.Infof("unknown JWT policy %v, default to certificates ", features.JwtPolicy.Get())
 	}
 
 	// CA signing certificate must be created first.

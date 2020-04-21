@@ -56,7 +56,7 @@ func (configgen *ConfigGeneratorImpl) MeshConfigChanged(mesh *meshconfig.MeshCon
 
 func (g *ConfigGeneratorImpl) Generate(node *model.Proxy, push *model.PushContext, w *model.WatchedResource) []*any.Any {
 	resp := []*any.Any{}
-	switch w.TypeURL {
+	switch w.TypeUrl {
 	case ListenerType:
 		ll := g.BuildListeners(node, push)
 		for _, l := range ll {

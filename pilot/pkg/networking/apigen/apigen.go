@@ -64,14 +64,14 @@ func (g *ApiGenerator) handleConfigResource(node *model.Proxy, push *model.PushC
 	// The actual type in the Any should be a real proto - which is based on the generated package name.
 	// For example: type is for Any is 'type.googlepis.com/istio.networking.v1alpha3.EnvoyFilter
 	// We use: networking.istio.io/v1alpha3/EnvoyFilter
-	gvk := strings.SplitN(w.TypeURL, "/", 3)
+	gvk := strings.SplitN(w.TypeUrl, "/", 3)
 	if len(gvk) == 3 {
 		rgvk := resource.GroupVersionKind{
 			Group:   gvk[0],
 			Version: gvk[1],
 			Kind:    gvk[2],
 		}
-		if w.TypeURL == collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String() {
+		if w.TypeUrl == collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String() {
 			meshAny, err := types.MarshalAny(push.Mesh)
 			if err == nil {
 				resp = append(resp,&any.Any{
@@ -84,7 +84,7 @@ func (g *ApiGenerator) handleConfigResource(node *model.Proxy, push *model.PushC
 
 		cfg, err := push.IstioConfigStore.List(rgvk, "")
 		if err != nil {
-			log.Warnf("ADS: Unknown watched resources %s %v", w.TypeURL, err)
+			log.Warnf("ADS: Unknown watched resources %s %v", w.TypeUrl, err)
 			return resp
 		}
 		for _, c := range cfg {
@@ -109,7 +109,7 @@ func (g *ApiGenerator) handleConfigResource(node *model.Proxy, push *model.PushC
 
 		// TODO: MeshConfig, current dynamic ProxyConfig (for this proxy), Networks
 
-		if w.TypeURL == collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String() {
+		if w.TypeUrl == collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String() {
 			// Include 'synthetic' SE - but without the endpoints. Used to generate CDS, LDS.
 			// EDS is pass-through.
 			svcs := push.Services(node)

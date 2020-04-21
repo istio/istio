@@ -245,25 +245,6 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
-	// IstioNetworkingV1Alpha3SyntheticServiceentries describes the collection
-	// istio/networking/v1alpha3/synthetic/serviceentries
-	IstioNetworkingV1Alpha3SyntheticServiceentries = collection.Builder{
-		Name:         "istio/networking/v1alpha3/synthetic/serviceentries",
-		VariableName: "IstioNetworkingV1Alpha3SyntheticServiceentries",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "networking.istio.io",
-			Kind:          "ServiceEntry",
-			Plural:        "serviceentries",
-			Version:       "v1alpha3",
-			Proto:         "istio.networking.v1alpha3.ServiceEntry",
-			ProtoPackage:  "istio.io/api/networking/v1alpha3",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateServiceEntry,
-		}.MustBuild(),
-	}.MustBuild()
-
-
 	// IstioNetworkingV1Alpha3Sidecars describes the collection
 	// istio/networking/v1alpha3/sidecars
 	IstioNetworkingV1Alpha3Sidecars = collection.Builder{

@@ -37,6 +37,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -113,6 +114,8 @@ type ADSC struct {
 	Received map[string]*xdsapi.DiscoveryResponse
 
 	mutex sync.Mutex
+
+	Mesh *v1alpha1.MeshConfig
 
 	// Retrieved configurations can be stored using the common istio model interface.
 	Store model.IstioConfigStore
@@ -279,23 +282,36 @@ func (a *ADSC) handleRecv() {
 		for _, rsc := range msg.Resources { // Any
 			a.VersionInfo[rsc.TypeUrl] = msg.VersionInfo
 			valBytes := rsc.Value
-			if rsc.TypeUrl == ListenerType {
+			switch rsc.TypeUrl {
+
+			case ListenerType: {
 				ll := &xdsapi.Listener{}
 				_ = proto.Unmarshal(valBytes, ll)
 				listeners = append(listeners, ll)
-			} else if rsc.TypeUrl == ClusterType {
-				ll := &xdsapi.Cluster{}
-				_ = proto.Unmarshal(valBytes, ll)
-				clusters = append(clusters, ll)
-			} else if rsc.TypeUrl == endpointType {
-				ll := &xdsapi.ClusterLoadAssignment{}
-				_ = proto.Unmarshal(valBytes, ll)
-				eds = append(eds, ll)
-			} else if rsc.TypeUrl == routeType {
-				ll := &xdsapi.RouteConfiguration{}
-				_ = proto.Unmarshal(valBytes, ll)
-				routes = append(routes, ll)
-			} else {
+			}
+
+			case ClusterType: {
+				cl := &xdsapi.Cluster{}
+				_ = proto.Unmarshal(valBytes, cl)
+				clusters = append(clusters, cl)
+			}
+
+			case endpointType: {
+				el := &xdsapi.ClusterLoadAssignment{}
+				_ = proto.Unmarshal(valBytes, el)
+				eds = append(eds, el)
+			}
+
+			case routeType: {
+				rl := &xdsapi.RouteConfiguration{}
+				_ = proto.Unmarshal(valBytes, rl)
+				routes = append(routes, rl)
+			}
+
+			case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String():
+				_ = proto.Unmarshal(valBytes, a.Mesh)
+
+			default: {
 				gvk := strings.SplitN(msg.TypeUrl, "/", 3)
 				if len(gvk) != 3 {
 					continue
@@ -305,7 +321,7 @@ func (a *ADSC) handleRecv() {
 					m := &mcp.Resource{}
 					types.UnmarshalAny(&types.Any{
 						TypeUrl: rsc.TypeUrl,
-						Value: rsc.Value,
+						Value:   rsc.Value,
 					}, m)
 					val, err := mcpToPilot(m)
 					val.Group = gvk[0]
@@ -322,9 +338,10 @@ func (a *ADSC) handleRecv() {
 						}
 					}
 				}
-
+			}
 			}
 		}
+
 		a.Received[msg.TypeUrl] = msg
 
 		// TODO: add hook to inject nacks
@@ -537,6 +554,32 @@ func (a *ADSC) Save(base string) error {
 	}
 
 	// TODO: write the API configs as well - and load at restart for warm-up
+
+	strResponse, err = json.MarshalIndent(a.Mesh, "  ", "  ")
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(base+"_mesh.json", strResponse, 0644)
+	if err != nil {
+		return err
+	}
+
+	for _, sch := range collections.Pilot.All() {
+		val, err := a.Store.List(sch.Resource().GroupVersionKind(), "")
+		if err != nil {
+			continue
+		}
+		for _, res := range val {
+			strResponse, err = json.MarshalIndent(res, "  ", "  ")
+			if err != nil {
+				return err
+			}
+			err = ioutil.WriteFile(base+"_res." + res.Namespace + "." + res.Name + ".json", strResponse, 0644)
+			if err != nil {
+				return err
+			}
+		}
+	}
 
 	return err
 }
@@ -775,7 +818,7 @@ func (a *ADSC) WatchConfig() {
 		_ = a.stream.Send(&xdsapi.DiscoveryRequest{
 			ResponseNonce: time.Now().String(),
 			Node:          a.node(),
-			TypeUrl:       sch.Resource().Group() + "/" + sch.Resource().Version() + "/" + sch.Resource().Kind(),
+			TypeUrl:       sch.Resource().GroupVersionKind().String(),
 		})
 	}
 }

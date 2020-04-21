@@ -198,6 +198,7 @@ type Controller struct {
 	// map of node name and its address+labels - this is the only thing we need from nodes
 	// for vm to k8s or cross cluster. When node port services select specific nodes by labels,
 	// we run through the label selectors here to pick only ones that we need.
+	// Only nodes with ExternalIP addresses are included in this map !
 	nodeInfoMap map[string]kubernetesNode
 	// externalNameSvcInstanceMap stores hostname ==> instance, is used to store instances for ExternalName k8s services
 	externalNameSvcInstanceMap map[host.Name][]*model.ServiceInstance
@@ -382,7 +383,8 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 			}
 		}
 		if k8sNode.address == "" {
-			klog.Warningf("selected node %s without external ip address is unqualified ", node.Name)
+			// This is an absolutely normal event - node has an InternalIP instead of ExternalIP
+			klog.Infof("selected node %s without external ip address is unqualified ", node.Name)
 			return nil
 		}
 

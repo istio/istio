@@ -18,6 +18,7 @@ import (
 	"net"
 
 	"google.golang.org/grpc"
+	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -27,6 +28,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/pkg/log"
 )
 
 type Server struct {
@@ -37,7 +39,9 @@ type Server struct {
 	// MemoryStore is an in-memory config store, part of the aggregate store used by the discovery server.
 	MemoryConfigStore model.IstioConfigStore
 
-	AggregateConfigControoler *aggregate.Controller
+	// This matches env.ServiceDiscovery - the aggregate controller used in istio
+	ServiceDiscovery *aggregate.Controller
+
 	GRPCListener              net.Listener
 }
 
@@ -60,10 +64,20 @@ func NewXDS() *Server {
 
 	ds := v2.NewDiscoveryServer(env, nil)
 
+	// Config will have a fixed format: 
+	// - aggregate store
+	// - one primary (local) memory config
+  // Additional stores can be added dynamically - for example by push or reference from a server.
+  // This is used to implement and test XDS federation (which is not yet final).
+	
+  
 	// In-memory config store, controller and istioConfigStore
-	store := memory.Make(collections.Pilot)
+	schemas := collections.Pilot
+	
+	store := memory.Make(schemas)
 
-	configController := memory.NewController(store)
+	syncCh := make(chan string, len(schemas.All()))
+	configController := memory.NewControllerSync(store, &schemas, syncCh)
 	istioConfigStore := model.MakeIstioStore(configController)
 
 	// Endpoints/Clusters - using the config store for ServiceEntries
@@ -88,15 +102,23 @@ func NewXDS() *Server {
 
 	go configController.Run(make(chan struct{}))
 
-	env.IstioConfigStore = istioConfigStore
+	aggregateConfigController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
+		configController,
+	})
+	if err != nil {
+		log.Fatala("Creating aggregate config ", err)
+	}
+
+	env.IstioConfigStore = model.MakeIstioStore(aggregateConfigController)
 	env.ServiceDiscovery = serviceControllers
 
 	return &Server{
-		DiscoveryServer: ds,
+		DiscoveryServer:   ds,
 		MemoryConfigStore: istioConfigStore,
-		AggregateConfigControoler: serviceControllers,
+		ServiceDiscovery:  serviceControllers,
 	}
 }
+
 
 func (s *Server) StartGRPC(addr string) error {
 

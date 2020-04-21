@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+
 	istiolog "istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -212,8 +213,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// Remote side closed connection.
 				return receiveError
 			}
-			// This should be only set for the first request. Must be called even if the request has
-			// a missing node id (for example native gRPC)
+			// This should be only set for the first request. The node id may not be set - for example malicious clients.
 			if con.node == nil { // same condition is checked inside initConnection
 				if cancel, err := s.initConnection(discReq.Node, con); err != nil {
 					return err
@@ -224,9 +224,8 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 			// Based on node metadata a different generator was selected, use it instead of the default
 			// behaviour.
-			if con.node.Generator != nil && discReq.TypeUrl != EndpointType {
+			if con.node.XdsResourceGenerator != nil && discReq.TypeUrl != EndpointType {
 				// Endpoints are special - will use the optimized code path.
-				// In v3 we want CDS/LDS/RDS to move to Generator interface.
 				err = s.handleCustomGenerator(con, discReq)
 				if err != nil {
 					return err
@@ -444,7 +443,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (f
 	// TODO: use a map of generators, so it's easily customizable and to avoid deps
 	proxy.Active = map[string]*model.WatchedResource{}
 	if proxy.Metadata.Generator != "" {
-		proxy.Generator = s.Generators[proxy.Metadata.Generator]
+		proxy.XdsResourceGenerator = s.Generators[proxy.Metadata.Generator]
 	}
 
 	// First request so initialize connection id and start tracking it.
@@ -566,7 +565,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 
 	// This depends on SidecarScope updates, so it should be called after SetSidecarScope.
 	if !ProxyNeedsPush(con.node, pushEv) {
-		if con.node.Generator != nil {
+		if con.node.XdsResourceGenerator != nil {
 			// to verify if logic works on generator
 			adsLog.Infof("Skipping generator push to %v, no updates required", con.ConID)
 		} else {
@@ -584,7 +583,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	// 'LDSWatch', etc.
 	// Each Generator is responsible for determining if the push event requires a push -
 	// returning nil if the push is not needed.
-	if con.node.Generator != nil {
+	if con.node.XdsResourceGenerator != nil {
 		for rt, w := range con.node.Active {
 			err := s.pushGeneratorV2(con, pushEv.push, currentVersion, rt, w)
 			if err != nil {
@@ -620,7 +619,6 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 			return err
 		}
 	}
-
 	proxiesConvergeDelay.Record(time.Since(pushEv.start).Seconds())
 	return nil
 }

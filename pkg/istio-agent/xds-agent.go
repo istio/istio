@@ -43,6 +43,8 @@ import (
 var (
 	udsListener net.Listener
 
+	savePath = env.RegisterStringVar("XDS_SAVE", "./etc/istio/proxy",
+		"If set, the XDS proxy will save a snapshot of the received config")
 )
 
 var (
@@ -56,7 +58,7 @@ var (
 	cfg *meshconfig.ProxyConfig
 )
 
-func Init(mc *meshconfig.ProxyConfig) *xds.Server {
+func initXDS(mc *meshconfig.ProxyConfig) {
 	s := xds.NewXDS()
 	xdsServer = s
 	cfg = mc
@@ -69,6 +71,7 @@ func Init(mc *meshconfig.ProxyConfig) *xds.Server {
 	if err != nil {
 		log.Errorf("Failed to set up UDS path: %v", err)
 	}
+
 	if xdsAddr.Get() != "" {
 		localListener, err = net.Listen("tcp", xdsAddr.Get())
 		if err != nil {
@@ -77,8 +80,6 @@ func Init(mc *meshconfig.ProxyConfig) *xds.Server {
 		localGrpcServer = grpc.NewServer()
 		s.DiscoveryServer.Register(localGrpcServer)
 	}
-
-	return s
 }
 
 func startXDSClient(addr string) {
@@ -97,7 +98,13 @@ func startXDSClient(addr string) {
 
 	ads.WatchConfig()
 	ads.Wait(1 * time.Second, adsc.ListenerType)
+	
+	
 
+	if savePath.Get() != "" {
+		// TODO: save on each received resource instead.
+		ads.Save(savePath.Get())
+	}
 	// TODO: wait for config to sync before starting the rest
 	// TODO: handle push
 

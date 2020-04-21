@@ -67,7 +67,7 @@ type GrpcConfigGenerator struct {
 }
 
 func (g *GrpcConfigGenerator) Generate(node *model.Proxy, push *model.PushContext, w *model.WatchedResource) []*any.Any {
-	switch w.TypeURL {
+	switch w.TypeUrl {
 	case ListenerType:
 		return g.BuildListeners(node, push, w.ResourceNames)
 	case ClusterType:

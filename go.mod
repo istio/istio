@@ -41,6 +41,7 @@ require (
 	github.com/containerd/containerd v1.3.2 // indirect
 	github.com/coreos/etcd v3.3.15+incompatible
 	github.com/coreos/go-oidc v2.1.0+incompatible
+	github.com/costinm/istio-discovery v0.0.0-20190703001225-621670193ae9
 	github.com/cyphar/filepath-securejoin v0.2.2 // indirect
 	github.com/d4l3k/messagediff v1.2.1
 	github.com/davecgh/go-spew v1.1.1
