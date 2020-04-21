@@ -2254,41 +2254,6 @@ func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteL
 	l.FilterChains = append(l.FilterChains, outboundPassThroughFilterChain)
 }
 
-// appendListenerFallthroughRoute adds a filter that will match all traffic and direct to the
-// PassthroughCluster. This should be appended as the final filter or it will mask the others.
-// This allows external https traffic, even when port the port (usually 443) is in use by another service.
-func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts,
-	node *model.Proxy, currentListenerEntry *outboundListenerEntry) {
-	wildcardMatch := &listener.FilterChainMatch{}
-	for _, fc := range l.FilterChains {
-		if isMatchAllFilterChain(fc) {
-			// We can only have one wildcard match. If the filter chain already has one, skip it
-			// This happens in the case of HTTP, which will get a fallthrough route added later,
-			// or TCP, which is not supported
-			return
-		}
-	}
-
-	if currentListenerEntry != nil {
-		for _, fc := range currentListenerEntry.listener.FilterChains {
-			if isMatchAllFilterChain(fc) {
-				// We can only have one wildcard match. If the existing filter chain already has one, skip it
-				// This can happen when there are multiple https services
-				return
-			}
-		}
-	}
-
-	fallthroughNetworkFilters := buildOutboundCatchAllNetworkFiltersOnly(opts.push, node)
-
-	opts.filterChainOpts = append(opts.filterChainOpts, &filterChainOpts{
-		filterChainName: util.PassthroughFilterChain,
-		networkFilters:  fallthroughNetworkFilters,
-		isFallThrough:   true,
-	})
-	l.FilterChains = append(l.FilterChains, &listener.FilterChain{FilterChainMatch: wildcardMatch})
-}
-
 // buildCompleteFilterChain adds the provided TCP and HTTP filters to the provided Listener and serializes them.
 //
 // TODO: should we change this from []plugins.FilterChains to [][]listener.Filter, [][]*http_conn.HttpFilter?

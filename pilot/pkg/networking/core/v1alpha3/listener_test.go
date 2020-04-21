@@ -2075,23 +2075,19 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 	return env
 }
 
-func TestAppendListenerFallthroughRoute(t *testing.T) {
+func TestAppendListenerFallthroughRouteForCompleteListener(t *testing.T) {
 	push := &model.PushContext{
 		Mesh: &meshconfig.MeshConfig{},
 	}
 	tests := []struct {
-		name         string
-		listener     *xdsapi.Listener
-		listenerOpts *buildListenerOpts
-		node         *model.Proxy
-		hostname     string
+		name     string
+		listener *xdsapi.Listener
+		node     *model.Proxy
+		hostname string
 	}{
 		{
 			name:     "Registry_Only",
 			listener: &xdsapi.Listener{},
-			listenerOpts: &buildListenerOpts{
-				push: push,
-			},
 			node: &model.Proxy{
 				ID:       "foo.bar",
 				Metadata: &model.NodeMetadata{},
@@ -2106,9 +2102,6 @@ func TestAppendListenerFallthroughRoute(t *testing.T) {
 		{
 			name:     "Allow_Any",
 			listener: &xdsapi.Listener{},
-			listenerOpts: &buildListenerOpts{
-				push: push,
-			},
 			node: &model.Proxy{
 				ID:       "foo.bar",
 				Metadata: &model.NodeMetadata{},
@@ -2121,20 +2114,18 @@ func TestAppendListenerFallthroughRoute(t *testing.T) {
 			hostname: util.PassthroughCluster,
 		},
 	}
+	configgen := NewConfigGenerator([]plugin.Plugin{})
 	for idx := range tests {
 		t.Run(tests[idx].name, func(t *testing.T) {
-			appendListenerFallthroughRoute(tests[idx].listener, tests[idx].listenerOpts,
-				tests[idx].node, nil)
-			if len(tests[idx].listenerOpts.filterChainOpts) != 1 {
-				t.Errorf("Expected exactly 1 filter chain options")
+			configgen.appendListenerFallthroughRouteForCompleteListener(tests[idx].listener,
+				tests[idx].node, push)
+			if len(tests[idx].listener.FilterChains) != 1 {
+				t.Errorf("Expected exactly 1 filter chain")
 			}
-			if !tests[idx].listenerOpts.filterChainOpts[0].isFallThrough {
-				t.Errorf("Expected fall through to be set")
-			}
-			if len(tests[idx].listenerOpts.filterChainOpts[0].networkFilters) != 1 {
+			if len(tests[idx].listener.FilterChains[0].Filters) != 1 {
 				t.Errorf("Expected exactly 1 network filter in the chain")
 			}
-			filter := tests[idx].listenerOpts.filterChainOpts[0].networkFilters[0]
+			filter := tests[idx].listener.FilterChains[0].Filters[0]
 			var tcpProxy tcp_proxy.TcpProxy
 			cfg := filter.GetTypedConfig()
 			_ = ptypes.UnmarshalAny(cfg, &tcpProxy)
