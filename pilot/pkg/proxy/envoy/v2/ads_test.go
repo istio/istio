@@ -125,8 +125,8 @@ func TestAdsReconnect(t *testing.T) {
 	t.Log("Received ", m)
 }
 
-func sendAndReceive(t *testing.T, node string, client AdsClient, typeURL string, error string) *xdsapi.DiscoveryResponse {
-	if err := sendXds(node, client, typeURL, error); err != nil {
+func sendAndReceive(t *testing.T, node string, client AdsClient, typeURL string, errMsg string) *xdsapi.DiscoveryResponse {
+	if err := sendXds(node, client, typeURL, errMsg); err != nil {
 		t.Fatal(err)
 	}
 	res, err := adsReceive(client, 15*time.Second)
