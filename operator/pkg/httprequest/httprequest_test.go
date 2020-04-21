@@ -21,20 +21,33 @@ import (
 )
 
 func TestGet(t *testing.T) {
-	expected := "fooey-baroque"
-	url := "/fooey/baroque/cazoo"
-	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		if req.URL.String() != url {
-			t.Errorf("Made request to wrong URL, want: %s, got: %s", url, req.URL.String())
-		}
-		rw.Write([]byte(expected))
-	}))
-	defer server.Close()
-	response, err := Get(server.URL + url)
-	if err != nil {
-		t.Errorf("Unexpected Error In Making Request: %s", err.Error())
+	tests := []struct {
+		desc          string
+		expectedData  string
+		expectedRoute string
+	}{
+		{
+			desc:          "test-get",
+			expectedData:  "fooey-baroque",
+			expectedRoute: "/fooey/baroque/cazoo",
+		},
 	}
-	if expected != string(response) {
-		t.Errorf("Returned unexpected response, want: %s, got: %s", expected, string(response))
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			testServer := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+				if req.URL.String() != tt.expectedRoute {
+					t.Errorf("%s: request made to wrong URL, got %s, want %s", tt.desc, req.URL.String(), tt.expectedRoute)
+				}
+				rw.Write([]byte(tt.expectedData))
+			}))
+			defer testServer.Close()
+			response, err := Get(testServer.URL + tt.expectedRoute)
+			if err != nil {
+				t.Errorf("Unexpected Error In Making Request: %s", err.Error())
+			}
+			if tt.expectedData != string(response) {
+				t.Errorf("Returned unexpected response, want: %s, got: %s", tt.expectedData, string(response))
+			}
+		})
 	}
 }
