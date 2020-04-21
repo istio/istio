@@ -536,6 +536,8 @@ func (a *ADSC) Save(base string) error {
 		return err
 	}
 
+	// TODO: write the API configs as well - and load at restart for warm-up
+
 	return err
 }
 
@@ -762,6 +764,13 @@ func (a *ADSC) Watch() {
 
 // WatchConfig will use the new experimental API watching, similar with MCP.
 func (a *ADSC) WatchConfig() {
+	sch := collections.IstioMeshV1Alpha1MeshConfig
+	_ = a.stream.Send(&xdsapi.DiscoveryRequest{
+		ResponseNonce: time.Now().String(),
+		Node:          a.node(),
+		TypeUrl:       sch.Resource().Group() + "/" + sch.Resource().Version() + "/" + sch.Resource().Kind(),
+	})
+
 	for _, sch := range collections.Pilot.All() {
 		_ = a.stream.Send(&xdsapi.DiscoveryRequest{
 			ResponseNonce: time.Now().String(),

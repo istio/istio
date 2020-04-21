@@ -144,3 +144,48 @@ func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *xdsapi.
 
 	return nil
 }
+
+// TODO: verify that ProxyNeedsPush works correctly for Generator - ie. Sidecar visibility
+// is respected for arbitrary resource types.
+
+// Called for config updates.
+// Will not be called if ProxyNeedsPush returns false - ie. if the update
+func (s *DiscoveryServer) pushGeneratorV2(con *XdsConnection, push *model.PushContext, currentVersion string, rt string, w *model.WatchedResource) error {
+	// TODO: generators may send incremental changes if both sides agree on the protocol.
+	// This is specific to each generator type.
+	cl := con.node.Generator.Generate(con.node, push, w)
+	if cl == nil {
+		return nil // No push needed.
+	}
+
+	// TODO: add a 'version' to the result of generator. If set, use it to determine if the result
+	// changed - in many cases it will not change, so we can skip the push. Also the version will
+	// become dependent of the specific resource - for example in case of API it'll be the largest
+	// version of the requested type.
+
+	resp := &xdsapi.DiscoveryResponse{
+		TypeUrl:     w.TypeURL,
+		VersionInfo: currentVersion,
+		Nonce:       nonce(push.Version),
+	}
+
+	sz := 0
+	for _, rc := range cl {
+		resp.Resources = append(resp.Resources, rc)
+		sz += len(rc.Value)
+	}
+
+	err := con.send(resp)
+	if err != nil {
+		adsLog.Warnf("ADS: Send failure %s: %v", con.ConID, err)
+		recordSendError(apiSendErrPushes, err)
+		return err
+	}
+	w.LastSent = time.Now()
+	w.LastSize = sz // just resource size - doesn't include header and types
+	w.NonceSent = resp.Nonce
+
+	adsLog.Infof("XDS: PUSH for node:%s listeners:%d", con.node.ID, len(cl))
+	return nil
+}
+

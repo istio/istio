@@ -91,6 +91,9 @@ type DiscoveryServer struct {
 	// APIs and service registry info
 	ConfigGenerator core.ConfigGenerator
 
+	// Generators allow customising the generated config, based on the client metadata.
+	Generators map[string]model.Generator
+
 	concurrentPushLimit chan struct{}
 
 	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
@@ -146,6 +149,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 	out := &DiscoveryServer{
 		Env:                     env,
 		ConfigGenerator:         core.NewConfigGenerator(plugins),
+		Generators: 						 map[string]model.Generator{},
 		EndpointShardsByService: map[string]map[string]*EndpointShards{},
 		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
 		pushChannel:             make(chan *model.PushRequest, 10),
@@ -400,3 +404,4 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 	doSendPushes(stopCh, s.concurrentPushLimit, s.pushQueue)
 }
+

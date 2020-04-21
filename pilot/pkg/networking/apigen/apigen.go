@@ -71,6 +71,16 @@ func (g *ApiGenerator) handleConfigResource(node *model.Proxy, push *model.PushC
 			Version: gvk[1],
 			Kind:    gvk[2],
 		}
+		if w.TypeURL == collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String() {
+			meshAny, err := types.MarshalAny(push.Mesh)
+			if err == nil {
+				resp = append(resp,&any.Any{
+					TypeUrl: meshAny.TypeUrl,
+					Value:  meshAny.Value,
+				})
+			}
+			return resp
+		}
 
 		cfg, err := push.IstioConfigStore.List(rgvk, "")
 		if err != nil {
@@ -96,6 +106,9 @@ func (g *ApiGenerator) handleConfigResource(node *model.Proxy, push *model.PushC
 				log.Warna("Any ", err)
 			}
 		}
+
+		// TODO: MeshConfig, current dynamic ProxyConfig (for this proxy), Networks
+
 		if w.TypeURL == collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String() {
 			// Include 'synthetic' SE - but without the endpoints. Used to generate CDS, LDS.
 			// EDS is pass-through.

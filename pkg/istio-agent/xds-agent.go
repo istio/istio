@@ -81,9 +81,9 @@ func Init(mc *meshconfig.ProxyConfig) *xds.Server {
 	return s
 }
 
-func startXDS() {
-
-	ads, err := adsc.Dial(cfg.DiscoveryAddress, "", &adsc.Config{
+func startXDSClient(addr string) {
+	// TODO: handle certificates and security !
+	ads, err := adsc.Dial(addr, "", &adsc.Config{
 		Meta: model.NodeMetadata {
 			Generator: "api",
 		}.ToStruct(),
@@ -97,6 +97,28 @@ func startXDS() {
 
 	ads.WatchConfig()
 	ads.Wait(1 * time.Second, adsc.ListenerType)
+
+	// TODO: wait for config to sync before starting the rest
+	// TODO: handle push
+
+	if udsListener != nil {
+		go func() {
+			if err := serverOptions.GrpcServer.Serve(udsListener); err != nil {
+				log.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
+			}
+		}()
+	}
+	if localListener != nil {
+		go func() {
+			if err := localGrpcServer.Serve(localListener); err != nil {
+				log.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
+			}
+		}()
+	}
+}
+
+func startXDS() {
+	startXDSClient(cfg.DiscoveryAddress)
 
 	// TODO: wait for config to sync before starting the rest
 	// TODO: handle push

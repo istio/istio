@@ -26,6 +26,8 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pilot/pkg/networking/apigen"
+	"istio.io/istio/pilot/pkg/networking/grpcgen"
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/metadata"
@@ -199,6 +201,9 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		TrustDomain: s.environment.Mesh().TrustDomain,
 		Namespace:   args.Namespace,
 	}
+
+	s.EnvoyXdsServer.Generators["api"] = &apigen.ApiGenerator{}
+	s.EnvoyXdsServer.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
 
 	// CA signing certificate must be created first.
 	if features.JwtPolicy.Get() == jwt.JWTPolicyThirdPartyJWT {

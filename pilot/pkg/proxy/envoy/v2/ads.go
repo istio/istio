@@ -27,9 +27,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-	"istio.io/istio/pilot/pkg/networking/apigen"
-	"istio.io/istio/pilot/pkg/networking/grpcgen"
-
 	istiolog "istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -229,7 +226,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 			// Based on node metadata a different generator was selected, use it instead of the default
 			// behaviour.
-			if con.node.Generator != nil {
+			if con.node.Generator != nil && discReq.TypeUrl != EndpointType {
+				// Endpoints are special - will use the optimized code path.
+				// In v3 we want CDS/LDS/RDS to move to Generator interface.
 				err = s.handleCustomGenerator(con, discReq)
 				if err != nil {
 					return err
@@ -422,11 +421,8 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (f
 	// Based on node metadata and version, we can associate a different generator.
 	// TODO: use a map of generators, so it's easily customizable and to avoid deps
 	proxy.Active = map[string]*model.WatchedResource{}
-	switch proxy.Metadata.Generator {
-		case "api":
-			proxy.Generator = &apigen.ApiGenerator{}
-		case "grpc":
-			proxy.Generator = &grpcgen.GrpcConfigGenerator{}
+	if proxy.Metadata.Generator != "" {
+		proxy.Generator = s.Generators[proxy.Metadata.Generator]
 	}
 
 	// First request so initialize connection id and start tracking it.
@@ -509,6 +505,13 @@ func (s *DiscoveryServer) setProxyState(proxy *model.Proxy, push *model.PushCont
 }
 
 // DeltaAggregatedResources is not implemented.
+// Instead, Generators may send only updates/add, with Delete indicated by an empty spec.
+// This works if both ends follow this model. For example EDS and the API generator follow this
+// pattern.
+//
+// The delta protocol changes the request, adding unsubscribe/subscribe instead of sending full
+// list of resources. On the response it adds 'removed resources' and sends changes for everything.
+// TODO: we could implement this method if needed, the change is not very big.
 func (s *DiscoveryServer) DeltaAggregatedResources(stream ads.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
 	return status.Errorf(codes.Unimplemented, "not implemented")
 }
@@ -541,7 +544,12 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 
 	// This depends on SidecarScope updates, so it should be called after SetSidecarScope.
 	if !ProxyNeedsPush(con.node, pushEv) {
-		adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
+		if con.node.Generator != nil {
+			// to verify if logic works on generator
+			adsLog.Infof("Skipping generator push to %v, no updates required", con.ConID)
+		} else {
+			adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
+		}
 		return nil
 	}
 
@@ -549,6 +557,20 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 
 	// check version, suppress if changed.
 	currentVersion := versionInfo()
+
+	// When using Generator, the generic WatchedResource is used instead of the individual
+	// 'LDSWatch', etc.
+	// Each Generator is responsible for determining if the push event requires a push -
+	// returning nil if the push is not needed.
+	if con.node.Generator != nil {
+		for rt, w := range con.node.Active {
+			err := s.pushGeneratorV2(con, pushEv.push, currentVersion, rt, w)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	pushTypes := PushTypeFor(con.node, pushEv)
 
 	if con.CDSWatch && pushTypes[CDS] {
@@ -576,6 +598,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 			return err
 		}
 	}
+
 	proxiesConvergeDelay.Record(time.Since(pushEv.start).Seconds())
 	return nil
 }
