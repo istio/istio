@@ -15,12 +15,13 @@
 package v1alpha3
 
 import (
+	"github.com/golang/protobuf/ptypes/wrappers"
 	"reflect"
 	"sort"
 	"strings"
 
 	"istio.io/api/networking/v1alpha3"
-
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/host"
@@ -148,6 +149,9 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 							metadata:         util.BuildConfigInfoMetadata(cfg.ConfigMeta),
 							sniHosts:         match.SniHosts,
 							destinationCIDRs: destinationCIDRs,
+							match: &listener.FilterChainMatch{
+								DestinationPort: &wrappers.UInt32Value{Value: uint32(listenPort.Port)},
+							},
 							networkFilters:   buildOutboundNetworkFilters(node, tls.Route, push, listenPort, cfg.ConfigMeta),
 						})
 						hasTLSMatch = true
@@ -196,6 +200,9 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 		out = append(out, &filterChainOpts{
 			sniHosts:         sniHosts,
 			destinationCIDRs: []string{destinationCIDR},
+			match: &listener.FilterChainMatch{
+				DestinationPort: &wrappers.UInt32Value{Value: uint32(port)},
+			},
 			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, listenPort),
 		})
 	}
@@ -226,6 +233,9 @@ TcpLoop:
 				// implicit match
 				out = append(out, &filterChainOpts{
 					metadata:         util.BuildConfigInfoMetadata(cfg.ConfigMeta),
+					match: &listener.FilterChainMatch{
+						DestinationPort: &wrappers.UInt32Value{Value: uint32(listenPort.Port)},
+					},
 					destinationCIDRs: destinationCIDRs,
 					networkFilters:   buildOutboundNetworkFilters(node, tcp.Route, push, listenPort, cfg.ConfigMeta),
 				})
@@ -250,6 +260,9 @@ TcpLoop:
 					if len(match.DestinationSubnets) == 0 || listenPort.Port == 0 {
 						out = append(out, &filterChainOpts{
 							metadata:         util.BuildConfigInfoMetadata(cfg.ConfigMeta),
+							match: &listener.FilterChainMatch{
+								DestinationPort: &wrappers.UInt32Value{Value: uint32(listenPort.Port)},
+							},
 							destinationCIDRs: destinationCIDRs,
 							networkFilters:   buildOutboundNetworkFilters(node, tcp.Route, push, listenPort, cfg.ConfigMeta),
 						})
@@ -263,6 +276,9 @@ TcpLoop:
 
 			if len(virtualServiceDestinationSubnets) > 0 {
 				out = append(out, &filterChainOpts{
+					match: &listener.FilterChainMatch{
+						DestinationPort: &wrappers.UInt32Value{Value: uint32(listenPort.Port)},
+					},
 					destinationCIDRs: virtualServiceDestinationSubnets,
 					networkFilters:   buildOutboundNetworkFilters(node, tcp.Route, push, listenPort, cfg.ConfigMeta),
 				})
@@ -298,6 +314,9 @@ TcpLoop:
 			statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", &model.Port{Port: port}, service.Attributes)
 		}
 		out = append(out, &filterChainOpts{
+			match: &listener.FilterChainMatch{
+				DestinationPort: &wrappers.UInt32Value{Value: uint32(port)},
+			},
 			destinationCIDRs: []string{destinationCIDR},
 			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, listenPort),
 		})

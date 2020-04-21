@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	"sort"
 	"strconv"
 	"strings"
@@ -1271,6 +1272,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 	}
 
 	return true, []*filterChainOpts{{
+		match: &listener.FilterChainMatch{
+			DestinationPort: &wrappers.UInt32Value{Value: uint32(pluginParams.Port.Port)},
+		},
 		httpOpts: httpOpts,
 	}}
 }
@@ -1320,6 +1324,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundThriftListenerOptsForP
 	}
 
 	return true, []*filterChainOpts{{
+		match: &listener.FilterChainMatch{
+			DestinationPort: &wrappers.UInt32Value{Value: uint32(pluginParams.Port.Port)},
+		},
 		thriftOpts: thriftOpts,
 	}}
 }
@@ -2140,7 +2147,9 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 				listenerFilters = append(listenerFilters, filter)
 			}
 		}
-		match := &listener.FilterChainMatch{}
+		match := &listener.FilterChainMatch{
+			//DestinationPort: &wrappers.UInt32Value{Value: opts.port},
+		}
 		needMatch := false
 		if chain.match != nil {
 			needMatch = true
