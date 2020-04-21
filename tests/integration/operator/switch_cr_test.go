@@ -52,7 +52,7 @@ const (
 	IstioNamespace    = "istio-system"
 	OperatorNamespace = "istio-operator"
 	retryDelay        = time.Second
-	retryTimeOut      = 180 * time.Second
+	retryTimeOut      = 240 * time.Second
 )
 
 var (
@@ -86,7 +86,7 @@ func TestController(t *testing.T) {
 				Resource: "istiooperators",
 			}
 			if err := cs.DeleteUnstructured(gvr, IstioNamespace, "installed-state"); err != nil {
-				t.Logf("failed to delete installed-state istioOperator resource: %v", err)
+				t.Logf(err.Error())
 			}
 			initCmd := []string{
 				"operator", "init",
@@ -172,9 +172,9 @@ func checkInstallStatus(cs kube.Cluster) error {
 	}
 	err := retry.UntilSuccess(retryFunc, retry.Timeout(retryTimeOut), retry.Delay(retryDelay))
 	if err != nil {
-		content, err := shell.Execute(false, "kubectl logs -n %s -l %s --tail=10000000",
+		content, shellerr := shell.Execute(false, "kubectl logs -n %s -l %s --tail=10000000",
 			OperatorNamespace, "name=istio-operator")
-		if err != nil {
+		if shellerr != nil {
 			return fmt.Errorf("unable to get logs from istio-operator: %v , content %v", err, content)
 		}
 		log.Infof("operator log: %s", content)
