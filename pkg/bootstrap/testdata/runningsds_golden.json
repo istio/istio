@@ -75,6 +75,10 @@
           "tag_name": "source_version"
       },
       {
+          "regex": "(source_cluster_id=\\.=(.*?);\\.;)",
+          "tag_name": "source_cluster_id"
+      },
+      {
           "regex": "(destination_namespace=\\.=(.+?);\\.;)",
           "tag_name": "destination_namespace"
       },
@@ -113,6 +117,10 @@
       {
         "regex": "(destination_port=\\.=(.+?);\\.;)",
         "tag_name": "destination_port"
+      },
+      {
+        "regex": "(destination_cluster_id=\\.=(.*?);\\.;)",
+        "tag_name": "destination_cluster_id"
       },
       {
           "regex": "(request_protocol=\\.=(.+?);\\.;)",
