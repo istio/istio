@@ -147,8 +147,11 @@ func TestSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	// Application scraping will not work with permissive mode
-	if err = galInst.ApplyConfig(appNsInst, fmt.Sprintf(`
+	return nil
+}
+
+func SetupStrictMTLS(_ resource.Context) error {
+	return galInst.ApplyConfig(appNsInst, fmt.Sprintf(`
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
@@ -156,10 +159,7 @@ metadata:
   namespace: %s
 spec:
   mtls:
-    mode: STRICT`, appNsInst.Name())); err != nil {
-		return err
-	}
-	return nil
+    mode: STRICT`, appNsInst.Name()))
 }
 
 func buildQuery() (sourceQuery, destinationQuery, appQuery string) {

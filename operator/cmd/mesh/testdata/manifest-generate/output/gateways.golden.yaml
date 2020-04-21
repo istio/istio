@@ -181,10 +181,6 @@ spec:
         - containerPort: 15020
         - containerPort: 8080
         - containerPort: 8443
-        - containerPort: 15029
-        - containerPort: 15030
-        - containerPort: 15031
-        - containerPort: 15032
         - containerPort: 15443
         - containerPort: 15011
         - containerPort: 15012
@@ -277,7 +273,6 @@ metadata:
     app: istio-ingressgateway
     bbb: bbb-val
     istio: ingressgateway
-    
     release: istio
 spec:
   minAvailable: 1
@@ -287,7 +282,6 @@ spec:
       app: istio-ingressgateway
       bbb: bbb-val
       istio: ingressgateway
-      
       release: istio
 ---
 
@@ -358,22 +352,6 @@ spec:
       port: 443
       targetPort: 8443
     -
-      name: kiali
-      port: 15029
-      targetPort: 15029
-    -
-      name: prometheus
-      port: 15030
-      targetPort: 15030
-    -
-      name: grafana
-      port: 15031
-      targetPort: 15031
-    -
-      name: tracing
-      port: 15032
-      targetPort: 15032
-    -
       name: tls
       port: 15443
       targetPort: 15443
@@ -390,7 +368,6 @@ metadata:
     app: istio-ingressgateway
     bbb: bbb-val
     istio: ingressgateway
-    
     release: istio
 ---
 
@@ -558,10 +535,6 @@ spec:
         - containerPort: 15020
         - containerPort: 8080
         - containerPort: 8443
-        - containerPort: 15029
-        - containerPort: 15030
-        - containerPort: 15031
-        - containerPort: 15032
         - containerPort: 15443
         - containerPort: 15011
         - containerPort: 15012
@@ -654,7 +627,6 @@ metadata:
     ccc: ccc-val
     ddd: ddd-val
     istio: ingressgateway
-    
     release: istio
 spec:
   minAvailable: 1
@@ -664,7 +636,6 @@ spec:
       ccc: ccc-val
       ddd: ddd-val
       istio: ingressgateway
-      
       release: istio
 ---
 
@@ -735,22 +706,6 @@ spec:
       port: 443
       targetPort: 8443
     -
-      name: kiali
-      port: 15029
-      targetPort: 15029
-    -
-      name: prometheus
-      port: 15030
-      targetPort: 15030
-    -
-      name: grafana
-      port: 15031
-      targetPort: 15031
-    -
-      name: tracing
-      port: 15032
-      targetPort: 15032
-    -
       name: tls
       port: 15443
       targetPort: 15443
@@ -767,7 +722,6 @@ metadata:
     ccc: ccc-val
     ddd: ddd-val
     istio: ingressgateway
-    
     release: istio
 ---
 
@@ -1007,7 +961,6 @@ metadata:
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
-    
     release: istio
 spec:
   minAvailable: 1
@@ -1015,7 +968,6 @@ spec:
     matchLabels:
       app: istio-ingressgateway
       istio: ingressgateway
-      
       release: istio
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -1078,7 +1030,6 @@ metadata:
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
-    
     release: istio
 ---
 

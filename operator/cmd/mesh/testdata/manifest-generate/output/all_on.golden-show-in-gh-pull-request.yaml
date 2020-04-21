@@ -268,9 +268,7 @@ data:
     global:
       scrape_interval: 15s
     scrape_configs:
-
     # Mixer scrapping. Defaults to Prometheus and mixer on same namespace.
-    #
     - job_name: 'istio-mesh'
       kubernetes_sd_configs:
       - role: endpoints
@@ -7592,6 +7590,8 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: istiooperators.install.istio.io
+  labels:
+    release: istio
 spec:
   additionalPrinterColumns:
   - JSONPath: .spec.revision
@@ -8072,10 +8072,6 @@ spec:
             - containerPort: 15020
             - containerPort: 8080
             - containerPort: 8443
-            - containerPort: 15029
-            - containerPort: 15030
-            - containerPort: 15031
-            - containerPort: 15032
             - containerPort: 15443
             - containerPort: 15011
             - containerPort: 15012
@@ -8256,7 +8252,6 @@ metadata:
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
-    
     release: istio
 spec:
   minAvailable: 1
@@ -8264,7 +8259,6 @@ spec:
     matchLabels:
       app: istio-ingressgateway
       istio: ingressgateway
-      
       release: istio
 ---
 
@@ -8331,22 +8325,6 @@ spec:
       port: 443
       targetPort: 8443
     -
-      name: kiali
-      port: 15029
-      targetPort: 15029
-    -
-      name: prometheus
-      port: 15030
-      targetPort: 15030
-    -
-      name: grafana
-      port: 15031
-      targetPort: 15031
-    -
-      name: tracing
-      port: 15032
-      targetPort: 15032
-    -
       name: tls
       port: 15443
       targetPort: 15443
@@ -8361,7 +8339,6 @@ metadata:
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
-    
     release: istio
 ---
 
@@ -8405,34 +8382,10 @@ data:
   meshNetworks: |-
     networks: {}
 
-  # Basic config for a sidecar CoreDNS server to resolve upstream and K8S requests.
-  # Will be needed until K8S DNS server adds a secure port, to avoid clear text
-  # MITM-exposed requests between istiod and K8S core DNS server.
-  Corefile: |-
-    .:15054 {
-        errors
-        log
-        health :15056 {
-          lameduck 5s
-        }
-
-        kubernetes cluster.local in-addr.arpa ip6.arpa {
-            pods insecure
-            fallthrough in-addr.arpa ip6.arpa
-            ttl 30
-        }
-        prometheus :9153
-
-        forward . /etc/resolv.conf
-        cache 30
-        reload
-        loadbalance
-    }
-
   mesh: |-
     accessLogEncoding: TEXT
-    accessLogFile: 
-    accessLogFormat: 
+    accessLogFile: ""
+    accessLogFormat: ""
     defaultConfig:
       concurrency: 2
       configPath: /etc/istio/proxy
@@ -8451,6 +8404,7 @@ data:
     disableMixerHttpReports: true
     disablePolicyChecks: true
     enableAutoMtls: true
+    enablePrometheusMerge: false
     enableTracing: true
     ingressClass: istio
     ingressControllerMode: STRICT
@@ -8543,8 +8497,6 @@ spec:
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
-        - name: DNS_ADDR
-          value: ""
         image: gcr.io/istio-testing/pilot:latest
         name: discovery
         ports:
@@ -8799,11 +8751,6 @@ data:
       []
     injectedAnnotations:
 
-    # Configmap optimized for Istiod. Please DO NOT MERGE all changes from istio - in particular those dependent on
-    # Values.yaml, which should not be used by istiod.
-    
-    # Istiod only uses SDS based config ( files will mapped/handled by SDS).
-    
     template: |
       rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
       initContainers:
@@ -8957,10 +8904,8 @@ data:
         - name: CA_ADDR
         {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
-        {{- else if .Values.global.configNamespace }}
-          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
-          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -9423,6 +9368,7 @@ spec:
                 {
                   "debug": "false",
                   "stat_prefix": "istio",
+                  "disable_host_header_fallback": true,
                 }
               vm_config:
                 vm_id: stats_outbound
@@ -9622,6 +9568,7 @@ spec:
                   {
                     "debug": "false",
                     "stat_prefix": "istio",
+                    "disable_host_header_fallback": true,
                   }
                 vm_config:
                   vm_id: stats_outbound
@@ -9927,6 +9874,7 @@ spec:
                   {
                     "debug": "false",
                     "stat_prefix": "istio",
+                    "disable_host_header_fallback": true,
                   }
                 vm_config:
                   vm_id: stats_outbound
