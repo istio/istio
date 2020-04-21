@@ -62,7 +62,7 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 			out.components = append(out.components, component.NewEgressComponent(c.Name, idx, c, &o))
 		}
 	}
-	for _, cn := range orderedKeys(installSpec.AddonComponents) {
+	for _, cn := range OrderedKeys(installSpec.AddonComponents) {
 		c := installSpec.AddonComponents[cn]
 		rn := ""
 		// For well-known addon components like Prometheus, the resource names are included
@@ -77,7 +77,7 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 	return out, nil
 }
 
-func orderedKeys(m map[string]*v1alpha1.ExternalComponentSpec) []string {
+func OrderedKeys(m map[string]*v1alpha1.ExternalComponentSpec) []string {
 	var keys []string
 	for k := range m {
 		keys = append(keys, k)
@@ -102,6 +102,30 @@ func (i *IstioOperator) Run() error {
 	}
 	i.started = true
 	return nil
+}
+
+func (i *IstioOperator) ComponentsEqual(components []component.IstioComponent) bool {
+	if i.components == nil && components == nil {
+		return true
+	}
+	if (i.components == nil && components != nil) || (i.components != nil && components == nil) || len(i.components) != len(components) {
+		return false
+	}
+	for c := 0; c < len(i.components); c++ {
+		if i.components[c].ComponentName() != components[c].ComponentName() {
+			return false
+		}
+		if i.components[c].Namespace() != components[c].Namespace() {
+			return false
+		}
+		if i.components[c].Enabled() != components[c].Enabled() {
+			return false
+		}
+		if i.components[c].ResourceName() != components[c].ResourceName() {
+			return false
+		}
+	}
+	return true
 }
 
 // RenderManifest returns a manifest rendered against
