@@ -33,6 +33,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
 )
 
 var (
@@ -236,28 +237,28 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			}
 
 			switch discReq.TypeUrl {
-			case ClusterType:
+			case ClusterType, v3.ClusterType:
 				if err := s.handleTypeURL(con, discReq.TypeUrl, &con.RequestedTypes.CDS); err != nil {
 					return err
 				}
 				if err := s.handleCds(con, discReq); err != nil {
 					return err
 				}
-			case ListenerType:
+			case ListenerType, v3.ListenerType:
 				if err := s.handleTypeURL(con, discReq.TypeUrl, &con.RequestedTypes.LDS); err != nil {
 					return err
 				}
 				if err := s.handleLds(con, discReq); err != nil {
 					return err
 				}
-			case RouteType:
+			case RouteType, v3.RouteType:
 				if err := s.handleTypeURL(con, discReq.TypeUrl, &con.RequestedTypes.RDS); err != nil {
 					return err
 				}
 				if err := s.handleRds(con, discReq); err != nil {
 					return err
 				}
-			case EndpointType:
+			case EndpointType, v3.EndpointType:
 				if err := s.handleTypeURL(con, discReq.TypeUrl, &con.RequestedTypes.EDS); err != nil {
 					return err
 				}
