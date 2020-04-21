@@ -26,13 +26,11 @@ import (
 	"sync"
 	"time"
 
-	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/klog"
-
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
@@ -309,17 +307,17 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 	default:
 		// instance conversion is only required when service is added/updated.
 		instances := kube.ExternalNameServiceInstances(*svc, svcConv)
-		var nodeSelector labels.Instance
-		if isNodePortGatewayService(svcConv) {
+		if isNodePortGatewayService(svc) {
 			// We need to know which services are using node selectors because during node events,
 			// we have to update all the node port services accordingly.
-			nodeSelector = getNodeSelectorsForService(*svc)
+			nodeSelector := getNodeSelectorsForService(*svc)
+			c.Lock()
+			// only add when it is nodePort gateway service
+			c.nodeSelectorsForServices[svcConv.Hostname] = nodeSelector
+			c.Unlock()
 			c.updateServiceExternalAddr(svcConv)
 		}
 		c.Lock()
-		if len(nodeSelector) > 0 {
-			c.nodeSelectorsForServices[svcConv.Hostname] = getNodeSelectorsForService(*svc)
-		}
 		c.servicesMap[svcConv.Hostname] = svcConv
 		if instances == nil {
 			delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
@@ -382,7 +380,7 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 			}
 		}
 		if k8sNode.address == "" {
-			klog.Warningf("selected node %s without external ip address is unqualified ", node.Name)
+			log.Debugf("selected node %s without external ip address and is unqualified ", node.Name)
 			return nil
 		}
 
@@ -407,10 +405,9 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 	return nil
 }
 
-func isNodePortGatewayService(svc *model.Service) bool {
-	svc.Mutex.RLock()
-	defer svc.Mutex.RUnlock()
-	return svc.Attributes.ClusterExternalPorts != nil
+func isNodePortGatewayService(svc *v1.Service) bool {
+	_, ok := svc.Annotations[kube.NodeSelectorAnnotation]
+	return ok && svc.Spec.Type == v1.ServiceTypeNodePort
 }
 
 func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otype string,
@@ -529,36 +526,49 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 	return svc, nil
 }
 
+// getNodePortServices returns nodePort type gateway service
+func (c *Controller) getNodePortGatewayServices() ([]*model.Service, error) {
+	c.RLock()
+	defer c.RUnlock()
+	out := make([]*model.Service, 0, len(c.nodeSelectorsForServices))
+	for hostname := range c.nodeSelectorsForServices {
+		svc := c.servicesMap[hostname]
+		if svc != nil {
+			out = append(out, svc)
+		}
+	}
+
+	return out, nil
+}
+
 // updateServiceExternalAddr updates ClusterExternalAddresses for ingress gateway service of nodePort type
 func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) {
 	// node event, update all nodePort gateway services
 	if len(svcs) == 0 {
-		svcs, _ = c.Services()
+		svcs, _ = c.getNodePortGatewayServices()
 	}
 	for _, svc := range svcs {
-		if isNodePortGatewayService(svc) {
-			c.RLock()
-			nodeSelector := c.nodeSelectorsForServices[svc.Hostname]
-			c.RUnlock()
-			// update external address
-			svc.Mutex.Lock()
-			if nodeSelector == nil {
-				var extAddresses []string
-				for _, n := range c.nodeInfoMap {
-					extAddresses = append(extAddresses, n.address)
-				}
-				svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: extAddresses}
-			} else {
-				var nodeAddresses []string
-				for _, n := range c.nodeInfoMap {
-					if nodeSelector.SubsetOf(n.labels) {
-						nodeAddresses = append(nodeAddresses, n.address)
-					}
-				}
-				svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: nodeAddresses}
+		c.RLock()
+		nodeSelector := c.nodeSelectorsForServices[svc.Hostname]
+		c.RUnlock()
+		// update external address
+		svc.Mutex.Lock()
+		if nodeSelector == nil {
+			var extAddresses []string
+			for _, n := range c.nodeInfoMap {
+				extAddresses = append(extAddresses, n.address)
 			}
-			svc.Mutex.Unlock()
+			svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: extAddresses}
+		} else {
+			var nodeAddresses []string
+			for _, n := range c.nodeInfoMap {
+				if nodeSelector.SubsetOf(n.labels) {
+					nodeAddresses = append(nodeAddresses, n.address)
+				}
+			}
+			svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: nodeAddresses}
 		}
+		svc.Mutex.Unlock()
 	}
 }
 
