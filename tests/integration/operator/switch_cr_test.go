@@ -52,7 +52,7 @@ const (
 	IstioNamespace    = "istio-system"
 	OperatorNamespace = "istio-operator"
 	retryDelay        = time.Second
-	retryTimeOut      = 300 * time.Second
+	retryTimeOut      = 240 * time.Second
 )
 
 var (
@@ -181,7 +181,7 @@ func checkInstallStatus(cs kube.Cluster) error {
 			return fmt.Errorf("unable to get logs from istio-operator: %v ", err)
 		}
 		log.Infof("operator log: %s", content)
-		content, shellerr = shell.Execute(false, "kubectl logs -n %s -l %s --tail=10000000",
+		content, shellerr = shell.Execute(false, "kubectl logs -n %s -l %s -c istio-proxy --tail=10000000",
 			IstioNamespace, "app=prometheus")
 		if shellerr != nil {
 			return fmt.Errorf("unable to get logs from component %v", err)
