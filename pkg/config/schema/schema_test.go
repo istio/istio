@@ -48,10 +48,12 @@ collections:
   - name:         "k8s/networking.istio.io/v1alpha3/virtualservices"
     kind:         "VirtualService"
     group:        "networking.istio.io"
+    version:      "v1alpha3"
 
   - name:         "istio/networking.istio.io/v1alpha3/virtualservices"
     kind:         "VirtualService"
     group:        "networking.istio.io"
+    version:      "v1alpha3"
 
 snapshots:
   - name: "default"
@@ -152,6 +154,7 @@ collections:
   - name:  "$$$"
     kind:         "VirtualService"
     group:        "networking.istio.io"
+    version:      "v1alpha3"
 resources:
   - kind:         "VirtualService"
     plural:       "virtualservices"
@@ -169,9 +172,11 @@ collections:
   - name:  "k8s/networking.istio.io/v1alpha3/virtualservices"
     kind:         "VirtualService"
     group:        "networking.istio.io"
+    version:      "v1alpha3"
   - name:  "k8s/networking.istio.io/v1alpha3/virtualservices"
     kind:         "VirtualService"
     group:        "networking.istio.io"
+    version:      "v1alpha3"
 resources:
   - kind:         "VirtualService"
     plural:       "virtualservices"
@@ -189,6 +194,7 @@ collections:
   - name:  "k8s/networking.istio.io/v1alpha3/virtualservices"
     kind:         "VirtualService"
     group:        "networking.istio.io"
+    version:      "v1alpha3"
 resources:
   - kind:         "VirtualService"
     plural:       "virtualservices"
@@ -205,12 +211,13 @@ snapshots:
 		},
 		{
 			name:     "collection missing resource",
-			expected: "failed locating resource (networking.istio.io/VirtualService)",
+			expected: "failed locating resource (networking.istio.io/v1alpha3/VirtualService)",
 			input: `
 collections:
   - name:  "k8s/networking.istio.io/v1alpha3/virtualservices"
     kind:         "VirtualService"
     group:        "networking.istio.io"
+    version:      "v1alpha3"
 `,
 		},
 		{
@@ -221,6 +228,7 @@ collections:
   - name:  "k8s/networking.istio.io/v1alpha3/virtualservices"
     kind:         "VirtualService"
     group:        "networking.istio.io"
+    version:      "v1alpha3"
 resources:
   - kind:         "VirtualService"
     plural:       "virtualservices"
@@ -242,6 +250,7 @@ collections:
   - name:  "istio/networking.istio.io/v1alpha3/virtualservices"
     kind:         "VirtualService"
     group:        "networking.istio.io"
+    version:      "v1alpha3"
 resources:
   - kind:         "VirtualService"
     plural:       "virtualservices"
@@ -273,10 +282,12 @@ collections:
   - name:  "k8s/networking.istio.io/v1alpha3/virtualservices"
     kind:         "VirtualService"
     group:        "networking.istio.io"
+    version:      "v1alpha3"
 
   - name:  "istio/networking.istio.io/v1alpha3/virtualservices"
     kind:         "VirtualService"
     group:        "networking.istio.io"
+    version:      "v1alpha3"
 
 snapshots:
   - name: "default"

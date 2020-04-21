@@ -67,31 +67,37 @@ var _k8smetaYaml = []byte(`# Copyright 2019 Istio Authors
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 collections:
   # Built-in K8s collections
   - name: "k8s/core/v1/endpoints"
     kind: "Endpoints"
+    version: "v1"
 
   - name: "k8s/core/v1/namespaces"
     kind: "Namespace"
+    version: "v1"
 
   - name: "k8s/core/v1/nodes"
     kind: "Node"
+    version: "v1"
 
   - name: "k8s/core/v1/pods"
     kind: "Pod"
+    version: "v1"
 
   - name: "k8s/core/v1/services"
     kind: "Service"
+    version: "v1"
 
   - name: "k8s/extensions/v1beta1/ingresses"
     kind: "Ingress"
     group: "extensions"
+    version: "v1beta1"
 
   - name: "k8s/apps/v1/deployments"
     kind: "Deployment"
     group: "apps"
+    version: "v1"
 
 resources:
   - collection: "k8s/extensions/v1beta1/ingresses"

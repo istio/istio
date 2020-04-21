@@ -91,10 +91,10 @@ func (d *DirectTransformSettings) Type() string {
 // for testing purposes
 var jsonUnmarshal = json.Unmarshal
 
-// FindResourceForGroupKind looks up a resource with the given group and kind. Returns nil if not found.
-func (m *Metadata) FindResourceForGroupKind(group, kind string) *Resource {
+// FindResourceForGroupVersionKind looks up a resource with the given group, version and kind. Returns nil if not found.
+func (m *Metadata) FindResourceForGroupVersionKind(group, version, kind string) *Resource {
 	for _, r := range m.Resources {
-		if r.Group == group && r.Kind == kind {
+		if r.Group == group && r.Version == version && r.Kind == kind {
 			return r
 		}
 	}

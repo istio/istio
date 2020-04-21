@@ -34,7 +34,8 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
-	networking "istio.io/api/networking/v1alpha3"
+	networking_v1alpha3 "istio.io/api/networking/v1alpha3"
+	networking_v1beta1 "istio.io/api/networking/v1beta1"
 	rbac "istio.io/api/rbac/v1alpha1"
 	security_beta "istio.io/api/security/v1beta1"
 	type_beta "istio.io/api/type/v1beta1"
@@ -49,6 +50,7 @@ import (
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/config/xds"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
 // Constants for duration fields
@@ -253,7 +255,7 @@ func ValidatePercent(val int32) error {
 }
 
 // validatePercentage checks if the specified fractional percentage is valid.
-func validatePercentage(percentage *networking.Percent) error {
+func validatePercentage(percentage *networking_v1alpha3.Percent) error {
 	if percentage != nil {
 		if percentage.Value < 0.0 || percentage.Value > 100.0 || (percentage.Value > 0.0 && percentage.Value < 0.0001) {
 			return fmt.Errorf("percentage %v is neither 0.0, nor in range [0.0001, 100.0]", percentage.Value)
@@ -316,36 +318,70 @@ var ValidateGateway = registerValidateFunc("ValidateGateway",
 		if !labels.IsDNS1123Label(name) {
 			errs = appendErrors(errs, fmt.Errorf("invalid gateway name: %q", name))
 		}
-		value, ok := msg.(*networking.Gateway)
-		if !ok {
-			errs = appendErrors(errs, fmt.Errorf("cannot cast to gateway: %#v", msg))
+		switch msg.(type) {
+		case *networking_v1alpha3.Gateway:
+			value, ok := msg.(*networking_v1alpha3.Gateway)
+			if !ok {
+				errs = appendErrors(errs, fmt.Errorf("cannot cast to v1alpha3 gateway"))
+				return
+			}
+			errs = appendErrors(errs, validateV1Alpha3Gateway(value))
+		case *networking_v1beta1.Gateway:
+			value, ok := msg.(*networking_v1beta1.Gateway)
+			if !ok {
+				errs = appendErrors(errs, fmt.Errorf("cannot cast to v1beta1 gateway"))
+				return
+			}
+			errs = appendErrors(errs, validateV1Beta1Gateway(value))
+		default:
+			errs = appendErrors(errs, fmt.Errorf("cannot cast to gateway"))
 			return
-		}
-
-		if len(value.Servers) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("gateway must have at least one server"))
-		} else {
-			for _, server := range value.Servers {
-				errs = appendErrors(errs, validateServer(server))
-			}
-		}
-
-		// Ensure unique port names
-		portNames := make(map[string]bool)
-
-		for _, s := range value.Servers {
-			if s.Port != nil {
-				if portNames[s.Port.Name] {
-					errs = appendErrors(errs, fmt.Errorf("port names in servers must be unique: duplicate name %s", s.Port.Name))
-				}
-				portNames[s.Port.Name] = true
-			}
 		}
 
 		return errs
 	})
 
-func validateServer(server *networking.Server) (errs error) {
+func validateV1Alpha3Gateway(gateway *networking_v1alpha3.Gateway) (errs error) {
+	if len(gateway.Servers) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("gateway must have at least one server"))
+	} else {
+		for _, server := range gateway.Servers {
+			errs = appendErrors(errs, validateServer(server))
+		}
+	}
+
+	// Ensure unique port names
+	portNames := make(map[string]bool)
+
+	for _, s := range gateway.Servers {
+		if s.Port != nil {
+			if portNames[s.Port.Name] {
+				errs = appendErrors(errs, fmt.Errorf("port names in servers must be unique: duplicate name %s", s.Port.Name))
+			}
+			portNames[s.Port.Name] = true
+		}
+	}
+	return errs
+}
+
+func validateV1Beta1Gateway(gateway *networking_v1beta1.Gateway) (errs error) {
+	// networking v1beta1 APIs are the same as v1alpha3 APIs, so we are reusing the validations.
+	msg, err := gogoprotomarshal.ToYAML(gateway)
+	if err != nil {
+		errs = appendErrors(errs, fmt.Errorf("cannot marshal v1beta1 gateway: %v", err))
+		return
+	}
+	v := networking_v1alpha3.Gateway{}
+	if err = gogoprotomarshal.ApplyYAML(msg, &v); err != nil {
+		errs = appendErrors(errs, fmt.Errorf("cannot unmarshal v1beta1 gateway to v1alpha3 gateway: %v", err))
+		return
+	}
+	errs = appendErrors(errs, validateV1Alpha3Gateway(&v))
+
+	return errs
+}
+
+func validateServer(server *networking_v1alpha3.Server) (errs error) {
 	if len(server.Hosts) == 0 {
 		errs = appendErrors(errs, fmt.Errorf("server config must contain at least one host"))
 	} else {
@@ -379,7 +415,7 @@ func validateServer(server *networking.Server) (errs error) {
 	return errs
 }
 
-func validateServerPort(port *networking.Port) (errs error) {
+func validateServerPort(port *networking_v1alpha3.Port) (errs error) {
 	if port == nil {
 		return appendErrors(errs, fmt.Errorf("port is required"))
 	}
@@ -396,13 +432,13 @@ func validateServerPort(port *networking.Port) (errs error) {
 	return
 }
 
-func validateTLSOptions(tls *networking.ServerTLSSettings) (errs error) {
+func validateTLSOptions(tls *networking_v1alpha3.ServerTLSSettings) (errs error) {
 	if tls == nil {
 		// no tls config at all is valid
 		return
 	}
 
-	if tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
+	if tls.Mode == networking_v1alpha3.ServerTLSSettings_ISTIO_MUTUAL {
 		// ISTIO_MUTUAL TLS mode uses either SDS or default certificate mount paths
 		// therefore, we should fail validation if other TLS fields are set
 		if tls.ServerCertificate != "" {
@@ -418,19 +454,19 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (errs error) {
 		return
 	}
 
-	if (tls.Mode == networking.ServerTLSSettings_SIMPLE || tls.Mode == networking.ServerTLSSettings_MUTUAL) && tls.CredentialName != "" {
+	if (tls.Mode == networking_v1alpha3.ServerTLSSettings_SIMPLE || tls.Mode == networking_v1alpha3.ServerTLSSettings_MUTUAL) && tls.CredentialName != "" {
 		// If tls mode is SIMPLE or MUTUAL, and CredentialName is specified, credentials are fetched
 		// remotely. ServerCertificate and CaCertificates fields are not required.
 		return
 	}
-	if tls.Mode == networking.ServerTLSSettings_SIMPLE {
+	if tls.Mode == networking_v1alpha3.ServerTLSSettings_SIMPLE {
 		if tls.ServerCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("SIMPLE TLS requires a server certificate"))
 		}
 		if tls.PrivateKey == "" {
 			errs = appendErrors(errs, fmt.Errorf("SIMPLE TLS requires a private key"))
 		}
-	} else if tls.Mode == networking.ServerTLSSettings_MUTUAL {
+	} else if tls.Mode == networking_v1alpha3.ServerTLSSettings_MUTUAL {
 		if tls.ServerCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a server certificate"))
 		}
@@ -447,22 +483,58 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (errs error) {
 // ValidateDestinationRule checks proxy policies
 var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 	func(_, _ string, msg proto.Message) (errs error) {
-		rule, ok := msg.(*networking.DestinationRule)
-		if !ok {
-			return fmt.Errorf("cannot cast to destination rule")
+		switch msg.(type) {
+		case *networking_v1alpha3.DestinationRule:
+			value, ok := msg.(*networking_v1alpha3.DestinationRule)
+			if !ok {
+				errs = appendErrors(errs, fmt.Errorf("cannot cast to v1alpha3 destination rule"))
+				return
+			}
+			errs = appendErrors(errs, validateV1Alpha3DestinationRule(value))
+		case *networking_v1beta1.DestinationRule:
+			value, ok := msg.(*networking_v1beta1.DestinationRule)
+			if !ok {
+				errs = appendErrors(errs, fmt.Errorf("cannot cast to v1beta1 destination rule"))
+				return
+			}
+			errs = appendErrors(errs, validateV1Beta1DestinationRule(value))
+		default:
+			errs = appendErrors(errs, fmt.Errorf("cannot cast to destination rule"))
+			return
 		}
 
-		errs = appendErrors(errs,
-			ValidateWildcardDomain(rule.Host),
-			validateTrafficPolicy(rule.TrafficPolicy))
-
-		for _, subset := range rule.Subsets {
-			errs = appendErrors(errs, validateSubset(subset))
-		}
-
-		errs = appendErrors(errs, validateExportTo(rule.ExportTo))
-		return
+		return errs
 	})
+
+func validateV1Alpha3DestinationRule(rule *networking_v1alpha3.DestinationRule) (errs error) {
+	errs = appendErrors(errs,
+		ValidateWildcardDomain(rule.Host),
+		validateTrafficPolicy(rule.TrafficPolicy))
+
+	for _, subset := range rule.Subsets {
+		errs = appendErrors(errs, validateSubset(subset))
+	}
+
+	errs = appendErrors(errs, validateExportTo(rule.ExportTo))
+	return
+}
+
+func validateV1Beta1DestinationRule(ds *networking_v1beta1.DestinationRule) (errs error) {
+	// networking v1beta1 APIs are the same as v1alpha3 APIs, so we are reusing the validations.
+	msg, err := gogoprotomarshal.ToYAML(ds)
+	if err != nil {
+		errs = appendErrors(errs, fmt.Errorf("cannot marshal v1beta1 destination rule: %v", err))
+		return
+	}
+	v := networking_v1alpha3.DestinationRule{}
+	if err = gogoprotomarshal.ApplyYAML(msg, &v); err != nil {
+		errs = appendErrors(errs, fmt.Errorf("cannot unmarshal v1beta1 destination rule to v1alpha3 destination rule: %v", err))
+		return
+	}
+	errs = appendErrors(errs, validateV1Alpha3DestinationRule(&v))
+
+	return errs
+}
 
 func validateExportTo(exportTo []string) (errs error) {
 	if len(exportTo) > 0 {
@@ -476,7 +548,7 @@ func validateExportTo(exportTo []string) (errs error) {
 	return
 }
 
-func validateAlphaWorkloadSelector(selector *networking.WorkloadSelector) error {
+func validateAlphaWorkloadSelector(selector *networking_v1alpha3.WorkloadSelector) error {
 	var errs error
 	if selector != nil {
 		for k, v := range selector.Labels {
@@ -497,7 +569,7 @@ func validateAlphaWorkloadSelector(selector *networking.WorkloadSelector) error 
 // ValidateEnvoyFilter checks envoy filter config supplied by user
 var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 	func(_, _ string, msg proto.Message) (errs error) {
-		rule, ok := msg.(*networking.EnvoyFilter)
+		rule, ok := msg.(*networking_v1alpha3.EnvoyFilter)
 		if !ok {
 			return fmt.Errorf("cannot cast to Envoy filter")
 		}
@@ -507,7 +579,7 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 		}
 
 		for _, cp := range rule.ConfigPatches {
-			if cp.ApplyTo == networking.EnvoyFilter_INVALID {
+			if cp.ApplyTo == networking_v1alpha3.EnvoyFilter_INVALID {
 				errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing applyTo")) // nolint: golint,stylecheck
 				continue
 			}
@@ -515,11 +587,11 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 				errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing patch")) // nolint: golint,stylecheck
 				continue
 			}
-			if cp.Patch.Operation == networking.EnvoyFilter_Patch_INVALID {
+			if cp.Patch.Operation == networking_v1alpha3.EnvoyFilter_Patch_INVALID {
 				errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing patch operation")) // nolint: golint,stylecheck
 				continue
 			}
-			if cp.Patch.Operation != networking.EnvoyFilter_Patch_REMOVE && cp.Patch.Value == nil {
+			if cp.Patch.Operation != networking_v1alpha3.EnvoyFilter_Patch_REMOVE && cp.Patch.Value == nil {
 				errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing patch value for non-remove operation")) // nolint: golint,stylecheck
 				continue
 			}
@@ -533,10 +605,10 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 			}
 			// ensure that applyTo, match and patch all line up
 			switch cp.ApplyTo {
-			case networking.EnvoyFilter_LISTENER,
-				networking.EnvoyFilter_FILTER_CHAIN,
-				networking.EnvoyFilter_NETWORK_FILTER,
-				networking.EnvoyFilter_HTTP_FILTER:
+			case networking_v1alpha3.EnvoyFilter_LISTENER,
+				networking_v1alpha3.EnvoyFilter_FILTER_CHAIN,
+				networking_v1alpha3.EnvoyFilter_NETWORK_FILTER,
+				networking_v1alpha3.EnvoyFilter_HTTP_FILTER:
 				if cp.Match != nil && cp.Match.ObjectTypes != nil {
 					if cp.Match.GetListener() == nil {
 						errs = appendErrors(errs, fmt.Errorf("Envoy filter: applyTo for listener class objects cannot have non listener match")) // nolint: golint,stylecheck
@@ -551,7 +623,7 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 								continue
 							} else if listenerMatch.FilterChain.Filter.SubFilter != nil {
 								// sub filter match is supported only for applyTo HTTP_FILTER
-								if cp.ApplyTo != networking.EnvoyFilter_HTTP_FILTER {
+								if cp.ApplyTo != networking_v1alpha3.EnvoyFilter_HTTP_FILTER {
 									errs = appendErrors(errs, fmt.Errorf("Envoy filter: subfilter match can be used with applyTo HTTP_FILTER only")) // nolint: golint,stylecheck
 									continue
 								}
@@ -569,7 +641,7 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 						}
 					}
 				}
-			case networking.EnvoyFilter_ROUTE_CONFIGURATION, networking.EnvoyFilter_VIRTUAL_HOST, networking.EnvoyFilter_HTTP_ROUTE:
+			case networking_v1alpha3.EnvoyFilter_ROUTE_CONFIGURATION, networking_v1alpha3.EnvoyFilter_VIRTUAL_HOST, networking_v1alpha3.EnvoyFilter_HTTP_ROUTE:
 				if cp.Match != nil && cp.Match.ObjectTypes != nil {
 					if cp.Match.GetRouteConfiguration() == nil {
 						errs = appendErrors(errs,
@@ -577,7 +649,7 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 					}
 				}
 
-			case networking.EnvoyFilter_CLUSTER:
+			case networking_v1alpha3.EnvoyFilter_CLUSTER:
 				if cp.Match != nil && cp.Match.ObjectTypes != nil {
 					if cp.Match.GetCluster() == nil {
 						errs = appendErrors(errs, fmt.Errorf("Envoy filter: applyTo for cluster class objects cannot have non cluster match")) // nolint: golint,stylecheck
@@ -652,118 +724,154 @@ func validateNamespaceSlashWildcardHostname(hostname string, isGateway bool) (er
 // ValidateSidecar checks sidecar config supplied by user
 var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 	func(_, _ string, msg proto.Message) (errs error) {
-		rule, ok := msg.(*networking.Sidecar)
-		if !ok {
-			return fmt.Errorf("cannot cast to Sidecar")
+		switch msg.(type) {
+		case *networking_v1alpha3.Sidecar:
+			value, ok := msg.(*networking_v1alpha3.Sidecar)
+			if !ok {
+				errs = appendErrors(errs, fmt.Errorf("cannot cast to v1alpha3 sidecar"))
+				return
+			}
+			errs = appendErrors(errs, validateV1Alpha3Sidecar(value))
+		case *networking_v1beta1.Sidecar:
+			value, ok := msg.(*networking_v1beta1.Sidecar)
+			if !ok {
+				errs = appendErrors(errs, fmt.Errorf("cannot cast to v1beta1 sidecar"))
+				return
+			}
+			errs = appendErrors(errs, validateV1Beta1Sidecar(value))
+		default:
+			errs = appendErrors(errs, fmt.Errorf("cannot cast to sidecar"))
+			return
 		}
 
-		if err := validateAlphaWorkloadSelector(rule.WorkloadSelector); err != nil {
-			return err
-		}
-
-		if len(rule.Egress) == 0 {
-			return fmt.Errorf("sidecar: missing egress")
-		}
-
-		portMap := make(map[uint32]struct{})
-		for _, i := range rule.Ingress {
-			if i.Port == nil {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: port is required for ingress listeners"))
-				continue
-			}
-
-			bind := i.GetBind()
-			errs = appendErrors(errs, validateSidecarIngressPortAndBind(i.Port, bind))
-
-			if _, found := portMap[i.Port.Number]; found {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
-			}
-			portMap[i.Port.Number] = struct{}{}
-
-			if len(i.DefaultEndpoint) == 0 {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: default endpoint must be set for all ingress listeners"))
-			} else {
-				if strings.HasPrefix(i.DefaultEndpoint, UnixAddressPrefix) {
-					errs = appendErrors(errs, ValidateUnixAddress(strings.TrimPrefix(i.DefaultEndpoint, UnixAddressPrefix)))
-				} else {
-					// format should be 127.0.0.1:port or :port
-					parts := strings.Split(i.DefaultEndpoint, ":")
-					if len(parts) < 2 {
-						errs = appendErrors(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>"))
-					} else {
-						if len(parts[0]) > 0 && parts[0] != "127.0.0.1" {
-							errs = appendErrors(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>"))
-						}
-
-						port, err := strconv.Atoi(parts[1])
-						if err != nil {
-							errs = appendErrors(errs, fmt.Errorf("sidecar: defaultEndpoint port (%s) is not a number: %v", parts[1], err))
-						} else {
-							errs = appendErrors(errs, ValidatePort(port))
-						}
-					}
-				}
-			}
-		}
-
-		portMap = make(map[uint32]struct{})
-		udsMap := make(map[string]struct{})
-		catchAllEgressListenerFound := false
-		for index, i := range rule.Egress {
-			// there can be only one catch all egress listener with empty port, and it should be the last listener.
-			if i.Port == nil {
-				if !catchAllEgressListenerFound {
-					if index == len(rule.Egress)-1 {
-						catchAllEgressListenerFound = true
-					} else {
-						errs = appendErrors(errs, fmt.Errorf("sidecar: the egress listener with empty port should be the last listener in the list"))
-					}
-				} else {
-					errs = appendErrors(errs, fmt.Errorf("sidecar: egress can have only one listener with empty port"))
-					continue
-				}
-			} else {
-				bind := i.GetBind()
-				captureMode := i.GetCaptureMode()
-				errs = appendErrors(errs, validateSidecarEgressPortBindAndCaptureMode(i.Port, bind, captureMode))
-
-				if i.Port.Number == 0 {
-					if _, found := udsMap[bind]; found {
-						errs = appendErrors(errs, fmt.Errorf("sidecar: unix domain socket values for listeners must be unique"))
-					}
-					udsMap[bind] = struct{}{}
-				} else {
-					if _, found := portMap[i.Port.Number]; found {
-						errs = appendErrors(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
-					}
-					portMap[i.Port.Number] = struct{}{}
-				}
-			}
-
-			// validate that the hosts field is a slash separated value
-			// of form ns1/host, or */host, or */*, or ns1/*, or ns1/*.example.com
-			if len(i.Hosts) == 0 {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: egress listener must contain at least one host"))
-			} else {
-				for _, hostname := range i.Hosts {
-					errs = appendErrors(errs, validateNamespaceSlashWildcardHostname(hostname, false))
-				}
-			}
-
-		}
-
-		errs = appendErrors(errs, validateSidecarOutboundTrafficPolicy(rule.OutboundTrafficPolicy))
-
-		return
+		return errs
 	})
 
-func validateSidecarOutboundTrafficPolicy(tp *networking.OutboundTrafficPolicy) (errs error) {
+func validateV1Alpha3Sidecar(rule *networking_v1alpha3.Sidecar) (errs error) {
+	if err := validateAlphaWorkloadSelector(rule.WorkloadSelector); err != nil {
+		return err
+	}
+
+	if len(rule.Egress) == 0 {
+		return fmt.Errorf("sidecar: missing egress")
+	}
+
+	portMap := make(map[uint32]struct{})
+	for _, i := range rule.Ingress {
+		if i.Port == nil {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: port is required for ingress listeners"))
+			continue
+		}
+
+		bind := i.GetBind()
+		errs = appendErrors(errs, validateSidecarIngressPortAndBind(i.Port, bind))
+
+		if _, found := portMap[i.Port.Number]; found {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
+		}
+		portMap[i.Port.Number] = struct{}{}
+
+		if len(i.DefaultEndpoint) == 0 {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: default endpoint must be set for all ingress listeners"))
+		} else {
+			if strings.HasPrefix(i.DefaultEndpoint, UnixAddressPrefix) {
+				errs = appendErrors(errs, ValidateUnixAddress(strings.TrimPrefix(i.DefaultEndpoint, UnixAddressPrefix)))
+			} else {
+				// format should be 127.0.0.1:port or :port
+				parts := strings.Split(i.DefaultEndpoint, ":")
+				if len(parts) < 2 {
+					errs = appendErrors(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>"))
+				} else {
+					if len(parts[0]) > 0 && parts[0] != "127.0.0.1" {
+						errs = appendErrors(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>"))
+					}
+
+					port, err := strconv.Atoi(parts[1])
+					if err != nil {
+						errs = appendErrors(errs, fmt.Errorf("sidecar: defaultEndpoint port (%s) is not a number: %v", parts[1], err))
+					} else {
+						errs = appendErrors(errs, ValidatePort(port))
+					}
+				}
+			}
+		}
+	}
+
+	portMap = make(map[uint32]struct{})
+	udsMap := make(map[string]struct{})
+	catchAllEgressListenerFound := false
+	for index, i := range rule.Egress {
+		// there can be only one catch all egress listener with empty port, and it should be the last listener.
+		if i.Port == nil {
+			if !catchAllEgressListenerFound {
+				if index == len(rule.Egress)-1 {
+					catchAllEgressListenerFound = true
+				} else {
+					errs = appendErrors(errs, fmt.Errorf("sidecar: the egress listener with empty port should be the last listener in the list"))
+				}
+			} else {
+				errs = appendErrors(errs, fmt.Errorf("sidecar: egress can have only one listener with empty port"))
+				continue
+			}
+		} else {
+			bind := i.GetBind()
+			captureMode := i.GetCaptureMode()
+			errs = appendErrors(errs, validateSidecarEgressPortBindAndCaptureMode(i.Port, bind, captureMode))
+
+			if i.Port.Number == 0 {
+				if _, found := udsMap[bind]; found {
+					errs = appendErrors(errs, fmt.Errorf("sidecar: unix domain socket values for listeners must be unique"))
+				}
+				udsMap[bind] = struct{}{}
+			} else {
+				if _, found := portMap[i.Port.Number]; found {
+					errs = appendErrors(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
+				}
+				portMap[i.Port.Number] = struct{}{}
+			}
+		}
+
+		// validate that the hosts field is a slash separated value
+		// of form ns1/host, or */host, or */*, or ns1/*, or ns1/*.example.com
+		if len(i.Hosts) == 0 {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: egress listener must contain at least one host"))
+		} else {
+			for _, hostname := range i.Hosts {
+				errs = appendErrors(errs, validateNamespaceSlashWildcardHostname(hostname, false))
+			}
+		}
+
+	}
+
+	errs = appendErrors(errs, validateSidecarOutboundTrafficPolicy(rule.OutboundTrafficPolicy))
+
+	return errs
+}
+
+func validateV1Beta1Sidecar(sidecar *networking_v1beta1.Sidecar) (errs error) {
+	// networking v1beta1 APIs are the same as v1alpha3 APIs, so we are reusing the validations.
+	msg, err := gogoprotomarshal.ToYAML(sidecar)
+	if err != nil {
+		errs = appendErrors(errs, fmt.Errorf("cannot marshal v1beta1 sidecar: %v", err))
+		return
+	}
+	v := networking_v1alpha3.Sidecar{}
+	if err = gogoprotomarshal.ApplyYAML(msg, &v); err != nil {
+		errs = appendErrors(errs, fmt.Errorf("cannot unmarshal v1beta1 sidecar to v1alpha3 sidecar: %v", err))
+		return
+	}
+	errs = appendErrors(errs, validateV1Alpha3Sidecar(&v))
+
+	return errs
+}
+
+func validateSidecarOutboundTrafficPolicy(tp *networking_v1alpha3.OutboundTrafficPolicy) (errs error) {
 	if tp == nil {
 		return
 	}
 	mode := tp.GetMode()
 	if tp.EgressProxy != nil {
-		if mode != networking.OutboundTrafficPolicy_ALLOW_ANY {
+		if mode != networking_v1alpha3.OutboundTrafficPolicy_ALLOW_ANY {
 			errs = appendErrors(errs, fmt.Errorf("sidecar: egress_proxy must be set only with ALLOW_ANY outbound_traffic_policy mode"))
 			return
 		}
@@ -779,8 +887,8 @@ func validateSidecarOutboundTrafficPolicy(tp *networking.OutboundTrafficPolicy) 
 	return
 }
 
-func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind string,
-	captureMode networking.CaptureMode) (errs error) {
+func validateSidecarEgressPortBindAndCaptureMode(port *networking_v1alpha3.Port, bind string,
+	captureMode networking_v1alpha3.CaptureMode) (errs error) {
 
 	// Port name is optional. Validate if exists.
 	if len(port.Name) > 0 {
@@ -799,7 +907,7 @@ func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind str
 			errs = appendErrors(errs, ValidateUnixAddress(strings.TrimPrefix(bind, UnixAddressPrefix)))
 		}
 
-		if captureMode != networking.CaptureMode_DEFAULT && captureMode != networking.CaptureMode_NONE {
+		if captureMode != networking_v1alpha3.CaptureMode_DEFAULT && captureMode != networking_v1alpha3.CaptureMode_NONE {
 			errs = appendErrors(errs, fmt.Errorf("sidecar: captureMode must be DEFAULT/NONE for unix domain socket listeners"))
 		}
 	} else {
@@ -815,7 +923,7 @@ func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind str
 	return
 }
 
-func validateSidecarIngressPortAndBind(port *networking.Port, bind string) (errs error) {
+func validateSidecarIngressPortAndBind(port *networking_v1alpha3.Port, bind string) (errs error) {
 
 	// Port name is optional. Validate if exists.
 	if len(port.Name) > 0 {
@@ -833,7 +941,7 @@ func validateSidecarIngressPortAndBind(port *networking.Port, bind string) (errs
 	return
 }
 
-func validateTrafficPolicy(policy *networking.TrafficPolicy) error {
+func validateTrafficPolicy(policy *networking_v1alpha3.TrafficPolicy) error {
 	if policy == nil {
 		return nil
 	}
@@ -848,7 +956,7 @@ func validateTrafficPolicy(policy *networking.TrafficPolicy) error {
 		validateTLS(policy.Tls), validatePortTrafficPolicies(policy.PortLevelSettings))
 }
 
-func validateOutlierDetection(outlier *networking.OutlierDetection) (errs error) {
+func validateOutlierDetection(outlier *networking_v1alpha3.OutlierDetection) (errs error) {
 	if outlier == nil {
 		return
 	}
@@ -874,7 +982,7 @@ func validateOutlierDetection(outlier *networking.OutlierDetection) (errs error)
 	return
 }
 
-func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs error) {
+func validateConnectionPool(settings *networking_v1alpha3.ConnectionPoolSettings) (errs error) {
 	if settings == nil {
 		return
 	}
@@ -912,7 +1020,7 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 	return
 }
 
-func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error) {
+func validateLoadBalancer(settings *networking_v1alpha3.LoadBalancerSettings) (errs error) {
 	if settings == nil {
 		return
 	}
@@ -937,12 +1045,12 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error
 	return
 }
 
-func validateTLS(settings *networking.ClientTLSSettings) (errs error) {
+func validateTLS(settings *networking_v1alpha3.ClientTLSSettings) (errs error) {
 	if settings == nil {
 		return
 	}
 
-	if settings.Mode == networking.ClientTLSSettings_MUTUAL {
+	if settings.Mode == networking_v1alpha3.ClientTLSSettings_MUTUAL {
 		if settings.ClientCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("client certificate required for mutual tls"))
 		}
@@ -954,13 +1062,13 @@ func validateTLS(settings *networking.ClientTLSSettings) (errs error) {
 	return
 }
 
-func validateSubset(subset *networking.Subset) error {
+func validateSubset(subset *networking_v1alpha3.Subset) error {
 	return appendErrors(validateSubsetName(subset.Name),
 		labels.Instance(subset.Labels).Validate(),
 		validateTrafficPolicy(subset.TrafficPolicy))
 }
 
-func validatePortTrafficPolicies(pls []*networking.TrafficPolicy_PortTrafficPolicy) (errs error) {
+func validatePortTrafficPolicies(pls []*networking_v1alpha3.TrafficPolicy_PortTrafficPolicy) (errs error) {
 	for _, t := range pls {
 		if t.Port == nil {
 			errs = appendErrors(errs, fmt.Errorf("portTrafficPolicy must have valid port"))
@@ -1292,7 +1400,7 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 func ValidateMixerAttributes(msg proto.Message) error {
 	in, ok := msg.(*mpb.Attributes)
 	if !ok {
-		return errors.New("cannot case to attributes")
+		return errors.New("cannot cast to attributes")
 	}
 	if in == nil || len(in.Attributes) == 0 {
 		return errors.New("list of attributes is nil/empty")
@@ -2016,103 +2124,139 @@ func validateAuthNPolicyTarget(target *authn.TargetSelector) (errs error) {
 	return
 }
 
-// ValidateVirtualService checks that a v1alpha3 route rule is well-formed.
+// ValidateVirtualService checks that a route rule is well-formed.
 var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 	func(_, _ string, msg proto.Message) (errs error) {
-		virtualService, ok := msg.(*networking.VirtualService)
-		if !ok {
-			return errors.New("cannot cast to virtual service")
+		switch msg.(type) {
+		case *networking_v1alpha3.VirtualService:
+			value, ok := msg.(*networking_v1alpha3.VirtualService)
+			if !ok {
+				errs = appendErrors(errs, fmt.Errorf("cannot cast to v1alpha3 virtual service"))
+				return
+			}
+			errs = appendErrors(errs, validateV1Alpha3VirtualService(value))
+		case *networking_v1beta1.VirtualService:
+			value, ok := msg.(*networking_v1beta1.VirtualService)
+			if !ok {
+				errs = appendErrors(errs, fmt.Errorf("cannot cast to v1beta1 virtual service"))
+				return
+			}
+			errs = appendErrors(errs, validateV1Beta1VirtualService(value))
+		default:
+			errs = appendErrors(errs, fmt.Errorf("cannot cast to virtual service"))
+			return
 		}
 
-		isDelegate := false
-		if len(virtualService.Hosts) == 0 {
-			if features.EnableVirtualServiceDelegate {
-				isDelegate = true
-			} else {
-				errs = appendErrors(errs, fmt.Errorf("virtual service must have at least one host"))
-			}
-		}
-
-		if isDelegate {
-			if len(virtualService.Gateways) != 0 {
-				// meaningless to specify gateways in delegate
-				errs = appendErrors(errs, fmt.Errorf("delegate virtual service must have no gateways specified"))
-			}
-			if len(virtualService.Tls) != 0 {
-				// meaningless to specify tls in delegate, we donot support tls delegate
-				errs = appendErrors(errs, fmt.Errorf("delegate virtual service must have no tls route specified"))
-			}
-			if len(virtualService.Tcp) != 0 {
-				// meaningless to specify tls in delegate, we donot support tcp delegate
-				errs = appendErrors(errs, fmt.Errorf("delegate virtual service must have no tcp route specified"))
-			}
-		}
-
-		appliesToMesh := false
-		appliesToGateway := false
-		if len(virtualService.Gateways) == 0 {
-			appliesToMesh = true
-		}
-
-		errs = appendErrors(errs, validateGatewayNames(virtualService.Gateways))
-		for _, gatewayName := range virtualService.Gateways {
-			if gatewayName == constants.IstioMeshGateway {
-				appliesToMesh = true
-			} else {
-				appliesToGateway = true
-			}
-		}
-
-		allHostsValid := true
-		for _, virtualHost := range virtualService.Hosts {
-			if err := ValidateWildcardDomain(virtualHost); err != nil {
-				ipAddr := net.ParseIP(virtualHost) // Could also be an IP
-				if ipAddr == nil {
-					errs = appendErrors(errs, err)
-					allHostsValid = false
-				}
-			} else if appliesToMesh && virtualHost == "*" {
-				errs = appendErrors(errs, fmt.Errorf("wildcard host * is not allowed for virtual services bound to the mesh gateway"))
-				allHostsValid = false
-			}
-		}
-
-		// Check for duplicate hosts
-		// Duplicates include literal duplicates as well as wildcard duplicates
-		// E.g., *.foo.com, and *.com are duplicates in the same virtual service
-		if allHostsValid {
-			for i := 0; i < len(virtualService.Hosts); i++ {
-				hostI := host.Name(virtualService.Hosts[i])
-				for j := i + 1; j < len(virtualService.Hosts); j++ {
-					hostJ := host.Name(virtualService.Hosts[j])
-					if hostI.Matches(hostJ) {
-						errs = appendErrors(errs, fmt.Errorf("duplicate hosts in virtual service: %s & %s", hostI, hostJ))
-					}
-				}
-			}
-		}
-
-		if len(virtualService.Http) == 0 && len(virtualService.Tcp) == 0 && len(virtualService.Tls) == 0 {
-			errs = appendErrors(errs, errors.New("http, tcp or tls must be provided in virtual service"))
-		}
-		for _, httpRoute := range virtualService.Http {
-			if !appliesToGateway && httpRoute.Delegate != nil {
-				errs = appendErrors(errs, errors.New("http delegate only applies to gateway"))
-			}
-			errs = appendErrors(errs, validateHTTPRoute(httpRoute, isDelegate))
-		}
-		for _, tlsRoute := range virtualService.Tls {
-			errs = appendErrors(errs, validateTLSRoute(tlsRoute, virtualService))
-		}
-		for _, tcpRoute := range virtualService.Tcp {
-			errs = appendErrors(errs, validateTCPRoute(tcpRoute))
-		}
-
-		errs = appendErrors(errs, validateExportTo(virtualService.ExportTo))
-		return
+		return errs
 	})
 
-func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualService) (errs error) {
+func validateV1Alpha3VirtualService(virtualService *networking_v1alpha3.VirtualService) (errs error) {
+	isDelegate := false
+	if len(virtualService.Hosts) == 0 {
+		if features.EnableVirtualServiceDelegate {
+			isDelegate = true
+		} else {
+			errs = appendErrors(errs, fmt.Errorf("virtual service must have at least one host"))
+		}
+	}
+
+	if isDelegate {
+		if len(virtualService.Gateways) != 0 {
+			// meaningless to specify gateways in delegate
+			errs = appendErrors(errs, fmt.Errorf("delegate virtual service must have no gateways specified"))
+		}
+		if len(virtualService.Tls) != 0 {
+			// meaningless to specify tls in delegate, we donot support tls delegate
+			errs = appendErrors(errs, fmt.Errorf("delegate virtual service must have no tls route specified"))
+		}
+		if len(virtualService.Tcp) != 0 {
+			// meaningless to specify tls in delegate, we donot support tcp delegate
+			errs = appendErrors(errs, fmt.Errorf("delegate virtual service must have no tcp route specified"))
+		}
+	}
+
+	appliesToMesh := false
+	appliesToGateway := false
+	if len(virtualService.Gateways) == 0 {
+		appliesToMesh = true
+	}
+
+	errs = appendErrors(errs, validateGatewayNames(virtualService.Gateways))
+	for _, gatewayName := range virtualService.Gateways {
+		if gatewayName == constants.IstioMeshGateway {
+			appliesToMesh = true
+		} else {
+			appliesToGateway = true
+		}
+	}
+
+	allHostsValid := true
+	for _, virtualHost := range virtualService.Hosts {
+		if err := ValidateWildcardDomain(virtualHost); err != nil {
+			ipAddr := net.ParseIP(virtualHost) // Could also be an IP
+			if ipAddr == nil {
+				errs = appendErrors(errs, err)
+				allHostsValid = false
+			}
+		} else if appliesToMesh && virtualHost == "*" {
+			errs = appendErrors(errs, fmt.Errorf("wildcard host * is not allowed for virtual services bound to the mesh gateway"))
+			allHostsValid = false
+		}
+	}
+
+	// Check for duplicate hosts
+	// Duplicates include literal duplicates as well as wildcard duplicates
+	// E.g., *.foo.com, and *.com are duplicates in the same virtual service
+	if allHostsValid {
+		for i := 0; i < len(virtualService.Hosts); i++ {
+			hostI := host.Name(virtualService.Hosts[i])
+			for j := i + 1; j < len(virtualService.Hosts); j++ {
+				hostJ := host.Name(virtualService.Hosts[j])
+				if hostI.Matches(hostJ) {
+					errs = appendErrors(errs, fmt.Errorf("duplicate hosts in virtual service: %s & %s", hostI, hostJ))
+				}
+			}
+		}
+	}
+
+	if len(virtualService.Http) == 0 && len(virtualService.Tcp) == 0 && len(virtualService.Tls) == 0 {
+		errs = appendErrors(errs, errors.New("http, tcp or tls must be provided in virtual service"))
+	}
+	for _, httpRoute := range virtualService.Http {
+		if !appliesToGateway && httpRoute.Delegate != nil {
+			errs = appendErrors(errs, errors.New("http delegate only applies to gateway"))
+		}
+		errs = appendErrors(errs, validateHTTPRoute(httpRoute, isDelegate))
+	}
+	for _, tlsRoute := range virtualService.Tls {
+		errs = appendErrors(errs, validateTLSRoute(tlsRoute, virtualService))
+	}
+	for _, tcpRoute := range virtualService.Tcp {
+		errs = appendErrors(errs, validateTCPRoute(tcpRoute))
+	}
+
+	errs = appendErrors(errs, validateExportTo(virtualService.ExportTo))
+	return
+}
+
+func validateV1Beta1VirtualService(vs *networking_v1beta1.VirtualService) (errs error) {
+	// networking v1beta1 APIs are the same as v1alpha3 APIs, so we are reusing the validations.
+	msg, err := gogoprotomarshal.ToYAML(vs)
+	if err != nil {
+		errs = appendErrors(errs, fmt.Errorf("cannot marshal v1beta1 virtual service: %v", err))
+		return
+	}
+	v := networking_v1alpha3.VirtualService{}
+	if err = gogoprotomarshal.ApplyYAML(msg, &v); err != nil {
+		errs = appendErrors(errs, fmt.Errorf("cannot unmarshal v1beta1 virtual service to v1alpha3 virtual service: %v", err))
+		return
+	}
+	errs = appendErrors(errs, validateV1Alpha3VirtualService(&v))
+
+	return errs
+}
+
+func validateTLSRoute(tls *networking_v1alpha3.TLSRoute, context *networking_v1alpha3.VirtualService) (errs error) {
 	if tls == nil {
 		return nil
 	}
@@ -2129,7 +2273,7 @@ func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualServi
 	return
 }
 
-func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.VirtualService) (errs error) {
+func validateTLSMatch(match *networking_v1alpha3.TLSMatchAttributes, context *networking_v1alpha3.VirtualService) (errs error) {
 	if len(match.SniHosts) == 0 {
 		errs = appendErrors(errs, fmt.Errorf("TLS match must have at least one SNI host"))
 	} else {
@@ -2153,7 +2297,7 @@ func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.
 	return
 }
 
-func validateSniHost(sniHost string, context *networking.VirtualService) error {
+func validateSniHost(sniHost string, context *networking_v1alpha3.VirtualService) error {
 	if err := ValidateWildcardDomain(sniHost); err != nil {
 		ipAddr := net.ParseIP(sniHost) // Could also be an IP
 		if ipAddr == nil {
@@ -2170,7 +2314,7 @@ func validateSniHost(sniHost string, context *networking.VirtualService) error {
 		sniHost, strings.Join(context.Hosts, ", "))
 }
 
-func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
+func validateTCPRoute(tcp *networking_v1alpha3.TCPRoute) (errs error) {
 	if tcp == nil {
 		return nil
 	}
@@ -2184,7 +2328,7 @@ func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
 	return
 }
 
-func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
+func validateTCPMatch(match *networking_v1alpha3.L4MatchAttributes) (errs error) {
 	for _, destinationSubnet := range match.DestinationSubnets {
 		errs = appendErrors(errs, ValidateIPSubnet(destinationSubnet))
 	}
@@ -2196,7 +2340,7 @@ func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
 	return
 }
 
-func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs error) {
+func validateHTTPRoute(http *networking_v1alpha3.HTTPRoute, delegate bool) (errs error) {
 	if features.EnableVirtualServiceDelegate {
 		if delegate {
 			return validateDelegateHTTPRoute(http)
@@ -2313,7 +2457,7 @@ func validateGatewayNames(gatewayNames []string) (errs error) {
 	return
 }
 
-func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (errs error) {
+func validateHTTPRouteDestinations(weights []*networking_v1alpha3.HTTPRouteDestination) (errs error) {
 	var totalWeight int32
 	for _, weight := range weights {
 		if weight.Destination == nil {
@@ -2350,7 +2494,7 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (
 	return
 }
 
-func validateRouteDestinations(weights []*networking.RouteDestination) (errs error) {
+func validateRouteDestinations(weights []*networking_v1alpha3.RouteDestination) (errs error) {
 	var totalWeight int32
 	for _, weight := range weights {
 		if weight.Destination == nil {
@@ -2366,7 +2510,7 @@ func validateRouteDestinations(weights []*networking.RouteDestination) (errs err
 	return
 }
 
-func validateCORSPolicy(policy *networking.CorsPolicy) (errs error) {
+func validateCORSPolicy(policy *networking_v1alpha3.CorsPolicy) (errs error) {
 	if policy == nil {
 		return
 	}
@@ -2397,14 +2541,14 @@ func validateCORSPolicy(policy *networking.CorsPolicy) (errs error) {
 	return
 }
 
-func validateAllowOrigins(origin *networking.StringMatch) error {
+func validateAllowOrigins(origin *networking_v1alpha3.StringMatch) error {
 	var match string
 	switch origin.MatchType.(type) {
-	case *networking.StringMatch_Exact:
+	case *networking_v1alpha3.StringMatch_Exact:
 		match = origin.GetExact()
-	case *networking.StringMatch_Prefix:
+	case *networking_v1alpha3.StringMatch_Prefix:
 		match = origin.GetPrefix()
-	case *networking.StringMatch_Regex:
+	case *networking_v1alpha3.StringMatch_Regex:
 		match = origin.GetRegex()
 	}
 	if match == "" {
@@ -2420,7 +2564,7 @@ func validateHTTPMethod(method string) error {
 	return nil
 }
 
-func validateHTTPFaultInjection(fault *networking.HTTPFaultInjection) (errs error) {
+func validateHTTPFaultInjection(fault *networking_v1alpha3.HTTPFaultInjection) (errs error) {
 	if fault == nil {
 		return
 	}
@@ -2435,7 +2579,7 @@ func validateHTTPFaultInjection(fault *networking.HTTPFaultInjection) (errs erro
 	return
 }
 
-func validateHTTPFaultInjectionAbort(abort *networking.HTTPFaultInjection_Abort) (errs error) {
+func validateHTTPFaultInjectionAbort(abort *networking_v1alpha3.HTTPFaultInjection_Abort) (errs error) {
 	if abort == nil {
 		return
 	}
@@ -2443,13 +2587,13 @@ func validateHTTPFaultInjectionAbort(abort *networking.HTTPFaultInjection_Abort)
 	errs = appendErrors(errs, validatePercentage(abort.Percentage))
 
 	switch abort.ErrorType.(type) {
-	case *networking.HTTPFaultInjection_Abort_GrpcStatus:
+	case *networking_v1alpha3.HTTPFaultInjection_Abort_GrpcStatus:
 		// TODO: gRPC status validation
 		errs = multierror.Append(errs, errors.New("gRPC abort fault injection not supported yet"))
-	case *networking.HTTPFaultInjection_Abort_Http2Error:
+	case *networking_v1alpha3.HTTPFaultInjection_Abort_Http2Error:
 		// TODO: HTTP2 error validation
 		errs = multierror.Append(errs, errors.New("HTTP/2 abort fault injection not supported yet"))
-	case *networking.HTTPFaultInjection_Abort_HttpStatus:
+	case *networking_v1alpha3.HTTPFaultInjection_Abort_HttpStatus:
 		errs = appendErrors(errs, validateHTTPStatus(abort.GetHttpStatus()))
 	}
 
@@ -2463,7 +2607,7 @@ func validateHTTPStatus(status int32) error {
 	return nil
 }
 
-func validateHTTPFaultInjectionDelay(delay *networking.HTTPFaultInjection_Delay) (errs error) {
+func validateHTTPFaultInjectionDelay(delay *networking_v1alpha3.HTTPFaultInjection_Delay) (errs error) {
 	if delay == nil {
 		return
 	}
@@ -2471,9 +2615,9 @@ func validateHTTPFaultInjectionDelay(delay *networking.HTTPFaultInjection_Delay)
 	errs = appendErrors(errs, validatePercentage(delay.Percentage))
 
 	switch v := delay.HttpDelayType.(type) {
-	case *networking.HTTPFaultInjection_Delay_FixedDelay:
+	case *networking_v1alpha3.HTTPFaultInjection_Delay_FixedDelay:
 		errs = appendErrors(errs, ValidateDurationGogo(v.FixedDelay))
-	case *networking.HTTPFaultInjection_Delay_ExponentialDelay:
+	case *networking_v1alpha3.HTTPFaultInjection_Delay_ExponentialDelay:
 		errs = appendErrors(errs, ValidateDurationGogo(v.ExponentialDelay))
 		errs = multierror.Append(errs, fmt.Errorf("exponentialDelay not supported yet"))
 	}
@@ -2481,7 +2625,7 @@ func validateHTTPFaultInjectionDelay(delay *networking.HTTPFaultInjection_Delay)
 	return
 }
 
-func validateDestination(destination *networking.Destination) (errs error) {
+func validateDestination(destination *networking_v1alpha3.Destination) (errs error) {
 	if destination == nil {
 		return
 	}
@@ -2512,7 +2656,7 @@ func validateSubsetName(name string) error {
 	return nil
 }
 
-func validatePortSelector(selector *networking.PortSelector) (errs error) {
+func validatePortSelector(selector *networking_v1alpha3.PortSelector) (errs error) {
 	if selector == nil {
 		return nil
 	}
@@ -2540,7 +2684,7 @@ func validateAuthNPortSelector(selector *authn.PortSelector) error {
 	return validateSubsetName(name)
 }
 
-func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
+func validateHTTPRetry(retries *networking_v1alpha3.HTTPRetry) (errs error) {
 	if retries == nil {
 		return
 	}
@@ -2571,7 +2715,7 @@ func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 	return
 }
 
-func validateHTTPRedirect(redirect *networking.HTTPRedirect) error {
+func validateHTTPRedirect(redirect *networking_v1alpha3.HTTPRedirect) error {
 	if redirect != nil && redirect.Uri == "" && redirect.Authority == "" {
 		return errors.New("redirect must specify URI, authority, or both")
 	}
@@ -2584,7 +2728,7 @@ func validateHTTPRedirect(redirect *networking.HTTPRedirect) error {
 	return nil
 }
 
-func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
+func validateHTTPRewrite(rewrite *networking_v1alpha3.HTTPRewrite) error {
 	if rewrite != nil && rewrite.Uri == "" && rewrite.Authority == "" {
 		return errors.New("rewrite must specify URI, authority, or both")
 	}
@@ -2593,168 +2737,243 @@ func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 
 // ValidateWorkloadEntry validates a workload entry.
 var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
-	func(_, _ string, config proto.Message) (errs error) {
-		we, ok := config.(*networking.WorkloadEntry)
-		if !ok {
-			return fmt.Errorf("cannot cast to workload entry")
+	func(_, _ string, msg proto.Message) (errs error) {
+		switch msg.(type) {
+		case *networking_v1alpha3.WorkloadEntry:
+			value, ok := msg.(*networking_v1alpha3.WorkloadEntry)
+			if !ok {
+				errs = appendErrors(errs, fmt.Errorf("cannot cast to v1alpha3 workload entry"))
+				return
+			}
+			errs = appendErrors(errs, validateV1Alpha3WorkloadEntry(value))
+		case *networking_v1beta1.WorkloadEntry:
+			value, ok := msg.(*networking_v1beta1.WorkloadEntry)
+			if !ok {
+				errs = appendErrors(errs, fmt.Errorf("cannot cast to v1beta1 workload entry"))
+				return
+			}
+			errs = appendErrors(errs, validateV1Beta1WorkloadEntry(value))
+		default:
+			errs = appendErrors(errs, fmt.Errorf("cannot cast to workload entry"))
+			return
 		}
-		if we.Address == "" {
-			return fmt.Errorf("address must be set")
-		}
-		// TODO: add better validation. The tricky thing is that we don't know if its meant to be
-		// DNS or STATIC type without association with a ServiceEntry
-		return nil
+
+		return errs
+
 	})
+
+func validateV1Alpha3WorkloadEntry(we *networking_v1alpha3.WorkloadEntry) (errs error) {
+	if we.Address == "" {
+		return fmt.Errorf("address must be set")
+	}
+	// TODO: add better validation. The tricky thing is that we don't know if its meant to be
+	// DNS or STATIC type without association with a ServiceEntry
+	return nil
+}
+
+func validateV1Beta1WorkloadEntry(we *networking_v1beta1.WorkloadEntry) (errs error) {
+	// networking v1beta1 APIs are the same as v1alpha3 APIs, so we are reusing the validations.
+	msg, err := gogoprotomarshal.ToYAML(we)
+	if err != nil {
+		errs = appendErrors(errs, fmt.Errorf("cannot marshal v1beta1 workload entry: %v", err))
+		return
+	}
+	v := networking_v1alpha3.WorkloadEntry{}
+	if err = gogoprotomarshal.ApplyYAML(msg, &v); err != nil {
+		errs = appendErrors(errs, fmt.Errorf("cannot unmarshal v1beta1 workload entry to v1alpha3 workload entry: %v", err))
+		return
+	}
+	errs = appendErrors(errs, validateV1Alpha3WorkloadEntry(&v))
+
+	return errs
+}
 
 // ValidateServiceEntry validates a service entry.
 var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
-	func(_, _ string, config proto.Message) (errs error) {
-		serviceEntry, ok := config.(*networking.ServiceEntry)
-		if !ok {
-			return fmt.Errorf("cannot cast to service entry")
+	func(_, _ string, msg proto.Message) (errs error) {
+		switch msg.(type) {
+		case *networking_v1alpha3.ServiceEntry:
+			value, ok := msg.(*networking_v1alpha3.ServiceEntry)
+			if !ok {
+				errs = appendErrors(errs, fmt.Errorf("cannot cast to v1alpha3 service entry"))
+				return
+			}
+			errs = appendErrors(errs, validateV1Alpha3ServiceEntry(value))
+		case *networking_v1beta1.ServiceEntry:
+			value, ok := msg.(*networking_v1beta1.ServiceEntry)
+			if !ok {
+				errs = appendErrors(errs, fmt.Errorf("cannot cast to v1beta1 service entry"))
+				return
+			}
+			errs = appendErrors(errs, validateV1Beta1ServiceEntry(value))
+		default:
+			errs = appendErrors(errs, fmt.Errorf("cannot cast to service entry"))
+			return
 		}
 
-		if err := validateAlphaWorkloadSelector(serviceEntry.WorkloadSelector); err != nil {
-			return err
-		}
+		return errs
 
-		if serviceEntry.WorkloadSelector != nil && serviceEntry.Endpoints != nil {
-			errs = appendErrors(errs, fmt.Errorf("only one of WorkloadSelector or Endpoints is allowed in Service Entry"))
-		}
+	})
 
-		if len(serviceEntry.Hosts) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("service entry must have at least one host"))
+func validateV1Alpha3ServiceEntry(serviceEntry *networking_v1alpha3.ServiceEntry) (errs error) {
+	if err := validateAlphaWorkloadSelector(serviceEntry.WorkloadSelector); err != nil {
+		return err
+	}
+
+	if serviceEntry.WorkloadSelector != nil && serviceEntry.Endpoints != nil {
+		errs = appendErrors(errs, fmt.Errorf("only one of WorkloadSelector or Endpoints is allowed in Service Entry"))
+	}
+
+	if len(serviceEntry.Hosts) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("service entry must have at least one host"))
+	}
+	for _, hostname := range serviceEntry.Hosts {
+		// Full wildcard is not allowed in the service entry.
+		if hostname == "*" {
+			errs = appendErrors(errs, fmt.Errorf("invalid host %s", hostname))
+		} else {
+			errs = appendErrors(errs, ValidateWildcardDomain(hostname))
 		}
-		for _, hostname := range serviceEntry.Hosts {
-			// Full wildcard is not allowed in the service entry.
-			if hostname == "*" {
-				errs = appendErrors(errs, fmt.Errorf("invalid host %s", hostname))
+	}
+
+	cidrFound := false
+	for _, address := range serviceEntry.Addresses {
+		cidrFound = cidrFound || strings.Contains(address, "/")
+		errs = appendErrors(errs, ValidateIPSubnet(address))
+	}
+
+	if cidrFound {
+		if serviceEntry.Resolution != networking_v1alpha3.ServiceEntry_NONE && serviceEntry.Resolution != networking_v1alpha3.ServiceEntry_STATIC {
+			errs = appendErrors(errs, fmt.Errorf("CIDR addresses are allowed only for NONE/STATIC resolution types"))
+		}
+	}
+
+	servicePortNumbers := make(map[uint32]bool)
+	servicePorts := make(map[string]bool, len(serviceEntry.Ports))
+	for _, port := range serviceEntry.Ports {
+		if servicePorts[port.Name] {
+			errs = appendErrors(errs, fmt.Errorf("service entry port name %q already defined", port.Name))
+		}
+		servicePorts[port.Name] = true
+		if servicePortNumbers[port.Number] {
+			errs = appendErrors(errs, fmt.Errorf("service entry port %d already defined", port.Number))
+		}
+		servicePortNumbers[port.Number] = true
+	}
+
+	switch serviceEntry.Resolution {
+	case networking_v1alpha3.ServiceEntry_NONE:
+		if len(serviceEntry.Endpoints) != 0 {
+			errs = appendErrors(errs, fmt.Errorf("no endpoints should be provided for resolution type none"))
+		}
+	case networking_v1alpha3.ServiceEntry_STATIC:
+		unixEndpoint := false
+		for _, endpoint := range serviceEntry.Endpoints {
+			addr := endpoint.GetAddress()
+			if strings.HasPrefix(addr, UnixAddressPrefix) {
+				unixEndpoint = true
+				errs = appendErrors(errs, ValidateUnixAddress(strings.TrimPrefix(addr, UnixAddressPrefix)))
+				if len(endpoint.Ports) != 0 {
+					errs = appendErrors(errs, fmt.Errorf("unix endpoint %s must not include ports", addr))
+				}
 			} else {
-				errs = appendErrors(errs, ValidateWildcardDomain(hostname))
-			}
-		}
+				errs = appendErrors(errs, ValidateIPAddress(addr))
 
-		cidrFound := false
-		for _, address := range serviceEntry.Addresses {
-			cidrFound = cidrFound || strings.Contains(address, "/")
-			errs = appendErrors(errs, ValidateIPSubnet(address))
-		}
-
-		if cidrFound {
-			if serviceEntry.Resolution != networking.ServiceEntry_NONE && serviceEntry.Resolution != networking.ServiceEntry_STATIC {
-				errs = appendErrors(errs, fmt.Errorf("CIDR addresses are allowed only for NONE/STATIC resolution types"))
-			}
-		}
-
-		servicePortNumbers := make(map[uint32]bool)
-		servicePorts := make(map[string]bool, len(serviceEntry.Ports))
-		for _, port := range serviceEntry.Ports {
-			if servicePorts[port.Name] {
-				errs = appendErrors(errs, fmt.Errorf("service entry port name %q already defined", port.Name))
-			}
-			servicePorts[port.Name] = true
-			if servicePortNumbers[port.Number] {
-				errs = appendErrors(errs, fmt.Errorf("service entry port %d already defined", port.Number))
-			}
-			servicePortNumbers[port.Number] = true
-		}
-
-		switch serviceEntry.Resolution {
-		case networking.ServiceEntry_NONE:
-			if len(serviceEntry.Endpoints) != 0 {
-				errs = appendErrors(errs, fmt.Errorf("no endpoints should be provided for resolution type none"))
-			}
-		case networking.ServiceEntry_STATIC:
-			unixEndpoint := false
-			for _, endpoint := range serviceEntry.Endpoints {
-				addr := endpoint.GetAddress()
-				if strings.HasPrefix(addr, UnixAddressPrefix) {
-					unixEndpoint = true
-					errs = appendErrors(errs, ValidateUnixAddress(strings.TrimPrefix(addr, UnixAddressPrefix)))
-					if len(endpoint.Ports) != 0 {
-						errs = appendErrors(errs, fmt.Errorf("unix endpoint %s must not include ports", addr))
-					}
-				} else {
-					errs = appendErrors(errs, ValidateIPAddress(addr))
-
-					for name, port := range endpoint.Ports {
-						if !servicePorts[name] {
-							errs = appendErrors(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
-						}
-					}
-				}
-				errs = appendErrors(errs, labels.Instance(endpoint.Labels).Validate())
-
-			}
-			if unixEndpoint && len(serviceEntry.Ports) != 1 {
-				errs = appendErrors(errs, errors.New("exactly 1 service port required for unix endpoints"))
-			}
-		case networking.ServiceEntry_DNS:
-			if len(serviceEntry.Endpoints) == 0 {
-				for _, hostname := range serviceEntry.Hosts {
-					if err := ValidateFQDN(hostname); err != nil {
-						errs = appendErrors(errs,
-							fmt.Errorf("hosts must be FQDN if no endpoints are provided for resolution mode DNS"))
-					}
-				}
-			}
-
-			for _, endpoint := range serviceEntry.Endpoints {
-				ipAddr := net.ParseIP(endpoint.Address) // Typically it is an IP address
-				if ipAddr == nil {
-					if err := ValidateFQDN(endpoint.Address); err != nil { // Otherwise could be an FQDN
-						errs = appendErrors(errs,
-							fmt.Errorf("endpoint address %q is not a valid FQDN or an IP address", endpoint.Address))
-					}
-				}
-				errs = appendErrors(errs,
-					labels.Instance(endpoint.Labels).Validate())
 				for name, port := range endpoint.Ports {
 					if !servicePorts[name] {
 						errs = appendErrors(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
 					}
+				}
+			}
+			errs = appendErrors(errs, labels.Instance(endpoint.Labels).Validate())
+
+		}
+		if unixEndpoint && len(serviceEntry.Ports) != 1 {
+			errs = appendErrors(errs, errors.New("exactly 1 service port required for unix endpoints"))
+		}
+	case networking_v1alpha3.ServiceEntry_DNS:
+		if len(serviceEntry.Endpoints) == 0 {
+			for _, hostname := range serviceEntry.Hosts {
+				if err := ValidateFQDN(hostname); err != nil {
 					errs = appendErrors(errs,
-						ValidatePortName(name),
-						ValidatePort(int(port)))
+						fmt.Errorf("hosts must be FQDN if no endpoints are provided for resolution mode DNS"))
 				}
-			}
-		default:
-			errs = appendErrors(errs, fmt.Errorf("unsupported resolution type %s",
-				networking.ServiceEntry_Resolution_name[int32(serviceEntry.Resolution)]))
-		}
-
-		// multiple hosts and TCP is invalid unless the resolution type is NONE.
-		// depending on the protocol, we can differentiate between hosts when proxying:
-		// - with HTTP, the authority header can be used
-		// - with HTTPS/TLS with SNI, the ServerName can be used
-		// however, for plain TCP there is no way to differentiate between the
-		// hosts so we consider it invalid, unless the resolution type is NONE
-		// (because the hosts are ignored).
-		if serviceEntry.Resolution != networking.ServiceEntry_NONE && len(serviceEntry.Hosts) > 1 {
-			canDifferentiate := true
-			for _, port := range serviceEntry.Ports {
-				p := protocol.Parse(port.Protocol)
-				if !p.IsHTTP() && !p.IsTLS() {
-					canDifferentiate = false
-					break
-				}
-			}
-
-			if !canDifferentiate {
-				errs = appendErrors(errs, fmt.Errorf("multiple hosts provided with non-HTTP, non-TLS ports"))
 			}
 		}
 
-		for _, port := range serviceEntry.Ports {
+		for _, endpoint := range serviceEntry.Endpoints {
+			ipAddr := net.ParseIP(endpoint.Address) // Typically it is an IP address
+			if ipAddr == nil {
+				if err := ValidateFQDN(endpoint.Address); err != nil { // Otherwise could be an FQDN
+					errs = appendErrors(errs,
+						fmt.Errorf("endpoint address %q is not a valid FQDN or an IP address", endpoint.Address))
+				}
+			}
 			errs = appendErrors(errs,
-				ValidatePortName(port.Name),
-				ValidateProtocol(port.Protocol),
-				ValidatePort(int(port.Number)))
+				labels.Instance(endpoint.Labels).Validate())
+			for name, port := range endpoint.Ports {
+				if !servicePorts[name] {
+					errs = appendErrors(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
+				}
+				errs = appendErrors(errs,
+					ValidatePortName(name),
+					ValidatePort(int(port)))
+			}
+		}
+	default:
+		errs = appendErrors(errs, fmt.Errorf("unsupported resolution type %s",
+			networking_v1alpha3.ServiceEntry_Resolution_name[int32(serviceEntry.Resolution)]))
+	}
+
+	// multiple hosts and TCP is invalid unless the resolution type is NONE.
+	// depending on the protocol, we can differentiate between hosts when proxying:
+	// - with HTTP, the authority header can be used
+	// - with HTTPS/TLS with SNI, the ServerName can be used
+	// however, for plain TCP there is no way to differentiate between the
+	// hosts so we consider it invalid, unless the resolution type is NONE
+	// (because the hosts are ignored).
+	if serviceEntry.Resolution != networking_v1alpha3.ServiceEntry_NONE && len(serviceEntry.Hosts) > 1 {
+		canDifferentiate := true
+		for _, port := range serviceEntry.Ports {
+			p := protocol.Parse(port.Protocol)
+			if !p.IsHTTP() && !p.IsTLS() {
+				canDifferentiate = false
+				break
+			}
 		}
 
-		errs = appendErrors(errs, validateExportTo(serviceEntry.ExportTo))
+		if !canDifferentiate {
+			errs = appendErrors(errs, fmt.Errorf("multiple hosts provided with non-HTTP, non-TLS ports"))
+		}
+	}
+
+	for _, port := range serviceEntry.Ports {
+		errs = appendErrors(errs,
+			ValidatePortName(port.Name),
+			ValidateProtocol(port.Protocol),
+			ValidatePort(int(port.Number)))
+	}
+
+	errs = appendErrors(errs, validateExportTo(serviceEntry.ExportTo))
+	return
+}
+
+func validateV1Beta1ServiceEntry(serviceEntry *networking_v1beta1.ServiceEntry) (errs error) {
+	// networking v1beta1 APIs are the same as v1alpha3 APIs, so we are reusing the validations.
+	msg, err := gogoprotomarshal.ToYAML(serviceEntry)
+	if err != nil {
+		errs = appendErrors(errs, fmt.Errorf("cannot marshal v1beta1 service entry: %v", err))
 		return
-	})
+	}
+	v := networking_v1alpha3.ServiceEntry{}
+	if err = gogoprotomarshal.ApplyYAML(msg, &v); err != nil {
+		errs = appendErrors(errs, fmt.Errorf("cannot unmarshal v1beta1 service entry to v1alpha3 service entry: %v", err))
+		return
+	}
+	errs = appendErrors(errs, validateV1Alpha3ServiceEntry(&v))
+
+	return errs
+}
 
 func ValidatePortName(name string) error {
 	if !labels.IsDNS1123Label(name) {
@@ -2790,7 +3009,7 @@ func appendErrors(err error, errs ...error) error {
 }
 
 // validateLocalityLbSetting checks the LocalityLbSetting of MeshConfig
-func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting) error {
+func validateLocalityLbSetting(lb *networking_v1alpha3.LocalityLoadBalancerSetting) error {
 	if lb == nil {
 		return nil
 	}

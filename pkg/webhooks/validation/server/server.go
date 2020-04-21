@@ -397,11 +397,6 @@ func (wh *Webhook) admitPilot(request *kubeApiAdmission.AdmissionRequest) *kubeA
 
 	gvk := obj.GroupVersionKind()
 
-	// TODO(jasonwzm) remove this when multi-version is supported. v1beta1 shares the same
-	// schema as v1lalpha3. Fake conversion and validate against v1alpha3.
-	if gvk.Group == "networking.istio.io" && gvk.Version == "v1beta1" {
-		gvk.Version = "v1alpha3"
-	}
 	s, exists := wh.schemas.FindByGroupVersionKind(resource.FromKubernetesGVK(&gvk))
 	if !exists {
 		scope.Infof("unrecognized type %v", obj.Kind)

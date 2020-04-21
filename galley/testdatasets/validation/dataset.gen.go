@@ -44,6 +44,8 @@
 // dataset/networking-v1beta-VirtualService-valid.yaml
 // dataset/networking-v1beta-WorkloadEntry-invalid.yaml
 // dataset/networking-v1beta-WorkloadEntry-valid.yaml
+// dataset/networking-v1beta1-ServiceEntry-invalid.yaml
+// dataset/networking-v1beta1-ServiceEntry-valid.yaml
 // dataset/rbac-v1alpha1-ClusterRbacConfig-invalid.yaml
 // dataset/rbac-v1alpha1-ClusterRbacConfig-valid.yaml
 // dataset/rbac-v1alpha1-RBacConfig-invalid.yaml
@@ -1502,6 +1504,74 @@ func datasetNetworkingV1betaWorkloadentryValidYaml() (*asset, error) {
 	return a, nil
 }
 
+var _datasetNetworkingV1beta1ServiceentryInvalidYaml = []byte(`apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: invalid-service-entry
+spec:
+  ports:
+    - number: 80
+      name: http
+      protocol: HTTP
+  discovery: DNS
+  endpoints:
+    # Rather than relying on an external host that might become unreachable (causing test failures)
+    # we can mock the external endpoint using service t which has no sidecar.
+    - address: t.istio-system.svc.cluster.local # TODO: this is brittle
+      ports:
+        http: 8080 # TODO test https
+`)
+
+func datasetNetworkingV1beta1ServiceentryInvalidYamlBytes() ([]byte, error) {
+	return _datasetNetworkingV1beta1ServiceentryInvalidYaml, nil
+}
+
+func datasetNetworkingV1beta1ServiceentryInvalidYaml() (*asset, error) {
+	bytes, err := datasetNetworkingV1beta1ServiceentryInvalidYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "dataset/networking-v1beta1-ServiceEntry-invalid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _datasetNetworkingV1beta1ServiceentryValidYaml = []byte(`apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: valid-service-entry
+spec:
+  hosts:
+    - eu.bookinfo.com
+  ports:
+    - number: 80
+      name: http
+      protocol: HTTP
+  resolution: DNS
+  endpoints:
+    # Rather than relying on an external host that might become unreachable (causing test failures)
+    # we can mock the external endpoint using service t which has no sidecar.
+    - address: t.istio-system.svc.cluster.local # TODO: this is brittle
+      ports:
+        http: 8080 # TODO test https
+`)
+
+func datasetNetworkingV1beta1ServiceentryValidYamlBytes() ([]byte, error) {
+	return _datasetNetworkingV1beta1ServiceentryValidYaml, nil
+}
+
+func datasetNetworkingV1beta1ServiceentryValidYaml() (*asset, error) {
+	bytes, err := datasetNetworkingV1beta1ServiceentryValidYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "dataset/networking-v1beta1-ServiceEntry-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _datasetRbacV1alpha1ClusterrbacconfigInvalidYaml = []byte(`apiVersion: "rbac.istio.io/v1alpha1"
 kind: ClusterRbacConfig
 metadata:
@@ -1988,6 +2058,8 @@ var _bindata = map[string]func() (*asset, error){
 	"dataset/networking-v1beta-VirtualService-valid.yaml":         datasetNetworkingV1betaVirtualserviceValidYaml,
 	"dataset/networking-v1beta-WorkloadEntry-invalid.yaml":        datasetNetworkingV1betaWorkloadentryInvalidYaml,
 	"dataset/networking-v1beta-WorkloadEntry-valid.yaml":          datasetNetworkingV1betaWorkloadentryValidYaml,
+	"dataset/networking-v1beta1-ServiceEntry-invalid.yaml":        datasetNetworkingV1beta1ServiceentryInvalidYaml,
+	"dataset/networking-v1beta1-ServiceEntry-valid.yaml":          datasetNetworkingV1beta1ServiceentryValidYaml,
 	"dataset/rbac-v1alpha1-ClusterRbacConfig-invalid.yaml":        datasetRbacV1alpha1ClusterrbacconfigInvalidYaml,
 	"dataset/rbac-v1alpha1-ClusterRbacConfig-valid.yaml":          datasetRbacV1alpha1ClusterrbacconfigValidYaml,
 	"dataset/rbac-v1alpha1-RBacConfig-invalid.yaml":               datasetRbacV1alpha1RbacconfigInvalidYaml,
@@ -2090,6 +2162,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"networking-v1beta-VirtualService-valid.yaml":         &bintree{datasetNetworkingV1betaVirtualserviceValidYaml, map[string]*bintree{}},
 		"networking-v1beta-WorkloadEntry-invalid.yaml":        &bintree{datasetNetworkingV1betaWorkloadentryInvalidYaml, map[string]*bintree{}},
 		"networking-v1beta-WorkloadEntry-valid.yaml":          &bintree{datasetNetworkingV1betaWorkloadentryValidYaml, map[string]*bintree{}},
+		"networking-v1beta1-ServiceEntry-invalid.yaml":        &bintree{datasetNetworkingV1beta1ServiceentryInvalidYaml, map[string]*bintree{}},
+		"networking-v1beta1-ServiceEntry-valid.yaml":          &bintree{datasetNetworkingV1beta1ServiceentryValidYaml, map[string]*bintree{}},
 		"rbac-v1alpha1-ClusterRbacConfig-invalid.yaml":        &bintree{datasetRbacV1alpha1ClusterrbacconfigInvalidYaml, map[string]*bintree{}},
 		"rbac-v1alpha1-ClusterRbacConfig-valid.yaml":          &bintree{datasetRbacV1alpha1ClusterrbacconfigValidYaml, map[string]*bintree{}},
 		"rbac-v1alpha1-RBacConfig-invalid.yaml":               &bintree{datasetRbacV1alpha1RbacconfigInvalidYaml, map[string]*bintree{}},

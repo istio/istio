@@ -18,6 +18,9 @@ import (
 	// Register protos in "istio.io/api/networking/v1alpha3"
 	_ "istio.io/api/networking/v1alpha3"
 
+	// Register protos in "istio.io/api/networking/v1beta1"
+	_ "istio.io/api/networking/v1beta1"
+
 	// Register protos in "istio.io/api/policy/v1beta1"
 	_ "istio.io/api/policy/v1beta1"
 

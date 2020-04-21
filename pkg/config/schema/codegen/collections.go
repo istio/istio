@@ -108,7 +108,7 @@ type colEntry struct {
 func StaticCollections(packageName string, m *ast.Metadata) (string, error) {
 	entries := make([]colEntry, 0, len(m.Collections))
 	for _, c := range m.Collections {
-		r := m.FindResourceForGroupKind(c.Group, c.Kind)
+		r := m.FindResourceForGroupVersionKind(c.Group, c.Version, c.Kind)
 		if r == nil {
 			return "", fmt.Errorf("failed to find resource (%s/%s) for collection %s", c.Group, c.Kind, c.Name)
 		}

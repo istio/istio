@@ -28,7 +28,8 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
-	networking "istio.io/api/networking/v1alpha3"
+	networking_v1alpha3 "istio.io/api/networking/v1alpha3"
+	networking_v1beta1 "istio.io/api/networking/v1beta1"
 	rbac "istio.io/api/rbac/v1alpha1"
 	security_beta "istio.io/api/security/v1beta1"
 	api "istio.io/api/type/v1beta1"
@@ -1124,53 +1125,70 @@ func TestValidateGateway(t *testing.T) {
 		in   proto.Message
 		out  string
 	}{
-		{"empty", &networking.Gateway{}, "server"},
-		{"invalid message", &networking.Server{}, "cannot cast"},
+		{"empty", &networking_v1alpha3.Gateway{}, "server"},
+		{"invalid message", &networking_v1alpha3.Server{}, "cannot cast"},
 		{"happy domain",
-			&networking.Gateway{
-				Servers: []*networking.Server{{
+			&networking_v1alpha3.Gateway{
+				Servers: []*networking_v1alpha3.Server{{
 					Hosts: []string{"foo.bar.com"},
-					Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
+					Port:  &networking_v1alpha3.Port{Name: "name1", Number: 7, Protocol: "http"},
+				}},
+			},
+			""},
+		{"happy domain v1beta1",
+			&networking_v1beta1.Gateway{
+				Servers: []*networking_v1beta1.Server{{
+					Hosts: []string{"foo.bar.com"},
+					Port:  &networking_v1beta1.Port{Name: "name1", Number: 7, Protocol: "http"},
 				}},
 			},
 			""},
 		{"happy multiple servers",
-			&networking.Gateway{
-				Servers: []*networking.Server{
+			&networking_v1alpha3.Gateway{
+				Servers: []*networking_v1alpha3.Server{
 					{
 						Hosts: []string{"foo.bar.com"},
-						Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
+						Port:  &networking_v1alpha3.Port{Name: "name1", Number: 7, Protocol: "http"},
 					}},
 			},
 			""},
 		{"invalid port",
-			&networking.Gateway{
-				Servers: []*networking.Server{
+			&networking_v1alpha3.Gateway{
+				Servers: []*networking_v1alpha3.Server{
 					{
 						Hosts: []string{"foo.bar.com"},
-						Port:  &networking.Port{Name: "name1", Number: 66000, Protocol: "http"},
+						Port:  &networking_v1alpha3.Port{Name: "name1", Number: 66000, Protocol: "http"},
 					}},
 			},
 			"port"},
 		{"duplicate port names",
-			&networking.Gateway{
-				Servers: []*networking.Server{
+			&networking_v1alpha3.Gateway{
+				Servers: []*networking_v1alpha3.Server{
 					{
 						Hosts: []string{"foo.bar.com"},
-						Port:  &networking.Port{Name: "foo", Number: 80, Protocol: "http"},
+						Port:  &networking_v1alpha3.Port{Name: "foo", Number: 80, Protocol: "http"},
 					},
 					{
 						Hosts: []string{"scooby.doo.com"},
-						Port:  &networking.Port{Name: "foo", Number: 8080, Protocol: "http"},
+						Port:  &networking_v1alpha3.Port{Name: "foo", Number: 8080, Protocol: "http"},
 					}},
 			},
 			"port names"},
 		{"invalid domain",
-			&networking.Gateway{
-				Servers: []*networking.Server{
+			&networking_v1alpha3.Gateway{
+				Servers: []*networking_v1alpha3.Server{
 					{
 						Hosts: []string{"foo.*.bar.com"},
-						Port:  &networking.Port{Number: 7, Protocol: "http"},
+						Port:  &networking_v1alpha3.Port{Number: 7, Protocol: "http"},
+					}},
+			},
+			"domain"},
+		{"invalid domain v1beta1",
+			&networking_v1beta1.Gateway{
+				Servers: []*networking_v1beta1.Server{
+					{
+						Hosts: []string{"foo.*.bar.com"},
+						Port:  &networking_v1beta1.Port{Number: 7, Protocol: "http"},
 					}},
 			},
 			"domain"},
@@ -1192,90 +1210,90 @@ func TestValidateGateway(t *testing.T) {
 func TestValidateServer(t *testing.T) {
 	tests := []struct {
 		name string
-		in   *networking.Server
+		in   *networking_v1alpha3.Server
 		out  string
 	}{
-		{"empty", &networking.Server{}, "host"},
-		{"empty", &networking.Server{}, "port"},
+		{"empty", &networking_v1alpha3.Server{}, "host"},
+		{"empty", &networking_v1alpha3.Server{}, "port"},
 		{"happy",
-			&networking.Server{
+			&networking_v1alpha3.Server{
 				Hosts: []string{"foo.bar.com"},
-				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+				Port:  &networking_v1alpha3.Port{Number: 7, Name: "http", Protocol: "http"},
 			},
 			""},
 		{"happy ip",
-			&networking.Server{
+			&networking_v1alpha3.Server{
 				Hosts: []string{"1.1.1.1"},
-				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+				Port:  &networking_v1alpha3.Port{Number: 7, Name: "http", Protocol: "http"},
 			},
 			""},
 		{"happy ns/name",
-			&networking.Server{
+			&networking_v1alpha3.Server{
 				Hosts: []string{"ns1/foo.bar.com"},
-				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+				Port:  &networking_v1alpha3.Port{Number: 7, Name: "http", Protocol: "http"},
 			},
 			""},
 		{"happy */name",
-			&networking.Server{
+			&networking_v1alpha3.Server{
 				Hosts: []string{"*/foo.bar.com"},
-				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+				Port:  &networking_v1alpha3.Port{Number: 7, Name: "http", Protocol: "http"},
 			},
 			""},
 		{"happy ./name",
-			&networking.Server{
+			&networking_v1alpha3.Server{
 				Hosts: []string{"./foo.bar.com"},
-				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+				Port:  &networking_v1alpha3.Port{Number: 7, Name: "http", Protocol: "http"},
 			},
 			""},
 		{"invalid domain ns/name format",
-			&networking.Server{
+			&networking_v1alpha3.Server{
 				Hosts: []string{"ns1/foo.*.bar.com"},
-				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+				Port:  &networking_v1alpha3.Port{Number: 7, Name: "http", Protocol: "http"},
 			},
 			"domain"},
 		{"invalid domain",
-			&networking.Server{
+			&networking_v1alpha3.Server{
 				Hosts: []string{"foo.*.bar.com"},
-				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+				Port:  &networking_v1alpha3.Port{Number: 7, Name: "http", Protocol: "http"},
 			},
 			"domain"},
 		{"invalid short name host",
-			&networking.Server{
+			&networking_v1alpha3.Server{
 				Hosts: []string{"foo"},
-				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+				Port:  &networking_v1alpha3.Port{Number: 7, Name: "http", Protocol: "http"},
 			},
 			"short names"},
 		{"invalid port",
-			&networking.Server{
+			&networking_v1alpha3.Server{
 				Hosts: []string{"foo.bar.com"},
-				Port:  &networking.Port{Number: 66000, Name: "http", Protocol: "http"},
+				Port:  &networking_v1alpha3.Port{Number: 66000, Name: "http", Protocol: "http"},
 			},
 			"port"},
 		{"invalid tls options",
-			&networking.Server{
+			&networking_v1alpha3.Server{
 				Hosts: []string{"foo.bar.com"},
-				Port:  &networking.Port{Number: 1, Name: "http", Protocol: "http"},
-				Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_SIMPLE},
+				Port:  &networking_v1alpha3.Port{Number: 1, Name: "http", Protocol: "http"},
+				Tls:   &networking_v1alpha3.ServerTLSSettings{Mode: networking_v1alpha3.ServerTLSSettings_SIMPLE},
 			},
 			"TLS"},
 		{"no tls on HTTPS",
-			&networking.Server{
+			&networking_v1alpha3.Server{
 				Hosts: []string{"foo.bar.com"},
-				Port:  &networking.Port{Number: 10000, Name: "https", Protocol: "https"},
+				Port:  &networking_v1alpha3.Port{Number: 10000, Name: "https", Protocol: "https"},
 			},
 			"must have TLS"},
 		{"tls on HTTP",
-			&networking.Server{
+			&networking_v1alpha3.Server{
 				Hosts: []string{"foo.bar.com"},
-				Port:  &networking.Port{Number: 10000, Name: "http", Protocol: "http"},
-				Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_SIMPLE},
+				Port:  &networking_v1alpha3.Port{Number: 10000, Name: "http", Protocol: "http"},
+				Tls:   &networking_v1alpha3.ServerTLSSettings{Mode: networking_v1alpha3.ServerTLSSettings_SIMPLE},
 			},
 			"cannot have TLS"},
 		{"tls redirect on HTTP",
-			&networking.Server{
+			&networking_v1alpha3.Server{
 				Hosts: []string{"foo.bar.com"},
-				Port:  &networking.Port{Number: 10000, Name: "http", Protocol: "http"},
-				Tls: &networking.ServerTLSSettings{
+				Port:  &networking_v1alpha3.Port{Number: 10000, Name: "http", Protocol: "http"},
+				Tls: &networking_v1alpha3.ServerTLSSettings{
 					HttpsRedirect: true,
 				},
 			},
@@ -1298,34 +1316,34 @@ func TestValidateServer(t *testing.T) {
 func TestValidateServerPort(t *testing.T) {
 	tests := []struct {
 		name string
-		in   *networking.Port
+		in   *networking_v1alpha3.Port
 		out  string
 	}{
-		{"empty", &networking.Port{}, "invalid protocol"},
-		{"empty", &networking.Port{}, "port name"},
+		{"empty", &networking_v1alpha3.Port{}, "invalid protocol"},
+		{"empty", &networking_v1alpha3.Port{}, "port name"},
 		{"happy",
-			&networking.Port{
+			&networking_v1alpha3.Port{
 				Protocol: "http",
 				Number:   1,
 				Name:     "Henry",
 			},
 			""},
 		{"invalid protocol",
-			&networking.Port{
+			&networking_v1alpha3.Port{
 				Protocol: "kafka",
 				Number:   1,
 				Name:     "Henry",
 			},
 			"invalid protocol"},
 		{"invalid number",
-			&networking.Port{
+			&networking_v1alpha3.Port{
 				Protocol: "http",
 				Number:   uint32(1 << 30),
 				Name:     "http",
 			},
 			"port number"},
 		{"name, no number",
-			&networking.Port{
+			&networking_v1alpha3.Port{
 				Protocol: "http",
 				Number:   0,
 				Name:     "Henry",
@@ -1349,70 +1367,70 @@ func TestValidateServerPort(t *testing.T) {
 func TestValidateTlsOptions(t *testing.T) {
 	tests := []struct {
 		name string
-		in   *networking.ServerTLSSettings
+		in   *networking_v1alpha3.ServerTLSSettings
 		out  string
 	}{
-		{"empty", &networking.ServerTLSSettings{}, ""},
+		{"empty", &networking_v1alpha3.ServerTLSSettings{}, ""},
 		{"simple",
-			&networking.ServerTLSSettings{
-				Mode:              networking.ServerTLSSettings_SIMPLE,
+			&networking_v1alpha3.ServerTLSSettings{
+				Mode:              networking_v1alpha3.ServerTLSSettings_SIMPLE,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh"},
 			""},
 		{"simple with client bundle",
-			&networking.ServerTLSSettings{
-				Mode:              networking.ServerTLSSettings_SIMPLE,
+			&networking_v1alpha3.ServerTLSSettings{
+				Mode:              networking_v1alpha3.ServerTLSSettings_SIMPLE,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker"},
 			""},
 		{"simple sds with client bundle",
-			&networking.ServerTLSSettings{
-				Mode:              networking.ServerTLSSettings_SIMPLE,
+			&networking_v1alpha3.ServerTLSSettings{
+				Mode:              networking_v1alpha3.ServerTLSSettings_SIMPLE,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker",
 				CredentialName:    "sds-name"},
 			""},
 		{"simple no server cert",
-			&networking.ServerTLSSettings{
-				Mode:              networking.ServerTLSSettings_SIMPLE,
+			&networking_v1alpha3.ServerTLSSettings{
+				Mode:              networking_v1alpha3.ServerTLSSettings_SIMPLE,
 				ServerCertificate: "",
 				PrivateKey:        "Khan Noonien Singh",
 			},
 			"server certificate"},
 		{"simple no private key",
-			&networking.ServerTLSSettings{
-				Mode:              networking.ServerTLSSettings_SIMPLE,
+			&networking_v1alpha3.ServerTLSSettings{
+				Mode:              networking_v1alpha3.ServerTLSSettings_SIMPLE,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        ""},
 			"private key"},
 		{"simple sds no server cert",
-			&networking.ServerTLSSettings{
-				Mode:              networking.ServerTLSSettings_SIMPLE,
+			&networking_v1alpha3.ServerTLSSettings{
+				Mode:              networking_v1alpha3.ServerTLSSettings_SIMPLE,
 				ServerCertificate: "",
 				PrivateKey:        "Khan Noonien Singh",
 				CredentialName:    "sds-name",
 			},
 			""},
 		{"simple sds no private key",
-			&networking.ServerTLSSettings{
-				Mode:              networking.ServerTLSSettings_SIMPLE,
+			&networking_v1alpha3.ServerTLSSettings{
+				Mode:              networking_v1alpha3.ServerTLSSettings_SIMPLE,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "",
 				CredentialName:    "sds-name",
 			},
 			""},
 		{"mutual",
-			&networking.ServerTLSSettings{
-				Mode:              networking.ServerTLSSettings_MUTUAL,
+			&networking_v1alpha3.ServerTLSSettings{
+				Mode:              networking_v1alpha3.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker"},
 			""},
 		{"mutual sds",
-			&networking.ServerTLSSettings{
-				Mode:              networking.ServerTLSSettings_MUTUAL,
+			&networking_v1alpha3.ServerTLSSettings{
+				Mode:              networking_v1alpha3.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker",
@@ -1420,23 +1438,23 @@ func TestValidateTlsOptions(t *testing.T) {
 			},
 			""},
 		{"mutual no server cert",
-			&networking.ServerTLSSettings{
-				Mode:              networking.ServerTLSSettings_MUTUAL,
+			&networking_v1alpha3.ServerTLSSettings{
+				Mode:              networking_v1alpha3.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker"},
 			"server certificate"},
 		{"mutual sds no server cert",
-			&networking.ServerTLSSettings{
-				Mode:              networking.ServerTLSSettings_MUTUAL,
+			&networking_v1alpha3.ServerTLSSettings{
+				Mode:              networking_v1alpha3.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker",
 				CredentialName:    "sds-name"},
 			""},
 		{"mutual no client CA bundle",
-			&networking.ServerTLSSettings{
-				Mode:              networking.ServerTLSSettings_MUTUAL,
+			&networking_v1alpha3.ServerTLSSettings{
+				Mode:              networking_v1alpha3.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    ""},
@@ -1444,55 +1462,55 @@ func TestValidateTlsOptions(t *testing.T) {
 		// this pair asserts we get errors about both client and server certs missing when in mutual mode
 		// and both are absent, but requires less rewriting of the testing harness than merging the cases
 		{"mutual no certs",
-			&networking.ServerTLSSettings{
-				Mode:              networking.ServerTLSSettings_MUTUAL,
+			&networking_v1alpha3.ServerTLSSettings{
+				Mode:              networking_v1alpha3.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "",
 				PrivateKey:        "",
 				CaCertificates:    ""},
 			"server certificate"},
 		{"mutual no certs",
-			&networking.ServerTLSSettings{
-				Mode:              networking.ServerTLSSettings_MUTUAL,
+			&networking_v1alpha3.ServerTLSSettings{
+				Mode:              networking_v1alpha3.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "",
 				PrivateKey:        "",
 				CaCertificates:    ""},
 			"private key"},
 		{"mutual no certs",
-			&networking.ServerTLSSettings{
-				Mode:              networking.ServerTLSSettings_MUTUAL,
+			&networking_v1alpha3.ServerTLSSettings{
+				Mode:              networking_v1alpha3.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "",
 				PrivateKey:        "",
 				CaCertificates:    ""},
 			"client CA bundle"},
 		{"pass through sds no certs",
-			&networking.ServerTLSSettings{
-				Mode:              networking.ServerTLSSettings_PASSTHROUGH,
+			&networking_v1alpha3.ServerTLSSettings{
+				Mode:              networking_v1alpha3.ServerTLSSettings_PASSTHROUGH,
 				ServerCertificate: "",
 				CaCertificates:    "",
 				CredentialName:    "sds-name"},
 			""},
 		{"istio_mutual no certs",
-			&networking.ServerTLSSettings{
-				Mode:              networking.ServerTLSSettings_ISTIO_MUTUAL,
+			&networking_v1alpha3.ServerTLSSettings{
+				Mode:              networking_v1alpha3.ServerTLSSettings_ISTIO_MUTUAL,
 				ServerCertificate: "",
 				PrivateKey:        "",
 				CaCertificates:    ""},
 			""},
 		{"istio_mutual with server cert",
-			&networking.ServerTLSSettings{
-				Mode:              networking.ServerTLSSettings_ISTIO_MUTUAL,
+			&networking_v1alpha3.ServerTLSSettings{
+				Mode:              networking_v1alpha3.ServerTLSSettings_ISTIO_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard"},
 			"cannot have associated server cert"},
 		{"istio_mutual with client bundle",
-			&networking.ServerTLSSettings{
-				Mode:              networking.ServerTLSSettings_ISTIO_MUTUAL,
+			&networking_v1alpha3.ServerTLSSettings{
+				Mode:              networking_v1alpha3.ServerTLSSettings_ISTIO_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker"},
 			"cannot have associated"},
 		{"istio_mutual with private key",
-			&networking.ServerTLSSettings{
-				Mode:       networking.ServerTLSSettings_ISTIO_MUTUAL,
+			&networking_v1alpha3.ServerTLSSettings{
+				Mode:       networking_v1alpha3.ServerTLSSettings_ISTIO_MUTUAL,
 				PrivateKey: "Khan Noonien Singh"},
 			"cannot have associated private key"},
 	}
@@ -1532,49 +1550,49 @@ func TestValidateHTTPHeaderName(t *testing.T) {
 func TestValidateCORSPolicy(t *testing.T) {
 	testCases := []struct {
 		name  string
-		in    *networking.CorsPolicy
+		in    *networking_v1alpha3.CorsPolicy
 		valid bool
 	}{
-		{name: "valid", in: &networking.CorsPolicy{
+		{name: "valid", in: &networking_v1alpha3.CorsPolicy{
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"header3"},
 			MaxAge:        &types.Duration{Seconds: 2},
 		}, valid: true},
-		{name: "bad method", in: &networking.CorsPolicy{
+		{name: "bad method", in: &networking_v1alpha3.CorsPolicy{
 			AllowMethods:  []string{"GET", "PUTT"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"header3"},
 			MaxAge:        &types.Duration{Seconds: 2},
 		}, valid: false},
-		{name: "bad header", in: &networking.CorsPolicy{
+		{name: "bad header", in: &networking_v1alpha3.CorsPolicy{
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{""},
 			MaxAge:        &types.Duration{Seconds: 2},
 		}, valid: false},
-		{name: "bad max age", in: &networking.CorsPolicy{
+		{name: "bad max age", in: &networking_v1alpha3.CorsPolicy{
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"header3"},
 			MaxAge:        &types.Duration{Seconds: 2, Nanos: 42},
 		}, valid: false},
-		{name: "empty matchType AllowOrigins", in: &networking.CorsPolicy{
-			AllowOrigins: []*networking.StringMatch{
-				{MatchType: &networking.StringMatch_Exact{Exact: ""}},
-				{MatchType: &networking.StringMatch_Prefix{Prefix: ""}},
-				{MatchType: &networking.StringMatch_Regex{Regex: ""}},
+		{name: "empty matchType AllowOrigins", in: &networking_v1alpha3.CorsPolicy{
+			AllowOrigins: []*networking_v1alpha3.StringMatch{
+				{MatchType: &networking_v1alpha3.StringMatch_Exact{Exact: ""}},
+				{MatchType: &networking_v1alpha3.StringMatch_Prefix{Prefix: ""}},
+				{MatchType: &networking_v1alpha3.StringMatch_Regex{Regex: ""}},
 			},
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"header3"},
 			MaxAge:        &types.Duration{Seconds: 2},
 		}, valid: false},
-		{name: "non empty matchType AllowOrigins", in: &networking.CorsPolicy{
-			AllowOrigins: []*networking.StringMatch{
-				{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
-				{MatchType: &networking.StringMatch_Prefix{Prefix: "prefix"}},
-				{MatchType: &networking.StringMatch_Regex{Regex: "regex"}},
+		{name: "non empty matchType AllowOrigins", in: &networking_v1alpha3.CorsPolicy{
+			AllowOrigins: []*networking_v1alpha3.StringMatch{
+				{MatchType: &networking_v1alpha3.StringMatch_Exact{Exact: "exact"}},
+				{MatchType: &networking_v1alpha3.StringMatch_Prefix{Prefix: "prefix"}},
+				{MatchType: &networking_v1alpha3.StringMatch_Regex{Regex: "regex"}},
 			},
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
@@ -1616,52 +1634,52 @@ func TestValidateHTTPStatus(t *testing.T) {
 func TestValidateHTTPFaultInjectionAbort(t *testing.T) {
 	testCases := []struct {
 		name  string
-		in    *networking.HTTPFaultInjection_Abort
+		in    *networking_v1alpha3.HTTPFaultInjection_Abort
 		valid bool
 	}{
 		{name: "nil", in: nil, valid: true},
-		{name: "valid", in: &networking.HTTPFaultInjection_Abort{
-			Percentage: &networking.Percent{
+		{name: "valid", in: &networking_v1alpha3.HTTPFaultInjection_Abort{
+			Percentage: &networking_v1alpha3.Percent{
 				Value: 20,
 			},
-			ErrorType: &networking.HTTPFaultInjection_Abort_HttpStatus{
+			ErrorType: &networking_v1alpha3.HTTPFaultInjection_Abort_HttpStatus{
 				HttpStatus: 200,
 			},
 		}, valid: true},
-		{name: "valid default", in: &networking.HTTPFaultInjection_Abort{
-			ErrorType: &networking.HTTPFaultInjection_Abort_HttpStatus{
+		{name: "valid default", in: &networking_v1alpha3.HTTPFaultInjection_Abort{
+			ErrorType: &networking_v1alpha3.HTTPFaultInjection_Abort_HttpStatus{
 				HttpStatus: 200,
 			},
 		}, valid: true},
-		{name: "invalid http status", in: &networking.HTTPFaultInjection_Abort{
-			Percentage: &networking.Percent{
+		{name: "invalid http status", in: &networking_v1alpha3.HTTPFaultInjection_Abort{
+			Percentage: &networking_v1alpha3.Percent{
 				Value: 20,
 			},
-			ErrorType: &networking.HTTPFaultInjection_Abort_HttpStatus{
+			ErrorType: &networking_v1alpha3.HTTPFaultInjection_Abort_HttpStatus{
 				HttpStatus: 9000,
 			},
 		}, valid: false},
-		{name: "invalid low http status", in: &networking.HTTPFaultInjection_Abort{
-			Percentage: &networking.Percent{
+		{name: "invalid low http status", in: &networking_v1alpha3.HTTPFaultInjection_Abort{
+			Percentage: &networking_v1alpha3.Percent{
 				Value: 20,
 			},
-			ErrorType: &networking.HTTPFaultInjection_Abort_HttpStatus{
+			ErrorType: &networking_v1alpha3.HTTPFaultInjection_Abort_HttpStatus{
 				HttpStatus: 100,
 			},
 		}, valid: false},
-		{name: "valid percentage", in: &networking.HTTPFaultInjection_Abort{
-			Percentage: &networking.Percent{
+		{name: "valid percentage", in: &networking_v1alpha3.HTTPFaultInjection_Abort{
+			Percentage: &networking_v1alpha3.Percent{
 				Value: 0.001,
 			},
-			ErrorType: &networking.HTTPFaultInjection_Abort_HttpStatus{
+			ErrorType: &networking_v1alpha3.HTTPFaultInjection_Abort_HttpStatus{
 				HttpStatus: 200,
 			},
 		}, valid: true},
-		{name: "invalid fractional percent", in: &networking.HTTPFaultInjection_Abort{
-			Percentage: &networking.Percent{
+		{name: "invalid fractional percent", in: &networking_v1alpha3.HTTPFaultInjection_Abort{
+			Percentage: &networking_v1alpha3.Percent{
 				Value: -10.0,
 			},
-			ErrorType: &networking.HTTPFaultInjection_Abort_HttpStatus{
+			ErrorType: &networking_v1alpha3.HTTPFaultInjection_Abort_HttpStatus{
 				HttpStatus: 200,
 			},
 		}, valid: false},
@@ -1680,52 +1698,52 @@ func TestValidateHTTPFaultInjectionAbort(t *testing.T) {
 func TestValidateHTTPFaultInjectionDelay(t *testing.T) {
 	testCases := []struct {
 		name  string
-		in    *networking.HTTPFaultInjection_Delay
+		in    *networking_v1alpha3.HTTPFaultInjection_Delay
 		valid bool
 	}{
 		{name: "nil", in: nil, valid: true},
-		{name: "valid fixed", in: &networking.HTTPFaultInjection_Delay{
-			Percentage: &networking.Percent{
+		{name: "valid fixed", in: &networking_v1alpha3.HTTPFaultInjection_Delay{
+			Percentage: &networking_v1alpha3.Percent{
 				Value: 20,
 			},
-			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
+			HttpDelayType: &networking_v1alpha3.HTTPFaultInjection_Delay_FixedDelay{
 				FixedDelay: &types.Duration{Seconds: 3},
 			},
 		}, valid: true},
-		{name: "valid default", in: &networking.HTTPFaultInjection_Delay{
-			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
+		{name: "valid default", in: &networking_v1alpha3.HTTPFaultInjection_Delay{
+			HttpDelayType: &networking_v1alpha3.HTTPFaultInjection_Delay_FixedDelay{
 				FixedDelay: &types.Duration{Seconds: 3},
 			},
 		}, valid: true},
-		{name: "invalid percent", in: &networking.HTTPFaultInjection_Delay{
-			Percentage: &networking.Percent{
+		{name: "invalid percent", in: &networking_v1alpha3.HTTPFaultInjection_Delay{
+			Percentage: &networking_v1alpha3.Percent{
 				Value: 101,
 			},
-			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
+			HttpDelayType: &networking_v1alpha3.HTTPFaultInjection_Delay_FixedDelay{
 				FixedDelay: &types.Duration{Seconds: 3},
 			},
 		}, valid: false},
-		{name: "invalid delay", in: &networking.HTTPFaultInjection_Delay{
-			Percentage: &networking.Percent{
+		{name: "invalid delay", in: &networking_v1alpha3.HTTPFaultInjection_Delay{
+			Percentage: &networking_v1alpha3.Percent{
 				Value: 20,
 			},
-			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
+			HttpDelayType: &networking_v1alpha3.HTTPFaultInjection_Delay_FixedDelay{
 				FixedDelay: &types.Duration{Seconds: 3, Nanos: 42},
 			},
 		}, valid: false},
-		{name: "valid fractional percentage", in: &networking.HTTPFaultInjection_Delay{
-			Percentage: &networking.Percent{
+		{name: "valid fractional percentage", in: &networking_v1alpha3.HTTPFaultInjection_Delay{
+			Percentage: &networking_v1alpha3.Percent{
 				Value: 0.001,
 			},
-			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
+			HttpDelayType: &networking_v1alpha3.HTTPFaultInjection_Delay_FixedDelay{
 				FixedDelay: &types.Duration{Seconds: 3},
 			},
 		}, valid: true},
-		{name: "invalid fractional percentage", in: &networking.HTTPFaultInjection_Delay{
-			Percentage: &networking.Percent{
+		{name: "invalid fractional percentage", in: &networking_v1alpha3.HTTPFaultInjection_Delay{
+			Percentage: &networking_v1alpha3.Percent{
 				Value: -10.0,
 			},
-			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
+			HttpDelayType: &networking_v1alpha3.HTTPFaultInjection_Delay_FixedDelay{
 				FixedDelay: &types.Duration{Seconds: 3},
 			},
 		}, valid: false},
@@ -1744,53 +1762,53 @@ func TestValidateHTTPFaultInjectionDelay(t *testing.T) {
 func TestValidateHTTPRetry(t *testing.T) {
 	testCases := []struct {
 		name  string
-		in    *networking.HTTPRetry
+		in    *networking_v1alpha3.HTTPRetry
 		valid bool
 	}{
-		{name: "valid", in: &networking.HTTPRetry{
+		{name: "valid", in: &networking_v1alpha3.HTTPRetry{
 			Attempts:      10,
 			PerTryTimeout: &types.Duration{Seconds: 2},
 			RetryOn:       "5xx,gateway-error",
 		}, valid: true},
-		{name: "disable retries", in: &networking.HTTPRetry{
+		{name: "disable retries", in: &networking_v1alpha3.HTTPRetry{
 			Attempts: 0,
 		}, valid: true},
-		{name: "invalid, retry policy configured but attempts set to zero", in: &networking.HTTPRetry{
+		{name: "invalid, retry policy configured but attempts set to zero", in: &networking_v1alpha3.HTTPRetry{
 			Attempts:      0,
 			PerTryTimeout: &types.Duration{Seconds: 2},
 			RetryOn:       "5xx,gateway-error",
 		}, valid: false},
-		{name: "valid default", in: &networking.HTTPRetry{
+		{name: "valid default", in: &networking_v1alpha3.HTTPRetry{
 			Attempts: 10,
 		}, valid: true},
-		{name: "valid http status retryOn", in: &networking.HTTPRetry{
+		{name: "valid http status retryOn", in: &networking_v1alpha3.HTTPRetry{
 			Attempts:      10,
 			PerTryTimeout: &types.Duration{Seconds: 2},
 			RetryOn:       "503,connect-failure",
 		}, valid: true},
-		{name: "invalid attempts", in: &networking.HTTPRetry{
+		{name: "invalid attempts", in: &networking_v1alpha3.HTTPRetry{
 			Attempts:      -1,
 			PerTryTimeout: &types.Duration{Seconds: 2},
 		}, valid: false},
-		{name: "invalid timeout", in: &networking.HTTPRetry{
+		{name: "invalid timeout", in: &networking_v1alpha3.HTTPRetry{
 			Attempts:      10,
 			PerTryTimeout: &types.Duration{Seconds: 2, Nanos: 1},
 		}, valid: false},
-		{name: "timeout too small", in: &networking.HTTPRetry{
+		{name: "timeout too small", in: &networking_v1alpha3.HTTPRetry{
 			Attempts:      10,
 			PerTryTimeout: &types.Duration{Nanos: 999},
 		}, valid: false},
-		{name: "invalid policy retryOn", in: &networking.HTTPRetry{
+		{name: "invalid policy retryOn", in: &networking_v1alpha3.HTTPRetry{
 			Attempts:      10,
 			PerTryTimeout: &types.Duration{Seconds: 2},
 			RetryOn:       "5xx,invalid policy",
 		}, valid: false},
-		{name: "invalid http status retryOn", in: &networking.HTTPRetry{
+		{name: "invalid http status retryOn", in: &networking_v1alpha3.HTTPRetry{
 			Attempts:      10,
 			PerTryTimeout: &types.Duration{Seconds: 2},
 			RetryOn:       "600,connect-failure",
 		}, valid: false},
-		{name: "invalid, retryRemoteLocalities configured but attempts set to zero", in: &networking.HTTPRetry{
+		{name: "invalid, retryRemoteLocalities configured but attempts set to zero", in: &networking_v1alpha3.HTTPRetry{
 			Attempts:              0,
 			RetryRemoteLocalities: &types.BoolValue{Value: false},
 		}, valid: false},
@@ -1809,7 +1827,7 @@ func TestValidateHTTPRetry(t *testing.T) {
 func TestValidateHTTPRewrite(t *testing.T) {
 	testCases := []struct {
 		name  string
-		in    *networking.HTTPRewrite
+		in    *networking_v1alpha3.HTTPRewrite
 		valid bool
 	}{
 		{
@@ -1819,7 +1837,7 @@ func TestValidateHTTPRewrite(t *testing.T) {
 		},
 		{
 			name: "uri and authority",
-			in: &networking.HTTPRewrite{
+			in: &networking_v1alpha3.HTTPRewrite{
 				Uri:       "/path/to/resource",
 				Authority: "foobar.org",
 			},
@@ -1827,21 +1845,21 @@ func TestValidateHTTPRewrite(t *testing.T) {
 		},
 		{
 			name: "uri",
-			in: &networking.HTTPRewrite{
+			in: &networking_v1alpha3.HTTPRewrite{
 				Uri: "/path/to/resource",
 			},
 			valid: true,
 		},
 		{
 			name: "authority",
-			in: &networking.HTTPRewrite{
+			in: &networking_v1alpha3.HTTPRewrite{
 				Authority: "foobar.org",
 			},
 			valid: true,
 		},
 		{
 			name:  "no uri or authority",
-			in:    &networking.HTTPRewrite{},
+			in:    &networking_v1alpha3.HTTPRewrite{},
 			valid: false,
 		},
 	}
@@ -1891,7 +1909,7 @@ func TestValidatePortName(t *testing.T) {
 func TestValidateHTTPRedirect(t *testing.T) {
 	testCases := []struct {
 		name     string
-		redirect *networking.HTTPRedirect
+		redirect *networking_v1alpha3.HTTPRedirect
 		valid    bool
 	}{
 		{
@@ -1901,7 +1919,7 @@ func TestValidateHTTPRedirect(t *testing.T) {
 		},
 		{
 			name: "empty uri and authority",
-			redirect: &networking.HTTPRedirect{
+			redirect: &networking_v1alpha3.HTTPRedirect{
 				Uri:       "",
 				Authority: "",
 			},
@@ -1909,7 +1927,7 @@ func TestValidateHTTPRedirect(t *testing.T) {
 		},
 		{
 			name: "too small redirect code",
-			redirect: &networking.HTTPRedirect{
+			redirect: &networking_v1alpha3.HTTPRedirect{
 				Uri:          "t",
 				Authority:    "",
 				RedirectCode: 299,
@@ -1918,7 +1936,7 @@ func TestValidateHTTPRedirect(t *testing.T) {
 		},
 		{
 			name: "too large redirect code",
-			redirect: &networking.HTTPRedirect{
+			redirect: &networking_v1alpha3.HTTPRedirect{
 				Uri:          "t",
 				Authority:    "",
 				RedirectCode: 400,
@@ -1927,7 +1945,7 @@ func TestValidateHTTPRedirect(t *testing.T) {
 		},
 		{
 			name: "empty authority",
-			redirect: &networking.HTTPRedirect{
+			redirect: &networking_v1alpha3.HTTPRedirect{
 				Uri:       "t",
 				Authority: "",
 			},
@@ -1935,7 +1953,7 @@ func TestValidateHTTPRedirect(t *testing.T) {
 		},
 		{
 			name: "empty uri",
-			redirect: &networking.HTTPRedirect{
+			redirect: &networking_v1alpha3.HTTPRedirect{
 				Uri:       "",
 				Authority: "t",
 			},
@@ -1943,7 +1961,7 @@ func TestValidateHTTPRedirect(t *testing.T) {
 		},
 		{
 			name: "empty redirect code",
-			redirect: &networking.HTTPRedirect{
+			redirect: &networking_v1alpha3.HTTPRedirect{
 				Uri:          "t",
 				Authority:    "t",
 				RedirectCode: 0,
@@ -1952,7 +1970,7 @@ func TestValidateHTTPRedirect(t *testing.T) {
 		},
 		{
 			name: "normal redirect",
-			redirect: &networking.HTTPRedirect{
+			redirect: &networking_v1alpha3.HTTPRedirect{
 				Uri:          "t",
 				Authority:    "t",
 				RedirectCode: 308,
@@ -1973,36 +1991,36 @@ func TestValidateHTTPRedirect(t *testing.T) {
 func TestValidateDestination(t *testing.T) {
 	testCases := []struct {
 		name        string
-		destination *networking.Destination
+		destination *networking_v1alpha3.Destination
 		valid       bool
 	}{
 		{
 			name:        "empty",
-			destination: &networking.Destination{}, // nothing
+			destination: &networking_v1alpha3.Destination{}, // nothing
 			valid:       false,
 		},
 		{
 			name: "simple",
-			destination: &networking.Destination{
+			destination: &networking_v1alpha3.Destination{
 				Host: "foo.bar",
 			},
 			valid: true,
 		},
 		{name: "full",
-			destination: &networking.Destination{
+			destination: &networking_v1alpha3.Destination{
 				Host:   "foo.bar",
 				Subset: "shiny",
-				Port: &networking.PortSelector{
+				Port: &networking_v1alpha3.PortSelector{
 					Number: 5000,
 				},
 			},
 			valid: true,
 		},
 		{name: "unnumbered-selector",
-			destination: &networking.Destination{
+			destination: &networking_v1alpha3.Destination{
 				Host:   "foo.bar",
 				Subset: "shiny",
-				Port:   &networking.PortSelector{},
+				Port:   &networking_v1alpha3.PortSelector{},
 			},
 			valid: false,
 		},
@@ -2020,73 +2038,73 @@ func TestValidateDestination(t *testing.T) {
 func TestValidateHTTPRoute(t *testing.T) {
 	testCases := []struct {
 		name  string
-		route *networking.HTTPRoute
+		route *networking_v1alpha3.HTTPRoute
 		valid bool
 	}{
-		{name: "empty", route: &networking.HTTPRoute{ // nothing
-		}, valid:                                     false},
-		{name: "simple", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.baz"},
+		{name: "empty", route: &networking_v1alpha3.HTTPRoute{ // nothing
+		}, valid:                                              false},
+		{name: "simple", route: &networking_v1alpha3.HTTPRoute{
+			Route: []*networking_v1alpha3.HTTPRouteDestination{{
+				Destination: &networking_v1alpha3.Destination{Host: "foo.baz"},
 			}},
 		}, valid: true},
-		{name: "no destination", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
+		{name: "no destination", route: &networking_v1alpha3.HTTPRoute{
+			Route: []*networking_v1alpha3.HTTPRouteDestination{{
 				Destination: nil,
 			}},
 		}, valid: false},
-		{name: "weighted", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.baz.south"},
+		{name: "weighted", route: &networking_v1alpha3.HTTPRoute{
+			Route: []*networking_v1alpha3.HTTPRouteDestination{{
+				Destination: &networking_v1alpha3.Destination{Host: "foo.baz.south"},
 				Weight:      25,
 			}, {
-				Destination: &networking.Destination{Host: "foo.baz.east"},
+				Destination: &networking_v1alpha3.Destination{Host: "foo.baz.east"},
 				Weight:      75,
 			}},
 		}, valid: true},
-		{name: "total weight > 100", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.baz.south"},
+		{name: "total weight > 100", route: &networking_v1alpha3.HTTPRoute{
+			Route: []*networking_v1alpha3.HTTPRouteDestination{{
+				Destination: &networking_v1alpha3.Destination{Host: "foo.baz.south"},
 				Weight:      55,
 			}, {
-				Destination: &networking.Destination{Host: "foo.baz.east"},
+				Destination: &networking_v1alpha3.Destination{Host: "foo.baz.east"},
 				Weight:      50,
 			}},
 		}, valid: false},
-		{name: "total weight < 100", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.baz.south"},
+		{name: "total weight < 100", route: &networking_v1alpha3.HTTPRoute{
+			Route: []*networking_v1alpha3.HTTPRouteDestination{{
+				Destination: &networking_v1alpha3.Destination{Host: "foo.baz.south"},
 				Weight:      49,
 			}, {
-				Destination: &networking.Destination{Host: "foo.baz.east"},
+				Destination: &networking_v1alpha3.Destination{Host: "foo.baz.east"},
 				Weight:      50,
 			}},
 		}, valid: false},
-		{name: "simple redirect", route: &networking.HTTPRoute{
-			Redirect: &networking.HTTPRedirect{
+		{name: "simple redirect", route: &networking_v1alpha3.HTTPRoute{
+			Redirect: &networking_v1alpha3.HTTPRedirect{
 				Uri:       "/lerp",
 				Authority: "foo.biz",
 			},
 		}, valid: true},
-		{name: "conflicting redirect and route", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.baz"},
+		{name: "conflicting redirect and route", route: &networking_v1alpha3.HTTPRoute{
+			Route: []*networking_v1alpha3.HTTPRouteDestination{{
+				Destination: &networking_v1alpha3.Destination{Host: "foo.baz"},
 			}},
-			Redirect: &networking.HTTPRedirect{
+			Redirect: &networking_v1alpha3.HTTPRedirect{
 				Uri:       "/lerp",
 				Authority: "foo.biz",
 			},
 		}, valid: false},
-		{name: "request response headers", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.baz"},
+		{name: "request response headers", route: &networking_v1alpha3.HTTPRoute{
+			Route: []*networking_v1alpha3.HTTPRouteDestination{{
+				Destination: &networking_v1alpha3.Destination{Host: "foo.baz"},
 			}},
 		}, valid: true},
-		{name: "valid headers", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.baz"},
-				Headers: &networking.Headers{
-					Request: &networking.Headers_HeaderOperations{
+		{name: "valid headers", route: &networking_v1alpha3.HTTPRoute{
+			Route: []*networking_v1alpha3.HTTPRouteDestination{{
+				Destination: &networking_v1alpha3.Destination{Host: "foo.baz"},
+				Headers: &networking_v1alpha3.Headers{
+					Request: &networking_v1alpha3.Headers_HeaderOperations{
 						Add: map[string]string{
 							"name": "",
 						},
@@ -2097,7 +2115,7 @@ func TestValidateHTTPRoute(t *testing.T) {
 							"name",
 						},
 					},
-					Response: &networking.Headers_HeaderOperations{
+					Response: &networking_v1alpha3.Headers_HeaderOperations{
 						Add: map[string]string{
 							"name": "",
 						},
@@ -2111,11 +2129,11 @@ func TestValidateHTTPRoute(t *testing.T) {
 				},
 			}},
 		}, valid: true},
-		{name: "empty header name - request add", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.baz"},
-				Headers: &networking.Headers{
-					Request: &networking.Headers_HeaderOperations{
+		{name: "empty header name - request add", route: &networking_v1alpha3.HTTPRoute{
+			Route: []*networking_v1alpha3.HTTPRouteDestination{{
+				Destination: &networking_v1alpha3.Destination{Host: "foo.baz"},
+				Headers: &networking_v1alpha3.Headers{
+					Request: &networking_v1alpha3.Headers_HeaderOperations{
 						Add: map[string]string{
 							"": "value",
 						},
@@ -2123,11 +2141,11 @@ func TestValidateHTTPRoute(t *testing.T) {
 				},
 			}},
 		}, valid: false},
-		{name: "empty header name - request set", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.baz"},
-				Headers: &networking.Headers{
-					Request: &networking.Headers_HeaderOperations{
+		{name: "empty header name - request set", route: &networking_v1alpha3.HTTPRoute{
+			Route: []*networking_v1alpha3.HTTPRouteDestination{{
+				Destination: &networking_v1alpha3.Destination{Host: "foo.baz"},
+				Headers: &networking_v1alpha3.Headers{
+					Request: &networking_v1alpha3.Headers_HeaderOperations{
 						Set: map[string]string{
 							"": "value",
 						},
@@ -2135,11 +2153,11 @@ func TestValidateHTTPRoute(t *testing.T) {
 				},
 			}},
 		}, valid: false},
-		{name: "empty header name - request remove", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.baz"},
-				Headers: &networking.Headers{
-					Request: &networking.Headers_HeaderOperations{
+		{name: "empty header name - request remove", route: &networking_v1alpha3.HTTPRoute{
+			Route: []*networking_v1alpha3.HTTPRouteDestination{{
+				Destination: &networking_v1alpha3.Destination{Host: "foo.baz"},
+				Headers: &networking_v1alpha3.Headers{
+					Request: &networking_v1alpha3.Headers_HeaderOperations{
 						Remove: []string{
 							"",
 						},
@@ -2147,11 +2165,11 @@ func TestValidateHTTPRoute(t *testing.T) {
 				},
 			}},
 		}, valid: false},
-		{name: "empty header name - response add", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.baz"},
-				Headers: &networking.Headers{
-					Response: &networking.Headers_HeaderOperations{
+		{name: "empty header name - response add", route: &networking_v1alpha3.HTTPRoute{
+			Route: []*networking_v1alpha3.HTTPRouteDestination{{
+				Destination: &networking_v1alpha3.Destination{Host: "foo.baz"},
+				Headers: &networking_v1alpha3.Headers{
+					Response: &networking_v1alpha3.Headers_HeaderOperations{
 						Add: map[string]string{
 							"": "value",
 						},
@@ -2159,11 +2177,11 @@ func TestValidateHTTPRoute(t *testing.T) {
 				},
 			}},
 		}, valid: false},
-		{name: "empty header name - response set", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.baz"},
-				Headers: &networking.Headers{
-					Response: &networking.Headers_HeaderOperations{
+		{name: "empty header name - response set", route: &networking_v1alpha3.HTTPRoute{
+			Route: []*networking_v1alpha3.HTTPRouteDestination{{
+				Destination: &networking_v1alpha3.Destination{Host: "foo.baz"},
+				Headers: &networking_v1alpha3.Headers{
+					Response: &networking_v1alpha3.Headers_HeaderOperations{
 						Set: map[string]string{
 							"": "value",
 						},
@@ -2171,11 +2189,11 @@ func TestValidateHTTPRoute(t *testing.T) {
 				},
 			}},
 		}, valid: false},
-		{name: "empty header name - response remove", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.baz"},
-				Headers: &networking.Headers{
-					Response: &networking.Headers_HeaderOperations{
+		{name: "empty header name - response remove", route: &networking_v1alpha3.HTTPRoute{
+			Route: []*networking_v1alpha3.HTTPRouteDestination{{
+				Destination: &networking_v1alpha3.Destination{Host: "foo.baz"},
+				Headers: &networking_v1alpha3.Headers{
+					Response: &networking_v1alpha3.Headers_HeaderOperations{
 						Remove: []string{
 							"",
 						},
@@ -2183,52 +2201,52 @@ func TestValidateHTTPRoute(t *testing.T) {
 				},
 			}},
 		}, valid: false},
-		{name: "null header match", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.bar"},
+		{name: "null header match", route: &networking_v1alpha3.HTTPRoute{
+			Route: []*networking_v1alpha3.HTTPRouteDestination{{
+				Destination: &networking_v1alpha3.Destination{Host: "foo.bar"},
 			}},
-			Match: []*networking.HTTPMatchRequest{{
-				Headers: map[string]*networking.StringMatch{
+			Match: []*networking_v1alpha3.HTTPMatchRequest{{
+				Headers: map[string]*networking_v1alpha3.StringMatch{
 					"header": nil,
 				},
 			}},
 		}, valid: false},
-		{name: "nil match", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.bar"},
+		{name: "nil match", route: &networking_v1alpha3.HTTPRoute{
+			Route: []*networking_v1alpha3.HTTPRouteDestination{{
+				Destination: &networking_v1alpha3.Destination{Host: "foo.bar"},
 			}},
 			Match: nil,
 		}, valid: true},
-		{name: "match with nil element", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.bar"},
+		{name: "match with nil element", route: &networking_v1alpha3.HTTPRoute{
+			Route: []*networking_v1alpha3.HTTPRouteDestination{{
+				Destination: &networking_v1alpha3.Destination{Host: "foo.bar"},
 			}},
-			Match: []*networking.HTTPMatchRequest{nil},
+			Match: []*networking_v1alpha3.HTTPMatchRequest{nil},
 		}, valid: true},
-		{name: "invalid mirror percent", route: &networking.HTTPRoute{
+		{name: "invalid mirror percent", route: &networking_v1alpha3.HTTPRoute{
 			MirrorPercent: &types.UInt32Value{Value: 101},
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.bar"},
+			Route: []*networking_v1alpha3.HTTPRouteDestination{{
+				Destination: &networking_v1alpha3.Destination{Host: "foo.bar"},
 			}},
-			Match: []*networking.HTTPMatchRequest{nil},
+			Match: []*networking_v1alpha3.HTTPMatchRequest{nil},
 		}, valid: false},
-		{name: "invalid mirror percentage", route: &networking.HTTPRoute{
-			MirrorPercentage: &networking.Percent{
+		{name: "invalid mirror percentage", route: &networking_v1alpha3.HTTPRoute{
+			MirrorPercentage: &networking_v1alpha3.Percent{
 				Value: 101,
 			},
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.bar"},
+			Route: []*networking_v1alpha3.HTTPRouteDestination{{
+				Destination: &networking_v1alpha3.Destination{Host: "foo.bar"},
 			}},
-			Match: []*networking.HTTPMatchRequest{nil},
+			Match: []*networking_v1alpha3.HTTPMatchRequest{nil},
 		}, valid: false},
-		{name: "valid mirror percentage", route: &networking.HTTPRoute{
-			MirrorPercentage: &networking.Percent{
+		{name: "valid mirror percentage", route: &networking_v1alpha3.HTTPRoute{
+			MirrorPercentage: &networking_v1alpha3.Percent{
 				Value: 1,
 			},
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.bar"},
+			Route: []*networking_v1alpha3.HTTPRouteDestination{{
+				Destination: &networking_v1alpha3.Destination{Host: "foo.bar"},
 			}},
-			Match: []*networking.HTTPMatchRequest{nil},
+			Match: []*networking_v1alpha3.HTTPMatchRequest{nil},
 		}, valid: true},
 	}
 
@@ -2244,74 +2262,74 @@ func TestValidateHTTPRoute(t *testing.T) {
 func TestValidateRouteDestination(t *testing.T) {
 	testCases := []struct {
 		name   string
-		routes []*networking.RouteDestination
+		routes []*networking_v1alpha3.RouteDestination
 		valid  bool
 	}{
-		{name: "simple", routes: []*networking.RouteDestination{{
-			Destination: &networking.Destination{Host: "foo.baz"},
+		{name: "simple", routes: []*networking_v1alpha3.RouteDestination{{
+			Destination: &networking_v1alpha3.Destination{Host: "foo.baz"},
 		}}, valid: true},
-		{name: "wildcard dash", routes: []*networking.RouteDestination{{
-			Destination: &networking.Destination{Host: "*-foo.baz"},
+		{name: "wildcard dash", routes: []*networking_v1alpha3.RouteDestination{{
+			Destination: &networking_v1alpha3.Destination{Host: "*-foo.baz"},
 		}}, valid: true},
-		{name: "wildcard prefix", routes: []*networking.RouteDestination{{
-			Destination: &networking.Destination{Host: "*foo.baz"},
+		{name: "wildcard prefix", routes: []*networking_v1alpha3.RouteDestination{{
+			Destination: &networking_v1alpha3.Destination{Host: "*foo.baz"},
 		}}, valid: true},
-		{name: "wildcard", routes: []*networking.RouteDestination{{
-			Destination: &networking.Destination{Host: "*"},
+		{name: "wildcard", routes: []*networking_v1alpha3.RouteDestination{{
+			Destination: &networking_v1alpha3.Destination{Host: "*"},
 		}}, valid: false},
-		{name: "bad wildcard", routes: []*networking.RouteDestination{{
-			Destination: &networking.Destination{Host: "foo.*"},
+		{name: "bad wildcard", routes: []*networking_v1alpha3.RouteDestination{{
+			Destination: &networking_v1alpha3.Destination{Host: "foo.*"},
 		}}, valid: false},
-		{name: "bad fqdn", routes: []*networking.RouteDestination{{
-			Destination: &networking.Destination{Host: "default/baz"},
+		{name: "bad fqdn", routes: []*networking_v1alpha3.RouteDestination{{
+			Destination: &networking_v1alpha3.Destination{Host: "default/baz"},
 		}}, valid: false},
-		{name: "no destination", routes: []*networking.RouteDestination{{
+		{name: "no destination", routes: []*networking_v1alpha3.RouteDestination{{
 			Destination: nil,
 		}}, valid: false},
-		{name: "weighted", routes: []*networking.RouteDestination{{
-			Destination: &networking.Destination{Host: "foo.baz.south"},
+		{name: "weighted", routes: []*networking_v1alpha3.RouteDestination{{
+			Destination: &networking_v1alpha3.Destination{Host: "foo.baz.south"},
 			Weight:      25,
 		}, {
-			Destination: &networking.Destination{Host: "foo.baz.east"},
+			Destination: &networking_v1alpha3.Destination{Host: "foo.baz.east"},
 			Weight:      75,
 		}}, valid: true},
-		{name: "weight < 0", routes: []*networking.RouteDestination{{
-			Destination: &networking.Destination{Host: "foo.baz.south"},
+		{name: "weight < 0", routes: []*networking_v1alpha3.RouteDestination{{
+			Destination: &networking_v1alpha3.Destination{Host: "foo.baz.south"},
 			Weight:      5,
 		}, {
-			Destination: &networking.Destination{Host: "foo.baz.east"},
+			Destination: &networking_v1alpha3.Destination{Host: "foo.baz.east"},
 			Weight:      -1,
 		}}, valid: false},
-		{name: "total weight > 100", routes: []*networking.RouteDestination{{
-			Destination: &networking.Destination{Host: "foo.baz.south"},
+		{name: "total weight > 100", routes: []*networking_v1alpha3.RouteDestination{{
+			Destination: &networking_v1alpha3.Destination{Host: "foo.baz.south"},
 			Weight:      55,
 		}, {
-			Destination: &networking.Destination{Host: "foo.baz.east"},
+			Destination: &networking_v1alpha3.Destination{Host: "foo.baz.east"},
 			Weight:      50,
 		}}, valid: false},
-		{name: "total weight < 100", routes: []*networking.RouteDestination{{
-			Destination: &networking.Destination{Host: "foo.baz.south"},
+		{name: "total weight < 100", routes: []*networking_v1alpha3.RouteDestination{{
+			Destination: &networking_v1alpha3.Destination{Host: "foo.baz.south"},
 			Weight:      49,
 		}, {
-			Destination: &networking.Destination{Host: "foo.baz.east"},
+			Destination: &networking_v1alpha3.Destination{Host: "foo.baz.east"},
 			Weight:      50,
 		}}, valid: false},
-		{name: "total weight = 100", routes: []*networking.RouteDestination{{
-			Destination: &networking.Destination{Host: "foo.baz.south"},
+		{name: "total weight = 100", routes: []*networking_v1alpha3.RouteDestination{{
+			Destination: &networking_v1alpha3.Destination{Host: "foo.baz.south"},
 			Weight:      100,
 		}, {
-			Destination: &networking.Destination{Host: "foo.baz.east"},
+			Destination: &networking_v1alpha3.Destination{Host: "foo.baz.east"},
 			Weight:      0,
 		}}, valid: true},
-		{name: "weight = 0", routes: []*networking.RouteDestination{{
-			Destination: &networking.Destination{Host: "foo.baz.south"},
+		{name: "weight = 0", routes: []*networking_v1alpha3.RouteDestination{{
+			Destination: &networking_v1alpha3.Destination{Host: "foo.baz.south"},
 			Weight:      0,
 		}}, valid: true},
-		{name: "total weight = 0 with multi RouteDestination", routes: []*networking.RouteDestination{{
-			Destination: &networking.Destination{Host: "foo.baz.south"},
+		{name: "total weight = 0 with multi RouteDestination", routes: []*networking_v1alpha3.RouteDestination{{
+			Destination: &networking_v1alpha3.Destination{Host: "foo.baz.south"},
 			Weight:      0,
 		}, {
-			Destination: &networking.Destination{Host: "foo.baz.east"},
+			Destination: &networking_v1alpha3.Destination{Host: "foo.baz.east"},
 			Weight:      0,
 		}}, valid: false},
 	}
@@ -2332,129 +2350,137 @@ func TestValidateVirtualService(t *testing.T) {
 		in    proto.Message
 		valid bool
 	}{
-		{name: "simple", in: &networking.VirtualService{
+		{name: "simple", in: &networking_v1alpha3.VirtualService{
 			Hosts: []string{"foo.bar"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
+			Http: []*networking_v1alpha3.HTTPRoute{{
+				Route: []*networking_v1alpha3.HTTPRouteDestination{{
+					Destination: &networking_v1alpha3.Destination{Host: "foo.baz"},
 				}},
 			}},
 		}, valid: true},
-		{name: "duplicate hosts", in: &networking.VirtualService{
+		{name: "simple v1beta1", in: &networking_v1beta1.VirtualService{
+			Hosts: []string{"foo.bar"},
+			Http: []*networking_v1beta1.HTTPRoute{{
+				Route: []*networking_v1beta1.HTTPRouteDestination{{
+					Destination: &networking_v1beta1.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: true},
+		{name: "duplicate hosts", in: &networking_v1alpha3.VirtualService{
 			Hosts: []string{"*.foo.bar", "*.bar"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
+			Http: []*networking_v1alpha3.HTTPRoute{{
+				Route: []*networking_v1alpha3.HTTPRouteDestination{{
+					Destination: &networking_v1alpha3.Destination{Host: "foo.baz"},
 				}},
 			}},
 		}, valid: false},
-		{name: "with no destination", in: &networking.VirtualService{
+		{name: "with no destination", in: &networking_v1alpha3.VirtualService{
 			Hosts: []string{"*.foo.bar", "*.bar"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{}},
+			Http: []*networking_v1alpha3.HTTPRoute{{
+				Route: []*networking_v1alpha3.HTTPRouteDestination{{}},
 			}},
 		}, valid: false},
-		{name: "destination with out hosts", in: &networking.VirtualService{
+		{name: "destination with out hosts", in: &networking_v1alpha3.VirtualService{
 			Hosts: []string{"*.foo.bar", "*.bar"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{},
+			Http: []*networking_v1alpha3.HTTPRoute{{
+				Route: []*networking_v1alpha3.HTTPRouteDestination{{
+					Destination: &networking_v1alpha3.Destination{},
 				}},
 			}},
 		}, valid: false},
-		{name: "no hosts", in: &networking.VirtualService{
+		{name: "no hosts", in: &networking_v1alpha3.VirtualService{
 			Hosts: nil,
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
+			Http: []*networking_v1alpha3.HTTPRoute{{
+				Route: []*networking_v1alpha3.HTTPRouteDestination{{
+					Destination: &networking_v1alpha3.Destination{Host: "foo.baz"},
 				}},
 			}},
 		}, valid: false},
-		{name: "bad host", in: &networking.VirtualService{
+		{name: "bad host", in: &networking_v1alpha3.VirtualService{
 			Hosts: []string{"foo.ba!r"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
+			Http: []*networking_v1alpha3.HTTPRoute{{
+				Route: []*networking_v1alpha3.HTTPRouteDestination{{
+					Destination: &networking_v1alpha3.Destination{Host: "foo.baz"},
 				}},
 			}},
 		}, valid: false},
-		{name: "no tcp or http routing", in: &networking.VirtualService{
+		{name: "no tcp or http routing", in: &networking_v1alpha3.VirtualService{
 			Hosts: []string{"foo.bar"},
 		}, valid: false},
-		{name: "bad gateway", in: &networking.VirtualService{
+		{name: "bad gateway", in: &networking_v1alpha3.VirtualService{
 			Hosts:    []string{"foo.bar"},
 			Gateways: []string{"b@dgateway"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
+			Http: []*networking_v1alpha3.HTTPRoute{{
+				Route: []*networking_v1alpha3.HTTPRouteDestination{{
+					Destination: &networking_v1alpha3.Destination{Host: "foo.baz"},
 				}},
 			}},
 		}, valid: false},
-		{name: "FQDN for gateway", in: &networking.VirtualService{
+		{name: "FQDN for gateway", in: &networking_v1alpha3.VirtualService{
 			Hosts:    []string{"foo.bar"},
 			Gateways: []string{"gateway.example.com"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
+			Http: []*networking_v1alpha3.HTTPRoute{{
+				Route: []*networking_v1alpha3.HTTPRouteDestination{{
+					Destination: &networking_v1alpha3.Destination{Host: "foo.baz"},
 				}},
 			}},
 		}, valid: true},
-		{name: "namespace/name for gateway", in: &networking.VirtualService{
+		{name: "namespace/name for gateway", in: &networking_v1alpha3.VirtualService{
 			Hosts:    []string{"foo.bar"},
 			Gateways: []string{"ns1/gateway"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
+			Http: []*networking_v1alpha3.HTTPRoute{{
+				Route: []*networking_v1alpha3.HTTPRouteDestination{{
+					Destination: &networking_v1alpha3.Destination{Host: "foo.baz"},
 				}},
 			}},
 		}, valid: true},
-		{name: "namespace/* for gateway", in: &networking.VirtualService{
+		{name: "namespace/* for gateway", in: &networking_v1alpha3.VirtualService{
 			Hosts:    []string{"foo.bar"},
 			Gateways: []string{"ns1/*"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
+			Http: []*networking_v1alpha3.HTTPRoute{{
+				Route: []*networking_v1alpha3.HTTPRouteDestination{{
+					Destination: &networking_v1alpha3.Destination{Host: "foo.baz"},
 				}},
 			}},
 		}, valid: false},
-		{name: "*/name for gateway", in: &networking.VirtualService{
+		{name: "*/name for gateway", in: &networking_v1alpha3.VirtualService{
 			Hosts:    []string{"foo.bar"},
 			Gateways: []string{"*/gateway"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
+			Http: []*networking_v1alpha3.HTTPRoute{{
+				Route: []*networking_v1alpha3.HTTPRouteDestination{{
+					Destination: &networking_v1alpha3.Destination{Host: "foo.baz"},
 				}},
 			}},
 		}, valid: false},
-		{name: "wildcard for mesh gateway", in: &networking.VirtualService{
+		{name: "wildcard for mesh gateway", in: &networking_v1alpha3.VirtualService{
 			Hosts: []string{"*"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
+			Http: []*networking_v1alpha3.HTTPRoute{{
+				Route: []*networking_v1alpha3.HTTPRouteDestination{{
+					Destination: &networking_v1alpha3.Destination{Host: "foo.baz"},
 				}},
 			}},
 		}, valid: false},
-		{name: "wildcard for non-mesh gateway", in: &networking.VirtualService{
+		{name: "wildcard for non-mesh gateway", in: &networking_v1alpha3.VirtualService{
 			Hosts:    []string{"*"},
 			Gateways: []string{"somegateway"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
+			Http: []*networking_v1alpha3.HTTPRoute{{
+				Route: []*networking_v1alpha3.HTTPRouteDestination{{
+					Destination: &networking_v1alpha3.Destination{Host: "foo.baz"},
 				}},
 			}},
 		}, valid: true},
-		{name: "missing tcp route", in: &networking.VirtualService{
+		{name: "missing tcp route", in: &networking_v1alpha3.VirtualService{
 			Hosts: []string{"foo.bar"},
-			Tcp: []*networking.TCPRoute{{
-				Match: []*networking.L4MatchAttributes{
+			Tcp: []*networking_v1alpha3.TCPRoute{{
+				Match: []*networking_v1alpha3.L4MatchAttributes{
 					{Port: 999},
 				},
 			}},
 		}, valid: false},
-		{name: "missing tls route", in: &networking.VirtualService{
+		{name: "missing tls route", in: &networking_v1alpha3.VirtualService{
 			Hosts: []string{"foo.bar"},
-			Tls: []*networking.TLSRoute{{
-				Match: []*networking.TLSMatchAttributes{
+			Tls: []*networking_v1alpha3.TLSRoute{{
+				Match: []*networking_v1alpha3.TLSMatchAttributes{
 					{
 						Port:     999,
 						SniHosts: []string{"foo.bar"},
@@ -2479,88 +2505,96 @@ func TestValidateDestinationRule(t *testing.T) {
 		in    proto.Message
 		valid bool
 	}{
-		{name: "simple destination rule", in: &networking.DestinationRule{
+		{name: "simple destination rule", in: &networking_v1alpha3.DestinationRule{
 			Host: "reviews",
-			Subsets: []*networking.Subset{
+			Subsets: []*networking_v1alpha3.Subset{
 				{Name: "v1", Labels: map[string]string{"version": "v1"}},
 				{Name: "v2", Labels: map[string]string{"version": "v2"}},
 			},
 		}, valid: true},
 
-		{name: "missing destination name", in: &networking.DestinationRule{
+		{name: "simple v1beta1 destination rule", in: &networking_v1beta1.DestinationRule{
+			Host: "reviews",
+			Subsets: []*networking_v1beta1.Subset{
+				{Name: "v1", Labels: map[string]string{"version": "v1"}},
+				{Name: "v2", Labels: map[string]string{"version": "v2"}},
+			},
+		}, valid: true},
+
+		{name: "missing destination name", in: &networking_v1alpha3.DestinationRule{
 			Host: "",
-			Subsets: []*networking.Subset{
+			Subsets: []*networking_v1alpha3.Subset{
 				{Name: "v1", Labels: map[string]string{"version": "v1"}},
 				{Name: "v2", Labels: map[string]string{"version": "v2"}},
 			},
 		}, valid: false},
 
-		{name: "missing subset name", in: &networking.DestinationRule{
+		{name: "missing subset name", in: &networking_v1alpha3.DestinationRule{
 			Host: "reviews",
-			Subsets: []*networking.Subset{
+			Subsets: []*networking_v1alpha3.Subset{
 				{Name: "", Labels: map[string]string{"version": "v1"}},
 				{Name: "v2", Labels: map[string]string{"version": "v2"}},
 			},
 		}, valid: false},
 
-		{name: "valid traffic policy, top level", in: &networking.DestinationRule{
+		{name: "valid traffic policy, top level", in: &networking_v1alpha3.DestinationRule{
 			Host: "reviews",
-			TrafficPolicy: &networking.TrafficPolicy{
-				LoadBalancer: &networking.LoadBalancerSettings{
-					LbPolicy: &networking.LoadBalancerSettings_Simple{
-						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+			TrafficPolicy: &networking_v1alpha3.TrafficPolicy{
+				LoadBalancer: &networking_v1alpha3.LoadBalancerSettings{
+					LbPolicy: &networking_v1alpha3.LoadBalancerSettings_Simple{
+						Simple: networking_v1alpha3.LoadBalancerSettings_ROUND_ROBIN,
 					},
 				},
-				ConnectionPool: &networking.ConnectionPoolSettings{
-					Tcp:  &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
-					Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
+				ConnectionPool: &networking_v1alpha3.ConnectionPoolSettings{
+					Tcp:  &networking_v1alpha3.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
+					Http: &networking_v1alpha3.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 				},
-				OutlierDetection: &networking.OutlierDetection{
+				OutlierDetection: &networking_v1alpha3.OutlierDetection{
 					ConsecutiveErrors: 5,
 					MinHealthPercent:  20,
 				},
 			},
-			Subsets: []*networking.Subset{
+			Subsets: []*networking_v1alpha3.Subset{
 				{Name: "v1", Labels: map[string]string{"version": "v1"}},
 				{Name: "v2", Labels: map[string]string{"version": "v2"}},
 			},
 		}, valid: true},
 
-		{name: "invalid traffic policy, top level", in: &networking.DestinationRule{
+		{name: "invalid traffic policy, top level", in: &networking_v1alpha3.DestinationRule{
 			Host: "reviews",
-			TrafficPolicy: &networking.TrafficPolicy{
-				LoadBalancer: &networking.LoadBalancerSettings{
-					LbPolicy: &networking.LoadBalancerSettings_Simple{
-						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+			TrafficPolicy: &networking_v1alpha3.TrafficPolicy{
+				LoadBalancer: &networking_v1alpha3.LoadBalancerSettings{
+					LbPolicy: &networking_v1alpha3.LoadBalancerSettings_Simple{
+						Simple: networking_v1alpha3.LoadBalancerSettings_ROUND_ROBIN,
 					},
 				},
-				ConnectionPool: &networking.ConnectionPoolSettings{},
-				OutlierDetection: &networking.OutlierDetection{
+				ConnectionPool: &networking_v1alpha3.ConnectionPoolSettings{},
+				OutlierDetection: &networking_v1alpha3.OutlierDetection{
 					ConsecutiveErrors: 5,
 					MinHealthPercent:  20,
 				},
 			},
-			Subsets: []*networking.Subset{
+			Subsets: []*networking_v1alpha3.Subset{
 				{Name: "v1", Labels: map[string]string{"version": "v1"}},
 				{Name: "v2", Labels: map[string]string{"version": "v2"}},
 			},
 		}, valid: false},
 
-		{name: "valid traffic policy, subset level", in: &networking.DestinationRule{
+		{name: "valid traffic policy, subset level", in: &networking_v1alpha3.DestinationRule{
 			Host: "reviews",
-			Subsets: []*networking.Subset{
+			Subsets: []*networking_v1alpha3.Subset{
 				{Name: "v1", Labels: map[string]string{"version": "v1"},
-					TrafficPolicy: &networking.TrafficPolicy{
-						LoadBalancer: &networking.LoadBalancerSettings{
-							LbPolicy: &networking.LoadBalancerSettings_Simple{
-								Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+					TrafficPolicy: &networking_v1alpha3.TrafficPolicy{
+						LoadBalancer: &networking_v1alpha3.LoadBalancerSettings{
+							LbPolicy: &networking_v1alpha3.LoadBalancerSettings_Simple{
+								Simple: networking_v1alpha3.LoadBalancerSettings_ROUND_ROBIN,
 							},
 						},
-						ConnectionPool: &networking.ConnectionPoolSettings{
-							Tcp:  &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
-							Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
+						ConnectionPool: &networking_v1alpha3.ConnectionPoolSettings{
+							Tcp:  &networking_v1alpha3.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
+							Http: &networking_v1alpha3.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 						},
-						OutlierDetection: &networking.OutlierDetection{
+						OutlierDetection: &networking_v1alpha3.OutlierDetection{
 							ConsecutiveErrors: 5,
 							MinHealthPercent:  20,
 						},
@@ -2570,18 +2604,18 @@ func TestValidateDestinationRule(t *testing.T) {
 			},
 		}, valid: true},
 
-		{name: "invalid traffic policy, subset level", in: &networking.DestinationRule{
+		{name: "invalid traffic policy, subset level", in: &networking_v1alpha3.DestinationRule{
 			Host: "reviews",
-			Subsets: []*networking.Subset{
+			Subsets: []*networking_v1alpha3.Subset{
 				{Name: "v1", Labels: map[string]string{"version": "v1"},
-					TrafficPolicy: &networking.TrafficPolicy{
-						LoadBalancer: &networking.LoadBalancerSettings{
-							LbPolicy: &networking.LoadBalancerSettings_Simple{
-								Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+					TrafficPolicy: &networking_v1alpha3.TrafficPolicy{
+						LoadBalancer: &networking_v1alpha3.LoadBalancerSettings{
+							LbPolicy: &networking_v1alpha3.LoadBalancerSettings_Simple{
+								Simple: networking_v1alpha3.LoadBalancerSettings_ROUND_ROBIN,
 							},
 						},
-						ConnectionPool: &networking.ConnectionPoolSettings{},
-						OutlierDetection: &networking.OutlierDetection{
+						ConnectionPool: &networking_v1alpha3.ConnectionPoolSettings{},
+						OutlierDetection: &networking_v1alpha3.OutlierDetection{
 							ConsecutiveErrors: 5,
 							MinHealthPercent:  20,
 						},
@@ -2591,36 +2625,36 @@ func TestValidateDestinationRule(t *testing.T) {
 			},
 		}, valid: false},
 
-		{name: "valid traffic policy, both levels", in: &networking.DestinationRule{
+		{name: "valid traffic policy, both levels", in: &networking_v1alpha3.DestinationRule{
 			Host: "reviews",
-			TrafficPolicy: &networking.TrafficPolicy{
-				LoadBalancer: &networking.LoadBalancerSettings{
-					LbPolicy: &networking.LoadBalancerSettings_Simple{
-						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+			TrafficPolicy: &networking_v1alpha3.TrafficPolicy{
+				LoadBalancer: &networking_v1alpha3.LoadBalancerSettings{
+					LbPolicy: &networking_v1alpha3.LoadBalancerSettings_Simple{
+						Simple: networking_v1alpha3.LoadBalancerSettings_ROUND_ROBIN,
 					},
 				},
-				ConnectionPool: &networking.ConnectionPoolSettings{
-					Tcp:  &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
-					Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
+				ConnectionPool: &networking_v1alpha3.ConnectionPoolSettings{
+					Tcp:  &networking_v1alpha3.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
+					Http: &networking_v1alpha3.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 				},
-				OutlierDetection: &networking.OutlierDetection{
+				OutlierDetection: &networking_v1alpha3.OutlierDetection{
 					ConsecutiveErrors: 5,
 					MinHealthPercent:  20,
 				},
 			},
-			Subsets: []*networking.Subset{
+			Subsets: []*networking_v1alpha3.Subset{
 				{Name: "v1", Labels: map[string]string{"version": "v1"},
-					TrafficPolicy: &networking.TrafficPolicy{
-						LoadBalancer: &networking.LoadBalancerSettings{
-							LbPolicy: &networking.LoadBalancerSettings_Simple{
-								Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+					TrafficPolicy: &networking_v1alpha3.TrafficPolicy{
+						LoadBalancer: &networking_v1alpha3.LoadBalancerSettings{
+							LbPolicy: &networking_v1alpha3.LoadBalancerSettings_Simple{
+								Simple: networking_v1alpha3.LoadBalancerSettings_ROUND_ROBIN,
 							},
 						},
-						ConnectionPool: &networking.ConnectionPoolSettings{
-							Tcp:  &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
-							Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
+						ConnectionPool: &networking_v1alpha3.ConnectionPoolSettings{
+							Tcp:  &networking_v1alpha3.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
+							Http: &networking_v1alpha3.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 						},
-						OutlierDetection: &networking.OutlierDetection{
+						OutlierDetection: &networking_v1alpha3.OutlierDetection{
 							ConsecutiveErrors: 5,
 							MinHealthPercent:  30,
 						},
@@ -2630,28 +2664,28 @@ func TestValidateDestinationRule(t *testing.T) {
 			},
 		}, valid: true},
 
-		{name: "negative consecutive errors", in: &networking.DestinationRule{
+		{name: "negative consecutive errors", in: &networking_v1alpha3.DestinationRule{
 			Host: "reviews",
-			TrafficPolicy: &networking.TrafficPolicy{
-				OutlierDetection: &networking.OutlierDetection{
+			TrafficPolicy: &networking_v1alpha3.TrafficPolicy{
+				OutlierDetection: &networking_v1alpha3.OutlierDetection{
 					ConsecutiveErrors: -1,
 				},
 			},
-			Subsets: []*networking.Subset{
+			Subsets: []*networking_v1alpha3.Subset{
 				{Name: "v1", Labels: map[string]string{"version": "v1"}},
 				{Name: "v2", Labels: map[string]string{"version": "v2"}},
 			},
 		}, valid: false},
 
-		{name: "deprecated consecutive errors set together with consecutive 5xx errors", in: &networking.DestinationRule{
+		{name: "deprecated consecutive errors set together with consecutive 5xx errors", in: &networking_v1alpha3.DestinationRule{
 			Host: "reviews",
-			TrafficPolicy: &networking.TrafficPolicy{
-				OutlierDetection: &networking.OutlierDetection{
+			TrafficPolicy: &networking_v1alpha3.TrafficPolicy{
+				OutlierDetection: &networking_v1alpha3.OutlierDetection{
 					ConsecutiveErrors:     3,
 					Consecutive_5XxErrors: &types.UInt32Value{Value: 3},
 				},
 			},
-			Subsets: []*networking.Subset{
+			Subsets: []*networking_v1alpha3.Subset{
 				{Name: "v1", Labels: map[string]string{"version": "v1"}},
 				{Name: "v2", Labels: map[string]string{"version": "v2"}},
 			},
@@ -2668,41 +2702,41 @@ func TestValidateDestinationRule(t *testing.T) {
 func TestValidateTrafficPolicy(t *testing.T) {
 	cases := []struct {
 		name  string
-		in    networking.TrafficPolicy
+		in    networking_v1alpha3.TrafficPolicy
 		valid bool
 	}{
-		{name: "valid traffic policy", in: networking.TrafficPolicy{
-			LoadBalancer: &networking.LoadBalancerSettings{
-				LbPolicy: &networking.LoadBalancerSettings_Simple{
-					Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+		{name: "valid traffic policy", in: networking_v1alpha3.TrafficPolicy{
+			LoadBalancer: &networking_v1alpha3.LoadBalancerSettings{
+				LbPolicy: &networking_v1alpha3.LoadBalancerSettings_Simple{
+					Simple: networking_v1alpha3.LoadBalancerSettings_ROUND_ROBIN,
 				},
 			},
-			ConnectionPool: &networking.ConnectionPoolSettings{
-				Tcp:  &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
-				Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
+			ConnectionPool: &networking_v1alpha3.ConnectionPoolSettings{
+				Tcp:  &networking_v1alpha3.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
+				Http: &networking_v1alpha3.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 			},
-			OutlierDetection: &networking.OutlierDetection{
+			OutlierDetection: &networking_v1alpha3.OutlierDetection{
 				ConsecutiveErrors: 5,
 				MinHealthPercent:  20,
 			},
 		},
 			valid: true},
-		{name: "invalid traffic policy, nil entries", in: networking.TrafficPolicy{},
+		{name: "invalid traffic policy, nil entries", in: networking_v1alpha3.TrafficPolicy{},
 			valid: false},
 
-		{name: "invalid traffic policy, missing port in port level settings", in: networking.TrafficPolicy{
-			PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+		{name: "invalid traffic policy, missing port in port level settings", in: networking_v1alpha3.TrafficPolicy{
+			PortLevelSettings: []*networking_v1alpha3.TrafficPolicy_PortTrafficPolicy{
 				{
-					LoadBalancer: &networking.LoadBalancerSettings{
-						LbPolicy: &networking.LoadBalancerSettings_Simple{
-							Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+					LoadBalancer: &networking_v1alpha3.LoadBalancerSettings{
+						LbPolicy: &networking_v1alpha3.LoadBalancerSettings_Simple{
+							Simple: networking_v1alpha3.LoadBalancerSettings_ROUND_ROBIN,
 						},
 					},
-					ConnectionPool: &networking.ConnectionPoolSettings{
-						Tcp:  &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
-						Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
+					ConnectionPool: &networking_v1alpha3.ConnectionPoolSettings{
+						Tcp:  &networking_v1alpha3.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
+						Http: &networking_v1alpha3.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 					},
-					OutlierDetection: &networking.OutlierDetection{
+					OutlierDetection: &networking_v1alpha3.OutlierDetection{
 						ConsecutiveErrors: 5,
 						MinHealthPercent:  20,
 					},
@@ -2710,30 +2744,30 @@ func TestValidateTrafficPolicy(t *testing.T) {
 			},
 		},
 			valid: false},
-		{name: "invalid traffic policy, bad connection pool", in: networking.TrafficPolicy{
-			LoadBalancer: &networking.LoadBalancerSettings{
-				LbPolicy: &networking.LoadBalancerSettings_Simple{
-					Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+		{name: "invalid traffic policy, bad connection pool", in: networking_v1alpha3.TrafficPolicy{
+			LoadBalancer: &networking_v1alpha3.LoadBalancerSettings{
+				LbPolicy: &networking_v1alpha3.LoadBalancerSettings_Simple{
+					Simple: networking_v1alpha3.LoadBalancerSettings_ROUND_ROBIN,
 				},
 			},
-			ConnectionPool: &networking.ConnectionPoolSettings{},
-			OutlierDetection: &networking.OutlierDetection{
+			ConnectionPool: &networking_v1alpha3.ConnectionPoolSettings{},
+			OutlierDetection: &networking_v1alpha3.OutlierDetection{
 				ConsecutiveErrors: 5,
 				MinHealthPercent:  20,
 			},
 		},
 			valid: false},
-		{name: "invalid traffic policy, panic threshold too low", in: networking.TrafficPolicy{
-			LoadBalancer: &networking.LoadBalancerSettings{
-				LbPolicy: &networking.LoadBalancerSettings_Simple{
-					Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+		{name: "invalid traffic policy, panic threshold too low", in: networking_v1alpha3.TrafficPolicy{
+			LoadBalancer: &networking_v1alpha3.LoadBalancerSettings{
+				LbPolicy: &networking_v1alpha3.LoadBalancerSettings_Simple{
+					Simple: networking_v1alpha3.LoadBalancerSettings_ROUND_ROBIN,
 				},
 			},
-			ConnectionPool: &networking.ConnectionPoolSettings{
-				Tcp:  &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
-				Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
+			ConnectionPool: &networking_v1alpha3.ConnectionPoolSettings{
+				Tcp:  &networking_v1alpha3.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
+				Http: &networking_v1alpha3.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 			},
-			OutlierDetection: &networking.OutlierDetection{
+			OutlierDetection: &networking_v1alpha3.OutlierDetection{
 				ConsecutiveErrors: 5,
 				MinHealthPercent:  -1,
 			},
@@ -2751,15 +2785,15 @@ func TestValidateTrafficPolicy(t *testing.T) {
 func TestValidateConnectionPool(t *testing.T) {
 	cases := []struct {
 		name  string
-		in    networking.ConnectionPoolSettings
+		in    networking_v1alpha3.ConnectionPoolSettings
 		valid bool
 	}{
-		{name: "valid connection pool, tcp and http", in: networking.ConnectionPoolSettings{
-			Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+		{name: "valid connection pool, tcp and http", in: networking_v1alpha3.ConnectionPoolSettings{
+			Tcp: &networking_v1alpha3.ConnectionPoolSettings_TCPSettings{
 				MaxConnections: 7,
 				ConnectTimeout: &types.Duration{Seconds: 2},
 			},
-			Http: &networking.ConnectionPoolSettings_HTTPSettings{
+			Http: &networking_v1alpha3.ConnectionPoolSettings_HTTPSettings{
 				Http1MaxPendingRequests:  2,
 				Http2MaxRequests:         11,
 				MaxRequestsPerConnection: 5,
@@ -2769,16 +2803,16 @@ func TestValidateConnectionPool(t *testing.T) {
 		},
 			valid: true},
 
-		{name: "valid connection pool, tcp only", in: networking.ConnectionPoolSettings{
-			Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+		{name: "valid connection pool, tcp only", in: networking_v1alpha3.ConnectionPoolSettings{
+			Tcp: &networking_v1alpha3.ConnectionPoolSettings_TCPSettings{
 				MaxConnections: 7,
 				ConnectTimeout: &types.Duration{Seconds: 2},
 			},
 		},
 			valid: true},
 
-		{name: "valid connection pool, http only", in: networking.ConnectionPoolSettings{
-			Http: &networking.ConnectionPoolSettings_HTTPSettings{
+		{name: "valid connection pool, http only", in: networking_v1alpha3.ConnectionPoolSettings{
+			Http: &networking_v1alpha3.ConnectionPoolSettings_HTTPSettings{
 				Http1MaxPendingRequests:  2,
 				Http2MaxRequests:         11,
 				MaxRequestsPerConnection: 5,
@@ -2788,8 +2822,8 @@ func TestValidateConnectionPool(t *testing.T) {
 		},
 			valid: true},
 
-		{name: "valid connection pool, http only with empty idle timeout", in: networking.ConnectionPoolSettings{
-			Http: &networking.ConnectionPoolSettings_HTTPSettings{
+		{name: "valid connection pool, http only with empty idle timeout", in: networking_v1alpha3.ConnectionPoolSettings{
+			Http: &networking_v1alpha3.ConnectionPoolSettings_HTTPSettings{
 				Http1MaxPendingRequests:  2,
 				Http2MaxRequests:         11,
 				MaxRequestsPerConnection: 5,
@@ -2798,35 +2832,35 @@ func TestValidateConnectionPool(t *testing.T) {
 		},
 			valid: true},
 
-		{name: "invalid connection pool, empty", in: networking.ConnectionPoolSettings{}, valid: false},
+		{name: "invalid connection pool, empty", in: networking_v1alpha3.ConnectionPoolSettings{}, valid: false},
 
-		{name: "invalid connection pool, bad max connections", in: networking.ConnectionPoolSettings{
-			Tcp: &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: -1}},
+		{name: "invalid connection pool, bad max connections", in: networking_v1alpha3.ConnectionPoolSettings{
+			Tcp: &networking_v1alpha3.ConnectionPoolSettings_TCPSettings{MaxConnections: -1}},
 			valid: false},
 
-		{name: "invalid connection pool, bad connect timeout", in: networking.ConnectionPoolSettings{
-			Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+		{name: "invalid connection pool, bad connect timeout", in: networking_v1alpha3.ConnectionPoolSettings{
+			Tcp: &networking_v1alpha3.ConnectionPoolSettings_TCPSettings{
 				ConnectTimeout: &types.Duration{Seconds: 2, Nanos: 5}}},
 			valid: false},
 
-		{name: "invalid connection pool, bad max pending requests", in: networking.ConnectionPoolSettings{
-			Http: &networking.ConnectionPoolSettings_HTTPSettings{Http1MaxPendingRequests: -1}},
+		{name: "invalid connection pool, bad max pending requests", in: networking_v1alpha3.ConnectionPoolSettings{
+			Http: &networking_v1alpha3.ConnectionPoolSettings_HTTPSettings{Http1MaxPendingRequests: -1}},
 			valid: false},
 
-		{name: "invalid connection pool, bad max requests", in: networking.ConnectionPoolSettings{
-			Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: -1}},
+		{name: "invalid connection pool, bad max requests", in: networking_v1alpha3.ConnectionPoolSettings{
+			Http: &networking_v1alpha3.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: -1}},
 			valid: false},
 
-		{name: "invalid connection pool, bad max requests per connection", in: networking.ConnectionPoolSettings{
-			Http: &networking.ConnectionPoolSettings_HTTPSettings{MaxRequestsPerConnection: -1}},
+		{name: "invalid connection pool, bad max requests per connection", in: networking_v1alpha3.ConnectionPoolSettings{
+			Http: &networking_v1alpha3.ConnectionPoolSettings_HTTPSettings{MaxRequestsPerConnection: -1}},
 			valid: false},
 
-		{name: "invalid connection pool, bad max retries", in: networking.ConnectionPoolSettings{
-			Http: &networking.ConnectionPoolSettings_HTTPSettings{MaxRetries: -1}},
+		{name: "invalid connection pool, bad max retries", in: networking_v1alpha3.ConnectionPoolSettings{
+			Http: &networking_v1alpha3.ConnectionPoolSettings_HTTPSettings{MaxRetries: -1}},
 			valid: false},
 
-		{name: "invalid connection pool, bad idle timeout", in: networking.ConnectionPoolSettings{
-			Http: &networking.ConnectionPoolSettings_HTTPSettings{IdleTimeout: &types.Duration{Seconds: 30, Nanos: 5}}},
+		{name: "invalid connection pool, bad idle timeout", in: networking_v1alpha3.ConnectionPoolSettings{
+			Http: &networking_v1alpha3.ConnectionPoolSettings_HTTPSettings{IdleTimeout: &types.Duration{Seconds: 30, Nanos: 5}}},
 			valid: false},
 	}
 
@@ -2842,22 +2876,22 @@ func TestValidateLoadBalancer(t *testing.T) {
 	duration := types.Duration{Seconds: int64(time.Hour / time.Second)}
 	cases := []struct {
 		name  string
-		in    networking.LoadBalancerSettings
+		in    networking_v1alpha3.LoadBalancerSettings
 		valid bool
 	}{
-		{name: "valid load balancer with simple load balancing", in: networking.LoadBalancerSettings{
-			LbPolicy: &networking.LoadBalancerSettings_Simple{
-				Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+		{name: "valid load balancer with simple load balancing", in: networking_v1alpha3.LoadBalancerSettings{
+			LbPolicy: &networking_v1alpha3.LoadBalancerSettings_Simple{
+				Simple: networking_v1alpha3.LoadBalancerSettings_ROUND_ROBIN,
 			},
 		},
 			valid: true},
 
-		{name: "valid load balancer with consistentHash load balancing", in: networking.LoadBalancerSettings{
-			LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
-				ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+		{name: "valid load balancer with consistentHash load balancing", in: networking_v1alpha3.LoadBalancerSettings{
+			LbPolicy: &networking_v1alpha3.LoadBalancerSettings_ConsistentHash{
+				ConsistentHash: &networking_v1alpha3.LoadBalancerSettings_ConsistentHashLB{
 					MinimumRingSize: 1024,
-					HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
-						HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+					HashKey: &networking_v1alpha3.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+						HttpCookie: &networking_v1alpha3.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
 							Name: "test",
 							Ttl:  &duration,
 						},
@@ -2867,12 +2901,12 @@ func TestValidateLoadBalancer(t *testing.T) {
 		},
 			valid: true},
 
-		{name: "invalid load balancer with consistentHash load balancing, missing ttl", in: networking.LoadBalancerSettings{
-			LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
-				ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+		{name: "invalid load balancer with consistentHash load balancing, missing ttl", in: networking_v1alpha3.LoadBalancerSettings{
+			LbPolicy: &networking_v1alpha3.LoadBalancerSettings_ConsistentHash{
+				ConsistentHash: &networking_v1alpha3.LoadBalancerSettings_ConsistentHashLB{
 					MinimumRingSize: 1024,
-					HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
-						HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+					HashKey: &networking_v1alpha3.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+						HttpCookie: &networking_v1alpha3.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
 							Name: "test",
 						},
 					},
@@ -2881,12 +2915,12 @@ func TestValidateLoadBalancer(t *testing.T) {
 		},
 			valid: false},
 
-		{name: "invalid load balancer with consistentHash load balancing, missing name", in: networking.LoadBalancerSettings{
-			LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
-				ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+		{name: "invalid load balancer with consistentHash load balancing, missing name", in: networking_v1alpha3.LoadBalancerSettings{
+			LbPolicy: &networking_v1alpha3.LoadBalancerSettings_ConsistentHash{
+				ConsistentHash: &networking_v1alpha3.LoadBalancerSettings_ConsistentHashLB{
 					MinimumRingSize: 1024,
-					HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
-						HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+					HashKey: &networking_v1alpha3.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+						HttpCookie: &networking_v1alpha3.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
 							Ttl: &duration,
 						},
 					},
@@ -2907,36 +2941,36 @@ func TestValidateLoadBalancer(t *testing.T) {
 func TestValidateOutlierDetection(t *testing.T) {
 	cases := []struct {
 		name  string
-		in    networking.OutlierDetection
+		in    networking_v1alpha3.OutlierDetection
 		valid bool
 	}{
-		{name: "valid outlier detection", in: networking.OutlierDetection{
+		{name: "valid outlier detection", in: networking_v1alpha3.OutlierDetection{
 			ConsecutiveErrors:  5,
 			Interval:           &types.Duration{Seconds: 2},
 			BaseEjectionTime:   &types.Duration{Seconds: 2},
 			MaxEjectionPercent: 50,
 		}, valid: true},
 
-		{name: "invalid outlier detection, bad consecutive errors", in: networking.OutlierDetection{
+		{name: "invalid outlier detection, bad consecutive errors", in: networking_v1alpha3.OutlierDetection{
 			ConsecutiveErrors: -1},
 			valid: false},
 
-		{name: "invalid outlier detection, bad interval", in: networking.OutlierDetection{
+		{name: "invalid outlier detection, bad interval", in: networking_v1alpha3.OutlierDetection{
 			Interval: &types.Duration{Seconds: 2, Nanos: 5}},
 			valid: false},
 
-		{name: "invalid outlier detection, bad base ejection time", in: networking.OutlierDetection{
+		{name: "invalid outlier detection, bad base ejection time", in: networking_v1alpha3.OutlierDetection{
 			BaseEjectionTime: &types.Duration{Seconds: 2, Nanos: 5}},
 			valid: false},
 
-		{name: "invalid outlier detection, bad max ejection percent", in: networking.OutlierDetection{
+		{name: "invalid outlier detection, bad max ejection percent", in: networking_v1alpha3.OutlierDetection{
 			MaxEjectionPercent: 105},
 			valid: false},
-		{name: "invalid outlier detection, panic threshold too low", in: networking.OutlierDetection{
+		{name: "invalid outlier detection, panic threshold too low", in: networking_v1alpha3.OutlierDetection{
 			MinHealthPercent: -1,
 		},
 			valid: false},
-		{name: "invalid outlier detection, panic threshold too high", in: networking.OutlierDetection{
+		{name: "invalid outlier detection, panic threshold too high", in: networking_v1alpha3.OutlierDetection{
 			MinHealthPercent: 101,
 		},
 			valid: false},
@@ -2956,213 +2990,213 @@ func TestValidateEnvoyFilter(t *testing.T) {
 		in    proto.Message
 		error string
 	}{
-		{name: "empty filters", in: &networking.EnvoyFilter{}, error: ""},
+		{name: "empty filters", in: &networking_v1alpha3.EnvoyFilter{}, error: ""},
 
-		{name: "invalid applyTo", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+		{name: "invalid applyTo", in: &networking_v1alpha3.EnvoyFilter{
+			ConfigPatches: []*networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
 					ApplyTo: 0,
 				},
 			},
 		}, error: "Envoy filter: missing applyTo"},
-		{name: "nil patch", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+		{name: "nil patch", in: &networking_v1alpha3.EnvoyFilter{
+			ConfigPatches: []*networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
-					ApplyTo: networking.EnvoyFilter_LISTENER,
+					ApplyTo: networking_v1alpha3.EnvoyFilter_LISTENER,
 					Patch:   nil,
 				},
 			},
 		}, error: "Envoy filter: missing patch"},
-		{name: "invalid patch operation", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+		{name: "invalid patch operation", in: &networking_v1alpha3.EnvoyFilter{
+			ConfigPatches: []*networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
-					ApplyTo: networking.EnvoyFilter_LISTENER,
-					Patch:   &networking.EnvoyFilter_Patch{},
+					ApplyTo: networking_v1alpha3.EnvoyFilter_LISTENER,
+					Patch:   &networking_v1alpha3.EnvoyFilter_Patch{},
 				},
 			},
 		}, error: "Envoy filter: missing patch operation"},
-		{name: "nil patch value", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+		{name: "nil patch value", in: &networking_v1alpha3.EnvoyFilter{
+			ConfigPatches: []*networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
-					ApplyTo: networking.EnvoyFilter_LISTENER,
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_ADD,
+					ApplyTo: networking_v1alpha3.EnvoyFilter_LISTENER,
+					Patch: &networking_v1alpha3.EnvoyFilter_Patch{
+						Operation: networking_v1alpha3.EnvoyFilter_Patch_ADD,
 					},
 				},
 			},
 		}, error: "Envoy filter: missing patch value for non-remove operation"},
-		{name: "match with invalid regex", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+		{name: "match with invalid regex", in: &networking_v1alpha3.EnvoyFilter{
+			ConfigPatches: []*networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
-					ApplyTo: networking.EnvoyFilter_LISTENER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						Proxy: &networking.EnvoyFilter_ProxyMatch{
+					ApplyTo: networking_v1alpha3.EnvoyFilter_LISTENER,
+					Match: &networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectMatch{
+						Proxy: &networking_v1alpha3.EnvoyFilter_ProxyMatch{
 							ProxyVersion: "%#@~++==`24c234`",
 						},
 					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					Patch: &networking_v1alpha3.EnvoyFilter_Patch{
+						Operation: networking_v1alpha3.EnvoyFilter_Patch_REMOVE,
 					},
 				},
 			},
 		}, error: "Envoy filter: invalid regex for proxy version, [error parsing regexp: invalid nested repetition operator: `++`]"},
-		{name: "match with valid regex", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+		{name: "match with valid regex", in: &networking_v1alpha3.EnvoyFilter{
+			ConfigPatches: []*networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
-					ApplyTo: networking.EnvoyFilter_LISTENER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						Proxy: &networking.EnvoyFilter_ProxyMatch{
+					ApplyTo: networking_v1alpha3.EnvoyFilter_LISTENER,
+					Match: &networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectMatch{
+						Proxy: &networking_v1alpha3.EnvoyFilter_ProxyMatch{
 							ProxyVersion: `release-1\.2-23434`,
 						},
 					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					Patch: &networking_v1alpha3.EnvoyFilter_Patch{
+						Operation: networking_v1alpha3.EnvoyFilter_Patch_REMOVE,
 					},
 				},
 			},
 		}, error: ""},
-		{name: "listener with invalid match", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+		{name: "listener with invalid match", in: &networking_v1alpha3.EnvoyFilter{
+			ConfigPatches: []*networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
-					ApplyTo: networking.EnvoyFilter_LISTENER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
-							Cluster: &networking.EnvoyFilter_ClusterMatch{},
+					ApplyTo: networking_v1alpha3.EnvoyFilter_LISTENER,
+					Match: &networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+							Cluster: &networking_v1alpha3.EnvoyFilter_ClusterMatch{},
 						},
 					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					Patch: &networking_v1alpha3.EnvoyFilter_Patch{
+						Operation: networking_v1alpha3.EnvoyFilter_Patch_REMOVE,
 					},
 				},
 			},
 		}, error: "Envoy filter: applyTo for listener class objects cannot have non listener match"},
-		{name: "listener with invalid filter match", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+		{name: "listener with invalid filter match", in: &networking_v1alpha3.EnvoyFilter{
+			ConfigPatches: []*networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
-					ApplyTo: networking.EnvoyFilter_LISTENER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
-							Listener: &networking.EnvoyFilter_ListenerMatch{
-								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+					ApplyTo: networking_v1alpha3.EnvoyFilter_LISTENER,
+					Match: &networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking_v1alpha3.EnvoyFilter_ListenerMatch{
+								FilterChain: &networking_v1alpha3.EnvoyFilter_ListenerMatch_FilterChainMatch{
 									Sni:    "124",
-									Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{},
+									Filter: &networking_v1alpha3.EnvoyFilter_ListenerMatch_FilterMatch{},
 								},
 							},
 						},
 					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					Patch: &networking_v1alpha3.EnvoyFilter_Patch{
+						Operation: networking_v1alpha3.EnvoyFilter_Patch_REMOVE,
 					},
 				},
 			},
 		}, error: "Envoy filter: filter match has no name to match on"},
-		{name: "listener with sub filter match and invalid applyTo", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+		{name: "listener with sub filter match and invalid applyTo", in: &networking_v1alpha3.EnvoyFilter{
+			ConfigPatches: []*networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
-					ApplyTo: networking.EnvoyFilter_LISTENER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
-							Listener: &networking.EnvoyFilter_ListenerMatch{
-								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
-									Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+					ApplyTo: networking_v1alpha3.EnvoyFilter_LISTENER,
+					Match: &networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking_v1alpha3.EnvoyFilter_ListenerMatch{
+								FilterChain: &networking_v1alpha3.EnvoyFilter_ListenerMatch_FilterChainMatch{
+									Filter: &networking_v1alpha3.EnvoyFilter_ListenerMatch_FilterMatch{
 										Name:      "random",
-										SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{},
+										SubFilter: &networking_v1alpha3.EnvoyFilter_ListenerMatch_SubFilterMatch{},
 									},
 								},
 							},
 						},
 					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					Patch: &networking_v1alpha3.EnvoyFilter_Patch{
+						Operation: networking_v1alpha3.EnvoyFilter_Patch_REMOVE,
 					},
 				},
 			},
 		}, error: "Envoy filter: subfilter match can be used with applyTo HTTP_FILTER only"},
-		{name: "listener with sub filter match and invalid filter name", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+		{name: "listener with sub filter match and invalid filter name", in: &networking_v1alpha3.EnvoyFilter{
+			ConfigPatches: []*networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
-					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
-							Listener: &networking.EnvoyFilter_ListenerMatch{
-								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
-									Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+					ApplyTo: networking_v1alpha3.EnvoyFilter_HTTP_FILTER,
+					Match: &networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking_v1alpha3.EnvoyFilter_ListenerMatch{
+								FilterChain: &networking_v1alpha3.EnvoyFilter_ListenerMatch_FilterChainMatch{
+									Filter: &networking_v1alpha3.EnvoyFilter_ListenerMatch_FilterMatch{
 										Name:      "random",
-										SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{},
+										SubFilter: &networking_v1alpha3.EnvoyFilter_ListenerMatch_SubFilterMatch{},
 									},
 								},
 							},
 						},
 					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					Patch: &networking_v1alpha3.EnvoyFilter_Patch{
+						Operation: networking_v1alpha3.EnvoyFilter_Patch_REMOVE,
 					},
 				},
 			},
 		}, error: "Envoy filter: subfilter match requires filter match with envoy.http_connection_manager"},
-		{name: "listener with sub filter match and no sub filter name", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+		{name: "listener with sub filter match and no sub filter name", in: &networking_v1alpha3.EnvoyFilter{
+			ConfigPatches: []*networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
-					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
-							Listener: &networking.EnvoyFilter_ListenerMatch{
-								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
-									Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+					ApplyTo: networking_v1alpha3.EnvoyFilter_HTTP_FILTER,
+					Match: &networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking_v1alpha3.EnvoyFilter_ListenerMatch{
+								FilterChain: &networking_v1alpha3.EnvoyFilter_ListenerMatch_FilterChainMatch{
+									Filter: &networking_v1alpha3.EnvoyFilter_ListenerMatch_FilterMatch{
 										Name:      "envoy.http_connection_manager",
-										SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{},
+										SubFilter: &networking_v1alpha3.EnvoyFilter_ListenerMatch_SubFilterMatch{},
 									},
 								},
 							},
 						},
 					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					Patch: &networking_v1alpha3.EnvoyFilter_Patch{
+						Operation: networking_v1alpha3.EnvoyFilter_Patch_REMOVE,
 					},
 				},
 			},
 		}, error: "Envoy filter: subfilter match has no name to match on"},
-		{name: "route configuration with invalid match", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+		{name: "route configuration with invalid match", in: &networking_v1alpha3.EnvoyFilter{
+			ConfigPatches: []*networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
-					ApplyTo: networking.EnvoyFilter_VIRTUAL_HOST,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
-							Cluster: &networking.EnvoyFilter_ClusterMatch{},
+					ApplyTo: networking_v1alpha3.EnvoyFilter_VIRTUAL_HOST,
+					Match: &networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+							Cluster: &networking_v1alpha3.EnvoyFilter_ClusterMatch{},
 						},
 					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					Patch: &networking_v1alpha3.EnvoyFilter_Patch{
+						Operation: networking_v1alpha3.EnvoyFilter_Patch_REMOVE,
 					},
 				},
 			},
 		}, error: "Envoy filter: applyTo for http route class objects cannot have non route configuration match"},
-		{name: "cluster with invalid match", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+		{name: "cluster with invalid match", in: &networking_v1alpha3.EnvoyFilter{
+			ConfigPatches: []*networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
-					ApplyTo: networking.EnvoyFilter_CLUSTER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
-							Listener: &networking.EnvoyFilter_ListenerMatch{},
+					ApplyTo: networking_v1alpha3.EnvoyFilter_CLUSTER,
+					Match: &networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking_v1alpha3.EnvoyFilter_ListenerMatch{},
 						},
 					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					Patch: &networking_v1alpha3.EnvoyFilter_Patch{
+						Operation: networking_v1alpha3.EnvoyFilter_Patch_REMOVE,
 					},
 				},
 			},
 		}, error: "Envoy filter: applyTo for cluster class objects cannot have non cluster match"},
-		{name: "invalid patch value", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+		{name: "invalid patch value", in: &networking_v1alpha3.EnvoyFilter{
+			ConfigPatches: []*networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
-					ApplyTo: networking.EnvoyFilter_CLUSTER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
-							Cluster: &networking.EnvoyFilter_ClusterMatch{},
+					ApplyTo: networking_v1alpha3.EnvoyFilter_CLUSTER,
+					Match: &networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+							Cluster: &networking_v1alpha3.EnvoyFilter_ClusterMatch{},
 						},
 					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_ADD,
+					Patch: &networking_v1alpha3.EnvoyFilter_Patch{
+						Operation: networking_v1alpha3.EnvoyFilter_Patch_ADD,
 						Value: &types.Struct{
 							Fields: map[string]*types.Value{
 								"foo": {
@@ -3174,17 +3208,17 @@ func TestValidateEnvoyFilter(t *testing.T) {
 				},
 			},
 		}, error: `Envoy filter: unknown field "foo" in envoy_api_v2.Cluster`},
-		{name: "happy config", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+		{name: "happy config", in: &networking_v1alpha3.EnvoyFilter{
+			ConfigPatches: []*networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
-					ApplyTo: networking.EnvoyFilter_CLUSTER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
-							Cluster: &networking.EnvoyFilter_ClusterMatch{},
+					ApplyTo: networking_v1alpha3.EnvoyFilter_CLUSTER,
+					Match: &networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+							Cluster: &networking_v1alpha3.EnvoyFilter_ClusterMatch{},
 						},
 					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_ADD,
+					Patch: &networking_v1alpha3.EnvoyFilter_Patch{
+						Operation: networking_v1alpha3.EnvoyFilter_Patch_ADD,
 						Value: &types.Struct{
 							Fields: map[string]*types.Value{
 								"lb_policy": {
@@ -3195,18 +3229,18 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 				{
-					ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
-							Listener: &networking.EnvoyFilter_ListenerMatch{
-								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+					ApplyTo: networking_v1alpha3.EnvoyFilter_NETWORK_FILTER,
+					Match: &networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking_v1alpha3.EnvoyFilter_ListenerMatch{
+								FilterChain: &networking_v1alpha3.EnvoyFilter_ListenerMatch_FilterChainMatch{
 									Name: "envoy.tcp_proxy",
 								},
 							},
 						},
 					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_INSERT_BEFORE,
+					Patch: &networking_v1alpha3.EnvoyFilter_Patch{
+						Operation: networking_v1alpha3.EnvoyFilter_Patch_INSERT_BEFORE,
 						Value: &types.Struct{
 							Fields: map[string]*types.Value{
 								"typed_config": {
@@ -3225,18 +3259,18 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 				{
-					ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
-							Listener: &networking.EnvoyFilter_ListenerMatch{
-								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+					ApplyTo: networking_v1alpha3.EnvoyFilter_NETWORK_FILTER,
+					Match: &networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking_v1alpha3.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking_v1alpha3.EnvoyFilter_ListenerMatch{
+								FilterChain: &networking_v1alpha3.EnvoyFilter_ListenerMatch_FilterChainMatch{
 									Name: "envoy.tcp_proxy",
 								},
 							},
 						},
 					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_INSERT_FIRST,
+					Patch: &networking_v1alpha3.EnvoyFilter_Patch{
+						Operation: networking_v1alpha3.EnvoyFilter_Patch_INSERT_FIRST,
 						Value: &types.Struct{
 							Fields: map[string]*types.Value{
 								"typed_config": {
@@ -3274,363 +3308,363 @@ func TestValidateEnvoyFilter(t *testing.T) {
 func TestValidateServiceEntries(t *testing.T) {
 	cases := []struct {
 		name  string
-		in    networking.ServiceEntry
+		in    networking_v1alpha3.ServiceEntry
 		valid bool
 	}{
-		{name: "discovery type DNS", in: networking.ServiceEntry{
+		{name: "discovery type DNS", in: networking_v1alpha3.ServiceEntry{
 			Hosts: []string{"*.google.com"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.WorkloadEntry{
+			Endpoints: []*networking_v1alpha3.WorkloadEntry{
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Resolution: networking.ServiceEntry_DNS,
+			Resolution: networking_v1alpha3.ServiceEntry_DNS,
 		},
 			valid: true},
 
-		{name: "discovery type DNS, label tlsMode: istio", in: networking.ServiceEntry{
+		{name: "discovery type DNS, label tlsMode: istio", in: networking_v1alpha3.ServiceEntry{
 			Hosts: []string{"*.google.com"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.WorkloadEntry{
+			Endpoints: []*networking_v1alpha3.WorkloadEntry{
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}, Labels: map[string]string{"security.istio.io/tlsMode": "istio"}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}, Labels: map[string]string{"security.istio.io/tlsMode": "istio"}},
 			},
-			Resolution: networking.ServiceEntry_DNS,
+			Resolution: networking_v1alpha3.ServiceEntry_DNS,
 		},
 			valid: true},
 
-		{name: "discovery type DNS, IP in endpoints", in: networking.ServiceEntry{
+		{name: "discovery type DNS, IP in endpoints", in: networking_v1alpha3.ServiceEntry{
 			Hosts: []string{"*.google.com"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.WorkloadEntry{
+			Endpoints: []*networking_v1alpha3.WorkloadEntry{
 				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Resolution: networking.ServiceEntry_DNS,
+			Resolution: networking_v1alpha3.ServiceEntry_DNS,
 		},
 			valid: true},
 
-		{name: "empty hosts", in: networking.ServiceEntry{
-			Ports: []*networking.Port{
+		{name: "empty hosts", in: networking_v1alpha3.ServiceEntry{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
-			Endpoints: []*networking.WorkloadEntry{
+			Endpoints: []*networking_v1alpha3.WorkloadEntry{
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Resolution: networking.ServiceEntry_DNS,
+			Resolution: networking_v1alpha3.ServiceEntry_DNS,
 		},
 			valid: false},
 
-		{name: "bad hosts", in: networking.ServiceEntry{
+		{name: "bad hosts", in: networking_v1alpha3.ServiceEntry{
 			Hosts: []string{"-"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
-			Endpoints: []*networking.WorkloadEntry{
+			Endpoints: []*networking_v1alpha3.WorkloadEntry{
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Resolution: networking.ServiceEntry_DNS,
+			Resolution: networking_v1alpha3.ServiceEntry_DNS,
 		},
 			valid: false},
-		{name: "full wildcard host", in: networking.ServiceEntry{
+		{name: "full wildcard host", in: networking_v1alpha3.ServiceEntry{
 			Hosts: []string{"foo.com", "*"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
-			Endpoints: []*networking.WorkloadEntry{
+			Endpoints: []*networking_v1alpha3.WorkloadEntry{
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Resolution: networking.ServiceEntry_DNS,
+			Resolution: networking_v1alpha3.ServiceEntry_DNS,
 		},
 			valid: false},
-		{name: "short name host", in: networking.ServiceEntry{
+		{name: "short name host", in: networking_v1alpha3.ServiceEntry{
 			Hosts: []string{"foo", "bar.com"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
-			Endpoints: []*networking.WorkloadEntry{
+			Endpoints: []*networking_v1alpha3.WorkloadEntry{
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid1": 9080}},
 			},
-			Resolution: networking.ServiceEntry_DNS,
+			Resolution: networking_v1alpha3.ServiceEntry_DNS,
 		},
 			valid: true},
-		{name: "undefined endpoint port", in: networking.ServiceEntry{
+		{name: "undefined endpoint port", in: networking_v1alpha3.ServiceEntry{
 			Hosts: []string{"google.com"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 80, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.WorkloadEntry{
+			Endpoints: []*networking_v1alpha3.WorkloadEntry{
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-dne": 9080}},
 			},
-			Resolution: networking.ServiceEntry_DNS,
+			Resolution: networking_v1alpha3.ServiceEntry_DNS,
 		},
 			valid: false},
 
-		{name: "discovery type DNS, non-FQDN endpoint", in: networking.ServiceEntry{
+		{name: "discovery type DNS, non-FQDN endpoint", in: networking_v1alpha3.ServiceEntry{
 			Hosts: []string{"*.google.com"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.WorkloadEntry{
+			Endpoints: []*networking_v1alpha3.WorkloadEntry{
 				{Address: "*.lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-dne": 9080}},
 			},
-			Resolution: networking.ServiceEntry_DNS,
+			Resolution: networking_v1alpha3.ServiceEntry_DNS,
 		},
 			valid: false},
 
-		{name: "discovery type DNS, non-FQDN host", in: networking.ServiceEntry{
+		{name: "discovery type DNS, non-FQDN host", in: networking_v1alpha3.ServiceEntry{
 			Hosts: []string{"*.google.com"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
 
-			Resolution: networking.ServiceEntry_DNS,
+			Resolution: networking_v1alpha3.ServiceEntry_DNS,
 		},
 			valid: false},
 
-		{name: "discovery type DNS, no endpoints", in: networking.ServiceEntry{
+		{name: "discovery type DNS, no endpoints", in: networking_v1alpha3.ServiceEntry{
 			Hosts: []string{"google.com"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
 
-			Resolution: networking.ServiceEntry_DNS,
+			Resolution: networking_v1alpha3.ServiceEntry_DNS,
 		},
 			valid: true},
 
-		{name: "discovery type DNS, unix endpoint", in: networking.ServiceEntry{
+		{name: "discovery type DNS, unix endpoint", in: networking_v1alpha3.ServiceEntry{
 			Hosts: []string{"*.google.com"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
-			Endpoints: []*networking.WorkloadEntry{
+			Endpoints: []*networking_v1alpha3.WorkloadEntry{
 				{Address: "unix:///lon/google/com"},
 			},
-			Resolution: networking.ServiceEntry_DNS,
+			Resolution: networking_v1alpha3.ServiceEntry_DNS,
 		},
 			valid: false},
 
-		{name: "discovery type none", in: networking.ServiceEntry{
+		{name: "discovery type none", in: networking_v1alpha3.ServiceEntry{
 			Hosts: []string{"google.com"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Resolution: networking.ServiceEntry_NONE,
+			Resolution: networking_v1alpha3.ServiceEntry_NONE,
 		},
 			valid: true},
 
-		{name: "discovery type none, endpoints provided", in: networking.ServiceEntry{
+		{name: "discovery type none, endpoints provided", in: networking_v1alpha3.ServiceEntry{
 			Hosts: []string{"google.com"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.WorkloadEntry{
+			Endpoints: []*networking_v1alpha3.WorkloadEntry{
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 			},
-			Resolution: networking.ServiceEntry_NONE,
+			Resolution: networking_v1alpha3.ServiceEntry_NONE,
 		},
 			valid: false},
 
-		{name: "discovery type none, cidr addresses", in: networking.ServiceEntry{
+		{name: "discovery type none, cidr addresses", in: networking_v1alpha3.ServiceEntry{
 			Hosts:     []string{"google.com"},
 			Addresses: []string{"172.1.2.16/16"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Resolution: networking.ServiceEntry_NONE,
+			Resolution: networking_v1alpha3.ServiceEntry_NONE,
 		},
 			valid: true},
 
-		{name: "discovery type static, cidr addresses with endpoints", in: networking.ServiceEntry{
+		{name: "discovery type static, cidr addresses with endpoints", in: networking_v1alpha3.ServiceEntry{
 			Hosts:     []string{"google.com"},
 			Addresses: []string{"172.1.2.16/16"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.WorkloadEntry{
+			Endpoints: []*networking_v1alpha3.WorkloadEntry{
 				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "2.2.2.2", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Resolution: networking.ServiceEntry_STATIC,
+			Resolution: networking_v1alpha3.ServiceEntry_STATIC,
 		},
 			valid: true},
 
-		{name: "discovery type static", in: networking.ServiceEntry{
+		{name: "discovery type static", in: networking_v1alpha3.ServiceEntry{
 			Hosts:     []string{"google.com"},
 			Addresses: []string{"172.1.2.16"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.WorkloadEntry{
+			Endpoints: []*networking_v1alpha3.WorkloadEntry{
 				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "2.2.2.2", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Resolution: networking.ServiceEntry_STATIC,
+			Resolution: networking_v1alpha3.ServiceEntry_STATIC,
 		},
 			valid: true},
 
-		{name: "discovery type static, FQDN in endpoints", in: networking.ServiceEntry{
+		{name: "discovery type static, FQDN in endpoints", in: networking_v1alpha3.ServiceEntry{
 			Hosts:     []string{"google.com"},
 			Addresses: []string{"172.1.2.16"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.WorkloadEntry{
+			Endpoints: []*networking_v1alpha3.WorkloadEntry{
 				{Address: "google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "2.2.2.2", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Resolution: networking.ServiceEntry_STATIC,
+			Resolution: networking_v1alpha3.ServiceEntry_STATIC,
 		},
 			valid: false},
 
-		{name: "discovery type static, missing endpoints", in: networking.ServiceEntry{
+		{name: "discovery type static, missing endpoints", in: networking_v1alpha3.ServiceEntry{
 			Hosts:     []string{"google.com"},
 			Addresses: []string{"172.1.2.16"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Resolution: networking.ServiceEntry_STATIC,
+			Resolution: networking_v1alpha3.ServiceEntry_STATIC,
 		},
 			valid: true},
 
-		{name: "discovery type static, bad endpoint port name", in: networking.ServiceEntry{
+		{name: "discovery type static, bad endpoint port name", in: networking_v1alpha3.ServiceEntry{
 			Hosts:     []string{"google.com"},
 			Addresses: []string{"172.1.2.16"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.WorkloadEntry{
+			Endpoints: []*networking_v1alpha3.WorkloadEntry{
 				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "2.2.2.2", Ports: map[string]uint32{"http-dne": 9080}},
 			},
-			Resolution: networking.ServiceEntry_STATIC,
+			Resolution: networking_v1alpha3.ServiceEntry_STATIC,
 		},
 			valid: false},
 
-		{name: "discovery type none, conflicting port names", in: networking.ServiceEntry{
+		{name: "discovery type none, conflicting port names", in: networking_v1alpha3.ServiceEntry{
 			Hosts: []string{"google.com"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-conflict"},
 				{Number: 8080, Protocol: "http", Name: "http-conflict"},
 			},
-			Resolution: networking.ServiceEntry_NONE,
+			Resolution: networking_v1alpha3.ServiceEntry_NONE,
 		},
 			valid: false},
 
-		{name: "discovery type none, conflicting port numbers", in: networking.ServiceEntry{
+		{name: "discovery type none, conflicting port numbers", in: networking_v1alpha3.ServiceEntry{
 			Hosts: []string{"google.com"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-conflict1"},
 				{Number: 80, Protocol: "http", Name: "http-conflict2"},
 			},
-			Resolution: networking.ServiceEntry_NONE,
+			Resolution: networking_v1alpha3.ServiceEntry_NONE,
 		},
 			valid: false},
 
-		{name: "unix socket", in: networking.ServiceEntry{
+		{name: "unix socket", in: networking_v1alpha3.ServiceEntry{
 			Hosts: []string{"uds.cluster.local"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
 			},
-			Resolution: networking.ServiceEntry_STATIC,
-			Endpoints: []*networking.WorkloadEntry{
+			Resolution: networking_v1alpha3.ServiceEntry_STATIC,
+			Endpoints: []*networking_v1alpha3.WorkloadEntry{
 				{Address: "unix:///path/to/socket"},
 			},
 		},
 			valid: true},
 
-		{name: "unix socket, relative path", in: networking.ServiceEntry{
+		{name: "unix socket, relative path", in: networking_v1alpha3.ServiceEntry{
 			Hosts: []string{"uds.cluster.local"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
 			},
-			Resolution: networking.ServiceEntry_STATIC,
-			Endpoints: []*networking.WorkloadEntry{
+			Resolution: networking_v1alpha3.ServiceEntry_STATIC,
+			Endpoints: []*networking_v1alpha3.WorkloadEntry{
 				{Address: "unix://./relative/path.sock"},
 			},
 		},
 			valid: false},
 
-		{name: "unix socket, endpoint ports", in: networking.ServiceEntry{
+		{name: "unix socket, endpoint ports", in: networking_v1alpha3.ServiceEntry{
 			Hosts: []string{"uds.cluster.local"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
 			},
-			Resolution: networking.ServiceEntry_STATIC,
-			Endpoints: []*networking.WorkloadEntry{
+			Resolution: networking_v1alpha3.ServiceEntry_STATIC,
+			Endpoints: []*networking_v1alpha3.WorkloadEntry{
 				{Address: "unix:///path/to/socket", Ports: map[string]uint32{"grpc-service1": 6553}},
 			},
 		},
 			valid: false},
 
-		{name: "unix socket, multiple service ports", in: networking.ServiceEntry{
+		{name: "unix socket, multiple service ports", in: networking_v1alpha3.ServiceEntry{
 			Hosts: []string{"uds.cluster.local"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
 				{Number: 80, Protocol: "http", Name: "http-service2"},
 			},
-			Resolution: networking.ServiceEntry_STATIC,
-			Endpoints: []*networking.WorkloadEntry{
+			Resolution: networking_v1alpha3.ServiceEntry_STATIC,
+			Endpoints: []*networking_v1alpha3.WorkloadEntry{
 				{Address: "unix:///path/to/socket"},
 			},
 		},
 			valid: false},
-		{name: "empty protocol", in: networking.ServiceEntry{
+		{name: "empty protocol", in: networking_v1alpha3.ServiceEntry{
 			Hosts:     []string{"google.com"},
 			Addresses: []string{"172.1.2.16/16"},
-			Ports: []*networking.Port{
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Name: "http-valid2"},
 			},
-			Resolution: networking.ServiceEntry_NONE,
+			Resolution: networking_v1alpha3.ServiceEntry_NONE,
 		},
 			valid: true},
-		{name: "selector", in: networking.ServiceEntry{
+		{name: "selector", in: networking_v1alpha3.ServiceEntry{
 			Hosts:            []string{"google.com"},
-			WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"foo": "bar"}},
-			Ports: []*networking.Port{
+			WorkloadSelector: &networking_v1alpha3.WorkloadSelector{Labels: map[string]string{"foo": "bar"}},
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
 		},
 			valid: true},
-		{name: "selector and endpoints", in: networking.ServiceEntry{
+		{name: "selector and endpoints", in: networking_v1alpha3.ServiceEntry{
 			Hosts:            []string{"google.com"},
-			WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"foo": "bar"}},
-			Ports: []*networking.Port{
+			WorkloadSelector: &networking_v1alpha3.WorkloadSelector{Labels: map[string]string{"foo": "bar"}},
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
-			Endpoints: []*networking.WorkloadEntry{
+			Endpoints: []*networking_v1alpha3.WorkloadEntry{
 				{Address: "1.1.1.1"},
 			},
 		},
 			valid: false},
-		{name: "bad selector key", in: networking.ServiceEntry{
+		{name: "bad selector key", in: networking_v1alpha3.ServiceEntry{
 			Hosts:            []string{"google.com"},
-			WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"": "bar"}},
-			Ports: []*networking.Port{
+			WorkloadSelector: &networking_v1alpha3.WorkloadSelector{Labels: map[string]string{"": "bar"}},
+			Ports: []*networking_v1alpha3.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
 		},
@@ -4881,61 +4915,61 @@ func TestValidateMixerService(t *testing.T) {
 func TestValidateSidecar(t *testing.T) {
 	tests := []struct {
 		name  string
-		in    *networking.Sidecar
+		in    *networking_v1alpha3.Sidecar
 		valid bool
 	}{
-		{"empty ingress and egress", &networking.Sidecar{}, false},
-		{"default", &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
+		{"empty ingress and egress", &networking_v1alpha3.Sidecar{}, false},
+		{"default", &networking_v1alpha3.Sidecar{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
 					Hosts: []string{"*/*"},
 				},
 			},
 		}, true},
-		{"import local namespace with wildcard", &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
+		{"import local namespace with wildcard", &networking_v1alpha3.Sidecar{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
 					Hosts: []string{"./*"},
 				},
 			},
 		}, true},
-		{"import local namespace with fqdn", &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
+		{"import local namespace with fqdn", &networking_v1alpha3.Sidecar{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
 					Hosts: []string{"./foo.com"},
 				},
 			},
 		}, true},
-		{"import nothing", &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
+		{"import nothing", &networking_v1alpha3.Sidecar{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
 					Hosts: []string{"~/*"},
 				},
 			},
 		}, true},
-		{"bad egress host 1", &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
+		{"bad egress host 1", &networking_v1alpha3.Sidecar{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
 					Hosts: []string{"*"},
 				},
 			},
 		}, false},
-		{"bad egress host 2", &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
+		{"bad egress host 2", &networking_v1alpha3.Sidecar{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
 					Hosts: []string{"/"},
 				},
 			},
 		}, false},
-		{"empty egress host", &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
+		{"empty egress host", &networking_v1alpha3.Sidecar{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
 					Hosts: []string{},
 				},
 			},
 		}, false},
-		{"multiple wildcard egress", &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
+		{"multiple wildcard egress", &networking_v1alpha3.Sidecar{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
 					Hosts: []string{
 						"*/foo.com",
@@ -4948,15 +4982,15 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false},
-		{"wildcard egress not in end", &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
+		{"wildcard egress not in end", &networking_v1alpha3.Sidecar{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
 					Hosts: []string{
 						"*/foo.com",
 					},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking_v1alpha3.Port{
 						Protocol: "http",
 						Number:   8080,
 						Name:     "h8080",
@@ -4967,10 +5001,10 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false},
-		{"invalid Port", &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
+		{"invalid Port", &networking_v1alpha3.Sidecar{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking_v1alpha3.Port{
 						Protocol: "http1",
 						Number:   1000000,
 						Name:     "",
@@ -4981,10 +5015,10 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false},
-		{"Port without name", &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
+		{"Port without name", &networking_v1alpha3.Sidecar{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking_v1alpha3.Port{
 						Protocol: "http",
 						Number:   8080,
 					},
@@ -4994,10 +5028,10 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true},
-		{"UDS bind in outbound", &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
+		{"UDS bind in outbound", &networking_v1alpha3.Sidecar{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking_v1alpha3.Port{
 						Protocol: "http",
 						Number:   0,
 						Name:     "uds",
@@ -5009,10 +5043,10 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true},
-		{"UDS bind in inbound", &networking.Sidecar{
-			Ingress: []*networking.IstioIngressListener{
+		{"UDS bind in inbound", &networking_v1alpha3.Sidecar{
+			Ingress: []*networking_v1alpha3.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking_v1alpha3.Port{
 						Protocol: "http",
 						Number:   0,
 						Name:     "uds",
@@ -5022,10 +5056,10 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false},
-		{"UDS bind in outbound 2", &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
+		{"UDS bind in outbound 2", &networking_v1alpha3.Sidecar{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking_v1alpha3.Port{
 						Protocol: "http",
 						Number:   0,
 						Name:     "uds",
@@ -5037,10 +5071,10 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true},
-		{"invalid bind", &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
+		{"invalid bind", &networking_v1alpha3.Sidecar{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking_v1alpha3.Port{
 						Protocol: "http",
 						Number:   0,
 						Name:     "uds",
@@ -5052,10 +5086,10 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false},
-		{"invalid capture mode with uds bind", &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
+		{"invalid capture mode with uds bind", &networking_v1alpha3.Sidecar{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking_v1alpha3.Port{
 						Protocol: "http",
 						Number:   0,
 						Name:     "uds",
@@ -5064,14 +5098,14 @@ func TestValidateSidecar(t *testing.T) {
 						"ns1/bar.com",
 					},
 					Bind:        "unix:///@foo/bar/com",
-					CaptureMode: networking.CaptureMode_IPTABLES,
+					CaptureMode: networking_v1alpha3.CaptureMode_IPTABLES,
 				},
 			},
 		}, false},
-		{"duplicate UDS bind", &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
+		{"duplicate UDS bind", &networking_v1alpha3.Sidecar{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking_v1alpha3.Port{
 						Protocol: "http",
 						Number:   0,
 						Name:     "uds",
@@ -5082,7 +5116,7 @@ func TestValidateSidecar(t *testing.T) {
 					Bind: "unix:///@foo/bar/com",
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking_v1alpha3.Port{
 						Protocol: "http",
 						Number:   0,
 						Name:     "uds",
@@ -5094,10 +5128,10 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false},
-		{"duplicate ports", &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
+		{"duplicate ports", &networking_v1alpha3.Sidecar{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking_v1alpha3.Port{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -5107,7 +5141,7 @@ func TestValidateSidecar(t *testing.T) {
 					},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking_v1alpha3.Port{
 						Protocol: "tcp",
 						Number:   90,
 						Name:     "tcp",
@@ -5118,22 +5152,22 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false},
-		{"ingress without port", &networking.Sidecar{
-			Ingress: []*networking.IstioIngressListener{
+		{"ingress without port", &networking_v1alpha3.Sidecar{
+			Ingress: []*networking_v1alpha3.IstioIngressListener{
 				{
 					DefaultEndpoint: "127.0.0.1:110",
 				},
 			},
-			Egress: []*networking.IstioEgressListener{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
 					Hosts: []string{"*/*"},
 				},
 			},
 		}, false},
-		{"ingress with duplicate ports", &networking.Sidecar{
-			Ingress: []*networking.IstioIngressListener{
+		{"ingress with duplicate ports", &networking_v1alpha3.Sidecar{
+			Ingress: []*networking_v1alpha3.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking_v1alpha3.Port{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -5141,7 +5175,7 @@ func TestValidateSidecar(t *testing.T) {
 					DefaultEndpoint: "127.0.0.1:110",
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking_v1alpha3.Port{
 						Protocol: "tcp",
 						Number:   90,
 						Name:     "bar",
@@ -5149,32 +5183,32 @@ func TestValidateSidecar(t *testing.T) {
 					DefaultEndpoint: "127.0.0.1:110",
 				},
 			},
-			Egress: []*networking.IstioEgressListener{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
 					Hosts: []string{"*/*"},
 				},
 			},
 		}, false},
-		{"ingress without default endpoint", &networking.Sidecar{
-			Ingress: []*networking.IstioIngressListener{
+		{"ingress without default endpoint", &networking_v1alpha3.Sidecar{
+			Ingress: []*networking_v1alpha3.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking_v1alpha3.Port{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
 					},
 				},
 			},
-			Egress: []*networking.IstioEgressListener{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
 					Hosts: []string{"*/*"},
 				},
 			},
 		}, false},
-		{"ingress with invalid default endpoint IP", &networking.Sidecar{
-			Ingress: []*networking.IstioIngressListener{
+		{"ingress with invalid default endpoint IP", &networking_v1alpha3.Sidecar{
+			Ingress: []*networking_v1alpha3.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking_v1alpha3.Port{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -5183,10 +5217,10 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false},
-		{"ingress with invalid default endpoint uds", &networking.Sidecar{
-			Ingress: []*networking.IstioIngressListener{
+		{"ingress with invalid default endpoint uds", &networking_v1alpha3.Sidecar{
+			Ingress: []*networking_v1alpha3.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking_v1alpha3.Port{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -5194,16 +5228,16 @@ func TestValidateSidecar(t *testing.T) {
 					DefaultEndpoint: "unix:///",
 				},
 			},
-			Egress: []*networking.IstioEgressListener{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
 					Hosts: []string{"*/*"},
 				},
 			},
 		}, false},
-		{"ingress with invalid default endpoint port", &networking.Sidecar{
-			Ingress: []*networking.IstioIngressListener{
+		{"ingress with invalid default endpoint port", &networking_v1alpha3.Sidecar{
+			Ingress: []*networking_v1alpha3.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking_v1alpha3.Port{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -5211,16 +5245,16 @@ func TestValidateSidecar(t *testing.T) {
 					DefaultEndpoint: "127.0.0.1:hi",
 				},
 			},
-			Egress: []*networking.IstioEgressListener{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
 					Hosts: []string{"*/*"},
 				},
 			},
 		}, false},
-		{"valid ingress and egress", &networking.Sidecar{
-			Ingress: []*networking.IstioIngressListener{
+		{"valid ingress and egress", &networking_v1alpha3.Sidecar{
+			Ingress: []*networking_v1alpha3.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking_v1alpha3.Port{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -5228,16 +5262,16 @@ func TestValidateSidecar(t *testing.T) {
 					DefaultEndpoint: "127.0.0.1:9999",
 				},
 			},
-			Egress: []*networking.IstioEgressListener{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
 					Hosts: []string{"*/*"},
 				},
 			},
 		}, true},
-		{"valid ingress and empty egress", &networking.Sidecar{
-			Ingress: []*networking.IstioIngressListener{
+		{"valid ingress and empty egress", &networking_v1alpha3.Sidecar{
+			Ingress: []*networking_v1alpha3.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking_v1alpha3.Port{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -5246,91 +5280,91 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false},
-		{"empty protocol", &networking.Sidecar{
-			Ingress: []*networking.IstioIngressListener{
+		{"empty protocol", &networking_v1alpha3.Sidecar{
+			Ingress: []*networking_v1alpha3.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking_v1alpha3.Port{
 						Number: 90,
 						Name:   "foo",
 					},
 					DefaultEndpoint: "127.0.0.1:9999",
 				},
 			},
-			Egress: []*networking.IstioEgressListener{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
 					Hosts: []string{"*/*"},
 				},
 			},
 		}, true},
-		{"ALLOW_ANY sidecar egress policy with no egress proxy ", &networking.Sidecar{
-			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
-				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+		{"ALLOW_ANY sidecar egress policy with no egress proxy ", &networking_v1alpha3.Sidecar{
+			OutboundTrafficPolicy: &networking_v1alpha3.OutboundTrafficPolicy{
+				Mode: networking_v1alpha3.OutboundTrafficPolicy_ALLOW_ANY,
 			},
-			Egress: []*networking.IstioEgressListener{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
 					Hosts: []string{"*/*"},
 				},
 			},
 		}, true},
-		{"sidecar egress proxy with RESGISTRY_ONLY(default)", &networking.Sidecar{
-			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
-				EgressProxy: &networking.Destination{
+		{"sidecar egress proxy with RESGISTRY_ONLY(default)", &networking_v1alpha3.Sidecar{
+			OutboundTrafficPolicy: &networking_v1alpha3.OutboundTrafficPolicy{
+				EgressProxy: &networking_v1alpha3.Destination{
 					Host:   "foo.bar",
 					Subset: "shiny",
-					Port: &networking.PortSelector{
+					Port: &networking_v1alpha3.PortSelector{
 						Number: 5000,
 					},
 				},
 			},
-			Egress: []*networking.IstioEgressListener{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
 					Hosts: []string{"*/*"},
 				},
 			},
 		}, false},
-		{"sidecar egress proxy with ALLOW_ANY", &networking.Sidecar{
-			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
-				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
-				EgressProxy: &networking.Destination{
+		{"sidecar egress proxy with ALLOW_ANY", &networking_v1alpha3.Sidecar{
+			OutboundTrafficPolicy: &networking_v1alpha3.OutboundTrafficPolicy{
+				Mode: networking_v1alpha3.OutboundTrafficPolicy_ALLOW_ANY,
+				EgressProxy: &networking_v1alpha3.Destination{
 					Host:   "foo.bar",
 					Subset: "shiny",
-					Port: &networking.PortSelector{
+					Port: &networking_v1alpha3.PortSelector{
 						Number: 5000,
 					},
 				},
 			},
-			Egress: []*networking.IstioEgressListener{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
 					Hosts: []string{"*/*"},
 				},
 			},
 		}, true},
-		{"sidecar egress proxy with ALLOW_ANY, service hostname invalid fqdn", &networking.Sidecar{
-			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
-				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
-				EgressProxy: &networking.Destination{
+		{"sidecar egress proxy with ALLOW_ANY, service hostname invalid fqdn", &networking_v1alpha3.Sidecar{
+			OutboundTrafficPolicy: &networking_v1alpha3.OutboundTrafficPolicy{
+				Mode: networking_v1alpha3.OutboundTrafficPolicy_ALLOW_ANY,
+				EgressProxy: &networking_v1alpha3.Destination{
 					Host:   "foobar*123",
 					Subset: "shiny",
-					Port: &networking.PortSelector{
+					Port: &networking_v1alpha3.PortSelector{
 						Number: 5000,
 					},
 				},
 			},
-			Egress: []*networking.IstioEgressListener{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
 					Hosts: []string{"*/*"},
 				},
 			},
 		}, false},
-		{"sidecar egress proxy(without Port) with ALLOW_ANY", &networking.Sidecar{
-			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
-				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
-				EgressProxy: &networking.Destination{
+		{"sidecar egress proxy(without Port) with ALLOW_ANY", &networking_v1alpha3.Sidecar{
+			OutboundTrafficPolicy: &networking_v1alpha3.OutboundTrafficPolicy{
+				Mode: networking_v1alpha3.OutboundTrafficPolicy_ALLOW_ANY,
+				EgressProxy: &networking_v1alpha3.Destination{
 					Host:   "foo.bar",
 					Subset: "shiny",
 				},
 			},
-			Egress: []*networking.IstioEgressListener{
+			Egress: []*networking_v1alpha3.IstioEgressListener{
 				{
 					Hosts: []string{"*/*"},
 				},
@@ -5353,7 +5387,7 @@ func TestValidateSidecar(t *testing.T) {
 func TestValidateLocalityLbSetting(t *testing.T) {
 	cases := []struct {
 		name  string
-		in    *networking.LocalityLoadBalancerSetting
+		in    *networking_v1alpha3.LocalityLoadBalancerSetting
 		valid bool
 	}{
 		{
@@ -5364,8 +5398,8 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 
 		{
 			name: "invalid LocalityLoadBalancerSetting_Distribute total weight > 100",
-			in: &networking.LocalityLoadBalancerSetting{
-				Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
+			in: &networking_v1alpha3.LocalityLoadBalancerSetting{
+				Distribute: []*networking_v1alpha3.LocalityLoadBalancerSetting_Distribute{
 					{
 						From: "a/b/c",
 						To: map[string]uint32{
@@ -5379,8 +5413,8 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 		},
 		{
 			name: "invalid LocalityLoadBalancerSetting_Distribute total weight < 100",
-			in: &networking.LocalityLoadBalancerSetting{
-				Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
+			in: &networking_v1alpha3.LocalityLoadBalancerSetting{
+				Distribute: []*networking_v1alpha3.LocalityLoadBalancerSetting_Distribute{
 					{
 						From: "a/b/c",
 						To: map[string]uint32{
@@ -5394,8 +5428,8 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 		},
 		{
 			name: "invalid LocalityLoadBalancerSetting_Distribute weight = 0",
-			in: &networking.LocalityLoadBalancerSetting{
-				Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
+			in: &networking_v1alpha3.LocalityLoadBalancerSetting{
+				Distribute: []*networking_v1alpha3.LocalityLoadBalancerSetting_Distribute{
 					{
 						From: "a/b/c",
 						To: map[string]uint32{
@@ -5409,8 +5443,8 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 		},
 		{
 			name: "invalid LocalityLoadBalancerSetting specify both distribute and failover",
-			in: &networking.LocalityLoadBalancerSetting{
-				Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
+			in: &networking_v1alpha3.LocalityLoadBalancerSetting{
+				Distribute: []*networking_v1alpha3.LocalityLoadBalancerSetting_Distribute{
 					{
 						From: "a/b/c",
 						To: map[string]uint32{
@@ -5419,7 +5453,7 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 						},
 					},
 				},
-				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+				Failover: []*networking_v1alpha3.LocalityLoadBalancerSetting_Failover{
 					{
 						From: "region1",
 						To:   "region2",
@@ -5431,8 +5465,8 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 
 		{
 			name: "invalid failover src and dst have same region",
-			in: &networking.LocalityLoadBalancerSetting{
-				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+			in: &networking_v1alpha3.LocalityLoadBalancerSetting{
+				Failover: []*networking_v1alpha3.LocalityLoadBalancerSetting_Failover{
 					{
 						From: "region1",
 						To:   "region1",

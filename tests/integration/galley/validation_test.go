@@ -169,15 +169,7 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 				s := strings.Join([]string{r.Resource().Group(), r.Resource().Version(), r.Resource().Kind()}, "/")
 				recognized[s] = struct{}{}
 			}
-			for _, gvk := range []string{
-				"networking.istio.io/v1beta1/Gateway",
-				"networking.istio.io/v1beta1/DestinationRule",
-				"networking.istio.io/v1beta1/VirtualService",
-				"networking.istio.io/v1beta1/WorkloadEntry",
-				"networking.istio.io/v1beta1/Sidecar",
-			} {
-				recognized[gvk] = struct{}{}
-			}
+
 			// These CRDs are validated outside of Istio
 			for _, gvk := range []string{
 				"networking.x.k8s.io/v1alpha1/Gateway",

@@ -68,15 +68,16 @@ var _basicmetaYaml = []byte(`# Copyright 2019 Istio Authors
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 collections:
   - name: "k8s/collection1"
     kind: "Kind1"
     group: "testdata.istio.io"
+    version: "v1alpha1"
 
   - name: "collection2"
     kind: "Kind1"
     group: "testdata.istio.io"
+    version: "v1alpha1"
 
 resources:
   - kind: "Kind1"
@@ -125,18 +126,22 @@ collections:
   - name: "k8s/collection1"
     kind: "Kind1"
     group: "testdata.istio.io"
+    version: "v1alpha1"
 
   - name: "collection1out"
     kind: "Kind1"
     group: "testdata.istio.io"
+    version: "v1alpha1"
 
   - name: "k8s/collection2"
     kind: "Kind2"
     group: "testdata.istio.io"
+    version: "v1alpha1"
 
   - name: "collection2out"
     kind: "Kind2"
     group: "testdata.istio.io"
+    version: "v1alpha1"
 
 resources:
   - kind: "Kind1"
