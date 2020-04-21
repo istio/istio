@@ -31,6 +31,8 @@ import (
 
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
 	k8sauth "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -268,7 +270,13 @@ func ValidateRemoteK8sJwt(targetJWT, jwtPolicy string, mc *kubecontroller.Multic
 	for k, v := range remoteClients {
 		reviewRes, err := v.AuthenticationV1().TokenReviews().Create(context.TODO(), tokenReview, metav1.CreateOptions{})
 		if err != nil {
-			log.Warnf("failed to validate the JWT against cluster %q: due to %v", k, err)
+			if apierrors.IsInternalError(err) || apierrors.IsServerTimeout(err) || apierrors.IsTimeout(err) {
+				log.Debugf("encounter error %v, retrying cluster %v", err, k)
+				reviewRes, err = v.AuthenticationV1().TokenReviews().Create(context.TODO(), tokenReview, metav1.CreateOptions{})
+			}
+		}
+		if err != nil {
+			log.Warnf("failed to validate the JWT against cluster %q: %v", k, err)
 			continue
 		}
 		id, err := getTokenReviewResult(reviewRes, k)
