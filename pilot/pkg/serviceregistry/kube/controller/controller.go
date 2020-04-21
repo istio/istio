@@ -380,7 +380,6 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 			}
 		}
 		if k8sNode.address == "" {
-			log.Debugf("selected node %s without external ip address and is unqualified ", node.Name)
 			return nil
 		}
 
