@@ -16,11 +16,11 @@ package helmreconciler
 
 import (
 	"github.com/go-logr/logr"
+	"helm.sh/helm/v3/pkg/releaseutil"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/helm/pkg/manifest"
 
 	"istio.io/api/operator/v1alpha1"
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -71,7 +71,7 @@ func (l *CompositeRenderingListener) BeginDelete(instance runtime.Object) error 
 }
 
 // BeginChart delegates BeginChart to the Listeners in first to last order.
-func (l *CompositeRenderingListener) BeginChart(chart string, manifests []manifest.Manifest) ([]manifest.Manifest, error) {
+func (l *CompositeRenderingListener) BeginChart(chart string, manifests []releaseutil.Manifest) ([]releaseutil.Manifest, error) {
 	var allErrors []error
 	var err error
 	for _, listener := range l.Listeners {
@@ -240,7 +240,7 @@ func (l *LoggingRenderingListener) BeginDelete(instance runtime.Object) error {
 }
 
 // BeginChart logs the event and updates the logger to log with values chart=chart-name
-func (l *LoggingRenderingListener) BeginChart(chart string, manifests []manifest.Manifest) ([]manifest.Manifest, error) {
+func (l *LoggingRenderingListener) BeginChart(chart string, manifests []releaseutil.Manifest) ([]releaseutil.Manifest, error) {
 	log.Info("begin updating resources for chart")
 	return manifests, nil
 }
@@ -337,7 +337,7 @@ func (l *DefaultRenderingListener) BeginDelete(instance runtime.Object) error {
 }
 
 // BeginChart default implementation
-func (l *DefaultRenderingListener) BeginChart(chart string, manifests []manifest.Manifest) ([]manifest.Manifest, error) {
+func (l *DefaultRenderingListener) BeginChart(chart string, manifests []releaseutil.Manifest) ([]releaseutil.Manifest, error) {
 	return manifests, nil
 }
 
