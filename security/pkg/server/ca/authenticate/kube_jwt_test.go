@@ -15,106 +15,43 @@
 package authenticate
 
 import (
-	"fmt"
-	"io/ioutil"
-	"path/filepath"
 	"reflect"
 	"testing"
+
+	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/istio/pkg/jwt"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
-
-	"istio.io/istio/security/pkg/k8s/tokenreview"
 )
 
-type mockTokenReviewClient struct {
-	id  []string
-	err error
-}
-
-func (c mockTokenReviewClient) ValidateK8sJwt(jwt, jwtPolicy string, clusterID string) ([]string, error) {
-	if c.id != nil {
-		return c.id, nil
-	}
-	return nil, c.err
-}
-
 func TestNewKubeJWTAuthenticator(t *testing.T) {
-	tmpdir, _ := ioutil.TempDir("", "test_dir")
-	validCACertPath := filepath.Join(tmpdir, "cacert")
-	validJWTPath := filepath.Join(tmpdir, "jwt")
-	caCertFileContent := []byte("CACERT")
-	jwtFileContent := []byte("JWT")
 	trustDomain := "testdomain.com"
 	jwtPolicy := jwt.JWTPolicyThirdPartyJWT
-	url := "https://server/url"
-	if err := ioutil.WriteFile(validCACertPath, caCertFileContent, 0777); err != nil {
-		t.Errorf("Failed to write to testing CA cert file: %v", err)
-	}
-	if err := ioutil.WriteFile(validJWTPath, jwtFileContent, 0777); err != nil {
-		t.Errorf("Failed to write to testing JWT file: %v", err)
-	}
 
-	testCases := map[string]struct {
-		caCertPath     string
-		jwtPath        string
-		expectedErrMsg string
-	}{
-		"Invalid CA cert path": {
-			caCertPath:     "/invalid/path",
-			jwtPath:        validJWTPath,
-			expectedErrMsg: "failed to read the CA certificate of k8s API server: open /invalid/path: no such file or directory",
-		},
-		"Invalid JWT path": {
-			caCertPath:     validCACertPath,
-			jwtPath:        "/invalid/path",
-			expectedErrMsg: "failed to read Citadel JWT: open /invalid/path: no such file or directory",
-		},
-		"Valid paths": {
-			caCertPath:     validCACertPath,
-			jwtPath:        validJWTPath,
-			expectedErrMsg: "",
-		},
+	authenticator := NewKubeJWTAuthenticator(nil, "kubernetes", nil, trustDomain, jwtPolicy)
+	expectedAuthenticator := &KubeJWTAuthenticator{
+		trustDomain: trustDomain,
+		jwtPolicy:   jwtPolicy,
+		clusterID:   "kubernetes",
 	}
-
-	for id, tc := range testCases {
-		authenticator, err := NewKubeJWTAuthenticator(nil, url, tc.caCertPath, tc.jwtPath, trustDomain, jwtPolicy, "kubernetes")
-		if len(tc.expectedErrMsg) > 0 {
-			if err == nil {
-				t.Errorf("Case %s: Succeeded. Error expected: %v", id, err)
-			} else if err.Error() != tc.expectedErrMsg {
-				t.Errorf("Case %s: Incorrect error message: want %s but got %s",
-					id, tc.expectedErrMsg, err.Error())
-			}
-			continue
-		} else if err != nil {
-			t.Errorf("Case %s: Unexpected Error: %v", id, err)
-		}
-		expectedAuthenticator := &KubeJWTAuthenticator{
-			client:      tokenreview.NewK8sSvcAcctAuthn(url, caCertFileContent, string(jwtFileContent)),
-			trustDomain: trustDomain,
-			jwtPolicy:   jwtPolicy,
-			clusterID:   "kubernetes",
-		}
-		if !reflect.DeepEqual(authenticator, expectedAuthenticator) {
-			t.Errorf("Case %q: Unexpected authentication result: want %v but got %v",
-				id, expectedAuthenticator, authenticator)
-		}
+	if !reflect.DeepEqual(authenticator, expectedAuthenticator) {
+		t.Errorf("Unexpected authentication result: want %v but got %v",
+			expectedAuthenticator, authenticator)
 	}
 }
 
 func TestAuthenticate(t *testing.T) {
 	testCases := map[string]struct {
 		metadata       metadata.MD
-		client         tokenReviewClient
+		jwtPolicy      string
 		expectedID     string
 		expectedErrMsg string
 	}{
 		"No bearer token": {
 			metadata: metadata.MD{
-				"random": []string{},
+				"clusterid": []string{"Kubernetes"},
 				"authorization": []string{
 					"Basic callername",
 				},
@@ -123,112 +60,68 @@ func TestAuthenticate(t *testing.T) {
 		},
 		"Review error": {
 			metadata: metadata.MD{
-				"random": []string{},
+				"clusterid": []string{"Kubernetes"},
 				"authorization": []string{
 					"Basic callername",
 					"Bearer bearer-token",
 				},
 			},
-			client:         &mockTokenReviewClient{id: nil, err: fmt.Errorf("test error")},
 			expectedErrMsg: "failed to validate the JWT: invalid JWT policy: ",
 		},
 		"Wrong identity length": {
 			metadata: metadata.MD{
-				"random": []string{},
+				"clusterid": []string{"Kubernetes"},
 				"authorization": []string{
 					"Basic callername",
 					"Bearer bearer-token",
 				},
 			},
-			client:         &mockTokenReviewClient{id: []string{"foo"}, err: nil},
 			expectedErrMsg: "failed to validate the JWT: invalid JWT policy: ",
 		},
-		"Successful": {
+		"token not authenticated": {
 			metadata: metadata.MD{
-				"random": []string{},
+				"clusterid": []string{"Kubernetes"},
 				"authorization": []string{
 					"Basic callername",
 					"Bearer bearer-token",
 				},
 			},
-			client:         &mockTokenReviewClient{id: []string{"foo", "bar"}, err: nil},
-			expectedID:     "spiffe://example.com/ns/foo/sa/bar",
-			expectedErrMsg: "",
+			jwtPolicy:      jwt.JWTPolicyFirstPartyJWT,
+			expectedErrMsg: "failed to validate the JWT: the token is not authenticated",
 		},
 	}
 
 	for id, tc := range testCases {
-		ctx := context.Background()
-		if tc.metadata != nil {
-			ctx = metadata.NewIncomingContext(ctx, tc.metadata)
-		}
-
-		authenticator := &KubeJWTAuthenticator{client: tc.client, trustDomain: "example.com"}
-
-		actualCaller, err := authenticator.Authenticate(ctx)
-		if len(tc.expectedErrMsg) > 0 {
-			if err == nil {
-				t.Errorf("Case %s: Succeeded. Error expected: %v", id, err)
-			} else if err.Error() != tc.expectedErrMsg {
-				t.Errorf("Case %s: Incorrect error message: %s VS %s",
-					id, err.Error(), tc.expectedErrMsg)
+		t.Run(id, func(t *testing.T) {
+			ctx := context.Background()
+			if tc.metadata != nil {
+				ctx = metadata.NewIncomingContext(ctx, tc.metadata)
 			}
-			continue
-		} else if err != nil {
-			t.Errorf("Case %s: Unexpected Error: %v", id, err)
-			continue
-		}
 
-		expectedCaller := &Caller{
-			AuthSource: AuthSourceIDToken,
-			Identities: []string{tc.expectedID},
-		}
-
-		if !reflect.DeepEqual(actualCaller, expectedCaller) {
-			t.Errorf("Case %q: Unexpected token: want %v but got %v", id, expectedCaller, actualCaller)
-		}
-	}
-}
-
-func TestAuthenticatorType(t *testing.T) {
-	testCases := []struct {
-		Name                      string
-		ExpectedAuthenticatorType string
-		ExpectedFailure           bool
-	}{
-		{
-			Name:                      "Correct type",
-			ExpectedAuthenticatorType: KubeJWTAuthenticatorType,
-			ExpectedFailure:           false,
-		},
-		{
-			Name:                      "Incorrect type",
-			ExpectedAuthenticatorType: ClientCertAuthenticatorType,
-			ExpectedFailure:           true,
-		},
-	}
-
-	caCertFileContent := []byte("CACERT")
-	jwtFileContent := []byte("JWT")
-	trustDomain := "testdomain.com"
-	url := "https://server/url"
-
-	kubeJwtAuthenticator := &KubeJWTAuthenticator{
-		client:      tokenreview.NewK8sSvcAcctAuthn(url, caCertFileContent, string(jwtFileContent)),
-		trustDomain: trustDomain,
-	}
-
-	for _, tc := range testCases {
-		want, got := tc.ExpectedAuthenticatorType, kubeJwtAuthenticator.AuthenticatorType()
-		if tc.ExpectedFailure {
-			if want == got {
-				t.Errorf("%s failed. Want: %s, got: %s", tc.Name, want, got)
+			client := fake.NewSimpleClientset()
+			authenticator := NewKubeJWTAuthenticator(client, "Kubernetes", nil, "example.com", tc.jwtPolicy)
+			actualCaller, err := authenticator.Authenticate(ctx)
+			if len(tc.expectedErrMsg) > 0 {
+				if err == nil {
+					t.Errorf("Case %s: Succeeded. Error expected: %v", id, err)
+				} else if err.Error() != tc.expectedErrMsg {
+					t.Errorf("Case %s: Incorrect error message: \n%s\nVS\n%s",
+						id, err.Error(), tc.expectedErrMsg)
+				}
+				return
+			} else if err != nil {
+				t.Errorf("Case %s: Unexpected Error: %v", id, err)
+				return
 			}
-		} else {
-			if want != got {
-				t.Errorf("%s failed. Want: %s, got: %s", tc.Name, want, got)
-			}
-		}
-	}
 
+			expectedCaller := &Caller{
+				AuthSource: AuthSourceIDToken,
+				Identities: []string{tc.expectedID},
+			}
+
+			if !reflect.DeepEqual(actualCaller, expectedCaller) {
+				t.Errorf("Case %q: Unexpected token: want %v but got %v", id, expectedCaller, actualCaller)
+			}
+		})
+	}
 }

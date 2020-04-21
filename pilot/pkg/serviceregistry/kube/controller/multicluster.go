@@ -31,7 +31,7 @@ import (
 )
 
 type kubeController struct {
-	rc     *Controller
+	*Controller
 	stopCh chan struct{}
 }
 
@@ -101,7 +101,7 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, metadata
 		Metrics:          m.metrics,
 	})
 
-	remoteKubeController.rc = kubectl
+	remoteKubeController.Controller = kubectl
 	m.serviceController.AddRegistry(kubectl)
 
 	m.remoteKubeControllers[clusterID] = &remoteKubeController
@@ -168,14 +168,11 @@ func (m *Multicluster) updateHandler(svc *model.Service) {
 	}
 }
 
-func (m *Multicluster) GetRemoteKubeClients() map[string]kubernetes.Interface {
+func (m *Multicluster) GetRemoteKubeClient(clusterID string) kubernetes.Interface {
 	m.m.Lock()
-	res := make(map[string]kubernetes.Interface)
-	for k, v := range m.remoteKubeControllers {
-		if v != nil && v.rc != nil {
-			res[k] = v.rc.client
-		}
+	if c := m.remoteKubeControllers[clusterID]; c != nil {
+		return c.client
 	}
 	m.m.Unlock()
-	return res
+	return nil
 }
