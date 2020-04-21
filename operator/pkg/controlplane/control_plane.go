@@ -77,7 +77,7 @@ func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *trans
 	return out, nil
 }
 
-func orderedKeys(m map[string]*v1alpha1.ExternalComponentSpec) []string {
+func OrderedKeys(m map[string]*v1alpha1.ExternalComponentSpec) []string {
 	var keys []string
 	for k := range m {
 		keys = append(keys, k)
