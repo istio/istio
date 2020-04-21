@@ -8,6 +8,7 @@ spec:
 
     global:
       multiCluster:
+        # unique cluster name, must be a DNS label name
         clusterName: main0
       network: network1
 
