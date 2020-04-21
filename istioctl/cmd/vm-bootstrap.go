@@ -159,7 +159,7 @@ func getCertificatesForEachAddress(
 			IsCA:         false,
 			IsSelfSigned: false,
 			IsClient:     true,
-			RSAKeySize:   4096,
+			RSAKeySize:   2048,
 		}
 		certPem, privPem, err := util.GenCertKeyFromOptions(signerOpts)
 		if err != nil {
@@ -442,11 +442,9 @@ defaultConfig:
 					"-v "+remoteKeyPath+":/var/run/secrets/istio/key.pem "+
 					"--add-host istio-pilot.istio-system.svc:"+address+" "+
 					"--add-host istiod.istio-system.svc:"+address+" "+
-					"--add-host vmgateway.istio-system.svc:"+address+" "+
 					"-e POD_NAME="+certs.ServiceName+"-"+addressIdentifier+" "+
 					"-e JWT_POLICY=none "+
 					"-e PROV_CERT=/var/run/secrets/istio "+
-					"-e CA_ADDR=istio-pilot.istio-system.svc:"+istiodPort+" "+
 					"-e PILOT_CERT_PROVIDER=istiod "+
 					"-e POD_NAMESPACE="+certs.ServiceNamespace+" "+
 					"-e ISTIO_META_WORKLOAD_NAME="+certs.ServiceName+" "+
