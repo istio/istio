@@ -2228,12 +2228,11 @@ func TestMergeTCPFilterChains(t *testing.T) {
 		},
 	}
 
-	insertFallthroughMetadata(listenerMap["0.0.0.0_443"].listener.FilterChains[2])
-
 	incomingFilterChains := []*listener.FilterChain{
 		{
-			FilterChainMatch: &listener.FilterChainMatch{},
-			// This is not a valid config, just for test
+			FilterChainMatch: &listener.FilterChainMatch{
+				ServerNames: []string{"bar.com"},
+			}, // This is not a valid config, just for test
 			Filters: []*listener.Filter{tcpProxyFilter2},
 		},
 	}
@@ -2252,14 +2251,14 @@ func TestMergeTCPFilterChains(t *testing.T) {
 
 	out := mergeTCPFilterChains(incomingFilterChains, params, "0.0.0.0_443", listenerMap, node)
 
-	if len(out) != 3 {
+	if len(out) != 4 {
 		t.Errorf("Got %d filter chains, expected 3", len(out))
 	}
 	if !isMatchAllFilterChain(out[2]) {
 		t.Errorf("The last filter chain  %#v is not wildcard matching", out[2])
 	}
 
-	if !reflect.DeepEqual(out[2].Filters, incomingFilterChains[0].Filters) {
+	if !reflect.DeepEqual(out[3].Filters, incomingFilterChains[0].Filters) {
 		t.Errorf("got %v\nwant %v\ndiff %v", out[2].Filters, incomingFilterChains[0].Filters, cmp.Diff(out[2].Filters, incomingFilterChains[0].Filters))
 	}
 }

@@ -1867,7 +1867,6 @@ type filterChainOpts struct {
 	match            *listener.FilterChainMatch
 	listenerFilters  []*listener.ListenerFilter
 	networkFilters   []*listener.Filter
-	isFallThrough    bool
 }
 
 // buildListenerOpts are the options required to build a Listener
@@ -2319,9 +2318,6 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *istione
 			// codec is used by RBAC or mixer later.
 
 			if len(opt.networkFilters) > 0 {
-				if opt.isFallThrough {
-					insertFallthroughMetadata(mutable.Listener.FilterChains[i])
-				}
 				// this is the terminating filter
 				lastNetworkFilter := opt.networkFilters[len(opt.networkFilters)-1]
 
@@ -2394,15 +2390,9 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, pluginParams *plugin
 
 	for _, incomingFilterChain := range incoming {
 		conflict := false
-		fallthroughChain := false
 
-		for i, existingFilterChain := range mergedFilterChains {
-			fallthroughChain, conflict = fallthroughOrConflict(existingFilterChain, incomingFilterChain)
-
-			if fallthroughChain {
-				mergedFilterChains[i] = incomingFilterChain
-				continue
-			}
+		for _, existingFilterChain := range mergedFilterChains {
+			conflict = isConflict(existingFilterChain, incomingFilterChain)
 
 			if conflict {
 				// NOTE: While pluginParams.Service can be nil,
@@ -2431,7 +2421,7 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, pluginParams *plugin
 			}
 
 		}
-		if !conflict && !fallthroughChain {
+		if !conflict {
 			// There is no conflict with any filter chain in the existing listener.
 			// So append the new filter chains to the existing listener's filter chains
 			mergedFilterChains = append(mergedFilterChains, incomingFilterChain)
@@ -2446,23 +2436,8 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, pluginParams *plugin
 
 // fallthroughOrConflict determines whether the incoming filter chain has conflict with existing.
 // It also identifies whether the existing filter chain is a fallthrough and hence should be replaced.
-func fallthroughOrConflict(existing, incoming *listener.FilterChain) (bool, bool) {
-	switch {
-	case isMatchAllFilterChain(existing):
-		// This is a catch all filter chain.
-		// We can only merge with a non-catch all filter chain
-		// Else mark it as conflict
-		if isMatchAllFilterChain(incoming) {
-			// replace fallthrough filter chain with the real service one
-			if isFallthroughFilterChain(existing) {
-				return true, false
-			}
-			return false, true
-		}
-	case filterChainMatchEqual(existing.FilterChainMatch, incoming.FilterChainMatch):
-		return false, true
-	}
-	return false, false
+func isConflict(existing, incoming *listener.FilterChain) bool {
+	return filterChainMatchEqual(existing.FilterChainMatch, incoming.FilterChainMatch)
 }
 
 func filterChainMatchEmpty(fcm *listener.FilterChainMatch) bool {
@@ -2546,7 +2521,6 @@ func getPluginFilterChain(opts buildListenerOpts) []istionetworking.FilterChain 
 		} else {
 			filterChain[id].ListenerProtocol = istionetworking.ListenerProtocolHTTP
 		}
-		filterChain[id].IsFallThrough = opts.filterChainOpts[id].isFallThrough
 	}
 
 	return filterChain
@@ -2599,32 +2573,9 @@ func buildDownstreamTLSTransportSocket(tlsContext *auth.DownstreamTlsContext) *c
 	return &core.TransportSocket{Name: util.EnvoyTLSSocketName, ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)}}
 }
 
-func insertFallthroughMetadata(chain *listener.FilterChain) {
-	if chain.Metadata == nil {
-		chain.Metadata = &core.Metadata{
-			FilterMetadata: map[string]*structpb.Struct{},
-		}
-	}
-	if chain.Metadata.FilterMetadata[PilotMetaKey] == nil {
-		chain.Metadata.FilterMetadata[PilotMetaKey] = &structpb.Struct{
-			Fields: map[string]*structpb.Value{},
-		}
-	}
-	chain.Metadata.FilterMetadata[PilotMetaKey].Fields["fallthrough"] =
-		&structpb.Value{Kind: &structpb.Value_BoolValue{BoolValue: true}}
-}
-
 func isMatchAllFilterChain(fc *listener.FilterChain) bool {
 	// See if it is empty filter chain.
 	return filterChainMatchEmpty(fc.FilterChainMatch)
-}
-
-func isFallthroughFilterChain(fc *listener.FilterChain) bool {
-	if fc.Metadata != nil && fc.Metadata.FilterMetadata != nil &&
-		fc.Metadata.FilterMetadata[PilotMetaKey] != nil && fc.Metadata.FilterMetadata[PilotMetaKey].Fields["fallthrough"] != nil {
-		return fc.Metadata.FilterMetadata[PilotMetaKey].Fields["fallthrough"].GetBoolValue()
-	}
-	return false
 }
 
 func removeListenerFilterTimeout(listeners []*xdsapi.Listener) {

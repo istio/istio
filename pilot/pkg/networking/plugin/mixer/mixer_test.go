@@ -171,12 +171,7 @@ func TestOnOutboundListener(t *testing.T) {
 			mutableObjects: &istionetworking.MutableObjects{
 				Listener: &xdsapi.Listener{},
 				FilterChains: []istionetworking.FilterChain{
-					{
-						IsFallThrough: false,
-					},
-					{
-						IsFallThrough: true,
-					},
+					{},
 				},
 			},
 			hostname: "BlackHoleCluster",
@@ -191,12 +186,7 @@ func TestOnOutboundListener(t *testing.T) {
 			mutableObjects: &istionetworking.MutableObjects{
 				Listener: &xdsapi.Listener{},
 				FilterChains: []istionetworking.FilterChain{
-					{
-						IsFallThrough: false,
-					},
-					{
-						IsFallThrough: true,
-					},
+					{},
 				},
 			},
 			hostname: "PassthroughCluster",
@@ -209,22 +199,6 @@ func TestOnOutboundListener(t *testing.T) {
 			for i := 0; i < len(tests[idx].mutableObjects.FilterChains); i++ {
 				if len(tests[idx].mutableObjects.FilterChains[i].TCP) != 1 {
 					t.Errorf("Expected 1 TCP filter")
-				}
-				var tcpClientConfig mccpb.TcpClientConfig
-				cfg := tests[idx].mutableObjects.FilterChains[i].TCP[0].GetTypedConfig()
-				ptypes.UnmarshalAny(cfg, &tcpClientConfig)
-				if tests[idx].mutableObjects.FilterChains[i].IsFallThrough {
-					hostAttr := tcpClientConfig.MixerAttributes.Attributes["destination.service.host"]
-					if !reflect.DeepEqual(hostAttr, attrStringValue(tests[idx].hostname)) {
-						t.Errorf("Expected host %s but got %+v\n",
-							tests[idx].hostname, hostAttr)
-					}
-
-					nameAttr := tcpClientConfig.MixerAttributes.Attributes["destination.service.name"]
-					if !reflect.DeepEqual(nameAttr, attrStringValue(tests[idx].hostname)) {
-						t.Errorf("Expected name %s but got %+v\n",
-							tests[idx].hostname, nameAttr)
-					}
 				}
 			}
 		})
