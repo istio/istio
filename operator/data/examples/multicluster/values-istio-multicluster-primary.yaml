@@ -1,7 +1,7 @@
-# https://istio.io/docs/setup/install/multicluster/shared/#main-cluster
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
+  # https://istio.io/docs/setup/install/multicluster/shared/#main-cluster
   values:
     # selfSigned is required if Citadel is enabled, that is when values.global.istiod.enabled is false.
     security:
