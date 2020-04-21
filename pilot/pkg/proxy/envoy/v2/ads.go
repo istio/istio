@@ -744,17 +744,19 @@ func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 		conn.mu.Lock()
 		if res.Nonce != "" {
 			switch res.TypeUrl {
-			case ClusterType:
+			case ClusterType, v3.ClusterType:
 				conn.ClusterNonceSent = res.Nonce
-			case ListenerType:
+			case ListenerType, v3.ListenerType:
 				conn.ListenerNonceSent = res.Nonce
-			case RouteType:
+			case RouteType, v3.RouteType:
 				conn.RouteNonceSent = res.Nonce
-			case EndpointType:
+			case EndpointType, v3.EndpointType:
 				conn.EndpointNonceSent = res.Nonce
+			default:
+				adsLog.Warnf("sent unknown XDS type: %v", res.TypeUrl)
 			}
 		}
-		if res.TypeUrl == RouteType {
+		if res.TypeUrl == RouteType || res.TypeUrl == v3.RouteType {
 			conn.RouteVersionInfoSent = res.VersionInfo
 		}
 		conn.mu.Unlock()
