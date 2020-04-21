@@ -52,7 +52,7 @@ const (
 	IstioNamespace    = "istio-system"
 	OperatorNamespace = "istio-operator"
 	retryDelay        = time.Second
-	retryTimeOut      = 100 * time.Second
+	retryTimeOut      = 180 * time.Second
 )
 
 var (
@@ -78,6 +78,15 @@ func TestController(t *testing.T) {
 			s, err := image.SettingsFromCommandLine()
 			if err != nil {
 				t.Fatal(err)
+			}
+			// clean up hanging installed-state CR from previous tests
+			gvr := schema.GroupVersionResource{
+				Group:    "install.istio.io",
+				Version:  "v1alpha1",
+				Resource: "istiooperators",
+			}
+			if err := cs.DeleteUnstructured(gvr, IstioNamespace, "installed-state"); err != nil {
+				t.Logf("failed to delete installed-state istioOperator resource: %v", err)
 			}
 			initCmd := []string{
 				"operator", "init",
@@ -187,8 +196,8 @@ metadata:
   namespace: istio-system
 spec:
   installPackagePath: %s
-hub: %s
-tag: %s
+  hub: %s
+  tag: %s
 `
 	overlayYAML := fmt.Sprintf(metadataYAML, ManifestPathContainer, s.Hub, s.Tag)
 	iopcr, err := util.OverlayYAML(string(originalIOPYAML), overlayYAML)
