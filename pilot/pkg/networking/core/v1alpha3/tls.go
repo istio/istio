@@ -15,13 +15,15 @@
 package v1alpha3
 
 import (
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"reflect"
 	"sort"
 	"strings"
 
-	"istio.io/api/networking/v1alpha3"
+	"github.com/golang/protobuf/ptypes/wrappers"
+
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/host"
@@ -152,7 +154,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 							match: &listener.FilterChainMatch{
 								DestinationPort: &wrappers.UInt32Value{Value: uint32(listenPort.Port)},
 							},
-							networkFilters:   buildOutboundNetworkFilters(node, tls.Route, push, listenPort, cfg.ConfigMeta),
+							networkFilters: buildOutboundNetworkFilters(node, tls.Route, push, listenPort, cfg.ConfigMeta),
 						})
 						hasTLSMatch = true
 					}
@@ -203,7 +205,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 			match: &listener.FilterChainMatch{
 				DestinationPort: &wrappers.UInt32Value{Value: uint32(port)},
 			},
-			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, listenPort),
+			networkFilters: buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, listenPort),
 		})
 	}
 
@@ -232,7 +234,7 @@ TcpLoop:
 			if len(tcp.Match) == 0 {
 				// implicit match
 				out = append(out, &filterChainOpts{
-					metadata:         util.BuildConfigInfoMetadata(cfg.ConfigMeta),
+					metadata: util.BuildConfigInfoMetadata(cfg.ConfigMeta),
 					match: &listener.FilterChainMatch{
 						DestinationPort: &wrappers.UInt32Value{Value: uint32(listenPort.Port)},
 					},
@@ -259,7 +261,7 @@ TcpLoop:
 					// (this is similar to virtual hosts in http) and create filter chain match accordingly.
 					if len(match.DestinationSubnets) == 0 || listenPort.Port == 0 {
 						out = append(out, &filterChainOpts{
-							metadata:         util.BuildConfigInfoMetadata(cfg.ConfigMeta),
+							metadata: util.BuildConfigInfoMetadata(cfg.ConfigMeta),
 							match: &listener.FilterChainMatch{
 								DestinationPort: &wrappers.UInt32Value{Value: uint32(listenPort.Port)},
 							},

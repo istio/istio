@@ -335,8 +335,8 @@ func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
 	// The filter chains should all be merged into one.
-	if len(listeners[0].FilterChains) != 1 {
-		t.Fatalf("expected %d filter chains, found %d", 1, len(listeners[0].FilterChains))
+	if len(listeners[0].FilterChains) != 2 {
+		t.Fatalf("expected %d filter chains, found %d", 2, len(listeners[0].FilterChains))
 	}
 
 	oldestService := getOldestService(services...)
@@ -577,7 +577,7 @@ func TestOutboundListenerConfigWithSidecarHTTPProxy(t *testing.T) {
 	if l == nil {
 		t.Fatalf("expected listener on port %d, but not found", 15080)
 	}
-	if len(l.FilterChains) != 1 {
+	if len(l.FilterChains) <= 1 {
 		t.Fatalf("expectd %d filter chains, found %d", 1, len(l.FilterChains))
 	} else {
 		if !isHTTPFilterChain(l.FilterChains[0]) {
@@ -585,6 +585,14 @@ func TestOutboundListenerConfigWithSidecarHTTPProxy(t *testing.T) {
 		}
 		if len(l.ListenerFilters) > 0 {
 			t.Fatalf("expected %d listener filter, found %d", 0, len(l.ListenerFilters))
+		}
+		if len(l.FilterChains[1:]) > 1 {
+			t.Fatalf("expected at most 1 passthrough filter chain, found %d", len(l.FilterChains[1:]))
+		}
+		for _, chain := range l.FilterChains[1:] {
+			if chain.Name != util.PassthroughFilterChain {
+				t.Fatalf("expected passthrough filter chain, found %s", chain.Name)
+			}
 		}
 	}
 }
@@ -724,7 +732,14 @@ func testOutboundListenerFilterTimeout(t *testing.T, services ...*model.Service)
 			listeners[1].ListenerFiltersTimeout)
 	}
 }
-
+func verifyRootPassthroughFilterChain(t *testing.T, filterChain *listener.FilterChain) {
+	if !isTCPFilterChain(filterChain) || filterChain.Name != util.PassthroughFilterChain {
+		t.Fatalf("expected passthrough filter chain, found %s", filterChain.Name)
+	}
+	if filterChain.FilterChainMatch.DestinationPort != nil {
+		t.Fatalf("expected passthrough filter chain with empty port value, found %v", filterChain.FilterChainMatch.DestinationPort)
+	}
+}
 func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 	t.Helper()
 	oldestService := getOldestService(services...)
@@ -737,24 +752,26 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 
 	oldestProtocol := oldestService.Ports[0].Protocol
 	if oldestProtocol == protocol.MySQL {
-		if len(listeners[0].FilterChains) != 1 {
-			t.Fatalf("expected %d filter chains, found %d", 1, len(listeners[0].FilterChains))
+		if len(listeners[0].FilterChains) != 2 {
+			t.Fatalf("expected %d filter chains, found %d", 2, len(listeners[0].FilterChains))
 		} else if !isTCPFilterChain(listeners[0].FilterChains[0]) {
 			t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
 		}
+		verifyRootPassthroughFilterChain(t, listeners[0].FilterChains[1])
 	} else if oldestProtocol != protocol.HTTP && oldestProtocol != protocol.TCP {
-		if len(listeners[0].FilterChains) != 2 {
-			t.Fatalf("expectd %d filter chains, found %d", 2, len(listeners[0].FilterChains))
+		if len(listeners[0].FilterChains) != 3 {
+			t.Fatalf("expectd %d filter chains, found %d", 3, len(listeners[0].FilterChains))
 		} else {
 			if !isHTTPFilterChain(listeners[0].FilterChains[1]) {
 				t.Fatalf("expected http filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
 			}
 
 			if !isTCPFilterChain(listeners[0].FilterChains[0]) {
-				t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[2].Filters[0].Name)
+				t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[0].Filters[0].Name)
 			}
-		}
 
+			verifyRootPassthroughFilterChain(t, listeners[0].FilterChains[2])
+		}
 		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1], model.TrafficDirectionOutbound, false)
 		if len(listeners[0].ListenerFilters) != 2 ||
 			listeners[0].ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
@@ -776,8 +793,8 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 			t.Fatalf("expect routes %s, found %s", expect, rds)
 		}
 	} else {
-		if len(listeners[0].FilterChains) != 2 {
-			t.Fatalf("expectd %d filter chains, found %d", 2, len(listeners[0].FilterChains))
+		if len(listeners[0].FilterChains) != 3 {
+			t.Fatalf("expectd %d filter chains, found %d", 3, len(listeners[0].FilterChains))
 		}
 
 		if !isTCPFilterChain(listeners[0].FilterChains[0]) {
@@ -800,6 +817,8 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 				listeners[0].ContinueOnListenerFiltersTimeout,
 				listeners[0].ListenerFiltersTimeout)
 		}
+
+		verifyRootPassthroughFilterChain(t, listeners[0].FilterChains[2])
 	}
 }
 
@@ -988,14 +1007,17 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 	features.EnableMysqlFilter = true
 	defer func() { features.EnableMysqlFilter = defaultValue }()
 
-	listeners := buildOutboundListeners(t, p, &proxy, sidecarConfig, nil, services...)
+	proxyDup := proxy
+	proxyDup.DiscoverIPVersions()
+
+	listeners := buildOutboundListeners(t, p, &proxyDup, sidecarConfig, nil, services...)
 	if len(listeners) != 4 {
 		t.Fatalf("expected %d listeners, found %d", 4, len(listeners))
 	}
 
 	l := findListenerByPort(listeners, 8080)
-	if len(l.FilterChains) != 2 {
-		t.Fatalf("expectd %d filter chains, found %d", 2, len(l.FilterChains))
+	if len(l.FilterChains) != 3 {
+		t.Fatalf("expectd %d filter chains, found %d", 3, len(l.FilterChains))
 	} else {
 		if !isHTTPFilterChain(l.FilterChains[1]) {
 			t.Fatalf("expected http filter chain, found %s", l.FilterChains[1].Filters[0].Name)
@@ -1012,6 +1034,7 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 			l.ListenerFilters[1].Name != "envoy.listener.http_inspector" {
 			t.Fatalf("expected %d listener filter, found %d", 2, len(l.ListenerFilters))
 		}
+		verifyRootPassthroughFilterChain(t, l.FilterChains[2])
 	}
 
 	if l := findListenerByPort(listeners, 3306); !isMysqlListener(l) {
@@ -1023,8 +1046,8 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 	}
 
 	l = findListenerByPort(listeners, 8888)
-	if len(l.FilterChains) != 2 {
-		t.Fatalf("expectd %d filter chains, found %d", 2, len(l.FilterChains))
+	if len(l.FilterChains) != 3 {
+		t.Fatalf("expectd %d filter chains, found %d", 3, len(l.FilterChains))
 	} else {
 		if !isHTTPFilterChain(l.FilterChains[1]) {
 			t.Fatalf("expected http filter chain, found %s", l.FilterChains[0].Filters[0].Name)
@@ -1033,6 +1056,7 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 		if !isTCPFilterChain(l.FilterChains[0]) {
 			t.Fatalf("expected tcp filter chain, found %s", l.FilterChains[1].Filters[0].Name)
 		}
+		verifyRootPassthroughFilterChain(t, l.FilterChains[2])
 	}
 
 	verifyHTTPFilterChainMatch(t, l.FilterChains[1], model.TrafficDirectionOutbound, false)
@@ -1564,9 +1588,10 @@ func verifyPassThroughTCPFilterChain(t *testing.T, fc *listener.FilterChain) {
 
 func verifyOutboundTCPListenerHostname(t *testing.T, l *xdsapi.Listener, hostname host.Name) {
 	t.Helper()
-	if len(l.FilterChains) != 1 {
+	if len(l.FilterChains) != 2 {
 		t.Fatalf("expected %d filter chains, found %d", 1, len(l.FilterChains))
 	}
+	verifyRootPassthroughFilterChain(t, l.FilterChains[1])
 	fc := l.FilterChains[0]
 	if len(fc.Filters) != 1 {
 		t.Fatalf("expected %d filters, found %d", 1, len(fc.Filters))
@@ -2371,7 +2396,7 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 	var thriftProxy thrift_proxy.ThriftProxy
 	thriftListener := findListenerByAddress(listeners, svcIP)
 	chains := thriftListener.GetFilterChains()
-	filters := chains[len(chains)-1].Filters
+	filters := chains[0].Filters
 	err := ptypes.UnmarshalAny(filters[len(filters)-1].GetTypedConfig(), &thriftProxy)
 	if err != nil {
 		t.Error(err.Error())
@@ -2381,7 +2406,7 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 	}
 	thriftListener = findListenerByAddress(listeners, limitedSvcIP)
 	chains = thriftListener.GetFilterChains()
-	filters = chains[len(chains)-1].Filters
+	filters = chains[0].Filters
 	err = ptypes.UnmarshalAny(filters[len(filters)-1].GetTypedConfig(), &thriftProxy)
 	if err != nil {
 		t.Error(err.Error())

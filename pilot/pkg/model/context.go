@@ -169,7 +169,7 @@ type Proxy struct {
 	// Indicates wheteher proxy supports IPv6 addresses
 	ipv6Support bool
 
-	// Indicates wheteher proxy supports IPv4 addresses
+	// Indicates whether proxy supports IPv4 addresses
 	ipv4Support bool
 
 	// GlobalUnicastIP stores the globacl unicast IP if available, otherwise nil

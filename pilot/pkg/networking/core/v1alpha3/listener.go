@@ -17,12 +17,13 @@ package v1alpha3
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/golang/protobuf/ptypes/wrappers"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
