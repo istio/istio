@@ -321,9 +321,7 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		}
 		c.Lock()
 		c.servicesMap[svcConv.Hostname] = svcConv
-		if instances == nil {
-			delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
-		} else {
+		if len(instances) > 0 {
 			c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
 		}
 		c.Unlock()
