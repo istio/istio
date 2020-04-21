@@ -51,7 +51,6 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -1995,18 +1994,8 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 }
 
 func buildTracingConfig(config *meshconfig.ProxyConfig, proxyType model.NodeType) *http_conn.HttpConnectionManager_Tracing {
-	tc := authn_model.GetTraceConfig()
-	tracingCfg := &http_conn.HttpConnectionManager_Tracing{
-		ClientSampling: &envoy_type.Percent{
-			Value: tc.ClientSampling,
-		},
-		RandomSampling: &envoy_type.Percent{
-			Value: tc.RandomSampling,
-		},
-		OverallSampling: &envoy_type.Percent{
-			Value: tc.OverallSampling,
-		},
-	}
+	tracingCfg := &http_conn.HttpConnectionManager_Tracing{}
+	updateTraceSamplingConfig(config, tracingCfg)
 
 	if config.Tracing != nil {
 		// only specify a MaxPathTagLength if meshconfig has specified one
@@ -2026,6 +2015,33 @@ func buildTracingConfig(config *meshconfig.ProxyConfig, proxyType model.NodeType
 	}
 
 	return tracingCfg
+}
+
+func getPilotRandomSamplingEnv() float64 {
+	f := features.TraceSampling
+	if f < 0.0 || f > 100.0 {
+		log.Warnf("PILOT_TRACE_SAMPLING out of range: %v", f)
+		return 100.0
+	}
+	return f
+}
+
+func updateTraceSamplingConfig(config *meshconfig.ProxyConfig, cfg *http_conn.HttpConnectionManager_Tracing) {
+	sampling := getPilotRandomSamplingEnv()
+
+	if config.Tracing != nil && config.Tracing.Sampling != 0.0 {
+		log.Infof("Both PILOT_TRACE_SAMPLING and MeshConfig.ProxyConfig.Tracing.Sampling set; choosing MeshConfig.ProxyConfig.Tracing.Sampling")
+		sampling = config.Tracing.Sampling
+	}
+	cfg.ClientSampling = &envoy_type.Percent{
+		Value: 100.0,
+	}
+	cfg.RandomSampling = &envoy_type.Percent{
+		Value: sampling,
+	}
+	cfg.OverallSampling = &envoy_type.Percent{
+		Value: 100.0,
+	}
 }
 
 func buildCustomTags(customTags map[string]*meshconfig.Tracing_CustomTag) []*envoy_type_tracing_v2.CustomTag {
