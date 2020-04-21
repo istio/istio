@@ -37,8 +37,10 @@ import (
 var (
 	injectionWebhookConfigName = env.RegisterStringVar("INJECTION_WEBHOOK_CONFIG_NAME", "istio-sidecar-injector",
 		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.")
-	tlsCertFile = env.RegisterStringVar("TLS_SERVER_CERT_CHAIN", filepath.Join(dnsCertDir, "cert-chain.pem"), "File containing the x509 Certificate for HTTPS.")
-	tlsKeyFile  = env.RegisterStringVar("TLS_SERVER_KEY", filepath.Join(dnsCertDir, "key.pem"), "File containing the x509 private key matching --tlsCertFile.")
+	tlsCertFile = env.RegisterStringVar("INJECTION_WEBHOOK_TLS_SERVER_CERT_CHAIN", filepath.Join(dnsCertDir, "cert-chain.pem"),
+		"File containing the x509 Certificate for HTTPS.")
+	tlsKeyFile  = env.RegisterStringVar("INJECTION_WEBHOOK_TLS_SERVER_KEY", filepath.Join(dnsCertDir, "key.pem"),
+		"File containing the x509 private key matching --tlsCertFile.")
 )
 
 const (
