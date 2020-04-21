@@ -44,25 +44,25 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/security/pkg/k8s/secret"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
 var (
-	all                  bool
-	certDuration         time.Duration
-	dumpDir              string
-	istioProxyImage      string
-	istioSystemNamespace string
-	mutualTLS            bool
-	organization         string
-	remoteDirectory      string
-	scpPath              string
-	sshAuthMethod        ssh.AuthMethod
-	sshKeyLocation       string
-	sshIgnoreHostKeys    bool
-	sshUser              string
-	startIstio           bool
-	workloadNamespace    string
+	all               bool
+	certDuration      time.Duration
+	dumpDir           string
+	istioProxyImage   string
+	mutualTLS         bool
+	organization      string
+	remoteDirectory   string
+	scpPath           string
+	sshAuthMethod     ssh.AuthMethod
+	sshKeyLocation    string
+	sshIgnoreHostKeys bool
+	sshUser           string
+	startIstio        bool
+	workloadNamespace string
 
 	workloadKind = collections.IstioNetworkingV1Alpha3Workloadentries.Resource().GroupVersionKind()
 )
@@ -75,7 +75,7 @@ type workloadEntryAddressKeys struct {
 	ServiceNamespace string
 }
 
-type citadelDescribedCert struct {
+type describedCert struct {
 	PemEncodedCa []byte
 	Ca           *x509.Certificate
 	Key          crypto.PrivateKey
@@ -87,9 +87,9 @@ type remoteResponse struct {
 }
 
 func fetchSingleWorkloadEntry(workloadName string, client model.ConfigStore) ([]model.Config, string, error) {
-	workloadSplit := strings.Split(workloadName, "/")
+	workloadSplit := strings.Split(workloadName, ".")
 	if len(workloadSplit) != 2 {
-		return nil, "", fmt.Errorf("workload name: %s is not in the format: workloadName/Namespace", workloadName)
+		return nil, "", fmt.Errorf("workload name: %s is not in the format: workloadName.Namespace", workloadName)
 	}
 
 	we := client.Get(workloadKind, workloadSplit[0], workloadSplit[1])
@@ -105,37 +105,37 @@ func fetchAllWorkloadEntries(client model.ConfigStore) ([]model.Config, string, 
 	return list, workloadNamespace, err
 }
 
-func getCitadelCertificate(kubeClient kubernetes.Interface) (citadelDescribedCert, error) {
-	secret, err := kubeClient.CoreV1().Secrets(istioSystemNamespace).Get(context.TODO(), "istio-ca-secret", metav1.GetOptions{})
+func getCertificate(kubeClient kubernetes.Interface) (describedCert, error) {
+	secret, err := kubeClient.CoreV1().Secrets(istioNamespace).Get(context.TODO(), secret.CASecret, metav1.GetOptions{})
 	if err != nil {
-		return citadelDescribedCert{}, err
+		return describedCert{}, err
 	}
 
 	key, err := util.ParsePemEncodedKey(secret.Data["ca-key.pem"])
 	if err != nil {
-		return citadelDescribedCert{}, err
+		return describedCert{}, err
 	}
 	certContents := secret.Data["ca-cert.pem"]
 	cert, err := util.ParsePemEncodedCertificate(certContents)
 	if err != nil {
-		return citadelDescribedCert{}, err
+		return describedCert{}, err
 	}
 
-	return citadelDescribedCert{
+	return describedCert{
 		PemEncodedCa: certContents,
 		Ca:           cert,
 		Key:          key,
 	}, nil
 }
 
-func extractOrgName(citadelCert *x509.Certificate) string {
-	return citadelCert.Subject.Organization[0]
+func extractOrgName(cert *x509.Certificate) string {
+	return cert.Subject.Organization[0]
 }
 
 func getCertificatesForEachAddress(
 	workloadEntries []model.Config,
 	namespace string,
-	root citadelDescribedCert) (map[string]workloadEntryAddressKeys, error) {
+	root describedCert) (map[string]workloadEntryAddressKeys, error) {
 	seenIps := make(map[string]workloadEntryAddressKeys)
 
 	if organization == "" {
@@ -556,7 +556,7 @@ func vmBootstrapCommand() *cobra.Command {
 				return err
 			}
 
-			certs, err := getCitadelCertificate(kubeClient)
+			certs, err := getCertificate(kubeClient)
 			if err != nil {
 				return err
 			}
@@ -590,8 +590,6 @@ func vmBootstrapCommand() *cobra.Command {
 		"duration the certificates generated are valid for.")
 	vmBSCommand.PersistentFlags().StringVar(&istioProxyImage, "istio-image", "istio/proxyv2:latest",
 		"the istio proxy image to start up when starting istio")
-	vmBSCommand.PersistentFlags().StringVar(&istioSystemNamespace, "istio-system-namespace", "istio-system",
-		"the namespace for istio-system")
 	vmBSCommand.PersistentFlags().BoolVar(&mutualTLS, "mutual-tls", false,
 		"Whether or not to enable mutual TLS if starting istio-proxy.")
 	vmBSCommand.PersistentFlags().StringVarP(&workloadNamespace, "namespace", "n", "",
