@@ -20,20 +20,20 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/ghodss/yaml"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	authorizationapi "k8s.io/api/authorization/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
@@ -366,8 +366,10 @@ func NewPrecheckCommand() *cobra.Command {
 
 			// Check if we can install the IOP specified with -f
 			if len(fileNameFlags.ToOptions().Filenames) > 0 {
-				iop, err := getIOPFromFile(kubeConfigFlags, fileNameFlags.ToOptions())
+				iop, err := getIOPFromFile(fileNameFlags.ToOptions().Filenames[0])
 				if err != nil {
+					// Failure here means EITHER the file wasn't an IOP, or we can't parse
+					// the IOP yet.
 					return err
 				}
 				// Currently we don't look at specific IOP options, just the namespace and Revision
@@ -407,11 +409,14 @@ func NewPrecheckCommand() *cobra.Command {
 			if !nsExists {
 				return installPreCheck(targetNamespace, kubeConfigFlags, c.OutOrStdout())
 			}
+			if specific {
+				return installPreCheck(targetNamespace, kubeConfigFlags, c.OutOrStdout())
+			}
 
 			// The Istio namespace does exist, but it wasn't installed by 1.6.0+ because no
 			// IstioOperator is there.
-			c.Printf("Istio already installed in namespace %q\n.  Skipping pre-check.", targetNamespace)
-			c.Printf("Use 'istioctl upgrade' to upgrade or 'istioctl install --set revision=<revision>' to install another control plane.")
+			c.Printf("Istio already installed in namespace %q.  Skipping pre-check.  Confirm with 'istioctl verify-install'.\n", targetNamespace)
+			c.Printf("Use 'istioctl upgrade' to upgrade or 'istioctl install --set revision=<revision>' to install another control plane.\n")
 			return nil
 		},
 	}
@@ -442,56 +447,38 @@ func findIstios(client dynamic.Interface) ([]istioInstall, error) {
 	return retval, nil
 }
 
-// nolint: lll
-func getIOPFromFile(restClientGetter resource.RESTClientGetter, options resource.FilenameOptions) (*operator_v1alpha1.IstioOperator, error) {
-	var retval *operator_v1alpha1.IstioOperator
-
-	r := resource.NewBuilder(restClientGetter).
-		Unstructured().
-		FilenameParam(false, &options).
-		Flatten().
-		Do()
-	if r.Err() != nil {
-		return nil, r.Err()
-	}
-	visitor := genericclioptions.ResourceFinderForResult(r).Do()
-	err := visitor.Visit(func(info *resource.Info, err error) error {
-		if err != nil {
-			return err
-		}
-		content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
-		if err != nil {
-			return err
-		}
-		un := &unstructured.Unstructured{Object: content}
-		if un.GetKind() == "IstioOperator" {
-			// It is not a problem if the cluster does not include the IstioOperator
-			// we are checking.  Instead, verify the cluster has the things the
-			// IstioOperator specifies it should have.
-
-			// IstioOperator isn't part of pkg/config/schema/collections,
-			// usual conversion not available.  Convert unstructured to string
-			// and ask operator code to unmarshal.
-
-			un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
-			by, err := json.Marshal(un)
-			if err != nil {
-				return err
-			}
-
-			iop, err := operator_istio.UnmarshalIstioOperator(string(by))
-			if err != nil {
-				return err
-			}
-			retval = iop
-		}
-		return nil
-	})
-
+func getIOPFromFile(filename string) (*operator_v1alpha1.IstioOperator, error) {
+	// (DON'T use genericclioptions to read IstioOperator.  It depends on the cluster
+	// having a CRD for istiooperators, and at precheck time that might not exist.)
+	iopYaml, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
-	return retval, nil
+	content := make(map[string]interface{})
+	err = yaml.Unmarshal(iopYaml, &content)
+	if err != nil {
+		return nil, err
+	}
+	un := &unstructured.Unstructured{Object: content}
+	if un.GetKind() != "IstioOperator" {
+		return nil, fmt.Errorf("%q must contain an IstioOperator", filename)
+	}
+
+	// IstioOperator isn't part of pkg/config/schema/collections,
+	// usual conversion not available.  Convert unstructured to string
+	// and ask operator code to unmarshal.
+
+	un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
+	by, err := json.Marshal(un)
+	if err != nil {
+		return nil, err
+	}
+
+	iop, err := operator_istio.UnmarshalIstioOperator(string(by))
+	if err != nil {
+		return nil, err
+	}
+	return iop, nil
 }
 
 func namespaceExists(ns string, restClientGetter genericclioptions.RESTClientGetter) (bool, error) {

@@ -59,7 +59,7 @@ func verifyInstallIOPrevision(enableVerbose bool, istioNamespaceFlag string,
 
 	iop, err := operatorFromCluster(istioNamespaceFlag, opts.Revision, restClientGetter)
 	if err != nil {
-		return fmt.Errorf("could not load IstioOperator from cluster: %v", err)
+		return fmt.Errorf("could not load IstioOperator from cluster: %v.  Use --filename", err)
 	}
 	crdCount, istioDeploymentCount, err := verifyPostInstallIstioOperator(enableVerbose,
 		istioNamespaceFlag,
