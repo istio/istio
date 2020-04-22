@@ -19,7 +19,6 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -90,19 +89,6 @@ func (o *objectSet) size() int {
 	return len(o.keySlice)
 }
 
-// nameMatches returns a subset of o where objects names match the given regex.
-func (o *objectSet) nameMatches(nameRegex string) *objectSet {
-	ret := &objectSet{}
-	for k, v := range o.objMap {
-		_, _, objName := object.FromHash(k)
-		m, err := regexp.MatchString(nameRegex, objName)
-		if err != nil && m {
-			ret.append(v)
-		}
-	}
-	return ret
-}
-
 // nameEquals returns the object in o whose name matches "name", or nil if no object name matches.
 func (o *objectSet) nameEquals(name string) *object.K8sObject {
 	for k, v := range o.objMap {
@@ -120,18 +106,6 @@ func (o *objectSet) kind(kind string) *objectSet {
 	for k, v := range o.objMap {
 		objKind, _, _ := object.FromHash(k)
 		if objKind == kind {
-			ret.append(v)
-		}
-	}
-	return ret
-}
-
-// namespace returns a subset of o where namespace matches the given value or fails if it's not found in objs.
-func (o *objectSet) namespace(namespace string) *objectSet {
-	ret := &objectSet{}
-	for k, v := range o.objMap {
-		_, objNamespace, _ := object.FromHash(k)
-		if objNamespace == namespace {
 			ret.append(v)
 		}
 	}
@@ -157,14 +131,6 @@ func mustGetRole(g *gomega.WithT, objs *objectSet, name string) *object.K8sObjec
 	obj := objs.kind(roleStr).nameEquals(name)
 	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
 	return obj
-}
-
-// mustGetContainer returns the container tree with the given name in the deployment with the given name.
-func mustGetContainer(g *gomega.WithT, objs *objectSet, deploymentName, containerName string) map[string]interface{} {
-	obj := mustGetDeployment(g, objs, deploymentName)
-	container := obj.Container(containerName)
-	g.Expect(container).Should(gomega.Not(gomega.BeNil()))
-	return container
 }
 
 // HavePathValueEqual matches map[string]interface{} tree against a PathValue.
@@ -267,14 +233,6 @@ func mustSelect(t test.Failer, selector map[string]string, labels map[string]str
 	}
 }
 
-func mustNotSelect(t test.Failer, selector map[string]string, labels map[string]string) {
-	t.Helper()
-	kselector := labels2.Set(selector).AsSelectorPreValidated()
-	if kselector.Matches(labels2.Set(labels)) {
-		t.Fatalf("%v selects %v when it should not", selector, labels)
-	}
-}
-
 func mustGetLabels(t test.Failer, obj object.K8sObject, path string) map[string]string {
 	t.Helper()
 	got := mustGetPath(t, obj, path)
@@ -305,6 +263,7 @@ func mustGetPath(t test.Failer, obj object.K8sObject, path string) interface{} {
 	return got
 }
 
+// nolint: unparam
 func mustFindObject(t test.Failer, objs object.K8sObjects, name, kind string) object.K8sObject {
 	t.Helper()
 	o := findObject(objs, name, kind)
@@ -331,14 +290,6 @@ func mustGetValueAtPath(g *gomega.WithT, t map[string]interface{}, path string) 
 	g.Expect(err).Should(gomega.BeNil(), "path %s should exist (%s)", path, err)
 	g.Expect(f).Should(gomega.BeTrue(), "path %s should exist", path)
 	return got.Node
-}
-
-func objectHashesOrdered(objs object.K8sObjects) []string {
-	var out []string
-	for _, o := range objs {
-		out = append(out, o.Hash())
-	}
-	return out
 }
 
 func createTempDirOrFail(t *testing.T, prefix string) string {

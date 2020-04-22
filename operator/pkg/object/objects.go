@@ -22,9 +22,10 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"istio.io/istio/operator/pkg/tpath"
 	"sort"
 	"strings"
+
+	"istio.io/istio/operator/pkg/tpath"
 
 	"github.com/ghodss/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
