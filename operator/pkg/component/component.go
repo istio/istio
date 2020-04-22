@@ -25,13 +25,12 @@ import (
 	"github.com/ghodss/yaml"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/patch"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -534,7 +533,6 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 	// Add the k8s resources from IstioOperatorSpec.
 	my, err = cf.Translator.OverlayK8sSettings(my, cf.InstallSpec, cf.componentName, cf.resourceName, cf.addonName, cf.index)
 	if err != nil {
-		log.Errorf("Error in OverlayK8sSettings: %s", err)
 		return "", err
 	}
 	cnOutput := string(cf.componentName)

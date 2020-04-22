@@ -50,7 +50,7 @@ type rootArgs struct {
 
 func addFlags(cmd *cobra.Command, rootArgs *rootArgs) {
 	cmd.PersistentFlags().BoolVarP(&rootArgs.logToStdErr, "logtostderr", "",
-		true, "Send logs to stderr.")
+		false, "Send logs to stderr.")
 	cmd.PersistentFlags().BoolVarP(&rootArgs.dryRun, "dry-run", "",
 		false, "Console/log output only, make no changes.")
 	cmd.PersistentFlags().BoolVarP(&rootArgs.verbose, "verbose", "",

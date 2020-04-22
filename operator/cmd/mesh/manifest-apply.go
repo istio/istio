@@ -23,11 +23,13 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"istio.io/api/operator/v1alpha1"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/pkg/log"
 )
 
@@ -131,7 +133,7 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 }
 
 func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyArgs, logOpts *log.Options) error {
-	l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
+	l := clog.NewConsoleLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
 	// Warn users if they use `manifest apply` without any config args.
 	if len(maArgs.inFilenames) == 0 && len(maArgs.set) == 0 && !rootArgs.dryRun && !maArgs.skipConfirmation {
 		if !confirm("This will install the default Istio profile into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
@@ -157,7 +159,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 //  verbose full manifests are output
 //  wait    block until Services and Deployments are ready, or timeout after waitTimeout
 func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRun bool, verbose bool,
-	kubeConfigPath string, context string, wait bool, waitTimeout time.Duration, l *Logger) error {
+	kubeConfigPath string, context string, wait bool, waitTimeout time.Duration, l clog.Logger) error {
 
 	ysf, err := yamlFromSetFlags(setOverlay, force, l)
 	if err != nil {
@@ -192,27 +194,33 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	helmreconciler.FlushObjectCaches()
-	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, &helmreconciler.Options{DryRun: dryRun})
+	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, &helmreconciler.Options{DryRun: dryRun, Log: l})
 	if err != nil {
 		return err
 	}
-	if err := reconciler.Reconcile(); err != nil {
-		l.logAndPrint("\n\n✘ Errors were logged during apply operation. Please check component installation logs above.\n")
-		return fmt.Errorf("errors were logged during apply operation")
+	status, err := reconciler.Reconcile()
+	if err != nil {
+		l.LogAndPrintf("\n\n✘ Errors were logged during apply operation:\n\n%s\n", err)
+		return fmt.Errorf("errors occurred during operation")
 	}
+	if status.Status != v1alpha1.InstallStatus_HEALTHY {
+		return fmt.Errorf("errors occurred during operation")
+	}
+
 	if wait {
+		l.LogAndPrint("Waiting for resources to become ready...")
 		objs, err := object.ParseK8sObjectsFromYAMLManifest(reconciler.GetManifests().String())
 		if err != nil {
-			l.logAndPrintf("\n\n✘ Errors in manifest:\n%s\n", err)
+			l.LogAndPrintf("\n\n✘ Errors in manifest:\n%s\n", err)
 			return fmt.Errorf("errors during wait")
 		}
-		if err := manifest.WaitForResources(objs, clientSet, waitTimeout, dryRun); err != nil {
-			l.logAndPrintf("\n\n✘ Errors during wait:\n%s\n", err)
+		if err := manifest.WaitForResources(objs, clientSet, waitTimeout, dryRun, l); err != nil {
+			l.LogAndPrintf("\n\n✘ Errors during wait:\n%s\n", err)
 			return fmt.Errorf("errors during wait")
 		}
 	}
 
-	l.logAndPrint("\n\n✔ Installation complete\n")
+	l.LogAndPrint("\n\n✔ Installation complete\n")
 
 	// Save state to cluster in IstioOperator CR.
 	iopStr, err := translate.IOPStoIOPstr(iops, crName, iopv1alpha1.Namespace(iops))
