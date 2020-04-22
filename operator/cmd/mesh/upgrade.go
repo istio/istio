@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/operator/pkg/hooks"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/operator/pkg/util/clog"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	"istio.io/pkg/log"
 )
@@ -106,7 +107,7 @@ func UpgradeCmd() *cobra.Command {
 			"traffic may be disrupted during upgrade. Please ensure PodDisruptionBudgets " +
 			"are defined to maintain service continuity.",
 		RunE: func(cmd *cobra.Command, args []string) (e error) {
-			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
+			l := clog.NewConsoleLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
 			initLogsOrExit(rootArgs)
 			err := upgrade(rootArgs, macArgs, l)
 			if err != nil {
@@ -121,7 +122,7 @@ func UpgradeCmd() *cobra.Command {
 }
 
 // upgrade is the main function for Upgrade command
-func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
+func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	// Create a kube client from args.kubeConfigPath and  args.context
 	kubeClient, err := manifest.NewClient(args.kubeConfigPath, args.context)
 	if err != nil {
@@ -163,7 +164,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 		return fmt.Errorf("upgrade version check failed: %v -> %v. Error: %v",
 			currentVersion, targetVersion, err)
 	}
-	l.logAndPrintf("Upgrade version check passed: %v -> %v.\n", currentVersion, targetVersion)
+	l.LogAndPrintf("Upgrade version check passed: %v -> %v.\n", currentVersion, targetVersion)
 
 	// Read the overridden IOPS from args.inFilenames
 	overrideIOPSYaml := ""
@@ -227,8 +228,8 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 	}
 
 	if !args.wait {
-		l.logAndPrintf("Upgrade submitted. Please use `istioctl version` to check the current versions.")
-		l.logAndPrintf(upgradeSidecarMessage)
+		l.LogAndPrintf("Upgrade submitted. Please use `istioctl version` to check the current versions.")
+		l.LogAndPrintf(upgradeSidecarMessage)
 		return nil
 	}
 
@@ -245,8 +246,8 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 		return fmt.Errorf("failed to read the upgraded Istio version. Error: %v", err)
 	}
 
-	l.logAndPrintf("Success. Now the Istio control plane is running at version %v.\n", upgradeVer)
-	l.logAndPrintf(upgradeSidecarMessage)
+	l.LogAndPrintf("Success. Now the Istio control plane is running at version %v.\n", upgradeVer)
+	l.LogAndPrintf(upgradeSidecarMessage)
 	return nil
 }
 
@@ -256,23 +257,23 @@ func installURLFromVersion(version string) string {
 }
 
 // checkUpgradeIOPS checks the upgrade eligibility by comparing the current IOPS with the target IOPS
-func checkUpgradeIOPS(curIOPS, tarIOPS, ignoreIOPS string, l *Logger) {
+func checkUpgradeIOPS(curIOPS, tarIOPS, ignoreIOPS string, l clog.Logger) {
 	diff := compare.YAMLCmpWithIgnore(curIOPS, tarIOPS, nil, ignoreIOPS)
 	if diff == "" {
-		l.logAndPrintf("Upgrade check: IOPS unchanged. The target IOPS are identical to the current IOPS.\n")
+		l.LogAndPrintf("Upgrade check: IOPS unchanged. The target IOPS are identical to the current IOPS.\n")
 	} else {
-		l.logAndPrintf("Upgrade check: Warning!!! The following IOPS will be changed as part of upgrade. "+
+		l.LogAndPrintf("Upgrade check: Warning!!! The following IOPS will be changed as part of upgrade. "+
 			"Please double check they are correct:\n%s", diff)
 	}
 }
 
 // waitForConfirmation waits for user's confirmation if skipConfirmation is not set
-func waitForConfirmation(skipConfirmation bool, l *Logger) {
+func waitForConfirmation(skipConfirmation bool, l clog.Logger) {
 	if skipConfirmation {
 		return
 	}
 	if !confirm("Confirm to proceed [y/N]?", os.Stdout) {
-		l.logAndFatalf("Abort.")
+		l.LogAndFatalf("Abort.")
 	}
 }
 
@@ -301,7 +302,7 @@ func checkSupportedVersions(cur, tar, versionsURI string) error {
 }
 
 // retrieveControlPlaneVersion retrieves the version number from the Istio control plane
-func retrieveControlPlaneVersion(kubeClient manifest.ExecClient, istioNamespace string, l *Logger) (string, error) {
+func retrieveControlPlaneVersion(kubeClient manifest.ExecClient, istioNamespace string, l clog.Logger) (string, error) {
 	cv, e := kubeClient.GetIstioVersions(istioNamespace)
 	if e != nil {
 		return "", fmt.Errorf("failed to retrieve Istio control plane version, error: %v", e)
@@ -312,9 +313,9 @@ func retrieveControlPlaneVersion(kubeClient manifest.ExecClient, istioNamespace 
 	}
 
 	for _, remote := range cv {
-		l.logAndPrintf("Control Plane - %v", remote)
+		l.LogAndPrintf("Control Plane - %v", remote)
 	}
-	l.logAndPrint("")
+	l.LogAndPrint("")
 
 	v, e := coalesceVersions(cv)
 	if e != nil {
@@ -325,26 +326,26 @@ func retrieveControlPlaneVersion(kubeClient manifest.ExecClient, istioNamespace 
 
 // waitUpgradeComplete waits for the upgrade to complete by periodically comparing the current component version
 // to the target version.
-func waitUpgradeComplete(kubeClient manifest.ExecClient, istioNamespace string, targetVer string, l *Logger) error {
+func waitUpgradeComplete(kubeClient manifest.ExecClient, istioNamespace string, targetVer string, l clog.Logger) error {
 	for i := 1; i <= upgradeWaitCheckVerMaxAttempts; i++ {
 		sleepSeconds(upgradeWaitSecCheckVerPerLoop)
 		cv, e := kubeClient.GetIstioVersions(istioNamespace)
 		if e != nil {
-			l.logAndPrintf("Failed to retrieve Istio control plane version, error: %v", e)
+			l.LogAndPrintf("Failed to retrieve Istio control plane version, error: %v", e)
 			continue
 		}
 		if cv == nil {
-			l.logAndPrintf("Failed to find Istio namespace: %v", istioNamespace)
+			l.LogAndPrintf("Failed to find Istio namespace: %v", istioNamespace)
 			continue
 		}
 		if identicalVersions(cv) && targetVer == cv[0].Version {
-			l.logAndPrintf("Upgrade rollout completed. " +
+			l.LogAndPrintf("Upgrade rollout completed. " +
 				"All Istio control plane pods are running on the target version.\n\n")
 			return nil
 		}
 		for _, remote := range cv {
 			if targetVer != remote.Version {
-				l.logAndPrintf("Control Plane - %v does not match the target version %s",
+				l.LogAndPrintf("Control Plane - %v does not match the target version %s",
 					remote, targetVer)
 			}
 		}

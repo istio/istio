@@ -22,7 +22,6 @@ import (
 	"strings"
 	"time"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/constants"
 
 	"istio.io/istio/pilot/pkg/security/model"
@@ -182,8 +181,7 @@ type SDSAgent struct {
 	CitadelClient caClientInterface.Client
 
 	// CAEndpoint is the CA endpoint to which node agent sends CSR request.
-	CAEndpoint  string
-	proxyConfig *meshconfig.ProxyConfig
+	CAEndpoint string
 }
 
 // NewSDSAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -194,12 +192,8 @@ type SDSAgent struct {
 //
 // If node agent and JWT are mounted: it indicates user injected a config using hostPath, and will be used.
 //
-func NewSDSAgent(proxyConfig *meshconfig.ProxyConfig, pilotCertProvider, jwtPath, outputKeyCertToDir string) *SDSAgent {
-	ac := &SDSAgent{
-		proxyConfig: proxyConfig,
-	}
-	discAddr := proxyConfig.DiscoveryAddress
-	tlsRequired := proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS
+func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, outputKeyCertToDir string) *SDSAgent {
+	ac := &SDSAgent{}
 
 	ac.PilotCertProvider = pilotCertProvider
 	ac.OutputKeyCertToDir = outputKeyCertToDir
@@ -221,7 +215,6 @@ func NewSDSAgent(proxyConfig *meshconfig.ProxyConfig, pilotCertProvider, jwtPath
 		if _, err := os.Stat(certDir + "/key.pem"); err == nil {
 			ac.CertsPath = certDir
 		}
-		ac.OutputKeyCertToDir = certDir
 		// If the root-cert is in the old location, use it.
 		if _, err := os.Stat(certDir + "/root-cert.pem"); err == nil {
 			CitadelCACertPath = certDir
@@ -237,7 +230,7 @@ func NewSDSAgent(proxyConfig *meshconfig.ProxyConfig, pilotCertProvider, jwtPath
 			if discPort == "15012" {
 				log.Fatala("Missing JWT, can't authenticate with control plane. Try using plain text (15010)")
 			}
-                        // continue to initialize the agent. 
+			// continue to initialize the agent.
 		}
 	}
 
@@ -281,15 +274,12 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 	serverOptions.PilotCertProvider = conf.PilotCertProvider
 	// Next to the envoy config, writeable dir (mounted as mem)
 	serverOptions.WorkloadUDSPath = LocalSDS
-	serverOptions.UseLocalJWT = conf.JWTPath != "" // true if we a JWT exists
+	serverOptions.UseLocalJWT = conf.CertsPath == "" // true if we don't have a key.pem
 	serverOptions.CertsDir = conf.CertsPath
 	serverOptions.JWTPath = conf.JWTPath
 	serverOptions.OutputKeyCertToDir = conf.OutputKeyCertToDir
 	serverOptions.CAEndpoint = conf.CAEndpoint
 	serverOptions.TLSEnabled = conf.RequireCerts
-
-	// TODO: env control
-	initXDS(conf.proxyConfig)
 
 	// TODO: remove the caching, workload has a single cert
 	workloadSecretCache, _ := conf.newSecretCache(serverOptions)
@@ -311,8 +301,6 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 	if err != nil {
 		return nil, err
 	}
-
-	startXDS()
 
 	return server, nil
 }

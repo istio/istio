@@ -51,7 +51,6 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -331,6 +330,10 @@ var (
 
 	// httpGrpcAccessLog is used when access log service is enabled in mesh config.
 	httpGrpcAccessLog = buildHTTPGrpcAccessLog()
+
+	// pilotTraceSamplingEnv is value of PILOT_TRACE_SAMPLING env bounded
+	// by [0.0, 100.0]; if outside the range it is set to 100.0
+	pilotTraceSamplingEnv = getPilotRandomSamplingEnv()
 
 	emptyFilterChainMatch = &listener.FilterChainMatch{}
 
@@ -1986,26 +1989,17 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	}
 
 	if pluginParams.Push.Mesh.EnableTracing {
-		connectionManager.Tracing = buildTracingConfig(pluginParams.Push.Mesh.DefaultConfig, pluginParams.Node.Type)
+		proxyConfig := pluginParams.Node.Metadata.ProxyConfigOrDefault(pluginParams.Push.Mesh.DefaultConfig)
+		connectionManager.Tracing = buildTracingConfig(proxyConfig)
 		connectionManager.GenerateRequestId = proto.BoolTrue
 	}
 
 	return connectionManager
 }
 
-func buildTracingConfig(config *meshconfig.ProxyConfig, proxyType model.NodeType) *http_conn.HttpConnectionManager_Tracing {
-	tc := authn_model.GetTraceConfig()
-	tracingCfg := &http_conn.HttpConnectionManager_Tracing{
-		ClientSampling: &envoy_type.Percent{
-			Value: tc.ClientSampling,
-		},
-		RandomSampling: &envoy_type.Percent{
-			Value: tc.RandomSampling,
-		},
-		OverallSampling: &envoy_type.Percent{
-			Value: tc.OverallSampling,
-		},
-	}
+func buildTracingConfig(config *meshconfig.ProxyConfig) *http_conn.HttpConnectionManager_Tracing {
+	tracingCfg := &http_conn.HttpConnectionManager_Tracing{}
+	updateTraceSamplingConfig(config, tracingCfg)
 
 	if config.Tracing != nil {
 		// only specify a MaxPathTagLength if meshconfig has specified one
@@ -2017,14 +2011,42 @@ func buildTracingConfig(config *meshconfig.ProxyConfig, proxyType model.NodeType
 				}
 		}
 
-		// custom tags should only be used for sidecar proxies and should not include
-		// gateways due to client requests from outside of the mesh
-		if len(config.Tracing.CustomTags) != 0 && proxyType == model.SidecarProxy {
+		if len(config.Tracing.CustomTags) != 0 {
 			tracingCfg.CustomTags = buildCustomTags(config.Tracing.CustomTags)
 		}
 	}
 
 	return tracingCfg
+}
+
+func getPilotRandomSamplingEnv() float64 {
+	f := features.TraceSampling
+	if f < 0.0 || f > 100.0 {
+		log.Warnf("PILOT_TRACE_SAMPLING out of range: %v", f)
+		return 100.0
+	}
+	return f
+}
+
+func updateTraceSamplingConfig(config *meshconfig.ProxyConfig, cfg *http_conn.HttpConnectionManager_Tracing) {
+	sampling := pilotTraceSamplingEnv
+
+	if config.Tracing != nil && config.Tracing.Sampling != 0.0 {
+		sampling = config.Tracing.Sampling
+
+		if sampling > 100.0 {
+			sampling = 100.0
+		}
+	}
+	cfg.ClientSampling = &envoy_type.Percent{
+		Value: 100.0,
+	}
+	cfg.RandomSampling = &envoy_type.Percent{
+		Value: sampling,
+	}
+	cfg.OverallSampling = &envoy_type.Percent{
+		Value: 100.0,
+	}
 }
 
 func buildCustomTags(customTags map[string]*meshconfig.Tracing_CustomTag) []*envoy_type_tracing_v2.CustomTag {

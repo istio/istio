@@ -19,11 +19,11 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"google.golang.org/grpc/codes"
+
 	"istio.io/istio/pilot/pkg/model"
 )
 
 // gen2 provides experimental support for extended generation mechanism.
-
 
 func (s *DiscoveryServer) generator(proxy *model.Proxy, con *XdsConnection, discReq *xdsapi.DiscoveryRequest) model.XdsResourceGenerator {
 	if proxy.Metadata.Generator != "" {
@@ -53,7 +53,7 @@ func (s *DiscoveryServer) handleReqAck(con *XdsConnection, discReq *xdsapi.Disco
 	w := con.node.Active[t]
 	if w == nil {
 		w = &model.WatchedResource{
-			TypeUrl:  t,
+			TypeUrl: t,
 		}
 		con.node.Active[t] = w
 		isAck = false // newly watched resource
@@ -99,7 +99,6 @@ func (s *DiscoveryServer) handleReqAck(con *XdsConnection, discReq *xdsapi.Disco
 	return w, isAck
 }
 
-
 // handleCustomGenerator uses model.Generator to generate the response.
 func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *xdsapi.DiscoveryRequest) error {
 	w, isAck := s.handleReqAck(con, req)
@@ -134,10 +133,12 @@ func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *xdsapi.
 		recordSendError(apiSendErrPushes, err)
 		return err
 	}
+	apiPushes.Increment()
 	w.LastSent = time.Now()
 	w.LastSize = sz // just resource size - doesn't include header and types
 	w.NonceSent = resp.Nonce
 	adsLog.Infoa("Pushed ", w.TypeUrl, " count=", len(cl), " sz=", sz)
+
 	return nil
 }
 
@@ -185,4 +186,3 @@ func (s *DiscoveryServer) pushGeneratorV2(con *XdsConnection, push *model.PushCo
 	adsLog.Infof("XDS: PUSH for node:%s listeners:%d", con.node.ID, len(cl))
 	return nil
 }
-

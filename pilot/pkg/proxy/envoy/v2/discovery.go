@@ -91,7 +91,7 @@ type DiscoveryServer struct {
 	// APIs and service registry info
 	ConfigGenerator core.ConfigGenerator
 
-	// Generators allow customising the generated config, based on the client metadata.
+	// Generators allow customizing the generated config, based on the client metadata.
 	Generators map[string]model.XdsResourceGenerator
 
 	concurrentPushLimit chan struct{}
@@ -149,7 +149,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 	out := &DiscoveryServer{
 		Env:                     env,
 		ConfigGenerator:         core.NewConfigGenerator(plugins),
-		Generators: 						 map[string]model.XdsResourceGenerator{},
+		Generators:              map[string]model.XdsResourceGenerator{},
 		EndpointShardsByService: map[string]map[string]*EndpointShards{},
 		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
 		pushChannel:             make(chan *model.PushRequest, 10),

@@ -37,7 +37,7 @@ func TestString(t *testing.T) {
 }
 
 func TestToString(t *testing.T) {
-	if got, want := ToString(testErrs), wantStr; got != want {
+	if got, want := ToString(testErrs, defaultSeparator), wantStr; got != want {
 		t.Errorf("got: %s, want: %s", got, want)
 	}
 }
