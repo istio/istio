@@ -159,6 +159,7 @@ func getCertificatesForEachAddress(
 			IsCA:         false,
 			IsSelfSigned: false,
 			IsClient:     true,
+			IsServer:     true,
 			RSAKeySize:   2048,
 		}
 		certPem, privPem, err := util.GenCertKeyFromOptions(signerOpts)
@@ -445,6 +446,7 @@ defaultConfig:
 					"-e POD_NAME="+certs.ServiceName+"-"+addressIdentifier+" "+
 					"-e JWT_POLICY=none "+
 					"-e PROV_CERT=/var/run/secrets/istio "+
+					"-e OUTPUT_CERTS=/var/run/secrets/istio "+
 					"-e PILOT_CERT_PROVIDER=istiod "+
 					"-e POD_NAMESPACE="+certs.ServiceNamespace+" "+
 					"-e ISTIO_META_WORKLOAD_NAME="+certs.ServiceName+" "+
