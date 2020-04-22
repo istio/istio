@@ -528,18 +528,3 @@ func runManifestGenerate(filenames []string, flags string, useCompiledInCharts b
 	}
 	return runCommand(args)
 }
-
-func createTempDirOrFail(t *testing.T, prefix string) string {
-	dir, err := ioutil.TempDir("", prefix)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return dir
-}
-
-func removeDirOrFail(t *testing.T, path string) {
-	err := os.RemoveAll(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
