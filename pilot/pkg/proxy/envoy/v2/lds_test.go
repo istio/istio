@@ -237,7 +237,7 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 
 	// Expect 6 listeners : 2 orig_dst, 4 outbound (http, tcp1, istio-policy and istio-telemetry)
 	if (len(adsResponse.GetHTTPListeners()) + len(adsResponse.GetTCPListeners())) != 6 {
-		t.Fatalf("Expected 7 listeners, got %d\n", len(adsResponse.GetHTTPListeners())+len(adsResponse.GetTCPListeners()))
+		t.Fatalf("Expected 6 listeners, got %d\n", len(adsResponse.GetHTTPListeners())+len(adsResponse.GetTCPListeners()))
 	}
 
 	// Expect 11 CDS clusters:
@@ -245,7 +245,7 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 	// 9 outbound (2 http services, 1 tcp service, 2 istio-system services,
 	//   and 2 subsets of http1, 1 blackhole, 1 passthrough)
 	if (len(adsResponse.GetClusters()) + len(adsResponse.GetEdsClusters())) != 11 {
-		t.Fatalf("Expected 12 clusters in CDS output. Got %d", len(adsResponse.GetClusters())+len(adsResponse.GetEdsClusters()))
+		t.Fatalf("Expected 11 clusters in CDS output. Got %d", len(adsResponse.GetClusters())+len(adsResponse.GetEdsClusters()))
 	}
 
 	// Expect two vhost blocks in RDS output for 8080 (one for http1, another for http2)

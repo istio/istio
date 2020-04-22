@@ -312,47 +312,49 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 	routes := []string{}
 	ldsSize := 0
 
+	// TODO(lambdai): Count by filter chain instead of listener. Otherwise the tests will all break once moving to
+	// big virtual outbound listener.
 	for _, l := range ll {
 		ldsSize += proto.Size(l)
-
-		// The last filter is the actual destination for inbound listener
-		filter := l.FilterChains[len(l.FilterChains)-1].Filters[0]
-
-		// The actual destination will be the next to the last if the last filter is a passthrough filter
-		if l.FilterChains[len(l.FilterChains)-1].GetName() == util.PassthroughFilterChain {
-			filter = l.FilterChains[len(l.FilterChains)-2].Filters[0]
-		}
-
-		if filter.Name == "mixer" {
-			filter = l.FilterChains[len(l.FilterChains)-1].Filters[1]
-		}
-		if filter.Name == "envoy.tcp_proxy" {
-			lt[l.Name] = l
-			config := filter.GetConfig()
-			if config == nil {
-				config, _ = conversion.MessageToStruct(filter.GetTypedConfig())
+		nextFilterChain:
+		for i := range l.FilterChains {
+			// Iterate in the reverse order
+			fc := l.FilterChains[len(l.FilterChains)-i-1]
+			if fc.Name == util.PassthroughFilterChain {
+				continue
 			}
-			c := config.Fields["cluster"].GetStringValue()
-			adscLog.Debugf("TCP: %s -> %s", l.Name, c)
-		} else if filter.Name == "envoy.http_connection_manager" {
-			lh[l.Name] = l
+			for _, filter := range fc.Filters {
+				if filter.Name == "envoy.tcp_proxy" {
+					lt[l.Name] = l
+					config := filter.GetConfig()
+					if config == nil {
+						config, _ = conversion.MessageToStruct(filter.GetTypedConfig())
+					}
+					c := config.Fields["cluster"].GetStringValue()
+					adscLog.Debugf("TCP: %s -> %s", l.Name, c)
+				} else if filter.Name == "envoy.http_connection_manager" {
+					lh[l.Name] = l
 
-			// Getting from config is too painful..
-			port := l.Address.GetSocketAddress().GetPortValue()
-			if port == 15002 {
-				routes = append(routes, "http_proxy")
-			} else {
-				routes = append(routes, fmt.Sprintf("%d", port))
+					// Getting from config is too painful..
+					port := l.Address.GetSocketAddress().GetPortValue()
+					if port == 15002 {
+						routes = append(routes, "http_proxy")
+					} else {
+						routes = append(routes, fmt.Sprintf("%d", port))
+					}
+				} else if filter.Name == "envoy.mongo_proxy" {
+					// ignore for now
+				} else if filter.Name == "envoy.redis_proxy" {
+					// ignore for now
+				} else if filter.Name == "envoy.filters.network.mysql_proxy" {
+					// ignore for now
+				} else {
+					tm := &jsonpb.Marshaler{Indent: "  "}
+					adscLog.Infof(tm.MarshalToString(l))
+					continue
+				}
+				break nextFilterChain
 			}
-		} else if filter.Name == "envoy.mongo_proxy" {
-			// ignore for now
-		} else if filter.Name == "envoy.redis_proxy" {
-			// ignore for now
-		} else if filter.Name == "envoy.filters.network.mysql_proxy" {
-			// ignore for now
-		} else {
-			tm := &jsonpb.Marshaler{Indent: "  "}
-			adscLog.Infof(tm.MarshalToString(l))
 		}
 	}
 
