@@ -338,7 +338,8 @@ func (s *Server) initStatusController(args *PilotArgs) {
 		go leaderelection.
 			NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
 			AddRunFunction(func(stop <-chan struct{}) {
-				(&status.DistributionController{}).Start(s.kubeConfig, args.Namespace, stop)
+				(&status.DistributionController{QPS:float32(features.StatusQPS), Burst:features.StatusBurst}).
+					Start(s.kubeConfig, args.Namespace, stop)
 			}).Run(stop)
 		return nil
 	})

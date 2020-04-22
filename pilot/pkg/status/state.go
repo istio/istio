@@ -61,6 +61,8 @@ type DistributionController struct {
 	knownResources   map[schema.GroupVersionResource]dynamic.NamespaceableResourceInterface
 	currentlyWriting ResourceLock
 	StaleInterval    time.Duration
+	QPS float32
+	Burst int
 }
 
 func (c *DistributionController) Start(restConfig *rest.Config, namespace string, stop <-chan struct{}) {
@@ -80,6 +82,8 @@ func (c *DistributionController) Start(restConfig *rest.Config, namespace string
 	c.ObservationTime = make(map[string]time.Time)
 	c.knownResources = make(map[schema.GroupVersionResource]dynamic.NamespaceableResourceInterface)
 	var err error
+	restConfig.QPS = c.QPS
+	restConfig.Burst = c.Burst
 	if c.client, err = dynamic.NewForConfig(restConfig); err != nil {
 		scope.Fatalf("Could not connect to kubernetes: %s", err)
 	}

@@ -608,8 +608,8 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		if s.Env.StatusReporter != nil {
 			// inform distribution status reporter that this connection has been updated, because it effectively has
 			go func() {
-				for _, typeUrl := range []string{ClusterType, ListenerType, RouteType, EndpointType} {
-					s.Env.StatusReporter.RegisterEvent(con.ConID, typeUrl, pushEv.noncePrefix)
+				for _, typeURL := range []string{ClusterType, ListenerType, RouteType, EndpointType} {
+					s.Env.StatusReporter.RegisterEvent(con.ConID, typeURL, pushEv.noncePrefix)
 				}
 			}()
 		}
