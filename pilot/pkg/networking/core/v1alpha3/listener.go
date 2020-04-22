@@ -2011,9 +2011,7 @@ func buildTracingConfig(config *meshconfig.ProxyConfig, proxyType model.NodeType
 				}
 		}
 
-		// custom tags should only be used for sidecar proxies and should not include
-		// gateways due to client requests from outside of the mesh
-		if len(config.Tracing.CustomTags) != 0 && proxyType == model.SidecarProxy {
+		if len(config.Tracing.CustomTags) != 0  {
 			tracingCfg.CustomTags = buildCustomTags(config.Tracing.CustomTags)
 		}
 	}

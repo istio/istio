@@ -1678,7 +1678,17 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				MaxPathTagLength: &wrappers.UInt32Value{
 					Value: 100,
 				},
-				CustomTags: nil,
+				CustomTags: []*envoy_type_tracing_v2.CustomTag{
+					{
+						Tag: "custom_tag_request_header",
+						Type: &envoy_type_tracing_v2.CustomTag_RequestHeader{
+							RequestHeader: &envoy_type_tracing_v2.CustomTag_Header{
+								Name:         "custom_tag_request_header_name",
+								DefaultValue: "custom-defaulted-value-request-header",
+							},
+						},
+					},
+				},
 			},
 		},
 	}
