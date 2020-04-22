@@ -129,11 +129,13 @@ func (c *DistributionController) writeAllStatus() (staleReporters []string) {
 				scope.Warnf("Status reporter %s has not been heard from since %v, deleting report.",
 					reporter, c.ObservationTime[reporter])
 				staleReporters = append(staleReporters, reporter)
-				continue
+			} else {
+				distributionState.PlusEquals(w)
 			}
-			distributionState.PlusEquals(w)
 		}
-		go c.writeStatus(config, distributionState)
+		if distributionState.TotalInstances > 0 {  // this is necessary when all reports are stale.
+ 			go c.writeStatus(config, distributionState)
+		}
 	}
 	return
 }
@@ -148,7 +150,7 @@ func (c *DistributionController) writeStatus(config Resource, distributionState 
 	// should this be moved to some sort of InformerCache for speed?
 	current, err := resourceInterface.Get(ctx, config.Name, metav1.GetOptions{ResourceVersion: config.ResourceVersion})
 	if err != nil {
-		if errors.IsGone(err) {
+		if errors.IsGone(err) || errors.IsNotFound(err) {
 			// this resource has been deleted.  prune its state and move on.
 			c.pruneOldVersion(config)
 			return
@@ -211,8 +213,8 @@ func ReconcileStatuses(current map[string]interface{}, desired Progress, clock c
 	needsReconcile := false
 	currentStatus, err := getTypedStatus(current["status"])
 	desiredCondition := IstioCondition{
-		Type:               StillPropagating,
-		Status:             boolToConditionStatus(desired.AckedInstances != desired.TotalInstances),
+		Type:               Reconciled,
+		Status:             boolToConditionStatus(desired.AckedInstances == desired.TotalInstances),
 		LastProbeTime:      metav1.NewTime(clock.Now()),
 		LastTransitionTime: metav1.NewTime(clock.Now()),
 		Message:            fmt.Sprintf("%d/%d proxies up to date.", desired.AckedInstances, desired.TotalInstances),
@@ -229,7 +231,7 @@ func ReconcileStatuses(current map[string]interface{}, desired Progress, clock c
 	var currentCondition *IstioCondition
 	conditionIndex := -1
 	for i, c := range currentStatus.Conditions {
-		if c.Type == StillPropagating {
+		if c.Type == Reconciled {
 			currentCondition = &c
 			conditionIndex = i
 		}

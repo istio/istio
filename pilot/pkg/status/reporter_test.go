@@ -46,7 +46,7 @@ func TestStatusMaps(t *testing.T) {
 
 func initReporterWithoutStarting() (out Reporter) {
 	out.PodName = "tespod"
-	out.inProgressResources = []Resource{}
+	out.inProgressResources = map[string]*inProgressEntry{}
 	out.client = nil              // TODO
 	out.clock = clock.RealClock{} // TODO
 	out.UpdateInterval = 300 * time.Millisecond

@@ -44,12 +44,19 @@ func NewIstioContext(stop <-chan struct{}) context.Context {
 	return ctx
 }
 
+type inProgressEntry struct {
+	// the resource, including resourceVersion, we are currently tracking
+	Resource
+	// the number of reports we have written with this resource at 100%
+	completedIterations int
+}
+
 type Reporter struct {
 	mu                  sync.RWMutex
 	status              map[string]string
 	reverseStatus       map[string][]string
 	dirty               bool
-	inProgressResources []Resource
+	inProgressResources map[string]*inProgressEntry
 	client              v1.ConfigMapInterface
 	cm                  *corev1.ConfigMap
 	UpdateInterval      time.Duration
@@ -64,6 +71,7 @@ const dataField = "distribution-report"
 // Starts the reporter, which watches dataplane ack's and resource changes so that it can update status leader
 // with distribution information
 func (r *Reporter) Start(restConfig *rest.Config, namespace string, store model.ConfigStore, stop <-chan struct{}) {
+	scope.Info("Starting status follower controller")
 	ctx := NewIstioContext(stop)
 	if r.clock == nil {
 		r.clock = clock.RealClock{}
@@ -79,6 +87,7 @@ func (r *Reporter) Start(restConfig *rest.Config, namespace string, store model.
 	}
 	r.status = make(map[string]string)
 	r.reverseStatus = make(map[string][]string)
+	r.inProgressResources = make(map[string]*inProgressEntry)
 	r.client = clientSet.CoreV1().ConfigMaps(namespace)
 	r.cm = &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -117,13 +126,15 @@ func (r *Reporter) buildReport() (DistributionReport, []Resource) {
 		DataPlaneCount:      len(r.status),
 		InProgressResources: map[string]int{},
 	}
-	// for every version (nonce) of the config currently in play
-	for nonce, dataplanes := range r.reverseStatus {
-		// for every resource in flight
-		for _, res := range r.inProgressResources {
+	// for every resource in flight
+	for _, ipr := range r.inProgressResources {
+		res := ipr.Resource
+		key := res.String()
+		// for every version (nonce) of the config currently in play
+		for nonce, dataplanes := range r.reverseStatus {
+
 			// check to see if this version of the config contains this version of the resource
 			// it might be more optimal to provide for a full dump of the config at a certain version?
-			key := res.String()
 			dpVersion, err := r.store.GetResourceAtVersion(nonce[:v2.VersionLen], res.ToModelKey())
 			if err == nil && dpVersion == res.ResourceVersion {
 				if _, ok := out.InProgressResources[key]; !ok {
@@ -132,12 +143,10 @@ func (r *Reporter) buildReport() (DistributionReport, []Resource) {
 					out.InProgressResources[key] += len(dataplanes)
 				}
 			} else if err != nil {
-				// TODO: hitting this line 1000s of times for envoy filters.
-				//  Is there a way to filter out resources that don't go through xds?
-				if res.Resource != "envoyfilters" {
-					scope.Errorf("Encountered error retrieving version %s of key %s from Store: %v", nonce, key, err)
-				}
+				scope.Errorf("Encountered error retrieving version %s of key %s from Store: %v", nonce, key, err)
 				continue
+			} else if nonce[:v2.VersionLen] == r.store.Version() {
+				scope.Warnf("Cache appears to be missing latest version of %s", key)
 			}
 			if out.InProgressResources[key] >= out.DataPlaneCount {
 				// if this resource is done reconciling, let's not worry about it anymore
@@ -153,20 +162,23 @@ func (r *Reporter) buildReport() (DistributionReport, []Resource) {
 
 // For efficiency, we don't want to be checking on resources that have already reached 100% distribution.
 // When this happens, we remove them from our watch list.
-func (r *Reporter) removeCompletedResource(s []Resource) {
+func (r *Reporter) removeCompletedResource(completedResources []Resource) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	var result []Resource
-	hashtable := make(map[Resource]bool)
-	for _, item := range s {
-		hashtable[item] = true
-	}
-	for _, ipr := range r.inProgressResources {
-		if _, ok := hashtable[ipr]; !ok {
-			result = append(result, ipr)
+	var toDelete []Resource
+	for _, item := range completedResources {
+		// TODO: handle cache miss
+		total := r.inProgressResources[item.ToModelKey()].completedIterations + 1
+		if int64(total) > (time.Minute.Milliseconds()/r.UpdateInterval.Milliseconds()) {
+			//remove from inProgressResources // TODO: cleanup completedResources
+			toDelete = append(toDelete, item)
+		} else {
+			r.inProgressResources[item.ToModelKey()].completedIterations = total
 		}
 	}
-	r.inProgressResources = result
+	for _, resource := range toDelete {
+		delete(r.inProgressResources, resource.ToModelKey())
+	}
 }
 
 // This function must be called every time a resource change is detected by pilot.  This allows us to lookup
@@ -179,7 +191,16 @@ func (r *Reporter) AddInProgressResource(res model.Config) {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.inProgressResources = append(r.inProgressResources, *myRes)
+	r.inProgressResources[myRes.ToModelKey()] = &inProgressEntry{
+		Resource:            *myRes,
+		completedIterations: 0,
+	}
+}
+
+func (r *Reporter) DeleteInProgressResource(res model.Config) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.inProgressResources, res.Key())
 }
 
 // generate a distribution report and write it to a ConfigMap for the leader to read.

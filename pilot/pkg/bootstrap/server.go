@@ -730,7 +730,7 @@ func (s *Server) initEventHandlers() error {
 	}
 
 	if s.configController != nil {
-		configHandler := func(_, curr model.Config, _ model.Event) {
+		configHandler := func(_, curr model.Config, event model.Event) {
 			pushReq := &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{{
@@ -742,8 +742,11 @@ func (s *Server) initEventHandlers() error {
 			}
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
 			if s.statusReporter != nil {
-				s.statusReporter.AddInProgressResource(curr)
-				// TODO: this probably is wrong for deletes
+				if event != model.EventDelete {
+					s.statusReporter.AddInProgressResource(curr)
+				} else {
+					s.statusReporter.DeleteInProgressResource(curr)
+				}
 			}
 		}
 		schemas := collections.Pilot.All()

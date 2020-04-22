@@ -25,12 +25,12 @@ import (
 
 var statusStillPropagating = IstioStatus{
 	Conditions: []IstioCondition{{
-		Type:    HasValidationErrors,
+		Type:    PassedValidation,
 		Status:  v1.ConditionTrue,
 		Message: "just a test, here",
 	}, {
-		Type:    StillPropagating,
-		Status:  v1.ConditionTrue,
+		Type:    Reconciled,
+		Status:  v1.ConditionFalse,
 		Message: "1/2 proxies up to date.",
 	}},
 	ValidationMessages: nil,
@@ -63,12 +63,12 @@ func TestReconcileStatuses(t *testing.T) {
 			want: true,
 			want1: &IstioStatus{
 				Conditions: []IstioCondition{{
-					Type:    HasValidationErrors,
+					Type:    PassedValidation,
 					Status:  v1.ConditionTrue,
 					Message: "just a test, here",
 				}, {
-					Type:    StillPropagating,
-					Status:  v1.ConditionTrue,
+					Type:    Reconciled,
+					Status:  v1.ConditionFalse,
 					Message: "1/3 proxies up to date.",
 				}},
 				ValidationMessages: nil,
@@ -82,12 +82,12 @@ func TestReconcileStatuses(t *testing.T) {
 			want: true,
 			want1: &IstioStatus{
 				Conditions: []IstioCondition{{
-					Type:    HasValidationErrors,
+					Type:    PassedValidation,
 					Status:  v1.ConditionTrue,
 					Message: "just a test, here",
 				}, {
-					Type:    StillPropagating,
-					Status:  v1.ConditionFalse,
+					Type:    Reconciled,
+					Status:  v1.ConditionTrue,
 					Message: "2/2 proxies up to date.",
 				}},
 				ValidationMessages: nil,
@@ -101,9 +101,27 @@ func TestReconcileStatuses(t *testing.T) {
 			want: true,
 			want1: &IstioStatus{
 				Conditions: []IstioCondition{{
-					Type:    StillPropagating,
-					Status:  v1.ConditionFalse,
+					Type:    Reconciled,
+					Status:  v1.ConditionTrue,
 					Message: "2/2 proxies up to date.",
+				}},
+			},
+		}, {
+			name: "Reconcile for message difference",
+			args: args{
+				current: map[string]interface{}{"status": statusStillPropagating},
+				desired: Progress{2, 3},
+			},
+			want: true,
+			want1: &IstioStatus{
+				Conditions: []IstioCondition{{
+					Type:    PassedValidation,
+					Status:  v1.ConditionTrue,
+					Message: "just a test, here",
+				}, {
+					Type:    Reconciled,
+					Status:  v1.ConditionFalse,
+					Message: "2/3 proxies up to date.",
 				}},
 			},
 		},

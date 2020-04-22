@@ -29,10 +29,10 @@ type IstioConditionType string
 
 // These are valid conditions of pod.
 const (
-	// StillPropagating indicates whether this version of the resource has reached all dataplane instances or not.
-	StillPropagating IstioConditionType = "StillPropagating"
-	// HasValidationErrors indicates whether background analysis found any problems with this config
-	HasValidationErrors IstioConditionType = "HasValidationErrors"
+	// Reconciled indicates whether this version of the resource has reached all dataplane instances or not.
+	Reconciled IstioConditionType = "Reconciled"
+	// PassedValidation indicates whether background analysis found any problems with this config
+	PassedValidation IstioConditionType = "PassedValidation"
 )
 
 // IstioCondition contains details for the current condition of this pod.

@@ -315,29 +315,39 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 
 	processing := components.NewProcessing(processingArgs)
 
-	s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
-		if err := processing.Start(); err != nil {
-			log.Fatalf("Error starting Background Analysis: %s", err)
-		}
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		go leaderelection.
+			NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
+			AddRunFunction(func(stop <-chan struct{}) {
+				if err := processing.Start(); err != nil {
+					log.Fatalf("Error starting Background Analysis: %s", err)
+				}
 
-		go func() {
-			<-stop
-			processing.Stop()
-		}()
+				go func() {
+					<-stop
+					processing.Stop()
+				}()
+			}).Run(stop)
+		return nil
 	})
 	return nil
 }
 
 func (s *Server) initStatusController(args *PilotArgs) {
-	s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
-		(&status.DistributionController{}).Start(s.kubeConfig, args.Namespace, stop)
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		go leaderelection.
+			NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
+				AddRunFunction(func(stop <-chan struct{}) {
+					(&status.DistributionController{}).Start(s.kubeConfig, args.Namespace, stop)
+				}).Run(stop)
+		return nil
 	})
 	s.statusReporter = &status.Reporter{
 		UpdateInterval: time.Millisecond * 500, // TODO: use args here?
 		PodName:        args.PodName,
 	}
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		s.statusReporter.Start(s.kubeConfig, args.Namespace, s.configController, stop)
+		go s.statusReporter.Start(s.kubeConfig, args.Namespace, s.configController, stop)
 		return nil
 	})
 	s.environment.StatusReporter = s.statusReporter

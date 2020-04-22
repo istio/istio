@@ -16,10 +16,10 @@ package analysis
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework/features"
 	"strings"
 	"testing"
-
-	"istio.io/istio/pkg/test/framework/features"
+	"time"
 
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/test/util/retry"
@@ -63,13 +63,14 @@ spec:
   - reviews
   http:
   - route:
-    - destination:
+    - destination: 
         host: reviews
 `)
+			fmt.Printf("starting to wait for status at %v", time.Now())
 			// Status should report error
 			retry.UntilSuccessOrFail(t, func() error {
 				return expectStatus(t, ctx, ns, true)
-			})
+			}, retry.Timeout(time.Minute*5))
 			// Apply config to make this not invalid
 			g.ApplyConfigOrFail(t, ns, `
 apiVersion: networking.istio.io/v1alpha3
@@ -111,7 +112,7 @@ func expectStatus(t *testing.T, ctx resource.Context, ns namespace.Instance, has
 	if strings.Contains(status, msg.ReferencedResourceNotFound.Code()) != hasError {
 		return fmt.Errorf("expected error=%v, but got %v", hasError, status)
 	}
-	if _, ok :=x.Object["status"].(map[string]interface{})["Conditions"]; !ok {
+	if _, ok :=x.Object["status"].(map[string]interface{})["conditions"]; !ok {
 		return fmt.Errorf("expected conditions to exist, but got %v", status)
 	}
 	return nil
