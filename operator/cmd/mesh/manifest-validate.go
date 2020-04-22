@@ -315,10 +315,9 @@ func validateDuration(flagName, duration string) (err error) {
 		return validation.ValidateConnectTimeout(d)
 	case "dnsRefreshRate":
 		return validation.ValidateDNSRefreshRate(d)
-	case "reportBatchMaxTime":
+	default:
 		return validation.ValidateDuration(d)
 	}
-	return nil
 }
 
 func convertDuration(duration string) (*types.Duration, error) {
