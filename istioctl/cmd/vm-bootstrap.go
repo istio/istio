@@ -495,8 +495,9 @@ func deriveSSHMethod() error {
 			} else {
 				return err
 			}
+		} else {
+			sshAuthMethod = ssh.PublicKeys(key)
 		}
-		sshAuthMethod = ssh.PublicKeys(key)
 	}
 
 	return nil
