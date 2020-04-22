@@ -17,6 +17,7 @@ package status
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sync"
 	"time"
 
@@ -56,6 +57,7 @@ type DistributionController struct {
 	UpdateInterval  time.Duration
 	client          dynamic.Interface
 	clock           clock.Clock
+	knownResources  map[schema.GroupVersionResource]dynamic.NamespaceableResourceInterface
 	StaleInterval   time.Duration
 }
 
@@ -63,7 +65,7 @@ func (c *DistributionController) Start(restConfig *rest.Config, namespace string
 	scope.Info("Starting status leader controller")
 	// default UpdateInterval
 	if c.UpdateInterval == 0 {
-		c.UpdateInterval = 100 * time.Millisecond
+		c.UpdateInterval = 2000 * time.Millisecond
 	}
 	// default StaleInterval
 	if c.StaleInterval == 0 {
@@ -74,6 +76,7 @@ func (c *DistributionController) Start(restConfig *rest.Config, namespace string
 	}
 	c.CurrentState = make(map[Resource]map[string]Progress)
 	c.ObservationTime = make(map[string]time.Time)
+	c.knownResources = make(map[schema.GroupVersionResource]dynamic.NamespaceableResourceInterface)
 	var err error
 	if c.client, err = dynamic.NewForConfig(restConfig); err != nil {
 		scope.Fatalf("Could not connect to kubernetes: %s", err)
@@ -141,12 +144,22 @@ func (c *DistributionController) writeAllStatus() (staleReporters []string) {
 	return
 }
 
+func (c *DistributionController) initK8sResource(gvr schema.GroupVersionResource) dynamic.NamespaceableResourceInterface {
+	if result, ok := c.knownResources[gvr]; ok {
+		return result
+	} else {
+		result = c.client.Resource(gvr)
+		c.knownResources[gvr] = result
+		return result
+	}
+}
+
 func (c *DistributionController) writeStatus(config Resource, distributionState Progress) {
 	// Note: I'd like to use Pilot's ConfigStore here to avoid duplicate reads and writes, but
 	// the update() function is not implemented, and the Get() function returns the resource
 	// in a different format than is needed for k8s.updateStatus.
 	ctx := context.TODO()
-	resourceInterface := c.client.Resource(config.GroupVersionResource).
+	resourceInterface := c.initK8sResource(config.GroupVersionResource).
 		Namespace(config.Namespace)
 	// should this be moved to some sort of InformerCache for speed?
 	current, err := resourceInterface.Get(ctx, config.Name, metav1.GetOptions{ResourceVersion: config.ResourceVersion})
