@@ -201,10 +201,10 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 	status, err := reconciler.Reconcile()
 	if err != nil {
 		l.LogAndPrintf("\n\n✘ Errors were logged during apply operation:\n\n%s\n", err)
-		return fmt.Errorf("errors ocurred during operation")
+		return fmt.Errorf("errors occurred during operation")
 	}
 	if status.Status != v1alpha1.InstallStatus_HEALTHY {
-		return fmt.Errorf("errors ocurred during operation")
+		return fmt.Errorf("errors occurred during operation")
 	}
 
 	if wait {

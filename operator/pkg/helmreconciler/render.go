@@ -45,7 +45,6 @@ import (
 	binversion "istio.io/istio/operator/version"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 	pkgversion "istio.io/pkg/version"
 )
 
@@ -128,8 +127,8 @@ func MergeIOPSWithProfile(iop *valuesv1alpha1.IstioOperator) (*v1alpha1.IstioOpe
 
 	// Due to the fact that base profile is compiled in before a tag can be created, we must allow an additional
 	// override from variables that are set during release build time.
-	hub := version.DockerInfo.Hub
-	tag := version.DockerInfo.Tag
+	hub := pkgversion.DockerInfo.Hub
+	tag := pkgversion.DockerInfo.Tag
 	if hub != "" && hub != "unknown" && tag != "" && tag != "unknown" {
 		buildHubTagOverlayYAML, err := helm.GenerateHubTagOverlay(hub, tag)
 		if err != nil {
