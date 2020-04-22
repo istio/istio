@@ -1990,14 +1990,14 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 
 	if pluginParams.Push.Mesh.EnableTracing {
 		proxyConfig := pluginParams.Node.Metadata.ProxyConfigOrDefault(pluginParams.Push.Mesh.DefaultConfig)
-		connectionManager.Tracing = buildTracingConfig(proxyConfig, pluginParams.Node.Type)
+		connectionManager.Tracing = buildTracingConfig(proxyConfig)
 		connectionManager.GenerateRequestId = proto.BoolTrue
 	}
 
 	return connectionManager
 }
 
-func buildTracingConfig(config *meshconfig.ProxyConfig, proxyType model.NodeType) *http_conn.HttpConnectionManager_Tracing {
+func buildTracingConfig(config *meshconfig.ProxyConfig) *http_conn.HttpConnectionManager_Tracing {
 	tracingCfg := &http_conn.HttpConnectionManager_Tracing{}
 	updateTraceSamplingConfig(config, tracingCfg)
 
