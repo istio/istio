@@ -15,11 +15,28 @@
 package v2
 
 import (
+	"bytes"
 	"fmt"
+	"html/template"
+	"net"
+	"path"
 	"testing"
 	"time"
 
+	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pkg/test"
+
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	"github.com/golang/protobuf/ptypes"
+
+	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/serviceregistry/mock"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/protocol"
+
 	envoy_api_v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+
+	"istio.io/istio/pilot/pkg/networking/core"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
@@ -77,9 +94,9 @@ func SetupDiscoveryServer(t testing.TB, cfgs ...model.Config) *DiscoveryServer {
 func createEndpoints(numEndpoints int, numServices int) []model.Config {
 	result := make([]model.Config, 0, numServices)
 	for s := 0; s < numServices; s++ {
-		endpoints := make([]*networking.ServiceEntry_Endpoint, 0, numEndpoints)
+		endpoints := make([]*networking.WorkloadEntry, 0, numEndpoints)
 		for e := 0; e < numEndpoints; e++ {
-			endpoints = append(endpoints, &networking.ServiceEntry_Endpoint{Address: fmt.Sprintf("111.%d.%d.%d", e/(256*256), (e/256)%256, e%256)})
+			endpoints = append(endpoints, &networking.WorkloadEntry{Address: fmt.Sprintf("111.%d.%d.%d", e/(256*256), (e/256)%256, e%256)})
 		}
 		result = append(result, model.Config{
 			ConfigMeta: model.ConfigMeta{
@@ -103,9 +120,196 @@ func createEndpoints(numEndpoints int, numServices int) []model.Config {
 	return result
 }
 
+func getNextIP(current string) string {
+	i := net.ParseIP(current).To4()
+	v := uint(i[0])<<24 + uint(i[1])<<16 + uint(i[2])<<8 + uint(i[3])
+	v++
+	v3 := byte(v & 0xFF)
+	v2 := byte((v >> 8) & 0xFF)
+	v1 := byte((v >> 16) & 0xFF)
+	v0 := byte((v >> 24) & 0xFF)
+	ret := net.IPv4(v0, v1, v2, v3)
+	return ret.String()
+}
+
+func buildTestEnv(t test.Failer, cfg []model.Config, input ConfigInput) model.Environment {
+	svcs := map[host.Name]*model.Service{}
+	ip := "1.1.1.1"
+	for _, svc := range input.Services {
+		hn := host.Name(svc)
+		s := &model.Service{
+			Ports: []*model.Port{{
+				Name:     "http",
+				Port:     80,
+				Protocol: protocol.HTTP,
+			}, {
+				Name:     "tcp",
+				Port:     81,
+				Protocol: protocol.TCP,
+			}, {
+				Name:     "https",
+				Port:     443,
+				Protocol: protocol.HTTPS,
+			}, {
+				Name:     "auto",
+				Port:     83,
+				Protocol: protocol.Unsupported,
+			}},
+			Hostname: hn,
+			Address:  ip,
+		}
+		svcs[hn] = s
+		ip = getNextIP(ip)
+	}
+	serviceDiscovery := mock.NewDiscovery(svcs, 1)
+
+	configStore := model.NewFakeStore()
+	for _, cfg := range cfg {
+		if _, err := configStore.Create(cfg); err != nil {
+			t.Fatalf("failed to create config %v: %v", cfg.Name, err)
+		}
+
+	}
+
+	m := mesh.DefaultMeshConfig()
+	env := model.Environment{
+		PushContext:      model.NewPushContext(),
+		ServiceDiscovery: serviceDiscovery,
+		IstioConfigStore: model.MakeIstioStore(configStore),
+		Watcher:          mesh.NewFixedWatcher(&m),
+	}
+
+	return env
+}
+
+// ConfigInput defines inputs passed to the test config templates
+// This allows tests to do things like create a virtual service for each service, for example
+type ConfigInput struct {
+	// A list of hostname of allservices
+	Services []string
+}
+
+// Setup test builds a mock test environment.
+// TODO make this configurable with Istio config, different service setups, etc
+func setupTest(t test.Failer, testName string) (model.Environment, core.ConfigGenerator, model.Proxy) {
+	proxy := model.Proxy{
+		Type:        model.SidecarProxy,
+		IPAddresses: []string{"1.1.1.1"},
+		ID:          "v0.default",
+		DNSDomain:   "default.example.org",
+		Metadata: &model.NodeMetadata{
+			ConfigNamespace: "not-default",
+		},
+		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 6},
+		ConfigNamespace: "not-default",
+	}
+
+	numServices := 100
+	services := []string{}
+	for i := 0; i < numServices; i++ {
+		hn := fmt.Sprintf("service-%d.namespace.svc.cluster.local", i)
+		services = append(services, hn)
+	}
+	tmpl, err := template.ParseFiles(path.Join("testdata", "benchmarks", testName+".yaml"))
+	if err != nil {
+		t.Fatalf("failed to read config: %v", err)
+	}
+	var buf bytes.Buffer
+	input := ConfigInput{Services: services}
+	if err := tmpl.Execute(&buf, input); err != nil {
+		t.Fatalf("failed to execute template: %v", err)
+	}
+	configs, _, err := crd.ParseInputs(buf.String())
+	if err != nil {
+		t.Fatalf("failed to read config: %v", err)
+	}
+
+	env := buildTestEnv(t, configs, input)
+	env.PushContext.InitContext(&env, nil, nil)
+	proxy.SetSidecarScope(env.PushContext)
+	configgen := core.NewConfigGenerator([]string{plugin.Authn, plugin.Authz, plugin.Health, plugin.Mixer})
+	return env, configgen, proxy
+}
+
+func routesFromListeners(ll []*envoy_api_v2.Listener) []string {
+	routes := []string{}
+	for _, l := range ll {
+		for _, fc := range l.FilterChains {
+			for _, filter := range fc.Filters {
+				if filter.Name == "envoy.http_connection_manager" {
+					filter.GetTypedConfig()
+					hcm := &http_conn.HttpConnectionManager{}
+					if err := ptypes.UnmarshalAny(filter.GetTypedConfig(), hcm); err != nil {
+						panic(err)
+					}
+					switch r := hcm.GetRouteSpecifier().(type) {
+					case *http_conn.HttpConnectionManager_Rds:
+						routes = append(routes, r.Rds.RouteConfigName)
+					}
+				}
+			}
+		}
+	}
+	return routes
+}
+
+var testCases = []string{
+	"empty",
+	"telemetry",
+	"virtualservice",
+}
+
+func BenchmarkRouteGeneration(b *testing.B) {
+	for _, tt := range testCases {
+		b.Run(tt, func(b *testing.B) {
+			env, configgen, proxy := setupTest(b, tt)
+			// To determine which routes to generate, first gen listeners once (not part of benchmark) and extract routes
+			l := configgen.BuildListeners(&proxy, env.PushContext)
+			routeNames := routesFromListeners(l)
+			b.ResetTimer()
+			var response interface{}
+			for n := 0; n < b.N; n++ {
+				r := configgen.BuildHTTPRoutes(&proxy, env.PushContext, routeNames)
+				response = routeDiscoveryResponse(r, "", "")
+			}
+			_ = response
+		})
+	}
+}
+
+func BenchmarkClusterGeneration(b *testing.B) {
+	for _, tt := range testCases {
+		b.Run(tt, func(b *testing.B) {
+			env, configgen, proxy := setupTest(b, tt)
+			b.ResetTimer()
+			var response interface{}
+			for n := 0; n < b.N; n++ {
+				c := configgen.BuildClusters(&proxy, env.PushContext)
+				response = cdsDiscoveryResponse(c, "")
+			}
+			_ = response
+		})
+	}
+}
+
+func BenchmarkListenerGeneration(b *testing.B) {
+	for _, tt := range testCases {
+		b.Run(tt, func(b *testing.B) {
+			env, configgen, proxy := setupTest(b, tt)
+			b.ResetTimer()
+			var response interface{}
+			for n := 0; n < b.N; n++ {
+				l := configgen.BuildListeners(&proxy, env.PushContext)
+				response = ldsDiscoveryResponse(l, "", "")
+			}
+			_ = response
+		})
+	}
+}
+
 // BenchmarkEDS measures performance of EDS config generation
 // TODO Add more variables, such as different services
-func BenchmarkEDS(b *testing.B) {
+func BenchmarkEndpointGeneration(b *testing.B) {
 	tests := []struct {
 		endpoints int
 		services  int

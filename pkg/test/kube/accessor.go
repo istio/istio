@@ -15,11 +15,12 @@
 package kube
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/apimachinery/pkg/version"
 
 	istioKube "istio.io/istio/pkg/kube"
@@ -27,7 +28,11 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 
 	kubeApiAdmissions "k8s.io/api/admissionregistration/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/api/autoscaling/v2beta1"
 	kubeApiCore "k8s.io/api/core/v1"
+	"k8s.io/api/policy/v1beta1"
+	v1 "k8s.io/api/rbac/v1"
 	kubeApiExt "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -49,7 +54,7 @@ const (
 
 var (
 	defaultRetryTimeout = retry.Timeout(time.Minute * 10)
-	defaultRetryDelay   = retry.Delay(time.Second * 10)
+	defaultRetryDelay   = retry.Delay(time.Second * 1)
 )
 
 // Accessor is a helper for accessing Kubernetes programmatically. It bundles some of the high-level
@@ -108,7 +113,7 @@ func (a *Accessor) NewPortForwarder(pod kubeApiCore.Pod, localPort, remotePort u
 // all pods are returned.
 func (a *Accessor) GetPods(namespace string, selectors ...string) ([]kubeApiCore.Pod, error) {
 	s := strings.Join(selectors, ",")
-	list, err := a.set.CoreV1().Pods(namespace).List(kubeApiMeta.ListOptions{LabelSelector: s})
+	list, err := a.set.CoreV1().Pods(namespace).List(context.TODO(), kubeApiMeta.ListOptions{LabelSelector: s})
 
 	if err != nil {
 		return []kubeApiCore.Pod{}, err
@@ -117,10 +122,21 @@ func (a *Accessor) GetPods(namespace string, selectors ...string) ([]kubeApiCore
 	return list.Items, nil
 }
 
+func (a *Accessor) GetDeployments(namespace string, selectors ...string) ([]appsv1.Deployment, error) {
+	s := strings.Join(selectors, ",")
+	list, err := a.set.AppsV1().Deployments(namespace).List(context.TODO(), kubeApiMeta.ListOptions{LabelSelector: s})
+
+	if err != nil {
+		return []appsv1.Deployment{}, err
+	}
+
+	return list.Items, nil
+}
+
 // GetEvents returns events in the given namespace, based on the involvedObject.
 func (a *Accessor) GetEvents(namespace string, involvedObject string) ([]kubeApiCore.Event, error) {
 	s := "involvedObject.name=" + involvedObject
-	list, err := a.set.CoreV1().Events(namespace).List(kubeApiMeta.ListOptions{FieldSelector: s})
+	list, err := a.set.CoreV1().Events(namespace).List(context.TODO(), kubeApiMeta.ListOptions{FieldSelector: s})
 
 	if err != nil {
 		return []kubeApiCore.Event{}, err
@@ -132,7 +148,7 @@ func (a *Accessor) GetEvents(namespace string, involvedObject string) ([]kubeApi
 // GetPod returns the pod with the given namespace and name.
 func (a *Accessor) GetPod(namespace, name string) (kubeApiCore.Pod, error) {
 	v, err := a.set.CoreV1().
-		Pods(namespace).Get(name, kubeApiMeta.GetOptions{})
+		Pods(namespace).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
 	if err != nil {
 		return kubeApiCore.Pod{}, err
 	}
@@ -141,7 +157,7 @@ func (a *Accessor) GetPod(namespace, name string) (kubeApiCore.Pod, error) {
 
 // DeletePod deletes the given pod.
 func (a *Accessor) DeletePod(namespace, name string) error {
-	return a.set.CoreV1().Pods(namespace).Delete(name, &kubeApiMeta.DeleteOptions{})
+	return a.set.CoreV1().Pods(namespace).Delete(context.TODO(), name, kubeApiMeta.DeleteOptions{})
 }
 
 // FindPodBySelectors returns the first matching pod, given a namespace and a set of selectors.
@@ -250,14 +266,14 @@ func (a *Accessor) WaitUntilPodsAreDeleted(fetchFunc PodFetchFunc, opts ...retry
 
 // DeleteDeployment deletes the given deployment.
 func (a *Accessor) DeleteDeployment(ns string, name string) error {
-	return a.set.AppsV1().Deployments(ns).Delete(name, deleteOptionsForeground())
+	return a.set.AppsV1().Deployments(ns).Delete(context.TODO(), name, *deleteOptionsForeground())
 }
 
 // WaitUntilDeploymentIsReady waits until the deployment with the name/namespace is in ready state.
 func (a *Accessor) WaitUntilDeploymentIsReady(ns string, name string, opts ...retry.Option) error {
 	_, err := retry.Do(func() (interface{}, bool, error) {
 
-		deployment, err := a.set.AppsV1().Deployments(ns).Get(name, kubeApiMeta.GetOptions{})
+		deployment, err := a.set.AppsV1().Deployments(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				return nil, true, err
@@ -276,7 +292,7 @@ func (a *Accessor) WaitUntilDeploymentIsReady(ns string, name string, opts ...re
 func (a *Accessor) WaitUntilDaemonSetIsReady(ns string, name string, opts ...retry.Option) error {
 	_, err := retry.Do(func() (interface{}, bool, error) {
 
-		daemonSet, err := a.set.AppsV1().DaemonSets(ns).Get(name, kubeApiMeta.GetOptions{})
+		daemonSet, err := a.set.AppsV1().DaemonSets(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				return nil, true, err
@@ -330,12 +346,12 @@ func (a *Accessor) WaitUntilServiceEndpointsAreReady(ns string, name string, opt
 
 // DeleteMutatingWebhook deletes the mutating webhook with the given name.
 func (a *Accessor) DeleteMutatingWebhook(name string) error {
-	return a.set.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Delete(name, deleteOptionsForeground())
+	return a.set.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Delete(context.TODO(), name, *deleteOptionsForeground())
 }
 
 // DeleteValidatingWebhook deletes the validating webhook with the given name.
 func (a *Accessor) DeleteValidatingWebhook(name string) error {
-	return a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(name, deleteOptionsForeground())
+	return a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(context.TODO(), name, *deleteOptionsForeground())
 }
 
 // WaitForValidatingWebhookDeletion waits for the validating webhook with the given name to be garbage collected by kubernetes.
@@ -352,38 +368,72 @@ func (a *Accessor) WaitForValidatingWebhookDeletion(name string, opts ...retry.O
 	return err
 }
 
-// ValidatingWebhookConfigurationExists indicates whether a mutating validating with the given name exists.
+// ValidatingWebhookConfigurationExists indicates whether a validating webhook with the given name exists.
 func (a *Accessor) ValidatingWebhookConfigurationExists(name string) bool {
-	_, err := a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(name, kubeApiMeta.GetOptions{})
+	_, err := a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(context.TODO(), name, kubeApiMeta.GetOptions{})
+	return err == nil
+}
+
+// MutatingWebhookConfigurationExists indicates whether a mutating webhook with the given name exists.
+func (a *Accessor) MutatingWebhookConfigurationExists(name string) bool {
+	_, err := a.set.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(context.TODO(), name, kubeApiMeta.GetOptions{})
 	return err == nil
 }
 
 // GetValidatingWebhookConfiguration returns the specified ValidatingWebhookConfiguration.
 func (a *Accessor) GetValidatingWebhookConfiguration(name string) (*kubeApiAdmissions.ValidatingWebhookConfiguration, error) {
-	whc, err := a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(name, kubeApiMeta.GetOptions{})
+	whc, err := a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(context.TODO(), name, kubeApiMeta.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not get validating webhook config: %s", name)
 	}
 	return whc, nil
 }
 
+// UpdateValidatingWebhookConfiguration updates the specified ValidatingWebhookConfiguration.
+func (a *Accessor) UpdateValidatingWebhookConfiguration(config *kubeApiAdmissions.ValidatingWebhookConfiguration) error {
+	if _, err := a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Update(context.TODO(), config, kubeApiMeta.UpdateOptions{}); err != nil {
+		return fmt.Errorf("could not update validating webhook config: %s", config.Name)
+	}
+	return nil
+}
+
 // GetCustomResourceDefinitions gets the CRDs
 func (a *Accessor) GetCustomResourceDefinitions() ([]kubeApiExt.CustomResourceDefinition, error) {
-	crd, err := a.extSet.ApiextensionsV1beta1().CustomResourceDefinitions().List(kubeApiMeta.ListOptions{})
+	crd, err := a.extSet.ApiextensionsV1beta1().CustomResourceDefinitions().List(context.TODO(), kubeApiMeta.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 	return crd.Items, nil
 }
 
+// GetCustomResourceDefinition gets the CRD with the given name
+func (a *Accessor) GetCustomResourceDefinition(name string) (*kubeApiExt.CustomResourceDefinition, error) {
+	return a.extSet.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.TODO(), name, kubeApiMeta.GetOptions{})
+}
+
 // DeleteCustomResourceDefinitions deletes the CRD with the given name.
 func (a *Accessor) DeleteCustomResourceDefinitions(name string) error {
-	return a.extSet.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(name, deleteOptionsForeground())
+	return a.extSet.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(context.TODO(), name, *deleteOptionsForeground())
+}
+
+// GetPodDisruptionBudget gets the PodDisruptionBudget with the given name
+func (a *Accessor) GetPodDisruptionBudget(ns, name string) (*v1beta1.PodDisruptionBudget, error) {
+	return a.set.PolicyV1beta1().PodDisruptionBudgets(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
+}
+
+// GetHorizontalPodAutoscaler gets the HorizontalPodAutoscaler with the given name
+func (a *Accessor) GetHorizontalPodAutoscaler(ns, name string) (*v2beta1.HorizontalPodAutoscaler, error) {
+	return a.set.AutoscalingV2beta1().HorizontalPodAutoscalers(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
 }
 
 // GetService returns the service entry with the given name/namespace.
 func (a *Accessor) GetService(ns string, name string) (*kubeApiCore.Service, error) {
-	return a.set.CoreV1().Services(ns).Get(name, kubeApiMeta.GetOptions{})
+	return a.set.CoreV1().Services(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
+}
+
+// GetDeployment returns the deployment with the given name/namespace.
+func (a *Accessor) GetDeployment(ns string, name string) (*appsv1.Deployment, error) {
+	return a.set.AppsV1().Deployments(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
 }
 
 // GetSecret returns secret resource with the given namespace.
@@ -393,25 +443,30 @@ func (a *Accessor) GetSecret(ns string) kubeClientCore.SecretInterface {
 
 // GetConfigMap returns the config resource with the given name and namespace.
 func (a *Accessor) GetConfigMap(name, ns string) (*kubeApiCore.ConfigMap, error) {
-	return a.set.CoreV1().ConfigMaps(ns).Get(name, kubeApiMeta.GetOptions{})
+	return a.set.CoreV1().ConfigMaps(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
+}
+
+// DeleteConfigMap deletes the config resource with the given name and namespace.
+func (a *Accessor) DeleteConfigMap(name, ns string) error {
+	return a.set.CoreV1().ConfigMaps(ns).Delete(context.TODO(), name, kubeApiMeta.DeleteOptions{})
 }
 
 // CreateSecret takes the representation of a secret and creates it in the given namespace.
 // Returns an error if there is any.
 func (a *Accessor) CreateSecret(namespace string, secret *kubeApiCore.Secret) (err error) {
-	_, err = a.set.CoreV1().Secrets(namespace).Create(secret)
+	_, err = a.set.CoreV1().Secrets(namespace).Create(context.TODO(), secret, kubeApiMeta.CreateOptions{})
 	return err
 }
 
 // DeleteSecret deletes secret by name in namespace.
 func (a *Accessor) DeleteSecret(namespace, name string) (err error) {
 	var immediate int64
-	err = a.set.CoreV1().Secrets(namespace).Delete(name, &kubeApiMeta.DeleteOptions{GracePeriodSeconds: &immediate})
+	err = a.set.CoreV1().Secrets(namespace).Delete(context.TODO(), name, kubeApiMeta.DeleteOptions{GracePeriodSeconds: &immediate})
 	return err
 }
 
-func (a *Accessor) GetServiceAccount(namespace string) kubeClientCore.ServiceAccountInterface {
-	return a.set.CoreV1().ServiceAccounts(namespace)
+func (a *Accessor) GetServiceAccount(namespace, name string) (*kubeApiCore.ServiceAccount, error) {
+	return a.set.CoreV1().ServiceAccounts(namespace).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
 }
 
 // GetKubernetesVersion returns the Kubernetes server version
@@ -421,7 +476,7 @@ func (a *Accessor) GetKubernetesVersion() (*version.Info, error) {
 
 // GetEndpoints returns the endpoints for the given service.
 func (a *Accessor) GetEndpoints(ns, service string, options kubeApiMeta.GetOptions) (*kubeApiCore.Endpoints, error) {
-	return a.set.CoreV1().Endpoints(ns).Get(service, options)
+	return a.set.CoreV1().Endpoints(ns).Get(context.TODO(), service, options)
 }
 
 // CreateNamespace with the given name. Also adds an "istio-testing" annotation.
@@ -430,7 +485,7 @@ func (a *Accessor) CreateNamespace(ns string, istioTestingAnnotation string) err
 
 	n := a.newNamespace(ns, istioTestingAnnotation)
 
-	_, err := a.set.CoreV1().Namespaces().Create(&n)
+	_, err := a.set.CoreV1().Namespaces().Create(context.TODO(), &n, kubeApiMeta.CreateOptions{})
 	return err
 }
 
@@ -439,7 +494,7 @@ func (a *Accessor) CreateNamespaceWithLabels(ns string, istioTestingAnnotation s
 	scopes.Framework.Debugf("Creating namespace %s ns with labels %v", ns, labels)
 
 	n := a.newNamespaceWithLabels(ns, istioTestingAnnotation, labels)
-	_, err := a.set.CoreV1().Namespaces().Create(&n)
+	_, err := a.set.CoreV1().Namespaces().Create(context.TODO(), &n, kubeApiMeta.CreateOptions{})
 	return err
 }
 
@@ -463,7 +518,7 @@ func (a *Accessor) newNamespaceWithLabels(ns string, istioTestingAnnotation stri
 
 // NamespaceExists returns true if the given namespace exists.
 func (a *Accessor) NamespaceExists(ns string) bool {
-	allNs, err := a.set.CoreV1().Namespaces().List(kubeApiMeta.ListOptions{})
+	allNs, err := a.set.CoreV1().Namespaces().List(context.TODO(), kubeApiMeta.ListOptions{})
 	if err != nil {
 		return false
 	}
@@ -478,13 +533,13 @@ func (a *Accessor) NamespaceExists(ns string) bool {
 // DeleteNamespace with the given name
 func (a *Accessor) DeleteNamespace(ns string) error {
 	scopes.Framework.Debugf("Deleting namespace: %s", ns)
-	return a.set.CoreV1().Namespaces().Delete(ns, deleteOptionsForeground())
+	return a.set.CoreV1().Namespaces().Delete(context.TODO(), ns, *deleteOptionsForeground())
 }
 
 // WaitForNamespaceDeletion waits until a namespace is deleted.
 func (a *Accessor) WaitForNamespaceDeletion(ns string, opts ...retry.Option) error {
 	_, err := retry.Do(func() (interface{}, bool, error) {
-		_, err2 := a.set.CoreV1().Namespaces().Get(ns, kubeApiMeta.GetOptions{})
+		_, err2 := a.set.CoreV1().Namespaces().Get(context.TODO(), ns, kubeApiMeta.GetOptions{})
 		if err2 == nil {
 			return nil, false, nil
 		}
@@ -493,7 +548,7 @@ func (a *Accessor) WaitForNamespaceDeletion(ns string, opts ...retry.Option) err
 			return nil, true, nil
 		}
 
-		return nil, true, err2
+		return nil, false, err2
 	}, newRetryOptions(opts...)...)
 
 	return err
@@ -501,7 +556,7 @@ func (a *Accessor) WaitForNamespaceDeletion(ns string, opts ...retry.Option) err
 
 // GetNamespace returns the K8s namespaceresource with the given name.
 func (a *Accessor) GetNamespace(ns string) (*kubeApiCore.Namespace, error) {
-	n, err := a.set.CoreV1().Namespaces().Get(ns, kubeApiMeta.GetOptions{})
+	n, err := a.set.CoreV1().Namespaces().Get(context.TODO(), ns, kubeApiMeta.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -512,12 +567,22 @@ func (a *Accessor) GetNamespace(ns string) (*kubeApiCore.Namespace, error) {
 // DeleteClusterRole deletes a ClusterRole with the given name
 func (a *Accessor) DeleteClusterRole(role string) error {
 	scopes.Framework.Debugf("Deleting ClusterRole: %s", role)
-	return a.set.RbacV1().ClusterRoles().Delete(role, deleteOptionsForeground())
+	return a.set.RbacV1().ClusterRoles().Delete(context.TODO(), role, *deleteOptionsForeground())
+}
+
+// GetClusterRole gets a ClusterRole with the given name
+func (a *Accessor) GetClusterRole(role string) (*v1.ClusterRole, error) {
+	return a.set.RbacV1().ClusterRoles().Get(context.TODO(), role, kubeApiMeta.GetOptions{})
+}
+
+// GetClusterRoleBinding gets a ClusterRoleBinding with the given name
+func (a *Accessor) GetClusterRoleBinding(role string) (*v1.ClusterRoleBinding, error) {
+	return a.set.RbacV1().ClusterRoleBindings().Get(context.TODO(), role, kubeApiMeta.GetOptions{})
 }
 
 // GetUnstructured returns an unstructured k8s resource object based on the provided schema, namespace, and name.
 func (a *Accessor) GetUnstructured(gvr schema.GroupVersionResource, namespace, name string) (*unstructured.Unstructured, error) {
-	u, err := a.dynClient.Resource(gvr).Namespace(namespace).Get(name, kubeApiMeta.GetOptions{})
+	u, err := a.dynClient.Resource(gvr).Namespace(namespace).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get resource %v of type %v: %v", name, gvr, err)
 	}
@@ -590,8 +655,10 @@ func CheckPodReady(pod *kubeApiCore.Pod) error {
 
 func deleteOptionsForeground() *kubeApiMeta.DeleteOptions {
 	propagationPolicy := kubeApiMeta.DeletePropagationForeground
+	gracePeriod := int64(0)
 	return &kubeApiMeta.DeleteOptions{
-		PropagationPolicy: &propagationPolicy,
+		PropagationPolicy:  &propagationPolicy,
+		GracePeriodSeconds: &gracePeriod,
 	}
 }
 

@@ -39,11 +39,11 @@ func TestGenCSR(t *testing.T) {
 
 	pemBlock, _ := pem.Decode(csrPem)
 	if pemBlock == nil {
-		t.Errorf("failed to decode csr")
+		t.Fatalf("failed to decode csr")
 	}
 	csr, err := x509.ParseCertificateRequest(pemBlock.Bytes)
 	if err != nil {
-		t.Errorf("failed to parse csr")
+		t.Fatalf("failed to parse csr")
 	}
 	if err = csr.CheckSignature(); err != nil {
 		t.Errorf("csr signature is invalid")
@@ -73,11 +73,11 @@ func TestGenCSRPKCS8Key(t *testing.T) {
 
 	pemBlock, _ := pem.Decode(csrPem)
 	if pemBlock == nil {
-		t.Errorf("failed to decode csr")
+		t.Fatalf("failed to decode csr")
 	}
 	csr, err := x509.ParseCertificateRequest(pemBlock.Bytes)
 	if err != nil {
-		t.Errorf("failed to parse csr")
+		t.Fatalf("failed to parse csr")
 	}
 	if err = csr.CheckSignature(); err != nil {
 		t.Errorf("csr signature is invalid")
@@ -91,7 +91,7 @@ func TestGenCSRPKCS8Key(t *testing.T) {
 
 	keyPemBlock, _ := pem.Decode(keyPem)
 	if keyPemBlock == nil {
-		t.Errorf("failed to decode private key PEM")
+		t.Fatalf("failed to decode private key PEM")
 	}
 	key, err := x509.ParsePKCS8PrivateKey(keyPemBlock.Bytes)
 	if err != nil {

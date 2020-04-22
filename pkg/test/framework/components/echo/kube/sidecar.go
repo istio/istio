@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
-	"istio.io/istio/pkg/test/kube"
+	kube2 "istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/util/retry"
 
 	kubeCore "k8s.io/api/core/v1"
@@ -43,14 +43,14 @@ type sidecar struct {
 	nodeID       string
 	podNamespace string
 	podName      string
-	accessor     *kube.Accessor
+	cluster      kube2.Cluster
 }
 
-func newSidecar(pod kubeCore.Pod, accessor *kube.Accessor) (*sidecar, error) {
+func newSidecar(pod kubeCore.Pod, cluster kube2.Cluster) (*sidecar, error) {
 	sidecar := &sidecar{
 		podNamespace: pod.Namespace,
 		podName:      pod.Name,
-		accessor:     accessor,
+		cluster:      cluster,
 	}
 
 	// Extract the node ID from Envoy.
@@ -164,7 +164,7 @@ func (s *sidecar) ListenersOrFail(t test.Failer) *envoyAdmin.Listeners {
 func (s *sidecar) adminRequest(path string, out proto.Message) error {
 	// Exec onto the pod and make a curl request to the admin port, writing
 	command := fmt.Sprintf("pilot-agent request GET %s", path)
-	response, err := s.accessor.Exec(s.podNamespace, s.podName, proxyContainerName, command)
+	response, err := s.cluster.Exec(s.podNamespace, s.podName, proxyContainerName, command)
 	if err != nil {
 		return fmt.Errorf("failed exec on pod %s/%s: %v. Command: %s. Output:\n%s",
 			s.podNamespace, s.podName, err, command, response)
@@ -178,7 +178,7 @@ func (s *sidecar) adminRequest(path string, out proto.Message) error {
 }
 
 func (s *sidecar) Logs() (string, error) {
-	return s.accessor.Logs(s.podNamespace, s.podName, proxyContainerName, false)
+	return s.cluster.Logs(s.podNamespace, s.podName, proxyContainerName, false)
 }
 
 func (s *sidecar) LogsOrFail(t test.Failer) string {

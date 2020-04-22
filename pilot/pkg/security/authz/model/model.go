@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright 2020 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,15 +16,11 @@ package model
 
 import (
 	"fmt"
+	"strings"
 
-	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
-	"github.com/hashicorp/go-multierror"
+	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 
-	istio_rbac "istio.io/api/rbac/v1alpha1"
-	security "istio.io/api/security/v1beta1"
-	istiolog "istio.io/pkg/log"
-
-	"istio.io/istio/pilot/pkg/model"
+	authzpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 )
 
@@ -36,309 +32,290 @@ const (
 	RBACTCPFilterName       = "envoy.filters.network.rbac"
 	RBACTCPFilterStatPrefix = "tcp."
 
-	// attributes that could be used in both ServiceRoleBinding and ServiceRole.
-	attrRequestHeader = "request.headers" // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
+	attrRequestHeader    = "request.headers"             // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
+	attrSrcIP            = "source.ip"                   // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
+	attrSrcNamespace     = "source.namespace"            // e.g. "default".
+	attrSrcPrincipal     = "source.principal"            // source identity, e,g, "cluster.local/ns/default/sa/productpage".
+	attrRequestPrincipal = "request.auth.principal"      // authenticated principal of the request.
+	attrRequestAudiences = "request.auth.audiences"      // intended audience(s) for this authentication information.
+	attrRequestPresenter = "request.auth.presenter"      // authorized presenter of the credential.
+	attrRequestClaims    = "request.auth.claims"         // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
+	attrDestIP           = "destination.ip"              // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
+	attrDestPort         = "destination.port"            // must be in the range [0, 65535].
+	attrConnSNI          = "connection.sni"              // server name indication, e.g. "www.example.com".
+	attrEnvoyFilter      = "experimental.envoy.filters." // an experimental attribute for checking Envoy Metadata directly.
 
-	// attributes that could be used in a ServiceRoleBinding property.
-	attrSrcIP        = "source.ip"        // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
-	attrSrcNamespace = "source.namespace" // e.g. "default".
-	// TODO(pitlv2109): Since attrSrcUser will be deprecated, maybe remove this and use attrSrcPrincipal consistently everywhere?
-	attrSrcUser            = "source.user"                 // source identity, e.g. "cluster.local/ns/default/sa/productpage".
-	attrSrcPrincipal       = "source.principal"            // source identity, e,g, "cluster.local/ns/default/sa/productpage".
-	attrRequestPrincipal   = "request.auth.principal"      // authenticated principal of the request.
-	attrRequestAudiences   = "request.auth.audiences"      // intended audience(s) for this authentication information.
-	attrRequestPresenter   = "request.auth.presenter"      // authorized presenter of the credential.
-	attrRequestClaims      = "request.auth.claims"         // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
-	attrRequestClaimGroups = "request.auth.claims[groups]" // groups claim.
-
-	// reserved string values in names and not_names in ServiceRoleBinding.
-	// This prevents ambiguity when the user defines "*" for names or not_names.
-	allUsers              = "allUsers"              // Allow all users, both authenticated and unauthenticated.
-	allAuthenticatedUsers = "allAuthenticatedUsers" // Allow all authenticated users.
-
-	// attributes that could be used in a ServiceRole constraint.
-	attrDestIP        = "destination.ip"        // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
-	attrDestPort      = "destination.port"      // must be in the range [0, 65535].
-	attrDestLabel     = "destination.labels"    // label name is surrounded by brackets, e.g. "destination.labels[version]".
-	attrDestName      = "destination.name"      // short service name, e.g. "productpage".
-	attrDestNamespace = "destination.namespace" // e.g. "default".
-	attrDestUser      = "destination.user"      // service account, e.g. "bookinfo-productpage".
-	attrConnSNI       = "connection.sni"        // server name indication, e.g. "www.example.com".
-
-	// Envoy config attributes for ServiceRole rules.
+	// Internal names used to generate corresponding Envoy matcher.
 	methodHeader = ":method"
-	pathHeader   = ":path"
+	pathMatcher  = "path-matcher"
 	hostHeader   = ":authority"
 )
 
-var (
-	rbacLog = istiolog.RegisterScope("rbac", "rbac debugging", 0)
+type position int
+
+const (
+	first position = iota
+	last
 )
 
-// ServiceMetadata is a collection of different kind of information about a service.
-type ServiceMetadata struct {
-	Name       string            // full qualified service name, e.g. "productpage.default.svc.cluster.local
-	Labels     map[string]string // labels of the service instance
-	Attributes map[string]string // additional attributes of the service
+type rule struct {
+	key       string
+	values    []string
+	notValues []string
+	g         generator
 }
 
-func NewServiceMetadata(name string, namespace string, service *model.ServiceInstance) (*ServiceMetadata, error) {
-	if namespace == "" {
-		return nil, fmt.Errorf("found empty namespace")
+type ruleList struct {
+	rules []*rule
+}
+
+// Model represents a single rule from an authorization policy. The conditions of the rule are consolidated into
+// permission or principal to align with the Envoy RBAC filter API.
+type Model struct {
+	permissions []ruleList
+	principals  []ruleList
+}
+
+// New returns a model representing a single authorization policy.
+func New(r *authzpb.Rule, isIstioVersionGE15 bool) (*Model, error) {
+	m := Model{}
+
+	basePermission := ruleList{}
+	basePrincipal := ruleList{}
+
+	// Each condition in the when needs to be consolidated into either permission or principal.
+	for _, when := range r.When {
+		k := when.Key
+		switch {
+		case k == attrDestIP:
+			basePermission.insertAt(last, destIPGenerator{}, k, when.Values, when.NotValues)
+		case k == attrDestPort:
+			basePermission.insertAt(last, destPortGenerator{}, k, when.Values, when.NotValues)
+		case k == attrConnSNI:
+			basePermission.insertAt(last, connSNIGenerator{}, k, when.Values, when.NotValues)
+		case strings.HasPrefix(k, attrEnvoyFilter):
+			basePermission.insertAt(last, envoyFilterGenerator{}, k, when.Values, when.NotValues)
+		case k == attrSrcIP:
+			basePrincipal.insertAt(last, srcIPGenerator{}, k, when.Values, when.NotValues)
+		case k == attrSrcNamespace:
+			basePrincipal.insertAt(last, srcNamespaceGenerator{}, k, when.Values, when.NotValues)
+		case k == attrSrcPrincipal:
+			basePrincipal.insertAt(last, srcPrincipalGenerator{}, k, when.Values, when.NotValues)
+		case k == attrRequestPrincipal:
+			basePrincipal.insertAt(last, requestPrincipalGenerator{}, k, when.Values, when.NotValues)
+		case k == attrRequestAudiences:
+			basePrincipal.insertAt(last, requestAudiencesGenerator{}, k, when.Values, when.NotValues)
+		case k == attrRequestPresenter:
+			basePrincipal.insertAt(last, requestPresenterGenerator{}, k, when.Values, when.NotValues)
+		case strings.HasPrefix(k, attrRequestHeader):
+			basePrincipal.insertAt(last, requestHeaderGenerator{}, k, when.Values, when.NotValues)
+		case strings.HasPrefix(k, attrRequestClaims):
+			basePrincipal.insertAt(last, requestClaimGenerator{}, k, when.Values, when.NotValues)
+		default:
+			return nil, fmt.Errorf("unknown attribute %s", when.Key)
+		}
 	}
 
-	return &ServiceMetadata{
-		Name:   string(service.Service.Hostname),
-		Labels: service.Endpoint.Labels,
-		Attributes: map[string]string{
-			attrDestName:      name,
-			attrDestNamespace: namespace,
-			attrDestUser:      extractActualServiceAccount(service.Endpoint.ServiceAccount),
-		},
+	for _, from := range r.From {
+		merged := basePrincipal
+		if s := from.Source; s != nil {
+			merged.insertAt(first, srcIPGenerator{}, attrSrcIP, s.IpBlocks, s.NotIpBlocks)
+			merged.insertAt(first, srcNamespaceGenerator{}, attrSrcNamespace, s.Namespaces, s.NotNamespaces)
+			merged.insertAt(first, requestPrincipalGenerator{}, attrRequestPrincipal, s.RequestPrincipals, s.NotRequestPrincipals)
+			merged.insertAt(first, srcPrincipalGenerator{}, attrSrcPrincipal, s.Principals, s.NotPrincipals)
+		}
+		m.principals = append(m.principals, merged)
+	}
+	if len(r.From) == 0 {
+		m.principals = append(m.principals, basePrincipal)
+	}
+
+	for _, to := range r.To {
+		merged := basePermission
+		if o := to.Operation; o != nil {
+			merged.insertAt(first, destPortGenerator{}, attrDestPort, o.Ports, o.NotPorts)
+			merged.insertAt(first, pathGenerator{isIstioVersionGE15: isIstioVersionGE15}, pathMatcher, o.Paths, o.NotPaths)
+			merged.insertAt(first, methodGenerator{}, methodHeader, o.Methods, o.NotMethods)
+			merged.insertAt(first, hostGenerator{}, hostHeader, o.Hosts, o.NotHosts)
+		}
+		m.permissions = append(m.permissions, merged)
+	}
+	if len(r.To) == 0 {
+		m.permissions = append(m.permissions, basePermission)
+	}
+
+	return &m, nil
+}
+
+// MigrateTrustDomain replaces the trust domain in source principal based on the trust domain aliases information.
+func (m *Model) MigrateTrustDomain(tdBundle trustdomain.Bundle) {
+	for _, p := range m.principals {
+		for _, r := range p.rules {
+			if r.key == attrSrcPrincipal {
+				if len(r.values) != 0 {
+					r.values = tdBundle.ReplaceTrustDomainAliases(r.values)
+				}
+				if len(r.notValues) != 0 {
+					r.notValues = tdBundle.ReplaceTrustDomainAliases(r.notValues)
+				}
+			}
+		}
+	}
+}
+
+// Generate generates the Envoy RBAC policy from the model.
+func (m Model) Generate(forTCP, forDeny bool) (*rbacpb.Policy, error) {
+	var permissions []*rbacpb.Permission
+	for _, rl := range m.permissions {
+		permission, err := generatePermission(rl, forTCP, forDeny)
+		if err != nil {
+			return nil, err
+		}
+		permissions = append(permissions, permission)
+	}
+	if len(permissions) == 0 {
+		return nil, fmt.Errorf("must have at least 1 permission")
+	}
+
+	var principals []*rbacpb.Principal
+	for _, rl := range m.principals {
+		principal, err := generatePrincipal(rl, forTCP, forDeny)
+		if err != nil {
+			return nil, err
+		}
+		principals = append(principals, principal)
+	}
+	if len(principals) == 0 {
+		return nil, fmt.Errorf("must have at least 1 principal")
+	}
+
+	return &rbacpb.Policy{
+		Permissions: permissions,
+		Principals:  principals,
 	}, nil
 }
 
-func (sm *ServiceMetadata) GetNamespace() string {
-	return sm.Attributes[attrDestNamespace]
-}
-
-// Model includes a group of permission and principals defining the access control semantics. The
-// Permissions specify a list of allowed actions, the Principals specify a list of allowed source
-// identities. A request is allowed if it matches any of the permissions and any of the principals.
-type Model struct {
-	Permissions []Permission
-	Principals  []Principal
-}
-
-type Values struct {
-	Values    []string
-	NotValues []string
-}
-
-type KeyValues map[string]Values
-
-// NewModelV1alpha1 constructs a Model from a single ServiceRole and a list of ServiceRoleBinding. The ServiceRole
-// is converted to the permission and the ServiceRoleBinding is converted to the principal.
-func NewModelV1alpha1(trustDomainBundle trustdomain.Bundle, role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBinding) *Model {
-	m := &Model{}
-	for _, accessRule := range role.Rules {
-		var permission Permission
-		permission.Services = accessRule.Services
-		permission.Hosts = accessRule.Hosts
-		permission.NotHosts = accessRule.NotHosts
-		permission.Paths = accessRule.Paths
-		permission.NotPaths = accessRule.NotPaths
-		permission.Methods = accessRule.Methods
-		permission.NotMethods = accessRule.NotMethods
-		permission.Ports = convertPortsToString(accessRule.Ports)
-		permission.NotPorts = convertPortsToString(accessRule.NotPorts)
-
-		constraints := KeyValues{}
-		for _, constraint := range accessRule.Constraints {
-			constraints[constraint.Key] = Values{Values: constraint.Values}
-		}
-		permission.Constraints = []KeyValues{constraints}
-
-		m.Permissions = append(m.Permissions, permission)
-	}
-
-	for _, binding := range bindings {
-		for _, subject := range binding.Subjects {
-			users := []string{}
-			if subject.User != "" {
-				users = trustDomainBundle.ReplaceTrustDomainAliases([]string{subject.User})
-			}
-			principal := Principal{
-				Users:         users,
-				Names:         subject.Names,
-				NotNames:      subject.NotNames,
-				Groups:        subject.Groups,
-				Group:         subject.Group,
-				NotGroups:     subject.NotGroups,
-				Namespaces:    subject.Namespaces,
-				NotNamespaces: subject.NotNamespaces,
-				IPs:           subject.Ips,
-				NotIPs:        subject.NotIps,
-			}
-
-			property := KeyValues{}
-			for k, v := range subject.Properties {
-				values := Values{Values: []string{v}}
-				if k == attrSrcPrincipal {
-					// TODO(pitlv2109): Refactor this by creating a method for Principal
-					// that searches and replaces all trust domains in both v1alpha1 and v1beta1.
-					values = Values{Values: trustDomainBundle.ReplaceTrustDomainAliases([]string{v})}
-				}
-				property[k] = values
-			}
-			principal.Properties = []KeyValues{property}
-
-			m.Principals = append(m.Principals, principal)
-		}
-	}
-
-	return m
-}
-
-// NewModelV1beta1 constructs a Model from v1beta1 Rule.
-func NewModelV1beta1(trustDomainBundle trustdomain.Bundle, rule *security.Rule) *Model {
-	m := &Model{}
-
-	conditionsForPrincipal := make([]KeyValues, 0)
-	conditionsForPermission := make([]KeyValues, 0)
-	for _, when := range rule.When {
-		if isSupportedPrincipal(when.Key) {
-			values := when.Values
-			notValues := when.NotValues
-			if when.Key == attrSrcPrincipal {
-				if len(values) > 0 {
-					values = trustDomainBundle.ReplaceTrustDomainAliases(when.Values)
-				}
-				if len(notValues) > 0 {
-					notValues = trustDomainBundle.ReplaceTrustDomainAliases(when.NotValues)
-				}
-			}
-			conditionsForPrincipal = append(conditionsForPrincipal, KeyValues{
-				when.Key: Values{
-					Values:    values,
-					NotValues: notValues,
-				},
-			})
-		} else if isSupportedPermission(when.Key) {
-			conditionsForPermission = append(conditionsForPermission, KeyValues{
-				when.Key: Values{
-					Values:    when.Values,
-					NotValues: when.NotValues,
-				},
-			})
-		} else {
-			rbacLog.Errorf("ignored unsupported condition: %v", when)
-		}
-	}
-
-	for _, from := range rule.From {
-		if source := from.Source; source != nil {
-			names := source.Principals
-			if len(names) > 0 {
-				names = trustDomainBundle.ReplaceTrustDomainAliases(names)
-			}
-			notNames := source.NotPrincipals
-			if len(notNames) > 0 {
-				notNames = trustDomainBundle.ReplaceTrustDomainAliases(notNames)
-			}
-			principal := Principal{
-				IPs:                  source.IpBlocks,
-				NotIPs:               source.NotIpBlocks,
-				Names:                names,
-				NotNames:             notNames,
-				Namespaces:           source.Namespaces,
-				NotNamespaces:        source.NotNamespaces,
-				RequestPrincipals:    source.RequestPrincipals,
-				NotRequestPrincipals: source.NotRequestPrincipals,
-				Properties:           conditionsForPrincipal,
-				v1beta1:              true,
-			}
-			m.Principals = append(m.Principals, principal)
-		}
-	}
-	if len(rule.From) == 0 {
-		if len(conditionsForPrincipal) != 0 {
-			m.Principals = []Principal{{
-				Properties: conditionsForPrincipal,
-				v1beta1:    true,
-			}}
-		} else {
-			m.Principals = []Principal{{
-				AllowAll: true,
-				v1beta1:  true,
-			}}
-		}
-	}
-
-	for _, to := range rule.To {
-		if operation := to.Operation; operation != nil {
-			permission := Permission{
-				Methods:     operation.Methods,
-				NotMethods:  operation.NotMethods,
-				Hosts:       operation.Hosts,
-				NotHosts:    operation.NotHosts,
-				Ports:       operation.Ports,
-				NotPorts:    operation.NotPorts,
-				Paths:       operation.Paths,
-				NotPaths:    operation.NotPaths,
-				Constraints: conditionsForPermission,
-				v1beta1:     true,
-			}
-			m.Permissions = append(m.Permissions, permission)
-		}
-	}
-	if len(rule.To) == 0 {
-		if len(conditionsForPermission) != 0 {
-			m.Permissions = []Permission{{
-				Constraints: conditionsForPermission,
-				v1beta1:     true,
-			}}
-		} else {
-			m.Permissions = []Permission{{
-				AllowAll: true,
-				v1beta1:  true,
-			}}
-		}
-	}
-
-	return m
-}
-
-// Generate generates the envoy RBAC filter policy based on the permission and principals specified
-// in the model for the given service. This function only generates the policy if the constraints
-// and properties specified in the model is matched with the given service. It also validates if the
-// model is valid for TCP filter.
-func (m *Model) Generate(service *ServiceMetadata, forTCPFilter bool) *envoy_rbac.Policy {
-	policy := &envoy_rbac.Policy{}
-	for _, permission := range m.Permissions {
-		if service == nil || permission.Match(service) {
-			p, err := permission.Generate(forTCPFilter)
-			if err != nil {
-				rbacLog.Debugf("ignored HTTP permission for TCP service: %v", err)
-				continue
-			}
-
-			policy.Permissions = append(policy.Permissions, p)
-		}
-	}
-	if len(policy.Permissions) == 0 {
-		rbacLog.Debugf("role skipped for no permission matched")
-		return nil
-	}
-
-	for _, principal := range m.Principals {
-		p, err := principal.Generate(forTCPFilter)
+func generatePermission(rl ruleList, forTCP, forDeny bool) (*rbacpb.Permission, error) {
+	var and []*rbacpb.Permission
+	for _, r := range rl.rules {
+		ret, err := r.permission(forTCP, forDeny)
 		if err != nil {
-			rbacLog.Debugf("ignored HTTP principal for TCP service: %v", err)
-			continue
+			return nil, err
 		}
-
-		policy.Principals = append(policy.Principals, p)
+		and = append(and, ret...)
 	}
-	if len(policy.Principals) == 0 {
-		rbacLog.Debugf("role skipped for no principals found")
-		return nil
+	if len(and) == 0 {
+		and = append(and, permissionAny())
 	}
-	return policy
+	return permissionAnd(and), nil
 }
 
-// ValidateForTCPFilter validates that the model is valid for building a RBAC TCP filter.
-func (m *Model) ValidateForTCPFilter() error {
-	var errs *multierror.Error
-	for _, permission := range m.Permissions {
-		if err := permission.ValidateForTCP(true); err != nil {
-			errs = multierror.Append(errs, err)
+func generatePrincipal(rl ruleList, forTCP, forDeny bool) (*rbacpb.Principal, error) {
+	var and []*rbacpb.Principal
+	for _, r := range rl.rules {
+		ret, err := r.principal(forTCP, forDeny)
+		if err != nil {
+			return nil, err
+		}
+		and = append(and, ret...)
+	}
+	if len(and) == 0 {
+		and = append(and, principalAny())
+	}
+	return principalAnd(and), nil
+}
+
+func (r rule) permission(forTCP, forDeny bool) ([]*rbacpb.Permission, error) {
+	var permissions []*rbacpb.Permission
+	var or []*rbacpb.Permission
+	for _, value := range r.values {
+		p, err := r.g.permission(r.key, value, forTCP)
+		if err := r.checkError(forDeny, err); err != nil {
+			return nil, err
+		}
+		if p != nil {
+			or = append(or, p)
 		}
 	}
-	for _, principal := range m.Principals {
-		if err := principal.ValidateForTCP(true); err != nil {
-			errs = multierror.Append(errs, err)
+	if len(or) > 0 {
+		permissions = append(permissions, permissionOr(or))
+	}
+
+	or = nil
+	for _, notValue := range r.notValues {
+		p, err := r.g.permission(r.key, notValue, forTCP)
+		if err := r.checkError(forDeny, err); err != nil {
+			return nil, err
+		}
+		if p != nil {
+			or = append(or, p)
 		}
 	}
-	return errs.ErrorOrNil()
+	if len(or) > 0 {
+		permissions = append(permissions, permissionNot(permissionOr(or)))
+	}
+	return permissions, nil
+}
+
+func (r rule) principal(forTCP, forDeny bool) ([]*rbacpb.Principal, error) {
+	var principals []*rbacpb.Principal
+	var or []*rbacpb.Principal
+	for _, value := range r.values {
+		p, err := r.g.principal(r.key, value, forTCP)
+		if err := r.checkError(forDeny, err); err != nil {
+			return nil, err
+		}
+		if p != nil {
+			or = append(or, p)
+		}
+	}
+	if len(or) > 0 {
+		principals = append(principals, principalOr(or))
+	}
+
+	or = nil
+	for _, notValue := range r.notValues {
+		p, err := r.g.principal(r.key, notValue, forTCP)
+		if err := r.checkError(forDeny, err); err != nil {
+			return nil, err
+		}
+		if p != nil {
+			or = append(or, p)
+		}
+	}
+	if len(or) > 0 {
+		principals = append(principals, principalNot(principalOr(or)))
+	}
+	return principals, nil
+}
+
+func (r rule) checkError(forDeny bool, err error) error {
+	if forDeny {
+		// Ignore the error for deny policy. This will make the current rule ignored and continue the generation of
+		// the next rule, effectively result in a wider deny policy (i.e. more likely to deny a request).
+		return nil
+	}
+
+	// Return the error as-is for allow policy. This will make all rules in the current permission ignored, effectively
+	// result in a smaller allow policy (i.e. less likely to allow a request).
+	return err
+}
+
+// insert a new rule to the ruleList at the given position.
+func (p *ruleList) insertAt(pos position, g generator, key string, values, notValues []string) {
+	if len(values) == 0 && len(notValues) == 0 {
+		return
+	}
+	r := &rule{
+		key:       key,
+		values:    values,
+		notValues: notValues,
+		g:         g,
+	}
+
+	if pos == first {
+		p.rules = append([]*rule{r}, p.rules...)
+	} else {
+		p.rules = append(p.rules, r)
+	}
 }

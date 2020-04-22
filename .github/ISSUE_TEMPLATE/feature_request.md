@@ -22,4 +22,10 @@ about: Suggest an idea to improve Istio
 [ ] User Experience
 [ ] Developer Infrastructure
 
+**Affected features (please put an X in all that apply)**
+
+[ ] Multi Cluster
+[ ] Virtual Machine
+[ ] Multi Control Plane
+
 **Additional context**

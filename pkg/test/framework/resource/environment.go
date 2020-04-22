@@ -17,14 +17,23 @@ package resource
 import (
 	"fmt"
 
-	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
+
+// EnvironmentFactory is a function that creates an Environment by name.
+type EnvironmentFactory func(name string, ctx Context) (Environment, error)
 
 // Environment is the ambient environment that the test runs in.
 type Environment interface {
 	Resource
 
 	EnvironmentName() environment.Name
+
+	// IsMulticluster is a utility method that indicates whether there are multiple Clusters available.
+	IsMulticluster() bool
+
+	// Clusters in this Environment. There will always be at least one.
+	Clusters() []Cluster
 
 	// Case calls the given function if this environment has the given name.
 	Case(e environment.Name, fn func())

@@ -23,10 +23,12 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
+	"github.com/gogo/protobuf/proto"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes/scheme"
 
 	"istio.io/api/operator/v1alpha1"
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
@@ -37,10 +39,6 @@ import (
 )
 
 const (
-	// K8sDeploymentResourceType is the resource type of kubernetes deployment.
-	K8sDeploymentResourceType = "Deployment"
-	// K8sDaemonSetResourceType is the resource type of kubernetes daemonset.
-	K8sDaemonSetResourceType = "DaemonSet"
 	// HelmValuesEnabledSubpath is the subpath from the component root to the enabled parameter.
 	HelmValuesEnabledSubpath = "enabled"
 	// HelmValuesNamespaceSubpath is the subpath from the component root to the namespace parameter.
@@ -53,8 +51,6 @@ const (
 	TranslateConfigFolder = "translateConfig"
 	// TranslateConfigPrefix is the prefix of IstioOperator's translation configuration file
 	TranslateConfigPrefix = "translateConfig-"
-	// ICPToIOPConfigPrefix is the prefix of IstioControPlane-to-IstioOperator translation configuration file
-	ICPToIOPConfigPrefix = "translate-ICP-IOP-"
 
 	// devDbg generates lots of output useful in development.
 	devDbg = false
@@ -129,7 +125,8 @@ func NewTranslator(minorVersion version.MinorVersion) (*Translator, error) {
 }
 
 // OverlayK8sSettings overlays k8s settings from iop over the manifest objects, based on t's translation mappings.
-func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName, index int) (string, error) {
+func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName,
+	resourceName string, addonName string, index int) (string, error) {
 	objects, err := object.ParseK8sObjectsFromYAMLManifest(yml)
 	if err != nil {
 		return "", err
@@ -147,7 +144,8 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 		}
 		inPath = strings.Replace(inPath, "gressGateways.", "gressGateways."+fmt.Sprint(index)+".", 1)
 		scope.Debugf("Checking for path %s in IstioOperatorSpec", inPath)
-		m, found, err := tpath.GetFromStructPath(iop, inPath)
+
+		m, found, err := getK8SSpecFromIOP(iop, componentName, inPath, addonName)
 		if err != nil {
 			return "", err
 		}
@@ -165,7 +163,7 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 			scope.Debugf("path %s is int 0, skip mapping.", inPath)
 			continue
 		}
-		outPath, err := t.renderResourceComponentPathTemplate(v.OutPath, componentName)
+		outPath, err := t.renderResourceComponentPathTemplate(v.OutPath, componentName, resourceName, addonName, iop.Revision)
 		if err != nil {
 			return "", err
 		}
@@ -186,7 +184,7 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 		}
 
 		// strategic merge overlay m to the base object oo
-		mergedObj, err := mergeK8sObject(oo, m, path[1:])
+		mergedObj, err := MergeK8sObject(oo, m, path[1:])
 		if err != nil {
 			return "", err
 		}
@@ -201,12 +199,12 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 func (t *Translator) ProtoToValues(ii *v1alpha1.IstioOperatorSpec) (string, error) {
 	root := make(map[string]interface{})
 
-	errs := t.protoToHelmValues(ii, root, nil)
+	errs := t.ProtoToHelmValues(ii, root, nil)
 	if len(errs) != 0 {
 		return "", errs.ToError()
 	}
 
-	// Enabled and namespace fields require special handling because of inheritance rules.
+	// Special additional handling not covered by simple translation rules.
 	if err := t.setComponentProperties(root, ii); err != nil {
 		return "", err
 	}
@@ -224,23 +222,8 @@ func (t *Translator) ProtoToValues(ii *v1alpha1.IstioOperatorSpec) (string, erro
 	return string(y), errs.ToError()
 }
 
-// ValuesOverlaysToHelmValues translates from component value overlays to helm value overlay paths.
-func (t *Translator) ValuesOverlaysToHelmValues(in map[string]interface{}, cname name.ComponentName) map[string]interface{} {
-	out := make(map[string]interface{})
-	toPath := t.ComponentMaps[cname].ToHelmValuesTreeRoot
-	pv := strings.Split(toPath, ".")
-	cur := out
-	for len(pv) > 1 {
-		cur[pv[0]] = make(map[string]interface{})
-		cur = cur[pv[0]].(map[string]interface{})
-		pv = pv[1:]
-	}
-	cur[pv[0]] = in
-	return out
-}
-
 // TranslateHelmValues creates a Helm values.yaml config data tree from iop using the given translator.
-func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName) (string, error) {
+func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, componentsSpec interface{}, componentName name.ComponentName) (string, error) {
 	globalVals, globalUnvalidatedVals, apiVals := make(map[string]interface{}), make(map[string]interface{}), make(map[string]interface{})
 
 	// First, translate the IstioOperator API to helm Values.
@@ -283,7 +266,75 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 	if err != nil {
 		return "", err
 	}
+
+	mergedYAML, err = applyGatewayTranslations(mergedYAML, componentName, componentsSpec)
+	if err != nil {
+		return "", err
+	}
+
 	return string(mergedYAML), err
+}
+
+// applyGatewayTranslations writes gateway name gwName at the appropriate values path in iop and maps k8s.service.ports
+// to values. It returns the resulting YAML tree.
+func applyGatewayTranslations(iop []byte, componentName name.ComponentName, componentSpec interface{}) ([]byte, error) {
+	if !componentName.IsGateway() {
+		return iop, nil
+	}
+	iopt := make(map[string]interface{})
+	if err := yaml.Unmarshal(iop, &iopt); err != nil {
+		return nil, err
+	}
+	gwSpec := componentSpec.(*v1alpha1.GatewaySpec)
+	k8s := gwSpec.K8S
+	switch componentName {
+	case name.IngressComponentName:
+		setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.name"), gwSpec.Name)
+		if len(gwSpec.Label) != 0 {
+			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.labels"), gwSpec.Label)
+		}
+		if k8s != nil && k8s.Service != nil {
+			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.ports"), k8s.Service.Ports)
+		}
+	case name.EgressComponentName:
+		setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-egressgateway.name"), gwSpec.Name)
+		if len(gwSpec.Label) != 0 {
+			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-egressgateway.labels"), gwSpec.Label)
+		}
+		if k8s != nil && k8s.Service != nil {
+			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-egressgateway.ports"), k8s.Service.Ports)
+		}
+	}
+	return yaml.Marshal(iopt)
+}
+
+// setYAMLNodeByMapPath sets the value at the given path to val in treeNode. The path cannot traverse lists and
+// treeNode must be a YAML tree unmarshaled into a plain map data structure.
+func setYAMLNodeByMapPath(treeNode interface{}, path util.Path, val interface{}) {
+	if len(path) == 0 || treeNode == nil {
+		return
+	}
+	pe := path[0]
+	switch nt := treeNode.(type) {
+	case map[interface{}]interface{}:
+		if len(path) == 1 {
+			nt[pe] = val
+			return
+		}
+		if nt[pe] == nil {
+			return
+		}
+		setYAMLNodeByMapPath(nt[pe], path[1:], val)
+	case map[string]interface{}:
+		if len(path) == 1 {
+			nt[pe] = val
+			return
+		}
+		if nt[pe] == nil {
+			return
+		}
+		setYAMLNodeByMapPath(nt[pe], path[1:], val)
+	}
 }
 
 // ComponentMap returns a ComponentMaps struct ptr for the given component name if one exists.
@@ -294,12 +345,14 @@ func (t *Translator) ComponentMap(cns string) *ComponentMaps {
 	return t.ComponentMaps[cn]
 }
 
-// protoToHelmValues takes an interface which must be a struct ptr and recursively iterates through all its fields.
+// ProtoToHelmValues function below is used by third party for integrations and has to be public
+
+// ProtoToHelmValues takes an interface which must be a struct ptr and recursively iterates through all its fields.
 // For each leaf, if looks for a mapping from the struct data path to the corresponding YAML path and if one is
 // found, it calls the associated mapping function if one is defined to populate the values YAML path.
 // If no mapping function is defined, it uses the default mapping function.
-func (t *Translator) protoToHelmValues(node interface{}, root map[string]interface{}, path util.Path) (errs util.Errors) {
-	scope.Debugf("protoToHelmValues with path %s, %v (%T)", path, node, node)
+func (t *Translator) ProtoToHelmValues(node interface{}, root map[string]interface{}, path util.Path) (errs util.Errors) {
+	scope.Debugf("ProtoToHelmValues with path %s, %v (%T)", path, node, node)
 	if util.IsValueNil(node) {
 		return nil
 	}
@@ -309,7 +362,7 @@ func (t *Translator) protoToHelmValues(node interface{}, root map[string]interfa
 	switch vt.Kind() {
 	case reflect.Ptr:
 		if !util.IsNilOrInvalidValue(vv.Elem()) {
-			errs = util.AppendErrs(errs, t.protoToHelmValues(vv.Elem().Interface(), root, path))
+			errs = util.AppendErrs(errs, t.ProtoToHelmValues(vv.Elem().Interface(), root, path))
 		}
 	case reflect.Struct:
 		scope.Debug("Struct")
@@ -320,7 +373,7 @@ func (t *Translator) protoToHelmValues(node interface{}, root map[string]interfa
 			if a, ok := vv.Type().Field(i).Tag.Lookup("json"); ok && a == "-" {
 				continue
 			}
-			errs = util.AppendErrs(errs, t.protoToHelmValues(fieldValue.Interface(), root, append(path, fieldName)))
+			errs = util.AppendErrs(errs, t.ProtoToHelmValues(fieldValue.Interface(), root, append(path, fieldName)))
 		}
 	case reflect.Map:
 		scope.Debug("Map")
@@ -331,7 +384,7 @@ func (t *Translator) protoToHelmValues(node interface{}, root map[string]interfa
 	case reflect.Slice:
 		scope.Debug("Slice")
 		for i := 0; i < vv.Len(); i++ {
-			errs = util.AppendErrs(errs, t.protoToHelmValues(vv.Index(i).Interface(), root, path))
+			errs = util.AppendErrs(errs, t.ProtoToHelmValues(vv.Index(i).Interface(), root, path))
 		}
 	default:
 		// Must be a leaf
@@ -381,14 +434,18 @@ func (t *Translator) setComponentProperties(root map[string]interface{}, iop *v1
 		}
 
 		hub, found, _ := tpath.GetFromStructPath(iop, "Components."+string(cn)+".Hub")
-		if found && hub.(string) != "" {
+		// Unmarshal unfortunately creates struct fields with "" for unset values. Skip these cases to avoid
+		// overwriting current value with an empty string.
+		hubStr, ok := hub.(string)
+		if found && !(ok && hubStr == "") {
 			if err := tpath.WriteNode(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesHubSubpath), hub); err != nil {
 				return err
 			}
 		}
 
 		tag, found, _ := tpath.GetFromStructPath(iop, "Components."+string(cn)+".Tag")
-		if found && tag.(string) != "" {
+		tagStr, ok := tag.(string)
+		if found && !(ok && tagStr == "") {
 			if err := tpath.WriteNode(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesTagSubpath), tag); err != nil {
 				return err
 			}
@@ -415,15 +472,6 @@ func (t *Translator) IsComponentEnabled(cn name.ComponentName, iop *v1alpha1.Ist
 		return false, nil
 	}
 	return IsComponentEnabledInSpec(cn, iop)
-}
-
-// AllComponentsNames returns a slice of all components used in t.
-func (t *Translator) AllComponentsNames() []name.ComponentName {
-	var out []name.ComponentName
-	for cn := range t.ComponentMaps {
-		out = append(out, cn)
-	}
-	return out
 }
 
 // insertLeaf inserts a leaf with value into root at path, which is first mapped using t.APIMapping.
@@ -488,17 +536,58 @@ func renderFeatureComponentPathTemplate(tmpl string, componentName name.Componen
 
 // renderResourceComponentPathTemplate renders a template of the form <path>{{.ResourceName}}<path>{{.ContainerName}}<path> with
 // the supplied parameters.
-func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentName name.ComponentName) (string, error) {
+func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentName name.ComponentName,
+	resourceName, addonName, revision string) (string, error) {
+	cn := string(componentName)
+	if componentName == name.AddonComponentName {
+		cn = addonName
+	}
+	cmp := t.ComponentMap(cn)
+	if cmp == nil {
+		return "", fmt.Errorf("component: %s does not exist in the componentMap", addonName)
+	}
+	if resourceName == "" {
+		resourceName = cmp.ResourceName
+	}
+	// The istiod resource will be istiod-<REVISION>, so we need to append the revision suffix
+	if revision != "" && resourceName == "istiod" {
+		resourceName += "-" + revision
+	}
 	ts := struct {
 		ResourceType  string
 		ResourceName  string
 		ContainerName string
 	}{
-		ResourceType:  t.ComponentMaps[componentName].ResourceType,
-		ResourceName:  t.ComponentMaps[componentName].ResourceName,
-		ContainerName: t.ComponentMaps[componentName].ContainerName,
+		ResourceType:  cmp.ResourceType,
+		ResourceName:  resourceName,
+		ContainerName: cmp.ContainerName,
 	}
 	return util.RenderTemplate(tmpl, ts)
+}
+
+// getK8SSpecFromIOP is helper function to get k8s spec node from iop using inPath
+// 1. if component is not an addonComponent, get the node directly from iop using the inPath.
+// 2. otherwise convert the inPath and point the root to the entry of addonComponents map with addonName as key.
+// e.x: original inPath: "Components.AddonComponents.K8S.ReplicaCount" and root: iop would be converted to
+// new inPath: "K8S.ReplicaCount" and root: "iop.AddonComponents.addonName"
+func getK8SSpecFromIOP(iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName, inPath string,
+	addonName string) (m interface{}, found bool, err error) {
+	if componentName != name.AddonComponentName {
+		return tpath.GetFromStructPath(iop, inPath)
+	}
+	inPath = strings.Replace(inPath, "Components.AddonComponents.", "", 1)
+	scope.Debugf("Checking for path %s in K8S Spec of AddonComponents: %s", inPath, addonName)
+	addonMaps := iop.AddonComponents
+	if extSpec, ok := addonMaps[addonName]; ok {
+		m, found, err = tpath.GetFromStructPath(extSpec, inPath)
+		if err != nil {
+			return nil, false, err
+		}
+	} else {
+		scope.Debugf("path %s not found in AddonComponents.%s, skip mapping.", inPath, addonName)
+		return nil, false, nil
+	}
+	return m, found, nil
 }
 
 // defaultTranslationFunc is the default translation to values. It maps a Go data path into a YAML path.
@@ -525,8 +614,10 @@ func firstCharToLower(s string) string {
 	return strings.ToLower(s[0:1]) + s[1:]
 }
 
-// mergeK8sObject does strategic merge for overlayNode on the base object.
-func mergeK8sObject(base *object.K8sObject, overlayNode interface{}, path util.Path) (*object.K8sObject, error) {
+// MergeK8sObject function below is used by third party for integrations and has to be public
+
+// MergeK8sObject does strategic merge for overlayNode on the base object.
+func MergeK8sObject(base *object.K8sObject, overlayNode interface{}, path util.Path) (*object.K8sObject, error) {
 	overlay, err := createPatchObjectFromPath(overlayNode, path)
 	if err != nil {
 		return nil, err
@@ -636,4 +727,49 @@ func createPatchObjectFromPath(node interface{}, path util.Path) (map[string]int
 		nextNode = currentNode[pe]
 	}
 	return patchObj, nil
+}
+
+// IOPStoIOP takes an IstioOperatorSpec and returns a corresponding IstioOperator with the given name and namespace.
+func IOPStoIOP(iops proto.Message, name, namespace string) (*iopv1alpha1.IstioOperator, error) {
+	iopStr, err := IOPStoIOPstr(iops, name, namespace)
+	if err != nil {
+		return nil, err
+	}
+	iop := &iopv1alpha1.IstioOperator{}
+	if err := util.UnmarshalWithJSONPB(iopStr, iop, false); err != nil {
+		return nil, err
+	}
+	return iop, nil
+}
+
+// IOPStoIOPstr takes an IstioOperatorSpec and returns a corresponding IstioOperator string with the given name and namespace.
+func IOPStoIOPstr(iops proto.Message, name, namespace string) (string, error) {
+	iopsStr, err := util.MarshalWithJSONPB(iops)
+	if err != nil {
+		return "", err
+	}
+	spec, err := tpath.AddSpecRoot(iopsStr)
+	if err != nil {
+		return "", err
+	}
+
+	tmpl := `
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: {{ .Namespace }}
+  name: {{ .Name }} 
+`
+	// Passing into template causes reformatting, use simple concatenation instead.
+	tmpl += spec
+
+	type Temp struct {
+		Namespace string
+		Name      string
+	}
+	ts := Temp{
+		Namespace: namespace,
+		Name:      name,
+	}
+	return util.RenderTemplate(tmpl, ts)
 }

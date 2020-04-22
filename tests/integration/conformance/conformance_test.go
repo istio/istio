@@ -35,11 +35,11 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/structpath"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
@@ -51,7 +51,7 @@ func TestConformance(t *testing.T) {
 			ctx.Fatalf("error loading test cases: %v", err)
 		}
 
-		gal := galley.NewOrFail(ctx, ctx, galley.Config{CreateClient: true})
+		gal := galley.NewOrFail(ctx, ctx, galley.Config{})
 		p := pilot.NewOrFail(ctx, ctx, pilot.Config{Galley: gal})
 
 		for _, ca := range cases {
@@ -134,7 +134,7 @@ func runStage(ctx framework.TestContext, pil pilot.Instance, gal galley.Instance
 		gal.DeleteConfigOrFail(ctx, ns, i)
 	}()
 
-	if s.MCP != nil {
+	if gal.Address() != "" && s.MCP != nil {
 		validateMCPState(ctx, gal, ns, s)
 	}
 	if s.Traffic != nil {

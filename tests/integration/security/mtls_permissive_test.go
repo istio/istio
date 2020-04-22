@@ -24,6 +24,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/tests/integration/security/util"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -32,7 +33,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
@@ -57,24 +57,34 @@ func verifyListener(listener *xdsapi.Listener, t *testing.T) error {
 	if !inspector {
 		return errors.New("no tls inspector")
 	}
-	// Check filter chain match.
-	if l := len(listener.FilterChains); l != 2 {
-		return fmt.Errorf("expect exactly 2 filter chains, actually %d", l)
+	foundMtls := false
+	for _, c := range listener.FilterChains {
+		if !reflect.DeepEqual(c.FilterChainMatch.ApplicationProtocols, []string{"istio-peer-exchange", "istio"}) {
+			// alpn is not isto
+			continue
+		}
+		if c.TransportSocket == nil {
+			// no tls
+			continue
+		}
+		foundMtls = true
 	}
-	mtlsChain := listener.FilterChains[0]
-	if !reflect.DeepEqual(mtlsChain.FilterChainMatch.ApplicationProtocols, []string{"istio-peer-exchange", "istio"}) {
-		return errors.New("alpn is not istio")
+	if !foundMtls {
+		return fmt.Errorf("did not find mtls filter chain")
 	}
-	if mtlsChain.TransportSocket == nil {
-		return errors.New("transport socket is empty")
+	foundPlaintext := false
+	for _, c := range listener.FilterChains {
+		if l := len(c.FilterChainMatch.ApplicationProtocols); l != 0 {
+			// expect empty alpn
+			continue
+		}
+		if c.TlsContext != nil {
+			continue
+		}
+		foundPlaintext = true
 	}
-	// Second default filter chain should have empty filter chain match and no tls context.
-	defaultChain := listener.FilterChains[1]
-	if l := len(defaultChain.FilterChainMatch.ApplicationProtocols); l != 0 {
-		return fmt.Errorf("expect empty alpn, actually %v", defaultChain.FilterChainMatch.ApplicationProtocols)
-	}
-	if defaultChain.TlsContext != nil {
-		return errors.New("non empty tls context")
+	if !foundPlaintext {
+		return fmt.Errorf("did not find plaintext filter chain")
 	}
 	return nil
 }

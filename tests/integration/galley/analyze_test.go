@@ -25,16 +25,18 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/istioctl/cmd"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 const (
-	serviceRoleBindingFile = "testdata/servicerolebinding.yaml"
-	serviceRoleFile        = "testdata/servicerole.yaml"
-	invalidFile            = "testdata/invalid.yaml"
-	dirWithConfig          = "testdata/some-dir/"
+	serviceRoleBindingFile     = "testdata/servicerolebinding.yaml"
+	serviceRoleFile            = "testdata/servicerole.yaml"
+	invalidFile                = "testdata/invalid.yaml"
+	invalidExtensionFile       = "testdata/invalid.md"
+	jsonServiceRoleBindingFile = "testdata/servicerolebinding.json"
+	dirWithConfig              = "testdata/some-dir/"
 )
 
 var analyzerFoundIssuesError = cmd.AnalyzerFoundIssuesError{}
@@ -51,7 +53,7 @@ func TestEmptyCluster(t *testing.T) {
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			// For a clean istio install with injection enabled, expect no validation errors
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), true)
@@ -72,7 +74,7 @@ func TestFileOnly(t *testing.T) {
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			// Validation error if we have a service role binding without a service role
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, serviceRoleBindingFile)
@@ -97,7 +99,7 @@ func TestDirectoryWithoutRecursion(t *testing.T) {
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			// Recursive is false, so we should only analyze
 			// testdata/some-dir/missing-gateway.yaml and get a
@@ -120,7 +122,7 @@ func TestDirectoryWithRecursion(t *testing.T) {
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			// Recursive is true, so we should see two errors (SchemaValidationError and UnknownAnnotation).
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, "--recursive=true", dirWithConfig)
@@ -129,7 +131,7 @@ func TestDirectoryWithRecursion(t *testing.T) {
 		})
 }
 
-func TestFileParseError(t *testing.T) {
+func TestInvalidFileError(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
@@ -140,14 +142,40 @@ func TestFileParseError(t *testing.T) {
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+
+			// Skip the file with invalid extension and produce no errors.
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, invalidExtensionFile)
+			g.Expect(output[0]).To(ContainSubstring(fmt.Sprintf("Skipping file %v, recognized file extensions are: [.json .yaml .yml]", invalidExtensionFile)))
+			g.Expect(err).To(BeNil())
 
 			// Parse error as the yaml file itself is not valid yaml.
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, invalidFile)
+			output, err = istioctlSafe(t, istioCtl, ns.Name(), false, invalidFile)
 			g.Expect(output[0]).To(ContainSubstring("Error(s) adding files"))
 			g.Expect(output[1]).To(ContainSubstring(fmt.Sprintf("errors parsing content \"%s\"", invalidFile)))
 
 			g.Expect(err).To(MatchError(cmd.FileParseError{}))
+		})
+}
+
+func TestJsonInputFile(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			g := NewGomegaWithT(t)
+
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+
+			// Validation error if we have a service role binding without a service role
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, jsonServiceRoleBindingFile)
+			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
+			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
+
 		})
 }
 
@@ -165,7 +193,7 @@ func TestKubeOnly(t *testing.T) {
 
 			applyFileOrFail(t, ns.Name(), serviceRoleBindingFile)
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			// Validation error if we have a service role binding without a service role
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), true)
@@ -194,7 +222,7 @@ func TestFileAndKubeCombined(t *testing.T) {
 
 			applyFileOrFail(t, ns.Name(), serviceRoleBindingFile)
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			// Simulating applying the service role to a cluster that already has the binding, we should
 			// fix the error and thus see no message
@@ -223,7 +251,7 @@ func TestAllNamespaces(t *testing.T) {
 			applyFileOrFail(t, ns1.Name(), serviceRoleBindingFile)
 			applyFileOrFail(t, ns2.Name(), serviceRoleBindingFile)
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			// If we look at one namespace, we should successfully run and see one message (and not anything from any other namespace)
 			output, _ := istioctlSafe(t, istioCtl, ns1.Name(), true)
@@ -250,6 +278,7 @@ func TestAllNamespaces(t *testing.T) {
 func TestTimeout(t *testing.T) {
 	framework.
 		NewTest(t).
+		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			g := NewGomegaWithT(t)
 
@@ -258,7 +287,7 @@ func TestTimeout(t *testing.T) {
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			// We should time out immediately.
 			_, err := istioctlSafe(t, istioCtl, ns.Name(), true, "--timeout=0s")
@@ -309,7 +338,7 @@ func istioctlSafe(t *testing.T, i istioctl.Instance, ns string, useKube bool, ex
 
 func applyFileOrFail(t *testing.T, ns, filename string) {
 	t.Helper()
-	if err := env.Apply(ns, filename); err != nil {
+	if err := cluster.Apply(ns, filename); err != nil {
 		t.Fatal(err)
 	}
 }

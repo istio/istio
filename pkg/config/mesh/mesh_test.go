@@ -19,6 +19,10 @@ import (
 	"reflect"
 	"testing"
 
+	. "github.com/onsi/gomega"
+
+	"istio.io/istio/pkg/util/gogoprotomarshal"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
 	"istio.io/istio/pkg/config/mesh"
@@ -56,10 +60,33 @@ defaultConfig:
 	if !reflect.DeepEqual(got, &want) {
 		t.Fatalf("Wrong default values:\n got %#v \nwant %#v", got, &want)
 	}
+	// Verify overrides
+	got, err = mesh.ApplyMeshConfigDefaults(`
+ingressClass: foo
+reportBatchMaxTime: 10s
+enableTracing: false
+defaultServiceExportTo: 
+- "foo"
+outboundTrafficPolicy:
+  mode: REGISTRY_ONLY
+clusterLocalNamespaces: 
+- "foons"
+defaultConfig:
+  tracing: {}
+  concurrency: 4`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.DefaultConfig.Tracing.GetZipkin() != nil {
+		t.Error("Failed to override tracing")
+	}
+
+	gotY, err := gogoprotomarshal.ToYAML(got)
+	t.Log("Result: \n", gotY, err)
 }
 
 func TestApplyMeshNetworksDefaults(t *testing.T) {
-	yml := fmt.Sprintf(`
+	yml := `
 networks:
   network1:
     endpoints:
@@ -73,7 +100,7 @@ networks:
     gateways:
     - registryServiceName: reg1
       port: 443
-`)
+`
 
 	want := mesh.EmptyMeshNetworks()
 	want.Networks = map[string]*meshconfig.Network{
@@ -167,6 +194,60 @@ func TestResolveHostsInNetworksConfig(t *testing.T) {
 			if addrAfter != tt.address && !tt.modified {
 				t.Fatalf("Expected network address not to be modified after calling the function")
 			}
+		})
+	}
+}
+
+func TestIsClusterLocal(t *testing.T) {
+	cases := []struct {
+		name     string
+		m        meshconfig.MeshConfig
+		ns       string
+		expected bool
+	}{
+		{
+			name:     "local by default",
+			m:        mesh.DefaultMeshConfig(),
+			ns:       "kube-system",
+			expected: true,
+		},
+		{
+			name:     "not local by default",
+			m:        mesh.DefaultMeshConfig(),
+			ns:       "bob",
+			expected: false,
+		},
+		{
+			name: "local 1",
+			m: meshconfig.MeshConfig{
+				ClusterLocalNamespaces: []string{"ns1", "ns2"},
+			},
+			ns:       "ns1",
+			expected: true,
+		},
+		{
+			name: "local 2",
+			m: meshconfig.MeshConfig{
+				ClusterLocalNamespaces: []string{"ns1", "ns2"},
+			},
+			ns:       "ns2",
+			expected: true,
+		},
+		{
+			name: "not local",
+			m: meshconfig.MeshConfig{
+				ClusterLocalNamespaces: []string{"ns1", "ns2"},
+			},
+			ns:       "ns3",
+			expected: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			clusterLocal := mesh.IsClusterLocal(&c.m, c.ns)
+			g.Expect(clusterLocal).To(Equal(c.expected))
 		})
 	}
 }

@@ -27,8 +27,9 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/cache"
-	xds "github.com/envoyproxy/go-control-plane/pkg/server"
+	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
+	"github.com/envoyproxy/go-control-plane/pkg/cache/v2"
+	xds "github.com/envoyproxy/go-control-plane/pkg/server/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"google.golang.org/grpc"
@@ -38,6 +39,7 @@ import (
 
 	"istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/mixer"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
@@ -274,7 +276,7 @@ var (
 		ServiceDiscovery: mock{},
 	}
 	clientParams = plugin.InputParams{
-		ListenerProtocol: plugin.ListenerProtocolHTTP,
+		ListenerProtocol: networking.ListenerProtocolHTTP,
 		Node: &model.Proxy{
 			ID:       "pod.ns",
 			Type:     model.Router,
@@ -325,20 +327,20 @@ func makeSnapshot(s *env.TestSetup, t *testing.T) cache.Snapshot {
 
 	p := mixer.NewPlugin()
 
-	clientMutable := plugin.MutableObjects{Listener: clientListener, FilterChains: []plugin.FilterChain{{}}}
+	clientMutable := networking.MutableObjects{Listener: clientListener, FilterChains: []networking.FilterChain{{}}}
 	if err := p.OnOutboundListener(&clientParams, &clientMutable); err != nil {
 		t.Error(err)
 	}
 	clientManager.HttpFilters = append(clientMutable.FilterChains[0].HTTP, clientManager.HttpFilters...)
 	clientListener.FilterChains = []*listener.FilterChain{{Filters: []*listener.Filter{{
-		Name:       wellknown.HTTPConnectionManager,
+		Name:       "http",
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: pilotutil.MessageToAny(clientManager)},
 	}}}}
 
 	p.OnOutboundRouteConfiguration(&clientParams, clientRoute)
 
 	snapshot := cache.Snapshot{}
-	snapshot.Resources[cache.Route] = cache.NewResources("http", []cache.Resource{clientRoute})
-	snapshot.Resources[cache.Listener] = cache.NewResources("http", []cache.Resource{clientListener})
+	snapshot.Resources[types.Route] = cache.NewResources("http", []types.Resource{clientRoute})
+	snapshot.Resources[types.Listener] = cache.NewResources("http", []types.Resource{clientListener})
 	return snapshot
 }

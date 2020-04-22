@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 
+	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/model"
@@ -51,6 +52,7 @@ const pollInterval = time.Second
 
 // waitCmd represents the wait command
 func waitCmd() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:   "wait [flags] <type> <name>[.<namespace>]",
 		Short: "Wait for an Istio resource",
@@ -87,14 +89,14 @@ istioctl experimental wait --for=distribution --threshold=.99 --timeout=300 virt
 			printVerbosef(cmd, "getting first version from chan")
 			firstVersion, err := w.BlockingRead()
 			if err != nil {
-				return fmt.Errorf("unable to retrieve kubernetes resource %s: %v", "", err)
+				return fmt.Errorf("unable to retrieve Kubernetes resource %s: %v", "", err)
 			}
 			resourceVersions := []string{firstVersion}
 			targetResource := model.Key(targetSchema.Resource().Kind(), nameflag, namespace)
 			for {
 				//run the check here as soon as we start
 				// because tickers won't run immediately
-				present, notpresent, err := poll(resourceVersions, targetResource)
+				present, notpresent, err := poll(resourceVersions, targetResource, opts)
 				printVerbosef(cmd, "Received poll result: %d/%d", present, present+notpresent)
 				if err != nil {
 					return err
@@ -111,7 +113,7 @@ istioctl experimental wait --for=distribution --threshold=.99 --timeout=300 virt
 					printVerbosef(cmd, "tick")
 					continue
 				case err = <-w.errorChan:
-					return fmt.Errorf("unable to retrieve kubernetes resource %s: %v", "", err)
+					return fmt.Errorf("unable to retrieve Kubernetes resource %s: %v", "", err)
 				case <-ctx.Done():
 					printVerbosef(cmd, "timeout")
 					// I think this means the timeout has happened:
@@ -140,6 +142,7 @@ istioctl experimental wait --for=distribution --threshold=.99 --timeout=300 virt
 			"kubernetes")
 	cmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enables verbose output")
 	_ = cmd.PersistentFlags().MarkHidden("verbose")
+	opts.AttachControlPlaneFlags(cmd)
 	return cmd
 }
 
@@ -172,8 +175,8 @@ func countVersions(versionCount map[string]int, configVersion string) {
 	}
 }
 
-func poll(acceptedVersions []string, targetResource string) (present, notpresent int, err error) {
-	kubeClient, err := clientExecFactory(kubeconfig, configContext)
+func poll(acceptedVersions []string, targetResource string, opts clioptions.ControlPlaneOptions) (present, notpresent int, err error) {
+	kubeClient, err := clientExecFactory(kubeconfig, configContext, opts)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -239,13 +242,13 @@ func getAndWatchResource(ictx context.Context) *watcher {
 		version := targetSchema.Resource().Version()
 		resource := collectionParts[3]
 		r := dclient.Resource(schema.GroupVersionResource{Group: group, Version: version, Resource: resource}).Namespace(namespace)
-		obj, err := r.Get(nameflag, metav1.GetOptions{})
+		obj, err := r.Get(context.TODO(), nameflag, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
 		localResourceVersion := obj.GetResourceVersion()
 		result <- localResourceVersion
-		watch, err := r.Watch(metav1.ListOptions{ResourceVersion: localResourceVersion})
+		watch, err := r.Watch(context.TODO(), metav1.ListOptions{ResourceVersion: localResourceVersion})
 		if err != nil {
 			return err
 		}

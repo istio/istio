@@ -15,17 +15,18 @@
 package citadel
 
 import (
+	"context"
 	"fmt"
 	"time"
+
+	v1 "k8s.io/api/core/v1"
+	mv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	cv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
-
-	v1 "k8s.io/api/core/v1"
-	mv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	cv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 const (
@@ -38,19 +39,20 @@ const (
 var _ Instance = &kubeComponent{}
 
 type kubeComponent struct {
-	id     resource.ID
-	istio  istio.Instance
-	secret cv1.SecretInterface
+	id      resource.ID
+	istio   istio.Instance
+	secret  cv1.SecretInterface
+	cluster kube.Cluster
 }
 
 func newKube(ctx resource.Context, cfg Config) Instance {
 	c := &kubeComponent{
-		istio: cfg.Istio,
+		istio:   cfg.Istio,
+		cluster: kube.ClusterOrDefault(cfg.Cluster, ctx.Environment()),
 	}
 	c.id = ctx.TrackResource(c)
 
-	env := ctx.Environment().(*kube.Environment)
-	c.secret = env.GetSecret(c.istio.Settings().IstioNamespace)
+	c.secret = c.cluster.GetSecret(c.istio.Settings().IstioNamespace)
 
 	return c
 }
@@ -60,7 +62,7 @@ func (c *kubeComponent) ID() resource.ID {
 }
 
 func (c *kubeComponent) WaitForSecretToExist() (*v1.Secret, error) {
-	watch, err := c.secret.Watch(mv1.ListOptions{})
+	watch, err := c.secret.Watch(context.TODO(), mv1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up watch for secret (error: %v)", err)
 	}
@@ -92,7 +94,7 @@ func (c *kubeComponent) WaitForSecretToExistOrFail(t test.Failer) *v1.Secret {
 
 func (c *kubeComponent) DeleteSecret(name string) error {
 	var immediate int64
-	return c.secret.Delete(name, &mv1.DeleteOptions{GracePeriodSeconds: &immediate})
+	return c.secret.Delete(context.TODO(), name, mv1.DeleteOptions{GracePeriodSeconds: &immediate})
 }
 
 func (c *kubeComponent) DeleteSecretOrFail(t test.Failer, name string) {

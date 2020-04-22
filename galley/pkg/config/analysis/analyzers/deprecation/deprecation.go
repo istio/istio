@@ -17,7 +17,6 @@ package deprecation
 import (
 	"fmt"
 
-	authn_v1alpha1 "istio.io/api/authentication/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/api/rbac/v1alpha1"
 
@@ -42,9 +41,7 @@ func (*FieldAnalyzer) Metadata() analysis.Metadata {
 		Description: "Checks for deprecated Istio types and fields",
 		Inputs: collection.Names{
 			collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-			collections.IstioNetworkingV1Alpha3Envoyfilters.Name(),
 			collections.IstioRbacV1Alpha1Servicerolebindings.Name(),
-			collections.IstioAuthenticationV1Alpha1Policies.Name(),
 		},
 	}
 }
@@ -55,17 +52,8 @@ func (fa *FieldAnalyzer) Analyze(ctx analysis.Context) {
 		fa.analyzeVirtualService(r, ctx)
 		return true
 	})
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), func(r *resource.Instance) bool {
-		fa.analyzeEnvoyFilter(r, ctx)
-		return true
-	})
 	ctx.ForEach(collections.IstioRbacV1Alpha1Servicerolebindings.Name(), func(r *resource.Instance) bool {
 		fa.analyzeServiceRoleBinding(r, ctx)
-		return true
-	})
-
-	ctx.ForEach(collections.IstioAuthenticationV1Alpha1Policies.Name(), func(r *resource.Instance) bool {
-		fa.analyzePolicy(r, ctx)
 		return true
 	})
 }
@@ -86,21 +74,6 @@ func (*FieldAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.C
 	}
 }
 
-func (*FieldAnalyzer) analyzeEnvoyFilter(r *resource.Instance, ctx analysis.Context) {
-
-	ef := r.Message.(*v1alpha3.EnvoyFilter)
-
-	if len(ef.WorkloadLabels) > 0 {
-		ctx.Report(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(),
-			msg.NewDeprecated(r, replacedMessage("EnvoyFilter.workloadLabels", "EnvoyFilter.workload_selector")))
-	}
-
-	if len(ef.Filters) > 0 {
-		ctx.Report(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(),
-			msg.NewDeprecated(r, uncertainFixMessage("EnvoyFilter.filters")))
-	}
-}
-
 func (*FieldAnalyzer) analyzeServiceRoleBinding(r *resource.Instance, ctx analysis.Context) {
 
 	srb := r.Message.(*v1alpha1.ServiceRoleBinding)
@@ -109,17 +82,6 @@ func (*FieldAnalyzer) analyzeServiceRoleBinding(r *resource.Instance, ctx analys
 		if subject.Group != "" {
 			ctx.Report(collections.IstioRbacV1Alpha1Servicerolebindings.Name(),
 				msg.NewDeprecated(r, uncertainFixMessage("ServiceRoleBinding.subjects.group")))
-		}
-	}
-}
-
-func (*FieldAnalyzer) analyzePolicy(r *resource.Instance, ctx analysis.Context) {
-	policy := r.Message.(*authn_v1alpha1.Policy)
-
-	for _, origin := range policy.Origins {
-		if origin.GetJwt() != nil {
-			ctx.Report(collections.IstioAuthenticationV1Alpha1Policies.Name(),
-				msg.NewDeprecated(r, replacedMessage("Policy.origins.jwt", "RequestAuthentication.jwtrules")))
 		}
 	}
 }

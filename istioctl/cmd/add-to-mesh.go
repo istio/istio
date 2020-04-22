@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -97,6 +98,8 @@ func addToMeshCmd() *cobra.Command {
 }
 
 func deploymentMeshifyCmd() *cobra.Command {
+	var revision string
+
 	cmd := &cobra.Command{
 		Use:   "deployment",
 		Short: "Add deployment to Istio service mesh",
@@ -123,20 +126,26 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			if err != nil {
 				return err
 			}
-			dep, err := client.AppsV1().Deployments(ns).Get(args[0], metav1.GetOptions{})
+			dep, err := client.AppsV1().Deployments(ns).Get(context.TODO(), args[0], metav1.GetOptions{})
 			if err != nil {
 				return fmt.Errorf("deployment %q does not exist", args[0])
 			}
 			deps := make([]appsv1.Deployment, 0)
 			deps = append(deps, *dep)
 			return injectSideCarIntoDeployment(client, deps, sidecarTemplate, valuesConfig,
-				args[0], ns, meshConfig, writer)
+				args[0], ns, revision, meshConfig, writer)
 		},
 	}
+
+	cmd.PersistentFlags().StringVar(&revision, "revision", "",
+		"control plane revision")
+
 	return cmd
 }
 
 func svcMeshifyCmd() *cobra.Command {
+	var revision string
+
 	cmd := &cobra.Command{
 		Use:   "service",
 		Short: "Add Service to Istio service mesh",
@@ -172,9 +181,13 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 				return nil
 			}
 			return injectSideCarIntoDeployment(client, matchingDeployments, sidecarTemplate, valuesConfig,
-				args[0], ns, meshConfig, writer)
+				args[0], ns, revision, meshConfig, writer)
 		},
 	}
+
+	cmd.PersistentFlags().StringVar(&revision, "revision", "",
+		"control plane revision")
+
 	return cmd
 }
 
@@ -203,7 +216,7 @@ http:9080 tcp:8888 -l app=test,version=v1 -a env=stage -s stageAdmin`,
 			}
 			writer := cmd.OutOrStdout()
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
-			_, err = client.CoreV1().Services(ns).Get(args[0], metav1.GetOptions{})
+			_, err = client.CoreV1().Services(ns).Get(context.TODO(), args[0], metav1.GetOptions{})
 			if err != nil {
 				return addServiceOnVMToMesh(seClient, client, ns, args, labels, annotations, svcAcctAnn, writer)
 			}
@@ -257,25 +270,25 @@ func setupParameters(sidecarTemplate, valuesConfig *string) (*meshconfig.MeshCon
 }
 
 func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Deployment, sidecarTemplate, valuesConfig,
-	svcName, svcNamespace string, meshConfig *meshconfig.MeshConfig, writer io.Writer) error {
+	svcName, svcNamespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer) error {
 	var errs error
 	for _, dep := range deps {
 		log.Debugf("updating deployment %s.%s with Istio sidecar injected",
 			dep.Name, dep.Namespace)
-		newDep, err := inject.IntoObject(sidecarTemplate, valuesConfig, meshConfig, &dep)
+		newDep, err := inject.IntoObject(sidecarTemplate, valuesConfig, revision, meshConfig, &dep)
 		if err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %s.%s for service %s.%s due to %v",
+			errs = multierror.Append(errs, fmt.Errorf("failed to inject sidecar to deployment resource %s.%s for service %s.%s due to %v",
 				dep.Name, dep.Namespace, svcName, svcNamespace, err))
 			continue
 		}
 		res, b := newDep.(*appsv1.Deployment)
 		if !b {
-			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %s.%s for service %s.%s",
-				dep.Name, dep.Namespace, svcName, svcNamespace))
+			errs = multierror.Append(errs, fmt.Errorf("failed to create new deployment resource %s.%s for service %s.%s due to %v",
+				dep.Name, dep.Namespace, svcName, svcNamespace, err))
 			continue
 		}
 		if _, err =
-			client.AppsV1().Deployments(svcNamespace).Update(res); err != nil {
+			client.AppsV1().Deployments(svcNamespace).Update(context.TODO(), res, metav1.UpdateOptions{}); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %s.%s for service %s.%s due to %v",
 				dep.Name, dep.Namespace, svcName, svcNamespace, err))
 			continue
@@ -288,8 +301,8 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Depl
 				UID:       dep.UID,
 			},
 		}
-		if _, err = client.AppsV1().Deployments(svcNamespace).UpdateStatus(d); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %s.%s for service %s.%s due to %v",
+		if _, err = client.AppsV1().Deployments(svcNamespace).UpdateStatus(context.TODO(), d, metav1.UpdateOptions{}); err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment status %s.%s for service %s.%s due to %v",
 				dep.Name, dep.Namespace, svcName, svcNamespace, err))
 			continue
 		}
@@ -303,7 +316,7 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Depl
 
 func findDeploymentsForSvc(client kubernetes.Interface, ns, name string) ([]appsv1.Deployment, error) {
 	deps := make([]appsv1.Deployment, 0)
-	svc, err := client.CoreV1().Services(ns).Get(name, metav1.GetOptions{})
+	svc, err := client.CoreV1().Services(ns).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +324,7 @@ func findDeploymentsForSvc(client kubernetes.Interface, ns, name string) ([]apps
 	if svcSelector.Empty() {
 		return nil, nil
 	}
-	deployments, err := client.AppsV1().Deployments(ns).List(metav1.ListOptions{})
+	deployments, err := client.AppsV1().Deployments(ns).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -400,7 +413,7 @@ func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Int
 	}
 
 	// Pre-check Kubernetes service and service entry does not exist.
-	_, err = client.CoreV1().Services(ns).Get(opts.Name, metav1.GetOptions{})
+	_, err = client.CoreV1().Services(ns).Get(context.TODO(), opts.Name, metav1.GetOptions{})
 	if err == nil {
 		return fmt.Errorf("service %q already exists, skip", opts.Name)
 	}
@@ -409,7 +422,7 @@ func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Int
 		Version:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Version(),
 		Resource: collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Plural(),
 	}
-	_, err = dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Get(resourceName(opts.Name), metav1.GetOptions{})
+	_, err = dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Get(context.TODO(), resourceName(opts.Name), metav1.GetOptions{})
 	if err == nil {
 		return fmt.Errorf("service entry %q already exists, skip", resourceName(opts.Name))
 	}
@@ -436,9 +449,9 @@ func generateServiceEntry(u *unstructured.Unstructured, o *vmServiceOpts) error 
 			Name:     p.Name,
 		})
 	}
-	eps := make([]*v1alpha3.ServiceEntry_Endpoint, 0)
+	eps := make([]*v1alpha3.WorkloadEntry, 0)
 	for _, ip := range o.IP {
-		eps = append(eps, &v1alpha3.ServiceEntry_Endpoint{
+		eps = append(eps, &v1alpha3.WorkloadEntry{
 			Address: ip,
 			Labels:  o.Labels,
 		})
@@ -518,10 +531,10 @@ func createK8sService(client kubernetes.Interface, ns string, svc *corev1.Servic
 	if svc == nil {
 		return fmt.Errorf("failed to create vm service")
 	}
-	if _, err := client.CoreV1().Services(ns).Create(svc); err != nil {
+	if _, err := client.CoreV1().Services(ns).Create(context.TODO(), svc, metav1.CreateOptions{}); err != nil {
 		return fmt.Errorf("failed to create kuberenetes service %v", err)
 	}
-	if _, err := client.CoreV1().Services(ns).UpdateStatus(svc); err != nil {
+	if _, err := client.CoreV1().Services(ns).UpdateStatus(context.TODO(), svc, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("failed to create kuberenetes service %v", err)
 	}
 	sName := strings.Join([]string{svc.Name, svc.Namespace}, ".")
@@ -541,7 +554,7 @@ func createServiceEntry(dynamicClient dynamic.Interface, ns string,
 		Version:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Version(),
 		Resource: collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Plural(),
 	}
-	_, err := dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Create(u, metav1.CreateOptions{})
+	_, err := dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Create(context.TODO(), u, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create service entry %v", err)
 	}

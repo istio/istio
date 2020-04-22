@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -72,7 +73,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			}
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
 			writer := cmd.OutOrStdout()
-			dep, err := client.AppsV1().Deployments(ns).Get(args[0], metav1.GetOptions{})
+			dep, err := client.AppsV1().Deployments(ns).Get(context.TODO(), args[0], metav1.GetOptions{})
 			if err != nil {
 				return fmt.Errorf("deployment %q does not exist", args[0])
 			}
@@ -102,7 +103,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			}
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
 			writer := cmd.OutOrStdout()
-			_, err = client.CoreV1().Services(ns).Get(args[0], metav1.GetOptions{})
+			_, err = client.CoreV1().Services(ns).Get(context.TODO(), args[0], metav1.GetOptions{})
 			if err != nil {
 				return fmt.Errorf("service %q does not exist, skip", args[0])
 			}
@@ -144,7 +145,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			}
 			writer := cmd.OutOrStdout()
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
-			_, err = client.CoreV1().Services(ns).Get(args[0], metav1.GetOptions{})
+			_, err = client.CoreV1().Services(ns).Get(context.TODO(), args[0], metav1.GetOptions{})
 			if err == nil {
 				return removeServiceOnVMFromMesh(seClient, client, ns, args[0], writer)
 			}
@@ -192,8 +193,8 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 			res.Spec.Template.Annotations = make(map[string]string)
 		}
 		res.Spec.Template.Annotations[annotation.SidecarInject.Name] = "false"
-		if _, err := client.AppsV1().Deployments(svcNamespace).Update(res); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %q for service %q", depName, name))
+		if _, err := client.AppsV1().Deployments(svcNamespace).Update(context.TODO(), res, metav1.UpdateOptions{}); err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %q for service %q due to %v", depName, name, err))
 			continue
 		}
 		d := &appsv1.Deployment{
@@ -203,8 +204,8 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 				UID:       dep.UID,
 			},
 		}
-		if _, err := client.AppsV1().Deployments(svcNamespace).UpdateStatus(d); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %q for service %q", depName, name))
+		if _, err := client.AppsV1().Deployments(svcNamespace).UpdateStatus(context.TODO(), d, metav1.UpdateOptions{}); err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment status %q for service %q due to %v", depName, name, err))
 			continue
 		}
 		fmt.Fprintf(writer, "deployment %q updated successfully with Istio sidecar un-injected.\n", depName)
@@ -216,7 +217,7 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 func removeServiceOnVMFromMesh(dynamicClient dynamic.Interface, client kubernetes.Interface, ns string,
 	svcName string, writer io.Writer) error {
 	// Pre-check Kubernetes service and service entry does not exist.
-	_, err := client.CoreV1().Services(ns).Get(svcName, metav1.GetOptions{})
+	_, err := client.CoreV1().Services(ns).Get(context.TODO(), svcName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("service %q does not exist, skip", svcName)
 	}
@@ -225,17 +226,17 @@ func removeServiceOnVMFromMesh(dynamicClient dynamic.Interface, client kubernete
 		Version:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Version(),
 		Resource: "serviceentries",
 	}
-	_, err = dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Get(resourceName(svcName), metav1.GetOptions{})
+	_, err = dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Get(context.TODO(), resourceName(svcName), metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("service entry %q does not exist, skip", resourceName(svcName))
 	}
-	err = client.CoreV1().Services(ns).Delete(svcName, &metav1.DeleteOptions{})
+	err = client.CoreV1().Services(ns).Delete(context.TODO(), svcName, metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to delete Kubernetes service %q due to %v", svcName, err)
 	}
 	name := strings.Join([]string{svcName, ns}, ".")
 	fmt.Fprintf(writer, "Kubernetes Service %q has been deleted for external service %q\n", name, svcName)
-	err = dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Delete(resourceName(svcName), &metav1.DeleteOptions{})
+	err = dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Delete(context.TODO(), resourceName(svcName), metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to delete service entry %q due to %v", resourceName(svcName), err)
 	}

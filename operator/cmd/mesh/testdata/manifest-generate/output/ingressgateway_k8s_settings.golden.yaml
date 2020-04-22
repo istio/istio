@@ -27,6 +27,8 @@ spec:
         heritage: Tiller
         release: istio
         chart: gateways
+        service.istio.io/canonical-name: istio-ingressgateway
+        service.istio.io/canonical-revision: latest
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
@@ -35,15 +37,9 @@ spec:
         - name: istio-proxy
           image: "gcr.io/istio-testing/proxyv2:latest"
           ports:
-            - containerPort: 15020
-            - containerPort: 8080
-            - containerPort: 8443
-            - containerPort: 15029
-            - containerPort: 15030
-            - containerPort: 15031
-            - containerPort: 15032
-            - containerPort: 15443
+            - containerPort: 1234
             - containerPort: 15011
+            - containerPort: 15012
             - containerPort: 8060
             - containerPort: 853
             - containerPort: 15090
@@ -57,24 +53,8 @@ spec:
           - --proxyLogLevel=warning
           - --proxyComponentLogLevel=misc:error
           - --log_output_level=default:info
-          - --drainDuration
-          - '45s' #drainDuration
-          - --parentShutdownDuration
-          - '1m0s' #parentShutdownDuration
-          - --connectTimeout
-          - '10s' #connectTimeout
           - --serviceCluster
           - istio-ingressgateway
-          - --zipkinAddress
-          - zipkin.istio-system:9411
-          - --proxyAdminPort
-          - "15000"
-          - --statusPort
-          - "15020"
-          - --controlPlaneAuthPolicy
-          - NONE
-          - --discoveryAddress
-          - istio-pilot.istio-system.svc:15012
           - --trust-domain=cluster.local
           readinessProbe:
             failureThreshold: 30
@@ -98,11 +78,9 @@ spec:
           - name: JWT_POLICY
             value: third-party-jwt
           - name: PILOT_CERT_PROVIDER
-            value: citadel
-          - name: "ISTIO_META_USER_SDS"
-            value: "true"
+            value: istiod
           - name: CA_ADDR
-            value: istio-pilot.istio-system.svc:15012
+            value: istiod.istio-system.svc:15012
           - name: NODE_NAME
             valueFrom:
               fieldRef:
@@ -138,33 +116,23 @@ spec:
             value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-ingressgateway
           - name: ISTIO_META_MESH_ID
             value: "cluster.local"
-          - name: ISTIO_AUTO_MTLS_ENABLED
-            value: "true"
-          - name: ISTIO_META_POD_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.name
-          - name: ISTIO_META_CONFIG_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
           - name: ISTIO_META_ROUTER_MODE
             value: sni-dnat
           
-          - name: ISTIO_METAJSON_LABELS
-            value: |
-              {"app":"istio-ingressgateway","istio":"ingressgateway"}
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
           volumeMounts:
-          - mountPath: /etc/istio/citadel-ca-cert
-            name: citadel-ca-cert
+          - name: config-volume
+            mountPath: /etc/istio/config
+          - mountPath: /var/run/secrets/istio
+            name: istiod-ca-cert
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
+          - name: podinfo
+            mountPath: /etc/istio/pod
           - name: ingressgateway-certs
             mountPath: "/etc/istio/ingressgateway-certs"
             readOnly: true
@@ -172,9 +140,18 @@ spec:
             mountPath: "/etc/istio/ingressgateway-ca-certs"
             readOnly: true
       volumes:
-      - name: citadel-ca-cert
+      - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
+      - name: podinfo
+        downwardAPI:
+          items:
+            - path: "labels"
+              fieldRef:
+                fieldPath: metadata.labels
+            - path: "annotations"
+              fieldRef:
+                fieldPath: metadata.annotations
       - name: ingressgatewaysdsudspath
         emptyDir: {}
       - name: istio-token
@@ -184,6 +161,10 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: istio-ca
+      - name: config-volume
+        configMap:
+          name: istio
+          optional: true
       - name: ingressgateway-certs
         secret:
           secretName: "istio-ingressgateway-certs"
@@ -231,7 +212,8 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  annotations: null
+  annotations:
+    manifest-generate: testserviceAnnotation
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
@@ -244,30 +226,6 @@ spec:
   - name: foo
     port: 1234
     targetPort: 1234
-  - name: status-port
-    port: 15020
-    targetPort: 15020
-  - name: http2
-    port: 80
-    targetPort: 8080
-  - name: https
-    port: 443
-    targetPort: 8443
-  - name: kiali
-    port: 15029
-    targetPort: 15029
-  - name: prometheus
-    port: 15030
-    targetPort: 15030
-  - name: grafana
-    port: 15031
-    targetPort: 15031
-  - name: tracing
-    port: 15032
-    targetPort: 15032
-  - name: tls
-    port: 15443
-    targetPort: 15443
   selector:
     app: istio-ingressgateway
     istio: ingressgateway

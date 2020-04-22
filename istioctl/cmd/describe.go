@@ -15,7 +15,7 @@
 package cmd
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"io"
 	"regexp"
@@ -40,15 +40,13 @@ import (
 
 	mixerclient "istio.io/api/mixer/v1/config/client"
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
 
+	"istio.io/istio/istioctl/pkg/clioptions"
 	istioctl_kubernetes "istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	istio_envoy_configdump "istio.io/istio/istioctl/pkg/writer/envoy/configdump"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
-	envoy_v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/host"
@@ -75,6 +73,7 @@ var (
 )
 
 func podDescribeCmd() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:   "pod <pod>",
 		Short: "Describe pods and their Istio configuration [kube-only]",
@@ -95,7 +94,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			if err != nil {
 				return err
 			}
-			pod, err := client.CoreV1().Pods(ns).Get(podName, metav1.GetOptions{})
+			pod, err := client.CoreV1().Pods(ns).Get(context.TODO(), podName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -106,7 +105,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 
 			printPod(writer, pod)
 
-			svcs, err := client.CoreV1().Services(ns).List(metav1.ListOptions{})
+			svcs, err := client.CoreV1().Services(ns).List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
 				return err
 			}
@@ -128,7 +127,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			}
 			// TODO look for port collisions between services targeting this pod
 
-			kubeClient, err := clientExecFactory(kubeconfig, configContext)
+			kubeClient, err := clientExecFactory(kubeconfig, configContext, opts)
 			if err != nil {
 				return err
 			}
@@ -178,6 +177,7 @@ func describe() *cobra.Command {
 	return describeCmd
 }
 
+// nolint:deadcode
 func getIstioVersion(cd *configdump.Wrapper) string {
 	bootstrapDump, err := cd.GetBootstrapConfigDump()
 	if err == nil {
@@ -193,15 +193,7 @@ func getIstioVersion(cd *configdump.Wrapper) string {
 	return "undetected"
 }
 
-func containerPortOptional(istioVersion *model.IstioVersion) bool {
-	return util.IsIstioVersionGE13(&model.Proxy{IstioVersion: istioVersion})
-}
-
-func supportsProtocolDetection(istioVersion *model.IstioVersion) bool {
-	return util.IsIstioVersionGE14(&model.Proxy{IstioVersion: istioVersion})
-}
-
-func validatePort(port v1.ServicePort, pod *v1.Pod, istioVersion *model.IstioVersion) []string {
+func validatePort(port v1.ServicePort, pod *v1.Pod) []string {
 	retval := []string{}
 
 	// Build list of ports exposed by pod
@@ -213,31 +205,9 @@ func validatePort(port v1.ServicePort, pod *v1.Pod, istioVersion *model.IstioVer
 	}
 
 	// Get port number used by the service port being validated
-	nport, err := pilotcontroller.FindPort(pod, &port)
+	_, err := pilotcontroller.FindPort(pod, &port)
 	if err != nil {
 		retval = append(retval, err.Error())
-	} else {
-		_, ok := containerPorts[nport]
-		if !ok {
-			if !containerPortOptional(istioVersion) {
-				retval = append(retval,
-					fmt.Sprintf("Warning: Pod %s port %d not exposed by Container", kname(pod.ObjectMeta), nport))
-			}
-		}
-	}
-
-	if servicePortProtocol(port.Name) == protocol.Unsupported {
-		if !supportsProtocolDetection(istioVersion) {
-			if port.Name == "" {
-				retval = append(retval,
-					fmt.Sprintf("%s is unnamed which does not follow Istio conventions",
-						port.TargetPort.String()))
-			} else {
-				retval = append(retval,
-					fmt.Sprintf("%s is named %q which does not follow Istio conventions",
-						port.TargetPort.String(), port.Name))
-			}
-		}
 	}
 
 	return retval
@@ -260,10 +230,6 @@ func extendFQDN(host string) string {
 		return host
 	}
 	return host + k8sSuffix
-}
-
-func svcFQDN(svc v1.Service) string {
-	return fmt.Sprintf("%s.%s.svc.cluster.local", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace)
 }
 
 // getDestRuleSubsets gets names of subsets that match any pod labels (also, ones that don't match).
@@ -548,7 +514,7 @@ func kname(meta metav1.ObjectMeta) string {
 	return fmt.Sprintf("%s.%s", meta.Name, meta.Namespace)
 }
 
-func printService(writer io.Writer, svc v1.Service, pod *v1.Pod, istioVersion *model.IstioVersion) {
+func printService(writer io.Writer, svc v1.Service, pod *v1.Pod) {
 	fmt.Fprintf(writer, "Service: %s\n", kname(svc.ObjectMeta))
 	for _, port := range svc.Spec.Ports {
 		if port.Protocol != "TCP" {
@@ -559,7 +525,7 @@ func printService(writer io.Writer, svc v1.Service, pod *v1.Pod, istioVersion *m
 		nport, err := pilotcontroller.FindPort(pod, &port)
 		if err == nil {
 			var protocol string
-			if port.Name == "" && supportsProtocolDetection(istioVersion) {
+			if port.Name == "" {
 				protocol = "auto-detect"
 			} else {
 				protocol = string(servicePortProtocol(port.Name))
@@ -567,7 +533,7 @@ func printService(writer io.Writer, svc v1.Service, pod *v1.Pod, istioVersion *m
 
 			fmt.Fprintf(writer, "   Port: %s %d/%s targets pod port %d\n", port.Name, port.Port, protocol, nport)
 		}
-		msgs := validatePort(port, pod, istioVersion)
+		msgs := validatePort(port, pod)
 		for _, msg := range msgs {
 			fmt.Fprintf(writer, "   %s\n", msg)
 		}
@@ -582,80 +548,6 @@ func contains(slice []string, s string) bool {
 	}
 
 	return false
-}
-
-func getAuthenticationz(kubeClient istioctl_kubernetes.ExecClient, podName, ns string) (*[]envoy_v2.AuthenticationDebug, error) {
-	results, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET",
-		fmt.Sprintf("/debug/authenticationz?proxyID=%s.%s", podName, ns), nil)
-	if err != nil {
-		return nil, err
-	}
-	var debug []envoy_v2.AuthenticationDebug
-	for i := range results {
-		if err := json.Unmarshal(results[i], &debug); err == nil {
-			if len(debug) > 0 {
-				break
-			}
-		}
-		// Ignore invalid responses from /debug/authenticationz
-	}
-	if len(debug) == 0 {
-		return nil, fmt.Errorf("checked %d pilot instances and found no authentication info for %s.%s, check proxy status",
-			len(results), podName, ns)
-	}
-
-	return &debug, nil
-}
-
-func authnMatchSvc(debug envoy_v2.AuthenticationDebug, svc v1.Service, port v1.ServicePort) bool {
-	return debug.Host == svcFQDN(svc) && debug.Port == int(port.Port)
-}
-
-func printAuthn(writer io.Writer, pod *v1.Pod, debug envoy_v2.AuthenticationDebug) {
-	log.Debugf("AuthenticationDebug is %#v\n", debug)
-	if debug.TLSConflictStatus != "OK" && debug.TLSConflictStatus != "AUTO" {
-		fmt.Fprintf(writer, "WARNING TLS Conflict on %s port %d (pod enforces %s, clients speak %s)\n",
-			kname(pod.ObjectMeta),
-			debug.Port, debug.ServerProtocol, debug.ClientProtocol)
-		if debug.DestinationRuleName != "-" {
-			fmt.Fprintf(writer, "  Check DestinationRule %s and AuthenticationPolicy %s\n", debug.DestinationRuleName, debug.AuthenticationPolicyName)
-		} else {
-			fmt.Fprintf(writer, "  There is no DestinationRule.  Check AuthenticationPolicy %s\n", debug.AuthenticationPolicyName)
-		}
-		return
-	}
-
-	if debug.TLSConflictStatus == "AUTO" {
-		fmt.Fprintf(writer, "Pod is %s, clients configured automatically\n",
-			debug.ServerProtocol)
-		return
-	}
-
-	mTLSType13 := map[string]string{
-		"HTTP":        "HTTP",
-		"mTLS":        "STRICT",
-		"HTTP/mTLS":   "PERMISSIVE",
-		"TLS":         "SIMPLE",
-		"custom mTLS": "custom mTLS",
-		"UNKNOWN":     "Unknown",
-	}
-	tlsType, ok := mTLSType13[debug.ServerProtocol]
-	if ok {
-		// If we survive the lookup, we are on a pre-1.4 Pilot.
-		fmt.Fprintf(writer, "Pod is %s (enforces %s) and clients speak %s\n",
-			tlsType, debug.ServerProtocol, debug.ClientProtocol)
-		return
-	}
-
-	// If we couldn't find the type in the 1.3 known types, we must be on Istio 1.4+
-	if debug.ClientProtocol != "-" {
-		fmt.Fprintf(writer, "Pod is %s and clients are %s\n",
-			debug.ServerProtocol, debug.ClientProtocol)
-		return
-	}
-
-	fmt.Fprintf(writer, "Pod is %s, client protocol unspecified\n",
-		debug.ServerProtocol)
 }
 
 func isMeshed(pod *v1.Pod) bool {
@@ -1058,28 +950,6 @@ func printVirtualService(writer io.Writer, virtualSvc model.Config, svc v1.Servi
 
 }
 
-func printAuthnFromAuthenticationz(writer io.Writer, debug *[]envoy_v2.AuthenticationDebug, pod *v1.Pod, svc v1.Service, port v1.ServicePort) {
-	if debug == nil {
-		return
-	}
-
-	count := 0
-	matchingAuthns := []envoy_v2.AuthenticationDebug{}
-	for _, authn := range *debug {
-		if authnMatchSvc(authn, svc, port) {
-			matchingAuthns = append(matchingAuthns, authn)
-		}
-	}
-	for _, matchingAuthn := range matchingAuthns {
-		printAuthn(writer, pod, matchingAuthn)
-		count++
-	}
-
-	if count == 0 {
-		fmt.Fprintf(writer, "Authn: None\n")
-	}
-}
-
 // getIstioVirtualServicePathForSvcFromListener returns something like "/apis/networking/v1alpha3/namespaces/default/virtual-service/reviews"
 func getIstioVirtualServicePathForSvcFromListener(cd *configdump.Wrapper, svc v1.Service, port int32) (string, error) {
 
@@ -1122,7 +992,7 @@ func getIstioVirtualServicePathForSvcFromListener(cd *configdump.Wrapper, svc v1
 
 func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabels []k8s_labels.Set, kubeClient kubernetes.Interface, configClient model.ConfigStore, execClient istioctl_kubernetes.ExecClient) error { // nolint: lll
 
-	pods, err := kubeClient.CoreV1().Pods(istioNamespace).List(metav1.ListOptions{
+	pods, err := kubeClient.CoreV1().Pods(istioNamespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: "istio=ingressgateway",
 		FieldSelector: "status.phase=Running",
 	})
@@ -1136,7 +1006,7 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabel
 	pod := pods.Items[0]
 
 	// Currently no support for non-standard gateways selecting non ingressgateway pods
-	ingressSvcs, err := kubeClient.CoreV1().Services(istioNamespace).List(metav1.ListOptions{
+	ingressSvcs, err := kubeClient.CoreV1().Services(istioNamespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: "istio=ingressgateway",
 	})
 	if err != nil {
@@ -1168,6 +1038,10 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabel
 				dr = configClient.Get(collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(), drName, drNamespace)
 				if dr != nil {
 					matchingSubsets, nonmatchingSubsets = getDestRuleSubsets(*dr, podsLabels)
+				} else {
+					fmt.Fprintf(writer,
+						"WARNING: Proxy is stale; it references to non-existent destination rule %s.%s\n",
+						drName, drNamespace)
 				}
 			}
 
@@ -1183,6 +1057,10 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabel
 
 					printIngressService(writer, &ingressSvcs.Items[0], &pod, ipIngress)
 					printVirtualService(writer, *vs, svc, matchingSubsets, nonmatchingSubsets, dr)
+				} else {
+					fmt.Fprintf(writer,
+						"WARNING: Proxy is stale; it references to non-existent virtual service %s.%s\n",
+						vsName, vsNamespace)
 				}
 			}
 		}
@@ -1211,14 +1089,15 @@ func printIngressService(writer io.Writer, ingressSvc *v1.Service, ingressPod *v
 		}
 
 		// Get port number
-		nport, err := pilotcontroller.FindPort(ingressPod, &port)
+		_, err := pilotcontroller.FindPort(ingressPod, &port)
 		if err == nil {
+			nport := int(port.Port)
 			protocol := string(servicePortProtocol(port.Name))
 
 			scheme := protocolToScheme[protocol]
 			portSuffix := ""
 			if schemePortDefault[scheme] != nport {
-				portSuffix = fmt.Sprintf(":%d\n", nport)
+				portSuffix = fmt.Sprintf(":%d", nport)
 			}
 			fmt.Fprintf(writer, "\nExposed on Ingress Gateway %s://%s%s\n", scheme, ip, portSuffix)
 		}
@@ -1242,6 +1121,7 @@ func getIngressIP(service v1.Service, pod v1.Pod) string {
 }
 
 func svcDescribeCmd() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:     "service <svc>",
 		Aliases: []string{"svc"},
@@ -1266,14 +1146,14 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			if err != nil {
 				return err
 			}
-			svc, err := client.CoreV1().Services(ns).Get(svcName, metav1.GetOptions{})
+			svc, err := client.CoreV1().Services(ns).Get(context.TODO(), svcName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
 
 			writer := cmd.OutOrStdout()
 
-			pods, err := client.CoreV1().Pods(ns).List(metav1.ListOptions{})
+			pods, err := client.CoreV1().Pods(ns).List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
 				return err
 			}
@@ -1316,7 +1196,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 				return nil
 			}
 
-			kubeClient, err := clientExecFactory(kubeconfig, configContext)
+			kubeClient, err := clientExecFactory(kubeconfig, configContext, opts)
 			if err != nil {
 				return err
 			}
@@ -1357,16 +1237,6 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 
 func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecClient, configClient model.ConfigStore, pod *v1.Pod, matchingServices []v1.Service, podsLabels []k8s_labels.Set) error { // nolint: lll
 	var err error
-	var authnDebug *[]envoy_v2.AuthenticationDebug
-	if isMeshed(pod) {
-		// Use the mechanism of "istioctl authn tls-check" to look for CONFLICT
-		// for this pod and show it.
-		authnDebug, err = getAuthenticationz(kubeClient, pod.ObjectMeta.Name, pod.ObjectMeta.Namespace)
-		if err != nil {
-			// Keep going on error
-			fmt.Fprintf(writer, "%s", err)
-		}
-	}
 
 	byConfigDump, err := kubeClient.EnvoyDo(pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, "GET", "config_dump", nil)
 	if err != nil {
@@ -1383,14 +1253,11 @@ func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecCl
 		return fmt.Errorf("can't parse sidecar config_dump for %v: %v", err, pod.ObjectMeta.Name)
 	}
 
-	// If the sidecar is on Envoy 1.3 or higher, don't complain about empty K8s Svc Port name
-	istioVersion := model.ParseIstioVersion(getIstioVersion(&cd))
-
 	for row, svc := range matchingServices {
 		if row != 0 {
 			fmt.Fprintf(writer, "--------------------\n")
 		}
-		printService(writer, svc, pod, istioVersion)
+		printService(writer, svc, pod)
 
 		for _, port := range svc.Spec.Ports {
 			matchingSubsets := []string{}
@@ -1406,14 +1273,12 @@ func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecCl
 					}
 					printDestinationRule(writer, *dr, podsLabels)
 					matchingSubsets, nonmatchingSubsets = getDestRuleSubsets(*dr, podsLabels)
+				} else {
+					fmt.Fprintf(writer,
+						"WARNING: Proxy is stale; it references to non-existent destination rule %s.%s\n",
+						drName, drNamespace)
 				}
 			}
-
-			if len(svc.Spec.Ports) > 1 {
-				// If there is more than one port, prefix each DR by the port it applies to
-				fmt.Fprintf(writer, "%d ", port.Port)
-			}
-			printAuthnFromAuthenticationz(writer, authnDebug, pod, svc, port)
 
 			vsName, vsNamespace, err := getIstioVirtualServiceNameForSvc(&cd, svc, port.Port)
 			if err == nil && vsName != "" && vsNamespace != "" {
@@ -1424,6 +1289,10 @@ func describePodServices(writer io.Writer, kubeClient istioctl_kubernetes.ExecCl
 						fmt.Fprintf(writer, "%d ", port.Port)
 					}
 					printVirtualService(writer, *vs, svc, matchingSubsets, nonmatchingSubsets, dr)
+				} else {
+					fmt.Fprintf(writer,
+						"WARNING: Proxy is stale; it references to non-existent virtual service %s.%s\n",
+						vsName, vsNamespace)
 				}
 			}
 

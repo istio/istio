@@ -1,0 +1,64 @@
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: foo
+  namespace: ns
+spec:
+  rules:
+  - host: foohost.bar.com
+    http:
+      paths:
+        # Simple path
+      - path: /path
+        backend:
+          serviceName: service1
+          servicePort: 4200
+        # Subpath without trailing /
+      - path: /sub/path
+        backend:
+          serviceName: service1
+          servicePort: 4201
+      # With a trailing /
+      - path: /sub/path/
+        backend:
+          serviceName: service1
+          servicePort: 4202
+      # Regex ending with .*
+      - path: /regex1.*
+        backend:
+          serviceName: service1
+          servicePort: 4203
+      # Regex ending with *
+      - path: /regex2*
+        backend:
+          serviceName: service1
+          servicePort: 4204
+      # Regex ending with /*
+      - path: /regex3/*
+        backend:
+          serviceName: service1
+          servicePort: 4205
+      # Subpath without trailing /, Exact match
+      - path: /sub/path
+        pathType: Exact
+        backend:
+          serviceName: service1
+          servicePort: 4206
+        # With a trailing /, Exact match
+      - path: /sub/path/
+        pathType: Exact
+        backend:
+          serviceName: service1
+          servicePort: 4207
+      # Subpath without trailing /, Prefix match
+      - path: /sub/path
+        pathType: Prefix
+        backend:
+          serviceName: service1
+          servicePort: 4208
+        # With a trailing /, Prefix match
+      - path: /sub/path/
+        pathType: Prefix
+        backend:
+          serviceName: service1
+          servicePort: 4209

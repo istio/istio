@@ -82,7 +82,7 @@ func TestEds(t *testing.T) {
 
 	t.Run("TCPEndpoints", func(t *testing.T) {
 		testTCPEndpoints("127.0.0.1", adscConn, t)
-		testEdsz(t)
+		testEdsz(t, "test-1.default")
 	})
 	t.Run("LocalityPrioritizedEndpoints", func(t *testing.T) {
 		testLocalityPrioritizedEndpoints(adscConn, adscConn2, t)
@@ -310,10 +310,10 @@ func addTestClientEndpoints(server *bootstrap.Server) {
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("test-1.default", &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
-			Address:         fmt.Sprintf("10.10.10.10"),
+			Address:         "10.10.10.10",
 			ServicePortName: "http",
 			EndpointPort:    80,
-			Locality:        asdcLocality,
+			Locality:        model.Locality{Label: asdcLocality},
 		},
 		ServicePort: &model.Port{
 			Name:     "http",
@@ -323,10 +323,10 @@ func addTestClientEndpoints(server *bootstrap.Server) {
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("test-1.default", &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
-			Address:         fmt.Sprintf("10.10.10.11"),
+			Address:         "10.10.10.11",
 			ServicePortName: "http",
 			EndpointPort:    80,
-			Locality:        asdc2Locality,
+			Locality:        model.Locality{Label: asdc2Locality},
 		},
 		ServicePort: &model.Port{
 			Name:     "http",
@@ -387,9 +387,10 @@ func testOverlappingPorts(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.
 
 	server.EnvoyXdsServer.Push(&model.PushRequest{
 		Full: true,
-		EdsUpdates: map[string]struct{}{
-			"overlapping.cluster.local": {},
-		}})
+		ConfigsUpdated: map[model.ConfigKey]struct{}{{
+			Kind: model.ServiceEntryKind,
+			Name: "overlapping.cluster.local",
+		}: {}}})
 	_, _ = adsc.Wait(5 * time.Second)
 
 	// After the incremental push, we should still see the endpoint
@@ -618,7 +619,19 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 			log.Println("Waiting for pushes ", id)
 
 			// Pushes may be merged so we may not get nPushes pushes
-			_, err = adscConn.Wait(15*time.Second, "eds")
+			got, err := adscConn.Wait(15*time.Second, "eds")
+
+			// If in incremental mode, shouldn't receive cds|rds|lds here
+			if inc {
+				for _, g := range got {
+					if g == "cds" || g == "rds" || g == "lds" {
+						errChan <- fmt.Errorf("should be eds incremental but received cds. %v %v",
+							err, id)
+						return
+					}
+				}
+			}
+
 			atomic.AddInt32(&rcvPush, 1)
 			if err != nil {
 				log.Println("Recv failed", err, id)
@@ -643,13 +656,13 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 	for j := 0; j < nPushes; j++ {
 		if inc {
 			// This will be throttled - we want to trigger a single push
-			updates := map[string]struct{}{
-				edsIncSvc: {},
-			}
 			server.EnvoyXdsServer.AdsPushAll(strconv.Itoa(j), &model.PushRequest{
-				Full:       true,
-				EdsUpdates: updates,
-				Push:       server.EnvoyXdsServer.Env.PushContext,
+				Full: false,
+				ConfigsUpdated: map[model.ConfigKey]struct{}{{
+					Kind: model.ServiceEntryKind,
+					Name: edsIncSvc,
+				}: {}},
+				Push: server.EnvoyXdsServer.Env.PushContext,
 			})
 		} else {
 			v2.AdsPushAll(server.EnvoyXdsServer)
@@ -704,11 +717,10 @@ func addUdsEndpoint(server *bootstrap.Server) {
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("localuds.cluster.local", &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
-			Family:          model.AddressFamilyUnix,
 			Address:         udsPath,
 			EndpointPort:    0,
 			ServicePortName: "grpc",
-			Locality:        "localhost",
+			Locality:        model.Locality{Label: "localhost"},
 			Labels:          map[string]string{"socket": "unix"},
 		},
 		ServicePort: &model.Port{
@@ -745,7 +757,7 @@ func addLocalityEndpoints(server *bootstrap.Server, hostname host.Name) {
 				Address:         fmt.Sprintf("10.0.0.%v", i),
 				EndpointPort:    80,
 				ServicePortName: "http",
-				Locality:        locality,
+				Locality:        model.Locality{Label: locality},
 			},
 			ServicePort: &model.Port{
 				Name:     "http",
@@ -846,8 +858,8 @@ func addOverlappingEndpoints(server *bootstrap.Server) {
 // TODO: use this in integration tests.
 // TODO: refine the output
 // TODO: dump the ServiceInstances as well
-func testEdsz(t *testing.T) {
-	edszURL := fmt.Sprintf("http://localhost:%d/debug/edsz", testEnv.Ports().PilotHTTPPort)
+func testEdsz(t *testing.T, proxyID string) {
+	edszURL := fmt.Sprintf("http://localhost:%d/debug/edsz?proxyID=%s", testEnv.Ports().PilotHTTPPort, proxyID)
 	res, err := http.Get(edszURL)
 	if err != nil {
 		t.Fatalf("Failed to fetch %s", edszURL)

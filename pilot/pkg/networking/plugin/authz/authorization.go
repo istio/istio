@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright 2020 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,30 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package authz converts Istio RBAC (role-based-access-control) policies (ServiceRole and ServiceRoleBinding)
-// to the Envoy RBAC filter config to enforce access control to the service co-located with Envoy.
-// The generation is controlled by ClusterRbacConfig (a singleton custom resource with cluster scope).
-// User could disable this plugin by either deleting the ClusterRbacConfig or set the ClusterRbacConfig.mode
-// to OFF.
-// Note: ClusterRbacConfig is not created with istio installation which means this plugin doesn't
-// generate any RBAC config by default.
 package authz
 
 import (
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-
-	istiolog "istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	authzBuilder "istio.io/istio/pilot/pkg/security/authz/builder"
+	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/security/authz/builder"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/pkg/log"
+
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 )
 
 var (
-	rbacLog = istiolog.RegisterScope("rbac", "rbac debugging", 0)
+	authzLog = log.RegisterScope("authorization", "Istio Authorization Policy", 0)
 )
 
 // Plugin implements Istio Authorization
@@ -48,7 +42,7 @@ func NewPlugin() plugin.Plugin {
 
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
 // Can be used to add additional filters on the outbound path
-func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
 	if in.Node.Type != model.Router {
 		// Only care about router.
 		return nil
@@ -59,14 +53,14 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 }
 
 // OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
-func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
+func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []networking.FilterChain {
 	return nil
 }
 
 // OnInboundListener is called whenever a new listener is added to the LDS output for a given service
 // Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
 // on the inbound path
-func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
 	if in.Node.Type != model.SidecarProxy {
 		// Only care about sidecar.
 		return nil
@@ -76,34 +70,41 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	return nil
 }
 
-func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
+func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects) {
+	if in.Push == nil || in.Push.AuthzPolicies == nil {
+		authzLog.Debugf("no authorization policy in push context")
+		return
+	}
+
 	// TODO: Get trust domain from MeshConfig instead.
 	// https://github.com/istio/istio/issues/17873
-	trustDomainBundle := trustdomain.NewTrustDomainBundle(spiffe.GetTrustDomain(), in.Push.Mesh.TrustDomainAliases)
-	builder := authzBuilder.NewBuilder(trustDomainBundle, in.ServiceInstance,
-		labels.Collection{in.Node.Metadata.Labels}, in.Node.ConfigNamespace, in.Push.AuthzPolicies)
-	if builder == nil {
+	tdBundle := trustdomain.NewBundle(spiffe.GetTrustDomain(), in.Push.Mesh.TrustDomainAliases)
+	namespace := in.Node.ConfigNamespace
+	workload := labels.Collection{in.Node.Metadata.Labels}
+	b := builder.New(tdBundle, workload, namespace, in.Push.AuthzPolicies, util.IsIstioVersionGE15(in.Node))
+	if b == nil {
+		authzLog.Debugf("no authorization policy for workload %v in %s", workload, namespace)
 		return
 	}
 
 	switch in.ListenerProtocol {
-	case plugin.ListenerProtocolTCP:
-		rbacLog.Debugf("building filter for TCP listener protocol")
-		tcpFilters := builder.BuildTCPFilters()
+	case networking.ListenerProtocolTCP:
+		authzLog.Debugf("building filter for TCP listener protocol")
+		tcpFilters := b.BuildTCP()
 		if in.Node.Type == model.Router {
 			// For gateways, due to TLS termination, a listener marked as TCP could very well
 			// be using a HTTP connection manager. So check the filterChain.listenerProtocol
 			// to decide the type of filter to attach
-			httpFilters := builder.BuildHTTPFilters()
+			httpFilters := b.BuildHTTP()
 			for cnum := range mutable.FilterChains {
-				if mutable.FilterChains[cnum].ListenerProtocol == plugin.ListenerProtocolHTTP {
+				if mutable.FilterChains[cnum].ListenerProtocol == networking.ListenerProtocolHTTP {
 					for _, httpFilter := range httpFilters {
-						rbacLog.Debugf("added HTTP filter to gateway filter chain %d", cnum)
+						authzLog.Debugf("added HTTP filter to gateway filter chain %d", cnum)
 						mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
 					}
 				} else {
 					for _, tcpFilter := range tcpFilters {
-						rbacLog.Debugf("added TCP filter to gateway filter chain %d", cnum)
+						authzLog.Debugf("added TCP filter to gateway filter chain %d", cnum)
 						mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
 					}
 				}
@@ -111,35 +112,35 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
 		} else {
 			for _, tcpFilter := range tcpFilters {
 				for cnum := range mutable.FilterChains {
-					rbacLog.Debugf("added TCP filter to filter chain %d", cnum)
+					authzLog.Debugf("added TCP filter to filter chain %d", cnum)
 					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
 				}
 			}
 		}
-	case plugin.ListenerProtocolHTTP:
-		rbacLog.Debugf("building filter for HTTP listener protocol")
-		filters := builder.BuildHTTPFilters()
-		for _, filter := range filters {
+	case networking.ListenerProtocolHTTP:
+		authzLog.Debugf("building filter for HTTP listener protocol")
+		httpFilters := b.BuildHTTP()
+		for _, filter := range httpFilters {
 			for cnum := range mutable.FilterChains {
-				rbacLog.Debugf("added HTTP filter to filter chain %d", cnum)
+				authzLog.Debugf("added HTTP filter to filter chain %d", cnum)
 				mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
 			}
 		}
-	case plugin.ListenerProtocolAuto:
-		rbacLog.Debugf("building filter for AUTO listener protocol")
-		httpFilters := builder.BuildHTTPFilters()
-		tcpFilters := builder.BuildTCPFilters()
+	case networking.ListenerProtocolAuto:
+		authzLog.Debugf("building filter for AUTO listener protocol")
+		httpFilters := b.BuildHTTP()
+		tcpFilters := b.BuildTCP()
 
 		for cnum := range mutable.FilterChains {
 			switch mutable.FilterChains[cnum].ListenerProtocol {
-			case plugin.ListenerProtocolTCP:
+			case networking.ListenerProtocolTCP:
 				for _, tcpFilter := range tcpFilters {
-					rbacLog.Debugf("added TCP filter to filter chain %d", cnum)
+					authzLog.Debugf("added TCP filter to filter chain %d", cnum)
 					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
 				}
-			case plugin.ListenerProtocolHTTP:
+			case networking.ListenerProtocolHTTP:
 				for _, httpFilter := range httpFilters {
-					rbacLog.Debugf("added HTTP filter to filter chain %d", cnum)
+					authzLog.Debugf("added HTTP filter to filter chain %d", cnum)
 					mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
 				}
 			}
@@ -148,7 +149,7 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
 }
 
 // OnVirtualListener implements the Plugin interface method.
-func (Plugin) OnVirtualListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func (Plugin) OnVirtualListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
 	return nil
 }
 
@@ -169,7 +170,7 @@ func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster)
 }
 
 // OnInboundPassthrough is called whenever a new passthrough filter chain is added to the LDS output.
-func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *networking.MutableObjects) error {
 	if in.Node.Type != model.SidecarProxy {
 		// Only care about sidecar.
 		return nil
@@ -180,6 +181,6 @@ func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *plugin.Mutab
 }
 
 // OnInboundPassthroughFilterChains is called for plugin to update the pass through filter chain.
-func (Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []plugin.FilterChain {
+func (Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []networking.FilterChain {
 	return nil
 }

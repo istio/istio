@@ -1,0 +1,74 @@
+# The following policy denies request with path "/data" to port 8090 for workload b
+
+apiVersion: "security.istio.io/v1beta1"
+kind: AuthorizationPolicy
+metadata:
+  name: policy-b-deny
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "b"
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        paths: ["/data"]
+        ports: ["8090"]
+---
+
+# The following policy denies request to port 8090 for workload c
+
+apiVersion: "security.istio.io/v1beta1"
+kind: AuthorizationPolicy
+metadata:
+  name: policy-c-deny
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "c"
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        ports: ["8090"]
+---
+
+# The following policy denies request from service account a and namespace 2 for workload d
+
+apiVersion: "security.istio.io/v1beta1"
+kind: AuthorizationPolicy
+metadata:
+  name: policy-d-deny
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "d"
+  action: DENY
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/{{ .Namespace }}/sa/a"]
+    - source:
+        namespaces: ["{{ .Namespace2 }}"]
+---
+
+# The following policy denies request with path "/other" for workload e
+
+apiVersion: "security.istio.io/v1beta1"
+kind: AuthorizationPolicy
+metadata:
+  name: policy-e-deny
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "e"
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        paths: ["/other"]
+---

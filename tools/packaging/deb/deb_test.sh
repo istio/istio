@@ -16,10 +16,35 @@
 #
 ################################################################################
 #
-# Test for istio debian. Will run in a docker image where the .deb has been installed.
+# Test for istio debian. Should run in a VM or docker image where the 2 .deb have been installed.
+# The tests can be run using the VM-only istiod, without K8S.
+# It is also possible to use the VM to connect to an external istiod.
 
+# IDE: using the env and CLI args in this file it is possible to create a startup config for CLion,
+# and debug Istio in the IDE.
+#
+# It will require some manual steps and paths to be present in the working dir.
+#
+# make testcert-gen - will create cacerts and vm certs
+# Currently I have a symlink from `pwd`/tests/testdata/certs/cacerts to /etc/cacerts,
+# and from  `pwd`/tests/testdata/certs/vm to /etc/certs - we may need to further adjust the code
+# to use only relative paths.
+
+# Start isitio. Expects certs to be available.
 function startIstio() {
     bash -x /usr/local/bin/istio-start.sh &
+    sleep 1
+}
+
+# Start Istiod on the VM, using local configurations
+# Expects CA root certificates in /etc/cacerts
+function startIstiodLocal() {
+    export TOKEN_ISSUER=https://localhost:15012
+    export MASTER_ELECTION=false
+    export ISTIOD_ADDR=istiod.istio-system.svc:15012
+    cd /
+    /usr/local/bin/pilot-discovery discovery -n istio-system \
+      --configDir /var/lib/istio/config --registries Mock &
     sleep 1
 }
 
@@ -40,7 +65,35 @@ function istioStats() {
         -v https://istio-pilot.istio-system:15011/debug/endpointz
 }
 
+function istioCheckServerCert {
+  curl --key /etc/certs/key.pem --cert /etc/certs/cert-chain.pem --cacert /etc/certs/root-cert.pem -vvv --http2 \
+    https://istiod.istio-system.svc:15012
+}
+
+
+function istioRun {
+  export CA_ADDR=istiod.istio-system.svc:15012
+  export PROV_CERT=/etc/certs
+  export OUTPUT_CERTS=/etc/certs
+
+  /usr/local/bin/pilot-agent proxy  --serviceCluster rawvm  --discoveryAddress istiod.istio-system.svc:15012
+
+}
+
+function verifyCert() {
+  openssl verify -CAfile /etc/certs/root-cert.pem /etc/certs/cert-chain.pem
+}
+
 function istioTest() {
     # Will go to local machine
     su -s /bin/bash -c "curl -v byon-docker.test.istio.io:7072" istio-test
 }
+
+if [ "$1" == "test" ]; then
+  # start istiod, using local config files (no k8s)
+  startIstiodLocal
+
+  # Start sidecar and iptables
+  startIstio
+
+fi

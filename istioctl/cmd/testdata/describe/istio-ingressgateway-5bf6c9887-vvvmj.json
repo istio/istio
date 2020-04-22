@@ -18,7 +18,7 @@
       "ISTIO_PROXY_SHA": "istio-proxy:48bc83d8f0582fc060ef76d5aa3d75400e739d9e",
       "NAME": "istio-ingressgateway-5bf6c9887-vvvmj",
       "NAMESPACE": "istio-system",
-      "EXCHANGE_KEYS": "NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,CANONICAL_TELEMETRY_SERVICE,MESH_ID,SERVICE_ACCOUNT",
+      "EXCHANGE_KEYS": "NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,MESH_ID,SERVICE_ACCOUNT,CLUSTER_ID",
       "INSTANCE_IPS": "172.30.229.137,fe80::a489:41ff:fe62:f150"
      },
      "locality": {},
@@ -318,9 +318,6 @@
         },
         {
          "prefix": "cluster.xds-grpc"
-        },
-        {
-         "suffix": "ssl_context_update_by_sds"
         }
        ]
       }

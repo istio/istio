@@ -16,35 +16,14 @@ package plugin
 
 import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/thrift_proxy/v2alpha1"
 
 	networking "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config/protocol"
+	istionetworking "istio.io/istio/pilot/pkg/networking"
 )
 
-// ListenerProtocol is the protocol associated with the listener.
-type ListenerProtocol int
-
 const (
-	// ListenerProtocolUnknown is an unknown type of listener.
-	ListenerProtocolUnknown = iota
-	// ListenerProtocolTCP is a TCP listener.
-	ListenerProtocolTCP
-	// ListenerProtocolHTTP is an HTTP listener.
-	ListenerProtocolHTTP
-	// ListenerProtocolThrift is a Thrift listener.
-	ListenerProtocolThrift
-	// ListenerProtocolAuto enables auto protocol detection
-	ListenerProtocolAuto
-
 	// Authn is the name of the authentication plugin passed through the command line
 	Authn = "authn"
 	// Authz is the name of the rbac plugin passed through the command line
@@ -55,43 +34,6 @@ const (
 	Mixer = "mixer"
 )
 
-// ModelProtocolToListenerProtocol converts from a config.Protocol to its corresponding plugin.ListenerProtocol
-func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance,
-	trafficDirection core.TrafficDirection) ListenerProtocol {
-	// If protocol sniffing is not enabled, the default value is TCP
-	if p == protocol.Unsupported {
-		switch trafficDirection {
-		case core.TrafficDirection_INBOUND:
-			if !util.IsProtocolSniffingEnabledForInbound(node) {
-				p = protocol.TCP
-			}
-		case core.TrafficDirection_OUTBOUND:
-			if !util.IsProtocolSniffingEnabledForOutbound(node) {
-				p = protocol.TCP
-			}
-		default:
-			// should not reach here
-		}
-	}
-
-	switch p {
-	case protocol.HTTP, protocol.HTTP2, protocol.GRPC, protocol.GRPCWeb:
-		return ListenerProtocolHTTP
-	case protocol.TCP, protocol.HTTPS, protocol.TLS,
-		protocol.Mongo, protocol.Redis, protocol.MySQL:
-		return ListenerProtocolTCP
-	case protocol.Thrift:
-		if features.EnableThriftFilter.Get() {
-			return ListenerProtocolThrift
-		}
-		return ListenerProtocolTCP
-	case protocol.UDP:
-		return ListenerProtocolUnknown
-	default:
-		return ListenerProtocolAuto
-	}
-}
-
 // InputParams is a set of values passed to Plugin callback methods. Not all fields are guaranteed to
 // be set, it's up to the callee to validate required fields are set and emit error if they are not.
 // These are for reading only and should not be modified.
@@ -100,12 +42,9 @@ type InputParams struct {
 	// This is valid only for the inbound listener
 	// Outbound listeners could have multiple filter chains, where one filter chain could be
 	// a HTTP connection manager with TLS context, while the other could be a tcp proxy with sni
-	ListenerProtocol ListenerProtocol
+	ListenerProtocol istionetworking.ListenerProtocol
 	// ListenerCategory is the type of listener (sidecar_inbound, sidecar_outbound, gateway). Must be set
 	ListenerCategory networking.EnvoyFilter_PatchContext
-
-	// TODO: Remove me when listener match is in place
-	DeprecatedListenerCategory networking.EnvoyFilter_DeprecatedListenerMatch_ListenerType
 
 	// Node is the node the response is for.
 	Node *model.Proxy
@@ -121,8 +60,6 @@ type InputParams struct {
 	// Bind holds the listener IP or unix domain socket to which this listener is bound
 	// if bind is using UDS, the port will be 0 with valid protocol and name
 	Bind string
-	// SidecarConfig holds the Sidecar CRD associated with this listener
-	SidecarConfig *model.Config
 
 	// Push holds stats and other information about the current push.
 	Push *model.PushContext
@@ -132,56 +69,22 @@ type InputParams struct {
 	InboundClusterName string
 }
 
-// FilterChain describes a set of filters (HTTP or TCP) with a shared TLS context.
-type FilterChain struct {
-	// FilterChainMatch is the match used to select the filter chain.
-	FilterChainMatch *listener.FilterChainMatch
-	// TLSContext is the TLS settings for this filter chains.
-	TLSContext *auth.DownstreamTlsContext
-	// ListenerFilters are the filters needed for the whole listener, not particular to this
-	// filter chain.
-	ListenerFilters []*listener.ListenerFilter
-	// ListenerProtocol indicates whether this filter chain is for HTTP or TCP
-	// Note that HTTP filter chains can also have network filters
-	ListenerProtocol ListenerProtocol
-	// HTTP is the set of HTTP filters for this filter chain
-	HTTP []*http_conn.HttpFilter
-	// Thrift is the set of Thrift filters for this filter chain
-	Thrift []*thrift_proxy.ThriftFilter
-	// TCP is the set of network (TCP) filters for this filter chain.
-	TCP []*listener.Filter
-	// IsFallthrough indicates if the filter chain is fallthrough.
-	IsFallThrough bool
-}
-
-// MutableObjects is a set of objects passed to On*Listener callbacks. Fields may be nil or empty.
-// Any lists should not be overridden, but rather only appended to.
-// Non-list fields may be mutated; however it's not recommended to do this since it can affect other plugins in the
-// chain in unpredictable ways.
-type MutableObjects struct {
-	// Listener is the listener being built. Must be initialized before Plugin methods are called.
-	Listener *xdsapi.Listener
-
-	// FilterChains is the set of filter chains that will be attached to Listener.
-	FilterChains []FilterChain
-}
-
 // Plugin is called during the construction of a xdsapi.Listener which may alter the Listener in any
 // way. Examples include AuthenticationPlugin that sets up mTLS authentication on the inbound Listener
 // and outbound Cluster, the mixer plugin that sets up policy checks on the inbound listener, etc.
 type Plugin interface {
 	// OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service.
 	// Can be used to add additional filters on the outbound path.
-	OnOutboundListener(in *InputParams, mutable *MutableObjects) error
+	OnOutboundListener(in *InputParams, mutable *istionetworking.MutableObjects) error
 
 	// OnInboundListener is called whenever a new listener is added to the LDS output for a given service
 	// Can be used to add additional filters.
-	OnInboundListener(in *InputParams, mutable *MutableObjects) error
+	OnInboundListener(in *InputParams, mutable *istionetworking.MutableObjects) error
 
 	// OnVirtualListener is called whenever a new virtual listener is added to the
 	// LDS output for a given service
 	// Can be used to add additional filters.
-	OnVirtualListener(in *InputParams, mutable *MutableObjects) error
+	OnVirtualListener(in *InputParams, mutable *istionetworking.MutableObjects) error
 
 	// OnOutboundCluster is called whenever a new cluster is added to the CDS output.
 	// This is called once per push cycle, and not for every sidecar/gateway, except for gateways with non-standard
@@ -201,12 +104,12 @@ type Plugin interface {
 
 	// OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain
 	// configuration, like FilterChainMatch and TLSContext.
-	OnInboundFilterChains(in *InputParams) []FilterChain
+	OnInboundFilterChains(in *InputParams) []istionetworking.FilterChain
 
 	// OnInboundPassthrough is called whenever a new passthrough filter chain is added to the LDS output.
 	// Can be used to add additional filters.
-	OnInboundPassthrough(in *InputParams, mutable *MutableObjects) error
+	OnInboundPassthrough(in *InputParams, mutable *istionetworking.MutableObjects) error
 
 	// OnInboundPassthroughFilterChains is called whenever a plugin needs to setup custom pass through filter chain.
-	OnInboundPassthroughFilterChains(in *InputParams) []FilterChain
+	OnInboundPassthroughFilterChains(in *InputParams) []istionetworking.FilterChain
 }

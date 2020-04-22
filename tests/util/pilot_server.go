@@ -36,9 +36,6 @@ var (
 	// MockPilotGrpcAddr is the address to be used for grpc connections.
 	MockPilotGrpcAddr string
 
-	// MockPilotSecureAddr is the address to be used for secure grpc connections.
-	MockPilotSecureAddr string
-
 	// MockPilotHTTPPort is the dynamic port for pilot http
 	MockPilotHTTPPort int
 
@@ -84,7 +81,6 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 		p.DiscoveryOptions = bootstrap.DiscoveryServiceOptions{
 			HTTPAddr:        httpAddr,
 			GrpcAddr:        ":0",
-			SecureGrpcAddr:  ":0",
 			EnableProfiling: true,
 		}
 		//TODO: start mixer first, get its address
@@ -97,7 +93,7 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 			FileDir: env.IstioSrc + "/tests/testdata/config",
 		}
 		p.MeshConfig = &meshConfig
-		p.MCPMaxMessageSize = 1024 * 1024 * 4
+		p.MCPOptions.MaxMessageSize = 1024 * 1024 * 4
 		p.KeepaliveOptions = keepalive.DefaultOption()
 		p.ForceStop = true
 
@@ -133,12 +129,6 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 	}
 	MockPilotGrpcAddr = "localhost:" + port
 	MockPilotGrpcPort, _ = strconv.Atoi(port)
-
-	_, port, err = net.SplitHostPort(s.SecureGRPCListeningAddr.String())
-	if err != nil {
-		return nil, nil, err
-	}
-	MockPilotSecureAddr = "localhost:" + port
 
 	// Wait a bit for the server to come up.
 	err = wait.Poll(500*time.Millisecond, 5*time.Second, func() (bool, error) {

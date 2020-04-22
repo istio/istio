@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/galley"
@@ -38,7 +38,7 @@ func TestMixer_Report_Direct(t *testing.T) {
 
 			g := galley.NewOrFail(t, ctx, galley.Config{})
 			mxr := mixer.NewOrFail(t, ctx, mixer.Config{Galley: g})
-			be := policybackend.NewOrFail(t, ctx)
+			be := policybackend.NewOrFail(t, ctx, policybackend.Config{})
 
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "mixreport",

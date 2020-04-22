@@ -61,7 +61,7 @@ var (
 		return nil
 	}
 
-	annotationRegistry = map[string]annotationValidationFunc{
+	AnnotationValidation = map[string]annotationValidationFunc{
 		annotation.SidecarInject.Name:                             alwaysValidFunc,
 		annotation.SidecarStatus.Name:                             alwaysValidFunc,
 		annotation.SidecarRewriteAppHTTPProbers.Name:              alwaysValidFunc,
@@ -88,12 +88,13 @@ var (
 		annotation.SidecarTrafficExcludeInboundPorts.Name:         ValidateExcludeInboundPorts,
 		annotation.SidecarTrafficExcludeOutboundPorts.Name:        ValidateExcludeOutboundPorts,
 		annotation.SidecarTrafficKubevirtInterfaces.Name:          alwaysValidFunc,
+		annotation.PrometheusMergeMetrics.Name:                    validateBool,
 	}
 )
 
 func validateAnnotations(annotations map[string]string) (err error) {
 	for name, value := range annotations {
-		if v, ok := annotationRegistry[name]; ok {
+		if v, ok := AnnotationValidation[name]; ok {
 			if e := v(value); e != nil {
 				err = multierror.Append(err, fmt.Errorf("invalid value '%s' for annotation '%s': %v", value, name, e))
 			}
@@ -382,7 +383,7 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 	if log.DebugEnabled() {
 		// Build a log message for the annotations.
 		annotationStr := ""
-		for name := range annotationRegistry {
+		for name := range AnnotationValidation {
 			value, ok := annos[name]
 			if !ok {
 				value = "(unset)"
@@ -554,7 +555,7 @@ func parseTemplate(tmplStr string, funcMap map[string]interface{}, data SidecarT
 
 // IntoResourceFile injects the istio proxy into the specified
 // kubernetes YAML file.
-func IntoResourceFile(sidecarTemplate string, valuesConfig string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer) error {
+func IntoResourceFile(sidecarTemplate string, valuesConfig string, revision string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer) error {
 	reader := yamlDecoder.NewYAMLReader(bufio.NewReaderSize(in, 4096))
 	for {
 		raw, err := reader.Read()
@@ -572,7 +573,7 @@ func IntoResourceFile(sidecarTemplate string, valuesConfig string, meshconfig *m
 
 		var updated []byte
 		if err == nil {
-			outObject, err := IntoObject(sidecarTemplate, valuesConfig, meshconfig, obj) // nolint: vetshadow
+			outObject, err := IntoObject(sidecarTemplate, valuesConfig, revision, meshconfig, obj) // nolint: vetshadow
 			if err != nil {
 				return err
 			}
@@ -613,7 +614,7 @@ func FromRawToObject(raw []byte) (runtime.Object, error) {
 }
 
 // IntoObject convert the incoming resources into Injected resources
-func IntoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshconfig.MeshConfig, in runtime.Object) (interface{}, error) {
+func IntoObject(sidecarTemplate string, valuesConfig string, revision string, meshconfig *meshconfig.MeshConfig, in runtime.Object) (interface{}, error) {
 	out := in.DeepCopyObject()
 
 	var deploymentMetadata *metav1.ObjectMeta
@@ -634,7 +635,7 @@ func IntoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 				return nil, err
 			}
 
-			r, err := IntoObject(sidecarTemplate, valuesConfig, meshconfig, obj) // nolint: vetshadow
+			r, err := IntoObject(sidecarTemplate, valuesConfig, revision, meshconfig, obj) // nolint: vetshadow
 			if err != nil {
 				return nil, err
 			}
@@ -738,7 +739,7 @@ func IntoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 
 	// Modify application containers' HTTP probe after appending injected containers.
 	// Because we need to extract istio-proxy's statusPort.
-	rewriteAppHTTPProbe(metadata.Annotations, podSpec, spec)
+	rewriteAppHTTPProbe(metadata.Annotations, podSpec, spec, meshconfig.DefaultConfig.GetStatusPort())
 
 	// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
 	// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).
@@ -759,14 +760,17 @@ func IntoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	}
 
 	if len(spec.PodRedirectAnnot) != 0 {
-		rewriteCniPodSPec(metadata.Annotations, spec)
+		rewriteCniPodSpec(metadata.Annotations, spec)
 	}
 
 	metadata.Annotations[annotation.SidecarStatus.Name] = status
+	if metadata.Labels == nil {
+		metadata.Labels = make(map[string]string)
+	}
+	// This function, IntoObject(), is only used on the 'istioctl kube-kubeinject' path, which
+	// doesn't use Pilot bootstrap variables.
+	metadata.Labels[model.RevisionLabel] = revision
 	if status != "" && metadata.Labels[model.TLSModeLabelName] == "" {
-		if metadata.Labels == nil {
-			metadata.Labels = make(map[string]string)
-		}
 		metadata.Labels[model.TLSModeLabelName] = model.IstioMutualTLSModeLabel
 	}
 
@@ -861,9 +865,6 @@ func cleanProxyConfig(pc meshconfig.ProxyConfig) *meshconfig.ProxyConfig {
 	if pc.DiscoveryAddress == defaults.DiscoveryAddress {
 		pc.DiscoveryAddress = ""
 	}
-	if reflect.DeepEqual(pc.ConnectTimeout, defaults.ConnectTimeout) {
-		pc.ConnectTimeout = nil
-	}
 	if reflect.DeepEqual(pc.EnvoyMetricsService, defaults.EnvoyMetricsService) {
 		pc.EnvoyMetricsService = nil
 	}
@@ -875,6 +876,9 @@ func cleanProxyConfig(pc meshconfig.ProxyConfig) *meshconfig.ProxyConfig {
 	}
 	if pc.StatNameLength == defaults.StatNameLength {
 		pc.StatNameLength = 0
+	}
+	if pc.StatusPort == defaults.StatusPort {
+		pc.StatusPort = 0
 	}
 	return &pc
 }
@@ -964,6 +968,15 @@ func cleanMeshConfig(v proto.Message) proto.Message {
 	}
 	if cpy.TrustDomain == defaults.TrustDomain {
 		cpy.TrustDomain = ""
+	}
+	if cpy.SdsUdsPath == defaults.SdsUdsPath {
+		cpy.SdsUdsPath = ""
+	}
+	if cpy.IngressControllerMode == defaults.IngressControllerMode {
+		cpy.IngressControllerMode = meshconfig.MeshConfig_UNSPECIFIED
+	}
+	if reflect.DeepEqual(cpy.ClusterLocalNamespaces, defaults.ClusterLocalNamespaces) {
+		cpy.ClusterLocalNamespaces = nil
 	}
 	return &cpy
 }
@@ -1083,10 +1096,10 @@ func potentialPodName(metadata *metav1.ObjectMeta) string {
 	return ""
 }
 
-// rewriteCniPodSPec will check if values from the sidecar injector Helm
+// rewriteCniPodSpec will check if values from the sidecar injector Helm
 // values need to be inserted as Pod annotations so the CNI will apply
 // the proper redirection rules.
-func rewriteCniPodSPec(annotations map[string]string, spec *SidecarInjectionSpec) {
+func rewriteCniPodSpec(annotations map[string]string, spec *SidecarInjectionSpec) {
 
 	if spec == nil {
 		return
@@ -1094,7 +1107,7 @@ func rewriteCniPodSPec(annotations map[string]string, spec *SidecarInjectionSpec
 	if len(spec.PodRedirectAnnot) == 0 {
 		return
 	}
-	for k := range annotationRegistry {
+	for k := range AnnotationValidation {
 		if spec.PodRedirectAnnot[k] != "" {
 			if annotations[k] == spec.PodRedirectAnnot[k] {
 				continue

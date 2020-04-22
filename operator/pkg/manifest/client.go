@@ -15,6 +15,7 @@
 package manifest
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/docker/distribution/reference"
@@ -151,7 +152,7 @@ func (client *Client) GetPods(namespace string, params map[string]string) (*v1.P
 		req.Param(k, v)
 	}
 
-	res := req.Do()
+	res := req.Do(context.TODO())
 	if res.Error() != nil {
 		return nil, fmt.Errorf("unable to retrieve Pods: %v", res.Error())
 	}
@@ -164,7 +165,7 @@ func (client *Client) GetPods(namespace string, params map[string]string) (*v1.P
 
 func (client *Client) ConfigMapForSelector(namespace, labelSelector string) (*v1.ConfigMapList, error) {
 	cmGet := client.Get().Resource("configmaps").Namespace(namespace).Param("labelSelector", labelSelector)
-	obj, err := cmGet.Do().Get()
+	obj, err := cmGet.Do(context.TODO()).Get()
 	if err != nil {
 		return nil, fmt.Errorf("failed retrieving configmap: %v", err)
 	}

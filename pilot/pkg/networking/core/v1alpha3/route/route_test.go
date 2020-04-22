@@ -15,16 +15,21 @@
 package route_test
 
 import (
+	"os"
 	"reflect"
 	"testing"
 	"time"
 
 	envoyroute "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/onsi/gomega"
 
+	"istio.io/istio/pkg/util/gogo"
+
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pkg/config/host"
@@ -50,34 +55,102 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	}
 
 	node := &model.Proxy{
-		Type:         model.SidecarProxy,
-		IPAddresses:  []string{"1.1.1.1"},
-		ID:           "someID",
-		DNSDomain:    "foo.com",
-		Metadata:     &model.NodeMetadata{IstioVersion: "1.4.0"},
-		IstioVersion: &model.IstioVersion{Major: 1, Minor: 4},
+		Type:        model.SidecarProxy,
+		IPAddresses: []string{"1.1.1.1"},
+		ID:          "someID",
+		DNSDomain:   "foo.com",
+		Metadata:    &model.NodeMetadata{},
 	}
-	node13version := &model.Proxy{
-		Type:         model.SidecarProxy,
-		IPAddresses:  []string{"1.1.1.1"},
-		ID:           "someID",
-		DNSDomain:    "foo.com",
-		Metadata:     &model.NodeMetadata{IstioVersion: "1.3.0"},
-		IstioVersion: &model.IstioVersion{Major: 1, Minor: 3},
-	}
+
 	gatewayNames := map[string]bool{"some-gateway": true}
 
 	t.Run("for virtual service", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
+		os.Setenv("ISTIO_DEFAULT_REQUEST_TIMEOUT", "0ms")
+		defer os.Unsetenv("ISTIO_DEFAULT_REQUEST_TIMEOUT")
+
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServicePlain, serviceRegistry, 8080, gatewayNames)
+
+		// Valiate routes.
+		for _, r := range routes {
+			if err := r.Validate(); err != nil {
+				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
+			}
+		}
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
+		// Validate that when timeout is not specified, we disable it based on default value of flag.
+		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(0)))
+		g.Expect(routes[0].GetRoute().MaxGrpcTimeout.Seconds).To(gomega.Equal(int64(0)))
+	})
+
+	t.Run("for virtual service with changed default timeout", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		dt := features.DefaultRequestTimeout
+		features.DefaultRequestTimeout = ptypes.DurationProto(1 * time.Second)
+		defer func() { features.DefaultRequestTimeout = dt }()
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServicePlain, serviceRegistry, 8080, gatewayNames)
+		// Valiate routes.
+		for _, r := range routes {
+			if err := r.Validate(); err != nil {
+				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
+			}
+		}
+
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		// Validate that when timeout is not specified, we send what is set in the timeout flag.
+		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(1)))
+		g.Expect(routes[0].GetRoute().MaxGrpcTimeout.Seconds).To(gomega.Equal(int64(1)))
+	})
+
+	t.Run("for virtual service with timeout", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithTimeout, serviceRegistry, 8080, gatewayNames)
+		// Valiate routes.
+		for _, r := range routes {
+			if err := r.Validate(); err != nil {
+				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
+			}
+		}
+
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		// Validate that when timeout specified, we send the configured timeout to Envoys.
+		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(10)))
+		g.Expect(routes[0].GetRoute().MaxGrpcTimeout.Seconds).To(gomega.Equal(int64(10)))
+	})
+
+	t.Run("for virtual service with disabled timeout", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithTimeoutDisabled, serviceRegistry, 8080, gatewayNames)
+		// Valiate routes.
+		for _, r := range routes {
+			if err := r.Validate(); err != nil {
+				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
+			}
+		}
+
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(0)))
+		g.Expect(routes[0].GetRoute().MaxGrpcTimeout.Seconds).To(gomega.Equal(int64(0)))
 	})
 
 	t.Run("for virtual service with catch all route", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithCatchAllRoute, serviceRegistry, 8080, gatewayNames)
+		// Valiate routes.
+		for _, r := range routes {
+			if err := r.Validate(); err != nil {
+				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
+			}
+		}
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 	})
@@ -86,6 +159,12 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithCatchAllRouteWeightedDestination, serviceRegistry, 8080, gatewayNames)
+		// Valiate routes.
+		for _, r := range routes {
+			if err := r.Validate(); err != nil {
+				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
+			}
+		}
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 	})
@@ -94,6 +173,12 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithCatchAllMultiPrefixRoute, serviceRegistry, 8080, gatewayNames)
+		// Valiate routes.
+		for _, r := range routes {
+			if err := r.Validate(); err != nil {
+				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
+			}
+		}
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 	})
@@ -102,6 +187,12 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRegexMatchingOnURI, serviceRegistry, 8080, gatewayNames)
+		// Valiate routes.
+		for _, r := range routes {
+			if err := r.Validate(); err != nil {
+				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
+			}
+		}
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].GetMatch().GetSafeRegex().GetRegex()).To(gomega.Equal("\\/(.?)\\/status"))
@@ -109,20 +200,16 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 	})
 
-	t.Run("for virtual service with unsafe regex matching on URI", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
-
-		routes, err := route.BuildHTTPRoutesForVirtualService(node13version, nil, virtualServiceWithRegexMatchingOnURI, serviceRegistry, 8080, gatewayNames)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect(len(routes)).To(gomega.Equal(1))
-		//nolint: staticcheck
-		g.Expect(routes[0].GetMatch().GetRegex()).To(gomega.Equal("\\/(.?)\\/status"))
-	})
-
 	t.Run("for virtual service with regex matching on header", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRegexMatchingOnHeader, serviceRegistry, 8080, gatewayNames)
+		// Valiate routes.
+		for _, r := range routes {
+			if err := r.Validate(); err != nil {
+				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
+			}
+		}
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetSafeRegexMatch().GetRegex()).To(gomega.Equal("Bearer .+?\\..+?\\..+?"))
@@ -132,6 +219,12 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRegexMatchingOnWithoutHeader, serviceRegistry, 8080, gatewayNames)
+		// Valiate routes.
+		for _, r := range routes {
+			if err := r.Validate(); err != nil {
+				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
+			}
+		}
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetSafeRegexMatch().GetRegex()).To(gomega.Equal("BAR .+?\\..+?\\..+?"))
@@ -142,6 +235,12 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithPresentMatchingOnHeader, serviceRegistry, 8080, gatewayNames)
+		// Valiate routes.
+		for _, r := range routes {
+			if err := r.Validate(); err != nil {
+				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
+			}
+		}
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetName()).To(gomega.Equal("FOO-HEADER"))
@@ -153,6 +252,12 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithPresentMatchingOnWithoutHeader, serviceRegistry, 8080, gatewayNames)
+		// Valiate routes.
+		for _, r := range routes {
+			if err := r.Validate(); err != nil {
+				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
+			}
+		}
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetName()).To(gomega.Equal("FOO-HEADER"))
@@ -167,6 +272,12 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		for _, c := range cset {
 			g := gomega.NewGomegaWithT(t)
 			routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, *c, serviceRegistry, 8080, gatewayNames)
+			// Valiate routes.
+			for _, r := range routes {
+				if err := r.Validate(); err != nil {
+					t.Fatalf("Route %s validation failed with error %v", r.Name, err)
+				}
+			}
 			g.Expect(err).NotTo(gomega.HaveOccurred())
 			g.Expect(len(routes)).To(gomega.Equal(1))
 			g.Expect(routes[0].GetMatch().GetHeaders()[0].GetName()).To(gomega.Equal("FOO-HEADER"))
@@ -175,20 +286,39 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}
 	})
 
-	t.Run("for virtual service with unsafe regex matching on header", func(t *testing.T) {
+	t.Run("for virtual service with source namespace matching", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node13version, nil, virtualServiceWithRegexMatchingOnHeader, serviceRegistry, 8080, gatewayNames)
+		fooNode := *node
+		fooNode.Metadata = &model.NodeMetadata{
+			Namespace: "foo",
+		}
+		barNode := *node
+		barNode.Metadata = &model.NodeMetadata{
+			Namespace: "bar",
+		}
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(&fooNode, nil, virtualServiceMatchingOnSourceNamespace, serviceRegistry, 8080, gatewayNames)
+		// Valiate routes.
+		for _, r := range routes {
+			if err := r.Validate(); err != nil {
+				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
+			}
+		}
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
-		//nolint: staticcheck
-		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetRegexMatch()).To(gomega.Equal("Bearer .+?\\..+?\\..+?"))
+		g.Expect(routes[0].GetName()).To(gomega.Equal("foo"))
+
+		routes, err = route.BuildHTTPRoutesForVirtualService(&barNode, nil, virtualServiceMatchingOnSourceNamespace, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].GetName()).To(gomega.Equal("bar"))
 	})
 
 	t.Run("for virtual service with ring hash", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		ttl := time.Nanosecond * 100
+		ttl := types.Duration{Nanos: 100}
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
 			Mesh: &meshConfig,
@@ -221,6 +351,12 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		})
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualServicePlain, serviceRegistry, 8080, gatewayNames)
+		// Valiate routes.
+		for _, r := range routes {
+			if err := r.Validate(); err != nil {
+				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
+			}
+		}
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -228,7 +364,58 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_Cookie_{
 				Cookie: &envoyroute.RouteAction_HashPolicy_Cookie{
 					Name: "hash-cookie",
-					Ttl:  ptypes.DurationProto(ttl),
+					Ttl:  gogo.DurationToProtoDuration(&ttl),
+				},
+			},
+		}
+		g.Expect(routes[0].GetRoute().GetHashPolicy()).To(gomega.ConsistOf(hashPolicy))
+	})
+
+	t.Run("for virtual service with query param based ring hash", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		meshConfig := mesh.DefaultMeshConfig()
+		push := &model.PushContext{
+			Mesh: &meshConfig,
+		}
+		push.SetDestinationRules([]model.Config{
+			{
+				ConfigMeta: model.ConfigMeta{
+					Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
+					Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
+					Name:    "acme",
+				},
+				Spec: &networking.DestinationRule{
+					Host: "*.example.org",
+					TrafficPolicy: &networking.TrafficPolicy{
+						LoadBalancer: &networking.LoadBalancerSettings{
+							LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+								ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+									HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpQueryParameterName{
+										HttpQueryParameterName: "query",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		})
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualServicePlain, serviceRegistry, 8080, gatewayNames)
+		// Valiate routes.
+		for _, r := range routes {
+			if err := r.Validate(); err != nil {
+				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
+			}
+		}
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+
+		hashPolicy := &envoyroute.RouteAction_HashPolicy{
+			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_QueryParameter_{
+				QueryParameter: &envoyroute.RouteAction_HashPolicy_QueryParameter{
+					Name: "query",
 				},
 			},
 		}
@@ -266,6 +453,12 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		})
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, 8080, gatewayNames)
+		// Valiate routes.
+		for _, r := range routes {
+			if err := r.Validate(); err != nil {
+				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
+			}
+		}
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -307,6 +500,12 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			}})
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, 8080, gatewayNames)
+		// Valiate routes.
+		for _, r := range routes {
+			if err := r.Validate(); err != nil {
+				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
+			}
+		}
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -353,6 +552,12 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			cnfg})
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, 8080, gatewayNames)
+		// Valiate routes.
+		for _, r := range routes {
+			if err := r.Validate(); err != nil {
+				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
+			}
+		}
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -387,6 +592,12 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		gatewayNames := map[string]bool{"some-gateway": true}
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualServicePlain, serviceRegistry, 8080, gatewayNames)
+		// Valiate routes.
+		for _, r := range routes {
+			if err := r.Validate(); err != nil {
+				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
+			}
+		}
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -406,6 +617,12 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRedirect,
 			serviceRegistry, 8080, gatewayNames)
+		// Valiate routes.
+		for _, r := range routes {
+			if err := r.Validate(); err != nil {
+				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
+			}
+		}
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -535,6 +752,66 @@ var virtualServicePlain = model.Config{
 						},
 						Weight: 100,
 					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithTimeout = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
+		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
+		Name:    "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "*.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+						Weight: 100,
+					},
+				},
+				Timeout: &types.Duration{
+					Seconds: 10,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithTimeoutDisabled = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
+		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
+		Name:    "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "*.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+						Weight: 100,
+					},
+				},
+				Timeout: &types.Duration{
+					Seconds: 0,
 				},
 			},
 		},
@@ -894,6 +1171,57 @@ var virtualServiceWithPresentMatchingOnWithoutHeader = model.Config{
 					Uri:          "example.org",
 					Authority:    "some-authority.default.svc.cluster.local",
 					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceMatchingOnSourceNamespace = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
+		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
+		Name:    "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts: []string{},
+		Http: []*networking.HTTPRoute{
+			{
+				Name: "foo",
+				Match: []*networking.HTTPMatchRequest{
+					{
+						SourceNamespace: "foo",
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "foo.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+			{
+				Name: "bar",
+				Match: []*networking.HTTPMatchRequest{
+					{
+						SourceNamespace: "bar",
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "bar.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+						Weight: 100,
+					},
 				},
 			},
 		},

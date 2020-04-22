@@ -16,6 +16,7 @@ package kubernetes
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,8 +27,7 @@ import (
 	"os/signal"
 	"strings"
 
-	multierror "github.com/hashicorp/go-multierror"
-
+	"github.com/hashicorp/go-multierror"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -36,8 +36,9 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/client-go/transport/spdy"
 
+	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
 
@@ -52,6 +53,7 @@ var (
 type Client struct {
 	Config *rest.Config
 	*rest.RESTClient
+	Revision string
 }
 
 // ExecClient is an interface for remote execution
@@ -61,7 +63,7 @@ type ExecClient interface {
 	GetIstioVersions(namespace string) (*version.MeshInfo, error)
 	PilotDiscoveryDo(pilotNamespace, method, path string, body []byte) ([]byte, error)
 	PodsForSelector(namespace, labelSelector string) (*v1.PodList, error)
-	BuildPortForwarder(podName string, ns string, localPort int, podPort int) (*PortForward, error)
+	BuildPortForwarder(podName string, ns string, localAddr string, localPort int, podPort int) (*PortForward, error)
 }
 
 // PortForward gathers port forwarding results
@@ -82,7 +84,20 @@ func NewClient(kubeconfig, configContext string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Client{config, restClient}, nil
+	return &Client{config, restClient, ""}, nil
+}
+
+// NewExtendedClient is a constructor for the client wrapper that supports dual/multiple control plans
+func NewExtendedClient(kubeconfig, configContext string, opts clioptions.ControlPlaneOptions) (*Client, error) {
+	config, err := defaultRestConfig(kubeconfig, configContext)
+	if err != nil {
+		return nil, err
+	}
+	restClient, err := rest.RESTClientFor(config)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{config, restClient, opts.Revision}, nil
 }
 
 func defaultRestConfig(kubeconfig, configContext string) (*rest.Config, error) {
@@ -132,7 +147,7 @@ func (client *Client) PodExec(podName, podNamespace, container string, command [
 // AllPilotsDiscoveryDo makes an http request to each Pilot discovery instance
 func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, method, path string, body []byte) (map[string][]byte, error) {
 	pilots, err := client.GetIstioPods(pilotNamespace, map[string]string{
-		"labelSelector": "istio=pilot",
+		"labelSelector": "app=istiod",
 		"fieldSelector": "status.phase=Running",
 	})
 	if err != nil {
@@ -158,7 +173,7 @@ func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, method, path string, 
 // PilotDiscoveryDo makes an http request to a single Pilot discovery instance
 func (client *Client) PilotDiscoveryDo(pilotNamespace, method, path string, body []byte) ([]byte, error) {
 	pilots, err := client.GetIstioPods(pilotNamespace, map[string]string{
-		"labelSelector": "istio=pilot",
+		"labelSelector": "app=istiod",
 		"fieldSelector": "status.phase=Running",
 	})
 	if err != nil {
@@ -185,16 +200,25 @@ func (client *Client) EnvoyDo(podName, podNamespace, method, path string, body [
 func (client *Client) ExtractExecResult(podName, podNamespace, container string, cmd []string) ([]byte, error) {
 	stdout, stderr, err := client.PodExec(podName, podNamespace, container, cmd)
 	if err != nil {
-		if stderr.String() != "" {
-			return nil, fmt.Errorf("error execing into %v/%v %v container: %v\n%s", podName, podNamespace, container, err, stderr.String())
+		if stderr != nil && stderr.String() != "" {
+			return nil, fmt.Errorf("error exec'ing into %s/%s %s container: %v\n%s", podName, podNamespace, container, err, stderr.String())
 		}
-		return nil, fmt.Errorf("error execing into %v/%v %v container: %v", podName, podNamespace, container, err)
+		return nil, fmt.Errorf("error exec'ing into %s/%s %s container: %v", podName, podNamespace, container, err)
 	}
 	return stdout.Bytes(), nil
 }
 
 // GetIstioPods retrieves the pod objects for Istio deployments
 func (client *Client) GetIstioPods(namespace string, params map[string]string) ([]v1.Pod, error) {
+	if client.Revision != "" {
+		labelSelector, ok := params["labelSelector"]
+		if ok {
+			params["labelSelector"] = fmt.Sprintf("%s,%s=%s", labelSelector, model.RevisionLabel, client.Revision)
+		} else {
+			params["labelSelector"] = fmt.Sprintf("%s=%s", model.RevisionLabel, client.Revision)
+		}
+	}
+
 	req := client.Get().
 		Resource("pods").
 		Namespace(namespace)
@@ -202,7 +226,7 @@ func (client *Client) GetIstioPods(namespace string, params map[string]string) (
 		req.Param(k, v)
 	}
 
-	res := req.Do()
+	res := req.Do(context.TODO())
 	if res.Error() != nil {
 		return nil, fmt.Errorf("unable to retrieve Pods: %v", res.Error())
 	}
@@ -220,7 +244,7 @@ func (client *Client) GetPilotAgentContainer(podName, podNamespace string) (stri
 		Namespace(podNamespace).
 		Name(podName)
 
-	res := req.Do()
+	res := req.Do(context.TODO())
 	if res.Error() != nil {
 		return "", fmt.Errorf("unable to retrieve Pod: %v", res.Error())
 	}
@@ -249,16 +273,15 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 		"fieldSelector": "status.phase=Running",
 	})
 	if err != nil {
-		log.Debugf("will use `--remote=false` to retrieve version info due to %q", err)
-		return nil, nil
+		return nil, err
 	}
 	if len(pods) == 0 {
-		log.Debugf("will use `--remote=false` to retrieve version info due to `no Istio pods in namespace %q`", namespace)
-		return nil, nil
+		return nil, fmt.Errorf("no running Istio pods in %q", namespace)
 	}
 
 	labelToPodDetail := map[string]podDetail{
 		"pilot":            {"/usr/local/bin/pilot-discovery", "discovery"},
+		"istiod":           {"/usr/local/bin/pilot-discovery", "discovery"},
 		"citadel":          {"/usr/local/bin/istio_ca", "citadel"},
 		"egressgateway":    {"/usr/local/bin/pilot-agent", "istio-proxy"},
 		"galley":           {"/usr/local/bin/galley", "galley"},
@@ -294,7 +317,7 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 			stdout, stderr, err := client.PodExec(pod.Name, pod.Namespace, detail.container, cmdJSON)
 
 			if err != nil {
-				errs = multierror.Append(errs, fmt.Errorf("error execing into %v %v container: %v", pod.Name, detail.container, err))
+				errs = multierror.Append(errs, fmt.Errorf("error exec'ing into %s %s container: %v", pod.Name, detail.container, err))
 				continue
 			}
 
@@ -307,7 +330,7 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 				if strings.HasPrefix(stderr.String(), "Error: unknown shorthand flag") {
 					stdout, err := client.ExtractExecResult(pod.Name, pod.Namespace, detail.container, cmd)
 					if err != nil {
-						errs = multierror.Append(errs, fmt.Errorf("error execing into %v %v container: %v", pod.Name, detail.container, err))
+						errs = multierror.Append(errs, fmt.Errorf("error exec'ing into %s %s container: %v", pod.Name, detail.container, err))
 						continue
 					}
 
@@ -317,7 +340,7 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 						continue
 					}
 				} else {
-					errs = multierror.Append(errs, fmt.Errorf("error execing into %v %v container: %v", pod.Name, detail.container, stderr.String()))
+					errs = multierror.Append(errs, fmt.Errorf("error execing into %s %s container: %v", pod.Name, detail.container, stderr.String()))
 					continue
 				}
 			}
@@ -332,7 +355,7 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 // BuildPortForwarder sets up port forwarding.
 //
 // nolint: lll
-func (client *Client) BuildPortForwarder(podName string, ns string, localPort int, podPort int) (*PortForward, error) {
+func (client *Client) BuildPortForwarder(podName string, ns string, localAddr string, localPort int, podPort int) (*PortForward, error) {
 	var err error
 	if localPort == 0 {
 		localPort, err = availablePort()
@@ -351,7 +374,10 @@ func (client *Client) BuildPortForwarder(podName string, ns string, localPort in
 
 	stop := make(chan struct{})
 	ready := make(chan struct{})
-	fw, err := portforward.New(dialer, []string{fmt.Sprintf("%d:%d", localPort, podPort)}, stop, ready, ioutil.Discard, os.Stderr)
+	if localAddr == "" {
+		localAddr = "localhost"
+	}
+	fw, err := portforward.NewOnAddresses(dialer, []string{localAddr}, []string{fmt.Sprintf("%d:%d", localPort, podPort)}, stop, ready, ioutil.Discard, os.Stderr)
 	if err != nil {
 		return nil, fmt.Errorf("failed establishing port-forward: %v", err)
 	}
@@ -359,7 +385,7 @@ func (client *Client) BuildPortForwarder(podName string, ns string, localPort in
 	// Run the same check as k8s.io/kubectl/pkg/cmd/portforward/portforward.go
 	// so that we will fail early if there is a problem contacting API server.
 	podGet := client.Get().Resource("pods").Namespace(ns).Name(podName)
-	obj, err := podGet.Do().Get()
+	obj, err := podGet.Do(context.TODO()).Get()
 	if err != nil {
 		return nil, fmt.Errorf("failed retrieving pod: %v", err)
 	}
@@ -395,7 +421,7 @@ func availablePort() (int, error) {
 
 func (client *Client) PodsForSelector(namespace, labelSelector string) (*v1.PodList, error) {
 	podGet := client.Get().Resource("pods").Namespace(namespace).Param("labelSelector", labelSelector)
-	obj, err := podGet.Do().Get()
+	obj, err := podGet.Do(context.TODO()).Get()
 	if err != nil {
 		return nil, fmt.Errorf("failed retrieving pod: %v", err)
 	}

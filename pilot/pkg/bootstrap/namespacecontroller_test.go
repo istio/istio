@@ -15,10 +15,13 @@
 package bootstrap
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"testing"
 	"time"
+
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,12 +34,10 @@ import (
 func TestNamespaceController(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	testdata := map[string]string{"key": "value"}
-	nc, err := NewNamespaceController(func() map[string]string {
+	nc := NewNamespaceController(func() map[string]string {
 		return testdata
-	}, client.CoreV1())
-	if err != nil {
-		t.Fatal(err)
-	}
+	}, controller.Options{}, client)
+
 	stop := make(chan struct{})
 	nc.Run(stop)
 
@@ -55,16 +56,16 @@ func TestNamespaceController(t *testing.T) {
 
 func deleteConfigMap(t *testing.T, client *fake.Clientset, ns string) {
 	t.Helper()
-	if err := client.CoreV1().ConfigMaps(ns).Delete(CACertNamespaceConfigMap, &metav1.DeleteOptions{}); err != nil {
+	if err := client.CoreV1().ConfigMaps(ns).Delete(context.TODO(), CACertNamespaceConfigMap, metav1.DeleteOptions{}); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func createNamespace(t *testing.T, client *fake.Clientset, ns string) {
 	t.Helper()
-	if _, err := client.CoreV1().Namespaces().Create(&v1.Namespace{
+	if _, err := client.CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: ns},
-	}); err != nil {
+	}, metav1.CreateOptions{}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -72,7 +73,7 @@ func createNamespace(t *testing.T, client *fake.Clientset, ns string) {
 func expectConfigMap(t *testing.T, client *fake.Clientset, ns string, data map[string]string) {
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
-		cm, err := client.CoreV1().ConfigMaps(ns).Get(CACertNamespaceConfigMap, metav1.GetOptions{})
+		cm, err := client.CoreV1().ConfigMaps(ns).Get(context.TODO(), CACertNamespaceConfigMap, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}

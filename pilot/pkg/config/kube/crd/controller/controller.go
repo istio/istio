@@ -15,10 +15,13 @@
 package controller
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
 	"time"
+
+	"istio.io/pkg/ledger"
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -83,6 +86,25 @@ func init() {
 	monitoring.MustRegister(k8sEvents, k8sErrors, k8sTotalErrors)
 }
 
+// crdExistsWithRetry checks if the provided CRD exists
+// Any errors are retried
+func knownCrdsWithRetry(client *Client) map[string]struct{} {
+	delay := time.Second
+	maxDelay := time.Minute
+	for {
+		found, err := client.KnownCRDs()
+		if err == nil {
+			return found
+		}
+		log.Errorf("failed to list CRDs: %v", err)
+		time.Sleep(delay)
+		delay *= 2
+		if delay > maxDelay {
+			delay = maxDelay
+		}
+	}
+}
+
 // NewController creates a new Kubernetes controller for CRDs
 // Use "" for namespace to listen for all namespace changes
 func NewController(client *Client, options controller2.Options) model.ConfigStoreCache {
@@ -95,9 +117,16 @@ func NewController(client *Client, options controller2.Options) model.ConfigStor
 		kinds:  make(map[resource.GroupVersionKind]*cacheHandler),
 	}
 
+	known := knownCrdsWithRetry(client)
 	// add stores for CRD kinds
 	for _, s := range client.Schemas().All() {
-		out.addInformer(s, options.WatchedNamespace, options.ResyncPeriod)
+		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
+		name := fmt.Sprintf("%s.%s", s.Resource().Plural(), s.Resource().Group())
+		if _, f := known[name]; f {
+			out.addInformer(s, options.WatchedNamespace, options.ResyncPeriod)
+		} else {
+			log.Warnf("Skipping CRD %v as it is not present", s.String())
+		}
 	}
 
 	return out
@@ -120,7 +149,7 @@ func (c *controller) addInformer(schema collection.Schema, namespace string, res
 			if !schema.Resource().IsClusterScoped() {
 				req = req.Namespace(namespace)
 			}
-			err = req.Do().Into(result)
+			err = req.Do(context.TODO()).Into(result)
 			return
 		},
 		func(opts meta_v1.ListOptions) (watch.Interface, error) {
@@ -128,14 +157,19 @@ func (c *controller) addInformer(schema collection.Schema, namespace string, res
 			if !ok {
 				return nil, fmt.Errorf("client not initialized %s", kind)
 			}
+			var timeout time.Duration
+			if opts.TimeoutSeconds != nil {
+				timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
+			}
 			opts.Watch = true
 			req := rc.dynamic.Get().
 				Resource(schema.Resource().Plural()).
-				VersionedParams(&opts, meta_v1.ParameterCodec)
+				VersionedParams(&opts, meta_v1.ParameterCodec).
+				Timeout(timeout)
 			if !schema.Resource().IsClusterScoped() {
 				req = req.Namespace(namespace)
 			}
-			return req.Watch()
+			return req.Watch(context.TODO())
 		})
 }
 
@@ -265,6 +299,14 @@ func (c *controller) GetResourceAtVersion(version string, key string) (resourceV
 	return c.client.GetResourceAtVersion(version, key)
 }
 
+func (c *controller) GetLedger() ledger.Ledger {
+	return c.client.GetLedger()
+}
+
+func (c *controller) SetLedger(l ledger.Ledger) error {
+	return c.client.SetLedger(l)
+}
+
 func (c *controller) HasSynced() bool {
 	for kind, ctl := range c.kinds {
 		if !ctl.informer.HasSynced() {
@@ -277,6 +319,7 @@ func (c *controller) HasSynced() bool {
 
 func (c *controller) Run(stop <-chan struct{}) {
 	log.Infoa("Starting Pilot K8S CRD controller")
+
 	go func() {
 		cache.WaitForCacheSync(stop, c.HasSynced)
 		c.queue.Run(stop)
@@ -291,12 +334,22 @@ func (c *controller) Run(stop <-chan struct{}) {
 }
 
 func (c *controller) Schemas() collection.Schemas {
-	return c.client.Schemas()
+	sb := collection.NewSchemasBuilder()
+	for _, schema := range c.client.Schemas().All() {
+		gvk := schema.Resource().GroupVersionKind()
+		if _, f := c.kinds[gvk]; f {
+			sb.MustAdd(schema)
+		}
+	}
+	return sb.Build()
 }
 
 func (c *controller) Get(typ resource.GroupVersionKind, name, namespace string) *model.Config {
 	s, exists := c.client.Schemas().FindByGroupVersionKind(typ)
 	if !exists {
+		return nil
+	}
+	if _, ok := c.kinds[typ]; !ok {
 		return nil
 	}
 
@@ -317,7 +370,7 @@ func (c *controller) Get(typ resource.GroupVersionKind, name, namespace string) 
 	}
 
 	config, err := crd.ConvertObject(s, obj, c.client.domainSuffix)
-	if err == nil && features.EnableCRDValidation.Get() {
+	if err == nil && features.EnableCRDValidation {
 		if err = s.Resource().ValidateProto(config.Name, config.Namespace, config.Spec); err != nil {
 			handleValidationFailure(obj, err)
 			return nil
@@ -344,6 +397,9 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]mo
 	if !ok {
 		return nil, fmt.Errorf("missing type %q", typ)
 	}
+	if _, ok := c.kinds[typ]; !ok {
+		return nil, nil
+	}
 
 	out := make([]model.Config, 0)
 	for _, data := range c.kinds[typ].informer.GetStore().List() {
@@ -358,7 +414,7 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]mo
 
 		config, err := crd.ConvertObject(s, item, c.client.domainSuffix)
 
-		if err == nil && features.EnableCRDValidation.Get() {
+		if err == nil && features.EnableCRDValidation {
 			err = s.Resource().ValidateProto(config.Name, config.Namespace, config.Spec)
 		}
 
@@ -366,7 +422,7 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]mo
 			// DO NOT RETURN ERROR: if a single object is bad, it'll be ignored (with a log message), but
 			// the rest should still be processed.
 			handleValidationFailure(item, err)
-		} else if c.client.objectInEnvironment(config) {
+		} else if c.client.objectInRevision(config) {
 			out = append(out, *config)
 		}
 	}

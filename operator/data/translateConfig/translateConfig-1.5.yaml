@@ -8,7 +8,7 @@ apiMapping:
   MeshConfig.rootNamespace:
     outPath: "global.istioNamespace"
   Revision:
-    outPath: "global.revision"
+    outPath: "revision"
 kubernetesMapping:
   "Components.{{.ComponentName}}.K8S.Affinity":
     outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.affinity"
@@ -122,7 +122,7 @@ componentMaps:
     ContainerName:        "install-cni"
     HelmSubdir:           "istio-cni"
     ToHelmValuesTreeRoot: "cni"
-  CoreDNS:
+  Istiocoredns:
     ResourceType:         "Deployment"
     ResourceName:         "istiocoredns"
     ContainerName:        "coredns"
@@ -138,7 +138,7 @@ componentMaps:
     ResourceType:         "Deployment"
     ResourceName:         "prometheus"
     ContainerName:        "prometheus"
-    HelmSubdir:           "istio-telemetry/prometheus-operator"
+    HelmSubdir:           "istio-telemetry/prometheusOperator"
     ToHelmValuesTreeRoot: "prometheus"
     SkipReverseTranslate: true
   Kiali:

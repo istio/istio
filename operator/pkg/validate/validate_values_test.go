@@ -64,13 +64,16 @@ global:
     enabled: true
     includeIPRanges: "1.1.0.0/16,2.2.0.0/16"
     excludeIPRanges: "3.3.0.0/16,4.4.0.0/16"
-    includeInboundPorts: "111,222"
     excludeInboundPorts: "333,444"
     clusterDomain: "my.domain"
     connectTimeout: "11s"
     drainDuration: "22s"
     parentShutdownDuration: "33s"
     concurrency: 5
+    lifecycle:
+      preStop:
+        exec:
+          command: ["/bin/sh", "-c", "sleep 30"]
 `,
 		},
 		{
@@ -119,20 +122,18 @@ global:
 			yamlStr: `
 global:
   proxy:
-    includeInboundPorts: "111,65536"
     excludeInboundPorts: "-1,444"
 `,
-			wantErrs: makeErrors([]string{`value global.proxy.excludeInboundPorts:-1 falls outside range [0, 65535]`,
-				`value global.proxy.includeInboundPorts:65536 falls outside range [0, 65535]`}),
+			wantErrs: makeErrors([]string{`value global.proxy.excludeInboundPorts:-1 falls outside range [0, 65535]`}),
 		},
 		{
 			desc: "BadPortMalformed",
 			yamlStr: `
 global:
   proxy:
-    includeInboundPorts: "111,222x"
+    excludeInboundPorts: "111,222x"
 `,
-			wantErrs: makeErrors([]string{`global.proxy.includeInboundPorts : strconv.ParseInt: parsing "222x": invalid syntax`}),
+			wantErrs: makeErrors([]string{`global.proxy.excludeInboundPorts : strconv.ParseInt: parsing "222x": invalid syntax`}),
 		},
 		{
 			desc: "unknown field",
@@ -206,8 +207,8 @@ func TestValidateValuesFromProfile(t *testing.T) {
 func TestValidateValuesFromValuesYAMLs(t *testing.T) {
 	valuesYAML := ""
 	var allFiles []string
-	manifestDir := filepath.Join(repoRootDir, "manifests")
-	for _, sd := range []string{"base", "gateways", "istio-cni", "istiocoredns", "istio-telemetry", "istio-control", "istio-policy", "security"} {
+	manifestDir := filepath.Join(repoRootDir, "manifests/charts")
+	for _, sd := range []string{"base", "gateways", "istio-cni", "istiocoredns", "istio-telemetry", "istio-control", "istio-policy"} {
 		dir := filepath.Join(manifestDir, sd)
 		files, err := util.FindFiles(dir, yamlFileFilter)
 		if err != nil {

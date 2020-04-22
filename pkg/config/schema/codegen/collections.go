@@ -87,6 +87,15 @@ var (
 		{{- end}}
 	{{- end }}
 		Build()
+
+	// PilotServiceApi contains only collections used by Pilot, including experimental Service Api.
+	PilotServiceApi = collection.NewSchemasBuilder().
+	{{- range .Entries }}
+		{{- if or (.Collection.Pilot) (hasPrefix .Collection.Name "k8s/service_apis") }}
+		MustAdd({{ .Collection.VariableName }}).
+		{{- end}}
+	{{- end }}
+		Build()
 )
 `
 

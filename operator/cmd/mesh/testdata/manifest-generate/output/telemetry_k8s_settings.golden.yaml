@@ -63,7 +63,7 @@ spec:
       - args:
         - --monitoringPort=15014
         - --address
-        - tcp://0.0.0.0:9091
+        - unix:///sock/mixer.socket
         - --log_output_level=default:info
         - --configStoreURL=k8s://
         - --configDefaultNamespace=istio-system
@@ -109,6 +109,9 @@ spec:
             cpu: 888m
             memory: 999Mi
         securityContext:
+          capabilities:
+            drop:
+            - ALL
           runAsGroup: 1337
           runAsNonRoot: true
           runAsUser: 1337
@@ -118,10 +121,85 @@ spec:
         - mountPath: /var/run/secrets/istio.io/telemetry/adapter
           name: telemetry-adapter-secret
           readOnly: true
+      - args:
+        - proxy
+        - --domain
+        - $(POD_NAMESPACE).svc.cluster.local
+        - --serviceCluster
+        - istio-telemetry
+        - --templateFile
+        - /var/lib/envoy/envoy.yaml.tmpl
+        - --controlPlaneAuthPolicy
+        - MUTUAL_TLS
+        - --trust-domain=cluster.local
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        - name: JWT_POLICY
+          value: third-party-jwt
+        - name: PILOT_CERT_PROVIDER
+          value: istiod
+        - name: ISTIO_META_USER_SDS
+          value: "true"
+        - name: CA_ADDR
+          value: istiod.istio-system.svc:15012
+        image: gcr.io/istio-testing/proxyv2:latest
+        name: istio-proxy
+        ports:
+        - containerPort: 15004
+        - containerPort: 15090
+          name: http-envoy-prom
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 1024Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        volumeMounts:
+        - mountPath: /etc/istio/config
+          name: config-volume
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
+          readOnly: true
+        - mountPath: /var/lib/envoy
+          name: telemetry-envoy-config
+        - mountPath: /sock
+          name: uds-socket
       securityContext:
         fsGroup: 1337
       serviceAccountName: istio-mixer-service-account
       volumes:
+      - configMap:
+          name: istio
+          optional: true
+        name: config-volume
+      - configMap:
+          name: istio-ca-root-cert
+        name: istiod-ca-cert
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: istio-ca
+              expirationSeconds: 43200
+              path: istio-token
       - name: istio-certs
         secret:
           optional: true

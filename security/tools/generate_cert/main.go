@@ -106,11 +106,11 @@ func signCertFromCitadel() (*x509.Certificate, crypto.PrivateKey) {
 	}
 	key, err := util.ParsePemEncodedKey(secret.Data["ca-key.pem"])
 	if err != nil {
-		log.Fatalf("Unrecogniazed key format from citadel %v", err)
+		log.Fatalf("Unrecognized key format from citadel %v", err)
 	}
 	cert, err := util.ParsePemEncodedCertificate(secret.Data["ca-cert.pem"])
 	if err != nil {
-		log.Fatalf("Unrecogniazed cert format from citadel %v", err)
+		log.Fatalf("Unrecognized cert format from citadel %v", err)
 	}
 	return cert, key
 }

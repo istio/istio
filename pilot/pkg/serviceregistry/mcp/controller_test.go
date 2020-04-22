@@ -108,7 +108,7 @@ var (
 		},
 		Location:   networking.ServiceEntry_MESH_INTERNAL,
 		Resolution: networking.ServiceEntry_STATIC,
-		Endpoints: []*networking.ServiceEntry_Endpoint{
+		Endpoints: []*networking.WorkloadEntry{
 			{
 				Address: "127.0.0.1",
 				Ports: map[string]uint32{
@@ -850,4 +850,143 @@ func (f *FakeXdsUpdater) SvcUpdate(_, _, _ string, _ model.Event) {
 }
 
 func (f *FakeXdsUpdater) ProxyUpdate(_, _ string) {
+}
+
+func TestApplyIncrementalChangeRemove(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	fx := NewFakeXDS()
+	testControllerOptions.XDSUpdater = fx
+	controller := mcp.NewController(testControllerOptions)
+
+	message := convertToResource(g, collections.IstioNetworkingV1Alpha3Gateways.Resource().Proto(), gateway)
+
+	change := convertToChange([]proto.Message{message},
+		[]string{"random-namespace/test-gateway"},
+		setIncremental(),
+		setCollection(collections.IstioNetworkingV1Alpha3Gateways.Name().String()),
+		setTypeURL(collections.IstioNetworkingV1Alpha3Gateways.Resource().Proto()))
+
+	err := controller.Apply(change)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	entries, err := controller.List(gatewayGvk, "")
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(entries).To(HaveLen(1))
+	g.Expect(entries[0].Name).To(Equal("test-gateway"))
+
+	update := <-fx.Events
+	g.Expect(update).To(Equal("ConfigUpdate"))
+
+	message2 := convertToResource(g, collections.IstioNetworkingV1Alpha3Gateways.Resource().Proto(), gateway2)
+	change = convertToChange([]proto.Message{message2},
+		[]string{"random-namespace/test-gateway2"},
+		setIncremental(),
+		setCollection(collections.IstioNetworkingV1Alpha3Gateways.Name().String()),
+		setTypeURL(collections.IstioNetworkingV1Alpha3Gateways.Resource().Proto()))
+
+	err = controller.Apply(change)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	entries, err = controller.List(gatewayGvk, "")
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(entries).To(HaveLen(2))
+
+	update = <-fx.Events
+	g.Expect(update).To(Equal("ConfigUpdate"))
+
+	for _, gw := range entries {
+		g.Expect(gw.GroupVersionKind()).To(Equal(gatewayGvk))
+		switch gw.Name {
+		case "test-gateway":
+			g.Expect(gw.Spec).To(Equal(message))
+		case "test-gateway2":
+			g.Expect(gw.Spec).To(Equal(message2))
+		}
+	}
+
+	change = convertToChange([]proto.Message{message2},
+		[]string{"random-namespace/test-gateway2"},
+		setIncremental(),
+		setRemoved([]string{"random-namespace/test-gateway"}),
+		setCollection(collections.IstioNetworkingV1Alpha3Gateways.Name().String()),
+		setTypeURL(collections.IstioNetworkingV1Alpha3Gateways.Resource().Proto()))
+
+	err = controller.Apply(change)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	entries, err = controller.List(gatewayGvk, "")
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(entries).To(HaveLen(1))
+	g.Expect(entries[0].Name).To(Equal("test-gateway2"))
+	g.Expect(entries[0].Spec).To(Equal(message2))
+
+	update = <-fx.Events
+	g.Expect(update).To(Equal("ConfigUpdate"))
+}
+
+func TestApplyIncrementalChange(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	fx := NewFakeXDS()
+	testControllerOptions.XDSUpdater = fx
+	controller := mcp.NewController(testControllerOptions)
+
+	message := convertToResource(g, collections.IstioNetworkingV1Alpha3Gateways.Resource().Proto(), gateway)
+
+	change := convertToChange([]proto.Message{message},
+		[]string{"random-namespace/test-gateway"},
+		setIncremental(),
+		setCollection(collections.IstioNetworkingV1Alpha3Gateways.Name().String()),
+		setTypeURL(collections.IstioNetworkingV1Alpha3Gateways.Resource().Proto()))
+
+	err := controller.Apply(change)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	entries, err := controller.List(gatewayGvk, "")
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(entries).To(HaveLen(1))
+	g.Expect(entries[0].Name).To(Equal("test-gateway"))
+
+	update := <-fx.Events
+	g.Expect(update).To(Equal("ConfigUpdate"))
+
+	message2 := convertToResource(g, collections.IstioNetworkingV1Alpha3Gateways.Resource().Proto(), gateway2)
+	change = convertToChange([]proto.Message{message2},
+		[]string{"random-namespace/test-gateway2"},
+		setIncremental(),
+		setCollection(collections.IstioNetworkingV1Alpha3Gateways.Name().String()),
+		setTypeURL(collections.IstioNetworkingV1Alpha3Gateways.Resource().Proto()))
+
+	err = controller.Apply(change)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	entries, err = controller.List(gatewayGvk, "")
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(entries).To(HaveLen(2))
+
+	for _, gw := range entries {
+		g.Expect(gw.GroupVersionKind()).To(Equal(gatewayGvk))
+		switch gw.Name {
+		case "test-gateway":
+			g.Expect(gw.Spec).To(Equal(message))
+		case "test-gateway2":
+			g.Expect(gw.Spec).To(Equal(message2))
+		}
+	}
+
+	update = <-fx.Events
+	g.Expect(update).To(Equal("ConfigUpdate"))
+}
+
+func setIncremental() func(*sink.Change) {
+	return func(c *sink.Change) {
+		c.Incremental = true
+	}
+}
+
+func setRemoved(removed []string) func(*sink.Change) {
+	return func(c *sink.Change) {
+		c.Removed = removed
+	}
 }

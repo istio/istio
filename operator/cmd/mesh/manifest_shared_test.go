@@ -17,8 +17,6 @@ package mesh
 import (
 	"bytes"
 	"io/ioutil"
-	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -31,27 +29,27 @@ const (
 )
 
 var (
-	repoRootDir string
-	testDataDir string
-)
+	// All below paths are dynamically derived and absolute.
 
-func init() {
-	wd, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	repoRootDir = filepath.Join(wd, "../..")
-}
+	// Path to the operator root dir.
+	operatorRootDir string
+	// Dir for testdata for istioctl commands.
+	testDataDir string
+	// Path to the manifests/ dir in istio root dir.
+	manifestsDir string
+	// A release dir with the live profiles and charts is created in this dir for tests.
+	liveReleaseDir string
+	// Path to the operator install base dir in the live release.
+	liveInstallPackageDir string
+)
 
 func runCommand(command string) (string, error) {
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(strings.Split(command, " "))
 	rootCmd.SetOutput(&out)
 
-	if err := rootCmd.Execute(); err != nil {
-		return "", err
-	}
-	return out.String(), nil
+	err := rootCmd.Execute()
+	return out.String(), err
 }
 
 func readFile(path string) (string, error) {

@@ -25,9 +25,9 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/cache"
-	xds "github.com/envoyproxy/go-control-plane/pkg/server"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
+	"github.com/envoyproxy/go-control-plane/pkg/cache/v2"
+	xds "github.com/envoyproxy/go-control-plane/pkg/server/v2"
 
 	"google.golang.org/grpc"
 
@@ -35,6 +35,7 @@ import (
 
 	"istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/mixer"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
@@ -233,7 +234,7 @@ func makeListener(port uint16, cluster string) *v2.Listener {
 			Address:       "127.0.0.1",
 			PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(port)}}}},
 		FilterChains: []*listener.FilterChain{{Filters: []*listener.Filter{{
-			Name: wellknown.TCPProxy,
+			Name: "tcp",
 			ConfigType: &listener.Filter_TypedConfig{
 				TypedConfig: pilotutil.MessageToAny(&tcp_proxy.TcpProxy{
 					StatPrefix:       "tcp",
@@ -251,7 +252,7 @@ func makeSnapshot(s *env.TestSetup, t *testing.T, node model.NodeType) cache.Sna
 	p := mixer.NewPlugin()
 
 	serverParams := plugin.InputParams{
-		ListenerProtocol: plugin.ListenerProtocolTCP,
+		ListenerProtocol: networking.ListenerProtocolTCP,
 		Node: &model.Proxy{
 			ID:           "pod1.ns1",
 			Type:         node,
@@ -262,7 +263,7 @@ func makeSnapshot(s *env.TestSetup, t *testing.T, node model.NodeType) cache.Sna
 		Push:            &pushContext,
 	}
 	clientParams := plugin.InputParams{
-		ListenerProtocol: plugin.ListenerProtocolTCP,
+		ListenerProtocol: networking.ListenerProtocolTCP,
 		Node: &model.Proxy{
 			ID:           "pod2.ns2",
 			Type:         node,
@@ -273,19 +274,19 @@ func makeSnapshot(s *env.TestSetup, t *testing.T, node model.NodeType) cache.Sna
 		Push:    &pushContext,
 	}
 
-	serverMutable := plugin.MutableObjects{Listener: serverListener, FilterChains: []plugin.FilterChain{{}}}
+	serverMutable := networking.MutableObjects{Listener: serverListener, FilterChains: []networking.FilterChain{{}}}
 	if err := p.OnInboundListener(&serverParams, &serverMutable); err != nil {
 		t.Error(err)
 	}
 	serverListener.FilterChains[0].Filters = append(serverMutable.FilterChains[0].TCP, serverListener.FilterChains[0].Filters...)
 
-	clientMutable := plugin.MutableObjects{Listener: clientListener, FilterChains: []plugin.FilterChain{{}}}
+	clientMutable := networking.MutableObjects{Listener: clientListener, FilterChains: []networking.FilterChain{{}}}
 	if err := p.OnOutboundListener(&clientParams, &clientMutable); err != nil {
 		t.Error(err)
 	}
 	clientListener.FilterChains[0].Filters = append(clientMutable.FilterChains[0].TCP, clientListener.FilterChains[0].Filters...)
 
 	snapshot := cache.Snapshot{}
-	snapshot.Resources[cache.Listener] = cache.NewResources(string(node), []cache.Resource{clientListener, serverListener})
+	snapshot.Resources[types.Listener] = cache.NewResources(string(node), []types.Resource{clientListener, serverListener})
 	return snapshot
 }

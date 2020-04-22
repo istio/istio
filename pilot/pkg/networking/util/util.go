@@ -26,6 +26,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
@@ -41,6 +42,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/util/strcase"
 )
@@ -48,14 +50,16 @@ import (
 const (
 	// BlackHoleCluster to catch traffic from routes with unresolved clusters. Traffic arriving here goes nowhere.
 	BlackHoleCluster = "BlackHoleCluster"
-	// BlackHoleRouteName is the name of the route that blocks all traffic.
-	BlackHoleRouteName = "block_all"
+	// BlackHole is the name of the virtual host and route name used to block all traffic
+	BlackHole = "block_all"
 	// PassthroughCluster to forward traffic to the original destination requested. This cluster is used when
 	// traffic does not match any listener in envoy.
 	PassthroughCluster = "PassthroughCluster"
-	// PassthroughRouteName is the name of the route that forwards traffic to the
+	// Passthrough is the name of the virtual host used to forward traffic to the
 	// PassthroughCluster
-	PassthroughRouteName = "allow_any"
+	Passthrough = "allow_any"
+	// PassthroughFilterChain to catch traffic that doesn't match other filter chains.
+	PassthroughFilterChain = "PassthroughFilterChain"
 
 	// Inbound pass through cluster need to the bind the loopback ip address for the security and loop avoidance.
 	InboundPassthroughClusterIpv4 = "InboundPassthroughClusterIpv4"
@@ -66,6 +70,9 @@ const (
 
 	// SniClusterFilter is the name of the sni_cluster envoy filter
 	SniClusterFilter = "envoy.filters.network.sni_cluster"
+	// ForwardDownstreamSniFilter forwards the sni from downstream connections to upstream
+	// Used only in the fallthrough filter stack for TLS connections
+	ForwardDownstreamSniFilter = "forward_downstream_sni"
 	// IstioMetadataKey is the key under which metadata is added to a route or cluster
 	// regarding the virtual service or destination rule used for each
 	IstioMetadataKey = "istio"
@@ -81,6 +88,13 @@ const (
 	// EnvoyTLSSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
 	// level tls transport socket configuration
 	EnvoyTLSSocketName = "envoy.transport_sockets.tls"
+
+	// StatName patterns
+	serviceStatPattern         = "%SERVICE%"
+	serviceFQDNStatPattern     = "%SERVICE_FQDN%"
+	servicePortStatPattern     = "%SERVICE_PORT%"
+	servicePortNameStatPattern = "%SERVICE_PORT_NAME%"
+	subsetNameStatPattern      = "%SUBSET_NAME%"
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
@@ -157,49 +171,26 @@ func ConvertAddressToCidr(addr string) *core.CidrRange {
 
 // BuildAddress returns a SocketAddress with the given ip and port or uds.
 func BuildAddress(bind string, port uint32) *core.Address {
-	if len(bind) > 0 && strings.HasPrefix(bind, model.UnixAddressPrefix) {
+	if port != 0 {
 		return &core.Address{
-			Address: &core.Address_Pipe{
-				Pipe: &core.Pipe{
-					Path: bind,
+			Address: &core.Address_SocketAddress{
+				SocketAddress: &core.SocketAddress{
+					Address: bind,
+					PortSpecifier: &core.SocketAddress_PortValue{
+						PortValue: port,
+					},
 				},
 			},
 		}
 	}
 
 	return &core.Address{
-		Address: &core.Address_SocketAddress{
-			SocketAddress: &core.SocketAddress{
-				Address: bind,
-				PortSpecifier: &core.SocketAddress_PortValue{
-					PortValue: port,
-				},
+		Address: &core.Address_Pipe{
+			Pipe: &core.Pipe{
+				Path: strings.TrimPrefix(bind, model.UnixAddressPrefix),
 			},
 		},
 	}
-}
-
-// GetEndpointAddress returns an Envoy v2 API `Address` that represents this IstioEndpoint
-func GetEndpointAddress(n *model.IstioEndpoint) *core.Address {
-	switch n.Family {
-	case model.AddressFamilyTCP:
-		return BuildAddress(n.Address, n.EndpointPort)
-	case model.AddressFamilyUnix:
-		return &core.Address{Address: &core.Address_Pipe{Pipe: &core.Pipe{Path: n.Address}}}
-	default:
-		panic(fmt.Sprintf("unhandled Family %v", n.Family))
-	}
-}
-
-// GetByAddress returns a listener by its address
-// TODO(mostrowski): consider passing map around to save iteration.
-func GetByAddress(listeners []*xdsapi.Listener, addr core.Address) *xdsapi.Listener {
-	for _, l := range listeners {
-		if l != nil && proto.Equal(l.Address, &addr) {
-			return l
-		}
-	}
-	return nil
 }
 
 // MessageToAnyWithError converts from proto message to proto Any
@@ -260,48 +251,27 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	})
 }
 
-// IsIstioVersionGE13 checks whether the given Istio version is greater than or equals 1.3.
-func IsIstioVersionGE13(node *model.Proxy) bool {
-	return node.IstioVersion == nil ||
-		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 3, Patch: -1}) >= 0
-}
-
-// IsIstioVersionGE14 checks whether the given Istio version is greater than or equals 1.4.
-func IsIstioVersionGE14(node *model.Proxy) bool {
-	return node.IstioVersion == nil ||
-		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 4, Patch: -1}) >= 0
-}
-
 // IsIstioVersionGE15 checks whether the given Istio version is greater than or equals 1.5.
 func IsIstioVersionGE15(node *model.Proxy) bool {
 	return node.IstioVersion == nil ||
 		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 5, Patch: -1}) >= 0
 }
 
-// IsProtocolSniffingEnabled checks whether protocol sniffing is enabled.
-func IsProtocolSniffingEnabledForOutbound(node *model.Proxy) bool {
-	return features.EnableProtocolSniffingForOutbound.Get() && IsIstioVersionGE13(node)
+func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
+	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
 }
 
-func IsProtocolSniffingEnabledForInbound(node *model.Proxy) bool {
-	return features.EnableProtocolSniffingForInbound.Get() && IsIstioVersionGE14(node)
+func IsProtocolSniffingEnabledForInboundPort(port *model.Port) bool {
+	return features.EnableProtocolSniffingForInbound && port.Protocol.IsUnsupported()
 }
 
-func IsProtocolSniffingEnabledForPort(node *model.Proxy, port *model.Port) bool {
-	return IsProtocolSniffingEnabledForOutbound(node) && port.Protocol.IsUnsupported()
-}
-
-func IsProtocolSniffingEnabledForInboundPort(node *model.Proxy, port *model.Port) bool {
-	return IsProtocolSniffingEnabledForInbound(node) && port.Protocol.IsUnsupported()
-}
-
-func IsProtocolSniffingEnabledForOutboundPort(node *model.Proxy, port *model.Port) bool {
-	return IsProtocolSniffingEnabledForOutbound(node) && port.Protocol.IsUnsupported()
+func IsProtocolSniffingEnabledForOutboundPort(port *model.Port) bool {
+	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
 }
 
 // IsTCPMetadataExchangeEnabled checks whether Metadata Exchanged enabled for TCP using ALPN.
 func IsTCPMetadataExchangeEnabled(node *model.Proxy) bool {
-	return features.EnableTCPMetadataExchange.Get() && IsIstioVersionGE15(node)
+	return features.EnableTCPMetadataExchange && IsIstioVersionGE15(node)
 }
 
 // ConvertLocality converts '/' separated locality string to Locality struct.
@@ -422,6 +392,21 @@ func cloneLocalityLbEndpoints(endpoints []*endpoint.LocalityLbEndpoints) []*endp
 	return out
 }
 
+// return a shallow copy LbEndpoint
+func CloneLbEndpoint(endpoint *endpoint.LbEndpoint) *endpoint.LbEndpoint {
+	if endpoint == nil {
+		return nil
+	}
+
+	clone := *endpoint
+	if endpoint.LoadBalancingWeight != nil {
+		clone.LoadBalancingWeight = &wrappers.UInt32Value{
+			Value: endpoint.GetLoadBalancingWeight().GetValue(),
+		}
+	}
+	return &clone
+}
+
 // BuildConfigInfoMetadata builds core.Metadata struct containing the
 // name.namespace of the config, the type, etc. Used by Mixer client
 // to generate attributes for policy and telemetry.
@@ -441,6 +426,25 @@ func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
 			},
 		},
 	}
+}
+
+// AddSubsetToMetadata will build a new core.Metadata struct containing the
+// subset name supplied. This is used for telemetry reporting. A new core.Metadata
+// is created to prevent modification to shared base Metadata across subsets, etc.
+// This should be called after the initial "istio" metadata has been created for the
+// cluster. If the "istio" metadata field is not already defined, the subset information will
+// not be added (to prevent adding this information where not needed).
+func AddSubsetToMetadata(md *core.Metadata, subset string) *core.Metadata {
+	updatedMeta := &core.Metadata{}
+	proto.Merge(updatedMeta, md)
+	if istioMeta, ok := updatedMeta.FilterMetadata[IstioMetadataKey]; ok {
+		istioMeta.Fields["subset"] = &pstruct.Value{
+			Kind: &pstruct.Value_StringValue{
+				StringValue: subset,
+			},
+		}
+	}
+	return updatedMeta
 }
 
 // IsHTTPFilterChain returns true if the filter chain contains a HTTP connection manager filter
@@ -557,4 +561,78 @@ func IsAllowAnyOutbound(node *model.Proxy) bool {
 	return node.SidecarScope != nil &&
 		node.SidecarScope.OutboundTrafficPolicy != nil &&
 		node.SidecarScope.OutboundTrafficPolicy.Mode == networking.OutboundTrafficPolicy_ALLOW_ANY
+}
+
+// BuildStatPrefix builds a stat prefix based on the stat pattern.
+func BuildStatPrefix(statPattern string, host string, subset string, port *model.Port, attributes model.ServiceAttributes) string {
+	prefix := strings.ReplaceAll(statPattern, serviceStatPattern, shortHostName(host, attributes))
+	prefix = strings.ReplaceAll(prefix, serviceFQDNStatPattern, host)
+	prefix = strings.ReplaceAll(prefix, subsetNameStatPattern, subset)
+	prefix = strings.ReplaceAll(prefix, servicePortStatPattern, strconv.Itoa(port.Port))
+	prefix = strings.ReplaceAll(prefix, servicePortNameStatPattern, port.Name)
+	return prefix
+}
+
+// shortHostName constructs the name from kubernetes hosts based on attributes (name and namespace).
+// For other hosts like VMs, this method does not do any thing - just returns the passed in host as is.
+func shortHostName(host string, attributes model.ServiceAttributes) string {
+	if attributes.ServiceRegistry == string(serviceregistry.Kubernetes) {
+		return attributes.Name + "." + attributes.Namespace
+	}
+	return host
+}
+
+func StringToExactMatch(in []string) []*matcher.StringMatcher {
+	if len(in) == 0 {
+		return nil
+	}
+	res := make([]*matcher.StringMatcher, 0, len(in))
+	for _, s := range in {
+		res = append(res, &matcher.StringMatcher{
+			MatchPattern: &matcher.StringMatcher_Exact{Exact: s},
+		})
+	}
+	return res
+}
+
+func StringSliceEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
+func UInt32SliceEqual(a, b []uint32) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
+func CidrRangeSliceEqual(a, b []*core.CidrRange) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i].GetAddressPrefix() != b[i].GetAddressPrefix() || a[i].GetPrefixLen().GetValue() != b[i].GetPrefixLen().GetValue() {
+			return false
+		}
+	}
+
+	return true
 }

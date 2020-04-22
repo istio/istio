@@ -16,21 +16,22 @@ package mesh
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
-	"istio.io/istio/operator/pkg/translate"
-
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
-
-	"istio.io/istio/operator/pkg/name"
 
 	"istio.io/api/operator/v1alpha1"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
 	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
+	"istio.io/istio/operator/version"
 	"istio.io/pkg/log"
 	pkgversion "istio.io/pkg/version"
 )
@@ -49,24 +50,42 @@ var scope = log.RegisterScope("installer", "installer", 0)
 // In step 3, the remaining fields in the same user overlay are applied on the resulting profile base.
 // The force flag causes validation errors not to abort but only emit log/console warnings.
 func GenerateConfig(inFilenames []string, setOverlayYAML string, force bool, kubeConfig *rest.Config, l *Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
-	profile := name.DefaultProfileName
+	fy, profile, err := readYamlProfle(inFilenames, setOverlayYAML, force, l)
+	if err != nil {
+		return "", nil, err
+	}
 
+	iopsString, iops, err := genIOPSFromProfile(profile, fy, setOverlayYAML, force, kubeConfig, l)
+	if err != nil {
+		return "", nil, err
+	}
+
+	errs, warning := validation.ValidateConfig(false, iops.Values, iops)
+	if warning != "" {
+		l.logAndError(warning)
+	}
+	if errs.ToError() != nil {
+		return "", nil, fmt.Errorf("generated config failed semantic validation: %v", err)
+	}
+	return iopsString, iops, nil
+}
+
+func readYamlProfle(inFilenames []string, setOverlayYAML string, force bool, l *Logger) (string, string, error) {
+	profile := name.DefaultProfileName
 	// Get the overlay YAML from the list of files passed in. Also get the profile from the overlay files.
 	fy, fp, err := parseYAMLFiles(inFilenames, force, l)
 	if err != nil {
-		return "", nil, err
+		return "", "", err
 	}
 	if fp != "" {
 		profile = fp
 	}
-
 	// The profile coming from --set flag has the highest precedence.
 	psf := profileFromSetOverlay(setOverlayYAML)
 	if psf != "" {
 		profile = psf
 	}
-
-	return genIOPSFromProfile(profile, fy, setOverlayYAML, force, kubeConfig, l)
+	return fy, profile, nil
 }
 
 // parseYAMLFiles parses the given slice of filenames containing YAML and merges them into a single IstioOperator
@@ -80,7 +99,7 @@ func parseYAMLFiles(inFilenames []string, force bool, l *Logger) (overlayYAML st
 		return "", "", err
 	}
 	var fileOverlayIOP *iopv1alpha1.IstioOperator
-	fileOverlayIOP, overlayYAML, err = translate.UnmarshalIOPOrICP(y)
+	fileOverlayIOP, err = validate.UnmarshalIOP(y)
 	if err != nil {
 		return "", "", err
 	}
@@ -90,13 +109,13 @@ func parseYAMLFiles(inFilenames []string, force bool, l *Logger) (overlayYAML st
 		}
 		l.logAndErrorf("Validation errors (continuing because of --force):\n%s", err)
 	}
-	if fileOverlayIOP.Spec.Profile != "" {
+	if fileOverlayIOP.Spec != nil && fileOverlayIOP.Spec.Profile != "" {
 		if profile != "" && profile != fileOverlayIOP.Spec.Profile {
 			return "", "", fmt.Errorf("different profiles cannot be overlaid")
 		}
 		profile = fileOverlayIOP.Spec.Profile
 	}
-	return overlayYAML, profile, nil
+	return y, profile, nil
 }
 
 // profileFromSetOverlay takes a YAML string and if it contains a key called "profile" in the root, it returns the key
@@ -115,9 +134,26 @@ func profileFromSetOverlay(yml string) string {
 
 // genIOPSFromProfile generates an IstioOperatorSpec from the given profile name or path, and overlay YAMLs from user
 // files and the --set flag. If successful, it returns an IstioOperatorSpec string and struct.
-func genIOPSFromProfile(profile, fileOverlayYAML, setOverlayYAML string, skipValidation bool,
+func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, skipValidation bool,
 	kubeConfig *rest.Config, l *Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
-	outYAML, err := getProfileYAML(profile)
+	userOverlayYAML, err := util.OverlayYAML(fileOverlayYAML, setOverlayYAML)
+	if err != nil {
+		return "", nil, fmt.Errorf("could not merge file and --set YAMLs: %s", err)
+	}
+	installPackagePath, err := getInstallPackagePath(userOverlayYAML)
+	if err != nil {
+		return "", nil, err
+	}
+
+	// If installPackagePath is a URL, fetch and extract it and continue with the local filesystem path instead.
+	installPackagePath, profileOrPath, err = rewriteURLToLocalInstallPath(installPackagePath, profileOrPath, skipValidation)
+	if err != nil {
+		return "", nil, err
+	}
+
+	// To generate the base profileOrPath for overlaying with user values, we need the installPackagePath where the profiles
+	// can be found, and the selected profileOrPath. Both of these can come from either the user overlay file or --set flag.
+	outYAML, err := helm.GetProfileYAML(installPackagePath, profileOrPath)
 	if err != nil {
 		return "", nil, err
 	}
@@ -140,21 +176,27 @@ func genIOPSFromProfile(profile, fileOverlayYAML, setOverlayYAML string, skipVal
 			return "", nil, err
 		}
 	}
+	mvs := version.OperatorBinaryVersion.MinorVersion
+	t, err := translate.NewReverseTranslator(mvs)
+	if err != nil {
+		return "", nil, fmt.Errorf("error creating values.yaml translator: %s", err)
+	}
+	userOverlayYAML, err = t.TranslateK8SfromValueToIOP(userOverlayYAML)
+	if err != nil {
+		return "", nil, fmt.Errorf("could not overlay k8s settings from values to IOP: %s", err)
+	}
 
-	// Merge user file overlays.
-	outYAML, err = util.OverlayYAML(outYAML, fileOverlayYAML)
+	// Merge user file and --set overlays.
+	outYAML, err = util.OverlayYAML(outYAML, userOverlayYAML)
 	if err != nil {
 		return "", nil, fmt.Errorf("could not overlay user config over base: %s", err)
 	}
 
-	// Merge the tree buily from --set flags.
-	outYAML, err = util.OverlayYAML(outYAML, setOverlayYAML)
-	if err != nil {
-		return "", nil, fmt.Errorf("could not overlay --set values over merged: %s", err)
+	if err := name.ScanBundledAddonComponents(installPackagePath); err != nil {
+		return "", nil, err
 	}
-
 	// If enablement came from user values overlay (file or --set), translate into addonComponents paths and overlay that.
-	outYAML, err = overlayValuesEnablement(outYAML, fileOverlayYAML, setOverlayYAML)
+	outYAML, err = translate.OverlayValuesEnablement(outYAML, fileOverlayYAML, setOverlayYAML)
 	if err != nil {
 		return "", nil, err
 	}
@@ -169,35 +211,38 @@ func genIOPSFromProfile(profile, fileOverlayYAML, setOverlayYAML string, skipVal
 	if err != nil {
 		return "", nil, err
 	}
-	return outYAML, finalIOPS, nil
+	// InstallPackagePath may have been a URL, change to extracted to local file path.
+	finalIOPS.InstallPackagePath = installPackagePath
+	return util.ToYAMLWithJSONPB(finalIOPS), finalIOPS, nil
 }
 
-// getProfileYAML returns the YAML for the given profile name, using the given profile string, which may be either
-// a profile label or a file path.
-func getProfileYAML(profile string) (string, error) {
-	// This contains the IstioOperator CR.
-	baseCRYAML, err := helm.ReadProfileYAML(profile)
-	if err != nil {
-		return "", err
+// rewriteURLToLocalInstallPath checks installPackagePath and if it is a URL, it tries to download and extract the
+// Istio release tar at the URL to a local file path. If successful, it returns the resulting local paths to the
+// installation charts and profile file.
+// If installPackagePath is not a URL, it returns installPackagePath and profileOrPath unmodified.
+func rewriteURLToLocalInstallPath(installPackagePath, profileOrPath string, skipValidation bool) (string, string, error) {
+	isURL, err := util.IsHTTPURL(installPackagePath)
+	if err != nil && !skipValidation {
+		return "", "", err
+	}
+	if isURL {
+		installPackagePath, err = fetchExtractInstallPackageHTTP(installPackagePath)
+		if err != nil {
+			return "", "", err
+		}
+		// Transform a profileOrPath like "default" or "demo" into a filesystem path like
+		// /tmp/istio-install-packages/istio-1.5.1/manifests/profiles/default.yaml OR
+		// /tmp/istio-install-packages/istio-1.5.1/install/kubernetes/operator/profiles/default.yaml (before 1.6).
+		baseDir := filepath.Join(installPackagePath, helm.OperatorSubdirFilePath15)
+		if _, err := os.Stat(baseDir); os.IsNotExist(err) {
+			baseDir = filepath.Join(installPackagePath, helm.OperatorSubdirFilePath)
+		}
+		profileOrPath = filepath.Join(baseDir, "profiles", profileOrPath+".yaml")
+		// Rewrite installPackagePath to the local file path for further processing.
+		installPackagePath = baseDir
 	}
 
-	if !helm.IsDefaultProfile(profile) {
-		// Profile definitions are relative to the default profile, so read that first.
-		dfn, err := helm.DefaultFilenameForProfile(profile)
-		if err != nil {
-			return "", err
-		}
-		defaultYAML, err := helm.ReadProfileYAML(dfn)
-		if err != nil {
-			return "", err
-		}
-		baseCRYAML, err = util.OverlayYAML(defaultYAML, baseCRYAML)
-		if err != nil {
-			return "", err
-		}
-	}
-
-	return baseCRYAML, nil
+	return installPackagePath, profileOrPath, nil
 }
 
 // Due to the fact that base profile is compiled in before a tag can be created, we must allow an additional
@@ -238,36 +283,16 @@ func getClusterSpecificValues(config *rest.Config, force bool, l *Logger) (strin
 }
 
 func getJwtTypeOverlay(config *rest.Config, l *Logger) (string, error) {
-	d, err := discovery.NewDiscoveryClientForConfig(config)
+	jwtPolicy, err := util.DetectSupportedJWTPolicy(config)
 	if err != nil {
 		return "", fmt.Errorf("failed to determine JWT policy support. Use the --force flag to ignore this: %v", err)
 	}
-	_, s, err := d.ServerGroupsAndResources()
-	if err != nil {
-		return "", fmt.Errorf("failed to determine JWT policy support. Use the --force flag to ignore this: %v", err)
+	if jwtPolicy == util.FirstPartyJWT {
+		// nolint: lll
+		l.logAndPrint("Detected that your cluster does not support third party JWT authentication. " +
+			"Falling back to less secure first party JWT. See https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens for details.")
 	}
-	for _, res := range s {
-		for _, api := range res.APIResources {
-			// Appearance of this API indicates we do support third party jwt token
-			if api.Name == "serviceaccounts/token" {
-				return "values.global.jwtPolicy=third-party-jwt", nil
-			}
-		}
-	}
-	// TODO link to istio.io doc on how to secure this
-	l.logAndPrint("Detected that your cluster does not support third party JWT authentication. Falling back to less secure first party JWT")
-	return "values.global.jwtPolicy=first-party-jwt", nil
-}
-
-// overlayValuesEnablement overlays any enablement in values path from the user file overlay or set flag overlay.
-// The overlay is translated from values to the corresponding addonComponents enablement paths.
-func overlayValuesEnablement(baseYAML, fileOverlayYAML, setOverlayYAML string) (string, error) {
-	overlayYAML, err := util.OverlayYAML(fileOverlayYAML, setOverlayYAML)
-	if err != nil {
-		return "", fmt.Errorf("could not overlay user config over base: %s", err)
-	}
-
-	return translate.YAMLTree(overlayYAML, baseYAML, name.ValuesEnablementPathMap)
+	return "values.global.jwtPolicy=" + string(jwtPolicy), nil
 }
 
 // unmarshalAndValidateIOPS unmarshals a string containing IstioOperator YAML, validates it, and returns a struct
@@ -276,13 +301,23 @@ func overlayValuesEnablement(baseYAML, fileOverlayYAML, setOverlayYAML string) (
 func unmarshalAndValidateIOPS(iopsYAML string, force bool, l *Logger) (*v1alpha1.IstioOperatorSpec, error) {
 	iops := &v1alpha1.IstioOperatorSpec{}
 	if err := util.UnmarshalWithJSONPB(iopsYAML, iops, false); err != nil {
-		return nil, fmt.Errorf("could not unmarshal the merged YAML: %s\n\nYAML:\n%s", err, iopsYAML)
+		return nil, fmt.Errorf("could not unmarshal merged YAML: %s\n\nYAML:\n%s", err, iopsYAML)
 	}
-	if errs := validate.CheckIstioOperatorSpec(iops, true); len(errs) != 0 {
-		if !force {
-			l.logAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
-			return nil, fmt.Errorf(errs.Error())
-		}
+	if errs := validate.CheckIstioOperatorSpec(iops, true); len(errs) != 0 && !force {
+		l.logAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
+		return iops, fmt.Errorf(errs.Error())
 	}
 	return iops, nil
+}
+
+// getInstallPackagePath returns the installPackagePath in the given IstioOperator YAML string.
+func getInstallPackagePath(iopYAML string) (string, error) {
+	iop, err := validate.UnmarshalIOP(iopYAML)
+	if err != nil {
+		return "", err
+	}
+	if iop.Spec == nil {
+		return "", nil
+	}
+	return iop.Spec.InstallPackagePath, nil
 }

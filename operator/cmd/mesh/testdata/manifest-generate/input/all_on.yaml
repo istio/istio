@@ -12,12 +12,6 @@ spec:
       enabled: true
     proxy:
       enabled: true
-    sidecarInjector:
-      enabled: true
-    citadel:
-      enabled: true
-    galley:
-      enabled: true
     cni:
       enabled: false
     ingressGateways:
@@ -32,5 +26,5 @@ spec:
   addonComponents:
     prometheus:
       enabled: true
-    coreDNS:
+    istiocoredns:
       enabled: true

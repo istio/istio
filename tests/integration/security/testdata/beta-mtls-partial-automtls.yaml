@@ -1,0 +1,37 @@
+# Alpha API disable, making test more hermetic.
+# No DR is added for this test. enableAutoMtls is expected on by default.
+# Workload-level PeerAuthentication will expectedly cause trouble to connect to the corresponding service
+apiVersion: authentication.istio.io/v1alpha1
+kind: MeshPolicy
+metadata:
+  name: "default"
+  annotations:
+    test-suite: "beta-mtls-partial-automtls"
+spec: {}
+---
+apiVersion: "security.istio.io/v1beta1"
+kind: "PeerAuthentication"
+metadata:
+  name: "default"
+  annotations:
+    test-suite: "beta-mtls-partial-automtls"
+spec:
+  mtls:
+    mode: STRICT
+---
+apiVersion: "security.istio.io/v1beta1"
+kind: "PeerAuthentication"
+metadata:
+  name: "per-port"
+  annotations:
+    test-suite: "beta-mtls-partial-automtls"
+spec:
+  selector:
+    matchLabels:
+      app: b
+  mtls:
+    mode: DISABLE
+  portLevelMtls:
+    # 8090 is the targetPort for service http(80)
+    8090:
+      mode: STRICT

@@ -37,9 +37,28 @@
               }
             },
             "call_credentials": {
+            {{ if .sts }}
+              "sts_service": {
+                "token_exchange_service_uri": "http://localhost:{{ .sts_port }}/token",
+                "subject_token_path": "/var/run/secrets/tokens/istio-token",
+                "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+                "scope": "https://www.googleapis.com/auth/cloud-platform",
+              }
+            {{ else }}
               "google_compute_engine": {}
+            {{ end }}
             }
-          }
+          },
+          "initial_metadata": [
+          {{ if .sts }}
+          {{ if .gcp_project_id }}
+            {
+              "key": "x-goog-user-project",
+              "value": "{{ .gcp_project_id }}"
+            }
+          {{ end }}
+          {{ end }}
+          ]
         }
       ]
     }
@@ -60,18 +79,28 @@
               }
             },
             "call_credentials": {
-            {{ if .sts_port }}
-            "sts_service": {
-              "token_exchange_service_uri": "http://localhost:{{ .stsPort }}/token",
-              "subject_token_path": "/var/run/secrets/tokens/istio-token",
-              "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
-              "scope": "https://www.googleapis.com/auth/cloud-platform",
-            }
+            {{ if .sts }}
+              "sts_service": {
+                "token_exchange_service_uri": "http://localhost:{{ .sts_port }}/token",
+                "subject_token_path": "/var/run/secrets/tokens/istio-token",
+                "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+                "scope": "https://www.googleapis.com/auth/cloud-platform",
+              }
             {{ else }}
               "google_compute_engine": {}
             {{ end }}
             }
-          }
+          },
+          "initial_metadata": [
+          {{ if .sts }}
+          {{ if .gcp_project_id }}
+            {
+              "key": "x-goog-user-project",
+              "value": "{{ .gcp_project_id }}"
+            }
+          {{ end }}
+          {{ end }}
+          ]
         }
       ]
     }
@@ -93,6 +122,36 @@
       "config": {
       "stackdriver_exporter_enabled": true,
       "stackdriver_project_id": "{{ .stackdriverProjectID }}",
+      {{ if .sts_port }}
+      "stackdriver_grpc_service": {
+        "google_grpc": {
+          "stat_prefix": "oc_stackdriver_tracer",
+          "channel_credentials": {
+            "ssl_credentials": {
+              "root_certs": {
+                "filename": "/etc/ssl/certs/ca-certificates.crt"
+              }
+            }
+          },
+          "call_credentials": {
+            "sts_service": {
+              "token_exchange_service_uri": "http://localhost:{{ .stsPort }}/token",
+              "subject_token_path": "/var/run/secrets/tokens/istio-token",
+              "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+              "scope": "https://www.googleapis.com/auth/cloud-platform",
+            }
+          }
+        },
+        "initial_metadata": [
+        {{ if .gcp_project_id }}
+          {
+            "key": "x-goog-user-project",
+            "value": "{{ .gcp_project_id }}"
+          }
+        {{ end }}
+        ]
+      },
+      {{ end }}
       "stdout_exporter_enabled": {{ .stackdriverDebug }},
       "incoming_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],
       "outgoing_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],

@@ -112,6 +112,7 @@ func (c *client) WatchDiscovery(timeout time.Duration,
 				ResponseNonce: result.Nonce,
 				VersionInfo:   result.VersionInfo,
 				TypeUrl:       c.lastRequest.TypeUrl,
+				ResourceNames: c.lastRequest.ResourceNames,
 			})
 			if err != nil {
 				c1 <- err

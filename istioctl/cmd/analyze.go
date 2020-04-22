@@ -89,6 +89,8 @@ var (
 		diag.Warning: "\033[33m",   // yellow
 		diag.Error:   "\033[1;31m", // bold red
 	}
+
+	fileExtensions = []string{".json", ".yaml", ".yml"}
 )
 
 // Analyze command
@@ -141,7 +143,7 @@ istioctl analyze -L
 				return nil
 			}
 
-			readers, err := gatherFiles(args)
+			readers, err := gatherFiles(cmd, args)
 			if err != nil {
 				return err
 			}
@@ -334,7 +336,7 @@ istioctl analyze -L
 	return analysisCmd
 }
 
-func gatherFiles(args []string) ([]local.ReaderSource, error) {
+func gatherFiles(cmd *cobra.Command, args []string) ([]local.ReaderSource, error) {
 	var readers []local.ReaderSource
 	for _, f := range args {
 		var r *os.File
@@ -342,7 +344,7 @@ func gatherFiles(args []string) ([]local.ReaderSource, error) {
 		// Handle "-" as stdin as a special case.
 		if f == "-" {
 			if isatty.IsTerminal(os.Stdin.Fd()) {
-				fmt.Fprint(os.Stderr, "Reading from stdin:\n")
+				fmt.Fprint(cmd.OutOrStdout(), "Reading from stdin:\n")
 			}
 			r = os.Stdin
 			readers = append(readers, local.ReaderSource{Name: f, Reader: r})
@@ -355,12 +357,16 @@ func gatherFiles(args []string) ([]local.ReaderSource, error) {
 		}
 
 		if fi.IsDir() {
-			dirReaders, err := gatherFilesInDirectory(f)
+			dirReaders, err := gatherFilesInDirectory(cmd, f)
 			if err != nil {
 				return nil, err
 			}
 			readers = append(readers, dirReaders...)
 		} else {
+			if !isValidFile(f) {
+				fmt.Fprintf(cmd.OutOrStderr(), "Skipping file %v, recognized file extensions are: %v\n", f, fileExtensions)
+				continue
+			}
 			rs, err := gatherFile(f)
 			if err != nil {
 				return nil, err
@@ -380,7 +386,7 @@ func gatherFile(f string) (local.ReaderSource, error) {
 	return local.ReaderSource{Name: f, Reader: r}, nil
 }
 
-func gatherFilesInDirectory(dir string) ([]local.ReaderSource, error) {
+func gatherFilesInDirectory(cmd *cobra.Command, dir string) ([]local.ReaderSource, error) {
 	var readers []local.ReaderSource
 
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -393,6 +399,11 @@ func gatherFilesInDirectory(dir string) ([]local.ReaderSource, error) {
 			if !recursive && dir != path {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+
+		if !isValidFile(path) {
+			fmt.Fprintf(cmd.OutOrStdout(), "Skipping file %v, recognized file extensions are: %v\n", path, fileExtensions)
 			return nil
 		}
 
@@ -431,7 +442,11 @@ func colorSuffix() string {
 func renderMessage(m diag.Message) string {
 	origin := ""
 	if m.Resource != nil {
-		origin = " (" + m.Resource.Origin.FriendlyName() + ")"
+		loc := ""
+		if m.Resource.Origin.Reference() != nil {
+			loc = " " + m.Resource.Origin.Reference().String()
+		}
+		origin = " (" + m.Resource.Origin.FriendlyName() + loc + ")"
 	}
 	return fmt.Sprintf(
 		"%s%v%s [%v]%s %s", colorPrefix(m), m.Type.Level(), colorSuffix(), m.Type.Code(), origin, fmt.Sprintf(m.Type.Template(), m.Parameters...))
@@ -465,6 +480,16 @@ func errorIfMessagesExceedThreshold(messages []diag.Message) error {
 	}
 
 	return nil
+}
+
+func isValidFile(f string) bool {
+	ext := filepath.Ext(f)
+	for _, e := range fileExtensions {
+		if e == ext {
+			return true
+		}
+	}
+	return false
 }
 
 type messageThreshold struct {

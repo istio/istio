@@ -56,6 +56,8 @@ Istio is composed of these components:
 
 - **Galley**- Central component for validating, ingesting, aggregating, transforming and distributing config within Istio.
 
+- **Operator**- The component provides user friendly options to operate the Istio service mesh.
+
 Istio currently supports Kubernetes and Consul-based environments. We plan support for additional platforms such as
 Cloud Foundry, and Mesos in the near future.
 
@@ -107,6 +109,9 @@ think the issue should get addressed.
 - **Priority/Pipeline**. Each issue has a priority which is represented by the Pipeline field within GitHub. Priority can be one of
 P0, P1, P2, or >P2. The priority indicates how important it is to address the issue within the milestone. P0 says that the
 milestone cannot be considered achieved if the issue isn't resolved.
+
+To view the project board on ZenHub, we recommend downloading the ZenHub [browser extension](https://www.zenhub.com/extension).
+Please note that this is only supported in Firefox and Chrome at the moment.
 
 We don't annotate issues with Releases; Milestones are used instead. We don't use GitHub projects at all, that
 support is disabled for our organization.

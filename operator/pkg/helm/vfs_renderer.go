@@ -30,8 +30,8 @@ const (
 	// DefaultProfileFilename is the name of the default profile yaml file.
 	DefaultProfileFilename = "default.yaml"
 
-	chartsRoot   = "charts"
-	profilesRoot = "profiles"
+	ChartsSubdirName = "charts"
+	profilesRoot     = "profiles"
 )
 
 var (
@@ -72,6 +72,9 @@ func NewVFSRenderer(helmChartDirPath, componentName, namespace string) *VFSRende
 
 // Run implements the TemplateRenderer interface.
 func (h *VFSRenderer) Run() error {
+	if err := CheckCompiledInCharts(); err != nil {
+		return err
+	}
 	scope.Debugf("Run VFSRenderer with helmChart=%s, componentName=%s, namespace=%s", h.helmChartDirPath, h.componentName, h.namespace)
 	if err := h.loadChart(); err != nil {
 		return err
@@ -97,7 +100,7 @@ func LoadValuesVFS(profileName string) (string, error) {
 	return string(b), err
 }
 
-func isBuiltinProfileName(name string) bool {
+func IsBuiltinProfileName(name string) bool {
 	if name == "" {
 		return true
 	}
@@ -106,7 +109,7 @@ func isBuiltinProfileName(name string) bool {
 
 // loadChart implements the TemplateRenderer interface.
 func (h *VFSRenderer) loadChart() error {
-	prefix := filepath.Join(chartsRoot, h.helmChartDirPath)
+	prefix := h.helmChartDirPath
 	fnames, err := vfs.GetFilesRecursive(prefix)
 	if err != nil {
 		return err
@@ -148,4 +151,13 @@ func stripPrefix(path, prefix string) string {
 // list all the builtin profiles.
 func ListBuiltinProfiles() []string {
 	return util.StringBoolMapToSlice(ProfileNames)
+}
+
+// CheckCompiledInCharts tests for the presence of compiled in charts. These can be missing if a developer creates
+// binaries using go build instead of make and tries to use compiled in charts.
+func CheckCompiledInCharts() error {
+	if _, err := vfs.Stat(ChartsSubdirName); err != nil {
+		return fmt.Errorf("compiled in charts not found in this development build, use --charts with local charts instead or run make gen-charts")
+	}
+	return nil
 }

@@ -31,6 +31,7 @@ type TestCase struct {
 	Request       connection.Checker
 	ExpectAllowed bool
 	Jwt           string
+	Headers       map[string]string
 }
 
 func getError(req connection.Checker, expect, actual string) error {
@@ -56,6 +57,9 @@ func (tc TestCase) CheckRBACRequest() error {
 	headers := make(http.Header)
 	if len(tc.Jwt) > 0 {
 		headers.Add("Authorization", "Bearer "+tc.Jwt)
+	}
+	for k, v := range tc.Headers {
+		headers.Add(k, v)
 	}
 	tc.Request.Options.Headers = headers
 

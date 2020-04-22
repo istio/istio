@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -22,12 +23,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	configKube "istio.io/istio/pkg/config/kube"
-	"istio.io/istio/pkg/config/labels"
-
-	"istio.io/pkg/log"
 )
 
 // PodCache is an eventually consistent pod cache
@@ -168,19 +167,10 @@ func (pc *PodCache) getPodByIP(addr string) *v1.Pod {
 
 // getPod loads the pod from k8s.
 func (pc *PodCache) getPod(name string, namespace string) *v1.Pod {
-	pod, err := pc.c.client.CoreV1().Pods(namespace).Get(name, metav1.GetOptions{})
+	pod, err := pc.c.client.CoreV1().Pods(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		log.Warnf("failed to get pod %s/%s from kube-apiserver: %v", namespace, name, err)
 		return nil
 	}
 	return pod
-}
-
-// labelsByIP returns pod labels or nil if pod not found or an error occurred
-func (pc *PodCache) labelsByIP(addr string) (labels.Instance, bool) {
-	pod := pc.getPodByIP(addr)
-	if pod == nil {
-		return nil, false
-	}
-	return configKube.ConvertLabels(pod.ObjectMeta), true
 }

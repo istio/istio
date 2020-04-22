@@ -1,0 +1,113 @@
+mixer:
+
+  adapters:
+    # stdio is a debug adapter in istio-telemetry, it is not recommended for production use.
+    stdio:
+      # If set to true, will add 'rule' and 'stdio' handler for access logs.
+      # If false, user will need to configure their own rules outside of installer.
+      enabled: false
+      outputAsJson: false
+
+    prometheus:
+      enabled: true
+      metricsExpiryDuration: 10m
+
+    kubernetesenv:
+      enabled: true
+
+    stackdriver:
+      enabled: false
+
+      auth:
+        appCredentials: false
+        apiKey: ""
+        serviceAccountPath: ""
+
+      tracer:
+        enabled: false
+        sampleProbability: 1
+
+      contextGraph:
+        enabled: false
+
+      logging:
+        enabled: true
+
+      metrics:
+        enabled: true
+
+    # Setting this to false sets the useAdapterCRDs mixer startup argument to false
+    useAdapterCRDs: false
+
+  telemetry:
+    hub: ""
+    tag: ""
+    image: mixer
+    enabled: true
+    replicaCount: 1
+    rollingMaxSurge: 100%
+    rollingMaxUnavailable: 25%
+    autoscaleEnabled: true
+    autoscaleMin: 1
+    autoscaleMax: 5
+    cpu:
+      targetAverageUtilization: 80
+    sessionAffinityEnabled: false
+
+    env:
+      # max procs should be ceil(cpu limit + 1)
+      GOMAXPROCS: "6"
+
+    # mixer load shedding configuration.
+    # When mixer detects that it is overloaded, it starts rejecting grpc requests.
+    loadshedding:
+      # disabled, logonly or enforce
+      mode: enforce
+      # based on measurements 100ms p50 translates to p99 of under 1s. This is ok for telemetry which is inherently async.
+      latencyThreshold: 100ms
+    resources:
+      requests:
+        cpu: 1000m
+        memory: 1G
+      limits:
+        # It is best to do horizontal scaling of mixer using moderate cpu allocation.
+        # We have experimentally found that these values work well.
+        cpu: 4800m
+        memory: 4G
+
+    # Set reportBatchMaxEntries to 0 to use the default batching behavior (i.e., every 100 requests).
+    # A positive value indicates the number of requests that are batched before telemetry data
+    # is sent to the mixer server
+    reportBatchMaxEntries: 100
+
+    # Set reportBatchMaxTime to 0 to use the default batching behavior (i.e., every 1 second).
+    # A positive time value indicates the maximum wait time since the last request will telemetry data
+    # be batched before being sent to the mixer server
+    reportBatchMaxTime: 1s
+
+    nodeSelector: {}
+    tolerations: []
+    podAnnotations: {}
+
+    # Specify the pod anti-affinity that allows you to constrain which nodes
+    # your pod is eligible to be scheduled based on labels on pods that are
+    # already running on the node rather than based on labels on nodes.
+    # There are currently two types of anti-affinity:
+    #    "requiredDuringSchedulingIgnoredDuringExecution"
+    #    "preferredDuringSchedulingIgnoredDuringExecution"
+    # which denote "hard" vs. "soft" requirements, you can define your values
+    # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
+    # correspondingly.
+    # For example:
+    # podAntiAffinityLabelSelector:
+    # - key: security
+    #   operator: In
+    #   values: S1,S2
+    #   topologyKey: "kubernetes.io/hostname"
+    # This pod anti-affinity rule says that the pod requires not to be scheduled
+    # onto a node if that node is already running a pod with label having key
+    # "security" and value "S1".
+    podAntiAffinityLabelSelector: []
+    podAntiAffinityTermLabelSelector: []
+
+revision: ""

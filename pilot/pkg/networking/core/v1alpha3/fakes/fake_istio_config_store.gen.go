@@ -5,9 +5,11 @@ import (
 	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/pkg/ledger"
 )
 
 type IstioConfigStore struct {
@@ -58,17 +60,6 @@ type IstioConfigStore struct {
 	deleteReturnsOnCall map[int]struct {
 		result1 error
 	}
-	EnvoyFilterStub        func(labels.Collection) *model.Config
-	envoyFilterMutex       sync.RWMutex
-	envoyFilterArgsForCall []struct {
-		arg1 labels.Collection
-	}
-	envoyFilterReturns struct {
-		result1 *model.Config
-	}
-	envoyFilterReturnsOnCall map[int]struct {
-		result1 *model.Config
-	}
 	GatewaysStub        func(labels.Collection) []model.Config
 	gatewaysMutex       sync.RWMutex
 	gatewaysArgsForCall []struct {
@@ -92,6 +83,16 @@ type IstioConfigStore struct {
 	}
 	getReturnsOnCall map[int]struct {
 		result1 *model.Config
+	}
+	GetLedgerStub        func() ledger.Ledger
+	getLedgerMutex       sync.RWMutex
+	getLedgerArgsForCall []struct {
+	}
+	getLedgerReturns struct {
+		result1 ledger.Ledger
+	}
+	getLedgerReturnsOnCall map[int]struct {
+		result1 ledger.Ledger
 	}
 	GetResourceAtVersionStub        func(string, string) (string, error)
 	getResourceAtVersionMutex       sync.RWMutex
@@ -121,10 +122,10 @@ type IstioConfigStore struct {
 		result1 []model.Config
 		result2 error
 	}
-	QuotaSpecByDestinationStub        func(*model.ServiceInstance) []model.Config
+	QuotaSpecByDestinationStub        func(host.Name) []model.Config
 	quotaSpecByDestinationMutex       sync.RWMutex
 	quotaSpecByDestinationArgsForCall []struct {
-		arg1 *model.ServiceInstance
+		arg1 host.Name
 	}
 	quotaSpecByDestinationReturns struct {
 		result1 []model.Config
@@ -183,6 +184,17 @@ type IstioConfigStore struct {
 	}
 	serviceRolesReturnsOnCall map[int]struct {
 		result1 []model.Config
+	}
+	SetLedgerStub        func(ledger.Ledger) error
+	setLedgerMutex       sync.RWMutex
+	setLedgerArgsForCall []struct {
+		arg1 ledger.Ledger
+	}
+	setLedgerReturns struct {
+		result1 error
+	}
+	setLedgerReturnsOnCall map[int]struct {
+		result1 error
 	}
 	UpdateStub        func(model.Config) (string, error)
 	updateMutex       sync.RWMutex
@@ -448,66 +460,6 @@ func (fake *IstioConfigStore) DeleteReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *IstioConfigStore) EnvoyFilter(arg1 labels.Collection) *model.Config {
-	fake.envoyFilterMutex.Lock()
-	ret, specificReturn := fake.envoyFilterReturnsOnCall[len(fake.envoyFilterArgsForCall)]
-	fake.envoyFilterArgsForCall = append(fake.envoyFilterArgsForCall, struct {
-		arg1 labels.Collection
-	}{arg1})
-	fake.recordInvocation("EnvoyFilter", []interface{}{arg1})
-	fake.envoyFilterMutex.Unlock()
-	if fake.EnvoyFilterStub != nil {
-		return fake.EnvoyFilterStub(arg1)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	fakeReturns := fake.envoyFilterReturns
-	return fakeReturns.result1
-}
-
-func (fake *IstioConfigStore) EnvoyFilterCallCount() int {
-	fake.envoyFilterMutex.RLock()
-	defer fake.envoyFilterMutex.RUnlock()
-	return len(fake.envoyFilterArgsForCall)
-}
-
-func (fake *IstioConfigStore) EnvoyFilterCalls(stub func(labels.Collection) *model.Config) {
-	fake.envoyFilterMutex.Lock()
-	defer fake.envoyFilterMutex.Unlock()
-	fake.EnvoyFilterStub = stub
-}
-
-func (fake *IstioConfigStore) EnvoyFilterArgsForCall(i int) labels.Collection {
-	fake.envoyFilterMutex.RLock()
-	defer fake.envoyFilterMutex.RUnlock()
-	argsForCall := fake.envoyFilterArgsForCall[i]
-	return argsForCall.arg1
-}
-
-func (fake *IstioConfigStore) EnvoyFilterReturns(result1 *model.Config) {
-	fake.envoyFilterMutex.Lock()
-	defer fake.envoyFilterMutex.Unlock()
-	fake.EnvoyFilterStub = nil
-	fake.envoyFilterReturns = struct {
-		result1 *model.Config
-	}{result1}
-}
-
-func (fake *IstioConfigStore) EnvoyFilterReturnsOnCall(i int, result1 *model.Config) {
-	fake.envoyFilterMutex.Lock()
-	defer fake.envoyFilterMutex.Unlock()
-	fake.EnvoyFilterStub = nil
-	if fake.envoyFilterReturnsOnCall == nil {
-		fake.envoyFilterReturnsOnCall = make(map[int]struct {
-			result1 *model.Config
-		})
-	}
-	fake.envoyFilterReturnsOnCall[i] = struct {
-		result1 *model.Config
-	}{result1}
-}
-
 func (fake *IstioConfigStore) Gateways(arg1 labels.Collection) []model.Config {
 	fake.gatewaysMutex.Lock()
 	ret, specificReturn := fake.gatewaysReturnsOnCall[len(fake.gatewaysArgsForCall)]
@@ -627,6 +579,58 @@ func (fake *IstioConfigStore) GetReturnsOnCall(i int, result1 *model.Config) {
 	}
 	fake.getReturnsOnCall[i] = struct {
 		result1 *model.Config
+	}{result1}
+}
+
+func (fake *IstioConfigStore) GetLedger() ledger.Ledger {
+	fake.getLedgerMutex.Lock()
+	ret, specificReturn := fake.getLedgerReturnsOnCall[len(fake.getLedgerArgsForCall)]
+	fake.getLedgerArgsForCall = append(fake.getLedgerArgsForCall, struct {
+	}{})
+	fake.recordInvocation("GetLedger", []interface{}{})
+	fake.getLedgerMutex.Unlock()
+	if fake.GetLedgerStub != nil {
+		return fake.GetLedgerStub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	fakeReturns := fake.getLedgerReturns
+	return fakeReturns.result1
+}
+
+func (fake *IstioConfigStore) GetLedgerCallCount() int {
+	fake.getLedgerMutex.RLock()
+	defer fake.getLedgerMutex.RUnlock()
+	return len(fake.getLedgerArgsForCall)
+}
+
+func (fake *IstioConfigStore) GetLedgerCalls(stub func() ledger.Ledger) {
+	fake.getLedgerMutex.Lock()
+	defer fake.getLedgerMutex.Unlock()
+	fake.GetLedgerStub = stub
+}
+
+func (fake *IstioConfigStore) GetLedgerReturns(result1 ledger.Ledger) {
+	fake.getLedgerMutex.Lock()
+	defer fake.getLedgerMutex.Unlock()
+	fake.GetLedgerStub = nil
+	fake.getLedgerReturns = struct {
+		result1 ledger.Ledger
+	}{result1}
+}
+
+func (fake *IstioConfigStore) GetLedgerReturnsOnCall(i int, result1 ledger.Ledger) {
+	fake.getLedgerMutex.Lock()
+	defer fake.getLedgerMutex.Unlock()
+	fake.GetLedgerStub = nil
+	if fake.getLedgerReturnsOnCall == nil {
+		fake.getLedgerReturnsOnCall = make(map[int]struct {
+			result1 ledger.Ledger
+		})
+	}
+	fake.getLedgerReturnsOnCall[i] = struct {
+		result1 ledger.Ledger
 	}{result1}
 }
 
@@ -758,11 +762,11 @@ func (fake *IstioConfigStore) ListReturnsOnCall(i int, result1 []model.Config, r
 	}{result1, result2}
 }
 
-func (fake *IstioConfigStore) QuotaSpecByDestination(arg1 *model.ServiceInstance) []model.Config {
+func (fake *IstioConfigStore) QuotaSpecByDestination(arg1 host.Name) []model.Config {
 	fake.quotaSpecByDestinationMutex.Lock()
 	ret, specificReturn := fake.quotaSpecByDestinationReturnsOnCall[len(fake.quotaSpecByDestinationArgsForCall)]
 	fake.quotaSpecByDestinationArgsForCall = append(fake.quotaSpecByDestinationArgsForCall, struct {
-		arg1 *model.ServiceInstance
+		arg1 host.Name
 	}{arg1})
 	fake.recordInvocation("QuotaSpecByDestination", []interface{}{arg1})
 	fake.quotaSpecByDestinationMutex.Unlock()
@@ -782,13 +786,13 @@ func (fake *IstioConfigStore) QuotaSpecByDestinationCallCount() int {
 	return len(fake.quotaSpecByDestinationArgsForCall)
 }
 
-func (fake *IstioConfigStore) QuotaSpecByDestinationCalls(stub func(*model.ServiceInstance) []model.Config) {
+func (fake *IstioConfigStore) QuotaSpecByDestinationCalls(stub func(host.Name) []model.Config) {
 	fake.quotaSpecByDestinationMutex.Lock()
 	defer fake.quotaSpecByDestinationMutex.Unlock()
 	fake.QuotaSpecByDestinationStub = stub
 }
 
-func (fake *IstioConfigStore) QuotaSpecByDestinationArgsForCall(i int) *model.ServiceInstance {
+func (fake *IstioConfigStore) QuotaSpecByDestinationArgsForCall(i int) host.Name {
 	fake.quotaSpecByDestinationMutex.RLock()
 	defer fake.quotaSpecByDestinationMutex.RUnlock()
 	argsForCall := fake.quotaSpecByDestinationArgsForCall[i]
@@ -1094,6 +1098,66 @@ func (fake *IstioConfigStore) ServiceRolesReturnsOnCall(i int, result1 []model.C
 	}{result1}
 }
 
+func (fake *IstioConfigStore) SetLedger(arg1 ledger.Ledger) error {
+	fake.setLedgerMutex.Lock()
+	ret, specificReturn := fake.setLedgerReturnsOnCall[len(fake.setLedgerArgsForCall)]
+	fake.setLedgerArgsForCall = append(fake.setLedgerArgsForCall, struct {
+		arg1 ledger.Ledger
+	}{arg1})
+	fake.recordInvocation("SetLedger", []interface{}{arg1})
+	fake.setLedgerMutex.Unlock()
+	if fake.SetLedgerStub != nil {
+		return fake.SetLedgerStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	fakeReturns := fake.setLedgerReturns
+	return fakeReturns.result1
+}
+
+func (fake *IstioConfigStore) SetLedgerCallCount() int {
+	fake.setLedgerMutex.RLock()
+	defer fake.setLedgerMutex.RUnlock()
+	return len(fake.setLedgerArgsForCall)
+}
+
+func (fake *IstioConfigStore) SetLedgerCalls(stub func(ledger.Ledger) error) {
+	fake.setLedgerMutex.Lock()
+	defer fake.setLedgerMutex.Unlock()
+	fake.SetLedgerStub = stub
+}
+
+func (fake *IstioConfigStore) SetLedgerArgsForCall(i int) ledger.Ledger {
+	fake.setLedgerMutex.RLock()
+	defer fake.setLedgerMutex.RUnlock()
+	argsForCall := fake.setLedgerArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *IstioConfigStore) SetLedgerReturns(result1 error) {
+	fake.setLedgerMutex.Lock()
+	defer fake.setLedgerMutex.Unlock()
+	fake.SetLedgerStub = nil
+	fake.setLedgerReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *IstioConfigStore) SetLedgerReturnsOnCall(i int, result1 error) {
+	fake.setLedgerMutex.Lock()
+	defer fake.setLedgerMutex.Unlock()
+	fake.SetLedgerStub = nil
+	if fake.setLedgerReturnsOnCall == nil {
+		fake.setLedgerReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.setLedgerReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *IstioConfigStore) Update(arg1 model.Config) (string, error) {
 	fake.updateMutex.Lock()
 	ret, specificReturn := fake.updateReturnsOnCall[len(fake.updateArgsForCall)]
@@ -1220,12 +1284,12 @@ func (fake *IstioConfigStore) Invocations() map[string][][]interface{} {
 	defer fake.createMutex.RUnlock()
 	fake.deleteMutex.RLock()
 	defer fake.deleteMutex.RUnlock()
-	fake.envoyFilterMutex.RLock()
-	defer fake.envoyFilterMutex.RUnlock()
 	fake.gatewaysMutex.RLock()
 	defer fake.gatewaysMutex.RUnlock()
 	fake.getMutex.RLock()
 	defer fake.getMutex.RUnlock()
+	fake.getLedgerMutex.RLock()
+	defer fake.getLedgerMutex.RUnlock()
 	fake.getResourceAtVersionMutex.RLock()
 	defer fake.getResourceAtVersionMutex.RUnlock()
 	fake.listMutex.RLock()
@@ -1242,6 +1306,8 @@ func (fake *IstioConfigStore) Invocations() map[string][][]interface{} {
 	defer fake.serviceRoleBindingsMutex.RUnlock()
 	fake.serviceRolesMutex.RLock()
 	defer fake.serviceRolesMutex.RUnlock()
+	fake.setLedgerMutex.RLock()
+	defer fake.setLedgerMutex.RUnlock()
 	fake.updateMutex.RLock()
 	defer fake.updateMutex.RUnlock()
 	fake.versionMutex.RLock()

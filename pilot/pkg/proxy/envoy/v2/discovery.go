@@ -84,6 +84,9 @@ type DiscoveryServer struct {
 	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
 	MemRegistry *MemServiceDiscovery
 
+	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
+	MemConfigController model.ConfigStoreCache
+
 	// ConfigGenerator is responsible for generating data plane configuration using Istio networking
 	// APIs and service registry info
 	ConfigGenerator core.ConfigGenerator
@@ -94,7 +97,7 @@ type DiscoveryServer struct {
 	// Defaults to false, can be enabled with PILOT_DEBUG_ADSZ_CONFIG=1
 	DebugConfigs bool
 
-	// mutex protecting global structs updated or read by ADS service, including EDSUpdates and
+	// mutex protecting global structs updated or read by ADS service, including ConfigsUpdated and
 	// shards.
 	mutex sync.RWMutex
 
@@ -112,6 +115,10 @@ type DiscoveryServer struct {
 
 	// debugHandlers is the list of all the supported debug handlers.
 	debugHandlers map[string]string
+
+	// adsClients reflect active gRPC channels, for both ADS and EDS.
+	adsClients      map[string]*XdsConnection
+	adsClientsMutex sync.RWMutex
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -145,6 +152,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 		pushQueue:               NewPushQueue(),
 		DebugConfigs:            features.DebugConfigs,
 		debugHandlers:           map[string]string{},
+		adsClients:              map[string]*XdsConnection{},
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.
@@ -368,22 +376,17 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 			proxiesQueueTime.Record(time.Since(info.Start).Seconds())
 
 			go func() {
-				edsUpdates := info.EdsUpdates
-				if info.Full {
-					// Setting this to nil will trigger a full push
-					edsUpdates = nil
+				pushEv := &XdsEvent{
+					full:           info.Full,
+					push:           info.Push,
+					done:           doneFunc,
+					start:          info.Start,
+					configsUpdated: info.ConfigsUpdated,
+					noncePrefix:    info.Push.Version,
 				}
 
 				select {
-				case client.pushChannel <- &XdsEvent{
-					push:               info.Push,
-					edsUpdatedServices: edsUpdates,
-					done:               doneFunc,
-					start:              info.Start,
-					namespacesUpdated:  info.NamespacesUpdated,
-					configTypesUpdated: info.ConfigTypesUpdated,
-					noncePrefix:        info.Push.Version,
-				}:
+				case client.pushChannel <- pushEv:
 					return
 				case <-client.stream.Context().Done(): // grpc stream was closed
 					doneFunc()

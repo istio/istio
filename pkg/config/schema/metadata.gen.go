@@ -137,6 +137,11 @@ collections:
     group: "networking.istio.io"
     pilot: true
 
+  - name: "istio/networking/v1alpha3/workloadentries"
+    kind: "WorkloadEntry"
+    group: "networking.istio.io"
+    pilot: true
+
   - name: "istio/networking/v1alpha3/sidecars"
     kind: "Sidecar"
     group: "networking.istio.io"
@@ -201,6 +206,10 @@ collections:
   ### K8s collections ###
 
   # Built-in K8s collections
+  - name: "k8s/apiextensions.k8s.io/v1beta1/customresourcedefinitions"
+    kind: "CustomResourceDefinition"
+    group: "apiextensions.k8s.io"
+
   - name: "k8s/apps/v1/deployments"
     kind: "Deployment"
     group: "apps"
@@ -237,7 +246,28 @@ collections:
     kind: "Ingress"
     group: "extensions"
 
+  - kind: "GatewayClass"
+    name: "k8s/service_apis/v1alpha1/gatewayclasses"
+    group: "networking.x.k8s.io"
+
+  - kind: "Gateway"
+    name: "k8s/service_apis/v1alpha1/gateways"
+    group: "networking.x.k8s.io"
+
+  - kind: "HTTPRoute"
+    name: "k8s/service_apis/v1alpha1/httproutes"
+    group: "networking.x.k8s.io"
+
+  - kind: "TcpRoute"
+    name: "k8s/service_apis/v1alpha1/tcproutes"
+    group: "networking.x.k8s.io"
+
+  - kind: "TrafficSplit"
+    name: "k8s/service_apis/v1alpha1/trafficsplits"
+    group: "networking.x.k8s.io"
+
   # Istio CRD collections
+
   - name: "k8s/authentication.istio.io/v1alpha1/meshpolicies"
     kind: "MeshPolicy"
     group: "authentication.istio.io"
@@ -296,6 +326,10 @@ collections:
 
   - name: "k8s/networking.istio.io/v1alpha3/serviceentries"
     kind: "ServiceEntry"
+    group: "networking.istio.io"
+
+  - name: "k8s/networking.istio.io/v1alpha3/workloadentries"
+    kind: "WorkloadEntry"
     group: "networking.istio.io"
 
   - name: "k8s/networking.istio.io/v1alpha3/sidecars"
@@ -357,6 +391,7 @@ snapshots:
       - "istio/networking/v1alpha3/envoyfilters"
       - "istio/networking/v1alpha3/gateways"
       - "istio/networking/v1alpha3/serviceentries"
+      - "istio/networking/v1alpha3/workloadentries"
       - "istio/networking/v1alpha3/sidecars"
       - "istio/networking/v1alpha3/virtualservices"
       - "istio/policy/v1beta1/attributemanifests"
@@ -388,6 +423,7 @@ snapshots:
       - "istio/networking/v1alpha3/serviceentries"
       - "istio/networking/v1alpha3/sidecars"
       - "istio/networking/v1alpha3/virtualservices"
+      - "k8s/apiextensions.k8s.io/v1beta1/customresourcedefinitions"
       - "k8s/apps/v1/deployments"
       - "k8s/core/v1/namespaces"
       - "k8s/core/v1/pods"
@@ -398,6 +434,13 @@ snapshots:
 # Configuration for resource types.
 resources:
   # Kubernetes specific configuration.
+  - kind: "CustomResourceDefinition"
+    plural: "CustomResourceDefinitions"
+    group: "apiextensions.k8s.io"
+    version: "v1beta1"
+    proto: "k8s.io.apiextensions_apiserver.pkg.apis.apiextensions.v1beta1.CustomResourceDefinition"
+    protoPackage: "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+
   - kind: "Deployment"
     plural: "Deployments"
     group: "apps"
@@ -456,6 +499,42 @@ resources:
     proto: "k8s.io.api.extensions.v1beta1.IngressSpec"
     protoPackage: "k8s.io/api/extensions/v1beta1"
 
+  - Kind: "GatewayClass"
+    plural: "gatewayclasses"
+    group: "networking.x.k8s.io"
+    version: "v1alpha1"
+    clusterScoped: true
+    protoPackage: "sigs.k8s.io/service-apis/api/v1alpha1"
+    proto: "k8s.io.service_apis.api.v1alpha1.GatewayClassSpec"
+
+  - Kind: "Gateway"
+    plural: "gateways"
+    group: "networking.x.k8s.io"
+    version: "v1alpha1"
+    protoPackage: "sigs.k8s.io/service-apis/api/v1alpha1"
+    proto: "k8s.io.service_apis.api.v1alpha1.GatewaySpec"
+
+  - Kind: "HTTPRoute"
+    plural: "httproutes"
+    group: "networking.x.k8s.io"
+    version: "v1alpha1"
+    protoPackage: "sigs.k8s.io/service-apis/api/v1alpha1"
+    proto: "k8s.io.service_apis.api.v1alpha1.HTTPRouteSpec"
+
+  - Kind: "TcpRoute"
+    plural: "tcproutes"
+    group: "networking.x.k8s.io"
+    version: "v1alpha1"
+    protoPackage: "sigs.k8s.io/service-apis/api/v1alpha1"
+    proto: "k8s.io.service_apis.api.v1alpha1.TcpRouteSpec"
+
+  - Kind: "TrafficSplit"
+    plural: "trafficsplits"
+    group: "networking.x.k8s.io"
+    version: "v1alpha1"
+    protoPackage: "sigs.k8s.io/service-apis/api/v1alpha1"
+    proto: "k8s.io.service_apis.api.v1alpha1.TrafficSplitSpec"
+
   ## Istio resources
   - kind: "VirtualService"
     plural: "virtualservices"
@@ -480,6 +559,14 @@ resources:
     proto: "istio.networking.v1alpha3.ServiceEntry"
     protoPackage: "istio.io/api/networking/v1alpha3"
     description: "describes service entries"
+
+  - kind: "WorkloadEntry"
+    plural: "workloadentries"
+    group: "networking.istio.io"
+    version: "v1alpha3"
+    proto: "istio.networking.v1alpha3.WorkloadEntry"
+    protoPackage: "istio.io/api/networking/v1alpha3"
+    description: "describes workload entries"
 
   - kind: "DestinationRule"
     plural: "destinationrules"
@@ -670,6 +757,7 @@ resources:
 transforms:
   - type: direct
     mapping:
+      "k8s/apiextensions.k8s.io/v1beta1/customresourcedefinitions": "k8s/apiextensions.k8s.io/v1beta1/customresourcedefinitions"
       "k8s/config.istio.io/v1alpha2/adapters": "istio/config/v1alpha2/adapters"
       "k8s/config.istio.io/v1alpha2/attributemanifests": "istio/policy/v1beta1/attributemanifests"
       "k8s/config.istio.io/v1alpha2/handlers": "istio/policy/v1beta1/handlers"
@@ -684,6 +772,7 @@ transforms:
       "k8s/networking.istio.io/v1alpha3/envoyfilters": "istio/networking/v1alpha3/envoyfilters"
       "k8s/networking.istio.io/v1alpha3/gateways": "istio/networking/v1alpha3/gateways"
       "k8s/networking.istio.io/v1alpha3/serviceentries": "istio/networking/v1alpha3/serviceentries"
+      "k8s/networking.istio.io/v1alpha3/workloadentries": "istio/networking/v1alpha3/workloadentries"
       "k8s/networking.istio.io/v1alpha3/sidecars": "istio/networking/v1alpha3/sidecars"
       "k8s/networking.istio.io/v1alpha3/virtualservices": "istio/networking/v1alpha3/virtualservices"
       "k8s/rbac.istio.io/v1alpha1/policy": "istio/rbac/v1alpha1/servicerolebindings"

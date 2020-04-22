@@ -24,6 +24,8 @@ import (
 
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 
+	"istio.io/pkg/log"
+
 	"github.com/prometheus/common/model"
 	"golang.org/x/sync/errgroup"
 
@@ -31,11 +33,11 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -57,8 +59,12 @@ var (
 				"pilot_xds_eds_instances",
 				"_timeout",
 				"_rejects",
+				// We do not simulate injection errors
+				"sidecar_injection_failure_total",
 				// In default install, we have no proxy
 				"istio-proxy",
+				// https://github.com/istio/istio/issues/22674 this causes flaky tests
+				"galley_validation_passed",
 				// cAdvisor does not expose this metrics, and we don't have kubelet in kind
 				"container_fs_usage_bytes",
 			},
@@ -97,26 +103,10 @@ var (
 			},
 		},
 		{
-			"istio-grafana-configuration-dashboards-galley-dashboard",
-			"galley-dashboard.json",
-			[]string{
-				// Exclude all metrics -- galley is disabled by default
-				"_",
-			},
-		},
-		{
 			"istio-grafana-configuration-dashboards-mixer-dashboard",
 			"mixer-dashboard.json",
 			[]string{
 				// Exclude all metrics -- mixer is disabled by default
-				"_",
-			},
-		},
-		{
-			"istio-grafana-configuration-dashboards-citadel-dashboard",
-			"citadel-dashboard.json",
-			[]string{
-				// Exclude all metrics -- citadel is disabled by default
 				"_",
 			},
 		},
@@ -128,14 +118,14 @@ func TestDashboard(t *testing.T) {
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
-			p := prometheus.NewOrFail(ctx, ctx)
+			p := prometheus.NewOrFail(ctx, ctx, prometheus.Config{})
 			kenv := ctx.Environment().(*kube.Environment)
 			setupDashboardTest(ctx)
 			waitForMetrics(ctx, p)
 			for _, d := range dashboards {
 				d := d
 				ctx.NewSubTest(d.name).RunParallel(func(t framework.TestContext) {
-					cm, err := kenv.Accessor.GetConfigMap(d.configmap, i.Settings().TelemetryNamespace)
+					cm, err := kenv.KubeClusters[0].GetConfigMap(d.configmap, i.Settings().TelemetryNamespace)
 					if err != nil {
 						t.Fatalf("Failed to find dashboard %v: %v", d.configmap, err)
 					}
@@ -218,6 +208,7 @@ func checkMetric(p prometheus.Instance, query string, excluded []string) error {
 	return nil
 }
 
+// nolint: interfacer
 func waitForMetrics(t framework.TestContext, instance prometheus.Instance) {
 	// These are sentinel metrics that will be used to evaluate if prometheus
 	// scraping has occurred and data is available via promQL.
@@ -254,7 +245,7 @@ spec:
     hosts:
     - "*"
   - port:
-      number: 15029
+      number: 31400
       name: tcp
       protocol: TCP
     hosts:
@@ -280,7 +271,7 @@ spec:
           number: 80
   tcp:
   - match:
-    - port: 15029
+    - port: 31400
     route:
     - destination:
         host: server
@@ -303,6 +294,7 @@ func setupDashboardTest(t framework.TestContext) {
 			Pilot:     p,
 			Galley:    g,
 			Namespace: ns,
+			Subsets:   []echo.SubsetConfig{{}},
 			Ports: []echo.Port{
 				{
 					Name:     "http",
@@ -337,7 +329,9 @@ func setupDashboardTest(t framework.TestContext) {
 					Address:  addr,
 				})
 				if err != nil {
-					return err
+					// Do not fail on errors since there may be initial startup errors
+					// These calls are not under tests, the dashboards are, so we can be leniant here
+					log.Warnf("requests failed: %v", err)
 				}
 			}
 			_, err := ingr.Call(ingress.CallOptions{
@@ -347,7 +341,9 @@ func setupDashboardTest(t framework.TestContext) {
 				Address:  tcpAddr,
 			})
 			if err != nil {
-				return err
+				// Do not fail on errors since there may be initial startup errors
+				// These calls are not under tests, the dashboards are, so we can be leniant here
+				log.Warnf("requests failed: %v", err)
 			}
 			return nil
 		})

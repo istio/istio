@@ -28,10 +28,8 @@ import (
 	"strconv"
 
 	yaml2 "github.com/ghodss/yaml"
-
-	"gopkg.in/yaml.v2"
-
 	"github.com/kylelemons/godebug/pretty"
+	"gopkg.in/yaml.v2"
 
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
@@ -70,8 +68,8 @@ func (nc *PathContext) String() string {
 // a malformed path.
 // It also creates a tree of PathContexts during the traversal so that Parent nodes can be updated if required. This is
 // required when (say) appending to a list, where the parent list itself must be updated.
-func GetPathContext(root interface{}, path util.Path) (*PathContext, bool, error) {
-	return getPathContext(&PathContext{Node: root}, path, path, false)
+func GetPathContext(root interface{}, path util.Path, createMissing bool) (*PathContext, bool, error) {
+	return getPathContext(&PathContext{Node: root}, path, path, createMissing)
 }
 
 // getPathContext is the internal implementation of GetPathContext.
@@ -108,6 +106,9 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 			}
 			var foundNode interface{}
 			if idx >= len(lst) {
+				if !createMissing {
+					return nil, false, fmt.Errorf("index %d exceeds list length %d at path %s", idx, len(lst), remainPath)
+				}
 				foundNode = make(map[string]interface{})
 			} else {
 				foundNode = lst[idx]
@@ -123,6 +124,27 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 		for idx, le := range lst {
 			// non-leaf list, expect to match item by key:value.
 			if lm, ok := le.(map[interface{}]interface{}); ok {
+				k, v, err := util.PathKV(pe)
+				if err != nil {
+					return nil, false, fmt.Errorf("path %s: %s", fullPath, err)
+				}
+				if stringsEqual(lm[k], v) {
+					scope.Debugf("found matching kv %v:%v", k, v)
+					nn := &PathContext{
+						Parent: nc,
+						Node:   lm,
+					}
+					nc.KeyToChild = idx
+					nn.KeyToChild = k
+					if len(remainPath) == 1 {
+						scope.Debug("KV terminate")
+						return nn, true, nil
+					}
+					return getPathContext(nn, fullPath, remainPath[1:], createMissing)
+				}
+				continue
+			}
+			if lm, ok := le.(map[string]interface{}); ok {
 				k, v, err := util.PathKV(pe)
 				if err != nil {
 					return nil, false, fmt.Errorf("path %s: %s", fullPath, err)
@@ -633,7 +655,7 @@ func GetConfigSubtree(manifest, path string) (string, error) {
 		return "", err
 	}
 
-	nc, _, err := GetPathContext(root, util.PathFromString(path))
+	nc, _, err := GetPathContext(root, util.PathFromString(path), false)
 	if err != nil {
 		return "", err
 	}

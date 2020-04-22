@@ -48,7 +48,13 @@ func TestOptions(t *testing.T) {
 			testName: "pilotSAN",
 			key:      "pilot_SAN",
 			option:   option.PilotSubjectAltName([]string{"fake"}),
-			expected: []string{"fake"},
+			expected: `[{"exact":"fake"}]`,
+		},
+		{
+			testName: "pilotSAN multi",
+			key:      "pilot_SAN",
+			option:   option.PilotSubjectAltName([]string{"fake", "other"}),
+			expected: `[{"exact":"fake"},{"exact":"other"}]`,
 		},
 		{
 			testName: "mixerSAN",
@@ -125,12 +131,6 @@ func TestOptions(t *testing.T) {
 			key:      "discovery_address",
 			option:   option.DiscoveryAddress("fake"),
 			expected: "fake",
-		},
-		{
-			testName: "dns refresh rate",
-			key:      "dns_refresh_rate",
-			option:   option.DNSRefreshRate("1s"),
-			expected: "1s",
 		},
 		{
 			testName: "localhost v4",
@@ -525,8 +525,8 @@ func TestOptions(t *testing.T) {
 		{
 			testName: "envoy metrics tls",
 			key:      "envoy_metrics_service_tls",
-			option: option.EnvoyMetricsServiceTLS(&networkingAPI.TLSSettings{
-				Mode: networkingAPI.TLSSettings_ISTIO_MUTUAL,
+			option: option.EnvoyMetricsServiceTLS(&networkingAPI.ClientTLSSettings{
+				Mode: networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
 			}, &model.NodeMetadata{}),
 			expected: "{\"common_tls_context\":{\"tls_certificates\":[{\"certificate_chain\":{\"filename\":\"/etc/certs/root-cert.pem\"},\"private_key\":{\"filename\":\"/etc/certs/key.pem\"}}],\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/certs/cert-chain.pem\"}},\"alpn_protocols\":[\"istio\",\"h2\"]},\"sni\":\"envoy_metrics_service\"}", // nolint: lll
 		},
@@ -595,8 +595,8 @@ func TestOptions(t *testing.T) {
 		{
 			testName: "envoy access log tls",
 			key:      "envoy_accesslog_service_tls",
-			option: option.EnvoyAccessLogServiceTLS(&networkingAPI.TLSSettings{
-				Mode: networkingAPI.TLSSettings_ISTIO_MUTUAL,
+			option: option.EnvoyAccessLogServiceTLS(&networkingAPI.ClientTLSSettings{
+				Mode: networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
 			}, &model.NodeMetadata{}),
 			expected: "{\"common_tls_context\":{\"tls_certificates\":[{\"certificate_chain\":{\"filename\":\"/etc/certs/root-cert.pem\"},\"private_key\":{\"filename\":\"/etc/certs/key.pem\"}}],\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/certs/cert-chain.pem\"}},\"alpn_protocols\":[\"istio\",\"h2\"]},\"sni\":\"envoy_accesslog_service\"}", // nolint: lll
 		},
@@ -669,28 +669,34 @@ func TestOptions(t *testing.T) {
 			expected: []string{"fake"},
 		},
 		{
-			testName: "sds uds path",
-			key:      "sds_uds_path",
-			option:   option.SDSUDSPath("fake"),
-			expected: "fake",
-		},
-		{
-			testName: "sds token path",
-			key:      "sds_token_path",
-			option:   option.SDSTokenPath("fake"),
-			expected: "fake",
-		},
-		{
 			testName: "pilot_cert_provider kubernetes",
 			key:      "pilot_cert_provider",
 			option:   option.PilotCertProvider("kubernetes"),
 			expected: "kubernetes",
 		},
 		{
-			testName: "pilot_cert_provider citadel",
+			testName: "pilot_cert_provider istiod",
 			key:      "pilot_cert_provider",
-			option:   option.PilotCertProvider("citadel"),
-			expected: "citadel",
+			option:   option.PilotCertProvider("istiod"),
+			expected: "istiod",
+		},
+		{
+			testName: "sts enabled",
+			key:      "sts",
+			option:   option.STSEnabled(true),
+			expected: true,
+		},
+		{
+			testName: "sts port",
+			key:      "sts_port",
+			option:   option.STSPort(5555),
+			expected: 5555,
+		},
+		{
+			testName: "project id",
+			key:      "gcp_project_id",
+			option:   option.GCPProjectID("project"),
+			expected: "project",
 		},
 	}
 

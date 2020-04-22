@@ -1,0 +1,24 @@
+{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
+{{- if and $gateway.autoscaleEnabled $gateway.autoscaleMin $gateway.autoscaleMax }}
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ $gateway.name | default "istio-ingressgateway" }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ $gateway.labels | toYaml | indent 4 }}
+    release: {{ .Release.Name }}
+spec:
+  maxReplicas: {{ $gateway.autoscaleMax }}
+  minReplicas: {{ $gateway.autoscaleMin }}
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $gateway.name | default "istio-ingressgateway" }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: {{ $gateway.cpu.targetAverageUtilization }}
+---
+{{- end }}

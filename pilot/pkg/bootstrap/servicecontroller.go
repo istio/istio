@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/consul"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/serviceregistry/mock"
 	"istio.io/istio/pkg/config/host"
 )
 
@@ -56,7 +56,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 				return err
 			}
 		case serviceregistry.Mock:
-			s.initMemoryRegistry(serviceControllers)
+			s.initMockRegistry(serviceControllers)
 		default:
 			return fmt.Errorf("service registry %s is not supported", r)
 		}
@@ -85,7 +85,7 @@ func (s *Server) initKubeRegistry(serviceControllers *aggregate.Controller, args
 	} else {
 		args.Config.ControllerOptions.EndpointMode = kubecontroller.EndpointsOnly
 	}
-	kubeRegistry := kubecontroller.NewController(s.kubeClient, args.Config.ControllerOptions)
+	kubeRegistry := kubecontroller.NewController(s.kubeClient, s.metadataClient, args.Config.ControllerOptions)
 	s.kubeRegistry = kubeRegistry
 	serviceControllers.AddRegistry(kubeRegistry)
 	return
@@ -102,14 +102,14 @@ func (s *Server) initConsulRegistry(serviceControllers *aggregate.Controller, ar
 	return nil
 }
 
-func (s *Server) initMemoryRegistry(serviceControllers *aggregate.Controller) {
+func (s *Server) initMockRegistry(serviceControllers *aggregate.Controller) {
 	// MemServiceDiscovery implementation
-	discovery := memory.NewDiscovery(map[host.Name]*model.Service{}, 2)
+	discovery := mock.NewDiscovery(map[host.Name]*model.Service{}, 2)
 
 	registry := serviceregistry.Simple{
 		ProviderID:       serviceregistry.Mock,
 		ServiceDiscovery: discovery,
-		Controller:       &memory.MockController{},
+		Controller:       &mock.Controller{},
 	}
 
 	serviceControllers.AddRegistry(registry)

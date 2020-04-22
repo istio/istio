@@ -26,12 +26,11 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
 
 	"istio.io/istio/pilot/pkg/features"
 
-	oidc "github.com/coreos/go-oidc"
+	"github.com/coreos/go-oidc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -52,7 +51,7 @@ import (
 // It is mounted in the same location, and if found will be used - creating the secret is sufficient, no need for
 // extra options.
 //
-// In old installer, the localCertDir is hardcoded to /etc/cacerts and mounted from "cacerts" secret.
+// In old installer, the LocalCertDir is hardcoded to /etc/cacerts and mounted from "cacerts" secret.
 //
 // Support for signing other root CA has been removed - too dangerous, no clear use case.
 //
@@ -68,14 +67,15 @@ import (
 //   K8S root.
 
 var (
-	// This replaces the "cert-chain", "signing-cert" and "signing-key" flags in citadel - Istio installer is
+	// LocalCertDir replaces the "cert-chain", "signing-cert" and "signing-key" flags in citadel - Istio installer is
 	// requires a secret named "cacerts" with specific files inside.
-	localCertDir = env.RegisterStringVar("ROOT_CA_DIR", "./etc/cacerts",
+	LocalCertDir = env.RegisterStringVar("ROOT_CA_DIR", "./etc/cacerts",
 		"Location of a local or mounted CA root")
 
-	workloadCertTTL = env.RegisterDurationVar("WORKLOAD_CERT_TTL",
+	workloadCertTTL = env.RegisterDurationVar("DEFAULT_WORKLOAD_CERT_TTL",
 		cmd.DefaultWorkloadCertTTL,
-		"The TTL of issued workload certificates.")
+		"The default TTL of issued workload certificates. Applied when the client sets a "+
+			"non-positive TTL in the CSR.")
 
 	maxWorkloadCertTTL = env.RegisterDurationVar("MAX_WORKLOAD_CERT_TTL",
 		cmd.DefaultMaxWorkloadCertTTL,
@@ -137,17 +137,22 @@ func (s *Server) EnableCA() bool {
 	if s.kubeClient == nil {
 		// No k8s - no self-signed certs.
 		// TODO: implement it using a local directory, for non-k8s env.
-		log.Warn("kubeclient is nil; disable the CA functionality")
-		return false
+		signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
+		if _, err := os.Stat(signingKeyFile); err != nil {
+			log.Warnf("kubeclient is nil and %v not found; disable the K8S CA functionality", signingKeyFile)
+			return false
+		}
+		log.Info("Using local CA, no K8S Secrets")
+		return true
 	}
 	if _, err := ioutil.ReadFile(s.jwtPath); err != nil {
 		// for debug we may want to override this by setting trustedIssuer explicitly.
 		// If TOKEN_ISSUER is set, we ignore the lack of mounted JWT token, it means user is using
 		// an external OIDC provider to validate the tokens, and istiod lack of a JWT doesn't indicate a problem.
 		if features.JwtPolicy.Get() == jwt.JWTPolicyThirdPartyJWT && trustedIssuer.Get() == "" {
-			log.Warnf("istiod running without access to K8S tokens (jwt path %v); disable the CA functionality",
+			log.Warnf("istiod running without access to K8S tokens (jwt path %v). CA will run to support VMs ",
 				s.jwtPath)
-			return false
+			return true
 		}
 	}
 	return true
@@ -157,7 +162,7 @@ func (s *Server) EnableCA() bool {
 // Protected by installer options: the CA will be started only if the JWT token in /var/run/secrets
 // is mounted. If it is missing - for example old versions of K8S that don't support such tokens -
 // we will not start the cert-signing server, since pods will have no way to authenticate.
-func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts *CAOptions, stopCh <-chan struct{}) {
+func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts *CAOptions) {
 	if !s.EnableCA() {
 		return
 	}
@@ -186,9 +191,9 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 	}
 	// The CA API uses cert with the max workload cert TTL.
 	// 'hostlist' must be non-empty - but is not used since a grpc server is passed.
-	caServer, startErr := caserver.NewWithGRPC(grpc, ca, maxWorkloadCertTTL.Get(),
+	caServer, startErr := caserver.NewWithGRPC(s.multicluster, grpc, ca, maxWorkloadCertTTL.Get(),
 		false, []string{"istiod.istio-system"}, 0, spiffe.GetTrustDomain(),
-		true, features.JwtPolicy.Get())
+		true, features.JwtPolicy.Get(), s.clusterID)
 	if startErr != nil {
 		log.Fatalf("failed to create istio ca server: %v", startErr)
 	}
@@ -209,6 +214,10 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 		}
 	}
 
+	// Allow authorization with a previously issued certificate, for VMs
+	// Will return a caller with identities extracted from the SAN, should be a SPIFFE identity.
+	caServer.Authenticators = append(caServer.Authenticators, &authenticate.ClientCertAuthenticator{})
+
 	if serverErr := caServer.Run(); serverErr != nil {
 		// stop the registry-related controllers
 		ch <- struct{}{}
@@ -216,19 +225,6 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 		log.Warnf("Failed to start GRPC server with error: %v", serverErr)
 	}
 	log.Info("Istiod CA has started")
-
-	nc, err := NewNamespaceController(func() map[string]string {
-		return map[string]string{
-			constants.CACertNamespaceConfigMapDataName: string(ca.GetCAKeyCertBundle().GetRootCertPem()),
-		}
-	}, s.kubeClient.CoreV1())
-	if err != nil {
-		log.Warnf("failed to start istiod namespace controller, error: %v", err)
-	} else {
-		s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
-			nc.Run(stop)
-		})
-	}
 }
 
 type jwtAuthenticator struct {
@@ -358,8 +354,8 @@ func (s *Server) initPublicKey() error {
 	// Setup the root cert chain and caBundlePath - before calling initDNSListener.
 	if features.PilotCertProvider.Get() == KubernetesCAProvider {
 		s.caBundlePath = defaultCACertPath
-	} else if features.PilotCertProvider.Get() == CitadelCAProvider {
-		signingKeyFile := path.Join(localCertDir.Get(), "ca-key.pem")
+	} else if features.PilotCertProvider.Get() == IstiodCAProvider {
+		signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
 		if _, err := os.Stat(signingKeyFile); err != nil {
 			// When Citadel is configured to use self-signed certs, keep a local copy so other
 			// components can load it via file (e.g. webhook config controller).
@@ -398,7 +394,7 @@ func (s *Server) initPublicKey() error {
 			})
 
 		} else {
-			s.caBundlePath = path.Join(localCertDir.Get(), "cert-chain.pem")
+			s.caBundlePath = path.Join(LocalCertDir.Get(), "cert-chain.pem")
 		}
 	} else {
 		s.caBundlePath = path.Join(features.PilotCertProvider.Get(), "cert-chain.pem")
@@ -410,10 +406,15 @@ func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) (*ca.I
 	var caOpts *ca.IstioCAOptions
 	var err error
 
-	signingKeyFile := path.Join(localCertDir.Get(), "ca-key.pem")
+	maxCertTTL := maxWorkloadCertTTL.Get()
+	if SelfSignedCACertTTL.Get().Seconds() > maxCertTTL.Seconds() {
+		maxCertTTL = SelfSignedCACertTTL.Get()
+	}
+
+	signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
 
 	// If not found, will default to ca-cert.pem. May contain multiple roots.
-	rootCertFile := path.Join(localCertDir.Get(), "root-cert.pem")
+	rootCertFile := path.Join(LocalCertDir.Get(), "root-cert.pem")
 	if _, err := os.Stat(rootCertFile); err != nil {
 		// In Citadel, normal self-signed doesn't use a root-cert.pem file for additional roots.
 		// In Istiod, it is possible to provide one via "cacerts" secret in both cases, for consistency.
@@ -422,6 +423,13 @@ func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) (*ca.I
 
 	if _, err := os.Stat(signingKeyFile); err != nil {
 		// The user-provided certs are missing - create a self-signed cert.
+		// If we are not in K8S - no CA
+		// TODO: generate self-signed files in the /etc/cacert for non-k8s
+		if client == nil {
+			// This is mainly used in testing.
+			log.Warna("Missing root CA key in non-k8s environment. Certificate signing and TLS will be off")
+			return nil, nil
+		}
 
 		log.Info("Use self-signed certificate as the CA certificate")
 		spiffe.SetTrustDomain(opts.TrustDomain)
@@ -438,32 +446,32 @@ func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) (*ca.I
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx,
 			selfSignedRootCertGracePeriodPercentile.Get(), SelfSignedCACertTTL.Get(),
 			selfSignedRootCertCheckInterval.Get(), workloadCertTTL.Get(),
-			SelfSignedCACertTTL.Get(), opts.TrustDomain, true,
+			maxCertTTL, opts.TrustDomain, true,
 			opts.Namespace, -1, client, rootCertFile,
 			enableJitterForRootCertRotator.Get())
 		if err != nil {
-			return nil, fmt.Errorf("failed to create a self-signed Citadel: %v", err)
+			return nil, fmt.Errorf("failed to create a self-signed istiod CA: %v", err)
 		}
 	} else {
 		log.Info("Use local CA certificate")
 
 		// The cert corresponding to the key, self-signed or chain.
 		// rootCertFile will be added at the end, if present, to form 'rootCerts'.
-		signingCertFile := path.Join(localCertDir.Get(), "ca-cert.pem")
+		signingCertFile := path.Join(LocalCertDir.Get(), "ca-cert.pem")
 		//
-		certChainFile := path.Join(localCertDir.Get(), "cert-chain.pem")
+		certChainFile := path.Join(LocalCertDir.Get(), "cert-chain.pem")
 		s.caBundlePath = certChainFile
 
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile,
-			rootCertFile, workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), opts.Namespace, client)
+			rootCertFile, workloadCertTTL.Get(), maxCertTTL, opts.Namespace, client)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create an Citadel: %v", err)
+			return nil, fmt.Errorf("failed to create an istiod CA: %v", err)
 		}
 	}
 
 	istioCA, err := ca.NewIstioCA(caOpts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create an Citadel: %v", err)
+		return nil, fmt.Errorf("failed to create an istiod CA: %v", err)
 	}
 
 	// TODO: provide an endpoint returning all the roots. SDS can only pull a single root in current impl.

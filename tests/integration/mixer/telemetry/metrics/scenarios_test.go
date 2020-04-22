@@ -20,7 +20,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -29,6 +28,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/tmpl"
 	util "istio.io/istio/tests/integration/mixer"
 )
@@ -150,7 +150,7 @@ func TestTcpMetric(t *testing.T) {
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			_ = bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoRatingsv2})
-			_ = bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoDb})
+			_ = bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoDB})
 
 			g.ApplyConfigOrFail(
 				t,
@@ -192,6 +192,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite("mixer_telemetry_metrics", m).
 		RequireEnvironment(environment.Kube).
+		RequireSingleCluster().
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
@@ -237,7 +238,7 @@ func testsetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	prom, err = prometheus.New(ctx)
+	prom, err = prometheus.New(ctx, prometheus.Config{})
 	if err != nil {
 		return err
 	}

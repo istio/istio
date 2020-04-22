@@ -1,0 +1,146 @@
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: multiversion
+  labels:
+    app: multiversion
+spec:
+  ports:
+  - name: http
+    port: 8090
+    targetPort: 8090
+  - name: tcp
+    port: 9000
+    targetPort: 9000
+  - name: grpc
+    port: 9090
+    targetPort: 9090
+  selector:
+    app: multiversion
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: multiversion-v-istio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: multiversion
+      version: v-istio
+  template:
+    metadata:
+      labels:
+        app: multiversion
+        version: v-istio
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "15014"
+    spec:
+      containers:
+      - name: app
+        image: testing.hub/app:latest
+        imagePullPolicy: Always
+        securityContext:
+          runAsUser: 1
+        args:
+          - --metrics=15014
+          - --cluster
+          - "0"
+          - --port
+          - "8090"
+          - --tcp
+          - "9000"
+          - --grpc
+          - "9090"
+          - --port
+          - "8080"
+          - --port
+          - "3333"
+          - --version
+          - "v-istio"
+        ports:
+        - containerPort: 8090
+        - containerPort: 9000
+        - containerPort: 9090
+        - containerPort: 8080
+        - containerPort: 3333
+          name: tcp-health-port
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 1
+          periodSeconds: 2
+          failureThreshold: 10
+        livenessProbe:
+          tcpSocket:
+            port: tcp-health-port
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 10
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: multiversion-v-legacy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: multiversion
+      version: v-legacy
+  template:
+    metadata:
+      labels:
+        app: multiversion
+        version: v-legacy
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "15014"
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - name: app
+        image: testing.hub/app:latest
+        imagePullPolicy: Always
+        securityContext:
+          runAsUser: 1
+        args:
+          - --metrics=15014
+          - --cluster
+          - "0"
+          - --port
+          - "8090"
+          - --tcp
+          - "9000"
+          - --grpc
+          - "9090"
+          - --port
+          - "8080"
+          - --port
+          - "3333"
+          - --version
+          - "v-legacy"
+        ports:
+        - containerPort: 8090
+        - containerPort: 9000
+        - containerPort: 9090
+        - containerPort: 8080
+        - containerPort: 3333
+          name: tcp-health-port
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 1
+          periodSeconds: 2
+          failureThreshold: 10
+        livenessProbe:
+          tcpSocket:
+            port: tcp-health-port
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 10
+---

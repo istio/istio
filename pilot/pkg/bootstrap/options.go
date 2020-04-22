@@ -17,14 +17,14 @@ package bootstrap
 import (
 	"time"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/env"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
-	"istio.io/pkg/ctrlz"
 )
 
 // MeshArgs provide configuration options for the mesh. If ConfigFile is provided, an attempt will be made to
@@ -66,27 +66,23 @@ type ServiceArgs struct {
 
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
 type PilotArgs struct {
-	DiscoveryOptions         DiscoveryServiceOptions
-	InjectionOptions         InjectionOptions
-	ValidationOptions        ValidationOptions
-	PodName                  string
-	Namespace                string
-	Revision                 string
-	ServiceAccountName       string
-	Mesh                     MeshArgs
-	Config                   ConfigArgs
-	Service                  ServiceArgs
-	MeshConfig               *meshconfig.MeshConfig
-	NetworksConfigFile       string
-	CtrlZOptions             *ctrlz.Options
-	Plugins                  []string
-	MCPMaxMessageSize        int
-	MCPInitialWindowSize     int
-	MCPInitialConnWindowSize int
-	KeepaliveOptions         *istiokeepalive.Options
+	DiscoveryOptions   DiscoveryServiceOptions
+	InjectionOptions   InjectionOptions
+	PodName            string
+	Namespace          string
+	Revision           string
+	ServiceAccountName string
+	Mesh               MeshArgs
+	Config             ConfigArgs
+	Service            ServiceArgs
+	MeshConfig         *meshconfig.MeshConfig
+	NetworksConfigFile string
+	CtrlZOptions       *ctrlz.Options
+	Plugins            []string
+	MCPOptions         MCPOptions
+	KeepaliveOptions   *istiokeepalive.Options
 	// ForceStop is set as true when used for testing to make the server stop quickly
 	ForceStop bool
-	BasePort  int
 }
 
 // DiscoveryServiceOptions contains options for create a new discovery
@@ -104,15 +100,6 @@ type DiscoveryServiceOptions struct {
 	// a port number is automatically chosen.
 	GrpcAddr string
 
-	// The listening address for secure GRPC. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
-	// a port number is automatically chosen.
-	// "" means disabling secure GRPC, used in test.
-	SecureGrpcAddr string
-
-	// The listening address for secure GRPC with DNS-based certificates. Default is :15012, if certificates are available.
-	// Will not start otherwise.
-	SecureGrpcDNSAddr string
-
 	// The listening address for the monitoring port. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
 	// a port number is automatically chosen.
 	MonitoringAddr string
@@ -125,16 +112,19 @@ type InjectionOptions struct {
 	InjectionDirectory string
 }
 
-type ValidationOptions struct {
-	// Directory of config validation related config files.
-	ValidationDirectory string
+type MCPOptions struct {
+	MaxMessageSize        int
+	InitialWindowSize     int
+	InitialConnWindowSize int
 }
 
-var PodNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
+var PodNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "istio-system", "")
 var podNameVar = env.RegisterStringVar("POD_NAME", "", "")
 var serviceAccountVar = env.RegisterStringVar("SERVICE_ACCOUNT", "", "")
 
-var revisionVar = env.RegisterStringVar("REVISION", "", "")
+// RevisionVar is the value of the Istio control plane revision, e.g. "canary",
+// and is the value used by the "istio.io/rev" label.
+var RevisionVar = env.RegisterStringVar("REVISION", "", "")
 
 // NewPilotArgs constructs pilotArgs with default values.
 func NewPilotArgs(initFuncs ...func(*PilotArgs)) *PilotArgs {
@@ -163,9 +153,8 @@ func (p *PilotArgs) applyDefaults() {
 	p.Namespace = PodNamespaceVar.Get()
 	p.PodName = podNameVar.Get()
 	p.ServiceAccountName = serviceAccountVar.Get()
-	p.Revision = revisionVar.Get()
+	p.Revision = RevisionVar.Get()
 	p.KeepaliveOptions = istiokeepalive.DefaultOption()
-	p.BasePort = 15000
 	p.Config.DistributionTrackingEnabled = features.EnableDistributionTracking
 	p.Config.DistributionCacheRetention = features.DistributionHistoryRetention
 }

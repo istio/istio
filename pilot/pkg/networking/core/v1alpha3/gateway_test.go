@@ -40,21 +40,19 @@ import (
 
 func TestBuildGatewayListenerTlsContext(t *testing.T) {
 	testCases := []struct {
-		name                  string
-		server                *networking.Server
-		enableIngressSdsAgent bool
-		sdsPath               string
-		result                *auth.DownstreamTlsContext
+		name    string
+		server  *networking.Server
+		sdsPath string
+		result  *auth.DownstreamTlsContext
 	}{
 		{
-			name: "ingress sdsagent disabled, mesh SDS disabled, tls mode ISTIO_MUTUAL",
+			name: "mesh SDS disabled, tls mode ISTIO_MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com"},
-				Tls: &networking.Server_TLSOptions{
-					Mode: networking.Server_TLSOptions_ISTIO_MUTUAL,
+				Tls: &networking.ServerTLSSettings{
+					Mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
 				},
 			},
-			enableIngressSdsAgent: false,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -86,15 +84,14 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 		},
 		{
-			name: "ingress sdsagent disabled, mesh SDS enabled, tls mode ISTIO_MUTUAL",
+			name: "mesh SDS enabled, tls mode ISTIO_MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com"},
-				Tls: &networking.Server_TLSOptions{
-					Mode: networking.Server_TLSOptions_ISTIO_MUTUAL,
+				Tls: &networking.ServerTLSSettings{
+					Mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
 				},
 			},
-			enableIngressSdsAgent: false,
-			sdsPath:               "unix:/var/run/sds/uds_path",
+			sdsPath: "unix:/var/run/sds/uds_path",
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -149,11 +146,10 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "no credential name no key no cert tls SIMPLE",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
-				Tls: &networking.Server_TLSOptions{
-					Mode: networking.Server_TLSOptions_SIMPLE,
+				Tls: &networking.ServerTLSSettings{
+					Mode: networking.ServerTLSSettings_SIMPLE,
 				},
 			},
-			enableIngressSdsAgent: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -179,12 +175,11 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "credential name no key no cert tls SIMPLE",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
-				Tls: &networking.Server_TLSOptions{
-					Mode:           networking.Server_TLSOptions_SIMPLE,
+				Tls: &networking.ServerTLSSettings{
+					Mode:           networking.ServerTLSSettings_SIMPLE,
 					CredentialName: "ingress-sds-resource-name",
 				},
 			},
-			enableIngressSdsAgent: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -220,13 +215,12 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "credential name subject alternative name no key no cert tls SIMPLE",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
-				Tls: &networking.Server_TLSOptions{
-					Mode:            networking.Server_TLSOptions_SIMPLE,
+				Tls: &networking.ServerTLSSettings{
+					Mode:            networking.ServerTLSSettings_SIMPLE,
 					CredentialName:  "ingress-sds-resource-name",
 					SubjectAltNames: []string{"subject.name.a.com", "subject.name.b.com"},
 				},
 			},
-			enableIngressSdsAgent: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -255,7 +249,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					},
 					ValidationContextType: &auth.CommonTlsContext_ValidationContext{
 						ValidationContext: &auth.CertificateValidationContext{
-							VerifySubjectAltName: []string{"subject.name.a.com", "subject.name.b.com"},
+							MatchSubjectAltNames: util.StringToExactMatch([]string{"subject.name.a.com", "subject.name.b.com"}),
 						},
 					},
 				},
@@ -266,13 +260,12 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "no credential name key and cert tls SIMPLE",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
-				Tls: &networking.Server_TLSOptions{
-					Mode:              networking.Server_TLSOptions_SIMPLE,
+				Tls: &networking.ServerTLSSettings{
+					Mode:              networking.ServerTLSSettings_SIMPLE,
 					ServerCertificate: "server-cert.crt",
 					PrivateKey:        "private-key.key",
 				},
 			},
-			enableIngressSdsAgent: false,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -298,13 +291,12 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "no credential name key and cert tls MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
-				Tls: &networking.Server_TLSOptions{
-					Mode:              networking.Server_TLSOptions_MUTUAL,
+				Tls: &networking.ServerTLSSettings{
+					Mode:              networking.ServerTLSSettings_MUTUAL,
 					ServerCertificate: "server-cert.crt",
 					PrivateKey:        "private-key.key",
 				},
 			},
-			enableIngressSdsAgent: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -331,15 +323,14 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "credential name subject alternative name key and cert tls MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
-				Tls: &networking.Server_TLSOptions{
-					Mode:              networking.Server_TLSOptions_MUTUAL,
+				Tls: &networking.ServerTLSSettings{
+					Mode:              networking.ServerTLSSettings_MUTUAL,
 					CredentialName:    "ingress-sds-resource-name",
 					ServerCertificate: "server-cert.crt",
 					PrivateKey:        "private-key.key",
 					SubjectAltNames:   []string{"subject.name.a.com", "subject.name.b.com"},
 				},
 			},
-			enableIngressSdsAgent: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -369,7 +360,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
 						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 							DefaultValidationContext: &auth.CertificateValidationContext{
-								VerifySubjectAltName: []string{"subject.name.a.com", "subject.name.b.com"},
+								MatchSubjectAltNames: util.StringToExactMatch([]string{"subject.name.a.com", "subject.name.b.com"}),
 							},
 							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 								Name: "ingress-sds-resource-name-cacert",
@@ -403,13 +394,12 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "credential name verify spki key and cert tls MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
-				Tls: &networking.Server_TLSOptions{
-					Mode:                  networking.Server_TLSOptions_MUTUAL,
+				Tls: &networking.ServerTLSSettings{
+					Mode:                  networking.ServerTLSSettings_MUTUAL,
 					CredentialName:        "ingress-sds-resource-name",
 					VerifyCertificateSpki: []string{"abcdef"},
 				},
 			},
-			enableIngressSdsAgent: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -473,13 +463,12 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "credential name verify hash key and cert tls MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
-				Tls: &networking.Server_TLSOptions{
-					Mode:                  networking.Server_TLSOptions_MUTUAL,
+				Tls: &networking.ServerTLSSettings{
+					Mode:                  networking.ServerTLSSettings_MUTUAL,
 					CredentialName:        "ingress-sds-resource-name",
 					VerifyCertificateHash: []string{"fedcba"},
 				},
 			},
-			enableIngressSdsAgent: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
@@ -542,21 +531,20 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "no credential name key and cert tls PASSTHROUGH",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
-				Tls: &networking.Server_TLSOptions{
-					Mode:              networking.Server_TLSOptions_PASSTHROUGH,
+				Tls: &networking.ServerTLSSettings{
+					Mode:              networking.ServerTLSSettings_PASSTHROUGH,
 					ServerCertificate: "server-cert.crt",
 					PrivateKey:        "private-key.key",
 				},
 			},
-			enableIngressSdsAgent: true,
-			result:                nil,
+			result: nil,
 		},
 	}
 
 	for _, tc := range testCases {
-		ret := buildGatewayListenerTLSContext(tc.server, tc.enableIngressSdsAgent, tc.sdsPath, &pilot_model.NodeMetadata{})
+		ret := buildGatewayListenerTLSContext(tc.server, tc.sdsPath, &pilot_model.NodeMetadata{SdsEnabled: true})
 		if !reflect.DeepEqual(tc.result, ret) {
-			t.Errorf("test case %s: expecting %v but got %v", tc.name, tc.result, ret)
+			t.Errorf("test case %s: expecting:\n %v but got:\n %v", tc.name, tc.result, ret)
 		}
 	}
 }
@@ -608,8 +596,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 					Protocol: "HTTPS",
 				},
 				Hosts: []string{"example.org", "example.org"},
-				Tls: &networking.Server_TLSOptions{
-					Mode: networking.Server_TLSOptions_ISTIO_MUTUAL,
+				Tls: &networking.ServerTLSSettings{
+					Mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
 				},
 			},
 			routeName: "some-route",
@@ -669,8 +657,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 					Protocol: "HTTPS",
 				},
 				Hosts: []string{"example.org", "test.org"},
-				Tls: &networking.Server_TLSOptions{
-					Mode: networking.Server_TLSOptions_ISTIO_MUTUAL,
+				Tls: &networking.ServerTLSSettings{
+					Mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
 				},
 			},
 			routeName: "some-route",
@@ -730,8 +718,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 					Protocol: "HTTPS",
 				},
 				Hosts: []string{"*.example.org", "example.org"},
-				Tls: &networking.Server_TLSOptions{
-					Mode: networking.Server_TLSOptions_ISTIO_MUTUAL,
+				Tls: &networking.ServerTLSSettings{
+					Mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
 				},
 			},
 			routeName: "some-route",
@@ -874,35 +862,51 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		virtualServices      []pilot_model.Config
 		gateways             []pilot_model.Config
 		routeName            string
-		expectedVirtualHosts []string
+		expectedVirtualHosts map[string][]string
 	}{
 		{
 			"404 when no services",
 			[]pilot_model.Config{},
 			[]pilot_model.Config{httpGateway},
 			"http.80",
-			[]string{"blackhole:80"},
+			map[string][]string{
+				"blackhole:80": {
+					"*",
+				},
+			},
 		},
 		{
 			"add a route for a virtual service",
 			[]pilot_model.Config{virtualService},
 			[]pilot_model.Config{httpGateway},
 			"http.80",
-			[]string{"example.org:80"},
+			map[string][]string{
+				"example.org:80": {
+					"example.org", "example.org:*",
+				},
+			},
 		},
 		{
 			"duplicate virtual service should merge",
 			[]pilot_model.Config{virtualService, virtualServiceCopy},
 			[]pilot_model.Config{httpGateway},
 			"http.80",
-			[]string{"example.org:80"},
+			map[string][]string{
+				"example.org:80": {
+					"example.org", "example.org:*",
+				},
+			},
 		},
 		{
 			"duplicate by wildcard should merge",
 			[]pilot_model.Config{virtualService, virtualServiceWildcard},
 			[]pilot_model.Config{httpGateway},
 			"http.80",
-			[]string{"example.org:80"},
+			map[string][]string{
+				"example.org:80": {
+					"example.org", "example.org:*",
+				},
+			},
 		},
 	}
 	for _, tt := range cases {
@@ -910,14 +914,14 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			p := &fakePlugin{}
 			configgen := NewConfigGenerator([]plugin.Plugin{p})
 			env := buildEnv(t, tt.gateways, tt.virtualServices)
-			proxy14Gateway.SetGatewaysForProxy(env.PushContext)
-			route := configgen.buildGatewayHTTPRouteConfig(&proxy14Gateway, env.PushContext, tt.routeName)
+			proxyGateway.SetGatewaysForProxy(env.PushContext)
+			route := configgen.buildGatewayHTTPRouteConfig(&proxyGateway, env.PushContext, tt.routeName)
 			if route == nil {
 				t.Fatal("got an empty route configuration")
 			}
-			vh := make([]string, 0)
+			vh := make(map[string][]string)
 			for _, h := range route.VirtualHosts {
-				vh = append(vh, h.Name)
+				vh[h.Name] = h.Domains
 			}
 			if !reflect.DeepEqual(tt.expectedVirtualHosts, vh) {
 				t.Errorf("got unexpected virtual hosts. Expected: %v, Got: %v", tt.expectedVirtualHosts, vh)
@@ -981,9 +985,10 @@ func TestBuildGatewayListeners(t *testing.T) {
 		p := &fakePlugin{}
 		configgen := NewConfigGenerator([]plugin.Plugin{p})
 		env := buildEnv(t, []pilot_model.Config{{Spec: tt.gateway}}, []pilot_model.Config{})
-		proxy14Gateway.SetGatewaysForProxy(env.PushContext)
-		proxy14Gateway.ServiceInstances = tt.node.ServiceInstances
-		builder := configgen.buildGatewayListeners(&proxy14Gateway, env.PushContext, &ListenerBuilder{})
+		proxyGateway.SetGatewaysForProxy(env.PushContext)
+		proxyGateway.ServiceInstances = tt.node.ServiceInstances
+		proxyGateway.DiscoverIPVersions()
+		builder := configgen.buildGatewayListeners(&proxyGateway, env.PushContext, &ListenerBuilder{})
 		var listeners []string
 		for _, l := range builder.gatewayListeners {
 			listeners = append(listeners, l.Name)
@@ -991,7 +996,7 @@ func TestBuildGatewayListeners(t *testing.T) {
 		sort.Strings(listeners)
 		sort.Strings(tt.expectedListeners)
 		if !reflect.DeepEqual(listeners, tt.expectedListeners) {
-			t.Fatalf("Expected listeners: %v, got: %v\n%v", tt.expectedListeners, listeners, proxy14Gateway.MergedGateway.Servers)
+			t.Fatalf("Expected listeners: %v, got: %v\n%v", tt.expectedListeners, listeners, proxyGateway.MergedGateway.Servers)
 		}
 	}
 }

@@ -1,0 +1,128 @@
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: foo
+  labels:
+    app: foo
+spec:
+  ports:
+  - name: http
+    port: 8090
+    targetPort: 8090
+  selector:
+    app: foo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: foo-v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: foo
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: foo
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "15014"
+    spec:
+      containers:
+      - name: app
+        image: testing.hub/app:latest
+        imagePullPolicy: Always
+        securityContext:
+          runAsUser: 1
+        args:
+          - --metrics=15014
+          - --cluster
+          - "0"
+          - --port
+          - "8090"
+          - --port
+          - "8080"
+          - --port
+          - "3333"
+          - --version
+          - "v1"
+        ports:
+        - containerPort: 8090
+        - containerPort: 8080
+        - containerPort: 3333
+          name: tcp-health-port
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 1
+          periodSeconds: 2
+          failureThreshold: 10
+        livenessProbe:
+          tcpSocket:
+            port: tcp-health-port
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 10
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: foo-nosidecar
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: foo
+      version: nosidecar
+  template:
+    metadata:
+      labels:
+        app: foo
+        version: nosidecar
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "15014"
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - name: app
+        image: testing.hub/app:latest
+        imagePullPolicy: Always
+        securityContext:
+          runAsUser: 1
+        args:
+          - --metrics=15014
+          - --cluster
+          - "0"
+          - --port
+          - "8090"
+          - --port
+          - "8080"
+          - --port
+          - "3333"
+          - --version
+          - "nosidecar"
+        ports:
+        - containerPort: 8090
+        - containerPort: 8080
+        - containerPort: 3333
+          name: tcp-health-port
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 1
+          periodSeconds: 2
+          failureThreshold: 10
+        livenessProbe:
+          tcpSocket:
+            port: tcp-health-port
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 10
+---

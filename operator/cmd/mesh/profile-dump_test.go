@@ -23,7 +23,7 @@ import (
 )
 
 func TestProfileDump(t *testing.T) {
-	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/profile-dump")
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/profile-dump")
 	tests := []struct {
 		desc       string
 		configPath string

@@ -15,7 +15,7 @@
 package manifest
 
 import (
-	"errors"
+	context2 "context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -23,15 +23,16 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
-	"time" // For kubeclient GCP auth
+	"time"
 
 	"github.com/ghodss/yaml"
-	goversion "github.com/hashicorp/go-version"
+	"github.com/hashicorp/go-multierror"
+	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -40,9 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
-
-	// For GCP auth functionality.
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // for GCP auth
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	kubectlutil "k8s.io/kubectl/pkg/util/deployment"
@@ -53,10 +52,8 @@ import (
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
-	pkgversion "istio.io/istio/operator/pkg/version"
-	binversion "istio.io/istio/operator/version"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/log"
 )
 
@@ -109,8 +106,6 @@ var (
 		name.PilotComponentName: {
 			name.PolicyComponentName,
 			name.TelemetryComponentName,
-			name.GalleyComponentName,
-			name.CitadelComponentName,
 			name.CNIComponentName,
 			name.IngressComponentName,
 			name.EgressComponentName,
@@ -126,6 +121,7 @@ var (
 	kubectl          = kubectlcmd.New()
 
 	k8sRESTConfig     *rest.Config
+	k8sClientset      *kubernetes.Clientset
 	currentKubeconfig string
 	currentContext    string
 	// TODO: remove whitelist after : https://github.com/kubernetes/kubernetes/issues/66430
@@ -220,103 +216,44 @@ func renderRecursive(manifests name.ManifestMap, installTree componentTree, outp
 	return nil
 }
 
-// Version runs the `kubectl version` and returns kubectl version and k8s server version
-func Version(opts *kubectlcmd.Options) (*goversion.Version, *goversion.Version, error) {
-	stdout, stderr, kubectlErr := kubectl.Version(opts)
-	if kubectlErr != nil && stderr != "" && strings.TrimSpace(stdout) == "" {
-		return nil, nil, fmt.Errorf("%s: %s", kubectlErr, stderr)
+func CreateNamespace(namespace string) error {
+	if namespace == "" {
+		// Setup default namespace
+		namespace = "istio-system"
 	}
-	return parseKubectlVersion(stdout)
+
+	// TODO we need to stop creating configs in every function that needs them. One client should be used.
+	cs, e := kubernetes.NewForConfig(k8sRESTConfig)
+	if e != nil {
+		return fmt.Errorf("k8s client error: %s", e)
+	}
+	ns := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+		Name: namespace,
+		Labels: map[string]string{
+			"istio-injection": "disabled",
+		},
+	}}
+	_, err := cs.CoreV1().Namespaces().Create(context2.TODO(), ns, metav1.CreateOptions{})
+	if err != nil && !kerrors.IsAlreadyExists(err) {
+		return fmt.Errorf("failed to create namespace %v: %v", namespace, err)
+	}
+	return nil
 }
 
-func parseKubectlVersion(kubectlStdout string) (*goversion.Version, *goversion.Version, error) {
-	yamlObj := make(map[string]interface{})
-	err := yaml.Unmarshal([]byte(kubectlStdout), &yamlObj)
+// Apply applies all given manifest using kubectl client.
+func Apply(manifest string, opts *kubectlcmd.Options) error {
+	if _, _, err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
+		return err
+	}
+
+	stdoutApply, stderrApply, err := kubectl.Apply(manifest, opts)
 	if err != nil {
-		return nil, nil, err
+		return fmt.Errorf("%s\n%s\n%s", err, stdoutApply, stderrApply)
 	}
-	var errs util.Errors
-	var clientVersion, serverVersion *goversion.Version
-	cPath := util.ToYAMLPath("clientVersion.gitVersion")
-	cNode, cFound, err := tpath.GetFromTreePath(yamlObj, cPath)
-	errs = util.AppendErr(errs, err)
-	if cFound {
-		var cVer string
-		if cVer, err = pkgversion.TagToVersionString(cNode.(string)); err == nil {
-			clientVersion, err = goversion.NewVersion(cVer)
-		}
-		errs = util.AppendErr(errs, err)
-	}
-	sPath := util.ToYAMLPath("serverVersion.gitVersion")
-	sNode, sFound, err := tpath.GetFromTreePath(yamlObj, sPath)
-	errs = util.AppendErr(errs, err)
-	if sFound {
-		var sVer string
-		if sVer, err = pkgversion.TagToVersionString(sNode.(string)); err == nil {
-			serverVersion, err = goversion.NewVersion(sVer)
-		}
-		errs = util.AppendErr(errs, err)
-	}
-	return clientVersion, serverVersion, errs.ToError()
+	return nil
 }
 
-// ApplyAll applies all given manifests using kubectl client.
-func ApplyAll(manifests name.ManifestMap, version pkgversion.Version, opts *kubectlcmd.Options) (CompositeOutput, error) {
-	scope.Infof("Preparing manifests for these components:")
-	for c := range manifests {
-		scope.Infof("- %s", c)
-	}
-	scope.Infof("Component dependencies tree: \n%s", installTreeString())
-	if _, err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
-		return nil, err
-	}
-	return applyRecursive(manifests, version, opts)
-}
-
-func applyRecursive(manifests name.ManifestMap, version pkgversion.Version, opts *kubectlcmd.Options) (CompositeOutput, error) {
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	out := CompositeOutput{}
-	allAppliedObjects := object.K8sObjects{}
-	for c, m := range manifests {
-		c := c
-		m := m
-		wg.Add(1)
-		go func() {
-			if s := dependencyWaitCh[c]; s != nil {
-				scope.Infof("%s is waiting on a prerequisite...", c)
-				<-s
-				scope.Infof("Prerequisite for %s has completed, proceeding with install.", c)
-			}
-			applyOut, appliedObjects := ApplyManifest(c, strings.Join(m, helm.YAMLSeparator), version.String(), *opts)
-			mu.Lock()
-			out[c] = applyOut
-			allAppliedObjects = append(allAppliedObjects, appliedObjects...)
-			mu.Unlock()
-
-			// If we are depending on a component, we may depend on it actually running (eg Deployment is ready)
-			// For example, for the validation webhook to become ready, so we should wait for it always.
-			if len(componentDependencies[c]) > 0 {
-				if err := WaitForResources(appliedObjects, opts); err != nil {
-					scope.Errorf("failed to wait for resource: %v", err)
-				}
-			}
-			// Signal all the components that depend on us.
-			for _, ch := range componentDependencies[c] {
-				scope.Infof("unblocking child %s.", ch)
-				dependencyWaitCh[ch] <- struct{}{}
-			}
-			wg.Done()
-		}()
-	}
-	wg.Wait()
-	if opts.Wait {
-		return out, WaitForResources(allAppliedObjects, opts)
-	}
-	return out, nil
-}
-
-func ApplyManifest(componentName name.ComponentName, manifestStr, version string,
+func ApplyManifest(componentName name.ComponentName, manifestStr, version, revision string,
 	opts kubectlcmd.Options) (*ComponentApplyOutput, object.K8sObjects) {
 	stdout, stderr := "", ""
 	appliedObjects := object.K8sObjects{}
@@ -326,10 +263,28 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 	}
 	componentLabel := fmt.Sprintf("%s=%s", istioComponentLabelStr, componentName)
 
+	// If there is no revision set, define it as "default". This avoids having any control plane
+	// installed without an istio.io/rev label, which makes simplifies some of the logic around handling
+	// a control plane without a revision set. For example, we can scope the telemetry v2 filters
+	// so it doesn't get duplicated between a revision and the default revision.
+	// The motivation behind this is to support the legacy single control plane workflow - if this
+	// is no longer needed, this can be removed.
+	if revision == "" && componentName == name.PilotComponentName {
+		revision = "default"
+	}
+	// Only pilot component uses revisions
+	if componentName == name.PilotComponentName {
+		componentLabel += fmt.Sprintf(",%s=%s", model.RevisionLabel, revision)
+	}
+
 	// TODO: remove this when `kubectl --prune` supports empty objects
 	//  (https://github.com/kubernetes/kubernetes/issues/40635)
 	// Delete all resources for a disabled component
 	if len(objects) == 0 && !opts.DryRun {
+		if revision != "" {
+			// We should not prune if revision is set, as we may prune other revisions
+			return &ComponentApplyOutput{}, nil
+		}
 		getOpts := opts
 		getOpts.Output = "yaml"
 		getOpts.ExtraArgs = []string{"--all-namespaces", "--selector", componentLabel}
@@ -373,7 +328,7 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 		o.AddLabels(map[string]string{istioVersionLabelStr: version})
 	}
 
-	opts.ExtraArgs = []string{"--force", "--selector", componentLabel}
+	opts.ExtraArgs = []string{"--selector", componentLabel}
 	// Base components include namespaces and CRDs, pruning them will remove user configs, which makes it hard to roll back.
 	if componentName != name.IstioBaseComponentName && opts.Prune == nil {
 		opts.Prune = pointer.BoolPtr(true)
@@ -394,7 +349,7 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 	if err != nil {
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
-	if err := WaitForResources(nsObjects, &opts); err != nil {
+	if err := WaitForResources(nsObjects, k8sClientset, opts.WaitTimeout, opts.DryRun); err != nil {
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
 	appliedObjects = append(appliedObjects, nsObjects...)
@@ -414,25 +369,22 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 	// We sort them by namespace so that we can pass the `-n` to the apply command. This is required for prune to work
 	// See https://github.com/kubernetes/kubernetes/issues/87756 for details
 	namespaces, nonNsCrdObjectsByNamespace := splitByNamespace(objectsNotInLists(objects, nsObjects, crdObjects))
-	var applyErr error
+	var applyErrors *multierror.Error
 	for _, ns := range namespaces {
 		nonNsCrdObjects := nonNsCrdObjectsByNamespace[ns]
 		nsOpts := opts
 		nsOpts.Namespace = ns
 		stdout, stderr, err = applyObjects(nonNsCrdObjects, &nsOpts, stdout, stderr)
 		if err != nil {
-			applyErr = fmt.Errorf("error applying object to %v: %v: %v", ns, err, applyErr)
+			applyErrors = multierror.Append(applyErrors, errors.Wrapf(err, "error applying object to namespace %s", ns))
 		}
 		appliedObjects = append(appliedObjects, nonNsCrdObjects...)
 	}
 	mark := "✔"
-	if applyErr != nil {
+	if err = applyErrors.ErrorOrNil(); err != nil {
 		mark = "✘"
 	}
 	logAndPrint("%s Finished applying manifest for component %s.", mark, componentName)
-	if applyErr != nil {
-		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
-	}
 	return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 }
 
@@ -472,7 +424,7 @@ func GetKubectlGetItems(stdoutGet string) ([]interface{}, error) {
 }
 
 func DeploymentExists(kubeconfig, context, namespace, name string) (bool, error) {
-	if _, err := InitK8SRestClient(kubeconfig, context); err != nil {
+	if _, _, err := InitK8SRestClient(kubeconfig, context); err != nil {
 		return false, err
 	}
 
@@ -481,7 +433,7 @@ func DeploymentExists(kubeconfig, context, namespace, name string) (bool, error)
 		return false, fmt.Errorf("k8s client error: %s", err)
 	}
 
-	d, err := cs.AppsV1().Deployments(namespace).Get(name, metav1.GetOptions{})
+	d, err := cs.AppsV1().Deployments(namespace).Get(context2.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		return false, err
 	}
@@ -517,39 +469,56 @@ func buildComponentApplyOutput(stdout string, stderr string, objects object.K8sO
 	}
 }
 
+func istioCustomResources(group string) bool {
+	switch group {
+	case "config.istio.io",
+		"rbac.istio.io",
+		"security.istio.io",
+		"authentication.istio.io",
+		"networking.istio.io":
+		return true
+	}
+	return false
+}
+
 // DefaultObjectOrder is default sorting function used to sort k8s objects.
 func DefaultObjectOrder() func(o *object.K8sObject) int {
 	return func(o *object.K8sObject) int {
 		gk := o.Group + "/" + o.Kind
-		switch gk {
+		switch {
 		// Create CRDs asap - both because they are slow and because we will likely create instances of them soon
-		case "apiextensions.k8s.io/CustomResourceDefinition":
+		case gk == "apiextensions.k8s.io/CustomResourceDefinition":
 			return -1000
 
 			// We need to create ServiceAccounts, Roles before we bind them with a RoleBinding
-		case "/ServiceAccount", "rbac.authorization.k8s.io/ClusterRole":
+		case gk == "/ServiceAccount" || gk == "rbac.authorization.k8s.io/ClusterRole":
 			return 1
-		case "rbac.authorization.k8s.io/ClusterRoleBinding":
+		case gk == "rbac.authorization.k8s.io/ClusterRoleBinding":
 			return 2
 
-			// Validation webook maybe impact CRs applied later
-		case "admissionregistration.k8s.io/ValidatingWebhookConfiguration":
+			// validatingwebhookconfiguration is configured to FAIL-OPEN in the default install. For the
+			// re-install case we want to apply the validatingwebhookconfiguration first to reset any
+			// orphaned validatingwebhookconfiguration that is FAIL-CLOSE.
+		case gk == "admissionregistration.k8s.io/ValidatingWebhookConfiguration":
 			return 3
 
+		case istioCustomResources(o.Group):
+			return 4
+
 			// Pods might need configmap or secrets - avoid backoff by creating them first
-		case "/ConfigMap", "/Secrets":
+		case gk == "/ConfigMap" || gk == "/Secrets":
 			return 100
 
 			// Create the pods after we've created other things they might be waiting for
-		case "extensions/Deployment", "app/Deployment":
+		case gk == "extensions/Deployment" || gk == "app/Deployment":
 			return 1000
 
 			// Autoscalers typically act on a deployment
-		case "autoscaling/HorizontalPodAutoscaler":
+		case gk == "autoscaling/HorizontalPodAutoscaler":
 			return 1001
 
 			// Create services late - after pods have been started
-		case "/Service":
+		case gk == "/Service":
 			return 10000
 
 		default:
@@ -637,7 +606,7 @@ func waitForCRDs(objects object.K8sObjects, stdout string, dryRun bool) error {
 	errPoll := wait.Poll(cRDPollInterval, cRDPollTimeout, func() (bool, error) {
 	descriptor:
 		for _, crdName := range crdNames {
-			crd, errGet := cs.ApiextensionsV1beta1().CustomResourceDefinitions().Get(crdName, metav1.GetOptions{})
+			crd, errGet := cs.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context2.TODO(), crdName, metav1.GetOptions{})
 			if errGet != nil {
 				return false, errGet
 			}
@@ -671,19 +640,15 @@ func waitForCRDs(objects object.K8sObjects, stdout string, dryRun bool) error {
 
 // WaitForResources polls to get the current status of all pods, PVCs, and Services
 // until all are ready or a timeout is reached
-// TODO - plumb through k8s client and remove global `k8sRESTConfig`
-func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error {
-	if opts.DryRun {
+func WaitForResources(objects object.K8sObjects, cs kubernetes.Interface, waitTimeout time.Duration, dryRun bool) error {
+	if dryRun {
 		logAndPrint("Not waiting for resources ready in dry run mode.")
 		return nil
 	}
 
-	cs, err := kubernetes.NewForConfig(k8sRESTConfig)
-	if err != nil {
-		return fmt.Errorf("k8s client error: %s", err)
-	}
+	var notReady []string
 
-	errPoll := wait.Poll(2*time.Second, opts.WaitTimeout, func() (bool, error) {
+	errPoll := wait.Poll(2*time.Second, waitTimeout, func() (bool, error) {
 		pods := []v1.Pod{}
 		deployments := []deployment{}
 		namespaces := []v1.Namespace{}
@@ -692,19 +657,19 @@ func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error
 			kind := o.GroupVersionKind().Kind
 			switch kind {
 			case "Namespace":
-				namespace, err := cs.CoreV1().Namespaces().Get(o.Name, metav1.GetOptions{})
+				namespace, err := cs.CoreV1().Namespaces().Get(context2.TODO(), o.Name, metav1.GetOptions{})
 				if err != nil {
 					return false, err
 				}
 				namespaces = append(namespaces, *namespace)
 			case "Pod":
-				pod, err := cs.CoreV1().Pods(o.Namespace).Get(o.Name, metav1.GetOptions{})
+				pod, err := cs.CoreV1().Pods(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
 				if err != nil {
 					return false, err
 				}
 				pods = append(pods, *pod)
 			case "ReplicationController":
-				rc, err := cs.CoreV1().ReplicationControllers(o.Namespace).Get(o.Name, metav1.GetOptions{})
+				rc, err := cs.CoreV1().ReplicationControllers(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
 				if err != nil {
 					return false, err
 				}
@@ -714,7 +679,7 @@ func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error
 				}
 				pods = append(pods, list...)
 			case "Deployment":
-				currentDeployment, err := cs.AppsV1().Deployments(o.Namespace).Get(o.Name, metav1.GetOptions{})
+				currentDeployment, err := cs.AppsV1().Deployments(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
 				if err != nil {
 					return false, err
 				}
@@ -728,7 +693,7 @@ func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error
 				}
 				deployments = append(deployments, newDeployment)
 			case "DaemonSet":
-				ds, err := cs.AppsV1().DaemonSets(o.Namespace).Get(o.Name, metav1.GetOptions{})
+				ds, err := cs.AppsV1().DaemonSets(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
 				if err != nil {
 					return false, err
 				}
@@ -738,7 +703,7 @@ func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error
 				}
 				pods = append(pods, list...)
 			case "StatefulSet":
-				sts, err := cs.AppsV1().StatefulSets(o.Namespace).Get(o.Name, metav1.GetOptions{})
+				sts, err := cs.AppsV1().StatefulSets(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
 				if err != nil {
 					return false, err
 				}
@@ -748,7 +713,7 @@ func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error
 				}
 				pods = append(pods, list...)
 			case "ReplicaSet":
-				rs, err := cs.AppsV1().ReplicaSets(o.Namespace).Get(o.Name, metav1.GetOptions{})
+				rs, err := cs.AppsV1().ReplicaSets(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
 				if err != nil {
 					return false, err
 				}
@@ -759,47 +724,50 @@ func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error
 				pods = append(pods, list...)
 			}
 		}
-		isReady := namespacesReady(namespaces) && podsReady(pods) && deploymentsReady(deployments)
+		dr, dnr := deploymentsReady(deployments)
+		nsr, nnr := namespacesReady(namespaces)
+		pr, pnr := podsReady(pods)
+		isReady := dr && nsr && pr
 		if !isReady {
 			logAndPrint("  Waiting for resources to become ready...")
 		}
+		notReady = append(append(nnr, dnr...), pnr...)
 		return isReady, nil
 	})
 
 	if errPoll != nil {
-		msg := fmt.Sprintf("resources not ready after %v: %v", opts.WaitTimeout, errPoll)
-		logAndPrint(msg)
+		msg := fmt.Sprintf("resources not ready after %v: %v\n%s", waitTimeout, errPoll, strings.Join(notReady, "\n"))
 		return errors.New(msg)
 	}
 	return nil
 }
 
 func getPods(client kubernetes.Interface, namespace string, selector map[string]string) ([]v1.Pod, error) {
-	list, err := client.CoreV1().Pods(namespace).List(metav1.ListOptions{
+	list, err := client.CoreV1().Pods(namespace).List(context2.TODO(), metav1.ListOptions{
 		FieldSelector: fields.Everything().String(),
 		LabelSelector: labels.Set(selector).AsSelector().String(),
 	})
 	return list.Items, err
 }
 
-func namespacesReady(namespaces []v1.Namespace) bool {
+func namespacesReady(namespaces []v1.Namespace) (bool, []string) {
+	var notReady []string
 	for _, namespace := range namespaces {
 		if !isNamespaceReady(&namespace) {
-			logAndPrint("Namespace is not ready: %s", namespace.GetName())
-			return false
+			notReady = append(notReady, "Namespace/"+namespace.Name)
 		}
 	}
-	return true
+	return len(notReady) == 0, notReady
 }
 
-func podsReady(pods []v1.Pod) bool {
+func podsReady(pods []v1.Pod) (bool, []string) {
+	var notReady []string
 	for _, pod := range pods {
 		if !isPodReady(&pod) {
-			logAndPrint("Pod is not ready: %s/%s", pod.GetNamespace(), pod.GetName())
-			return false
+			notReady = append(notReady, "Pod/"+pod.Namespace+"/"+pod.Name)
 		}
 	}
-	return true
+	return len(notReady) == 0, notReady
 }
 
 func isNamespaceReady(namespace *v1.Namespace) bool {
@@ -818,14 +786,14 @@ func isPodReady(pod *v1.Pod) bool {
 	return false
 }
 
-func deploymentsReady(deployments []deployment) bool {
+func deploymentsReady(deployments []deployment) (bool, []string) {
+	var notReady []string
 	for _, v := range deployments {
 		if v.replicaSets.Status.ReadyReplicas < *v.deployment.Spec.Replicas {
-			scope.Infof("Deployment is not ready: %s/%s", v.deployment.GetNamespace(), v.deployment.GetName())
-			return false
+			notReady = append(notReady, "Deployment/"+v.deployment.Namespace+"/"+v.deployment.Name)
 		}
 	}
-	return true
+	return len(notReady) == 0, notReady
 }
 
 func buildInstallTree() {
@@ -856,18 +824,23 @@ func buildInstallTreeString(componentName name.ComponentName, prefix string, sb 
 	}
 }
 
-func InitK8SRestClient(kubeconfig, context string) (*rest.Config, error) {
+func InitK8SRestClient(kubeconfig, context string) (*rest.Config, *kubernetes.Clientset, error) {
 	var err error
 	if kubeconfig == currentKubeconfig && context == currentContext && k8sRESTConfig != nil {
-		return k8sRESTConfig, nil
+		return k8sRESTConfig, k8sClientset, nil
 	}
 	currentKubeconfig, currentContext = kubeconfig, context
 
 	k8sRESTConfig, err = defaultRestConfig(kubeconfig, context)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return k8sRESTConfig, nil
+	k8sClientset, err = kubernetes.NewForConfig(k8sRESTConfig)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return k8sRESTConfig, k8sClientset, nil
 }
 
 func defaultRestConfig(kubeconfig, configContext string) (*rest.Config, error) {
@@ -910,40 +883,6 @@ func BuildClientConfig(kubeconfig, context string) (*rest.Config, error) {
 	}
 
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides).ClientConfig()
-}
-
-// CheckK8sVersion checks if the current client and server version is supported
-func CheckK8sVersion(opts *kubectlcmd.Options) error {
-	cK8sVer, sK8sVer, err := Version(opts)
-	if err != nil {
-		return fmt.Errorf("failed to read versions from client and cluster: %v", err)
-	}
-	compatibleMap, err := pkgversion.GetVersionCompatibleMap("", binversion.OperatorBinaryGoVersion)
-	if err != nil {
-		return err
-	}
-	return checkK8sVersion(compatibleMap, cK8sVer, sK8sVer)
-}
-
-// checkK8sVersion checks if the client and server versions are supported in CompatibilityMapping
-func checkK8sVersion(vmap *pkgversion.CompatibilityMapping, cVer, sVer *goversion.Version) error {
-	if cVer == nil {
-		return fmt.Errorf("failed to get Kubernetes client version, please check if kubectl is correctly installed")
-	}
-	if sVer == nil {
-		return fmt.Errorf("failed to get Kubernetes server version, please check if the k8s context is configured")
-	}
-	if vmap.K8sClientVersionRange != nil && !vmap.K8sClientVersionRange.Check(cVer) {
-		return fmt.Errorf("failed to meet the requirements of kubectl version for Istio %s: "+
-			"current kubectl version: %s, supported version range: %s",
-			binversion.OperatorCodeBaseVersion, cVer, vmap.K8sClientVersionRange)
-	}
-	if vmap.K8sServerVersionRange != nil && !vmap.K8sServerVersionRange.Check(sVer) {
-		return fmt.Errorf("failed to meet the requirements of k8s server version for Istio %s: "+
-			"current k8s server version: %s, supported version range: %s",
-			binversion.OperatorCodeBaseVersion, sVer, vmap.K8sServerVersionRange)
-	}
-	return nil
 }
 
 func logAndPrint(v ...interface{}) {

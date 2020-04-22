@@ -29,19 +29,25 @@ SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOTDIR=$(dirname "${SCRIPTPATH}")
 cd "${ROOTDIR}"
 
+REPO="github.com/istio/api"
 # using the pseudo version we have in go.mod file. e.g. v.0.0.0-<timestamp>-<SHA>
-SHA=$(grep "istio.io/api" go.mod | sed 's/[[:blank:]]istio\.io\/api v0\.0\.0-[[:digit:]]*-//g')
+# first check if there's a replace: e.g. replace istio.io/api => github.com/USER/istioapi v0.0.0-<timestamp>-<SHA>
+SHA=$(grep "istio.io/api" go.mod | grep "^replace" | awk -F "-" '{print $NF}')
+if [ -n "${SHA}" ]; then
+  REPO=$(grep "istio.io/api" go.mod | grep "^replace" | awk '{print $4}')
+else
+  SHA=$(grep "istio.io/api" go.mod | head -n1 | awk -F "-" '{print $NF}')
+fi
 
 if [ -z "${SHA}" ]; then
   fail "Unable to retrieve the commit SHA of istio/api from go.mod file. Not updating the CRD file. Please make sure istio/api exists in the Go module.";
 fi
 
-git clone  "https://github.com/istio/api" "${API_TMP}" && cd "${API_TMP}"
+git clone  "https://${REPO}" "${API_TMP}" && cd "${API_TMP}"
 git checkout "${SHA}"
 if [ ! -f "${API_TMP}/kubernetes/customresourcedefinitions.gen.yaml" ]; then
-  echo "Generated Custom Resource Definitions file does not exist in the commit SHA. Not updating the CRD file."
+  echo "Generated Custom Resource Definitions file does not exist in the commit SHA ${SHA}. Not updating the CRD file."
   exit
 fi
-rm -f "${ROOTDIR}/install/kubernetes/helm/istio-init/files/crd-all.gen.yaml" "${ROOTDIR}/manifests/base/files/crd-all.gen.yaml"
-cp "${API_TMP}/kubernetes/customresourcedefinitions.gen.yaml" "${ROOTDIR}/install/kubernetes/helm/istio-init/files/crd-all.gen.yaml"
-cp "${API_TMP}/kubernetes/customresourcedefinitions.gen.yaml" "${ROOTDIR}/manifests/base/files/crd-all.gen.yaml"
+rm -f "${ROOTDIR}/manifests/charts/base/files/crd-all.gen.yaml"
+cp "${API_TMP}/kubernetes/customresourcedefinitions.gen.yaml" "${ROOTDIR}/manifests/charts/base/files/crd-all.gen.yaml"

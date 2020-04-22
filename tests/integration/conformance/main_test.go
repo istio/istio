@@ -21,8 +21,8 @@ import (
 
 	"istio.io/istio/pkg/test/conformance"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 func loadCases() ([]*conformance.Test, error) {
@@ -37,14 +37,8 @@ func loadCases() ([]*conformance.Test, error) {
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("conformance_test", m).
+		RequireSingleCluster().
 		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
-			cfg.ControlPlaneValues = `
-components:
-  galley:
-    enabled: true
-  citadel:
-    enabled: true
-`
 		})).
 		Run()
 }

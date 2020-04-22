@@ -15,81 +15,22 @@
 package helm
 
 import (
-	"fmt"
 	"io/ioutil"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"istio.io/istio/operator/pkg/util/httpserver"
 )
 
-type Server struct {
-	srv  *httptest.Server
-	root string
-}
-
-func (s *Server) start() {
-	fd := http.FileServer(http.Dir(s.root))
-	http.Handle(s.root+"/", fd)
-	s.srv = httptest.NewServer(fd)
-}
-
-func (s *Server) URL() string {
-	return s.srv.URL
-}
-
-func NewServer(root string) *Server {
-	srv := &Server{root: root}
-	srv.start()
-	return srv
-}
-
-func (s *Server) moveFiles(origin string) ([]string, error) {
-	files, err := filepath.Glob(origin)
-	if err != nil {
-		return []string{}, err
-	}
-	tmpFiles := make([]string, len(files))
-	for i, file := range files {
-		data, err := ioutil.ReadFile(file)
-		if err != nil {
-			return []string{}, err
-		}
-		newName := filepath.Join(s.root, filepath.Base(file))
-		if err := ioutil.WriteFile(newName, data, 0755); err != nil {
-			return []string{}, err
-		}
-		tmpFiles[i] = newName
-	}
-	return tmpFiles, nil
-}
-
 func TestFetch(t *testing.T) {
-
 	tests := []struct {
 		name                    string
 		installationPackageName string
-		verify                  bool
-		verifyFail              bool
 	}{
 		{
 			name:                    "Charts download only",
-			installationPackageName: "istio-installer-1.3.0.tar.gz",
-			verify:                  false,
-		},
-		{
-			name:                    "Charts download and verify",
-			installationPackageName: "istio-installer-1.3.0.tar.gz",
-			verify:                  true,
-		},
-		{
-			name:                    "Charts download but verification fail",
-			installationPackageName: "istio-installer-1.3.0.tar.gz",
-			verify:                  true,
-			verifyFail:              true,
+			installationPackageName: "istio-1.3.0-linux.tar.gz",
 		},
 	}
 	tmp, err := ioutil.TempDir("", InstallationDirectory)
@@ -98,52 +39,25 @@ func TestFetch(t *testing.T) {
 	}
 	defer os.RemoveAll(tmp)
 
-	server := NewServer(tmp)
-	defer server.srv.Close()
-	if _, err := server.moveFiles("testdata/*.tar.gz*"); err != nil {
+	server := httpserver.NewServer(tmp)
+	defer server.Close()
+	if _, err := server.MoveFiles("testdata/*.tar.gz*"); err != nil {
 		t.Error(err)
 		return
 	}
-	for _, test := range tests {
-		outdir := filepath.Join(server.root, "testout")
+	for _, tt := range tests {
+		outdir := filepath.Join(server.Root, "testout")
 		os.RemoveAll(outdir)
 		os.Mkdir(outdir, 0755)
-		fq, err := NewURLFetcher(server.URL()+"/"+test.installationPackageName, tmp+"/testout")
+		fq := NewURLFetcher(server.URL()+"/"+tt.installationPackageName, tmp+"/testout")
+
+		err = fq.Fetch()
 		if err != nil {
 			t.Error(err)
 			return
 		}
-		if test.verify {
-			fq.verify = test.verify
-			savedShaF, err := fq.fetchSha()
-			if err != nil {
-				t.Error(err)
-				return
-			}
-			if test.verifyFail {
-				f, _ := os.OpenFile(savedShaF, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
-				_, err := f.Write([]byte{115, 111})
-				if err != nil {
-					fmt.Println("failed to modify sha file")
-				}
-			}
-			err = fq.fetchChart(savedShaF)
-			if test.verifyFail {
-				assert.NotNil(t, err)
-				continue
-			}
-			if err != nil {
-				t.Error(err)
-				return
-			}
-		} else {
-			err = fq.fetchChart("")
-			if err != nil {
-				t.Error(err)
-				return
-			}
-		}
-		ef := filepath.Join(fq.destDir, test.installationPackageName)
+
+		ef := filepath.Join(fq.destDirRoot, tt.installationPackageName)
 		if _, err := os.Stat(ef); err != nil {
 			t.Error(err)
 			return

@@ -107,7 +107,7 @@ func TestNewCluster(t *testing.T) {
 			want: &Cluster{
 				ClusterDesc: clusterDescWithDefaults,
 				Context:     testContext,
-				uid:         kubeSystemNamespaceUID,
+				clusterName: string(kubeSystemNamespaceUID),
 				installed:   true,
 			},
 		},
@@ -123,7 +123,7 @@ func TestNewCluster(t *testing.T) {
 			wantErrStr:              "failed to create client",
 		},
 		{
-			name: "uid lookup failed",
+			name: "clusterName lookup failed",
 			objs: []runtime.Object{
 				makeNamespace(goodClusterDesc.Namespace),
 			},
@@ -141,7 +141,7 @@ func TestNewCluster(t *testing.T) {
 			want: &Cluster{
 				ClusterDesc: goodClusterDesc,
 				Context:     testContext,
-				uid:         kubeSystemNamespaceUID,
+				clusterName: string(kubeSystemNamespaceUID),
 				installed:   false,
 			},
 		},
@@ -156,7 +156,7 @@ func TestNewCluster(t *testing.T) {
 			want: &Cluster{
 				ClusterDesc: goodClusterDesc,
 				Context:     testContext,
-				uid:         kubeSystemNamespaceUID,
+				clusterName: string(kubeSystemNamespaceUID),
 				installed:   true,
 			},
 		},
@@ -272,8 +272,8 @@ func TestReadRemoteSecrets(t *testing.T) {
 			context: testContext,
 			desc:    clusterDescWithDefaults,
 			want: remoteSecrets{
-				types.UID(testSecretLabeled0.Name): testSecretLabeled0,
-				types.UID(testSecretLabeled1.Name): testSecretLabeled1,
+				testSecretLabeled0.Name: testSecretLabeled0,
+				testSecretLabeled1.Name: testSecretLabeled1,
 			},
 		},
 	}

@@ -152,3 +152,8 @@ type fakeOrigin struct{}
 
 func (fakeOrigin) FriendlyName() string          { return "myFriendlyName" }
 func (fakeOrigin) Namespace() resource.Namespace { return "myNamespace" }
+func (fakeOrigin) Reference() resource.Reference { return fakeReference{} }
+
+type fakeReference struct{}
+
+func (fakeReference) String() string { return "" }

@@ -18,21 +18,12 @@
 
 set -e
 
-# Before we begin, run the post installation script to finish setting up the system.
-"/usr/local/bin/postinst.sh"
-
 # IF ECHO_ARGS is unset, make it an empty string.
 ECHO_ARGS=${ECHO_ARGS:-}
 # Split ECHO_ARGS by spaces.
 IFS=' ' read -r -a ECHO_ARGS_ARRAY <<< "$ECHO_ARGS"
 
 ISTIO_LOG_DIR=${ISTIO_LOG_DIR:-/var/log/istio}
-
-# Run the ip-tables script.
-/usr/local/bin/istio-iptables
-
-# Indicate that istio-start should not run the iptables script.
-export ISTIO_CUSTOM_IP_TABLES="true"
 
 # Run the pilot agent and Envoy
 /usr/local/bin/istio-start.sh&

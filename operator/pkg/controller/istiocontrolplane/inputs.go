@@ -26,8 +26,6 @@ var (
 			name.PilotComponentName,
 			name.PolicyComponentName,
 			name.TelemetryComponentName,
-			name.GalleyComponentName,
-			name.CitadelComponentName,
 			name.IngressComponentName,
 			name.EgressComponentName,
 			name.CNIComponentName,
@@ -73,24 +71,6 @@ func (i *IstioRenderingInput) GetTargetNamespace() string {
 		return ""
 	}
 	return i.instance.Namespace
-}
-
-// GetProcessingOrder returns the order in which the rendered charts should be processed.
-func (i *IstioRenderingInput) GetProcessingOrder(m helmreconciler.ChartManifestsMap) (helmreconciler.ComponentNameToListMap, helmreconciler.DependencyWaitCh) {
-	componentNameList := make([]name.ComponentName, 0)
-	dependencyWaitCh := make(helmreconciler.DependencyWaitCh)
-	for c := range m {
-		cn := name.ComponentName(c)
-		if cn == name.IstioBaseComponentName {
-			continue
-		}
-		componentNameList = append(componentNameList, cn)
-		dependencyWaitCh[cn] = make(chan struct{}, 1)
-	}
-	componentDependencies := helmreconciler.ComponentNameToListMap{
-		name.IstioBaseComponentName: componentNameList,
-	}
-	return componentDependencies, dependencyWaitCh
 }
 
 func buildInstallTree() {

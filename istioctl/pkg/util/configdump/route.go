@@ -68,6 +68,24 @@ func (w *Wrapper) GetDynamicRouteDump(stripVersions bool) (*adminapi.RoutesConfi
 		}
 		return name < route.Name
 	})
+
+	// In Istio 1.5, it is not enough just to sort the routes.  The virtual hosts
+	// within a route might have a different order.  Sort those too.
+	for i := range drc {
+		route := &xdsapi.RouteConfiguration{}
+		err = ptypes.UnmarshalAny(drc[i].RouteConfig, route)
+		if err != nil {
+			return nil, err
+		}
+		sort.Slice(route.VirtualHosts, func(i, j int) bool {
+			return route.VirtualHosts[i].Name < route.VirtualHosts[j].Name
+		})
+		drc[i].RouteConfig, err = ptypes.MarshalAny(route)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	if stripVersions {
 		for i := range drc {
 			drc[i].VersionInfo = ""

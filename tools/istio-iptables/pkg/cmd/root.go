@@ -37,11 +37,19 @@ import (
 
 var (
 	envoyUserVar = env.RegisterStringVar(constants.EnvoyUser, "istio-proxy", "Envoy proxy username")
+	// Enable interception of DNS.
+	// Will be moved to mesh config after it's stable.
+	// TODO: this captures everything, if we want to split cluster.local to TLS and
+	// keep using plain UDP for the rest - we'll need to add another rule to allow
+	// istio-proxy to send.
+	dnsVar = env.RegisterStringVar("DNS_CAPTURE", "",
+		"If set, enable the capture of outgoing DNS packets on port 53, redirecting to :15013")
 )
 
 var rootCmd = &cobra.Command{
-	Use:  "istio-iptables",
-	Long: "Script responsible for setting up port forwarding for Istio sidecar.",
+	Use:   "istio-iptables",
+	Short: "Set up iptables rules for Istio Sidecar",
+	Long:  "Script responsible for setting up port forwarding for Istio sidecar.",
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := constructConfig()
 		var ext dep.Dependencies
@@ -278,6 +286,10 @@ func init() {
 		handleError(err)
 	}
 	viper.SetDefault(constants.RunValidation, false)
+}
+
+func GetCommand() *cobra.Command {
+	return rootCmd
 }
 
 func Execute() {

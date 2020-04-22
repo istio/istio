@@ -32,7 +32,7 @@ import (
 // Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being
 // bound, etc. All these can be checked statically, since we are generating the configuration for a proxy
 // with predefined labels, on a specific port.
-func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels labels.Collection, gateways map[string]bool, port int) bool {
+func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels labels.Collection, gateways map[string]bool, port int, proxyNamespace string) bool {
 	if match == nil {
 		return true
 	}
@@ -46,13 +46,15 @@ func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels labels.Collection,
 
 	portMatch := match.Port == 0 || match.Port == uint32(port)
 
-	return gatewayMatch && labelMatch && portMatch
+	nsMatch := match.SourceNamespace == "" || match.SourceNamespace == proxyNamespace
+
+	return gatewayMatch && labelMatch && portMatch && nsMatch
 }
 
 // Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being
 // bound, etc. All these can be checked statically, since we are generating the configuration for a proxy
 // with predefined labels, on a specific port.
-func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels labels.Collection, gateways map[string]bool, port int) bool {
+func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels labels.Collection, gateways map[string]bool, port int, proxyNamespace string) bool {
 	if match == nil {
 		return true
 	}
@@ -66,7 +68,9 @@ func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels labels.Collection, 
 
 	portMatch := match.Port == 0 || match.Port == uint32(port)
 
-	return gatewayMatch && labelMatch && portMatch
+	nsMatch := match.SourceNamespace == "" || match.SourceNamespace == proxyNamespace
+
+	return gatewayMatch && labelMatch && portMatch && nsMatch
 }
 
 // Select the config pertaining to the service being processed.
@@ -126,7 +130,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 		virtualService := cfg.Spec.(*v1alpha3.VirtualService)
 		for _, tls := range virtualService.Tls {
 			for _, match := range tls.Match {
-				if matchTLS(match, labels.Collection{node.Metadata.Labels}, gateways, listenPort.Port) {
+				if matchTLS(match, labels.Collection{node.Metadata.Labels}, gateways, listenPort.Port, node.Metadata.Namespace) {
 					// Use the service's CIDRs.
 					// But if a virtual service overrides it with its own destination subnet match
 					// give preference to the user provided one
@@ -168,6 +172,11 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 		}
 
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
+		statPrefix := clusterName
+		// If stat name is configured, use it to build the stat prefix.
+		if len(push.Mesh.OutboundClusterStatName) != 0 {
+			statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", &model.Port{Port: port}, service.Attributes)
+		}
 		// Use the hostname as the SNI value if and only if we do not have a destination VIP or if the destination is a CIDR.
 		// In both cases, the listener will be bound to 0.0.0.0. So SNI match is the only way to distinguish different
 		// target services. If we have a VIP, then we know the destination. There is no need to do a SNI match. It saves us from
@@ -187,7 +196,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 		out = append(out, &filterChainOpts{
 			sniHosts:         sniHosts,
 			destinationCIDRs: []string{destinationCIDR},
-			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(push, node, clusterName, listenPort),
+			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, listenPort),
 		})
 	}
 
@@ -230,7 +239,7 @@ TcpLoop:
 			virtualServiceDestinationSubnets := make([]string, 0)
 
 			for _, match := range tcp.Match {
-				if matchTCP(match, labels.Collection{node.Metadata.Labels}, gateways, listenPort.Port) {
+				if matchTCP(match, labels.Collection{node.Metadata.Labels}, gateways, listenPort.Port, node.Metadata.Namespace) {
 					// Scan all the match blocks
 					// if we find any match block without a runtime destination subnet match
 					// i.e. match any destination address, then we treat it as the terminal match/catch all match
@@ -283,9 +292,14 @@ TcpLoop:
 		}
 
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
+		statPrefix := clusterName
+		// If stat name is configured, use it to build the stat prefix.
+		if len(push.Mesh.OutboundClusterStatName) != 0 {
+			statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", &model.Port{Port: port}, service.Attributes)
+		}
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: []string{destinationCIDR},
-			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(push, node, clusterName, listenPort),
+			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, listenPort),
 		})
 	}
 

@@ -135,35 +135,6 @@ spec:
       certManager:
         enabled: false
 
-  # Config management feature
-  configManagement:
-    enabled: true
-    components:
-      galley:
-        enabled: true
-        k8s:
-          replicaCount: 1
-          resources:
-            requests:
-              cpu: 100m
-          strategy:
-            rollingUpdate:
-              maxSurge: "100%"
-              maxUnavailable: "25%"
-
-  # Auto injection feature
-  autoInjection:
-    enabled: true
-    components:
-      injector:
-        enabled: true
-        k8s:
-          replicaCount: 1
-          strategy:
-            rollingUpdate:
-              maxSurge: "100%"
-              maxUnavailable: "25%"
-
   # Istio Gateway feature
   gateways:
     enabled: true
@@ -255,7 +226,7 @@ spec:
           port: # example: 15000
         logLevel: warning
         componentLogLevel: "misc:error"
-        dnsRefreshRate: 300s
+
         protocolDetectionTimeout: 100ms
         privileged: false
         enableCoreDump: false
@@ -453,10 +424,6 @@ spec:
             enabled: true
           useAdapterCRDs: false
 
-    galley:
-      image: galley
-      enableAnalysis: false
-
     security:
       image: citadel
       selfSigned: true # indicate if self-signed CA is used.
@@ -549,9 +516,8 @@ spec:
             mountPath: /etc/istio/ingressgateway-ca-certs
 
     sidecarInjectorWebhook:
-      image: sidecar_injector
       enableNamespacesByDefault: false
-      rewriteAppHTTPProbe: false
+      rewriteAppHTTPProbe: true
       selfSigned: false
       injectLabel: istio-injection
       objectSelector:

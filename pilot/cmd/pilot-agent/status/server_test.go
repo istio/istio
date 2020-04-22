@@ -22,6 +22,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -44,57 +45,204 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func TestNewServer(t *testing.T) {
 	testCases := []struct {
-		httpProbe string
-		err       string
+		probe string
+		err   string
 	}{
 		// Json can't be parsed.
 		{
-			httpProbe: "invalid-prober-json-encoding",
-			err:       "failed to decode",
+			probe: "invalid-prober-json-encoding",
+			err:   "failed to decode",
 		},
 		// map key is not well formed.
 		{
-			httpProbe: `{"abc": {"path": "/app-foo/health"}}`,
-			err:       "invalid key",
+			probe: `{"abc": {"path": "/app-foo/health"}}`,
+			err:   "invalid key",
+		},
+		// invalid probe type
+		{
+			probe: `{"/app-health/hello-world/readyz": {"tcpSocket": {"port": "8888"}}}`,
+			err:   "invalid prober type",
 		},
 		// Port is not Int typed.
 		{
-			httpProbe: `{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": "container-port-dontknow"}}`,
-			err:       "must be int type",
+			probe: `{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": "container-port-dontknow"}}}`,
+			err:   "must be int type",
 		},
 		// A valid input.
 		{
-			httpProbe: `{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": 8080},` +
-				`"/app-health/business/livez": {"path": "/buisiness/live", "port": 9090}}`,
+			probe: `{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": 8080}},` +
+				`"/app-health/business/livez": {"httpGet": {"path": "/buisiness/live", "port": 9090}}}`,
+		},
+		// long request timeout
+		{
+			probe: `{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": 8080},` +
+				`"initialDelaySeconds": 120,"timeoutSeconds": 10,"periodSeconds": 20}}`,
 		},
 		// A valid input with empty probing path, which happens when HTTPGetAction.Path is not specified.
 		{
-			httpProbe: `{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": 8080},
-"/app-health/business/livez": {"port": 9090}}`,
+			probe: `{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": 8080}},
+"/app-health/business/livez": {"httpGet": {"port": 9090}}}`,
 		},
 		// A valid input without any prober info.
 		{
-			httpProbe: `{}`,
+			probe: `{}`,
 		},
 	}
 	for _, tc := range testCases {
 		_, err := NewServer(Config{
-			KubeAppHTTPProbers: tc.httpProbe,
+			KubeAppProbers: tc.probe,
 		})
 
 		if err == nil {
 			if tc.err != "" {
-				t.Errorf("test case failed [%v], expect error %v", tc.httpProbe, tc.err)
+				t.Errorf("test case failed [%v], expect error %v", tc.probe, tc.err)
 			}
 			continue
 		}
 		if tc.err == "" {
-			t.Errorf("test case failed [%v], expect no error, got %v", tc.httpProbe, err)
+			t.Errorf("test case failed [%v], expect no error, got %v", tc.probe, err)
 		}
 		// error case, error string should match.
 		if !strings.Contains(err.Error(), tc.err) {
-			t.Errorf("test case failed [%v], expect error %v, got %v", tc.httpProbe, tc.err, err)
+			t.Errorf("test case failed [%v], expect error %v, got %v", tc.probe, tc.err, err)
 		}
+	}
+}
+
+func TestStats(t *testing.T) {
+	cases := []struct {
+		name   string
+		envoy  string
+		app    string
+		output string
+	}{
+		{
+			name:   "simple string",
+			envoy:  "foo",
+			output: "foo",
+		},
+		{
+			name: "envoy metric only",
+			envoy: `# TYPE my_metric counter
+		my_metric{} 0
+		# TYPE my_other_metric counter
+		my_other_metric{} 0
+`,
+			output: `# TYPE my_metric counter
+		my_metric{} 0
+		# TYPE my_other_metric counter
+		my_other_metric{} 0
+`,
+		},
+		{
+			name: "app metric only",
+			app: `# TYPE my_metric counter
+		my_metric{} 0
+		# TYPE my_other_metric counter
+		my_other_metric{} 0
+`,
+			output: `# TYPE my_metric counter
+		my_metric{} 0
+		# TYPE my_other_metric counter
+		my_other_metric{} 0
+`,
+		},
+		{
+			name: "multiple metric",
+			envoy: `# TYPE my_metric counter
+my_metric{} 0
+`,
+			app: `# TYPE my_other_metric counter
+my_other_metric{} 0
+`,
+			output: `# TYPE my_metric counter
+my_metric{} 0
+# TYPE my_other_metric counter
+my_other_metric{} 0
+`,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			envoy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if _, err := w.Write([]byte(tt.envoy)); err != nil {
+					t.Fatalf("write failed: %v", err)
+				}
+			}))
+			defer envoy.Close()
+			app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if _, err := w.Write([]byte(tt.app)); err != nil {
+					t.Fatalf("write failed: %v", err)
+				}
+			}))
+			defer app.Close()
+			envoyPort, err := strconv.Atoi(strings.Split(envoy.URL, ":")[2])
+			if err != nil {
+				t.Fatal(err)
+			}
+			server := &Server{
+				prometheus: &PrometheusScrapeConfiguration{
+					Port: strings.Split(app.URL, ":")[2],
+				},
+				envoyStatsPort: envoyPort,
+			}
+			req := &http.Request{}
+			server.handleStats(rec, req)
+			if rec.Code != 200 {
+				t.Fatalf("handleStats() => %v; want 200", rec.Code)
+			}
+			if rec.Body.String() != tt.output {
+				t.Fatalf("handleStats() => %v; want %v", rec.Body.String(), tt.output)
+			}
+		})
+	}
+}
+
+func TestStatsError(t *testing.T) {
+	rec := httptest.NewRecorder()
+	fail := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer fail.Close()
+	pass := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer pass.Close()
+	failPort, err := strconv.Atoi(strings.Split(fail.URL, ":")[2])
+	if err != nil {
+		t.Fatal(err)
+	}
+	passPort, err := strconv.Atoi(strings.Split(pass.URL, ":")[2])
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		name  string
+		envoy int
+		app   int
+		resp  int
+	}{
+		{"both pass", passPort, passPort, 200},
+		{"envoy pass", passPort, failPort, 503},
+		{"app pass", failPort, passPort, 503},
+		{"both fail", failPort, failPort, 503},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+
+			server := &Server{
+				prometheus: &PrometheusScrapeConfiguration{
+					Port: strconv.Itoa(tt.app),
+				},
+				envoyStatsPort: tt.envoy,
+			}
+			req := &http.Request{}
+			server.handleStats(rec, req)
+			if rec.Code != 200 {
+				t.Fatalf("handleStats() => %v; want 200", rec.Code)
+			}
+		})
 	}
 }
 
@@ -110,8 +258,8 @@ func TestAppProbe(t *testing.T) {
 	// Starts the pilot agent status server.
 	server, err := NewServer(Config{
 		StatusPort: 0,
-		KubeAppHTTPProbers: fmt.Sprintf(`{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": %v},
-"/app-health/hello-world/livez": {"port": %v}}`, appPort, appPort),
+		KubeAppProbers: fmt.Sprintf(`{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": %v}},
+"/app-health/hello-world/livez": {"httpGet":{"port": %v}}}`, appPort, appPort),
 	})
 	if err != nil {
 		t.Errorf("failed to create status server %v", err)
@@ -175,8 +323,8 @@ func TestHttpsAppProbe(t *testing.T) {
 	// Starts the pilot agent status server.
 	server, err := NewServer(Config{
 		StatusPort: 0,
-		KubeAppHTTPProbers: fmt.Sprintf(`{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": %v, "scheme": "HTTPS"},
-"/app-health/hello-world/livez": {"port": %v, "scheme": "HTTPS"}}`, appPort, appPort),
+		KubeAppProbers: fmt.Sprintf(`{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": %v, "scheme": "HTTPS"}},
+"/app-health/hello-world/livez": {"httpGet": {"port": %v, "scheme": "HTTPS"}}}`, appPort, appPort),
 	})
 	if err != nil {
 		t.Errorf("failed to create status server %v", err)

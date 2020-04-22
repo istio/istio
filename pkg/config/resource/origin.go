@@ -19,4 +19,11 @@ type Origin interface {
 	FriendlyName() string
 
 	Namespace() Namespace
+
+	Reference() Reference
+}
+
+// Reference provides more information about an Origin. This is also source-implementation dependant.
+type Reference interface {
+	String() string
 }

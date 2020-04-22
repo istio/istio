@@ -156,6 +156,18 @@ func TestApplyLocalitySetting(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("Failover: with locality lb disabled", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		cluster := buildSmallClusterWithNilLocalities()
+		lbsetting := &networking.LocalityLoadBalancerSetting{
+			Enabled: &types.BoolValue{Value: false},
+		}
+		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, lbsetting, true)
+		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
+			g.Expect(localityEndpoint.Priority).To(Equal(uint32(0)))
+		}
+	})
 }
 
 func TestGetLocalityLbSetting(t *testing.T) {
@@ -180,7 +192,7 @@ func TestGetLocalityLbSetting(t *testing.T) {
 		{"dr only",
 			nil,
 			&networking.LocalityLoadBalancerSetting{},
-			nil,
+			&networking.LocalityLoadBalancerSetting{},
 		},
 		{"dr only override",
 			nil,
@@ -191,6 +203,21 @@ func TestGetLocalityLbSetting(t *testing.T) {
 			&networking.LocalityLoadBalancerSetting{},
 			&networking.LocalityLoadBalancerSetting{Failover: failover},
 			&networking.LocalityLoadBalancerSetting{Failover: failover},
+		},
+		{"mesh disabled",
+			&networking.LocalityLoadBalancerSetting{Enabled: &types.BoolValue{Value: false}},
+			nil,
+			nil,
+		},
+		{"dr disabled",
+			&networking.LocalityLoadBalancerSetting{Enabled: &types.BoolValue{Value: true}},
+			&networking.LocalityLoadBalancerSetting{Enabled: &types.BoolValue{Value: false}},
+			nil,
+		},
+		{"dr enabled override mesh disabled",
+			&networking.LocalityLoadBalancerSetting{Enabled: &types.BoolValue{Value: false}},
+			&networking.LocalityLoadBalancerSetting{Enabled: &types.BoolValue{Value: true}},
+			&networking.LocalityLoadBalancerSetting{Enabled: &types.BoolValue{Value: true}},
 		},
 	}
 	for _, tt := range cases {

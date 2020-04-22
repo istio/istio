@@ -25,7 +25,7 @@ import (
 )
 
 // ToResource converts the given object and proto to a resource.Instance
-func ToResource(object metav1.Object, schema collection.Schema, item proto.Message) *resource.Instance {
+func ToResource(object metav1.Object, schema collection.Schema, item proto.Message, source resource.Reference) *resource.Instance {
 	var o *Origin
 
 	name := resource.NewFullName(resource.Namespace(object.GetNamespace()), resource.LocalName(object.GetName()))
@@ -39,6 +39,7 @@ func ToResource(object metav1.Object, schema collection.Schema, item proto.Messa
 			Collection: schema.Name(),
 			Kind:       schema.Resource().Kind(),
 			Version:    version,
+			Ref:        source,
 		}
 	}
 

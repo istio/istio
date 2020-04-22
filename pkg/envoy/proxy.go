@@ -51,17 +51,15 @@ type ProxyConfig struct {
 	PilotSubjectAltName []string
 	MixerSubjectAltName []string
 	NodeIPs             []string
-	DNSRefreshRate      string
 	PodName             string
 	PodNamespace        string
 	PodIP               net.IP
-	SDSUDSPath          string
-	SDSTokenPath        string
 	STSPort             int
 	ControlPlaneAuth    bool
 	DisableReportCalls  bool
 	OutlierLogPath      string
 	PilotCertProvider   string
+	ProvCert            string
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -120,7 +118,9 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 		"--service-node", e.Node,
 		"--max-obj-name-len", fmt.Sprint(e.Config.StatNameLength),
 		"--local-address-ip-version", proxyLocalAddressType,
-		"--log-format", fmt.Sprintf("[Envoy (Epoch %d)] ", epoch) + "[%Y-%m-%d %T.%e][%t][%l][%n] %v",
+		// format is like `2020-04-07T16:52:30.471425Z     info    envoy config   ...message..
+		// this matches Istio log format
+		"--log-format", "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n\t%v",
 	}
 
 	startupArgs = append(startupArgs, e.extraArgs...)
@@ -154,7 +154,6 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	} else {
 		out, err := bootstrap.New(bootstrap.Config{
 			Node:                e.Node,
-			DNSRefreshRate:      e.DNSRefreshRate,
 			Proxy:               &e.Config,
 			PilotSubjectAltName: e.PilotSubjectAltName,
 			MixerSubjectAltName: e.MixerSubjectAltName,
@@ -163,13 +162,12 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 			PodName:             e.PodName,
 			PodNamespace:        e.PodNamespace,
 			PodIP:               e.PodIP,
-			SDSUDSPath:          e.SDSUDSPath,
-			SDSTokenPath:        e.SDSTokenPath,
 			STSPort:             e.STSPort,
 			ControlPlaneAuth:    e.ControlPlaneAuth,
 			DisableReportCalls:  e.DisableReportCalls,
 			OutlierLogPath:      e.OutlierLogPath,
 			PilotCertProvider:   e.PilotCertProvider,
+			ProvCert:            e.ProvCert,
 		}).CreateFileForEpoch(epoch)
 		if err != nil {
 			log.Errora("Failed to generate bootstrap config: ", err)
@@ -207,6 +205,10 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 }
 
 func (e *envoy) Cleanup(epoch int) {
+	// should return when use the parameter "--templateFile=/path/xxx.tmpl".
+	if e.Config.CustomConfigFile != "" {
+		return
+	}
 	filePath := configFile(e.Config.ConfigPath, epoch)
 	if err := os.Remove(filePath); err != nil {
 		log.Warnf("Failed to delete config file %s for %d, %v", filePath, epoch, err)

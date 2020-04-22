@@ -15,6 +15,7 @@
 package pilot
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -25,51 +26,52 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/file"
 )
 
 const (
-	describeSvcAOutput = `Service: a
+	describeSvcAOutput = `Service: a\..*
    Port: grpc 7070/GRPC targets pod port 7070
    Port: http 80/HTTP targets pod port 8090
-7070 DestinationRule: a for "a"
+7070 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
-7070 Pod is .*, clients configured automatically
-7070 VirtualService: a
+7070 VirtualService: a\..*
    when headers are end-user=jason
-80 DestinationRule: a for "a"
+80 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
-80 Pod is .*, clients configured automatically
-80 VirtualService: a
+80 VirtualService: a\..*
    when headers are end-user=jason
 `
 
 	describePodAOutput = `Pod: .*
    Pod Ports: 7070 \(app\), 8090 \(app\), 8080 \(app\), 3333 \(app\), 15090 \(istio-proxy\)
 --------------------
-Service: a
+Service: a\..*
    Port: grpc 7070\/GRPC targets pod port 7070
    Port: http 80\/HTTP targets pod port 8090
-7070 DestinationRule: a for "a"
+7070 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
-7070 Pod is .*, clients configured automatically
-7070 VirtualService: a
+7070 VirtualService: a\..*
    when headers are end-user=jason
-80 DestinationRule: a for "a"
+80 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
-80 Pod is .*, clients configured automatically
-80 VirtualService: a
+80 VirtualService: a\..*
    when headers are end-user=jason
 `
+
+	addToMeshPodAOutput = `deployment .* updated successfully with Istio sidecar injected.
+Next Step: Add related labels to the deployment to align with Istio's requirement: https://istio.io/docs/setup/kubernetes/additional-setup/requirements/
+`
+	removeFromMeshPodAOutput = `deployment .* updated successfully with Istio sidecar un-injected.`
 )
 
 // This test requires `--istio.test.env=kube` because it tests istioctl doing PodExec
@@ -83,7 +85,7 @@ func TestVersion(t *testing.T) {
 			_ = pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 			cfg := i.Settings()
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			args := []string{"version", "--remote=true", fmt.Sprintf("--istioNamespace=%s", cfg.SystemNamespace)}
 
@@ -135,7 +137,10 @@ func TestDescribe(t *testing.T) {
 				With(&a, echoConfig(ns, "a")).
 				BuildOrFail(ctx)
 
-			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			if err := a.WaitUntilCallable(a); err != nil {
+				t.Fatal(err)
+			}
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			podID, err := getPodID(a)
 			if err != nil {
@@ -146,13 +151,16 @@ func TestDescribe(t *testing.T) {
 			var args []string
 			g := gomega.NewGomegaWithT(t)
 
-			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
-				"x", "describe", "pod", podID}
+			// When this test passed the namespace through --namespace it was flakey
+			// because istioctl uses a global variable for namespace, and this test may
+			// run in parallel.
+			args = []string{"--namespace=dummy",
+				"x", "describe", "pod", fmt.Sprintf("%s.%s", podID, ns.Name())}
 			output = istioCtl.InvokeOrFail(t, args)
 			g.Expect(output).To(gomega.MatchRegexp(describePodAOutput))
 
-			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
-				"x", "describe", "svc", "a"}
+			args = []string{"--namespace=dummy",
+				"x", "describe", "svc", fmt.Sprintf("a.%s", ns.Name())}
 			output = istioCtl.InvokeOrFail(t, args)
 			g.Expect(output).To(gomega.MatchRegexp(describeSvcAOutput))
 		})
@@ -171,4 +179,117 @@ func getPodID(i echo.Instance) (string, error) {
 	}
 
 	return "", fmt.Errorf("no workloads")
+}
+
+func TestAddToAndRemoveFromMesh(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		RunParallel(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-add-to-mesh",
+				Inject: true,
+			})
+
+			var a echo.Instance
+			echoboot.NewBuilderOrFail(ctx, ctx).
+				With(&a, echoConfig(ns, "a")).
+				BuildOrFail(ctx)
+
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+
+			var output string
+			var args []string
+			g := gomega.NewGomegaWithT(t)
+
+			// able to remove from mesh when the deployment is auto injected
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"x", "remove-from-mesh", "service", "a"}
+			output = istioCtl.InvokeOrFail(t, args)
+			g.Expect(output).To(gomega.MatchRegexp(removeFromMeshPodAOutput))
+
+			// remove from mesh should be clean
+			// users can add it back to mesh successfully
+			if err := a.WaitUntilCallable(a); err != nil {
+				t.Fatal(err)
+			}
+
+			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
+				"x", "add-to-mesh", "service", "a"}
+			output = istioCtl.InvokeOrFail(t, args)
+			g.Expect(output).To(gomega.MatchRegexp(addToMeshPodAOutput))
+		})
+}
+
+func TestProxyConfig(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+				Prefix: "istioctl-pc",
+				Inject: true,
+			})
+
+			var a echo.Instance
+			echoboot.NewBuilderOrFail(ctx, ctx).
+				With(&a, echoConfig(ns, "a")).
+				BuildOrFail(ctx)
+
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+
+			podID, err := getPodID(a)
+			if err != nil {
+				ctx.Fatalf("Could not get Pod ID: %v", err)
+			}
+
+			var output string
+			var args []string
+			g := gomega.NewGomegaWithT(t)
+
+			args = []string{"--namespace=dummy",
+				"pc", "bootstrap", fmt.Sprintf("%s.%s", podID, ns.Name())}
+			output = istioCtl.InvokeOrFail(t, args)
+			jsonOutput := jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			g.Expect(jsonOutput).To(gomega.HaveKey("bootstrap"))
+
+			args = []string{"--namespace=dummy",
+				"pc", "cluster", fmt.Sprintf("%s.%s", podID, ns.Name()), "-o", "json"}
+			output = istioCtl.InvokeOrFail(t, args)
+			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
+
+			args = []string{"--namespace=dummy",
+				"pc", "endpoint", fmt.Sprintf("%s.%s", podID, ns.Name()), "-o", "json"}
+			output = istioCtl.InvokeOrFail(t, args)
+			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
+
+			args = []string{"--namespace=dummy",
+				"pc", "listener", fmt.Sprintf("%s.%s", podID, ns.Name()), "-o", "json"}
+			output = istioCtl.InvokeOrFail(t, args)
+			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
+
+			args = []string{"--namespace=dummy",
+				"pc", "route", fmt.Sprintf("%s.%s", podID, ns.Name()), "-o", "json"}
+			output = istioCtl.InvokeOrFail(t, args)
+			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
+
+			args = []string{"--namespace=dummy",
+				"pc", "secret", fmt.Sprintf("%s.%s", podID, ns.Name()), "-o", "json"}
+			output = istioCtl.InvokeOrFail(t, args)
+			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			g.Expect(jsonOutput).To(gomega.HaveKey("dynamicActiveSecrets"))
+		})
+}
+
+func jsonUnmarshallOrFail(t *testing.T, context, s string) interface{} {
+	t.Helper()
+	var val interface{}
+
+	// this is guarded by prettyPrint
+	if err := json.Unmarshal([]byte(s), &val); err != nil {
+		t.Fatalf("Could not unmarshal %s response %s", context, s)
+	}
+	return val
 }

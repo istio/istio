@@ -74,7 +74,7 @@ func TestSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	zipkinInst, err = zipkin.New(ctx)
+	zipkinInst, err = zipkin.New(ctx, zipkin.Config{})
 	if err != nil {
 		return
 	}
@@ -172,7 +172,7 @@ func WantTraceRoot(namespace string) (root zipkin.Span) {
 	}
 	root = zipkin.Span{
 		Name:        fmt.Sprintf("productpage.%s.svc.cluster.local:9080/productpage", namespace),
-		ServiceName: fmt.Sprintf("istio-ingressgateway"),
+		ServiceName: "istio-ingressgateway",
 		ChildSpans:  []*zipkin.Span{&productpageServerSpan},
 	}
 	return

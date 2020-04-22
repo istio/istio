@@ -19,8 +19,8 @@ import (
 	prom "github.com/prometheus/common/model"
 
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 type Instance interface {
@@ -34,27 +34,32 @@ type Instance interface {
 	WaitForQuiesceOrFail(t test.Failer, fmt string, args ...interface{}) prom.Value
 
 	// WaitForOneOrMore runs the provided query and waits until one (or more for vector) values are available.
-	WaitForOneOrMore(fmt string, args ...interface{}) error
-	WaitForOneOrMoreOrFail(t test.Failer, fmt string, args ...interface{})
+	WaitForOneOrMore(fmt string, args ...interface{}) (prom.Value, error)
+	WaitForOneOrMoreOrFail(t test.Failer, fmt string, args ...interface{}) prom.Value
 
 	// Sum all the samples that has the given labels in the given vector value.
 	Sum(val prom.Value, labels map[string]string) (float64, error)
 	SumOrFail(t test.Failer, val prom.Value, labels map[string]string) float64
 }
 
+type Config struct {
+	// Cluster to be used in a multicluster environment
+	Cluster resource.Cluster
+}
+
 // New returns a new instance of echo.
-func New(ctx resource.Context) (i Instance, err error) {
+func New(ctx resource.Context, c Config) (i Instance, err error) {
 	err = resource.UnsupportedEnvironment(ctx.Environment())
 	ctx.Environment().Case(environment.Kube, func() {
-		i, err = newKube(ctx)
+		i, err = newKube(ctx, c)
 	})
 	return
 }
 
 // NewOrFail returns a new Prometheus instance or fails test.
-func NewOrFail(t test.Failer, ctx resource.Context) Instance {
+func NewOrFail(t test.Failer, ctx resource.Context, c Config) Instance {
 	t.Helper()
-	i, err := New(ctx)
+	i, err := New(ctx, c)
 	if err != nil {
 		t.Fatalf("prometheus.NewOrFail: %v", err)
 	}

@@ -16,6 +16,7 @@ package rt
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"istio.io/istio/pkg/config/resource"
@@ -29,9 +30,11 @@ type Origin struct {
 	Kind       string
 	FullName   resource.FullName
 	Version    resource.Version
+	Ref        resource.Reference
 }
 
 var _ resource.Origin = &Origin{}
+var _ resource.Reference = &Position{}
 
 // FriendlyName implements resource.Origin
 func (o *Origin) FriendlyName() string {
@@ -52,4 +55,32 @@ func (o *Origin) Namespace() resource.Namespace {
 	}
 
 	return o.FullName.Namespace
+}
+
+// Reference implements resource.Origin
+func (o *Origin) Reference() resource.Reference {
+	return o.Ref
+}
+
+// Position is a representation of the location of a source.
+type Position struct {
+	Filename string // filename, if any
+	Line     int    // line number, starting at 1
+}
+
+// String outputs the string representation of the position.
+func (p *Position) String() string {
+	s := p.Filename
+	// TODO: support json file position.
+	if p.isValid() && filepath.Ext(p.Filename) != ".json" {
+		if s != "" {
+			s += ":"
+		}
+		s += fmt.Sprintf("%d", p.Line)
+	}
+	return s
+}
+
+func (p *Position) isValid() bool {
+	return p.Line > 0 && p.Filename != ""
 }

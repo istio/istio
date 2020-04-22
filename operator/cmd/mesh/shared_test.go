@@ -15,6 +15,8 @@
 package mesh
 
 import (
+	"bytes"
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"testing"
@@ -23,16 +25,23 @@ import (
 )
 
 func TestReadLayeredYAMLs(t *testing.T) {
-	testDataDir = filepath.Join(repoRootDir, "pkg/util/testdata/yaml")
+	testDataDir = filepath.Join(operatorRootDir, "pkg/util/testdata/yaml")
 	tests := []struct {
 		name     string
 		overlays []string
 		wantErr  bool
+		stdin    bool
 	}{
 		{
 			name:     "layer1",
 			overlays: []string{"yaml_layer1"},
 			wantErr:  false,
+		},
+		{
+			name:     "layer1_stdin",
+			overlays: []string{"yaml_layer1"},
+			wantErr:  false,
+			stdin:    true,
 		},
 		{
 			name:     "layer1_2",
@@ -46,7 +55,7 @@ func TestReadLayeredYAMLs(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(fmt.Sprintf("%s stdin=%v", tt.name, tt.stdin), func(t *testing.T) {
 			inDir := filepath.Join(testDataDir, "input")
 			outPath := filepath.Join(testDataDir, "output", tt.name+".yaml")
 			wantBytes, err := ioutil.ReadFile(outPath)
@@ -55,11 +64,25 @@ func TestReadLayeredYAMLs(t *testing.T) {
 				t.Errorf("ioutil.ReadFile() error = %v, filename: %v", err, outPath)
 			}
 
+			stdinReader := &bytes.Buffer{}
+
 			var filenames []string
 			for _, ol := range tt.overlays {
-				filenames = append(filenames, filepath.Join(inDir, ol+".yaml"))
+				filename := filepath.Join(inDir, ol+".yaml")
+				if tt.stdin {
+					b, err := ioutil.ReadFile(filename)
+					if err != nil {
+						t.Fatalf("ioutil.ReadFile() error = %v, filenaem: %v", err, filename)
+					}
+					if _, err := stdinReader.Write(b); err != nil {
+						t.Fatalf("failed to populate fake sdtin")
+					}
+					filenames = append(filenames, "-")
+				} else {
+					filenames = append(filenames, filename)
+				}
 			}
-			got, err := ReadLayeredYAMLs(filenames)
+			got, err := readLayeredYAMLs(filenames, stdinReader)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ReadLayeredYAMLs() error = %v, wantErr %v", err, tt.wantErr)
 				return

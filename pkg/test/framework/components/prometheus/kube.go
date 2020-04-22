@@ -41,7 +41,7 @@ const (
 
 var (
 	retryTimeout = retry.Timeout(time.Second * 120)
-	retryDelay   = retry.Delay(time.Second * 20)
+	retryDelay   = retry.Delay(time.Second * 5)
 
 	_ Instance  = &kubeComponent{}
 	_ io.Closer = &kubeComponent{}
@@ -52,13 +52,12 @@ type kubeComponent struct {
 
 	api       prometheusApiV1.API
 	forwarder testKube.PortForwarder
-	env       *kube.Environment
+	cluster   kube.Cluster
 }
 
-func newKube(ctx resource.Context) (Instance, error) {
-	env := ctx.Environment().(*kube.Environment)
+func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 	c := &kubeComponent{
-		env: env,
+		cluster: kube.ClusterOrDefault(cfgIn.Cluster, ctx.Environment()),
 	}
 	c.id = ctx.TrackResource(c)
 
@@ -68,20 +67,20 @@ func newKube(ctx resource.Context) (Instance, error) {
 		return nil, err
 	}
 
-	fetchFn := env.Accessor.NewSinglePodFetch(cfg.TelemetryNamespace, fmt.Sprintf("app=%s", appName))
-	pods, err := env.Accessor.WaitUntilPodsAreReady(fetchFn)
+	fetchFn := c.cluster.NewSinglePodFetch(cfg.TelemetryNamespace, fmt.Sprintf("app=%s", appName))
+	pods, err := c.cluster.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
 	}
 	pod := pods[0]
 
-	svc, err := env.Accessor.GetService(cfg.TelemetryNamespace, serviceName)
+	svc, err := c.cluster.GetService(cfg.TelemetryNamespace, serviceName)
 	if err != nil {
 		return nil, err
 	}
 	port := uint16(svc.Spec.Ports[0].Port)
 
-	forwarder, err := env.Accessor.NewPortForwarder(pod, 0, port)
+	forwarder, err := c.cluster.NewPortForwarder(pod, 0, port)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +115,7 @@ func (c *kubeComponent) API() prometheusApiV1.API {
 func (c *kubeComponent) WaitForQuiesce(format string, args ...interface{}) (model.Value, error) {
 	var previous model.Value
 
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 1)
 
 	value, err := retry.Do(func() (interface{}, bool, error) {
 
@@ -162,11 +161,9 @@ func (c *kubeComponent) WaitForQuiesceOrFail(t test.Failer, format string, args 
 	return v
 }
 
-func (c *kubeComponent) WaitForOneOrMore(format string, args ...interface{}) error {
+func (c *kubeComponent) WaitForOneOrMore(format string, args ...interface{}) (model.Value, error) {
 
-	time.Sleep(time.Second * 5)
-
-	_, err := retry.Do(func() (interface{}, bool, error) {
+	value, err := retry.Do(func() (interface{}, bool, error) {
 		query, err := tmpl.Evaluate(fmt.Sprintf(format, args...), map[string]string{})
 		if err != nil {
 			return nil, true, err
@@ -182,7 +179,7 @@ func (c *kubeComponent) WaitForOneOrMore(format string, args ...interface{}) err
 
 		switch v.Type() {
 		case model.ValScalar, model.ValString:
-			return nil, true, nil
+			return v, true, nil
 
 		case model.ValVector:
 			value := v.(model.Vector)
@@ -190,20 +187,26 @@ func (c *kubeComponent) WaitForOneOrMore(format string, args ...interface{}) err
 			if len(value) == 0 {
 				return nil, false, fmt.Errorf("value not found (query: %q)", query)
 			}
-			return nil, true, nil
+			return v, true, nil
 
 		default:
 			return nil, true, fmt.Errorf("unhandled value type: %v", v.Type())
 		}
 	}, retryTimeout, retryDelay)
 
-	return err
+	var v model.Value
+	if value != nil {
+		v = value.(model.Value)
+	}
+	return v, err
 }
 
-func (c *kubeComponent) WaitForOneOrMoreOrFail(t test.Failer, format string, args ...interface{}) {
-	if err := c.WaitForOneOrMore(format, args...); err != nil {
+func (c *kubeComponent) WaitForOneOrMoreOrFail(t test.Failer, format string, args ...interface{}) model.Value {
+	val, err := c.WaitForOneOrMore(format, args...)
+	if err != nil {
 		t.Fatal(err)
 	}
+	return val
 }
 
 func reduce(v model.Vector, labels map[string]string) model.Vector {
@@ -211,7 +214,7 @@ func reduce(v model.Vector, labels map[string]string) model.Vector {
 		return v
 	}
 
-	reduced := []*model.Sample{}
+	reduced := make([]*model.Sample, 0)
 
 	for _, s := range v {
 		nameCount := len(labels)

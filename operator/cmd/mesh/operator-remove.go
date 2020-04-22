@@ -59,25 +59,25 @@ func operatorRemoveCmd(rootArgs *rootArgs, orArgs *operatorRemoveArgs) *cobra.Co
 func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l *Logger, deleteManifestFunc manifestDeleter) {
 	initLogsOrExit(args)
 
-	installed, err := isControllerInstalled(orArgs.kubeConfigPath, orArgs.context, orArgs.operatorNamespace)
+	installed, err := isControllerInstalled(orArgs.kubeConfigPath, orArgs.context, orArgs.common.operatorNamespace)
 	if installed && err != nil {
 		l.logAndFatal(err)
 	}
 	if !installed {
-		l.logAndPrintf("Operator controller is not installed in %s namespace (no Deployment detected).", orArgs.operatorNamespace)
+		l.logAndPrintf("Operator controller is not installed in %s namespace (no Deployment detected).", orArgs.common.operatorNamespace)
 		if !orArgs.force {
 			l.logAndFatal("Aborting, use --force to override.")
 		}
 	}
 
-	l.logAndPrintf("Using operator Deployment image: %s/operator:%s", orArgs.hub, orArgs.tag)
+	l.logAndPrintf("Using operator Deployment image: %s/operator:%s", orArgs.common.hub, orArgs.common.tag)
 
-	mstr, err := renderOperatorManifest(args, &orArgs.operatorInitArgs, l)
+	_, mstr, err := renderOperatorManifest(args, &orArgs.common, l)
 	if err != nil {
 		l.logAndFatal(err)
 	}
 
-	scope.Infof("Using the following manifest to remove operator:\n%s\n", mstr)
+	scope.Debugf("Using the following manifest to remove operator:\n%s\n", mstr)
 
 	opts := &kubectlcmd.Options{
 		DryRun:      args.dryRun,
@@ -87,7 +87,7 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l *Logger, delet
 		Context:     orArgs.context,
 	}
 
-	if _, err := manifest.InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
+	if _, _, err := manifest.InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
 		l.logAndFatal(err)
 	}
 
@@ -118,7 +118,7 @@ func deleteManifest(manifestStr, componentName string, opts *kubectlcmd.Options,
 	} else {
 		l.logAndPrintf("Component %s deleted successfully.", componentName)
 		if opts.Verbose {
-			l.logAndPrintf("The following objects were deleted:\n%s", k8sObjectsString(objs))
+			l.logAndPrintf("The following parseObjectSetFromManifest were deleted:\n%s", k8sObjectsString(objs))
 		}
 	}
 

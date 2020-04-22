@@ -16,14 +16,17 @@ package chiron_test
 
 import (
 	"bytes"
+	"context"
 	"testing"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/chiron"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 
 	"istio.io/istio/security/pkg/k8s/controller"
 	"istio.io/istio/tests/integration/security/util/secret"
@@ -96,7 +99,7 @@ func TestDNSCertificate(t *testing.T) {
 			var galleySecret, galleySecret2, sidecarInjectorSecret, sidecarInjectorSecret2 *corev1.Secret
 			istio.DefaultConfigOrFail(t, ctx)
 			c := chiron.NewOrFail(t, ctx, chiron.Config{Istio: inst})
-			env := ctx.Environment().(*kube.Environment)
+			cluster := ctx.Environment().(*kube.Environment).KubeClusters[0]
 			istioNs := inst.Settings().IstioNamespace
 
 			// Test that DNS certificates have been generated.
@@ -114,8 +117,8 @@ func TestDNSCertificate(t *testing.T) {
 			// Test certificate regeneration: if a DNS certificate is deleted, Chiron will regenerate it.
 			ctx.NewSubTest("regenerateDNSCertificates").
 				Run(func(ctx framework.TestContext) {
-					env.DeleteSecret(istioNs, galleySecretName)
-					env.DeleteSecret(istioNs, sidecarInjectorSecretName)
+					cluster.DeleteSecret(istioNs, galleySecretName)
+					cluster.DeleteSecret(istioNs, sidecarInjectorSecretName)
 					// Sleep 5 seconds for the certificate regeneration to take place.
 					ctx.Log(`sleep 5 seconds for the certificate regeneration to take place ...`)
 					time.Sleep(5 * time.Second)
@@ -131,7 +134,7 @@ func TestDNSCertificate(t *testing.T) {
 			ctx.NewSubTest("rotateDNSCertificatesWhenCAUpdated").
 				Run(func(ctx framework.TestContext) {
 					galleySecret.Data[controller.RootCertID] = []byte(caCertUpdated)
-					if _, err := env.GetSecret(istioNs).Update(galleySecret); err != nil {
+					if _, err := cluster.GetSecret(istioNs).Update(context.TODO(), galleySecret, metav1.UpdateOptions{}); err != nil {
 						ctx.Fatalf("failed to update secret (%s:%s), error: %s", istioNs, galleySecret.Name, err)
 					}
 					// Sleep 5 seconds for the certificate rotation to take place.
@@ -150,7 +153,7 @@ func TestDNSCertificate(t *testing.T) {
 			ctx.NewSubTest("rotateDNSCertificatesWhenCertExpired").
 				Run(func(ctx framework.TestContext) {
 					sidecarInjectorSecret.Data[controller.CertChainID] = []byte(certExpired)
-					if _, err := env.GetSecret(istioNs).Update(sidecarInjectorSecret); err != nil {
+					if _, err := cluster.GetSecret(istioNs).Update(context.TODO(), sidecarInjectorSecret, metav1.UpdateOptions{}); err != nil {
 						ctx.Fatalf("failed to update secret (%s:%s), error: %s", istioNs, sidecarInjectorSecret.Name, err)
 					}
 					// Sleep 5 seconds for the certificate rotation to take place.

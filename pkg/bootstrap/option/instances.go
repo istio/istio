@@ -43,7 +43,7 @@ func ProxyConfig(value *meshAPI.ProxyConfig) Instance {
 }
 
 func PilotSubjectAltName(value []string) Instance {
-	return newOption("pilot_SAN", value)
+	return newOption("pilot_SAN", value).withConvert(sanConverter(value))
 }
 
 func MixerSubjectAltName(value []string) Instance {
@@ -84,10 +84,6 @@ func NodeMetadata(meta *model.NodeMetadata, rawMeta map[string]interface{}) Inst
 
 func DiscoveryAddress(value string) Instance {
 	return newOption("discovery_address", value)
-}
-
-func DNSRefreshRate(value string) Instance {
-	return newOption("dns_refresh_rate", value)
 }
 
 func Localhost(value LocalhostValue) Instance {
@@ -194,7 +190,7 @@ func EnvoyMetricsServiceAddress(value string) Instance {
 	return newOptionOrSkipIfZero("envoy_metrics_service_address", value).withConvert(addressConverter(value))
 }
 
-func EnvoyMetricsServiceTLS(value *networkingAPI.TLSSettings, metadata *model.NodeMetadata) Instance {
+func EnvoyMetricsServiceTLS(value *networkingAPI.ClientTLSSettings, metadata *model.NodeMetadata) Instance {
 	return newOptionOrSkipIfZero("envoy_metrics_service_tls", value).
 		withConvert(tlsConverter(value, "envoy_metrics_service", metadata))
 }
@@ -207,7 +203,7 @@ func EnvoyAccessLogServiceAddress(value string) Instance {
 	return newOptionOrSkipIfZero("envoy_accesslog_service_address", value).withConvert(addressConverter(value))
 }
 
-func EnvoyAccessLogServiceTLS(value *networkingAPI.TLSSettings, metadata *model.NodeMetadata) Instance {
+func EnvoyAccessLogServiceTLS(value *networkingAPI.ClientTLSSettings, metadata *model.NodeMetadata) Instance {
 	return newOptionOrSkipIfZero("envoy_accesslog_service_tls", value).
 		withConvert(tlsConverter(value, "envoy_accesslog_service", metadata))
 }
@@ -232,14 +228,22 @@ func EnvoyStatsMatcherInclusionRegexp(value []string) Instance {
 	return newStringArrayOptionOrSkipIfEmpty("inclusionRegexps", value)
 }
 
-func SDSUDSPath(value string) Instance {
-	return newOption("sds_uds_path", value)
-}
-
-func SDSTokenPath(value string) Instance {
-	return newOption("sds_token_path", value)
-}
-
 func PilotCertProvider(value string) Instance {
 	return newOption("pilot_cert_provider", value)
+}
+
+func STSPort(value int) Instance {
+	return newOption("sts_port", value)
+}
+
+func GCPProjectID(value string) Instance {
+	return newOption("gcp_project_id", value)
+}
+
+func STSEnabled(value bool) Instance {
+	return newOption("sts", value)
+}
+
+func ProvCert(value string) Instance {
+	return newOption("provisioned_cert", value)
 }

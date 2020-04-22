@@ -21,13 +21,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/stretchr/testify/assert"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
-	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/serviceregistry/mock"
 	"istio.io/istio/pkg/config/host"
 )
 
@@ -64,6 +68,47 @@ func TestNodeMetadata(t *testing.T) {
 						"foo": "bar",
 					},
 				}},
+		},
+		{
+			"proxy config",
+			model.NodeMetadata{ProxyConfig: (*model.NodeMetaProxyConfig)(&meshconfig.ProxyConfig{
+				ConfigPath:             "foo",
+				DrainDuration:          types.DurationProto(time.Second * 5),
+				ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
+				EnvoyAccessLogService: &meshconfig.RemoteService{
+					Address: "address",
+					TlsSettings: &v1alpha3.ClientTLSSettings{
+						SubjectAltNames: []string{"san"},
+					},
+				},
+			})},
+			// nolint: lll
+			`{"PROXY_CONFIG":{"configPath":"foo","drainDuration":"5s","controlPlaneAuthPolicy":"MUTUAL_TLS","envoyAccessLogService":{"address":"address","tlsSettings":{"subjectAltNames":["san"]}}}}`,
+			model.NodeMetadata{ProxyConfig: (*model.NodeMetaProxyConfig)(&meshconfig.ProxyConfig{
+				ConfigPath:             "foo",
+				DrainDuration:          types.DurationProto(time.Second * 5),
+				ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
+				EnvoyAccessLogService: &meshconfig.RemoteService{
+					Address: "address",
+					TlsSettings: &v1alpha3.ClientTLSSettings{
+						SubjectAltNames: []string{"san"},
+					},
+				},
+			}),
+				Raw: map[string]interface{}{
+					"PROXY_CONFIG": map[string]interface{}{
+						"drainDuration":          "5s",
+						"configPath":             "foo",
+						"controlPlaneAuthPolicy": "MUTUAL_TLS",
+						"envoyAccessLogService": map[string]interface{}{
+							"address": "address",
+							"tlsSettings": map[string]interface{}{
+								"subjectAltNames": []interface{}{"san"},
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -189,7 +234,7 @@ func TestServiceNode(t *testing.T) {
 		out string
 	}{
 		{
-			in:  &memory.HelloProxyV0,
+			in:  &mock.HelloProxyV0,
 			out: "sidecar~10.1.1.0~v0.default~default.svc.cluster.local",
 		},
 		{

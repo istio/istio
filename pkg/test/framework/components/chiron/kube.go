@@ -15,6 +15,7 @@
 package chiron
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -43,7 +44,7 @@ func newKube(ctx resource.Context, cfg Config) Instance {
 	c.id = ctx.TrackResource(c)
 
 	env := ctx.Environment().(*kube.Environment)
-	c.secret = env.GetSecret(c.istio.Settings().IstioNamespace)
+	c.secret = env.KubeClusters[0].GetSecret(c.istio.Settings().IstioNamespace)
 
 	return c
 }
@@ -53,7 +54,7 @@ func (c *kubeComponent) ID() resource.ID {
 }
 
 func (c *kubeComponent) WaitForSecretToExist(name string, waitTime time.Duration) (*v1.Secret, error) {
-	watch, err := c.secret.Watch(mv1.ListOptions{})
+	watch, err := c.secret.Watch(context.TODO(), mv1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up watch for secret (error: %v)", err)
 	}

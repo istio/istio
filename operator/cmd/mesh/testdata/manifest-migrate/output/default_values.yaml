@@ -378,10 +378,6 @@ spec:
       enableTracing: true
       imagePullPolicy: IfNotPresent
       imagePullSecrets: []
-      k8sIngress:
-        enableHttps: false
-        enabled: false
-        gatewayName: ingressgateway
       localityLbSetting:
         enabled: true
       logging:
@@ -406,7 +402,7 @@ spec:
         clusterDomain: cluster.local
         componentLogLevel: ""
         concurrency: 2
-        dnsRefreshRate: 300s
+
         enableCoreDump: false
         enableCoreDumpImage: ubuntu:xenial
         envoyAccessLogService:
@@ -427,7 +423,6 @@ spec:
         excludeOutboundPorts: ""
         image: proxyv2
         includeIPRanges: '*'
-        includeInboundPorts: '*'
         init:
           resources:
             limits:
@@ -436,7 +431,6 @@ spec:
             requests:
               cpu: 10m
               memory: 10Mi
-        kubevirtInterfaces: ""
         logLevel: ""
         privileged: false
         protocolDetectionTimeout: 10ms
@@ -648,12 +642,11 @@ spec:
     sidecarInjectorWebhook:
       alwaysInjectSelector: []
       enableNamespacesByDefault: false
-      image: sidecar_injector
       injectLabel: istio-injection
       neverInjectSelector: []
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
-      rewriteAppHTTPProbe: false
+      rewriteAppHTTPProbe: true
       selfSigned: false
     tracing:
       enabled: false

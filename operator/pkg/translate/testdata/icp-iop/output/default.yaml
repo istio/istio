@@ -1,4 +1,4 @@
-apiVersion: operator.istio.io/v1alpha1
+apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   addonComponents:
@@ -49,17 +49,6 @@ spec:
             maxSurge: 100%
             maxUnavailable: 25%
       name: istio-egressgateway
-    galley:
-      enabled: true
-      k8s:
-        replicaCount: 1
-        resources:
-          requests:
-            cpu: 100m
-        strategy:
-          rollingUpdate:
-            maxSurge: 100%
-            maxUnavailable: 25%
     ingressGateways:
     - enabled: true
       k8s:
@@ -153,14 +142,6 @@ spec:
           rollingUpdate:
             maxSurge: 100%
             maxUnavailable: 25%
-    sidecarInjector:
-      enabled: true
-      k8s:
-        replicaCount: 1
-        strategy:
-          rollingUpdate:
-            maxSurge: 100%
-            maxUnavailable: 25%
     telemetry:
       enabled: true
       k8s:
@@ -204,9 +185,6 @@ spec:
       image: cert-manager-controller
       tag: v0.6.2
     clusterResources: true
-    galley:
-      enableAnalysis: false
-      image: galley
     gateways:
       istio-egressgateway:
         autoscaleEnabled: true
@@ -337,7 +315,6 @@ spec:
         clusterDomain: cluster.local
         componentLogLevel: misc:error
         concurrency: 2
-        dnsRefreshRate: 300s
         enableCoreDump: false
         envoyAccessLogService:
           enabled: false
@@ -573,12 +550,11 @@ spec:
       trustDomain: cluster.local
     sidecarInjectorWebhook:
       enableNamespacesByDefault: false
-      image: sidecar_injector
       injectLabel: istio-injection
       objectSelector:
         autoInject: true
         enabled: false
-      rewriteAppHTTPProbe: false
+      rewriteAppHTTPProbe: true
       selfSigned: false
     telemetry:
       enabled: true

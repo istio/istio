@@ -19,20 +19,26 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/features"
+
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
 )
 
 // Test allows the test author to specify test-related metadata in a fluent-style, before commencing execution.
 type Test struct {
 	// name to be used when creating a Golang test. Only used for subtests.
-	name        string
-	parent      *Test
-	goTest      *testing.T
-	labels      []label.Instance
-	s           *suiteContext
-	requiredEnv environment.Name
+	name                string
+	parent              *Test
+	goTest              *testing.T
+	labels              []label.Instance
+	featureLabels       []features.Feature
+	notImplemented      bool
+	s                   *suiteContext
+	requiredEnv         environment.Name
+	requiredMinClusters int
+	requiredMaxClusters int
 
 	ctx *testContext
 
@@ -67,11 +73,43 @@ func (t *Test) Label(labels ...label.Instance) *Test {
 	return t
 }
 
+// Label applies the given labels to this test.
+func (t *Test) Features(features ...features.Feature) *Test {
+	t.featureLabels = append(t.featureLabels, features...)
+	return t
+}
+
+func (t *Test) NotImplementedYet(features ...features.Feature) *Test {
+	t.notImplemented = true
+	t.Features(features...).
+		Run(func(_ TestContext) { t.goTest.Skip("Test Not Yet Impemented") })
+	return t
+}
+
 // RequiresEnvironment ensures that the current environment matches what the suite expects. Otherwise it stops test
 // execution and skips the test.
 func (t *Test) RequiresEnvironment(name environment.Name) *Test {
 	t.requiredEnv = name
 	return t
+}
+
+// RequiresMinClusters ensures that the current environment contains at least the expected number of clusters.
+// Otherwise it stops test execution and skips the test.
+func (t *Test) RequiresMinClusters(minClusters int) *Test {
+	t.requiredMinClusters = minClusters
+	return t
+}
+
+// RequiresMaxClusters ensures that the current environment contains at most the expected number of clusters.
+// Otherwise it stops test execution and skips the test.
+func (t *Test) RequiresMaxClusters(maxClusters int) *Test {
+	t.requiredMaxClusters = maxClusters
+	return t
+}
+
+// RequiresSingleCluster this a utility that requires the min/max clusters to both = 1.
+func (t *Test) RequiresSingleCluster(maxClusters int) *Test {
+	return t.RequiresMaxClusters(1).RequiresMinClusters(1)
 }
 
 // Run the test, supplied as a lambda.
@@ -139,6 +177,11 @@ func (t *Test) runInternal(fn func(ctx TestContext), parallel bool) {
 		panic(fmt.Sprintf("Attempting to run test `%s` more than once", testName))
 	}
 
+	if t.s.skipped {
+		t.goTest.Skip("Skipped because parent Suite was skipped.")
+		return
+	}
+
 	if t.parent != nil {
 		// Create a new subtest under the parent's test.
 		parentGoTest := t.parent.goTest
@@ -178,16 +221,36 @@ func (t *Test) doRun(ctx *testContext, fn func(ctx TestContext), parallel bool) 
 		return
 	}
 
+	if t.requiredMinClusters > 0 && len(t.s.Environment().Clusters()) < t.requiredMinClusters {
+		ctx.Done()
+		t.goTest.Skipf("Skipping %q: number of clusters %d is below required min %d",
+			t.goTest.Name(), len(t.s.Environment().Clusters()), t.requiredMinClusters)
+		return
+	}
+
+	if t.requiredMaxClusters > 0 && len(t.s.Environment().Clusters()) > t.requiredMaxClusters {
+		ctx.Done()
+		t.goTest.Skipf("Skipping %q: number of clusters %d is above required max %d",
+			t.goTest.Name(), len(t.s.Environment().Clusters()), t.requiredMaxClusters)
+		return
+	}
+
 	start := time.Now()
 
 	scopes.CI.Infof("=== BEGIN: Test: '%s[%s]' ===", rt.suiteContext().Settings().TestID, t.goTest.Name())
 	defer func() {
 		doneFn := func() {
+			message := "passed"
+			if t.goTest.Failed() {
+				message = "failed"
+			}
 			end := time.Now()
-			scopes.CI.Infof("=== DONE:  Test: '%s[%s] (%v)' ===",
+			scopes.CI.Infof("=== DONE (%s):  Test: '%s[%s] (%v)' ===",
+				message,
 				rt.suiteContext().Settings().TestID,
 				t.goTest.Name(),
 				end.Sub(start))
+			rt.suiteContext().registerOutcome(t)
 			ctx.Done()
 		}
 		if t.hasParallelChildren {

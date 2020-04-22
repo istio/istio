@@ -20,15 +20,17 @@ import (
 	"time"
 
 	"istio.io/istio/galley/testdatasets/conversion"
-	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/galley"
 )
 
 func TestConversion(t *testing.T) {
+	mesh.TestMode = true
 	dataset, err := conversion.Load()
 	if err != nil {
 		t.Fatalf("Error loading data set: %v", err)
@@ -110,7 +112,7 @@ func runTest(t *testing.T, ctx resource.Context, fset *conversion.FileSet, gal g
 	}
 
 	for collection, e := range expected {
-		validator := galley.NewGoldenSnapshotValidator(ns.Name(), e)
+		validator := galley.NewGoldenSnapshotValidator(e)
 		if err = gal.WaitForSnapshot(collection, validator); err != nil {
 			t.Fatalf("failed waiting for %s:\n%v\n", collection, err)
 		}

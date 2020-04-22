@@ -23,7 +23,12 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 
+	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config/constants"
 )
 
 const (
@@ -55,8 +60,8 @@ const (
 	// IngressGatewaySdsUdsPath is the UDS path for ingress gateway to get credentials via SDS.
 	IngressGatewaySdsUdsPath = "unix:/var/run/ingress_gateway/sds"
 
-	// IngressGatewaySdsCaSuffix is the suffix of the sds resource name for root CA.
-	IngressGatewaySdsCaSuffix = "-cacert"
+	// SdsCaSuffix is the suffix of the sds resource name for root CA.
+	SdsCaSuffix = "-cacert"
 
 	// IstioJwtFilterName is the name for the Istio Jwt filter. This should be the same
 	// as the name defined in
@@ -73,8 +78,8 @@ const (
 	AuthnFilterName = "istio_authn"
 )
 
-// ConstructSdsSecretConfigForGatewayListener constructs SDS secret configuration for ingress gateway.
-func ConstructSdsSecretConfigForGatewayListener(name, sdsUdsPath string) *auth.SdsSecretConfig {
+// ConstructSdsSecretConfigWithCustomUds constructs SDS secret configuration for ingress gateway.
+func ConstructSdsSecretConfigWithCustomUds(name, sdsUdsPath string) *auth.SdsSecretConfig {
 	if name == "" || sdsUdsPath == "" {
 		return nil
 	}
@@ -104,7 +109,7 @@ func ConstructSdsSecretConfigForGatewayListener(name, sdsUdsPath string) *auth.S
 	}
 }
 
-// ConstructSdsSecretConfig constructs SDS Sececret Configuration for workload proxy.
+// ConstructSdsSecretConfig constructs SDS Secret Configuration for workload proxy.
 func ConstructSdsSecretConfig(name, sdsUdsPath string) *auth.SdsSecretConfig {
 	if name == "" || sdsUdsPath == "" {
 		return nil
@@ -143,10 +148,83 @@ func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string)
 	}
 
 	if len(subjectAltNames) > 0 {
-		ret.ValidationContext.VerifySubjectAltName = subjectAltNames
+		ret.ValidationContext.MatchSubjectAltNames = util.StringToExactMatch(subjectAltNames)
 	}
 
 	return ret
+}
+
+// ApplyToCommonTLSContext completes the commonTlsContext for `ISTIO_MUTUAL` TLS mode
+func ApplyToCommonTLSContext(tlsContext *auth.CommonTlsContext, metadata *model.NodeMetadata, sdsPath string, subjectAltNames []string) {
+	// configure TLS with SDS
+	if metadata.SdsEnabled && sdsPath != "" {
+		// configure egress with SDS
+		tlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
+			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+				DefaultValidationContext: &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(subjectAltNames)},
+				ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(
+					SDSRootResourceName, sdsPath),
+			},
+		}
+		tlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
+			ConstructSdsSecretConfig(SDSDefaultResourceName, sdsPath),
+		}
+	} else {
+		// SDS disabled, fall back on using mounted certificates
+		base := metadata.SdsBase + constants.AuthCertsPath
+		tlsServerRootCert := model.GetOrDefault(metadata.TLSServerRootCert, base+constants.RootCertFilename)
+
+		tlsContext.ValidationContextType = ConstructValidationContext(tlsServerRootCert, subjectAltNames)
+
+		tlsServerCertChain := model.GetOrDefault(metadata.TLSServerCertChain, base+constants.CertChainFilename)
+		tlsServerKey := model.GetOrDefault(metadata.TLSServerKey, base+constants.KeyFilename)
+
+		tlsContext.TlsCertificates = []*auth.TlsCertificate{
+			{
+				CertificateChain: &core.DataSource{
+					Specifier: &core.DataSource_Filename{
+						Filename: tlsServerCertChain,
+					},
+				},
+				PrivateKey: &core.DataSource{
+					Specifier: &core.DataSource_Filename{
+						Filename: tlsServerKey,
+					},
+				},
+			},
+		}
+	}
+}
+
+// ApplyCustomSDSToCommonTLSContext applies the customized sds to CommonTlsContext
+// Used for building both gateway/sidecar TLS context
+func ApplyCustomSDSToCommonTLSContext(tlsContext *auth.CommonTlsContext, tlsOpts *networking.ServerTLSSettings, sdsUdsPath string) {
+	// create SDS config for gateway/sidecar to fetch key/cert from agent.
+	tlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
+		ConstructSdsSecretConfigWithCustomUds(tlsOpts.CredentialName, sdsUdsPath),
+	}
+	// If tls mode is MUTUAL, create SDS config for gateway/sidecar to fetch certificate validation context
+	// at gateway agent. Otherwise, use the static certificate validation context config.
+	if tlsOpts.Mode == networking.ServerTLSSettings_MUTUAL {
+		defaultValidationContext := &auth.CertificateValidationContext{
+			MatchSubjectAltNames:  util.StringToExactMatch(tlsOpts.SubjectAltNames),
+			VerifyCertificateSpki: tlsOpts.VerifyCertificateSpki,
+			VerifyCertificateHash: tlsOpts.VerifyCertificateHash,
+		}
+		tlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
+			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+				DefaultValidationContext: defaultValidationContext,
+				ValidationContextSdsSecretConfig: ConstructSdsSecretConfigWithCustomUds(
+					tlsOpts.CredentialName+SdsCaSuffix, sdsUdsPath),
+			},
+		}
+	} else if len(tlsOpts.SubjectAltNames) > 0 {
+		tlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
+			ValidationContext: &auth.CertificateValidationContext{
+				MatchSubjectAltNames: util.StringToExactMatch(tlsOpts.SubjectAltNames),
+			},
+		}
+	}
 }
 
 // ConstructgRPCCallCredentials is used to construct SDS config which is only available from 1.1

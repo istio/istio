@@ -77,8 +77,13 @@ func (m *portMap) toEchoArgs() []string {
 		portNumber := port.containerPort.ServicePort
 		if port.containerPort.Protocol.IsGRPC() {
 			echoArgs = append(echoArgs, "--grpc", strconv.Itoa(portNumber))
+		} else if port.containerPort.Protocol.IsTCP() && port.containerPort.Protocol != protocol.HTTPS {
+			echoArgs = append(echoArgs, "--tcp", strconv.Itoa(portNumber))
 		} else {
 			echoArgs = append(echoArgs, "--port", strconv.Itoa(portNumber))
+		}
+		if port.containerPort.TLS {
+			echoArgs = append(echoArgs, "--tls", strconv.Itoa(portNumber))
 		}
 	}
 	return echoArgs

@@ -15,6 +15,7 @@
 package rt
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -62,11 +63,11 @@ func (p *Provider) getDynamicAdapter(r resource.Schema) *Adapter {
 			return cache.NewSharedIndexInformer(
 				&cache.ListWatch{
 					ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-						return d.List(options)
+						return d.List(context.TODO(), options)
 					},
 					WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 						options.Watch = true
-						return d.Watch(options)
+						return d.Watch(context.TODO(), options)
 					},
 				},
 				&unstructured.Unstructured{},

@@ -73,121 +73,10 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.UnknownAnnotation, "Service httpbin"},
 			{msg.MisplacedAnnotation, "Service details"},
+			{msg.InvalidAnnotation, "Pod invalid-annotations"},
 			{msg.MisplacedAnnotation, "Pod grafana-test"},
 			{msg.MisplacedAnnotation, "Deployment fortio-deploy"},
 			{msg.MisplacedAnnotation, "Namespace staging"},
-		},
-	},
-	{
-		name:       "jwtTargetsInvalidServicePortName",
-		inputFiles: []string{"testdata/jwt-invalid-service-port-name.yaml"},
-		analyzer:   &auth.JwtAnalyzer{},
-		expected: []message{
-			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy policy-with-specified-ports.namespace-port-missing-prefix"},
-			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy policy-without-specified-ports.namespace-port-missing-prefix"},
-			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy policy-without-specified-ports.namespace-port-missing-prefix"},
-			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy policy-with-udp-target-port.namespace-with-non-tcp-protocol"},
-			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy policy-with-invalid-named-target-port.namespace-with-invalid-named-port"},
-			{msg.JwtFailureDueToInvalidServicePortPrefix,
-				"Policy policy-with-valid-named-target-port-invalid-protocol.namespace-with-valid-named-port-invalid-protocol"},
-		},
-	},
-	{
-		name:       "jwtTargetsValidServicePortName",
-		inputFiles: []string{"testdata/jwt-valid-service-port-name.yaml"},
-		analyzer:   &auth.JwtAnalyzer{},
-		expected:   []message{
-			// port prefixes all pass
-		},
-	},
-	{
-		name:           "mtlsAnalyzerAutoMtlsSkips",
-		inputFiles:     []string{"testdata/mtls-global-dr-no-meshpolicy.yaml"},
-		meshConfigFile: "testdata/mesh-with-automtls.yaml",
-		analyzer:       &auth.MTLSAnalyzer{},
-		expected:       []message{
-			// With autoMtls enabled, we should not generate a message
-		},
-	},
-	{
-		name:       "mtlsAnalyzerGlobalDestinationRuleNoMeshPolicy",
-		inputFiles: []string{"testdata/mtls-global-dr-no-meshpolicy.yaml"},
-		analyzer:   &auth.MTLSAnalyzer{},
-		expected: []message{
-			{msg.MTLSPolicyConflict, "DestinationRule default.istio-system"},
-		},
-	},
-	{
-		name:       "mtlsAnalyzerIgnoresIstioControlPlane",
-		inputFiles: []string{"testdata/mtls-ignores-istio-control-plane.yaml"},
-		analyzer:   &auth.MTLSAnalyzer{},
-		expected:   []message{
-			// no messages, this test case verifies no false positives
-		},
-	},
-	{
-		name:       "mtlsAnalyzerIgnoresSystemNamespaces",
-		inputFiles: []string{"testdata/mtls-ignores-system-namespaces.yaml"},
-		analyzer:   &auth.MTLSAnalyzer{},
-		expected:   []message{
-			// no messages, this test case verifies no false positives
-		},
-	},
-	{
-		name:       "mtlsAnalyzerNoDestinationRule",
-		inputFiles: []string{"testdata/mtls-no-dr.yaml"},
-		analyzer:   &auth.MTLSAnalyzer{},
-		expected: []message{
-			{msg.MTLSPolicyConflict, "Policy default.missing-dr"},
-		},
-	},
-	{
-		name:       "mtlsAnalyzerNoPolicy",
-		inputFiles: []string{"testdata/mtls-no-policy.yaml"},
-		analyzer:   &auth.MTLSAnalyzer{},
-		expected: []message{
-			{msg.MTLSPolicyConflict, "DestinationRule no-policy-service-dr.no-policy"},
-		},
-	},
-	{
-		name:       "mtlsAnalyzerNoSidecar",
-		inputFiles: []string{"testdata/mtls-no-sidecar.yaml"},
-		analyzer:   &auth.MTLSAnalyzer{},
-		expected: []message{
-			{msg.DestinationRuleUsesMTLSForWorkloadWithoutSidecar, "DestinationRule default.istio-system"},
-		},
-	},
-	{
-		name:       "mtlsAnalyzerWithExports",
-		inputFiles: []string{"testdata/mtls-exports.yaml"},
-		analyzer:   &auth.MTLSAnalyzer{},
-		expected: []message{
-			{msg.MTLSPolicyConflict, "Policy default.primary"},
-		},
-	},
-	{
-		name:       "mtlsAnalyzerWithMeshPolicy",
-		inputFiles: []string{"testdata/mtls-meshpolicy.yaml"},
-		analyzer:   &auth.MTLSAnalyzer{},
-		expected: []message{
-			{msg.MTLSPolicyConflict, "MeshPolicy default"},
-		},
-	},
-	{
-		name:       "mtlsAnalyzerWithPermissiveMeshPolicy",
-		inputFiles: []string{"testdata/mtls-meshpolicy-permissive.yaml"},
-		analyzer:   &auth.MTLSAnalyzer{},
-		expected:   []message{
-			// no messages, this test case verifies no false positives
-		},
-	},
-	{
-		name:       "mtlsAnalyzerWithPort",
-		inputFiles: []string{"testdata/mtls-with-port.yaml"},
-		analyzer:   &auth.MTLSAnalyzer{},
-		expected: []message{
-			{msg.MTLSPolicyConflict, "DestinationRule default.my-namespace"},
-			{msg.MTLSPolicyConflict, "Policy default.my-namespace"},
 		},
 	},
 	{
@@ -216,10 +105,7 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/deprecation.yaml"},
 		analyzer:   &deprecation.FieldAnalyzer{},
 		expected: []message{
-			{msg.Deprecated, "EnvoyFilter istio-multicluster-egressgateway.istio-system"},
-			{msg.Deprecated, "EnvoyFilter istio-multicluster-egressgateway.istio-system"}, // Duplicate, because resource has two problems
 			{msg.Deprecated, "ServiceRoleBinding bind-mongodb-viewer.default"},
-			{msg.Deprecated, "Policy policy-with-jwt.deprecation-policy"},
 		},
 	},
 	{
@@ -287,6 +173,8 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.NamespaceNotInjected, "Namespace bar"},
 			{msg.PodMissingProxy, "Pod noninjectedpod.default"},
+			{msg.NamespaceMultipleInjectionLabels, "Namespace busted"},
+			{msg.NamespaceInvalidInjectorRevision, "Namespace pidgeon-test"},
 		},
 	},
 	{
@@ -395,6 +283,23 @@ var testGrid = []testCase{
 			{msg.DeploymentAssociatedToMultipleServices, "Deployment multiple-without-port.bookinfo"},
 			{msg.DeploymentRequiresServiceAssociated, "Deployment no-services.bookinfo"},
 			{msg.DeploymentRequiresServiceAssociated, "Deployment ann-enabled-ns-disabled.injection-disabled-ns"},
+		},
+	},
+	{
+		name: "regexes",
+		inputFiles: []string{
+			"testdata/virtualservice_regexes.yaml",
+		},
+		analyzer: &virtualservice.RegexAnalyzer{},
+		expected: []message{
+			{msg.InvalidRegexp, "VirtualService bad-match"},
+			{msg.InvalidRegexp, "VirtualService ecma-not-v2"},
+			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
+			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
+			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
+			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
+			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
+			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
 		},
 	},
 }

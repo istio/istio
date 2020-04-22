@@ -26,9 +26,7 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 	if hasKubeRegistry(args.Service.Registries) {
 		mc, err := controller.NewMulticluster(s.kubeClient,
 			args.Config.ClusterRegistriesNamespace,
-			args.Config.ControllerOptions.WatchedNamespace,
-			args.Config.ControllerOptions.DomainSuffix,
-			args.Config.ControllerOptions.ResyncPeriod,
+			args.Config.ControllerOptions,
 			s.ServiceController(),
 			s.EnvoyXdsServer,
 			s.environment)

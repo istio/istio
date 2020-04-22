@@ -106,9 +106,6 @@ func init() {
 		p.InjectionOptions = bootstrap.InjectionOptions{
 			InjectionDirectory: "./var/lib/istio/inject",
 		}
-		p.ValidationOptions = bootstrap.ValidationOptions{
-			ValidationDirectory: "./var/lib/istio/validation",
-		}
 	})
 
 	// Process commandline args.
@@ -116,25 +113,25 @@ func init() {
 		[]string{string(serviceregistry.Kubernetes)},
 		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s})",
 			serviceregistry.Kubernetes, serviceregistry.Consul, serviceregistry.Mock))
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ClusterRegistriesNamespace, "clusterRegistriesNamespace", metav1.NamespaceAll,
-		"Namespace for ConfigMap which stores clusters configs")
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ClusterRegistriesNamespace, "clusterRegistriesNamespace",
+		serverArgs.Config.ClusterRegistriesNamespace, "Namespace for ConfigMap which stores clusters configs")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.KubeConfig, "kubeconfig", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Mesh.ConfigFile, "meshConfig", "/etc/istio/config/mesh",
-		fmt.Sprintf("File name for Istio mesh configuration. If not specified, a default mesh will be used."))
+		"File name for Istio mesh configuration. If not specified, a default mesh will be used.")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.NetworksConfigFile, "networksConfig", "/etc/istio/config/meshNetworks",
-		fmt.Sprintf("File name for Istio mesh networks configuration. If not specified, a default mesh networks will be used."))
+		"File name for Istio mesh networks configuration. If not specified, a default mesh networks will be used.")
 	discoveryCmd.PersistentFlags().StringVarP(&serverArgs.Namespace, "namespace", "n", bootstrap.PodNamespaceVar.Get(),
 		"Select a namespace where the controller resides. If not set, uses ${POD_NAMESPACE} environment variable")
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Plugins, "plugins", bootstrap.DefaultPlugins,
 		"comma separated list of networking plugins to enable")
 
 	// MCP client flags
-	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPMaxMessageSize, "mcpMaxMsgSize", defaultMCPMaxMessageSize,
+	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPOptions.MaxMessageSize, "mcpMaxMsgSize", defaultMCPMaxMessageSize,
 		"Max message size received by MCP's grpc client")
-	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPInitialWindowSize, "mcpInitialWindowSize", defaultMCPInitialWindowSize,
+	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPOptions.InitialWindowSize, "mcpInitialWindowSize", defaultMCPInitialWindowSize,
 		"Initial window size for MCP's gRPC connection")
-	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPInitialConnWindowSize, "mcpInitialConnWindowSize", defaultMCPInitialConnWindowSize,
+	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPOptions.InitialConnWindowSize, "mcpInitialConnWindowSize", defaultMCPInitialConnWindowSize,
 		"Initial connection window size for MCP's gRPC connection")
 
 	// Config Controller options
@@ -164,8 +161,6 @@ func init() {
 		"Injection and validation service HTTPS address")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.GrpcAddr, "grpcAddr", ":15010",
 		"Discovery service grpc address")
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.SecureGrpcAddr, "secureGrpcAddr", ":15012",
-		"Discovery service grpc address, with https")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.MonitoringAddr, "monitoringAddr", ":15014",
 		"HTTP address to use for pilot's self-monitoring information")
 	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableProfiling, "profile", true,

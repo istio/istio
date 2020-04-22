@@ -23,6 +23,7 @@ import (
 	"k8s.io/helm/pkg/manifest"
 
 	"istio.io/api/operator/v1alpha1"
+	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
 )
@@ -251,25 +252,21 @@ func (l *LoggingRenderingListener) BeginResource(_ string, obj runtime.Object) (
 
 // ResourceCreated logs the event
 func (l *LoggingRenderingListener) ResourceCreated(created runtime.Object) error {
-	log.Infof("resource created: %s", created.GetObjectKind().GroupVersionKind())
 	return nil
 }
 
 // ResourceUpdated logs the event
 func (l *LoggingRenderingListener) ResourceUpdated(updated runtime.Object, old runtime.Object) error {
-	log.Infof("resource updated: %s", updated.GetObjectKind().GroupVersionKind())
 	return nil
 }
 
 // ResourceDeleted logs the event
 func (l *LoggingRenderingListener) ResourceDeleted(deleted runtime.Object) error {
-	log.Infof("resource deleted: %s", deleted.GetObjectKind().GroupVersionKind())
 	return nil
 }
 
 // ResourceError logs the event and the error
 func (l *LoggingRenderingListener) ResourceError(obj runtime.Object, err error) error {
-	log.Errorf("error processing resource: %s", obj.GetObjectKind().GroupVersionKind())
 	return nil
 }
 
@@ -438,7 +435,7 @@ func NewOwnerReferenceDecorator(instance runtime.Object) (RenderingListener, err
 	}
 	return &ownerReferenceDecorator{
 		DefaultRenderingListener: &DefaultRenderingListener{},
-		ownerReference:           metav1.NewControllerRef(instanceAccessor, util.IstioOperatorGVK),
+		ownerReference:           metav1.NewControllerRef(instanceAccessor, iop.IstioOperatorGVK),
 		namespace:                instanceAccessor.GetNamespace(),
 	}, nil
 }

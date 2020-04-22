@@ -1,0 +1,106 @@
+{{ if eq .Values.tracing.provider "opencensus" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oc-collector-config
+  labels:
+    app: opencensus
+    component: oc-collector-config
+data:
+  oc-collector-config: |
+    receivers:
+      zipkin:
+        address: "127.0.0.1:9411"
+    exporters:
+{{- if .Values.tracing.opencensus.exporters }}
+{{ toYaml .Values.tracing.opencensus.exporters | indent 6 }}
+{{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-tracing
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: opencensus
+    component: oc-collector
+    release: {{ .Release.Name }}
+spec:
+  selector:
+    matchLabels:
+      app: opencensus
+  minReadySeconds: 5
+  progressDeadlineSeconds: 120
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8888"
+        prometheus.io/scrape: "true"
+        {{- if .Values.tracing.opencensus.podAnnotations }}
+{{ toYaml .Values.tracing.opencensus.podAnnotations | indent 8 }}
+        {{- end }}
+      labels:
+        app: opencensus
+        component: oc-collector
+    spec:
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+{{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+{{- range .Values.global.imagePullSecrets }}
+        - name: {{ . }}
+{{- end }}
+{{- end }}
+      containers:
+      - name: oc-collector
+        image: "{{ .Values.tracing.opencensus.hub }}/opencensus-collector:{{ .Values.tracing.opencensus.tag }}"
+{{- if .Values.global.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+{{- end }}
+        command:
+          - "/occollector_linux"
+          - "--config=/conf/oc-collector-config.yaml"
+        ports:
+        - containerPort: 9411
+        resources:
+{{- if .Values.tracing.opencensus.resources }}
+{{ toYaml .Values.tracing.opencensus.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
+        volumeMounts:
+        - name: oc-collector-config-vol
+          mountPath: /conf
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 13133
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 13133
+        env:
+        - name: GOGC
+          value: "80"
+      volumes:
+        - configMap:
+            name: oc-collector-config
+            items:
+              - key: oc-collector-config
+                path: oc-collector-config.yaml
+          name: oc-collector-config-vol
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
+{{- if .Values.tracing.tolerations }}
+      tolerations:
+{{ toYaml .Values.tracing.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
+{{- end }}
+{{ end }}

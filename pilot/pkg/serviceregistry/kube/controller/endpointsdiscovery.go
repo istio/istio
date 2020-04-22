@@ -24,8 +24,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
 )
 
 // Pilot can get EDS information from Kubernetes from two mutually exclusive sources, Endpoints and
@@ -61,17 +59,19 @@ func (e *kubeEndpoints) handleEvent(name string, namespace string, event model.E
 	log.Debugf("Handle event %s for endpoint %s in namespace %s", event, name, namespace)
 
 	// headless service cluster discovery type is ORIGINAL_DST, we do not need update EDS.
-	if features.EnableHeadlessService.Get() {
+	if features.EnableHeadlessService {
 		if obj, _, _ := e.c.services.GetIndexer().GetByKey(kube.KeyFunc(name, namespace)); obj != nil {
 			svc := obj.(*v1.Service)
 			// if the service is headless service, trigger a full push.
 			if svc.Spec.ClusterIP == v1.ClusterIPNone {
 				e.c.xdsUpdater.ConfigUpdate(&model.PushRequest{
-					Full:              true,
-					NamespacesUpdated: map[string]struct{}{namespace: {}},
+					Full: true,
 					// TODO: extend and set service instance type, so no need to re-init push context
-					ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{
-						collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
+					ConfigsUpdated: map[model.ConfigKey]struct{}{{
+						Kind:      model.ServiceEntryKind,
+						Name:      svc.Name,
+						Namespace: svc.Namespace,
+					}: {}},
 					Reason: []model.TriggerReason{model.EndpointUpdate},
 				})
 				return nil

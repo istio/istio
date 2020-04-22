@@ -29,12 +29,14 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/spf13/cobra"
 
+	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/pkg/log"
 )
 
 var (
-	metricsCmd = &cobra.Command{
+	metricsOpts clioptions.ControlPlaneOptions
+	metricsCmd  = &cobra.Command{
 		Use:   "metrics <workload name>...",
 		Short: "Prints the metrics for the specified workload(s) when running in Kubernetes.",
 		Long: `
@@ -88,7 +90,7 @@ type workloadMetrics struct {
 func run(c *cobra.Command, args []string) error {
 	log.Debugf("metrics command invoked for workload(s): %v", args)
 
-	client, err := clientExecFactory(kubeconfig, configContext)
+	client, err := clientExecFactory(kubeconfig, configContext, metricsOpts)
 	if err != nil {
 		return fmt.Errorf("failed to create k8s client: %v", err)
 	}
@@ -104,7 +106,7 @@ func run(c *cobra.Command, args []string) error {
 
 	// only use the first pod in the list
 	promPod := pl.Items[0]
-	fw, err := client.BuildPortForwarder(promPod.Name, istioNamespace, 0, 9090)
+	fw, err := client.BuildPortForwarder(promPod.Name, istioNamespace, "", 0, 9090)
 	if err != nil {
 		return fmt.Errorf("could not build port forwarder for prometheus: %v", err)
 	}

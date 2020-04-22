@@ -26,7 +26,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	protovalue "istio.io/istio/pkg/proto"
 )
@@ -70,7 +71,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want []plugin.FilterChain
+		want []networking.FilterChain
 	}{
 		{
 			name: "MTLSUnknown",
@@ -101,7 +102,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 					Metadata: &model.NodeMetadata{},
 				},
 			},
-			want: []plugin.FilterChain{
+			want: []networking.FilterChain{
 				{
 					TLSContext: tlsContext,
 				},
@@ -116,7 +117,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				},
 			},
 			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
-			want: []plugin.FilterChain{
+			want: []networking.FilterChain{
 				{
 					TLSContext: tlsContext,
 					FilterChainMatch: &listener.FilterChainMatch{
@@ -145,7 +146,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			want: []plugin.FilterChain{
+			want: []networking.FilterChain{
 				{
 					TLSContext: &auth.DownstreamTlsContext{
 						CommonTlsContext: &auth.CommonTlsContext{
@@ -171,7 +172,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 							},
 							ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
 								CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-									DefaultValidationContext: &auth.CertificateValidationContext{VerifySubjectAltName: []string{} /*subjectAltNames*/},
+									DefaultValidationContext: &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{})},
 									ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 										Name: "ROOTCA",
 										SdsConfig: &core.ConfigSource{
@@ -208,7 +209,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 					Metadata: &model.NodeMetadata{},
 				},
 			},
-			want: []plugin.FilterChain{
+			want: []networking.FilterChain{
 				{
 					TLSContext: tlsContext,
 				},
@@ -227,7 +228,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				},
 			},
 			// Only one filter chain with mTLS settings should be generated.
-			want: []plugin.FilterChain{
+			want: []networking.FilterChain{
 				{
 					TLSContext: &auth.DownstreamTlsContext{
 						CommonTlsContext: &auth.CommonTlsContext{

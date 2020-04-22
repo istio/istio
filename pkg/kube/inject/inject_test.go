@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -34,15 +33,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-const (
-	statusReplacement = "sidecar.istio.io/status: '{\"version\":\"\","
-)
-
-var (
-	statusPattern = regexp.MustCompile("sidecar.istio.io/status: '{\"version\":\"([0-9a-f]+)\",")
-)
-
 func TestIntoResourceFile(t *testing.T) {
+	mesh.TestMode = true
 	cases := []struct {
 		in     string
 		want   string
@@ -63,11 +55,6 @@ components:
   cni:
     enabled: true
 `,
-		},
-		//verifies that the sidecar will not be injected again for an injected yaml
-		{
-			in:   "hello.yaml.injected",
-			want: "hello.yaml.injected",
 		},
 		{
 			in:   "hello-mtls-not-ready.yaml",
@@ -210,7 +197,6 @@ values:
 			mesh: func(m *meshapi.MeshConfig) {
 				m.DefaultConfig.DrainDuration = types.DurationProto(time.Second * 23)
 				m.DefaultConfig.ParentShutdownDuration = types.DurationProto(time.Second * 42)
-				m.DefaultConfig.ConnectTimeout = types.DurationProto(time.Second * 42)
 			},
 		},
 		{
@@ -223,7 +209,6 @@ values:
     proxy:
       includeIPRanges: "127.0.0.1/24,10.96.0.1/24"
       excludeIPRanges: "10.96.0.2/24,10.96.0.3/24"
-      includeInboundPorts: "1,2,3"
       excludeInboundPorts: "4,5,6"
       statusPort: 0
   `,
@@ -334,7 +319,7 @@ values:
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, &m, in, &got); err != nil {
+			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", &m, in, &got); err != nil {
 				t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
 			}
 
@@ -342,8 +327,8 @@ values:
 			gotBytes := got.Bytes()
 			wantedBytes := util.ReadGoldenFile(gotBytes, wantFilePath, t)
 
-			wantBytes := stripVersion(wantedBytes)
-			gotBytes = stripVersion(gotBytes)
+			wantBytes := util.StripVersion(wantedBytes)
+			gotBytes = util.StripVersion(gotBytes)
 
 			util.CompareBytes(gotBytes, wantBytes, wantFilePath, t)
 
@@ -356,6 +341,7 @@ values:
 
 // TestRewriteAppProbe tests the feature for pilot agent to take over app health check traffic.
 func TestRewriteAppProbe(t *testing.T) {
+	mesh.TestMode = true
 	cases := []struct {
 		in                  string
 		rewriteAppHTTPProbe bool
@@ -398,12 +384,12 @@ func TestRewriteAppProbe(t *testing.T) {
 		},
 		{
 			in:                  "hello-probes-with-flag-set-in-annotation.yaml",
-			rewriteAppHTTPProbe: false,
+			rewriteAppHTTPProbe: true,
 			want:                "hello-probes-with-flag-set-in-annotation.yaml.injected",
 		},
 		{
 			in:                  "hello-probes-with-flag-unset-in-annotation.yaml",
-			rewriteAppHTTPProbe: true,
+			rewriteAppHTTPProbe: false,
 			want:                "hello-probes-with-flag-unset-in-annotation.yaml.injected",
 		},
 		{
@@ -428,24 +414,20 @@ func TestRewriteAppProbe(t *testing.T) {
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, &m, in, &got); err != nil {
+			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", &m, in, &got); err != nil {
 				t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
 			}
 
 			// The version string is a maintenance pain for this test. Strip the version string before comparing.
 			gotBytes := got.Bytes()
-			wantedBytes := util.ReadGoldenFile(gotBytes, wantFilePath, t)
+			gotBytes = util.StripVersion(gotBytes)
 
-			wantBytes := stripVersion(wantedBytes)
-			gotBytes = stripVersion(gotBytes)
+			wantedBytes := util.ReadGoldenFile(gotBytes, wantFilePath, t)
+			wantBytes := util.StripVersion(wantedBytes)
 
 			util.CompareBytes(gotBytes, wantBytes, wantFilePath, t)
 		})
 	}
-}
-
-func stripVersion(yaml []byte) []byte {
-	return statusPattern.ReplaceAllLiteral(yaml, []byte(statusReplacement))
 }
 
 func TestInvalidAnnotations(t *testing.T) {
@@ -485,7 +467,7 @@ func TestInvalidAnnotations(t *testing.T) {
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, &m, in, &got); err == nil {
+			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", &m, in, &got); err == nil {
 				t.Fatalf("expected error")
 			} else if !strings.Contains(strings.ToLower(err.Error()), c.annotation) {
 				t.Fatalf("unexpected error: %v", err)
@@ -581,6 +563,7 @@ func TestCleanMeshConfig(t *testing.T) {
 	explicit.DefaultConfig.DrainDuration = types.DurationProto(45 * time.Second)
 	overrides := mesh.DefaultMeshConfig()
 	overrides.TrustDomain = "foo.bar"
+	overrides.IngressControllerMode = meshapi.MeshConfig_OFF
 	cases := []struct {
 		name   string
 		mesh   meshapi.MeshConfig
@@ -599,7 +582,7 @@ func TestCleanMeshConfig(t *testing.T) {
 		{
 			"overrides",
 			overrides,
-			`{"trustDomain":"foo.bar"}`,
+			`{"ingressControllerMode":"OFF","trustDomain":"foo.bar"}`,
 		},
 	}
 	for _, tt := range cases {
@@ -608,7 +591,7 @@ func TestCleanMeshConfig(t *testing.T) {
 			if got != tt.expect {
 				t.Fatalf("incorrect output: got %v, expected %v", got, tt.expect)
 			}
-			roundTrip, err := mesh.ApplyMeshConfigJSON(got, mesh.DefaultMeshConfig())
+			roundTrip, err := mesh.ApplyMeshConfig(got, mesh.DefaultMeshConfig())
 			if err != nil {
 				t.Fatal(err)
 			}

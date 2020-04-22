@@ -18,10 +18,9 @@ package scheme
 type Instance string
 
 const (
-	HTTP       Instance = "http"
-	HTTPS      Instance = "https"
-	GRPC       Instance = "grpc"
-	GRPCS      Instance = "grpcs"
-	WebSocket  Instance = "ws"
-	WebSocketS Instance = "wss"
+	HTTP      Instance = "http"
+	HTTPS     Instance = "https"
+	GRPC      Instance = "grpc"
+	WebSocket Instance = "ws"
+	TCP       Instance = "tcp"
 )

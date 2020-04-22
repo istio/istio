@@ -20,19 +20,17 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/spf13/cobra"
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/controlplane"
-	"istio.io/istio/operator/pkg/translate"
-	"istio.io/istio/operator/version"
-
 	"istio.io/istio/operator/pkg/helm"
-
-	"github.com/spf13/cobra"
-
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/version"
+	"istio.io/pkg/log"
 )
 
 type manifestGenerateArgs struct {
@@ -45,6 +43,8 @@ type manifestGenerateArgs struct {
 	set []string
 	// force proceeds even if there are validation errors
 	force bool
+	// charts is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
+	charts string
 }
 
 func addManifestGenerateFlags(cmd *cobra.Command, args *manifestGenerateArgs) {
@@ -52,9 +52,10 @@ func addManifestGenerateFlags(cmd *cobra.Command, args *manifestGenerateArgs) {
 	cmd.PersistentFlags().StringVarP(&args.outFilename, "output", "o", "", "Manifest output directory path")
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, SetFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false, "Proceed even with validation errors")
+	cmd.PersistentFlags().StringVarP(&args.charts, "charts", "d", "", chartsFlagHelpStr)
 }
 
-func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs) *cobra.Command {
+func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs, logOpts *log.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "generate",
 		Short: "Generates an Istio install manifest",
@@ -63,8 +64,8 @@ func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs) *cobr
 		Example: `  # Generate a default Istio installation
   istioctl manifest generate
 
-  # Enable security
-  istioctl manifest generate --set values.global.mtls.enabled=true --set values.global.controlPlaneSecurityEnabled=true
+  # Enable grafana dashboard
+  istioctl manifest generate --set values.grafana.enabled=true
 
   # Generate the demo profile
   istioctl manifest generate --set profile=demo
@@ -80,17 +81,17 @@ func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs) *cobr
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
-			return manifestGenerate(rootArgs, mgArgs, l)
+			return manifestGenerate(rootArgs, mgArgs, logOpts, l)
 		}}
 
 }
 
-func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, l *Logger) error {
-	if err := configLogs(args.logToStdErr); err != nil {
+func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log.Options, l *Logger) error {
+	if err := configLogs(args.logToStdErr, logopts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
-	ysf, err := yamlFromSetFlags(mgArgs.set, mgArgs.force, l)
+	ysf, err := yamlFromSetFlags(applyInstallFlagAlias(mgArgs.set, mgArgs.charts), mgArgs.force, l)
 	if err != nil {
 		return err
 	}
@@ -141,7 +142,7 @@ func GenManifests(inFilename []string, setOverlayYAML string, force bool,
 		return nil, nil, err
 	}
 	if err := cp.Run(); err != nil {
-		return nil, nil, fmt.Errorf("failed to create Istio control plane with spec: \n%v\nerror: %s", mergedIOPS, err)
+		return nil, nil, err
 	}
 
 	manifests, errs := cp.RenderManifest()

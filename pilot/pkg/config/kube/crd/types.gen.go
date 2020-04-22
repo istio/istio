@@ -51,6 +51,7 @@ var SupportedSchemas = collection.NewSchemasBuilder().
 	MustAdd(collections.IstioNetworkingV1Alpha3Serviceentries).
 	MustAdd(collections.IstioNetworkingV1Alpha3Sidecars).
 	MustAdd(collections.IstioNetworkingV1Alpha3Virtualservices).
+	MustAdd(collections.IstioNetworkingV1Alpha3Workloadentries).
 	MustAdd(collections.IstioRbacV1Alpha1Clusterrbacconfigs).
 	MustAdd(collections.IstioRbacV1Alpha1Rbacconfigs).
 	MustAdd(collections.IstioRbacV1Alpha1Servicerolebindings).
@@ -58,6 +59,11 @@ var SupportedSchemas = collection.NewSchemasBuilder().
 	MustAdd(collections.IstioSecurityV1Beta1Authorizationpolicies).
 	MustAdd(collections.IstioSecurityV1Beta1Peerauthentications).
 	MustAdd(collections.IstioSecurityV1Beta1Requestauthentications).
+	MustAdd(collections.K8SServiceApisV1Alpha1Gatewayclasses).
+	MustAdd(collections.K8SServiceApisV1Alpha1Gateways).
+	MustAdd(collections.K8SServiceApisV1Alpha1Httproutes).
+	MustAdd(collections.K8SServiceApisV1Alpha1Tcproutes).
+	MustAdd(collections.K8SServiceApisV1Alpha1Trafficsplits).
 	Build()
 
 // SupportedTypes maps kind to the resource information for the type.
@@ -192,6 +198,16 @@ var SupportedTypes = map[resource.GroupVersionKind]SchemaType{
 		},
 		Collection: &IstioNetworkingV1Alpha3VirtualservicesList{},
 	},
+	collections.IstioNetworkingV1Alpha3Workloadentries.Resource().GroupVersionKind(): {
+		Schema: collections.IstioNetworkingV1Alpha3Workloadentries,
+		Object: &IstioNetworkingV1Alpha3Workloadentries{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "WorkloadEntry",
+				APIVersion: collections.IstioNetworkingV1Alpha3Workloadentries.Resource().APIVersion(),
+			},
+		},
+		Collection: &IstioNetworkingV1Alpha3WorkloadentriesList{},
+	},
 	collections.IstioRbacV1Alpha1Clusterrbacconfigs.Resource().GroupVersionKind(): {
 		Schema: collections.IstioRbacV1Alpha1Clusterrbacconfigs,
 		Object: &IstioRbacV1Alpha1Clusterrbacconfigs{
@@ -261,6 +277,56 @@ var SupportedTypes = map[resource.GroupVersionKind]SchemaType{
 			},
 		},
 		Collection: &IstioSecurityV1Beta1RequestauthenticationsList{},
+	},
+	collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind(): {
+		Schema: collections.K8SServiceApisV1Alpha1Gatewayclasses,
+		Object: &K8SServiceApisV1Alpha1Gatewayclasses{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "GatewayClass",
+				APIVersion: collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().APIVersion(),
+			},
+		},
+		Collection: &K8SServiceApisV1Alpha1GatewayclassesList{},
+	},
+	collections.K8SServiceApisV1Alpha1Gateways.Resource().GroupVersionKind(): {
+		Schema: collections.K8SServiceApisV1Alpha1Gateways,
+		Object: &K8SServiceApisV1Alpha1Gateways{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Gateway",
+				APIVersion: collections.K8SServiceApisV1Alpha1Gateways.Resource().APIVersion(),
+			},
+		},
+		Collection: &K8SServiceApisV1Alpha1GatewaysList{},
+	},
+	collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(): {
+		Schema: collections.K8SServiceApisV1Alpha1Httproutes,
+		Object: &K8SServiceApisV1Alpha1Httproutes{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "HTTPRoute",
+				APIVersion: collections.K8SServiceApisV1Alpha1Httproutes.Resource().APIVersion(),
+			},
+		},
+		Collection: &K8SServiceApisV1Alpha1HttproutesList{},
+	},
+	collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind(): {
+		Schema: collections.K8SServiceApisV1Alpha1Tcproutes,
+		Object: &K8SServiceApisV1Alpha1Tcproutes{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "TcpRoute",
+				APIVersion: collections.K8SServiceApisV1Alpha1Tcproutes.Resource().APIVersion(),
+			},
+		},
+		Collection: &K8SServiceApisV1Alpha1TcproutesList{},
+	},
+	collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().GroupVersionKind(): {
+		Schema: collections.K8SServiceApisV1Alpha1Trafficsplits,
+		Object: &K8SServiceApisV1Alpha1Trafficsplits{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "TrafficSplit",
+				APIVersion: collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().APIVersion(),
+			},
+		},
+		Collection: &K8SServiceApisV1Alpha1TrafficsplitsList{},
 	},
 }
 
@@ -1603,6 +1669,109 @@ func (in *IstioNetworkingV1Alpha3VirtualservicesList) DeepCopyObject() runtime.O
 	return nil
 }
 
+// IstioNetworkingV1Alpha3Workloadentries is the generic Kubernetes API Object wrapper
+type IstioNetworkingV1Alpha3Workloadentries struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata"`
+	Spec              map[string]interface{} `json:"spec"`
+}
+
+// GetSpec from a wrapper
+func (in *IstioNetworkingV1Alpha3Workloadentries) GetSpec() map[string]interface{} {
+	return in.Spec
+}
+
+// SetSpec for a wrapper
+func (in *IstioNetworkingV1Alpha3Workloadentries) SetSpec(spec map[string]interface{}) {
+	in.Spec = spec
+}
+
+// GetObjectMeta from a wrapper
+func (in *IstioNetworkingV1Alpha3Workloadentries) GetObjectMeta() metav1.ObjectMeta {
+	return in.ObjectMeta
+}
+
+// SetObjectMeta for a wrapper
+func (in *IstioNetworkingV1Alpha3Workloadentries) SetObjectMeta(metadata metav1.ObjectMeta) {
+	in.ObjectMeta = metadata
+}
+
+// IstioNetworkingV1Alpha3WorkloadentriesList is the generic Kubernetes API list wrapper
+type IstioNetworkingV1Alpha3WorkloadentriesList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []IstioNetworkingV1Alpha3Workloadentries `json:"items"`
+}
+
+// GetItems from a wrapper
+func (in *IstioNetworkingV1Alpha3WorkloadentriesList) GetItems() []IstioObject {
+	out := make([]IstioObject, len(in.Items))
+	for i := range in.Items {
+		out[i] = &in.Items[i]
+	}
+	return out
+}
+
+// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *IstioNetworkingV1Alpha3Workloadentries) DeepCopyInto(out *IstioNetworkingV1Alpha3Workloadentries) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	out.Spec = in.Spec
+}
+
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioNetworkingV1Alpha3Workloadentries.
+func (in *IstioNetworkingV1Alpha3Workloadentries) DeepCopy() *IstioNetworkingV1Alpha3Workloadentries {
+	if in == nil {
+		return nil
+	}
+	out := new(IstioNetworkingV1Alpha3Workloadentries)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
+func (in *IstioNetworkingV1Alpha3Workloadentries) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+
+	return nil
+}
+
+// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *IstioNetworkingV1Alpha3WorkloadentriesList) DeepCopyInto(out *IstioNetworkingV1Alpha3WorkloadentriesList) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	out.ListMeta = in.ListMeta
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]IstioNetworkingV1Alpha3Workloadentries, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+}
+
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new IstioNetworkingV1Alpha3WorkloadentriesList.
+func (in *IstioNetworkingV1Alpha3WorkloadentriesList) DeepCopy() *IstioNetworkingV1Alpha3WorkloadentriesList {
+	if in == nil {
+		return nil
+	}
+	out := new(IstioNetworkingV1Alpha3WorkloadentriesList)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
+func (in *IstioNetworkingV1Alpha3WorkloadentriesList) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+
+	return nil
+}
+
 // IstioRbacV1Alpha1Clusterrbacconfigs is the generic Kubernetes API Object wrapper
 type IstioRbacV1Alpha1Clusterrbacconfigs struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -2317,6 +2486,521 @@ func (in *IstioSecurityV1Beta1RequestauthenticationsList) DeepCopy() *IstioSecur
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
 func (in *IstioSecurityV1Beta1RequestauthenticationsList) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+
+	return nil
+}
+
+// K8SServiceApisV1Alpha1Gatewayclasses is the generic Kubernetes API Object wrapper
+type K8SServiceApisV1Alpha1Gatewayclasses struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata"`
+	Spec              map[string]interface{} `json:"spec"`
+}
+
+// GetSpec from a wrapper
+func (in *K8SServiceApisV1Alpha1Gatewayclasses) GetSpec() map[string]interface{} {
+	return in.Spec
+}
+
+// SetSpec for a wrapper
+func (in *K8SServiceApisV1Alpha1Gatewayclasses) SetSpec(spec map[string]interface{}) {
+	in.Spec = spec
+}
+
+// GetObjectMeta from a wrapper
+func (in *K8SServiceApisV1Alpha1Gatewayclasses) GetObjectMeta() metav1.ObjectMeta {
+	return in.ObjectMeta
+}
+
+// SetObjectMeta for a wrapper
+func (in *K8SServiceApisV1Alpha1Gatewayclasses) SetObjectMeta(metadata metav1.ObjectMeta) {
+	in.ObjectMeta = metadata
+}
+
+// K8SServiceApisV1Alpha1GatewayclassesList is the generic Kubernetes API list wrapper
+type K8SServiceApisV1Alpha1GatewayclassesList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []K8SServiceApisV1Alpha1Gatewayclasses `json:"items"`
+}
+
+// GetItems from a wrapper
+func (in *K8SServiceApisV1Alpha1GatewayclassesList) GetItems() []IstioObject {
+	out := make([]IstioObject, len(in.Items))
+	for i := range in.Items {
+		out[i] = &in.Items[i]
+	}
+	return out
+}
+
+// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *K8SServiceApisV1Alpha1Gatewayclasses) DeepCopyInto(out *K8SServiceApisV1Alpha1Gatewayclasses) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	out.Spec = in.Spec
+}
+
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new K8SServiceApisV1Alpha1Gatewayclasses.
+func (in *K8SServiceApisV1Alpha1Gatewayclasses) DeepCopy() *K8SServiceApisV1Alpha1Gatewayclasses {
+	if in == nil {
+		return nil
+	}
+	out := new(K8SServiceApisV1Alpha1Gatewayclasses)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
+func (in *K8SServiceApisV1Alpha1Gatewayclasses) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+
+	return nil
+}
+
+// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *K8SServiceApisV1Alpha1GatewayclassesList) DeepCopyInto(out *K8SServiceApisV1Alpha1GatewayclassesList) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	out.ListMeta = in.ListMeta
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]K8SServiceApisV1Alpha1Gatewayclasses, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+}
+
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new K8SServiceApisV1Alpha1GatewayclassesList.
+func (in *K8SServiceApisV1Alpha1GatewayclassesList) DeepCopy() *K8SServiceApisV1Alpha1GatewayclassesList {
+	if in == nil {
+		return nil
+	}
+	out := new(K8SServiceApisV1Alpha1GatewayclassesList)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
+func (in *K8SServiceApisV1Alpha1GatewayclassesList) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+
+	return nil
+}
+
+// K8SServiceApisV1Alpha1Gateways is the generic Kubernetes API Object wrapper
+type K8SServiceApisV1Alpha1Gateways struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata"`
+	Spec              map[string]interface{} `json:"spec"`
+}
+
+// GetSpec from a wrapper
+func (in *K8SServiceApisV1Alpha1Gateways) GetSpec() map[string]interface{} {
+	return in.Spec
+}
+
+// SetSpec for a wrapper
+func (in *K8SServiceApisV1Alpha1Gateways) SetSpec(spec map[string]interface{}) {
+	in.Spec = spec
+}
+
+// GetObjectMeta from a wrapper
+func (in *K8SServiceApisV1Alpha1Gateways) GetObjectMeta() metav1.ObjectMeta {
+	return in.ObjectMeta
+}
+
+// SetObjectMeta for a wrapper
+func (in *K8SServiceApisV1Alpha1Gateways) SetObjectMeta(metadata metav1.ObjectMeta) {
+	in.ObjectMeta = metadata
+}
+
+// K8SServiceApisV1Alpha1GatewaysList is the generic Kubernetes API list wrapper
+type K8SServiceApisV1Alpha1GatewaysList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []K8SServiceApisV1Alpha1Gateways `json:"items"`
+}
+
+// GetItems from a wrapper
+func (in *K8SServiceApisV1Alpha1GatewaysList) GetItems() []IstioObject {
+	out := make([]IstioObject, len(in.Items))
+	for i := range in.Items {
+		out[i] = &in.Items[i]
+	}
+	return out
+}
+
+// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *K8SServiceApisV1Alpha1Gateways) DeepCopyInto(out *K8SServiceApisV1Alpha1Gateways) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	out.Spec = in.Spec
+}
+
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new K8SServiceApisV1Alpha1Gateways.
+func (in *K8SServiceApisV1Alpha1Gateways) DeepCopy() *K8SServiceApisV1Alpha1Gateways {
+	if in == nil {
+		return nil
+	}
+	out := new(K8SServiceApisV1Alpha1Gateways)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
+func (in *K8SServiceApisV1Alpha1Gateways) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+
+	return nil
+}
+
+// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *K8SServiceApisV1Alpha1GatewaysList) DeepCopyInto(out *K8SServiceApisV1Alpha1GatewaysList) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	out.ListMeta = in.ListMeta
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]K8SServiceApisV1Alpha1Gateways, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+}
+
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new K8SServiceApisV1Alpha1GatewaysList.
+func (in *K8SServiceApisV1Alpha1GatewaysList) DeepCopy() *K8SServiceApisV1Alpha1GatewaysList {
+	if in == nil {
+		return nil
+	}
+	out := new(K8SServiceApisV1Alpha1GatewaysList)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
+func (in *K8SServiceApisV1Alpha1GatewaysList) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+
+	return nil
+}
+
+// K8SServiceApisV1Alpha1Httproutes is the generic Kubernetes API Object wrapper
+type K8SServiceApisV1Alpha1Httproutes struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata"`
+	Spec              map[string]interface{} `json:"spec"`
+}
+
+// GetSpec from a wrapper
+func (in *K8SServiceApisV1Alpha1Httproutes) GetSpec() map[string]interface{} {
+	return in.Spec
+}
+
+// SetSpec for a wrapper
+func (in *K8SServiceApisV1Alpha1Httproutes) SetSpec(spec map[string]interface{}) {
+	in.Spec = spec
+}
+
+// GetObjectMeta from a wrapper
+func (in *K8SServiceApisV1Alpha1Httproutes) GetObjectMeta() metav1.ObjectMeta {
+	return in.ObjectMeta
+}
+
+// SetObjectMeta for a wrapper
+func (in *K8SServiceApisV1Alpha1Httproutes) SetObjectMeta(metadata metav1.ObjectMeta) {
+	in.ObjectMeta = metadata
+}
+
+// K8SServiceApisV1Alpha1HttproutesList is the generic Kubernetes API list wrapper
+type K8SServiceApisV1Alpha1HttproutesList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []K8SServiceApisV1Alpha1Httproutes `json:"items"`
+}
+
+// GetItems from a wrapper
+func (in *K8SServiceApisV1Alpha1HttproutesList) GetItems() []IstioObject {
+	out := make([]IstioObject, len(in.Items))
+	for i := range in.Items {
+		out[i] = &in.Items[i]
+	}
+	return out
+}
+
+// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *K8SServiceApisV1Alpha1Httproutes) DeepCopyInto(out *K8SServiceApisV1Alpha1Httproutes) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	out.Spec = in.Spec
+}
+
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new K8SServiceApisV1Alpha1Httproutes.
+func (in *K8SServiceApisV1Alpha1Httproutes) DeepCopy() *K8SServiceApisV1Alpha1Httproutes {
+	if in == nil {
+		return nil
+	}
+	out := new(K8SServiceApisV1Alpha1Httproutes)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
+func (in *K8SServiceApisV1Alpha1Httproutes) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+
+	return nil
+}
+
+// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *K8SServiceApisV1Alpha1HttproutesList) DeepCopyInto(out *K8SServiceApisV1Alpha1HttproutesList) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	out.ListMeta = in.ListMeta
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]K8SServiceApisV1Alpha1Httproutes, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+}
+
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new K8SServiceApisV1Alpha1HttproutesList.
+func (in *K8SServiceApisV1Alpha1HttproutesList) DeepCopy() *K8SServiceApisV1Alpha1HttproutesList {
+	if in == nil {
+		return nil
+	}
+	out := new(K8SServiceApisV1Alpha1HttproutesList)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
+func (in *K8SServiceApisV1Alpha1HttproutesList) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+
+	return nil
+}
+
+// K8SServiceApisV1Alpha1Tcproutes is the generic Kubernetes API Object wrapper
+type K8SServiceApisV1Alpha1Tcproutes struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata"`
+	Spec              map[string]interface{} `json:"spec"`
+}
+
+// GetSpec from a wrapper
+func (in *K8SServiceApisV1Alpha1Tcproutes) GetSpec() map[string]interface{} {
+	return in.Spec
+}
+
+// SetSpec for a wrapper
+func (in *K8SServiceApisV1Alpha1Tcproutes) SetSpec(spec map[string]interface{}) {
+	in.Spec = spec
+}
+
+// GetObjectMeta from a wrapper
+func (in *K8SServiceApisV1Alpha1Tcproutes) GetObjectMeta() metav1.ObjectMeta {
+	return in.ObjectMeta
+}
+
+// SetObjectMeta for a wrapper
+func (in *K8SServiceApisV1Alpha1Tcproutes) SetObjectMeta(metadata metav1.ObjectMeta) {
+	in.ObjectMeta = metadata
+}
+
+// K8SServiceApisV1Alpha1TcproutesList is the generic Kubernetes API list wrapper
+type K8SServiceApisV1Alpha1TcproutesList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []K8SServiceApisV1Alpha1Tcproutes `json:"items"`
+}
+
+// GetItems from a wrapper
+func (in *K8SServiceApisV1Alpha1TcproutesList) GetItems() []IstioObject {
+	out := make([]IstioObject, len(in.Items))
+	for i := range in.Items {
+		out[i] = &in.Items[i]
+	}
+	return out
+}
+
+// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *K8SServiceApisV1Alpha1Tcproutes) DeepCopyInto(out *K8SServiceApisV1Alpha1Tcproutes) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	out.Spec = in.Spec
+}
+
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new K8SServiceApisV1Alpha1Tcproutes.
+func (in *K8SServiceApisV1Alpha1Tcproutes) DeepCopy() *K8SServiceApisV1Alpha1Tcproutes {
+	if in == nil {
+		return nil
+	}
+	out := new(K8SServiceApisV1Alpha1Tcproutes)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
+func (in *K8SServiceApisV1Alpha1Tcproutes) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+
+	return nil
+}
+
+// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *K8SServiceApisV1Alpha1TcproutesList) DeepCopyInto(out *K8SServiceApisV1Alpha1TcproutesList) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	out.ListMeta = in.ListMeta
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]K8SServiceApisV1Alpha1Tcproutes, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+}
+
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new K8SServiceApisV1Alpha1TcproutesList.
+func (in *K8SServiceApisV1Alpha1TcproutesList) DeepCopy() *K8SServiceApisV1Alpha1TcproutesList {
+	if in == nil {
+		return nil
+	}
+	out := new(K8SServiceApisV1Alpha1TcproutesList)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
+func (in *K8SServiceApisV1Alpha1TcproutesList) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+
+	return nil
+}
+
+// K8SServiceApisV1Alpha1Trafficsplits is the generic Kubernetes API Object wrapper
+type K8SServiceApisV1Alpha1Trafficsplits struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata"`
+	Spec              map[string]interface{} `json:"spec"`
+}
+
+// GetSpec from a wrapper
+func (in *K8SServiceApisV1Alpha1Trafficsplits) GetSpec() map[string]interface{} {
+	return in.Spec
+}
+
+// SetSpec for a wrapper
+func (in *K8SServiceApisV1Alpha1Trafficsplits) SetSpec(spec map[string]interface{}) {
+	in.Spec = spec
+}
+
+// GetObjectMeta from a wrapper
+func (in *K8SServiceApisV1Alpha1Trafficsplits) GetObjectMeta() metav1.ObjectMeta {
+	return in.ObjectMeta
+}
+
+// SetObjectMeta for a wrapper
+func (in *K8SServiceApisV1Alpha1Trafficsplits) SetObjectMeta(metadata metav1.ObjectMeta) {
+	in.ObjectMeta = metadata
+}
+
+// K8SServiceApisV1Alpha1TrafficsplitsList is the generic Kubernetes API list wrapper
+type K8SServiceApisV1Alpha1TrafficsplitsList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []K8SServiceApisV1Alpha1Trafficsplits `json:"items"`
+}
+
+// GetItems from a wrapper
+func (in *K8SServiceApisV1Alpha1TrafficsplitsList) GetItems() []IstioObject {
+	out := make([]IstioObject, len(in.Items))
+	for i := range in.Items {
+		out[i] = &in.Items[i]
+	}
+	return out
+}
+
+// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *K8SServiceApisV1Alpha1Trafficsplits) DeepCopyInto(out *K8SServiceApisV1Alpha1Trafficsplits) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	out.Spec = in.Spec
+}
+
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new K8SServiceApisV1Alpha1Trafficsplits.
+func (in *K8SServiceApisV1Alpha1Trafficsplits) DeepCopy() *K8SServiceApisV1Alpha1Trafficsplits {
+	if in == nil {
+		return nil
+	}
+	out := new(K8SServiceApisV1Alpha1Trafficsplits)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
+func (in *K8SServiceApisV1Alpha1Trafficsplits) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+
+	return nil
+}
+
+// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *K8SServiceApisV1Alpha1TrafficsplitsList) DeepCopyInto(out *K8SServiceApisV1Alpha1TrafficsplitsList) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	out.ListMeta = in.ListMeta
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]K8SServiceApisV1Alpha1Trafficsplits, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+}
+
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new K8SServiceApisV1Alpha1TrafficsplitsList.
+func (in *K8SServiceApisV1Alpha1TrafficsplitsList) DeepCopy() *K8SServiceApisV1Alpha1TrafficsplitsList {
+	if in == nil {
+		return nil
+	}
+	out := new(K8SServiceApisV1Alpha1TrafficsplitsList)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
+func (in *K8SServiceApisV1Alpha1TrafficsplitsList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}

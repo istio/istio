@@ -18,15 +18,16 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/ghodss/yaml"
 
-	"istio.io/istio/operator/pkg/vfs"
-	"istio.io/istio/operator/version"
-
 	"istio.io/api/operator/v1alpha1"
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/operator/pkg/vfs"
+	"istio.io/istio/operator/version"
 )
 
 const (
@@ -49,10 +50,8 @@ const (
 	// are used for struct traversal.
 	IstioBaseComponentName ComponentName = "Base"
 	PilotComponentName     ComponentName = "Pilot"
-	GalleyComponentName    ComponentName = "Galley"
 	PolicyComponentName    ComponentName = "Policy"
 	TelemetryComponentName ComponentName = "Telemetry"
-	CitadelComponentName   ComponentName = "Citadel"
 
 	CNIComponentName ComponentName = "Cni"
 
@@ -70,18 +69,15 @@ const (
 
 // ComponentNamesConfig is used for unmarshaling legacy and addon naming data.
 type ComponentNamesConfig struct {
-	BundledAddonComponentNames []string
-	DeprecatedComponentNames   []string
+	DeprecatedComponentNames []string
 }
 
 var (
 	AllCoreComponentNames = []ComponentName{
 		IstioBaseComponentName,
 		PilotComponentName,
-		GalleyComponentName,
 		PolicyComponentName,
 		TelemetryComponentName,
-		CitadelComponentName,
 		CNIComponentName,
 	}
 	allComponentNamesMap = make(map[ComponentName]bool)
@@ -97,6 +93,8 @@ var (
 	// ValuesEnablementPathMap defines a mapping between legacy values enablement paths and the corresponding enablement
 	// paths in IstioOperator.
 	ValuesEnablementPathMap = make(map[string]string)
+
+	scanAddons sync.Once
 )
 
 func init() {
@@ -112,14 +110,19 @@ func init() {
 // ManifestMap is a map of ComponentName to its manifest string.
 type ManifestMap map[ComponentName][]string
 
+func (mm ManifestMap) String() string {
+	out := ""
+	for _, ms := range mm {
+		for _, m := range ms {
+			out += m + helm.YAMLSeparator
+		}
+	}
+	return out
+}
+
 // IsCoreComponent reports whether cn is a core component.
 func (cn ComponentName) IsCoreComponent() bool {
 	return allComponentNamesMap[cn]
-}
-
-// IsDeprecatedName reports whether cn is a deprecated component.
-func (cn ComponentName) IsDeprecatedName() bool {
-	return DeprecatedComponentNamesMap[cn]
 }
 
 // IsGateway reports whether cn is a gateway component.
@@ -183,9 +186,6 @@ func loadComponentNamesConfig() error {
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal naming config file: %v", err)
 	}
-	for _, an := range namesConfig.BundledAddonComponentNames {
-		BundledAddonComponentNamesMap[ComponentName(an)] = true
-	}
 	for _, n := range namesConfig.DeprecatedComponentNames {
 		DeprecatedComponentNamesMap[ComponentName(n)] = true
 	}
@@ -193,12 +193,33 @@ func loadComponentNamesConfig() error {
 }
 
 func generateValuesEnablementMap() {
-	for n := range BundledAddonComponentNamesMap {
-		cn := strings.ToLower(string(n))
-		valuePath := fmt.Sprintf("spec.values.%s.enabled", cn)
-		iopPath := fmt.Sprintf("spec.addonComponents.%s.enabled", cn)
-		ValuesEnablementPathMap[valuePath] = iopPath
-	}
 	ValuesEnablementPathMap["spec.values.gateways.istio-ingressgateway.enabled"] = "spec.components.ingressGateways.[name:istio-ingressgateway].enabled"
 	ValuesEnablementPathMap["spec.values.gateways.istio-egressgateway.enabled"] = "spec.components.egressGateways.[name:istio-egressgateway].enabled"
+}
+
+var onceErr error
+
+func ScanBundledAddonComponents(chartsRootDir string) error {
+	scanAddons.Do(func() {
+		if chartsRootDir == "" {
+			if onceErr = helm.CheckCompiledInCharts(); onceErr != nil {
+				return
+			}
+		}
+
+		var addonComponentNames []string
+		addonComponentNames, onceErr = helm.GetAddonNamesFromCharts(chartsRootDir, true)
+		if onceErr != nil {
+			onceErr = fmt.Errorf("failed to scan bundled addon components: %v", onceErr)
+			return
+		}
+		for _, an := range addonComponentNames {
+			BundledAddonComponentNamesMap[ComponentName(an)] = true
+			enablementName := strings.ToLower(an[:1]) + an[1:]
+			valuePath := fmt.Sprintf("spec.values.%s.enabled", enablementName)
+			iopPath := fmt.Sprintf("spec.addonComponents.%s.enabled", enablementName)
+			ValuesEnablementPathMap[valuePath] = iopPath
+		}
+	})
+	return onceErr
 }

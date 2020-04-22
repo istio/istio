@@ -20,10 +20,11 @@ import (
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	istioMixerV1 "istio.io/api/mixer/v1"
+
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 type Instance interface {
@@ -41,6 +42,8 @@ type CheckResponse struct {
 
 type Config struct {
 	Galley galley.Instance
+	// Cluster to be used in a multicluster environment
+	Cluster resource.Cluster
 }
 
 // Succeeded returns true if the precondition check was successful.

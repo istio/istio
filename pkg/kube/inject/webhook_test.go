@@ -27,31 +27,31 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/operator/pkg/tpath"
+	"github.com/gogo/protobuf/types"
+
+	meshconfig "istio.io/api/mesh/v1alpha1"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
-
-	"istio.io/istio/operator/pkg/name"
-
-	"istio.io/api/annotation"
-
-	operator "istio.io/istio/operator/cmd/mesh"
-
-	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/mcp/testing/testcerts"
-
 	"k8s.io/api/admission/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+
+	"istio.io/api/annotation"
+	operatormesh "istio.io/istio/operator/cmd/mesh"
+	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/tpath"
+	util2 "istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/mcp/testing/testcerts"
 )
 
 const yamlSeparator = "\n---"
@@ -519,6 +519,7 @@ func TestInjectRequired(t *testing.T) {
 }
 
 func TestWebhookInject(t *testing.T) {
+	mesh.TestMode = true
 	cases := []struct {
 		inputFile    string
 		wantFile     string
@@ -547,10 +548,6 @@ func TestWebhookInject(t *testing.T) {
 		{
 			inputFile: "TestWebhookInject_no_volumes_imagePullSecrets.yaml",
 			wantFile:  "TestWebhookInject_no_volumes_imagePullSecrets.patch",
-		},
-		{
-			inputFile: "TestWebhookInject_no_containers_volumes_imagePullSecrets.yaml",
-			wantFile:  "TestWebhookInject_no_containers_volumes_imagePullSecrets.patch",
 		},
 		{
 			inputFile: "TestWebhookInject_no_containers_volumes.yaml",
@@ -638,6 +635,11 @@ func TestWebhookInject(t *testing.T) {
 			inputFile:    "TestWebhookInject_validationOrder.yaml",
 			wantFile:     "TestWebhookInject_validationOrder.patch",
 			templateFile: "TestWebhookInject_validationOrder_template.yaml",
+		},
+		{
+			inputFile:    "TestWebhookInject_probe_rewrite_timeout_retention.yaml",
+			wantFile:     "TestWebhookInject_probe_rewrite_timeout_retention.patch",
+			templateFile: "TestWebhookInject_probe_rewrite_timeout_retention_template.yaml",
 		},
 	}
 
@@ -883,11 +885,19 @@ func createTestWebhookFromHelmConfigMap(t *testing.T) (*Webhook, func()) {
 // This allows us to fully simulate what will actually happen at run time.
 func loadInjectionConfigMap(t testing.TB, settings string) (template *Config, values string) {
 	t.Helper()
+	// add --set installPackagePath=<path to charts snapshot>
+	installPackagePathYAML := "installPackagePath: " + defaultInstallPackageDir()
+	settings, err := util2.OverlayYAML(settings, installPackagePathYAML)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	oy, err := tpath.AddSpecRoot(settings)
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifests, _, err := operator.GenManifests(nil, oy, false, nil, nil)
+	l := operatormesh.NewLogger(true, os.Stdout, os.Stderr)
+	manifests, _, err := operatormesh.GenManifests(nil, oy, false, nil, l)
 	if err != nil {
 		t.Fatalf("failed to generate manifests: %v", err)
 	}
@@ -1260,6 +1270,8 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 }
 
 func TestRunAndServe(t *testing.T) {
+	// TODO: adjust the test to match prod defaults instead of fake defaults.
+	mesh.TestMode = true
 	wh, cleanup := createWebhook(t, minimalSidecarTemplate)
 	defer cleanup()
 	stop := make(chan struct{})
@@ -1309,15 +1321,35 @@ func TestRunAndServe(t *testing.T) {
       "op":"add",
       "path":"/metadata/annotations",
       "value":{
-         "sidecar.istio.io/status":"{\"version\":\"461c380844de8df1d1e2a80a09b6d7b58b8313c4a7d6796530eb124740a1440f\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
+         "prometheus.io/path":"/stats/prometheus"
       }
    },
    {
       "op": "add",
-      "path": "/metadata/labels",
-      "value": {
-         "security.istio.io/tlsMode": "istio"
+      "path": "/metadata/annotations/prometheus.io~1port",
+      "value": "15020"
+   },
+   {
+      "op": "add",
+      "path": "/metadata/annotations/prometheus.io~1scrape",
+      "value": "true"
+   },
+   {
+      "op":"add",
+      "path":"/metadata/annotations/sidecar.istio.io~1status",
+      "value": "{\"version\":\"461c380844de8df1d1e2a80a09b6d7b58b8313c4a7d6796530eb124740a1440f\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
+   },
+    {
+      "op":"add",
+      "path":"/metadata/labels",
+      "value":{
+         "istio.io/rev":""
       }
+    },
+    {
+      "op":"add",
+      "path":"/metadata/labels/security.istio.io~1tlsMode",
+      "value":"istio"
     },
     {
       "op": "add",
@@ -1515,4 +1547,60 @@ func BenchmarkInjectServe(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		wh.serveInject(httptest.NewRecorder(), req)
 	}
+}
+
+func TestEnablePrometheusAggregation(t *testing.T) {
+	tests := []struct {
+		name string
+		mesh *meshconfig.MeshConfig
+		anno map[string]string
+		want bool
+	}{
+		{
+			"no settings",
+			nil,
+			nil,
+			true,
+		},
+		{
+			"mesh on",
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: true}},
+			nil,
+			true,
+		},
+		{
+			"mesh off",
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: false}},
+			nil,
+			false,
+		},
+		{
+			"annotation on",
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: false}},
+			map[string]string{annotation.PrometheusMergeMetrics.Name: "true"},
+			true,
+		},
+		{
+			"annotation off",
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: true}},
+			map[string]string{annotation.PrometheusMergeMetrics.Name: "false"},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := enablePrometheusMerge(tt.mesh, tt.anno); got != tt.want {
+				t.Errorf("enablePrometheusMerge() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// defaultInstallPackageDir returns a path to a snapshot of the helm charts used for testing.
+func defaultInstallPackageDir() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	return filepath.Join(wd, "../../../operator/cmd/mesh/testdata/manifest-generate/data-snapshot")
 }

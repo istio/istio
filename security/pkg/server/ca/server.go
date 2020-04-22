@@ -34,7 +34,8 @@ import (
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	pb "istio.io/istio/security/proto"
 	"istio.io/pkg/log"
-	"istio.io/pkg/version"
+
+	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 )
 
 // Config for Vault prototyping purpose
@@ -86,6 +87,7 @@ type Server struct {
 // it is signed by the CA signing key.
 func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertificateRequest) (
 	*pb.IstioCertificateResponse, error) {
+	s.monitoring.CSR.Increment()
 	caller := s.authenticate(ctx)
 	if caller == nil {
 		serverCaLog.Warn("request authentication failure")
@@ -111,6 +113,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	response := &pb.IstioCertificateResponse{
 		CertChain: respCertChain,
 	}
+	s.monitoring.Success.Increment()
 	serverCaLog.Debug("CSR successfully signed.")
 
 	return response, nil
@@ -221,13 +224,13 @@ func (s *Server) Run() error {
 
 // New creates a new instance of `IstioCAServiceServer`.
 func New(ca CertificateAuthority, ttl time.Duration, forCA bool,
-	hostlist []string, port int, trustDomain string, sdsEnabled bool, jwtPolicy string) (*Server, error) {
-	return NewWithGRPC(nil, ca, ttl, forCA, hostlist, port, trustDomain, sdsEnabled, jwtPolicy)
+	hostlist []string, port int, trustDomain string, sdsEnabled bool, jwtPolicy, clusterID string) (*Server, error) {
+	return NewWithGRPC(nil, nil, ca, ttl, forCA, hostlist, port, trustDomain, sdsEnabled, jwtPolicy, "")
 }
 
 // New creates a new instance of `IstioCAServiceServer`, running inside an existing gRPC server.
-func NewWithGRPC(grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, forCA bool,
-	hostlist []string, port int, trustDomain string, sdsEnabled bool, jwtPolicy string) (*Server, error) {
+func NewWithGRPC(mc *kubecontroller.Multicluster, grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, forCA bool,
+	hostlist []string, port int, trustDomain string, sdsEnabled bool, jwtPolicy, clusterID string) (*Server, error) {
 
 	if len(hostlist) == 0 {
 		return nil, fmt.Errorf("failed to create grpc server hostlist empty")
@@ -240,8 +243,8 @@ func NewWithGRPC(grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, 
 
 	// Only add k8s jwt authenticator if SDS is enabled.
 	if sdsEnabled {
-		authenticator, err := authenticate.NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath,
-			trustDomain, jwtPolicy)
+		authenticator, err := authenticate.NewKubeJWTAuthenticator(mc, k8sAPIServerURL, caCertPath, jwtPath,
+			trustDomain, jwtPolicy, clusterID)
 		if err == nil {
 			authenticators = append(authenticators, authenticator)
 			serverCaLog.Info("added K8s JWT authenticator")
@@ -263,7 +266,6 @@ func NewWithGRPC(grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, 
 		}
 	}
 
-	version.Info.RecordComponentBuildTag("citadel")
 	rootCertExpiryTimestamp.Record(extractRootCertExpiryTimestamp(ca))
 
 	server := &Server{

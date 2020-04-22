@@ -15,6 +15,7 @@
 package multicluster
 
 import (
+	context2 "context"
 	"crypto/x509"
 	"fmt"
 
@@ -37,8 +38,8 @@ type Cluster struct {
 	// the current kubeconfig file. It is essentially the human friendly display
 	// name. It can be changed by the user with`kubectl config rename-context`.
 	Context string
-	// uuid of kube-system Namespace. Fixed for the lifetime of cluster.
-	uid types.UID
+	// generated cluster name. The uuid of kube-system Namespace. Fixed for the lifetime of cluster.
+	clusterName string
 	// TODO - differentiate NO_INSTALL, REMOTE, and MASTER
 	installed bool
 	client    kubernetes.Interface
@@ -51,7 +52,7 @@ const (
 // Use UUID of kube-system Namespace as unique identifier for cluster.
 // (see https://docs.google.com/document/d/1F__vEKeI41P7PPUCMM9PVPYY34pyrvQI5rbTJVnS5c4)
 func clusterUID(client kubernetes.Interface) (types.UID, error) {
-	kubeSystem, err := client.CoreV1().Namespaces().Get("kube-system", metav1.GetOptions{})
+	kubeSystem, err := client.CoreV1().Namespaces().Get(context2.TODO(), "kube-system", metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -78,7 +79,7 @@ func NewCluster(context string, desc ClusterDesc, env Environment) (*Cluster, er
 
 	// use the existence of pilot as assurance the control plane is present in the specified namespace.
 	var installed bool
-	_, err = client.CoreV1().Namespaces().Get(desc.Namespace, metav1.GetOptions{})
+	_, err = client.CoreV1().Namespaces().Get(context2.TODO(), desc.Namespace, metav1.GetOptions{})
 	switch {
 	case kerrors.IsNotFound(err):
 		installed = false
@@ -91,14 +92,14 @@ func NewCluster(context string, desc ClusterDesc, env Environment) (*Cluster, er
 	return &Cluster{
 		ClusterDesc: desc,
 		Context:     context,
-		uid:         uid,
+		clusterName: string(uid),
 		client:      client,
 		installed:   installed,
 	}, nil
 }
 
 func (c *Cluster) String() string {
-	return fmt.Sprintf("%v (%v)", c.uid, c.Context)
+	return fmt.Sprintf("%v (%v)", c.clusterName, c.Context)
 }
 
 type CACerts struct {
@@ -120,28 +121,28 @@ func extractCert(filename string, secret *v1.Secret) (*x509.Certificate, error) 
 	return cert, nil
 }
 
-type remoteSecrets map[types.UID]*v1.Secret
+type remoteSecrets map[string]*v1.Secret
 
 func (c *Cluster) readRemoteSecrets(env Environment) remoteSecrets {
 	secretMap := make(remoteSecrets)
 	listOptions := metav1.ListOptions{
 		LabelSelector: fields.SelectorFromSet(fields.Set{secretcontroller.MultiClusterSecretLabel: "true"}).String(),
 	}
-	secrets, err := c.client.CoreV1().Secrets(c.Namespace).List(listOptions)
+	secrets, err := c.client.CoreV1().Secrets(c.Namespace).List(context2.TODO(), listOptions)
 	if err != nil {
 		env.Errorf("error: could not list secrets in cluster %v: %v\n", c, err)
 		return secretMap
 	}
 	for i := range secrets.Items {
 		secret := &secrets.Items[i]
-		secretMap[uidFromRemoteSecretName(secret.Name)] = secret
+		secretMap[clusterNameFromRemoteSecretName(secret.Name)] = secret
 	}
 	return secretMap
 }
 
 func (c *Cluster) readCACerts(env Environment) *CACerts {
 	cs := &CACerts{}
-	externalCASecret, err := c.client.CoreV1().Secrets(c.Namespace).Get("cacerts", metav1.GetOptions{})
+	externalCASecret, err := c.client.CoreV1().Secrets(c.Namespace).Get(context2.TODO(), "cacerts", metav1.GetOptions{})
 	if err == nil {
 		if cs.externalCACert, err = extractCert("ca-cert.pem", externalCASecret); err != nil {
 			env.Errorf("error: %v\n", err)
@@ -150,7 +151,7 @@ func (c *Cluster) readCACerts(env Environment) *CACerts {
 			env.Errorf("error: %v\n", err)
 		}
 	}
-	selfSignedCASecret, err := c.client.CoreV1().Secrets(c.Namespace).Get("istio-ca-secret", metav1.GetOptions{})
+	selfSignedCASecret, err := c.client.CoreV1().Secrets(c.Namespace).Get(context2.TODO(), "istio-ca-secret", metav1.GetOptions{})
 	if err == nil {
 		if cs.selfSignedCACert, err = extractCert("ca-cert.pem", selfSignedCASecret); err != nil {
 			env.Errorf("error: %v\n", err)
@@ -183,7 +184,7 @@ const (
 )
 
 func (c *Cluster) readIngressGateways() []*Gateway {
-	ingress, err := c.client.CoreV1().Services(c.Namespace).Get(istioIngressGatewayServiceName, metav1.GetOptions{})
+	ingress, err := c.client.CoreV1().Services(c.Namespace).Get(context2.TODO(), istioIngressGatewayServiceName, metav1.GetOptions{})
 	if err != nil {
 		return nil
 	}

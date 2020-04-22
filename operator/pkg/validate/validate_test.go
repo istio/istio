@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util"
 )
 
@@ -39,6 +40,24 @@ components:
   sidecarInjector:
     enabled: true
 `,
+		},
+		{
+			desc: "complicated k8s overlay",
+			yamlStr: `
+profile: default
+components:
+  ingressGateways:
+  - enabled: true
+    k8s:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: zone
+                operator: In
+                values:
+                - istio`,
 		},
 		{
 			desc: "CommonConfig",
@@ -105,10 +124,31 @@ hub: docker.io:tag/istio
 			wantErrs: makeErrors([]string{`invalid value Hub: docker.io:tag/istio`}),
 		},
 		{
+			desc: "BadAddonComponentName",
+			yamlStr: `
+addonComponents:
+  Prometheus:
+    enabled: false
+`,
+			wantErrs: makeErrors([]string{`invalid addon component name: Prometheus, expect component name starting with lower-case character`}),
+		},
+
+		{
 			desc: "GoodURL",
 			yamlStr: `
 installPackagePath: /local/file/path
 `,
+		},
+		{
+			desc: "BadGatewayName",
+			yamlStr: `
+components:
+  ingressGateways:
+  - namespace: istio-ingress-ns2
+    name: istio@ingress-1
+    enabled: true
+`,
+			wantErrs: makeErrors([]string{`invalid value Components.IngressGateways[0].Name: istio@ingress-1`}),
 		},
 		{
 			desc: "BadValuesIP",
@@ -127,9 +167,31 @@ values:
   global:
     proxy:
       includeIPRanges: ""
-      includeInboundPorts: "*"
 `,
 		},
+		{
+			desc: "Bad mesh config",
+			yamlStr: `
+meshConfig:
+  defaultConfig:
+    discoveryAddress: missingport
+`,
+			wantErrs: makeErrors([]string{`1 error occurred:
+	* invalid discovery address: unable to split "missingport": address missingport: missing port in address
+
+`}),
+		},
+		{
+			desc: "Good mesh config",
+			yamlStr: `
+meshConfig:
+  defaultConfig:
+    discoveryAddress: istiod:15012
+`,
+		},
+	}
+	if err := name.ScanBundledAddonComponents("../../cmd/mesh/testdata/manifest-generate/data-snapshot"); err != nil {
+		t.Fatal(err)
 	}
 
 	for _, tt := range tests {
@@ -139,6 +201,7 @@ values:
 			if err != nil {
 				t.Fatalf("unmarshalWithJSONPB(%s): got error %s", tt.desc, err)
 			}
+
 			errs := CheckIstioOperatorSpec(ispec, false)
 			if gotErrs, wantErrs := errs, tt.wantErrs; !util.EqualErrors(gotErrs, wantErrs) {
 				t.Errorf("ProtoToValues(%s)(%v): gotErrs:%s, wantErrs:%s", tt.desc, tt.yamlStr, gotErrs, wantErrs)

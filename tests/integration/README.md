@@ -570,7 +570,7 @@ The test framework supports the following command-line flags:
         Common image pull policy to use when deploying container images
 
   -istio.test.kube.config string
-        The path to the kube config file for cluster environments
+        A comma-seperated list of paths to kube config files for cluster environments. (default ~/.kube/config)
 
   -istio.test.kube.deploy
         Deploy Istio into the target Kubernetes environment. (default true)
@@ -584,14 +584,11 @@ The test framework supports the following command-line flags:
   -istio.test.kube.systemNamespace string
         The namespace where the Istio components reside in a typical deployment. (default "istio-system")
 
-  -istio.test.kube.helm.chartDir string
-        Helm chart dir for Istio. Only valid when deploying Istio. (default "/Users/ozben/go/src/istio.io/istio/install/kubernetes/helm/istio")
-
   -istio.test.kube.helm.values string
         Manual overrides for Helm values file. Only valid when deploying Istio.
 
-  -istio.test.kube.helm.valuesFile string
-        Helm values file. This can be an absolute path or relative to chartDir. Only valid when deploying Istio. (default "test-values/values-e2e.yaml")
+  -istio.test.kube.helm.iopFile string
+        IstioOperator spec file. This can be an absolute path or relative to the repository root. Defaults to "tests/integration/iop-integration-test-defaults.yaml".
 
   -istio.test.kube.minikube
         Indicates that the target environment is Minikube. Used by Ingress component to obtain the right IP address. This also pertains to any environment that doesn't support a LoadBalancer type.

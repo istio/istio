@@ -128,43 +128,57 @@ func convertServices(cfg model.Config) []*model.Service {
 }
 
 func convertEndpoint(service *model.Service, servicePort *networking.Port,
-	endpoint *networking.ServiceEntry_Endpoint) *model.ServiceInstance {
+	endpoint *networking.WorkloadEntry, tlsMode string) *model.ServiceInstance {
 	var instancePort uint32
-	var family model.AddressFamily
 	addr := endpoint.GetAddress()
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
 		instancePort = 0
-		family = model.AddressFamilyUnix
 		addr = strings.TrimPrefix(addr, model.UnixAddressPrefix)
 	} else {
 		instancePort = endpoint.Ports[servicePort.Name]
 		if instancePort == 0 {
 			instancePort = servicePort.Number
 		}
-		family = model.AddressFamilyTCP
 	}
-
-	tlsMode := model.GetTLSModeFromEndpointLabels(endpoint.Labels)
 
 	return &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
 			Address:         addr,
-			Family:          family,
 			EndpointPort:    instancePort,
 			ServicePortName: servicePort.Name,
 			Network:         endpoint.Network,
-			Locality:        endpoint.Locality,
-			LbWeight:        endpoint.Weight,
-			Labels:          endpoint.Labels,
-			TLSMode:         tlsMode,
-			Attributes: model.ServiceAttributes{
-				Name:      service.Attributes.Name,
-				Namespace: service.Attributes.Namespace,
+			Locality: model.Locality{
+				Label: endpoint.Locality,
 			},
+			LbWeight: endpoint.Weight,
+			Labels:   endpoint.Labels,
+			TLSMode:  tlsMode,
 		},
 		Service:     service,
 		ServicePort: convertPort(servicePort),
 	}
+}
+
+// convertWorkloadInstances translates a WorkloadEntry into ServiceInstances. This logic is largely the
+// same as the ServiceEntry convertInstances.
+func convertWorkloadInstances(wle *networking.WorkloadEntry, services []*model.Service, se *networking.ServiceEntry) []*model.ServiceInstance {
+	out := make([]*model.ServiceInstance, 0)
+	for _, service := range services {
+		for _, port := range se.Ports {
+
+			// * Use security.istio.io/tlsMode if its present
+			// * If not, set TLS mode if ServiceAccount is specified
+			tlsMode := model.DisabledTLSModeLabel
+			if val, exists := wle.Labels[model.TLSModeLabelName]; exists {
+				tlsMode = val
+			} else if wle.ServiceAccount != "" {
+				tlsMode = model.IstioMutualTLSModeLabel
+			}
+			ep := convertEndpoint(service, port, wle, tlsMode)
+			out = append(out, ep)
+		}
+	}
+	return out
 }
 
 func convertInstances(cfg model.Config, services []*model.Service) []*model.ServiceInstance {
@@ -188,17 +202,14 @@ func convertInstances(cfg model.Config, services []*model.Service) []*model.Serv
 						ServicePortName: serviceEntryPort.Name,
 						Labels:          nil,
 						TLSMode:         model.DisabledTLSModeLabel,
-						Attributes: model.ServiceAttributes{
-							Name:      service.Attributes.Name,
-							Namespace: service.Attributes.Namespace,
-						},
 					},
 					Service:     service,
 					ServicePort: convertPort(serviceEntryPort),
 				})
 			} else {
 				for _, endpoint := range serviceEntry.Endpoints {
-					out = append(out, convertEndpoint(service, serviceEntryPort, endpoint))
+					tlsMode := model.GetTLSModeFromEndpointLabels(endpoint.Labels)
+					out = append(out, convertEndpoint(service, serviceEntryPort, endpoint, tlsMode))
 				}
 			}
 		}

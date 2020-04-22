@@ -26,7 +26,7 @@ import (
 func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, version string) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
 	pushStart := time.Now()
-	rawListeners := s.generateRawListeners(con, push)
+	rawListeners := s.ConfigGenerator.BuildListeners(con.node, push)
 
 	if s.DebugConfigs {
 		con.LDSListeners = rawListeners
@@ -43,20 +43,6 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, v
 
 	adsLog.Infof("LDS: PUSH for node:%s listeners:%d", con.node.ID, len(rawListeners))
 	return nil
-}
-
-func (s *DiscoveryServer) generateRawListeners(con *XdsConnection, push *model.PushContext) []*xdsapi.Listener {
-	rawListeners := s.ConfigGenerator.BuildListeners(con.node, push)
-
-	for _, l := range rawListeners {
-		if err := l.Validate(); err != nil {
-			adsLog.Errorf("LDS: Generated invalid listener for node:%s: %v, %v", con.node.ID, err, l)
-			ldsBuildErrPushes.Increment()
-			// Generating invalid listeners is a bug.
-			// Instead of panic, which will break down the whole cluster. Just ignore it here, let envoy process it.
-		}
-	}
-	return rawListeners
 }
 
 // LdsDiscoveryResponse returns a list of listeners for the given environment and source node.

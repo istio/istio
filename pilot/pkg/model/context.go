@@ -23,9 +23,12 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -97,6 +100,17 @@ func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxy *Pro
 	}
 }
 
+// Request is an alias for array of marshaled resources.
+type Resources = []*any.Any
+
+// XdsResourceGenerator creates the response for a typeURL DiscoveryRequest. If no generator is associated
+// with a Proxy, the default (a networking.core.ConfigGenerator instance) will be used.
+// The server may associate a different generator based on client metadata. Different
+// WatchedResources may use same or different Generator.
+type XdsResourceGenerator interface {
+	Generate(proxy *Proxy, push *PushContext, w *WatchedResource) Resources
+}
+
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
 // etc). The Proxy is initialized when a sidecar connects to Pilot, and populated from
 // 'node' info in the protocol as well as data extracted from registries.
@@ -141,6 +155,9 @@ type Proxy struct {
 	// the sidecarScope associated with the proxy
 	SidecarScope *SidecarScope
 
+	// the sidecarScope associated with the proxy previously
+	PrevSidecarScope *SidecarScope
+
 	// The merged gateways associated with the proxy if this is a Router
 	MergedGateway *MergedGateway
 
@@ -149,6 +166,58 @@ type Proxy struct {
 
 	// Istio version associated with the Proxy
 	IstioVersion *IstioVersion
+
+	// Indicates wheteher proxy supports IPv6 addresses
+	ipv6Support bool
+
+	// Indicates wheteher proxy supports IPv4 addresses
+	ipv4Support bool
+
+	// GlobalUnicastIP stores the globacl unicast IP if available, otherwise nil
+	GlobalUnicastIP string
+
+	// XdsResourceGenerator is used to generate resources for the node, based on the PushContext.
+	// If nil, the default networking/core v2 generator is used. This field can be set
+	// at connect time, based on node metadata, to trigger generation of a different style
+	// of configuration.
+	XdsResourceGenerator XdsResourceGenerator
+
+	// Active contains the list of watched resources for the proxy, keyed by the DiscoveryRequest type.
+	// It is nil if the Proxy uses the default generator
+	Active map[string]*WatchedResource
+}
+
+// VersionNonce holds information about ack/nack status in the protocol.
+type VersionNonce struct {
+	Version string
+	Nonce   string
+}
+
+// WatchedResource tracks an active DiscoveryRequest type.
+type WatchedResource struct {
+	// TypeUrl is copied from the DiscoveryRequest.TypeUrl that initiated watching this resource.
+	// nolint
+	TypeUrl string
+
+	// ResourceNames tracks the list of resources that are actively watched. If empty, all resources of the
+	// TypeUrl type are watched.
+	ResourceNames []string
+
+	// CurrentVersionNonce is the version and nonce sent to a client.
+	CurrentVersionNonce VersionNonce
+
+	// LastVersionNonce is the last version and nonce acked/nacked by the client. If different from CurrentVersionNonce
+	// the client is still processing the request and didn't ack/nack.
+	LastVersionNonce VersionNonce
+
+	// LastSent tracks the time of the generated push, to determine the time it takes the client to ack.
+	LastSent time.Time
+
+	// Updates count the number of generated updates for the resource
+	Updates int
+
+	// LastSize tracks the size of the last update
+	LastSize int
 }
 
 var (
@@ -240,12 +309,36 @@ func (s *StringBool) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// ProxyConfig can only be marshaled using (gogo) jsonpb. However, the rest of node meta is not a proto
+// To allow marshaling, we need to define a custom type that calls out to the gogo marshaller
+type NodeMetaProxyConfig meshconfig.ProxyConfig
+
+func (s NodeMetaProxyConfig) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	pc := meshconfig.ProxyConfig(s)
+	if err := (&gogojsonpb.Marshaler{}).Marshal(&buf, &pc); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (s *NodeMetaProxyConfig) UnmarshalJSON(data []byte) error {
+	pc := (*meshconfig.ProxyConfig)(s)
+	return gogojsonpb.Unmarshal(bytes.NewReader(data), pc)
+}
+
 // NodeMetadata defines the metadata associated with a proxy
 // Fields should not be assumed to exist on the proxy, especially newly added fields which will not exist
 // on older versions.
 // The JSON field names should never change, as they are needed for backward compatibility with older proxies
 // nolint: maligned
 type NodeMetadata struct {
+	// ProxyConfig defines the proxy config specified for a proxy.
+	// Note that this setting may be configured different for each proxy, due user overrides
+	// or from different versions of proxies connecting. While Pilot has access to the meshConfig.defaultConfig,
+	// this field should be preferred if it is present.
+	ProxyConfig *NodeMetaProxyConfig `json:"PROXY_CONFIG,omitempty"`
+
 	// IstioVersion specifies the Istio version associated with the proxy
 	IstioVersion string `json:"ISTIO_VERSION,omitempty"`
 
@@ -307,9 +400,6 @@ type NodeMetadata struct {
 	// PodPorts defines the ports on a pod. This is used to lookup named ports.
 	PodPorts PodPortList `json:"POD_PORTS,omitempty"`
 
-	// CanonicalTelemetryService specifies the service name to use for all node telemetry.
-	CanonicalTelemetryService string `json:"CANONICAL_TELEMETRY_SERVICE,omitempty"`
-
 	// LocalityLabel defines the locality specified for the pod
 	LocalityLabel string `json:"istio-locality,omitempty"`
 
@@ -338,9 +428,8 @@ type NodeMetadata struct {
 
 	// SdsTokenPath specifies the path of the SDS token used by the Envoy proxy.
 	// If not set, Pilot uses the default SDS token path.
-	SdsTokenPath string     `json:"SDS_TOKEN_PATH,omitempty"`
-	UserSds      StringBool `json:"USER_SDS,omitempty"`
-	SdsBase      string     `json:"BASE,omitempty"`
+	SdsTokenPath string `json:"SDS_TOKEN_PATH,omitempty"`
+	SdsBase      string `json:"BASE,omitempty"`
 	// SdsEnabled indicates if SDS is enabled or not. This is are set to "1" if true
 	SdsEnabled StringBool `json:"SDS,omitempty"`
 	// SdsTrustJwt indicates if SDS trust jwt is enabled or not. This is are set to "1" if true
@@ -360,9 +449,22 @@ type NodeMetadata struct {
 	// Alpha in 1.1, based on feedback may be turned into an API or change. Set to "1" to enable.
 	HTTP10 string `json:"HTTP10,omitempty"`
 
+	// Generator indicates the client wants to use a custom Generator plugin.
+	Generator string `json:"GENERATOR,omitempty"`
+
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
 	Raw map[string]interface{} `json:"-"`
+}
+
+// ProxyConfigOrDefault is a helper function to get the ProxyConfig from metadata, or fallback to a default
+// This is useful as the logic should check for proxy config from proxy first and then defer to mesh wide defaults
+// if not present.
+func (m NodeMetadata) ProxyConfigOrDefault(def *meshconfig.ProxyConfig) *meshconfig.ProxyConfig {
+	if m.ProxyConfig != nil {
+		return (*meshconfig.ProxyConfig)(m.ProxyConfig)
+	}
+	return def
 }
 
 func (m *NodeMetadata) UnmarshalJSON(data []byte) error {
@@ -512,6 +614,8 @@ func (node *Proxy) GetRouterMode() RouterMode {
 // Listener generation code will still use the SidecarScope object directly
 // as it needs the set of services for each listener port.
 func (node *Proxy) SetSidecarScope(ps *PushContext) {
+	sidecarScope := node.SidecarScope
+
 	if node.Type == SidecarProxy {
 		workloadLabels := labels.Collection{node.Metadata.Labels}
 		node.SidecarScope = ps.getSidecarScope(node, workloadLabels)
@@ -519,7 +623,7 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 		// Gateways should just have a default scope with egress: */*
 		node.SidecarScope = DefaultSidecarScopeForNamespace(ps, node.ConfigNamespace)
 	}
-
+	node.PrevSidecarScope = sidecarScope
 }
 
 // SetGatewaysForProxy merges the Gateway objects associated with this
@@ -573,6 +677,36 @@ func (node *Proxy) SetWorkloadLabels(env *Environment) error {
 		node.Metadata.Labels = l[0]
 	}
 	return nil
+}
+
+// DiscoverIPVersions discovers the IP Versions supported by Proxy based on its IP addresses.
+func (node *Proxy) DiscoverIPVersions() {
+	for i := 0; i < len(node.IPAddresses); i++ {
+		addr := net.ParseIP(node.IPAddresses[i])
+		if addr == nil {
+			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
+			// skip it to prevent a panic.
+			continue
+		}
+		if addr.IsGlobalUnicast() {
+			node.GlobalUnicastIP = addr.String()
+		}
+		if addr.To4() != nil {
+			node.ipv4Support = true
+		} else {
+			node.ipv6Support = true
+		}
+	}
+}
+
+// SupportsIPv4 returns true if proxy supports IPv4 addresses.
+func (node *Proxy) SupportsIPv4() bool {
+	return node.ipv4Support
+}
+
+// SupportsIPv6 returns true if proxy supports IPv6 addresses.
+func (node *Proxy) SupportsIPv6() bool {
+	return node.ipv6Support
 }
 
 // UnnamedNetwork is the default network that proxies in the mesh

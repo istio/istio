@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -81,6 +82,7 @@ type Webhook struct {
 	cert       *tls.Certificate
 	mon        *monitor
 	env        *model.Environment
+	revision   string
 }
 
 // env will be used for other things besides meshConfig - when webhook is running in Istiod it can take advantage
@@ -158,6 +160,9 @@ type WebhookParameters struct {
 
 	// Use an existing mux instead of creating our own.
 	Mux *http.ServeMux
+
+	// The istio.io/rev this injector is responsible for
+	Revision string
 }
 
 // NewWebhook creates a new instance of a mutating webhook for automatic sidecar injection.
@@ -204,6 +209,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		keyFile:                p.KeyFile,
 		cert:                   &pair,
 		env:                    p.Env,
+		revision:               p.Revision,
 	}
 
 	var mux *http.ServeMux
@@ -547,8 +553,8 @@ func updateAnnotation(target map[string]string, added map[string]string) (patch 
 	return patch
 }
 
-func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotations map[string]string, sic *SidecarInjectionSpec,
-	workloadName string) ([]byte, error) {
+func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, revision string, annotations map[string]string,
+	sic *SidecarInjectionSpec, workloadName string, mesh *meshconfig.MeshConfig) ([]byte, error) {
 
 	var patch []rfc6902PatchOperation
 
@@ -560,21 +566,33 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	patch = append(patch, removeImagePullSecrets(pod.Spec.ImagePullSecrets, prevStatus.ImagePullSecrets, "/spec/imagePullSecrets")...)
 
 	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, sic)
-	addAppProberCmd := func() {
-		if !rewrite {
-			return
-		}
-		sidecar := FindSidecar(sic.Containers)
-		if sidecar == nil {
-			log.Errorf("sidecar not found in the template, skip addAppProberCmd")
-			return
-		}
-		// We don't have to escape json encoding here when using golang libraries.
+
+	sidecar := FindSidecar(sic.Containers)
+	// We don't have to escape json encoding here when using golang libraries.
+	if rewrite && sidecar != nil {
 		if prober := DumpAppProbers(&pod.Spec); prober != "" {
 			sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: prober})
 		}
 	}
-	addAppProberCmd()
+
+	if enablePrometheusMerge(mesh, pod.ObjectMeta.Annotations) {
+		scrape := status.PrometheusScrapeConfiguration{
+			Scrape: pod.ObjectMeta.Annotations["prometheus.io/scrape"],
+			Path:   pod.ObjectMeta.Annotations["prometheus.io/path"],
+			Port:   pod.ObjectMeta.Annotations["prometheus.io/port"],
+		}
+		empty := status.PrometheusScrapeConfiguration{}
+		if sidecar != nil && scrape != empty {
+			by, err := json.Marshal(scrape)
+			if err != nil {
+				return nil, err
+			}
+			sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.PrometheusScrapingConfig.Name, Value: string(by)})
+		}
+		annotations["prometheus.io/port"] = strconv.Itoa(int(mesh.GetDefaultConfig().GetStatusPort()))
+		annotations["prometheus.io/path"] = "/stats/prometheus"
+		annotations["prometheus.io/scrape"] = "true"
+	}
 
 	patch = append(patch, addContainer(pod.Spec.InitContainers, sic.InitContainers, "/spec/initContainers")...)
 	patch = append(patch, addContainer(pod.Spec.Containers, sic.Containers, "/spec/containers")...)
@@ -595,13 +613,33 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	patch = append(patch, addLabels(pod.Labels, map[string]string{
 		model.TLSModeLabelName:                       model.IstioMutualTLSModeLabel,
 		model.IstioCanonicalServiceLabelName:         canonicalSvc,
+		model.RevisionLabel:                          revision,
 		model.IstioCanonicalServiceRevisionLabelName: canonicalRev})...)
 
 	if rewrite {
-		patch = append(patch, createProbeRewritePatch(pod.Annotations, &pod.Spec, sic)...)
+		patch = append(patch, createProbeRewritePatch(pod.Annotations, &pod.Spec, sic, mesh.GetDefaultConfig().GetStatusPort())...)
 	}
 
 	return json.Marshal(patch)
+}
+
+func enablePrometheusMerge(mesh *meshconfig.MeshConfig, anno map[string]string) bool {
+	// If annotation is present, we look there first
+	if val, f := anno[annotation.PrometheusMergeMetrics.Name]; f {
+		bval, err := strconv.ParseBool(val)
+		if err != nil {
+			// This shouldn't happen since we validate earlier in the code
+			log.Warnf("invalid annotation %v=%v", annotation.PrometheusMergeMetrics.Name, bval)
+		} else {
+			return bval
+		}
+	}
+	// If mesh config setting is present, use that
+	if mesh.GetEnablePrometheusMerge() != nil {
+		return mesh.GetEnablePrometheusMerge().Value
+	}
+	// Otherwise, we default to enable
+	return true
 }
 
 func extractCanonicalServiceLabels(podLabels map[string]string, workloadName string) (string, string) {
@@ -779,7 +817,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		annotations[k] = v
 	}
 
-	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec, deployMeta.Name)
+	patchBytes, err := createPatch(&pod, injectionStatus(&pod), wh.revision, annotations, spec, deployMeta.Name, wh.meshConfig)
 	if err != nil {
 		handleError(fmt.Sprintf("AdmissionResponse: err=%v spec=%v\n", err, spec))
 		return toAdmissionResponse(err)

@@ -21,21 +21,17 @@ package component
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/ghodss/yaml"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/patch"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
-	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -47,6 +43,10 @@ const (
 
 	// devDbg generates lots of output useful in development.
 	devDbg = false
+)
+
+var (
+	scope = log.RegisterScope("installer", "installer", 0)
 )
 
 // Options defines options for a component.
@@ -85,8 +85,8 @@ type CommonComponentFields struct {
 	resourceName string
 	// index is the index of the component (only used for components with multiple instances like gateways).
 	index int
-	// spec for the actual component.
-	spec interface{}
+	// componentSpec for the actual component e.g. GatewaySpec, ComponentSpec.
+	componentSpec interface{}
 	// started reports whether the component is in initialized and running.
 	started  bool
 	renderer helm.TemplateRenderer
@@ -100,14 +100,10 @@ func NewCoreComponent(cn name.ComponentName, opts *Options) IstioComponent {
 		component = NewCRDComponent(opts)
 	case name.PilotComponentName:
 		component = NewPilotComponent(opts)
-	case name.GalleyComponentName:
-		component = NewGalleyComponent(opts)
 	case name.PolicyComponentName:
 		component = NewPolicyComponent(opts)
 	case name.TelemetryComponentName:
 		component = NewTelemetryComponent(opts)
-	case name.CitadelComponentName:
-		component = NewCitadelComponent(opts)
 	case name.CNIComponentName:
 		component = NewCNIComponent(opts)
 	default:
@@ -185,76 +181,7 @@ func (c *PilotComponent) Run() error {
 
 // RenderManifest implements the IstioComponent interface.
 func (c *PilotComponent) RenderManifest() (string, error) {
-	baseYAML, err := renderManifest(c, c.CommonComponentFields)
-	if err != nil {
-		return "", err
-	}
-
-	return c.overlayMeshConfig(baseYAML)
-}
-
-func (c *PilotComponent) overlayMeshConfig(baseYAML string) (string, error) {
-	if c.CommonComponentFields.InstallSpec.MeshConfig == nil {
-		return baseYAML, nil
-	}
-
-	// Overlay MeshConfig onto the istio configmap
-	baseObjs, err := object.ParseK8sObjectsFromYAMLManifest(baseYAML)
-	if err != nil {
-		return "", err
-	}
-
-	for _, obj := range baseObjs {
-		if !isMeshConfigMap(obj) {
-			continue
-		}
-
-		u := obj.UnstructuredObject()
-
-		// Ignore any configMap that isn't of the format we're expecting
-		meshStr, ok, err := unstructured.NestedString(u.Object, "data", "mesh")
-		if !ok || err != nil {
-			continue
-		}
-
-		meshOverride, err := gogoprotomarshal.ToYAML(c.CommonComponentFields.InstallSpec.MeshConfig)
-		if err != nil {
-			return "", err
-		}
-
-		// Merge the MeshConfig yaml on top of whatever is in the configMap already
-		meshStr, err = util.OverlayYAML(meshStr, meshOverride)
-		if err != nil {
-			return "", err
-		}
-
-		meshStr = strings.TrimSpace(meshStr)
-
-		log.Debugf("Merged MeshConfig:\n%s\n", meshStr)
-
-		// Set the new yaml string back into the configMap
-		if err := unstructured.SetNestedField(u.Object, meshStr, "data", "mesh"); err != nil {
-			return "", err
-		}
-
-		newObj := object.NewK8sObject(u, nil, nil)
-
-		// Replace the unstructured object in the slice
-		*obj = *newObj
-
-		return baseObjs.YAMLManifest()
-	}
-
-	return baseYAML, nil
-}
-
-func isMeshConfigMap(obj *object.K8sObject) bool {
-	switch {
-	case obj.Kind != "ConfigMap", !strings.HasPrefix(obj.Name, "istio"):
-		return false
-	default:
-		return true
-	}
+	return renderManifest(c, c.CommonComponentFields)
 }
 
 // ComponentName implements the IstioComponent interface.
@@ -274,52 +201,6 @@ func (c *PilotComponent) Namespace() string {
 
 // Enabled implements the IstioComponent interface.
 func (c *PilotComponent) Enabled() bool {
-	return isCoreComponentEnabled(c.CommonComponentFields)
-}
-
-// CitadelComponent is the pilot component.
-type CitadelComponent struct {
-	*CommonComponentFields
-}
-
-// NewCitadelComponent creates a new PilotComponent and returns a pointer to it.
-func NewCitadelComponent(opts *Options) *CitadelComponent {
-	cn := name.CitadelComponentName
-	return &CitadelComponent{
-		&CommonComponentFields{
-			Options:       opts,
-			componentName: cn,
-		},
-	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *CitadelComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *CitadelComponent) RenderManifest() (string, error) {
-	return renderManifest(c, c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *CitadelComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *CitadelComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
-}
-
-// Namespace implements the IstioComponent interface.
-func (c *CitadelComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// Enabled implements the IstioComponent interface.
-func (c *CitadelComponent) Enabled() bool {
 	return isCoreComponentEnabled(c.CommonComponentFields)
 }
 
@@ -415,52 +296,6 @@ func (c *TelemetryComponent) Enabled() bool {
 	return isCoreComponentEnabled(c.CommonComponentFields)
 }
 
-// GalleyComponent is the pilot component.
-type GalleyComponent struct {
-	*CommonComponentFields
-}
-
-// NewGalleyComponent creates a new PilotComponent and returns a pointer to it.
-func NewGalleyComponent(opts *Options) *GalleyComponent {
-	cn := name.GalleyComponentName
-	return &GalleyComponent{
-		&CommonComponentFields{
-			Options:       opts,
-			componentName: cn,
-		},
-	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *GalleyComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *GalleyComponent) RenderManifest() (string, error) {
-	return renderManifest(c, c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *GalleyComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.componentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *GalleyComponent) ResourceName() string {
-	return c.CommonComponentFields.resourceName
-}
-
-// Namespace implements the IstioComponent interface.
-func (c *GalleyComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// Enabled implements the IstioComponent interface.
-func (c *GalleyComponent) Enabled() bool {
-	return isCoreComponentEnabled(c.CommonComponentFields)
-}
-
 // CNIComponent is the egress gateway component.
 type CNIComponent struct {
 	*CommonComponentFields
@@ -521,7 +356,7 @@ func NewIngressComponent(resourceName string, index int, spec *v1alpha1.GatewayS
 			componentName: cn,
 			resourceName:  resourceName,
 			index:         index,
-			spec:          spec,
+			componentSpec: spec,
 		},
 	}
 }
@@ -554,7 +389,7 @@ func (c *IngressComponent) Namespace() string {
 // Enabled implements the IstioComponent interface.
 func (c *IngressComponent) Enabled() bool {
 	// type assert is guaranteed to work in this context.
-	return boolValue(c.spec.(*v1alpha1.GatewaySpec).Enabled)
+	return boolValue(c.componentSpec.(*v1alpha1.GatewaySpec).Enabled)
 }
 
 // EgressComponent is the egress gateway component.
@@ -570,7 +405,7 @@ func NewEgressComponent(resourceName string, index int, spec *v1alpha1.GatewaySp
 			Options:       opts,
 			componentName: cn,
 			index:         index,
-			spec:          spec,
+			componentSpec: spec,
 			resourceName:  resourceName,
 		},
 	}
@@ -604,7 +439,7 @@ func (c *EgressComponent) Namespace() string {
 // Enabled implements the IstioComponent interface.
 func (c *EgressComponent) Enabled() bool {
 	// type assert is guaranteed to work in this context.
-	return boolValue(c.spec.(*v1alpha1.GatewaySpec).Enabled)
+	return boolValue(c.componentSpec.(*v1alpha1.GatewaySpec).Enabled)
 }
 
 // AddonComponent is an external component.
@@ -620,7 +455,7 @@ func NewAddonComponent(addonName, resourceName string, spec *v1alpha1.ExternalCo
 			componentName: name.AddonComponentName,
 			resourceName:  resourceName,
 			addonName:     addonName,
-			spec:          spec,
+			componentSpec: spec,
 		},
 	}
 }
@@ -653,7 +488,7 @@ func (c *AddonComponent) Namespace() string {
 // Enabled implements the IstioComponent interface.
 func (c *AddonComponent) Enabled() bool {
 	// type assert is guaranteed to work in this context.
-	return boolValue(c.spec.(*v1alpha1.ExternalComponentSpec).Enabled)
+	return boolValue(c.componentSpec.(*v1alpha1.ExternalComponentSpec).Enabled)
 }
 
 // runComponent performs startup tasks for the component defined by the given CommonComponentFields.
@@ -680,7 +515,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 		return disabledYAMLStr(cf.componentName, cf.resourceName), nil
 	}
 
-	mergedYAML, err := cf.Translator.TranslateHelmValues(cf.InstallSpec, cf.componentName)
+	mergedYAML, err := cf.Translator.TranslateHelmValues(cf.InstallSpec, cf.componentSpec, cf.componentName)
 	if err != nil {
 		return "", err
 	}
@@ -694,10 +529,10 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 	}
 	my += helm.YAMLSeparator + "\n"
 	if devDbg {
-		log.Infof("Initial manifest with merged values:\n%s\n", my)
+		scope.Infof("Initial manifest with merged values:\n%s\n", my)
 	}
 	// Add the k8s resources from IstioOperatorSpec.
-	my, err = cf.Translator.OverlayK8sSettings(my, cf.InstallSpec, cf.componentName, cf.index)
+	my, err = cf.Translator.OverlayK8sSettings(my, cf.InstallSpec, cf.componentName, cf.resourceName, cf.addonName, cf.index)
 	if err != nil {
 		log.Errorf("Error in OverlayK8sSettings: %s", err)
 		return "", err
@@ -708,14 +543,14 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 	}
 	my = "# Resources for " + cnOutput + " component\n\n" + my
 	if devDbg {
-		log.Infof("Manifest after k8s API settings:\n%s\n", my)
+		scope.Infof("Manifest after k8s API settings:\n%s\n", my)
 	}
 	// Add the k8s resource overlays from IstioOperatorSpec.
 	pathToK8sOverlay := fmt.Sprintf("Components.%s.", cf.componentName)
 	if cf.componentName == name.IngressComponentName || cf.componentName == name.EgressComponentName {
 		pathToK8sOverlay += fmt.Sprintf("%d.", cf.index)
 	}
-	pathToK8sOverlay += fmt.Sprintf("K8S.Overlays")
+	pathToK8sOverlay += "K8S.Overlays"
 	var overlays []*v1alpha1.K8SObjectOverlay
 	found, err := tpath.SetFromPath(cf.InstallSpec, pathToK8sOverlay, &overlays)
 	if err != nil {
@@ -729,13 +564,13 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 	if err != nil {
 		return "", err
 	}
-	log.Infof("Applying kubernetes overlay: \n%s\n", kyo)
+	scope.Infof("Applying Kubernetes overlay: \n%s\n", kyo)
 	ret, err := patch.YAMLManifestPatch(my, cf.Namespace, overlays)
 	if err != nil {
 		return "", err
 	}
 
-	log.Infof("Manifest after resources and overlay: \n%s\n", ret)
+	scope.Debugf("Manifest after resources and overlay: \n%s\n", ret)
 	return ret, nil
 }
 
