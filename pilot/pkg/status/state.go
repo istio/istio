@@ -59,6 +59,7 @@ type DistributionController struct {
 	client          dynamic.Interface
 	clock           clock.Clock
 	knownResources  map[schema.GroupVersionResource]dynamic.NamespaceableResourceInterface
+	currentlyWriting ResourceLock
 	StaleInterval   time.Duration
 }
 
@@ -66,7 +67,7 @@ func (c *DistributionController) Start(restConfig *rest.Config, namespace string
 	scope.Info("Starting status leader controller")
 	// default UpdateInterval
 	if c.UpdateInterval == 0 {
-		c.UpdateInterval = 2000 * time.Millisecond
+		c.UpdateInterval = 200 * time.Millisecond
 	}
 	// default StaleInterval
 	if c.StaleInterval == 0 {
@@ -159,6 +160,8 @@ func (c *DistributionController) writeStatus(ctx context.Context, config Resourc
 	// Note: I'd like to use Pilot's ConfigStore here to avoid duplicate reads and writes, but
 	// the update() function is not implemented, and the Get() function returns the resource
 	// in a different format than is needed for k8s.updateStatus.
+	c.currentlyWriting.Lock(config)
+	defer c.currentlyWriting.Unlock(config)
 	resourceInterface := c.initK8sResource(config.GroupVersionResource).
 		Namespace(config.Namespace)
 	// should this be moved to some sort of InformerCache for speed?
