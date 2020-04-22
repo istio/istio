@@ -11,14 +11,14 @@ spec:
     - "istio-system/istio-policy.istio-system.svc.cluster.local"
 ---
 # Authentication policy to enable mutual TLS for all services (that have sidecar) in the mesh.
-apiVersion: authentication.istio.io/v1alpha1
-kind: MeshPolicy
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
 metadata:
   name: default
   namespace: istio-config
 spec:
-  peers:
-  - mtls: {}
+  mtls:
+    mode: STRICT
 ---
 # Corresponding destination rule to configure client side to use mutual TLS when talking to
 # any service (host) in the mesh.
