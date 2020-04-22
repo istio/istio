@@ -585,7 +585,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	// returning nil if the push is not needed.
 	if con.node.XdsResourceGenerator != nil {
 		for _, w := range con.node.Active {
-			err := s.pushGeneratorV2(con, pushEv.push, currentVersion, w)
+			err := s.pushGeneratorV2(con, pushEv.push, currentVersion, w, pushEv.configsUpdated)
 			if err != nil {
 				return err
 			}

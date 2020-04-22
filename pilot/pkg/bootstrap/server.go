@@ -26,6 +26,8 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pilot/pkg/networking/apigen"
+	"istio.io/istio/pilot/pkg/networking/grpcgen"
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/metadata"
@@ -196,16 +198,23 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		Namespace:   args.Namespace,
 	}
 
-	log.Infof("JWT policy is %s", features.JwtPolicy.Get())
+	s.EnvoyXdsServer.Generators["api"] = &apigen.ApiGenerator{}
+	s.EnvoyXdsServer.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
+	epGen := &envoyv2.EdsGenerator{s.EnvoyXdsServer}
+	s.EnvoyXdsServer.Generators["grpc/" + envoyv2.EndpointType] = epGen
+	s.EnvoyXdsServer.Generators["api/" + envoyv2.EndpointType] = epGen
+
+	if features.JwtPolicy.Get() != jwt.JWTPolicyThirdPartyJWT {
+		log.Infoa("JWT policy is ", features.JwtPolicy.Get())
+	}
+
 	switch features.JwtPolicy.Get() {
 	case jwt.JWTPolicyThirdPartyJWT:
 		s.jwtPath = ThirdPartyJWTPath
 	case jwt.JWTPolicyFirstPartyJWT:
 		s.jwtPath = securityModel.K8sSAJwtFileName
 	default:
-		err := fmt.Errorf("invalid JWT policy %v", features.JwtPolicy.Get())
-		log.Errorf("%v", err)
-		return nil, err
+		log.Infof("unknown JWT policy %v, default to certificates ", features.JwtPolicy.Get())
 	}
 
 	// CA signing certificate must be created first.
