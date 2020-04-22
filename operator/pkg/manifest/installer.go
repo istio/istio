@@ -639,6 +639,93 @@ func waitForCRDs(objects object.K8sObjects, stdout string, dryRun bool) error {
 	return nil
 }
 
+func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l clog.Logger) (bool, []string, error) {
+	pods := []v1.Pod{}
+	deployments := []deployment{}
+	namespaces := []v1.Namespace{}
+
+	for _, o := range objects {
+		kind := o.GroupVersionKind().Kind
+		switch kind {
+		case "Namespace":
+			namespace, err := cs.CoreV1().Namespaces().Get(context2.TODO(), o.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, nil, err
+			}
+			namespaces = append(namespaces, *namespace)
+		case "Pod":
+			pod, err := cs.CoreV1().Pods(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, nil, err
+			}
+			pods = append(pods, *pod)
+		case "ReplicationController":
+			rc, err := cs.CoreV1().ReplicationControllers(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, nil, err
+			}
+			list, err := getPods(cs, rc.Namespace, rc.Spec.Selector)
+			if err != nil {
+				return false, nil, err
+			}
+			pods = append(pods, list...)
+		case "Deployment":
+			currentDeployment, err := cs.AppsV1().Deployments(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, nil, err
+			}
+			_, _, newReplicaSet, err := kubectlutil.GetAllReplicaSets(currentDeployment, cs.AppsV1())
+			if err != nil || newReplicaSet == nil {
+				return false, nil, err
+			}
+			newDeployment := deployment{
+				newReplicaSet,
+				currentDeployment,
+			}
+			deployments = append(deployments, newDeployment)
+		case "DaemonSet":
+			ds, err := cs.AppsV1().DaemonSets(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, nil, err
+			}
+			list, err := getPods(cs, ds.Namespace, ds.Spec.Selector.MatchLabels)
+			if err != nil {
+				return false, nil, err
+			}
+			pods = append(pods, list...)
+		case "StatefulSet":
+			sts, err := cs.AppsV1().StatefulSets(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, nil, err
+			}
+			list, err := getPods(cs, sts.Namespace, sts.Spec.Selector.MatchLabels)
+			if err != nil {
+				return false, nil, err
+			}
+			pods = append(pods, list...)
+		case "ReplicaSet":
+			rs, err := cs.AppsV1().ReplicaSets(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, nil, err
+			}
+			list, err := getPods(cs, rs.Namespace, rs.Spec.Selector.MatchLabels)
+			if err != nil {
+				return false, nil, err
+			}
+			pods = append(pods, list...)
+		}
+	}
+	dr, dnr := deploymentsReady(deployments)
+	nsr, nnr := namespacesReady(namespaces)
+	pr, pnr := podsReady(pods)
+	isReady := dr && nsr && pr
+	notReady := append(append(nnr, dnr...), pnr...)
+	if !isReady {
+		l.LogAndPrintf("  Waiting for resources to become ready: %s", strings.Join(notReady, ", "))
+	}
+	return isReady, notReady, nil
+}
+
 // WaitForResources polls to get the current status of all pods, PVCs, and Services
 // until all are ready or a timeout is reached
 func WaitForResources(objects object.K8sObjects, cs kubernetes.Interface, waitTimeout time.Duration, dryRun bool, l clog.Logger) error {
@@ -649,91 +736,15 @@ func WaitForResources(objects object.K8sObjects, cs kubernetes.Interface, waitTi
 
 	var notReady []string
 
-	errPoll := wait.Poll(2*time.Second, waitTimeout, func() (bool, error) {
-		pods := []v1.Pod{}
-		deployments := []deployment{}
-		namespaces := []v1.Namespace{}
+	// Check if we are ready immediately, to avoid the 2s delay below when we are already redy
+	if ready, _, err := waitForResources(objects, cs, l); err == nil && ready {
+		return nil
+	}
 
-		for _, o := range objects {
-			kind := o.GroupVersionKind().Kind
-			switch kind {
-			case "Namespace":
-				namespace, err := cs.CoreV1().Namespaces().Get(context2.TODO(), o.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				namespaces = append(namespaces, *namespace)
-			case "Pod":
-				pod, err := cs.CoreV1().Pods(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				pods = append(pods, *pod)
-			case "ReplicationController":
-				rc, err := cs.CoreV1().ReplicationControllers(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				list, err := getPods(cs, rc.Namespace, rc.Spec.Selector)
-				if err != nil {
-					return false, err
-				}
-				pods = append(pods, list...)
-			case "Deployment":
-				currentDeployment, err := cs.AppsV1().Deployments(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				_, _, newReplicaSet, err := kubectlutil.GetAllReplicaSets(currentDeployment, cs.AppsV1())
-				if err != nil || newReplicaSet == nil {
-					return false, err
-				}
-				newDeployment := deployment{
-					newReplicaSet,
-					currentDeployment,
-				}
-				deployments = append(deployments, newDeployment)
-			case "DaemonSet":
-				ds, err := cs.AppsV1().DaemonSets(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				list, err := getPods(cs, ds.Namespace, ds.Spec.Selector.MatchLabels)
-				if err != nil {
-					return false, err
-				}
-				pods = append(pods, list...)
-			case "StatefulSet":
-				sts, err := cs.AppsV1().StatefulSets(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				list, err := getPods(cs, sts.Namespace, sts.Spec.Selector.MatchLabels)
-				if err != nil {
-					return false, err
-				}
-				pods = append(pods, list...)
-			case "ReplicaSet":
-				rs, err := cs.AppsV1().ReplicaSets(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				list, err := getPods(cs, rs.Namespace, rs.Spec.Selector.MatchLabels)
-				if err != nil {
-					return false, err
-				}
-				pods = append(pods, list...)
-			}
-		}
-		dr, dnr := deploymentsReady(deployments)
-		nsr, nnr := namespacesReady(namespaces)
-		pr, pnr := podsReady(pods)
-		isReady := dr && nsr && pr
-		if !isReady {
-			l.LogAndPrint("  Waiting for resources to become ready...")
-		}
-		notReady = append(append(nnr, dnr...), pnr...)
-		return isReady, nil
+	errPoll := wait.Poll(2*time.Second, waitTimeout, func() (bool, error) {
+		isReady, notReadyObjects, err := waitForResources(objects, cs, l)
+		notReady = notReadyObjects
+		return isReady, err
 	})
 
 	if errPoll != nil {
