@@ -136,7 +136,7 @@ func (r *Reporter) buildReport() (DistributionReport, []Resource) {
 
 			// check to see if this version of the config contains this version of the resource
 			// it might be more optimal to provide for a full dump of the config at a certain version?
-			dpVersion, err := r.store.GetResourceAtVersion(nonce[:v2.VersionLen], res.ToModelKey())
+			dpVersion, err := r.store.GetResourceAtVersion(nonce, res.ToModelKey())
 			if err == nil && dpVersion == res.ResourceVersion {
 				if _, ok := out.InProgressResources[key]; !ok {
 					out.InProgressResources[key] = len(dataplanes)
@@ -146,7 +146,7 @@ func (r *Reporter) buildReport() (DistributionReport, []Resource) {
 			} else if err != nil {
 				scope.Errorf("Encountered error retrieving version %s of key %s from Store: %v", nonce, key, err)
 				continue
-			} else if nonce[:v2.VersionLen] == r.store.Version() {
+			} else if nonce == r.store.Version() {
 				scope.Warnf("Cache appears to be missing latest version of %s", key)
 			}
 			if out.InProgressResources[key] >= out.DataPlaneCount {

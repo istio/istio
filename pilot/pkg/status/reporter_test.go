@@ -110,7 +110,6 @@ func TestBuildReport(t *testing.T) {
 		r.RegisterEvent(con, "", firstNoncePrefix)
 	}
 	// modify one resource to version 2
-	originalString := myResources[1].String()
 	resources[1].ResourceVersion = "2"
 	myResources[1].ResourceVersion = "2"
 	// notify the ledger of the new version
@@ -131,7 +130,6 @@ func TestBuildReport(t *testing.T) {
 		myResources[0].String(): 2,
 		myResources[1].String(): 1,
 		myResources[2].String(): 2,
-		originalString:          1,
 	}))
 	Expect(r.inProgressResources).NotTo(ContainElement(resources[0]))
 }
