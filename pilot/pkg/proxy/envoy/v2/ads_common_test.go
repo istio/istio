@@ -202,18 +202,6 @@ func TestPushTypeFor(t *testing.T) {
 			expect:      map[XdsType]bool{LDS: true},
 		},
 		{
-			name:        "authenticationpolicy updated",
-			proxy:       sidecar,
-			configTypes: []resource.GroupVersionKind{collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind()},
-			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true},
-		},
-		{
-			name:        "authenticationpolicy updated",
-			proxy:       gateway,
-			configTypes: []resource.GroupVersionKind{collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind()},
-			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true},
-		},
-		{
 			name:        "unknown type updated",
 			proxy:       sidecar,
 			configTypes: []resource.GroupVersionKind{{Kind: "unknown"}},
