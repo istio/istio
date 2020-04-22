@@ -27,13 +27,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gogo/protobuf/types"
-
-	meshconfig "istio.io/api/mesh/v1alpha1"
-
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/types"
 	"github.com/onsi/gomega"
 	"k8s.io/api/admission/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -45,6 +42,7 @@ import (
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	"istio.io/api/annotation"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	operatormesh "istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
@@ -897,7 +895,7 @@ func loadInjectionConfigMap(t testing.TB, settings string) (template *Config, va
 	if err != nil {
 		t.Fatal(err)
 	}
-	l := clog.NewLogger(true, os.Stdout, os.Stderr)
+	l := clog.NewConsoleLogger(true, os.Stdout, os.Stderr)
 	manifests, _, err := operatormesh.GenManifests(nil, oy, false, nil, l)
 	if err != nil {
 		t.Fatalf("failed to generate manifests: %v", err)
