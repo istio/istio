@@ -223,7 +223,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			}
 
 			// Based on node metadata a different generator was selected, use it instead of the default
-			// behaviour.
+			// behavior.
 			if con.node.XdsResourceGenerator != nil && discReq.TypeUrl != EndpointType {
 				// Endpoints are special - will use the optimized code path.
 				err = s.handleCustomGenerator(con, discReq)
@@ -584,8 +584,8 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	// Each Generator is responsible for determining if the push event requires a push -
 	// returning nil if the push is not needed.
 	if con.node.XdsResourceGenerator != nil {
-		for rt, w := range con.node.Active {
-			err := s.pushGeneratorV2(con, pushEv.push, currentVersion, rt, w)
+		for _, w := range con.node.Active {
+			err := s.pushGeneratorV2(con, pushEv.push, currentVersion, w)
 			if err != nil {
 				return err
 			}

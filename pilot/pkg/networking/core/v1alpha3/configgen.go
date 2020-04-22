@@ -55,21 +55,21 @@ func (configgen *ConfigGeneratorImpl) MeshConfigChanged(mesh *meshconfig.MeshCon
 	resetCachedListenerConfig(mesh)
 }
 
-func (g *ConfigGeneratorImpl) Generate(node *model.Proxy, push *model.PushContext, w *model.WatchedResource) []*any.Any {
+func (configgen *ConfigGeneratorImpl) Generate(node *model.Proxy, push *model.PushContext, w *model.WatchedResource) []*any.Any {
 	resp := []*any.Any{}
 	switch w.TypeUrl {
 	case ListenerType:
-		ll := g.BuildListeners(node, push)
+		ll := configgen.BuildListeners(node, push)
 		for _, l := range ll {
 			resp = append(resp, util.MessageToAny(l))
 		}
 	case ClusterType:
-		cl := g.BuildClusters(node, push)
+		cl := configgen.BuildClusters(node, push)
 		for _, l := range cl {
 			resp = append(resp, util.MessageToAny(l))
 		}
 	case RouteType:
-		rl := g.BuildHTTPRoutes(node, push, w.ResourceNames)
+		rl := configgen.BuildHTTPRoutes(node, push, w.ResourceNames)
 		for _, l := range rl {
 			resp = append(resp, util.MessageToAny(l))
 		}

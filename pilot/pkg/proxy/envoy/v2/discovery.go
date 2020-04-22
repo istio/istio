@@ -91,7 +91,7 @@ type DiscoveryServer struct {
 	// APIs and service registry info
 	ConfigGenerator core.ConfigGenerator
 
-	// Generators allow customising the generated config, based on the client metadata.
+	// Generators allow customizing the generated config, based on the client metadata.
 	Generators map[string]model.XdsResourceGenerator
 
 	concurrentPushLimit chan struct{}
