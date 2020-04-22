@@ -144,7 +144,6 @@ func getMeshConfig(fileOverride, annotationOverride string) (meshconfig.MeshConf
 
 func fileExists(path string) bool {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		log.Errorf("howardjohn: %v %v", path, err)
 		return false
 	}
 	return true
