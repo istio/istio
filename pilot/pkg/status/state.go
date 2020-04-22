@@ -91,17 +91,18 @@ func (c *DistributionController) Start(restConfig *rest.Config, namespace string
 		Core().V1().ConfigMaps()
 	i.Informer().AddEventHandler(&DistroReportHandler{dc: c})
 	// this will list all existing configmaps, as well as updates, right?
-	go i.Informer().Run(stop)
+	ctx := NewIstioContext(stop)
+	go i.Informer().Run(ctx.Done())
 
 	//create Status Writer
 	t := c.clock.Tick(c.UpdateInterval)
 	go func() {
 		for {
 			select {
-			case <-stop:
+			case <-ctx.Done():
 				return
 			case <-t:
-				staleReporters := c.writeAllStatus()
+				staleReporters := c.writeAllStatus(ctx)
 				if len(staleReporters) > 0 {
 					c.removeStaleReporters(staleReporters)
 				}
@@ -123,7 +124,7 @@ func (c *DistributionController) handleReport(d DistributionReport) {
 	c.ObservationTime[d.Reporter] = c.clock.Now()
 }
 
-func (c *DistributionController) writeAllStatus() (staleReporters []string) {
+func (c *DistributionController) writeAllStatus(ctx context.Context) (staleReporters []string) {
 	defer c.mu.RUnlock()
 	c.mu.RLock()
 	for config, fractions := range c.CurrentState {
@@ -139,27 +140,25 @@ func (c *DistributionController) writeAllStatus() (staleReporters []string) {
 			}
 		}
 		if distributionState.TotalInstances > 0 { // this is necessary when all reports are stale.
-			go c.writeStatus(config, distributionState)
+			go c.writeStatus(ctx, config, distributionState)
 		}
 	}
 	return
 }
 
-func (c *DistributionController) initK8sResource(gvr schema.GroupVersionResource) dynamic.NamespaceableResourceInterface {
+func (c *DistributionController) initK8sResource(gvr schema.GroupVersionResource) (result dynamic.NamespaceableResourceInterface) {
 	if result, ok := c.knownResources[gvr]; ok {
 		return result
-	} else {
-		result = c.client.Resource(gvr)
-		c.knownResources[gvr] = result
-		return result
 	}
+	result = c.client.Resource(gvr)
+	c.knownResources[gvr] = result
+	return
 }
 
-func (c *DistributionController) writeStatus(config Resource, distributionState Progress) {
+func (c *DistributionController) writeStatus(ctx context.Context, config Resource, distributionState Progress) {
 	// Note: I'd like to use Pilot's ConfigStore here to avoid duplicate reads and writes, but
 	// the update() function is not implemented, and the Get() function returns the resource
 	// in a different format than is needed for k8s.updateStatus.
-	ctx := context.TODO()
 	resourceInterface := c.initK8sResource(config.GroupVersionResource).
 		Namespace(config.Namespace)
 	// should this be moved to some sort of InformerCache for speed?
