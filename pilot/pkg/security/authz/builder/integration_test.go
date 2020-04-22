@@ -32,112 +32,145 @@ import (
 
 func TestBuildHTTPFilter(t *testing.T) {
 	testCases := []struct {
-		name              string
-		trustDomainBundle trustdomain.Bundle
-		policies          *model.AuthorizationPolicies
-		forTCPFilter      bool
-		wantDeny          *http_config.RBAC
-		wantAllow         *http_config.RBAC
+		name               string
+		trustDomainBundle  trustdomain.Bundle
+		policies           *model.AuthorizationPolicies
+		isIstioVersionGE15 bool
+		forTCPFilter       bool
+		wantDeny           *http_config.RBAC
+		wantAllow          *http_config.RBAC
 	}{
 		{
-			name:         "v1beta1 action allow with HTTP fields for TCP filter",
-			forTCPFilter: true,
-			policies:     getPolicies("testdata/v1beta1/action-allow-HTTP-for-TCP-filter-in.yaml", t),
-			wantAllow:    getProto("testdata/v1beta1/action-allow-HTTP-for-TCP-filter-out.yaml", t),
+			name:               "v1beta1 path14",
+			forTCPFilter:       false,
+			isIstioVersionGE15: false,
+			policies:           getPolicies("testdata/v1beta1/path14-in.yaml", t),
+			wantAllow:          getProto("testdata/v1beta1/path14-out.yaml", t),
 		},
 		{
-			name:      "v1beta1 action both",
-			policies:  getPolicies("testdata/v1beta1/action-both-in.yaml", t),
-			wantDeny:  getProto("testdata/v1beta1/action-both-deny-out.yaml", t),
-			wantAllow: getProto("testdata/v1beta1/action-both-allow-out.yaml", t),
+			name:               "v1beta1 path15",
+			forTCPFilter:       false,
+			isIstioVersionGE15: true,
+			policies:           getPolicies("testdata/v1beta1/path15-in.yaml", t),
+			wantAllow:          getProto("testdata/v1beta1/path15-out.yaml", t),
 		},
 		{
-			name:         "v1beta1 action deny with HTTP fields for TCP filter",
-			forTCPFilter: true,
-			policies:     getPolicies("testdata/v1beta1/action-deny-HTTP-for-TCP-filter-in.yaml", t),
-			wantDeny:     getProto("testdata/v1beta1/action-deny-HTTP-for-TCP-filter-out.yaml", t),
+			name:               "v1beta1 action allow with HTTP fields for TCP filter",
+			forTCPFilter:       true,
+			isIstioVersionGE15: true,
+			policies:           getPolicies("testdata/v1beta1/action-allow-HTTP-for-TCP-filter-in.yaml", t),
+			wantAllow:          getProto("testdata/v1beta1/action-allow-HTTP-for-TCP-filter-out.yaml", t),
 		},
 		{
-			name:      "v1beta1 all fields",
-			policies:  getPolicies("testdata/v1beta1/all-fields-in.yaml", t),
-			wantAllow: getProto("testdata/v1beta1/all-fields-out.yaml", t),
+			name:               "v1beta1 action both",
+			isIstioVersionGE15: true,
+			policies:           getPolicies("testdata/v1beta1/action-both-in.yaml", t),
+			wantDeny:           getProto("testdata/v1beta1/action-both-deny-out.yaml", t),
+			wantAllow:          getProto("testdata/v1beta1/action-both-allow-out.yaml", t),
 		},
 		{
-			name:      "v1beta1 allow all",
-			policies:  getPolicies("testdata/v1beta1/allow-all-in.yaml", t),
-			wantAllow: getProto("testdata/v1beta1/allow-all-out.yaml", t),
+			name:               "v1beta1 action deny with HTTP fields for TCP filter",
+			forTCPFilter:       true,
+			isIstioVersionGE15: true,
+			policies:           getPolicies("testdata/v1beta1/action-deny-HTTP-for-TCP-filter-in.yaml", t),
+			wantDeny:           getProto("testdata/v1beta1/action-deny-HTTP-for-TCP-filter-out.yaml", t),
 		},
 		{
-			name:      "v1beta1 deny all",
-			policies:  getPolicies("testdata/v1beta1/deny-all-in.yaml", t),
-			wantAllow: getProto("testdata/v1beta1/deny-all-out.yaml", t),
+			name:               "v1beta1 all fields",
+			isIstioVersionGE15: true,
+			policies:           getPolicies("testdata/v1beta1/all-fields-in.yaml", t),
+			wantAllow:          getProto("testdata/v1beta1/all-fields-out.yaml", t),
 		},
 		{
-			name:      "v1beta1 multiple policies",
-			policies:  getPolicies("testdata/v1beta1/multiple-policies-in.yaml", t),
-			wantAllow: getProto("testdata/v1beta1/multiple-policies-out.yaml", t),
+			name:               "v1beta1 allow all",
+			isIstioVersionGE15: true,
+			policies:           getPolicies("testdata/v1beta1/allow-all-in.yaml", t),
+			wantAllow:          getProto("testdata/v1beta1/allow-all-out.yaml", t),
 		},
 		{
-			name:      "v1beta1 not override v1alpha1",
-			policies:  getPolicies("testdata/v1beta1/not-override-v1alpha1-in.yaml", t),
-			wantAllow: getProto("testdata/v1beta1/not-override-v1alpha1-out.yaml", t),
+			name:               "v1beta1 deny all",
+			isIstioVersionGE15: true,
+			policies:           getPolicies("testdata/v1beta1/deny-all-in.yaml", t),
+			wantAllow:          getProto("testdata/v1beta1/deny-all-out.yaml", t),
 		},
 		{
-			name:      "v1beta1 override v1alpha1",
-			policies:  getPolicies("testdata/v1beta1/override-v1alpha1-in.yaml", t),
-			wantAllow: getProto("testdata/v1beta1/override-v1alpha1-out.yaml", t),
+			name:               "v1beta1 multiple policies",
+			isIstioVersionGE15: true,
+			policies:           getPolicies("testdata/v1beta1/multiple-policies-in.yaml", t),
+			wantAllow:          getProto("testdata/v1beta1/multiple-policies-out.yaml", t),
 		},
 		{
-			name:      "v1beta1 single policy",
-			policies:  getPolicies("testdata/v1beta1/single-policy-in.yaml", t),
-			wantAllow: getProto("testdata/v1beta1/single-policy-out.yaml", t),
+			name:               "v1beta1 not override v1alpha1",
+			isIstioVersionGE15: true,
+			policies:           getPolicies("testdata/v1beta1/not-override-v1alpha1-in.yaml", t),
+			wantAllow:          getProto("testdata/v1beta1/not-override-v1alpha1-out.yaml", t),
 		},
 		{
-			name:      "v1alpha1 all fields",
-			policies:  getPolicies("testdata/v1alpha1/all-fields-in.yaml", t),
-			wantAllow: getProto("testdata/v1alpha1/all-fields-out.yaml", t),
+			name:               "v1beta1 override v1alpha1",
+			isIstioVersionGE15: true,
+			policies:           getPolicies("testdata/v1beta1/override-v1alpha1-in.yaml", t),
+			wantAllow:          getProto("testdata/v1beta1/override-v1alpha1-out.yaml", t),
 		},
 		{
-			name:              "v1beta1 one trust domain alias",
-			trustDomainBundle: trustdomain.NewTrustDomainBundle("td1", []string{"cluster.local"}),
-			policies:          getPolicies("testdata/v1beta1/simple-policy-td-aliases-in.yaml", t),
-			wantAllow:         getProto("testdata/v1beta1/simple-policy-td-aliases-out.yaml", t),
+			name:               "v1beta1 single policy",
+			isIstioVersionGE15: true,
+			policies:           getPolicies("testdata/v1beta1/single-policy-in.yaml", t),
+			wantAllow:          getProto("testdata/v1beta1/single-policy-out.yaml", t),
 		},
 		{
-			name:              "v1beta1 multiple trust domain aliases",
-			trustDomainBundle: trustdomain.NewTrustDomainBundle("td1", []string{"cluster.local", "some-td"}),
-			policies:          getPolicies("testdata/v1beta1/simple-policy-multiple-td-aliases-in.yaml", t),
-			wantAllow:         getProto("testdata/v1beta1/simple-policy-multiple-td-aliases-out.yaml", t),
+			name:               "v1alpha1 all fields",
+			isIstioVersionGE15: false,
+			policies:           getPolicies("testdata/v1alpha1/all-fields-in.yaml", t),
+			wantAllow:          getProto("testdata/v1alpha1/all-fields-out.yaml", t),
 		},
 		{
-			name:              "v1alpha1 one trust domain alias",
-			trustDomainBundle: trustdomain.NewTrustDomainBundle("td1", []string{"cluster.local"}),
-			policies:          getPolicies("testdata/v1alpha1/simple-policy-td-aliases-in.yaml", t),
-			wantAllow:         getProto("testdata/v1alpha1/simple-policy-td-aliases-out.yaml", t),
+			name:               "v1beta1 one trust domain alias",
+			isIstioVersionGE15: true,
+			trustDomainBundle:  trustdomain.NewTrustDomainBundle("td1", []string{"cluster.local"}),
+			policies:           getPolicies("testdata/v1beta1/simple-policy-td-aliases-in.yaml", t),
+			wantAllow:          getProto("testdata/v1beta1/simple-policy-td-aliases-out.yaml", t),
 		},
 		{
-			name:              "v1alpha1 trust domain with * in principal",
-			trustDomainBundle: trustdomain.NewTrustDomainBundle("td1", []string{"foobar"}),
-			policies:          getPolicies("testdata/v1alpha1/simple-policy-user-with-wildcard-in.yaml", t),
-			wantAllow:         getProto("testdata/v1alpha1/simple-policy-user-with-wildcard-out.yaml", t),
+			name:               "v1beta1 multiple trust domain aliases",
+			isIstioVersionGE15: true,
+			trustDomainBundle:  trustdomain.NewTrustDomainBundle("td1", []string{"cluster.local", "some-td"}),
+			policies:           getPolicies("testdata/v1beta1/simple-policy-multiple-td-aliases-in.yaml", t),
+			wantAllow:          getProto("testdata/v1beta1/simple-policy-multiple-td-aliases-out.yaml", t),
 		},
 		{
-			name:              "v1beta1 trust domain with * in principal",
-			trustDomainBundle: trustdomain.NewTrustDomainBundle("td1", []string{"foobar"}),
-			policies:          getPolicies("testdata/v1beta1/simple-policy-principal-with-wildcard-in.yaml", t),
-			wantAllow:         getProto("testdata/v1beta1/simple-policy-principal-with-wildcard-out.yaml", t),
+			name:               "v1alpha1 one trust domain alias",
+			isIstioVersionGE15: true,
+			trustDomainBundle:  trustdomain.NewTrustDomainBundle("td1", []string{"cluster.local"}),
+			policies:           getPolicies("testdata/v1alpha1/simple-policy-td-aliases-in.yaml", t),
+			wantAllow:          getProto("testdata/v1alpha1/simple-policy-td-aliases-out.yaml", t),
 		},
 		{
-			name:              "v1alpha1 trust domain aliases with source.principal",
-			trustDomainBundle: trustdomain.NewTrustDomainBundle("new-td", []string{"old-td", "some-trustdomain"}),
-			policies:          getPolicies("testdata/v1alpha1/td-aliases-source-principal-in.yaml", t),
-			wantAllow:         getProto("testdata/v1alpha1/td-aliases-source-principal-out.yaml", t),
+			name:               "v1alpha1 trust domain with * in principal",
+			isIstioVersionGE15: true,
+			trustDomainBundle:  trustdomain.NewTrustDomainBundle("td1", []string{"foobar"}),
+			policies:           getPolicies("testdata/v1alpha1/simple-policy-user-with-wildcard-in.yaml", t),
+			wantAllow:          getProto("testdata/v1alpha1/simple-policy-user-with-wildcard-out.yaml", t),
 		},
 		{
-			name:              "v1beta1 trust domain aliases with source.principal",
-			trustDomainBundle: trustdomain.NewTrustDomainBundle("new-td", []string{"old-td", "some-trustdomain"}),
-			policies:          getPolicies("testdata/v1beta1/td-aliases-source-principal-in.yaml", t),
-			wantAllow:         getProto("testdata/v1beta1/td-aliases-source-principal-out.yaml", t),
+			name:               "v1beta1 trust domain with * in principal",
+			isIstioVersionGE15: true,
+			trustDomainBundle:  trustdomain.NewTrustDomainBundle("td1", []string{"foobar"}),
+			policies:           getPolicies("testdata/v1beta1/simple-policy-principal-with-wildcard-in.yaml", t),
+			wantAllow:          getProto("testdata/v1beta1/simple-policy-principal-with-wildcard-out.yaml", t),
+		},
+		{
+			name:               "v1alpha1 trust domain aliases with source.principal",
+			isIstioVersionGE15: true,
+			trustDomainBundle:  trustdomain.NewTrustDomainBundle("new-td", []string{"old-td", "some-trustdomain"}),
+			policies:           getPolicies("testdata/v1alpha1/td-aliases-source-principal-in.yaml", t),
+			wantAllow:          getProto("testdata/v1alpha1/td-aliases-source-principal-out.yaml", t),
+		},
+		{
+			name:               "v1beta1 trust domain aliases with source.principal",
+			isIstioVersionGE15: true,
+			trustDomainBundle:  trustdomain.NewTrustDomainBundle("new-td", []string{"old-td", "some-trustdomain"}),
+			policies:           getPolicies("testdata/v1beta1/td-aliases-source-principal-in.yaml", t),
+			wantAllow:          getProto("testdata/v1beta1/td-aliases-source-principal-out.yaml", t),
 		},
 	}
 
@@ -148,7 +181,7 @@ func TestBuildHTTPFilter(t *testing.T) {
 	service := newService("httpbin.foo.svc.cluster.local", httpbinLabels, t)
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			b := NewBuilder(tc.trustDomainBundle, service, labels.Collection{httpbinLabels}, "foo", tc.policies)
+			b := NewBuilder(tc.trustDomainBundle, service, labels.Collection{httpbinLabels}, "foo", tc.policies, tc.isIstioVersionGE15)
 			if b == nil {
 				t.Fatalf("failed to create builder")
 			}

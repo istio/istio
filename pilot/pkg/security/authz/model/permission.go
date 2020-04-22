@@ -129,7 +129,7 @@ func validConditionForTCP(k string) bool {
 // - If it's allow policy (forDenyPolicy is false), returns nil so that the allow policy is ignored to avoid granting more permissions in this case.
 // - If it's deny policy (forDenyPolicy is true), returns a config that only includes the TCP fields (e.g. port) from the policy. This makes sure
 //   the generated deny policy is more restrictive so that it never grants extra permission in this case.
-func (permission *Permission) Generate(forTCPFilter, forDenyPolicy bool) (*envoy_rbac.Permission, error) {
+func (permission *Permission) Generate(forTCPFilter, forDenyPolicy, isIstioVersionGE15 bool) (*envoy_rbac.Permission, error) {
 	if permission == nil {
 		return nil, nil
 	}
@@ -173,12 +173,20 @@ func (permission *Permission) Generate(forTCPFilter, forDenyPolicy bool) (*envoy
 		}
 
 		if len(permission.Paths) > 0 {
-			permission := permission.forKeyValues(pathMatcher, permission.Paths)
+			key := pathHeader
+			if isIstioVersionGE15 {
+				key = pathMatcher
+			}
+			permission := permission.forKeyValues(key, permission.Paths)
 			pg.append(permission)
 		}
 
 		if len(permission.NotPaths) > 0 {
-			permission := permission.forKeyValues(pathMatcher, permission.NotPaths)
+			key := pathHeader
+			if isIstioVersionGE15 {
+				key = pathMatcher
+			}
+			permission := permission.forKeyValues(key, permission.NotPaths)
 			pg.append(permissionNot(permission))
 		}
 	}

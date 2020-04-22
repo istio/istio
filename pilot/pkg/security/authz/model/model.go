@@ -297,11 +297,11 @@ func NewModelV1beta1(trustDomainBundle trustdomain.Bundle, rule *security.Rule) 
 // - If it's allow policy (forDenyPolicy is false), returns nil so that the allow policy is ignored to avoid granting more permissions in this case.
 // - If it's deny policy (forDenyPolicy is true), returns a config that only includes the TCP fields (e.g. port) from the policy. This makes sure
 //   the generated deny policy is more restrictive so that it never grants extra permission in this case.
-func (m *Model) Generate(service *ServiceMetadata, forTCPFilter, forDenyPolicy bool) *envoy_rbac.Policy {
+func (m *Model) Generate(service *ServiceMetadata, forTCPFilter, forDenyPolicy, isIstioVersionGE15 bool) *envoy_rbac.Policy {
 	policy := &envoy_rbac.Policy{}
 	for _, permission := range m.Permissions {
 		if service == nil || permission.Match(service) {
-			p, err := permission.Generate(forTCPFilter, forDenyPolicy)
+			p, err := permission.Generate(forTCPFilter, forDenyPolicy, isIstioVersionGE15)
 			if err != nil {
 				rbacLog.Debugf("ignored HTTP permission for TCP service: %v", err)
 				continue

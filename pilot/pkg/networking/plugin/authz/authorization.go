@@ -28,6 +28,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/util"
 	authzBuilder "istio.io/istio/pilot/pkg/security/authz/builder"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/spiffe"
@@ -80,7 +81,7 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
 	// https://github.com/istio/istio/issues/17873
 	trustDomainBundle := trustdomain.NewTrustDomainBundle(spiffe.GetTrustDomain(), in.Push.Mesh.TrustDomainAliases)
 	builder := authzBuilder.NewBuilder(trustDomainBundle, in.ServiceInstance,
-		in.Node.WorkloadLabels, in.Node.ConfigNamespace, in.Push.AuthzPolicies)
+		in.Node.WorkloadLabels, in.Node.ConfigNamespace, in.Push.AuthzPolicies, util.IsIstioVersionGE15(in.Node))
 	if builder == nil {
 		return
 	}
