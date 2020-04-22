@@ -97,7 +97,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 		ClusterID:        "v2-debug",
 		ProviderID:       serviceregistry.Mock,
 		ServiceDiscovery: s.MemRegistry,
-		Controller:       s.MemRegistry.controller,
+		Controller:       s.MemRegistry.Controller,
 	})
 
 	if enableProfiling {
