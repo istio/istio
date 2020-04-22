@@ -334,11 +334,11 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 }
 
 func (s *Server) initStatusController(args *PilotArgs) {
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		go leaderelection.
+	s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+		leaderelection.
 			NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
 			AddRunFunction(func(stop <-chan struct{}) {
-				(&status.DistributionController{QPS:float32(features.StatusQPS), Burst:features.StatusBurst}).
+				(&status.DistributionController{QPS: float32(features.StatusQPS), Burst: features.StatusBurst}).
 					Start(s.kubeConfig, args.Namespace, stop)
 			}).Run(stop)
 		return nil
@@ -347,8 +347,8 @@ func (s *Server) initStatusController(args *PilotArgs) {
 		UpdateInterval: time.Millisecond * 500, // TODO: use args here?
 		PodName:        args.PodName,
 	}
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		go s.statusReporter.Start(s.kubeConfig, args.Namespace, s.configController, stop)
+	s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+		s.statusReporter.Start(s.kubeConfig, args.Namespace, s.configController, stop)
 		return nil
 	})
 	s.environment.StatusReporter = s.statusReporter

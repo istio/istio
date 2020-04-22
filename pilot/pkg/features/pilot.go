@@ -260,14 +260,14 @@ var (
 	StatusQPS = env.RegisterFloatVar(
 		"PILOT_STATUS_QPS",
 		100,
-		"If status is enabled, controls the QPS with which status will be updated.  " +
+		"If status is enabled, controls the QPS with which status will be updated.  "+
 			"See https://godoc.org/k8s.io/client-go/rest#Config QPS",
 	).Get()
 
 	StatusBurst = env.RegisterIntVar(
 		"PILOT_STATUS_BURST",
 		500,
-		"If status is enabled, controls the Burst rate with which status will be updated.  " +
+		"If status is enabled, controls the Burst rate with which status will be updated.  "+
 			"See https://godoc.org/k8s.io/client-go/rest#Config Burst",
 	).Get()
 

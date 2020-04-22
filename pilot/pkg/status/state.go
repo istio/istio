@@ -61,8 +61,8 @@ type DistributionController struct {
 	knownResources   map[schema.GroupVersionResource]dynamic.NamespaceableResourceInterface
 	currentlyWriting ResourceLock
 	StaleInterval    time.Duration
-	QPS float32
-	Burst int
+	QPS              float32
+	Burst            int
 }
 
 func (c *DistributionController) Start(restConfig *rest.Config, namespace string, stop <-chan struct{}) {
