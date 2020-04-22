@@ -41,10 +41,15 @@ func initLogsOrExit(args *rootArgs) {
 }
 
 func configLogs(logToStdErr bool, opt *log.Options) error {
+	op := []string{"/dev/null"}
 	if logToStdErr {
-		opt.OutputPaths = []string{"stderr"}
+		op = []string{"stderr"}
 	}
-	return log.Configure(opt)
+	opt2 := *opt
+	opt2.OutputPaths = op
+	opt2.ErrorOutputPaths = op
+
+	return log.Configure(&opt2)
 }
 
 //Logger is the struct used for mesh command

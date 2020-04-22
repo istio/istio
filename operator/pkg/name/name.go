@@ -110,6 +110,16 @@ func init() {
 // ManifestMap is a map of ComponentName to its manifest string.
 type ManifestMap map[ComponentName][]string
 
+func (mm ManifestMap) String() string {
+	out := ""
+	for _, ms := range mm {
+		for _, m := range ms {
+			out += m + helm.YAMLSeparator
+		}
+	}
+	return out
+}
+
 // IsCoreComponent reports whether cn is a core component.
 func (cn ComponentName) IsCoreComponent() bool {
 	return allComponentNamesMap[cn]
