@@ -46,11 +46,23 @@ var (
 
 func TestGenerator_GenerateHTTP(t *testing.T) {
 	testCases := []struct {
-		name     string
-		tdBundle trustdomain.Bundle
-		input    string
-		want     []string
+		name        string
+		tdBundle    trustdomain.Bundle
+		isVersion14 bool
+		input       string
+		want        []string
 	}{
+		{
+			name:        "path14",
+			input:       "path14-in.yaml",
+			isVersion14: true,
+			want:        []string{"path14-out.yaml"},
+		},
+		{
+			name:  "path15",
+			input: "path15-in.yaml",
+			want:  []string{"path15-out.yaml"},
+		},
 		{
 			name:  "action-both",
 			input: "action-both-in.yaml",
@@ -111,7 +123,7 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := New(tc.tdBundle, httpbin, "foo", yamlPolicy(t, basePath+tc.input))
+			g := New(tc.tdBundle, httpbin, "foo", yamlPolicy(t, basePath+tc.input), !tc.isVersion14)
 			if g == nil {
 				t.Fatalf("failed to create generator")
 			}
@@ -142,7 +154,7 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := New(tc.tdBundle, httpbin, "foo", yamlPolicy(t, basePath+tc.input))
+			g := New(tc.tdBundle, httpbin, "foo", yamlPolicy(t, basePath+tc.input), true)
 			if g == nil {
 				t.Fatalf("failed to create generator")
 			}

@@ -2,7 +2,7 @@
 
 The charts in the `manifests` directory are used in istioctl to generate an installation manifest. The configuration
 settings contained in values.yaml files and passed through the CLI are validated against a
-[schema](../operator/pkg/apis/istio/v1alpha1/values_types.proto).
+[schema](../../operator/pkg/apis/istio/v1alpha1/values_types.proto).
 Whenever making changes in the charts, it's important to follow the below steps.
 
 ## Step 0. Check that any schema change really belongs in values.yaml
@@ -24,7 +24,7 @@ file, which must be in sync with the Helm values in `manifests`.
 
 ## Step 3. Update the validation schema
 
-Istioctl uses a [schema](../operator/pkg/apis/istio/v1alpha1/values_types.proto) to validate the values. Any changes to
+Istioctl uses a [schema](../../operator/pkg/apis/istio/v1alpha1/values_types.proto) to validate the values. Any changes to
 the schema must be added here, otherwise istioctl users will see errors.
 Once the schema file is updated, run:
 

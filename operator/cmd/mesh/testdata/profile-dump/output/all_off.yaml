@@ -420,6 +420,7 @@ spec:
         enabled: false
         private_key_file: /kiali-cert/key.pem
       tag: v1.15
+    meshConfig: {}
     mixer:
       adapters:
         kubernetesenv:

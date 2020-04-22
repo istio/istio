@@ -28,6 +28,7 @@ import (
 	http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/thrift_proxy/v2alpha1"
+	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	envoy_type_tracing_v2 "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -1429,86 +1430,164 @@ func TestHttpProxyListener(t *testing.T) {
 	}
 }
 
-func TestHttpProxyListener_CustomTags(t *testing.T) {
+func TestHttpProxyListener_Tracing(t *testing.T) {
 	var customTagsTest = []struct {
 		name   string
-		in     map[string]*meshconfig.Tracing_CustomTag
-		out    []*envoy_type_tracing_v2.CustomTag
+		in     *meshconfig.Tracing
+		out    *http_filter.HttpConnectionManager_Tracing
 		tproxy model.Proxy
 	}{
 		{
+			// upstream will set the default to 256 per
+			// its documentation
+			name:   "tag-max-path-length-not-set-default",
+			tproxy: proxy,
+			in: &meshconfig.Tracing{
+				Tracer:           nil,
+				CustomTags:       nil,
+				MaxPathTagLength: 0,
+				Sampling:         0,
+			},
+			out: &http_filter.HttpConnectionManager_Tracing{
+				MaxPathTagLength: nil,
+				ClientSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				RandomSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				OverallSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+			},
+		},
+		{
+			name:   "tag-max-path-length-set-to-1024",
+			tproxy: proxy,
+			in: &meshconfig.Tracing{
+				Tracer:           nil,
+				CustomTags:       nil,
+				MaxPathTagLength: 1024,
+				Sampling:         0,
+			},
+			out: &http_filter.HttpConnectionManager_Tracing{
+				MaxPathTagLength: &wrappers.UInt32Value{
+					Value: 1024,
+				},
+				ClientSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				RandomSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				OverallSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+			},
+		},
+		{
 			name:   "custom-tags-sidecar",
 			tproxy: proxy,
-			in: map[string]*meshconfig.Tracing_CustomTag{
-				"custom_tag_env": {
-					Type: &meshconfig.Tracing_CustomTag_Environment{
-						Environment: &meshconfig.Tracing_Environment{
-							Name:         "custom_tag_env-var",
-							DefaultValue: "custom-tag-env-default",
+			in: &meshconfig.Tracing{
+				CustomTags: map[string]*meshconfig.Tracing_CustomTag{
+					"custom_tag_env": {
+						Type: &meshconfig.Tracing_CustomTag_Environment{
+							Environment: &meshconfig.Tracing_Environment{
+								Name:         "custom_tag_env-var",
+								DefaultValue: "custom-tag-env-default",
+							},
 						},
 					},
-				},
-				"custom_tag_request_header": {
-					Type: &meshconfig.Tracing_CustomTag_Header{
-						Header: &meshconfig.Tracing_RequestHeader{
-							Name:         "custom_tag_request_header_name",
-							DefaultValue: "custom-defaulted-value-request-header",
+					"custom_tag_request_header": {
+						Type: &meshconfig.Tracing_CustomTag_Header{
+							Header: &meshconfig.Tracing_RequestHeader{
+								Name:         "custom_tag_request_header_name",
+								DefaultValue: "custom-defaulted-value-request-header",
+							},
 						},
 					},
-				},
-				// leave this in non-alphanumeric order to verify
-				// the stable sorting doing when creating the custom tag filter
-				"custom_tag_literal": {
-					Type: &meshconfig.Tracing_CustomTag_Literal{
-						Literal: &meshconfig.Tracing_Literal{
-							Value: "literal-value",
+					// leave this in non-alphanumeric order to verify
+					// the stable sorting doing when creating the custom tag filter
+					"custom_tag_literal": {
+						Type: &meshconfig.Tracing_CustomTag_Literal{
+							Literal: &meshconfig.Tracing_Literal{
+								Value: "literal-value",
+							},
 						},
 					},
 				},
 			},
-			out: []*envoy_type_tracing_v2.CustomTag{
-				{
-					Tag: "custom_tag_env",
-					Type: &envoy_type_tracing_v2.CustomTag_Environment_{
-						Environment: &envoy_type_tracing_v2.CustomTag_Environment{
-							Name:         "custom_tag_env-var",
-							DefaultValue: "custom-tag-env-default",
+			out: &http_filter.HttpConnectionManager_Tracing{
+				ClientSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				RandomSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				OverallSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				CustomTags: []*envoy_type_tracing_v2.CustomTag{
+					{
+						Tag: "custom_tag_env",
+						Type: &envoy_type_tracing_v2.CustomTag_Environment_{
+							Environment: &envoy_type_tracing_v2.CustomTag_Environment{
+								Name:         "custom_tag_env-var",
+								DefaultValue: "custom-tag-env-default",
+							},
 						},
 					},
-				},
-				{
-					Tag: "custom_tag_literal",
-					Type: &envoy_type_tracing_v2.CustomTag_Literal_{
-						Literal: &envoy_type_tracing_v2.CustomTag_Literal{
-							Value: "literal-value",
+					{
+						Tag: "custom_tag_literal",
+						Type: &envoy_type_tracing_v2.CustomTag_Literal_{
+							Literal: &envoy_type_tracing_v2.CustomTag_Literal{
+								Value: "literal-value",
+							},
 						},
 					},
-				},
-				{
-					Tag: "custom_tag_request_header",
-					Type: &envoy_type_tracing_v2.CustomTag_RequestHeader{
-						RequestHeader: &envoy_type_tracing_v2.CustomTag_Header{
-							Name:         "custom_tag_request_header_name",
-							DefaultValue: "custom-defaulted-value-request-header",
+					{
+						Tag: "custom_tag_request_header",
+						Type: &envoy_type_tracing_v2.CustomTag_RequestHeader{
+							RequestHeader: &envoy_type_tracing_v2.CustomTag_Header{
+								Name:         "custom_tag_request_header_name",
+								DefaultValue: "custom-defaulted-value-request-header",
+							},
 						},
 					},
 				},
 			},
 		},
 		{
-			name:   "custom-tags-gateways",
+			name:   "custom-tracing-gateways",
 			tproxy: proxyGateway,
-			in: map[string]*meshconfig.Tracing_CustomTag{
-				"custom_tag_request_header": {
-					Type: &meshconfig.Tracing_CustomTag_Header{
-						Header: &meshconfig.Tracing_RequestHeader{
-							Name:         "custom_tag_request_header_name",
-							DefaultValue: "custom-defaulted-value-request-header",
+			in: &meshconfig.Tracing{
+				MaxPathTagLength: 100,
+				CustomTags: map[string]*meshconfig.Tracing_CustomTag{
+					"custom_tag_request_header": {
+						Type: &meshconfig.Tracing_CustomTag_Header{
+							Header: &meshconfig.Tracing_RequestHeader{
+								Name:         "custom_tag_request_header_name",
+								DefaultValue: "custom-defaulted-value-request-header",
+							},
 						},
 					},
 				},
 			},
-			out: nil,
+			out: &http_filter.HttpConnectionManager_Tracing{
+				ClientSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				RandomSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				OverallSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				MaxPathTagLength: &wrappers.UInt32Value{
+					Value: 100,
+				},
+				CustomTags: nil,
+			},
 		},
 	}
 	p := &fakePlugin{}
@@ -1525,7 +1604,9 @@ func TestHttpProxyListener_CustomTags(t *testing.T) {
 		env.Mesh().EnableTracing = true
 		env.Mesh().DefaultConfig = &meshconfig.ProxyConfig{
 			Tracing: &meshconfig.Tracing{
-				CustomTags: tc.in,
+				CustomTags:       tc.in.CustomTags,
+				MaxPathTagLength: tc.in.MaxPathTagLength,
+				Sampling:         tc.in.Sampling,
 			},
 		}
 
@@ -1537,7 +1618,7 @@ func TestHttpProxyListener_CustomTags(t *testing.T) {
 	}
 }
 
-func verifyHTTPConnectionManagerFilter(t *testing.T, f *listener.Filter, expected []*envoy_type_tracing_v2.CustomTag, name string) {
+func verifyHTTPConnectionManagerFilter(t *testing.T, f *listener.Filter, expected *http_filter.HttpConnectionManager_Tracing, name string) {
 	t.Helper()
 	if f.Name == "envoy.http_connection_manager" {
 		cmgr := &http_filter.HttpConnectionManager{}
@@ -1546,7 +1627,7 @@ func verifyHTTPConnectionManagerFilter(t *testing.T, f *listener.Filter, expecte
 			t.Fatal(err)
 		}
 
-		tracing := cmgr.GetTracing().GetCustomTags()
+		tracing := cmgr.GetTracing()
 		ok := reflect.DeepEqual(tracing, expected)
 
 		if !ok {
