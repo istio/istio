@@ -52,15 +52,15 @@ func (p *Progress) PlusEquals(p2 Progress) {
 }
 
 type DistributionController struct {
-	mu              sync.RWMutex
-	CurrentState    map[Resource]map[string]Progress
-	ObservationTime map[string]time.Time
-	UpdateInterval  time.Duration
-	client          dynamic.Interface
-	clock           clock.Clock
-	knownResources  map[schema.GroupVersionResource]dynamic.NamespaceableResourceInterface
+	mu               sync.RWMutex
+	CurrentState     map[Resource]map[string]Progress
+	ObservationTime  map[string]time.Time
+	UpdateInterval   time.Duration
+	client           dynamic.Interface
+	clock            clock.Clock
+	knownResources   map[schema.GroupVersionResource]dynamic.NamespaceableResourceInterface
 	currentlyWriting ResourceLock
-	StaleInterval   time.Duration
+	StaleInterval    time.Duration
 }
 
 func (c *DistributionController) Start(restConfig *rest.Config, namespace string, stop <-chan struct{}) {

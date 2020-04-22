@@ -18,7 +18,7 @@ import "sync"
 
 type ResourceLock struct {
 	masterLock sync.RWMutex
-	listing map[interface{}]*sync.Mutex
+	listing    map[interface{}]*sync.Mutex
 }
 
 func (r *ResourceLock) Lock(i interface{}) {
