@@ -2011,7 +2011,7 @@ func buildTracingConfig(config *meshconfig.ProxyConfig, proxyType model.NodeType
 				}
 		}
 
-		if len(config.Tracing.CustomTags) != 0  {
+		if len(config.Tracing.CustomTags) != 0 {
 			tracingCfg.CustomTags = buildCustomTags(config.Tracing.CustomTags)
 		}
 	}
