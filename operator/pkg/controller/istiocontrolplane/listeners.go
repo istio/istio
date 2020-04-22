@@ -77,7 +77,7 @@ func NewIstioStatusUpdater(instance *iop.IstioOperator) helmreconciler.Rendering
 	}
 }
 
-// EndReconcile updates the status field on the IstioOperator instance based on the resulting err parameter.
+// SetStatusComplete updates the status field on the IstioOperator instance based on the resulting err parameter.
 func (u *IstioStatusUpdater) EndReconcile(_ runtime.Object, status *v1alpha1.InstallStatus) error {
 	iop := &iop.IstioOperator{}
 	namespacedName := types.NamespacedName{

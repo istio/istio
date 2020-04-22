@@ -198,7 +198,7 @@ func (l *CompositeRenderingListener) EndDelete(instance runtime.Object, err erro
 	return utilerrors.NewAggregate(allErrors)
 }
 
-// EndReconcile delegates EndReconcile to the Listeners in last to first order.
+// SetStatusComplete delegates SetStatusComplete to the Listeners in last to first order.
 func (l *CompositeRenderingListener) EndReconcile(instance runtime.Object, status *v1alpha1.InstallStatus) error {
 	// reverse order for completions
 	var allErrors []error
@@ -314,7 +314,7 @@ func (l *LoggingRenderingListener) EndDelete(instance runtime.Object, err error)
 	return nil
 }
 
-// EndReconcile logs the event and any error that occurred
+// SetStatusComplete logs the event and any error that occurred
 func (l *LoggingRenderingListener) EndReconcile(instance runtime.Object, status *v1alpha1.InstallStatus) error {
 	log.Info("end reconciling resources")
 	return nil
@@ -391,7 +391,7 @@ func (l *DefaultRenderingListener) EndDelete(instance runtime.Object, err error)
 	return nil
 }
 
-// EndReconcile default implementation
+// SetStatusComplete default implementation
 func (l *DefaultRenderingListener) EndReconcile(instance runtime.Object, status *v1alpha1.InstallStatus) error {
 	return nil
 }

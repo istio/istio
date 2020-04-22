@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/version"
 	"istio.io/pkg/log"
 )
@@ -80,13 +81,13 @@ func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs, logOp
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			l := clog.NewConsoleLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
 			return manifestGenerate(rootArgs, mgArgs, logOpts, l)
 		}}
 
 }
 
-func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log.Options, l *Logger) error {
+func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log.Options, l clog.Logger) error {
 	if err := configLogs(args.logToStdErr, logopts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
@@ -103,7 +104,7 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 
 	if mgArgs.outFilename == "" {
 		for _, m := range orderedManifests(manifests) {
-			l.print(m + "\n")
+			l.Print(m + "\n")
 		}
 	} else {
 		if err := os.MkdirAll(mgArgs.outFilename, os.ModePerm); err != nil {
@@ -122,7 +123,7 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 // If force is set, validation errors will not cause processing to abort but will result in warnings going to the
 // supplied logger.
 func GenManifests(inFilename []string, setOverlayYAML string, force bool,
-	kubeConfig *rest.Config, l *Logger) (name.ManifestMap, *v1alpha1.IstioOperatorSpec, error) {
+	kubeConfig *rest.Config, l clog.Logger) (name.ManifestMap, *v1alpha1.IstioOperatorSpec, error) {
 	mergedYAML, _, err := GenerateConfig(inFilename, setOverlayYAML, force, kubeConfig, l)
 	if err != nil {
 		return nil, nil, err

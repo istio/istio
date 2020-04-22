@@ -34,6 +34,7 @@ require (
 	github.com/cactus/go-statsd-client v3.1.1+incompatible
 	github.com/cenkalti/backoff v2.0.0+incompatible
 	github.com/census-instrumentation/opencensus-proto v0.2.1
+	github.com/cheggaaa/pb/v3 v3.0.4
 	github.com/circonus-labs/circonus-gometrics v2.3.1+incompatible
 	github.com/circonus-labs/circonusllhist v0.1.4 // indirect
 	github.com/cncf/udpa/go v0.0.0-20200313221541-5f7e5dd04533

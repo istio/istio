@@ -18,6 +18,7 @@ import (
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/clog"
 )
 
 type operatorCommonArgs struct {
@@ -42,7 +43,7 @@ func isControllerInstalled(kubeconfig, context, operatorNamespace string) (bool,
 }
 
 // chartsRootDir, helmBaseDir, componentName, namespace string) (Template, TemplateRenderer, error) {
-func renderOperatorManifest(_ *rootArgs, ocArgs *operatorCommonArgs, _ *Logger) (string, string, error) {
+func renderOperatorManifest(_ *rootArgs, ocArgs *operatorCommonArgs, _ clog.Logger) (string, string, error) {
 	installPackagePath := snapshotInstallPackageDir
 	if ocArgs.charts != "" {
 		installPackagePath = ocArgs.charts

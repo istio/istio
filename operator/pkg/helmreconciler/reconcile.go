@@ -31,8 +31,7 @@ import (
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/util"
-	"istio.io/pkg/log"
+	"istio.io/istio/operator/pkg/util/clog"
 )
 
 type componentNameToListMap map[name.ComponentName][]name.ComponentName
@@ -87,13 +86,13 @@ type HelmReconciler struct {
 
 // Options are options for HelmReconciler.
 type Options struct {
-	// ControllerMode controls performing controller related actions like updating status in the cluster CR.
-	ControllerMode bool
 	// DryRun executes all actions but does not write anything to the cluster.
 	DryRun bool
+	// Log is a console logger for user visible CLI output.
+	Log clog.Logger
 }
 
-var defaultOptions = &Options{}
+var defaultOptions = &Options{Log: clog.NewDefaultLogger()}
 
 // NewHelmReconciler creates a HelmReconciler and returns a ptr to it
 func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *valuesv1alpha1.IstioOperator, opts *Options) (*HelmReconciler, error) {
@@ -120,34 +119,98 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *value
 }
 
 // Reconcile reconciles the associated resources.
-func (h *HelmReconciler) Reconcile() error {
-	if err := h.beginReconcile(); err != nil {
-		return err
-	}
-
+func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
 	manifestMap, err := h.RenderCharts()
 	if err != nil {
-		// TODO: this needs to update status to RECONCILING.
-		return err
+		return nil, err
 	}
 
 	status := h.processRecursive(manifestMap)
 
 	// Delete any resources not in the manifest but managed by operator.
-	var errs util.Errors
 	if h.needUpdateAndPrune {
-		errs = util.AppendErr(errs, h.Prune(allObjectHashes(manifestMap), false))
+		err = h.Prune(allObjectHashes(manifestMap), false)
 	}
-	errs = util.AppendErr(errs, h.endReconcile(status))
 
-	return errs.ToError()
+	return status, err
 }
 
-// beginReconcile updates the status field on the IstioOperator instance before reconciling.
-func (h *HelmReconciler) beginReconcile() error {
-	if !h.opts.ControllerMode || h.opts.DryRun {
-		return nil
+// processRecursive processes the given manifests in an order of dependencies defined in h. Dependencies are a tree,
+// where a child must wait for the parent to complete before starting.
+func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1.InstallStatus {
+	componentStatus := make(map[string]*v1alpha1.InstallStatus_VersionStatus)
+
+	// mu protects the shared InstallStatus componentStatus across goroutines
+	var mu sync.Mutex
+	// wg waits for all manifest processing goroutines to finish
+	var wg sync.WaitGroup
+
+	for c, m := range manifests {
+		c, m := c, m
+		wg.Add(1)
+		go func() {
+			var processedObjs object.K8sObjects
+			defer wg.Done()
+			cn := name.ComponentName(c)
+			if s := dependencyWaitCh[cn]; s != nil {
+				scope.Infof("%s is waiting on dependency...", c)
+				<-s
+				scope.Infof("Dependency for %s has completed, proceeding.", c)
+			}
+
+			// Possible paths for status are RECONCILING -> {NONE, ERROR, HEALTHY}. NONE means component has no resources.
+			// In NONE case, the component is not shown in overall status.
+			mu.Lock()
+			setStatus(componentStatus, c, v1alpha1.InstallStatus_RECONCILING, nil)
+			mu.Unlock()
+
+			status := v1alpha1.InstallStatus_NONE
+			var err error
+			if len(m) != 0 {
+				if processedObjs, err = h.ProcessManifest(m); err != nil {
+					status = v1alpha1.InstallStatus_ERROR
+				} else if len(processedObjs) != 0 {
+					status = v1alpha1.InstallStatus_HEALTHY
+				}
+			}
+
+			mu.Lock()
+			setStatus(componentStatus, c, status, err)
+			mu.Unlock()
+
+			// If we are depending on a component, we may depend on it actually running (eg Deployment is ready)
+			// For example, for the validation webhook to become ready, so we should wait for it always.
+			if err == nil && len(componentDependencies[cn]) > 0 {
+				if err := manifest.WaitForResources(processedObjs, h.clientSet, internalDepTimeout, h.opts.DryRun, h.opts.Log); err != nil {
+					scope.Errorf("Failed to wait for resource: %v", err)
+				}
+			}
+
+			// Signal all the components that depend on us.
+			for _, ch := range componentDependencies[cn] {
+				scope.Infof("Unblocking dependency %s.", ch)
+				dependencyWaitCh[ch] <- struct{}{}
+			}
+		}()
 	}
+	wg.Wait()
+
+	out := &v1alpha1.InstallStatus{
+		Status:          overallStatus(componentStatus),
+		ComponentStatus: componentStatus,
+	}
+
+	return out
+}
+
+// Delete resources associated with the custom resource instance
+func (h *HelmReconciler) Delete() error {
+	h.needUpdateAndPrune = true
+	return h.Prune(nil, true)
+}
+
+// SetStatusBegin updates the status field on the IstioOperator instance before reconciling.
+func (h *HelmReconciler) SetStatusBegin() error {
 	isop := &valuesv1alpha1.IstioOperator{}
 	namespacedName := types.NamespacedName{
 		Name:      h.iop.Name,
@@ -174,11 +237,8 @@ func (h *HelmReconciler) beginReconcile() error {
 	return h.GetClient().Status().Update(context.TODO(), isop)
 }
 
-// endReconcile updates the status field on the IstioOperator instance based on the resulting err parameter.
-func (h *HelmReconciler) endReconcile(status *v1alpha1.InstallStatus) error {
-	if !h.opts.ControllerMode || h.opts.DryRun {
-		return nil
-	}
+// SetStatusComplete updates the status field on the IstioOperator instance based on the resulting err parameter.
+func (h *HelmReconciler) SetStatusComplete(status *v1alpha1.InstallStatus) error {
 	iop := &valuesv1alpha1.IstioOperator{}
 	namespacedName := types.NamespacedName{
 		Name:      h.iop.Name,
@@ -191,114 +251,44 @@ func (h *HelmReconciler) endReconcile(status *v1alpha1.InstallStatus) error {
 	return h.GetClient().Status().Update(context.TODO(), iop)
 }
 
-// processRecursive processes the given manifests in an order of dependencies defined in h. Dependencies are a tree,
-// where a child must wait for the parent to complete before starting.
-func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1.InstallStatus {
-	componentStatus := make(map[string]*v1alpha1.InstallStatus_VersionStatus)
-
-	// mu protects the shared InstallStatus componentStatus across goroutines
-	var mu sync.Mutex
-	// wg waits for all manifest processing goroutines to finish
-	var wg sync.WaitGroup
-
-	for c, m := range manifests {
-		c, m := c, m
-		wg.Add(1)
-		go func() {
-			var processedObjs object.K8sObjects
-			defer wg.Done()
-			cn := name.ComponentName(c)
-			if s := dependencyWaitCh[cn]; s != nil {
-				log.Infof("%s is waiting on dependency...", c)
-				<-s
-				log.Infof("Dependency for %s has completed, proceeding.", c)
-			}
-
-			// Set status when reconciling starts
-			status := v1alpha1.InstallStatus_RECONCILING
-			mu.Lock()
-			if _, ok := componentStatus[c]; !ok {
-				componentStatus[c] = &v1alpha1.InstallStatus_VersionStatus{}
-				componentStatus[c].Status = status
-			}
-			mu.Unlock()
-
-			// Process manifests and get the status result
-			errString := ""
-			if len(m) == 0 {
-				status = v1alpha1.InstallStatus_NONE
-			} else {
-				var err error
-				status = v1alpha1.InstallStatus_HEALTHY
-				if processedObjs, err = h.ProcessManifest(m[0]); err != nil {
-					errString = err.Error()
-					status = v1alpha1.InstallStatus_ERROR
-				} else if len(processedObjs) == 0 {
-					status = v1alpha1.InstallStatus_NONE
-				}
-			}
-
-			// Update status based on the result
-			mu.Lock()
-			if status == v1alpha1.InstallStatus_NONE {
-				delete(componentStatus, c)
-			} else {
-				componentStatus[c].Status = status
-				if errString != "" {
-					componentStatus[c].Error = errString
-				}
-			}
-			mu.Unlock()
-
-			// If we are depending on a component, we may depend on it actually running (eg Deployment is ready)
-			// For example, for the validation webhook to become ready, so we should wait for it always.
-			if len(componentDependencies[cn]) > 0 {
-				if err := manifest.WaitForResources(processedObjs, h.clientSet, internalDepTimeout, h.opts.DryRun); err != nil {
-					log.Errorf("Failed to wait for resource: %v", err)
-				}
-			}
-
-			// Signal all the components that depend on us.
-			for _, ch := range componentDependencies[cn] {
-				log.Infof("Unblocking dependency %s.", ch)
-				dependencyWaitCh[ch] <- struct{}{}
-			}
-		}()
+// setStatus sets the status for the component with the given name, which is a key in the given map.
+// If the status is InstallStatus_NONE, the component name is deleted from the map.
+// Otherwise, if the map key/value is missing, one is created.
+func setStatus(s map[string]*v1alpha1.InstallStatus_VersionStatus, componentName string, status v1alpha1.InstallStatus_Status, err error) {
+	if status == v1alpha1.InstallStatus_NONE {
+		delete(s, componentName)
+		return
 	}
-	wg.Wait()
+	if _, ok := s[componentName]; !ok {
+		s[componentName] = &v1alpha1.InstallStatus_VersionStatus{}
+	}
+	s[componentName].Status = status
+	if err != nil {
+		s[componentName].Error = err.Error()
+	}
+}
 
-	// Update overall status
-	// - If all components are HEALTHY, overall status is HEALTHY.
-	// - If one or more components are RECONCILING and others are HEALTHY, overall status is RECONCILING.
-	// - If one or more components are UPDATING and others are HEALTHY, overall status is UPDATING.
-	// - If components are a mix of RECONCILING, UPDATING and HEALTHY, overall status is UPDATING.
-	// - If any component is in ERROR state, overall status is ERROR.
-	overallStatus := v1alpha1.InstallStatus_HEALTHY
+// overallStatus returns the summary status over all components.
+// - If all components are HEALTHY, overall status is HEALTHY.
+// - If one or more components are RECONCILING and others are HEALTHY, overall status is RECONCILING.
+// - If one or more components are UPDATING and others are HEALTHY, overall status is UPDATING.
+// - If components are a mix of RECONCILING, UPDATING and HEALTHY, overall status is UPDATING.
+// - If any component is in ERROR state, overall status is ERROR.
+func overallStatus(componentStatus map[string]*v1alpha1.InstallStatus_VersionStatus) v1alpha1.InstallStatus_Status {
+	ret := v1alpha1.InstallStatus_HEALTHY
 	for _, cs := range componentStatus {
 		if cs.Status == v1alpha1.InstallStatus_ERROR {
-			overallStatus = v1alpha1.InstallStatus_ERROR
+			ret = v1alpha1.InstallStatus_ERROR
 			break
 		} else if cs.Status == v1alpha1.InstallStatus_UPDATING {
-			overallStatus = v1alpha1.InstallStatus_UPDATING
+			ret = v1alpha1.InstallStatus_UPDATING
 			break
 		} else if cs.Status == v1alpha1.InstallStatus_RECONCILING {
-			overallStatus = v1alpha1.InstallStatus_RECONCILING
+			ret = v1alpha1.InstallStatus_RECONCILING
 			break
 		}
 	}
-
-	out := &v1alpha1.InstallStatus{
-		Status:          overallStatus,
-		ComponentStatus: componentStatus,
-	}
-
-	return out
-}
-
-// Delete resources associated with the custom resource instance
-func (h *HelmReconciler) Delete() error {
-	h.needUpdateAndPrune = true
-	return h.Prune(nil, true)
+	return ret
 }
 
 // allObjectHashes returns a map with object hashes of all the objects contained in cmm as the keys.
@@ -308,7 +298,7 @@ func allObjectHashes(cmm ChartManifestsMap) map[string]bool {
 		for _, m := range mm {
 			objs, err := object.ParseK8sObjectsFromYAMLManifest(m.Content)
 			if err != nil {
-				log.Error(err.Error())
+				scope.Error(err.Error())
 			}
 			for _, o := range objs {
 				ret[o.Hash()] = true
