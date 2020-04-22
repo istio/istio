@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+
 	"istio.io/api/networking/v1alpha3"
 
 	"github.com/gogo/protobuf/types"

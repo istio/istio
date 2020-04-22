@@ -52,12 +52,12 @@ defaultConfig:
 			expect: mesh.DefaultProxyConfig(),
 		},
 		{
-			name:       "Annotation Override",
+			name: "Annotation Override",
 			annotation: `discoveryAddress: foo:123
 proxyMetadata:
   SOME: setting
 drainDuration: 1s`,
-			expect:     overridesExpected,
+			expect: overridesExpected,
 		},
 		{
 			name:   "File Override",

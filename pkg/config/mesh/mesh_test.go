@@ -49,7 +49,7 @@ func TestApplyProxyConfig(t *testing.T) {
 			t.Fatal(err)
 		}
 		// Ensure we didn't modify the passed in mesh config
-		if mc.DefaultConfig.DiscoveryAddress != defaultDiscovery{
+		if mc.DefaultConfig.DiscoveryAddress != defaultDiscovery {
 			t.Fatalf("expected discoveryAddress: %q, got %q", defaultDiscovery, mc.DefaultConfig.DiscoveryAddress)
 		}
 		if mc.DefaultConfig.DrainDuration.Seconds != 5 {

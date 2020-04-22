@@ -109,6 +109,9 @@ func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 // 2. Then we apply any settings from file (this comes from gateway mounting configmap)
 // 3. Then we apply settings from environment variable (this comes from sidecar injection sticking meshconfig here)
 // 4. Then we apply overrides from annotation (this comes from annotation on gateway, passed through downward API)
+//
+// Merging is done by replacement. Any fields present in the overlay will replace those existing fields, while
+// untouched fields will remain untouched. This means lists will be replaced, not appended to, for example.
 func getMeshConfig(fileOverride, annotationOverride string) (meshconfig.MeshConfig, error) {
 	mc := mesh.DefaultMeshConfig()
 
