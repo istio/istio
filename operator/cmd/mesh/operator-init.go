@@ -163,7 +163,7 @@ func applyManifest(manifestStr, componentName string, opts *kubectlcmd.Options, 
 		l.LogAndFatal(err.Error())
 	}
 	if opts.Wait {
-		err := manifest.WaitForResources(objs, clientSet, opts.WaitTimeout, opts.DryRun, l)
+		err := manifest.WaitForResources(objs, clientSet, opts.WaitTimeout, opts.DryRun, nil)
 		if err != nil {
 			out.Err = err
 		}
