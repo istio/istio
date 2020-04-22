@@ -55,18 +55,17 @@ const (
 // Note that this implementation is tested against gRPC, but it is generic - any other framework can
 // use this XDS mode to get load balancing info from Istio, including MC/VM/etc.
 
-// DNS can populate the name to cluster VIP mapping using this response.
-
 // The corresponding RDS response is also generated - currently gRPC has special differences
 // and can't understand normal Istio RDS - in particular expects "" instead of "/" as
 // default prefix, and is expects just the route for one host.
 // handleAck will detect if the message is an ACK or NACK, and update/log/count
 // using the generic structures. "Classical" CDS/LDS/RDS/EDS use separate logic -
 // this is used for the API-based LDS and generic messages.
+
 type GrpcConfigGenerator struct {
 }
 
-func (g *GrpcConfigGenerator) Generate(node *model.Proxy, push *model.PushContext, w *model.WatchedResource) []*any.Any {
+func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
 	switch w.TypeUrl {
 	case ListenerType:
 		return g.BuildListeners(node, push, w.ResourceNames)

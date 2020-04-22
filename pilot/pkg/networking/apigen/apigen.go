@@ -27,34 +27,27 @@ import (
 	"istio.io/pkg/log"
 )
 
-// Support generation of 'ApiListener' LDS responses, used for native support of gRPC.
-// The same response can also be used by other apps using XDS directly.
-
-// GRPC proposal:
-// https://github.com/grpc/proposal/blob/master/A27-xds-global-load-balancing.md
-//
-// Note that this implementation is tested against gRPC, but it is generic - any other framework can
-// use this XDS mode to get load balancing info from Istio, including MC/VM/etc.
-
-// DNS can populate the name to cluster VIP mapping using this response.
-
-// The corresponding RDS response is also generated - currently gRPC has special differences
-// and can't understand normal Istio RDS - in particular expects "" instead of "/" as
-// default prefix, and is expects just the route for one host.
-// handleAck will detect if the message is an ACK or NACK, and update/log/count
-// using the generic structures. "Classical" CDS/LDS/RDS/EDS use separate logic -
-// this is used for the API-based LDS and generic messages.
+// ApiGenerator supports generation of high-level API resources, similar with the MCP
+// protocol. This is a replacement for MCP, using XDS (and in future UDPA) as a transport.
+// Based on lessons from MCP, the protocol allows 'chunking' and 'incremental' updates by
+// default, using the same mechanism that EDS is using, i.e. sending only changed resources
+// in a push.
 type ApiGenerator struct {
 }
 
-func (g *ApiGenerator) Generate(node *model.Proxy, push *model.PushContext, w *model.WatchedResource) []*any.Any {
-	return g.handleConfigResource(node, push, w)
-}
+// TODO: take 'updates' into account, don't send pushes for resources that haven't changed
+// TODO: support WorkloadEntry - to generate endpoints (equivalent with EDS)
 
-// Handle watching Istio config types. This provides similar functionality with MCP.
-// Alternative to using 8080:/debug/configz
-// Names are based on the current stable naming in istiod.
-func (g *ApiGenerator) handleConfigResource(node *model.Proxy, push *model.PushContext, w *model.WatchedResource) []*any.Any {
+// Generate implements the generate method for high level APIs, like Istio config types.
+// This provides similar functionality with MCP and :8080/debug/configz.
+//
+// Names are based on the current resource naming in istiod.
+// IMPORTANT: based on lessons from MCP, the response has as last element a 'sync' resource.
+// Currently a 'sync' just an empty one.
+// This will allow avoiding extremely large packet sizes, and chunking. Not yet reflected in
+// the XDS implementation, but useful to get into the initial protocol. The behavior is specific
+// to this type of resources - and not prohibited by the ADS protocol, EDS has a similar behavior.
+func (g *ApiGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
 	resp := []*any.Any{}
 
 	// Example: networking.istio.io/v1alpha3/VirtualService
@@ -75,7 +68,7 @@ func (g *ApiGenerator) handleConfigResource(node *model.Proxy, push *model.PushC
 			meshAny, err := types.MarshalAny(push.Mesh)
 			if err == nil {
 				resp = append(resp,&any.Any{
-					TypeUrl: meshAny.TypeUrl,
+					TypeUrl: w.TypeUrl,
 					Value:  meshAny.Value,
 				})
 			}
@@ -112,7 +105,7 @@ func (g *ApiGenerator) handleConfigResource(node *model.Proxy, push *model.PushC
 		if w.TypeUrl == collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String() {
 			// Include 'synthetic' SE - but without the endpoints. Used to generate CDS, LDS.
 			// EDS is pass-through.
-			svcs := push.Services(node)
+			svcs := push.Services(proxy)
 			for _, s := range svcs {
 				c := external.ServiceToServiceEntry(s)
 				b, err := configToResource(c)
@@ -132,6 +125,9 @@ func (g *ApiGenerator) handleConfigResource(node *model.Proxy, push *model.PushC
 			}
 		}
 	}
+
+	resp = append(resp, &any.Any{
+	})
 
 	return resp
 }

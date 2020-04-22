@@ -16,6 +16,7 @@ package xds
 
 import (
 	"net"
+	"time"
 
 	"google.golang.org/grpc"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
@@ -39,10 +40,10 @@ type Server struct {
 	// MemoryStore is an in-memory config store, part of the aggregate store used by the discovery server.
 	MemoryConfigStore model.IstioConfigStore
 
-	// This matches env.ServiceDiscovery - the aggregate controller used in istio
-	ServiceDiscovery *aggregate.Controller
+	GRPCListener net.Listener
 
-	GRPCListener              net.Listener
+	syncCh           chan string
+	ConfigStoreCache model.ConfigStoreCache
 }
 
 // Creates an basic, functional discovery server, using the same code as Istiod, but
@@ -75,15 +76,17 @@ func NewXDS() *Server {
 	schemas := collections.Pilot
 	
 	store := memory.Make(schemas)
-
-	syncCh := make(chan string, len(schemas.All()))
-	configController := memory.NewControllerSync(store, &schemas, syncCh)
-	istioConfigStore := model.MakeIstioStore(configController)
+	s := &Server{
+		DiscoveryServer:   ds,
+	}
+	s.syncCh = make(chan string, len(schemas.All()))
+	configController := memory.NewControllerSync(store, &schemas, s.syncCh)
+	s.MemoryConfigStore = model.MakeIstioStore(configController)
 
 	// Endpoints/Clusters - using the config store for ServiceEntries
 	serviceControllers := aggregate.NewController()
 
-	serviceEntryStore := external.NewServiceDiscovery(configController, istioConfigStore, ds)
+	serviceEntryStore := external.NewServiceDiscovery(configController, s.MemoryConfigStore, ds)
 	serviceEntryRegistry := serviceregistry.Simple{
 		ProviderID:       "External",
 		Controller:       serviceEntryStore,
@@ -99,9 +102,11 @@ func NewXDS() *Server {
 		ServiceDiscovery: sd,
 		Controller:       sd.Controller,
 	})
+	env.ServiceDiscovery = serviceControllers
 
 	go configController.Run(make(chan struct{}))
 
+	// configStoreCache - with HasSync interface
 	aggregateConfigController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
 		configController,
 	})
@@ -109,19 +114,34 @@ func NewXDS() *Server {
 		log.Fatala("Creating aggregate config ", err)
 	}
 
+	// TODO: fix the mess of store interfaces - most are too generic for their own good.
+	s.ConfigStoreCache = aggregateConfigController
 	env.IstioConfigStore = model.MakeIstioStore(aggregateConfigController)
-	env.ServiceDiscovery = serviceControllers
 
-	return &Server{
-		DiscoveryServer:   ds,
-		MemoryConfigStore: istioConfigStore,
-		ServiceDiscovery:  serviceControllers,
+	return s
+}
+
+// WaitConfigSync will wait for the memory controller to sync.
+func (s *Server) WaitConfigSync(max time.Duration) bool {
+	// TODO: when adding support for multiple config controllers (matching MCP), make sure the
+	// new stores support reporting sync events on the syncCh, to avoid the sleep loop from MCP.
+	if s.ConfigStoreCache.HasSynced() {
+		return true
+	}
+	maxCh := time.After(max)
+	for {
+		select {
+		case <-s.syncCh:
+			if s.ConfigStoreCache.HasSynced() {
+				return true
+			}
+		case <-maxCh:
+			return s.ConfigStoreCache.HasSynced()
+		}
 	}
 }
 
-
 func (s *Server) StartGRPC(addr string) error {
-
 
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {

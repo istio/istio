@@ -200,6 +200,9 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	s.EnvoyXdsServer.Generators["api"] = &apigen.ApiGenerator{}
 	s.EnvoyXdsServer.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
+	epGen := &envoyv2.EdsGenerator{s.EnvoyXdsServer}
+	s.EnvoyXdsServer.Generators["grpc/" + envoyv2.EndpointType] = epGen
+	s.EnvoyXdsServer.Generators["api/" + envoyv2.EndpointType] = epGen
 
 	if features.JwtPolicy.Get() != jwt.JWTPolicyThirdPartyJWT {
 		log.Info("JWT policy is third-party-jwt")

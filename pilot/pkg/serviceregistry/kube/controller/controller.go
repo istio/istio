@@ -26,13 +26,11 @@ import (
 	"sync"
 	"time"
 
-	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/klog"
-
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
@@ -384,7 +382,8 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 		}
 		if k8sNode.address == "" {
 			// This is an absolutely normal event - node has an InternalIP instead of ExternalIP
-			klog.Infof("selected node %s without external ip address is unqualified ", node.Name)
+			// No need to spam the logs - this is going to be the case for all nodes if external IPs
+			// are not assigned to nodes.
 			return nil
 		}
 

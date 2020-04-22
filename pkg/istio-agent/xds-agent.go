@@ -43,7 +43,7 @@ import (
 var (
 	udsListener net.Listener
 
-	savePath = env.RegisterStringVar("XDS_SAVE", "./etc/istio/proxy",
+	savePath = env.RegisterStringVar("XDS_SAVE", "./etc/istio/proxy/xds",
 		"If set, the XDS proxy will save a snapshot of the received config")
 )
 
@@ -93,17 +93,15 @@ func startXDSClient(addr string) {
 		log.Fatalf("Failed to connect to XDS server")
 	}
 
+	ads.LocalCacheDir = savePath.Get()
 	ads.Store = xdsServer.MemoryConfigStore
 	ads.Registry = xdsServer.DiscoveryServer.MemRegistry
 
 	ads.WatchConfig()
-	ads.Wait(1 * time.Second, adsc.ListenerType)
-	
-	
-
-	if savePath.Get() != "" {
-		// TODO: save on each received resource instead.
-		ads.Save(savePath.Get())
+	syncOk := xdsServer.WaitConfigSync(10 * time.Second)
+	if !syncOk {
+		// TODO: have the store return a sync map, or better expose sync events/status
+		log.Warna("Incomplete sync")
 	}
 	// TODO: wait for config to sync before starting the rest
 	// TODO: handle push

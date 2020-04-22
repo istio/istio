@@ -16,6 +16,7 @@ package memory
 
 import (
 	"errors"
+	"sync"
 	"time"
 
 	"istio.io/pkg/ledger"
@@ -31,6 +32,7 @@ type controller struct {
 	schemas     *collection.Schemas
 	sync        map[string]time.Time
 	syncCh      chan string
+	m sync.RWMutex
 }
 
 // NewController return an implementation of model.ConfigStoreCache
@@ -67,7 +69,9 @@ func (c *controller) RegisterEventHandler(kind resource.GroupVersionKind, f func
 func (c *controller) HasSynced() bool {
 	if c.schemas != nil {
 		for _, s := range c.schemas.All() {
+			c.m.RLock()
 			t := c.sync[s.Resource().GroupVersionKind().String()]
+			c.m.RUnlock()
 			if t.IsZero() {
 				return false
 			}
@@ -112,7 +116,9 @@ func (c *controller) Create(config model.Config) (revision string, err error) {
 			Kind: config.Type,
 		}.String()
 
+		c.m.Lock()
 		c.sync[key] = time.Now()
+		c.m.Unlock()
 
 		if config.Name == "" && config.Namespace == "" {
 			// Empty config - can't use nil due to interface

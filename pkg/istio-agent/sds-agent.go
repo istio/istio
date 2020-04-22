@@ -221,6 +221,7 @@ func NewSDSAgent(proxyConfig *meshconfig.ProxyConfig, pilotCertProvider, jwtPath
 		if _, err := os.Stat(certDir + "/key.pem"); err == nil {
 			ac.CertsPath = certDir
 		}
+		ac.OutputKeyCertToDir = certDir
 		// If the root-cert is in the old location, use it.
 		if _, err := os.Stat(certDir + "/root-cert.pem"); err == nil {
 			CitadelCACertPath = certDir

@@ -42,7 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/config/schema/collections"
-	istiolog "istio.io/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // Config for the ADS connection.
@@ -123,6 +123,11 @@ type ADSC struct {
 	// Retrieved endpoints can be stored in the memory registry. This is used for CDS and EDS responses.
 	Registry *v2.MemServiceDiscovery
 
+	// LocalCacheDir is set to a base name used to save fetched resources.
+	// If set, each update will be saved.
+	// TODO: also load at startup - so we can support warm up in init-container, and survive
+	// restarts.
+	LocalCacheDir string
 }
 
 const (
@@ -141,7 +146,7 @@ const (
 )
 
 var (
-	adscLog = istiolog.RegisterScope("adsc", "adsc debugging", 0)
+	adscLog = log.RegisterScope("adsc", "adsc debugging", 0)
 )
 
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
@@ -275,14 +280,54 @@ func (a *ADSC) handleRecv() {
 			return
 		}
 
+		// Group-value-kind - used for high level api generator.
+		gvk := strings.SplitN(msg.TypeUrl, "/", 3)
+
+		if msg.TypeUrl ==collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String() &&
+			len(msg.Resources) > 0 {
+			rsc := msg.Resources[0]
+			m := &v1alpha1.MeshConfig{}
+			err = proto.Unmarshal(rsc.Value, m)
+			if err != nil {
+				log.Warna("Failed to unmarshal mesh config", err)
+			}
+			a.Mesh = m
+			strResponse, err := json.MarshalIndent(m, "  ", "  ")
+			if err != nil {
+				continue
+			}
+			err = ioutil.WriteFile(a.LocalCacheDir+"_mesh.json", strResponse, 0644)
+			if err != nil {
+				continue
+			}
+
+			continue
+		}
+
+
 		listeners := []*xdsapi.Listener{}
 		clusters := []*xdsapi.Cluster{}
 		routes := []*xdsapi.RouteConfiguration{}
 		eds := []*xdsapi.ClusterLoadAssignment{}
+		log.Infoa("Update for ", gvk, len(msg.Resources))
 		for _, rsc := range msg.Resources { // Any
 			a.VersionInfo[rsc.TypeUrl] = msg.VersionInfo
 			valBytes := rsc.Value
 			switch rsc.TypeUrl {
+			case "":
+				// last resource of this type. IstioStore doesn't yet have a way to indicate this
+				// or to support large sets - memory store has a special handling by calling Create
+				// with an empty resource.
+				if a.Store != nil && len(gvk) == 3 {
+					a.Store.Create(model.Config{
+						ConfigMeta: model.ConfigMeta{
+							Group: gvk[0],
+							Version: gvk[1],
+							Type: gvk[2],
+						},
+					})
+					log.Infoa("Sync for ", gvk, len(msg.Resources))
+				}
 
 			case ListenerType: {
 				ll := &xdsapi.Listener{}
@@ -308,11 +353,7 @@ func (a *ADSC) handleRecv() {
 				routes = append(routes, rl)
 			}
 
-			case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String():
-				_ = proto.Unmarshal(valBytes, a.Mesh)
-
 			default: {
-				gvk := strings.SplitN(msg.TypeUrl, "/", 3)
 				if len(gvk) != 3 {
 					continue
 				}
@@ -337,10 +378,24 @@ func (a *ADSC) handleRecv() {
 							a.Store.Update(*val)
 						}
 					}
+					if a.LocalCacheDir != "" {
+						strResponse, err := json.MarshalIndent(val, "  ", "  ")
+						if err != nil {
+							continue
+						}
+						err = ioutil.WriteFile(a.LocalCacheDir+"_res." +
+							val.Type+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
+						if err != nil {
+							continue
+						}
+					}
 				}
 			}
 			}
 		}
+		// If we got no resource - still save to the store with empty name/namespace, to notify sync
+		// This scheme also allows us to chunk large responses !
+
 
 		a.Received[msg.TypeUrl] = msg
 
@@ -551,34 +606,6 @@ func (a *ADSC) Save(base string) error {
 	err = ioutil.WriteFile(base+"_eds.json", strResponse, 0644)
 	if err != nil {
 		return err
-	}
-
-	// TODO: write the API configs as well - and load at restart for warm-up
-
-	strResponse, err = json.MarshalIndent(a.Mesh, "  ", "  ")
-	if err != nil {
-		return err
-	}
-	err = ioutil.WriteFile(base+"_mesh.json", strResponse, 0644)
-	if err != nil {
-		return err
-	}
-
-	for _, sch := range collections.Pilot.All() {
-		val, err := a.Store.List(sch.Resource().GroupVersionKind(), "")
-		if err != nil {
-			continue
-		}
-		for _, res := range val {
-			strResponse, err = json.MarshalIndent(res, "  ", "  ")
-			if err != nil {
-				return err
-			}
-			err = ioutil.WriteFile(base+"_res." + res.Namespace + "." + res.Name + ".json", strResponse, 0644)
-			if err != nil {
-				return err
-			}
-		}
 	}
 
 	return err
@@ -807,11 +834,10 @@ func (a *ADSC) Watch() {
 
 // WatchConfig will use the new experimental API watching, similar with MCP.
 func (a *ADSC) WatchConfig() {
-	sch := collections.IstioMeshV1Alpha1MeshConfig
 	_ = a.stream.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node:          a.node(),
-		TypeUrl:       sch.Resource().Group() + "/" + sch.Resource().Version() + "/" + sch.Resource().Kind(),
+		TypeUrl:       collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String(),
 	})
 
 	for _, sch := range collections.Pilot.All() {
@@ -882,3 +908,11 @@ func (a *ADSC) GetEndpoints() map[string]*xdsapi.ClusterLoadAssignment {
 	defer a.mutex.Unlock()
 	return a.eds
 }
+
+
+func (a *ADSC) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
+
+
+	return nil
+}
+

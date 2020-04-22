@@ -54,7 +54,7 @@ func (configgen *ConfigGeneratorImpl) MeshConfigChanged(mesh *meshconfig.MeshCon
 	resetCachedListenerConfig(mesh)
 }
 
-func (g *ConfigGeneratorImpl) Generate(node *model.Proxy, push *model.PushContext, w *model.WatchedResource) []*any.Any {
+func (g *ConfigGeneratorImpl) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
 	resp := []*any.Any{}
 	switch w.TypeUrl {
 	case ListenerType:
