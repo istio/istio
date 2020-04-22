@@ -996,8 +996,8 @@ func cleanMeshConfig(v proto.Message) proto.Message {
 	if cpy.IngressControllerMode == defaults.IngressControllerMode {
 		cpy.IngressControllerMode = meshconfig.MeshConfig_UNSPECIFIED
 	}
-	if reflect.DeepEqual(cpy.ClusterLocalNamespaces, defaults.ClusterLocalNamespaces) {
-		cpy.ClusterLocalNamespaces = nil
+	if reflect.DeepEqual(cpy.ServiceSettings, defaults.ServiceSettings) {
+		cpy.ServiceSettings = nil
 	}
 	return &cpy
 }
