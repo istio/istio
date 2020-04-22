@@ -87,7 +87,7 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l *Logger, delet
 		Context:     orArgs.context,
 	}
 
-	if _, err := manifest.InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
+	if _, _, err := manifest.InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
 		l.logAndFatal(err)
 	}
 
