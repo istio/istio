@@ -170,6 +170,10 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 	if err != nil {
 		return err
 	}
+	// We are running a one-off command locally, so we don't need to worry too much about rate limitting
+	// Bumping this up greatly decreases install time
+	restConfig.QPS = 50
+	restConfig.Burst = 100
 	client, err := client.New(restConfig, client.Options{Scheme: scheme.Scheme})
 	if err != nil {
 		return err
