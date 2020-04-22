@@ -107,6 +107,9 @@ var (
 	rdsPushes        = pushes.With(typeTag.Value("rds"))
 	rdsSendErrPushes = pushes.With(typeTag.Value("rds_senderr"))
 
+	apiPushes        = pushes.With(typeTag.Value("api"))
+	apiSendErrPushes = pushes.With(typeTag.Value("api_senderr"))
+
 	pushTime = monitoring.NewDistribution(
 		"pilot_xds_push_time",
 		"Total time in seconds Pilot takes to push lds, rds, cds and eds.",
