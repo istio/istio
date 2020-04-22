@@ -687,11 +687,13 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 // InstancesByPort implements a service catalog operation
 func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
-	res, _ := c.endpoints.InstancesByPort(c, svc, reqSvcPort, labelsList)
-	if len(res) > 0 {
-		return res, nil
+	res, err := c.endpoints.InstancesByPort(c, svc, reqSvcPort, labelsList)
+	// return when instances found or an error occurs
+	if len(res) > 0 || err != nil {
+		return res, err
 	}
 
+	// Fall back to external name service
 	c.RLock()
 	instances := c.externalNameSvcInstanceMap[svc.Hostname]
 	c.RUnlock()
