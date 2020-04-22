@@ -43,12 +43,12 @@ type Builder struct {
 
 // NewBuilder creates a builder instance that can be used to build corresponding RBAC filter config.
 func NewBuilder(trustDomainBundle trustdomain.Bundle, serviceInstance *model.ServiceInstance,
-	workloadLabels labels.Collection, configNamespace string, policies *model.AuthorizationPolicies) *Builder {
+	workloadLabels labels.Collection, configNamespace string, policies *model.AuthorizationPolicies, isIstioVersionGE15 bool) *Builder {
 	var generator policy.Generator
 
 	denyPolicies, allowPolicies := policies.ListAuthorizationPolicies(configNamespace, workloadLabels)
 	if len(denyPolicies) > 0 || len(allowPolicies) > 0 {
-		generator = v1beta1.NewGenerator(trustDomainBundle, denyPolicies, allowPolicies)
+		generator = v1beta1.NewGenerator(trustDomainBundle, denyPolicies, allowPolicies, isIstioVersionGE15)
 		rbacLog.Debugf("found authorization allow policies for workload %v in %s", workloadLabels, configNamespace)
 	} else {
 		if serviceInstance == nil {

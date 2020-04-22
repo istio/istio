@@ -33,17 +33,19 @@ var (
 )
 
 type v1beta1Generator struct {
-	trustDomainBundle trustdomain.Bundle
-	denyPolicies      []model.AuthorizationPolicyConfig
-	allowPolicies     []model.AuthorizationPolicyConfig
+	trustDomainBundle  trustdomain.Bundle
+	denyPolicies       []model.AuthorizationPolicyConfig
+	allowPolicies      []model.AuthorizationPolicyConfig
+	isIstioVersionGE15 bool
 }
 
 func NewGenerator(trustDomainBundle trustdomain.Bundle, denyPolicies []model.AuthorizationPolicyConfig,
-	allowPolicies []model.AuthorizationPolicyConfig) policy.Generator {
+	allowPolicies []model.AuthorizationPolicyConfig, isIstioVersionGE15 bool) policy.Generator {
 	return &v1beta1Generator{
-		trustDomainBundle: trustDomainBundle,
-		denyPolicies:      denyPolicies,
-		allowPolicies:     allowPolicies,
+		trustDomainBundle:  trustDomainBundle,
+		denyPolicies:       denyPolicies,
+		allowPolicies:      allowPolicies,
+		isIstioVersionGE15: isIstioVersionGE15,
 	}
 }
 
@@ -73,7 +75,7 @@ func (g *v1beta1Generator) generatePolicy(policies []model.AuthorizationPolicyCo
 			}
 			m := authzModel.NewModelV1beta1(g.trustDomainBundle, rule)
 			rbacLog.Debugf("constructed internal model: %+v", m)
-			if p := m.Generate(nil, forTCPFilter, forDenyPolicy); p != nil {
+			if p := m.Generate(nil, forTCPFilter, forDenyPolicy, g.isIstioVersionGE15); p != nil {
 				name := fmt.Sprintf("ns[%s]-policy[%s]-rule[%d]", config.Namespace, config.Name, i)
 				rbac.Policies[name] = p
 				rbacLog.Debugf("generated policy %s: %+v", name, p)

@@ -134,7 +134,7 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 
 	for _, tc := range testCases {
 		p := policy.NewAuthzPolicies(tc.policies, t)
-		b := NewBuilder(trustdomain.NewTrustDomainBundle("", nil), service, nil, "a", p)
+		b := NewBuilder(trustdomain.NewTrustDomainBundle("", nil), service, nil, "a", p, true)
 
 		filters := b.BuildHTTPFilters()
 		t.Run(tc.name, func(t *testing.T) {
@@ -212,7 +212,7 @@ func TestBuilder_BuildTCPFilter(t *testing.T) {
 
 	for _, tc := range testCases {
 		p := policy.NewAuthzPolicies(tc.policies, t)
-		b := NewBuilder(trustdomain.NewTrustDomainBundle("", nil), service, nil, "a", p)
+		b := NewBuilder(trustdomain.NewTrustDomainBundle("", nil), service, nil, "a", p, true)
 
 		t.Run(tc.name, func(t *testing.T) {
 			filters := b.BuildTCPFilters()

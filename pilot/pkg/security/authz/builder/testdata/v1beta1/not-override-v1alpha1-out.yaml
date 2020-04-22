@@ -2,16 +2,17 @@ rules:
   policies:
     httpbin:
       permissions:
-      - andRules:
-          rules:
-          - orRules:
-              rules:
-              - urlPath:
-                  path:
-                    exact: /v1alpha1
+        - andRules:
+            rules:
+              - orRules:
+                  rules:
+                    - header:
+                        exactMatch: /v1alpha1
+                        name: :path
       principals:
-      - andIds:
-          ids:
-          - orIds:
-              ids:
-              - any: true
+        - andIds:
+            ids:
+              - orIds:
+                  ids:
+                    - any: true
+ 

@@ -115,5 +115,5 @@ func (g *v1alpha1Generator) generatePolicy(trustDomainBundle trustdomain.Bundle,
 	}
 
 	m := authz_model.NewModelV1alpha1(trustDomainBundle, role, bindings)
-	return m.Generate(g.serviceMetadata, forTCPFilter, false /* forDenyPolicy */)
+	return m.Generate(g.serviceMetadata, forTCPFilter, false /* forDenyPolicy */, false /* isIstioVersionGE15 */)
 }

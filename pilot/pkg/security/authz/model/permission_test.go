@@ -246,12 +246,13 @@ func TestPermission_ValidateForTCP(t *testing.T) {
 
 func TestPermission_Generate(t *testing.T) {
 	testCases := []struct {
-		name         string
-		permission   *Permission
-		forTCPFilter bool
-		forDeny      bool
-		wantYAML     string
-		wantError    string
+		name               string
+		permission         *Permission
+		forTCPFilter       bool
+		forDeny            bool
+		isIstioVersionGE15 bool
+		wantYAML           string
+		wantError          string
 	}{
 		{
 			name: "nil permission",
@@ -346,10 +347,11 @@ func TestPermission_Generate(t *testing.T) {
                     name: :method`,
 		},
 		{
-			name: "permission with paths",
+			name: "permission with paths 15",
 			permission: &Permission{
 				Paths: []string{"/hello", "/world"},
 			},
+			isIstioVersionGE15: true,
 			wantYAML: `
         andRules:
           rules:
@@ -363,10 +365,28 @@ func TestPermission_Generate(t *testing.T) {
                     exact: /world`,
 		},
 		{
-			name: "permission with notPaths",
+			name: "permission with paths 14",
+			permission: &Permission{
+				Paths: []string{"/hello", "/world"},
+			},
+			wantYAML: `
+        andRules:
+          rules:
+          - orRules:
+              rules:
+              - header:
+                  exactMatch: /hello
+                  name: :path
+              - header:
+                  exactMatch: /world
+                  name: :path`,
+		},
+		{
+			name: "permission with notPaths 15",
 			permission: &Permission{
 				NotPaths: []string{"/hello", "/world"},
 			},
+			isIstioVersionGE15: true,
 			wantYAML: `
         andRules:
           rules:
@@ -379,6 +399,24 @@ func TestPermission_Generate(t *testing.T) {
                 - urlPath:
                     path:
                       exact: /world`,
+		},
+		{
+			name: "permission with notPaths 14",
+			permission: &Permission{
+				NotPaths: []string{"/hello", "/world"},
+			},
+			wantYAML: `
+        andRules:
+          rules:
+          - notRule:
+              orRules:
+                rules:
+                - header:
+                    exactMatch: /hello
+                    name: :path
+                - header:
+                    exactMatch: /world
+                    name: :path`,
 		},
 		{
 			name: "permission with ports",
@@ -862,7 +900,7 @@ func TestPermission_Generate(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		got, err := tc.permission.Generate(tc.forTCPFilter, tc.forDeny)
+		got, err := tc.permission.Generate(tc.forTCPFilter, tc.forDeny, tc.isIstioVersionGE15)
 		if tc.wantError != "" {
 			if err == nil || !strings.Contains(err.Error(), tc.wantError) {
 				t.Errorf("%s: got error %q but want error %q", tc.name, err, tc.wantError)

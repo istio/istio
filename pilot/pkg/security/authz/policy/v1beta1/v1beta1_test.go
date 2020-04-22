@@ -144,7 +144,7 @@ func TestV1beta1Generator_Generate(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := NewGenerator(trustdomain.NewTrustDomainBundle("", nil), tc.denyPolicies, tc.allowPolicies)
+			g := NewGenerator(trustdomain.NewTrustDomainBundle("", nil), tc.denyPolicies, tc.allowPolicies, true)
 			if g == nil {
 				t.Fatal("failed to create generator")
 			}

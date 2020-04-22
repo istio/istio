@@ -623,7 +623,7 @@ func TestModel_Generate(t *testing.T) {
 			Permissions: tc.permissions,
 			Principals:  tc.principals,
 		}
-		got := m.Generate(serviceMetadata, tc.forTCPFilter, tc.forDeny)
+		got := m.Generate(serviceMetadata, tc.forTCPFilter, tc.forDeny, true)
 		if len(tc.wantPermission) == 0 || len(tc.wantPrincipal) == 0 {
 			if got != nil {
 				t.Errorf("%s: got %v but want nil", tc.name, *got)
