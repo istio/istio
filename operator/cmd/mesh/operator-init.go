@@ -157,8 +157,12 @@ func applyManifest(manifestStr, componentName string, opts *kubectlcmd.Options, 
 	opts.Prune = pointer.BoolPtr(false)
 	out, objs := manifest.ApplyManifest(name.ComponentName(componentName), manifestStr, version.OperatorBinaryVersion.String(), "", *opts)
 
+	_, clientSet, err := manifest.InitK8SRestClient(opts.Kubeconfig, opts.Context)
+	if err != nil {
+		l.logAndFatal(err.Error())
+	}
 	if opts.Wait {
-		err := manifest.WaitForResources(objs, opts)
+		err := manifest.WaitForResources(objs, clientSet, opts.WaitTimeout, opts.DryRun)
 		if err != nil {
 			out.Err = err
 		}

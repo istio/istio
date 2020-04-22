@@ -21,21 +21,17 @@ package component
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/ghodss/yaml"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/patch"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
-	"istio.io/istio/operator/pkg/util"
 )
 
 const (
@@ -185,76 +181,7 @@ func (c *PilotComponent) Run() error {
 
 // RenderManifest implements the IstioComponent interface.
 func (c *PilotComponent) RenderManifest() (string, error) {
-	baseYAML, err := renderManifest(c, c.CommonComponentFields)
-	if err != nil {
-		return "", err
-	}
-
-	return c.overlayMeshConfig(baseYAML)
-}
-
-func (c *PilotComponent) overlayMeshConfig(baseYAML string) (string, error) {
-	if c.CommonComponentFields.InstallSpec.MeshConfig == nil {
-		return baseYAML, nil
-	}
-
-	// Overlay MeshConfig onto the istio configmap
-	baseObjs, err := object.ParseK8sObjectsFromYAMLManifest(baseYAML)
-	if err != nil {
-		return "", err
-	}
-
-	for _, obj := range baseObjs {
-		if !isMeshConfigMap(obj) {
-			continue
-		}
-
-		u := obj.UnstructuredObject()
-
-		// Ignore any configMap that isn't of the format we're expecting
-		meshStr, ok, err := unstructured.NestedString(u.Object, "data", "mesh")
-		if !ok || err != nil {
-			continue
-		}
-
-		meshOverride, err := yaml.Marshal(c.CommonComponentFields.InstallSpec.MeshConfig)
-		if err != nil {
-			return "", err
-		}
-
-		// Merge the MeshConfig yaml on top of whatever is in the configMap already
-		meshStr, err = util.OverlayYAML(meshStr, string(meshOverride))
-		if err != nil {
-			return "", err
-		}
-
-		meshStr = strings.TrimSpace(meshStr)
-
-		log.Debugf("Merged MeshConfig:\n%s\n", meshStr)
-
-		// Set the new yaml string back into the configMap
-		if err := unstructured.SetNestedField(u.Object, meshStr, "data", "mesh"); err != nil {
-			return "", err
-		}
-
-		newObj := object.NewK8sObject(u, nil, nil)
-
-		// Replace the unstructured object in the slice
-		*obj = *newObj
-
-		return baseObjs.YAMLManifest()
-	}
-
-	return baseYAML, nil
-}
-
-func isMeshConfigMap(obj *object.K8sObject) bool {
-	switch {
-	case obj.Kind != "ConfigMap", !strings.HasPrefix(obj.Name, "istio"):
-		return false
-	default:
-		return true
-	}
+	return renderManifest(c, c.CommonComponentFields)
 }
 
 // ComponentName implements the IstioComponent interface.

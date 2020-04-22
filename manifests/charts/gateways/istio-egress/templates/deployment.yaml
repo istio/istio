@@ -36,6 +36,11 @@ spec:
         service.istio.io/canonical-revision: latest
 {{- end }}
       annotations:
+        {{- if .Values.meshConfig.enablePrometheusMerge }}
+        prometheus.io/port: "15090"
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/stats/prometheus"
+        {{- end }}
         sidecar.istio.io/inject: "false"
 {{- if $gateway.podAnnotations }}
 {{ toYaml $gateway.podAnnotations | indent 8 }}

@@ -130,7 +130,7 @@ type ConfigMeta struct {
 	CreationTimestamp time.Time `json:"creationTimestamp,omitempty"`
 }
 
-func (c Config) GroupVersionKind() resource.GroupVersionKind {
+func (c *Config) GroupVersionKind() resource.GroupVersionKind {
 	return resource.GroupVersionKind{
 		Group:   c.Group,
 		Version: c.Version,

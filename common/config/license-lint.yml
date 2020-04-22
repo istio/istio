@@ -100,8 +100,13 @@ whitelisted_modules:
   - github.com/libopenstorage/openstorage
   - github.com/logrusorgru/aurora
   - github.com/magiconair/properties
+
+  # MIT licenses but not correctly identified
   - github.com/Masterminds/semver
   - github.com/Masterminds/sprig
+  - github.com/Masterminds/squirrel
+  - github.com/Masterminds/vcs
+
   - github.com/mesos/mesos-go
   - github.com/miekg/dns
   - github.com/munnerz/goautoneg
@@ -176,7 +181,18 @@ whitelisted_modules:
   - gopkg.in/yaml.v3
   - gotest.tools
   - istio.io/tools
+
+  # Helm is Apache 2.0: https://github.com/helm/helm/blob/master/LICENSE
+  # However, it has a bunch of LICENSE test files that our linter fails to understand
   - k8s.io/helm
+  - helm.sh/helm/v3
+
   - k8s.io/kubernetes
   - modernc.org/cc
   - sigs.k8s.io/yaml
+
+  # BSD-3: https://github.com/phayes/freeport/blob/master/LICENSE.md
+  - github.com/phayes/freeport
+
+  # Apache 2.0: https://github.com/xeipuuv/gojsonschema/blob/master/LICENSE-APACHE-2.0.txt
+  - github.com/xeipuuv/gojsonschema

@@ -28,8 +28,7 @@ gateways:
       app: istio-egressgateway
       istio: egressgateway
 
-
-    # Scalability tunning
+    # Scalability tuning
     # replicaCount: 1
     rollingMaxSurge: 100%
     rollingMaxUnavailable: 25%

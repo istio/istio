@@ -16,7 +16,6 @@ package istiocontrolplane
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -26,9 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-
 	"k8s.io/client-go/rest"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -50,10 +47,35 @@ const (
 	finalizerMaxRetries = 1
 )
 
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
+var (
+	// watchedResources contains all resources we will watch and reconcile when changed
+	// Ideally this would also contain Istio CRDs, but there is a race condition here - we cannot watch
+	// a type that does not yet exist.
+	watchedResources = []schema.GroupVersionKind{
+		{Group: "autoscaling", Version: "v2beta1", Kind: "HorizontalPodAutoscaler"},
+		{Group: "policy", Version: "v1beta1", Kind: "PodDisruptionBudget"},
+		{Group: "apps", Version: "v1", Kind: "StatefulSet"},
+		{Group: "apps", Version: "v1", Kind: "Deployment"},
+		{Group: "apps", Version: "v1", Kind: "DaemonSet"},
+		{Group: "extensions", Version: "v1beta1", Kind: "Ingress"},
+		{Group: "", Version: "v1", Kind: "Service"},
+		// {Group: "", Version: "v1", Kind: "Endpoints"},
+		{Group: "", Version: "v1", Kind: "ConfigMap"},
+		{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"},
+		{Group: "", Version: "v1", Kind: "Pod"},
+		{Group: "", Version: "v1", Kind: "Secret"},
+		{Group: "", Version: "v1", Kind: "ServiceAccount"},
+		{Group: "rbac.authorization.k8s.io", Version: "v1beta1", Kind: "RoleBinding"},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "RoleBinding"},
+		{Group: "rbac.authorization.k8s.io", Version: "v1beta1", Kind: "Role"},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "Role"},
+		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: "MutatingWebhookConfiguration"},
+		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: "ValidatingWebhookConfiguration"},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRole"},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"},
+		{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: "CustomResourceDefinition"},
+	}
+)
 
 // Add creates a new IstioOperator Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -63,8 +85,7 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	factory := &helmreconciler.Factory{CustomizerFactory: &IstioRenderingCustomizerFactory{}}
-	return &ReconcileIstioOperator{client: mgr.GetClient(), scheme: mgr.GetScheme(), factory: factory, config: mgr.GetConfig()}
+	return &ReconcileIstioOperator{client: mgr.GetClient(), scheme: mgr.GetScheme(), config: mgr.GetConfig()}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -125,10 +146,9 @@ var _ reconcile.Reconciler = &ReconcileIstioOperator{}
 type ReconcileIstioOperator struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client  client.Client
-	config  *rest.Config
-	scheme  *runtime.Scheme
-	factory *helmreconciler.Factory
+	client client.Client
+	config *rest.Config
+	scheme *runtime.Scheme
 }
 
 // Reconcile reads that state of the cluster for a IstioOperator object and makes changes based on the state read
@@ -140,11 +160,6 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 	log.Info("Reconciling IstioOperator")
 
 	ns := request.Namespace
-	if ns == "" {
-		ns = defaultNs
-	} else {
-		defaultNs = ns
-	}
 	reqNamespacedName := types.NamespacedName{
 		Name:      request.Name,
 		Namespace: ns,
@@ -172,18 +187,13 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 		}
 		log.Info("Deleting IstioOperator")
 
-		reconciler, err := r.factory.New(iop, r.client)
+		reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.config, iop, &helmreconciler.Options{ControllerMode: true})
 		if err != nil {
-			log.Errorf("failed to create reconciler: %s", err)
 			return reconcile.Result{}, err
 		}
-
-		err = reconciler.Delete()
-		if err != nil {
-			log.Errorf("failed to remove owned resources: %s", err)
+		if err := reconciler.Delete(); err != nil {
 			return reconcile.Result{}, err
 		}
-
 		finalizers.Delete(finalizer)
 		iop.SetFinalizers(finalizers.List())
 		finalizerError := r.client.Update(context.TODO(), iop)
@@ -208,7 +218,7 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 			log.Errorf("error removing finalizer: %s", finalizerError)
 			return reconcile.Result{}, finalizerError
 		}
-		return reconcile.Result{}, err
+		return reconcile.Result{}, nil
 	} else if !finalizers.Has(finalizer) {
 		log.Infof("Adding finalizer %v to %v", finalizer, request)
 		finalizers.Insert(finalizer)
@@ -254,26 +264,15 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 		}
 		globalValues["jwtPolicy"] = string(jwtPolicy)
 	}
-	reconciler, err := r.getOrCreateReconciler(iopMerged)
-	if err == nil {
-		err = reconciler.Reconcile()
-		if err != nil {
-			log.Errorf("reconciling err: %s", err)
-		}
-	} else {
-		log.Errorf("failed to create reconciler: %s", err)
+	reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.config, iopMerged, &helmreconciler.Options{ControllerMode: true})
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if err := reconciler.Reconcile(); err != nil {
+		log.Errorf("reconciling err: %s", err)
 	}
 
 	return reconcile.Result{}, err
-}
-
-var (
-	defaultNs   string
-	reconcilers = map[string]*helmreconciler.HelmReconciler{}
-)
-
-func reconcilersMapKey(iop *iopv1alpha1.IstioOperator) string {
-	return fmt.Sprintf("%s/%s", iop.Namespace, iop.Name)
 }
 
 var ownedResourcePredicates = predicate.Funcs{
@@ -291,7 +290,7 @@ var ownedResourcePredicates = predicate.Funcs{
 		if err != nil {
 			return false
 		}
-		if object.GetLabels()[OwnerNameKey] != "" {
+		if object.GetLabels()[helmreconciler.OwnerNameKey] != "" {
 			return true
 		}
 		return false
@@ -300,29 +299,6 @@ var ownedResourcePredicates = predicate.Funcs{
 		// no action
 		return false
 	},
-}
-
-func (r *ReconcileIstioOperator) getOrCreateReconciler(iop *iopv1alpha1.IstioOperator) (*helmreconciler.HelmReconciler, error) {
-	key := reconcilersMapKey(iop)
-	var err error
-	var reconciler *helmreconciler.HelmReconciler
-	if reconciler, ok := reconcilers[key]; ok {
-		reconciler.SetNeedUpdateAndPrune(false)
-		oldInstance := reconciler.GetInstance()
-		reconciler.SetInstance(iop)
-		if reconciler.GetInstance() != oldInstance {
-			//regenerate the reconciler
-			if reconciler, err = r.factory.New(iop, r.client); err == nil {
-				reconcilers[key] = reconciler
-			}
-		}
-		return reconciler, err
-	}
-	//not found - generate the reconciler
-	if reconciler, err = r.factory.New(iop, r.client); err == nil {
-		reconcilers[key] = reconciler
-	}
-	return reconciler, err
 }
 
 // Watch changes for Istio resources managed by the operator
@@ -339,7 +315,7 @@ func watchIstioResources(c controller.Controller) error {
 				log.Debugf("watch a change for istio resource: %s.%s", a.Meta.GetName(), a.Meta.GetNamespace())
 				return []reconcile.Request{
 					{NamespacedName: types.NamespacedName{
-						Name: a.Meta.GetLabels()[OwnerNameKey],
+						Name: a.Meta.GetLabels()[helmreconciler.OwnerNameKey],
 					}},
 				}
 			}),

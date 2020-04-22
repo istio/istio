@@ -37,23 +37,25 @@ var (
 
 // Builder builds Istio authorization policy to Envoy RBAC filter.
 type Builder struct {
-	trustDomainBundle trustdomain.Bundle
-	denyPolicies      []model.AuthorizationPolicyConfig
-	allowPolicies     []model.AuthorizationPolicyConfig
+	trustDomainBundle  trustdomain.Bundle
+	denyPolicies       []model.AuthorizationPolicyConfig
+	allowPolicies      []model.AuthorizationPolicyConfig
+	isIstioVersionGE15 bool
 }
 
 // New returns a new builder for the given workload with the authorization policy.
 // Returns nil if none of the authorization policies are enabled for the workload.
 func New(trustDomainBundle trustdomain.Bundle, workload labels.Collection, namespace string,
-	policies *model.AuthorizationPolicies) *Builder {
+	policies *model.AuthorizationPolicies, isIstioVersionGE15 bool) *Builder {
 	denyPolicies, allowPolicies := policies.ListAuthorizationPolicies(namespace, workload)
 	if len(denyPolicies) == 0 && len(allowPolicies) == 0 {
 		return nil
 	}
 	return &Builder{
-		trustDomainBundle: trustDomainBundle,
-		denyPolicies:      denyPolicies,
-		allowPolicies:     allowPolicies,
+		trustDomainBundle:  trustDomainBundle,
+		denyPolicies:       denyPolicies,
+		allowPolicies:      allowPolicies,
+		isIstioVersionGE15: isIstioVersionGE15,
 	}
 }
 
@@ -62,11 +64,11 @@ func (b Builder) BuildHTTP() []*httppb.HttpFilter {
 	var filters []*httppb.HttpFilter
 
 	if denyConfig := build(b.denyPolicies, b.trustDomainBundle,
-		false /* forTCP */, true /* forDeny */); denyConfig != nil {
+		false /* forTCP */, true /* forDeny */, b.isIstioVersionGE15); denyConfig != nil {
 		filters = append(filters, createHTTPFilter(denyConfig))
 	}
 	if allowConfig := build(b.allowPolicies, b.trustDomainBundle,
-		false /* forTCP */, false /* forDeny */); allowConfig != nil {
+		false /* forTCP */, false /* forDeny */, b.isIstioVersionGE15); allowConfig != nil {
 		filters = append(filters, createHTTPFilter(allowConfig))
 	}
 
@@ -78,18 +80,18 @@ func (b Builder) BuildTCP() []*tcppb.Filter {
 	var filters []*tcppb.Filter
 
 	if denyConfig := build(b.denyPolicies, b.trustDomainBundle,
-		true /* forTCP */, true /* forDeny */); denyConfig != nil {
+		true /* forTCP */, true /* forDeny */, b.isIstioVersionGE15); denyConfig != nil {
 		filters = append(filters, createTCPFilter(denyConfig))
 	}
 	if allowConfig := build(b.allowPolicies, b.trustDomainBundle,
-		true /* forTCP */, false /* forDeny */); allowConfig != nil {
+		true /* forTCP */, false /* forDeny */, b.isIstioVersionGE15); allowConfig != nil {
 		filters = append(filters, createTCPFilter(allowConfig))
 	}
 
 	return filters
 }
 
-func build(policies []model.AuthorizationPolicyConfig, tdBundle trustdomain.Bundle, forTCP, forDeny bool) *rbachttppb.RBAC {
+func build(policies []model.AuthorizationPolicyConfig, tdBundle trustdomain.Bundle, forTCP, forDeny, isIstioVersionGE15 bool) *rbachttppb.RBAC {
 	if len(policies) == 0 {
 		return nil
 	}
@@ -108,7 +110,7 @@ func build(policies []model.AuthorizationPolicyConfig, tdBundle trustdomain.Bund
 				authzLog.Errorf("skipped nil rule %s", name)
 				continue
 			}
-			m, err := authzmodel.New(rule)
+			m, err := authzmodel.New(rule, isIstioVersionGE15)
 			if err != nil {
 				authzLog.Errorf("skipped rule %s: %v", name, err)
 				continue

@@ -528,10 +528,10 @@ spec:
       enabled: false
 
   # Global values passed through to helm global.yaml.
-  # Please keep this in sync with manifests/global.yaml
+  # Please keep this in sync with manifests/charts/global.yaml
   values:
     # You may override parts of meshconfig by uncommenting the following lines.
-    meshConfig:
+    meshConfig: {}
       # Opt-out of global http2 upgrades.
       # Destination rule is used to opt-in.
       # h2_upgrade_policy: DO_NOT_UPGRADE
@@ -1989,10 +1989,10 @@ var _translateconfigTranslateconfig16Yaml = []byte(`apiMapping:
     outPath: "global.tag"
   K8SDefaults:
     outPath: "global.resources"
-  MeshConfig.rootNamespace:
-    outPath: "global.istioNamespace"
   Revision:
     outPath: "revision"
+  MeshConfig:
+    outPath: "meshConfig"
 kubernetesMapping:
   "Components.{{.ComponentName}}.K8S.Affinity":
     outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.affinity"

@@ -1122,12 +1122,14 @@ message PilotIngressConfig {
 
 // Mode for the ingress controller.
 enum ingressControllerMode {
+  // Unspecified Istio ingress controller.
+  UNSPECIFIED = 0;
   // Selects all Ingress resources, with or without Istio annotation.
-  DEFAULT = 0;
+  DEFAULT = 1;
   // Selects only resources with istio annotation.
-  STRICT = 1;
+  STRICT = 2;
   // No ingress or sync.
-  OFF = 2;
+  OFF = 3;
 }
 
 // Controls whether Istio policy is applied to Pilot.
