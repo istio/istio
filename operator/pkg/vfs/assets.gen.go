@@ -10426,6 +10426,14 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
           {{- end}}
         {{- end}}
         ]
+    - name: ISTIO_META_APP_CONTAINERS
+      value: |-
+        [
+          {{- range $index, $container := .Spec.Containers }}
+            {{- if ne $index 0}},{{- end}}
+            {{ $container.Name }}
+          {{- end}}
+        ]
     - name: ISTIO_META_CLUSTER_ID
       value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `+"`"+`Kubernetes`+"`"+` }}"
     - name: ISTIO_META_POD_NAME
@@ -12985,6 +12993,14 @@ template: |
           {{- end}}
         {{- end}}
         ]
+    - name: ISTIO_META_APP_CONTAINERS
+      value: |-
+        [
+          {{- range $index, $container := .Spec.Containers }}
+            {{- if ne $index 0}},{{- end}}
+            {{ $container.Name }}
+          {{- end}}
+        ]
     - name: ISTIO_META_CLUSTER_ID
       value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `+"`"+`Kubernetes`+"`"+` }}"
     - name: ISTIO_META_POD_NAME
@@ -14688,9 +14704,9 @@ data:
   config: |-
     policy: {{ .Values.global.proxy.autoInject }}
     alwaysInjectSelector:
-      {{ toYaml .Values.sidecarInjectorWebhook.alwaysInjectSelector | trim | indent 6 }}
+{{ toYaml .Values.sidecarInjectorWebhook.alwaysInjectSelector | trim | indent 6 }}
     neverInjectSelector:
-      {{ toYaml .Values.sidecarInjectorWebhook.neverInjectSelector | trim | indent 6 }}
+{{ toYaml .Values.sidecarInjectorWebhook.neverInjectSelector | trim | indent 6 }}
     injectedAnnotations:
       {{- range $key, $val := .Values.sidecarInjectorWebhook.injectedAnnotations }}
       "{{ $key }}": "{{ $val }}"
@@ -37003,7 +37019,7 @@ spec:
       - name: lightstep-certs
         secret:
           optional: true
-        secretName: lightstep.cacert
+          secretName: lightstep.cacert
         {{- end }}
 {{- end }}
 
