@@ -20,6 +20,10 @@ import (
 	"testing"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
+
+	status2 "istio.io/istio/pilot/pkg/status"
+
 	"istio.io/istio/pkg/test/framework/features"
 
 	"istio.io/istio/galley/pkg/config/analysis/msg"
@@ -113,8 +117,22 @@ func expectStatus(t *testing.T, ctx resource.Context, ns namespace.Instance, has
 	if strings.Contains(status, msg.ReferencedResourceNotFound.Code()) != hasError {
 		return fmt.Errorf("expected error=%v, but got %v", hasError, status)
 	}
-	if _, ok := x.Object["status"].(map[string]interface{})["conditions"]; !ok {
+	conditions, ok := x.Object["status"].(map[string]interface{})["conditions"]
+	if !ok {
 		return fmt.Errorf("expected conditions to exist, but got %v", status)
+	}
+	found := false
+	for _, ucondition := range conditions.([]interface{}) {
+		condition := ucondition.(map[string]interface{})
+		if condition["type"] == string(status2.Reconciled) {
+			found = true
+			if condition["status"] != string(v1.ConditionTrue) {
+				return fmt.Errorf("expected Reconciled to be true but was %v", condition["status"])
+			}
+		}
+	}
+	if !found {
+		return fmt.Errorf("expected Reconciled condition to exist, but got %v", conditions)
 	}
 	return nil
 }

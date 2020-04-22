@@ -604,6 +604,16 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		} else {
 			adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
 		}
+
+		if s.Env.StatusReporter != nil {
+			// inform distribution status reporter that this connection has been updated, because it effectively has
+			go func() {
+				for _, typeUrl := range []string{ClusterType, ListenerType, RouteType, EndpointType} {
+					s.Env.StatusReporter.RegisterEvent(con.ConID, typeUrl, pushEv.noncePrefix)
+				}
+			}()
+		}
+		adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
 		return nil
 	}
 
@@ -632,6 +642,8 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		if err != nil {
 			return err
 		}
+	} else if s.Env.StatusReporter != nil {
+		go s.Env.StatusReporter.RegisterEvent(con.ConID, ClusterType, pushEv.noncePrefix)
 	}
 
 	if len(con.Clusters) > 0 && pushTypes[EDS] {
@@ -639,18 +651,24 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		if err != nil {
 			return err
 		}
+	} else if s.Env.StatusReporter != nil {
+		go s.Env.StatusReporter.RegisterEvent(con.ConID, EndpointType, pushEv.noncePrefix)
 	}
 	if con.LDSWatch && pushTypes[LDS] {
 		err := s.pushLds(con, pushEv.push, currentVersion)
 		if err != nil {
 			return err
 		}
+	} else if s.Env.StatusReporter != nil {
+		go s.Env.StatusReporter.RegisterEvent(con.ConID, ListenerType, pushEv.noncePrefix)
 	}
 	if len(con.Routes) > 0 && pushTypes[RDS] {
 		err := s.pushRoute(con, pushEv.push, currentVersion)
 		if err != nil {
 			return err
 		}
+	} else if s.Env.StatusReporter != nil {
+		go s.Env.StatusReporter.RegisterEvent(con.ConID, RouteType, pushEv.noncePrefix)
 	}
 	proxiesConvergeDelay.Record(time.Since(pushEv.start).Seconds())
 	return nil
