@@ -1461,6 +1461,75 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 			},
 		},
 		{
+			name:             "random-sampling-too-low-env",
+			tproxy:           proxy,
+			envPilotSampling: -1,
+			in: &meshconfig.Tracing{
+				Tracer:           nil,
+				CustomTags:       nil,
+				MaxPathTagLength: 0,
+				Sampling:         300,
+			},
+			out: &http_filter.HttpConnectionManager_Tracing{
+				MaxPathTagLength: nil,
+				ClientSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				RandomSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				OverallSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+			},
+		},
+		{
+			name:             "random-sampling-too-high-meshconfig",
+			tproxy:           proxy,
+			envPilotSampling: 80.0,
+			in: &meshconfig.Tracing{
+				Tracer:           nil,
+				CustomTags:       nil,
+				MaxPathTagLength: 0,
+				Sampling:         300,
+			},
+			out: &http_filter.HttpConnectionManager_Tracing{
+				MaxPathTagLength: nil,
+				ClientSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				RandomSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				OverallSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+			},
+		},
+		{
+			name:             "random-sampling-too-high-env",
+			tproxy:           proxy,
+			envPilotSampling: 2000.0,
+			in: &meshconfig.Tracing{
+				Tracer:           nil,
+				CustomTags:       nil,
+				MaxPathTagLength: 0,
+				Sampling:         300,
+			},
+			out: &http_filter.HttpConnectionManager_Tracing{
+				MaxPathTagLength: nil,
+				ClientSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				RandomSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				OverallSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+			},
+		},
+		{
 			// upstream will set the default to 256 per
 			// its documentation
 			name:   "tag-max-path-length-not-set-default",

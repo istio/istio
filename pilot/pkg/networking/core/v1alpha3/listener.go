@@ -2035,6 +2035,10 @@ func updateTraceSamplingConfig(config *meshconfig.ProxyConfig, cfg *http_conn.Ht
 
 	if config.Tracing != nil && config.Tracing.Sampling != 0.0 {
 		sampling = config.Tracing.Sampling
+
+		if sampling > 100.0 {
+			sampling = 100.0
+		}
 	}
 	cfg.ClientSampling = &envoy_type.Percent{
 		Value: 100.0,
