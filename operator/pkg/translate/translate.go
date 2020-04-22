@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 
 	"istio.io/api/operator/v1alpha1"
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
@@ -729,7 +730,20 @@ func createPatchObjectFromPath(node interface{}, path util.Path) (map[string]int
 }
 
 // IOPStoIOP takes an IstioOperatorSpec and returns a corresponding IstioOperator with the given name and namespace.
-func IOPStoIOP(iops proto.Message, name, namespace string) (string, error) {
+func IOPStoIOP(iops proto.Message, name, namespace string) (*iopv1alpha1.IstioOperator, error) {
+	iopStr, err := IOPStoIOPstr(iops, name, namespace)
+	if err != nil {
+		return nil, err
+	}
+	iop := &iopv1alpha1.IstioOperator{}
+	if err := util.UnmarshalWithJSONPB(iopStr, iop, false); err != nil {
+		return nil, err
+	}
+	return iop, nil
+}
+
+// IOPStoIOPstr takes an IstioOperatorSpec and returns a corresponding IstioOperator string with the given name and namespace.
+func IOPStoIOPstr(iops proto.Message, name, namespace string) (string, error) {
 	iopsStr, err := util.MarshalWithJSONPB(iops)
 	if err != nil {
 		return "", err

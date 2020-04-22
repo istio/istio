@@ -19,7 +19,6 @@ global:
   # It is assumed that istio-system is running either 1.0 or an upgraded version of 1.1, but only security components are
   # used (citadel generating the secrets).
   istioNamespace: istio-system
-  configNamespace: istio-system
 
   # Telemetry namespace, including tracing.
   telemetryNamespace: istio-system
@@ -563,3 +562,6 @@ clusterResources: true
 # Version is set as 'version' label and part of the resource names when installing.
 # It is used to support multiple version in same namespace, similar with normal app traffic shift.
 version: ""
+
+meshConfig:
+  enablePrometheusMerge: false

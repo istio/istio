@@ -266,10 +266,10 @@ type podDetail struct {
 	container string
 }
 
-// GetIstioVersions gets the version for each Istio component
+// GetIstioVersions gets the version for each Istio control plane component
 func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, error) {
 	pods, err := client.GetIstioPods(namespace, map[string]string{
-		"labelSelector": "istio",
+		"labelSelector": "istio,istio!=ingressgateway,istio!=egressgateway,istio!=ilbgateway",
 		"fieldSelector": "status.phase=Running",
 	})
 	if err != nil {
@@ -279,14 +279,12 @@ func (client *Client) GetIstioVersions(namespace string) (*version.MeshInfo, err
 		return nil, fmt.Errorf("no running Istio pods in %q", namespace)
 	}
 
+	// exclude data plane components from control plane list
 	labelToPodDetail := map[string]podDetail{
 		"pilot":            {"/usr/local/bin/pilot-discovery", "discovery"},
 		"istiod":           {"/usr/local/bin/pilot-discovery", "discovery"},
 		"citadel":          {"/usr/local/bin/istio_ca", "citadel"},
-		"egressgateway":    {"/usr/local/bin/pilot-agent", "istio-proxy"},
 		"galley":           {"/usr/local/bin/galley", "galley"},
-		"ingressgateway":   {"/usr/local/bin/pilot-agent", "istio-proxy"},
-		"ilbgateway":       {"/usr/local/bin/pilot-agent", "istio-proxy"},
 		"telemetry":        {"/usr/local/bin/mixs", "mixer"},
 		"policy":           {"/usr/local/bin/mixs", "mixer"},
 		"sidecar-injector": {"/usr/local/bin/sidecar-injector", "sidecar-injector-webhook"},

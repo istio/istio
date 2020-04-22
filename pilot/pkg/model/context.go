@@ -461,6 +461,16 @@ type NodeMetadata struct {
 	Raw map[string]interface{} `json:"-"`
 }
 
+// ProxyConfigOrDefault is a helper function to get the ProxyConfig from metadata, or fallback to a default
+// This is useful as the logic should check for proxy config from proxy first and then defer to mesh wide defaults
+// if not present.
+func (m NodeMetadata) ProxyConfigOrDefault(def *meshconfig.ProxyConfig) *meshconfig.ProxyConfig {
+	if m.ProxyConfig != nil {
+		return (*meshconfig.ProxyConfig)(m.ProxyConfig)
+	}
+	return def
+}
+
 func (m *NodeMetadata) UnmarshalJSON(data []byte) error {
 	// Create a new type from the target type to avoid recursion.
 	type NodeMetadata2 NodeMetadata

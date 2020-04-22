@@ -21,7 +21,6 @@ import (
 	"k8s.io/helm/pkg/manifest"
 
 	"istio.io/api/operator/v1alpha1"
-
 	"istio.io/istio/operator/pkg/name"
 )
 
@@ -141,7 +140,7 @@ type RenderingListener interface {
 	// instance is the custom resource being deleted
 	// err is any error that might have occurred during the deletion proecess
 	EndDelete(instance runtime.Object, err error) error
-	// EndReconcile occurs after reconciliation has completed.  It is similar to EndDelete, but applies to reconciliation.
+	// SetStatusComplete occurs after reconciliation has completed.  It is similar to EndDelete, but applies to reconciliation.
 	// instance is the custom resource being reconciled
 	// status is the status and errors of components at the end of reconciliation.
 	EndReconcile(instance runtime.Object, status *v1alpha1.InstallStatus) error
