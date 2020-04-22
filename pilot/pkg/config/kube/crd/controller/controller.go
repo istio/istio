@@ -190,7 +190,7 @@ func (c *controller) tryLedgerPut(obj interface{}, schema collection.Schema) {
 	key := model.Key(schema.Resource().Kind(), om.Name, om.Namespace)
 	_, err := c.client.configLedger.Put(key, om.ResourceVersion)
 	if err != nil {
-		scope.Errorf("Failed to update %s in ledger, status will be out of date.")
+		scope.Errorf("Failed to update %s in ledger, status will be out of date.", key)
 	}
 }
 
@@ -200,7 +200,7 @@ func (c *controller) tryLedgerDelete(obj interface{}, schema collection.Schema) 
 	key := model.Key(schema.Resource().Kind(), om.Name, om.Namespace)
 	err := c.GetLedger().Delete(key)
 	if err != nil {
-		scope.Errorf("Failed to delete %s in ledger, status will be out of date.")
+		scope.Errorf("Failed to delete %s in ledger, status will be out of date.", key)
 	}
 
 }

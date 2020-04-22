@@ -16,9 +16,10 @@ package status
 
 import (
 	"context"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"sync"
 	"time"
+
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 
 	"github.com/pkg/errors"
 
@@ -169,7 +170,7 @@ func (r *Reporter) removeCompletedResource(completedResources []Resource) {
 	for _, item := range completedResources {
 		// TODO: handle cache miss
 		total := r.inProgressResources[item.ToModelKey()].completedIterations + 1
-		if int64(total) > (time.Minute.Milliseconds()/r.UpdateInterval.Milliseconds()) {
+		if int64(total) > (time.Minute.Milliseconds() / r.UpdateInterval.Milliseconds()) {
 			//remove from inProgressResources // TODO: cleanup completedResources
 			toDelete = append(toDelete, item)
 		} else {
@@ -215,14 +216,14 @@ func (r *Reporter) writeReport(ctx context.Context) {
 	}
 	r.cm.Data[dataField] = string(reportbytes)
 	// TODO: short circuit this write in the leader
-	_, err = CreateOrUpdateConfigMap(r.client, r.cm, ctx)
+	_, err = CreateOrUpdateConfigMap(ctx, r.cm, r.client)
 	if err != nil {
 		scope.Errorf("Error writing Distribution Report: %v", err)
 	}
 }
 
 // this is lifted with few modifications from kubeadm's apiclient
-func CreateOrUpdateConfigMap(client v1.ConfigMapInterface, cm *corev1.ConfigMap, ctx context.Context) (res *corev1.ConfigMap, err error) {
+func CreateOrUpdateConfigMap(ctx context.Context, cm *corev1.ConfigMap, client v1.ConfigMapInterface) (res *corev1.ConfigMap, err error) {
 	if res, err = client.Create(ctx, cm, metav1.CreateOptions{}); err != nil {
 		if !apierrors.IsAlreadyExists(err) && !apierrors.IsInvalid(err) {
 			scope.Errorf("%v", err)
@@ -247,7 +248,7 @@ func (r *Reporter) RegisterEvent(conID string, xdsType string, nonce string) {
 	key := conID + xdsType // TODO: delimit?
 	r.deleteKeyFromReverseMap(key)
 	var version string
-	if len(nonce)>12 {
+	if len(nonce) > 12 {
 		version = nonce[:v2.VersionLen]
 	} else {
 		version = nonce

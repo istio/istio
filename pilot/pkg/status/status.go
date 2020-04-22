@@ -19,7 +19,7 @@ import (
 )
 
 type IstioStatus struct {
-	Conditions         []IstioCondition `json:"conditions"`
+	Conditions []IstioCondition `json:"conditions"`
 	// TODO: Messages should be typed for ease of use.
 	ValidationMessages []interface{} `json:"validationMessages"`
 }

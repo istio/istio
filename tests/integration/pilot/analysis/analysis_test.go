@@ -16,10 +16,11 @@ package analysis
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/framework/features"
 	"strings"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/features"
 
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/test/util/retry"
@@ -112,7 +113,7 @@ func expectStatus(t *testing.T, ctx resource.Context, ns namespace.Instance, has
 	if strings.Contains(status, msg.ReferencedResourceNotFound.Code()) != hasError {
 		return fmt.Errorf("expected error=%v, but got %v", hasError, status)
 	}
-	if _, ok :=x.Object["status"].(map[string]interface{})["conditions"]; !ok {
+	if _, ok := x.Object["status"].(map[string]interface{})["conditions"]; !ok {
 		return fmt.Errorf("expected conditions to exist, but got %v", status)
 	}
 	return nil

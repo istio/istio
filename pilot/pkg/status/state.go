@@ -17,9 +17,10 @@ package status
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/labels"
 	"sync"
 	"time"
+
+	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/ghodss/yaml"
 	v1 "k8s.io/api/core/v1"
@@ -82,9 +83,9 @@ func (c *DistributionController) Start(restConfig *rest.Config, namespace string
 		informers.WithNamespace(namespace),
 		informers.WithTweakListOptions(func(listOptions *metav1.ListOptions) {
 			listOptions.LabelSelector = labels.Set(map[string]string{labelKey: "true"}).AsSelector().String()
-	})).
+		})).
 		Core().V1().ConfigMaps()
-	i.Informer().AddEventHandler(DistroReportHandler{dc: *c})
+	i.Informer().AddEventHandler(&DistroReportHandler{dc: c})
 	// this will list all existing configmaps, as well as updates, right?
 	go i.Informer().Run(stop)
 
@@ -133,8 +134,8 @@ func (c *DistributionController) writeAllStatus() (staleReporters []string) {
 				distributionState.PlusEquals(w)
 			}
 		}
-		if distributionState.TotalInstances > 0 {  // this is necessary when all reports are stale.
- 			go c.writeStatus(config, distributionState)
+		if distributionState.TotalInstances > 0 { // this is necessary when all reports are stale.
+			go c.writeStatus(config, distributionState)
 		}
 	}
 	return
@@ -250,18 +251,18 @@ func ReconcileStatuses(current map[string]interface{}, desired Progress, clock c
 }
 
 type DistroReportHandler struct {
-	dc DistributionController
+	dc *DistributionController
 }
 
-func (drh DistroReportHandler) OnAdd(obj interface{}) {
+func (drh *DistroReportHandler) OnAdd(obj interface{}) {
 	drh.HandleNew(obj)
 }
 
-func (drh DistroReportHandler) OnUpdate(oldObj, newObj interface{}) {
+func (drh *DistroReportHandler) OnUpdate(oldObj, newObj interface{}) {
 	drh.HandleNew(newObj)
 }
 
-func (drh DistroReportHandler) HandleNew(obj interface{}) {
+func (drh *DistroReportHandler) HandleNew(obj interface{}) {
 	cm, ok := obj.(*v1.ConfigMap)
 	if !ok {
 		scope.Warnf("expected configmap, but received %v, discarding", obj)
@@ -278,6 +279,6 @@ func (drh DistroReportHandler) HandleNew(obj interface{}) {
 
 }
 
-func (drh DistroReportHandler) OnDelete(obj interface{}) {
+func (drh *DistroReportHandler) OnDelete(obj interface{}) {
 	// TODO: what do we do here?  will these ever be deleted?
 }

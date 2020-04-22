@@ -337,9 +337,9 @@ func (s *Server) initStatusController(args *PilotArgs) {
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go leaderelection.
 			NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
-				AddRunFunction(func(stop <-chan struct{}) {
-					(&status.DistributionController{}).Start(s.kubeConfig, args.Namespace, stop)
-				}).Run(stop)
+			AddRunFunction(func(stop <-chan struct{}) {
+				(&status.DistributionController{}).Start(s.kubeConfig, args.Namespace, stop)
+			}).Run(stop)
 		return nil
 	})
 	s.statusReporter = &status.Reporter{
