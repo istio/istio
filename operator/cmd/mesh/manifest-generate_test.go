@@ -23,15 +23,13 @@ import (
 	"strings"
 	"testing"
 
-	klabels "k8s.io/apimachinery/pkg/labels"
-
 	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/tpath"
-	"istio.io/istio/pkg/test"
 
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/version"
+
+	. "github.com/onsi/gomega"
 )
 
 type testGroup []struct {
@@ -52,9 +50,9 @@ type testGroup []struct {
 }
 
 func TestManifestGenerateGateways(t *testing.T) {
-	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
+	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
 	g := NewGomegaWithT(t)
-	m, _, err := generateManifest("gateways", "", liveCharts)
+	m, _, err := generateManifest("gateways", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -356,27 +354,6 @@ func TestConfigSelectors(t *testing.T) {
 		t.Fatalf("HPA does not match deployment: %v != %v", name, hpaName)
 	}
 
-	// Next we fetch all the objects for a revision install
-	nameRev := "istiod-canary"
-	deploymentRev := mustFindObject(t, objsRev, nameRev, deploymentStr)
-	serviceRev := mustFindObject(t, objsRev, nameRev, serviceStr)
-	pdbRev := mustFindObject(t, objsRev, nameRev, pdbStr)
-	hpaRev := mustFindObject(t, objsRev, nameRev, hpaStr)
-	podLabelsRev := mustGetLabels(t, deploymentRev, "spec.template.metadata.labels")
-	// Check all selectors align for revision
-	mustSelect(t, mustGetLabels(t, pdbRev, "spec.selector.matchLabels"), podLabelsRev)
-	mustSelect(t, mustGetLabels(t, serviceRev, "spec.selector"), podLabelsRev)
-	mustSelect(t, mustGetLabels(t, deploymentRev, "spec.selector.matchLabels"), podLabelsRev)
-	if hpaName := mustGetPath(t, hpaRev, "spec.scaleTargetRef.name"); nameRev != hpaName {
-		t.Fatalf("HPA does not match deployment: %v != %v", nameRev, hpaName)
-	}
-
-	// Make sure default and revisions do not cross
-	mustNotSelect(t, mustGetLabels(t, serviceRev, "spec.selector"), podLabels)
-	mustNotSelect(t, mustGetLabels(t, service, "spec.selector"), podLabelsRev)
-	mustNotSelect(t, mustGetLabels(t, pdbRev, "spec.selector.matchLabels"), podLabels)
-	mustNotSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabelsRev)
-
 	// Check selection of previous versions . This only matters for in place upgrade (non revision)
 	podLabels15 := map[string]string{
 		"app":   "istiod",
@@ -392,63 +369,6 @@ func TestConfigSelectors(t *testing.T) {
 	if sel := mustGetLabels(t, deployment, "spec.selector.matchLabels"); !reflect.DeepEqual(deploymentSelector14, sel) {
 		t.Fatalf("Depployment selectors are immutable, but changed since 1.4. Was %v, now is %v", deploymentSelector14, sel)
 	}
-}
-
-func mustSelect(t test.Failer, selector map[string]string, labels map[string]string) {
-	t.Helper()
-	kselector := klabels.Set(selector).AsSelectorPreValidated()
-	if !kselector.Matches(klabels.Set(labels)) {
-		t.Fatalf("%v does not select %v", selector, labels)
-	}
-}
-
-func mustGetLabels(t test.Failer, obj object.K8sObject, path string) map[string]string {
-	t.Helper()
-	got := mustGetPath(t, obj, path)
-	conv, ok := got.(map[string]interface{})
-	if !ok {
-		t.Fatalf("could not convert %v", got)
-	}
-	ret := map[string]string{}
-	for k, v := range conv {
-		sv, ok := v.(string)
-		if !ok {
-			t.Fatalf("could not convert to string %v", v)
-		}
-		ret[k] = sv
-	}
-	return ret
-}
-
-func mustGetPath(t test.Failer, obj object.K8sObject, path string) interface{} {
-	t.Helper()
-	got, f, err := tpath.GetFromTreePath(obj.UnstructuredObject().UnstructuredContent(), util.PathFromString(path))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !f {
-		t.Fatalf("couldn't find path %v", path)
-	}
-	return got
-}
-
-// nolint: unparam
-func mustFindObject(t test.Failer, objs object.K8sObjects, name, kind string) object.K8sObject {
-	t.Helper()
-	o := findObject(objs, name, kind)
-	if o == nil {
-		t.Fatalf("expected %v/%v", name, kind)
-	}
-	return *o
-}
-
-func findObject(objs object.K8sObjects, name, kind string) *object.K8sObject {
-	for _, o := range objs {
-		if o.Kind == kind && o.Name == name {
-			return o
-		}
-	}
-	return nil
 }
 
 func runTestGroup(t *testing.T, tests testGroup) {
@@ -527,4 +447,14 @@ func runManifestGenerate(filenames []string, flags string, useCompiledInCharts b
 		args += " --set installPackagePath=" + filepath.Join(testDataDir, "data-snapshot")
 	}
 	return runCommand(args)
+}
+
+func generateManifest(inFile, flags string) (string, object.K8sObjects, error) {
+	inPath := filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate/input", inFile+".yaml")
+	manifest, err := runManifestGenerate([]string{inPath}, flags, true)
+	if err != nil {
+		return "", nil, fmt.Errorf("error %s: %s", err, manifest)
+	}
+	objs, err := object.ParseK8sObjectsFromYAMLManifest(manifest)
+	return manifest, objs, err
 }
