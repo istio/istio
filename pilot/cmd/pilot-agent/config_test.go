@@ -79,7 +79,8 @@ defaultConfig:
   discoveryAddress: file:123
   proxyMetadata:
     SOME: setting
-  drainDuration: 1s`,
+  drainDuration: 1s
+  extraStatTags: ["a"]`,
 			environment: `
 defaultConfig:
   discoveryAddress: environment:123
@@ -90,12 +91,14 @@ discoveryAddress: annotation:123
 proxyMetadata:
   ANNOTATION: something
 drainDuration: 5s
+extraStatTags: ["b"]
 `,
 			expect: func() meshconfig.ProxyConfig {
 				m := mesh.DefaultProxyConfig()
 				m.DiscoveryAddress = "annotation:123"
 				m.ProxyMetadata = map[string]string{"ANNOTATION": "something"}
 				m.DrainDuration = types.DurationProto(5 * time.Second)
+				m.ExtraStatTags = []string{"b"}
 				return m
 			}(),
 		},
