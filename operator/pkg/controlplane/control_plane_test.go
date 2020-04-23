@@ -124,7 +124,7 @@ func TestNewIstioOperator(t *testing.T) {
 		t.Run(tt.desc, func(t *testing.T) {
 			gotOperator, err := NewIstioOperator(tt.inInstallSpec, tt.inTranslator)
 			if ((err != nil && tt.wantErr == nil) || (err == nil && tt.wantErr != nil)) || !gotOperator.ComponentsEqual(tt.wantIstioOperator.components) {
-				t.Errorf("%s: wanted components & err %+v %v, got components & err %+v %v", 
+				t.Errorf("%s: wanted components & err %+v %v, got components & err %+v %v",
 					tt.desc, tt.wantIstioOperator.components, tt.wantErr, gotOperator.components, err)
 			}
 		})
@@ -241,7 +241,8 @@ func TestIstioOperator_RenderManifest(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			if gotManifests, gotErrs := tt.testOperator.RenderManifest(); !reflect.DeepEqual(gotManifests, tt.wantManifests) || !reflect.DeepEqual(gotErrs, tt.wantErrs) {
+			gotManifests, gotErrs := tt.testOperator.RenderManifest()
+			if !reflect.DeepEqual(gotManifests, tt.wantManifests) || !reflect.DeepEqual(gotErrs, tt.wantErrs) {
 				// reflect.DeepEqual returns false on size 0 maps
 				if !(len(gotManifests) == 0) && (len(tt.wantManifests) == 0) {
 					t.Errorf("%s: expected manifest map %+v errs %+v, got manifest map %+v errs %+v",
