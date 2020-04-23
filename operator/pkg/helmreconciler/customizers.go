@@ -17,9 +17,9 @@ package helmreconciler
 import (
 	"sync"
 
+	"helm.sh/helm/v3/pkg/releaseutil"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/helm/pkg/manifest"
 
 	"istio.io/istio/operator/pkg/util"
 )
@@ -148,7 +148,7 @@ func (l *DefaultChartCustomizerListener) RegisterReconciler(reconciler *HelmReco
 
 // BeginChart creates a new ChartCustomizer for the specified chart and delegates listener calls applying to resources
 // (e.g. BeginResource) to the customizer up through EndChart.
-func (l *DefaultChartCustomizerListener) BeginChart(chartName string, manifests []manifest.Manifest) ([]manifest.Manifest, error) {
+func (l *DefaultChartCustomizerListener) BeginChart(chartName string, manifests []releaseutil.Manifest) ([]releaseutil.Manifest, error) {
 	l.customizerMU.Lock()
 	defer l.customizerMU.Unlock()
 	l.customizer = l.GetOrCreateCustomizer(chartName)
@@ -269,7 +269,7 @@ func (c *DefaultChartCustomizer) RegisterReconciler(reconciler *HelmReconciler) 
 }
 
 // BeginChart empty implementation
-func (c *DefaultChartCustomizer) BeginChart(chart string, manifests []manifest.Manifest) ([]manifest.Manifest, error) {
+func (c *DefaultChartCustomizer) BeginChart(chart string, manifests []releaseutil.Manifest) ([]releaseutil.Manifest, error) {
 	return manifests, nil
 }
 
