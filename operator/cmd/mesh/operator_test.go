@@ -25,7 +25,6 @@ import (
 
 	"github.com/kr/pretty"
 
-	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/test/env"
@@ -35,7 +34,7 @@ import (
 type applyParams struct {
 	manifest      string
 	componentName string
-	opts          kubectlcmd.Options
+	opts          Options
 }
 
 var (
@@ -117,7 +116,7 @@ func TestOperatorInit(t *testing.T) {
 		t.Fatalf("diff: %s", diff)
 	}
 
-	wantOpts := kubectlcmd.Options{}
+	wantOpts := Options{}
 
 	wantParams := []applyParams{
 		{
@@ -144,7 +143,7 @@ func TestOperatorInit(t *testing.T) {
 	}
 }
 
-func mockApplyManifest(manifestStr, componentName string, opts *kubectlcmd.Options, _ bool, _ clog.Logger) bool {
+func mockApplyManifest(manifestStr, componentName string, opts *Options, _ clog.Logger) bool {
 	applyOutput = append(applyOutput, applyParams{
 		componentName: componentName,
 		manifest:      manifestStr,
@@ -190,7 +189,7 @@ func TestOperatorRemove(t *testing.T) {
 	}
 }
 
-func mockDeleteManifest(manifestStr, _ string, _ *kubectlcmd.Options, _ clog.Logger) bool {
+func mockDeleteManifest(manifestStr, _ string, _ *Options, _ clog.Logger) bool {
 	deleteOutput = manifestStr
 	return true
 }

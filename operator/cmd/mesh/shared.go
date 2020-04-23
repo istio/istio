@@ -22,6 +22,11 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"time"
+
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
@@ -101,4 +106,34 @@ func confirm(msg string, writer io.Writer) bool {
 	}
 
 	return false
+}
+
+func K8sConfig(kubeConfigPath string, context string) (*rest.Config, client.Client, error) {
+	restConfig, _, err := InitK8SRestClient(kubeConfigPath, context)
+	if err != nil {
+		return nil, nil, err
+	}
+	// We are running a one-off command locally, so we don't need to worry too much about rate limitting
+	// Bumping this up greatly decreases install time
+	restConfig.QPS = 50
+	restConfig.Burst = 100
+	client, err := client.New(restConfig, client.Options{Scheme: scheme.Scheme})
+	if err != nil {
+		return nil, nil, err
+	}
+	return restConfig, client, nil
+}
+
+// Options contains the startup options for applying the manifest.
+type Options struct {
+	// Path to the kubeconfig file.
+	Kubeconfig string
+	// ComponentName of the kubeconfig context to use.
+	Context string
+	// DryRun performs all steps except actually applying the manifests or creating output dirs/files.
+	DryRun bool
+	// Wait for resources to be ready after install.
+	Wait bool
+	// Maximum amount of time to wait for resources to be ready after install when Wait=true.
+	WaitTimeout time.Duration
 }

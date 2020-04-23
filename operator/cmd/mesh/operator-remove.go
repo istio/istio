@@ -15,15 +15,10 @@
 package mesh
 
 import (
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/operator/pkg/kubectlcmd"
-	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/clog"
 )
 
@@ -33,7 +28,7 @@ type operatorRemoveArgs struct {
 	force bool
 }
 
-type manifestDeleter func(manifestStr, componentName string, opts *kubectlcmd.Options, l clog.Logger) bool
+type manifestDeleter func(manifestStr, componentName string, opts *Options, l clog.Logger) bool
 
 var (
 	defaultManifestDeleter = deleteManifest
@@ -80,15 +75,14 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger, d
 
 	scope.Debugf("Using the following manifest to remove operator:\n%s\n", mstr)
 
-	opts := &kubectlcmd.Options{
+	opts := &Options{
 		DryRun:      args.dryRun,
-		Verbose:     args.verbose,
 		WaitTimeout: 1 * time.Minute,
 		Kubeconfig:  orArgs.kubeConfigPath,
 		Context:     orArgs.context,
 	}
 
-	if _, _, err := manifest.InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
+	if _, _, err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
 		l.LogAndFatal(err)
 	}
 
@@ -101,32 +95,7 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger, d
 	l.LogAndPrint("\n*** Success. ***\n")
 }
 
-func deleteManifest(manifestStr, componentName string, opts *kubectlcmd.Options, l clog.Logger) bool {
-	l.LogAndPrintf("Deleting manifest for component %s...", componentName)
-	objs, err := object.ParseK8sObjectsFromYAMLManifest(manifestStr)
-	if err != nil {
-		l.LogAndPrint("Parse error: ", err, "\n")
-		return false
-	}
-	stdout, stderr, err := kubectlcmd.New().Delete(manifestStr, opts)
-
-	success := true
-	if err != nil {
-		cs := fmt.Sprintf("Component %s delete returned the following errors:", componentName)
-		l.LogAndPrintf("\n%s\n%s", cs, strings.Repeat("=", len(cs)))
-		l.LogAndPrint("Error: ", err, "\n")
-		success = false
-	} else {
-		l.LogAndPrintf("Component %s deleted successfully.", componentName)
-		if opts.Verbose {
-			l.LogAndPrintf("The following parseObjectSetFromManifest were deleted:\n%s", k8sObjectsString(objs))
-		}
-	}
-
-	if !ignoreError(stderr) {
-		l.LogAndPrint("Error detail:\n", stderr, "\n")
-		l.LogAndPrint(stdout, "\n")
-		success = false
-	}
-	return success
+func deleteManifest(_, _ string, _ *Options, l clog.Logger) bool {
+	l.LogAndError("Deleting manifest not implemented")
+	return false
 }

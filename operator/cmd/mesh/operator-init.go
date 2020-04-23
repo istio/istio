@@ -22,16 +22,13 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"k8s.io/utils/pointer"
+	"k8s.io/helm/pkg/manifest"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/kubectlcmd"
-	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
-	"istio.io/istio/operator/version"
 	buildversion "istio.io/pkg/version"
 )
 
@@ -59,7 +56,7 @@ const (
 )
 
 // manifestApplier is used for test dependency injection.
-type manifestApplier func(manifestStr, componentName string, opts *kubectlcmd.Options, verbose bool, l clog.Logger) bool
+type manifestApplier func(manifestStr, componentName string, opts *Options, l clog.Logger) bool
 
 var (
 	defaultManifestApplier = applyManifest
@@ -122,9 +119,8 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger, apply
 	scope.Debugf("Installing operator charts with the following values:\n%s", vals)
 	scope.Debugf("Using the following manifest to install operator:\n%s\n", mstr)
 
-	opts := &kubectlcmd.Options{
+	opts := &Options{
 		DryRun:      args.dryRun,
-		Verbose:     args.verbose,
 		Wait:        oiArgs.wait,
 		WaitTimeout: oiArgs.readinessTimeout,
 		Kubeconfig:  oiArgs.kubeConfigPath,
@@ -137,11 +133,11 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger, apply
 		l.LogAndFatal(err)
 	}
 
-	success := apply(mstr, istioControllerComponentName, opts, args.verbose, l)
+	success := apply(mstr, istioControllerComponentName, opts, l)
 
 	if customResource != "" {
-		success = success && apply(genNamespaceResource(istioNamespace), istioNamespaceComponentName, opts, args.verbose, l)
-		success = success && apply(customResource, istioOperatorCRComponentName, opts, args.verbose, l)
+		success = success && apply(genNamespaceResource(istioNamespace), istioNamespaceComponentName, opts, l)
+		success = success && apply(customResource, istioOperatorCRComponentName, opts, l)
 	}
 
 	if !success {
@@ -152,44 +148,29 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger, apply
 	l.LogAndPrint("\n*** Success. ***\n")
 }
 
-func applyManifest(manifestStr, componentName string, opts *kubectlcmd.Options, verbose bool, l clog.Logger) bool {
-	l.LogAndPrint("")
-	// Specifically don't prune operator installation since it leads to a lot of resources being reapplied.
-	opts.Prune = pointer.BoolPtr(false)
-	out, objs := manifest.ApplyManifest(name.ComponentName(componentName), manifestStr, version.OperatorBinaryVersion.String(), "", *opts)
-
-	_, clientSet, err := manifest.InitK8SRestClient(opts.Kubeconfig, opts.Context)
+func applyManifest(manifestStr, componentName string, opts *Options, l clog.Logger) bool {
+	restConfig, client, err := K8sConfig(opts.Kubeconfig, opts.Context)
 	if err != nil {
-		l.LogAndFatal(err.Error())
+		l.LogAndError(err)
+		return false
 	}
-	if opts.Wait {
-		err := manifest.WaitForResources(objs, clientSet, opts.WaitTimeout, opts.DryRun, l)
-		if err != nil {
-			out.Err = err
-		}
+	// Needed in case we are running a test through this path that doesn't start a new process.
+	helmreconciler.FlushObjectCaches()
+	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, nil, &helmreconciler.Options{DryRun: opts.DryRun, Log: l})
+	if err != nil {
+		l.LogAndError(err)
+		return false
 	}
-
-	success := true
-	if out.Err != nil {
-		cs := fmt.Sprintf("Component %s install returned the following errors:", componentName)
-		l.LogAndPrintf("\n%s\n%s", cs, strings.Repeat("=", len(cs)))
-		l.LogAndPrint("Error: ", out.Err, "\n")
-		success = false
-	} else {
-		l.LogAndPrintf("Component %s installed successfully.", componentName)
-		if opts.Verbose {
-			l.LogAndPrintf("The following objects were installed:\n%s", k8sObjectsString(objs))
-		}
+	ms := []manifest.Manifest{{
+		Name:    componentName,
+		Content: manifestStr,
+	}}
+	_, err = reconciler.ProcessManifest(ms)
+	if err != nil {
+		l.LogAndError(err)
+		return false
 	}
-
-	if !ignoreError(out.Stderr) {
-		l.LogAndPrint("Error detail:\n", out.Stderr, "\n")
-		success = false
-	}
-	if !ignoreError(out.Stderr) {
-		l.LogAndPrint(out.Stdout, "\n")
-	}
-	return success
+	return true
 }
 
 func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource string, istioNamespace string, err error) {

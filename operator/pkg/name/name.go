@@ -30,6 +30,24 @@ import (
 	"istio.io/istio/operator/version"
 )
 
+// Kubernetes Kind strings.
+const (
+	CRDStr                   = "CustomResourceDefinition"
+	DaemonSetStr             = "DaemonSet"
+	DeploymentStr            = "Deployment"
+	HPAStr                   = "HorizontalPodAutoscaler"
+	NamespaceStr             = "Namespace"
+	PodStr                   = "Pod"
+	PDBStr                   = "PodDisruptionBudget"
+	ReplicationControllerStr = "ReplicationController"
+	ReplicaSetStr            = "ReplicaSet"
+	RoleStr                  = "Role"
+	RoleBindingStr           = "RoleBinding"
+	SAStr                    = "ServiceAccount"
+	ServiceStr               = "Service"
+	StatefulSetStr           = "StatefulSet"
+)
+
 const (
 	// OperatorAPINamespace is the API namespace for operator config.
 	// TODO: move this to a base definitions file when one is created.
