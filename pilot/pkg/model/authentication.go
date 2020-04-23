@@ -256,22 +256,39 @@ func getConfigsForWorkload(configsByNamespace map[string][]Config,
 }
 
 type SdsCertificateConfig struct {
-	ClientCertificatePath string
-	PrivateKeyPath        string
+	CertificatePath   string
+	PrivateKeyPath    string
+	CaCertificatePath string
 }
 
 // GetResourceName converts a SdsCertificateConfig to a string to be used as an SDS resource name
 func (s SdsCertificateConfig) GetResourceName() string {
-	return fmt.Sprintf("file:%s~%s", s.ClientCertificatePath, s.PrivateKeyPath)
+	return fmt.Sprintf("file-cert:%s~%s", s.CertificatePath, s.PrivateKeyPath)
+}
+
+// GetResourceName converts a SdsCertificateConfig to a string to be used as an SDS resource name for the root
+func (s SdsCertificateConfig) GetRootResourceName() string {
+	return fmt.Sprintf("file-root:%s", s.CaCertificatePath)
 }
 
 // SdsCertificateConfigFromResourceName converts the provided resource name into a SdsCertificateConfig
 // If the resource name is not valid, _, false is returned.
 func SdsCertificateConfigFromResourceName(resource string) (SdsCertificateConfig, bool) {
-	filesString := strings.TrimPrefix(resource, "file:")
-	split := strings.Split(filesString, "~")
-	if len(split) != 2 {
+	if strings.HasPrefix(resource, "file-cert:") {
+		filesString := strings.TrimPrefix(resource, "file-cert:")
+		split := strings.Split(filesString, "~")
+		if len(split) != 2 {
+			return SdsCertificateConfig{}, false
+		}
+		return SdsCertificateConfig{split[0], split[1], ""}, true
+	} else if strings.HasPrefix(resource, "file-root:") {
+		filesString := strings.TrimPrefix(resource, "file-root:")
+		split := strings.Split(filesString, "~")
+		if len(split) != 1 {
+			return SdsCertificateConfig{}, false
+		}
+		return SdsCertificateConfig{"", "", split[0]}, true
+	} else {
 		return SdsCertificateConfig{}, false
 	}
-	return SdsCertificateConfig{split[0], split[1]}, true
 }

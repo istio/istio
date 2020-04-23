@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync/atomic"
@@ -934,6 +935,95 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 	key := ConnKey{
 		ConnectionID: conID,
 		ResourceName: WorkloadKeyCertResourceName,
+	}
+	cachedSecret, found := sc.secrets.Load(key)
+	if !found {
+		t.Errorf("Failed to find secret for proxy %q from secret store: %v", conID, err)
+	}
+	if !reflect.DeepEqual(*gotSecret, cachedSecret) {
+		t.Errorf("Secret key: got %+v, want %+v", *gotSecret, cachedSecret)
+	}
+}
+
+// TestWorkloadAgentGenerateSecretFromFileOverSds tests generating secrets from existing files on a
+// secretcache instance, specified over SDS.
+func TestWorkloadAgentGenerateSecretFromFileOverSds(t *testing.T) {
+	fakeCACli, err := mock.NewMockCAClient(0, time.Hour)
+	if err != nil {
+		t.Fatalf("Error creating Mock CA client: %v", err)
+	}
+	opt := Options{
+		RotationInterval: 100 * time.Millisecond,
+		EvictionDuration: 0,
+	}
+
+	fetcher := &secretfetcher.SecretFetcher{
+		UseCaClient: true,
+		CaClient:    fakeCACli,
+	}
+	sc := NewSecretCache(fetcher, notifyCb, opt)
+	defer func() {
+		sc.Close()
+	}()
+	rootCertPath, _ := filepath.Abs("./testdata/root-cert.pem")
+	keyPath, _ := filepath.Abs("./testdata/key.pem")
+	certChainPath, _ := filepath.Abs("./testdata/cert-chain.pem")
+	certchain, err := ioutil.ReadFile(certChainPath)
+	if err != nil {
+		t.Fatalf("Error reading the cert chain file: %v", err)
+	}
+	privateKey, err := ioutil.ReadFile(keyPath)
+	if err != nil {
+		t.Fatalf("Error reading the private key file: %v", err)
+	}
+	rootCert, err := ioutil.ReadFile(rootCertPath)
+	if err != nil {
+		t.Fatalf("Error reading the root cert file: %v", err)
+	}
+
+	resource := fmt.Sprintf("file-cert:%s~%s", certChainPath, keyPath)
+	conID := "proxy1-id"
+	ctx := context.Background()
+	gotSecret, err := sc.GenerateSecret(ctx, conID, resource, "jwtToken1")
+	if err != nil {
+		t.Fatalf("Failed to get secrets: %v", err)
+	}
+	checkBool(t, "SecretExist", sc.SecretExist(conID, resource, "jwtToken1", gotSecret.Version), true)
+	expectedSecret := &model.SecretItem{
+		ResourceName:     resource,
+		CertificateChain: certchain,
+		PrivateKey:       privateKey,
+	}
+	if err := verifySecret(gotSecret, expectedSecret); err != nil {
+		t.Errorf("Secret verification failed: %v", err)
+	}
+
+	rootResource := "file-root:" + rootCertPath
+	gotSecretRoot, err := sc.GenerateSecret(ctx, conID, rootResource, "jwtToken1")
+	if err != nil {
+		t.Fatalf("Failed to get secrets: %v", err)
+	}
+	checkBool(t, "SecretExist", sc.SecretExist(conID, rootResource, "jwtToken1", gotSecretRoot.Version), true)
+	if got, want := atomic.LoadUint64(&sc.rootCertChangedCount), uint64(0); got != want {
+		t.Errorf("rootCertChangedCount: got: %v, want: %v", got, want)
+	}
+
+	rootExpiration, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(rootCert)
+	if err != nil {
+		t.Fatalf("Failed to get the expiration time from the existing root file")
+	}
+	expectedSecret = &model.SecretItem{
+		ResourceName: rootResource,
+		RootCert:     rootCert,
+		ExpireTime:   rootExpiration,
+	}
+	if err := verifyRootCASecret(gotSecretRoot, expectedSecret); err != nil {
+		t.Errorf("Secret verification failed: %v", err)
+	}
+
+	key := ConnKey{
+		ConnectionID: conID,
+		ResourceName: resource,
 	}
 	cachedSecret, found := sc.secrets.Load(key)
 	if !found {

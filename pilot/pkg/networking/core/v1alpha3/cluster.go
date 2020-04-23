@@ -1026,16 +1026,20 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 					},
 				},
 			}
-		} else if tls.Mode == networking.TLSSettings_MUTUAL {
+		} else if tls.Mode == networking.ClientTLSSettings_MUTUAL {
 			// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
 			// which does not support rotation, we will serve them over SDS by reading the files.
-			res := model.SdsCertificateConfig{ClientCertificatePath: tls.ClientCertificate, PrivateKeyPath: tls.PrivateKey}
+			res := model.SdsCertificateConfig{
+				CertificatePath:   model.GetOrDefault(proxy.Metadata.TLSClientCertChain, tls.ClientCertificate),
+				PrivateKeyPath:    model.GetOrDefault(proxy.Metadata.TLSClientKey, tls.PrivateKey),
+				CaCertificatePath: model.GetOrDefault(proxy.Metadata.TLSClientRootCert, tls.CaCertificates),
+			}
 			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
 				authn_model.ConstructSdsSecretConfig(res.GetResourceName(), opts.push.Mesh.SdsUdsPath))
 
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-					DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: tls.SubjectAltNames},
+					DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
 					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(tls.PrivateKey, opts.push.Mesh.SdsUdsPath),
 				},
 			}
