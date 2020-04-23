@@ -234,7 +234,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		// May return nil, if the CA is missing required configs - This is not an error.
 		s.ca, err = s.createCA(corev1, caOpts)
 		if err != nil {
-			return nil, fmt.Errorf("failied to create CA: %v", err)
+			return nil, fmt.Errorf("failed to create CA: %v", err)
 		}
 		err = s.initPublicKey()
 		if err != nil {
