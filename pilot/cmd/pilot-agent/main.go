@@ -17,7 +17,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"time"
@@ -44,7 +43,6 @@ import (
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/envoy"
 	istio_agent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/jwt"
@@ -344,31 +342,6 @@ var (
 		},
 	}
 )
-
-// getMeshConfig gets the mesh config to use for proxy configuration
-// 1. Search for MESH_CONFIG env var. This is set in the injection template
-// 2. Attempt to read --meshConfigFile. This is used for gateways
-// 3. If neither is found, we can fallback to default settings
-func getMeshConfig() (meshconfig.MeshConfig, error) {
-	defaultConfig := mesh.DefaultMeshConfig()
-	if meshConfig != "" {
-		mc, err := mesh.ApplyMeshConfig(meshConfig, defaultConfig)
-		if err != nil || mc == nil {
-			return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config config [%v]: %v", meshConfig, err)
-		}
-		return *mc, nil
-	}
-	b, err := ioutil.ReadFile(meshConfigFile)
-	if err != nil {
-		log.Warnf("Failed to read mesh config file from %v or MESH_CONFIG. Falling back to defaults: %v", meshConfigFile, err)
-		return defaultConfig, nil
-	}
-	mc, err := mesh.ApplyMeshConfig(string(b), defaultConfig)
-	if err != nil || mc == nil {
-		return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config config [%v]: %v", string(b), err)
-	}
-	return *mc, nil
-}
 
 // dedupes the string array and also ignores the empty string.
 func dedupeStrings(in []string) []string {
