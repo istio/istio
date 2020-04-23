@@ -140,6 +140,7 @@ func SendTraffic(ingress ingress.Instance, t *testing.T, msg, url, extraHeader s
 		addr := ingress.HTTPAddress()
 		url = fmt.Sprintf("http://%s/productpage", addr.String())
 	}
+	t.Logf("lambdai Sending traffic to addr %s", url)
 
 	// run at a high enough QPS (here 10) to ensure that enough
 	// traffic is generated to trigger 429s from the 1 QPS rate limit rule

@@ -2254,14 +2254,29 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 
 // Create pass through filters for the listener assuming all the other filter chains are ready.
 // The match member of pass through filter chain depends on the existing non-passthrough filter chain.
-// TODO: Calculate the filter chian match to replace the wildcard and replace appendListenerFallthroughRoute.
+// TODO: Calculate the filter chain match to replace the wildcard and replace appendListenerFallthroughRoute.
 func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteListener(l *xdsapi.Listener, node *model.Proxy, push *model.PushContext) {
-	for _, fc := range l.FilterChains {
-		if isMatchAllFilterChain(fc) {
-			// We can only have one wildcard match. If the filter chain already has one, skip it
-			// This happens in the case of HTTP, which will get a fallthrough route added later,
-			// or TCP, which is not supported
-			return
+	var portNum uint32
+	if l.GetAddress() != nil && l.GetAddress().GetSocketAddress() != nil  {
+		portNum = l.GetAddress().GetSocketAddress().GetPortValue()
+	}
+	if portNum != 0 && portNum != 15001 && portNum != 15006 {
+		for _, fc := range l.FilterChains {
+			if isMatchAllFilterChainOnPort(fc, l.GetAddress().GetSocketAddress().GetPortValue()) {
+				// We can only have one wildcard match. If the filter chain already has one, skip it
+				// This happens in the case of HTTP, which will get a fallthrough route added later,
+				// or TCP, which is not supported
+				return
+			}
+		}
+	} else {
+		for _, fc := range l.FilterChains {
+			if isMatchAllFilterChain(fc) {
+				// We can only have one wildcard match. If the filter chain already has one, skip it
+				// This happens in the case of HTTP, which will get a fallthrough route added later,
+				// or TCP, which is not supported
+				return
+			}
 		}
 	}
 
@@ -2286,13 +2301,22 @@ func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteL
 			return
 		}
 	}
-
-	outboundPassThroughFilterChain := &listener.FilterChain{
+	fcm := &listener.FilterChainMatch{}
+	if portNum != 0 && portNum != 15001 && portNum != 15006 {
+		fcm.DestinationPort =  &wrappers.UInt32Value{Value: portNum}
+		perPortOutboundPassThroughFilterChain := &listener.FilterChain{
+			FilterChainMatch: fcm,
+			Name:             util.PassthroughFilterChain,
+			Filters:          mutable.FilterChains[0].TCP,
+		}
+		l.FilterChains = append(l.FilterChains, perPortOutboundPassThroughFilterChain)
+	}
+	catchAllOutboundPassThroughFilterChain := &listener.FilterChain{
 		FilterChainMatch: &listener.FilterChainMatch{},
 		Name:             util.PassthroughFilterChain,
 		Filters:          mutable.FilterChains[0].TCP,
 	}
-	l.FilterChains = append(l.FilterChains, outboundPassThroughFilterChain)
+	l.FilterChains = append(l.FilterChains, catchAllOutboundPassThroughFilterChain)
 }
 
 // buildCompleteFilterChain adds the provided TCP and HTTP filters to the provided Listener and serializes them.
@@ -2491,13 +2515,20 @@ func filterChainMatchEqual(first *listener.FilterChainMatch, second *listener.Fi
 	if first == nil || second == nil {
 		return first == second
 	}
+	if first.DestinationPort.GetValue() != second.DestinationPort.GetValue() {
+		return false
+	}
+	return filterChainMatchEqualIgnoringDstPort(first, second)
+}
+
+func filterChainMatchEqualIgnoringDstPort(first *listener.FilterChainMatch, second *listener.FilterChainMatch) bool {
+	if first == nil || second == nil {
+		return first == second
+	}
 	if first.TransportProtocol != second.TransportProtocol {
 		return false
 	}
 	if !util.StringSliceEqual(first.ApplicationProtocols, second.ApplicationProtocols) {
-		return false
-	}
-	if first.DestinationPort.GetValue() != second.DestinationPort.GetValue() {
 		return false
 	}
 	if !util.CidrRangeSliceEqual(first.PrefixRanges, second.PrefixRanges) {
@@ -2619,6 +2650,18 @@ func isMatchAllFilterChain(fc *listener.FilterChain) bool {
 	// See if it is empty filter chain.
 	return filterChainMatchEmpty(fc.FilterChainMatch)
 }
+
+func isMatchAllFilterChainOnPort(fc *listener.FilterChain, port uint32) bool {
+	if fc.FilterChainMatch == nil {
+		return true
+	}
+	dstPort := fc.FilterChainMatch.DestinationPort.GetValue()
+	if dstPort != 0 && dstPort != port {
+		return false
+	}
+	return filterChainMatchEqualIgnoringDstPort(fc.FilterChainMatch, emptyFilterChainMatch)
+}
+
 
 func removeListenerFilterTimeout(listeners []*xdsapi.Listener) {
 	for _, l := range listeners {

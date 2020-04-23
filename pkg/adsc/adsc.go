@@ -316,7 +316,7 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 	// big virtual outbound listener.
 	for _, l := range ll {
 		ldsSize += proto.Size(l)
-		nextFilterChain:
+	nextFilterChain:
 		for i := range l.FilterChains {
 			// Iterate in the reverse order
 			fc := l.FilterChains[len(l.FilterChains)-i-1]
