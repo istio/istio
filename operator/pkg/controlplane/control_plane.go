@@ -108,7 +108,7 @@ func (i *IstioOperator) ComponentsEqual(components []component.IstioComponent) b
 	if i.components == nil && components == nil {
 		return true
 	}
-	if (i.components == nil && components != nil) || (i.components != nil && components == nil) || len(i.components) != len(components) {
+	if len(i.components) != len(components) {
 		return false
 	}
 	for c := 0; c < len(i.components); c++ {

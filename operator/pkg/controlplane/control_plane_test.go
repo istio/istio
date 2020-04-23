@@ -93,10 +93,7 @@ func TestNewIstioOperator(t *testing.T) {
 					},
 					&component.PilotComponent{
 						CommonComponentFields: &component.CommonComponentFields{
-							Options: &component.Options{
-								InstallSpec: &v1alpha1.IstioOperatorSpec{},
-								Translator:  &translate.Translator{},
-							},
+							Options:       coreComponentOptions,
 							ResourceName:  "test-resource",
 							ComponentName: name.PilotComponentName,
 						},
@@ -125,8 +122,10 @@ func TestNewIstioOperator(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			if gotOperator, err := NewIstioOperator(tt.inInstallSpec, tt.inTranslator); ((err != nil && tt.wantErr == nil) || (err == nil && tt.wantErr != nil)) || !gotOperator.ComponentsEqual(tt.wantIstioOperator.components) {
-				t.Errorf("%s: wanted components & err %+v %v, got components & err %+v %v", tt.desc, tt.wantIstioOperator.components, tt.wantErr, gotOperator.components, err)
+			gotOperator, err := NewIstioOperator(tt.inInstallSpec, tt.inTranslator)
+			if ((err != nil && tt.wantErr == nil) || (err == nil && tt.wantErr != nil)) || !gotOperator.ComponentsEqual(tt.wantIstioOperator.components) {
+				t.Errorf("%s: wanted components & err %+v %v, got components & err %+v %v", 
+					tt.desc, tt.wantIstioOperator.components, tt.wantErr, gotOperator.components, err)
 			}
 		})
 	}
