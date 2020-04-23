@@ -29,6 +29,7 @@ if [ "x${OS}" = "xDarwin" ] ; then
   OSEXT="osx"
 else
   OSEXT="linux"
+
 fi
 
 # Determines the istioctl version.
@@ -43,6 +44,13 @@ if [ "x${ISTIO_VERSION}" = "x" ] ; then
   exit;
 fi
 
+if [ "x${ISTIO_ARCH}" = "x" ]; then
+  ISTIO_ARCH=$(arch)
+fi
+
+#for now this supports amd64, which has arch output of x86_64. Thhe arch command will let us switch based on host
+ISTIO_ARCH="amd64"
+
 download_failed () {
   printf "Download failed, please make sure your ISTIO_VERSION is correct and verify the download URL exists!"
   exit 1
@@ -50,15 +58,30 @@ download_failed () {
 
 # Downloads the istioctl binary archive.
 tmp=$(mktemp -d /tmp/istioctl.XXXXXX)
-filename="istioctl-${ISTIO_VERSION}-${OSEXT}.tar.gz"
+NAME="istioctl-${ISTIO_VERSION}"
+
 cd "$tmp" || exit
 URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istioctl-${ISTIO_VERSION}-${OSEXT}.tar.gz"
-printf "Downloading %s from %s ... \n" "${filename}" "${URL}"
-curl -sLO "${URL}" || download_failed
+ARCH_URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istioctl-${ISTIO_VERSION}-${OSEXT}-${ISTIO_ARCH}.tar.gz"
+
+printf "Downloading %s from %s ... \n" "${NAME}" "${URL}"
+if ! curl -fsLO "$URL"
+then
+  printf "Failed. \n\nTrying with ISTIO_ARCH. Downloading %s from %s ...\n" "${NAME}" "$ARCH_URL"
+  if ! curl -fsLO "$ARCH_URL"
+  then
+   download_failed
+  else
+    filename="istioctl-${ISTIO_VERSION}-${OSEXT}-${ISTIO_ARCH}.tar.gz"
+    tar -xzf "${filename}"
+  fi
+else
+  filename="istioctl-${ISTIO_VERSION}-${OSEXT}.tar.gz"
+  tar -xzf "${filename}"
+fi
 printf "%s download complete!\n" "${filename}"
 
 # setup istioctl
-tar -xzf "${filename}"
 cd "$HOME" || exit
 mkdir -p ".istioctl/bin"
 mv "${tmp}/istioctl" ".istioctl/bin/istioctl"
