@@ -23,8 +23,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"k8s.io/client-go/rest"
-
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -72,7 +70,7 @@ const dataField = "distribution-report"
 
 // Starts the reporter, which watches dataplane ack's and resource changes so that it can update status leader
 // with distribution information
-func (r *Reporter) Start(restConfig *rest.Config, namespace string, store model.ConfigStore, stop <-chan struct{}) {
+func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, store model.ConfigStore, stop <-chan struct{}) {
 	scope.Info("Starting status follower controller")
 	ctx := NewIstioContext(stop)
 	if r.clock == nil {
@@ -82,10 +80,6 @@ func (r *Reporter) Start(restConfig *rest.Config, namespace string, store model.
 	// default UpdateInterval
 	if r.UpdateInterval == 0 {
 		r.UpdateInterval = 500 * time.Millisecond
-	}
-	clientSet, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		scope.Fatalf("Could not connect to kubernetes: %s", err)
 	}
 	r.distributionEventQueue = make(chan distributionEvent, 10^5)
 	r.status = make(map[string]string)
