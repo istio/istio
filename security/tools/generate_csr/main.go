@@ -32,6 +32,7 @@ var (
 	outCsr  = flag.String("out-csr", "csr.pem", "Output csr file.")
 	outPriv = flag.String("out-priv", "priv.pem", "Output private key file.")
 	keySize = flag.Int("key-size", 2048, "Size of the generated private key")
+	ec      = flag.Bool("ec", false, "Generate an elliptical curve private key")
 )
 
 func fatalf(template string, args ...interface{}) {
@@ -58,6 +59,7 @@ func main() {
 		Host:       *host,
 		Org:        *org,
 		RSAKeySize: *keySize,
+		IsEC:       *ec,
 	})
 
 	if err != nil {
