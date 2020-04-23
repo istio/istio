@@ -42,12 +42,26 @@ if [ "x${ISTIO_VERSION}" = "x" ] ; then
 		  grep -v -E "(alpha|beta|rc)\.[0-9]$" | sort -t"." -k 1,1 -k 2,2 -k 3,3 -k 4,4 | tail -n 1)
 fi
 
-if [ "x${ISTIO_ARCH}" = "x" ]; then
-  ISTIO_ARCH=$(arch)
+LOCAL_ARCH=$(uname -m)
+if [[ ${TARGET_ARCH} ]]; then
+    LOCAL_ARCH=${TARGET_ARCH}
 fi
 
-#for now this supports amd64, which has arch output of x86_64. Thhe arch command will let us switch based on host
-ISTIO_ARCH="amd64"
+if [[ ${LOCAL_ARCH} == x86_64 ]]; then
+    ISTIO_ARCH=amd64
+elif [[ ${LOCAL_ARCH} == armv8* ]]; then
+    ISTIO_ARCH=arm64
+elif [[ ${LOCAL_ARCH} == aarch64* ]]; then
+    ISTIO_ARCH=arm64
+elif [[ ${LOCAL_ARCH} == armv* ]]; then
+    ISTIO_ARCH=armv7
+#also detect the actual arch name allowing users to enter x86_64 or amd64
+elif [[ ${LOCAL_ARCH} == amd64 || ${LOCAL_ARCH} == armv7 || ${LOCAL_ARCH} == arm64 ]]; then
+    ISTIO_ARCH=${LOCAL_ARCH}
+else
+    echo "This system's architecture, ${LOCAL_ARCH}, isn't supported"
+    exit 1
+fi
 
 if [ "x${ISTIO_VERSION}" = "x" ] ; then
   printf "Unable to get latest Istio version. Set ISTIO_VERSION env var and re-run. For example: export ISTIO_VERSION=1.0.4"
@@ -61,7 +75,7 @@ ARCH_URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/isti
 printf "Downloading %s from %s ..." "$NAME" "$URL"
 if ! curl -fsLO "$URL"
 then
-  printf "Failed.\n\n Trying with ISTIO_ARCH. Downloading %s from %s ...\n" "$NAME" "$ARCH_URL"
+  printf "Failed.\n\nTrying with TARGET_ARCH. Downloading %s from %s ...\n" "$NAME" "$ARCH_URL"
   if ! curl -fsLO "$ARCH_URL"
   then
     printf "\n\n"

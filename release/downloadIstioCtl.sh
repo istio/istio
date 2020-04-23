@@ -44,12 +44,26 @@ if [ "x${ISTIO_VERSION}" = "x" ] ; then
   exit;
 fi
 
-if [ "x${ISTIO_ARCH}" = "x" ]; then
-  ISTIO_ARCH=$(arch)
+LOCAL_ARCH=$(uname -m)
+if [[ ${TARGET_ARCH} ]]; then
+    LOCAL_ARCH=${TARGET_ARCH}
 fi
 
-#for now this supports amd64, which has arch output of x86_64. Thhe arch command will let us switch based on host
-ISTIO_ARCH="amd64"
+if [[ ${LOCAL_ARCH} == x86_64 ]]; then
+    ISTIO_ARCH=amd64
+elif [[ ${LOCAL_ARCH} == armv8* ]]; then
+    ISTIO_ARCH=arm64
+elif [[ ${LOCAL_ARCH} == aarch64* ]]; then
+    ISTIO_ARCH=arm64
+elif [[ ${LOCAL_ARCH} == armv* ]]; then
+    ISTIO_ARCH=armv7
+#also detect the actual arch name allowing users to enter x86_64 or amd64
+elif [[ ${LOCAL_ARCH} == amd64 || ${LOCAL_ARCH} == armv7 || ${LOCAL_ARCH} == arm64 ]]; then
+    ISTIO_ARCH=${LOCAL_ARCH}
+else
+    echo "This system's architecture, ${LOCAL_ARCH}, isn't supported"
+    exit 1
+fi
 
 download_failed () {
   printf "Download failed, please make sure your ISTIO_VERSION is correct and verify the download URL exists!"
