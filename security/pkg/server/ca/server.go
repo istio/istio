@@ -41,8 +41,6 @@ import (
 const (
 	jwtPath              = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 	caCertPath           = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-	k8sAPIServerURL      = "https://kubernetes.default.svc"
-	k8sAPIServerPath     = "/apis/authentication.k8s.io/v1/tokenreviews"
 	certExpirationBuffer = time.Minute
 )
 
