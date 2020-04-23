@@ -122,6 +122,8 @@ type DiscoveryServer struct {
 	// adsClients reflect active gRPC channels, for both ADS and EDS.
 	adsClients      map[string]*XdsConnection
 	adsClientsMutex sync.RWMutex
+
+	StatusReporter DistributionEventHandler
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update

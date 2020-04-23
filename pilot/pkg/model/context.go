@@ -71,8 +71,6 @@ type Environment struct {
 	// CONFIG AND PUSH
 	PushContext *PushContext
 
-	StatusReporter DistributionEventHandler
-
 	// DomainSuffix provides a default domain for the Istio server.
 	DomainSuffix string
 }

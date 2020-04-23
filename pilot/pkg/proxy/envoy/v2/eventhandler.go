@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package model
+package v2
 
 type DistributionEventHandler interface {
 	RegisterEvent(conID string, xdsType string, nonce string)

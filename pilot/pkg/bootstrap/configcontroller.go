@@ -351,7 +351,7 @@ func (s *Server) initStatusController(args *PilotArgs) {
 		s.statusReporter.Start(s.kubeConfig, args.Namespace, s.configController, stop)
 		return nil
 	})
-	s.environment.StatusReporter = s.statusReporter
+	s.EnvoyXdsServer.StatusReporter = s.statusReporter
 }
 
 func (s *Server) mcpController(
