@@ -29,6 +29,8 @@ import (
 	"google.golang.org/grpc/serviceconfig"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/grpcgen"
+	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
 	"istio.io/istio/pkg/config/schema/collections"
 
@@ -48,6 +50,9 @@ var (
 
 func TestGRPC(t *testing.T) {
 	ds := xds.NewXDS()
+	ds.DiscoveryServer.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
+	epGen := &envoyv2.EdsGenerator{ds.DiscoveryServer}
+	ds.DiscoveryServer.Generators["grpc/" + envoyv2.EndpointType] = epGen
 
 	sd := ds.DiscoveryServer.MemRegistry
 	sd.AddHTTPService("fortio1.fortio.svc.cluster.local", "10.10.10.1", 8081)

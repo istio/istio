@@ -15,21 +15,17 @@
 package apigen_test
 
 import (
-	"context"
-	"log"
-	"os"
 	"testing"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/balancer"
-	"google.golang.org/grpc/resolver"
-	"google.golang.org/grpc/serviceconfig"
-	networking "istio.io/api/networking/v1alpha3"
+	"github.com/gogo/protobuf/proto"
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/apigen"
+	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
+	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/schema/collections"
 
 	_ "google.golang.org/grpc/xds/experimental" // To install the xds resolvers and balancers.
@@ -41,65 +37,39 @@ var (
 	agentDNSAddr  = "127.0.0.1:14054"
 
 	grpcAddr = "127.0.0.1:14056"
+	grpcUpstreamAddr = grpcAddr
+	// Address the tests are connecting to - normally the mock in-process server
+	// Can be changed to point to a real server, so tests validate a real deployment.
+	//	grpcUpstreamAddr = "127.0.0.1:15010"
 
 	// Address of the Istiod gRPC service, used in tests.
 	istiodSvcAddr = "istiod.istio-system.svc.cluster.local:14056"
 )
 
-func TestGRPC(t *testing.T) {
+// Creates an in-process discovery server, using the same code as Istiod, but
+// backed by an in-memory config and endpoint store.
+func initDS() *xds.Server {
 	ds := xds.NewXDS()
 
 	sd := ds.DiscoveryServer.MemRegistry
 	sd.AddHTTPService("fortio1.fortio.svc.cluster.local", "10.10.10.1", 8081)
-	//sd.AddEndpoint("fortio1.fortio.svc.cluster.local",
-	//	"http-main", 8081, "127.0.0.1", 15019)
-
-	sd.AddHTTPService("istiod.istio-system.svc.cluster.local", "10.10.10.2", 14056)
-	sd.SetEndpoints("istiod.istio-system.svc.cluster.local", "", []*model.IstioEndpoint{
+	sd.SetEndpoints("fortio1.fortio.svc.cluster.local", "", []*model.IstioEndpoint{
 		{
 			Address:         "127.0.0.1",
 			EndpointPort:    uint32(14056),
 			ServicePortName: "http-main",
 		},
 	})
-	se := collections.IstioNetworkingV1Alpha3Serviceentries.Resource()
-	store := ds.MemoryConfigStore
+	return ds
+}
 
-	store.Create(model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      se.Kind(),
-			Group:     se.Group(),
-			Version:   se.Version(),
-			Name:      "fortio",
-			Namespace: "fortio",
-		},
-		Spec: &networking.ServiceEntry{
-			Hosts: []string{
-				"fortio.fortio.svc",
-				"fortio.fortio.svc.cluster.local",
-			},
-			Addresses: []string{"1.2.3.4"},
-
-			Ports: []*networking.Port{
-				{Number: 14056, Name: "grpc-insecure", Protocol: "http"},
-			},
-
-			Endpoints: []*networking.WorkloadEntry{
-				{
-					Address: "127.0.0.1",
-					Ports:   map[string]uint32{"grpc-insecure": 8080},
-				},
-			},
-			Location:   networking.ServiceEntry_MESH_EXTERNAL,
-			Resolution: networking.ServiceEntry_STATIC,
-		},
-	})
-
-	env := ds.DiscoveryServer.Env
-	if err := env.PushContext.InitContext(env, env.PushContext, nil); err != nil {
-		t.Fatal(err)
-	}
-	ds.DiscoveryServer.UpdateServiceShards(env.PushContext)
+// Test using resolving DNS over GRPC. This uses XDS protocol, and Listener resources
+// to represent the names. The protocol is based on GRPC resolution of XDS resources.
+func TestAPIGen(t *testing.T) {
+	ds := initDS()
+	ds.DiscoveryServer.Generators["api"] = &apigen.ApiGenerator{}
+	epGen := &envoyv2.EdsGenerator{ds.DiscoveryServer}
+	ds.DiscoveryServer.Generators["api/" + envoyv2.EndpointType] = epGen
 
 	err := ds.StartGRPC(grpcAddr)
 	if err != nil {
@@ -107,87 +77,89 @@ func TestGRPC(t *testing.T) {
 	}
 	defer ds.GRPCListener.Close()
 
-	os.Setenv("GRPC_XDS_BOOTSTRAP", "testdata/xds_bootstrap.json")
-
-	t.Run("gRPC-resolve", func(t *testing.T) {
-		rb := resolver.Get("xds-experimental")
-		ch := make(chan resolver.State)
-		_, err := rb.Build(resolver.Target{Endpoint: istiodSvcAddr},
-			&testClientConn{ch: ch}, resolver.BuildOptions{})
-
+	// Verify we can receive the DNS cluster IPs using XDS
+	t.Run("adsc", func(t *testing.T) {
+		adscConn, err := adsc.Dial(grpcUpstreamAddr, "", &adsc.Config{
+			IP: "1.2.3.4",
+			Meta: model.NodeMetadata {
+				Generator: "api",
+			}.ToStruct(),
+		})
 		if err != nil {
-			t.Fatal("Failed to resolve XDS ", err)
+			t.Fatal("Error connecting ", err)
 		}
-		tm := time.After(10 * time.Second)
-		select {
-		case s := <-ch:
-			log.Println("Got state ", s)
-		// TODO: timeout
-		case <-tm:
-			t.Error("Didn't resolve")
+		store := memory.Make(collections.Pilot)
+
+		configController := memory.NewController(store)
+		adscConn.Store = model.MakeIstioStore(configController)
+
+		adscConn.Send(&xdsapi.DiscoveryRequest{
+			TypeUrl:       adsc.ListenerType,
+		})
+
+		adscConn.WatchConfig()
+
+		data, err := adscConn.WaitVersion(10*time.Second, adsc.ListenerType, "")
+		if err != nil {
+			t.Fatal("Failed to receive lds", err)
 		}
+
+		for _, rs := range data.Resources {
+			l := &xdsapi.Listener{}
+			err = proto.Unmarshal(rs.Value, l)
+			if err != nil {
+				t.Fatal("Unmarshall error ", err)
+			}
+
+			t.Log("LDS: ", l)
+		}
+		data, err = adscConn.WaitVersion(10 * time.Second, collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String(), "")
+		if err != nil {
+			t.Fatal("Failed to receive lds", err)
+		}
+
+		ses := adscConn.Store.ServiceEntries()
+		for _, se := range ses {
+			t.Log(se)
+		}
+		sec, _ := adscConn.Store.List(collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind(),"")
+		for _, se := range sec {
+			t.Log(se)
+		}
+
 	})
 
-	t.Run("gRPC-cdslb", func(t *testing.T) {
-		rb := balancer.Get("eds_experimental")
-		//ch := make(chan resolver.State)
-		b := rb.Build(&testLBClientConn{}, balancer.BuildOptions{})
-
-		defer b.Close()
-
-	})
-
-	t.Run("gRPC-dial", func(t *testing.T) {
-		conn, err := grpc.Dial("xds-experimental:///istiod.istio-system.svc.cluster.local:14056", grpc.WithInsecure())
+	t.Run("adsc-gen1", func(t *testing.T) {
+		adscConn, err := adsc.Dial(grpcUpstreamAddr, "", &adsc.Config{
+			IP: "1.2.3.5",
+			Meta: model.NodeMetadata {
+			}.ToStruct(),
+		})
 		if err != nil {
-			t.Fatal("XDS gRPC", err)
+			t.Fatal("Error connecting ", err)
 		}
 
-		defer conn.Close()
-		xds := ads.NewAggregatedDiscoveryServiceClient(conn)
+		adscConn.Send(&xdsapi.DiscoveryRequest{
+			TypeUrl:       adsc.ClusterType,
+		})
 
-		s, err := xds.StreamAggregatedResources(context.Background())
+		got, err := adscConn.Wait(10*time.Second, "cds")
 		if err != nil {
-			t.Fatal(err)
+			t.Fatal("Failed to receive lds", err)
 		}
-		s.Send(&xdsapi.DiscoveryRequest{})
+		if len(got) == 0 {
+			t.Fatal("No LDS response")
+		}
+		data := adscConn.Received[adsc.ClusterType]
+		for _, rs := range data.Resources {
+			l := &xdsapi.Cluster{}
+			err = proto.Unmarshal(rs.Value, l)
+			if err != nil {
+				t.Fatal("Unmarshall error ", err)
+			}
 
+			t.Log("CDS: ", l)
+		}
 	})
-
-}
-
-type testLBClientConn struct {
-	balancer.ClientConn
-}
-
-// From xds_resolver_test
-// testClientConn is a fake implemetation of resolver.ClientConn. All is does
-// is to store the state received from the resolver locally and signal that
-// event through a channel.
-type testClientConn struct {
-	resolver.ClientConn
-	ch chan resolver.State
-}
-
-func (t *testClientConn) UpdateState(s resolver.State) {
-	log.Println("UPDATE STATE ", s)
-	t.ch <- s
-}
-
-func (t *testClientConn) ReportError(err error) {
-}
-
-func (t *testClientConn) ParseServiceConfig(jsonSC string) *serviceconfig.ParseResult {
-	// Will be called with something like:
-	//
-	//	"loadBalancingConfig":[
-	//	{
-	//		"cds_experimental":{
-	//			"Cluster": "istiod.istio-system.svc.cluster.local:14056"
-	//		}
-	//	}
-	//]
-	//}
-	return &serviceconfig.ParseResult{}
 }
 

@@ -68,11 +68,11 @@ type GrpcConfigGenerator struct {
 func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
 	switch w.TypeUrl {
 	case ListenerType:
-		return g.BuildListeners(node, push, w.ResourceNames)
+		return g.BuildListeners(proxy, push, w.ResourceNames)
 	case ClusterType:
-		return g.BuildClusters(node, push, w.ResourceNames)
+		return g.BuildClusters(proxy, push, w.ResourceNames)
 	case RouteType:
-		return g.BuildHTTPRoutes(node, push, w.ResourceNames)
+		return g.BuildHTTPRoutes(proxy, push, w.ResourceNames)
 	}
 
 	return nil

@@ -134,7 +134,7 @@ func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *xdsapi.
 // Called for config updates.
 // Will not be called if ProxyNeedsPush returns false - ie. if the update
 func (s *DiscoveryServer) pushGeneratorV2(con *XdsConnection, push *model.PushContext,
-	currentVersion string, rt string, w *model.WatchedResource, updates model.XdsUpdates) error {
+	currentVersion string, w *model.WatchedResource, updates model.XdsUpdates) error {
 	// TODO: generators may send incremental changes if both sides agree on the protocol.
 	// This is specific to each generator type.
 	cl := con.node.XdsResourceGenerator.Generate(con.node, push, w, updates)
