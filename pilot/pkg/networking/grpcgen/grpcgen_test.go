@@ -167,7 +167,6 @@ type testClientConn struct {
 }
 
 func (t *testClientConn) UpdateState(s resolver.State) {
-	log.Println("UPDATE STATE ", s)
 	t.ch <- s
 }
 

@@ -152,7 +152,7 @@ func (s *Server) StartGRPC(addr string) error {
 	go func() {
 		err = gs.Serve(lis)
 		if err != nil {
-			log.Fatala("Failed to serve ", err)
+			log.Infoa("Serve done ", err)
 		}
 	}()
 	return nil

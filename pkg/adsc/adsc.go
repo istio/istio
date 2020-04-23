@@ -401,10 +401,9 @@ func (a *ADSC) handleRecv() {
 		// If we got no resource - still save to the store with empty name/namespace, to notify sync
 		// This scheme also allows us to chunk large responses !
 
-		a.Received[msg.TypeUrl] = msg
-
-		// TODO: add hook to inject nacks
 		a.mutex.Lock()
+		a.Received[msg.TypeUrl] = msg
+		// TODO: add hook to inject nacks
 		a.ack(msg)
 		a.mutex.Unlock()
 
@@ -799,7 +798,9 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 // WaitVersion waits for a new or updated for a typeURL.
 func (a *ADSC) WaitVersion(to time.Duration, typeURL, lastVersion string) (*xdsapi.DiscoveryResponse, error) {
 	t := time.NewTimer(to)
+	a.mutex.Lock()
 	ex := a.Received[typeURL]
+	a.mutex.Unlock()
 	if ex != nil {
 		if lastVersion == "" {
 			return ex, nil
