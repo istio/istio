@@ -43,25 +43,31 @@ if [ "x${ISTIO_VERSION}" = "x" ] ; then
 fi
 
 LOCAL_ARCH=$(uname -m)
-if [ ${TARGET_ARCH} ]; then
+if [ "${TARGET_ARCH}" ]; then
     LOCAL_ARCH=${TARGET_ARCH}
 fi
 
-if [ ${LOCAL_ARCH} == x86_64 ]; then
+case "${LOCAL_ARCH}" in 
+  x86_64)
     ISTIO_ARCH=amd64
-elif [ ${LOCAL_ARCH} == armv8* ]; then
+    ;;
+  armv8*)
     ISTIO_ARCH=arm64
-elif [ ${LOCAL_ARCH} == aarch64* ]; then
+    ;;
+  aarch64*)
     ISTIO_ARCH=arm64
-elif [ ${LOCAL_ARCH} == armv* ]; then
+    ;;
+  armv*)
     ISTIO_ARCH=armv7
-#also detect the actual arch name allowing users to enter x86_64 or amd64
-elif [ ${LOCAL_ARCH} == amd64 ] || [ ${LOCAL_ARCH} == armv7 ] || [ ${LOCAL_ARCH} == arm64 ]; then
+    ;;
+  amd64|arm64)
     ISTIO_ARCH=${LOCAL_ARCH}
-else
+    ;;
+  *)
     echo "This system's architecture, ${LOCAL_ARCH}, isn't supported"
     exit 1
-fi
+    ;;
+esac
 
 if [ "x${ISTIO_VERSION}" = "x" ] ; then
   printf "Unable to get latest Istio version. Set ISTIO_VERSION env var and re-run. For example: export ISTIO_VERSION=1.0.4"
