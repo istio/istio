@@ -13,6 +13,7 @@ replace github.com/docker/docker => github.com/docker/engine v1.4.2-0.2019101121
 
 // Old version had no license
 replace github.com/chzyer/logex => github.com/chzyer/logex v1.1.11-0.20170329064859-445be9e134b2
+
 replace istio.io/api => github.com/hanahmily/api v0.0.0-20200422080657-e387a4b4939a
 
 // Avoid pulling in incompatible libraries
@@ -157,7 +158,7 @@ require (
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.2.8
 	helm.sh/helm/v3 v3.2.0
-	istio.io/api v0.0.0-20200423191407-d5c7faf17732
+	istio.io/api v0.0.0-20200428190839-74b42d651c50
 	istio.io/gogo-genproto v0.0.0-20200422223746-8166b73efbae
 	istio.io/pkg v0.0.0-20200427191155-bf8aca030541
 	k8s.io/api v0.18.1
