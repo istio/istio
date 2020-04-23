@@ -15,10 +15,10 @@
 package helmreconciler
 
 import (
+	"helm.sh/helm/v3/pkg/releaseutil"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/helm/pkg/manifest"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
@@ -68,7 +68,7 @@ type PruningDetails interface {
 
 // ChartManifestsMap is a typedef representing a map of chart-name: []manifest, i.e. the manifests
 // associated with a specific chart
-type ChartManifestsMap map[string][]manifest.Manifest
+type ChartManifestsMap map[string][]releaseutil.Manifest
 
 // Consolidated returns a representation of mm where all manifests in the slice under a key are combined into a single
 // manifest.
@@ -110,8 +110,8 @@ type RenderingListener interface {
 	// BeginChart occurs before processing manifests associated with a specific chart.
 	// chart is the name of the chart being processed.
 	// manifests is the list of manifests to be applied.
-	// The returned list of manifest.Manifest objects are the manifests that will be applied.
-	BeginChart(chart string, manifests []manifest.Manifest) ([]manifest.Manifest, error)
+	// The returned list of releaseutil.Manifest objects are the manifests that will be applied.
+	BeginChart(chart string, manifests []releaseutil.Manifest) ([]releaseutil.Manifest, error)
 	// BeginResource occurs when a new resource is being processed.  This method allows users to programmatically
 	// customize resources created by the charts.  Examples of modifications:  applying owner labels/annotations;
 	// applying settings that are specific to the environment, e.g. URLs from Ingress/Service resources created from
@@ -164,7 +164,7 @@ type RenderingListener interface {
 // ChartCustomizer defines callbacks used by a listener that manages customizations for a specific chart.
 type ChartCustomizer interface {
 	// BeginChart is the same as RenderingListener.BeginChart
-	BeginChart(chart string, manifests []manifest.Manifest) ([]manifest.Manifest, error)
+	BeginChart(chart string, manifests []releaseutil.Manifest) ([]releaseutil.Manifest, error)
 	// BeginResource is the same as RenderingListener.BeginResource
 	BeginResource(chart string, obj runtime.Object) (runtime.Object, error)
 	// ResourceCreated is the same as RenderingListener.ResourceCreated

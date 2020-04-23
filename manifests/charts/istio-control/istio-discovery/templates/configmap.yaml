@@ -135,7 +135,7 @@
       #
       ### ADVANCED SETTINGS #############
       # Where should envoy's configuration be stored in the istio-proxy container
-      configPath: "/etc/istio/proxy"
+      configPath: "./etc/istio/proxy"
       # The pseudo service name used for Envoy.
       serviceCluster: istio-proxy
       # These settings that determine how long an old Envoy

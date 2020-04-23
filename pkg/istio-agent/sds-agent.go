@@ -230,7 +230,7 @@ func NewSDSAgent(discAddr string, tlsRequired bool, pilotCertProvider, jwtPath, 
 			if discPort == "15012" {
 				log.Fatala("Missing JWT, can't authenticate with control plane. Try using plain text (15010)")
 			}
-			return ac
+			// continue to initialize the agent.
 		}
 	}
 

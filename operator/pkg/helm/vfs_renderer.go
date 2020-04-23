@@ -19,8 +19,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"k8s.io/helm/pkg/chartutil"
-	"k8s.io/helm/pkg/proto/hapi/chart"
+	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/chart/loader"
 
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/vfs"
@@ -114,7 +114,7 @@ func (h *VFSRenderer) loadChart() error {
 	if err != nil {
 		return err
 	}
-	var bfs []*chartutil.BufferedFile
+	var bfs []*loader.BufferedFile
 	for _, fname := range fnames {
 		b, err := vfs.ReadFile(fname)
 		if err != nil {
@@ -122,7 +122,7 @@ func (h *VFSRenderer) loadChart() error {
 		}
 		// Helm expects unix / separator, but on windows this will be \
 		name := strings.ReplaceAll(stripPrefix(fname, prefix), string(filepath.Separator), "/")
-		bf := &chartutil.BufferedFile{
+		bf := &loader.BufferedFile{
 			Name: name,
 			Data: b,
 		}
@@ -130,7 +130,7 @@ func (h *VFSRenderer) loadChart() error {
 		scope.Debugf("Chart loaded: %s", bf.Name)
 	}
 
-	h.chart, err = chartutil.LoadFiles(bfs)
+	h.chart, err = loader.LoadFiles(bfs)
 	return err
 }
 

@@ -22,12 +22,12 @@ import (
 
 	"github.com/cheggaaa/pb/v3"
 	jsonpatch "github.com/evanphx/json-patch"
+	"helm.sh/helm/v3/pkg/releaseutil"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/helm/pkg/manifest"
 	util2 "k8s.io/kubectl/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -173,7 +173,7 @@ func MergeIOPSWithProfile(iop *valuesv1alpha1.IstioOperator) (*v1alpha1.IstioOpe
 }
 
 // ProcessManifest apply the manifest to create or update resources, returns the number of objects processed
-func (h *HelmReconciler) ProcessManifest(manifests []manifest.Manifest) (object.K8sObjects, error) {
+func (h *HelmReconciler) ProcessManifest(manifests []releaseutil.Manifest) (object.K8sObjects, error) {
 	var processedObjects object.K8sObjects
 	for _, m := range manifests {
 		var errs util.Errors
@@ -328,7 +328,11 @@ func (h *HelmReconciler) ProcessObject(chartName string, obj *unstructured.Unstr
 	switch {
 	case apierrors.IsNotFound(err):
 		scope.Infof("creating resource: %s", objectStr)
-		return h.client.Create(context.TODO(), obj)
+		err = h.client.Create(context.TODO(), obj)
+		if err != nil {
+			return fmt.Errorf("failed to create %q: %w", objectStr, err)
+		}
+		return nil
 	case err == nil:
 		scope.Infof("updating resource: %s", objectStr)
 		if err := applyOverlay(receiver, obj); err != nil {
@@ -359,7 +363,7 @@ func applyOverlay(current, overlay runtime.Object) error {
 func toChartManifestsMap(m name.ManifestMap) ChartManifestsMap {
 	out := make(ChartManifestsMap)
 	for k, v := range m {
-		out[string(k)] = []manifest.Manifest{{
+		out[string(k)] = []releaseutil.Manifest{{
 			Name:    string(k),
 			Content: strings.Join(v, helm.YAMLSeparator),
 		}}

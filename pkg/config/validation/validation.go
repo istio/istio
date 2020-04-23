@@ -1184,6 +1184,21 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 		errs = multierror.Append(errs, err)
 	}
 
+	if err := validateServiceSettings(mesh); err != nil {
+		errs = multierror.Append(errs, err)
+	}
+
+	return
+}
+
+func validateServiceSettings(config *meshconfig.MeshConfig) (errs error) {
+	for sIndex, s := range config.ServiceSettings {
+		for _, h := range s.Hosts {
+			if err := ValidateWildcardDomain(h); err != nil {
+				errs = multierror.Append(errs, fmt.Errorf("serviceSettings[%d], host `%s`: %v", sIndex, h, err))
+			}
+		}
+	}
 	return
 }
 

@@ -22,8 +22,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"helm.sh/helm/v3/pkg/releaseutil"
 	"k8s.io/client-go/rest"
-	"k8s.io/helm/pkg/manifest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -162,7 +162,7 @@ func applyManifest(restConfig *rest.Config, client client.Client, manifestStr, c
 		l.LogAndError(err)
 		return false
 	}
-	ms := []manifest.Manifest{{
+	ms := []releaseutil.Manifest{{
 		Name:    componentName,
 		Content: manifestStr,
 	}}

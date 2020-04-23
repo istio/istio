@@ -19,8 +19,6 @@ import (
 	"reflect"
 	"testing"
 
-	. "github.com/onsi/gomega"
-
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -28,6 +26,35 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
 )
+
+func TestApplyProxyConfig(t *testing.T) {
+	config := mesh.DefaultMeshConfig()
+	defaultDiscovery := config.DefaultConfig.DiscoveryAddress
+
+	t.Run("apply single", func(t *testing.T) {
+		mc, err := mesh.ApplyProxyConfig("discoveryAddress: foo", config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if mc.DefaultConfig.DiscoveryAddress != "foo" {
+			t.Fatalf("expected discoveryAddress: foo, got %q", mc.DefaultConfig.DiscoveryAddress)
+		}
+	})
+
+	t.Run("apply again", func(t *testing.T) {
+		mc, err := mesh.ApplyProxyConfig("drainDuration: 5s", config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Ensure we didn't modify the passed in mesh config
+		if mc.DefaultConfig.DiscoveryAddress != defaultDiscovery {
+			t.Fatalf("expected discoveryAddress: %q, got %q", defaultDiscovery, mc.DefaultConfig.DiscoveryAddress)
+		}
+		if mc.DefaultConfig.DrainDuration.Seconds != 5 {
+			t.Fatalf("expected drainDuration: 5s, got %q", mc.DefaultConfig.DrainDuration.Seconds)
+		}
+	})
+}
 
 func TestDefaultProxyConfig(t *testing.T) {
 	proxyConfig := mesh.DefaultProxyConfig()
@@ -62,6 +89,11 @@ defaultConfig:
 	}
 	// Verify overrides
 	got, err = mesh.ApplyMeshConfigDefaults(`
+serviceSettings: 
+  - settings:
+      clusterLocal: true
+    host:
+      - "*.myns.svc.cluster.local"
 ingressClass: foo
 reportBatchMaxTime: 10s
 enableTracing: false
@@ -194,60 +226,6 @@ func TestResolveHostsInNetworksConfig(t *testing.T) {
 			if addrAfter != tt.address && !tt.modified {
 				t.Fatalf("Expected network address not to be modified after calling the function")
 			}
-		})
-	}
-}
-
-func TestIsClusterLocal(t *testing.T) {
-	cases := []struct {
-		name     string
-		m        meshconfig.MeshConfig
-		ns       string
-		expected bool
-	}{
-		{
-			name:     "local by default",
-			m:        mesh.DefaultMeshConfig(),
-			ns:       "kube-system",
-			expected: true,
-		},
-		{
-			name:     "not local by default",
-			m:        mesh.DefaultMeshConfig(),
-			ns:       "bob",
-			expected: false,
-		},
-		{
-			name: "local 1",
-			m: meshconfig.MeshConfig{
-				ClusterLocalNamespaces: []string{"ns1", "ns2"},
-			},
-			ns:       "ns1",
-			expected: true,
-		},
-		{
-			name: "local 2",
-			m: meshconfig.MeshConfig{
-				ClusterLocalNamespaces: []string{"ns1", "ns2"},
-			},
-			ns:       "ns2",
-			expected: true,
-		},
-		{
-			name: "not local",
-			m: meshconfig.MeshConfig{
-				ClusterLocalNamespaces: []string{"ns1", "ns2"},
-			},
-			ns:       "ns3",
-			expected: false,
-		},
-	}
-
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			g := NewGomegaWithT(t)
-			clusterLocal := mesh.IsClusterLocal(&c.m, c.ns)
-			g.Expect(clusterLocal).To(Equal(c.expected))
 		})
 	}
 }

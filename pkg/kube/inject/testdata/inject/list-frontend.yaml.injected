@@ -91,7 +91,7 @@ items:
             valueFrom:
               fieldRef:
                 fieldPath: status.hostIP
-          - name: MESH_CONFIG
+          - name: PROXY_CONFIG
             value: |
               {}
           - name: ISTIO_META_POD_PORTS
