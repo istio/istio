@@ -199,7 +199,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		Namespace:   args.Namespace,
 	}
 
-	s.EnvoyXdsServer.Generators["api"] = &apigen.ApiGenerator{}
+	s.EnvoyXdsServer.Generators["api"] = &apigen.APIGenerator{}
 	s.EnvoyXdsServer.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
 	epGen := &envoyv2.EdsGenerator{s.EnvoyXdsServer}
 	s.EnvoyXdsServer.Generators["grpc/"+envoyv2.EndpointType] = epGen

@@ -272,6 +272,7 @@ func (a *ADSC) Run() error {
 
 func (a *ADSC) handleRecv() {
 	for {
+		var err error
 		msg, err := a.stream.Recv()
 		if err != nil {
 			adscLog.Infof("Connection closed for node %v with err: %v", a.nodeID, err)
@@ -293,15 +294,16 @@ func (a *ADSC) handleRecv() {
 				log.Warna("Failed to unmarshal mesh config", err)
 			}
 			a.Mesh = m
-			strResponse, err := json.MarshalIndent(m, "  ", "  ")
-			if err != nil {
-				continue
+			if a.LocalCacheDir != "" {
+				strResponse, err := json.MarshalIndent(m, "  ", "  ")
+				if err != nil {
+					continue
+				}
+				err = ioutil.WriteFile(a.LocalCacheDir+"_mesh.json", strResponse, 0644)
+				if err != nil {
+					continue
+				}
 			}
-			err = ioutil.WriteFile(a.LocalCacheDir+"_mesh.json", strResponse, 0644)
-			if err != nil {
-				continue
-			}
-
 			continue
 		}
 
@@ -314,21 +316,6 @@ func (a *ADSC) handleRecv() {
 			a.VersionInfo[rsc.TypeUrl] = msg.VersionInfo
 			valBytes := rsc.Value
 			switch rsc.TypeUrl {
-			case "":
-				// last resource of this type. IstioStore doesn't yet have a way to indicate this
-				// or to support large sets - memory store has a special handling by calling Create
-				// with an empty resource.
-				if a.Store != nil && len(gvk) == 3 {
-					a.Store.Create(model.Config{
-						ConfigMeta: model.ConfigMeta{
-							Group:   gvk[0],
-							Version: gvk[1],
-							Type:    gvk[2],
-						},
-					})
-					log.Infoa("Sync for ", gvk, len(msg.Resources))
-				}
-
 			case ListenerType:
 				{
 					ll := &xdsapi.Listener{}
@@ -365,11 +352,17 @@ func (a *ADSC) handleRecv() {
 					// Generic - fill up the store
 					if a.Store != nil {
 						m := &mcp.Resource{}
-						types.UnmarshalAny(&types.Any{
+						err = types.UnmarshalAny(&types.Any{
 							TypeUrl: rsc.TypeUrl,
 							Value:   rsc.Value,
 						}, m)
+						if err != nil {
+							continue
+						}
 						val, err := mcpToPilot(m)
+						if err != nil {
+							continue
+						}
 						val.Group = gvk[0]
 						val.Version = gvk[1]
 						val.Type = gvk[2]
@@ -378,9 +371,15 @@ func (a *ADSC) handleRecv() {
 						} else {
 							cfg := a.Store.Get(val.GroupVersionKind(), val.Name, val.Namespace)
 							if cfg == nil {
-								a.Store.Create(*val)
+								_, err = a.Store.Create(*val)
+								if err != nil {
+									continue
+								}
 							} else {
-								a.Store.Update(*val)
+								_, err = a.Store.Update(*val)
+								if err != nil {
+									continue
+								}
 							}
 						}
 						if a.LocalCacheDir != "" {
@@ -398,6 +397,25 @@ func (a *ADSC) handleRecv() {
 				}
 			}
 		}
+		if len(msg.Resources) == 0 {
+			// last resource of this type. IstioStore doesn't yet have a way to indicate this
+			// or to support large sets - memory store has a special handling by calling Create
+			// with an empty resource.
+			if a.Store != nil && len(gvk) == 3 {
+				_, err = a.Store.Create(model.Config{
+					ConfigMeta: model.ConfigMeta{
+						Group:   gvk[0],
+						Version: gvk[1],
+						Type:    gvk[2],
+					},
+				})
+				if err != nil {
+					continue
+				}
+				log.Infoa("Sync for ", gvk, len(msg.Resources))
+			}
+		}
+
 		// If we got no resource - still save to the store with empty name/namespace, to notify sync
 		// This scheme also allows us to chunk large responses !
 
@@ -438,7 +456,7 @@ func mcpToPilot(m *mcp.Resource) (*model.Config, error) {
 	}
 	nsn := strings.Split(m.Metadata.Name, "/")
 	if len(nsn) != 2 {
-		return nil, fmt.Errorf("Invalid name %s", m.Metadata.Name)
+		return nil, fmt.Errorf("invalid name %s", m.Metadata.Name)
 	}
 	c.Namespace = nsn[0]
 	c.Name = nsn[1]
@@ -758,16 +776,6 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 	t := time.NewTimer(to)
 	want := map[string]struct{}{}
 	for _, update := range updates {
-		switch update {
-		case "lds":
-			update = ListenerType
-		case "cds":
-			update = ClusterType
-		case "eds":
-			update = endpointType
-		case "rds":
-			update = routeType
-		}
 		want[update] = struct{}{}
 	}
 	got := make([]string, 0, len(updates))
@@ -775,9 +783,21 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 		select {
 		case t := <-a.Updates:
 			if t == nil {
-				return got, fmt.Errorf("Closed")
+				return got, fmt.Errorf("closed")
 			}
-			delete(want, t.TypeUrl)
+			toDelete := t.TypeUrl
+			// legacy names, still used in tests.
+			switch t.TypeUrl {
+			case ListenerType:
+				delete(want, "lds")
+			case ClusterType:
+				delete(want, "cds")
+			case endpointType:
+				delete(want, "eds")
+			case routeType:
+				delete(want, "rds")
+			}
+			delete(want, toDelete)
 			got = append(got, t.TypeUrl)
 			if len(want) == 0 {
 				return got, nil
@@ -805,7 +825,7 @@ func (a *ADSC) WaitVersion(to time.Duration, typeURL, lastVersion string) (*xdsa
 		select {
 		case t := <-a.Updates:
 			if t == nil {
-				return nil, fmt.Errorf("Closed")
+				return nil, fmt.Errorf("closed")
 			}
 			if t.TypeUrl == typeURL {
 				return t, nil

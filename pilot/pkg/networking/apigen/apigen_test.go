@@ -33,17 +33,8 @@ import (
 )
 
 var (
-	istiodDNSAddr = "127.0.0.1:14053"
-	agentDNSAddr  = "127.0.0.1:14054"
-
 	grpcAddr         = "127.0.0.1:14056"
 	grpcUpstreamAddr = grpcAddr
-	// Address the tests are connecting to - normally the mock in-process server
-	// Can be changed to point to a real server, so tests validate a real deployment.
-	//	grpcUpstreamAddr = "127.0.0.1:15010"
-
-	// Address of the Istiod gRPC service, used in tests.
-	istiodSvcAddr = "istiod.istio-system.svc.cluster.local:14056"
 )
 
 // Creates an in-process discovery server, using the same code as Istiod, but
@@ -67,7 +58,7 @@ func initDS() *xds.Server {
 // to represent the names. The protocol is based on GRPC resolution of XDS resources.
 func TestAPIGen(t *testing.T) {
 	ds := initDS()
-	ds.DiscoveryServer.Generators["api"] = &apigen.ApiGenerator{}
+	ds.DiscoveryServer.Generators["api"] = &apigen.APIGenerator{}
 	epGen := &envoyv2.EdsGenerator{ds.DiscoveryServer}
 	ds.DiscoveryServer.Generators["api/"+envoyv2.EndpointType] = epGen
 
@@ -113,7 +104,7 @@ func TestAPIGen(t *testing.T) {
 
 			t.Log("LDS: ", l)
 		}
-		data, err = adscConn.WaitVersion(10*time.Second, collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String(), "")
+		_, err = adscConn.WaitVersion(10*time.Second, collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String(), "")
 		if err != nil {
 			t.Fatal("Failed to receive lds", err)
 		}
