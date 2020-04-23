@@ -81,9 +81,12 @@ func (c *DistributionController) Start(restConfig *rest.Config, namespace string
 	c.CurrentState = make(map[Resource]map[string]Progress)
 	c.ObservationTime = make(map[string]time.Time)
 	c.knownResources = make(map[schema.GroupVersionResource]dynamic.NamespaceableResourceInterface)
-	var err error
+
+	// client-go defaults to 5 QPS, with 10 Boost, which is insufficient for updating status on all the config
+	// in the mesh.  These values can be configured using environment variables for tuning (see pilot/pkg/features)
 	restConfig.QPS = c.QPS
 	restConfig.Burst = c.Burst
+	var err error
 	if c.client, err = dynamic.NewForConfig(restConfig); err != nil {
 		scope.Fatalf("Could not connect to kubernetes: %s", err)
 	}
