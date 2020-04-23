@@ -425,8 +425,8 @@ func init() {
 		"The identity used as the suffix for mixer's spiffe SAN. This would only be used by pilot all other proxy would get this value from pilot")
 
 	proxyCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfig", "./etc/istio/config/mesh",
-		"File name for Istio mesh configuration. If not specified, a default mesh will be used. This may be overriden by "+
-		"PROXY_CONFIG environment variable or istio.io/proxyConfig annotation.")
+		"File name for Istio mesh configuration. If not specified, a default mesh will be used. This may be overridden by "+
+			"PROXY_CONFIG environment variable or istio.io/proxyConfig annotation.")
 	proxyCmd.PersistentFlags().IntVar(&stsPort, "stsPort", 0,
 		"HTTP Port on which to serve Security Token Service (STS). If zero, STS service will not be provided.")
 	proxyCmd.PersistentFlags().StringVar(&tokenManagerPlugin, "tokenManagerPlugin", tokenmanager.GoogleTokenExchange,
