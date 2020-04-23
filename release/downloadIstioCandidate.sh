@@ -43,20 +43,20 @@ if [ "x${ISTIO_VERSION}" = "x" ] ; then
 fi
 
 LOCAL_ARCH=$(uname -m)
-if [[ ${TARGET_ARCH} ]]; then
+if [ ${TARGET_ARCH} ]; then
     LOCAL_ARCH=${TARGET_ARCH}
 fi
 
-if [[ ${LOCAL_ARCH} == x86_64 ]]; then
+if [ ${LOCAL_ARCH} == x86_64 ]; then
     ISTIO_ARCH=amd64
-elif [[ ${LOCAL_ARCH} == armv8* ]]; then
+elif [ ${LOCAL_ARCH} == armv8* ]; then
     ISTIO_ARCH=arm64
-elif [[ ${LOCAL_ARCH} == aarch64* ]]; then
+elif [ ${LOCAL_ARCH} == aarch64* ]; then
     ISTIO_ARCH=arm64
-elif [[ ${LOCAL_ARCH} == armv* ]]; then
+elif [ ${LOCAL_ARCH} == armv* ]; then
     ISTIO_ARCH=armv7
 #also detect the actual arch name allowing users to enter x86_64 or amd64
-elif [[ ${LOCAL_ARCH} == amd64 || ${LOCAL_ARCH} == armv7 || ${LOCAL_ARCH} == arm64 ]]; then
+elif [ ${LOCAL_ARCH} == amd64 ] || [ ${LOCAL_ARCH} == armv7 ] || [ ${LOCAL_ARCH} == arm64 ]; then
     ISTIO_ARCH=${LOCAL_ARCH}
 else
     echo "This system's architecture, ${LOCAL_ARCH}, isn't supported"
