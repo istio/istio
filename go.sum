@@ -405,6 +405,8 @@ github.com/grpc-ecosystem/grpc-gateway v1.3.0/go.mod h1:RSKVYQBd5MCa4OVpNdGskqpg
 github.com/grpc-ecosystem/grpc-gateway v1.9.5/go.mod h1:vNeuVxBJEsws4ogUvrchl83t/GYV9WGTSLVdBhOQFDY=
 github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20171214222146-0e7658f8ee99 h1:bTRV2bQrg85E7ZeeyQfHX3GyfidLrNzVoyq7epx0bTw=
 github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20171214222146-0e7658f8ee99/go.mod h1:6iZfnjpejD4L/4DwD7NryNaJyCQdzwWwH2MWhCA90Kw=
+github.com/hanahmily/api v0.0.0-20200422080657-e387a4b4939a h1:yEVIS/meB1nIg+WWrHg0wnSqNJ0kLDeFTyo158K91Fo=
+github.com/hanahmily/api v0.0.0-20200422080657-e387a4b4939a/go.mod h1:kyq3g5w42zl/AKlbzDGppYpGMQYMYMyZKeq0/eexML8=
 github.com/hashicorp/consul v1.3.1 h1:bY7/Uo29Uq7+mHce4wgSHtAJSbeRl+4F7M+OHTuEeXI=
 github.com/hashicorp/consul v1.3.1/go.mod h1:mFrjN1mfidgJfYP1xrJCF+AfRhr6Eaqhb2+sfyn/OOI=
 github.com/hashicorp/errwrap v1.0.0 h1:hLrqtEDnRye3+sgx6z4qVLNuviH3MR5aQ0ykNJa/UYA=

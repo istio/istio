@@ -13,6 +13,7 @@ replace github.com/docker/docker => github.com/docker/engine v1.4.2-0.2019101121
 
 // Old version had no license
 replace github.com/chzyer/logex => github.com/chzyer/logex v1.1.11-0.20170329064859-445be9e134b2
+replace istio.io/api => github.com/hanahmily/api v0.0.0-20200422080657-e387a4b4939a
 
 // Avoid pulling in incompatible libraries
 replace github.com/docker/distribution => github.com/docker/distribution v2.7.1+incompatible

@@ -259,18 +259,6 @@ func TestOptions(t *testing.T) {
 			expected: "fake",
 		},
 		{
-			testName: "lightstep secure",
-			key:      "lightstepSecure",
-			option:   option.LightstepSecure(true),
-			expected: true,
-		},
-		{
-			testName: "lightstep CA cert path",
-			key:      "lightstepCacertPath",
-			option:   option.LightstepCACertPath("fake"),
-			expected: "fake",
-		},
-		{
 			testName: "stackdriver enabled",
 			key:      "stackdriver",
 			option:   option.StackDriverEnabled(true),
@@ -697,6 +685,20 @@ func TestOptions(t *testing.T) {
 			key:      "gcp_project_id",
 			option:   option.GCPProjectID("project"),
 			expected: "project",
+		},
+		{
+			testName: "tracing tls nil",
+			key:      "tracing_tls",
+			option:   option.TracingTLS(nil, &model.NodeMetadata{}),
+			expected: nil,
+		},
+		{
+			testName: "tracing tls",
+			key:      "tracing_tls",
+			option: option.TracingTLS(&networkingAPI.ClientTLSSettings{
+				Mode: networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
+			}, &model.NodeMetadata{}),
+			expected: "{\"common_tls_context\":{\"tls_certificates\":[{\"certificate_chain\":{\"filename\":\"/etc/certs/root-cert.pem\"},\"private_key\":{\"filename\":\"/etc/certs/key.pem\"}}],\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/certs/cert-chain.pem\"}},\"alpn_protocols\":[\"istio\",\"h2\"]},\"sni\":\"tracer\"}", // nolint: lll
 		},
 	}
 
