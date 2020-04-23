@@ -58,7 +58,8 @@ var (
 				Version:   collections.IstioNetworkingV1Alpha3Workloadentries.Resource().Version(),
 			},
 			Spec: &networking.WorkloadEntry{
-				Address: "127.0.0.1",
+				Address:        "127.0.0.1",
+				ServiceAccount: "test",
 			},
 		},
 	}
