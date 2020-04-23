@@ -235,7 +235,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				defer s.removeCon(con.ConID)
 			}
 			if s.Env.StatusReporter != nil {
-				go s.Env.StatusReporter.RegisterEvent(con.ConID, discReq.TypeUrl, discReq.ResponseNonce)
+				s.Env.StatusReporter.RegisterEvent(con.ConID, discReq.TypeUrl, discReq.ResponseNonce)
 			}
 
 			// Based on node metadata a different generator was selected, use it instead of the default
@@ -643,7 +643,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 			return err
 		}
 	} else if s.Env.StatusReporter != nil {
-		go s.Env.StatusReporter.RegisterEvent(con.ConID, ClusterType, pushEv.noncePrefix)
+		s.Env.StatusReporter.RegisterEvent(con.ConID, ClusterType, pushEv.noncePrefix)
 	}
 
 	if len(con.Clusters) > 0 && pushTypes[EDS] {
@@ -652,7 +652,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 			return err
 		}
 	} else if s.Env.StatusReporter != nil {
-		go s.Env.StatusReporter.RegisterEvent(con.ConID, EndpointType, pushEv.noncePrefix)
+		s.Env.StatusReporter.RegisterEvent(con.ConID, EndpointType, pushEv.noncePrefix)
 	}
 	if con.LDSWatch && pushTypes[LDS] {
 		err := s.pushLds(con, pushEv.push, currentVersion)
@@ -660,7 +660,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 			return err
 		}
 	} else if s.Env.StatusReporter != nil {
-		go s.Env.StatusReporter.RegisterEvent(con.ConID, ListenerType, pushEv.noncePrefix)
+		s.Env.StatusReporter.RegisterEvent(con.ConID, ListenerType, pushEv.noncePrefix)
 	}
 	if len(con.Routes) > 0 && pushTypes[RDS] {
 		err := s.pushRoute(con, pushEv.push, currentVersion)
@@ -668,7 +668,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 			return err
 		}
 	} else if s.Env.StatusReporter != nil {
-		go s.Env.StatusReporter.RegisterEvent(con.ConID, RouteType, pushEv.noncePrefix)
+		s.Env.StatusReporter.RegisterEvent(con.ConID, RouteType, pushEv.noncePrefix)
 	}
 	proxiesConvergeDelay.Record(time.Since(pushEv.start).Seconds())
 	return nil

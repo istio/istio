@@ -29,14 +29,14 @@ import (
 func TestStatusMaps(t *testing.T) {
 	r := initReporterWithoutStarting()
 	typ := ""
-	r.RegisterEvent("conA", typ, "a")
-	r.RegisterEvent("conB", typ, "a")
-	r.RegisterEvent("conC", typ, "c")
-	r.RegisterEvent("conD", typ, "d")
+	r.processEvent("conA", typ, "a")
+	r.processEvent("conB", typ, "a")
+	r.processEvent("conC", typ, "c")
+	r.processEvent("conD", typ, "d")
 	RegisterTestingT(t)
 	Expect(r.status).To(Equal(map[string]string{"conA": "a", "conB": "a", "conC": "c", "conD": "d"}))
 	Expect(r.reverseStatus).To(Equal(map[string][]string{"a": {"conA", "conB"}, "c": {"conC"}, "d": {"conD"}}))
-	r.RegisterEvent("conA", typ, "d")
+	r.processEvent("conA", typ, "d")
 	Expect(r.status).To(Equal(map[string]string{"conA": "d", "conB": "a", "conC": "c", "conD": "d"}))
 	Expect(r.reverseStatus).To(Equal(map[string][]string{"a": {"conB"}, "c": {"conC"}, "d": {"conD", "conA"}}))
 	r.RegisterDisconnect("conA", []string{""})
@@ -107,7 +107,7 @@ func TestBuildReport(t *testing.T) {
 	}
 	// mark each fake connection as having acked version 1 of all resources
 	for _, con := range connections {
-		r.RegisterEvent(con, "", firstNoncePrefix)
+		r.processEvent(con, "", firstNoncePrefix)
 	}
 	// modify one resource to version 2
 	resources[1].ResourceVersion = "2"
@@ -117,7 +117,7 @@ func TestBuildReport(t *testing.T) {
 	r.AddInProgressResource(*resources[1])
 	Expect(err).NotTo(HaveOccurred())
 	// mark only one connection as having acked version 2
-	r.RegisterEvent(connections[1], "", l.RootHash())
+	r.processEvent(connections[1], "", l.RootHash())
 	// mark one connection as having disconnected.
 	r.RegisterDisconnect(connections[2], []string{""})
 	err = r.store.SetLedger(l)

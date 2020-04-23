@@ -53,17 +53,18 @@ type inProgressEntry struct {
 }
 
 type Reporter struct {
-	mu                  sync.RWMutex
-	status              map[string]string
-	reverseStatus       map[string][]string
-	dirty               bool
-	inProgressResources map[string]*inProgressEntry
-	client              v1.ConfigMapInterface
-	cm                  *corev1.ConfigMap
-	UpdateInterval      time.Duration
-	PodName             string
-	clock               clock.Clock
-	store               model.ConfigStore
+	mu                     sync.RWMutex
+	status                 map[string]string
+	reverseStatus          map[string][]string
+	dirty                  bool
+	inProgressResources    map[string]*inProgressEntry
+	client                 v1.ConfigMapInterface
+	cm                     *corev1.ConfigMap
+	UpdateInterval         time.Duration
+	PodName                string
+	clock                  clock.Clock
+	store                  model.ConfigStore
+	distributionEventQueue chan distributionEvent
 }
 
 const labelKey = "internal.istio.io/distribution-report"
@@ -86,6 +87,7 @@ func (r *Reporter) Start(restConfig *rest.Config, namespace string, store model.
 	if err != nil {
 		scope.Fatalf("Could not connect to kubernetes: %s", err)
 	}
+	r.distributionEventQueue = make(chan distributionEvent, 10^5)
 	r.status = make(map[string]string)
 	r.reverseStatus = make(map[string][]string)
 	r.inProgressResources = make(map[string]*inProgressEntry)
@@ -108,6 +110,7 @@ func (r *Reporter) Start(restConfig *rest.Config, namespace string, store model.
 						scope.Errorf("failed to properly clean up distribution report: %v", err)
 					}
 				}
+				close(r.distributionEventQueue)
 				return
 			case <-t:
 				// TODO, check if report is necessary?  May already be handled by client
@@ -115,6 +118,7 @@ func (r *Reporter) Start(restConfig *rest.Config, namespace string, store model.
 			}
 		}
 	}()
+	go r.readFromEventQueue()
 }
 
 // build a distribution report to send to status leader
@@ -237,14 +241,36 @@ func CreateOrUpdateConfigMap(ctx context.Context, cm *corev1.ConfigMap, client v
 	return res, nil
 }
 
+type distributionEvent struct {
+	conID   string
+	xdsType string
+	nonce   string
+}
+
 // Register that a dataplane has acknowledged a new version of the config.
 // Theoretically, we could use the ads connections themselves to harvest this data,
 // but the mutex there is pretty hot, and it seems best to trade memory for time.
 func (r *Reporter) RegisterEvent(conID string, xdsType string, nonce string) {
+	d := distributionEvent{nonce: nonce, xdsType: xdsType, conID: conID}
+	select {
+	case r.distributionEventQueue <- d:
+		return
+	default:
+		scope.Errorf("Distribution Event Queue overwhelmed, status will be invalid.")
+	}
+}
+
+func (r *Reporter) readFromEventQueue() {
+	for ev := range r.distributionEventQueue {
+		// TODO might need to batch this to prevent lock contention
+		r.processEvent(ev.conID, ev.xdsType, ev.nonce)
+	}
+
+}
+func (r *Reporter) processEvent(conID string, xdsType string, nonce string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.dirty = true
-	// TODO might need to batch this to prevent lock contention
 	key := conID + xdsType // TODO: delimit?
 	r.deleteKeyFromReverseMap(key)
 	var version string

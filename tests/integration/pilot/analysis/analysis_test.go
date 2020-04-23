@@ -71,7 +71,6 @@ spec:
     - destination: 
         host: reviews
 `)
-			fmt.Printf("starting to wait for status at %v", time.Now())
 			// Status should report error
 			retry.UntilSuccessOrFail(t, func() error {
 				return expectStatus(t, ctx, ns, true)
