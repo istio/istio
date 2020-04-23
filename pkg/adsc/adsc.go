@@ -108,7 +108,8 @@ type ADSC struct {
 	Metadata *pstruct.Struct
 
 	// Updates includes the type of the last update received from the server.
-	Updates     chan *xdsapi.DiscoveryResponse
+	Updates     chan string
+	XDSUpdates  chan *xdsapi.DiscoveryResponse
 	VersionInfo map[string]string
 
 	// Last received message, by type
@@ -153,7 +154,8 @@ var (
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
 func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 	adsc := &ADSC{
-		Updates:     make(chan *xdsapi.DiscoveryResponse, 100),
+		Updates:     make(chan string, 100),
+		XDSUpdates:  make(chan *xdsapi.DiscoveryResponse, 100),
 		VersionInfo: map[string]string{},
 		certDir:     certDir,
 		url:         url,
@@ -311,7 +313,6 @@ func (a *ADSC) handleRecv() {
 		clusters := []*xdsapi.Cluster{}
 		routes := []*xdsapi.RouteConfiguration{}
 		eds := []*xdsapi.ClusterLoadAssignment{}
-		log.Infoa("Update for ", gvk, len(msg.Resources))
 		for _, rsc := range msg.Resources { // Any
 			a.VersionInfo[rsc.TypeUrl] = msg.VersionInfo
 			valBytes := rsc.Value
@@ -428,15 +429,18 @@ func (a *ADSC) handleRecv() {
 
 		if len(listeners) > 0 {
 			a.handleLDS(listeners)
-		} else if len(clusters) > 0 {
+		}
+		if len(clusters) > 0 {
 			a.handleCDS(clusters)
-		} else if len(eds) > 0 {
+		}
+		if len(eds) > 0 {
 			a.handleEDS(eds)
-		} else if len(routes) > 0 {
+		}
+		if len(routes) > 0 {
 			a.handleRDS(routes)
 		}
 		select {
-		case a.Updates <- msg:
+		case a.XDSUpdates <- msg:
 		default:
 		}
 
@@ -547,6 +551,11 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 	}
 	a.httpListeners = lh
 	a.tcpListeners = lt
+
+	select {
+	case a.Updates <- "lds":
+	default:
+	}
 }
 
 // compact representations, for simplified debugging/testing
@@ -666,6 +675,11 @@ func (a *ADSC) handleCDS(ll []*xdsapi.Cluster) {
 	defer a.mutex.Unlock()
 	a.edsClusters = edscds
 	a.clusters = cds
+
+	select {
+	case a.Updates <- "cds":
+	default:
+	}
 }
 
 func (a *ADSC) node() *core.Node {
@@ -679,9 +693,6 @@ func (a *ADSC) node() *core.Node {
 			}}
 	} else {
 		n.Metadata = a.Metadata
-		if a.Metadata.Fields["ISTIO_VERSION"] == nil {
-			a.Metadata.Fields["ISTIO_VERSION"] = &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: "65536.65536.65536"}}
-		}
 	}
 	return n
 }
@@ -719,6 +730,11 @@ func (a *ADSC) handleEDS(eds []*xdsapi.ClusterLoadAssignment) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	a.eds = la
+
+	select {
+	case a.Updates <- "eds":
+	default:
+	}
 }
 
 func (a *ADSC) handleRDS(configurations []*xdsapi.RouteConfiguration) {
@@ -756,6 +772,12 @@ func (a *ADSC) handleRDS(configurations []*xdsapi.RouteConfiguration) {
 	a.mutex.Lock()
 	a.routes = rds
 	a.mutex.Unlock()
+
+	select {
+	case a.Updates <- "rds":
+	default:
+	}
+
 }
 
 // WaitClear will clear the waiting events, so next call to Wait will get
@@ -782,23 +804,8 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 	for {
 		select {
 		case t := <-a.Updates:
-			if t == nil {
-				return got, fmt.Errorf("closed")
-			}
-			toDelete := t.TypeUrl
-			// legacy names, still used in tests.
-			switch t.TypeUrl {
-			case ListenerType:
-				delete(want, "lds")
-			case ClusterType:
-				delete(want, "cds")
-			case endpointType:
-				delete(want, "eds")
-			case routeType:
-				delete(want, "rds")
-			}
-			delete(want, toDelete)
-			got = append(got, t.TypeUrl)
+			delete(want, t)
+			got = append(got, t)
 			if len(want) == 0 {
 				return got, nil
 			}
@@ -823,7 +830,7 @@ func (a *ADSC) WaitVersion(to time.Duration, typeURL, lastVersion string) (*xdsa
 
 	for {
 		select {
-		case t := <-a.Updates:
+		case t := <-a.XDSUpdates:
 			if t == nil {
 				return nil, fmt.Errorf("closed")
 			}
