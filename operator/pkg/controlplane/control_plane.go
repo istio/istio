@@ -104,6 +104,30 @@ func (i *IstioOperator) Run() error {
 	return nil
 }
 
+func (i *IstioOperator) ComponentsEqual(components []component.IstioComponent) bool {
+	if i.components == nil && components == nil {
+		return true
+	}
+	if len(i.components) != len(components) {
+		return false
+	}
+	for c := 0; c < len(i.components); c++ {
+		if i.components[c].ComponentName() != components[c].ComponentName() {
+			return false
+		}
+		if i.components[c].Namespace() != components[c].Namespace() {
+			return false
+		}
+		if i.components[c].Enabled() != components[c].Enabled() {
+			return false
+		}
+		if i.components[c].ResourceName() != components[c].ResourceName() {
+			return false
+		}
+	}
+	return true
+}
+
 // RenderManifest returns a manifest rendered against
 func (i *IstioOperator) RenderManifest() (manifests name.ManifestMap, errsOut util.Errors) {
 	if !i.started {
