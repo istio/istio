@@ -64,7 +64,7 @@ data:
     accessLogFormat: ""
     defaultConfig:
       concurrency: 2
-      configPath: /etc/istio/proxy
+      configPath: ./etc/istio/proxy
       connectTimeout: 10s
       controlPlaneAuthPolicy: NONE
       discoveryAddress: istiod.istio-system.svc:15012
@@ -602,9 +602,9 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
-        - name: MESH_CONFIG
+        - name: PROXY_CONFIG
           value: |
-                 {{ protoToJSON .MeshConfig }}
+                 {{ protoToJSON .ProxyConfig }}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
