@@ -347,74 +347,54 @@ func (a *ADSC) handleRecv() {
 				}
 
 			default:
-				{
-					if len(gvk) != 3 {
-						continue
-					}
-					// Generic - fill up the store
-					if a.Store != nil {
-						m := &mcp.Resource{}
-						err = types.UnmarshalAny(&types.Any{
-							TypeUrl: rsc.TypeUrl,
-							Value:   rsc.Value,
-						}, m)
-						if err != nil {
-							continue
-						}
-						val, err := mcpToPilot(m)
-						if err != nil {
-							continue
-						}
-						val.Group = gvk[0]
-						val.Version = gvk[1]
-						val.Type = gvk[2]
-						if err != nil {
-							adscLog.Warna("Invalid data ", err, " ", string(valBytes))
-						} else {
-							cfg := a.Store.Get(val.GroupVersionKind(), val.Name, val.Namespace)
-							if cfg == nil {
-								_, err = a.Store.Create(*val)
-								if err != nil {
-									continue
-								}
-							} else {
-								_, err = a.Store.Update(*val)
-								if err != nil {
-									continue
-								}
-							}
-						}
-						if a.LocalCacheDir != "" {
-							strResponse, err := json.MarshalIndent(val, "  ", "  ")
-							if err != nil {
-								continue
-							}
-							err = ioutil.WriteFile(a.LocalCacheDir+"_res."+
-								val.Type+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
-							if err != nil {
-								continue
-							}
-						}
-					}
-				}
-			}
-		}
-		if len(msg.Resources) == 0 {
-			// last resource of this type. IstioStore doesn't yet have a way to indicate this
-			// or to support large sets - memory store has a special handling by calling Create
-			// with an empty resource.
-			if a.Store != nil && len(gvk) == 3 {
-				_, err = a.Store.Create(model.Config{
-					ConfigMeta: model.ConfigMeta{
-						Group:   gvk[0],
-						Version: gvk[1],
-						Type:    gvk[2],
-					},
-				})
-				if err != nil {
+				if len(gvk) != 3 {
 					continue
 				}
-				log.Infoa("Sync for ", gvk, len(msg.Resources))
+				// Generic - fill up the store
+				if a.Store != nil {
+					m := &mcp.Resource{}
+					err = types.UnmarshalAny(&types.Any{
+						TypeUrl: rsc.TypeUrl,
+						Value:   rsc.Value,
+					}, m)
+					if err != nil {
+						continue
+					}
+					val, err := mcpToPilot(m)
+					if err != nil {
+						continue
+					}
+					val.Group = gvk[0]
+					val.Version = gvk[1]
+					val.Type = gvk[2]
+					if err != nil {
+						adscLog.Warna("Invalid data ", err, " ", string(valBytes))
+					} else {
+						cfg := a.Store.Get(val.GroupVersionKind(), val.Name, val.Namespace)
+						if cfg == nil {
+							_, err = a.Store.Create(*val)
+							if err != nil {
+								continue
+							}
+						} else {
+							_, err = a.Store.Update(*val)
+							if err != nil {
+								continue
+							}
+						}
+					}
+					if a.LocalCacheDir != "" {
+						strResponse, err := json.MarshalIndent(val, "  ", "  ")
+						if err != nil {
+							continue
+						}
+						err = ioutil.WriteFile(a.LocalCacheDir+"_res."+
+							val.Type+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
+						if err != nil {
+							continue
+						}
+					}
+				}
 			}
 		}
 
@@ -444,8 +424,8 @@ func (a *ADSC) handleRecv() {
 		case a.XDSUpdates <- msg:
 		default:
 		}
-
 	}
+
 }
 
 func mcpToPilot(m *mcp.Resource) (*model.Config, error) {

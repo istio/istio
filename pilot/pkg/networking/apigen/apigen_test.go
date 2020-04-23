@@ -90,20 +90,6 @@ func TestAPIGen(t *testing.T) {
 
 		adscConn.WatchConfig()
 
-		data, err := adscConn.WaitVersion(10*time.Second, adsc.ListenerType, "")
-		if err != nil {
-			t.Fatal("Failed to receive lds", err)
-		}
-
-		for _, rs := range data.Resources {
-			l := &xdsapi.Listener{}
-			err = proto.Unmarshal(rs.Value, l)
-			if err != nil {
-				t.Fatal("Unmarshall error ", err)
-			}
-
-			t.Log("LDS: ", l)
-		}
 		_, err = adscConn.WaitVersion(10*time.Second, collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String(), "")
 		if err != nil {
 			t.Fatal("Failed to receive lds", err)
