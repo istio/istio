@@ -19,7 +19,6 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/gogo/protobuf/proto"
 
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -104,37 +103,5 @@ func TestAPIGen(t *testing.T) {
 			t.Log(se)
 		}
 
-	})
-
-	t.Run("adsc-gen1", func(t *testing.T) {
-		adscConn, err := adsc.Dial(grpcUpstreamAddr, "", &adsc.Config{
-			IP:   "1.2.3.5",
-			Meta: model.NodeMetadata{}.ToStruct(),
-		})
-		if err != nil {
-			t.Fatal("Error connecting ", err)
-		}
-
-		adscConn.Send(&xdsapi.DiscoveryRequest{
-			TypeUrl: adsc.ClusterType,
-		})
-
-		got, err := adscConn.Wait(10*time.Second, "cds")
-		if err != nil {
-			t.Fatal("Failed to receive lds", err)
-		}
-		if len(got) == 0 {
-			t.Fatal("No LDS response")
-		}
-		data := adscConn.Received[adsc.ClusterType]
-		for _, rs := range data.Resources {
-			l := &xdsapi.Cluster{}
-			err = proto.Unmarshal(rs.Value, l)
-			if err != nil {
-				t.Fatal("Unmarshall error ", err)
-			}
-
-			t.Log("CDS: ", l)
-		}
 	})
 }

@@ -206,7 +206,7 @@ func (g *GrpcConfigGenerator) BuildHTTPRoutes(node *model.Proxy, push *model.Pus
 							Domains: []string{hn, n},
 
 							Routes: []*envoy_api_v2_route.Route{
-								&envoy_api_v2_route.Route{
+								{
 									Match: &envoy_api_v2_route.RouteMatch{
 										PathSpecifier: &envoy_api_v2_route.RouteMatch_Prefix{Prefix: ""},
 									},
