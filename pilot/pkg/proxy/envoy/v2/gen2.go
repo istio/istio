@@ -35,7 +35,7 @@ func (s *DiscoveryServer) handleReqAck(con *XdsConnection, discReq *xdsapi.Disco
 	isAck := true
 
 	t := discReq.TypeUrl
-	con.mu.RLock()
+	con.mu.Lock()
 	w := con.node.Active[t]
 	if w == nil {
 		w = &model.WatchedResource{
@@ -44,7 +44,7 @@ func (s *DiscoveryServer) handleReqAck(con *XdsConnection, discReq *xdsapi.Disco
 		con.node.Active[t] = w
 		isAck = false // newly watched resource
 	}
-	con.mu.RUnlock()
+	con.mu.Unlock()
 
 	if discReq.ErrorDetail != nil {
 		errCode := codes.Code(discReq.ErrorDetail.Code)
@@ -102,7 +102,7 @@ func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *xdsapi.
 	// XdsResourceGenerator is the default generator for this connection. We want to allow
 	// some types to use custom generators - for example EDS.
 	g := con.node.XdsResourceGenerator
-	if cg, f := s.Generators[con.node.Metadata.Generator + "/" + w.TypeUrl]; f {
+	if cg, f := s.Generators[con.node.Metadata.Generator+"/"+w.TypeUrl]; f {
 		g = cg
 	}
 
@@ -123,7 +123,7 @@ func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *xdsapi.
 	w.LastSent = time.Now()
 	w.LastSize = sz // just resource size - doesn't include header and types
 	w.NonceSent = resp.Nonce
-	adsLog.Infoa("Pushed ", w.TypeUrl, " count=", len(cl), " sz=", sz)
+	adsLog.Infof("Pushed %s to %s count=%d size=%d", w.TypeUrl, con.node.ID, len(cl), sz)
 
 	return nil
 }
@@ -161,7 +161,7 @@ func (s *DiscoveryServer) pushGeneratorV2(con *XdsConnection, push *model.PushCo
 
 	err := con.send(resp)
 	if err != nil {
-		adsLog.Warnf("ADS: Send failure %s: %v", con.ConID, err)
+		adsLog.Warnf("ADS: Send failure %s %s: %v", w.TypeUrl, con.ConID, err)
 		recordSendError(apiSendErrPushes, err)
 		return err
 	}
@@ -169,6 +169,6 @@ func (s *DiscoveryServer) pushGeneratorV2(con *XdsConnection, push *model.PushCo
 	w.LastSize = sz // just resource size - doesn't include header and types
 	w.NonceSent = resp.Nonce
 
-	adsLog.Infof("XDS: PUSH for node:%s listeners:%d", con.node.ID, len(cl))
+	adsLog.Infof("XDS: PUSH %s for node:%s resources:%d", w.TypeUrl, con.node.ID, len(cl))
 	return nil
 }

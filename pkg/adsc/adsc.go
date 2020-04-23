@@ -36,6 +36,7 @@ import (
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -283,7 +284,7 @@ func (a *ADSC) handleRecv() {
 		// Group-value-kind - used for high level api generator.
 		gvk := strings.SplitN(msg.TypeUrl, "/", 3)
 
-		if msg.TypeUrl ==collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String() &&
+		if msg.TypeUrl == collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String() &&
 			len(msg.Resources) > 0 {
 			rsc := msg.Resources[0]
 			m := &v1alpha1.MeshConfig{}
@@ -304,7 +305,6 @@ func (a *ADSC) handleRecv() {
 			continue
 		}
 
-
 		listeners := []*xdsapi.Listener{}
 		clusters := []*xdsapi.Cluster{}
 		routes := []*xdsapi.RouteConfiguration{}
@@ -321,81 +321,85 @@ func (a *ADSC) handleRecv() {
 				if a.Store != nil && len(gvk) == 3 {
 					a.Store.Create(model.Config{
 						ConfigMeta: model.ConfigMeta{
-							Group: gvk[0],
+							Group:   gvk[0],
 							Version: gvk[1],
-							Type: gvk[2],
+							Type:    gvk[2],
 						},
 					})
 					log.Infoa("Sync for ", gvk, len(msg.Resources))
 				}
 
-			case ListenerType: {
-				ll := &xdsapi.Listener{}
-				_ = proto.Unmarshal(valBytes, ll)
-				listeners = append(listeners, ll)
-			}
-
-			case ClusterType: {
-				cl := &xdsapi.Cluster{}
-				_ = proto.Unmarshal(valBytes, cl)
-				clusters = append(clusters, cl)
-			}
-
-			case endpointType: {
-				el := &xdsapi.ClusterLoadAssignment{}
-				_ = proto.Unmarshal(valBytes, el)
-				eds = append(eds, el)
-			}
-
-			case routeType: {
-				rl := &xdsapi.RouteConfiguration{}
-				_ = proto.Unmarshal(valBytes, rl)
-				routes = append(routes, rl)
-			}
-
-			default: {
-				if len(gvk) != 3 {
-					continue
+			case ListenerType:
+				{
+					ll := &xdsapi.Listener{}
+					_ = proto.Unmarshal(valBytes, ll)
+					listeners = append(listeners, ll)
 				}
-				// Generic - fill up the store
-				if a.Store != nil {
-					m := &mcp.Resource{}
-					types.UnmarshalAny(&types.Any{
-						TypeUrl: rsc.TypeUrl,
-						Value:   rsc.Value,
-					}, m)
-					val, err := mcpToPilot(m)
-					val.Group = gvk[0]
-					val.Version = gvk[1]
-					val.Type = gvk[2]
-					if err != nil {
-						adscLog.Warna("Invalid data ", err, " ", string(valBytes))
-					} else {
-						cfg := a.Store.Get(val.GroupVersionKind(), val.Name, val.Namespace)
-						if cfg == nil {
-							a.Store.Create(*val)
+
+			case ClusterType:
+				{
+					cl := &xdsapi.Cluster{}
+					_ = proto.Unmarshal(valBytes, cl)
+					clusters = append(clusters, cl)
+				}
+
+			case endpointType:
+				{
+					el := &xdsapi.ClusterLoadAssignment{}
+					_ = proto.Unmarshal(valBytes, el)
+					eds = append(eds, el)
+				}
+
+			case routeType:
+				{
+					rl := &xdsapi.RouteConfiguration{}
+					_ = proto.Unmarshal(valBytes, rl)
+					routes = append(routes, rl)
+				}
+
+			default:
+				{
+					if len(gvk) != 3 {
+						continue
+					}
+					// Generic - fill up the store
+					if a.Store != nil {
+						m := &mcp.Resource{}
+						types.UnmarshalAny(&types.Any{
+							TypeUrl: rsc.TypeUrl,
+							Value:   rsc.Value,
+						}, m)
+						val, err := mcpToPilot(m)
+						val.Group = gvk[0]
+						val.Version = gvk[1]
+						val.Type = gvk[2]
+						if err != nil {
+							adscLog.Warna("Invalid data ", err, " ", string(valBytes))
 						} else {
-							a.Store.Update(*val)
+							cfg := a.Store.Get(val.GroupVersionKind(), val.Name, val.Namespace)
+							if cfg == nil {
+								a.Store.Create(*val)
+							} else {
+								a.Store.Update(*val)
+							}
 						}
-					}
-					if a.LocalCacheDir != "" {
-						strResponse, err := json.MarshalIndent(val, "  ", "  ")
-						if err != nil {
-							continue
-						}
-						err = ioutil.WriteFile(a.LocalCacheDir+"_res." +
-							val.Type+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
-						if err != nil {
-							continue
+						if a.LocalCacheDir != "" {
+							strResponse, err := json.MarshalIndent(val, "  ", "  ")
+							if err != nil {
+								continue
+							}
+							err = ioutil.WriteFile(a.LocalCacheDir+"_res."+
+								val.Type+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
+							if err != nil {
+								continue
+							}
 						}
 					}
 				}
-			}
 			}
 		}
 		// If we got no resource - still save to the store with empty name/namespace, to notify sync
 		// This scheme also allows us to chunk large responses !
-
 
 		a.Received[msg.TypeUrl] = msg
 
@@ -428,8 +432,8 @@ func mcpToPilot(m *mcp.Resource) (*model.Config, error) {
 	c := &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			ResourceVersion: m.Metadata.Version,
-			Labels: m.Metadata.Labels,
-			Annotations: m.Metadata.Annotations,
+			Labels:          m.Metadata.Labels,
+			Annotations:     m.Metadata.Annotations,
 		},
 	}
 	nsn := strings.Split(m.Metadata.Name, "/")

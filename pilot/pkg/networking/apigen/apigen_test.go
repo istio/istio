@@ -20,6 +20,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/proto"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/apigen"
@@ -31,12 +32,11 @@ import (
 	_ "google.golang.org/grpc/xds/experimental" // To install the xds resolvers and balancers.
 )
 
-
 var (
 	istiodDNSAddr = "127.0.0.1:14053"
 	agentDNSAddr  = "127.0.0.1:14054"
 
-	grpcAddr = "127.0.0.1:14056"
+	grpcAddr         = "127.0.0.1:14056"
 	grpcUpstreamAddr = grpcAddr
 	// Address the tests are connecting to - normally the mock in-process server
 	// Can be changed to point to a real server, so tests validate a real deployment.
@@ -69,7 +69,7 @@ func TestAPIGen(t *testing.T) {
 	ds := initDS()
 	ds.DiscoveryServer.Generators["api"] = &apigen.ApiGenerator{}
 	epGen := &envoyv2.EdsGenerator{ds.DiscoveryServer}
-	ds.DiscoveryServer.Generators["api/" + envoyv2.EndpointType] = epGen
+	ds.DiscoveryServer.Generators["api/"+envoyv2.EndpointType] = epGen
 
 	err := ds.StartGRPC(grpcAddr)
 	if err != nil {
@@ -81,7 +81,7 @@ func TestAPIGen(t *testing.T) {
 	t.Run("adsc", func(t *testing.T) {
 		adscConn, err := adsc.Dial(grpcUpstreamAddr, "", &adsc.Config{
 			IP: "1.2.3.4",
-			Meta: model.NodeMetadata {
+			Meta: model.NodeMetadata{
 				Generator: "api",
 			}.ToStruct(),
 		})
@@ -94,7 +94,7 @@ func TestAPIGen(t *testing.T) {
 		adscConn.Store = model.MakeIstioStore(configController)
 
 		adscConn.Send(&xdsapi.DiscoveryRequest{
-			TypeUrl:       adsc.ListenerType,
+			TypeUrl: adsc.ListenerType,
 		})
 
 		adscConn.WatchConfig()
@@ -113,7 +113,7 @@ func TestAPIGen(t *testing.T) {
 
 			t.Log("LDS: ", l)
 		}
-		data, err = adscConn.WaitVersion(10 * time.Second, collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String(), "")
+		data, err = adscConn.WaitVersion(10*time.Second, collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String(), "")
 		if err != nil {
 			t.Fatal("Failed to receive lds", err)
 		}
@@ -122,7 +122,7 @@ func TestAPIGen(t *testing.T) {
 		for _, se := range ses {
 			t.Log(se)
 		}
-		sec, _ := adscConn.Store.List(collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind(),"")
+		sec, _ := adscConn.Store.List(collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind(), "")
 		for _, se := range sec {
 			t.Log(se)
 		}
@@ -131,16 +131,15 @@ func TestAPIGen(t *testing.T) {
 
 	t.Run("adsc-gen1", func(t *testing.T) {
 		adscConn, err := adsc.Dial(grpcUpstreamAddr, "", &adsc.Config{
-			IP: "1.2.3.5",
-			Meta: model.NodeMetadata {
-			}.ToStruct(),
+			IP:   "1.2.3.5",
+			Meta: model.NodeMetadata{}.ToStruct(),
 		})
 		if err != nil {
 			t.Fatal("Error connecting ", err)
 		}
 
 		adscConn.Send(&xdsapi.DiscoveryRequest{
-			TypeUrl:       adsc.ClusterType,
+			TypeUrl: adsc.ClusterType,
 		})
 
 		got, err := adscConn.Wait(10*time.Second, "cds")
@@ -162,4 +161,3 @@ func TestAPIGen(t *testing.T) {
 		}
 	})
 }
-
