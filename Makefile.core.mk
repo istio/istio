@@ -363,8 +363,8 @@ gen-check: gen check-clean-repo
 
 # Generate kustomize templates.
 gen-kustomize:
-	helm template -n istio-base manifests/charts/base > manifests/charts/base/files/gen-istio-cluster.yaml
-	helm template -n istio-base --namespace istio-system manifests/charts/istio-control/istio-discovery \
+	helm3 template istio --include-crds manifests/charts/base > manifests/charts/base/files/gen-istio-cluster.yaml
+	helm3 template istio --namespace istio-system manifests/charts/istio-control/istio-discovery \
 		-f manifests/charts/global.yaml > manifests/charts/istio-control/istio-discovery/files/gen-istio.yaml
 
 #-----------------------------------------------------------------------------
