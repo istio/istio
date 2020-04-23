@@ -329,7 +329,7 @@ func istioctlSafe(t *testing.T, i istioctl.Instance, ns string, useKube bool, ex
 	args = append(args, fmt.Sprintf("--use-kube=%t", useKube))
 	args = append(args, extraArgs...)
 
-	output, err := i.Invoke(args)
+	output, _, err := i.Invoke(args)
 	if output == "" {
 		return []string{}, err
 	}
