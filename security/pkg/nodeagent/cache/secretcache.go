@@ -27,6 +27,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"istio.io/pkg/log"
+
 	pilotmodel "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/security/pkg/nodeagent/model"
@@ -35,7 +37,6 @@ import (
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/util"
-	"istio.io/pkg/log"
 
 	"github.com/google/uuid"
 )
@@ -252,22 +253,26 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 	// the files under the well known path.
 	sdsFromFile := false
 	var err error
+
 	if connKey.ResourceName == RootCertReqResourceName && sc.rootCertificateExist(sc.existingRootCertFile) {
 		sdsFromFile = true
 		ns, err = sc.generateRootCertFromExistingFile(sc.existingRootCertFile, token, connKey)
-	} else if connKey.ResourceName == WorkloadKeyCertResourceName &&
-		sc.keyCertificateExist(sc.existingCertChainFile, sc.existingKeyFile) {
-		sdsFromFile = true
-		ns, err = sc.generateKeyCertFromExistingFiles(sc.existingCertChainFile, sc.existingKeyFile, token, connKey)
-	} else if cfg, ok := pilotmodel.SdsCertificateConfigFromResourceName(connKey.ResourceName); ok {
+	} else if cfg, ok := pilotmodel.SdsCertificateConfigFromResourceName(connKey.ResourceName); ok && cfg.CaCertificatePath != "" {
 		// Based on the resource name, we need to read this secret from a file encoded in the resource name
 		sdsFromFile = true
-		ns, err = sc.generateKeyCertFromExistingFiles(cfg.ClientCertificatePath, cfg.PrivateKeyPath, token, connKey)
+		ns, err = sc.generateRootCertFromExistingFile(cfg.CaCertificatePath, token, connKey)
+	} else if connKey.ResourceName == WorkloadKeyCertResourceName && sc.keyCertificateExist(sc.existingCertChainFile, sc.existingKeyFile) {
+		sdsFromFile = true
+		ns, err = sc.generateKeyCertFromExistingFiles(sc.existingCertChainFile, sc.existingKeyFile, token, connKey)
+	} else if cfg, ok := pilotmodel.SdsCertificateConfigFromResourceName(connKey.ResourceName); ok && cfg.CertificatePath != "" && cfg.PrivateKeyPath != "" {
+		// Based on the resource name, we need to read this secret from a file encoded in the resource name
+		sdsFromFile = true
+		ns, err = sc.generateKeyCertFromExistingFiles(cfg.CertificatePath, cfg.PrivateKeyPath, token, connKey)
 	}
 
 	if sdsFromFile {
 		if err != nil {
-			cacheLog.Errorf("%s failed to generate secret for proxy: %v, by loading from files",
+			cacheLog.Errorf("%s failed to generate secret for proxy from file: %v",
 				logPrefix, err)
 			return nil, err
 		}
