@@ -23,14 +23,7 @@ import (
 	"testing"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/gogo/protobuf/proto"
 	"github.com/miekg/dns"
-	"istio.io/istio/pilot/pkg/config/memory"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
-	"istio.io/istio/pkg/adsc"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test/env"
 
 	_ "google.golang.org/grpc/xds/experimental" // To install the xds resolvers and balancers.
@@ -93,120 +86,7 @@ func initDNS() error {
 	return nil
 }
 
-// Creates an in-process discovery server, using the same code as Istiod, but
-// backed by an in-memory config and endpoint store.
-func initDS() *xds.Server {
-	ds := xds.NewXDS()
 
-	sd := ds.DiscoveryServer.MemRegistry
-	sd.AddHTTPService("fortio1.fortio.svc.cluster.local", "10.10.10.1", 8081)
-	sd.SetEndpoints("fortio1.fortio.svc.cluster.local", "", []*model.IstioEndpoint{
-		{
-			Address:         "127.0.0.1",
-			EndpointPort:    uint32(14056),
-			ServicePortName: "http-main",
-		},
-	})
-	return ds
-}
-
-
-// Test using resolving DNS over GRPC. This uses XDS protocol, and Listener resources
-// to represent the names. The protocol is based on GRPC resolution of XDS resources.
-func TestADSC(t *testing.T) {
-	ds := initDS()
-
-	err := ds.StartGRPC(grpcAddr)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ds.GRPCListener.Close()
-
-	// Verify we can receive the DNS cluster IPs using XDS
-	t.Run("adsc", func(t *testing.T) {
-		adscConn, err := adsc.Dial(grpcUpstreamAddr, "", &adsc.Config{
-			IP: "1.2.3.4",
-			Meta: model.NodeMetadata {
-				Generator: "api",
-			}.ToStruct(),
-		})
-		if err != nil {
-			t.Fatal("Error connecting ", err)
-		}
-		store := memory.Make(collections.Pilot)
-
-		configController := memory.NewController(store)
-		adscConn.Store = model.MakeIstioStore(configController)
-
-		adscConn.Send(&xdsapi.DiscoveryRequest{
-			TypeUrl:       adsc.ListenerType,
-		})
-
-		adscConn.WatchConfig()
-
-		data, err := adscConn.WaitVersion(10*time.Second, adsc.ListenerType, "")
-		if err != nil {
-			t.Fatal("Failed to receive lds", err)
-		}
-
-		for _, rs := range data.Resources {
-			l := &xdsapi.Listener{}
-			err = proto.Unmarshal(rs.Value, l)
-			if err != nil {
-				t.Fatal("Unmarshall error ", err)
-			}
-
-			t.Log("LDS: ", l)
-		}
-		data, err = adscConn.WaitVersion(10 * time.Second, collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String(), "")
-		if err != nil {
-			t.Fatal("Failed to receive lds", err)
-		}
-
-		ses := adscConn.Store.ServiceEntries()
-		for _, se := range ses {
-			t.Log(se)
-		}
-		sec, _ := adscConn.Store.List(collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind(),"")
-		for _, se := range sec {
-			t.Log(se)
-		}
-
-	})
-
-	t.Run("adsc-gen1", func(t *testing.T) {
-		adscConn, err := adsc.Dial(grpcUpstreamAddr, "", &adsc.Config{
-			IP: "1.2.3.5",
-			Meta: model.NodeMetadata {
-			}.ToStruct(),
-		})
-		if err != nil {
-			t.Fatal("Error connecting ", err)
-		}
-
-		adscConn.Send(&xdsapi.DiscoveryRequest{
-			TypeUrl:       adsc.ClusterType,
-		})
-
-		got, err := adscConn.Wait(10*time.Second, "cds")
-		if err != nil {
-			t.Fatal("Failed to receive lds", err)
-		}
-		if len(got) == 0 {
-			t.Fatal("No LDS response")
-		}
-		data := adscConn.Received[adsc.ClusterType]
-		for _, rs := range data.Resources {
-			l := &xdsapi.Cluster{}
-			err = proto.Unmarshal(rs.Value, l)
-			if err != nil {
-				t.Fatal("Unmarshall error ", err)
-			}
-
-			t.Log("CDS: ", l)
-		}
-	})
-}
 
 func TestDNS(t *testing.T) {
 	if initErr != nil {
