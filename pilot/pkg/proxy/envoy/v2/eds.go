@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 )
 
@@ -543,7 +542,7 @@ func buildLocalityLbEndpointsFromShards(
 
 	// Determine whether or not the target service is considered local to the cluster
 	// and should, therefore, not be accessed from outside the cluster.
-	isClusterLocal := mesh.IsClusterLocal(push.Mesh, svc.Attributes.Namespace)
+	isClusterLocal := push.IsClusterLocal(svc)
 
 	shards.mutex.Lock()
 	// The shards are updated independently, now need to filter and merge

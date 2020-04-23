@@ -38,6 +38,10 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 )
 
+const (
+	defaultDomainSuffix = "cluster.local"
+)
+
 var _ mesh.Holder = &Environment{}
 var _ mesh.NetworksHolder = &Environment{}
 
@@ -66,6 +70,16 @@ type Environment struct {
 	// START OF THE PUSH, THE GLOBAL ONE MAY CHANGE AND REFLECT A DIFFERENT
 	// CONFIG AND PUSH
 	PushContext *PushContext
+
+	// DomainSuffix provides a default domain for the Istio server.
+	DomainSuffix string
+}
+
+func (e *Environment) GetDomainSuffix() string {
+	if len(e.DomainSuffix) > 0 {
+		return e.DomainSuffix
+	}
+	return defaultDomainSuffix
 }
 
 func (e *Environment) Mesh() *meshconfig.MeshConfig {

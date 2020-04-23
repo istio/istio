@@ -967,9 +967,6 @@ var _datasetMeshIstioIoV1alpha1Meshconfig_expectedJson = []byte(`{
             },
             "Body": {
                 "accessLogFile": "/dev/stdout",
-                "clusterLocalNamespaces": [
-                  "kube-system"
-                ],
                 "connectTimeout": {
                     "seconds": 10
                 },
