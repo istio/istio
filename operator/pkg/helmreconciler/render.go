@@ -181,7 +181,8 @@ func (h *HelmReconciler) ProcessManifest(manifests []releaseutil.Manifest) (obje
 		if err != nil {
 			return nil, err
 		}
-		crName := objAccessor.GetName() + "-" + manifest.Name
+		crName := objAccessor.GetName()
+		owningResource := crName + "-" + manifest.Name
 		scope.Infof("Processing resources from manifest: %s for CR %s", manifest.Name, crName)
 		allObjects, err := object.ParseK8sObjectsFromYAMLManifest(manifest.Content)
 		if err != nil {
@@ -192,13 +193,13 @@ func (h *HelmReconciler) ProcessManifest(manifests []releaseutil.Manifest) (obje
 
 		// Create and/or get the cache corresponding to the CR crName we're processing. Per crName partitioning is required to
 		// prune the cache to remove any objects not in the manifest generated for a given CR.
-		if objectCaches[crName] == nil {
-			objectCaches[crName] = &ObjectCache{
+		if objectCaches[owningResource] == nil {
+			objectCaches[owningResource] = &ObjectCache{
 				cache: make(map[string]*object.K8sObject),
 				mu:    &sync.RWMutex{},
 			}
 		}
-		objectCache := objectCaches[crName]
+		objectCache := objectCaches[owningResource]
 
 		objectCachesMu.Unlock()
 
@@ -238,7 +239,7 @@ func (h *HelmReconciler) ProcessManifest(manifests []releaseutil.Manifest) (obje
 		// For each changed object, write it to the API server.
 		for _, obj := range changedObjects {
 			obju := obj.UnstructuredObject()
-			if err := applyLabelsAndAnnotations(obju, manifest.Name, h.iop.Spec.Revision, crName); err != nil {
+			if err := applyLabelsAndAnnotations(obju, manifest.Name, h.iop.Spec.Revision, owningResource, crName); err != nil {
 				return nil, err
 			}
 			if err := h.ProcessObject(manifest.Name, obj.UnstructuredObject()); err != nil {
@@ -281,7 +282,7 @@ func (h *HelmReconciler) ProcessManifest(manifests []releaseutil.Manifest) (obje
 }
 
 // applyLabelsAndAnnotations applies owner labels and annotations to the object.
-func applyLabelsAndAnnotations(obj runtime.Object, componentName, revision, crName string) error {
+func applyLabelsAndAnnotations(obj runtime.Object, componentName, revision, owningResource, crName string) error {
 	labels := make(map[string]string)
 
 	componentLabelValue := componentName
@@ -295,9 +296,14 @@ func applyLabelsAndAnnotations(obj runtime.Object, componentName, revision, crNa
 	}
 
 	labels[operatorLabelStr] = operatorReconcileStr
-	labels[owningResourceKey] = crName
+	labels[owningResourceKey] = owningResource
 	labels[istioComponentLabelStr] = componentLabelValue
 	labels[istioVersionLabelStr] = pkgversion.Info.Version
+
+	// add owner labels
+	labels[OwnerNameKey] = crName
+	labels[OwnerGroupKey] = valuesv1alpha1.IstioOperatorGVK.Group
+	labels[OwnerKindKey] = valuesv1alpha1.IstioOperatorGVK.Kind
 
 	for k, v := range labels {
 		err := util.SetLabel(obj, k, v)
