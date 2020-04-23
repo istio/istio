@@ -24,6 +24,8 @@ import (
 	"testing"
 
 	"github.com/kr/pretty"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
@@ -143,7 +145,7 @@ func TestOperatorInit(t *testing.T) {
 	}
 }
 
-func mockApplyManifest(manifestStr, componentName string, opts *Options, _ clog.Logger) bool {
+func mockApplyManifest(_ *rest.Config, _ client.Client, manifestStr, componentName string, opts *Options, _ clog.Logger) bool {
 	applyOutput = append(applyOutput, applyParams{
 		componentName: componentName,
 		manifest:      manifestStr,

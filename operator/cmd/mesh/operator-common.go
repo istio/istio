@@ -17,7 +17,7 @@ package mesh
 import (
 	"context"
 	"fmt"
-	"os"
+	"os" // Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -50,8 +51,8 @@ const (
 	operatorResourceName = "istio-operator"
 )
 
-func isControllerInstalled(kubeconfig, context, operatorNamespace string) (bool, error) {
-	return DeploymentExists(kubeconfig, context, operatorNamespace, operatorResourceName)
+func isControllerInstalled(cs kubernetes.Interface, operatorNamespace string) (bool, error) {
+	return DeploymentExists(cs, operatorNamespace, operatorResourceName)
 }
 
 // chartsRootDir, helmBaseDir, componentName, namespace string) (Template, TemplateRenderer, error) {
@@ -95,25 +96,12 @@ tag: {{.Tag}}
 	return vals, manifest, err
 }
 
-var k8sRESTConfig *rest.Config
-
-var k8sClientset *kubernetes.Clientset
-
-var currentKubeconfig string
-
-var currentContext string
-
-func CreateNamespace(namespace string) error {
+func CreateNamespace(cs kubernetes.Interface, namespace string) error {
 	if namespace == "" {
 		// Setup default namespace
 		namespace = "istio-system"
 	}
 
-	// TODO we need to stop creating configs in every function that needs them. One client should be used.
-	cs, e := kubernetes.NewForConfig(k8sRESTConfig)
-	if e != nil {
-		return fmt.Errorf("k8s client error: %s", e)
-	}
 	ns := &v1.Namespace{ObjectMeta: v12.ObjectMeta{
 		Name: namespace,
 		Labels: map[string]string{
@@ -127,16 +115,7 @@ func CreateNamespace(namespace string) error {
 	return nil
 }
 
-func DeploymentExists(kubeconfig, kubeContext, namespace, name string) (bool, error) {
-	if _, _, err := InitK8SRestClient(kubeconfig, kubeContext); err != nil {
-		return false, err
-	}
-
-	cs, err := kubernetes.NewForConfig(k8sRESTConfig)
-	if err != nil {
-		return false, fmt.Errorf("k8s client error: %s", err)
-	}
-
+func DeploymentExists(cs kubernetes.Interface, namespace, name string) (bool, error) {
 	d, err := cs.AppsV1().Deployments(namespace).Get(context.TODO(), name, v12.GetOptions{})
 	if err != nil {
 		return false, err
@@ -145,22 +124,16 @@ func DeploymentExists(kubeconfig, kubeContext, namespace, name string) (bool, er
 }
 
 func InitK8SRestClient(kubeconfig, kubeContext string) (*rest.Config, *kubernetes.Clientset, error) {
-	var err error
-	if kubeconfig == currentKubeconfig && kubeContext == currentContext && k8sRESTConfig != nil {
-		return k8sRESTConfig, k8sClientset, nil
-	}
-	currentKubeconfig, currentContext = kubeconfig, kubeContext
-
-	k8sRESTConfig, err = defaultRestConfig(kubeconfig, kubeContext)
+	restConfig, err := defaultRestConfig(kubeconfig, kubeContext)
 	if err != nil {
 		return nil, nil, err
 	}
-	k8sClientset, err = kubernetes.NewForConfig(k8sRESTConfig)
+	clientset, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return k8sRESTConfig, k8sClientset, nil
+	return restConfig, clientset, nil
 }
 
 func defaultRestConfig(kubeconfig, kubeContext string) (*rest.Config, error) {

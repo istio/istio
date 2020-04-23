@@ -379,19 +379,17 @@ func (h *HelmReconciler) getOwnerLabels(componentName string) (map[string]string
 		revision = h.iop.Spec.Revision
 	}
 
-	componentLabelValue := componentName
 	// Only pilot component uses revisions
 	if componentName == string(name.PilotComponentName) {
 		if revision == "" {
 			revision = "default"
 		}
 		labels[model.RevisionLabel] = revision
-		componentLabelValue += "-" + revision
 	}
 
 	labels[operatorLabelStr] = operatorReconcileStr
 	labels[owningResourceKey] = crName
-	labels[istioComponentLabelStr] = componentLabelValue
+	labels[istioComponentLabelStr] = componentName
 	labels[istioVersionLabelStr] = pkgversion.Info.Version
 
 	return labels, nil
@@ -424,12 +422,27 @@ func (h *HelmReconciler) getCRName() (string, error) {
 	return objAccessor.GetName(), nil
 }
 
+func (h *HelmReconciler) getCRNamespace() (string, error) {
+	if h.iop == nil {
+		return "", nil
+	}
+	objAccessor, err := meta.Accessor(h.iop)
+	if err != nil {
+		return "", err
+	}
+	return objAccessor.GetName(), nil
+}
+
 func (h *HelmReconciler) getCRHash(componentName string) (string, error) {
 	crName, err := h.getCRName()
 	if err != nil {
 		return "", err
 	}
-	return crName + "-" + componentName, nil
+	crNamespace, err := h.getCRNamespace()
+	if err != nil {
+		return "", err
+	}
+	return strings.Join([]string{crName, crNamespace, componentName}, "-"), nil
 }
 
 // progressBar returns a progress bar for a number of items.

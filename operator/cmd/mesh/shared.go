@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -108,10 +109,10 @@ func confirm(msg string, writer io.Writer) bool {
 	return false
 }
 
-func K8sConfig(kubeConfigPath string, context string) (*rest.Config, client.Client, error) {
-	restConfig, _, err := InitK8SRestClient(kubeConfigPath, context)
+func K8sConfig(kubeConfigPath string, context string) (*rest.Config, *kubernetes.Clientset, client.Client, error) {
+	restConfig, clientset, err := InitK8SRestClient(kubeConfigPath, context)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	// We are running a one-off command locally, so we don't need to worry too much about rate limitting
 	// Bumping this up greatly decreases install time
@@ -119,9 +120,9 @@ func K8sConfig(kubeConfigPath string, context string) (*rest.Config, client.Clie
 	restConfig.Burst = 100
 	client, err := client.New(restConfig, client.Options{Scheme: scheme.Scheme})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return restConfig, client, nil
+	return restConfig, clientset, client, nil
 }
 
 // Options contains the startup options for applying the manifest.

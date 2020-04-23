@@ -22,7 +22,9 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/rest"
 	"k8s.io/helm/pkg/manifest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helmreconciler"
@@ -56,7 +58,7 @@ const (
 )
 
 // manifestApplier is used for test dependency injection.
-type manifestApplier func(manifestStr, componentName string, opts *Options, l clog.Logger) bool
+type manifestApplier func(restConfig *rest.Config, client client.Client, manifestStr, componentName string, opts *Options, l clog.Logger) bool
 
 var (
 	defaultManifestApplier = applyManifest
@@ -103,8 +105,12 @@ func operatorInitCmd(rootArgs *rootArgs, oiArgs *operatorInitArgs) *cobra.Comman
 func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger, apply manifestApplier) {
 	initLogsOrExit(args)
 
+	restConfig, clientset, client, err := K8sConfig(oiArgs.kubeConfigPath, oiArgs.context)
+	if err != nil {
+		l.LogAndFatal(err)
+	}
 	// Error here likely indicates Deployment is missing. If some other K8s error, we will hit it again later.
-	already, _ := isControllerInstalled(oiArgs.kubeConfigPath, oiArgs.context, oiArgs.common.operatorNamespace)
+	already, _ := isControllerInstalled(clientset, oiArgs.common.operatorNamespace)
 	if already {
 		l.LogAndPrintf("Operator controller is already installed in %s namespace, updating.", oiArgs.common.operatorNamespace)
 	}
@@ -133,11 +139,11 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger, apply
 		l.LogAndFatal(err)
 	}
 
-	success := apply(mstr, istioControllerComponentName, opts, l)
+	success := apply(restConfig, client, mstr, istioControllerComponentName, opts, l)
 
 	if customResource != "" {
-		success = success && apply(genNamespaceResource(istioNamespace), istioNamespaceComponentName, opts, l)
-		success = success && apply(customResource, istioOperatorCRComponentName, opts, l)
+		success = success && apply(restConfig, client, genNamespaceResource(istioNamespace), istioNamespaceComponentName, opts, l)
+		success = success && apply(restConfig, client, customResource, istioOperatorCRComponentName, opts, l)
 	}
 
 	if !success {
@@ -148,12 +154,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger, apply
 	l.LogAndPrint("\n*** Success. ***\n")
 }
 
-func applyManifest(manifestStr, componentName string, opts *Options, l clog.Logger) bool {
-	restConfig, client, err := K8sConfig(opts.Kubeconfig, opts.Context)
-	if err != nil {
-		l.LogAndError(err)
-		return false
-	}
+func applyManifest(restConfig *rest.Config, client client.Client, manifestStr, componentName string, opts *Options, l clog.Logger) bool {
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	helmreconciler.FlushObjectCaches()
 	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, nil, &helmreconciler.Options{DryRun: opts.DryRun, Log: l})

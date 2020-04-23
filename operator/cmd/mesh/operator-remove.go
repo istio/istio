@@ -55,7 +55,12 @@ func operatorRemoveCmd(rootArgs *rootArgs, orArgs *operatorRemoveArgs) *cobra.Co
 func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger, deleteManifestFunc manifestDeleter) {
 	initLogsOrExit(args)
 
-	installed, err := isControllerInstalled(orArgs.kubeConfigPath, orArgs.context, orArgs.common.operatorNamespace)
+	_, clientset, _, err := K8sConfig(orArgs.kubeConfigPath, orArgs.context)
+	if err != nil {
+		l.LogAndFatal(err)
+	}
+
+	installed, err := isControllerInstalled(clientset, orArgs.common.operatorNamespace)
 	if installed && err != nil {
 		l.LogAndFatal(err)
 	}

@@ -7,17 +7,17 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"k8s.io/api/apps/v1"
-	v12 "k8s.io/api/core/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	deployment2 "k8s.io/kubectl/pkg/util/deployment"
+	kctldeployment "k8s.io/kubectl/pkg/util/deployment"
 
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
@@ -33,8 +33,8 @@ const (
 
 // deployment holds associated replicaSets for a deployment
 type deployment struct {
-	replicaSets *v1.ReplicaSet
-	deployment  *v1.Deployment
+	replicaSets *appsv1.ReplicaSet
+	deployment  *appsv1.Deployment
 }
 
 // WaitForResources polls to get the current status of all pods, PVCs, and Services
@@ -70,27 +70,27 @@ func WaitForResources(objects object.K8sObjects, restConfig *rest.Config, cs kub
 }
 
 func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l clog.Logger) (bool, []string, error) {
-	pods := []v12.Pod{}
+	pods := []corev1.Pod{}
 	deployments := []deployment{}
-	namespaces := []v12.Namespace{}
+	namespaces := []corev1.Namespace{}
 
 	for _, o := range objects {
 		kind := o.GroupVersionKind().Kind
 		switch kind {
 		case name.NamespaceStr:
-			namespace, err := cs.CoreV1().Namespaces().Get(context.TODO(), o.Name, v13.GetOptions{})
+			namespace, err := cs.CoreV1().Namespaces().Get(context.TODO(), o.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, nil, err
 			}
 			namespaces = append(namespaces, *namespace)
 		case name.PodStr:
-			pod, err := cs.CoreV1().Pods(o.Namespace).Get(context.TODO(), o.Name, v13.GetOptions{})
+			pod, err := cs.CoreV1().Pods(o.Namespace).Get(context.TODO(), o.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, nil, err
 			}
 			pods = append(pods, *pod)
 		case name.ReplicationControllerStr:
-			rc, err := cs.CoreV1().ReplicationControllers(o.Namespace).Get(context.TODO(), o.Name, v13.GetOptions{})
+			rc, err := cs.CoreV1().ReplicationControllers(o.Namespace).Get(context.TODO(), o.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, nil, err
 			}
@@ -100,11 +100,11 @@ func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l clog
 			}
 			pods = append(pods, list...)
 		case name.DeploymentStr:
-			currentDeployment, err := cs.AppsV1().Deployments(o.Namespace).Get(context.TODO(), o.Name, v13.GetOptions{})
+			currentDeployment, err := cs.AppsV1().Deployments(o.Namespace).Get(context.TODO(), o.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, nil, err
 			}
-			_, _, newReplicaSet, err := deployment2.GetAllReplicaSets(currentDeployment, cs.AppsV1())
+			_, _, newReplicaSet, err := kctldeployment.GetAllReplicaSets(currentDeployment, cs.AppsV1())
 			if err != nil || newReplicaSet == nil {
 				return false, nil, err
 			}
@@ -114,7 +114,7 @@ func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l clog
 			}
 			deployments = append(deployments, newDeployment)
 		case name.DaemonSetStr:
-			ds, err := cs.AppsV1().DaemonSets(o.Namespace).Get(context.TODO(), o.Name, v13.GetOptions{})
+			ds, err := cs.AppsV1().DaemonSets(o.Namespace).Get(context.TODO(), o.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, nil, err
 			}
@@ -124,7 +124,7 @@ func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l clog
 			}
 			pods = append(pods, list...)
 		case name.StatefulSetStr:
-			sts, err := cs.AppsV1().StatefulSets(o.Namespace).Get(context.TODO(), o.Name, v13.GetOptions{})
+			sts, err := cs.AppsV1().StatefulSets(o.Namespace).Get(context.TODO(), o.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, nil, err
 			}
@@ -134,7 +134,7 @@ func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l clog
 			}
 			pods = append(pods, list...)
 		case name.ReplicaSetStr:
-			rs, err := cs.AppsV1().ReplicaSets(o.Namespace).Get(context.TODO(), o.Name, v13.GetOptions{})
+			rs, err := cs.AppsV1().ReplicaSets(o.Namespace).Get(context.TODO(), o.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, nil, err
 			}
@@ -172,7 +172,7 @@ func waitForCRDs(objects object.K8sObjects, restConfig *rest.Config) error {
 	errPoll := wait.Poll(cRDPollInterval, cRDPollTimeout, func() (bool, error) {
 	descriptor:
 		for _, crdName := range crdNames {
-			crd, errGet := cs.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.TODO(), crdName, v13.GetOptions{})
+			crd, errGet := cs.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.TODO(), crdName, metav1.GetOptions{})
 			if errGet != nil {
 				return false, errGet
 			}
@@ -204,25 +204,25 @@ func waitForCRDs(objects object.K8sObjects, restConfig *rest.Config) error {
 	return nil
 }
 
-func getPods(client kubernetes.Interface, namespace string, selector map[string]string) ([]v12.Pod, error) {
-	list, err := client.CoreV1().Pods(namespace).List(context.TODO(), v13.ListOptions{
+func getPods(client kubernetes.Interface, namespace string, selector map[string]string) ([]corev1.Pod, error) {
+	list, err := client.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
 		FieldSelector: fields.Everything().String(),
 		LabelSelector: labels.Set(selector).AsSelector().String(),
 	})
 	return list.Items, err
 }
 
-func namespacesReady(namespaces []v12.Namespace) (bool, []string) {
+func namespacesReady(namespaces []corev1.Namespace) (bool, []string) {
 	var notReady []string
 	for _, namespace := range namespaces {
-		if namespace.Status.Phase != v12.NamespaceActive {
+		if namespace.Status.Phase != corev1.NamespaceActive {
 			notReady = append(notReady, "Namespace/"+namespace.Name)
 		}
 	}
 	return len(notReady) == 0, notReady
 }
 
-func podsReady(pods []v12.Pod) (bool, []string) {
+func podsReady(pods []corev1.Pod) (bool, []string) {
 	var notReady []string
 	for _, pod := range pods {
 		if !isPodReady(&pod) {
@@ -232,11 +232,11 @@ func podsReady(pods []v12.Pod) (bool, []string) {
 	return len(notReady) == 0, notReady
 }
 
-func isPodReady(pod *v12.Pod) bool {
+func isPodReady(pod *corev1.Pod) bool {
 	if len(pod.Status.Conditions) > 0 {
 		for _, condition := range pod.Status.Conditions {
-			if condition.Type == v12.PodReady &&
-				condition.Status == v12.ConditionTrue {
+			if condition.Type == corev1.PodReady &&
+				condition.Status == corev1.ConditionTrue {
 				return true
 			}
 		}

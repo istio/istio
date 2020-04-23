@@ -162,7 +162,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 	if err != nil {
 		return err
 	}
-	restConfig, client, err := K8sConfig(kubeConfigPath, context)
+	restConfig, clientset, client, err := K8sConfig(kubeConfigPath, context)
 	if err != nil {
 		return err
 	}
@@ -180,7 +180,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 		return err
 	}
 
-	if err := CreateNamespace(iop.Namespace); err != nil {
+	if err := CreateNamespace(clientset, iop.Namespace); err != nil {
 		return err
 	}
 
