@@ -785,8 +785,6 @@ func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 				conn.RouteNonceSent = res.Nonce
 			case EndpointType, v3.EndpointType:
 				conn.EndpointNonceSent = res.Nonce
-			default:
-				adsLog.Warnf("sent unknown XDS type: %v", res.TypeUrl)
 			}
 		}
 		if res.TypeUrl == RouteType || res.TypeUrl == v3.RouteType {

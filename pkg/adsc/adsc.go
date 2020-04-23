@@ -280,7 +280,8 @@ func (a *ADSC) handleRecv() {
 			adscLog.Infof("Connection closed for node %v with err: %v", a.nodeID, err)
 			a.Close()
 			a.WaitClear()
-			a.Updates <- nil
+			a.Updates <- ""
+			a.XDSUpdates <- nil
 			return
 		}
 
