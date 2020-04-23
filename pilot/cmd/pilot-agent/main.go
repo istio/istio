@@ -98,7 +98,11 @@ var (
 	outputKeyCertToDir = env.RegisterStringVar("OUTPUT_CERTS", "",
 		"The output directory for the key and certificate. If empty, key and certificate will not be saved. "+
 			"Must be set for VMs using provisioning certificates.").Get()
-	meshConfig = env.RegisterStringVar("MESH_CONFIG", "", "The mesh configuration").Get()
+	proxyConfigEnv = env.RegisterStringVar(
+		"PROXY_CONFIG",
+		"",
+		"The proxy configuration. This will be set by the injection - gateways will use file mounts.",
+	).Get()
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
