@@ -118,7 +118,6 @@ spec:
         resources:
           requests:
             cpu: 10m
-          
       - name: istio-coredns-plugin
         command:
         - /usr/local/bin/plugin
@@ -130,7 +129,6 @@ spec:
         resources:
           requests:
             cpu: 10m
-          
       dnsPolicy: Default
       volumes:
       - name: config-volume
@@ -7719,7 +7717,6 @@ metadata:
   labels:
     app: istio-egressgateway
     istio: egressgateway
-    
     release: istio
 spec:
   maxReplicas: 5
@@ -7744,14 +7741,12 @@ metadata:
   labels:
     app: istio-egressgateway
     istio: egressgateway
-    
     release: istio
 spec:
   selector:
     matchLabels:
       app: istio-egressgateway
       istio: egressgateway
-      
   strategy:
     rollingUpdate:
       maxSurge: 100%
@@ -7761,7 +7756,6 @@ spec:
       labels:
         app: istio-egressgateway
         istio: egressgateway
-        
         heritage: Tiller
         release: istio
         chart: gateways
@@ -7809,7 +7803,6 @@ spec:
             requests:
               cpu: 100m
               memory: 128Mi
-            
           env:
           - name: JWT_POLICY
             value: third-party-jwt
@@ -7947,7 +7940,6 @@ metadata:
   labels:
     app: istio-egressgateway
     istio: egressgateway
-    
     release: istio
 spec:
   minAvailable: 1
@@ -7955,7 +7947,6 @@ spec:
     matchLabels:
       app: istio-egressgateway
       istio: egressgateway
-      
       release: istio
 ---
 
@@ -7969,14 +7960,12 @@ metadata:
   labels:
     app: istio-egressgateway
     istio: egressgateway
-    
     release: istio
 spec:
   type: ClusterIP
   selector:
     app: istio-egressgateway
     istio: egressgateway
-    
   ports:
     -
       name: http2
@@ -7999,7 +7988,6 @@ metadata:
   labels:
     app: istio-egressgateway
     istio: egressgateway
-    
     release: istio
 ---
 
@@ -8013,7 +8001,6 @@ metadata:
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
-    
     release: istio
 spec:
   maxReplicas: 5
@@ -8038,14 +8025,12 @@ metadata:
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
-    
     release: istio
 spec:
   selector:
     matchLabels:
       app: istio-ingressgateway
       istio: ingressgateway
-      
   strategy:
     rollingUpdate:
       maxSurge: 100%
@@ -8055,7 +8040,6 @@ spec:
       labels:
         app: istio-ingressgateway
         istio: ingressgateway
-        
         heritage: Tiller
         release: istio
         chart: gateways
@@ -8108,7 +8092,6 @@ spec:
             requests:
               cpu: 100m
               memory: 128Mi
-            
           env:
           - name: JWT_POLICY
             value: third-party-jwt
@@ -8303,14 +8286,12 @@ metadata:
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
-    
     release: istio
 spec:
   type: LoadBalancer
   selector:
     app: istio-ingressgateway
     istio: ingressgateway
-    
   ports:
     -
       name: status-port
