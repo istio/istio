@@ -647,6 +647,13 @@ func CheckPodReady(pod *kubeApiCore.Pod) error {
 				return fmt.Errorf("container not ready: '%s'", containerStatus.Name)
 			}
 		}
+		if len(pod.Status.Conditions) > 0 {
+			for _, condition := range pod.Status.Conditions {
+				if condition.Type == kubeApiCore.PodReady && condition.Status != kubeApiCore.ConditionTrue {
+					return fmt.Errorf("pod not ready, condition message: %v", condition.Message)
+				}
+			}
+		}
 		return nil
 	default:
 		return fmt.Errorf("%s", pod.Status.Phase)
