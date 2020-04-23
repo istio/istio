@@ -50,4 +50,4 @@ if [ ! -f "${API_TMP}/kubernetes/customresourcedefinitions.gen.yaml" ]; then
   exit
 fi
 rm -f "${ROOTDIR}/manifests/charts/base/crds/crd-all.gen.yaml"
-cp "${API_TMP}/kubernetes/customresourcedefinitions.gen.yaml" "${ROOTDIR}/manifests/charts/base/files/crd-all.gen.yaml"
+cp "${API_TMP}/kubernetes/customresourcedefinitions.gen.yaml" "${ROOTDIR}/manifests/charts/base/crds/crd-all.gen.yaml"
