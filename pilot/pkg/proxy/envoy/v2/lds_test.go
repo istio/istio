@@ -431,7 +431,8 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 	// TODO: This is flimsy. The ADSC code treats any listener with http connection manager as a HTTP listener
 	// instead of looking at it as a listener with multiple filter chains
 	if l := adsResponse.GetHTTPListeners()["0.0.0.0_8081"]; l != nil {
-		expected := 2
+		expected := 3
+		// including 1 http, 1 passthrough for port 8081 and 1 passthrough for any port
 		if len(l.FilterChains) != expected {
 			t.Fatalf("Expected %d filter chains, got %d", expected, len(l.FilterChains))
 		}
