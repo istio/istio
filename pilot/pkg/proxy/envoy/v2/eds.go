@@ -22,7 +22,6 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
@@ -426,24 +425,19 @@ type EdsGenerator struct {
 
 func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
 	resp := []*any.Any{}
-	edsUpdatedServices := model.ConfigNamesOfKind(updates, model.ServiceEntryKind)
+
+	var edsUpdatedServices map[string]struct{} = nil
+	if updates != nil {
+		edsUpdatedServices = model.ConfigNamesOfKind(updates, model.ServiceEntryKind)
+	}
 	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
 	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
 	for _, clusterName := range w.ResourceNames {
-
 		l := eds.Server.generateEndpoints(clusterName, proxy, push, edsUpdatedServices)
 		if l == nil {
 			continue
 		}
-		bany, err := types.MarshalAny(l)
-		if err == nil {
-			// Another gogo to golang conversion, due to Envoy CP not using gogo
-			// TODO: we really need an Envoy API generated with gogo to remove all this crazyness.
-			resp = append(resp, &any.Any{
-				TypeUrl: bany.TypeUrl,
-				Value:   bany.Value,
-			})
-		}
+		resp = append(resp, util.MessageToAny(l))
 	}
 
 	return resp

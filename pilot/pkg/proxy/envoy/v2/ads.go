@@ -238,7 +238,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 			// Based on node metadata a different generator was selected, use it instead of the default
 			// behavior.
-			if con.node.XdsResourceGenerator != nil && discReq.TypeUrl != EndpointType {
+			if con.node.XdsResourceGenerator != nil {
 				// Endpoints are special - will use the optimized code path.
 				err = s.handleCustomGenerator(con, discReq)
 				if err != nil {
