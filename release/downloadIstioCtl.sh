@@ -29,7 +29,6 @@ if [ "x${OS}" = "xDarwin" ] ; then
   OSEXT="osx"
 else
   OSEXT="linux"
-
 fi
 
 # Determines the istioctl version.
@@ -87,7 +86,7 @@ ARCH_URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/isti
 printf "Downloading %s from %s ... \n" "${NAME}" "${URL}"
 if ! curl -fsLO "$URL"
 then
-  printf "Failed. \n\nTrying with ISTIO_ARCH. Downloading %s from %s ...\n" "${NAME}" "$ARCH_URL"
+  printf "Failed. \n\nTrying with TARGET_ARCH. Downloading %s from %s ...\n" "${NAME}" "$ARCH_URL"
   if ! curl -fsLO "$ARCH_URL"
   then
    download_failed
