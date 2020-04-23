@@ -2256,27 +2256,13 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 // The match member of pass through filter chain depends on the existing non-passthrough filter chain.
 // TODO: Calculate the filter chain match to replace the wildcard and replace appendListenerFallthroughRoute.
 func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteListener(l *xdsapi.Listener, node *model.Proxy, push *model.PushContext) {
-	var portNum uint32
-	if l.GetAddress() != nil && l.GetAddress().GetSocketAddress() != nil  {
-		portNum = l.GetAddress().GetSocketAddress().GetPortValue()
-	}
-	if portNum != 0 && portNum != 15001 && portNum != 15006 {
-		for _, fc := range l.FilterChains {
-			if isMatchAllFilterChainOnPort(fc, l.GetAddress().GetSocketAddress().GetPortValue()) {
-				// We can only have one wildcard match. If the filter chain already has one, skip it
-				// This happens in the case of HTTP, which will get a fallthrough route added later,
-				// or TCP, which is not supported
-				return
-			}
-		}
-	} else {
-		for _, fc := range l.FilterChains {
-			if isMatchAllFilterChain(fc) {
-				// We can only have one wildcard match. If the filter chain already has one, skip it
-				// This happens in the case of HTTP, which will get a fallthrough route added later,
-				// or TCP, which is not supported
-				return
-			}
+
+	for _, fc := range l.FilterChains {
+		if isMatchAllFilterChain(fc) {
+			// We can only have one wildcard match. If the filter chain already has one, skip it
+			// This happens in the case of HTTP, which will get a fallthrough route added later,
+			// or TCP, which is not supported
+			return
 		}
 	}
 
@@ -2301,15 +2287,32 @@ func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteL
 			return
 		}
 	}
-	fcm := &listener.FilterChainMatch{}
+	var portNum uint32
+	if l.GetAddress() != nil && l.GetAddress().GetSocketAddress() != nil {
+		portNum = l.GetAddress().GetSocketAddress().GetPortValue()
+	}
+
 	if portNum != 0 && portNum != 15001 && portNum != 15006 {
-		fcm.DestinationPort =  &wrappers.UInt32Value{Value: portNum}
-		perPortOutboundPassThroughFilterChain := &listener.FilterChain{
-			FilterChainMatch: fcm,
-			Name:             util.PassthroughFilterChain,
-			Filters:          mutable.FilterChains[0].TCP,
+		hasPerPortPassthroughFilterChain := false
+		for _, fc := range l.FilterChains {
+			if isMatchAllFilterChainOnPort(fc, l.GetAddress().GetSocketAddress().GetPortValue()) {
+				// We can only have one wildcard match. If the filter chain already has one, skip it
+				// This happens in the case of HTTP, which will get a fallthrough route added later,
+				// or TCP, which is not supported
+				hasPerPortPassthroughFilterChain = true
+				break
+			}
 		}
-		l.FilterChains = append(l.FilterChains, perPortOutboundPassThroughFilterChain)
+		if !hasPerPortPassthroughFilterChain {
+			fcm := &listener.FilterChainMatch{}
+			fcm.DestinationPort = &wrappers.UInt32Value{Value: portNum}
+			perPortOutboundPassThroughFilterChain := &listener.FilterChain{
+				FilterChainMatch: fcm,
+				Name:             util.PassthroughFilterChain,
+				Filters:          mutable.FilterChains[0].TCP,
+			}
+			l.FilterChains = append(l.FilterChains, perPortOutboundPassThroughFilterChain)
+		}
 	}
 	catchAllOutboundPassThroughFilterChain := &listener.FilterChain{
 		FilterChainMatch: &listener.FilterChainMatch{},
@@ -2661,7 +2664,6 @@ func isMatchAllFilterChainOnPort(fc *listener.FilterChain, port uint32) bool {
 	}
 	return filterChainMatchEqualIgnoringDstPort(fc.FilterChainMatch, emptyFilterChainMatch)
 }
-
 
 func removeListenerFilterTimeout(listeners []*xdsapi.Listener) {
 	for _, l := range listeners {
