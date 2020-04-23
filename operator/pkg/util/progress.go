@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright 2020 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,6 +25,9 @@ import (
 )
 
 // ProgressLog records the progress of an installation
+// This aims to provide information about the install of multiple components in parallel, while working
+// around the limitations of the pb library, which will only support single lines. To do this, we aggregate
+// the current components into a single line, and as components complete there final state is persisted to a new line.
 type ProgressLog struct {
 	components map[string]*ManifestLog
 	bar        *pb.ProgressBar
@@ -86,7 +89,7 @@ func createBar() *pb.ProgressBar {
 // Because the bar library does not support multiple lines/bars at once, we need to aggregate current
 // progress into a single line. For example "Waiting for x, y, z". Once a component completes, we want
 // a new line created so the information is not lost. To do this, we spin up a new bar with the remaining components
-// on a new line, and create a new bay. For example, this becomes "x succeeded", "waiting for y, z".
+// on a new line, and create a new bar. For example, this becomes "x succeeded", "waiting for y, z".
 func (p *ProgressLog) reportProgress(component string) func() {
 	return func() {
 		p.mu.Lock()
