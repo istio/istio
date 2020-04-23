@@ -44,6 +44,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/secret"
 	"istio.io/istio/security/pkg/pki/util"
 )
@@ -57,6 +58,7 @@ var (
 	organization      string
 	remoteDirectory   string
 	scpPath           string
+	spiffeTrustDomain string
 	sshAuthMethod     ssh.AuthMethod
 	sshKeyLocation    string
 	sshIgnoreHostKeys bool
@@ -142,15 +144,27 @@ func getCertificatesForEachAddress(
 		organization = extractOrgName(root.Ca)
 	}
 
+	if spiffeTrustDomain != "" {
+		spiffe.SetTrustDomain(spiffeTrustDomain)
+	}
+
 	for _, entryCfg := range workloadEntries {
 		wle := entryCfg.Spec.(*networking.WorkloadEntry)
 		// Only generate one certificate per address.
 		if _, ok := seenIps[wle.Address]; ok {
 			continue
 		}
+		if wle.ServiceAccount == "" {
+			return nil, fmt.Errorf("cannot generate certificate for a workload entry without a service account")
+		}
+
+		spiffeURI, err := spiffe.GenSpiffeURI(namespace, wle.ServiceAccount)
+		if err != nil {
+			return nil, err
+		}
 
 		signerOpts := util.CertOptions{
-			Host:         wle.Address,
+			Host:         spiffeURI,
 			NotBefore:    time.Now(),
 			TTL:          certDuration,
 			SignerCert:   root.Ca,
@@ -601,6 +615,8 @@ func vmBootstrapCommand() *cobra.Command {
 		"the directory to create on the remote machine.")
 	vmBSCommand.PersistentFlags().StringVar(&scpPath, "remote-scp-path", "/usr/bin/scp",
 		"the scp binary location on the target machine if not at /usr/bin/scp")
+	vmBSCommand.PersistentFlags().StringVar(&spiffeTrustDomain, "spiffee-trust-domain", "",
+		"The spiffee trust domain to set if not wanting to use the default.")
 	vmBSCommand.PersistentFlags().BoolVar(&sshIgnoreHostKeys, "ignore-host-keys", false,
 		"whether or not ot ignore host keys on the remote host")
 	vmBSCommand.PersistentFlags().StringVarP(&sshKeyLocation, "ssh-key", "k", "",
