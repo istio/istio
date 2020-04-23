@@ -139,7 +139,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	opts = append(opts, getNodeMetadataOptions(meta, rawMeta, cfg.PlatEnv)...)
+	opts = append(opts, getNodeMetadataOptions(meta, rawMeta, cfg.PlatEnv, cfg.Proxy)...)
 
 	// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
 	if isIPv6Proxy(cfg.NodeIPs) {
@@ -219,7 +219,7 @@ var (
 	}
 )
 
-func getStatsOptions(meta *model.NodeMetadata, nodeIPs []string) []option.Instance {
+func getStatsOptions(meta *model.NodeMetadata, nodeIPs []string, config *meshAPI.ProxyConfig) []option.Instance {
 	parseOption := func(metaOption string, required string) []string {
 		var inclusionOption []string
 		if len(metaOption) > 0 {
@@ -240,6 +240,11 @@ func getStatsOptions(meta *model.NodeMetadata, nodeIPs []string) []option.Instan
 	extraStatTags := make([]string, 0, len(DefaultStatTags))
 	extraStatTags = append(extraStatTags,
 		DefaultStatTags...)
+	for _, tag := range config.ExtraStatTags {
+		if tag != "" {
+			extraStatTags = append(extraStatTags, tag)
+		}
+	}
 	for _, tag := range strings.Split(meta.ExtraStatTags, ",") {
 		if tag != "" {
 			extraStatTags = append(extraStatTags, tag)
@@ -264,11 +269,11 @@ func lightstepAccessTokenFile(config string) string {
 }
 
 func getNodeMetadataOptions(meta *model.NodeMetadata, rawMeta map[string]interface{},
-	platEnv platform.Environment) []option.Instance {
+	platEnv platform.Environment, config *meshAPI.ProxyConfig) []option.Instance {
 	// Add locality options.
 	opts := getLocalityOptions(meta, platEnv)
 
-	opts = append(opts, getStatsOptions(meta, meta.InstanceIPs)...)
+	opts = append(opts, getStatsOptions(meta, meta.InstanceIPs, config)...)
 
 	opts = append(opts, option.NodeMetadata(meta, rawMeta))
 	return opts
