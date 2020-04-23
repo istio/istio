@@ -28,8 +28,8 @@ import (
 
 type DistributionReport struct {
 	Reporter            string
-	DataPlaneCount      int
-	InProgressResources map[string]int
+	DataPlaneCount      int            `json:"dataPlaneCount"`
+	InProgressResources map[string]int `json:"inProgressResources"`
 }
 
 func (r *DistributionReport) SetProgress(resource fmt.Stringer, progress int) {
