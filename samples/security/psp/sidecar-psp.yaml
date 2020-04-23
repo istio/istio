@@ -1,5 +1,3 @@
-# For details about using this yaml file, please refer to:
-# https://istio.io/docs/tasks/security/auth-sds/#increasing-security-with-pod-security-policies
 apiVersion: extensions/v1beta1
 kind: PodSecurityPolicy
 metadata:

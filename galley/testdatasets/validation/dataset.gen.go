@@ -1,9 +1,5 @@
 // Code generated for package validation by go-bindata DO NOT EDIT. (@generated)
 // sources:
-// dataset/authentication-v1alpha1-MeshPolicy-invalid.yaml
-// dataset/authentication-v1alpha1-MeshPolicy-valid.yaml
-// dataset/authentication-v1alpha1-Policy-invalid.yaml
-// dataset/authentication-v1alpha1-Policy-valid.yaml
 // dataset/config-v1alpha2-HTTPAPISpec-invalid.yaml
 // dataset/config-v1alpha2-HTTPAPISpec-valid.yaml
 // dataset/config-v1alpha2-HTTPAPISpecBinding-invalid.yaml
@@ -113,104 +109,6 @@ func (fi bindataFileInfo) IsDir() bool {
 // Sys return file is sys mode
 func (fi bindataFileInfo) Sys() interface{} {
 	return nil
-}
-
-var _datasetAuthenticationV1alpha1MeshpolicyInvalidYaml = []byte(`apiVersion: authentication.istio.io/v1alpha1
-kind: MeshPolicy
-metadata:
-  name: "boo"
-spec:
-  peers:
-    - mtls:
-        mode: PERMISSIVE
-`)
-
-func datasetAuthenticationV1alpha1MeshpolicyInvalidYamlBytes() ([]byte, error) {
-	return _datasetAuthenticationV1alpha1MeshpolicyInvalidYaml, nil
-}
-
-func datasetAuthenticationV1alpha1MeshpolicyInvalidYaml() (*asset, error) {
-	bytes, err := datasetAuthenticationV1alpha1MeshpolicyInvalidYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "dataset/authentication-v1alpha1-MeshPolicy-invalid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _datasetAuthenticationV1alpha1MeshpolicyValidYaml = []byte(`apiVersion: authentication.istio.io/v1alpha1
-kind: MeshPolicy
-metadata:
-  name: "default"
-spec:
-  peers:
-    - mtls:
-        mode: PERMISSIVE
-`)
-
-func datasetAuthenticationV1alpha1MeshpolicyValidYamlBytes() ([]byte, error) {
-	return _datasetAuthenticationV1alpha1MeshpolicyValidYaml, nil
-}
-
-func datasetAuthenticationV1alpha1MeshpolicyValidYaml() (*asset, error) {
-	bytes, err := datasetAuthenticationV1alpha1MeshpolicyValidYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "dataset/authentication-v1alpha1-MeshPolicy-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _datasetAuthenticationV1alpha1PolicyInvalidYaml = []byte(`apiVersion: "authentication.istio.io/v1alpha1"
-kind: "Policy"
-metadata:
-  name: invalid-authentication-policy
-spec:
-  targets:
-  - name: "bad.target"
-`)
-
-func datasetAuthenticationV1alpha1PolicyInvalidYamlBytes() ([]byte, error) {
-	return _datasetAuthenticationV1alpha1PolicyInvalidYaml, nil
-}
-
-func datasetAuthenticationV1alpha1PolicyInvalidYaml() (*asset, error) {
-	bytes, err := datasetAuthenticationV1alpha1PolicyInvalidYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "dataset/authentication-v1alpha1-Policy-invalid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _datasetAuthenticationV1alpha1PolicyValidYaml = []byte(`apiVersion: "authentication.istio.io/v1alpha1"
-kind: "Policy"
-metadata:
-  name: valid-authentication-policy
-spec:
-  targets:
-  - name: good-target
-`)
-
-func datasetAuthenticationV1alpha1PolicyValidYamlBytes() ([]byte, error) {
-	return _datasetAuthenticationV1alpha1PolicyValidYaml, nil
-}
-
-func datasetAuthenticationV1alpha1PolicyValidYaml() (*asset, error) {
-	bytes, err := datasetAuthenticationV1alpha1PolicyValidYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "dataset/authentication-v1alpha1-Policy-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
 }
 
 var _datasetConfigV1alpha2HttpapispecInvalidYaml = []byte(`apiVersion: config.istio.io/v1alpha2
@@ -1918,7 +1816,7 @@ spec:
       version: v1
   mtls:
     mode: PERMISSIVE
-  peerLevelMtls:
+  portLevelMtls:
     8080:
       mode: STRICT
 `)
@@ -2046,10 +1944,6 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"dataset/authentication-v1alpha1-MeshPolicy-invalid.yaml":     datasetAuthenticationV1alpha1MeshpolicyInvalidYaml,
-	"dataset/authentication-v1alpha1-MeshPolicy-valid.yaml":       datasetAuthenticationV1alpha1MeshpolicyValidYaml,
-	"dataset/authentication-v1alpha1-Policy-invalid.yaml":         datasetAuthenticationV1alpha1PolicyInvalidYaml,
-	"dataset/authentication-v1alpha1-Policy-valid.yaml":           datasetAuthenticationV1alpha1PolicyValidYaml,
 	"dataset/config-v1alpha2-HTTPAPISpec-invalid.yaml":            datasetConfigV1alpha2HttpapispecInvalidYaml,
 	"dataset/config-v1alpha2-HTTPAPISpec-valid.yaml":              datasetConfigV1alpha2HttpapispecValidYaml,
 	"dataset/config-v1alpha2-HTTPAPISpecBinding-invalid.yaml":     datasetConfigV1alpha2HttpapispecbindingInvalidYaml,
@@ -2152,10 +2046,6 @@ type bintree struct {
 
 var _bintree = &bintree{nil, map[string]*bintree{
 	"dataset": &bintree{nil, map[string]*bintree{
-		"authentication-v1alpha1-MeshPolicy-invalid.yaml":     &bintree{datasetAuthenticationV1alpha1MeshpolicyInvalidYaml, map[string]*bintree{}},
-		"authentication-v1alpha1-MeshPolicy-valid.yaml":       &bintree{datasetAuthenticationV1alpha1MeshpolicyValidYaml, map[string]*bintree{}},
-		"authentication-v1alpha1-Policy-invalid.yaml":         &bintree{datasetAuthenticationV1alpha1PolicyInvalidYaml, map[string]*bintree{}},
-		"authentication-v1alpha1-Policy-valid.yaml":           &bintree{datasetAuthenticationV1alpha1PolicyValidYaml, map[string]*bintree{}},
 		"config-v1alpha2-HTTPAPISpec-invalid.yaml":            &bintree{datasetConfigV1alpha2HttpapispecInvalidYaml, map[string]*bintree{}},
 		"config-v1alpha2-HTTPAPISpec-valid.yaml":              &bintree{datasetConfigV1alpha2HttpapispecValidYaml, map[string]*bintree{}},
 		"config-v1alpha2-HTTPAPISpecBinding-invalid.yaml":     &bintree{datasetConfigV1alpha2HttpapispecbindingInvalidYaml, map[string]*bintree{}},

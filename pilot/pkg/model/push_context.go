@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"net"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -32,6 +33,10 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/visibility"
+)
+
+var (
+	defaultClusterLocalNamespaces = []string{"kube-system"}
 )
 
 // Metrics is an interface for capturing metrics on a per-node basis.
@@ -88,6 +93,9 @@ type PushContext struct {
 	//  namespaceExportedDestRules: all public dest rules pertaining to a service defined in a namespace
 	namespaceLocalDestRules    map[string]*processedDestRules
 	namespaceExportedDestRules map[string]*processedDestRules
+
+	// clusterLocalHosts extracted from the MeshConfig
+	clusterLocalHosts host.Names
 
 	// sidecars for each namespace
 	sidecarsByNamespace map[string][]*SidecarScope
@@ -759,6 +767,13 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 	return nil
 }
 
+// IsClusterLocal indicates whether the endpoints for the service should only be accessible to clients
+// within the cluster.
+func (ps *PushContext) IsClusterLocal(service *Service) bool {
+	_, ok := MostSpecificHostMatch(service.Hostname, ps.clusterLocalHosts)
+	return ok
+}
+
 // SubsetToLabels returns the labels associated with a subset of a given service.
 func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname host.Name) labels.Collection {
 	// empty subset
@@ -815,6 +830,8 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 
 	// TODO: only do this when meshnetworks or gateway service changed
 	ps.initMeshNetworks()
+
+	ps.initClusterLocalHosts(env)
 
 	ps.initDone = true
 	return nil
@@ -893,9 +910,7 @@ func (ps *PushContext) updateContext(
 			collections.IstioRbacV1Alpha1Rbacconfigs.Resource().GroupVersionKind(),
 			collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
 			authzChanged = true
-		case collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind(),
-			collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().GroupVersionKind(),
-			collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(),
+		case collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(),
 			collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
 			authnChanged = true
 		case collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(),
@@ -1558,6 +1573,45 @@ func (ps *PushContext) initMeshNetworks() {
 	}
 }
 
+func (ps *PushContext) initClusterLocalHosts(e *Environment) {
+	// Create the default list of cluster-local hosts.
+	domainSuffix := e.GetDomainSuffix()
+	defaultClusterLocalHosts := make([]host.Name, 0, len(defaultClusterLocalNamespaces))
+	for _, n := range defaultClusterLocalNamespaces {
+		defaultClusterLocalHosts = append(defaultClusterLocalHosts, host.Name("*."+n+".svc."+domainSuffix))
+	}
+
+	// Collect the cluster-local hosts.
+	clusterLocalHosts := make([]host.Name, 0)
+	for _, serviceSettings := range ps.Mesh.ServiceSettings {
+		if serviceSettings.Settings.ClusterLocal {
+			for _, h := range serviceSettings.Hosts {
+				clusterLocalHosts = append(clusterLocalHosts, host.Name(h))
+			}
+		} else {
+			// Remove defaults if specified to be non-cluster-local.
+			for _, h := range serviceSettings.Hosts {
+				for i, defaultClusterLocalHost := range defaultClusterLocalHosts {
+					if len(defaultClusterLocalHost) > 0 && strings.HasSuffix(h, string(defaultClusterLocalHost[1:])) {
+						// This default was explicitly overridden, so remove it.
+						defaultClusterLocalHosts[i] = ""
+					}
+				}
+			}
+		}
+	}
+
+	// Add any remaining defaults to the end of the list.
+	for _, defaultClusterLocalHost := range defaultClusterLocalHosts {
+		if len(defaultClusterLocalHost) > 0 {
+			clusterLocalHosts = append(clusterLocalHosts, defaultClusterLocalHost)
+		}
+	}
+
+	sort.Sort(host.Names(clusterLocalHosts))
+	ps.clusterLocalHosts = clusterLocalHosts
+}
+
 func (ps *PushContext) initQuotaSpecs(env *Environment) error {
 	var err error
 	ps.QuotaSpec, err = env.List(collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(), NamespaceAll)
@@ -1594,12 +1648,10 @@ func getGatewayAddresses(gw *meshconfig.Network_IstioNetworkGateway, registryNam
 		if svc == nil {
 			return nil
 		}
-		svc.Mutex.RLock()
-		defer svc.Mutex.RLock()
+		// No need lock here as the service returned is a new one
 		if svc.Attributes.ClusterExternalAddresses != nil {
 			var gateways []*Gateway
 			for _, clusterName := range registryNames {
-				ips := svc.Attributes.ClusterExternalAddresses[clusterName]
 				remotePort := gw.Port
 				// check if we have node port mappings
 				if svc.Attributes.ClusterExternalPorts != nil {
@@ -1611,6 +1663,7 @@ func getGatewayAddresses(gw *meshconfig.Network_IstioNetworkGateway, registryNam
 						}
 					}
 				}
+				ips := svc.Attributes.ClusterExternalAddresses[clusterName]
 				for _, ip := range ips {
 					gateways = append(gateways, &Gateway{ip, remotePort})
 				}

@@ -75,16 +75,6 @@ var _metadataYaml = []byte(`# Copyright 2019 Istio Authors
 # The total set of collections, both Istio (i.e. MCP) and K8s (API Server/K8s).
 collections:
   ## Istio collections
-  - name: "istio/authentication/v1alpha1/meshpolicies"
-    kind: "MeshPolicy"
-    group: "authentication.istio.io"
-    pilot: true
-
-  - name: "istio/authentication/v1alpha1/policies"
-    kind: "Policy"
-    group: "authentication.istio.io"
-    pilot: true
-
   - name: "istio/config/v1alpha2/adapters"
     kind: "adapter"
     group: "config.istio.io"
@@ -268,14 +258,6 @@ collections:
 
   # Istio CRD collections
 
-  - name: "k8s/authentication.istio.io/v1alpha1/meshpolicies"
-    kind: "MeshPolicy"
-    group: "authentication.istio.io"
-
-  - name: "k8s/authentication.istio.io/v1alpha1/policies"
-    kind: "Policy"
-    group: "authentication.istio.io"
-
   - name: "k8s/config.istio.io/v1alpha2/adapters"
     kind: "adapter"
     group: "config.istio.io"
@@ -378,8 +360,6 @@ snapshots:
   - name: "default"
     strategy: debounce
     collections:
-      - "istio/authentication/v1alpha1/meshpolicies"
-      - "istio/authentication/v1alpha1/policies"
       - "istio/config/v1alpha2/adapters"
       - "istio/config/v1alpha2/httpapispecs"
       - "istio/config/v1alpha2/httpapispecbindings"
@@ -412,8 +392,6 @@ snapshots:
   - name: "localAnalysis"
     strategy: immediate
     collections:
-      - "istio/authentication/v1alpha1/meshpolicies"
-      - "istio/authentication/v1alpha1/policies"
       - "istio/rbac/v1alpha1/servicerolebindings"
       - "istio/rbac/v1alpha1/serviceroles"
       - "istio/mesh/v1alpha1/MeshConfig"
@@ -623,25 +601,6 @@ resources:
     proto: "istio.mixer.v1.config.client.QuotaSpecBinding"
     protoPackage: "istio.io/api/mixer/v1/config/client"
     description: "describes an Quota specification binding"
-
-  - kind: "Policy"
-    plural: "policies"
-    group: "authentication.istio.io"
-    version: "v1alpha1"
-    proto: "istio.authentication.v1alpha1.Policy"
-    protoPackage: "istio.io/api/authentication/v1alpha1"
-    validate: "ValidateAuthenticationPolicy"
-    description: "describes an authentication policy"
-
-  - kind: "MeshPolicy"
-    plural: "meshpolicies"
-    group: "authentication.istio.io"
-    version: "v1alpha1"
-    clusterScoped: true
-    proto: "istio.authentication.v1alpha1.Policy"
-    protoPackage: "istio.io/api/authentication/v1alpha1"
-    validate: "ValidateAuthenticationPolicy"
-    description: "describes an authentication policy at mesh level."
 
   - kind: "MeshConfig"
     plural: "meshconfigs"

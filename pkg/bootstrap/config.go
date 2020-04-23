@@ -537,7 +537,11 @@ func ParseDownwardAPI(i string) (map[string]string, error) {
 		}
 		key := sl[0]
 		// Strip the leading/trailing quotes
-		val := sl[1][1 : len(sl[1])-1]
+
+		val, err := strconv.Unquote(sl[1])
+		if err != nil {
+			return nil, fmt.Errorf("failed to unquote %v: %v", sl[1], err)
+		}
 		res[key] = val
 	}
 	return res, nil

@@ -22,12 +22,12 @@ import (
 
 	"github.com/cheggaaa/pb/v3"
 	jsonpatch "github.com/evanphx/json-patch"
+	"helm.sh/helm/v3/pkg/releaseutil"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/helm/pkg/manifest"
 	util2 "k8s.io/kubectl/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -173,7 +173,7 @@ func MergeIOPSWithProfile(iop *valuesv1alpha1.IstioOperator) (*v1alpha1.IstioOpe
 }
 
 // ProcessManifest apply the manifest to create or update resources, returns the number of objects processed
-func (h *HelmReconciler) ProcessManifest(manifests []manifest.Manifest) (object.K8sObjects, error) {
+func (h *HelmReconciler) ProcessManifest(manifests []releaseutil.Manifest) (object.K8sObjects, error) {
 	var processedObjects object.K8sObjects
 	for _, manifest := range manifests {
 		var errs util.Errors
@@ -181,7 +181,8 @@ func (h *HelmReconciler) ProcessManifest(manifests []manifest.Manifest) (object.
 		if err != nil {
 			return nil, err
 		}
-		crName := objAccessor.GetName() + "-" + manifest.Name
+		crName := objAccessor.GetName()
+		owningResource := crName + "-" + manifest.Name
 		scope.Infof("Processing resources from manifest: %s for CR %s", manifest.Name, crName)
 		allObjects, err := object.ParseK8sObjectsFromYAMLManifest(manifest.Content)
 		if err != nil {
@@ -192,13 +193,13 @@ func (h *HelmReconciler) ProcessManifest(manifests []manifest.Manifest) (object.
 
 		// Create and/or get the cache corresponding to the CR crName we're processing. Per crName partitioning is required to
 		// prune the cache to remove any objects not in the manifest generated for a given CR.
-		if objectCaches[crName] == nil {
-			objectCaches[crName] = &ObjectCache{
+		if objectCaches[owningResource] == nil {
+			objectCaches[owningResource] = &ObjectCache{
 				cache: make(map[string]*object.K8sObject),
 				mu:    &sync.RWMutex{},
 			}
 		}
-		objectCache := objectCaches[crName]
+		objectCache := objectCaches[owningResource]
 
 		objectCachesMu.Unlock()
 
@@ -238,7 +239,7 @@ func (h *HelmReconciler) ProcessManifest(manifests []manifest.Manifest) (object.
 		// For each changed object, write it to the API server.
 		for _, obj := range changedObjects {
 			obju := obj.UnstructuredObject()
-			if err := applyLabelsAndAnnotations(obju, manifest.Name, h.iop.Spec.Revision, crName); err != nil {
+			if err := applyLabelsAndAnnotations(obju, manifest.Name, h.iop.Spec.Revision, owningResource, crName); err != nil {
 				return nil, err
 			}
 			if err := h.ProcessObject(manifest.Name, obj.UnstructuredObject()); err != nil {
@@ -281,7 +282,7 @@ func (h *HelmReconciler) ProcessManifest(manifests []manifest.Manifest) (object.
 }
 
 // applyLabelsAndAnnotations applies owner labels and annotations to the object.
-func applyLabelsAndAnnotations(obj runtime.Object, componentName, revision, crName string) error {
+func applyLabelsAndAnnotations(obj runtime.Object, componentName, revision, owningResource, crName string) error {
 	labels := make(map[string]string)
 
 	componentLabelValue := componentName
@@ -295,9 +296,14 @@ func applyLabelsAndAnnotations(obj runtime.Object, componentName, revision, crNa
 	}
 
 	labels[operatorLabelStr] = operatorReconcileStr
-	labels[owningResourceKey] = crName
+	labels[owningResourceKey] = owningResource
 	labels[istioComponentLabelStr] = componentLabelValue
 	labels[istioVersionLabelStr] = pkgversion.Info.Version
+
+	// add owner labels
+	labels[OwnerNameKey] = crName
+	labels[OwnerGroupKey] = valuesv1alpha1.IstioOperatorGVK.Group
+	labels[OwnerKindKey] = valuesv1alpha1.IstioOperatorGVK.Kind
 
 	for k, v := range labels {
 		err := util.SetLabel(obj, k, v)
@@ -378,7 +384,7 @@ func applyOverlay(current, overlay runtime.Object) error {
 func toChartManifestsMap(m name.ManifestMap) ChartManifestsMap {
 	out := make(ChartManifestsMap)
 	for k, v := range m {
-		out[string(k)] = []manifest.Manifest{{
+		out[string(k)] = []releaseutil.Manifest{{
 			Name:    string(k),
 			Content: strings.Join(v, helm.YAMLSeparator),
 		}}

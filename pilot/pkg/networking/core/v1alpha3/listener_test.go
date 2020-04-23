@@ -1408,11 +1408,127 @@ func TestHttpProxyListener(t *testing.T) {
 
 func TestHttpProxyListener_Tracing(t *testing.T) {
 	var customTagsTest = []struct {
-		name   string
-		in     *meshconfig.Tracing
-		out    *http_filter.HttpConnectionManager_Tracing
-		tproxy model.Proxy
+		name             string
+		in               *meshconfig.Tracing
+		out              *http_filter.HttpConnectionManager_Tracing
+		tproxy           model.Proxy
+		envPilotSampling float64
 	}{
+		{
+			name:             "random-sampling-env",
+			tproxy:           proxy,
+			envPilotSampling: 80.0,
+			in: &meshconfig.Tracing{
+				Tracer:           nil,
+				CustomTags:       nil,
+				MaxPathTagLength: 0,
+				Sampling:         0,
+			},
+			out: &http_filter.HttpConnectionManager_Tracing{
+				MaxPathTagLength: nil,
+				ClientSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				RandomSampling: &envoy_type.Percent{
+					Value: 80.0,
+				},
+				OverallSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+			},
+		},
+		{
+			name:             "random-sampling-env-and-meshconfig",
+			tproxy:           proxy,
+			envPilotSampling: 80.0,
+			in: &meshconfig.Tracing{
+				Tracer:           nil,
+				CustomTags:       nil,
+				MaxPathTagLength: 0,
+				Sampling:         10,
+			},
+			out: &http_filter.HttpConnectionManager_Tracing{
+				MaxPathTagLength: nil,
+				ClientSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				RandomSampling: &envoy_type.Percent{
+					Value: 10.0,
+				},
+				OverallSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+			},
+		},
+		{
+			name:             "random-sampling-too-low-env",
+			tproxy:           proxy,
+			envPilotSampling: -1,
+			in: &meshconfig.Tracing{
+				Tracer:           nil,
+				CustomTags:       nil,
+				MaxPathTagLength: 0,
+				Sampling:         300,
+			},
+			out: &http_filter.HttpConnectionManager_Tracing{
+				MaxPathTagLength: nil,
+				ClientSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				RandomSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				OverallSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+			},
+		},
+		{
+			name:             "random-sampling-too-high-meshconfig",
+			tproxy:           proxy,
+			envPilotSampling: 80.0,
+			in: &meshconfig.Tracing{
+				Tracer:           nil,
+				CustomTags:       nil,
+				MaxPathTagLength: 0,
+				Sampling:         300,
+			},
+			out: &http_filter.HttpConnectionManager_Tracing{
+				MaxPathTagLength: nil,
+				ClientSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				RandomSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				OverallSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+			},
+		},
+		{
+			name:             "random-sampling-too-high-env",
+			tproxy:           proxy,
+			envPilotSampling: 2000.0,
+			in: &meshconfig.Tracing{
+				Tracer:           nil,
+				CustomTags:       nil,
+				MaxPathTagLength: 0,
+				Sampling:         300,
+			},
+			out: &http_filter.HttpConnectionManager_Tracing{
+				MaxPathTagLength: nil,
+				ClientSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				RandomSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+				OverallSampling: &envoy_type.Percent{
+					Value: 100.0,
+				},
+			},
+		},
 		{
 			// upstream will set the default to 256 per
 			// its documentation
@@ -1562,7 +1678,17 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				MaxPathTagLength: &wrappers.UInt32Value{
 					Value: 100,
 				},
-				CustomTags: nil,
+				CustomTags: []*envoy_type_tracing_v2.CustomTag{
+					{
+						Tag: "custom_tag_request_header",
+						Type: &envoy_type_tracing_v2.CustomTag_RequestHeader{
+							RequestHeader: &envoy_type_tracing_v2.CustomTag_Header{
+								Name:         "custom_tag_request_header_name",
+								DefaultValue: "custom-defaulted-value-request-header",
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -1570,6 +1696,13 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 
 	for _, tc := range customTagsTest {
+		featuresSet := false
+		capturedSamplingValue := pilotTraceSamplingEnv
+		if tc.envPilotSampling != 0.0 {
+			pilotTraceSamplingEnv = tc.envPilotSampling
+			featuresSet = true
+		}
+
 		env := buildListenerEnv(nil, nil)
 		if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 			t.Fatalf("error in initializing push context: %s", err)
@@ -1591,6 +1724,10 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 
 		f := httpProxy.FilterChains[0].Filters[0]
 		verifyHTTPConnectionManagerFilter(t, f, tc.out, tc.name)
+
+		if featuresSet {
+			pilotTraceSamplingEnv = capturedSamplingValue
+		}
 	}
 }
 

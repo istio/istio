@@ -30,18 +30,21 @@ import (
 	"strings"
 	"text/template"
 
-	"istio.io/istio/pkg/config/mesh"
-
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
+
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pilot/pkg/model"
 
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/batch/v2alpha1"
@@ -89,8 +92,17 @@ var (
 		annotation.SidecarTrafficExcludeOutboundPorts.Name:        ValidateExcludeOutboundPorts,
 		annotation.SidecarTrafficKubevirtInterfaces.Name:          alwaysValidFunc,
 		annotation.PrometheusMergeMetrics.Name:                    validateBool,
+		ProxyConfigAnnotation:                                     validateProxyConfig,
 	}
 )
+
+func validateProxyConfig(value string) error {
+	config := mesh.DefaultProxyConfig()
+	if err := gogoprotomarshal.ApplyYAML(value, &config); err != nil {
+		return fmt.Errorf("failed to convert to apply proxy config: %v", err)
+	}
+	return validation.ValidateProxyConfig(&config)
+}
 
 func validateAnnotations(annotations map[string]string) (err error) {
 	for name, value := range annotations {
@@ -426,9 +438,12 @@ func flippedContains(needle, haystack string) bool {
 	return strings.Contains(haystack, needle)
 }
 
+// ProxyConfigAnnotation determines the mesh config overrides for a workloadTODO move this to API
+var ProxyConfigAnnotation = "istio.io/proxyConfig"
+
 // InjectionData renders sidecarTemplate with valuesConfig.
 func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *metav1.TypeMeta, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec,
-	metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (
+	metadata *metav1.ObjectMeta, meshConfig *meshconfig.MeshConfig) (
 	*SidecarInjectionSpec, string, error) {
 
 	// If DNSPolicy is not ClusterFirst, the Envoy sidecar may not able to connect to Istio Pilot.
@@ -449,12 +464,19 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 		return nil, "", multierror.Prefix(err, "could not parse configuration values:")
 	}
 
+	if pca, f := metadata.GetAnnotations()[ProxyConfigAnnotation]; f {
+		var merr error
+		meshConfig, merr = mesh.ApplyProxyConfig(pca, *meshConfig)
+		if merr != nil {
+			return nil, "", merr
+		}
+	}
 	data := SidecarTemplateData{
 		TypeMeta:       typeMetadata,
 		DeploymentMeta: deploymentMetadata,
 		ObjectMeta:     metadata,
 		Spec:           spec,
-		ProxyConfig:    proxyConfig,
+		ProxyConfig:    meshConfig.GetDefaultConfig(),
 		MeshConfig:     meshConfig,
 		Values:         values,
 	}
@@ -724,7 +746,6 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 		deploymentMetadata,
 		podSpec,
 		metadata,
-		meshconfig.DefaultConfig,
 		meshconfig)
 	if err != nil {
 		return nil, err
@@ -975,8 +996,8 @@ func cleanMeshConfig(v proto.Message) proto.Message {
 	if cpy.IngressControllerMode == defaults.IngressControllerMode {
 		cpy.IngressControllerMode = meshconfig.MeshConfig_UNSPECIFIED
 	}
-	if reflect.DeepEqual(cpy.ClusterLocalNamespaces, defaults.ClusterLocalNamespaces) {
-		cpy.ClusterLocalNamespaces = nil
+	if reflect.DeepEqual(cpy.ServiceSettings, defaults.ServiceSettings) {
+		cpy.ServiceSettings = nil
 	}
 	return &cpy
 }
