@@ -22,8 +22,18 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"time"
 
+	"helm.sh/helm/v3/pkg/releaseutil"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/pkg/log"
 )
 
@@ -101,4 +111,95 @@ func confirm(msg string, writer io.Writer) bool {
 	}
 
 	return false
+}
+
+func K8sConfig(kubeConfigPath string, context string) (*rest.Config, *kubernetes.Clientset, client.Client, error) {
+	restConfig, clientset, err := InitK8SRestClient(kubeConfigPath, context)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	// We are running a one-off command locally, so we don't need to worry too much about rate limitting
+	// Bumping this up greatly decreases install time
+	restConfig.QPS = 50
+	restConfig.Burst = 100
+	client, err := client.New(restConfig, client.Options{Scheme: scheme.Scheme})
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return restConfig, clientset, client, nil
+}
+
+// Options contains the startup options for applying the manifest.
+type Options struct {
+	// Path to the kubeconfig file.
+	Kubeconfig string
+	// ComponentName of the kubeconfig context to use.
+	Context string
+	// DryRun performs all steps except actually applying the manifests or creating output dirs/files.
+	DryRun bool
+	// Wait for resources to be ready after install.
+	Wait bool
+	// Maximum amount of time to wait for resources to be ready after install when Wait=true.
+	WaitTimeout time.Duration
+}
+
+func applyManifest(restConfig *rest.Config, client client.Client, manifestStr, componentName string, opts *Options, l clog.Logger) bool {
+	// Needed in case we are running a test through this path that doesn't start a new process.
+	helmreconciler.FlushObjectCaches()
+	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, nil, &helmreconciler.Options{DryRun: opts.DryRun, Log: l})
+	if err != nil {
+		l.LogAndError(err)
+		return false
+	}
+	ms := []releaseutil.Manifest{{
+		Name:    componentName,
+		Content: manifestStr,
+	}}
+	_, err = reconciler.ProcessManifest(ms, true)
+	if err != nil {
+		l.LogAndError(err)
+		return false
+	}
+	return true
+}
+
+func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource string, istioNamespace string, err error) {
+	if filePath == "" {
+		return "", "", nil
+	}
+
+	_, mergedIOPS, err := GenerateConfig([]string{filePath}, "", false, nil, l)
+	if err != nil {
+		return "", "", err
+	}
+
+	b, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return "", "", fmt.Errorf("could not read values from file %s: %s", filePath, err)
+	}
+	customResource = string(b)
+	istioNamespace = v1alpha1.Namespace(mergedIOPS)
+	return
+}
+
+func genNamespaceResource(namespace string) string {
+	tmpl := `
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    istio-injection: disabled
+  name: {{.Namespace}}
+`
+
+	tv := struct {
+		Namespace string
+	}{
+		Namespace: namespace,
+	}
+	vals, err := util.RenderTemplate(tmpl, tv)
+	if err != nil {
+		return ""
+	}
+	return vals
 }

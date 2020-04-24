@@ -26,7 +26,6 @@ import (
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/helm"
-	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
@@ -110,7 +109,7 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 		if err := os.MkdirAll(mgArgs.outFilename, os.ModePerm); err != nil {
 			return err
 		}
-		if err := manifest.RenderToDir(manifests, mgArgs.outFilename, args.dryRun); err != nil {
+		if err := RenderToDir(manifests, mgArgs.outFilename, args.dryRun, l); err != nil {
 			return err
 		}
 	}

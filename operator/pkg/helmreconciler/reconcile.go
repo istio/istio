@@ -74,13 +74,11 @@ func init() {
 
 // HelmReconciler reconciles resources rendered by a set of helm charts.
 type HelmReconciler struct {
-	client             client.Client
-	restConfig         *rest.Config
-	clientSet          *kubernetes.Clientset
-	iop                *valuesv1alpha1.IstioOperator
-	pruningDetails     PruningDetails
-	opts               *Options
-	needUpdateAndPrune bool
+	client     client.Client
+	restConfig *rest.Config
+	clientSet  *kubernetes.Clientset
+	iop        *valuesv1alpha1.IstioOperator
+	opts       *Options
 	// copy of the last generated manifests.
 	manifests name.ManifestMap
 }
@@ -115,13 +113,11 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *value
 		return nil, err
 	}
 	return &HelmReconciler{
-		client:             client,
-		restConfig:         restConfig,
-		clientSet:          cs,
-		iop:                iop,
-		pruningDetails:     NewIstioPruningDetails(iop),
-		opts:               opts,
-		needUpdateAndPrune: true,
+		client:     client,
+		restConfig: restConfig,
+		clientSet:  cs,
+		iop:        iop,
+		opts:       opts,
 	}, nil
 }
 
@@ -132,14 +128,7 @@ func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
 		return nil, err
 	}
 
-	status := h.processRecursive(manifestMap)
-
-	// Delete any resources not in the manifest but managed by operator.
-	if h.needUpdateAndPrune {
-		err = h.Prune(allObjectHashes(manifestMap), false)
-	}
-
-	return status, err
+	return h.processRecursive(manifestMap), h.Prune(manifestMap)
 }
 
 // processRecursive processes the given manifests in an order of dependencies defined in h. Dependencies are a tree,
@@ -204,8 +193,11 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1
 
 // Delete resources associated with the custom resource instance
 func (h *HelmReconciler) Delete() error {
-	h.needUpdateAndPrune = true
-	return h.Prune(nil, true)
+	manifestMap, err := h.RenderCharts()
+	if err != nil {
+		return err
+	}
+	return h.Prune(manifestMap)
 }
 
 // SetStatusBegin updates the status field on the IstioOperator instance before reconciling.
@@ -291,19 +283,16 @@ func overallStatus(componentStatus map[string]*v1alpha1.InstallStatus_VersionSta
 }
 
 // allObjectHashes returns a map with object hashes of all the objects contained in cmm as the keys.
-func allObjectHashes(cmm ChartManifestsMap) map[string]bool {
+func allObjectHashes(m string) map[string]bool {
 	ret := make(map[string]bool)
-	for _, mm := range cmm {
-		for _, m := range mm {
-			objs, err := object.ParseK8sObjectsFromYAMLManifest(m.Content)
-			if err != nil {
-				scope.Error(err.Error())
-			}
-			for _, o := range objs {
-				ret[o.Hash()] = true
-			}
-		}
+	objs, err := object.ParseK8sObjectsFromYAMLManifest(m)
+	if err != nil {
+		scope.Error(err.Error())
 	}
+	for _, o := range objs {
+		ret[o.Hash()] = true
+	}
+
 	return ret
 }
 
