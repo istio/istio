@@ -231,7 +231,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 	// Save the manifest generate output so we can later cleanup
 	genCmd := []string{"manifest", "generate"}
 	genCmd = append(genCmd, installSettings...)
-	out, err := istioCtl.Invoke(genCmd)
+	out, _, err := istioCtl.Invoke(genCmd)
 	if err != nil {
 		return err
 	}
@@ -246,7 +246,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 	}
 	cmd = append(cmd, installSettings...)
 	scopes.CI.Infof("Running istio control plane on cluster %s %v", cluster.Name(), cmd)
-	if _, err := istioCtl.Invoke(cmd); err != nil {
+	if _, _, err := istioCtl.Invoke(cmd); err != nil {
 		return fmt.Errorf("manifest apply failed: %v", err)
 	}
 
@@ -299,7 +299,7 @@ func createRemoteSecret(ctx resource.Context, cluster kube.Cluster) (string, err
 	}
 
 	scopes.CI.Infof("Creating remote secret for cluster cluster %d %v", cluster.Index(), cmd)
-	out, err := istioCtl.Invoke(cmd)
+	out, _, err := istioCtl.Invoke(cmd)
 	if err != nil {
 		return "", fmt.Errorf("create remote secret failed for cluster %d: %v", cluster.Index(), err)
 	}

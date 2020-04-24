@@ -271,7 +271,7 @@ func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Insta
 	if originalIOPFile != "" {
 		generateCmd = append(generateCmd, "-f", originalIOPFile)
 	}
-	genManifests := istioCtl.InvokeOrFail(t, generateCmd)
+	genManifests, _ := istioCtl.InvokeOrFail(t, generateCmd)
 	genK8SObjects, err := object.ParseK8sObjectsFromYAMLManifest(genManifests)
 	if err != nil {
 		return fmt.Errorf("failed to parse generated manifest: %v", err)
