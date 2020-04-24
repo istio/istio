@@ -384,7 +384,7 @@ func TestSignCSRForWorkload_RSA(t *testing.T) {
 		t.Error(err)
 	}
 
-	ca, err := createCARSA(time.Hour)
+	ca, err := createCA(time.Hour, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -440,7 +440,7 @@ func TestSignCSRForWorkload_EC(t *testing.T) {
 		t.Error(err)
 	}
 
-	ca, err := createCAEC(time.Hour)
+	ca, err := createCA(time.Hour, true)
 	if err != nil {
 		t.Error(err)
 	}
@@ -495,7 +495,7 @@ func TestSignCSRForCA(t *testing.T) {
 		t.Error(err)
 	}
 
-	ca, err := createCARSA(365 * 24 * time.Hour)
+	ca, err := createCA(365*24*time.Hour, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -549,7 +549,7 @@ func TestSignCSRTTLError(t *testing.T) {
 		t.Error(err)
 	}
 
-	ca, err := createCARSA(2 * time.Hour)
+	ca, err := createCA(2*time.Hour, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -687,71 +687,19 @@ func TestGenKeyCert(t *testing.T) {
 	}
 }
 
-func createCARSA(maxTTL time.Duration) (*IstioCA, error) {
+func createCA(maxTTL time.Duration, isEC bool) (*IstioCA, error) {
 	// Generate root CA key and cert.
 	rootCAOpts := util.CertOptions{
 		IsCA:         true,
 		IsSelfSigned: true,
 		TTL:          time.Hour,
 		Org:          "Root CA",
-		RSAKeySize:   2048,
-	}
-	rootCertBytes, rootKeyBytes, err := util.GenCertKeyFromOptions(rootCAOpts)
-	if err != nil {
-		return nil, err
 	}
 
-	rootCert, err := util.ParsePemEncodedCertificate(rootCertBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	rootKey, err := util.ParsePemEncodedKey(rootKeyBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	intermediateCAOpts := util.CertOptions{
-		IsCA:         true,
-		IsSelfSigned: false,
-		TTL:          time.Hour,
-		Org:          "Intermediate CA",
-		RSAKeySize:   2048,
-		SignerCert:   rootCert,
-		SignerPriv:   rootKey,
-	}
-	intermediateCert, intermediateKey, err := util.GenCertKeyFromOptions(intermediateCAOpts)
-	if err != nil {
-		return nil, err
-	}
-
-	bundle, err := util.NewVerifiedKeyCertBundleFromPem(
-		intermediateCert, intermediateKey, intermediateCert, rootCertBytes)
-	if err != nil {
-		return nil, err
-	}
-	// Disable root cert rotator by setting root cert check interval to 0ns.
-	rootCertCheckInverval := time.Duration(0)
-	caOpts := &IstioCAOptions{
-		DefaultCertTTL: time.Hour,
-		MaxCertTTL:     maxTTL,
-		KeyCertBundle:  bundle,
-		RotatorConfig: &SelfSignedCARootCertRotatorConfig{
-			CheckInterval: rootCertCheckInverval,
-		},
-	}
-
-	return NewIstioCA(caOpts)
-}
-
-func createCAEC(maxTTL time.Duration) (*IstioCA, error) {
-	// Generate root CA key and cert.
-	rootCAOpts := util.CertOptions{
-		IsCA:         true,
-		IsSelfSigned: true,
-		TTL:          time.Hour,
-		Org:          "Root CA",
-		IsEC:         true,
+	if isEC {
+		rootCAOpts.IsEC = true
+	} else {
+		rootCAOpts.RSAKeySize = 2048
 	}
 	rootCertBytes, rootKeyBytes, err := util.GenCertKeyFromOptions(rootCAOpts)
 	if err != nil {
@@ -775,7 +723,12 @@ func createCAEC(maxTTL time.Duration) (*IstioCA, error) {
 		Org:          "Intermediate CA",
 		SignerCert:   rootCert,
 		SignerPriv:   rootKey,
-		IsEC:         true,
+	}
+
+	if isEC {
+		intermediateCAOpts.IsEC = true
+	} else {
+		intermediateCAOpts.RSAKeySize = 2048
 	}
 	intermediateCert, intermediateKey, err := util.GenCertKeyFromOptions(intermediateCAOpts)
 	if err != nil {
