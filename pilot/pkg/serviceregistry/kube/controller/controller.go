@@ -176,6 +176,7 @@ type Controller struct {
 	metrics              model.Metrics
 	networksWatcher      mesh.NetworksWatcher
 	xdsUpdater           model.XDSUpdater
+	serviceEntryCallback func(pod *v1.Pod, ev model.Event)
 	domainSuffix         string
 	clusterID            string
 
@@ -260,6 +261,10 @@ func (c *Controller) Provider() serviceregistry.ProviderID {
 
 func (c *Controller) Cluster() string {
 	return c.clusterID
+}
+
+func (c *Controller) RegisterServiceEntryCallback(callback func(pod *v1.Pod, ev model.Event)) {
+	c.serviceEntryCallback = callback
 }
 
 func (c *Controller) checkReadyForEvents() error {
@@ -869,7 +874,7 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 	for tp, svcPort := range tps {
 		// consider multiple IP scenarios
 		for _, ip := range proxy.IPAddresses {
-			istioEndpoint := builder.buildIstioEndpoint(ip, int32(tp.Port), svcPort.Name)
+			istioEndpoint := builder.BuildIstioEndpoint(ip, int32(tp.Port), svcPort.Name)
 			out = append(out, &model.ServiceInstance{
 				Service:     svc,
 				ServicePort: svcPort,
@@ -977,7 +982,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 				// EDS and ServiceEntry use name for service port - ADS will need to
 				// map to numbers.
 				for _, port := range ss.Ports {
-					istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, port.Name)
+					istioEndpoint := builder.BuildIstioEndpoint(ea.IP, port.Port, port.Name)
 					endpoints = append(endpoints, istioEndpoint)
 				}
 			}

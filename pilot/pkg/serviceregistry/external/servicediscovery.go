@@ -18,12 +18,15 @@ import (
 	"reflect"
 	"sync"
 
+	v1 "k8s.io/api/core/v1"
+
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -55,6 +58,7 @@ type externalConfigType int
 const (
 	serviceEntryConfigType externalConfigType = iota
 	workloadEntryConfigType
+	kubernetesPodType
 )
 
 // configKey unique identifies a config object managed by this registry (ServiceEntry and WorkloadEntry)
@@ -81,7 +85,8 @@ type ServiceEntryStore struct {
 }
 
 // NewServiceDiscovery creates a new ServiceEntry discovery service
-func NewServiceDiscovery(configController model.ConfigStoreCache, store model.IstioConfigStore, xdsUpdater model.XDSUpdater) *ServiceEntryStore {
+func NewServiceDiscovery(configController model.ConfigStoreCache, store model.IstioConfigStore,
+	xdsUpdater model.XDSUpdater, kubernetesController *kube.Controller) *ServiceEntryStore {
 	c := &ServiceEntryStore{
 		XdsUpdater:     xdsUpdater,
 		store:          store,
@@ -92,6 +97,9 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 	if configController != nil {
 		configController.RegisterEventHandler(serviceEntryKind, getServiceEntryHandler(c))
 		configController.RegisterEventHandler(workloadEntryKind, getWorkloadEntryHandler(c))
+	}
+	if kubernetesController != nil {
+		kubernetesController.RegisterServiceEntryCallback(getPodHandler(c, kubernetesController))
 	}
 	return c
 }
@@ -186,6 +194,42 @@ func getServiceEntryHandler(c *ServiceEntryStore) func(model.Config, model.Confi
 			c.updateExistingInstances(key, instances)
 			c.edsUpdate(instances)
 		}
+	}
+}
+
+// getWorkloadEntryHandler defines the handler for workload entries
+func getPodHandler(c *ServiceEntryStore, kubeController *kube.Controller) func(*v1.Pod, model.Event) {
+	return func(pod *v1.Pod, event model.Event) {
+		c.storeMutex.RLock()
+		// We will only select entries in the same namespace
+		entries := c.seWithSelectorByNamespace[pod.Namespace]
+		c.storeMutex.RUnlock()
+
+		instances := []*model.ServiceInstance{}
+		// For deletes we keep this list empty, which will trigger a deletion
+		for _, se := range entries {
+			workloadLabels := labels.Collection{pod.Labels}
+			if !workloadLabels.IsSupersetOf(se.entry.WorkloadSelector.Labels) {
+				// Not a match, skip this one
+				continue
+			}
+			instance := convertPodToServiceInstances(kubeController, pod, se.services, se.entry)
+			instances = append(instances, instance...)
+		}
+
+		key := configKey{
+			kind:      kubernetesPodType,
+			name:      pod.Name,
+			namespace: pod.Namespace,
+		}
+
+		if event != model.EventDelete {
+			c.updateExistingInstances(key, instances)
+		} else {
+			c.deleteExistingInstances(key, instances)
+		}
+
+		c.edsUpdate(instances)
 	}
 }
 
