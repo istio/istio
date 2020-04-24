@@ -17,8 +17,6 @@ package mesh
 import (
 	"fmt"
 	"io/ioutil"
-	"sort"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -28,7 +26,6 @@ import (
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helmreconciler"
-	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	buildversion "istio.io/pkg/version"
@@ -213,13 +210,4 @@ metadata:
 		return ""
 	}
 	return vals
-}
-
-func k8sObjectsString(objs object.K8sObjects) string {
-	var out []string
-	for _, o := range objs {
-		out = append(out, fmt.Sprintf("- %s/%s/%s", o.Kind, o.Namespace, o.Name))
-	}
-	sort.Strings(out)
-	return strings.Join(out, "\n")
 }

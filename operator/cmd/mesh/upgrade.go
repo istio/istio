@@ -23,7 +23,7 @@ import (
 	"github.com/docker/distribution/reference"
 	goversion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
 
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"

@@ -1,3 +1,17 @@
+// Copyright 2019 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package helmreconciler
 
 import (
@@ -39,7 +53,8 @@ type deployment struct {
 
 // WaitForResources polls to get the current status of all pods, PVCs, and Services
 // until all are ready or a timeout is reached
-func WaitForResources(objects object.K8sObjects, restConfig *rest.Config, cs kubernetes.Interface, waitTimeout time.Duration, dryRun bool, l clog.Logger) error {
+func WaitForResources(objects object.K8sObjects, restConfig *rest.Config, cs kubernetes.Interface,
+	waitTimeout time.Duration, dryRun bool, l clog.Logger) error {
 	if dryRun {
 		l.LogAndPrint("Not waiting for resources ready in dry run mode.")
 		return nil
