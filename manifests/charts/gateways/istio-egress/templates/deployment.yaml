@@ -196,7 +196,7 @@ spec:
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
           volumeMounts:
-          - name: istioproxyconfig
+          - name: istio-envoy
             mountPath: /etc/istio/proxy
           - name: config-volume
             mountPath: /etc/istio/config
@@ -240,7 +240,7 @@ spec:
             - path: "annotations"
               fieldRef:
                 fieldPath: metadata.annotations
-      - name: istioproxyconfig
+      - name: istio-envoy
         emptyDir: {}
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
