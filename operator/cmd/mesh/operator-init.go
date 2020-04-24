@@ -121,16 +121,18 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 		l.LogAndFatal(err)
 	}
 
-	success := applyManifest(restConfig, client, mstr, istioControllerComponentName, opts, l)
-
-	if customResource != "" {
-		success = success && applyManifest(restConfig, client, genNamespaceResource(istioNamespace), istioNamespaceComponentName, opts, l)
-		success = success && applyManifest(restConfig, client, customResource, istioOperatorCRComponentName, opts, l)
+	if err := applyManifest(restConfig, client, mstr, istioControllerComponentName, opts, l); err != nil {
+		l.LogAndFatal(err)
 	}
 
-	if !success {
-		l.LogAndPrint("\n*** Errors were logged during apply operation. Please check component installation logs above. ***\n")
-		return
+	if customResource != "" {
+		if err := CreateNamespace(clientset, istioNamespace); err != nil {
+			l.LogAndFatal(err)
+
+		}
+		if err := applyManifest(restConfig, client, customResource, istioOperatorCRComponentName, opts, l); err != nil {
+			l.LogAndFatal(err)
+		}
 	}
 
 	l.LogAndPrint("\n*** Success. ***\n")
