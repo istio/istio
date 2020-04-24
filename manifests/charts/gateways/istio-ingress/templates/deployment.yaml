@@ -46,11 +46,13 @@ spec:
 {{ toYaml $gateway.podAnnotations | indent 8 }}
 {{ end }}
     spec:
+{{- if not $gateway.runAsRoot }}
       securityContext:
         runAsUser: 1337
         runAsGroup: 1337
         runAsNonRoot: true
         fsGroup: 1337
+{{- end }}
       serviceAccountName: istio-ingressgateway-service-account
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
