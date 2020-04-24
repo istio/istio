@@ -44,6 +44,9 @@ func GenCSR(options CertOptions) ([]byte, []byte, error) {
 	var err error
 	if options.IsEC {
 		priv, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if err != nil {
+			return nil, nil, fmt.Errorf("EC key generation failed (%v)", err)
+		}
 	} else {
 		priv, err = rsa.GenerateKey(rand.Reader, options.RSAKeySize)
 		if err != nil {

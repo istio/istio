@@ -198,11 +198,11 @@ func (b *KeyCertBundleImpl) CertOptions() (*CertOptions, error) {
 	}
 
 	opts := &CertOptions{
-		Host:       ids[0],
-		Org:        b.cert.Issuer.Organization[0],
-		IsCA:       b.cert.IsCA,
-		TTL:        b.cert.NotAfter.Sub(b.cert.NotBefore),
-		IsDualUse:  ids[0] == b.cert.Subject.CommonName,
+		Host:      ids[0],
+		Org:       b.cert.Issuer.Organization[0],
+		IsCA:      b.cert.IsCA,
+		TTL:       b.cert.NotAfter.Sub(b.cert.NotBefore),
+		IsDualUse: ids[0] == b.cert.Subject.CommonName,
 	}
 
 	switch (*b.privKey).(type) {

@@ -384,7 +384,7 @@ func TestSignCSRForWorkload_RSA(t *testing.T) {
 		t.Error(err)
 	}
 
-	ca, err := createCA_RSA(time.Hour)
+	ca, err := createCARSA(time.Hour)
 	if err != nil {
 		t.Error(err)
 	}
@@ -440,7 +440,7 @@ func TestSignCSRForWorkload_EC(t *testing.T) {
 		t.Error(err)
 	}
 
-	ca, err := createCA_EC(time.Hour)
+	ca, err := createCAEC(time.Hour)
 	if err != nil {
 		t.Error(err)
 	}
@@ -495,7 +495,7 @@ func TestSignCSRForCA(t *testing.T) {
 		t.Error(err)
 	}
 
-	ca, err := createCA_RSA(365 * 24 * time.Hour)
+	ca, err := createCARSA(365 * 24 * time.Hour)
 	if err != nil {
 		t.Error(err)
 	}
@@ -549,7 +549,7 @@ func TestSignCSRTTLError(t *testing.T) {
 		t.Error(err)
 	}
 
-	ca, err := createCA_RSA(2 * time.Hour)
+	ca, err := createCARSA(2 * time.Hour)
 	if err != nil {
 		t.Error(err)
 	}
@@ -687,7 +687,7 @@ func TestGenKeyCert(t *testing.T) {
 	}
 }
 
-func createCA_RSA(maxTTL time.Duration) (*IstioCA, error) {
+func createCARSA(maxTTL time.Duration) (*IstioCA, error) {
 	// Generate root CA key and cert.
 	rootCAOpts := util.CertOptions{
 		IsCA:         true,
@@ -744,7 +744,7 @@ func createCA_RSA(maxTTL time.Duration) (*IstioCA, error) {
 	return NewIstioCA(caOpts)
 }
 
-func createCA_EC(maxTTL time.Duration) (*IstioCA, error) {
+func createCAEC(maxTTL time.Duration) (*IstioCA, error) {
 	// Generate root CA key and cert.
 	rootCAOpts := util.CertOptions{
 		IsCA:         true,
