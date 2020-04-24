@@ -333,8 +333,6 @@ func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, cert
 func (ca *IstioCA) GenKeyCert(hostnames []string, certTTL time.Duration) ([]byte, []byte, error) {
 	opts := util.CertOptions{}
 
-	// cert bundles can have errors (e.g. missing SAN)
-	// that do not matter for getting the encryption type
 	_, privKey, _, _ := ca.keyCertBundle.GetAll()
 	switch (*privKey).(type) {
 	case *rsa.PrivateKey:
