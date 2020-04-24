@@ -47,15 +47,15 @@ import (
 	kubectlutil "k8s.io/kubectl/pkg/util/deployment"
 	"k8s.io/utils/pointer"
 
+	"istio.io/pkg/log"
+
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -350,7 +350,7 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version, revis
 	if err != nil {
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
-	if err := WaitForResources(nsObjects, k8sClientset, opts.WaitTimeout, opts.DryRun, clog.NewDefaultLogger()); err != nil {
+	if err := WaitForResources(nsObjects, k8sClientset, opts.WaitTimeout, opts.DryRun, nil); err != nil {
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
 	appliedObjects = append(appliedObjects, nsObjects...)
@@ -639,7 +639,7 @@ func waitForCRDs(objects object.K8sObjects, stdout string, dryRun bool) error {
 	return nil
 }
 
-func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l clog.Logger) (bool, []string, error) {
+func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l *util.ManifestLog) (bool, []string, error) {
 	pods := []v1.Pod{}
 	deployments := []deployment{}
 	namespaces := []v1.Namespace{}
@@ -721,16 +721,15 @@ func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l clog
 	isReady := dr && nsr && pr
 	notReady := append(append(nnr, dnr...), pnr...)
 	if !isReady {
-		l.LogAndPrintf("  Waiting for resources to become ready: %s", strings.Join(notReady, ", "))
+		l.ReportWaiting(notReady)
 	}
 	return isReady, notReady, nil
 }
 
 // WaitForResources polls to get the current status of all pods, PVCs, and Services
 // until all are ready or a timeout is reached
-func WaitForResources(objects object.K8sObjects, cs kubernetes.Interface, waitTimeout time.Duration, dryRun bool, l clog.Logger) error {
+func WaitForResources(objects object.K8sObjects, cs kubernetes.Interface, waitTimeout time.Duration, dryRun bool, l *util.ManifestLog) error {
 	if dryRun {
-		l.LogAndPrint("Not waiting for resources ready in dry run mode.")
 		return nil
 	}
 
