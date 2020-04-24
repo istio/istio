@@ -35,7 +35,7 @@ import (
 
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/operator/pkg/util"
 )
 
 const (
@@ -54,9 +54,8 @@ type deployment struct {
 // WaitForResources polls to get the current status of all pods, PVCs, and Services
 // until all are ready or a timeout is reached
 func WaitForResources(objects object.K8sObjects, restConfig *rest.Config, cs kubernetes.Interface,
-	waitTimeout time.Duration, dryRun bool, l clog.Logger) error {
+	waitTimeout time.Duration, dryRun bool, l *util.ManifestLog) error {
 	if dryRun {
-		l.LogAndPrint("Not waiting for resources ready in dry run mode.")
 		return nil
 	}
 
@@ -84,7 +83,7 @@ func WaitForResources(objects object.K8sObjects, restConfig *rest.Config, cs kub
 	return nil
 }
 
-func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l clog.Logger) (bool, []string, error) {
+func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l *util.ManifestLog) (bool, []string, error) {
 	pods := []corev1.Pod{}
 	deployments := []deployment{}
 	namespaces := []corev1.Namespace{}
@@ -166,7 +165,7 @@ func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l clog
 	isReady := dr && nsr && pr
 	notReady := append(append(nnr, dnr...), pnr...)
 	if !isReady {
-		l.LogAndPrintf("  Waiting for resources to become ready: %s", strings.Join(notReady, ", "))
+		l.ReportWaiting(notReady)
 	}
 	return isReady, notReady, nil
 }

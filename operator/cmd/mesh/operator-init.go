@@ -163,7 +163,7 @@ func applyManifest(restConfig *rest.Config, client client.Client, manifestStr, c
 		Name:    componentName,
 		Content: manifestStr,
 	}}
-	_, err = reconciler.ProcessManifest(ms)
+	_, err = reconciler.ProcessManifest(ms, true)
 	if err != nil {
 		l.LogAndError(err)
 		return false

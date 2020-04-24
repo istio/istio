@@ -20,7 +20,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cheggaaa/pb/v3"
 	jsonpatch "github.com/evanphx/json-patch"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -173,7 +172,7 @@ func MergeIOPSWithProfile(iop *valuesv1alpha1.IstioOperator) (*v1alpha1.IstioOpe
 }
 
 // ProcessManifest apply the manifest to create or update resources, returns the number of objects processed
-func (h *HelmReconciler) ProcessManifest(manifests []releaseutil.Manifest) (object.K8sObjects, error) {
+func (h *HelmReconciler) ProcessManifest(manifests []releaseutil.Manifest, hasDependencies bool) (object.K8sObjects, error) {
 	var processedObjects object.K8sObjects
 	for _, m := range manifests {
 		var errs util.Errors
@@ -226,10 +225,9 @@ func (h *HelmReconciler) ProcessManifest(manifests []releaseutil.Manifest) (obje
 			changedObjectKeys = append(changedObjectKeys, oh)
 		}
 
-		var bar *pb.ProgressBar
+		var plog *util.ManifestLog
 		if len(changedObjectKeys) > 0 {
-			h.opts.Log.LogAndPrintf("Processing resources for component %s...", m.Name)
-			bar = progressBar(len(changedObjectKeys))
+			plog = h.opts.ProgressLog.NewComponent(m.Name)
 			scope.Infof("The following objects differ between generated manifest and cache: \n - %s", strings.Join(changedObjectKeys, "\n - "))
 		} else {
 			scope.Infof("Generated manifest objects are the same as cached for component %s.", m.Name)
@@ -252,17 +250,14 @@ func (h *HelmReconciler) ProcessManifest(manifests []releaseutil.Manifest) (obje
 					errs = util.AppendErr(errs, err)
 					continue
 				}
-				bar.Increment()
+				plog.ReportProgress()
 				processedObjects = append(processedObjects, obj)
 				// Update the cache with the latest object.
 				objectCache.cache[obj.Hash()] = obj
 			}
-			if err := WaitForResources(objList, h.restConfig, h.clientSet, h.opts.WaitTimeout, h.opts.DryRun, h.opts.Log); err != nil {
+			if err := WaitForResources(objList, h.restConfig, h.clientSet, internalDepTimeout, h.opts.DryRun, plog); err != nil {
 				return nil, err
 			}
-		}
-		if bar != nil {
-			bar.Finish()
 		}
 
 		// Prune anything not in the manifest out of the cache.
@@ -279,11 +274,22 @@ func (h *HelmReconciler) ProcessManifest(manifests []releaseutil.Manifest) (obje
 
 		if len(changedObjectKeys) > 0 {
 			if len(errs) != 0 {
-				h.opts.Log.LogAndPrintf("✘ Component %s installation had errors: \n%s\n", m.Name, util.ToString(errs.Dedup(), "\n"))
+				plog.ReportError(util.ToString(errs.Dedup(), "\n"))
 				return processedObjects, errs.ToError()
 			}
-			if len(allObjects) != 0 {
-				h.opts.Log.LogAndPrintf("✔ Component %s installed.", m.Name)
+
+			// If we are depending on a component, we may depend on it actually running (eg Deployment is ready)
+			// For example, for the validation webhook to become ready, so we should wait for it always.
+			if hasDependencies || h.opts.Wait {
+				err := WaitForResources(processedObjects, h.restConfig, h.clientSet, internalDepTimeout, h.opts.DryRun, plog)
+				if err != nil {
+					werr := fmt.Errorf("failed to wait for resource: %v", err)
+					plog.ReportError(werr.Error())
+					return processedObjects, werr
+				}
+				plog.ReportFinished()
+			} else {
+				plog.ReportFinished()
 			}
 		}
 	}
@@ -447,12 +453,4 @@ func (h *HelmReconciler) getCRHash(componentName string) (string, error) {
 		return "", err
 	}
 	return strings.Join([]string{crName, crNamespace, componentName}, "-"), nil
-}
-
-// progressBar returns a progress bar for a number of items.
-func progressBar(items int) *pb.ProgressBar {
-	bar := pb.StartNew(items)
-	bar.SetTemplateString(`{{counters . }} {{bar . }} {{percent . }} {{etime . "%s"}}`)
-	bar.SetWidth(100)
-	return bar
 }

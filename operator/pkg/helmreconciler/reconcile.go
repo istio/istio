@@ -30,6 +30,7 @@ import (
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 )
 
@@ -87,14 +88,12 @@ type Options struct {
 	DryRun bool
 	// Log is a console logger for user visible CLI output.
 	Log clog.Logger
-	// WaitTimeout is the maximum amount of time to wait for resources to become ready.
-	WaitTimeout time.Duration
+	// Wait determines if we will wait for resources to be fully applied.
+	Wait        bool
+	ProgressLog *util.ProgressLog
 }
 
-var defaultOptions = &Options{
-	Log:         clog.NewDefaultLogger(),
-	WaitTimeout: internalDepTimeout,
-}
+var defaultOptions = &Options{Log: clog.NewDefaultLogger()}
 
 // NewHelmReconciler creates a HelmReconciler and returns a ptr to it
 func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *valuesv1alpha1.IstioOperator, opts *Options) (*HelmReconciler, error) {
@@ -160,7 +159,7 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1
 			status := v1alpha1.InstallStatus_NONE
 			var err error
 			if len(m) != 0 {
-				if processedObjs, err = h.ProcessManifest(m); err != nil {
+				if processedObjs, err = h.ProcessManifest(m, len(componentDependencies[cn]) > 0); err != nil {
 					status = v1alpha1.InstallStatus_ERROR
 				} else if len(processedObjs) != 0 {
 					status = v1alpha1.InstallStatus_HEALTHY
