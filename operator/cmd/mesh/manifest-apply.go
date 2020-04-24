@@ -132,7 +132,7 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 }
 
 func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyArgs, logOpts *log.Options) error {
-	l := clog.NewConsoleLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
+	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr())
 	// Warn users if they use `manifest apply` without any config args.
 	if len(maArgs.inFilenames) == 0 && len(maArgs.set) == 0 && !rootArgs.dryRun && !maArgs.skipConfirmation {
 		if !confirm("This will install the default Istio profile into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
@@ -140,7 +140,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 			os.Exit(1)
 		}
 	}
-	if err := configLogs(rootArgs.logToStdErr, logOpts); err != nil {
+	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 	if err := ApplyManifests(applyInstallFlagAlias(maArgs.set, maArgs.charts), maArgs.inFilenames, maArgs.force, rootArgs.dryRun, rootArgs.verbose,

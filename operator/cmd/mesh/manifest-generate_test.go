@@ -549,7 +549,7 @@ func TestLDFlags(t *testing.T) {
 	}()
 	version.DockerInfo.Hub = "testHub"
 	version.DockerInfo.Tag = "testTag"
-	l := clog.NewConsoleLogger(true, os.Stdout, os.Stderr)
+	l := clog.NewConsoleLogger(os.Stdout, os.Stderr)
 	ysf, err := yamlFromSetFlags([]string{"installPackagePath=" + liveInstallPackageDir}, false, l)
 	if err != nil {
 		t.Fatal(err)
