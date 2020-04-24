@@ -43,18 +43,15 @@ var (
 	snapshotInstallPackageDir string
 )
 
-func initLogsOrExit(args *rootArgs) {
-	if err := configLogs(args.logToStdErr, log.DefaultOptions()); err != nil {
+func initLogsOrExit(_ *rootArgs) {
+	if err := configLogs(log.DefaultOptions()); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Could not configure logs: %s", err)
 		os.Exit(1)
 	}
 }
 
-func configLogs(logToStdErr bool, opt *log.Options) error {
-	op := []string{"/dev/null"}
-	if logToStdErr {
-		op = []string{"stderr"}
-	}
+func configLogs(opt *log.Options) error {
+	op := []string{"stderr"}
 	opt2 := *opt
 	opt2.OutputPaths = op
 	opt2.ErrorOutputPaths = op
