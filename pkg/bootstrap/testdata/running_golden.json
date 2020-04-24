@@ -219,7 +219,7 @@
   },
   "admin": {
     "access_log_path": "/dev/null",
-    "profile_path": "/tmp/bootstrap/running/envoy.prof",
+    "profile_path": "/var/lib/istio/data/envoy.prof",
     "address": {
       "socket_address": {
         "address": "127.0.0.1",
