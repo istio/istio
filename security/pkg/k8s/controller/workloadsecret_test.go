@@ -342,6 +342,12 @@ func TestUpdateSecret(t *testing.T) {
 		Resource: "namespaces",
 		Version:  "v1",
 	}
+	managedNS := createNS("managed", map[string]string{})
+	unmanagedNS := createNS("unmanaged", map[string]string{NamespaceOverrideLabel: "false"})
+	managedSecret := k8ssecret.BuildSecret("test", "istio.test", "managed",
+		certChain, caKey, rootCert, nil, nil, IstioSecretType)
+	unmanagedSecret := k8ssecret.BuildSecret("test", "istio.test", "unmanaged",
+		certChain, caKey, rootCert, nil, nil, IstioSecretType)
 
 	testCases := map[string]struct {
 		expectedActions     []ktesting.Action
@@ -354,52 +360,74 @@ func TestUpdateSecret(t *testing.T) {
 		rootCertMatchBundle bool
 		originalKCBSyncTime time.Time
 		expectedKCBSyncTime bool
+		managedNamespace    bool
 	}{
-		"Does not update non-expiring secret": {
-			expectedActions:     []ktesting.Action{},
+		"Do not update non-expiring secret": {
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(nsSchema, "managed", managedNS),
+			},
 			ttl:                 time.Hour,
 			gracePeriodRatio:    0.5,
 			minGracePeriod:      10 * time.Minute,
 			originalKCBSyncTime: time.Now(),
+			managedNamespace:    true,
 		},
 		"Update secret in grace period": {
 			expectedActions: []ktesting.Action{
-				ktesting.NewGetAction(nsSchema, "test-ns", "test-ns"),
-				ktesting.NewUpdateAction(secretSchema, "test-ns", istioTestSecret),
+				ktesting.NewCreateAction(nsSchema, "managed", managedNS),
+				ktesting.NewGetAction(nsSchema, "managed", "istio.test"),
+				ktesting.NewUpdateAction(secretSchema, "managed", managedSecret),
 			},
 			ttl:                 time.Hour,
 			gracePeriodRatio:    1, // Always in grace period
 			minGracePeriod:      10 * time.Minute,
 			originalKCBSyncTime: time.Now(),
+			managedNamespace:    true,
 		},
 		"Update secret in min grace period": {
 			expectedActions: []ktesting.Action{
-				ktesting.NewGetAction(nsSchema, "test-ns", "test-ns"),
-				ktesting.NewUpdateAction(secretSchema, "test-ns", istioTestSecret),
+				ktesting.NewCreateAction(nsSchema, "managed", managedNS),
+				ktesting.NewGetAction(nsSchema, "managed", "istio.test"),
+				ktesting.NewUpdateAction(secretSchema, "managed", managedSecret),
 			},
 			ttl:                 10 * time.Minute,
 			gracePeriodRatio:    0.5,
 			minGracePeriod:      time.Hour, // ttl is always in minGracePeriod
 			originalKCBSyncTime: time.Now(),
+			managedNamespace:    true,
 		},
 		"Update expired secret": {
 			expectedActions: []ktesting.Action{
-				ktesting.NewGetAction(nsSchema, "test-ns", "test-ns"),
-				ktesting.NewUpdateAction(secretSchema, "test-ns", istioTestSecret),
+				ktesting.NewCreateAction(nsSchema, "managed", managedNS),
+				ktesting.NewGetAction(nsSchema, "managed", "istio.test"),
+				ktesting.NewUpdateAction(secretSchema, "managed", managedSecret),
 			},
 			ttl:                 -time.Second,
 			gracePeriodRatio:    0.5,
 			minGracePeriod:      10 * time.Minute,
 			originalKCBSyncTime: time.Now(),
+			managedNamespace:    true,
+		},
+		"Do not update secret in an unmanaged namespace": {
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(nsSchema, "unmanaged", unmanagedNS),
+				ktesting.NewGetAction(nsSchema, "unmanaged", "istio.test"),
+			},
+			ttl:                 -time.Second,
+			gracePeriodRatio:    0.5,
+			minGracePeriod:      10 * time.Minute,
+			originalKCBSyncTime: time.Now(),
+			managedNamespace:    false,
 		},
 		"Reload key cert bundle and update secret with different root cert": {
 			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(nsSchema, "managed", managedNS),
 				ktesting.NewCreateAction(secretSchema, "", k8ssecret.BuildSecret("",
 					CASecret, "", nil, nil, []byte(cert1Pem),
 					[]byte(cert1Pem), []byte(key1Pem), IstioSecretType)),
 				ktesting.NewGetAction(secretSchema, "", CASecret),
-				ktesting.NewGetAction(nsSchema, "test-ns", "test-ns"),
-				ktesting.NewUpdateAction(secretSchema, "test-ns", istioTestSecret),
+				ktesting.NewGetAction(nsSchema, "managed", "istio.test"),
+				ktesting.NewUpdateAction(secretSchema, "managed", managedSecret),
 			},
 			ttl:                 time.Hour,
 			gracePeriodRatio:    0.5,
@@ -407,24 +435,28 @@ func TestUpdateSecret(t *testing.T) {
 			rootCert:            []byte("Outdated root cert"),
 			createIstioCASecret: true,
 			originalKCBSyncTime: time.Time{},
+			managedNamespace:    true,
 		},
 		"Update secret with invalid certificate": {
 			expectedActions: []ktesting.Action{
-				ktesting.NewGetAction(nsSchema, "test-ns", "test-ns"),
-				ktesting.NewUpdateAction(secretSchema, "test-ns", istioTestSecret),
+				ktesting.NewCreateAction(nsSchema, "managed", managedNS),
+				ktesting.NewGetAction(nsSchema, "managed", "istio.test"),
+				ktesting.NewUpdateAction(secretSchema, "managed", managedSecret),
 			},
 			ttl:                 time.Hour,
 			gracePeriodRatio:    0.5,
 			minGracePeriod:      10 * time.Minute,
 			certIsInvalid:       true,
 			originalKCBSyncTime: time.Now(),
+			managedNamespace:    true,
 		},
 		"Reload key cert bundle only": {
 			expectedActions: []ktesting.Action{
-				ktesting.NewCreateAction(secretSchema, "", k8ssecret.BuildSecret("",
+				ktesting.NewCreateAction(nsSchema, "managed", managedNS),
+				ktesting.NewCreateAction(secretSchema, "managed", k8ssecret.BuildSecret("",
 					CASecret, "", nil, nil, []byte(cert1Pem),
 					[]byte(cert1Pem), []byte(key1Pem), IstioSecretType)),
-				ktesting.NewGetAction(secretSchema, "", CASecret),
+				ktesting.NewGetAction(secretSchema, "managed", CASecret),
 			},
 			ttl:                 time.Hour,
 			gracePeriodRatio:    0.5,
@@ -433,14 +465,16 @@ func TestUpdateSecret(t *testing.T) {
 			rootCert:            []byte(cert1Pem),
 			originalKCBSyncTime: time.Time{},
 			expectedKCBSyncTime: true,
+			managedNamespace:    true,
 		},
 		"Skip reloading key cert bundle": {
 			expectedActions: []ktesting.Action{
-				ktesting.NewCreateAction(secretSchema, "", k8ssecret.BuildSecret("",
+				ktesting.NewCreateAction(nsSchema, "managed", managedNS),
+				ktesting.NewCreateAction(secretSchema, "managed", k8ssecret.BuildSecret("",
 					CASecret, "", nil, nil, []byte(cert1Pem),
 					[]byte(cert1Pem), []byte(key1Pem), IstioSecretType)),
-				ktesting.NewGetAction(nsSchema, "test-ns", "test-ns"),
-				ktesting.NewUpdateAction(secretSchema, "test-ns", istioTestSecret),
+				ktesting.NewGetAction(nsSchema, "managed", "istio.test"),
+				ktesting.NewUpdateAction(secretSchema, "managed", istioTestSecret),
 			},
 			ttl:                 time.Hour,
 			gracePeriodRatio:    0.5,
@@ -448,6 +482,7 @@ func TestUpdateSecret(t *testing.T) {
 			createIstioCASecret: true,
 			rootCert:            []byte(cert1Pem),
 			originalKCBSyncTime: time.Now(),
+			managedNamespace:    true,
 		},
 	}
 
@@ -462,7 +497,19 @@ func TestUpdateSecret(t *testing.T) {
 			t.Errorf("failed to create secret controller: %v", err)
 		}
 		controller.lastKCBSyncTime = tc.originalKCBSyncTime
-		scrt := istioTestSecret
+		var scrt *v1.Secret
+		if tc.managedNamespace {
+			scrt = managedSecret.DeepCopy() // Required to avoid copying a reference.
+			if _, err := client.CoreV1().Namespaces().Create(managedNS); err != nil {
+				t.Fatalf("Error creating the managed namespace: %v", err)
+			}
+
+		} else {
+			scrt = unmanagedSecret.DeepCopy() // Required to avoid copying a reference.
+			if _, err := client.CoreV1().Namespaces().Create(unmanagedNS); err != nil {
+				t.Fatalf("Error creating the unmanaged namespace: %v", err)
+			}
+		}
 		if rc := tc.rootCert; rc != nil {
 			scrt.Data[RootCertID] = rc
 		}
