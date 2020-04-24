@@ -23,12 +23,95 @@ import (
 	"testing"
 )
 
-func TestGenCSR(t *testing.T) {
+func TestGenCSR_RSA(t *testing.T) {
 	// Options to generate a CSR.
 	csrOptions := CertOptions{
 		Host:       "test_ca.com",
 		Org:        "MyOrg",
 		RSAKeySize: 512,
+	}
+
+	csrPem, _, err := GenCSR(csrOptions)
+
+	if err != nil {
+		t.Errorf("failed to gen CSR")
+	}
+
+	pemBlock, _ := pem.Decode(csrPem)
+	if pemBlock == nil {
+		t.Fatalf("failed to decode csr")
+	}
+	csr, err := x509.ParseCertificateRequest(pemBlock.Bytes)
+	if err != nil {
+		t.Fatalf("failed to parse csr")
+	}
+	if err = csr.CheckSignature(); err != nil {
+		t.Errorf("csr signature is invalid")
+	}
+	if csr.Subject.Organization[0] != "MyOrg" {
+		t.Errorf("csr subject does not match")
+	}
+	if !strings.HasSuffix(string(csr.Extensions[0].Value), "test_ca.com") {
+		t.Errorf("csr host does not match")
+	}
+}
+
+func TestGenCSR_BothECRSA(t *testing.T) {
+	// Options to generate a CSR.
+	csrOptions := CertOptions{
+		Host:       "test_ca.com",
+		Org:        "MyOrg",
+		RSAKeySize: 512,
+		IsEC:       true,
+	}
+
+	_, _, err := GenCSR(csrOptions)
+
+	if err == nil {
+		t.Errorf("failed to gen CSR")
+	}
+}
+
+func TestGenCSR_EC(t *testing.T) {
+	// Options to generate a CSR.
+	csrOptions := CertOptions{
+		Host: "test_ca.com",
+		Org:  "MyOrg",
+		IsEC: true,
+	}
+
+	csrPem, _, err := GenCSR(csrOptions)
+
+	if err != nil {
+		t.Errorf("failed to gen CSR")
+	}
+
+	pemBlock, _ := pem.Decode(csrPem)
+	if pemBlock == nil {
+		t.Fatalf("failed to decode csr")
+	}
+	csr, err := x509.ParseCertificateRequest(pemBlock.Bytes)
+	if err != nil {
+		t.Fatalf("failed to parse csr")
+	}
+	if err = csr.CheckSignature(); err != nil {
+		t.Errorf("csr signature is invalid")
+	}
+	if csr.Subject.Organization[0] != "MyOrg" {
+		t.Errorf("csr subject does not match")
+	}
+	if !strings.HasSuffix(string(csr.Extensions[0].Value), "test_ca.com") {
+		t.Errorf("csr host does not match")
+	}
+}
+
+func TestGenCSR_ECPKCS(t *testing.T) {
+	// Options to generate a CSR.
+	csrOptions := CertOptions{
+		Host:     "test_ca.com",
+		Org:      "MyOrg",
+		IsEC:     true,
+		PKCS8Key: true,
 	}
 
 	csrPem, _, err := GenCSR(csrOptions)

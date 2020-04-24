@@ -20,10 +20,13 @@ package util
 
 import (
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"strings"
@@ -33,10 +36,19 @@ import (
 
 // GenCSR generates a X.509 certificate sign request and private key with the given options.
 func GenCSR(options CertOptions) ([]byte, []byte, error) {
-	// Generates a CSR
-	priv, err := rsa.GenerateKey(rand.Reader, options.RSAKeySize)
-	if err != nil {
-		return nil, nil, fmt.Errorf("RSA key generation failed (%v)", err)
+	if options.IsEC && options.RSAKeySize > 0 {
+		return nil, nil, errors.New("cannot generate both an RSA and EC CSR")
+	}
+
+	var priv interface{}
+	var err error
+	if options.IsEC {
+		priv, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	} else {
+		priv, err = rsa.GenerateKey(rand.Reader, options.RSAKeySize)
+		if err != nil {
+			return nil, nil, fmt.Errorf("RSA key generation failed (%v)", err)
+		}
 	}
 	template, err := GenCSRTemplate(options)
 	if err != nil {
@@ -49,10 +61,7 @@ func GenCSR(options CertOptions) ([]byte, []byte, error) {
 	}
 
 	csr, privKey, err := encodePem(true, csrBytes, priv, options.PKCS8Key)
-	if err != nil {
-		return nil, nil, err
-	}
-	return csr, privKey, nil
+	return csr, privKey, err
 }
 
 // GenCSRTemplate generates a certificateRequest template with the given options.
