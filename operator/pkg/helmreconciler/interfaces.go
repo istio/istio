@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
 )
 
@@ -68,6 +69,20 @@ type PruningDetails interface {
 // ChartManifestsMap is a typedef representing a map of chart-name: []manifest, i.e. the manifests
 // associated with a specific chart
 type ChartManifestsMap map[string][]releaseutil.Manifest
+
+// Consolidated returns a representation of mm where all manifests in the slice under a key are combined into a single
+// manifest.
+func (mm ChartManifestsMap) Consolidated() map[string]string {
+	out := make(map[string]string)
+	for cname, ms := range mm {
+		allM := ""
+		for _, m := range ms {
+			allM += m.Content + helm.YAMLSeparator
+		}
+		out[cname] = allM
+	}
+	return out
+}
 
 // RenderingInput specifies the details used for rendering charts.
 type RenderingInput interface {
