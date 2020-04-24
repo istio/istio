@@ -2212,7 +2212,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		SubjectAltNames:   []string{"custom.foo.com"},
 		Sni:               "custom.foo.com",
 	}
-	mutualTlsSettings := &networking.ClientTLSSettings{
+	mutualTLSSettings := &networking.ClientTLSSettings{
 		Mode:              networking.ClientTLSSettings_MUTUAL,
 		CaCertificates:    constants.DefaultRootCert,
 		ClientCertificate: constants.DefaultCertChain,
@@ -2230,7 +2230,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		expectTransportSocket      bool
 		expectTransportSocketMatch bool
 
-		validateTlsContext func(t *testing.T, ctx *envoy_api_v2_auth.UpstreamTlsContext)
+		validateTLSContext func(t *testing.T, ctx *envoy_api_v2_auth.UpstreamTlsContext)
 	}{
 		{
 			name:                       "user specified without tls",
@@ -2252,12 +2252,12 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			name:                       "user specified mutual tls",
 			mtlsCtx:                    userSupplied,
 			discoveryType:              apiv2.Cluster_EDS,
-			tls:                        mutualTlsSettings,
+			tls:                        mutualTLSSettings,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
-			validateTlsContext: func(t *testing.T, ctx *envoy_api_v2_auth.UpstreamTlsContext) {
-				rootName := "file-root:" + mutualTlsSettings.CaCertificates
-				certName := fmt.Sprintf("file-cert:%s~%s", mutualTlsSettings.ClientCertificate, mutualTlsSettings.PrivateKey)
+			validateTLSContext: func(t *testing.T, ctx *envoy_api_v2_auth.UpstreamTlsContext) {
+				rootName := "file-root:" + mutualTLSSettings.CaCertificates
+				certName := fmt.Sprintf("file-cert:%s~%s", mutualTLSSettings.ClientCertificate, mutualTLSSettings.PrivateKey)
 				if got := ctx.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(); rootName != got {
 					t.Fatalf("expected root name %v got %v", rootName, got)
 				}
@@ -2312,12 +2312,12 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 				t.Errorf("Expected TransportSocketMatch %v", test.expectTransportSocketMatch)
 			}
 
-			if test.validateTlsContext != nil {
+			if test.validateTLSContext != nil {
 				ctx := &envoy_api_v2_auth.UpstreamTlsContext{}
 				if err := ptypes.UnmarshalAny(opts.cluster.TransportSocket.GetTypedConfig(), ctx); err != nil {
 					t.Fatal(err)
 				}
-				test.validateTlsContext(t, ctx)
+				test.validateTLSContext(t, ctx)
 			}
 		})
 	}
