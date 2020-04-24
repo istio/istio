@@ -27,10 +27,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/operator/v1alpha1"
+
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 )
 
@@ -90,9 +91,15 @@ type Options struct {
 	DryRun bool
 	// Log is a console logger for user visible CLI output.
 	Log clog.Logger
+	// Wait determines if we will wait for resources to be fully applied.
+	Wait        bool
+	ProgressLog *util.ProgressLog
 }
 
-var defaultOptions = &Options{Log: clog.NewDefaultLogger()}
+var defaultOptions = &Options{
+	Log:         clog.NewDefaultLogger(),
+	ProgressLog: util.NewProgressLog(),
+}
 
 // NewHelmReconciler creates a HelmReconciler and returns a ptr to it
 func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *valuesv1alpha1.IstioOperator, opts *Options) (*HelmReconciler, error) {
@@ -167,7 +174,7 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1
 			status := v1alpha1.InstallStatus_NONE
 			var err error
 			if len(m) != 0 {
-				if processedObjs, err = h.ProcessManifest(m); err != nil {
+				if processedObjs, err = h.ProcessManifest(m, len(componentDependencies[cn]) > 0); err != nil {
 					status = v1alpha1.InstallStatus_ERROR
 				} else if len(processedObjs) != 0 {
 					status = v1alpha1.InstallStatus_HEALTHY
@@ -177,14 +184,6 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1
 			mu.Lock()
 			setStatus(componentStatus, c, status, err)
 			mu.Unlock()
-
-			// If we are depending on a component, we may depend on it actually running (eg Deployment is ready)
-			// For example, for the validation webhook to become ready, so we should wait for it always.
-			if err == nil && len(componentDependencies[cn]) > 0 {
-				if err := manifest.WaitForResources(processedObjs, h.clientSet, internalDepTimeout, h.opts.DryRun, h.opts.Log); err != nil {
-					scope.Errorf("Failed to wait for resource: %v", err)
-				}
-			}
 
 			// Signal all the components that depend on us.
 			for _, ch := range componentDependencies[cn] {

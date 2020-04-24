@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 )
 
@@ -95,12 +94,12 @@ func buildEnvoyLbEndpoint(e *model.IstioEndpoint, push *model.PushContext) *endp
 	return ep
 }
 
-// updateServiceShards will list the endpoints and create the shards.
+// UpdateServiceShards will list the endpoints and create the shards.
 // This is used to reconcile and to support non-k8s registries (until they migrate).
 // Note that aggregated list is expensive (for large numbers) - we want to replace
 // it with a model where DiscoveryServer keeps track of all endpoint registries
 // directly, and calls them one by one.
-func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
+func (s *DiscoveryServer) UpdateServiceShards(push *model.PushContext) error {
 	var registries []serviceregistry.Instance
 	var nonK8sRegistries []serviceregistry.Instance
 	if agg, ok := s.Env.ServiceDiscovery.(*aggregate.Controller); ok {
@@ -263,7 +262,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	ep.ServiceAccounts = serviceAccounts
 	ep.mutex.Unlock()
 
-	// for internal update: this called by DiscoveryServer.Push --> updateServiceShards,
+	// for internal update: this called by DiscoveryServer.Push --> UpdateServiceShards,
 	// no need to trigger push here.
 	// It is done in DiscoveryServer.Push --> AdsPushAll
 	if !internal {
@@ -443,7 +442,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 		loadAssignments = append(loadAssignments, l)
 	}
 
-	response := endpointDiscoveryResponse(loadAssignments, version, push.Version)
+	response := endpointDiscoveryResponse(loadAssignments, version, push.Version, con.RequestedTypes.EDS)
 	err := con.send(response)
 	edsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
@@ -511,9 +510,9 @@ func getOutlierDetectionAndLoadBalancerSettings(push *model.PushContext, proxy *
 	return outlierDetectionEnabled, lbSettings
 }
 
-func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, version string, noncePrefix string) *xdsapi.DiscoveryResponse {
+func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, version, noncePrefix, typeURL string) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
-		TypeUrl: EndpointType,
+		TypeUrl: typeURL,
 		// Pilot does not really care for versioning. It always supplies what's currently
 		// available to it, irrespective of whether Envoy chooses to accept or reject EDS
 		// responses. Pilot believes in eventual consistency and that at some point, Envoy
@@ -523,6 +522,7 @@ func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, 
 	}
 	for _, loadAssignment := range loadAssignments {
 		resource := util.MessageToAny(loadAssignment)
+		resource.TypeUrl = typeURL
 		out.Resources = append(out.Resources, resource)
 	}
 
@@ -542,7 +542,7 @@ func buildLocalityLbEndpointsFromShards(
 
 	// Determine whether or not the target service is considered local to the cluster
 	// and should, therefore, not be accessed from outside the cluster.
-	isClusterLocal := mesh.IsClusterLocal(push.Mesh, svc.Attributes.Namespace)
+	isClusterLocal := push.IsClusterLocal(svc)
 
 	shards.mutex.Lock()
 	// The shards are updated independently, now need to filter and merge

@@ -20,22 +20,25 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cheggaaa/pb/v3"
 	jsonpatch "github.com/evanphx/json-patch"
+	"helm.sh/helm/v3/pkg/releaseutil"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/helm/pkg/manifest"
 	util2 "k8s.io/kubectl/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/pkg/log"
+	pkgversion "istio.io/pkg/version"
+
 	"istio.io/istio/operator/pkg/apis/istio"
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/helm"
+	omanifest "istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
@@ -44,8 +47,6 @@ import (
 	"istio.io/istio/operator/pkg/validate"
 	binversion "istio.io/istio/operator/version"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/pkg/log"
-	pkgversion "istio.io/pkg/version"
 )
 
 // ObjectCache is a cache of objects.
@@ -173,7 +174,7 @@ func MergeIOPSWithProfile(iop *valuesv1alpha1.IstioOperator) (*v1alpha1.IstioOpe
 }
 
 // ProcessManifest apply the manifest to create or update resources, returns the number of objects processed
-func (h *HelmReconciler) ProcessManifest(manifests []manifest.Manifest) (object.K8sObjects, error) {
+func (h *HelmReconciler) ProcessManifest(manifests []releaseutil.Manifest, hasDependencies bool) (object.K8sObjects, error) {
 	var processedObjects object.K8sObjects
 	for _, manifest := range manifests {
 		var errs util.Errors
@@ -181,7 +182,8 @@ func (h *HelmReconciler) ProcessManifest(manifests []manifest.Manifest) (object.
 		if err != nil {
 			return nil, err
 		}
-		crName := objAccessor.GetName() + "-" + manifest.Name
+		crName := objAccessor.GetName()
+		owningResource := crName + "-" + manifest.Name
 		scope.Infof("Processing resources from manifest: %s for CR %s", manifest.Name, crName)
 		allObjects, err := object.ParseK8sObjectsFromYAMLManifest(manifest.Content)
 		if err != nil {
@@ -192,13 +194,13 @@ func (h *HelmReconciler) ProcessManifest(manifests []manifest.Manifest) (object.
 
 		// Create and/or get the cache corresponding to the CR crName we're processing. Per crName partitioning is required to
 		// prune the cache to remove any objects not in the manifest generated for a given CR.
-		if objectCaches[crName] == nil {
-			objectCaches[crName] = &ObjectCache{
+		if objectCaches[owningResource] == nil {
+			objectCaches[owningResource] = &ObjectCache{
 				cache: make(map[string]*object.K8sObject),
 				mu:    &sync.RWMutex{},
 			}
 		}
-		objectCache := objectCaches[crName]
+		objectCache := objectCaches[owningResource]
 
 		objectCachesMu.Unlock()
 
@@ -226,10 +228,9 @@ func (h *HelmReconciler) ProcessManifest(manifests []manifest.Manifest) (object.
 			changedObjectKeys = append(changedObjectKeys, oh)
 		}
 
-		var bar *pb.ProgressBar
+		var plog *util.ManifestLog
 		if len(changedObjectKeys) > 0 {
-			h.opts.Log.LogAndPrintf("Processing resources for component %s...", manifest.Name)
-			bar = progressBar(len(changedObjectKeys))
+			plog = h.opts.ProgressLog.NewComponent(manifest.Name)
 			scope.Infof("The following objects differ between generated manifest and cache: \n - %s", strings.Join(changedObjectKeys, "\n - "))
 		} else {
 			scope.Infof("Generated manifest objects are the same as cached for component %s.", manifest.Name)
@@ -238,21 +239,18 @@ func (h *HelmReconciler) ProcessManifest(manifests []manifest.Manifest) (object.
 		// For each changed object, write it to the API server.
 		for _, obj := range changedObjects {
 			obju := obj.UnstructuredObject()
-			if err := applyLabelsAndAnnotations(obju, manifest.Name, h.iop.Spec.Revision, crName); err != nil {
+			if err := applyLabelsAndAnnotations(obju, manifest.Name, h.iop.Spec.Revision, owningResource, crName); err != nil {
 				return nil, err
 			}
 			if err := h.ProcessObject(manifest.Name, obj.UnstructuredObject()); err != nil {
 				scope.Error(err.Error())
-				errs = util.AppendErr(errs, err)
+				errs = util.AppendErr(errs, fmt.Errorf("processing manifest %s: %w", manifest.Name, err))
 				continue
 			}
-			bar.Increment()
+			plog.ReportProgress()
 			processedObjects = append(processedObjects, obj)
 			// Update the cache with the latest object.
 			objectCache.cache[obj.Hash()] = obj
-		}
-		if bar != nil {
-			bar.Finish()
 		}
 
 		// Prune anything not in the manifest out of the cache.
@@ -269,11 +267,23 @@ func (h *HelmReconciler) ProcessManifest(manifests []manifest.Manifest) (object.
 
 		if len(changedObjectKeys) > 0 {
 			if len(errs) != 0 {
-				h.opts.Log.LogAndPrintf("✘ Component %s installation had errors: \n%s\n", manifest.Name, util.ToString(errs.Dedup(), "\n"))
+				plog.ReportError(util.ToString(errs.Dedup(), "\n"))
 				return processedObjects, errs.ToError()
 			}
-			if len(allObjects) != 0 {
-				h.opts.Log.LogAndPrintf("✔ Component %s installed.", manifest.Name)
+
+			// If we are depending on a component, we may depend on it actually running (eg Deployment is ready)
+			// For example, for the validation webhook to become ready, so we should wait for it always.
+			if hasDependencies || h.opts.Wait {
+				err := omanifest.WaitForResources(processedObjects, h.clientSet,
+					internalDepTimeout, h.opts.DryRun, plog)
+				if err != nil {
+					werr := fmt.Errorf("failed to wait for resource: %v", err)
+					plog.ReportError(werr.Error())
+					return processedObjects, werr
+				}
+				plog.ReportFinished()
+			} else {
+				plog.ReportFinished()
 			}
 		}
 	}
@@ -281,7 +291,7 @@ func (h *HelmReconciler) ProcessManifest(manifests []manifest.Manifest) (object.
 }
 
 // applyLabelsAndAnnotations applies owner labels and annotations to the object.
-func applyLabelsAndAnnotations(obj runtime.Object, componentName, revision, crName string) error {
+func applyLabelsAndAnnotations(obj runtime.Object, componentName, revision, owningResource, crName string) error {
 	labels := make(map[string]string)
 
 	componentLabelValue := componentName
@@ -295,9 +305,14 @@ func applyLabelsAndAnnotations(obj runtime.Object, componentName, revision, crNa
 	}
 
 	labels[operatorLabelStr] = operatorReconcileStr
-	labels[owningResourceKey] = crName
+	labels[owningResourceKey] = owningResource
 	labels[istioComponentLabelStr] = componentLabelValue
 	labels[istioVersionLabelStr] = pkgversion.Info.Version
+
+	// add owner labels
+	labels[OwnerNameKey] = crName
+	labels[OwnerGroupKey] = valuesv1alpha1.IstioOperatorGVK.Group
+	labels[OwnerKindKey] = valuesv1alpha1.IstioOperatorGVK.Kind
 
 	for k, v := range labels {
 		err := util.SetLabel(obj, k, v)
@@ -347,7 +362,11 @@ func (h *HelmReconciler) ProcessObject(chartName string, obj *unstructured.Unstr
 	switch {
 	case apierrors.IsNotFound(err):
 		scope.Infof("creating resource: %s", objectStr)
-		return h.client.Create(context.TODO(), obj)
+		err = h.client.Create(context.TODO(), obj)
+		if err != nil {
+			return fmt.Errorf("failed to create %q: %w", objectStr, err)
+		}
+		return nil
 	case err == nil:
 		scope.Infof("updating resource: %s", objectStr)
 		if err := applyOverlay(receiver, obj); err != nil {
@@ -378,18 +397,10 @@ func applyOverlay(current, overlay runtime.Object) error {
 func toChartManifestsMap(m name.ManifestMap) ChartManifestsMap {
 	out := make(ChartManifestsMap)
 	for k, v := range m {
-		out[string(k)] = []manifest.Manifest{{
+		out[string(k)] = []releaseutil.Manifest{{
 			Name:    string(k),
 			Content: strings.Join(v, helm.YAMLSeparator),
 		}}
 	}
 	return out
-}
-
-// progressBar returns a progress bar for a number of items.
-func progressBar(items int) *pb.ProgressBar {
-	bar := pb.StartNew(items)
-	bar.SetTemplateString(`{{counters . }} {{bar . }} {{percent . }} {{etime . "%s"}}`)
-	bar.SetWidth(100)
-	return bar
 }

@@ -25,14 +25,17 @@ import (
 	"sort"
 	"strings"
 
-	"k8s.io/helm/pkg/chartutil"
-	"k8s.io/helm/pkg/engine"
-	"k8s.io/helm/pkg/proto/hapi/chart"
-	"k8s.io/helm/pkg/timeconv"
+	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/engine"
+	"sigs.k8s.io/yaml"
+
+	"helm.sh/helm/v3/pkg/chartutil"
+
+	"istio.io/pkg/log"
 
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/vfs"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -103,19 +106,22 @@ func ReadProfileYAML(profile string) (string, error) {
 
 // renderChart renders the given chart with the given values and returns the resulting YAML manifest string.
 func renderChart(namespace, values string, chrt *chart.Chart) (string, error) {
-	config := &chart.Config{Raw: values, Values: map[string]*chart.Value{}}
 	options := chartutil.ReleaseOptions{
 		Name:      "istio",
-		Time:      timeconv.Now(),
 		Namespace: namespace,
 	}
+	valuesMap := map[string]interface{}{}
+	if err := yaml.Unmarshal([]byte(values), &valuesMap); err != nil {
+		return "", fmt.Errorf("failed to unmarshal values: %v", err)
+	}
 
-	vals, err := chartutil.ToRenderValuesCaps(chrt, config, options, nil)
+	vals, err := chartutil.ToRenderValues(chrt, valuesMap, options, nil)
 	if err != nil {
 		return "", err
 	}
 
-	files, err := engine.New().Render(chrt, vals)
+	files, err := engine.Render(chrt, vals)
+	crdFiles := chrt.CRDObjects()
 	if err != nil {
 		return "", err
 	}
@@ -133,6 +139,18 @@ func renderChart(namespace, values string, chrt *chart.Chart) (string, error) {
 	var sb strings.Builder
 	for i := 0; i < len(keys); i++ {
 		f := files[keys[i]]
+		// add yaml separator if the rendered file doesn't have one at the end
+		f = strings.TrimSpace(f) + "\n"
+		if !strings.HasSuffix(f, YAMLSeparator) {
+			f += YAMLSeparator
+		}
+		_, err := sb.WriteString(f)
+		if err != nil {
+			return "", err
+		}
+	}
+	for _, crdFile := range crdFiles {
+		f := string(crdFile.File.Data)
 		// add yaml separator if the rendered file doesn't have one at the end
 		f = strings.TrimSpace(f) + "\n"
 		if !strings.HasSuffix(f, YAMLSeparator) {
@@ -217,13 +235,13 @@ func GetAddonNamesFromCharts(chartsRootDir string, capitalize bool) (addonChartN
 				if err != nil {
 					return nil, err
 				}
-				bf := &chartutil.BufferedFile{
+				bf := &loader.BufferedFile{
 					Name: basename,
 					Data: b,
 				}
-				bfs := []*chartutil.BufferedFile{bf}
+				bfs := []*loader.BufferedFile{bf}
 				scope.Debugf("Chart loaded: %s", bf.Name)
-				chart, err := chartutil.LoadFiles(bfs)
+				chart, err := loader.LoadFiles(bfs)
 				if err != nil {
 					return nil, err
 				} else if addonName := getAddonName(chart.Metadata); addonName != nil {

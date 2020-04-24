@@ -18,8 +18,8 @@
         "regex": "^tcp\\.((.*?)\\.)\\w+?$"
       },
       {
-          "regex": "(response_code=\\.=(.+?);\\.;)|_rq(_(\\.d{3}))$",
-          "tag_name": "response_code"
+        "regex": "(response_code=\\.=(.+?);\\.;)|_rq(_(\\.d{3}))$",
+        "tag_name": "response_code"
       },
       {
         "tag_name": "response_code_class",
@@ -42,132 +42,136 @@
         "regex": "^mongo\\.(.+?)\\.(collection|cmd|cx_|op_|delays_|decoding_)(.*?)$"
       },
       {
-          "regex": "(reporter=\\.=(.+?);\\.;)",
-          "tag_name": "reporter"
+        "regex": "(reporter=\\.=(.*?);\\.;)",
+        "tag_name": "reporter"
       },
       {
-          "regex": "(source_namespace=\\.=(.+?);\\.;)",
-          "tag_name": "source_namespace"
+        "regex": "(source_namespace=\\.=(.*?);\\.;)",
+        "tag_name": "source_namespace"
       },
       {
-          "regex": "(source_workload=\\.=(.+?);\\.;)",
-          "tag_name": "source_workload"
+        "regex": "(source_workload=\\.=(.*?);\\.;)",
+        "tag_name": "source_workload"
       },
       {
-          "regex": "(source_workload_namespace=\\.=(.+?);\\.;)",
-          "tag_name": "source_workload_namespace"
+        "regex": "(source_workload_namespace=\\.=(.*?);\\.;)",
+        "tag_name": "source_workload_namespace"
       },
       {
-          "regex": "(source_principal=\\.=(.+?);\\.;)",
-          "tag_name": "source_principal"
+        "regex": "(source_principal=\\.=(.*?);\\.;)",
+        "tag_name": "source_principal"
       },
       {
-          "regex": "(source_app=\\.=(.+?);\\.;)",
-          "tag_name": "source_app"
+        "regex": "(source_app=\\.=(.*?);\\.;)",
+        "tag_name": "source_app"
       },
       {
-          "regex": "(source_version=\\.=(.+?);\\.;)",
-          "tag_name": "source_version"
+        "regex": "(source_version=\\.=(.*?);\\.;)",
+        "tag_name": "source_version"
       },
       {
-          "regex": "(source_cluster_id=\\.=(.*?);\\.;)",
-          "tag_name": "source_cluster_id"
+        "regex": "(source_cluster=\\.=(.*?);\\.;)",
+        "tag_name": "source_cluster"
       },
       {
-          "regex": "(destination_namespace=\\.=(.+?);\\.;)",
-          "tag_name": "destination_namespace"
+        "regex": "(destination_namespace=\\.=(.*?);\\.;)",
+        "tag_name": "destination_namespace"
       },
       {
-          "regex": "(destination_workload=\\.=(.+?);\\.;)",
-          "tag_name": "destination_workload"
+        "regex": "(destination_workload=\\.=(.*?);\\.;)",
+        "tag_name": "destination_workload"
       },
       {
-          "regex": "(destination_workload_namespace=\\.=(.+?);\\.;)",
-          "tag_name": "destination_workload_namespace"
+        "regex": "(destination_workload_namespace=\\.=(.*?);\\.;)",
+        "tag_name": "destination_workload_namespace"
       },
       {
-          "regex": "(destination_principal=\\.=(.+?);\\.;)",
-          "tag_name": "destination_principal"
+        "regex": "(destination_principal=\\.=(.*?);\\.;)",
+        "tag_name": "destination_principal"
       },
       {
-          "regex": "(destination_app=\\.=(.+?);\\.;)",
-          "tag_name": "destination_app"
+        "regex": "(destination_app=\\.=(.*?);\\.;)",
+        "tag_name": "destination_app"
       },
       {
-          "regex": "(destination_version=\\.=(.+?);\\.;)",
-          "tag_name": "destination_version"
+        "regex": "(destination_version=\\.=(.*?);\\.;)",
+        "tag_name": "destination_version"
       },
       {
-          "regex": "(destination_service=\\.=(.+?);\\.;)",
-          "tag_name": "destination_service"
+        "regex": "(destination_service=\\.=(.*?);\\.;)",
+        "tag_name": "destination_service"
       },
       {
-          "regex": "(destination_service_name=\\.=(.+?);\\.;)",
-          "tag_name": "destination_service_name"
+        "regex": "(destination_service_name=\\.=(.*?);\\.;)",
+        "tag_name": "destination_service_name"
       },
       {
-          "regex": "(destination_service_namespace=\\.=(.+?);\\.;)",
-          "tag_name": "destination_service_namespace"
+        "regex": "(destination_service_namespace=\\.=(.*?);\\.;)",
+        "tag_name": "destination_service_namespace"
       },
       {
-        "regex": "(destination_port=\\.=(.+?);\\.;)",
+        "regex": "(destination_port=\\.=(.*?);\\.;)",
         "tag_name": "destination_port"
       },
       {
-        "regex": "(destination_cluster_id=\\.=(.*?);\\.;)",
-        "tag_name": "destination_cluster_id"
+        "regex": "(destination_cluster=\\.=(.*?);\\.;)",
+        "tag_name": "destination_cluster"
       },
       {
-          "regex": "(request_protocol=\\.=(.+?);\\.;)",
-          "tag_name": "request_protocol"
+        "regex": "(request_protocol=\\.=(.*?);\\.;)",
+        "tag_name": "request_protocol"
       },
       {
-          "regex": "(response_flags=\\.=(.+?);\\.;)",
-          "tag_name": "response_flags"
+        "regex": "(request_operation=\\.=(.*?);\\.;)",
+        "tag_name": "request_operation"
       },
       {
-          "regex": "(grpc_response_status=\\.=(.*?);\\.;)",
-          "tag_name": "grpc_response_status"
+        "regex": "(response_flags=\\.=(.*?);\\.;)",
+        "tag_name": "response_flags"
       },
       {
-          "regex": "(connection_security_policy=\\.=(.+?);\\.;)",
-          "tag_name": "connection_security_policy"
+        "regex": "(grpc_response_status=\\.=(.*?);\\.;)",
+        "tag_name": "grpc_response_status"
       },
       {
-          "regex": "(permissive_response_code=\\.=(.+?);\\.;)",
-          "tag_name": "permissive_response_code"
+        "regex": "(connection_security_policy=\\.=(.*?);\\.;)",
+        "tag_name": "connection_security_policy"
       },
       {
-          "regex": "(permissive_response_policyid=\\.=(.+?);\\.;)",
-          "tag_name": "permissive_response_policyid"
+        "regex": "(permissive_response_code=\\.=(.*?);\\.;)",
+        "tag_name": "permissive_response_code"
       },
       {
-          "regex": "(cache\\.(.+?)\\.)",
-          "tag_name": "cache"
+        "regex": "(permissive_response_policyid=\\.=(.*?);\\.;)",
+        "tag_name": "permissive_response_policyid"
       },
       {
-          "regex": "(component\\.(.+?)\\.)",
-          "tag_name": "component"
+        "regex": "(source_canonical_service=\\.=(.*?);\\.;)",
+        "tag_name": "source_canonical_service"
       },
       {
-          "regex": "(tag\\.(.+?);\\.)",
-          "tag_name": "tag"
+        "regex": "(destination_canonical_service=\\.=(.*?);\\.;)",
+        "tag_name": "destination_canonical_service"
       },
       {
-          "regex": "(source_canonical_service=\\.=(.+?);\\.;)",
-          "tag_name": "source_canonical_service"
+        "regex": "(source_canonical_revision=\\.=(.*?);\\.;)",
+        "tag_name": "source_canonical_revision"
       },
       {
-          "regex": "(destination_canonical_service=\\.=(.+?);\\.;)",
-          "tag_name": "destination_canonical_service"
+        "regex": "(destination_canonical_revision=\\.=(.*?);\\.;)",
+        "tag_name": "destination_canonical_revision"
       },
       {
-          "regex": "(source_canonical_revision=\\.=(.+?);\\.;)",
-          "tag_name": "source_canonical_revision"
+        "regex": "(cache\\.(.+?)\\.)",
+        "tag_name": "cache"
       },
       {
-          "regex": "(destination_canonical_revision=\\.=(.+?);\\.;)",
-          "tag_name": "destination_canonical_revision"
+        "regex": "(component\\.(.+?)\\.)",
+        "tag_name": "component"
+      },
+      {
+        "regex": "(tag\\.(.+?);\\.)",
+        "tag_name": "tag"
       },
       {
         "regex": "(wasm_filter\\.(.+?)\\.)",
@@ -210,7 +214,7 @@
   },
   "admin": {
     "access_log_path": "/dev/null",
-    "profile_path": "/tmp/bootstrap/tracing_stackdriver/envoy.prof",
+    "profile_path": "/var/lib/istio/data/envoy.prof",
     "address": {
       "socket_address": {
         "address": "127.0.0.1",
