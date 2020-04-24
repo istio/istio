@@ -152,16 +152,25 @@ func (s *Source) onCrdEvent(e event.Event) {
 	switch e.Kind {
 	case event.Added:
 		crd := e.Resource.Message.(*v1beta1.CustomResourceDefinitionSpec)
-		for _, v := range crd.Versions {
-			g := crd.Group
-			k := crd.Names.Kind
-			key := asKey(g, v.Name, k)
-			r, ok := s.expectedResources[key]
-			if ok {
-				scope.Source.Debugf("Marking resource as available: %v", r.Resource().GroupVersionKind())
-				s.foundResources[key] = true
-				s.expectedResources[key] = r
+		v := ""
+		if crd.Version != "" {
+			v = crd.Version
+		} else {
+			// only create watchers for stored versions.
+			for _, ver := range crd.Versions {
+				if ver.Storage {
+					v = ver.Name
+				}
 			}
+		}
+		g := crd.Group
+		k := crd.Names.Kind
+		key := asKey(g, v, k)
+		r, ok := s.expectedResources[key]
+		if ok {
+			scope.Source.Debugf("Marking resource as available: %v", r.Resource().GroupVersionKind())
+			s.foundResources[key] = true
+			s.expectedResources[key] = r
 		}
 
 	case event.FullSync:

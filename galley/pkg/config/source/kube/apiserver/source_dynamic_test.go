@@ -511,7 +511,8 @@ func toCrd(schema collection.Schema) *v1beta1.CustomResourceDefinition {
 			},
 			Versions: []v1beta1.CustomResourceDefinitionVersion{
 				{
-					Name: r.Version(),
+					Name:    r.Version(),
+					Storage: true,
 				},
 			},
 			Scope: v1beta1.NamespaceScoped,
