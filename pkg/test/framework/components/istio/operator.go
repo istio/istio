@@ -25,8 +25,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pkg/test/util/yml"
-
 	"istio.io/istio/pkg/test/cert/ca"
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/env"
@@ -35,6 +33,7 @@ import (
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/yml"
 )
 
 type operatorComponent struct {
@@ -241,7 +240,6 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 	cmd := []string{
 		"manifest", "apply",
 		"--skip-confirmation",
-		"--logtostderr",
 		"--wait",
 	}
 	cmd = append(cmd, installSettings...)
