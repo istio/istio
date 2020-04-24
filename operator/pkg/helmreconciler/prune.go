@@ -60,7 +60,6 @@ var (
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "RoleBinding"},
 		{Group: "rbac.authorization.k8s.io", Version: "v1beta1", Kind: "Role"},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "Role"},
-		{Group: "authentication.istio.io", Version: "v1alpha1", Kind: "Policy"},
 		{Group: "config.istio.io", Version: "v1alpha2", Kind: "adapter"},
 		{Group: "config.istio.io", Version: "v1alpha2", Kind: "attributemanifest"},
 		{Group: "config.istio.io", Version: "v1alpha2", Kind: "handler"},
@@ -92,7 +91,6 @@ var (
 		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: "ValidatingWebhookConfiguration"},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRole"},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"},
-		{Group: "authentication.istio.io", Version: "v1alpha1", Kind: "MeshPolicy"},
 		// Cannot currently prune CRDs because this will also wipe out user config.
 		// {Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: "CustomResourceDefinition"},
 	}
