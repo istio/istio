@@ -371,7 +371,7 @@ func TestCreatePluggedCertCA(t *testing.T) {
 }
 
 // TODO: merge tests for SignCSR.
-func TestSignCSRForWorkload(t *testing.T) {
+func TestSignCSRForWorkload_RSA(t *testing.T) {
 	subjectID := "spiffe://example.com/ns/foo/sa/bar"
 	opts := util.CertOptions{
 		// This value is not used, instead, subjectID should be used in certificate.
@@ -384,7 +384,63 @@ func TestSignCSRForWorkload(t *testing.T) {
 		t.Error(err)
 	}
 
-	ca, err := createCA(time.Hour)
+	ca, err := createCA_RSA(time.Hour)
+	if err != nil {
+		t.Error(err)
+	}
+
+	requestedTTL := 30 * time.Minute
+	certPEM, signErr := ca.Sign(csrPEM, []string{subjectID}, requestedTTL, false)
+	if signErr != nil {
+		t.Error(err)
+	}
+
+	fields := &util.VerifyFields{
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		IsCA:        false,
+		Host:        subjectID,
+	}
+	_, _, certChainBytes, rootCertBytes := ca.GetCAKeyCertBundle().GetAll()
+	if err = util.VerifyCertificate(
+		keyPEM, append(certPEM, certChainBytes...), rootCertBytes, fields); err != nil {
+		t.Error(err)
+	}
+
+	cert, err := util.ParsePemEncodedCertificate(certPEM)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if ttl := cert.NotAfter.Sub(cert.NotBefore); ttl != requestedTTL {
+		t.Errorf("Unexpected certificate TTL (expecting %v, actual %v)", requestedTTL, ttl)
+	}
+	san := util.ExtractSANExtension(cert.Extensions)
+	if san == nil {
+		t.Errorf("No SAN extension is found in the certificate")
+	}
+	expected, err := util.BuildSubjectAltNameExtension(subjectID)
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(expected, san) {
+		t.Errorf("Unexpected extensions: wanted %v but got %v", expected, san)
+	}
+}
+func TestSignCSRForWorkload_EC(t *testing.T) {
+	subjectID := "spiffe://example.com/ns/foo/sa/bar"
+	opts := util.CertOptions{
+		// This value is not used, instead, subjectID should be used in certificate.
+		Host: "spiffe://different.com/test",
+		IsCA: false,
+		IsEC: true,
+	}
+	csrPEM, keyPEM, err := util.GenCSR(opts)
+	if err != nil {
+		t.Error(err)
+	}
+
+	ca, err := createCA_EC(time.Hour)
 	if err != nil {
 		t.Error(err)
 	}
@@ -439,7 +495,7 @@ func TestSignCSRForCA(t *testing.T) {
 		t.Error(err)
 	}
 
-	ca, err := createCA(365 * 24 * time.Hour)
+	ca, err := createCA_RSA(365 * 24 * time.Hour)
 	if err != nil {
 		t.Error(err)
 	}
@@ -493,7 +549,7 @@ func TestSignCSRTTLError(t *testing.T) {
 		t.Error(err)
 	}
 
-	ca, err := createCA(2 * time.Hour)
+	ca, err := createCA_RSA(2 * time.Hour)
 	if err != nil {
 		t.Error(err)
 	}
@@ -631,7 +687,7 @@ func TestGenKeyCert(t *testing.T) {
 	}
 }
 
-func createCA(maxTTL time.Duration) (*IstioCA, error) {
+func createCA_RSA(maxTTL time.Duration) (*IstioCA, error) {
 	// Generate root CA key and cert.
 	rootCAOpts := util.CertOptions{
 		IsCA:         true,
@@ -663,6 +719,63 @@ func createCA(maxTTL time.Duration) (*IstioCA, error) {
 		RSAKeySize:   2048,
 		SignerCert:   rootCert,
 		SignerPriv:   rootKey,
+	}
+	intermediateCert, intermediateKey, err := util.GenCertKeyFromOptions(intermediateCAOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	bundle, err := util.NewVerifiedKeyCertBundleFromPem(
+		intermediateCert, intermediateKey, intermediateCert, rootCertBytes)
+	if err != nil {
+		return nil, err
+	}
+	// Disable root cert rotator by setting root cert check interval to 0ns.
+	rootCertCheckInverval := time.Duration(0)
+	caOpts := &IstioCAOptions{
+		DefaultCertTTL: time.Hour,
+		MaxCertTTL:     maxTTL,
+		KeyCertBundle:  bundle,
+		RotatorConfig: &SelfSignedCARootCertRotatorConfig{
+			CheckInterval: rootCertCheckInverval,
+		},
+	}
+
+	return NewIstioCA(caOpts)
+}
+
+func createCA_EC(maxTTL time.Duration) (*IstioCA, error) {
+	// Generate root CA key and cert.
+	rootCAOpts := util.CertOptions{
+		IsCA:         true,
+		IsSelfSigned: true,
+		TTL:          time.Hour,
+		Org:          "Root CA",
+		IsEC:         true,
+	}
+	rootCertBytes, rootKeyBytes, err := util.GenCertKeyFromOptions(rootCAOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	rootCert, err := util.ParsePemEncodedCertificate(rootCertBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	rootKey, err := util.ParsePemEncodedKey(rootKeyBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	intermediateCAOpts := util.CertOptions{
+		IsCA:         true,
+		IsSelfSigned: false,
+		TTL:          time.Hour,
+		Org:          "Intermediate CA",
+		SignerCert:   rootCert,
+		SignerPriv:   rootKey,
+		IsEC:         true,
 	}
 	intermediateCert, intermediateKey, err := util.GenCertKeyFromOptions(intermediateCAOpts)
 	if err != nil {

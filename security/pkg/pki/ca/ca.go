@@ -333,6 +333,15 @@ func (ca *IstioCA) GenKeyCert(hostnames []string, certTTL time.Duration) ([]byte
 		RSAKeySize: 2048,
 	}
 
+	// cert bundles can have errors (e.g. missing SAN)
+	// that do not matter for getting the encryption type
+	options, _ := ca.keyCertBundle.CertOptions()
+	if options != nil && options.IsEC {
+		opts = util.CertOptions{
+			IsEC: true,
+		}
+	}
+
 	csrPEM, privPEM, err := util.GenCSR(opts)
 	if err != nil {
 		return nil, nil, err

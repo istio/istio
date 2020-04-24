@@ -312,6 +312,18 @@ func (s *Server) getServerCertificate() (*tls.Certificate, error) {
 		RSAKeySize: 2048,
 	}
 
+	bundle := s.ca.GetCAKeyCertBundle()
+	if bundle != nil {
+		// cert bundles can have errors (e.g. missing SAN)
+		// that do not matter for getting the encryption type
+		options, _ := bundle.CertOptions()
+		if options != nil && options.IsEC {
+			opts = util.CertOptions{
+				IsEC: true,
+			}
+		}
+	}
+
 	csrPEM, privPEM, err := util.GenCSR(opts)
 	if err != nil {
 		return nil, err
