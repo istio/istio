@@ -42,7 +42,6 @@ type operatorInitArgs struct {
 
 const (
 	istioControllerComponentName = "Operator"
-	istioNamespaceComponentName  = "IstioNamespace"
 	istioOperatorCRComponentName = "OperatorCustomResource"
 )
 
