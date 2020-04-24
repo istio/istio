@@ -894,13 +894,6 @@ func (c outboundListenerConflict) addMetric(node *model.Proxy, metrics model.Met
 			len(c.currentServices)))
 }
 
-type VirtualOutboundListenerInterface interface {
-	// Insert an outbound service into the virtual outbound listener.
-	// This function should resolve the conflict if a service is inserted repeatedly.
-	insertService(configgen *ConfigGeneratorImpl, node *model.Proxy, listenerOpts buildListenerOpts,
-		pluginParams *plugin.InputParams, listenerMap map[string]*outboundListenerEntry,
-		virtualServices []model.Config, actualWildcard string)
-}
 
 type PortAttribute struct {
 	isTLS         bool
