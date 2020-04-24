@@ -20,8 +20,11 @@ package util
 
 import (
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"sync"
@@ -193,18 +196,29 @@ func (b *KeyCertBundleImpl) CertOptions() (*CertOptions, error) {
 	if len(ids) != 1 {
 		return nil, fmt.Errorf("expect single id from the cert, found %v", ids)
 	}
-	size, err := GetRSAKeySize(*b.privKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get RSA key size: %v", err)
-	}
-	return &CertOptions{
+
+	opts := &CertOptions{
 		Host:       ids[0],
 		Org:        b.cert.Issuer.Organization[0],
 		IsCA:       b.cert.IsCA,
 		TTL:        b.cert.NotAfter.Sub(b.cert.NotBefore),
-		RSAKeySize: size,
 		IsDualUse:  ids[0] == b.cert.Subject.CommonName,
-	}, nil
+	}
+
+	switch (*b.privKey).(type) {
+	case *rsa.PrivateKey:
+		size, err := GetRSAKeySize(*b.privKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get RSA key size: %v", err)
+		}
+		opts.RSAKeySize = size
+	case *ecdsa.PrivateKey:
+		opts.IsEC = true
+	default:
+		return nil, errors.New("unknown private key type")
+	}
+
+	return opts, nil
 }
 
 // ExtractRootCertExpiryTimestamp returns the unix timestamp when the root becomes expires.
