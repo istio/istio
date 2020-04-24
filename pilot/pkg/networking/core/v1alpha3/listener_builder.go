@@ -267,7 +267,9 @@ func NewListenerBuilder(node *model.Proxy, push *model.PushContext) *ListenerBui
 		node: node,
 		push: push,
 		// TODO(lambdai): impl,verify and migrate to PerPortListenerBuilder
-		voutBuilder: &PerListenerShimBuilder{},
+		voutBuilder: &PerListenerShimBuilder{
+			listenerMap: make(map[string]*outboundListenerEntry),
+		},
 	}
 	return builder
 }
