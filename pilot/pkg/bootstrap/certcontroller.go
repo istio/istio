@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pilot/pkg/model"
 
 	"istio.io/pkg/log"
 
@@ -187,6 +188,8 @@ func (s *Server) initDNSCerts(hostname, namespace string) error {
 
 	} else {
 		log.Infof("User specified cert provider: %v", features.PilotCertProvider.Get())
+		dnsKeyFile = model.GetOrDefault(defaultTlsServerKey, dnsKeyFile)
+		dnsCertFile = model.GetOrDefault(defaultTlsServerCertChain, dnsCertFile)
 		return nil
 	}
 	if err != nil {
