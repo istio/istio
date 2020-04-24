@@ -318,20 +318,10 @@ var ValidateGateway = registerValidateFunc("ValidateGateway",
 		if !labels.IsDNS1123Label(name) {
 			errs = appendErrors(errs, fmt.Errorf("invalid gateway name: %q", name))
 		}
-		switch msg.(type) {
+		switch value := msg.(type) {
 		case *networking_v1alpha3.Gateway:
-			value, ok := msg.(*networking_v1alpha3.Gateway)
-			if !ok {
-				errs = appendErrors(errs, fmt.Errorf("cannot cast to v1alpha3 gateway"))
-				return
-			}
 			errs = appendErrors(errs, validateV1Alpha3Gateway(value))
 		case *networking_v1beta1.Gateway:
-			value, ok := msg.(*networking_v1beta1.Gateway)
-			if !ok {
-				errs = appendErrors(errs, fmt.Errorf("cannot cast to v1beta1 gateway"))
-				return
-			}
 			errs = appendErrors(errs, validateV1Beta1Gateway(value))
 		default:
 			errs = appendErrors(errs, fmt.Errorf("cannot cast to gateway"))
@@ -483,20 +473,10 @@ func validateTLSOptions(tls *networking_v1alpha3.ServerTLSSettings) (errs error)
 // ValidateDestinationRule checks proxy policies
 var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 	func(_, _ string, msg proto.Message) (errs error) {
-		switch msg.(type) {
+		switch value := msg.(type) {
 		case *networking_v1alpha3.DestinationRule:
-			value, ok := msg.(*networking_v1alpha3.DestinationRule)
-			if !ok {
-				errs = appendErrors(errs, fmt.Errorf("cannot cast to v1alpha3 destination rule"))
-				return
-			}
 			errs = appendErrors(errs, validateV1Alpha3DestinationRule(value))
 		case *networking_v1beta1.DestinationRule:
-			value, ok := msg.(*networking_v1beta1.DestinationRule)
-			if !ok {
-				errs = appendErrors(errs, fmt.Errorf("cannot cast to v1beta1 destination rule"))
-				return
-			}
 			errs = appendErrors(errs, validateV1Beta1DestinationRule(value))
 		default:
 			errs = appendErrors(errs, fmt.Errorf("cannot cast to destination rule"))
@@ -724,20 +704,10 @@ func validateNamespaceSlashWildcardHostname(hostname string, isGateway bool) (er
 // ValidateSidecar checks sidecar config supplied by user
 var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 	func(_, _ string, msg proto.Message) (errs error) {
-		switch msg.(type) {
+		switch value := msg.(type) {
 		case *networking_v1alpha3.Sidecar:
-			value, ok := msg.(*networking_v1alpha3.Sidecar)
-			if !ok {
-				errs = appendErrors(errs, fmt.Errorf("cannot cast to v1alpha3 sidecar"))
-				return
-			}
 			errs = appendErrors(errs, validateV1Alpha3Sidecar(value))
 		case *networking_v1beta1.Sidecar:
-			value, ok := msg.(*networking_v1beta1.Sidecar)
-			if !ok {
-				errs = appendErrors(errs, fmt.Errorf("cannot cast to v1beta1 sidecar"))
-				return
-			}
 			errs = appendErrors(errs, validateV1Beta1Sidecar(value))
 		default:
 			errs = appendErrors(errs, fmt.Errorf("cannot cast to sidecar"))
@@ -2127,20 +2097,10 @@ func validateAuthNPolicyTarget(target *authn.TargetSelector) (errs error) {
 // ValidateVirtualService checks that a route rule is well-formed.
 var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 	func(_, _ string, msg proto.Message) (errs error) {
-		switch msg.(type) {
+		switch value := msg.(type) {
 		case *networking_v1alpha3.VirtualService:
-			value, ok := msg.(*networking_v1alpha3.VirtualService)
-			if !ok {
-				errs = appendErrors(errs, fmt.Errorf("cannot cast to v1alpha3 virtual service"))
-				return
-			}
 			errs = appendErrors(errs, validateV1Alpha3VirtualService(value))
 		case *networking_v1beta1.VirtualService:
-			value, ok := msg.(*networking_v1beta1.VirtualService)
-			if !ok {
-				errs = appendErrors(errs, fmt.Errorf("cannot cast to v1beta1 virtual service"))
-				return
-			}
 			errs = appendErrors(errs, validateV1Beta1VirtualService(value))
 		default:
 			errs = appendErrors(errs, fmt.Errorf("cannot cast to virtual service"))
@@ -2738,20 +2698,10 @@ func validateHTTPRewrite(rewrite *networking_v1alpha3.HTTPRewrite) error {
 // ValidateWorkloadEntry validates a workload entry.
 var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
 	func(_, _ string, msg proto.Message) (errs error) {
-		switch msg.(type) {
+		switch value := msg.(type) {
 		case *networking_v1alpha3.WorkloadEntry:
-			value, ok := msg.(*networking_v1alpha3.WorkloadEntry)
-			if !ok {
-				errs = appendErrors(errs, fmt.Errorf("cannot cast to v1alpha3 workload entry"))
-				return
-			}
 			errs = appendErrors(errs, validateV1Alpha3WorkloadEntry(value))
 		case *networking_v1beta1.WorkloadEntry:
-			value, ok := msg.(*networking_v1beta1.WorkloadEntry)
-			if !ok {
-				errs = appendErrors(errs, fmt.Errorf("cannot cast to v1beta1 workload entry"))
-				return
-			}
 			errs = appendErrors(errs, validateV1Beta1WorkloadEntry(value))
 		default:
 			errs = appendErrors(errs, fmt.Errorf("cannot cast to workload entry"))
@@ -2791,20 +2741,10 @@ func validateV1Beta1WorkloadEntry(we *networking_v1beta1.WorkloadEntry) (errs er
 // ValidateServiceEntry validates a service entry.
 var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 	func(_, _ string, msg proto.Message) (errs error) {
-		switch msg.(type) {
+		switch value := msg.(type) {
 		case *networking_v1alpha3.ServiceEntry:
-			value, ok := msg.(*networking_v1alpha3.ServiceEntry)
-			if !ok {
-				errs = appendErrors(errs, fmt.Errorf("cannot cast to v1alpha3 service entry"))
-				return
-			}
 			errs = appendErrors(errs, validateV1Alpha3ServiceEntry(value))
 		case *networking_v1beta1.ServiceEntry:
-			value, ok := msg.(*networking_v1beta1.ServiceEntry)
-			if !ok {
-				errs = appendErrors(errs, fmt.Errorf("cannot cast to v1beta1 service entry"))
-				return
-			}
 			errs = appendErrors(errs, validateV1Beta1ServiceEntry(value))
 		default:
 			errs = appendErrors(errs, fmt.Errorf("cannot cast to service entry"))

@@ -46,8 +46,8 @@ func AllValidationAnalyzers() []analysis.Analyzer {
 // Metadata implements Analyzer
 func (a *ValidationAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name:        fmt.Sprintf("schema.ValidationAnalyzer.%s", a.s.Resource().Kind()),
-		Description: fmt.Sprintf("Runs schema validation as an analyzer on '%s' resources", a.s.Resource().Kind()),
+		Name:        fmt.Sprintf("schema.ValidationAnalyzer.%s.%s", a.s.Resource().Kind(), a.s.Resource().Version()),
+		Description: fmt.Sprintf("Runs schema validation as an analyzer on %s.%s resources", a.s.Resource().Kind(), a.s.Resource().Version()),
 		Inputs:      collection.Names{a.s.Name()},
 	}
 }

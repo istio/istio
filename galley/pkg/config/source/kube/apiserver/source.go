@@ -117,7 +117,7 @@ func (s *Source) Start() {
 	s.expectedResources = make(map[string]collection.Schema)
 	s.foundResources = make(map[string]bool)
 	for _, r := range s.options.Schemas.All() {
-		key := asKey(r.Resource().Group(), r.Resource().Kind())
+		key := asKey(r.Resource().Group(), r.Resource().Version(), r.Resource().Kind())
 		s.expectedResources[key] = r
 	}
 	// Releasing the lock here to avoid deadlock on crdWatcher between the existing one and a newly started one.
@@ -153,8 +153,9 @@ func (s *Source) onCrdEvent(e event.Event) {
 	case event.Added:
 		crd := e.Resource.Message.(*v1beta1.CustomResourceDefinitionSpec)
 		g := crd.Group
+		v := crd.Version
 		k := crd.Names.Kind
-		key := asKey(g, k)
+		key := asKey(g, v, k)
 		r, ok := s.expectedResources[key]
 		if ok {
 			scope.Source.Debugf("Marking resource as available: %v", r.Resource().GroupVersionKind())
@@ -195,7 +196,7 @@ func (s *Source) startWatchers() {
 	for i, r := range resources {
 		a := s.provider.GetAdapter(r.Resource())
 
-		found := s.foundResources[asKey(r.Resource().Group(), r.Resource().Kind())]
+		found := s.foundResources[asKey(r.Resource().Group(), r.Resource().Version(), r.Resource().Kind())]
 
 		scope.Source.Infof("[%d]", i)
 		scope.Source.Infof("  Source:       %s", r.Resource().GroupVersionKind())
@@ -278,6 +279,6 @@ func (s *Source) stop() {
 	s.started = false
 }
 
-func asKey(group, kind string) string {
-	return group + "/" + kind
+func asKey(group, version, kind string) string {
+	return group + "/" + version + "/" + kind
 }
