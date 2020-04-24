@@ -27,14 +27,16 @@ import (
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/serviceconfig"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/grpcgen"
+	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
 	"istio.io/istio/pkg/config/schema/collections"
 
 	_ "google.golang.org/grpc/xds/experimental" // To install the xds resolvers and balancers.
 )
-
 
 var (
 	istiodDNSAddr = "127.0.0.1:14053"
@@ -48,6 +50,9 @@ var (
 
 func TestGRPC(t *testing.T) {
 	ds := xds.NewXDS()
+	ds.DiscoveryServer.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
+	epGen := &envoyv2.EdsGenerator{ds.DiscoveryServer}
+	ds.DiscoveryServer.Generators["grpc/"+envoyv2.EndpointType] = epGen
 
 	sd := ds.DiscoveryServer.MemRegistry
 	sd.AddHTTPService("fortio1.fortio.svc.cluster.local", "10.10.10.1", 8081)
@@ -190,4 +195,3 @@ func (t *testClientConn) ParseServiceConfig(jsonSC string) *serviceconfig.ParseR
 	//}
 	return &serviceconfig.ParseResult{}
 }
-

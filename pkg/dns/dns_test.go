@@ -24,25 +24,13 @@ import (
 	"time"
 
 	"github.com/miekg/dns"
-	"istio.io/istio/pkg/test/env"
 
-	_ "google.golang.org/grpc/xds/experimental" // To install the xds resolvers and balancers.
+	"istio.io/istio/pkg/test/env"
 )
 
 var (
 	istiodDNSAddr = "127.0.0.1:14053"
 	agentDNSAddr  = "127.0.0.1:14054"
-
-	grpcAddr = "127.0.0.1:14056"
-
-	// Address the tests are connecting to - normally the mock in-process server
-	// Can be changed to point to a real server, so tests validate a real deployment.
-	grpcUpstreamAddr = "127.0.0.1:15010"
-	//grpcUpstreamAddr = "127.0.0.1:14056"
-	//grpcUpstreamAddr = "127.0.0.1:32010"
-
-	// Address of the Istiod gRPC service, used in tests.
-	istiodSvcAddr = "istiod.istio-system.svc.cluster.local:14056"
 
 	initErr error
 )
@@ -85,8 +73,6 @@ func initDNS() error {
 	agentDNS.StartDNS(agentDNSAddr, nil)
 	return nil
 }
-
-
 
 func TestDNS(t *testing.T) {
 	if initErr != nil {

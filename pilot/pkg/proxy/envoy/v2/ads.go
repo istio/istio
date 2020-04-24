@@ -494,6 +494,10 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (f
 	s.addCon(con.ConID, con)
 	con.mu.Unlock()
 
+	if s.internalGen != nil {
+		s.internalGen.OnConnect(node)
+	}
+
 	return func() { s.removeCon(con.ConID) }, nil
 }
 

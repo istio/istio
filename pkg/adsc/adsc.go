@@ -36,6 +36,7 @@ import (
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -107,7 +108,8 @@ type ADSC struct {
 	Metadata *pstruct.Struct
 
 	// Updates includes the type of the last update received from the server.
-	Updates     chan *xdsapi.DiscoveryResponse
+	Updates     chan string
+	XDSUpdates  chan *xdsapi.DiscoveryResponse
 	VersionInfo map[string]string
 
 	// Last received message, by type
@@ -152,7 +154,8 @@ var (
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
 func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 	adsc := &ADSC{
-		Updates:     make(chan *xdsapi.DiscoveryResponse, 100),
+		Updates:     make(chan string, 100),
+		XDSUpdates:  make(chan *xdsapi.DiscoveryResponse, 100),
 		VersionInfo: map[string]string{},
 		certDir:     certDir,
 		url:         url,
@@ -271,19 +274,21 @@ func (a *ADSC) Run() error {
 
 func (a *ADSC) handleRecv() {
 	for {
+		var err error
 		msg, err := a.stream.Recv()
 		if err != nil {
 			adscLog.Infof("Connection closed for node %v with err: %v", a.nodeID, err)
 			a.Close()
 			a.WaitClear()
-			a.Updates <- nil
+			a.Updates <- ""
+			a.XDSUpdates <- nil
 			return
 		}
 
 		// Group-value-kind - used for high level api generator.
 		gvk := strings.SplitN(msg.TypeUrl, "/", 3)
 
-		if msg.TypeUrl ==collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String() &&
+		if msg.TypeUrl == collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String() &&
 			len(msg.Resources) > 0 {
 			rsc := msg.Resources[0]
 			m := &v1alpha1.MeshConfig{}
@@ -292,18 +297,18 @@ func (a *ADSC) handleRecv() {
 				log.Warna("Failed to unmarshal mesh config", err)
 			}
 			a.Mesh = m
-			strResponse, err := json.MarshalIndent(m, "  ", "  ")
-			if err != nil {
-				continue
+			if a.LocalCacheDir != "" {
+				strResponse, err := json.MarshalIndent(m, "  ", "  ")
+				if err != nil {
+					continue
+				}
+				err = ioutil.WriteFile(a.LocalCacheDir+"_mesh.json", strResponse, 0644)
+				if err != nil {
+					continue
+				}
 			}
-			err = ioutil.WriteFile(a.LocalCacheDir+"_mesh.json", strResponse, 0644)
-			if err != nil {
-				continue
-			}
-
 			continue
 		}
-
 
 		listeners := []*xdsapi.Listener{}
 		clusters := []*xdsapi.Cluster{}
@@ -314,57 +319,52 @@ func (a *ADSC) handleRecv() {
 			a.VersionInfo[rsc.TypeUrl] = msg.VersionInfo
 			valBytes := rsc.Value
 			switch rsc.TypeUrl {
-			case "":
-				// last resource of this type. IstioStore doesn't yet have a way to indicate this
-				// or to support large sets - memory store has a special handling by calling Create
-				// with an empty resource.
-				if a.Store != nil && len(gvk) == 3 {
-					a.Store.Create(model.Config{
-						ConfigMeta: model.ConfigMeta{
-							Group: gvk[0],
-							Version: gvk[1],
-							Type: gvk[2],
-						},
-					})
-					log.Infoa("Sync for ", gvk, len(msg.Resources))
+			case ListenerType:
+				{
+					ll := &xdsapi.Listener{}
+					_ = proto.Unmarshal(valBytes, ll)
+					listeners = append(listeners, ll)
 				}
 
-			case ListenerType: {
-				ll := &xdsapi.Listener{}
-				_ = proto.Unmarshal(valBytes, ll)
-				listeners = append(listeners, ll)
-			}
+			case ClusterType:
+				{
+					cl := &xdsapi.Cluster{}
+					_ = proto.Unmarshal(valBytes, cl)
+					clusters = append(clusters, cl)
+				}
 
-			case ClusterType: {
-				cl := &xdsapi.Cluster{}
-				_ = proto.Unmarshal(valBytes, cl)
-				clusters = append(clusters, cl)
-			}
+			case endpointType:
+				{
+					el := &xdsapi.ClusterLoadAssignment{}
+					_ = proto.Unmarshal(valBytes, el)
+					eds = append(eds, el)
+				}
 
-			case endpointType: {
-				el := &xdsapi.ClusterLoadAssignment{}
-				_ = proto.Unmarshal(valBytes, el)
-				eds = append(eds, el)
-			}
+			case routeType:
+				{
+					rl := &xdsapi.RouteConfiguration{}
+					_ = proto.Unmarshal(valBytes, rl)
+					routes = append(routes, rl)
+				}
 
-			case routeType: {
-				rl := &xdsapi.RouteConfiguration{}
-				_ = proto.Unmarshal(valBytes, rl)
-				routes = append(routes, rl)
-			}
-
-			default: {
+			default:
 				if len(gvk) != 3 {
 					continue
 				}
 				// Generic - fill up the store
 				if a.Store != nil {
 					m := &mcp.Resource{}
-					types.UnmarshalAny(&types.Any{
+					err = types.UnmarshalAny(&types.Any{
 						TypeUrl: rsc.TypeUrl,
 						Value:   rsc.Value,
 					}, m)
+					if err != nil {
+						continue
+					}
 					val, err := mcpToPilot(m)
+					if err != nil {
+						continue
+					}
 					val.Group = gvk[0]
 					val.Version = gvk[1]
 					val.Type = gvk[2]
@@ -373,9 +373,15 @@ func (a *ADSC) handleRecv() {
 					} else {
 						cfg := a.Store.Get(val.GroupVersionKind(), val.Name, val.Namespace)
 						if cfg == nil {
-							a.Store.Create(*val)
+							_, err = a.Store.Create(*val)
+							if err != nil {
+								continue
+							}
 						} else {
-							a.Store.Update(*val)
+							_, err = a.Store.Update(*val)
+							if err != nil {
+								continue
+							}
 						}
 					}
 					if a.LocalCacheDir != "" {
@@ -383,7 +389,7 @@ func (a *ADSC) handleRecv() {
 						if err != nil {
 							continue
 						}
-						err = ioutil.WriteFile(a.LocalCacheDir+"_res." +
+						err = ioutil.WriteFile(a.LocalCacheDir+"_res."+
 							val.Type+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
 						if err != nil {
 							continue
@@ -391,11 +397,26 @@ func (a *ADSC) handleRecv() {
 					}
 				}
 			}
-			}
 		}
+		// last resource of this type. IstioStore doesn't yet have a way to indicate this
+		// or to support large sets - memory store has a special handling by calling Create
+		// with an empty resource. This is used to avoid sleep loop on HasSynced
+		if a.Store != nil && len(gvk) == 3 {
+			_, err = a.Store.Create(model.Config{
+				ConfigMeta: model.ConfigMeta{
+					Group:   gvk[0],
+					Version: gvk[1],
+					Type:    gvk[2],
+				},
+			})
+			if err != nil {
+				continue
+			}
+			log.Infoa("Sync for ", gvk, len(msg.Resources))
+		}
+
 		// If we got no resource - still save to the store with empty name/namespace, to notify sync
 		// This scheme also allows us to chunk large responses !
-
 
 		a.Received[msg.TypeUrl] = msg
 
@@ -406,15 +427,18 @@ func (a *ADSC) handleRecv() {
 
 		if len(listeners) > 0 {
 			a.handleLDS(listeners)
-		} else if len(clusters) > 0 {
+		}
+		if len(clusters) > 0 {
 			a.handleCDS(clusters)
-		} else if len(eds) > 0 {
+		}
+		if len(eds) > 0 {
 			a.handleEDS(eds)
-		} else if len(routes) > 0 {
+		}
+		if len(routes) > 0 {
 			a.handleRDS(routes)
 		}
 		select {
-		case a.Updates <- msg:
+		case a.XDSUpdates <- msg:
 		default:
 		}
 
@@ -428,13 +452,13 @@ func mcpToPilot(m *mcp.Resource) (*model.Config, error) {
 	c := &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			ResourceVersion: m.Metadata.Version,
-			Labels: m.Metadata.Labels,
-			Annotations: m.Metadata.Annotations,
+			Labels:          m.Metadata.Labels,
+			Annotations:     m.Metadata.Annotations,
 		},
 	}
 	nsn := strings.Split(m.Metadata.Name, "/")
 	if len(nsn) != 2 {
-		return nil, fmt.Errorf("Invalid name %s", m.Metadata.Name)
+		return nil, fmt.Errorf("invalid name %s", m.Metadata.Name)
 	}
 	c.Namespace = nsn[0]
 	c.Name = nsn[1]
@@ -525,6 +549,11 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 	}
 	a.httpListeners = lh
 	a.tcpListeners = lt
+
+	select {
+	case a.Updates <- "lds":
+	default:
+	}
 }
 
 // compact representations, for simplified debugging/testing
@@ -644,6 +673,11 @@ func (a *ADSC) handleCDS(ll []*xdsapi.Cluster) {
 	defer a.mutex.Unlock()
 	a.edsClusters = edscds
 	a.clusters = cds
+
+	select {
+	case a.Updates <- "cds":
+	default:
+	}
 }
 
 func (a *ADSC) node() *core.Node {
@@ -697,6 +731,11 @@ func (a *ADSC) handleEDS(eds []*xdsapi.ClusterLoadAssignment) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	a.eds = la
+
+	select {
+	case a.Updates <- "eds":
+	default:
+	}
 }
 
 func (a *ADSC) handleRDS(configurations []*xdsapi.RouteConfiguration) {
@@ -734,6 +773,12 @@ func (a *ADSC) handleRDS(configurations []*xdsapi.RouteConfiguration) {
 	a.mutex.Lock()
 	a.routes = rds
 	a.mutex.Unlock()
+
+	select {
+	case a.Updates <- "rds":
+	default:
+	}
+
 }
 
 // WaitClear will clear the waiting events, so next call to Wait will get
@@ -754,16 +799,6 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 	t := time.NewTimer(to)
 	want := map[string]struct{}{}
 	for _, update := range updates {
-		switch update {
-		case "lds":
-			update = ListenerType
-		case "cds":
-			update = ClusterType
-		case "eds":
-			update = endpointType
-		case "rds":
-			update = routeType
-		}
 		want[update] = struct{}{}
 	}
 	got := make([]string, 0, len(updates))
@@ -771,9 +806,21 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 		select {
 		case t := <-a.Updates:
 			if t == nil {
-				return got, fmt.Errorf("Closed")
+				return got, fmt.Errorf("closed")
 			}
-			delete(want, t.TypeUrl)
+			toDelete := t.TypeUrl
+			// legacy names, still used in tests.
+			switch t.TypeUrl {
+			case ListenerType:
+				delete(want, "lds")
+			case ClusterType:
+				delete(want, "cds")
+			case endpointType:
+				delete(want, "eds")
+			case routeType:
+				delete(want, "rds")
+			}
+			delete(want, toDelete)
 			got = append(got, t.TypeUrl)
 			if len(want) == 0 {
 				return got, nil
@@ -801,7 +848,7 @@ func (a *ADSC) WaitVersion(to time.Duration, typeURL, lastVersion string) (*xdsa
 		select {
 		case t := <-a.Updates:
 			if t == nil {
-				return nil, fmt.Errorf("Closed")
+				return nil, fmt.Errorf("closed")
 			}
 			if t.TypeUrl == typeURL {
 				return t, nil

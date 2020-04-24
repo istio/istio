@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -65,19 +66,18 @@ func NewXDS() *Server {
 
 	ds := v2.NewDiscoveryServer(env, nil)
 
-	// Config will have a fixed format: 
+	// Config will have a fixed format:
 	// - aggregate store
 	// - one primary (local) memory config
-  // Additional stores can be added dynamically - for example by push or reference from a server.
-  // This is used to implement and test XDS federation (which is not yet final).
-	
-  
+	// Additional stores can be added dynamically - for example by push or reference from a server.
+	// This is used to implement and test XDS federation (which is not yet final).
+
 	// In-memory config store, controller and istioConfigStore
 	schemas := collections.Pilot
-	
+
 	store := memory.Make(schemas)
 	s := &Server{
-		DiscoveryServer:   ds,
+		DiscoveryServer: ds,
 	}
 	s.syncCh = make(chan string, len(schemas.All()))
 	configController := memory.NewControllerSync(store, &schemas, s.syncCh)

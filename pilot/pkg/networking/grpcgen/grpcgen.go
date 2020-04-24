@@ -25,6 +25,7 @@ import (
 	v2 "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	envoy_config_listener_v2 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v2"
 	"github.com/golang/protobuf/ptypes/any"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/pkg/log"
@@ -68,11 +69,11 @@ type GrpcConfigGenerator struct {
 func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
 	switch w.TypeUrl {
 	case ListenerType:
-		return g.BuildListeners(node, push, w.ResourceNames)
+		return g.BuildListeners(proxy, push, w.ResourceNames)
 	case ClusterType:
-		return g.BuildClusters(node, push, w.ResourceNames)
+		return g.BuildClusters(proxy, push, w.ResourceNames)
 	case RouteType:
-		return g.BuildHTTPRoutes(node, push, w.ResourceNames)
+		return g.BuildHTTPRoutes(proxy, push, w.ResourceNames)
 	}
 
 	return nil

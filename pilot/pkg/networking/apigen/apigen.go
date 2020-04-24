@@ -17,8 +17,9 @@ package apigen
 import (
 	"strings"
 
-	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes/any"
+	gogotypes "github.com/gogo/protobuf/types"
+	golangany "github.com/golang/protobuf/ptypes/any"
+
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
@@ -48,7 +49,7 @@ type ApiGenerator struct {
 // the XDS implementation, but useful to get into the initial protocol. The behavior is specific
 // to this type of resources - and not prohibited by the ADS protocol, EDS has a similar behavior.
 func (g *ApiGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
-	resp := []*any.Any{}
+	resp := []*golangany.Any{}
 
 	// Example: networking.istio.io/v1alpha3/VirtualService
 	// Note: this is the style used by MCP and its config. Pilot is using 'Group/Version/Kind' as the
@@ -65,11 +66,11 @@ func (g *ApiGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 			Kind:    gvk[2],
 		}
 		if w.TypeUrl == collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String() {
-			meshAny, err := types.MarshalAny(push.Mesh)
+			meshAny, err := gogotypes.MarshalAny(push.Mesh)
 			if err == nil {
-				resp = append(resp,&any.Any{
+				resp = append(resp, &golangany.Any{
 					TypeUrl: w.TypeUrl,
-					Value:  meshAny.Value,
+					Value:   meshAny.Value,
 				})
 			}
 			return resp
@@ -89,11 +90,11 @@ func (g *ApiGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 				log.Warna("Resource error ", err, " ", c.Namespace, "/", c.Name)
 				continue
 			}
-			bany, err := types.MarshalAny(b)
+			bany, err := gogotypes.MarshalAny(b)
 			if err == nil {
-				resp = append(resp, &any.Any{
+				resp = append(resp, &golangany.Any{
 					TypeUrl: bany.TypeUrl,
-					Value:  bany.Value,
+					Value:   bany.Value,
 				})
 			} else {
 				log.Warna("Any ", err)
@@ -113,11 +114,11 @@ func (g *ApiGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 					log.Warna("Resource error ", err, " ", c.Namespace, "/", c.Name)
 					continue
 				}
-				bany, err := types.MarshalAny(b)
+				bany, err := gogotypes.MarshalAny(b)
 				if err == nil {
-					resp = append(resp, &any.Any{
+					resp = append(resp, &golangany.Any{
 						TypeUrl: bany.TypeUrl,
-						Value:  bany.Value,
+						Value:   bany.Value,
 					})
 				} else {
 					log.Warna("Any ", err)
@@ -126,8 +127,7 @@ func (g *ApiGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 		}
 	}
 
-	resp = append(resp, &any.Any{
-	})
+	resp = append(resp, &golangany.Any{})
 
 	return resp
 }
@@ -139,24 +139,22 @@ func configToResource(c *model.Config) (*mcp.Resource, error) {
 
 	// MCP, K8S and Istio configs use gogo configs
 	// On the wire it's the same as golang proto.
-	a, err := types.MarshalAny(c.Spec)
+	a, err := gogotypes.MarshalAny(c.Spec)
 	if err != nil {
 		return nil, err
 	}
 	r.Body = a
-	ts, err := types.TimestampProto(c.CreationTimestamp)
+	ts, err := gogotypes.TimestampProto(c.CreationTimestamp)
 	if err != nil {
 		return nil, err
 	}
 	r.Metadata = &mcp.Metadata{
-		Name:                 c.Namespace + "/" + c.Name,
-		CreateTime:           ts,
-		Version:              c.ResourceVersion,
-		Labels: c.Labels,
+		Name:        c.Namespace + "/" + c.Name,
+		CreateTime:  ts,
+		Version:     c.ResourceVersion,
+		Labels:      c.Labels,
 		Annotations: c.Annotations,
 	}
 
 	return r, nil
 }
-
-

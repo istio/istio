@@ -26,13 +26,14 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pilot/pkg/networking/apigen"
-	"istio.io/istio/pilot/pkg/networking/grpcgen"
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+
+	"istio.io/istio/pilot/pkg/networking/apigen"
+	"istio.io/istio/pilot/pkg/networking/grpcgen"
 
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"

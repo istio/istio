@@ -441,7 +441,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			// TODO: we really need an Envoy API generated with gogo to remove all this crazyness.
 			resp = append(resp, &any.Any{
 				TypeUrl: bany.TypeUrl,
-				Value: bany.Value,
+				Value:   bany.Value,
 			})
 		}
 	}

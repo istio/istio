@@ -39,7 +39,6 @@ func convertPort(port *networking.Port) *model.Port {
 	}
 }
 
-
 // ServiceToServiceEntry converts from internal Service representation to ServiceEntry
 // This does not include endpoints - they'll be represented as EndpointSlice or EDS.
 //
@@ -49,13 +48,13 @@ func ServiceToServiceEntry(svc *model.Service) *model.Config {
 	gvk := collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind()
 	se := &networking.ServiceEntry{
 		// Host is fully qualified: name, namespace, domainSuffix
-		Hosts:                []string{string(svc.Hostname)},
+		Hosts: []string{string(svc.Hostname)},
 
 		// Internal Service and K8S Service have a single Address.
 		// ServiceEntry can represent multiple - but we are not using that. SE may be merged.
 		// Will be 0.0.0.0 if not specified as ClusterIP or ClusterIP==None. In such case resolution is Passthrough.
 		//
-		Addresses:            []string{svc.Address},
+		Addresses: []string{svc.Address},
 
 		//Location:             0,
 
@@ -68,7 +67,7 @@ func ServiceToServiceEntry(svc *model.Service) *model.Config {
 
 		// This is based on alpha.istio.io/canonical-serviceaccounts and
 		//  alpha.istio.io/kubernetes-serviceaccounts.
-		SubjectAltNames:      svc.ServiceAccounts,
+		SubjectAltNames: svc.ServiceAccounts,
 	}
 
 	// Based on networking.istio.io/exportTo annotation
@@ -101,20 +100,20 @@ func ServiceToServiceEntry(svc *model.Service) *model.Config {
 	// Port is mapped from ServicePort
 	for _, p := range svc.Ports {
 		se.Ports = append(se.Ports, &networking.Port{
-			Number:               uint32(p.Port),
-			Name:                 p.Name,
+			Number: uint32(p.Port),
+			Name:   p.Name,
 			// Protocol is converted to protocol.Instance - reverse conversion will use the name.
-			Protocol:             string(p.Protocol),
+			Protocol: string(p.Protocol),
 		})
 	}
 
 	cfg := &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              gvk.Kind,
-			Group:             gvk.Group,
-			Version:           gvk.Version,
-			Name:              "synthetic-" + svc.Attributes.Name,
-			Namespace:         svc.Attributes.Namespace,
+			Type:      gvk.Kind,
+			Group:     gvk.Group,
+			Version:   gvk.Version,
+			Name:      "synthetic-" + svc.Attributes.Name,
+			Namespace: svc.Attributes.Namespace,
 			//Domain:            "",
 			//Labels:            nil,
 			//Annotations:       nil,

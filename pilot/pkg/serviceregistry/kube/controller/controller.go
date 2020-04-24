@@ -379,9 +379,6 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 			}
 		}
 		if k8sNode.address == "" {
-			// This is an absolutely normal event - node has an InternalIP instead of ExternalIP
-			// No need to spam the logs - this is going to be the case for all nodes if external IPs
-			// are not assigned to nodes.
 			return nil
 		}
 

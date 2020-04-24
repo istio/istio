@@ -16,8 +16,11 @@ package v2
 
 import (
 	"time"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"istio.io/istio/pilot/pkg/networking/util"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/grpc/codes"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -49,7 +52,7 @@ func (s *DiscoveryServer) handleReqAck(con *XdsConnection, discReq *xdsapi.Disco
 	isAck := true
 
 	t := discReq.TypeUrl
-	con.mu.RLock()
+	con.mu.Lock()
 	w := con.node.Active[t]
 	if w == nil {
 		w = &model.WatchedResource{
@@ -58,7 +61,7 @@ func (s *DiscoveryServer) handleReqAck(con *XdsConnection, discReq *xdsapi.Disco
 		con.node.Active[t] = w
 		isAck = false // newly watched resource
 	}
-	con.mu.RUnlock()
+	con.mu.Unlock()
 
 	if discReq.ErrorDetail != nil {
 		errCode := codes.Code(discReq.ErrorDetail.Code)
@@ -116,7 +119,7 @@ func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *xdsapi.
 	// XdsResourceGenerator is the default generator for this connection. We want to allow
 	// some types to use custom generators - for example EDS.
 	g := con.node.XdsResourceGenerator
-	if cg, f := s.Generators[con.node.Metadata.Generator + "/" + w.TypeUrl]; f {
+	if cg, f := s.Generators[con.node.Metadata.Generator+"/"+w.TypeUrl]; f {
 		g = cg
 	}
 
@@ -137,7 +140,7 @@ func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *xdsapi.
 	w.LastSent = time.Now()
 	w.LastSize = sz // just resource size - doesn't include header and types
 	w.NonceSent = resp.Nonce
-	adsLog.Infoa("Pushed ", w.TypeUrl, " count=", len(cl), " sz=", sz)
+	adsLog.Infof("Pushed %s to %s count=%d size=%d", w.TypeUrl, con.node.ID, len(cl), sz)
 
 	return nil
 }
@@ -148,7 +151,7 @@ func (s *DiscoveryServer) handleCustomGenerator(con *XdsConnection, req *xdsapi.
 // Called for config updates.
 // Will not be called if ProxyNeedsPush returns false - ie. if the update
 func (s *DiscoveryServer) pushGeneratorV2(con *XdsConnection, push *model.PushContext,
-	currentVersion string, rt string, w *model.WatchedResource, updates model.XdsUpdates) error {
+	currentVersion string, w *model.WatchedResource, updates model.XdsUpdates) error {
 	// TODO: generators may send incremental changes if both sides agree on the protocol.
 	// This is specific to each generator type.
 	cl := con.node.XdsResourceGenerator.Generate(con.node, push, w, updates)
@@ -175,7 +178,7 @@ func (s *DiscoveryServer) pushGeneratorV2(con *XdsConnection, push *model.PushCo
 
 	err := con.send(resp)
 	if err != nil {
-		adsLog.Warnf("ADS: Send failure %s: %v", con.ConID, err)
+		adsLog.Warnf("ADS: Send failure %s %s: %v", w.TypeUrl, con.ConID, err)
 		recordSendError(apiSendErrPushes, err)
 		return err
 	}
@@ -183,6 +186,68 @@ func (s *DiscoveryServer) pushGeneratorV2(con *XdsConnection, push *model.PushCo
 	w.LastSize = sz // just resource size - doesn't include header and types
 	w.NonceSent = resp.Nonce
 
-	adsLog.Infof("XDS: PUSH for node:%s listeners:%d", con.node.ID, len(cl))
+	adsLog.Infof("XDS: PUSH %s for node:%s resources:%d", w.TypeUrl, con.node.ID, len(cl))
+	return nil
+}
+
+// InternalGen is a Generator for XDS status updates: connect, disconnect, nacks, acks
+type InternalGen struct {
+	Server *DiscoveryServer
+
+	// TODO: track last N Nacks and connection events, with 'version' based on timestamp.
+	// On new connect, use version to send recent events since last update.
+}
+
+func (sg *InternalGen) OnConnect(node *core.Node) {
+	sg.startPush("/istio/connect", []*any.Any{util.MessageToAny(node)})
+}
+
+func (sg *InternalGen) OnDisconnect() {
+
+}
+
+func (sg *InternalGen) OnNack(dr *xdsapi.DiscoveryRequest) {
+
+}
+
+// startPush is similar with DiscoveryServer.startPush() - but called directly,
+// since status discovery is not driven by config change events.
+// We also want connection events to be dispatched as soon as possible,
+// they may be consumed by other instances of Istiod to update internal state.
+func (sg *InternalGen) startPush(typeURL string, data []*any.Any) {
+// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
+	// the same connection table
+	sg.Server.adsClientsMutex.RLock()
+	// Create a temp map to avoid locking the add/remove
+	pending := []*XdsConnection{}
+	for _, v := range sg.Server.adsClients {
+		if v.node.Active[typeURL] != nil {
+			pending = append(pending, v)
+		}
+	}
+	sg.Server.adsClientsMutex.RUnlock()
+
+	dr := &xdsapi.DiscoveryResponse{
+		TypeUrl: typeURL,
+		Resources: data,
+	}
+
+	for _, p := range pending {
+		p.send(dr)
+	}
+}
+
+// Generate XDS responses about internal events:
+// - connection status
+// - NACKs
+//
+// We can also expose ACKS.
+func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
+
+	switch w.TypeUrl {
+	case "/istio/connect":
+
+	case "/istio/nacks":
+	}
 	return nil
 }
