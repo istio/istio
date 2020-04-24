@@ -143,24 +143,20 @@ type Options struct {
 	WaitTimeout time.Duration
 }
 
-func applyManifest(restConfig *rest.Config, client client.Client, manifestStr, componentName string, opts *Options, l clog.Logger) bool {
+func applyManifest(restConfig *rest.Config, client client.Client, manifestStr, componentName string, opts *Options, l clog.Logger) error {
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	helmreconciler.FlushObjectCaches()
 	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, nil, &helmreconciler.Options{DryRun: opts.DryRun, Log: l})
 	if err != nil {
 		l.LogAndError(err)
-		return false
+		return err
 	}
 	ms := []releaseutil.Manifest{{
 		Name:    componentName,
 		Content: manifestStr,
 	}}
 	_, err = reconciler.ProcessManifest(ms, true)
-	if err != nil {
-		l.LogAndError(err)
-		return false
-	}
-	return true
+	return err
 }
 
 func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource string, istioNamespace string, err error) {
@@ -180,26 +176,4 @@ func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource s
 	customResource = string(b)
 	istioNamespace = v1alpha1.Namespace(mergedIOPS)
 	return
-}
-
-func genNamespaceResource(namespace string) string {
-	tmpl := `
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    istio-injection: disabled
-  name: {{.Namespace}}
-`
-
-	tv := struct {
-		Namespace string
-	}{
-		Namespace: namespace,
-	}
-	vals, err := util.RenderTemplate(tmpl, tv)
-	if err != nil {
-		return ""
-	}
-	return vals
 }
