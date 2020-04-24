@@ -22,6 +22,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"istio.io/istio/pilot/pkg/model"
+
 	"k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
@@ -37,10 +39,6 @@ import (
 var (
 	injectionWebhookConfigName = env.RegisterStringVar("INJECTION_WEBHOOK_CONFIG_NAME", "istio-sidecar-injector",
 		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.")
-	tlsCertFile = env.RegisterStringVar("INJECTION_WEBHOOK_TLS_SERVER_CERT_CHAIN", filepath.Join(dnsCertDir, "cert-chain.pem"),
-		"File containing the x509 Certificate for HTTPS.")
-	tlsKeyFile  = env.RegisterStringVar("INJECTION_WEBHOOK_TLS_SERVER_KEY", filepath.Join(dnsCertDir, "key.pem"),
-		"File containing the x509 private key matching --tlsCertFile.")
 )
 
 const (
@@ -70,8 +68,8 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 		ValuesFile: filepath.Join(injectPath, "values"),
 		MeshFile:   args.Mesh.ConfigFile,
 		Env:        s.environment,
-		CertFile:   tlsCertFile.Get(),
-		KeyFile:    tlsKeyFile.Get(),
+		CertFile:   model.GetOrDefault(filepath.Join(dnsCertDir, "cert-chain.pem"), defaultTlsServerCertChain),
+		KeyFile:    model.GetOrDefault(filepath.Join(dnsCertDir, "key.pem"), defaultTlsServerKey),
 		// Disable monitoring. The injection metrics will be picked up by Pilots metrics exporter already
 		MonitoringPort: -1,
 		Mux:            s.httpsMux,

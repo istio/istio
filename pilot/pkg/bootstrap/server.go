@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"path"
@@ -539,8 +540,8 @@ func (s *Server) initDNSTLSListener(dns string) error {
 	}
 	certDir := dnsCertDir
 
-	key := path.Join(certDir, constants.KeyFilename)
-	cert := path.Join(certDir, constants.CertChainFilename)
+	key := model.GetOrDefault(defaultTlsServerKey, path.Join(certDir, constants.KeyFilename))
+	cert := model.GetOrDefault(defaultTlsServerCertChain, path.Join(certDir, constants.CertChainFilename))
 
 	certP, err := tls.LoadX509KeyPair(cert, key)
 	if err != nil {
@@ -548,7 +549,17 @@ func (s *Server) initDNSTLSListener(dns string) error {
 	}
 
 	cp := x509.NewCertPool()
-	rootCertBytes := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+	var rootCertBytes []byte
+	var defaultRootCertBytes []byte
+	if defaultTlsServerRootCert != "" {
+		defaultRootCertBytes, err = ioutil.ReadFile(defaultTlsServerRootCert)
+	}
+
+	if err == nil && defaultRootCertBytes != nil {
+		rootCertBytes = defaultRootCertBytes
+	} else {
+		rootCertBytes = s.ca.GetCAKeyCertBundle().GetRootCertPem()
+	}
 	cp.AppendCertsFromPEM(rootCertBytes)
 
 	// TODO: check if client certs can be used with coredns or others.
@@ -575,8 +586,8 @@ func (s *Server) initDNSTLSListener(dns string) error {
 func (s *Server) initSecureGrpcServer(port string, keepalive *istiokeepalive.Options) error {
 	certDir := dnsCertDir
 
-	key := path.Join(certDir, constants.KeyFilename)
-	cert := path.Join(certDir, constants.CertChainFilename)
+	key := model.GetOrDefault(defaultTlsServerKey, path.Join(certDir, constants.KeyFilename))
+	cert := model.GetOrDefault(defaultTlsServerCertChain, path.Join(certDir, constants.CertChainFilename))
 
 	certP, err := tls.LoadX509KeyPair(cert, key)
 	if err != nil {
@@ -584,7 +595,17 @@ func (s *Server) initSecureGrpcServer(port string, keepalive *istiokeepalive.Opt
 	}
 
 	cp := x509.NewCertPool()
-	rootCertBytes := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+	var rootCertBytes []byte
+	var defaultRootCertBytes []byte
+	if defaultTlsServerRootCert != "" {
+		defaultRootCertBytes, err = ioutil.ReadFile(defaultTlsServerRootCert)
+	}
+
+	if err == nil && defaultRootCertBytes != nil {
+		rootCertBytes = defaultRootCertBytes
+	} else {
+		rootCertBytes = s.ca.GetCAKeyCertBundle().GetRootCertPem()
+	}
 	cp.AppendCertsFromPEM(rootCertBytes)
 
 	cfg := &tls.Config{
