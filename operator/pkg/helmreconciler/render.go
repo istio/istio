@@ -255,9 +255,6 @@ func (h *HelmReconciler) ProcessManifest(manifests []releaseutil.Manifest, hasDe
 				// Update the cache with the latest object.
 				objectCache.cache[obj.Hash()] = obj
 			}
-			if err := WaitForResources(objList, h.restConfig, h.clientSet, internalDepTimeout, h.opts.DryRun, plog); err != nil {
-				return nil, err
-			}
 		}
 
 		// Prune anything not in the manifest out of the cache.
@@ -281,7 +278,8 @@ func (h *HelmReconciler) ProcessManifest(manifests []releaseutil.Manifest, hasDe
 			// If we are depending on a component, we may depend on it actually running (eg Deployment is ready)
 			// For example, for the validation webhook to become ready, so we should wait for it always.
 			if hasDependencies || h.opts.Wait {
-				err := WaitForResources(processedObjects, h.restConfig, h.clientSet, internalDepTimeout, h.opts.DryRun, plog)
+				err := WaitForResources(processedObjects, h.restConfig, h.clientSet,
+					internalDepTimeout, h.opts.DryRun, plog)
 				if err != nil {
 					werr := fmt.Errorf("failed to wait for resource: %v", err)
 					plog.ReportError(werr.Error())
