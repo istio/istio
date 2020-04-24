@@ -104,7 +104,7 @@ func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event)
 						portName = *port.Name
 					}
 
-					istioEndpoint := builder.buildIstioEndpoint(a, portNum, portName)
+					istioEndpoint := builder.BuildIstioEndpoint(a, portNum, portName)
 					endpoints = append(endpoints, istioEndpoint)
 				}
 			}
@@ -187,7 +187,7 @@ func (esc *endpointSliceController) proxyServiceInstances(c *Controller, ep *dis
 			for _, ep := range ep.Endpoints {
 				for _, a := range ep.Addresses {
 					if a == ip {
-						istioEndpoint := builder.buildIstioEndpoint(ip, *port.Port, svcPort.Name)
+						istioEndpoint := builder.BuildIstioEndpoint(ip, *port.Port, svcPort.Name)
 						out = append(out, &model.ServiceInstance{
 							Endpoint:    istioEndpoint,
 							ServicePort: svcPort,
@@ -249,7 +249,7 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 
 					if port.Name == nil ||
 						svcPort.Name == *port.Name {
-						istioEndpoint := builder.buildIstioEndpoint(a, portNum, svcPort.Name)
+						istioEndpoint := builder.BuildIstioEndpoint(a, portNum, svcPort.Name)
 						out = append(out, &model.ServiceInstance{
 							Endpoint:    istioEndpoint,
 							ServicePort: svcPort,

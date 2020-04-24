@@ -62,7 +62,8 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		}
 	}
 
-	s.serviceEntryStore = external.NewServiceDiscovery(s.configController, s.environment.IstioConfigStore, s.EnvoyXdsServer)
+	s.serviceEntryStore = external.NewServiceDiscovery(s.configController, s.environment.IstioConfigStore,
+		s.EnvoyXdsServer, s.kubeRegistry)
 	serviceControllers.AddRegistry(s.serviceEntryStore)
 
 	// Defer running of the service controllers.

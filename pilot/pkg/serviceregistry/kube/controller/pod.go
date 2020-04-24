@@ -58,8 +58,6 @@ func newPodCache(informer cache.SharedIndexInformer, c *Controller) *PodCache {
 
 // onEvent updates the IP-based index (pc.podsByIP).
 func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
-	pc.Lock()
-	defer pc.Unlock()
 
 	// When a pod is deleted obj could be an *v1.Pod or a DeletionFinalStateUnknown marker item.
 	pod, ok := curr.(*v1.Pod)
@@ -81,6 +79,7 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 	if len(ip) > 0 {
 		log.Infof("Handling event %s for pod %s (%v) in namespace %s -> %v", ev, pod.Name, pod.Status.Phase, pod.Namespace, ip)
 		key := kube.KeyFunc(pod.Name, pod.Namespace)
+		pc.Lock()
 		switch ev {
 		case model.EventAdd:
 			switch pod.Status.Phase {
@@ -116,6 +115,10 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 			if pc.podsByIP[ip] == key {
 				pc.deleteIP(ip)
 			}
+		}
+		pc.Unlock()
+		if pc.c.serviceEntryCallback != nil {
+			pc.c.serviceEntryCallback(pod, ev)
 		}
 	}
 	return nil
