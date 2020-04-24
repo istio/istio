@@ -18,6 +18,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/istio/operator/pkg/util/clog"
 )
@@ -28,7 +30,7 @@ type operatorRemoveArgs struct {
 	force bool
 }
 
-type manifestDeleter func(manifestStr, componentName string, opts *Options, l clog.Logger) bool
+type manifestDeleter func(restConfig *rest.Config, client client.Client, manifestStr, componentName string, opts *Options, l clog.Logger) bool
 
 var (
 	defaultManifestDeleter = deleteManifest
@@ -55,7 +57,7 @@ func operatorRemoveCmd(rootArgs *rootArgs, orArgs *operatorRemoveArgs) *cobra.Co
 func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger, deleteManifestFunc manifestDeleter) {
 	initLogsOrExit(args)
 
-	_, clientset, _, err := K8sConfig(orArgs.kubeConfigPath, orArgs.context)
+	restConfig, clientset, client, err := K8sConfig(orArgs.kubeConfigPath, orArgs.context)
 	if err != nil {
 		l.LogAndFatal(err)
 	}
@@ -87,7 +89,7 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger, d
 		Context:     orArgs.context,
 	}
 
-	success := deleteManifestFunc(mstr, "Operator", opts, l)
+	success := deleteManifestFunc(restConfig, client, mstr, "Operator", opts, l)
 	if !success {
 		l.LogAndPrint("\n*** Errors were logged during manifest deletion. Please check logs above. ***\n")
 		return
@@ -96,7 +98,7 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger, d
 	l.LogAndPrint("\n*** Success. ***\n")
 }
 
-func deleteManifest(_, _ string, _ *Options, l clog.Logger) bool {
+func deleteManifest(_ *rest.Config, _ client.Client, _, _ string, _ *Options, l clog.Logger) bool {
 	l.LogAndError("Deleting manifest not implemented")
 	return false
 }

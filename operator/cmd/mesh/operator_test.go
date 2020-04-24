@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -29,7 +28,6 @@ import (
 
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
-	"istio.io/istio/pkg/test/env"
 )
 
 // applyParams is used to capture the inputs to operatorInit applyManifest call.
@@ -166,7 +164,6 @@ func TestOperatorRemove(t *testing.T) {
 				operatorNamespace: "operator-test-namespace",
 				istioNamespace:    "istio-test-namespace",
 			},
-			kubeConfigPath: path.Join(env.IstioSrc, "tests/util/kubeconfig"),
 		},
 		force: true,
 	}
@@ -191,7 +188,7 @@ func TestOperatorRemove(t *testing.T) {
 	}
 }
 
-func mockDeleteManifest(manifestStr, _ string, _ *Options, _ clog.Logger) bool {
+func mockDeleteManifest(_ *rest.Config, _ client.Client, manifestStr, _ string, _ *Options, _ clog.Logger) bool {
 	deleteOutput = manifestStr
 	return true
 }
