@@ -266,7 +266,7 @@ func (s SdsCertificateConfig) GetResourceName() string {
 	return fmt.Sprintf("file-cert:%s~%s", s.CertificatePath, s.PrivateKeyPath)
 }
 
-// GetResourceName converts a SdsCertificateConfig to a string to be used as an SDS resource name for the root
+// GetRootResourceName converts a SdsCertificateConfig to a string to be used as an SDS resource name for the root
 func (s SdsCertificateConfig) GetRootResourceName() string {
 	return fmt.Sprintf("file-root:%s", s.CaCertificatePath)
 }
