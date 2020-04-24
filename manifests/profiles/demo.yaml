@@ -1,6 +1,9 @@
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
+  meshConfig:
+    accessLogFile: /dev/stdout
+    disablePolicyChecks: false
   components:
     egressGateways:
     - name: istio-egressgateway
@@ -91,9 +94,7 @@ spec:
 
   values:
     global:
-      disablePolicyChecks: false
       proxy:
-        accessLogFile: /dev/stdout
         resources:
           requests:
             cpu: 10m
