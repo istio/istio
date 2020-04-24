@@ -57,7 +57,7 @@ var (
 	mode           = flag.String("mode", selfSignedMode, "Supported mode: self-signed, signer, citadel")
 	//Enable this flag if istio mTLS is enabled and the service is running as server side
 	isServer = flag.Bool("server", false, "Whether this certificate is for a server.")
-	ec             = flag.Bool("ec", false, "Generate an elliptical curve private key")
+	ec       = flag.Bool("ec", false, "Generate an elliptical curve private key")
 )
 
 func checkCmdLine() {
