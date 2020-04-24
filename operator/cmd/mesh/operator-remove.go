@@ -87,10 +87,6 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger, d
 		Context:     orArgs.context,
 	}
 
-	if _, _, err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
-		l.LogAndFatal(err)
-	}
-
 	success := deleteManifestFunc(mstr, "Operator", opts, l)
 	if !success {
 		l.LogAndPrint("\n*** Errors were logged during manifest deletion. Please check logs above. ***\n")
