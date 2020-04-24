@@ -191,8 +191,8 @@ telemetry:
       #  disable_server_access_logging: false
       #  meshEdgesReportingDuration: 500s
       #  disable_host_header_fallback: true
-
-    accessLog:
+    # Access Log Policy Filter Settings. This enables filtering of access logs from stackdriver.
+    accessLogPolicy:
       enabled: false
       # To reduce the number of successful logs, default log window duration is
       # set to 12 hours.

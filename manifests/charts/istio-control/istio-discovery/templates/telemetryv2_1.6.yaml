@@ -479,7 +479,7 @@ spec:
                   code:
                     local: { inline_string: envoy.wasm.null.stackdriver }
 ---
-{{- if .Values.telemetry.v2.accessLog.enabled }}
+{{- if .Values.telemetry.v2.accessLogPolicy.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -515,7 +515,7 @@ spec:
               config:
                 configuration: |
                   {
-                    "log_window_duration": {{ .Values.telemetry.v2.accessLog.logWindowDuration }}
+                    "log_window_duration": {{ .Values.telemetry.v2.accessLogPolicy.logWindowDuration }}
                   }
                 vm_config:
                   runtime: envoy.wasm.runtime.null
