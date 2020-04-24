@@ -28,6 +28,7 @@ import (
 
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/compare"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
@@ -191,13 +192,16 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	if currentVersion != "" {
 		currentSets = append(currentSets, "installPackagePath="+installURLFromVersion(currentVersion))
 	}
-	if targetIOPS.Profile != "" {
+	profile := targetIOPS.Profile
+	if profile == "" {
+		profile = name.DefaultProfileName
+	} else {
 		currentSets = append(currentSets, "profile="+targetIOPS.Profile)
 	}
 	if ysf, err = yamlFromSetFlags(currentSets, args.force, l); err != nil {
 		return err
 	}
-	currentProfileIOPSYaml, _, err := GenerateConfig(nil, ysf, args.force, nil, l)
+	currentProfileIOPSYaml, _, err := genIOPSFromProfile(profile, "", ysf, true, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate Istio configs from file %s for the current version: %s, error: %v",
 			args.inFilenames, currentVersion, err)
