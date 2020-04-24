@@ -2212,6 +2212,14 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		SubjectAltNames:   []string{"custom.foo.com"},
 		Sni:               "custom.foo.com",
 	}
+	mutualTlsSettings := &networking.ClientTLSSettings{
+		Mode:              networking.ClientTLSSettings_MUTUAL,
+		CaCertificates:    constants.DefaultRootCert,
+		ClientCertificate: constants.DefaultCertChain,
+		PrivateKey:        constants.DefaultKey,
+		SubjectAltNames:   []string{"custom.foo.com"},
+		Sni:               "custom.foo.com",
+	}
 
 	tests := []struct {
 		name          string
@@ -2221,6 +2229,8 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 
 		expectTransportSocket      bool
 		expectTransportSocketMatch bool
+
+		validateTlsContext func(t *testing.T, ctx *envoy_api_v2_auth.UpstreamTlsContext)
 	}{
 		{
 			name:                       "user specified without tls",
@@ -2237,6 +2247,24 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			tls:                        tlsSettings,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
+		},
+		{
+			name:                       "user specified mutual tls",
+			mtlsCtx:                    userSupplied,
+			discoveryType:              apiv2.Cluster_EDS,
+			tls:                        mutualTlsSettings,
+			expectTransportSocket:      true,
+			expectTransportSocketMatch: false,
+			validateTlsContext: func(t *testing.T, ctx *envoy_api_v2_auth.UpstreamTlsContext) {
+				rootName := "file-root:" + mutualTlsSettings.CaCertificates
+				certName := fmt.Sprintf("file-cert:%s~%s", mutualTlsSettings.ClientCertificate, mutualTlsSettings.PrivateKey)
+				if got := ctx.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(); rootName != got {
+					t.Fatalf("expected root name %v got %v", rootName, got)
+				}
+				if got := ctx.CommonTlsContext.GetTlsCertificateSdsSecretConfigs()[0].GetName(); certName != got {
+					t.Fatalf("expected cert name %v got %v", certName, got)
+				}
+			},
 		},
 		{
 			name:                       "auto detect with tls",
@@ -2258,11 +2286,11 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 
 	proxy := &model.Proxy{
 		Type:         model.SidecarProxy,
-		Metadata:     &model.NodeMetadata{},
+		Metadata:     &model.NodeMetadata{SdsEnabled: true},
 		IstioVersion: &model.IstioVersion{Major: 1, Minor: 5},
 	}
 	push := model.NewPushContext()
-	push.Mesh = &meshconfig.MeshConfig{}
+	push.Mesh = &meshconfig.MeshConfig{SdsUdsPath: "foo"}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -2282,6 +2310,14 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			if test.expectTransportSocketMatch && opts.cluster.TransportSocketMatches == nil ||
 				!test.expectTransportSocketMatch && opts.cluster.TransportSocketMatches != nil {
 				t.Errorf("Expected TransportSocketMatch %v", test.expectTransportSocketMatch)
+			}
+
+			if test.validateTlsContext != nil {
+				ctx := &envoy_api_v2_auth.UpstreamTlsContext{}
+				if err := ptypes.UnmarshalAny(opts.cluster.TransportSocket.GetTypedConfig(), ctx); err != nil {
+					t.Fatal(err)
+				}
+				test.validateTlsContext(t, ctx)
 			}
 		})
 	}
