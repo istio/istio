@@ -324,12 +324,14 @@ func (s *Suite) writeOutput() {
 	artifactsPath := os.Getenv("ARTIFACTS")
 	if artifactsPath != "" {
 		ctx := rt.suiteContext()
+		ctx.outcomeMu.RLock()
 		out := SuiteOutcome{
 			Name:         ctx.Settings().TestID,
 			Environment:  ctx.Environment().EnvironmentName().String(),
 			Multicluster: ctx.Environment().IsMulticluster(),
 			TestOutcomes: ctx.testOutcomes,
 		}
+		ctx.outcomeMu.RUnlock()
 		outbytes, err := yaml.Marshal(out)
 		if err != nil {
 			log.Errorf("failed writing test suite outcome to yaml: %s", err)

@@ -62,6 +62,7 @@ require (
 	github.com/emicklei/go-restful v2.9.6+incompatible // indirect
 	github.com/envoyproxy/go-control-plane v0.9.5-0.20200326174812-e8bd2869ff56
 	github.com/evanphx/json-patch v4.5.0+incompatible
+	github.com/fatih/color v1.7.0
 	github.com/fluent/fluent-logger-golang v1.3.0
 	github.com/frankban/quicktest v1.4.1 // indirect
 	github.com/fsnotify/fsnotify v1.4.7

@@ -19,6 +19,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,6 +30,7 @@ import (
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/pkg/log"
 )
@@ -166,7 +168,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 		return err
 	}
 
-	restConfig, clientSet, err := manifest.InitK8SRestClient(kubeConfigPath, context)
+	restConfig, _, err := manifest.InitK8SRestClient(kubeConfigPath, context)
 	if err != nil {
 		return err
 	}
@@ -198,33 +200,21 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	helmreconciler.FlushObjectCaches()
-	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, &helmreconciler.Options{DryRun: dryRun, Log: l})
+	opts := &helmreconciler.Options{DryRun: dryRun, Log: l, Wait: wait, ProgressLog: util.NewProgressLog()}
+	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, opts)
 	if err != nil {
 		return err
 	}
 	status, err := reconciler.Reconcile()
 	if err != nil {
-		l.LogAndPrintf("\n\n✘ Errors were logged during apply operation:\n\n%s\n", err)
 		return fmt.Errorf("errors occurred during operation")
 	}
 	if status.Status != v1alpha1.InstallStatus_HEALTHY {
 		return fmt.Errorf("errors occurred during operation")
 	}
 
-	if wait {
-		l.LogAndPrint("Waiting for resources to become ready...")
-		objs, err := object.ParseK8sObjectsFromYAMLManifest(reconciler.GetManifests().String())
-		if err != nil {
-			l.LogAndPrintf("\n\n✘ Errors in manifest:\n%s\n", err)
-			return fmt.Errorf("errors during wait")
-		}
-		if err := manifest.WaitForResources(objs, clientSet, waitTimeout, dryRun, l); err != nil {
-			l.LogAndPrintf("\n\n✘ Errors during wait:\n%s\n", err)
-			return fmt.Errorf("errors during wait")
-		}
-	}
-
-	l.LogAndPrint("\n\n✔ Installation complete\n")
+	check := color.New(color.FgGreen).Sprint("✔")
+	l.LogAndPrint(check + " Installation complete")
 
 	// Save state to cluster in IstioOperator CR.
 	iopStr, err := translate.IOPStoIOPstr(iops, crName, iopv1alpha1.Namespace(iops))
