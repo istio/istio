@@ -26,7 +26,6 @@ import (
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/helm"
-	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
@@ -81,14 +80,14 @@ func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs, logOp
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			l := clog.NewConsoleLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr())
 			return manifestGenerate(rootArgs, mgArgs, logOpts, l)
 		}}
 
 }
 
 func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log.Options, l clog.Logger) error {
-	if err := configLogs(args.logToStdErr, logopts); err != nil {
+	if err := configLogs(logopts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
@@ -110,7 +109,7 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 		if err := os.MkdirAll(mgArgs.outFilename, os.ModePerm); err != nil {
 			return err
 		}
-		if err := manifest.RenderToDir(manifests, mgArgs.outFilename, args.dryRun); err != nil {
+		if err := RenderToDir(manifests, mgArgs.outFilename, args.dryRun, l); err != nil {
 			return err
 		}
 	}

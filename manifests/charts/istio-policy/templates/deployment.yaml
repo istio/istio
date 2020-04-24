@@ -197,7 +197,7 @@ spec:
         - --serviceCluster
         - istio-policy
         - --templateFile
-        - /etc/istio/proxy/envoy_policy.yaml.tmpl
+        - /var/lib/istio/envoy/envoy_policy.yaml.tmpl
       {{- if .Values.global.controlPlaneSecurityEnabled }}
         - --controlPlaneAuthPolicy
         - MUTUAL_TLS

@@ -5899,3 +5899,43 @@ func TestValidatePeerAuthentication(t *testing.T) {
 		})
 	}
 }
+
+func TestServiceSettings(t *testing.T) {
+	cases := []struct {
+		name  string
+		hosts []string
+		valid bool
+	}{
+		{
+			name: "good",
+			hosts: []string{
+				"*.foo.bar",
+				"bar.baz.svc.cluster.local",
+			},
+			valid: true,
+		},
+		{
+			name: "bad",
+			hosts: []string{
+				"foo.bar.*",
+			},
+			valid: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			m := meshconfig.MeshConfig{
+				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
+					{
+						Hosts: c.hosts,
+					},
+				},
+			}
+
+			if got := validateServiceSettings(&m); (got == nil) != c.valid {
+				t.Errorf("got(%v) != want(%v)\n", got, c.valid)
+			}
+		})
+	}
+}

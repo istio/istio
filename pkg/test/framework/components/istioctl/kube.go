@@ -47,27 +47,29 @@ func (c *kubeComponent) ID() resource.ID {
 }
 
 // Invoke implements Instance
-func (c *kubeComponent) Invoke(args []string) (string, error) {
+func (c *kubeComponent) Invoke(args []string) (string, string, error) {
 	var cmdArgs = append([]string{
 		"--kubeconfig",
 		c.cluster.Filename(),
 	}, args...)
 
 	var out bytes.Buffer
+	var err bytes.Buffer
 	rootCmd := cmd.GetRootCmd(cmdArgs)
 	rootCmd.SetOut(&out)
-	rootCmd.SetErr(&out)
+	rootCmd.SetErr(&err)
 	fErr := rootCmd.Execute()
-	return out.String(), fErr
+	return out.String(), err.String(), fErr
 }
 
 // InvokeOrFail implements Instance
-func (c *kubeComponent) InvokeOrFail(t *testing.T, args []string) string {
-	output, err := c.Invoke(args)
+func (c *kubeComponent) InvokeOrFail(t *testing.T, args []string) (string, string) {
+	output, stderr, err := c.Invoke(args)
 	if err != nil {
 		t.Logf("Unwanted exception for 'istioctl %s': %v", strings.Join(args, " "), err)
 		t.Logf("Output:\n%v", output)
+		t.Logf("Error:\n%v", stderr)
 		t.FailNow()
 	}
-	return output
+	return output, stderr
 }

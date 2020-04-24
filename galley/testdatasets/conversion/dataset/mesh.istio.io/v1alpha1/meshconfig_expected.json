@@ -7,9 +7,6 @@
             },
             "Body": {
                 "accessLogFile": "/dev/stdout",
-                "clusterLocalNamespaces": [
-                  "kube-system"
-                ],
                 "connectTimeout": {
                     "seconds": 10
                 },

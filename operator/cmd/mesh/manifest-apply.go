@@ -19,16 +19,15 @@ import (
 	"os"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/operator/v1alpha1"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helmreconciler"
-	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/pkg/log"
 )
@@ -133,7 +132,7 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 }
 
 func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyArgs, logOpts *log.Options) error {
-	l := clog.NewConsoleLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
+	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr())
 	// Warn users if they use `manifest apply` without any config args.
 	if len(maArgs.inFilenames) == 0 && len(maArgs.set) == 0 && !rootArgs.dryRun && !maArgs.skipConfirmation {
 		if !confirm("This will install the default Istio profile into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
@@ -141,7 +140,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 			os.Exit(1)
 		}
 	}
-	if err := configLogs(rootArgs.logToStdErr, logOpts); err != nil {
+	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 	if err := ApplyManifests(applyInstallFlagAlias(maArgs.set, maArgs.charts), maArgs.inFilenames, maArgs.force, rootArgs.dryRun, rootArgs.verbose,
@@ -165,16 +164,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 	if err != nil {
 		return err
 	}
-
-	restConfig, clientSet, err := manifest.InitK8SRestClient(kubeConfigPath, context)
-	if err != nil {
-		return err
-	}
-	// We are running a one-off command locally, so we don't need to worry too much about rate limitting
-	// Bumping this up greatly decreases install time
-	restConfig.QPS = 50
-	restConfig.Burst = 100
-	client, err := client.New(restConfig, client.Options{Scheme: scheme.Scheme})
+	restConfig, clientset, client, err := K8sConfig(kubeConfigPath, context)
 	if err != nil {
 		return err
 	}
@@ -192,39 +182,27 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 		return err
 	}
 
-	if err := manifest.CreateNamespace(iop.Namespace); err != nil {
+	if err := CreateNamespace(clientset, iop.Namespace); err != nil {
 		return err
 	}
 
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	helmreconciler.FlushObjectCaches()
-	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, &helmreconciler.Options{DryRun: dryRun, Log: l})
+	opts := &helmreconciler.Options{DryRun: dryRun, Log: l, Wait: wait, ProgressLog: util.NewProgressLog()}
+	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, opts)
 	if err != nil {
 		return err
 	}
 	status, err := reconciler.Reconcile()
 	if err != nil {
-		l.LogAndPrintf("\n\n✘ Errors were logged during apply operation:\n\n%s\n", err)
 		return fmt.Errorf("errors occurred during operation")
 	}
 	if status.Status != v1alpha1.InstallStatus_HEALTHY {
 		return fmt.Errorf("errors occurred during operation")
 	}
 
-	if wait {
-		l.LogAndPrint("Waiting for resources to become ready...")
-		objs, err := object.ParseK8sObjectsFromYAMLManifest(reconciler.GetManifests().String())
-		if err != nil {
-			l.LogAndPrintf("\n\n✘ Errors in manifest:\n%s\n", err)
-			return fmt.Errorf("errors during wait")
-		}
-		if err := manifest.WaitForResources(objs, clientSet, waitTimeout, dryRun, l); err != nil {
-			l.LogAndPrintf("\n\n✘ Errors during wait:\n%s\n", err)
-			return fmt.Errorf("errors during wait")
-		}
-	}
-
-	l.LogAndPrint("\n\n✔ Installation complete\n")
+	check := color.New(color.FgGreen).Sprint("✔")
+	l.LogAndPrint(check + " Installation complete")
 
 	// Save state to cluster in IstioOperator CR.
 	iopStr, err := translate.IOPStoIOPstr(iops, crName, iopv1alpha1.Namespace(iops))

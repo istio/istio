@@ -27,12 +27,16 @@ import (
 )
 
 func TestGetMeshConfig(t *testing.T) {
-	overrides := `
+	meshOverride := `
 defaultConfig:
   discoveryAddress: foo:123
   proxyMetadata:
     SOME: setting
   drainDuration: 1s`
+	proxyOverride := `discoveryAddress: foo:123
+proxyMetadata:
+  SOME: setting
+drainDuration: 1s`
 	overridesExpected := func() meshconfig.ProxyConfig {
 		m := mesh.DefaultProxyConfig()
 		m.DiscoveryAddress = "foo:123"
@@ -52,21 +56,18 @@ defaultConfig:
 			expect: mesh.DefaultProxyConfig(),
 		},
 		{
-			name: "Annotation Override",
-			annotation: `discoveryAddress: foo:123
-proxyMetadata:
-  SOME: setting
-drainDuration: 1s`,
-			expect: overridesExpected,
+			name:       "Annotation Override",
+			annotation: proxyOverride,
+			expect:     overridesExpected,
 		},
 		{
 			name:   "File Override",
-			file:   overrides,
+			file:   meshOverride,
 			expect: overridesExpected,
 		},
 		{
 			name:        "Environment Override",
-			environment: overrides,
+			environment: proxyOverride,
 			expect:      overridesExpected,
 		},
 		{
@@ -79,30 +80,32 @@ defaultConfig:
   discoveryAddress: file:123
   proxyMetadata:
     SOME: setting
-  drainDuration: 1s`,
+  drainDuration: 1s
+  extraStatTags: ["a"]`,
 			environment: `
-defaultConfig:
-  discoveryAddress: environment:123
-  proxyMetadata:
-    OTHER: option`,
+discoveryAddress: environment:123
+proxyMetadata:
+OTHER: option`,
 			annotation: `
 discoveryAddress: annotation:123
 proxyMetadata:
   ANNOTATION: something
 drainDuration: 5s
+extraStatTags: ["b"]
 `,
 			expect: func() meshconfig.ProxyConfig {
 				m := mesh.DefaultProxyConfig()
 				m.DiscoveryAddress = "annotation:123"
 				m.ProxyMetadata = map[string]string{"ANNOTATION": "something"}
 				m.DrainDuration = types.DurationProto(5 * time.Second)
+				m.ExtraStatTags = []string{"b"}
 				return m
 			}(),
 		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			meshConfig = tt.environment
+			proxyConfigEnv = tt.environment
 			got, err := getMeshConfig(tt.file, tt.annotation)
 			if err != nil {
 				t.Fatal(err)

@@ -98,7 +98,11 @@ var (
 	outputKeyCertToDir = env.RegisterStringVar("OUTPUT_CERTS", "",
 		"The output directory for the key and certificate. If empty, key and certificate will not be saved. "+
 			"Must be set for VMs using provisioning certificates.").Get()
-	meshConfig = env.RegisterStringVar("MESH_CONFIG", "", "The mesh configuration").Get()
+	proxyConfigEnv = env.RegisterStringVar(
+		"PROXY_CONFIG",
+		"",
+		"The proxy configuration. This will be set by the injection - gateways will use file mounts.",
+	).Get()
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -420,7 +424,8 @@ func init() {
 		"The identity used as the suffix for mixer's spiffe SAN. This would only be used by pilot all other proxy would get this value from pilot")
 
 	proxyCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfig", "./etc/istio/config/mesh",
-		"File name for Istio mesh configuration. If not specified, a default mesh will be used. MESH_CONFIG environment variable takes precedence.")
+		"File name for Istio mesh configuration. If not specified, a default mesh will be used. This may be overridden by "+
+			"PROXY_CONFIG environment variable or istio.io/proxyConfig annotation.")
 	proxyCmd.PersistentFlags().IntVar(&stsPort, "stsPort", 0,
 		"HTTP Port on which to serve Security Token Service (STS). If zero, STS service will not be provided.")
 	proxyCmd.PersistentFlags().StringVar(&tokenManagerPlugin, "tokenManagerPlugin", tokenmanager.GoogleTokenExchange,

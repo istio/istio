@@ -27,6 +27,6 @@ roleRef:
   name: istiod-{{ .Values.global.istioNamespace }}
 subjects:
   - kind: ServiceAccount
-    name: istio-pilot-service-account
+    name: istiod-service-account
     namespace: {{ .Values.global.istioNamespace }}
 ---

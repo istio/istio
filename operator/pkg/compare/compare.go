@@ -26,7 +26,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
@@ -298,7 +297,7 @@ func FilterManifest(ms string, selectResources string, ignoreResources string) (
 	if err != nil {
 		return "", err
 	}
-	k8sObjects.Sort(manifest.DefaultObjectOrder())
+	k8sObjects.Sort(object.DefaultObjectOrder())
 	sortdManifests, err := k8sObjects.YAMLManifest()
 	if err != nil {
 		return "", err

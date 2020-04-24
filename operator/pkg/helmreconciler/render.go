@@ -19,15 +19,17 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
-	"github.com/cheggaaa/pb/v3"
 	jsonpatch "github.com/evanphx/json-patch"
+	"helm.sh/helm/v3/pkg/releaseutil"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/helm/pkg/manifest"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 	util2 "k8s.io/kubectl/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -173,40 +175,40 @@ func MergeIOPSWithProfile(iop *valuesv1alpha1.IstioOperator) (*v1alpha1.IstioOpe
 }
 
 // ProcessManifest apply the manifest to create or update resources, returns the number of objects processed
-func (h *HelmReconciler) ProcessManifest(manifests []manifest.Manifest) (object.K8sObjects, error) {
+func (h *HelmReconciler) ProcessManifest(manifests []releaseutil.Manifest, hasDependencies bool) (object.K8sObjects, error) {
 	var processedObjects object.K8sObjects
-	for _, manifest := range manifests {
+	for _, m := range manifests {
 		var errs util.Errors
-		objAccessor, err := meta.Accessor(h.iop)
+		crHash, err := h.getCRHash(m.Name)
 		if err != nil {
 			return nil, err
 		}
-		crName := objAccessor.GetName() + "-" + manifest.Name
-		scope.Infof("Processing resources from manifest: %s for CR %s", manifest.Name, crName)
-		allObjects, err := object.ParseK8sObjectsFromYAMLManifest(manifest.Content)
+
+		scope.Infof("Processing resources from manifest: %s for CR %s", m.Name, crHash)
+		allObjects, err := object.ParseK8sObjectsFromYAMLManifest(m.Content)
 		if err != nil {
 			return nil, err
 		}
 
 		objectCachesMu.Lock()
 
-		// Create and/or get the cache corresponding to the CR crName we're processing. Per crName partitioning is required to
+		// Create and/or get the cache corresponding to the CR crHash we're processing. Per crHash partitioning is required to
 		// prune the cache to remove any objects not in the manifest generated for a given CR.
-		if objectCaches[crName] == nil {
-			objectCaches[crName] = &ObjectCache{
+		if objectCaches[crHash] == nil {
+			objectCaches[crHash] = &ObjectCache{
 				cache: make(map[string]*object.K8sObject),
 				mu:    &sync.RWMutex{},
 			}
 		}
-		objectCache := objectCaches[crName]
+		objectCache := objectCaches[crHash]
 
 		objectCachesMu.Unlock()
 
-		// Ensure that for a given CR crName only one control loop uses the per-crName cache at any time.
+		// Ensure that for a given CR crHash only one control loop uses the per-crHash cache at any time.
 		objectCache.mu.Lock()
 		defer objectCache.mu.Unlock()
 
-		// No further locking required beyond this point, since we have a ptr to a cache corresponding to a CR crName and no
+		// No further locking required beyond this point, since we have a ptr to a cache corresponding to a CR crHash and no
 		// other controller is allowed to work on at the same time.
 		var deployedObjects int
 		var changedObjects object.K8sObjects
@@ -226,33 +228,36 @@ func (h *HelmReconciler) ProcessManifest(manifests []manifest.Manifest) (object.
 			changedObjectKeys = append(changedObjectKeys, oh)
 		}
 
-		var bar *pb.ProgressBar
+		var plog *util.ManifestLog
 		if len(changedObjectKeys) > 0 {
-			h.opts.Log.LogAndPrintf("Processing resources for component %s...", manifest.Name)
-			bar = progressBar(len(changedObjectKeys))
+			plog = h.opts.ProgressLog.NewComponent(m.Name)
 			scope.Infof("The following objects differ between generated manifest and cache: \n - %s", strings.Join(changedObjectKeys, "\n - "))
 		} else {
-			scope.Infof("Generated manifest objects are the same as cached for component %s.", manifest.Name)
+			scope.Infof("Generated manifest objects are the same as cached for component %s.", m.Name)
 		}
 
-		// For each changed object, write it to the API server.
-		for _, obj := range changedObjects {
-			obju := obj.UnstructuredObject()
-			if err := applyLabelsAndAnnotations(obju, manifest.Name, h.iop.Spec.Revision, crName); err != nil {
-				return nil, err
+		// Objects are applied in groups: namespaces, CRDs, everything else, with wait for ready in between.
+		nsObjs := object.KindObjects(changedObjects, name.NamespaceStr)
+		crdObjs := object.KindObjects(changedObjects, name.CRDStr)
+		otherObjs := object.ObjectsNotInLists(changedObjects, nsObjs, crdObjs)
+		for _, objList := range []object.K8sObjects{nsObjs, crdObjs, otherObjs} {
+			// For a given group of objects, apply in sorted order of priority with no wait in between.
+			objList.Sort(object.DefaultObjectOrder())
+			for _, obj := range objList {
+				obju := obj.UnstructuredObject()
+				if err := h.applyLabelsAndAnnotations(obju, m.Name); err != nil {
+					return nil, err
+				}
+				if err := h.ProcessObject(m.Name, obj.UnstructuredObject()); err != nil {
+					scope.Error(err.Error())
+					errs = util.AppendErr(errs, err)
+					continue
+				}
+				plog.ReportProgress()
+				processedObjects = append(processedObjects, obj)
+				// Update the cache with the latest object.
+				objectCache.cache[obj.Hash()] = obj
 			}
-			if err := h.ProcessObject(manifest.Name, obj.UnstructuredObject()); err != nil {
-				scope.Error(err.Error())
-				errs = util.AppendErr(errs, err)
-				continue
-			}
-			bar.Increment()
-			processedObjects = append(processedObjects, obj)
-			// Update the cache with the latest object.
-			objectCache.cache[obj.Hash()] = obj
-		}
-		if bar != nil {
-			bar.Finish()
 		}
 
 		// Prune anything not in the manifest out of the cache.
@@ -269,44 +274,27 @@ func (h *HelmReconciler) ProcessManifest(manifests []manifest.Manifest) (object.
 
 		if len(changedObjectKeys) > 0 {
 			if len(errs) != 0 {
-				h.opts.Log.LogAndPrintf("✘ Component %s installation had errors: \n%s\n", manifest.Name, util.ToString(errs.Dedup(), "\n"))
+				plog.ReportError(util.ToString(errs.Dedup(), "\n"))
 				return processedObjects, errs.ToError()
 			}
-			if len(allObjects) != 0 {
-				h.opts.Log.LogAndPrintf("✔ Component %s installed.", manifest.Name)
+
+			// If we are depending on a component, we may depend on it actually running (eg Deployment is ready)
+			// For example, for the validation webhook to become ready, so we should wait for it always.
+			if hasDependencies || h.opts.Wait {
+				err := WaitForResources(processedObjects, h.restConfig, h.clientSet,
+					internalDepTimeout, h.opts.DryRun, plog)
+				if err != nil {
+					werr := fmt.Errorf("failed to wait for resource: %v", err)
+					plog.ReportError(werr.Error())
+					return processedObjects, werr
+				}
+				plog.ReportFinished()
+			} else {
+				plog.ReportFinished()
 			}
 		}
 	}
 	return processedObjects, nil
-}
-
-// applyLabelsAndAnnotations applies owner labels and annotations to the object.
-func applyLabelsAndAnnotations(obj runtime.Object, componentName, revision, crName string) error {
-	labels := make(map[string]string)
-
-	componentLabelValue := componentName
-	// Only pilot component uses revisions
-	if componentName == string(name.PilotComponentName) {
-		if revision == "" {
-			revision = "default"
-		}
-		labels[model.RevisionLabel] = revision
-		componentLabelValue += "-" + revision
-	}
-
-	labels[operatorLabelStr] = operatorReconcileStr
-	labels[owningResourceKey] = crName
-	labels[istioComponentLabelStr] = componentLabelValue
-	labels[istioVersionLabelStr] = pkgversion.Info.Version
-
-	for k, v := range labels {
-		err := util.SetLabel(obj, k, v)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // ProcessObject creates or updates an object in the API server depending on whether it already exists.
@@ -343,19 +331,30 @@ func (h *HelmReconciler) ProcessObject(chartName string, obj *unstructured.Unstr
 		return nil
 	}
 
-	err := h.client.Get(context.TODO(), objectKey, receiver)
-	switch {
-	case apierrors.IsNotFound(err):
-		scope.Infof("creating resource: %s", objectStr)
-		return h.client.Create(context.TODO(), obj)
-	case err == nil:
-		scope.Infof("updating resource: %s", objectStr)
-		if err := applyOverlay(receiver, obj); err != nil {
-			return err
+	backoff := wait.Backoff{Duration: time.Millisecond * 10, Factor: 2, Steps: 3}
+	return retry.RetryOnConflict(backoff, func() error {
+		err := h.client.Get(context.TODO(), objectKey, receiver)
+		switch {
+		case apierrors.IsNotFound(err):
+			scope.Infof("creating resource: %s", objectStr)
+			err = h.client.Create(context.TODO(), obj)
+			if err != nil {
+				return fmt.Errorf("failed to create %q: %w", objectStr, err)
+			}
+			return nil
+		case err == nil:
+			scope.Infof("updating resource: %s", objectStr)
+			if err := applyOverlay(receiver, obj); err != nil {
+				return err
+			}
+			updateErr := h.client.Update(context.TODO(), receiver)
+			if updateErr != nil {
+				scope.Warnf("update %v: %v", receiver.GetName(), updateErr)
+			}
+			return updateErr
 		}
-		return h.client.Update(context.TODO(), receiver)
-	}
-	return err
+		return nil
+	})
 }
 
 // applyOverlay applies an overlay using JSON patch strategy over the current Object in place.
@@ -378,7 +377,7 @@ func applyOverlay(current, overlay runtime.Object) error {
 func toChartManifestsMap(m name.ManifestMap) ChartManifestsMap {
 	out := make(ChartManifestsMap)
 	for k, v := range m {
-		out[string(k)] = []manifest.Manifest{{
+		out[string(k)] = []releaseutil.Manifest{{
 			Name:    string(k),
 			Content: strings.Join(v, helm.YAMLSeparator),
 		}}
@@ -386,10 +385,98 @@ func toChartManifestsMap(m name.ManifestMap) ChartManifestsMap {
 	return out
 }
 
-// progressBar returns a progress bar for a number of items.
-func progressBar(items int) *pb.ProgressBar {
-	bar := pb.StartNew(items)
-	bar.SetTemplateString(`{{counters . }} {{bar . }} {{percent . }} {{etime . "%s"}}`)
-	bar.SetWidth(100)
-	return bar
+// getOwnerLabels returns a map of labels for the given component name, revision and owning CR resource name.
+func (h *HelmReconciler) getOwnerLabels(componentName string) (map[string]string, error) {
+	crName, err := h.getCRName()
+	if err != nil {
+		return nil, err
+	}
+	labels := make(map[string]string)
+	revision := ""
+	if h.iop != nil {
+		revision = h.iop.Spec.Revision
+	}
+
+	// Only pilot component uses revisions
+	if componentName == string(name.PilotComponentName) {
+		if revision == "" {
+			revision = "default"
+		}
+		labels[model.RevisionLabel] = revision
+	}
+
+	labels[operatorLabelStr] = operatorReconcileStr
+	labels[owningResourceKey] = crName
+	labels[istioComponentLabelStr] = componentName
+	labels[istioVersionLabelStr] = pkgversion.Info.Version
+
+	return labels, nil
+}
+
+// applyLabelsAndAnnotations applies owner labels and annotations to the object.
+func (h *HelmReconciler) applyLabelsAndAnnotations(obj runtime.Object, componentName string) error {
+	labels, err := h.getOwnerLabels(componentName)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range labels {
+		err := util.SetLabel(obj, k, v)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (h *HelmReconciler) getCRName() (string, error) {
+	if h.iop == nil {
+		return "", nil
+	}
+	objAccessor, err := meta.Accessor(h.iop)
+	if err != nil {
+		return "", err
+	}
+	return objAccessor.GetName(), nil
+}
+
+func (h *HelmReconciler) getCRNamespace() (string, error) {
+	if h.iop == nil {
+		return "", nil
+	}
+	objAccessor, err := meta.Accessor(h.iop)
+	if err != nil {
+		return "", err
+	}
+	return objAccessor.GetName(), nil
+}
+
+func (h *HelmReconciler) getCRHash(componentName string) (string, error) {
+	crName, err := h.getCRName()
+	if err != nil {
+		return "", err
+	}
+	crNamespace, err := h.getCRNamespace()
+	if err != nil {
+		return "", err
+	}
+	return strings.Join([]string{crName, crNamespace, componentName}, "-"), nil
+}
+
+// ChartManifestsMap is a typedef representing a map of chart-name: []manifest, i.e. the manifests
+// associated with a specific chart
+type ChartManifestsMap map[string][]releaseutil.Manifest
+
+// Consolidated returns a representation of mm where all manifests in the slice under a key are combined into a single
+// manifest.
+func (mm ChartManifestsMap) Consolidated() map[string]string {
+	out := make(map[string]string)
+	for cname, ms := range mm {
+		allM := ""
+		for _, m := range ms {
+			allM += m.Content + helm.YAMLSeparator
+		}
+		out[cname] = allM
+	}
+	return out
 }

@@ -36,7 +36,7 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-  # Policy feature
+    # Policy feature
     policy:
       enabled: false
       k8s:
@@ -63,7 +63,7 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-   # Telemetry feature
+    # Telemetry feature
     telemetry:
       enabled: false
       k8s:
@@ -100,7 +100,7 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-  # Security feature
+    # Security feature
     citadel:
       enabled: false
       k8s:
@@ -109,7 +109,7 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-  # Istio Gateway feature
+    # Istio Gateway feature
     ingressGateways:
     - name: istio-ingressgateway
       enabled: true
@@ -362,6 +362,7 @@ spec:
         enabled: false
       v2:
         enabled: true
+        metadataExchange: {}
         prometheus:
           enabled: true
         stackdriver:
@@ -417,6 +418,8 @@ spec:
 
     gateways:
       istio-egressgateway:
+        zvpn: {}
+        env: {}
         autoscaleEnabled: true
         type: ClusterIP
         name: istio-egressgateway
@@ -435,6 +438,8 @@ spec:
         domain: ""
         type: LoadBalancer
         name: istio-ingressgateway
+        zvpn: {}
+        env: {}
         meshExpansionPorts:
           - port: 15011
             targetPort: 15011
@@ -590,12 +595,16 @@ spec:
         grafanaInClusterURL: http://grafana:3000
         jaegerURL:
         jaegerInClusterURL: http://tracing/jaeger
+        auth:
+          strategy: ""
       prometheusNamespace:
       createDemoSecret: false
       security:
         enabled: false
         cert_file: /kiali-cert/cert-chain.pem
         private_key_file: /kiali-cert/key.pem
+      service:
+        annotations: {}
 
     # TODO: derive from operator API
     version: ""
