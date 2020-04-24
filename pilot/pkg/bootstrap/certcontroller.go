@@ -198,8 +198,8 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 
 	} else {
 		log.Infof("User specified cert provider: %v", features.PilotCertProvider.Get())
-		dnsKeyFile = model.GetOrDefault(defaultTlsServerKey, dnsKeyFile)
-		dnsCertFile = model.GetOrDefault(defaultTlsServerCertChain, dnsCertFile)
+		dnsKeyFile = model.GetOrDefault(defaultTLSServerKey, dnsKeyFile)
+		dnsCertFile = model.GetOrDefault(defaultTLSServerCertChain, dnsCertFile)
 		return nil
 	}
 	if err != nil {

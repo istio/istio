@@ -68,8 +68,8 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 		ValuesFile: filepath.Join(injectPath, "values"),
 		MeshFile:   args.Mesh.ConfigFile,
 		Env:        s.environment,
-		CertFile:   model.GetOrDefault(filepath.Join(dnsCertDir, "cert-chain.pem"), defaultTlsServerCertChain),
-		KeyFile:    model.GetOrDefault(filepath.Join(dnsCertDir, "key.pem"), defaultTlsServerKey),
+		CertFile:   model.GetOrDefault(filepath.Join(dnsCertDir, "cert-chain.pem"), defaultTLSServerCertChain),
+		KeyFile:    model.GetOrDefault(filepath.Join(dnsCertDir, "key.pem"), defaultTLSServerKey),
 		// Disable monitoring. The injection metrics will be picked up by Pilots metrics exporter already
 		MonitoringPort: -1,
 		Mux:            s.httpsMux,
