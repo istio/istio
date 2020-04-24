@@ -894,105 +894,10 @@ func (c outboundListenerConflict) addMetric(node *model.Proxy, metrics model.Met
 			len(c.currentServices)))
 }
 
-
-type PortAttribute struct {
-	isTLS         bool
-	isServerFirst bool
-}
-
-type PerPortVirtualOutboundListener struct {
-	portAttribute map[int]PortAttribute
-}
-
-func (perPortVirtualListener *PerPortVirtualOutboundListener) insertService(configgen *ConfigGeneratorImpl, node *model.Proxy, listenerOpts buildListenerOpts,
-	pluginParams *plugin.InputParams, listenerMap map[string]*outboundListenerEntry,
-	virtualServices []model.Config, actualWildcard string) {
-	outboundSniffingEnabled := features.EnableProtocolSniffingForOutbound
-
-	var ret bool
-	var opts []*filterChainOpts
-
-	// Add tcp filter chain, build TCP filter chain first.
-	if ret, opts = configgen.buildSidecarOutboundTCPListenerOptsForPortOrUDS(node, &destinationCIDR, &listenerMapKey, &currentListenerEntry,
-		&listenerOpts, pluginParams, listenerMap, virtualServices, actualWildcard); !ret {
-		return
-	}
-	listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
-
-	// Add http filter chain and tcp filter chain to the listener opts
-	if ret, opts = configgen.buildSidecarOutboundHTTPListenerOptsForPortOrUDS(node, &listenerMapKey, &currentListenerEntry,
-		&listenerOpts, pluginParams, listenerMap, actualWildcard); !ret {
-		return
-	}
-
-	// Add application protocol filter chain match to the http filter chain. The application protocol will be set by http inspector
-	for _, opt := range opts {
-		if opt.match == nil {
-			opt.match = &listener.FilterChainMatch{}
-		}
-
-		// Support HTTP/1.0, HTTP/1.1 and HTTP/2
-		opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, plaintextHTTPALPNs...)
-	}
-
-	listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
-	listenerOpts.needHTTPInspector = true
-
-
-	if outboundSniffingEnabled {
-		if listenerOpts.bind == actualWildcard {
-			for _, opt := range opts {
-				if opt.match == nil {
-					opt.match = &listener.FilterChainMatch{}
-				}
-
-				// Support HTTP/1.0, HTTP/1.1 and HTTP/2
-				opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, plaintextHTTPALPNs...)
-			}
-
-			listenerOpts.needHTTPInspector = true
-		}
-	}
-	listenerOpts.filterChainOpts = opts
-	// Lets build the new listener with the filter chains. In the end, we will
-	// merge the filter chains with any existing listener on the same port/bind point
-	l := buildListener(listenerOpts)
-	// Note that the fall through route is built at the very end of all outbound listeners
-	l.TrafficDirection = core.TrafficDirection_OUTBOUND
-
-
-	mutable := &istionetworking.MutableObjects{
-		Listener:     l,
-		FilterChains: getPluginFilterChain(listenerOpts),
-	}
-
-	for _, p := range configgen.Plugins {
-		if err := p.OnOutboundListener(pluginParams, mutable); err != nil {
-			log.Warn(err.Error())
-		}
-	}
-
-	// Filters are serialized one time into an opaque struct once we have the complete list.
-	if err := buildCompleteFilterChain(pluginParams, mutable, listenerOpts); err != nil {
-		log.Warna("buildSidecarOutboundListeners: ", err.Error())
-		return
-	}
-
-	listenerMap[listenerMapKey] = &outboundListenerEntry{
-		services:    []*model.Service{pluginParams.Service},
-		servicePort: pluginParams.Port,
-		bind:        listenerOpts.bind,
-		listener:    mutable.Listener,
-		protocol:    pluginParams.Port.Protocol,
-	}
-}
-
 // buildSidecarOutboundListeners generates http and tcp listeners for
 // outbound connections from the proxy based on the sidecar scope associated with the proxy.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.Proxy,
 	push *model.PushContext) []*xdsapi.Listener {
-	var vout VirtualOutboundListenerInterface
-	vout = &PerPortVirtualOutboundListener{}
 
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
@@ -1190,13 +1095,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 							servicePort.Protocol.IsThrift() {
 							listenerOpts.bind = service.Address
 						}
-						if bindToPort {
-							configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
-								virtualServices, actualWildcard)
-						} else {
-							vout.insertService(configgen, node, listenerOpts, pluginParams, listenerMap,
-								virtualServices, actualWildcard)
-						}
+						configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
+							virtualServices, actualWildcard)
 					}
 				}
 			}
