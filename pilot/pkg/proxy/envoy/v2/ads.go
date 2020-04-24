@@ -230,7 +230,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			// This should be only set for the first request. The node id may not be set - for example malicious clients.
 			if con.node == nil {
 				if discReq.Node == nil {
-					return errors.New("Missing node ID")
+					return errors.New("missing node ID")
 				}
 				if err := s.initConnection(discReq.Node, con); err != nil {
 					return err
