@@ -15,18 +15,10 @@
 package mesh
 
 import (
-	"fmt"
-	"io/ioutil"
 	"time"
 
 	"github.com/spf13/cobra"
-	"helm.sh/helm/v3/pkg/releaseutil"
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/helmreconciler"
-	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	buildversion "istio.io/pkg/version"
 )
@@ -52,13 +44,6 @@ const (
 	istioControllerComponentName = "Operator"
 	istioNamespaceComponentName  = "IstioNamespace"
 	istioOperatorCRComponentName = "OperatorCustomResource"
-)
-
-// manifestApplier is used for test dependency injection.
-type manifestApplier func(restConfig *rest.Config, client client.Client, manifestStr, componentName string, opts *Options, l clog.Logger) bool
-
-var (
-	defaultManifestApplier = applyManifest
 )
 
 func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
@@ -94,12 +79,12 @@ func operatorInitCmd(rootArgs *rootArgs, oiArgs *operatorInitArgs) *cobra.Comman
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			l := clog.NewConsoleLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
-			operatorInit(rootArgs, oiArgs, l, defaultManifestApplier)
+			operatorInit(rootArgs, oiArgs, l)
 		}}
 }
 
 // operatorInit installs the Istio operator controller into the cluster.
-func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger, apply manifestApplier) {
+func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 	initLogsOrExit(args)
 
 	restConfig, clientset, client, err := K8sConfig(oiArgs.kubeConfigPath, oiArgs.context)
@@ -136,11 +121,11 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger, apply
 		l.LogAndFatal(err)
 	}
 
-	success := apply(restConfig, client, mstr, istioControllerComponentName, opts, l)
+	success := applyManifest(restConfig, client, mstr, istioControllerComponentName, opts, l)
 
 	if customResource != "" {
-		success = success && apply(restConfig, client, genNamespaceResource(istioNamespace), istioNamespaceComponentName, opts, l)
-		success = success && apply(restConfig, client, customResource, istioOperatorCRComponentName, opts, l)
+		success = success && applyManifest(restConfig, client, genNamespaceResource(istioNamespace), istioNamespaceComponentName, opts, l)
+		success = success && applyManifest(restConfig, client, customResource, istioOperatorCRComponentName, opts, l)
 	}
 
 	if !success {
@@ -149,65 +134,4 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger, apply
 	}
 
 	l.LogAndPrint("\n*** Success. ***\n")
-}
-
-func applyManifest(restConfig *rest.Config, client client.Client, manifestStr, componentName string, opts *Options, l clog.Logger) bool {
-	// Needed in case we are running a test through this path that doesn't start a new process.
-	helmreconciler.FlushObjectCaches()
-	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, nil, &helmreconciler.Options{DryRun: opts.DryRun, Log: l})
-	if err != nil {
-		l.LogAndError(err)
-		return false
-	}
-	ms := []releaseutil.Manifest{{
-		Name:    componentName,
-		Content: manifestStr,
-	}}
-	_, err = reconciler.ProcessManifest(ms, true)
-	if err != nil {
-		l.LogAndError(err)
-		return false
-	}
-	return true
-}
-
-func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource string, istioNamespace string, err error) {
-	if filePath == "" {
-		return "", "", nil
-	}
-
-	_, mergedIOPS, err := GenerateConfig([]string{filePath}, "", false, nil, l)
-	if err != nil {
-		return "", "", err
-	}
-
-	b, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		return "", "", fmt.Errorf("could not read values from file %s: %s", filePath, err)
-	}
-	customResource = string(b)
-	istioNamespace = v1alpha1.Namespace(mergedIOPS)
-	return
-}
-
-func genNamespaceResource(namespace string) string {
-	tmpl := `
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    istio-injection: disabled
-  name: {{.Namespace}}
-`
-
-	tv := struct {
-		Namespace string
-	}{
-		Namespace: namespace,
-	}
-	vals, err := util.RenderTemplate(tmpl, tv)
-	if err != nil {
-		return ""
-	}
-	return vals
 }

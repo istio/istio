@@ -30,12 +30,6 @@ type operatorRemoveArgs struct {
 	force bool
 }
 
-type manifestDeleter func(restConfig *rest.Config, client client.Client, manifestStr, componentName string, opts *Options, l clog.Logger) bool
-
-var (
-	defaultManifestDeleter = deleteManifest
-)
-
 func addOperatorRemoveFlags(cmd *cobra.Command, oiArgs *operatorRemoveArgs) {
 	addOperatorInitFlags(cmd, &oiArgs.operatorInitArgs)
 	cmd.PersistentFlags().BoolVar(&oiArgs.force, "force", false, "Proceed even with errors")
@@ -49,12 +43,12 @@ func operatorRemoveCmd(rootArgs *rootArgs, orArgs *operatorRemoveArgs) *cobra.Co
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			l := clog.NewConsoleLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
-			operatorRemove(rootArgs, orArgs, l, defaultManifestDeleter)
+			operatorRemove(rootArgs, orArgs, l)
 		}}
 }
 
 // operatorRemove removes the Istio operator controller from the cluster.
-func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger, deleteManifestFunc manifestDeleter) {
+func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
 	initLogsOrExit(args)
 
 	restConfig, clientset, client, err := K8sConfig(orArgs.kubeConfigPath, orArgs.context)
@@ -89,7 +83,7 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger, d
 		Context:     orArgs.context,
 	}
 
-	success := deleteManifestFunc(restConfig, client, mstr, "Operator", opts, l)
+	success := deleteManifest(restConfig, client, mstr, "Operator", opts, l)
 	if !success {
 		l.LogAndPrint("\n*** Errors were logged during manifest deletion. Please check logs above. ***\n")
 		return
