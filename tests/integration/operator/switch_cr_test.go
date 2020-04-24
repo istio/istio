@@ -109,7 +109,6 @@ func TestController(t *testing.T) {
 			iopCRFile = filepath.Join(workDir, "iop_cr.yaml")
 			// later just run `kubectl apply -f newcr.yaml` to apply new installation cr files and verify.
 			installWithCRFile(t, ctx, cs, s, istioCtl, path.Join(ProfilesPath, "default.yaml"))
-			installWithCRFile(t, ctx, cs, s, istioCtl, path.Join(ProfilesPath, "demo.yaml"))
 			// cleanup created resources
 			t.Cleanup(func() {
 				scopes.CI.Infof("cleaning up resources")
@@ -125,7 +124,7 @@ func TestController(t *testing.T) {
 
 // checkInstallStatus check the status of IstioOperator CR from the cluster
 func checkInstallStatus(cs kube.Cluster) error {
-	log.Info("checking IstioOperator CR status")
+	scopes.CI.Infof("checking IstioOperator CR status")
 	gvr := schema.GroupVersionResource{
 		Group:    "install.istio.io",
 		Version:  "v1alpha1",
@@ -181,12 +180,6 @@ func checkInstallStatus(cs kube.Cluster) error {
 			return fmt.Errorf("unable to get logs from istio-operator: %v ", err)
 		}
 		log.Infof("operator log: %s", content)
-		content, shellerr = shell.Execute(false, "kubectl logs -n %s -l %s -c istio-proxy --tail=10000000",
-			IstioNamespace, "app=prometheus")
-		if shellerr != nil {
-			return fmt.Errorf("unable to get logs from component %v", err)
-		}
-		log.Infof("component log: %s", content)
 		return fmt.Errorf("istioOperator status is not healthy: %v", err)
 	}
 	return nil
@@ -194,7 +187,7 @@ func checkInstallStatus(cs kube.Cluster) error {
 
 func installWithCRFile(t *testing.T, ctx resource.Context, cs kube.Cluster, s *image.Settings,
 	istioCtl istioctl.Instance, iopFile string) {
-	log.Infof(fmt.Sprintf("=== install istio with new operator cr file: %s===\n", iopFile))
+	scopes.CI.Infof(fmt.Sprintf("=== install istio with new operator cr file: %s===\n", iopFile))
 	originalIOPYAML, err := ioutil.ReadFile(iopFile)
 	if err != nil {
 		t.Fatalf("failed to read iop file: %v", err)

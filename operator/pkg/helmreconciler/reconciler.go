@@ -22,24 +22,28 @@ import (
 	"sync"
 	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/label"
-
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/pkg/version"
-
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
+	binversion "istio.io/istio/operator/version"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 // HelmReconciler reconciles resources rendered by a set of helm charts.
@@ -188,12 +192,71 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 	}
 	wg.Wait()
 
+	ostatus := overallStatus(componentStatus)
+	if ostatus == v1alpha1.InstallStatus_HEALTHY {
+		if err := h.checkResourceStatus(&componentStatus, &ostatus); err != nil {
+			log.Errorf("failed to check resource status: %v", err)
+		}
+	}
 	out := &v1alpha1.InstallStatus{
-		Status:          overallStatus(componentStatus),
+		Status:          ostatus,
 		ComponentStatus: componentStatus,
 	}
 
 	return out
+}
+
+// checkResourceStatus check and wait for resource to be ready,
+// update overallStatus and componentStatus correspondingly
+func (h *HelmReconciler) checkResourceStatus(componentStatus *map[string]*v1alpha1.InstallStatus_VersionStatus,
+	overallStatus *v1alpha1.InstallStatus_Status) error {
+	cs := h.client
+	iop := h.iop
+	t, err := translate.NewTranslator(binversion.OperatorBinaryVersion.MinorVersion)
+	if err != nil {
+		return err
+	}
+	errPoll := wait.Poll(pollInterval, pollTimeout, func() (bool, error) {
+		for cn := range *componentStatus {
+			cnMap, ok := t.ComponentMaps[name.ComponentName(cn)]
+			if ok && cnMap.ResourceName != "" {
+				dp := &appsv1.Deployment{}
+				key := client.ObjectKey{Namespace: iop.Namespace, Name: cnMap.ResourceName}
+				err := cs.Get(context.TODO(), key, dp)
+				if err != nil {
+					log.Warnf("deployment: %v not found", cnMap.ResourceName)
+					continue
+				}
+
+				if dp.Status.ReadyReplicas != dp.Status.UnavailableReplicas+dp.Status.AvailableReplicas {
+					(*componentStatus)[cn].Status = v1alpha1.InstallStatus_UPDATING
+					log.Warnf("deployment: %v not ready", cnMap.ResourceName)
+					return false, nil
+				}
+			}
+			(*componentStatus)[cn].Status = v1alpha1.InstallStatus_HEALTHY
+		}
+
+		podList := &v1.PodList{}
+		err := cs.List(context.TODO(), podList, client.InNamespace(iop.Namespace))
+		if err != nil {
+			return false, err
+		}
+		for _, pod := range podList.Items {
+			if pod.Status.Phase == v1.PodRunning {
+				for _, containerStatus := range pod.Status.ContainerStatuses {
+					if !containerStatus.Ready {
+						return false, nil
+					}
+				}
+			}
+		}
+		return true, nil
+	})
+	if errPoll != nil {
+		*overallStatus = v1alpha1.InstallStatus_UPDATING
+	}
+	return nil
 }
 
 // Delete resources associated with the custom resource instance
