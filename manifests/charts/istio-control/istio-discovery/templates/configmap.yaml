@@ -3,6 +3,7 @@
     # Set enableTracing to false to disable request tracing.
     enableTracing: {{ .Values.global.enableTracing }}
     {{- end }}
+    enablePrometheusMerge: false
     # Set accessLogFile to empty string to disable access log.
     accessLogFile: {{ .Values.global.proxy.accessLogFile | default "" | quote }}
     accessLogFormat: {{ .Values.global.proxy.accessLogFormat | default "" | quote }}
@@ -134,7 +135,7 @@
       #
       ### ADVANCED SETTINGS #############
       # Where should envoy's configuration be stored in the istio-proxy container
-      configPath: "/etc/istio/proxy"
+      configPath: "./etc/istio/proxy"
       # The pseudo service name used for Envoy.
       serviceCluster: istio-proxy
       # These settings that determine how long an old Envoy

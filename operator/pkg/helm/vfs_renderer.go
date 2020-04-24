@@ -19,8 +19,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"k8s.io/helm/pkg/chartutil"
-	"k8s.io/helm/pkg/proto/hapi/chart"
+	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/chart/loader"
 
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/vfs"
@@ -72,12 +72,9 @@ func NewVFSRenderer(helmChartDirPath, componentName, namespace string) *VFSRende
 
 // Run implements the TemplateRenderer interface.
 func (h *VFSRenderer) Run() error {
-	// This can happen if a developer creates binaries using go build instead of make and tries to use compiled in
-	// charts.
-	if _, err := vfs.Stat(ChartsSubdirName); err != nil {
-		return fmt.Errorf("compiled in charts not found in this development build, use --charts with local charts instead or run make gen")
+	if err := CheckCompiledInCharts(); err != nil {
+		return err
 	}
-
 	scope.Debugf("Run VFSRenderer with helmChart=%s, componentName=%s, namespace=%s", h.helmChartDirPath, h.componentName, h.namespace)
 	if err := h.loadChart(); err != nil {
 		return err
@@ -117,7 +114,7 @@ func (h *VFSRenderer) loadChart() error {
 	if err != nil {
 		return err
 	}
-	var bfs []*chartutil.BufferedFile
+	var bfs []*loader.BufferedFile
 	for _, fname := range fnames {
 		b, err := vfs.ReadFile(fname)
 		if err != nil {
@@ -125,7 +122,7 @@ func (h *VFSRenderer) loadChart() error {
 		}
 		// Helm expects unix / separator, but on windows this will be \
 		name := strings.ReplaceAll(stripPrefix(fname, prefix), string(filepath.Separator), "/")
-		bf := &chartutil.BufferedFile{
+		bf := &loader.BufferedFile{
 			Name: name,
 			Data: b,
 		}
@@ -133,7 +130,7 @@ func (h *VFSRenderer) loadChart() error {
 		scope.Debugf("Chart loaded: %s", bf.Name)
 	}
 
-	h.chart, err = chartutil.LoadFiles(bfs)
+	h.chart, err = loader.LoadFiles(bfs)
 	return err
 }
 
@@ -154,4 +151,13 @@ func stripPrefix(path, prefix string) string {
 // list all the builtin profiles.
 func ListBuiltinProfiles() []string {
 	return util.StringBoolMapToSlice(ProfileNames)
+}
+
+// CheckCompiledInCharts tests for the presence of compiled in charts. These can be missing if a developer creates
+// binaries using go build instead of make and tries to use compiled in charts.
+func CheckCompiledInCharts() error {
+	if _, err := vfs.Stat(ChartsSubdirName); err != nil {
+		return fmt.Errorf("compiled in charts not found in this development build, use --charts with local charts instead or run make gen-charts")
+	}
+	return nil
 }

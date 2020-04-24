@@ -3,10 +3,11 @@
     # Set enableTracing to false to disable request tracing.
     enableTracing: {{ .Values.global.enableTracing }}
     {{- end }}
+    enablePrometheusMerge: false
     # Set accessLogFile to empty string to disable access log.
-    accessLogFile: "{{ .Values.global.proxy.accessLogFile }}"
-    accessLogFormat: "{{ .Values.global.proxy.accessLogFormat }}"
-    accessLogEncoding: "{{ .Values.global.proxy.accessLogEncoding | default "TEXT" }}"
+    accessLogFile: {{ .Values.global.proxy.accessLogFile | default "" | quote }}
+    accessLogFormat: {{ .Values.global.proxy.accessLogFormat | default "" | quote }}
+    accessLogEncoding: {{ .Values.global.proxy.accessLogEncoding | default "TEXT" | quote }}
     {{- with .Values.global.proxy.envoyAccessLogService }}
     enableEnvoyAccessLogService: {{ .enabled }}
     {{- end }}
@@ -134,7 +135,7 @@
       #
       ### ADVANCED SETTINGS #############
       # Where should envoy's configuration be stored in the istio-proxy container
-      configPath: "/etc/istio/proxy"
+      configPath: "./etc/istio/proxy"
       # The pseudo service name used for Envoy.
       serviceCluster: istio-proxy
       # These settings that determine how long an old Envoy
@@ -268,30 +269,6 @@ data:
   {{- else }}
     networks: {}
   {{- end }}
-
-  # Basic config for a sidecar CoreDNS server to resolve upstream and K8S requests.
-  # Will be needed until K8S DNS server adds a secure port, to avoid clear text
-  # MITM-exposed requests between istiod and K8S core DNS server.
-  Corefile: |-
-    .:15054 {
-        errors
-        log
-        health :15056 {
-          lameduck 5s
-        }
-
-        kubernetes cluster.local in-addr.arpa ip6.arpa {
-            pods insecure
-            fallthrough in-addr.arpa ip6.arpa
-            ttl 30
-        }
-        prometheus :9153
-
-        forward . /etc/resolv.conf
-        cache 30
-        reload
-        loadbalance
-    }
 
   mesh: |-
 {{- if .Values.meshConfig }}

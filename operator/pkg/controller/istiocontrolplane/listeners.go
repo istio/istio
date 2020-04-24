@@ -36,7 +36,7 @@ import (
 
 const (
 	// ChartOwnerKey is the annotation key used to store the name of the chart that created the resource
-	ChartOwnerKey = MetadataNamespace + "/chart-owner"
+	ChartOwnerKey = helmreconciler.MetadataNamespace + "/chart-owner"
 
 	finalizerRemovalBackoffSteps    = 10
 	finalizerRemovalBackoffDuration = 6 * time.Second
@@ -77,31 +77,7 @@ func NewIstioStatusUpdater(instance *iop.IstioOperator) helmreconciler.Rendering
 	}
 }
 
-// BeginReconcile updates the status field on the IstioOperator instance before reconciling.
-func (u *IstioStatusUpdater) BeginReconcile(_ runtime.Object) error {
-	isop := &iop.IstioOperator{}
-	namespacedName := types.NamespacedName{
-		Name:      u.instance.Name,
-		Namespace: u.instance.Namespace,
-	}
-	if err := u.reconciler.GetClient().Get(context.TODO(), namespacedName, isop); err != nil {
-		return fmt.Errorf("failed to get IstioOperator before updating status due to %v", err)
-	}
-	if isop.Status == nil {
-		isop.Status = &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_RECONCILING}
-	} else {
-		cs := isop.Status.ComponentStatus
-		for cn := range cs {
-			cs[cn] = &v1alpha1.InstallStatus_VersionStatus{
-				Status: v1alpha1.InstallStatus_RECONCILING,
-			}
-		}
-		isop.Status.Status = v1alpha1.InstallStatus_RECONCILING
-	}
-	return u.reconciler.GetClient().Status().Update(context.TODO(), isop)
-}
-
-// EndReconcile updates the status field on the IstioOperator instance based on the resulting err parameter.
+// SetStatusComplete updates the status field on the IstioOperator instance based on the resulting err parameter.
 func (u *IstioStatusUpdater) EndReconcile(_ runtime.Object, status *v1alpha1.InstallStatus) error {
 	iop := &iop.IstioOperator{}
 	namespacedName := types.NamespacedName{

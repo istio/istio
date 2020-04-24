@@ -36,7 +36,7 @@ var (
 )
 
 // CheckValues validates the values in the given tree, which follows the Istio values.yaml schema.
-func CheckValues(root map[string]interface{}) util.Errors {
+func CheckValues(root interface{}) util.Errors {
 	vs, err := yaml.Marshal(root)
 	if err != nil {
 		return util.Errors{err}

@@ -23,14 +23,10 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 	"time"
-
-	"istio.io/api/operator/v1alpha1"
 
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
-	goversion "github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -58,9 +54,7 @@ import (
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
-	pkgversion "istio.io/istio/operator/pkg/version"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -69,9 +63,6 @@ const (
 	cRDPollInterval = 500 * time.Millisecond
 	// cRDPollTimeout is the maximum wait time for all CRDs to be created.
 	cRDPollTimeout = 60 * time.Second
-
-	// Time to wait for internal dependencies before proceeding to installing the next component.
-	internalDepTimeout = 10 * time.Minute
 
 	// operatorReconcileStr indicates that the operator will reconcile the resource.
 	operatorReconcileStr = "Reconcile"
@@ -131,6 +122,7 @@ var (
 	kubectl          = kubectlcmd.New()
 
 	k8sRESTConfig     *rest.Config
+	k8sClientset      *kubernetes.Clientset
 	currentKubeconfig string
 	currentContext    string
 	// TODO: remove whitelist after : https://github.com/kubernetes/kubernetes/issues/66430
@@ -225,55 +217,7 @@ func renderRecursive(manifests name.ManifestMap, installTree componentTree, outp
 	return nil
 }
 
-func parseKubectlVersion(kubectlStdout string) (*goversion.Version, *goversion.Version, error) {
-	yamlObj := make(map[string]interface{})
-	err := yaml.Unmarshal([]byte(kubectlStdout), &yamlObj)
-	if err != nil {
-		return nil, nil, err
-	}
-	var errs util.Errors
-	var clientVersion, serverVersion *goversion.Version
-	cPath := util.ToYAMLPath("clientVersion.gitVersion")
-	cNode, cFound, err := tpath.GetFromTreePath(yamlObj, cPath)
-	errs = util.AppendErr(errs, err)
-	if cFound {
-		var cVer string
-		if cVer, err = pkgversion.TagToVersionString(cNode.(string)); err == nil {
-			clientVersion, err = goversion.NewVersion(cVer)
-		}
-		errs = util.AppendErr(errs, err)
-	}
-	sPath := util.ToYAMLPath("serverVersion.gitVersion")
-	sNode, sFound, err := tpath.GetFromTreePath(yamlObj, sPath)
-	errs = util.AppendErr(errs, err)
-	if sFound {
-		var sVer string
-		if sVer, err = pkgversion.TagToVersionString(sNode.(string)); err == nil {
-			serverVersion, err = goversion.NewVersion(sVer)
-		}
-		errs = util.AppendErr(errs, err)
-	}
-	return clientVersion, serverVersion, errs.ToError()
-}
-
-// ApplyAll applies all given manifests using kubectl client.
-func ApplyAll(manifests name.ManifestMap, version pkgversion.Version, iop *v1alpha1.IstioOperatorSpec, opts *kubectlcmd.Options) (CompositeOutput, error) {
-	scope.Infof("Preparing manifests for these components:")
-	for c := range manifests {
-		scope.Infof("- %s", c)
-	}
-	scope.Infof("Component dependencies tree: \n%s", installTreeString())
-	if _, err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
-		return nil, err
-	}
-	// Set up the namespace for installation
-	if err := createNamespace(iop.Namespace); err != nil {
-		return nil, err
-	}
-	return applyRecursive(manifests, version, iop.Revision, opts)
-}
-
-func createNamespace(namespace string) error {
+func CreateNamespace(namespace string) error {
 	if namespace == "" {
 		// Setup default namespace
 		namespace = "istio-system"
@@ -299,7 +243,7 @@ func createNamespace(namespace string) error {
 
 // Apply applies all given manifest using kubectl client.
 func Apply(manifest string, opts *kubectlcmd.Options) error {
-	if _, err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
+	if _, _, err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
 		return err
 	}
 
@@ -308,51 +252,6 @@ func Apply(manifest string, opts *kubectlcmd.Options) error {
 		return fmt.Errorf("%s\n%s\n%s", err, stdoutApply, stderrApply)
 	}
 	return nil
-}
-
-func applyRecursive(manifests name.ManifestMap, version pkgversion.Version, revision string, opts *kubectlcmd.Options) (CompositeOutput, error) {
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	out := CompositeOutput{}
-	allAppliedObjects := object.K8sObjects{}
-	for c, m := range manifests {
-		c := c
-		m := m
-		wg.Add(1)
-		go func() {
-			if s := dependencyWaitCh[c]; s != nil {
-				scope.Infof("%s is waiting on a prerequisite...", c)
-				<-s
-				scope.Infof("Prerequisite for %s has completed, proceeding with install.", c)
-			}
-			applyOut, appliedObjects := ApplyManifest(c, strings.Join(m, helm.YAMLSeparator), version.String(), revision, *opts)
-			mu.Lock()
-			out[c] = applyOut
-			allAppliedObjects = append(allAppliedObjects, appliedObjects...)
-			mu.Unlock()
-
-			// If we are depending on a component, we may depend on it actually running (eg Deployment is ready)
-			// For example, for the validation webhook to become ready, so we should wait for it always.
-			if len(componentDependencies[c]) > 0 {
-				no := *opts
-				no.WaitTimeout = internalDepTimeout
-				if err := WaitForResources(appliedObjects, &no); err != nil {
-					scope.Errorf("Failed to wait for resource: %v", err)
-				}
-			}
-			// Signal all the components that depend on us.
-			for _, ch := range componentDependencies[c] {
-				scope.Infof("unblocking child %s.", ch)
-				dependencyWaitCh[ch] <- struct{}{}
-			}
-			wg.Done()
-		}()
-	}
-	wg.Wait()
-	if opts.Wait {
-		return out, WaitForResources(allAppliedObjects, opts)
-	}
-	return out, nil
 }
 
 func ApplyManifest(componentName name.ComponentName, manifestStr, version, revision string,
@@ -446,18 +345,18 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version, revis
 	logAndPrint("- Applying manifest for component %s...", componentName)
 
 	// Apply namespace resources first, then wait.
-	nsObjects := nsKindObjects(objects)
+	nsObjects := NsKindObjects(objects)
 	stdout, stderr, err = applyObjects(nsObjects, &opts, stdout, stderr)
 	if err != nil {
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
-	if err := WaitForResources(nsObjects, &opts); err != nil {
+	if err := WaitForResources(nsObjects, k8sClientset, opts.WaitTimeout, opts.DryRun, nil); err != nil {
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
 	appliedObjects = append(appliedObjects, nsObjects...)
 
 	// Apply CRDs, then wait.
-	crdObjects := cRDKindObjects(objects)
+	crdObjects := CRDKindObjects(objects)
 	stdout, stderr, err = applyObjects(crdObjects, &opts, stdout, stderr)
 	if err != nil {
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
@@ -526,7 +425,7 @@ func GetKubectlGetItems(stdoutGet string) ([]interface{}, error) {
 }
 
 func DeploymentExists(kubeconfig, context, namespace, name string) (bool, error) {
-	if _, err := InitK8SRestClient(kubeconfig, context); err != nil {
+	if _, _, err := InitK8SRestClient(kubeconfig, context); err != nil {
 		return false, err
 	}
 
@@ -629,7 +528,7 @@ func DefaultObjectOrder() func(o *object.K8sObject) int {
 	}
 }
 
-func cRDKindObjects(objects object.K8sObjects) object.K8sObjects {
+func CRDKindObjects(objects object.K8sObjects) object.K8sObjects {
 	var ret object.K8sObjects
 	for _, o := range objects {
 		if o.Kind == "CustomResourceDefinition" {
@@ -639,7 +538,7 @@ func cRDKindObjects(objects object.K8sObjects) object.K8sObjects {
 	return ret
 }
 
-func nsKindObjects(objects object.K8sObjects) object.K8sObjects {
+func NsKindObjects(objects object.K8sObjects) object.K8sObjects {
 	var ret object.K8sObjects
 	for _, o := range objects {
 		if o.Kind == "Namespace" {
@@ -701,7 +600,7 @@ func waitForCRDs(objects object.K8sObjects, stdout string, dryRun bool) error {
 	}
 
 	var crdNames []string
-	for _, o := range cRDKindObjects(objects) {
+	for _, o := range CRDKindObjects(objects) {
 		crdNames = append(crdNames, o.Name)
 	}
 
@@ -740,111 +639,115 @@ func waitForCRDs(objects object.K8sObjects, stdout string, dryRun bool) error {
 	return nil
 }
 
+func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l *util.ManifestLog) (bool, []string, error) {
+	pods := []v1.Pod{}
+	deployments := []deployment{}
+	namespaces := []v1.Namespace{}
+
+	for _, o := range objects {
+		kind := o.GroupVersionKind().Kind
+		switch kind {
+		case "Namespace":
+			namespace, err := cs.CoreV1().Namespaces().Get(context2.TODO(), o.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, nil, err
+			}
+			namespaces = append(namespaces, *namespace)
+		case "Pod":
+			pod, err := cs.CoreV1().Pods(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, nil, err
+			}
+			pods = append(pods, *pod)
+		case "ReplicationController":
+			rc, err := cs.CoreV1().ReplicationControllers(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, nil, err
+			}
+			list, err := getPods(cs, rc.Namespace, rc.Spec.Selector)
+			if err != nil {
+				return false, nil, err
+			}
+			pods = append(pods, list...)
+		case "Deployment":
+			currentDeployment, err := cs.AppsV1().Deployments(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, nil, err
+			}
+			_, _, newReplicaSet, err := kubectlutil.GetAllReplicaSets(currentDeployment, cs.AppsV1())
+			if err != nil || newReplicaSet == nil {
+				return false, nil, err
+			}
+			newDeployment := deployment{
+				newReplicaSet,
+				currentDeployment,
+			}
+			deployments = append(deployments, newDeployment)
+		case "DaemonSet":
+			ds, err := cs.AppsV1().DaemonSets(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, nil, err
+			}
+			list, err := getPods(cs, ds.Namespace, ds.Spec.Selector.MatchLabels)
+			if err != nil {
+				return false, nil, err
+			}
+			pods = append(pods, list...)
+		case "StatefulSet":
+			sts, err := cs.AppsV1().StatefulSets(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, nil, err
+			}
+			list, err := getPods(cs, sts.Namespace, sts.Spec.Selector.MatchLabels)
+			if err != nil {
+				return false, nil, err
+			}
+			pods = append(pods, list...)
+		case "ReplicaSet":
+			rs, err := cs.AppsV1().ReplicaSets(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, nil, err
+			}
+			list, err := getPods(cs, rs.Namespace, rs.Spec.Selector.MatchLabels)
+			if err != nil {
+				return false, nil, err
+			}
+			pods = append(pods, list...)
+		}
+	}
+	dr, dnr := deploymentsReady(deployments)
+	nsr, nnr := namespacesReady(namespaces)
+	pr, pnr := podsReady(pods)
+	isReady := dr && nsr && pr
+	notReady := append(append(nnr, dnr...), pnr...)
+	if !isReady {
+		l.ReportWaiting(notReady)
+	}
+	return isReady, notReady, nil
+}
+
 // WaitForResources polls to get the current status of all pods, PVCs, and Services
 // until all are ready or a timeout is reached
-// TODO - plumb through k8s client and remove global `k8sRESTConfig`
-func WaitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error {
-	if opts.DryRun {
-		logAndPrint("Not waiting for resources ready in dry run mode.")
+func WaitForResources(objects object.K8sObjects, cs kubernetes.Interface, waitTimeout time.Duration, dryRun bool, l *util.ManifestLog) error {
+	if dryRun {
 		return nil
-	}
-
-	cs, err := kubernetes.NewForConfig(k8sRESTConfig)
-	if err != nil {
-		return fmt.Errorf("k8s client error: %s", err)
 	}
 
 	var notReady []string
 
-	errPoll := wait.Poll(2*time.Second, opts.WaitTimeout, func() (bool, error) {
-		pods := []v1.Pod{}
-		deployments := []deployment{}
-		namespaces := []v1.Namespace{}
+	// Check if we are ready immediately, to avoid the 2s delay below when we are already redy
+	if ready, _, err := waitForResources(objects, cs, l); err == nil && ready {
+		return nil
+	}
 
-		for _, o := range objects {
-			kind := o.GroupVersionKind().Kind
-			switch kind {
-			case "Namespace":
-				namespace, err := cs.CoreV1().Namespaces().Get(context2.TODO(), o.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				namespaces = append(namespaces, *namespace)
-			case "Pod":
-				pod, err := cs.CoreV1().Pods(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				pods = append(pods, *pod)
-			case "ReplicationController":
-				rc, err := cs.CoreV1().ReplicationControllers(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				list, err := getPods(cs, rc.Namespace, rc.Spec.Selector)
-				if err != nil {
-					return false, err
-				}
-				pods = append(pods, list...)
-			case "Deployment":
-				currentDeployment, err := cs.AppsV1().Deployments(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				_, _, newReplicaSet, err := kubectlutil.GetAllReplicaSets(currentDeployment, cs.AppsV1())
-				if err != nil || newReplicaSet == nil {
-					return false, err
-				}
-				newDeployment := deployment{
-					newReplicaSet,
-					currentDeployment,
-				}
-				deployments = append(deployments, newDeployment)
-			case "DaemonSet":
-				ds, err := cs.AppsV1().DaemonSets(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				list, err := getPods(cs, ds.Namespace, ds.Spec.Selector.MatchLabels)
-				if err != nil {
-					return false, err
-				}
-				pods = append(pods, list...)
-			case "StatefulSet":
-				sts, err := cs.AppsV1().StatefulSets(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				list, err := getPods(cs, sts.Namespace, sts.Spec.Selector.MatchLabels)
-				if err != nil {
-					return false, err
-				}
-				pods = append(pods, list...)
-			case "ReplicaSet":
-				rs, err := cs.AppsV1().ReplicaSets(o.Namespace).Get(context2.TODO(), o.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				list, err := getPods(cs, rs.Namespace, rs.Spec.Selector.MatchLabels)
-				if err != nil {
-					return false, err
-				}
-				pods = append(pods, list...)
-			}
-		}
-		dr, dnr := deploymentsReady(deployments)
-		nsr, nnr := namespacesReady(namespaces)
-		pr, pnr := podsReady(pods)
-		isReady := dr && nsr && pr
-		if !isReady {
-			logAndPrint("  Waiting for resources to become ready...")
-		}
-		notReady = append(append(nnr, dnr...), pnr...)
-		return isReady, nil
+	errPoll := wait.Poll(2*time.Second, waitTimeout, func() (bool, error) {
+		isReady, notReadyObjects, err := waitForResources(objects, cs, l)
+		notReady = notReadyObjects
+		return isReady, err
 	})
 
 	if errPoll != nil {
-		msg := fmt.Sprintf("resources not ready after %v: %v\n%s", opts.WaitTimeout, errPoll, strings.Join(notReady, "\n"))
+		msg := fmt.Sprintf("resources not ready after %v: %v\n%s", waitTimeout, errPoll, strings.Join(notReady, "\n"))
 		return errors.New(msg)
 	}
 	return nil
@@ -932,18 +835,23 @@ func buildInstallTreeString(componentName name.ComponentName, prefix string, sb 
 	}
 }
 
-func InitK8SRestClient(kubeconfig, context string) (*rest.Config, error) {
+func InitK8SRestClient(kubeconfig, context string) (*rest.Config, *kubernetes.Clientset, error) {
 	var err error
 	if kubeconfig == currentKubeconfig && context == currentContext && k8sRESTConfig != nil {
-		return k8sRESTConfig, nil
+		return k8sRESTConfig, k8sClientset, nil
 	}
 	currentKubeconfig, currentContext = kubeconfig, context
 
 	k8sRESTConfig, err = defaultRestConfig(kubeconfig, context)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return k8sRESTConfig, nil
+	k8sClientset, err = kubernetes.NewForConfig(k8sRESTConfig)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return k8sRESTConfig, k8sClientset, nil
 }
 
 func defaultRestConfig(kubeconfig, configContext string) (*rest.Config, error) {

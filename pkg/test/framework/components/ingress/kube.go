@@ -199,7 +199,7 @@ func (c *kubeComponent) HTTPAddress() net.TCPAddr {
 // TCPAddress returns TCP address of ingress gateway.
 func (c *kubeComponent) TCPAddress() net.TCPAddr {
 	address, err := retry.Do(func() (interface{}, bool, error) {
-		return c.getAddressInner(c.namespace, 15029)
+		return c.getAddressInner(c.namespace, 31400)
 	}, retryTimeout, retryDelay)
 	if err != nil {
 		return net.TCPAddr{}

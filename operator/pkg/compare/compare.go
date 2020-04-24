@@ -277,7 +277,7 @@ func ManifestDiffWithRenameSelectIgnore(a, b, renameResources, selectResources, 
 func FilterManifest(ms string, selectResources string, ignoreResources string) (string, error) {
 	sm := getObjPathMap(selectResources)
 	im := getObjPathMap(ignoreResources)
-	ao, err := object.ParseK8sObjectsFromYAMLManifest(ms)
+	ao, err := object.ParseK8sObjectsFromYAMLManifestFailOption(ms, false)
 	if err != nil {
 		return "", err
 	}

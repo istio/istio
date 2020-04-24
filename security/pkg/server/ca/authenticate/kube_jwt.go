@@ -21,6 +21,8 @@ import (
 	"golang.org/x/net/context"
 
 	"istio.io/istio/security/pkg/k8s/tokenreview"
+
+	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 )
 
 const (
@@ -30,7 +32,7 @@ const (
 )
 
 type tokenReviewClient interface {
-	ValidateK8sJwt(targetJWT, jwtPolicy string) ([]string, error)
+	ValidateK8sJwt(targetJWT, jwtPolicy, clusterID string) ([]string, error)
 }
 
 // KubeJWTAuthenticator authenticates K8s JWTs.
@@ -38,10 +40,13 @@ type KubeJWTAuthenticator struct {
 	client      tokenReviewClient
 	trustDomain string
 	jwtPolicy   string
+	mc          *kubecontroller.Multicluster
+	clusterID   string
 }
 
 // NewKubeJWTAuthenticator creates a new kubeJWTAuthenticator.
-func NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath, trustDomain, jwtPolicy string) (*KubeJWTAuthenticator, error) {
+func NewKubeJWTAuthenticator(mc *kubecontroller.Multicluster, k8sAPIServerURL, caCertPath, jwtPath,
+	trustDomain, jwtPolicy, clusterID string) (*KubeJWTAuthenticator, error) {
 	// Read the CA certificate of the k8s apiserver
 	caCert, err := ioutil.ReadFile(caCertPath)
 	if err != nil {
@@ -55,6 +60,8 @@ func NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath, trustDomain, 
 		client:      tokenreview.NewK8sSvcAcctAuthn(k8sAPIServerURL, caCert, string(reviewerJWT)),
 		trustDomain: trustDomain,
 		jwtPolicy:   jwtPolicy,
+		mc:          mc,
+		clusterID:   clusterID,
 	}, nil
 }
 
@@ -69,9 +76,13 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*Caller, error
 	if err != nil {
 		return nil, fmt.Errorf("target JWT extraction error: %v", err)
 	}
-	id, err := a.client.ValidateK8sJwt(targetJWT, a.jwtPolicy)
-	if err != nil {
-		return nil, fmt.Errorf("failed to validate the JWT: %v", err)
+	id, err := a.client.ValidateK8sJwt(targetJWT, a.jwtPolicy, a.clusterID)
+	if err != nil || len(id) != 2 {
+		// try to validate using remote cluster
+		id, err = tokenreview.ValidateRemoteK8sJwt(targetJWT, a.jwtPolicy, a.mc)
+		if err != nil {
+			return nil, fmt.Errorf("failed to validate the JWT: %v", err)
+		}
 	}
 	if len(id) != 2 {
 		return nil, fmt.Errorf("failed to parse the JWT. Validation result length is not 2, but %d", len(id))

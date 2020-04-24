@@ -73,7 +73,7 @@ type MemServiceDiscovery struct {
 	GetServiceError               error
 	InstancesError                error
 	GetProxyServiceInstancesError error
-	controller                    model.Controller
+	Controller                    model.Controller
 	ClusterID                     string
 
 	// Used by GetProxyWorkloadLabels
@@ -91,7 +91,7 @@ func NewMemServiceDiscovery(services map[host.Name]*model.Service, versions int)
 	return &MemServiceDiscovery{
 		services:            services,
 		versions:            versions,
-		controller:          &MemServiceController{},
+		Controller:          &MemServiceController{},
 		instancesByPortNum:  map[string][]*model.ServiceInstance{},
 		instancesByPortName: map[string][]*model.ServiceInstance{},
 		ip2instance:         map[string][]*model.ServiceInstance{},

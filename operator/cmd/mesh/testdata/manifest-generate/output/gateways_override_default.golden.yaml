@@ -65,9 +65,7 @@ data:
     global:
       scrape_interval: 15s
     scrape_configs:
-
     # Mixer scrapping. Defaults to Prometheus and mixer on same namespace.
-    #
     - job_name: 'istio-mesh'
       kubernetes_sd_configs:
       - role: endpoints
@@ -578,7 +576,6 @@ metadata:
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
-    
     release: istio
 spec:
   maxReplicas: 5
@@ -720,10 +717,6 @@ spec:
         - containerPort: 15020
         - containerPort: 8080
         - containerPort: 8443
-        - containerPort: 15029
-        - containerPort: 15030
-        - containerPort: 15031
-        - containerPort: 15032
         - containerPort: 15443
         - containerPort: 15011
         - containerPort: 15012
@@ -814,7 +807,6 @@ metadata:
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
-    
     release: istio
 spec:
   minAvailable: 1
@@ -822,7 +814,6 @@ spec:
     matchLabels:
       app: istio-ingressgateway
       istio: ingressgateway
-      
       release: istio
 ---
 
@@ -867,14 +858,12 @@ metadata:
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
-    
     release: istio
 spec:
   type: LoadBalancer
   selector:
     app: istio-ingressgateway
     istio: ingressgateway
-    
   ports:
     -
       name: status-port
@@ -888,22 +877,6 @@ spec:
       name: https
       port: 443
       targetPort: 8443
-    -
-      name: kiali
-      port: 15029
-      targetPort: 15029
-    -
-      name: prometheus
-      port: 15030
-      targetPort: 15030
-    -
-      name: grafana
-      port: 15031
-      targetPort: 15031
-    -
-      name: tracing
-      port: 15032
-      targetPort: 15032
     -
       name: tls
       port: 15443
@@ -919,7 +892,6 @@ metadata:
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
-    
     release: istio
 ---
 

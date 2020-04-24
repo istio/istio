@@ -73,9 +73,9 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
-        - name: MESH_CONFIG
+        - name: PROXY_CONFIG
           value: |
-            {"defaultConfig":{"interceptionMode":"TPROXY"}}
+            {"interceptionMode":"TPROXY"}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
