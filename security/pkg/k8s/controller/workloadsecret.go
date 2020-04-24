@@ -515,11 +515,11 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	// one held by the ca (this may happen when the CA is restarted and
 	// a new self-signed CA cert is generated).
 	if waitErr != nil || !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
-		// if the namespace is not managed, don't refresh the expired secret, delete it
+		// if the namespace is not managed, don't touch the namespace
 		secretNamespace, err := sc.core.Namespaces().Get(namespace, metav1.GetOptions{})
 		if err == nil {
-			if !sc.namespaceIsManaged(secretNamespace) { // delete the expiring secret if namespace not Citadel managed
-				sc.deleteSecret(name, namespace)
+			if !sc.namespaceIsManaged(secretNamespace) {
+				// Don't touch the namespace
 				return
 			}
 		} else { // in the case we couldn't retrieve namespace, we should proceed with cert refresh
