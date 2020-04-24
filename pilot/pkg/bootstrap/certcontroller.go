@@ -130,6 +130,7 @@ func (s *Server) initDNSCerts(hostname, customHostname, namespace string) error 
 			}
 		}
 		names = append(names, customHostname)
+		log.Infof("Adding custom hostname %s", customHostname)
 	}
 
 	// add a few known hostnames
