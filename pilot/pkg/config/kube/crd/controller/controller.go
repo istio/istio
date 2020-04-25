@@ -28,8 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
@@ -259,7 +259,7 @@ func (c *controller) newCacheHandler(
 
 func (c *controller) Share(kind resource.GroupVersionKind, config *model.Config, event model.Event) {
 	// we care only about workloadEntry kind
-	if kind !=  collections.IstioNetworkingV1Alpha3Workloadentries.Resource().GroupVersionKind() {
+	if kind != collections.IstioNetworkingV1Alpha3Workloadentries.Resource().GroupVersionKind() {
 		return
 	}
 	handler := c.kinds[kind]

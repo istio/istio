@@ -172,11 +172,11 @@ type kubernetesNode struct {
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
-	client         kubernetes.Interface
-	metadataClient metadata.Interface
-	queue          queue.Instance
-	services       cache.SharedIndexInformer
-	endpoints      kubeEndpointsController
+	client           kubernetes.Interface
+	metadataClient   metadata.Interface
+	queue            queue.Instance
+	services         cache.SharedIndexInformer
+	endpoints        kubeEndpointsController
 	configStoreCache model.ConfigStoreCache
 
 	nodeMetadataInformer cache.SharedIndexInformer
@@ -227,7 +227,7 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 		domainSuffix:               options.DomainSuffix,
 		client:                     client,
 		metadataClient:             metadataClient,
-		configStoreCache: options.ConfigStoreCache,
+		configStoreCache:           options.ConfigStoreCache,
 		queue:                      queue.NewQueue(1 * time.Second),
 		clusterID:                  options.ClusterID,
 		xdsUpdater:                 options.XDSUpdater,
