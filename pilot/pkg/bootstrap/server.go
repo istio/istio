@@ -320,16 +320,13 @@ func NewServer(args *PilotArgs) (*Server, error) {
 func getClusterID(args *PilotArgs) string {
 	clusterID := args.Config.ControllerOptions.ClusterID
 	if clusterID == "" {
-		for _, registry := range args.Service.Registries {
-			if registry == string(serviceregistry.Kubernetes) {
-				clusterID = string(serviceregistry.Kubernetes)
-				break
-			}
+		if hasKubeRegistry(args.Service.Registries) {
+			clusterID = string(serviceregistry.Kubernetes)
 		}
 	}
-
 	return clusterID
 }
+
 
 // Start starts all components of the Pilot discovery service on the port specified in DiscoveryServiceOptions.
 // If Port == 0, a port number is automatically chosen. Content serving is started by this method,
