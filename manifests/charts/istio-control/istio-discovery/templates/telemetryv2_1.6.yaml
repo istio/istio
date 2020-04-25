@@ -262,7 +262,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: istio.stats
+          name: envoy.filters.network.wasm
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.network.wasm.v3.Wasm
@@ -299,7 +299,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: istio.stats
+          name: envoy.filters.network.wasm
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.network.wasm.v3.Wasm
@@ -336,7 +336,7 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: istio.stats
+          name: envoy.filters.network.wasm
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
             type_url: type.googleapis.com/envoy.config.filter.network.wasm.v3.Wasm
