@@ -240,7 +240,7 @@ func TestPodCacheEvents(t *testing.T) {
 	// check if workload entry is generated
 	wePod1 := &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type: workloadEntryResource.Kind(),
+			Type:      workloadEntryResource.Kind(),
 			Group:     workloadEntryResource.Group(),
 			Version:   workloadEntryResource.Version(),
 			Name:      "generated-" + pod1.Name,
@@ -281,7 +281,7 @@ func TestPodCacheEvents(t *testing.T) {
 
 	wePod2 := &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type: workloadEntryResource.Kind(),
+			Type:      workloadEntryResource.Kind(),
 			Group:     workloadEntryResource.Group(),
 			Version:   workloadEntryResource.Version(),
 			Namespace: ns,
