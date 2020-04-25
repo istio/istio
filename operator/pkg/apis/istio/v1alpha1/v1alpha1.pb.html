@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 93
+number_of_entries: 94
 ---
 <h2 id="ArchConfig">ArchConfig</h2>
 <section>
@@ -3957,6 +3957,15 @@ No
 No
 </td>
 </tr>
+<tr id="TelemetryV2Config-access_log_policy">
+<td><code>accessLogPolicy</code></td>
+<td><code><a href="#TelemetryV2AccessLogPolicyFilterConfig">TelemetryV2AccessLogPolicyFilterConfig</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -4087,6 +4096,41 @@ No
 <tr id="TelemetryV2StackDriverConfig-configOverride">
 <td><code>configOverride</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TelemetryV2AccessLogPolicyFilterConfig">TelemetryV2AccessLogPolicyFilterConfig</h2>
+<section>
+<p>Conrols telemetry v2 access log policy filter settings.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TelemetryV2AccessLogPolicyFilterConfig-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2AccessLogPolicyFilterConfig-logWindowDuration">
+<td><code>logWindowDuration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">Duration</a></code></td>
 <td>
 </td>
 <td>
