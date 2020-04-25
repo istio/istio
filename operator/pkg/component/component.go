@@ -545,11 +545,11 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 	}
 	// Add the k8s resource overlays from IstioOperatorSpec.
 	pathToK8sOverlay := ""
-	if !cf.componentName.IsCoreComponent() && !cf.componentName.IsGateway() {
+	if !cf.ComponentName.IsCoreComponent() && !cf.ComponentName.IsGateway() {
 		pathToK8sOverlay += fmt.Sprintf("AddonComponents.%s.", cf.addonName)
 	} else {
-		pathToK8sOverlay += fmt.Sprintf("Components.%s.", cf.componentName)
-		if cf.componentName == name.IngressComponentName || cf.componentName == name.EgressComponentName {
+		pathToK8sOverlay += fmt.Sprintf("Components.%s.", cf.ComponentName)
+		if cf.ComponentName == name.IngressComponentName || cf.ComponentName == name.EgressComponentName {
 			pathToK8sOverlay += fmt.Sprintf("%d.", cf.index)
 		}
 	}
