@@ -539,12 +539,10 @@ func buildLocalityLbEndpointsFromShards(
 	isClusterLocal := push.IsClusterLocal(svc)
 
 	shards.mutex.Lock()
-	epShards := shards.Shards
-	shards.mutex.Unlock()
 
 	// The shards are updated independently, now need to filter and merge
 	// for this cluster
-	for clusterID, endpoints := range epShards {
+	for clusterID, endpoints := range shards.Shards {
 		// If the downstream service is configured as cluster-local, only include endpoints that
 		// reside in the same cluster.
 		if isClusterLocal && (clusterID != proxy.ClusterID) {
@@ -575,6 +573,8 @@ func buildLocalityLbEndpointsFromShards(
 
 		}
 	}
+
+	shards.mutex.Unlock()
 
 	locEps := make([]*endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {
