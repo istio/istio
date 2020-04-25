@@ -53,7 +53,6 @@ type externalConfigType int
 const (
 	serviceEntryConfigType externalConfigType = iota
 	workloadEntryConfigType
-	kubernetesPodType
 )
 
 // configKey unique identifies a config object managed by this registry (ServiceEntry and WorkloadEntry)
