@@ -18,13 +18,10 @@ import (
 	"net"
 	"strings"
 
-	v1 "k8s.io/api/core/v1"
-
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -215,27 +212,6 @@ func convertInstances(cfg model.Config, services []*model.Service) []*model.Serv
 					out = append(out, convertEndpoint(service, serviceEntryPort, endpoint, tlsMode))
 				}
 			}
-		}
-	}
-	return out
-}
-
-func convertPodToServiceInstances(kubeController *kube.Controller, pod *v1.Pod, services []*model.Service, se *networking.ServiceEntry) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
-	epBuilder := kube.NewEndpointBuilder(kubeController, pod)
-	epByPortName := make(map[string]*model.IstioEndpoint)
-	for _, port := range se.Ports {
-		// For now we will assume that pod ports map 1-1 with service ports
-		epByPortName[port.Name] = epBuilder.BuildIstioEndpoint(pod.Status.PodIP, int32(port.Number), port.Name)
-	}
-
-	for _, service := range services {
-		for _, port := range se.Ports {
-			out = append(out, &model.ServiceInstance{
-				Service:     service,
-				ServicePort: convertPort(port),
-				Endpoint:    epByPortName[port.Name],
-			})
 		}
 	}
 	return out
