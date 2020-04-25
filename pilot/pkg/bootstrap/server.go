@@ -26,6 +26,8 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pilot/pkg/status"
+
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/metadata"
@@ -149,6 +151,7 @@ type Server struct {
 	// This allows important cleanup tasks to be completed.
 	// Note: this is still best effort; a process can die at any time.
 	requiredTerminations sync.WaitGroup
+	statusReporter       *status.Reporter
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -727,7 +730,7 @@ func (s *Server) initEventHandlers() error {
 	}
 
 	if s.configController != nil {
-		configHandler := func(_, curr model.Config, _ model.Event) {
+		configHandler := func(_, curr model.Config, event model.Event) {
 			pushReq := &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{{
@@ -738,6 +741,13 @@ func (s *Server) initEventHandlers() error {
 				Reason: []model.TriggerReason{model.ConfigUpdate},
 			}
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
+			if s.statusReporter != nil {
+				if event != model.EventDelete {
+					s.statusReporter.AddInProgressResource(curr)
+				} else {
+					s.statusReporter.DeleteInProgressResource(curr)
+				}
+			}
 		}
 		schemas := collections.Pilot.All()
 		if features.EnableServiceApis {

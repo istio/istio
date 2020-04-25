@@ -43,6 +43,9 @@ func TestMain(m *testing.M) {
 
 			cfg.ControlPlaneValues = `
 values:
+  pilot:
+    env:
+      PILOT_ENABLE_STATUS: true
   global:
     istiod:
       enabled: true
