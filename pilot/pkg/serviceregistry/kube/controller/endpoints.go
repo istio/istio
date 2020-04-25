@@ -121,7 +121,7 @@ func (e *endpointsController) proxyServiceInstances(c *Controller, endpoints *v1
 				// consider multiple IP scenarios
 				for _, ip := range proxy.IPAddresses {
 					if hasProxyIP(ss.Addresses, ip) || hasProxyIP(ss.NotReadyAddresses, ip) {
-						istioEndpoint := builder.BuildIstioEndpoint(ip, port.Port, svcPort.Name)
+						istioEndpoint := builder.buildIstioEndpoint(ip, port.Port, svcPort.Name)
 						out = append(out, &model.ServiceInstance{
 							Endpoint:    istioEndpoint,
 							ServicePort: svcPort,
@@ -179,7 +179,7 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 			for _, port := range ss.Ports {
 				if port.Name == "" || // 'name optional if single port is defined'
 					svcPort.Name == port.Name {
-					istioEndpoint := builder.BuildIstioEndpoint(ea.IP, port.Port, svcPort.Name)
+					istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, svcPort.Name)
 					out = append(out, &model.ServiceInstance{
 						Endpoint:    istioEndpoint,
 						ServicePort: svcPort,

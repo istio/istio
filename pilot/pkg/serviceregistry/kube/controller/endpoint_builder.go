@@ -56,7 +56,7 @@ func NewEndpointBuilder(c *Controller, pod *v1.Pod) *EndpointBuilder {
 	}
 }
 
-func (b *EndpointBuilder) BuildIstioEndpoint(
+func (b *EndpointBuilder) buildIstioEndpoint(
 	endpointAddress string,
 	endpointPort int32,
 	svcPortName string) *model.IstioEndpoint {
