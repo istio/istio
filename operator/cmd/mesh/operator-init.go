@@ -15,23 +15,11 @@
 package mesh
 
 import (
-	"fmt"
-	"io/ioutil"
-	"sort"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
-	"k8s.io/utils/pointer"
 
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/kubectlcmd"
-	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
-	"istio.io/istio/operator/version"
 	buildversion "istio.io/pkg/version"
 )
 
@@ -54,15 +42,7 @@ type operatorInitArgs struct {
 
 const (
 	istioControllerComponentName = "Operator"
-	istioNamespaceComponentName  = "IstioNamespace"
 	istioOperatorCRComponentName = "OperatorCustomResource"
-)
-
-// manifestApplier is used for test dependency injection.
-type manifestApplier func(manifestStr, componentName string, opts *kubectlcmd.Options, verbose bool, l clog.Logger) bool
-
-var (
-	defaultManifestApplier = applyManifest
 )
 
 func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
@@ -97,17 +77,21 @@ func operatorInitCmd(rootArgs *rootArgs, oiArgs *operatorInitArgs) *cobra.Comman
 		Long:  "The init subcommand installs the Istio operator controller in the cluster.",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			l := clog.NewConsoleLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
-			operatorInit(rootArgs, oiArgs, l, defaultManifestApplier)
+			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr())
+			operatorInit(rootArgs, oiArgs, l)
 		}}
 }
 
 // operatorInit installs the Istio operator controller into the cluster.
-func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger, apply manifestApplier) {
+func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 	initLogsOrExit(args)
 
+	restConfig, clientset, client, err := K8sConfig(oiArgs.kubeConfigPath, oiArgs.context)
+	if err != nil {
+		l.LogAndFatal(err)
+	}
 	// Error here likely indicates Deployment is missing. If some other K8s error, we will hit it again later.
-	already, _ := isControllerInstalled(oiArgs.kubeConfigPath, oiArgs.context, oiArgs.common.operatorNamespace)
+	already, _ := isControllerInstalled(clientset, oiArgs.common.operatorNamespace)
 	if already {
 		l.LogAndPrintf("Operator controller is already installed in %s namespace, updating.", oiArgs.common.operatorNamespace)
 	}
@@ -122,9 +106,8 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger, apply
 	scope.Debugf("Installing operator charts with the following values:\n%s", vals)
 	scope.Debugf("Using the following manifest to install operator:\n%s\n", mstr)
 
-	opts := &kubectlcmd.Options{
+	opts := &Options{
 		DryRun:      args.dryRun,
-		Verbose:     args.verbose,
 		Wait:        oiArgs.wait,
 		WaitTimeout: oiArgs.readinessTimeout,
 		Kubeconfig:  oiArgs.kubeConfigPath,
@@ -137,96 +120,19 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger, apply
 		l.LogAndFatal(err)
 	}
 
-	success := apply(mstr, istioControllerComponentName, opts, args.verbose, l)
+	if err := applyManifest(restConfig, client, mstr, istioControllerComponentName, opts, l); err != nil {
+		l.LogAndFatal(err)
+	}
 
 	if customResource != "" {
-		success = success && apply(genNamespaceResource(istioNamespace), istioNamespaceComponentName, opts, args.verbose, l)
-		success = success && apply(customResource, istioOperatorCRComponentName, opts, args.verbose, l)
-	}
+		if err := CreateNamespace(clientset, istioNamespace); err != nil {
+			l.LogAndFatal(err)
 
-	if !success {
-		l.LogAndPrint("\n*** Errors were logged during apply operation. Please check component installation logs above. ***\n")
-		return
-	}
-
-	l.LogAndPrint("\n*** Success. ***\n")
-}
-
-func applyManifest(manifestStr, componentName string, opts *kubectlcmd.Options, verbose bool, l clog.Logger) bool {
-	l.LogAndPrint("")
-	// Specifically don't prune operator installation since it leads to a lot of resources being reapplied.
-	opts.Prune = pointer.BoolPtr(false)
-	out, objs := manifest.ApplyManifest(name.ComponentName(componentName), manifestStr, version.OperatorBinaryVersion.String(), "", *opts)
-
-	success := true
-	if out.Err != nil {
-		cs := fmt.Sprintf("Component %s install returned the following errors:", componentName)
-		l.LogAndPrintf("\n%s\n%s", cs, strings.Repeat("=", len(cs)))
-		l.LogAndPrint("Error: ", out.Err, "\n")
-		success = false
-	} else {
-		l.LogAndPrintf("Component %s installed successfully.", componentName)
-		if opts.Verbose {
-			l.LogAndPrintf("The following objects were installed:\n%s", k8sObjectsString(objs))
+		}
+		if err := applyManifest(restConfig, client, customResource, istioOperatorCRComponentName, opts, l); err != nil {
+			l.LogAndFatal(err)
 		}
 	}
 
-	if !ignoreError(out.Stderr) {
-		l.LogAndPrint("Error detail:\n", out.Stderr, "\n")
-		success = false
-	}
-	if !ignoreError(out.Stderr) {
-		l.LogAndPrint(out.Stdout, "\n")
-	}
-	return success
-}
-
-func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource string, istioNamespace string, err error) {
-	if filePath == "" {
-		return "", "", nil
-	}
-
-	_, mergedIOPS, err := GenerateConfig([]string{filePath}, "", false, nil, l)
-	if err != nil {
-		return "", "", err
-	}
-
-	b, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		return "", "", fmt.Errorf("could not read values from file %s: %s", filePath, err)
-	}
-	customResource = string(b)
-	istioNamespace = v1alpha1.Namespace(mergedIOPS)
-	return
-}
-
-func genNamespaceResource(namespace string) string {
-	tmpl := `
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    istio-injection: disabled
-  name: {{.Namespace}}
-`
-
-	tv := struct {
-		Namespace string
-	}{
-		Namespace: namespace,
-	}
-	vals, err := util.RenderTemplate(tmpl, tv)
-	if err != nil {
-		return ""
-	}
-	return vals
-}
-
-func k8sObjectsString(objs object.K8sObjects) string {
-	var out []string
-	for _, o := range objs {
-		out = append(out, fmt.Sprintf("- %s/%s/%s", o.Kind, o.Namespace, o.Name))
-	}
-	sort.Strings(out)
-	return strings.Join(out, "\n")
+	l.LogAndPrint("\n*** Success. ***\n")
 }

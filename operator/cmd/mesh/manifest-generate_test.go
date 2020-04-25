@@ -29,6 +29,7 @@ import (
 
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
@@ -167,15 +168,15 @@ func TestManifestGenerateGateways(t *testing.T) {
 		t.Fatal(err)
 	}
 	objs := parseObjectSetFromManifest(t, m)
-	g.Expect(objs.kind(hpaStr).size()).Should(Equal(3))
-	g.Expect(objs.kind(pdbStr).size()).Should(Equal(3))
-	g.Expect(objs.kind(serviceStr).size()).Should(Equal(3))
+	g.Expect(objs.kind(name.HPAStr).size()).Should(Equal(3))
+	g.Expect(objs.kind(name.PDBStr).size()).Should(Equal(3))
+	g.Expect(objs.kind(name.ServiceStr).size()).Should(Equal(3))
 
 	// Two namespaces so two sets of these.
 	// istio-ingressgateway and user-ingressgateway share these as they are in the same namespace (istio-system).
-	g.Expect(objs.kind(roleStr).size()).Should(Equal(2))
-	g.Expect(objs.kind(roleBindingStr).size()).Should(Equal(2))
-	g.Expect(objs.kind(saStr).size()).Should(Equal(2))
+	g.Expect(objs.kind(name.RoleStr).size()).Should(Equal(2))
+	g.Expect(objs.kind(name.RoleBindingStr).size()).Should(Equal(2))
+	g.Expect(objs.kind(name.SAStr).size()).Should(Equal(2))
 
 	dobj := mustGetDeployment(g, objs, "istio-ingressgateway")
 	d := dobj.Unstructured()
@@ -201,7 +202,7 @@ func TestManifestGenerateGateways(t *testing.T) {
 	g.Expect(s).Should(HavePathValueEqual(PathValue{"spec.ports.[1]", portVal("tcp-citadel-grpc-tls", 8060, 8060)}))
 	g.Expect(s).Should(HavePathValueEqual(PathValue{"spec.ports.[2]", portVal("tcp-dns", 5353, -1)}))
 
-	for _, o := range objs.kind(hpaStr).objSlice {
+	for _, o := range objs.kind(name.HPAStr).objSlice {
 		ou := o.Unstructured()
 		g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.minReplicas", int64(1)}))
 		g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.maxReplicas", int64(5)}))
@@ -482,26 +483,26 @@ func TestConfigSelectors(t *testing.T) {
 	}
 
 	// First we fetch all the objects for our default install
-	name := "istiod"
-	deployment := mustFindObject(t, objs, name, deploymentStr)
-	service := mustFindObject(t, objs, name, serviceStr)
-	pdb := mustFindObject(t, objs, name, pdbStr)
-	hpa := mustFindObject(t, objs, name, hpaStr)
+	cname := "istiod"
+	deployment := mustFindObject(t, objs, cname, name.DeploymentStr)
+	service := mustFindObject(t, objs, cname, name.ServiceStr)
+	pdb := mustFindObject(t, objs, cname, name.PDBStr)
+	hpa := mustFindObject(t, objs, cname, name.HPAStr)
 	podLabels := mustGetLabels(t, deployment, "spec.template.metadata.labels")
 	// Check all selectors align
 	mustSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabels)
 	mustSelect(t, mustGetLabels(t, service, "spec.selector"), podLabels)
 	mustSelect(t, mustGetLabels(t, deployment, "spec.selector.matchLabels"), podLabels)
-	if hpaName := mustGetPath(t, hpa, "spec.scaleTargetRef.name"); name != hpaName {
-		t.Fatalf("HPA does not match deployment: %v != %v", name, hpaName)
+	if hpaName := mustGetPath(t, hpa, "spec.scaleTargetRef.name"); cname != hpaName {
+		t.Fatalf("HPA does not match deployment: %v != %v", cname, hpaName)
 	}
 
 	// Next we fetch all the objects for a revision install
 	nameRev := "istiod-canary"
-	deploymentRev := mustFindObject(t, objsRev, nameRev, deploymentStr)
-	serviceRev := mustFindObject(t, objsRev, nameRev, serviceStr)
-	pdbRev := mustFindObject(t, objsRev, nameRev, pdbStr)
-	hpaRev := mustFindObject(t, objsRev, nameRev, hpaStr)
+	deploymentRev := mustFindObject(t, objsRev, nameRev, name.DeploymentStr)
+	serviceRev := mustFindObject(t, objsRev, nameRev, name.ServiceStr)
+	pdbRev := mustFindObject(t, objsRev, nameRev, name.PDBStr)
+	hpaRev := mustFindObject(t, objsRev, nameRev, name.HPAStr)
 	podLabelsRev := mustGetLabels(t, deploymentRev, "spec.template.metadata.labels")
 	// Check all selectors align for revision
 	mustSelect(t, mustGetLabels(t, pdbRev, "spec.selector.matchLabels"), podLabelsRev)
@@ -548,7 +549,7 @@ func TestLDFlags(t *testing.T) {
 	}()
 	version.DockerInfo.Hub = "testHub"
 	version.DockerInfo.Tag = "testTag"
-	l := clog.NewConsoleLogger(true, os.Stdout, os.Stderr)
+	l := clog.NewConsoleLogger(os.Stdout, os.Stderr)
 	ysf, err := yamlFromSetFlags([]string{"installPackagePath=" + liveInstallPackageDir}, false, l)
 	if err != nil {
 		t.Fatal(err)
