@@ -168,13 +168,13 @@ func Test_getTypedStatus(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotOut, err := getTypedStatus(tt.args.in)
+			gotOut, err := GetTypedStatus(tt.args.in)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("getTypedStatus() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("GetTypedStatus() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(gotOut, tt.wantOut) {
-				t.Errorf("getTypedStatus() gotOut = %v, want %v", gotOut, tt.wantOut)
+				t.Errorf("GetTypedStatus() gotOut = %v, want %v", gotOut, tt.wantOut)
 			}
 		})
 	}

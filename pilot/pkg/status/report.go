@@ -27,7 +27,7 @@ import (
 )
 
 type DistributionReport struct {
-	Reporter            string
+	Reporter            string         `json:"reporter"`
 	DataPlaneCount      int            `json:"dataPlaneCount"`
 	InProgressResources map[string]int `json:"inProgressResources"`
 }

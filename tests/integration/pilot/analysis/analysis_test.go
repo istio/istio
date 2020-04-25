@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	status2 "istio.io/istio/pilot/pkg/status"
 
@@ -112,26 +112,29 @@ func expectStatus(t *testing.T, ctx resource.Context, ns namespace.Instance, has
 	if hasError && x.Object["status"] == nil {
 		return fmt.Errorf("object is missing expected status field.  Actual object is: %v", x)
 	}
-	status := fmt.Sprintf("%v", x.Object["status"])
-	if strings.Contains(status, msg.ReferencedResourceNotFound.Code()) != hasError {
-		return fmt.Errorf("expected error=%v, but got %v", hasError, status)
+	statusString := fmt.Sprintf("%v", x.Object["status"])
+	if strings.Contains(statusString, msg.ReferencedResourceNotFound.Code()) != hasError {
+		return fmt.Errorf("expected error=%v, but got %v", hasError, statusString)
 	}
-	conditions, ok := x.Object["status"].(map[string]interface{})["conditions"]
-	if !ok {
+
+	status, err := status2.GetTypedStatus(x.Object["status"])
+	if err != nil {
+		return fmt.Errorf("unable to cast status field '%s'to istiostatus:, %v", statusString, err)
+	}
+	if len(status.Conditions) < 1 {
 		return fmt.Errorf("expected conditions to exist, but got %v", status)
 	}
 	found := false
-	for _, ucondition := range conditions.([]interface{}) {
-		condition := ucondition.(map[string]interface{})
-		if condition["type"] == string(status2.Reconciled) {
+	for _, condition := range status.Conditions {
+		if condition.Type == status2.Reconciled {
 			found = true
-			if condition["status"] != string(v1.ConditionTrue) {
-				return fmt.Errorf("expected Reconciled to be true but was %v", condition["status"])
+			if condition.Status != metav1.ConditionTrue {
+				return fmt.Errorf("expected Reconciled to be true but was %v", condition.Status)
 			}
 		}
 	}
 	if !found {
-		return fmt.Errorf("expected Reconciled condition to exist, but got %v", conditions)
+		return fmt.Errorf("expected Reconciled condition to exist, but got %v", status.Conditions)
 	}
 	return nil
 }

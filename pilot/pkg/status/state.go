@@ -218,7 +218,7 @@ func (c *DistributionController) removeStaleReporters(staleReporters []string) {
 	}
 }
 
-func getTypedStatus(in interface{}) (out IstioStatus, err error) {
+func GetTypedStatus(in interface{}) (out IstioStatus, err error) {
 	var statusBytes []byte
 	if statusBytes, err = yaml.Marshal(in); err == nil {
 		err = yaml.Unmarshal(statusBytes, &out)
@@ -235,7 +235,7 @@ func boolToConditionStatus(b bool) v1beta1.ConditionStatus {
 
 func ReconcileStatuses(current map[string]interface{}, desired Progress, clock clock.Clock) (bool, *IstioStatus) {
 	needsReconcile := false
-	currentStatus, err := getTypedStatus(current["status"])
+	currentStatus, err := GetTypedStatus(current["status"])
 	desiredCondition := IstioCondition{
 		Type:               Reconciled,
 		Status:             boolToConditionStatus(desired.AckedInstances == desired.TotalInstances),

@@ -608,13 +608,10 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		if s.StatusReporter != nil {
 			// this version of the config will never be distributed to this envoy because it is not a relevant diff.
 			// inform distribution status reporter that this connection has been updated, because it effectively has
-			go func() {
-				for _, typeURL := range []string{ClusterType, ListenerType, RouteType, EndpointType} {
-					s.StatusReporter.RegisterEvent(con.ConID, typeURL, pushEv.noncePrefix)
-				}
-			}()
+			for _, typeURL := range []string{ClusterType, ListenerType, RouteType, EndpointType} {
+				s.StatusReporter.RegisterEvent(con.ConID, typeURL, pushEv.noncePrefix)
+			}
 		}
-		adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
 		return nil
 	}
 

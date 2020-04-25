@@ -14,7 +14,10 @@
 
 package v2
 
+// EventHandler allows for generic monitoring of xDS ACKS and disconnects, for the purpose of tracking
+// Config distribution through the mesh.
 type DistributionEventHandler interface {
+	// RegisterEvent notifies the implementer of an xDS ACK, and must be non-blocking
 	RegisterEvent(conID string, xdsType string, nonce string)
 	RegisterDisconnect(s string, urls []string)
 }
