@@ -54,6 +54,9 @@ global:
     enabled: true
     enableAnalysis: false
 
+  # One central istiod controls all remote clusters: disabled by default
+  centralIstiod: false
+
   proxy:
     image: proxyv2
 

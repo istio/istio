@@ -159,7 +159,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	e := &model.Environment{
 		ServiceDiscovery: aggregate.NewController(),
 		PushContext:      model.NewPushContext(),
-		DomainSuffix:     args.Config.ControllerOptions.DomainSuffix,
 	}
 
 	s := &Server{
@@ -258,10 +257,15 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initMonitor(args.DiscoveryOptions.MonitoringAddr); err != nil {
 		return nil, fmt.Errorf("error initializing monitor: %v", err)
 	}
+	args.Config.ControllerOptions.CAROOT = ""
+	if features.CentralIstioD {
+		if s.ca != nil && s.ca.GetCAKeyCertBundle() != nil {
+			args.Config.ControllerOptions.CAROOT = string(s.ca.GetCAKeyCertBundle().GetRootCertPem())
+		}
+	}
 	if err := s.initClusterRegistries(args); err != nil {
 		return nil, fmt.Errorf("error initializing cluster registries: %v", err)
 	}
-
 	if dns.DNSAddr.Get() != "" {
 		if err := s.initDNSTLSListener(dns.DNSAddr.Get()); err != nil {
 			log.Warna("error initializing DNS-over-TLS listener ", err)
@@ -299,7 +303,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 					NewLeaderElection(args.Namespace, args.PodName, leaderelection.NamespaceController, s.kubeClient).
 					AddRunFunction(func(stop <-chan struct{}) {
 						log.Infof("Starting namespace controller")
-						nc := NewNamespaceController(fetchData, args.Config.ControllerOptions, s.kubeClient)
+						nc := kubecontroller.NewNamespaceController(fetchData, args.Config.ControllerOptions, s.kubeClient)
 						nc.Run(stop)
 					}).
 					Run(stop)
@@ -323,7 +327,6 @@ func getClusterID(args *PilotArgs) string {
 			clusterID = string(serviceregistry.Kubernetes)
 		}
 	}
-
 	return clusterID
 }
 

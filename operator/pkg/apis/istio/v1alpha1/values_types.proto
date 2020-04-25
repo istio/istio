@@ -535,7 +535,10 @@ message GlobalConfig {
 
   // The address of the CA for CSR.
   string caAddress = 61;
-  // The next available key is 62
+
+  // Controls whether one central istiod is enabled.
+  google.protobuf.BoolValue centralIstiod = 62;
+  // The next available key is 63
 }
 
 // Configuration for Security Token Service (STS) server.
