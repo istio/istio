@@ -935,7 +935,7 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 	for tp, svcPort := range tps {
 		// consider multiple IP scenarios
 		for _, ip := range proxy.IPAddresses {
-			istioEndpoint := builder.BuildIstioEndpoint(ip, int32(tp.Port), svcPort.Name)
+			istioEndpoint := builder.buildIstioEndpoint(ip, int32(tp.Port), svcPort.Name)
 			out = append(out, &model.ServiceInstance{
 				Service:     svc,
 				ServicePort: svcPort,
@@ -1043,7 +1043,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 				// EDS and ServiceEntry use name for service port - ADS will need to
 				// map to numbers.
 				for _, port := range ss.Ports {
-					istioEndpoint := builder.BuildIstioEndpoint(ea.IP, port.Port, port.Name)
+					istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, port.Name)
 					endpoints = append(endpoints, istioEndpoint)
 				}
 			}
