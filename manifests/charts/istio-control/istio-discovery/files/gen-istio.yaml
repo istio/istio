@@ -91,6 +91,7 @@ data:
           "s390x": 2
         },
         "caAddress": "",
+        "centralIstiod": false,
         "certificates": [],
         "configRootNamespace": "istio-system",
         "configValidation": true,
@@ -848,6 +849,8 @@ spec:
             value: "false"
           - name: CLUSTER_ID
             value: "Kubernetes"
+          - name: CENTRAL_ISTIOD
+            value: "false"
           resources:
             requests:
               cpu: 500m
