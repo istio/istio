@@ -203,3 +203,13 @@ func (cr *storeCache) Run(stop <-chan struct{}) {
 	}
 	<-stop
 }
+
+func (cr *storeCache) Share(typ resource.GroupVersionKind, config *model.Config, event model.Event) {
+	if len(cr.caches) == 0 {
+		return
+	}
+
+	for _, cache := range cr.caches {
+		cache.Share(typ, config, event)
+	}
+}

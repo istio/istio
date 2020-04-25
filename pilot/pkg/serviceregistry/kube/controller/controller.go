@@ -122,6 +122,11 @@ type Options struct {
 	// XDSUpdater will push changes to the xDS server.
 	XDSUpdater model.XDSUpdater
 
+	// ConfigStoreCache is used to notify of pod creation events.
+	// Primary target is the kube crd controller that triggers service entry code.
+	// The rest are no-ops
+	ConfigStoreCache model.ConfigStoreCache
+
 	// TrustDomain used in SPIFFE identity
 	TrustDomain string
 
@@ -172,6 +177,7 @@ type Controller struct {
 	queue          queue.Instance
 	services       cache.SharedIndexInformer
 	endpoints      kubeEndpointsController
+	configStoreCache model.ConfigStoreCache
 
 	nodeMetadataInformer cache.SharedIndexInformer
 	// Used to watch node accessible from remote cluster.
@@ -182,7 +188,6 @@ type Controller struct {
 	metrics              model.Metrics
 	networksWatcher      mesh.NetworksWatcher
 	xdsUpdater           model.XDSUpdater
-	serviceEntryCallback func(pod *v1.Pod, ev model.Event)
 	domainSuffix         string
 	clusterID            string
 
@@ -222,6 +227,7 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 		domainSuffix:               options.DomainSuffix,
 		client:                     client,
 		metadataClient:             metadataClient,
+		configStoreCache: options.ConfigStoreCache,
 		queue:                      queue.NewQueue(1 * time.Second),
 		clusterID:                  options.ClusterID,
 		xdsUpdater:                 options.XDSUpdater,
@@ -268,10 +274,6 @@ func (c *Controller) Provider() serviceregistry.ProviderID {
 
 func (c *Controller) Cluster() string {
 	return c.clusterID
-}
-
-func (c *Controller) RegisterServiceEntryCallback(callback func(pod *v1.Pod, ev model.Event)) {
-	c.serviceEntryCallback = callback
 }
 
 func (c *Controller) checkReadyForEvents() error {

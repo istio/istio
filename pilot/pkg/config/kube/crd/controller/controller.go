@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config/schema/collections"
 
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
@@ -254,6 +255,19 @@ func (c *controller) newCacheHandler(
 		})
 
 	return h
+}
+
+func (c *controller) Share(kind resource.GroupVersionKind, config *model.Config, event model.Event) {
+	// we care only about workloadEntry kind
+	if kind !=  collections.IstioNetworkingV1Alpha3Workloadentries.Resource().GroupVersionKind() {
+		return
+	}
+	handler := c.kinds[kind]
+
+	// Add the event to the queue. This will automatically fire in the service entry
+	c.queue.Push(func() error {
+		return handler.onEvent(nil, config, event)
+	})
 }
 
 func handleValidationFailure(obj interface{}, err error) {

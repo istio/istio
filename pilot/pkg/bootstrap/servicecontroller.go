@@ -62,8 +62,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		}
 	}
 
-	s.serviceEntryStore = external.NewServiceDiscovery(s.configController, s.environment.IstioConfigStore,
-		s.EnvoyXdsServer, s.kubeRegistry)
+	s.serviceEntryStore = external.NewServiceDiscovery(s.configController, s.environment.IstioConfigStore, s.EnvoyXdsServer)
 	serviceControllers.AddRegistry(s.serviceEntryStore)
 
 	// Defer running of the service controllers.
@@ -81,6 +80,7 @@ func (s *Server) initKubeRegistry(serviceControllers *aggregate.Controller, args
 	args.Config.ControllerOptions.Metrics = s.environment
 	args.Config.ControllerOptions.XDSUpdater = s.EnvoyXdsServer
 	args.Config.ControllerOptions.NetworksWatcher = s.environment.NetworksWatcher
+	args.Config.ControllerOptions.ConfigStoreCache = s.configController
 	if features.EnableEndpointSliceController {
 		args.Config.ControllerOptions.EndpointMode = kubecontroller.EndpointSliceOnly
 	} else {

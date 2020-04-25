@@ -260,6 +260,14 @@ type ConfigStoreCache interface {
 
 	// HasSynced returns true after initial cache synchronization is complete
 	HasSynced() bool
+
+	// Share allows one config store to share events with another config store
+	// or as a general mechanism for a config store to notify other config stores of
+	// an event of particular type. This is currently being used by the Kube service
+	// registry to notify the service entry config controller about pod events (in the
+	// form of workload entry configs) so that the service entry controller can process
+	// these for ServiceEntries that select both pods and VMs.
+	Share(kind resource.GroupVersionKind, config *Config, event Event)
 }
 
 // IstioConfigStore is a specialized interface to access config store using
