@@ -210,7 +210,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	// Find endpoint shard for this service, if it is available - otherwise create a new one.
 	ep, created := s.findOrCreateEndpointShard(serviceName, namespace)
 
-	// If we create a new endpoint shard, that means we have not seen the service ealier. We should do a full push.
+	// If we create a new endpoint shard, that means we have not seen the service earlier. We should do a full push.
 	if created {
 		adsLog.Infof("Full push, new service %s", serviceName)
 		fullPush = true
