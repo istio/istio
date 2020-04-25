@@ -66,6 +66,9 @@ func (s *DiscoveryServer) handleReqAck(con *XdsConnection, discReq *xdsapi.Disco
 	if discReq.ErrorDetail != nil {
 		errCode := codes.Code(discReq.ErrorDetail.Code)
 		adsLog.Warnf("ADS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
+		if s.internalGen != nil {
+			s.internalGen.OnNack(con.node, discReq)
+		}
 		return w, true
 	}
 
@@ -190,6 +193,19 @@ func (s *DiscoveryServer) pushGeneratorV2(con *XdsConnection, push *model.PushCo
 	return nil
 }
 
+const (
+	TypeURLConnect = "istio.io/connect"
+	TypeURLDisconnect = "istio.io/disconnect"
+
+	// TODO: TypeURLReady - readiness events for endpoints, agent can propagate
+
+	// TypeURLNACK will receive messages of type DiscoveryRequest, containing
+	// the 'NACK' from envoy on rejected configs. Only ID is set in metadata.
+	// This includes all the info that envoy (client) provides.
+	TypeURLNACK = "istio.io/nack"
+
+)
+
 // InternalGen is a Generator for XDS status updates: connect, disconnect, nacks, acks
 type InternalGen struct {
 	Server *DiscoveryServer
@@ -199,15 +215,17 @@ type InternalGen struct {
 }
 
 func (sg *InternalGen) OnConnect(node *core.Node) {
-	sg.startPush("/istio/connect", []*any.Any{util.MessageToAny(node)})
+	sg.startPush(TypeURLConnect, []*any.Any{util.MessageToAny(node)})
 }
 
-func (sg *InternalGen) OnDisconnect() {
-
+func (sg *InternalGen) OnDisconnect(node *core.Node) {
+	sg.startPush(TypeURLDisconnect, []*any.Any{util.MessageToAny(node)})
 }
 
-func (sg *InternalGen) OnNack(dr *xdsapi.DiscoveryRequest) {
-
+func (sg *InternalGen) OnNack(node *model.Proxy, dr *xdsapi.DiscoveryRequest) {
+	// Make sure we include the ID - the DR may not include metadata
+	dr.Node.Id = node.ID
+	sg.startPush(TypeURLNACK, []*any.Any{util.MessageToAny(dr)})
 }
 
 // startPush is similar with DiscoveryServer.startPush() - but called directly,
@@ -243,11 +261,15 @@ func (sg *InternalGen) startPush(typeURL string, data []*any.Any) {
 //
 // We can also expose ACKS.
 func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
-
+	res := []*any.Any{}
 	switch w.TypeUrl {
-	case "/istio/connect":
-
-	case "/istio/nacks":
+	case TypeURLConnect:
+		sg.Server.adsClientsMutex.RLock()
+		// Create a temp map to avoid locking the add/remove
+		for _, v := range sg.Server.adsClients {
+				res = append(res, util.MessageToAny(v.meta))
+		}
+		sg.Server.adsClientsMutex.RUnlock()
 	}
-	return nil
+	return res
 }
