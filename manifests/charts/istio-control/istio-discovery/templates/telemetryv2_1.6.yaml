@@ -30,6 +30,8 @@ spec:
             type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
             value:
               config:
+                configuration: |
+                  {}
                 vm_config:
                   {{- if .Values.telemetry.v2.metadataExchange.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
