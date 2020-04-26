@@ -62,25 +62,15 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 	go func() {
 		<-stop
 		q.cond.L.Lock()
+		q.cond.Signal()
 		q.closing = true
 		q.cond.L.Unlock()
 	}()
 
-	events := make(chan struct{})
 	for {
 		q.cond.L.Lock()
 		for !q.closing && len(q.tasks) == 0 {
-			go func() {
-				q.cond.Wait()
-				events <- struct{}{}
-			}()
-
-			select {
-			case <-stop:
-				return
-			case <-events:
-				// do task
-			}
+			q.cond.Wait()
 		}
 
 		if len(q.tasks) == 0 {
