@@ -34,7 +34,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
 
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -202,11 +201,9 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		Namespace:   args.Namespace,
 	}
 
-	s.EnvoyXdsServer.Generators["api"] = &apigen.APIGenerator{}
 	s.EnvoyXdsServer.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
 	epGen := &envoyv2.EdsGenerator{s.EnvoyXdsServer}
 	s.EnvoyXdsServer.Generators["grpc/"+envoyv2.EndpointType] = epGen
-	s.EnvoyXdsServer.Generators["api/"+envoyv2.EndpointType] = epGen
 
 	if features.JwtPolicy.Get() != jwt.JWTPolicyThirdPartyJWT {
 		log.Infoa("JWT policy is ", features.JwtPolicy.Get())
