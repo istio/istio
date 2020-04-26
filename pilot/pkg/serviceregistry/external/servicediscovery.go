@@ -95,6 +95,9 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 }
 
 // getWorkloadEntryHandler defines the handler for workload entries
+// kube registry controller also calls this function indirectly via the Share interface
+// When invoked via the kube registry controller, the old object is nil as the registry
+// controller does its own deduping and has no notion of object versions
 func getWorkloadEntryHandler(c *ServiceEntryStore) func(model.Config, model.Config, model.Event) {
 	return func(old, curr model.Config, event model.Event) {
 		log.Debugf("Handle event %s for workload entry %s in namespace %s", event, curr.Name, curr.Namespace)
