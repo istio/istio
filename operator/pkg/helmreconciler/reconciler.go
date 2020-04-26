@@ -112,7 +112,7 @@ func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
 	status := h.processRecursive(manifestMap)
 
 	h.opts.ProgressLog.SetState(progress.StatePruning)
-	pruneErr := h.Prune(manifestMap)
+	pruneErr := h.Prune(manifestMap, false)
 	return status, pruneErr
 }
 
@@ -187,7 +187,7 @@ func (h *HelmReconciler) Delete() error {
 	if err != nil {
 		return err
 	}
-	return h.Prune(manifestMap)
+	return h.Prune(manifestMap, true)
 }
 
 // SetStatusBegin updates the status field on the IstioOperator instance before reconciling.
