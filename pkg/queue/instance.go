@@ -37,7 +37,6 @@ type queueImpl struct {
 	tasks   []Task
 	cond    *sync.Cond
 	closing bool
-	stopCh  chan struct{}
 }
 
 // NewQueue instantiates a queue with a processing function
@@ -47,7 +46,6 @@ func NewQueue(errorDelay time.Duration) Instance {
 		tasks:   make([]Task, 0),
 		closing: false,
 		cond:    sync.NewCond(&sync.Mutex{}),
-		stopCh:  make(chan struct{}),
 	}
 }
 
