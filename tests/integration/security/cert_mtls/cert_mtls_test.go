@@ -74,7 +74,7 @@ func TestCertMtls(t *testing.T) {
 			out, err := cert.DumpCertFromSidecar(testNamespace, "app=a", "istio-proxy",
 				connectTarget)
 			if err != nil {
-				t.Errorf("Certificate validation failure: %v", err)
+				t.Errorf("failed to dump certificate: %v", err)
 				return
 			}
 			var certExp = regexp.MustCompile("(?sU)-----BEGIN CERTIFICATE-----(.+)-----END CERTIFICATE-----")

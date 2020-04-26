@@ -55,7 +55,7 @@ func DumpCertFromSidecar(ns namespace.Instance, fromSelector, fromContainer, con
 			fromPod, fromContainer, ns.Name(), connectTarget)
 		out, err = shell.Execute(false, execCmd)
 		if !strings.Contains(out, "-----BEGIN CERTIFICATE-----") {
-			return fmt.Errorf("the output doesn't contain certificate; the output: %v", out)
+			return fmt.Errorf("the output doesn't contain certificate: %v", out)
 		}
 		return nil
 	}
