@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/pkg/log"
 
 	"k8s.io/client-go/kubernetes"
@@ -38,6 +39,7 @@ type kubeController struct {
 type Multicluster struct {
 	WatchedNamespace  string
 	DomainSuffix      string
+	caroot            string
 	ResyncPeriod      time.Duration
 	serviceController *aggregate.Controller
 	XDSUpdater        model.XDSUpdater
@@ -68,6 +70,7 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string, opts Optio
 		remoteKubeControllers: remoteKubeController,
 		networksWatcher:       networksWatcher,
 		metrics:               opts.Metrics,
+		caroot:                opts.CAROOT,
 	}
 
 	err := secretcontroller.StartSecretController(
@@ -107,6 +110,18 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, metadata
 	_ = kubectl.AppendServiceHandler(func(svc *model.Service, ev model.Event) { m.updateHandler(svc) })
 	_ = kubectl.AppendInstanceHandler(func(si *model.ServiceInstance, ev model.Event) { m.updateHandler(si.Service) })
 	go kubectl.Run(stopCh)
+	opts := Options{
+		ResyncPeriod: m.ResyncPeriod,
+		DomainSuffix: m.DomainSuffix,
+	}
+	if m.caroot != "" {
+		nc := NewNamespaceController(func() map[string]string {
+			return map[string]string{
+				constants.CACertNamespaceConfigMapDataName: m.caroot,
+			}
+		}, opts, clientset)
+		go nc.Run(stopCh)
+	}
 	return nil
 }
 
