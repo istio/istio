@@ -86,3 +86,30 @@ func TestRetry(t *testing.T) {
 	// wait for the task to run twice.
 	wg.Wait()
 }
+
+func TestResourceFree(t *testing.T) {
+	q := NewQueue(1 * time.Microsecond)
+	stop := make(chan struct{})
+	signal := make(chan struct{})
+	go func() {
+		q.Run(stop)
+		signal <- struct{}{}
+	}()
+
+	q.Push(func() error {
+		t.Log("mock exec")
+		return nil
+	})
+
+	// mock queue wait cond signal
+	time.Sleep(200 * time.Millisecond)
+
+	close(stop)
+
+	select {
+	case <-time.After(500 * time.Microsecond):
+		t.Error("close stop, method exit timeout.")
+	case <-signal:
+		t.Log("queue return.")
+	}
+}
