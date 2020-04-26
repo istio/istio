@@ -243,6 +243,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					}
 				}()
 			}
+			if s.StatusReporter != nil {
+				s.StatusReporter.RegisterEvent(con.ConID, discReq.TypeUrl, discReq.ResponseNonce)
+			}
 
 			// Based on node metadata a different generator was selected, use it instead of the default
 			// behavior.
@@ -627,6 +630,14 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		} else {
 			adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
 		}
+
+		if s.StatusReporter != nil {
+			// this version of the config will never be distributed to this envoy because it is not a relevant diff.
+			// inform distribution status reporter that this connection has been updated, because it effectively has
+			for _, typeURL := range []string{ClusterType, ListenerType, RouteType, EndpointType} {
+				s.StatusReporter.RegisterEvent(con.ConID, typeURL, pushEv.noncePrefix)
+			}
+		}
 		return nil
 	}
 
@@ -655,6 +666,8 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		if err != nil {
 			return err
 		}
+	} else if s.StatusReporter != nil {
+		s.StatusReporter.RegisterEvent(con.ConID, ClusterType, pushEv.noncePrefix)
 	}
 
 	if len(con.Clusters) > 0 && pushTypes[EDS] {
@@ -662,18 +675,24 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		if err != nil {
 			return err
 		}
+	} else if s.StatusReporter != nil {
+		s.StatusReporter.RegisterEvent(con.ConID, EndpointType, pushEv.noncePrefix)
 	}
 	if con.LDSWatch && pushTypes[LDS] {
 		err := s.pushLds(con, pushEv.push, currentVersion)
 		if err != nil {
 			return err
 		}
+	} else if s.StatusReporter != nil {
+		s.StatusReporter.RegisterEvent(con.ConID, ListenerType, pushEv.noncePrefix)
 	}
 	if len(con.Routes) > 0 && pushTypes[RDS] {
 		err := s.pushRoute(con, pushEv.push, currentVersion)
 		if err != nil {
 			return err
 		}
+	} else if s.StatusReporter != nil {
+		s.StatusReporter.RegisterEvent(con.ConID, RouteType, pushEv.noncePrefix)
 	}
 	proxiesConvergeDelay.Record(time.Since(pushEv.start).Seconds())
 	return nil
@@ -791,6 +810,9 @@ func (s *DiscoveryServer) removeCon(conID string) {
 	}
 
 	xdsClients.Record(float64(len(s.adsClients)))
+	if s.StatusReporter != nil {
+		go s.StatusReporter.RegisterDisconnect(conID, []string{ClusterType, ListenerType, RouteType, EndpointType})
+	}
 }
 
 // Send with timeout

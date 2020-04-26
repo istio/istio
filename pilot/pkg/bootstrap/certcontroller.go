@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -162,7 +164,7 @@ func (s *Server) initDNSCerts(hostname, namespace string) error {
 						select {
 						case <-stop:
 							return
-						case <-time.After(namespaceResyncPeriod):
+						case <-time.After(controller.NamespaceResyncPeriod):
 							newRootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
 							if !bytes.Equal(rootCert, newRootCert) {
 								rootCert = newRootCert

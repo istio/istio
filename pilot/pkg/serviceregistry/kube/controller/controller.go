@@ -113,6 +113,9 @@ type Options struct {
 	// ClusterID identifies the remote cluster in a multicluster env.
 	ClusterID string
 
+	// CAROOT defines the CAROOT where one istiod controls remote cluster
+	CAROOT string
+
 	// Metrics for capturing node-based metrics.
 	Metrics model.Metrics
 

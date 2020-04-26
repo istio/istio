@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
+	"istio.io/istio/pilot/pkg/util/sets"
 )
 
 var (
@@ -128,6 +129,7 @@ type DiscoveryServer struct {
 	adsClientsMutex sync.RWMutex
 
 	internalGen *InternalGen
+	StatusReporter DistributionEventHandler
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -147,7 +149,7 @@ type EndpointShards struct {
 	// current list, a full push will be forced, to trigger a secure naming update.
 	// Due to the larger time, it is still possible that connection errors will occur while
 	// CDS is updated.
-	ServiceAccounts map[string]bool
+	ServiceAccounts sets.Set
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
