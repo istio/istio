@@ -28,10 +28,10 @@ import (
 )
 
 const (
-	bearerTokenPrefix   = "Bearer "
-	httpAuthHeader      = "authorization"
-	httpClusterIDHeader = "clusterid"
-	idTokenIssuer       = "https://accounts.google.com"
+	bearerTokenPrefix = "Bearer "
+	authorizationMeta = "authorization"
+	clusterIDMeta     = "clusterid"
+	idTokenIssuer     = "https://accounts.google.com"
 
 	ClientCertAuthenticatorType = "ClientCertAuthenticator"
 	IDTokenAuthenticatorType    = "IDTokenAuthenticator"
@@ -142,7 +142,7 @@ func extractBearerToken(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("no metadata is attached")
 	}
 
-	authHeader, exists := md[httpAuthHeader]
+	authHeader, exists := md[authorizationMeta]
 	if !exists {
 		return "", fmt.Errorf("no HTTP authorization header exists")
 	}
@@ -162,7 +162,7 @@ func extractClusterID(ctx context.Context) string {
 		return ""
 	}
 
-	clusterIDHeader, exists := md[httpClusterIDHeader]
+	clusterIDHeader, exists := md[clusterIDMeta]
 	if !exists {
 		return ""
 	}
