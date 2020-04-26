@@ -1377,10 +1377,11 @@ spec:
           name: istio.metadata_exchange
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
             value:
               config:
-                configuration: envoy.wasm.metadata_exchange
+                configuration: |
+                  {}
                 vm_config:
                   runtime: envoy.wasm.runtime.null
                   code:
@@ -1472,14 +1473,14 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_outbound
                 configuration: |
                   {
                     "debug": "false",
-                    "stat_prefix": "istio",
+                    "stat_prefix": "istio"
                   }
                 vm_config:
                   vm_id: stats_outbound
@@ -1504,14 +1505,14 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_inbound
                 configuration: |
                   {
                     "debug": "false",
-                    "stat_prefix": "istio",
+                    "stat_prefix": "istio"
                   }
                 vm_config:
                   vm_id: stats_inbound
@@ -1536,7 +1537,7 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_outbound
@@ -1544,7 +1545,7 @@ spec:
                   {
                     "debug": "false",
                     "stat_prefix": "istio",
-                    "disable_host_header_fallback": true,
+                    "disable_host_header_fallback": true
                   }
                 vm_config:
                   vm_id: stats_outbound
@@ -1575,17 +1576,17 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: istio.stats
+          name: envoy.filters.network.wasm
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_inbound
                 configuration: |
                   {
                     "debug": "false",
-                    "stat_prefix": "istio",
+                    "stat_prefix": "istio"
                   }
                 vm_config:
                   vm_id: stats_inbound
@@ -1605,17 +1606,17 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: istio.stats
+          name: envoy.filters.network.wasm
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_outbound
                 configuration: |
                   {
                     "debug": "false",
-                    "stat_prefix": "istio",
+                    "stat_prefix": "istio"
                   }
                 vm_config:
                   vm_id: stats_outbound
@@ -1635,17 +1636,17 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: istio.stats
+          name: envoy.filters.network.wasm
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_outbound
                 configuration: |
                   {
                     "debug": "false",
-                    "stat_prefix": "istio",
+                    "stat_prefix": "istio"
                   }
                 vm_config:
                   vm_id: stats_outbound
