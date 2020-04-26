@@ -29,9 +29,9 @@ ENABLE_INBOUND_IPV6=true
 
 ip -6 addr add ::6/128 dev lo
 iptables -t nat -N ISTIO_REDIRECT
-iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port 12345
+iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 12345
 iptables -t nat -N ISTIO_IN_REDIRECT
-iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port 15006
+iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006
 iptables -t mangle -N ISTIO_DIVERT
 iptables -t mangle -A ISTIO_DIVERT -j MARK --set-mark 1337
 iptables -t mangle -A ISTIO_DIVERT -j ACCEPT
@@ -56,9 +56,9 @@ iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
 iptables -t nat -I PREROUTING 1 -i eth1 -j RETURN
 iptables -t nat -I PREROUTING 1 -i eth2 -j RETURN
 ip6tables -t nat -N ISTIO_REDIRECT
-ip6tables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port 12345
+ip6tables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 12345
 ip6tables -t nat -N ISTIO_IN_REDIRECT
-ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port 15006
+ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006
 ip6tables -t nat -N ISTIO_INBOUND
 ip6tables -t nat -A PREROUTING -p tcp -j ISTIO_INBOUND
 ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 22 -j RETURN
