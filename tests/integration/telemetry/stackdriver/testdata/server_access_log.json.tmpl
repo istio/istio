@@ -7,6 +7,8 @@
     },
     "labels": {
         "destination_app": "srv",
+        "destination_canonical_revision": "v1",
+        "destination_canonical_service": "srv",
         "destination_namespace": "{{ .EchoNamespace }}",
         "destination_principal": "spiffe://cluster.local/ns/{{ .EchoNamespace }}/sa/default",
         "destination_service_host": "srv.{{ .EchoNamespace }}.svc.cluster.local",
@@ -16,6 +18,8 @@
         "response_flag": "-",
         "service_authentication_policy": "MUTUAL_TLS",
         "source_app": "clt",
+        "source_canonical_revision": "v1",
+        "source_canonical_service": "clt",
         "source_namespace": "{{ .EchoNamespace }}",
         "source_principal": "spiffe://cluster.local/ns/{{ .EchoNamespace }}/sa/default",
         "source_version": "v1",
