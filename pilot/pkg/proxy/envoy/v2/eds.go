@@ -208,7 +208,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	fullPush := false
 
 	// Find endpoint shard for this service, if it is available - otherwise create a new one.
-	ep, created := s.findOrCreateEndpointShard(serviceName, namespace)
+	ep, created := s.getOrCreateEndpointShard(serviceName, namespace)
 
 	// If we create a new endpoint shard, that means we have not seen the service earlier. We should do a full push.
 	if created {
@@ -252,7 +252,7 @@ func (s *DiscoveryServer) handleEmptyEndpoints(clusterID, serviceName, namespace
 	}
 }
 
-func (s *DiscoveryServer) findOrCreateEndpointShard(serviceName, namespace string) (*EndpointShards, bool) {
+func (s *DiscoveryServer) getOrCreateEndpointShard(serviceName, namespace string) (*EndpointShards, bool) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
