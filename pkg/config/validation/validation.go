@@ -2919,7 +2919,7 @@ func validateNetwork(network *meshconfig.Network) (errs error) {
 			}
 		case *meshconfig.Network_NetworkEndpoints_FromRegistry:
 			r := e.FromRegistry
-			if strings.ToLower(r) == "kubernetes" && r != "Kubernetes" {
+			if strings.EqualFold(r, "kubernetes") && r != "Kubernetes" {
 				errs = multierror.Append(errs, fmt.Errorf("registry name should be Kubernetes instead of %v", r))
 			}
 		}
