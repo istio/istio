@@ -132,12 +132,12 @@ func getWorkloadEntryHandler(c *ServiceEntryStore) func(model.Config, model.Conf
 				}
 			default: // add or update
 				if oldWle, exists := c.podWles[key]; exists {
-					if reflect.DeepEqual(oldWle, curr) {
+					if reflect.DeepEqual(oldWle, &curr) {
 						// ignore the udpate as nothing has changed
 						redundantEventForPodWle = true
 					}
 				}
-				c.podWles[key] = curr
+				c.podWles[key] = &curr
 			}
 		}
 		c.storeMutex.Unlock()
@@ -450,13 +450,33 @@ func (d *ServiceEntryStore) maybeRefreshIndexes() {
 		log.Errorf("Error listing workload entries: %v", err)
 	}
 	// Add the workload entries generated from pods
+	podWles := make([]*model.Config, 0)
 	d.storeMutex.RLock()
 	for _, w := range d.podWles {
-		wles = append(wles, w)
+		podWles = append(podWles, w)
 	}
 	d.storeMutex.RUnlock()
 
 	for _, wcfg := range wles {
+		wle := wcfg.Spec.(*networking.WorkloadEntry)
+		key := configKey{
+			kind:      workloadEntryConfigType,
+			name:      wcfg.Name,
+			namespace: wcfg.Namespace,
+		}
+		// We will only select entries in the same namespace
+		entries := seWithSelectorByNamespace[wcfg.Namespace]
+		for _, se := range entries {
+			workloadLabels := labels.Collection{wle.Labels}
+			if !workloadLabels.IsSupersetOf(se.entry.WorkloadSelector.Labels) {
+				// Not a match, skip this one
+				continue
+			}
+			updateInstances(key, convertWorkloadInstances(wle, se.services, se.entry), di, dip)
+		}
+	}
+
+	for _, wcfg := range podWles {
 		wle := wcfg.Spec.(*networking.WorkloadEntry)
 		key := configKey{
 			kind:      workloadEntryConfigType,
