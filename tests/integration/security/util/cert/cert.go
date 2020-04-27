@@ -45,18 +45,17 @@ func DumpCertFromSidecar(ns namespace.Instance, fromSelector, fromContainer, con
 
 	fromPod, err := dir.GetPodName(ns, fromSelector)
 	if err != nil {
-		return "", fmt.Errorf("err getting the from pod name: %v", err)
+		return "", fmt.Errorf("err getting the pod from pod name: %v", err)
 	}
 
 	var out string
 	retryFn := func(_ context.Context, i int) error {
 		execCmd := fmt.Sprintf(
-			"kubectl exec %s -c %s -n %s -- openssl s_client -showcerts -connect %s",
+			"kubectl exec %s -c %s -n %s -- openssl s_client -showcerts -alpn istio -connect %s",
 			fromPod, fromContainer, ns.Name(), connectTarget)
-		out, err = shell.Execute(false,
-			execCmd)
+		out, err = shell.Execute(false, execCmd)
 		if !strings.Contains(out, "-----BEGIN CERTIFICATE-----") {
-			return fmt.Errorf("the output doesn't contain certificate; the output: %v", out)
+			return fmt.Errorf("the output doesn't contain certificate: %v", out)
 		}
 		return nil
 	}
