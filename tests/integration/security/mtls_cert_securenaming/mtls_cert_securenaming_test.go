@@ -125,7 +125,7 @@ func TestCertMtls(t *testing.T) {
 					out, err := cert.DumpCertFromSidecar(testNamespace, "app=a", "istio-proxy",
 						connectTarget)
 					if err != nil {
-						t.Fatalf("DumpCertFromSidecar() returns an error: %v", err)
+						t.Fatalf("failed to dump certificate: %v", err)
 						return
 					}
 					verifyCertificates(t, out)
