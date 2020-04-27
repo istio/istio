@@ -17,6 +17,7 @@ package external
 import (
 	"reflect"
 	"sync"
+	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
@@ -72,6 +73,8 @@ type ServiceEntryStore struct {
 	ip2instance map[string][]*model.ServiceInstance
 	// Endpoints table
 	instances map[instancesKey]map[configKey][]*model.ServiceInstance
+	// Workload instances from pods
+	podWles map[configKey]*model.Config
 	// seWithSelectorByNamespace keeps track of ServiceEntries with selectors, keyed by namespaces
 	seWithSelectorByNamespace map[string][]servicesWithEntry
 	changeMutex               sync.RWMutex
@@ -100,17 +103,53 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 // controller does its own deduping and has no notion of object versions
 func getWorkloadEntryHandler(c *ServiceEntryStore) func(model.Config, model.Config, model.Event) {
 	return func(old, curr model.Config, event model.Event) {
-		log.Debugf("Handle event %s for workload entry %s in namespace %s", event, curr.Name, curr.Namespace)
 
 		wle := curr.Spec.(*networking.WorkloadEntry)
+		key := configKey{
+			kind:      workloadEntryConfigType,
+			name:      curr.Name,
+			namespace: curr.Namespace,
+		}
 
-		c.storeMutex.RLock()
+		// Used to indicate if this event was fired for a pod->workloadentry conversion
+		// and that the event can be ignored due to no relevant change in the workloadentry
+		redundantEventForPodWle := false
+
+		c.storeMutex.Lock()
 		// We will only select entries in the same namespace
 		entries := c.seWithSelectorByNamespace[curr.Namespace]
-		c.storeMutex.RUnlock()
 
+		if strings.HasPrefix(curr.Name, "generated") { // HACK!
+			// this is from a pod. Store it in separate map so that
+			// the refreshIndexes function can use these as well as the store ones.
+			switch event {
+			case model.EventDelete:
+				if _, exists := c.podWles[key]; !exists {
+					// multiple delete events for the same pod (succeeded/failed/unknown status repeating).
+					redundantEventForPodWle = true
+				} else {
+					delete(c.podWles, key)
+				}
+			default: // add or update
+				if oldWle, exists := c.podWles[key]; exists {
+					if reflect.DeepEqual(oldWle, curr) {
+						// ignore the udpate as nothing has changed
+						redundantEventForPodWle = true
+					}
+				}
+				c.podWles[key] = curr
+			}
+		}
+		c.storeMutex.Unlock()
+
+		if redundantEventForPodWle {
+			log.Debugf("Ignoring redundant event %s for pod/workload entry %s in namespace %s", event, curr.Name, curr.Namespace)
+			return
+		}
+
+		log.Debugf("Handle event %s for workload entry %s in namespace %s", event, curr.Name, curr.Namespace)
 		instances := []*model.ServiceInstance{}
-		// For deletes we keep this list empty, which will trigger a deletion
+
 		for _, se := range entries {
 			workloadLabels := labels.Collection{wle.Labels}
 			if !workloadLabels.IsSupersetOf(se.entry.WorkloadSelector.Labels) {
@@ -121,17 +160,12 @@ func getWorkloadEntryHandler(c *ServiceEntryStore) func(model.Config, model.Conf
 			instances = append(instances, instance...)
 		}
 
-		key := configKey{
-			kind:      workloadEntryConfigType,
-			name:      curr.Name,
-			namespace: curr.Namespace,
-		}
-
-		if event != model.EventDelete {
-			c.updateExistingInstances(key, instances)
-		} else {
-			c.deleteExistingInstances(key, instances)
-		}
+		c.updateExistingInstances(key, instances)
+		// if event != model.EventDelete {
+		// 	c.updateExistingInstances(key, instances)
+		// } else {
+		// 	c.deleteExistingInstances(key, instances)
+		// }
 
 		c.edsUpdate(instances)
 	}
@@ -415,6 +449,13 @@ func (d *ServiceEntryStore) maybeRefreshIndexes() {
 	if err != nil {
 		log.Errorf("Error listing workload entries: %v", err)
 	}
+	// Add the workload entries generated from pods
+	d.storeMutex.RLock()
+	for _, w := range d.podWles {
+		wles = append(wles, w)
+	}
+	d.storeMutex.RUnlock()
+
 	for _, wcfg := range wles {
 		wle := wcfg.Spec.(*networking.WorkloadEntry)
 		key := configKey{

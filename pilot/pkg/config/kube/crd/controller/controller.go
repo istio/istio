@@ -268,7 +268,7 @@ func (c *controller) Share(kind resource.GroupVersionKind, config *model.Config,
 		return
 	}
 	handler := c.kinds[kind]
-
+	log.Debugf("Handle Share event %s for workload entry %s in namespace %s", event, config.Name, config.Namespace)
 	// Add the event to the queue, but dont call the regular onEvent as it expects JSON objects
 	// the Share events are flowing from other controllers that have already converted the object
 	// into a typed object. So directly invoke the handler functions in the cache handler object
