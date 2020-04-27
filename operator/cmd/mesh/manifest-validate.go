@@ -26,6 +26,7 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	kubeCore "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -114,18 +115,106 @@ var (
 
 		// Possible values for Istio components
 		// https://preliminary.istio.io/docs/reference/config/istio.operator.v1alpha1/#IstioComponentSetSpec
-		"components.base.enabled":            boolValues,
-		"components.pilot.enabled":           boolValues,
-		"components.proxy.enabled":           boolValues,
-		"components.sidecarInjector.enabled": boolValues,
-		"components.policy.enabled":          boolValues,
-		"components.telemetry.enabled":       boolValues,
-		"components.citadel.enabled":         boolValues,
-		"components.nodeAgent.enabled":       boolValues,
-		"components.galley.enabled":          boolValues,
-		"components.cni.enabled":             boolValues,
-		"components.ingressGateways.enabled": boolValues,
-		"components.egressGateways.enabled":  boolValues,
+		"components.base.enabled": boolValues,
+
+		"components.pilot.enabled":                       boolValues,
+		"components.pilot.namespace":                     validate.CheckNamespaceName,
+		"components.pilot.hub":                           validate.Hub,
+		"components.pilot.tag":                           validate.Tag,
+		"components.pilot.k8s.resources.requests.memory": validateResources,
+		"components.pilot.k8s.resources.requests.cpu":    validateResources,
+		"components.pilot.k8s.resources.limits.memory":   validateResources,
+		"components.pilot.k8s.resources.limits.cpu":      validateResources,
+
+		"components.proxy.enabled":                       boolValues,
+		"components.proxy.namespace":                     validate.CheckNamespaceName,
+		"components.proxy.hub":                           validate.Hub,
+		"components.proxy.tag":                           validate.Tag,
+		"components.proxy.k8s.resources.requests.memory": validateResources,
+		"components.proxy.k8s.resources.requests.cpu":    validateResources,
+		"components.proxy.k8s.resources.limits.memory":   validateResources,
+		"components.proxy.k8s.resources.limits.cpu":      validateResources,
+
+		"components.sidecarInjector.enabled":                       boolValues,
+		"components.sidecarInjector.namespace":                     validate.CheckNamespaceName,
+		"components.sidecarInjector.hub":                           validate.Hub,
+		"components.sidecarInjector.tag":                           validate.Tag,
+		"components.sidecarInjector.k8s.resources.requests.memory": validateResources,
+		"components.sidecarInjector.k8s.resources.requests.cpu":    validateResources,
+		"components.sidecarInjector.k8s.resources.limits.memory":   validateResources,
+		"components.sidecarInjector.k8s.resources.limits.cpu":      validateResources,
+
+		"components.policy.enabled":                       boolValues,
+		"components.policy.namespace":                     validate.CheckNamespaceName,
+		"components.policy.hub":                           validate.Hub,
+		"components.policy.tag":                           validate.Tag,
+		"components.policy.k8s.resources.requests.memory": validateResources,
+		"components.policy.k8s.resources.requests.cpu":    validateResources,
+		"components.policy.k8s.resources.limits.memory":   validateResources,
+		"components.policy.k8s.resources.limits.cpu":      validateResources,
+
+		"components.telemetry.enabled":                       boolValues,
+		"components.telemetry.namespace":                     validate.CheckNamespaceName,
+		"components.telemetry.hub":                           validate.Hub,
+		"components.telemetry.tag":                           validate.Tag,
+		"components.telemetry.k8s.resources.requests.memory": validateResources,
+		"components.telemetry.k8s.resources.requests.cpu":    validateResources,
+		"components.telemetry.k8s.resources.limits.memory":   validateResources,
+		"components.telemetry.k8s.resources.limits.cpu":      validateResources,
+
+		"components.citadel.enabled":                       boolValues,
+		"components.citadel.namespace":                     validate.CheckNamespaceName,
+		"components.citadel.hub":                           validate.Hub,
+		"components.citadel.tag":                           validate.Tag,
+		"components.citadel.k8s.resources.requests.memory": validateResources,
+		"components.citadel.k8s.resources.requests.cpu":    validateResources,
+		"components.citadel.k8s.resources.limits.memory":   validateResources,
+		"components.citadel.k8s.resources.limits.cpu":      validateResources,
+
+		"components.nodeAgent.enabled":                       boolValues,
+		"components.nodeAgent.namespace":                     validate.CheckNamespaceName,
+		"components.nodeAgent.hub":                           validate.Hub,
+		"components.nodeAgent.tag":                           validate.Tag,
+		"components.nodeAgent.k8s.resources.requests.memory": validateResources,
+		"components.nodeAgent.k8s.resources.requests.cpu":    validateResources,
+		"components.nodeAgent.k8s.resources.limits.memory":   validateResources,
+		"components.nodeAgent.k8s.resources.limits.cpu":      validateResources,
+
+		"components.galley.enabled":                       boolValues,
+		"components.galley.namespace":                     validate.CheckNamespaceName,
+		"components.galley.hub":                           validate.Hub,
+		"components.galley.tag":                           validate.Tag,
+		"components.galley.k8s.resources.requests.memory": validateResources,
+		"components.galley.k8s.resources.requests.cpu":    validateResources,
+		"components.galley.k8s.resources.limits.memory":   validateResources,
+		"components.galley.k8s.resources.limits.cpu":      validateResources,
+
+		"components.cni.enabled":                       boolValues,
+		"components.cni.namespace":                     validate.CheckNamespaceName,
+		"components.cni.hub":                           validate.Hub,
+		"components.cni.tag":                           validate.Tag,
+		"components.cni.k8s.resources.requests.memory": validateResources,
+		"components.cni.k8s.resources.requests.cpu":    validateResources,
+		"components.cni.k8s.resources.limits.memory":   validateResources,
+		"components.cni.k8s.resources.limits.cpu":      validateResources,
+
+		"components.ingressGateways.enabled":                       boolValues,
+		"components.ingressGateways.namespace":                     validate.CheckNamespaceName,
+		"components.ingressGateways.hub":                           validate.Hub,
+		"components.ingressGateways.tag":                           validate.Tag,
+		"components.ingressGateways.k8s.resources.requests.memory": validateResources,
+		"components.ingressGateways.k8s.resources.requests.cpu":    validateResources,
+		"components.ingressGateways.k8s.resources.limits.memory":   validateResources,
+		"components.ingressGateways.k8s.resources.limits.cpu":      validateResources,
+
+		"components.egressGateways.enabled":                       boolValues,
+		"components.egressGateways.namespace":                     validate.CheckNamespaceName,
+		"components.egressGateways.hub":                           validate.Hub,
+		"components.egressGateways.tag":                           validate.Tag,
+		"components.egressGateways.k8s.resources.requests.memory": validateResources,
+		"components.egressGateways.k8s.resources.requests.cpu":    validateResources,
+		"components.egressGateways.k8s.resources.limits.memory":   validateResources,
+		"components.egressGateways.k8s.resources.limits.cpu":      validateResources,
 
 		"values.global.controlPlaneSecurityEnabled": boolValues,
 		"values.global.k8sIngress.enabled":          boolValues,
@@ -248,7 +337,24 @@ func verifyValues(flagName, flagValue string) error {
 			return err
 		}
 	}
+	if valPtr == reflect.ValueOf(validateResources).Pointer() {
+		if validateResources(flagValue) {
+			return fmt.Errorf("\n Unsupported value: %q for flag %q, use valid format eg: 1G, 100m",
+				flagValue, flagName)
+		}
+	}
 	return nil
+}
+
+func validateResources(val string) (isInvalid bool) {
+	// resource.MustParse panic if the value is invalid
+	defer func() {
+		if err := recover(); err != nil {
+			isInvalid = true
+		}
+	}()
+	_ = resource.MustParse(val)
+	return
 }
 
 // isValidFlagFormat verifies if the flag have equal sign
