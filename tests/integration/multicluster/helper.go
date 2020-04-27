@@ -1,4 +1,4 @@
-// Copyright Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,18 +16,15 @@ package multicluster
 
 import (
 	"fmt"
-	"testing"
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
-	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -37,45 +34,7 @@ var (
 	retryDelay   = time.Millisecond * 100
 )
 
-// TestMulticlusterReachability tests that services in 2 different clusters can talk to each other.
-func TestMulticlusterReachability(t *testing.T) {
-	framework.NewTest(t).
-		Label(label.Multicluster).
-		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
-				Prefix: "mc-reachability",
-				Inject: true,
-			})
-
-			// Deploy a and b in different clusters.
-			var a, b echo.Instance
-			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, newEchoConfig("a", ns, ctx.Environment().Clusters()[0])).
-				With(&b, newEchoConfig("b", ns, ctx.Environment().Clusters()[1])).
-				BuildOrFail(ctx)
-
-			// Now verify that they can talk to each other.
-			for _, src := range []echo.Instance{a, b} {
-				for _, dest := range []echo.Instance{a, b} {
-					src := src
-					dest := dest
-					subTestName := fmt.Sprintf("%s->%s://%s:%s%s",
-						src.Config().Service,
-						"http",
-						dest.Config().Service,
-						"http",
-						"/")
-
-					ctx.NewSubTest(subTestName).
-						RunParallel(func(ctx framework.TestContext) {
-							_ = callOrFail(ctx, src, dest)
-						})
-				}
-			}
-		})
-}
-
-func newEchoConfig(service string, ns namespace.Instance, cluster resource.Cluster) echo.Config {
+func newEchoConfig(service string, ns namespace.Instance, cluster resource.Cluster, pilots []pilot.Instance) echo.Config {
 	return echo.Config{
 		Pilot:          pilots[cluster.Index()],
 		Service:        service,

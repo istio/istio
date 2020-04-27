@@ -1,4 +1,4 @@
-// Copyright Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,10 +21,13 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 )
 
-func TestClusterLocalService(t *testing.T) {
+// ClusterLocalTest tests that traffic works within a local cluster while in a multicluster configuration
+func ClusterLocalTest(t *testing.T, clusterLocalNS namespace.Instance, pilots []pilot.Instance) {
 	framework.NewTest(t).
 		Label(label.Multicluster).
 		Run(func(ctx framework.TestContext) {
@@ -34,9 +37,9 @@ func TestClusterLocalService(t *testing.T) {
 			// Deploy a only in cluster1, but b in both clusters.
 			var a1, b1, b2 echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a1, newEchoConfig("a", clusterLocalNS, cluster1)).
-				With(&b1, newEchoConfig("b", clusterLocalNS, cluster1)).
-				With(&b2, newEchoConfig("b", clusterLocalNS, cluster2)).
+				With(&a1, newEchoConfig("a", clusterLocalNS, cluster1, pilots)).
+				With(&b1, newEchoConfig("b", clusterLocalNS, cluster1, pilots)).
+				With(&b2, newEchoConfig("b", clusterLocalNS, cluster2, pilots)).
 				BuildOrFail(ctx)
 
 			results := callOrFail(ctx, a1, b1)
