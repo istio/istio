@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright 2020 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,15 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package helmreconciler
+package v2
 
-import (
-	"istio.io/istio/operator/pkg/name"
-)
-
-func InsertChildrenRecursive(componentName name.ComponentName, tree ComponentTree, children ComponentNameToListMap) {
-	tree[componentName] = make(ComponentTree)
-	for _, child := range children[componentName] {
-		InsertChildrenRecursive(child, tree[componentName].(ComponentTree), children)
-	}
+// EventHandler allows for generic monitoring of xDS ACKS and disconnects, for the purpose of tracking
+// Config distribution through the mesh.
+type DistributionEventHandler interface {
+	// RegisterEvent notifies the implementer of an xDS ACK, and must be non-blocking
+	RegisterEvent(conID string, xdsType string, nonce string)
+	RegisterDisconnect(s string, urls []string)
 }

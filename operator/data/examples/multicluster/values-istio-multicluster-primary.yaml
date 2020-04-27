@@ -3,10 +3,6 @@ kind: IstioOperator
 spec:
   # https://istio.io/docs/setup/install/multicluster/shared/#main-cluster
   values:
-    # selfSigned is required if Citadel is enabled, that is when values.global.istiod.enabled is false.
-    security:
-      selfSigned: false
-
     global:
       multiCluster:
         # unique cluster name, must be a DNS label name

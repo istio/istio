@@ -12,14 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package bootstrap
+package controller
 
 import (
 	"context"
 	"fmt"
 	"time"
-
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,10 +34,10 @@ import (
 )
 
 const (
-	// Every namespaceResyncPeriod, namespaceUpdated() will be invoked
+	// Every NamespaceResyncPeriod, namespaceUpdated() will be invoked
 	// for every namespace. This value must be configured so Citadel
 	// can update its CA certificate in a ConfigMap in every namespace.
-	namespaceResyncPeriod = time.Second * 60
+	NamespaceResyncPeriod = time.Second * 60
 	// The name of the ConfigMap in each namespace storing the root cert of non-Kube CA.
 	CACertNamespaceConfigMap = "istio-ca-root-cert"
 )
@@ -63,7 +61,7 @@ type NamespaceController struct {
 }
 
 // NewNamespaceController returns a pointer to a newly constructed NamespaceController instance.
-func NewNamespaceController(data func() map[string]string, options controller.Options, kubeClient kubernetes.Interface) *NamespaceController {
+func NewNamespaceController(data func() map[string]string, options Options, kubeClient kubernetes.Interface) *NamespaceController {
 	c := &NamespaceController{
 		getData: data,
 		client:  kubeClient.CoreV1(),

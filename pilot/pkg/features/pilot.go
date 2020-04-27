@@ -251,6 +251,26 @@ var (
 			"Istio Resources",
 	).Get()
 
+	EnableStatus = env.RegisterBoolVar(
+		"PILOT_ENABLE_STATUS",
+		false,
+		"If enabled, pilot will update the CRD Status field of all istio resources with reconciliation status.",
+	).Get()
+
+	StatusQPS = env.RegisterFloatVar(
+		"PILOT_STATUS_QPS",
+		100,
+		"If status is enabled, controls the QPS with which status will be updated.  "+
+			"See https://godoc.org/k8s.io/client-go/rest#Config QPS",
+	).Get()
+
+	StatusBurst = env.RegisterIntVar(
+		"PILOT_STATUS_BURST",
+		500,
+		"If status is enabled, controls the Burst rate with which status will be updated.  "+
+			"See https://godoc.org/k8s.io/client-go/rest#Config Burst",
+	).Get()
+
 	// IstiodService controls the istiod address - used for injection and as default value injected into pods
 	// if istiod is used. The name must be part of the DNS certificate served by pilot/istiod. The '.svc' is
 	// imposed by K8S - that's how the names for webhooks are defined, based on webhook service (which will be
@@ -300,4 +320,6 @@ var (
 		"If enabled, pilot will set the incremental flag of the options in the mcp controller "+
 			"to true, and then galley may push data incrementally, it depends on whether the "+
 			"resource supports incremental. By default, this is false.").Get()
+	CentralIstioD = env.RegisterBoolVar("CENTRAL_ISTIOD", false,
+		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
 )

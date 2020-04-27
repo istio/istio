@@ -131,6 +131,10 @@
         "tag_name": "request_operation"
       },
       {
+        "regex": "(request_host=\\.=(.*?);\\.;)",
+        "tag_name": "request_host"
+      },
+      {
         "regex": "(response_flags=\\.=(.*?);\\.;)",
         "tag_name": "response_flags"
       },

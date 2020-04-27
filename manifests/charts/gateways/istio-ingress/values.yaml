@@ -79,7 +79,7 @@ gateways:
       targetPort: 15012
       name: tcp-istiod
     - port: 853
-      targetPort: 853
+      targetPort: 8853
       name: tcp-dns-tls
     ####### end MESH EXPANSION PORTS ######
 
@@ -132,6 +132,9 @@ gateways:
     # "security" and value "S1".
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
+
+    # whether to run the gateway in a privileged container
+    runAsRoot: true
 
 # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
 revision: ""
