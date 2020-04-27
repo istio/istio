@@ -354,6 +354,56 @@ func (h *HelmReconciler) ProcessObject(chartName string, obj *unstructured.Unstr
 	})
 }
 
+// DeleteObject deletes obj.
+func (h *HelmReconciler) DeleteObject(chartName string, obj *unstructured.Unstructured) error {
+	if obj.GetKind() == "List" {
+		allErrors := []error{}
+		list, err := obj.ToList()
+		if err != nil {
+			scope.Errorf("error converting List object: %s", err)
+			return err
+		}
+		for _, item := range list.Items {
+			err = h.DeleteObject(chartName, &item)
+			if err != nil {
+				allErrors = append(allErrors, err)
+			}
+		}
+		return utilerrors.NewAggregate(allErrors)
+	}
+
+	receiver := &unstructured.Unstructured{}
+	receiver.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
+	objectKey, _ := client.ObjectKeyFromObject(obj)
+	objectStr := fmt.Sprintf("%s/%s/%s", obj.GetKind(), obj.GetNamespace(), obj.GetName())
+
+	scope.Debugf("Deleting object:\n%s\n\n", util.ToYAML(obj))
+	if h.opts.DryRun {
+		scope.Infof("Not deleting object %s because of dry run.", objectStr)
+		return nil
+	}
+
+	backoff := wait.Backoff{Duration: time.Millisecond * 10, Factor: 2, Steps: 3}
+	return retry.RetryOnConflict(backoff, func() error {
+		err := h.client.Get(context.TODO(), objectKey, receiver)
+		switch {
+		case apierrors.IsNotFound(err):
+			return nil
+		case err == nil:
+			scope.Infof("deleting resource: %s", objectStr)
+			if err := applyOverlay(receiver, obj); err != nil {
+				return err
+			}
+			updateErr := h.client.Delete(context.TODO(), receiver)
+			if updateErr != nil {
+				scope.Warnf("delete %v: %v", receiver.GetName(), updateErr)
+			}
+			return updateErr
+		}
+		return nil
+	})
+}
+
 // applyOverlay applies an overlay using JSON patch strategy over the current Object in place.
 func applyOverlay(current, overlay runtime.Object) error {
 	cj, err := runtime.Encode(unstructured.UnstructuredJSONScheme, current)
@@ -476,4 +526,22 @@ func (mm ChartManifestsMap) Consolidated() map[string]string {
 		out[cname] = allM
 	}
 	return out
+}
+
+// removeFromObjectCache removes object with objHash in componentName from the object cache.
+func (h *HelmReconciler) removeFromObjectCache(componentName, objHash string) {
+	crHash, err := h.getCRHash(componentName)
+	if err != nil {
+		scope.Error(err.Error())
+	}
+	objectCachesMu.Lock()
+	objectCache := objectCaches[crHash]
+	objectCachesMu.Unlock()
+
+	if objectCache != nil {
+		objectCache.mu.Lock()
+		delete(objectCache.cache, objHash)
+		objectCache.mu.Unlock()
+		scope.Infof("Removed object %s from cache.", objHash)
+	}
 }

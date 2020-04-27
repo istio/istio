@@ -15,12 +15,10 @@
 package mesh
 
 import (
-	"time"
-
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util/clog"
 )
 
@@ -67,32 +65,14 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
 		}
 	}
 
-	l.LogAndPrintf("Using operator Deployment image: %s/operator:%s", orArgs.common.hub, orArgs.common.tag)
-
-	_, mstr, err := renderOperatorManifest(args, &orArgs.common, l)
+	l.LogAndPrintf("Removing Istio operator...")
+	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, nil, &helmreconciler.Options{DryRun: args.dryRun, Log: l})
 	if err != nil {
 		l.LogAndFatal(err)
 	}
-
-	scope.Debugf("Using the following manifest to remove operator:\n%s\n", mstr)
-
-	opts := &Options{
-		DryRun:      args.dryRun,
-		WaitTimeout: 1 * time.Minute,
-		Kubeconfig:  orArgs.kubeConfigPath,
-		Context:     orArgs.context,
+	if err := reconciler.DeleteComponent(string(name.IstioOperatorComponentName)); err != nil {
+		l.LogAndFatal(err)
 	}
 
-	success := deleteManifest(restConfig, client, mstr, "Operator", opts, l)
-	if !success {
-		l.LogAndPrint("\n*** Errors were logged during manifest deletion. Please check logs above. ***\n")
-		return
-	}
-
-	l.LogAndPrint("\n*** Success. ***\n")
-}
-
-func deleteManifest(_ *rest.Config, _ client.Client, _, _ string, _ *Options, l clog.Logger) bool {
-	l.LogAndError("Deleting manifest not implemented")
-	return false
+	l.LogAndPrint("✔ Removal complete")
 }
