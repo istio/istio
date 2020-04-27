@@ -138,12 +138,11 @@ func initServiceEntryHostMap(ctx analysis.Context) map[util.ScopedFqdn]*v1alpha3
 
 	})
 
-	// converts k8s service to servcieEntry since destinationHost
+	// converts k8s service to serviceEntry since destinationHost
 	// validation is performed against serviceEntry
 	ctx.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
 		s := r.Message.(*corev1.ServiceSpec)
 		var se *v1alpha3.ServiceEntry
-		hostsNamespaceScope := string(r.Metadata.FullName.Namespace)
 		var ports []*v1alpha3.Port
 		for _, p := range s.Ports {
 			ports = append(ports, &v1alpha3.Port{
@@ -157,7 +156,8 @@ func initServiceEntryHostMap(ctx analysis.Context) map[util.ScopedFqdn]*v1alpha3
 			Hosts: []string{host},
 			Ports: ports,
 		}
-		result[util.NewScopedFqdn(hostsNamespaceScope, r.Metadata.FullName.Namespace, r.Metadata.FullName.Name.String())] = se
+		// k8s Services export to all namespaces, they have no "exportTo" concept
+		result[util.NewScopedFqdn(util.ExportToAllNamespaces, r.Metadata.FullName.Namespace, r.Metadata.FullName.Name.String())] = se
 		return true
 
 	})

@@ -213,3 +213,17 @@ spec:
         subset: v1
         port:
           number: 80 # Should not generate an error since we specify a valid port, as required in this case
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  # This VirtualService is in 'cross-namespace' and uses a FQDN destination
+  name: cross-namespace
+  namespace: istio-system
+spec:
+  hosts: [reviews]
+  http:
+    - route:
+        - destination:
+            # Should not generate error because the this host exists, just not in our namespace
+            host: reviews.default.svc.cluster.local
