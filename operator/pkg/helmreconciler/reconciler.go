@@ -250,11 +250,22 @@ func (h *HelmReconciler) checkResourceStatus(componentStatus *map[string]*v1alph
 					}
 				}
 			}
+			if len(pod.Status.Conditions) > 0 {
+				for _, condition := range pod.Status.Conditions {
+					if condition.Type == v1.PodReady &&
+						condition.Status != v1.ConditionTrue {
+						return false, nil
+					}
+				}
+			}
 		}
 		return true, nil
 	})
 	if errPoll != nil {
 		*overallStatus = v1alpha1.InstallStatus_UPDATING
+		log.Warnf("resource not ready, update status to UPDATING")
+	} else {
+		log.Info("resources are ready")
 	}
 	return nil
 }

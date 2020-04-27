@@ -188,11 +188,13 @@ func checkInstallStatus(cs kube.Cluster) error {
 func installWithCRFile(t *testing.T, ctx resource.Context, cs kube.Cluster, s *image.Settings,
 	istioCtl istioctl.Instance, iopFile string) {
 	scopes.CI.Infof(fmt.Sprintf("=== install istio with new operator cr file: %s===\n", iopFile))
-	originalIOPYAML, err := ioutil.ReadFile(iopFile)
-	if err != nil {
-		t.Fatalf("failed to read iop file: %v", err)
-	}
+	//originalIOPYAML, err := ioutil.ReadFile(iopFile)
+	//if err != nil {
+	//	t.Fatalf("failed to read iop file: %v", err)
+	//}
 	metadataYAML := `
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
 metadata:
   name: test-istiocontrolplane
   namespace: istio-system
@@ -200,12 +202,14 @@ spec:
   installPackagePath: %s
   hub: %s
   tag: %s
+  profile: default
 `
 	overlayYAML := fmt.Sprintf(metadataYAML, ManifestPathContainer, s.Hub, s.Tag)
-	iopcr, err := util.OverlayYAML(string(originalIOPYAML), overlayYAML)
-	if err != nil {
-		t.Fatalf("failed to overlay iop with metadata: %v", err)
-	}
+	//iopcr, err := util.OverlayYAML(string(originalIOPYAML), overlayYAML)
+	iopcr := overlayYAML
+	//if err != nil {
+	//	t.Fatalf("failed to overlay iop with metadata: %v", err)
+	//}
 	if err := ioutil.WriteFile(iopCRFile, []byte(iopcr), os.ModePerm); err != nil {
 		t.Fatalf("failed to write iop cr file: %v", err)
 	}

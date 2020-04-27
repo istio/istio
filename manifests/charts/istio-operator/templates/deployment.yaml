@@ -20,7 +20,7 @@ spec:
           command:
           - operator
           - server
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           resources:
             limits:
               cpu: 200m
