@@ -54,28 +54,6 @@ var validServiceKeys = map[string]struct {
 			Ports:    []*Port{{Name: "http-test", Port: 80}}}},
 }
 
-func TestServiceString(t *testing.T) {
-	for s, svc := range validServiceKeys {
-		if err := svc.service.Validate(); err != nil {
-			t.Errorf("Valid service failed validation: %v,  %#v", err, svc.service)
-		}
-		s1 := ServiceKey(svc.service.Hostname, svc.service.Ports, svc.labels)
-		if s1 != s {
-			t.Errorf("ServiceKey => Got %s, expected %s", s1, s)
-		}
-		hostname, ports, l := ParseServiceKey(s)
-		if hostname != svc.service.Hostname {
-			t.Errorf("ParseServiceKey => Got %s, expected %s for %s", hostname, svc.service.Hostname, s)
-		}
-		if !compareLabels(l, svc.labels) {
-			t.Errorf("ParseServiceKey => Got %#v, expected %#v for %s", l, svc.labels, s)
-		}
-		if len(ports) != len(svc.service.Ports) {
-			t.Errorf("ParseServiceKey => Got %#v, expected %#v for %s", ports, svc.service.Ports, s)
-		}
-	}
-}
-
 // compare two slices of strings as sets
 func compare(a, b []string) bool {
 	ma := make(map[string]bool)
