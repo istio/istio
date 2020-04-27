@@ -811,9 +811,14 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 		scope.Infof("Manifest after k8s API settings:\n%s\n", my)
 	}
 	// Add the k8s resource overlays from IstioOperatorSpec.
-	pathToK8sOverlay := fmt.Sprintf("Components.%s.", cf.componentName)
-	if cf.componentName == name.IngressComponentName || cf.componentName == name.EgressComponentName {
-		pathToK8sOverlay += fmt.Sprintf("%d.", cf.index)
+	pathToK8sOverlay := ""
+	if !cf.componentName.IsCoreComponent() && !cf.componentName.IsGateway() {
+		pathToK8sOverlay += fmt.Sprintf("AddonComponents.%s.", cf.addonName)
+	} else {
+		pathToK8sOverlay += fmt.Sprintf("Components.%s.", cf.componentName)
+		if cf.componentName == name.IngressComponentName || cf.componentName == name.EgressComponentName {
+			pathToK8sOverlay += fmt.Sprintf("%d.", cf.index)
+		}
 	}
 	pathToK8sOverlay += fmt.Sprintf("K8S.Overlays")
 	var overlays []*v1alpha1.K8SObjectOverlay
