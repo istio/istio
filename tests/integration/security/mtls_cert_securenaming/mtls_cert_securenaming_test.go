@@ -93,11 +93,11 @@ spec:
 `
 )
 
-// TestCertMtls verifies:
+// TestmTLSCertSecureNaming verifies:
 // - The certificate issued by CA to the sidecar is as expected and that strict mTLS works as expected.
 // - The CA certificate in the configmap of each namespace is as expected, which
 //   is used for data plane to control plane TLS authentication.
-func TestCertMtls(t *testing.T) {
+func TestmTLSCertSecureNaming(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
