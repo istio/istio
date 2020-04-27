@@ -137,10 +137,10 @@ func TestVmBootstrap(t *testing.T) {
 		// No all flag, or no workload entry.
 		{
 			address:           "127.0.0.1",
-			args:              strings.Split("experimental vm-bootstrap", " "),
+			args:              strings.Split("x sidecar-bootstrap", " "),
 			cannedIstioConfig: emptyIstioConfig,
 			cannedK8sConfig:   emptyK8sConfig,
-			expectedString:    "istioctl experimental vm-bootstrap [flags]",
+			expectedString:    "istioctl experimental sidecar-bootstrap [flags]",
 			shouldFail:        true,
 			certOrg:           "",
 			tempDir:           "",
@@ -148,10 +148,10 @@ func TestVmBootstrap(t *testing.T) {
 		// Workload Entry + all flag
 		{
 			address:           "127.0.0.1",
-			args:              strings.Split("experimental vm-bootstrap --all workload.NS", " "),
+			args:              strings.Split("x sidecar-bootstrap --all workload.NS", " "),
 			cannedIstioConfig: emptyIstioConfig,
 			cannedK8sConfig:   emptyK8sConfig,
-			expectedString:    "vm-bootstrap requires a workload entry, or the all flag",
+			expectedString:    "sidecar-bootstrap requires a workload entry, or the all flag",
 			shouldFail:        true,
 			certOrg:           "",
 			tempDir:           "",
@@ -159,10 +159,10 @@ func TestVmBootstrap(t *testing.T) {
 		// all flag + no namespace
 		{
 			address:           "127.0.0.1",
-			args:              strings.Split("experimental vm-bootstrap --all", " "),
+			args:              strings.Split("x sidecar-bootstrap --all", " "),
 			cannedIstioConfig: emptyIstioConfig,
 			cannedK8sConfig:   emptyK8sConfig,
-			expectedString:    "vm-bootstrap needs a namespace if fetching all workspaces",
+			expectedString:    "sidecar-bootstrap needs a namespace if fetching all workspaces",
 			shouldFail:        true,
 			certOrg:           "",
 			tempDir:           "",
@@ -170,7 +170,7 @@ func TestVmBootstrap(t *testing.T) {
 		// unknown workload entry, okay to have fake dumpDir here.
 		{
 			address:           "127.0.0.1",
-			args:              strings.Split("experimental vm-bootstrap workload.fakeNS --local-dir /tmp/", " "),
+			args:              strings.Split("x sidecar-bootstrap workload.fakeNS --local-dir /tmp/", " "),
 			cannedIstioConfig: istioStaticWorkspace,
 			cannedK8sConfig:   emptyK8sConfig,
 			expectedString:    "workload entry: workload in namespace: fakeNS was not found",
@@ -181,7 +181,7 @@ func TestVmBootstrap(t *testing.T) {
 		// known workload entry, no secret
 		{
 			address:           "127.0.0.1",
-			args:              strings.Split("experimental vm-bootstrap workload.NS --local-dir /tmp/", " "),
+			args:              strings.Split("x sidecar-bootstrap workload.NS --local-dir /tmp/", " "),
 			cannedIstioConfig: istioStaticWorkspace,
 			cannedK8sConfig:   emptyK8sConfig,
 			expectedString:    "secrets \"istio-ca-secret\" not found",
@@ -192,7 +192,7 @@ func TestVmBootstrap(t *testing.T) {
 		// known workload entry, known secret, derived organization
 		{
 			address:           "127.0.0.1",
-			args:              strings.Split("experimental vm-bootstrap workload.NS --local-dir "+path.Join(baseTempdir, "derived_output"), " "),
+			args:              strings.Split("x sidecar-bootstrap workload.NS --local-dir "+path.Join(baseTempdir, "derived_output"), " "),
 			cannedIstioConfig: istioStaticWorkspace,
 			cannedK8sConfig:   k8sCertStatic,
 			expectedString:    "",
@@ -203,7 +203,7 @@ func TestVmBootstrap(t *testing.T) {
 		// known workload entry, known secret, non derive organization
 		{
 			address:           "127.0.0.1",
-			args:              strings.Split("experimental vm-bootstrap workload.NS -o Juju --local-dir "+path.Join(baseTempdir, "derived_output"), " "),
+			args:              strings.Split("x sidecar-bootstrap workload.NS -o Juju --local-dir "+path.Join(baseTempdir, "derived_output"), " "),
 			cannedIstioConfig: istioStaticWorkspace,
 			cannedK8sConfig:   k8sCertStatic,
 			expectedString:    "",
