@@ -107,7 +107,11 @@ func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
 		return nil, err
 	}
 
-	return h.processRecursive(manifestMap), h.Prune(manifestMap)
+	status := h.processRecursive(manifestMap)
+
+	h.opts.ProgressLog.SetState(util.StatePruning)
+	pruneErr := h.Prune(manifestMap)
+	return status, pruneErr
 }
 
 // processRecursive processes the given manifests in an order of dependencies defined in h. Dependencies are a tree,
