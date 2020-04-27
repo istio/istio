@@ -130,7 +130,7 @@ func TestMTLSCertPluginCASecureNaming(t *testing.T) {
 						t.Fatalf("failed to dump certificate: %v", err)
 						return
 					}
-					verifyCertificates(t, out)
+					verifyCertificatesWithPluginCA(t, out)
 
 					// Verify mTLS works between a and b
 					callOptions := echo.CallOptions{
@@ -197,7 +197,7 @@ func TestMTLSCertPluginCASecureNaming(t *testing.T) {
 		})
 }
 
-func verifyCertificates(t *testing.T, dump string) {
+func verifyCertificatesWithPluginCA(t *testing.T, dump string) {
 	var certExp = regexp.MustCompile("(?sU)-----BEGIN CERTIFICATE-----(.+)-----END CERTIFICATE-----")
 	certs := certExp.FindAll([]byte(dump), -1)
 	// Verify that the certificate chain length is as expected
