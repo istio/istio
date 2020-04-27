@@ -676,7 +676,7 @@ func TestConvertWorkloadInstances(t *testing.T) {
 			name: "mtls",
 			wle: &networking.WorkloadEntry{
 				Address:        "1.1.1.1",
-				Labels:         labels,
+				Labels:         map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
 				ServiceAccount: "default",
 			},
 			se: selector,
@@ -693,6 +693,7 @@ func TestConvertWorkloadInstances(t *testing.T) {
 				Ports: map[string]uint32{
 					"http-445": 8080,
 				},
+				ServiceAccount: "default",
 			},
 			se: selector,
 			out: []*model.ServiceInstance{

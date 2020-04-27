@@ -91,7 +91,6 @@ func (s *Server) initKubeRegistry(serviceControllers *aggregate.Controller, args
 		args.Config.ControllerOptions.EndpointMode = kubecontroller.EndpointsOnly
 	}
 	kubeRegistry := kubecontroller.NewController(s.kubeClient, s.metadataClient, args.Config.ControllerOptions)
-	s.kubeRegistry = kubeRegistry
 	serviceControllers.AddRegistry(kubeRegistry)
 	return
 }

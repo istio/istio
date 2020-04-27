@@ -124,7 +124,6 @@ type Server struct {
 	secureGrpcServer *grpc.Server   //
 	mux              *http.ServeMux // debug
 	httpsMux         *http.ServeMux // webhooks
-	kubeRegistry     *kubecontroller.Controller
 	certController   *chiron.WebhookController
 	ca               *ca.IstioCA
 	// path to the caBundle that signs the DNS certs. This should be agnostic to provider.
@@ -682,13 +681,9 @@ func (s *Server) addTerminatingStartFunc(fn startFunc) {
 }
 
 func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
-	// TODO: remove dependency on k8s lib
-	// TODO: set a limit, panic otherwise (to not hide the error)
 	if !cache.WaitForCacheSync(stop, func() bool {
-		if s.kubeRegistry != nil {
-			if !s.kubeRegistry.HasSynced() {
-				return false
-			}
+		if !s.ServiceController().HasSynced() {
+			return false
 		}
 		if !s.configController.HasSynced() {
 			return false
