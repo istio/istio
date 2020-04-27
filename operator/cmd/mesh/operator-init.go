@@ -15,10 +15,10 @@
 package mesh
 
 import (
-	"time"
-
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util/clog"
 	buildversion "istio.io/pkg/version"
 )
@@ -34,16 +34,7 @@ type operatorInitArgs struct {
 	kubeConfigPath string
 	// context is the cluster context in the kube config.
 	context string
-	// readinessTimeout is maximum time to wait for all Istio resources to be ready.
-	readinessTimeout time.Duration
-	// wait is flag that indicates whether to wait resources ready before exiting.
-	wait bool
 }
-
-const (
-	istioControllerComponentName = "Operator"
-	istioOperatorCRComponentName = "OperatorCustomResource"
-)
 
 func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
 	hub, tag := buildversion.DockerInfo.Hub, buildversion.DockerInfo.Tag
@@ -56,16 +47,11 @@ func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
 	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename", "f", "", "Path to file containing IstioOperator custom resource")
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config")
 	cmd.PersistentFlags().StringVar(&args.context, "context", "", "The name of the kubeconfig context to use")
-	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second, "Maximum seconds to wait for the Istio operator to be ready."+
-		" The --wait flag must be set for this flag to apply")
-	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false, "Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
-		"of a Deployment are in a ready state before the command exits. It will wait for a maximum duration of --readiness-timeout seconds")
-
 	cmd.PersistentFlags().StringVar(&args.common.hub, "hub", hub, "The hub for the operator controller image")
 	cmd.PersistentFlags().StringVar(&args.common.tag, "tag", tag, "The tag for the operator controller image")
-	cmd.PersistentFlags().StringVar(&args.common.operatorNamespace, "operatorNamespace", "istio-operator",
+	cmd.PersistentFlags().StringVar(&args.common.operatorNamespace, "operatorNamespace", operatorDefaultNamespace,
 		"The namespace the operator controller is installed into")
-	cmd.PersistentFlags().StringVar(&args.common.istioNamespace, "istioNamespace", "istio-system",
+	cmd.PersistentFlags().StringVar(&args.common.istioNamespace, "istioNamespace", istioDefaultNamespace,
 		"The namespace Istio is installed into")
 	cmd.PersistentFlags().StringVarP(&args.common.charts, "charts", "d", "", chartsFlagHelpStr)
 }
@@ -107,11 +93,9 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 	scope.Debugf("Using the following manifest to install operator:\n%s\n", mstr)
 
 	opts := &Options{
-		DryRun:      args.dryRun,
-		Wait:        oiArgs.wait,
-		WaitTimeout: oiArgs.readinessTimeout,
-		Kubeconfig:  oiArgs.kubeConfigPath,
-		Context:     oiArgs.context,
+		DryRun:     args.dryRun,
+		Kubeconfig: oiArgs.kubeConfigPath,
+		Context:    oiArgs.context,
 	}
 
 	// If CR was passed, we must create a namespace for it and install CR into it.
@@ -120,7 +104,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 		l.LogAndFatal(err)
 	}
 
-	if err := applyManifest(restConfig, client, mstr, istioControllerComponentName, opts, l); err != nil {
+	if err := applyManifest(restConfig, client, mstr, string(name.IstioOperatorComponentName), opts, l); err != nil {
 		l.LogAndFatal(err)
 	}
 
@@ -129,10 +113,10 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 			l.LogAndFatal(err)
 
 		}
-		if err := applyManifest(restConfig, client, customResource, istioOperatorCRComponentName, opts, l); err != nil {
+		if err := applyManifest(restConfig, client, customResource, string(name.IstioOperatorComponentName), opts, l); err != nil {
 			l.LogAndFatal(err)
 		}
 	}
 
-	l.LogAndPrint("\n*** Success. ***\n")
+	l.LogAndPrint(color.New(color.FgGreen).Sprint("✔ ") + installationCompleteStr)
 }

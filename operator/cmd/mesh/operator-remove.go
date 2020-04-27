@@ -15,6 +15,7 @@
 package mesh
 
 import (
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/operator/pkg/helmreconciler"
@@ -23,14 +24,22 @@ import (
 )
 
 type operatorRemoveArgs struct {
-	operatorInitArgs
+	// kubeConfigPath is the path to kube config file.
+	kubeConfigPath string
+	// context is the cluster context in the kube config.
+	context string
 	// force proceeds even if there are validation errors
 	force bool
+	// operatorNamespace is the namespace the operator controller is installed into.
+	operatorNamespace string
 }
 
 func addOperatorRemoveFlags(cmd *cobra.Command, oiArgs *operatorRemoveArgs) {
-	addOperatorInitFlags(cmd, &oiArgs.operatorInitArgs)
+	cmd.PersistentFlags().StringVarP(&oiArgs.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config")
+	cmd.PersistentFlags().StringVar(&oiArgs.context, "context", "", "The name of the kubeconfig context to use")
 	cmd.PersistentFlags().BoolVar(&oiArgs.force, "force", false, "Proceed even with errors")
+	cmd.PersistentFlags().StringVar(&oiArgs.operatorNamespace, "operatorNamespace", operatorDefaultNamespace,
+		"The namespace the operator controller is installed into")
 }
 
 func operatorRemoveCmd(rootArgs *rootArgs, orArgs *operatorRemoveArgs) *cobra.Command {
@@ -54,12 +63,12 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
 		l.LogAndFatal(err)
 	}
 
-	installed, err := isControllerInstalled(clientset, orArgs.common.operatorNamespace)
+	installed, err := isControllerInstalled(clientset, orArgs.operatorNamespace)
 	if installed && err != nil {
 		l.LogAndFatal(err)
 	}
 	if !installed {
-		l.LogAndPrintf("Operator controller is not installed in %s namespace (no Deployment detected).", orArgs.common.operatorNamespace)
+		l.LogAndPrintf("Operator controller is not installed in %s namespace (no Deployment detected).", orArgs.operatorNamespace)
 		if !orArgs.force {
 			l.LogAndFatal("Aborting, use --force to override.")
 		}
@@ -73,6 +82,10 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
 	if err := reconciler.DeleteComponent(string(name.IstioOperatorComponentName)); err != nil {
 		l.LogAndFatal(err)
 	}
+	if err := DeleteNamespace(clientset, orArgs.operatorNamespace); err != nil {
+		l.LogAndFatal(err)
+	}
+	l.LogAndPrint("Deleted namespace " + orArgs.operatorNamespace)
 
-	l.LogAndPrint("✔ Removal complete")
+	l.LogAndPrint(color.New(color.FgGreen).Sprint("✔ ") + "Removal complete")
 }
