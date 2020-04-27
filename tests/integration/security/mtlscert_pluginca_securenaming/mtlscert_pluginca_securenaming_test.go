@@ -105,7 +105,7 @@ func TestMTLSCertPluginCASecureNaming(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			istioCfg := istio.DefaultConfigOrFail(t, ctx)
 			testNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "test-mtls",
+				Prefix: "mtlscert-pluginca-securenaming",
 				Inject: true,
 			})
 			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
