@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package certmtls
+package mtlscertsecurenaming
 
 import (
 	"fmt"
@@ -91,26 +91,7 @@ spec:
 				t.Errorf("DumpCertFromSidecar() returns an error: %v", err)
 				return
 			}
-			var certExp = regexp.MustCompile("(?sU)-----BEGIN CERTIFICATE-----(.+)-----END CERTIFICATE-----")
-			certs := certExp.FindAll([]byte(out), -1)
-			// Verify that the certificate chain length is as expected
-			if len(certs) != exampleCertChainLength {
-				t.Errorf("expect %v certs in the cert chain but getting %v certs",
-					exampleCertChainLength, len(certs))
-				return
-			}
-			var rootCert []byte
-			if rootCert, err = cert.ReadSampleCertFromFile("root-cert.pem"); err != nil {
-				t.Errorf("error when reading expected CA cert: %v", err)
-				return
-			}
-			// Verify that the CA certificate is as expected
-			if strings.TrimSpace(string(rootCert)) != strings.TrimSpace(string(certs[2])) {
-				t.Errorf("the actual CA cert is different from the expected. expected: %v, actual: %v",
-					strings.TrimSpace(string(rootCert)), strings.TrimSpace(string(certs[2])))
-				return
-			}
-			t.Log("the CA certificate is as expected")
+			verifyCertificates(t, out)
 
 			// Verify mTLS works between a and b
 			callOptions := echo.CallOptions{
@@ -125,7 +106,122 @@ spec:
 			}
 			checker.CheckOrFail(ctx)
 			t.Log("mTLS check passed")
+
+			t.Log("Secure naming testing #1: connection fails when DR doesn't match SA.")
+			defaultIdentityDR := fmt.Sprintf(`apiVersion: "networking.istio.io/v1alpha3"
+kind: "DestinationRule"
+metadata:
+  name: "service-b-dr"
+spec:
+  host: "b.%s.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+      subjectAltNames:
+      - "spiffe://cluster.local/ns/%s/sa/default"
+`, testNamespace.Name(), testNamespace.Name())
+			g.ApplyConfigOrFail(t, testNamespace, defaultIdentityDR)
+			time.Sleep(time.Second * 3) // Wait for the DR to take effect
+			checker = connection.Checker{
+				From:          a,
+				Options:       callOptions,
+				ExpectSuccess: false,
+			}
+			checker.CheckOrFail(ctx)
+
+			t.Log("Secure naming testing #2: connection succeeds when DR matches SA.")
+			correctIdentityDR := fmt.Sprintf(`apiVersion: "networking.istio.io/v1alpha3"
+kind: "DestinationRule"
+metadata:
+  name: "service-b-dr"
+spec:
+  host: "b.%s.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+      subjectAltNames:
+      - "spiffe://cluster.local/ns/%s/sa/b"
+`, testNamespace.Name(), testNamespace.Name())
+			g.ApplyConfigOrFail(t, testNamespace, correctIdentityDR)
+			time.Sleep(time.Second * 3) // Wait for the DR to take effect
+			checker = connection.Checker{
+				From:          a,
+				Options:       callOptions,
+				ExpectSuccess: true,
+			}
+			checker.CheckOrFail(ctx)
+
+			t.Log("Secure naming testing #3: connection fails when DR matches SA.")
+			nonExistIdentityDR := fmt.Sprintf(`apiVersion: "networking.istio.io/v1alpha3"
+kind: "DestinationRule"
+metadata:
+  name: "service-b-dr"
+spec:
+  host: "b.%s.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+      subjectAltNames:
+      - "I-do-not-exist"
+`, testNamespace.Name())
+			g.ApplyConfigOrFail(t, testNamespace, nonExistIdentityDR)
+			time.Sleep(time.Second * 3) // Wait for the DR to take effect
+			checker = connection.Checker{
+				From:          a,
+				Options:       callOptions,
+				ExpectSuccess: false,
+			}
+			checker.CheckOrFail(ctx)
+
+			t.Log("Secure naming testing #4: connection succeeds when SA is in the list of SANs.")
+			identityListDR := fmt.Sprintf(`apiVersion: "networking.istio.io/v1alpha3"
+kind: "DestinationRule"
+metadata:
+  name: "service-b-dr"
+spec:
+  host: "b.%s.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+      subjectAltNames:
+      - "spiffe://cluster.local/ns/%s/sa/a"
+      - "spiffe://cluster.local/ns/%s/sa/b"
+      - "spiffe://cluster.local/ns/%s/sa/default"
+      - "I-do-not-exist"
+`, testNamespace.Name(), testNamespace.Name(), testNamespace.Name(), testNamespace.Name())
+			g.ApplyConfigOrFail(t, testNamespace, identityListDR)
+			time.Sleep(time.Second * 3) // Wait for the DR to take effect
+			checker = connection.Checker{
+				From:          a,
+				Options:       callOptions,
+				ExpectSuccess: true,
+			}
+			checker.CheckOrFail(ctx)
 		})
+}
+
+func verifyCertificates(t *testing.T, dump string) {
+	var certExp = regexp.MustCompile("(?sU)-----BEGIN CERTIFICATE-----(.+)-----END CERTIFICATE-----")
+	certs := certExp.FindAll([]byte(dump), -1)
+	// Verify that the certificate chain length is as expected
+	if len(certs) != exampleCertChainLength {
+		t.Errorf("expect %v certs in the cert chain but getting %v certs",
+			exampleCertChainLength, len(certs))
+		return
+	}
+	var rootCert []byte
+	var err error
+	if rootCert, err = cert.ReadSampleCertFromFile("root-cert.pem"); err != nil {
+		t.Errorf("error when reading expected CA cert: %v", err)
+		return
+	}
+	// Verify that the CA certificate is as expected
+	if strings.TrimSpace(string(rootCert)) != strings.TrimSpace(string(certs[2])) {
+		t.Errorf("the actual CA cert is different from the expected. expected: %v, actual: %v",
+			strings.TrimSpace(string(rootCert)), strings.TrimSpace(string(certs[2])))
+		return
+	}
+	t.Log("the CA certificate is as expected")
 }
 
 func checkCACert(testCtx framework.TestContext, t *testing.T, testNamespace namespace.Instance) error {
