@@ -7,4 +7,3 @@ spec:
         enabled: true
 
       controlPlaneSecurityEnabled: true
-
