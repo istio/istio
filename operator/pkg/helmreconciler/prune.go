@@ -100,19 +100,6 @@ func (h *HelmReconciler) Prune(manifests ChartManifestsMap) error {
 	return errs.ToError()
 }
 
-// Delete removes all resources associated with h.
-func (h *HelmReconciler) Delete() error {
-	manifests, err := h.RenderCharts()
-	if err != nil {
-		return err
-	}
-	var errs util.Errors
-	for cname := range manifests {
-		errs = util.AppendErr(errs, h.PruneUnlistedResources(map[string]bool{}, cname))
-	}
-	return errs.ToError()
-}
-
 // Delete removes all resources associated with componentName.
 func (h *HelmReconciler) DeleteComponent(componentName string) error {
 	return h.PruneUnlistedResources(map[string]bool{}, componentName)
