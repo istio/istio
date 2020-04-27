@@ -496,7 +496,7 @@ func deriveSSHMethod() error {
 			return err
 		}
 		if sshPassword == "" {
-			return fmt.Errorf("a password, or SSH key location is required for vm-bootstrap")
+			return fmt.Errorf("a password, or SSH key location is required for sidecar-bootstrap")
 		}
 		sshAuthMethod = ssh.Password(sshPassword)
 	} else {
@@ -531,18 +531,18 @@ func deriveSSHMethod() error {
 
 func vmBootstrapCommand() *cobra.Command {
 	vmBSCommand := &cobra.Command{
-		Use:   "vm-bootstrap",
+		Use:   "sidecar-bootstrap",
 		Short: "bootstraps a workloadentry representing a vm into the mesh",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if (len(args) == 1) == all {
 				cmd.Println(cmd.UsageString())
-				return fmt.Errorf("vm-bootstrap requires a workload entry, or the all flag")
+				return fmt.Errorf("sidecar-bootstrap requires a workload entry, or the all flag")
 			}
 			if all && namespace == "" {
-				return fmt.Errorf("vm-bootstrap needs a namespace if fetching all workspaces")
+				return fmt.Errorf("sidecar-bootstrap needs a namespace if fetching all workspaces")
 			}
 			if !startIstio && istioProxyImage != "istio/proxyv2:latest" {
-				return fmt.Errorf("vm-bootstrap received a non default istio-proxy image argument, but is not starting istio")
+				return fmt.Errorf("sidecar-bootstrap received a non default istio-proxy image argument, but is not starting istio")
 			}
 			if sshUser == "" {
 				user, err := user.Current()
