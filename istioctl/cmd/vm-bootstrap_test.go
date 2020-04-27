@@ -170,7 +170,7 @@ func TestVmBootstrap(t *testing.T) {
 		// unknown workload entry, okay to have fake dumpDir here.
 		{
 			address:           "127.0.0.1",
-			args:              strings.Split("experimental vm-bootstrap workload.fakeNS --dump-directory /tmp/", " "),
+			args:              strings.Split("experimental vm-bootstrap workload.fakeNS --local-dir /tmp/", " "),
 			cannedIstioConfig: istioStaticWorkspace,
 			cannedK8sConfig:   emptyK8sConfig,
 			expectedString:    "workload entry: workload in namespace: fakeNS was not found",
@@ -181,7 +181,7 @@ func TestVmBootstrap(t *testing.T) {
 		// known workload entry, no secret
 		{
 			address:           "127.0.0.1",
-			args:              strings.Split("experimental vm-bootstrap workload.NS --dump-directory /tmp/", " "),
+			args:              strings.Split("experimental vm-bootstrap workload.NS --local-dir /tmp/", " "),
 			cannedIstioConfig: istioStaticWorkspace,
 			cannedK8sConfig:   emptyK8sConfig,
 			expectedString:    "secrets \"istio-ca-secret\" not found",
@@ -192,7 +192,7 @@ func TestVmBootstrap(t *testing.T) {
 		// known workload entry, known secret, derived organization
 		{
 			address:           "127.0.0.1",
-			args:              strings.Split("experimental vm-bootstrap workload.NS --dump-directory "+path.Join(baseTempdir, "derived_output"), " "),
+			args:              strings.Split("experimental vm-bootstrap workload.NS --local-dir "+path.Join(baseTempdir, "derived_output"), " "),
 			cannedIstioConfig: istioStaticWorkspace,
 			cannedK8sConfig:   k8sCertStatic,
 			expectedString:    "",
@@ -203,7 +203,7 @@ func TestVmBootstrap(t *testing.T) {
 		// known workload entry, known secret, non derive organization
 		{
 			address:           "127.0.0.1",
-			args:              strings.Split("experimental vm-bootstrap workload.NS -o Juju --dump-directory "+path.Join(baseTempdir, "derived_output"), " "),
+			args:              strings.Split("experimental vm-bootstrap workload.NS -o Juju --local-dir "+path.Join(baseTempdir, "derived_output"), " "),
 			cannedIstioConfig: istioStaticWorkspace,
 			cannedK8sConfig:   k8sCertStatic,
 			expectedString:    "",

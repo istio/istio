@@ -58,13 +58,13 @@ var (
 	organization      string
 	remoteDirectory   string
 	scpPath           string
+	scpTimeout        time.Duration
 	spiffeTrustDomain string
 	sshAuthMethod     ssh.AuthMethod
 	sshKeyLocation    string
 	sshIgnoreHostKeys bool
 	sshUser           string
 	startIstio        bool
-	workloadNamespace string
 
 	workloadKind = collections.IstioNetworkingV1Alpha3Workloadentries.Resource().GroupVersionKind()
 )
@@ -103,8 +103,8 @@ func fetchSingleWorkloadEntry(workloadName string, client model.ConfigStore) ([]
 }
 
 func fetchAllWorkloadEntries(client model.ConfigStore) ([]model.Config, string, error) {
-	list, err := client.List(workloadKind, workloadNamespace)
-	return list, workloadNamespace, err
+	list, err := client.List(workloadKind, namespace)
+	return list, namespace, err
 }
 
 func getCertificate(kubeClient kubernetes.Interface) (describedCert, error) {
@@ -270,6 +270,16 @@ func remoteCopyFile(data []byte, location string, client *ssh.Client) error {
 			return
 		}
 
+		// Set the unix file permissions to `0644`.
+		//
+		// If you don't read unix permissions this correlates to:
+		//
+		//   Owning User: READ/WRITE
+		//   Owning Group: READ
+		//   "Other": READ.
+		//
+		// We keep "OTHER"/"OWNING GROUP" to read so this seemlessly
+		// works with the istio container we start up below.
 		_, err = fmt.Fprintln(w, "C0644", size, filename)
 		if err != nil {
 			errCh <- err
@@ -308,7 +318,7 @@ func remoteCopyFile(data []byte, location string, client *ssh.Client) error {
 		}
 	}()
 
-	if waitTimeout(&wg, 60*time.Second) {
+	if waitTimeout(&wg, scpTimeout) {
 		return fmt.Errorf("timeout uploading file")
 	}
 
@@ -481,12 +491,12 @@ func deriveSSHMethod() error {
 	if sshKeyLocation == "" {
 		term := terminal.NewTerminal(os.Stdin, "")
 		var err error
-		sshPassword, err := term.ReadPassword("Please enter the ssh password: ")
+		sshPassword, err := term.ReadPassword("Please enter the SSH password: ")
 		if err != nil {
 			return err
 		}
 		if sshPassword == "" {
-			return fmt.Errorf("a password, or ssh key location is required for vm-bootstrap")
+			return fmt.Errorf("a password, or SSH key location is required for vm-bootstrap")
 		}
 		sshAuthMethod = ssh.Password(sshPassword)
 	} else {
@@ -499,7 +509,7 @@ func deriveSSHMethod() error {
 		if err != nil {
 			if err, ok := err.(*ssh.PassphraseMissingError); ok {
 				term := terminal.NewTerminal(os.Stdin, "")
-				sshKeyPassword, err := term.ReadPassword("Please enter the password for the ssh key: ")
+				sshKeyPassword, err := term.ReadPassword("Please enter the password for the SSH key: ")
 				if err != nil {
 					return err
 				}
@@ -528,8 +538,11 @@ func vmBootstrapCommand() *cobra.Command {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("vm-bootstrap requires a workload entry, or the all flag")
 			}
-			if all && workloadNamespace == "" {
+			if all && namespace == "" {
 				return fmt.Errorf("vm-bootstrap needs a namespace if fetching all workspaces")
+			}
+			if !startIstio && istioProxyImage != "istio/proxyv2:latest" {
+				return fmt.Errorf("vm-bootstrap received a non default istio-proxy image argument, but is not starting istio")
 			}
 			if sshUser == "" {
 				user, err := user.Current()
@@ -599,32 +612,32 @@ func vmBootstrapCommand() *cobra.Command {
 
 	vmBSCommand.PersistentFlags().BoolVarP(&all, "all", "a", false,
 		"attempt to bootstrap all workload entries")
-	vmBSCommand.PersistentFlags().StringVarP(&dumpDir, "dump-directory", "d", "",
-		"dump the certificates locally in the provided directory instead of uploading remotely.")
 	vmBSCommand.PersistentFlags().DurationVar(&certDuration, "duration", 365*24*time.Hour,
-		"duration the certificates generated are valid for.")
+		"(experimental) duration the certificates generated are valid for.")
+	vmBSCommand.PersistentFlags().StringVarP(&dumpDir, "local-dir", "d", "",
+		"directory to place certs in locally as opposed to copying")
 	vmBSCommand.PersistentFlags().StringVar(&istioProxyImage, "istio-image", "istio/proxyv2:latest",
-		"the istio proxy image to start up when starting istio")
+		"(experimental) the Istio proxy image to start up when starting istio")
 	vmBSCommand.PersistentFlags().BoolVar(&mutualTLS, "mutual-tls", false,
-		"Whether or not to enable mutual TLS if starting istio-proxy.")
-	vmBSCommand.PersistentFlags().StringVarP(&workloadNamespace, "namespace", "n", "",
-		"the namespace to fetch workloadentries from")
+		"(experimental) enable mutual TLS if starting Istio-Proxy.")
 	vmBSCommand.PersistentFlags().StringVarP(&organization, "organization", "o", "",
-		"the organization to use on the certificate, defaults to the same as the root cert.")
+		"(experimental) the organization to use on the certificate, defaults to the same as the root cert.")
 	vmBSCommand.PersistentFlags().StringVar(&remoteDirectory, "remote-directory", "/var/run/istio",
-		"the directory to create on the remote machine.")
+		"(experimental) the directory to create on the remote machine.")
 	vmBSCommand.PersistentFlags().StringVar(&scpPath, "remote-scp-path", "/usr/bin/scp",
-		"the scp binary location on the target machine if not at /usr/bin/scp")
-	vmBSCommand.PersistentFlags().StringVar(&spiffeTrustDomain, "spiffee-trust-domain", "",
-		"The spiffee trust domain to set if not wanting to use the default.")
+		"(experimental) the scp binary location on the target machine if not at /usr/bin/scp")
+	vmBSCommand.PersistentFlags().DurationVar(&scpTimeout, "timeout", 60*time.Second,
+		"(experimental) the timeout for copying certificates")
+	vmBSCommand.PersistentFlags().StringVar(&spiffeTrustDomain, "spiffe-trust-domain", "",
+		"(experimental) the SPIFFE trust domain for the generated certs")
 	vmBSCommand.PersistentFlags().BoolVar(&sshIgnoreHostKeys, "ignore-host-keys", false,
-		"whether or not ot ignore host keys on the remote host")
+		"(experimental) ignore host keys on the remote host")
 	vmBSCommand.PersistentFlags().StringVarP(&sshKeyLocation, "ssh-key", "k", "",
-		"the location of the ssh key to use to ssh into the machines")
+		"(experimental) the location of the SSH key")
 	vmBSCommand.PersistentFlags().StringVarP(&sshUser, "ssh-user", "u", "",
-		"the user to SSH as, defaults to the current user")
+		"(experimental) the user to SSH as, defaults to the current user")
 	vmBSCommand.PersistentFlags().BoolVar(&startIstio, "start-istio-proxy", false,
-		"whether or not to start istio proxy on a remote host after copying certs")
+		"start Istio proxy on a remote host after copying certs")
 
 	return vmBSCommand
 }
