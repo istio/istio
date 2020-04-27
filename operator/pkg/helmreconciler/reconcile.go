@@ -27,7 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/operator/v1alpha1"
-
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
@@ -106,6 +105,11 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *value
 	}
 	if opts.ProgressLog == nil {
 		opts.ProgressLog = util.NewProgressLog()
+	}
+	if iop == nil {
+		// allows controller code to function for cases where IOP is not provided (e.g. operator remove).
+		iop = &valuesv1alpha1.IstioOperator{}
+		iop.Spec = &v1alpha1.IstioOperatorSpec{}
 	}
 	var cs *kubernetes.Clientset
 	var err error
@@ -192,15 +196,6 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1
 	}
 
 	return out
-}
-
-// Delete resources associated with the custom resource instance
-func (h *HelmReconciler) Delete() error {
-	manifestMap, err := h.RenderCharts()
-	if err != nil {
-		return err
-	}
-	return h.Prune(manifestMap)
 }
 
 // SetStatusBegin updates the status field on the IstioOperator instance before reconciling.
