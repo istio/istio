@@ -242,10 +242,9 @@ func ParseMeshNetworks(yaml string) (*meshconfig.MeshNetworks, error) {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
 
-	// TODO validate the loaded MeshNetworks
-	// if err := ValidateMeshNetworks(&out); err != nil {
-	// 	return nil, err
-	// }
+	if err := validation.ValidateMeshNetworks(&out); err != nil {
+		return nil, err
+	}
 	return &out, nil
 }
 
