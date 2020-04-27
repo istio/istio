@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 )
@@ -48,7 +49,9 @@ type operatorCommonArgs struct {
 }
 
 const (
-	operatorResourceName = "istio-operator"
+	operatorResourceName     = "istio-operator"
+	operatorDefaultNamespace = "istio-operator"
+	istioDefaultNamespace    = "istio-system"
 )
 
 func isControllerInstalled(cs kubernetes.Interface, operatorNamespace string) (bool, error) {
@@ -61,7 +64,7 @@ func renderOperatorManifest(_ *rootArgs, ocArgs *operatorCommonArgs, _ clog.Logg
 	if ocArgs.charts != "" {
 		installPackagePath = ocArgs.charts
 	}
-	r, err := helm.NewHelmRenderer(installPackagePath, "istio-operator", istioControllerComponentName, ocArgs.operatorNamespace)
+	r, err := helm.NewHelmRenderer(installPackagePath, "istio-operator", string(name.IstioOperatorComponentName), ocArgs.operatorNamespace)
 	if err != nil {
 		return "", "", err
 	}
@@ -99,7 +102,7 @@ tag: {{.Tag}}
 func CreateNamespace(cs kubernetes.Interface, namespace string) error {
 	if namespace == "" {
 		// Setup default namespace
-		namespace = "istio-system"
+		namespace = istioDefaultNamespace
 	}
 
 	ns := &v1.Namespace{ObjectMeta: v12.ObjectMeta{
@@ -113,6 +116,10 @@ func CreateNamespace(cs kubernetes.Interface, namespace string) error {
 		return fmt.Errorf("failed to create namespace %v: %v", namespace, err)
 	}
 	return nil
+}
+
+func DeleteNamespace(cs kubernetes.Interface, namespace string) error {
+	return cs.CoreV1().Namespaces().Delete(context.TODO(), namespace, v12.DeleteOptions{})
 }
 
 func DeploymentExists(cs kubernetes.Interface, namespace, name string) (bool, error) {
