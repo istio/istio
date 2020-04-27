@@ -20,6 +20,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	"istio.io/api/annotation"
 	"istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/galley/pkg/config/analysis"
@@ -143,6 +144,10 @@ func initServiceEntryHostMap(ctx analysis.Context) map[util.ScopedFqdn]*v1alpha3
 	ctx.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
 		s := r.Message.(*corev1.ServiceSpec)
 		var se *v1alpha3.ServiceEntry
+		hostsNamespaceScope, ok := r.Metadata.Annotations[annotation.NetworkingExportTo.Name]
+		if !ok {
+			hostsNamespaceScope = util.ExportToAllNamespaces
+		}
 		var ports []*v1alpha3.Port
 		for _, p := range s.Ports {
 			ports = append(ports, &v1alpha3.Port{
@@ -156,8 +161,7 @@ func initServiceEntryHostMap(ctx analysis.Context) map[util.ScopedFqdn]*v1alpha3
 			Hosts: []string{host},
 			Ports: ports,
 		}
-		// k8s Services export to all namespaces, they have no "exportTo" concept
-		result[util.NewScopedFqdn(util.ExportToAllNamespaces, r.Metadata.FullName.Namespace, r.Metadata.FullName.Name.String())] = se
+		result[util.NewScopedFqdn(hostsNamespaceScope, r.Metadata.FullName.Namespace, r.Metadata.FullName.Name.String())] = se
 		return true
 
 	})
