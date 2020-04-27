@@ -348,9 +348,6 @@ func (h *HelmReconciler) ProcessObject(chartName string, obj *unstructured.Unstr
 				return err
 			}
 			updateErr := h.client.Update(context.TODO(), receiver)
-			if updateErr != nil {
-				scope.Warnf("update %v: %v", receiver.GetName(), updateErr)
-			}
 			return updateErr
 		}
 		return nil
