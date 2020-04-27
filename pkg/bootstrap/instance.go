@@ -33,7 +33,7 @@ import (
 const (
 	// EpochFileTemplate is a template for the root config JSON
 	EpochFileTemplate = "envoy-rev%d.%s"
-	DefaultCfgDir     = "/var/lib/istio/envoy/envoy_bootstrap_tmpl.json"
+	DefaultCfgDir     = "./var/lib/istio/envoy/envoy_bootstrap_tmpl.json"
 )
 
 var (

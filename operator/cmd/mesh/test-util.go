@@ -20,12 +20,14 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	labels2 "k8s.io/apimachinery/pkg/labels"
 
+	name2 "istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
@@ -115,7 +117,7 @@ func (o *objectSet) kind(kind string) *objectSet {
 	return ret
 }
 
-// namespace returns a subset of o where namespace matches the given value.
+// namespace returns a subset of o where namespace matches the given value or fails if it's not found in objs.
 func (o *objectSet) namespace(namespace string) *objectSet {
 	ret := &objectSet{}
 	for k, v := range o.objMap {
@@ -127,11 +129,30 @@ func (o *objectSet) namespace(namespace string) *objectSet {
 	return ret
 }
 
-// mustGetContainer returns the container tree with the given name in the deployment with the given name.
-// The function fails through g if no matching container is found.
-func mustGetContainer(g *gomega.WithT, objs *objectSet, deploymentName, containerName string) map[string]interface{} {
-	obj := objs.kind("Deployment").nameEquals(deploymentName)
+// mustGetService returns the service with the given name or fails if it's not found in objs.
+func mustGetService(g *gomega.WithT, objs *objectSet, name string) *object.K8sObject {
+	obj := objs.kind(name2.ServiceStr).nameEquals(name)
 	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
+	return obj
+}
+
+// mustGetDeployment returns the deployment with the given name or fails if it's not found in objs.
+func mustGetDeployment(g *gomega.WithT, objs *objectSet, deploymentName string) *object.K8sObject {
+	obj := objs.kind(name2.DeploymentStr).nameEquals(deploymentName)
+	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
+	return obj
+}
+
+// mustGetRole returns the role with the given name or fails if it's not found in objs.
+func mustGetRole(g *gomega.WithT, objs *objectSet, name string) *object.K8sObject {
+	obj := objs.kind(name2.RoleStr).nameEquals(name)
+	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
+	return obj
+}
+
+// mustGetContainer returns the container tree with the given name in the deployment with the given name.
+func mustGetContainer(g *gomega.WithT, objs *objectSet, deploymentName, containerName string) map[string]interface{} {
+	obj := mustGetDeployment(g, objs, deploymentName)
 	container := obj.Container(containerName)
 	g.Expect(container).Should(gomega.Not(gomega.BeNil()))
 	return container
@@ -157,8 +178,11 @@ func (m *HavePathValueEqualMatcher) Match(actual interface{}) (bool, error) {
 	if err != nil || !f {
 		return false, err
 	}
+	if reflect.TypeOf(got.Node) != reflect.TypeOf(pv.value) {
+		return false, fmt.Errorf("comparison types don't match: got %v(%T), want %v(%T)", got.Node, got.Node, pv.value, pv.value)
+	}
 	if !reflect.DeepEqual(got.Node, pv.value) {
-		return false, nil
+		return false, fmt.Errorf("values don't match: got %v, want %v", got.Node, pv.value)
 	}
 	return true, nil
 }
@@ -175,6 +199,55 @@ func (m *HavePathValueEqualMatcher) NegatedFailureMessage(actual interface{}) st
 	pv := m.expected.(PathValue)
 	node := actual.(map[string]interface{})
 	return fmt.Sprintf("Expected the following parseObjectSetFromManifest not to have path=value %s=%v\n\n%v", pv.path, pv.value, util.ToYAML(node))
+}
+
+// HavePathValueContain matches map[string]interface{} tree against a PathValue.
+func HavePathValueContain(expected interface{}) types.GomegaMatcher {
+	return &HavePathValueContainMatcher{
+		expected: expected,
+	}
+}
+
+// HavePathValueContainMatcher is a matcher type for HavePathValueContain.
+type HavePathValueContainMatcher struct {
+	expected interface{}
+}
+
+// Match implements the Matcher interface.
+func (m *HavePathValueContainMatcher) Match(actual interface{}) (bool, error) {
+	pv := m.expected.(PathValue)
+	node := actual.(map[string]interface{})
+	got, f, err := tpath.GetPathContext(node, util.PathFromString(pv.path), false)
+	if err != nil || !f {
+		return false, err
+	}
+	if reflect.TypeOf(got.Node) != reflect.TypeOf(pv.value) {
+		return false, fmt.Errorf("comparison types don't match: got %T, want %T", got.Node, pv.value)
+	}
+	gotValStr := util.ToYAML(got.Node)
+	subsetValStr := util.ToYAML(pv.value)
+	overlay, err := util.OverlayYAML(gotValStr, subsetValStr)
+	if err != nil {
+		return false, err
+	}
+	if overlay != gotValStr {
+		return false, fmt.Errorf("actual value:\n\n%s\ndoesn't contain expected subset:\n\n%s", gotValStr, subsetValStr)
+	}
+	return true, nil
+}
+
+// FailureMessage implements the Matcher interface.
+func (m *HavePathValueContainMatcher) FailureMessage(actual interface{}) string {
+	pv := m.expected.(PathValue)
+	node := actual.(map[string]interface{})
+	return fmt.Sprintf("Expected path %s with value \n\n%v\nto be a subset of \n\n%v", pv.path, pv.value, util.ToYAML(node))
+}
+
+// NegatedFailureMessage implements the Matcher interface.
+func (m *HavePathValueContainMatcher) NegatedFailureMessage(actual interface{}) string {
+	pv := m.expected.(PathValue)
+	node := actual.(map[string]interface{})
+	return fmt.Sprintf("Expected path %s with value \n\n%v\nto NOT be a subset of \n\n%v", pv.path, pv.value, util.ToYAML(node))
 }
 
 func mustSelect(t test.Failer, selector map[string]string, labels map[string]string) {
@@ -242,6 +315,15 @@ func findObject(objs object.K8sObjects, name, kind string) *object.K8sObject {
 	return nil
 }
 
+// mustGetValueAtPath returns the value at the given path in the unstructured tree t. Fails if the path is not found
+// in the tree.
+func mustGetValueAtPath(g *gomega.WithT, t map[string]interface{}, path string) interface{} {
+	got, f, err := tpath.GetPathContext(t, util.PathFromString(path), false)
+	g.Expect(err).Should(gomega.BeNil(), "path %s should exist (%s)", path, err)
+	g.Expect(f).Should(gomega.BeTrue(), "path %s should exist", path)
+	return got.Node
+}
+
 func objectHashesOrdered(objs object.K8sObjects) []string {
 	var out []string
 	for _, o := range objs {
@@ -262,5 +344,46 @@ func removeDirOrFail(t *testing.T, path string) {
 	err := os.RemoveAll(path)
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+// toMap transforms a comma separated key:value list (e.g. "a:aval, b:bval") to a map.
+func toMap(s string) map[string]interface{} {
+	out := make(map[string]interface{})
+	for _, l := range strings.Split(s, ",") {
+		l = strings.TrimSpace(l)
+		kv := strings.Split(l, ":")
+		if len(kv) != 2 {
+			panic("bad key:value in " + s)
+		}
+		out[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// portVal returns a map having service port type. A value of -1 for port or targetPort leaves those keys unset.
+func portVal(name string, port, targetPort int64) map[string]interface{} {
+	out := make(map[string]interface{})
+	if name != "" {
+		out["name"] = name
+	}
+	if port != -1 {
+		out["port"] = port
+	}
+	if targetPort != -1 {
+		out["targetPort"] = targetPort
+	}
+	return out
+}
+
+// checkRoleBindingsReferenceRoles fails if any RoleBinding in objs references a Role that isn't found in objs.
+func checkRoleBindingsReferenceRoles(g *gomega.WithT, objs *objectSet) {
+	for _, o := range objs.kind(name2.RoleBindingStr).objSlice {
+		ou := o.Unstructured()
+		rrname := mustGetValueAtPath(g, ou, "roleRef.name")
+		mustGetRole(g, objs, rrname.(string))
 	}
 }

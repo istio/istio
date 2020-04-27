@@ -15,7 +15,6 @@
 package mesh
 
 import (
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 
@@ -24,9 +23,9 @@ import (
 	"github.com/spf13/cobra"
 
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/validate"
 	binversion "istio.io/istio/operator/version"
 )
@@ -54,18 +53,13 @@ func manifestMigrateCmd(rootArgs *rootArgs, mmArgs *manifestMigrateArgs) *cobra.
 		Short: "Migrates a file containing Helm values or IstioControlPlane to IstioOperator format",
 		Long:  "The migrate subcommand migrates a configuration from Helm values or IstioControlPlane format to IstioOperator format.",
 		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) > 1 {
+			if len(args) != 1 {
 				return fmt.Errorf("migrate accepts optional single filepath")
 			}
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
-
-			if len(args) == 0 {
-				return migrateFromClusterConfig(rootArgs, mmArgs, l)
-			}
-
+			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr())
 			return migrateFromFiles(rootArgs, mmArgs, args, l)
 		}}
 }
@@ -75,21 +69,21 @@ func valueFileFilter(path string) bool {
 }
 
 // migrateFromFiles handles migration for local values.yaml files
-func migrateFromFiles(rootArgs *rootArgs, mmArgs *manifestMigrateArgs, args []string, l *Logger) error {
+func migrateFromFiles(rootArgs *rootArgs, mmArgs *manifestMigrateArgs, args []string, l clog.Logger) error {
 	initLogsOrExit(rootArgs)
 	value, err := util.ReadFilesWithFilter(args[0], valueFileFilter)
 	if err != nil {
 		return err
 	}
 	if value == "" {
-		l.logAndPrint("no valid value.yaml file specified")
+		l.LogAndPrint("no valid value.yaml file specified")
 		return nil
 	}
 	return translateFunc([]byte(value), mmArgs.force, l)
 }
 
 // translateFunc translates the input values and output the result
-func translateFunc(values []byte, force bool, l *Logger) error {
+func translateFunc(values []byte, force bool, l clog.Logger) error {
 	// Try to translate Helm values.yaml.
 	mvs := binversion.OperatorBinaryVersion.MinorVersion
 	ts, err := translate.NewReverseTranslator(mvs)
@@ -120,40 +114,6 @@ func translateFunc(values []byte, force bool, l *Logger) error {
 		return fmt.Errorf("error converting JSON: %s\n%s", gotString, err)
 	}
 
-	l.print(string(isCPYaml) + "\n")
+	l.Print(string(isCPYaml) + "\n")
 	return nil
-}
-
-// migrateFromClusterConfig handles migration for in cluster config.
-func migrateFromClusterConfig(rootArgs *rootArgs, mmArgs *manifestMigrateArgs, l *Logger) error {
-	initLogsOrExit(rootArgs)
-
-	l.logAndPrint("translating in cluster specs\n")
-
-	c := kubectlcmd.New()
-	opts := &kubectlcmd.Options{
-		Namespace: mmArgs.namespace,
-		Output:    "jsonpath='{.data.values}'",
-	}
-	output, stderr, err := c.GetConfigMap("istio-sidecar-injector", opts)
-	if err != nil {
-		return err
-	}
-	if stderr != "" {
-		l.logAndPrint("error: ", stderr, "\n")
-	}
-	var value map[string]interface{}
-	if len(output) > 1 {
-		output = output[1 : len(output)-1]
-	}
-	err = json.Unmarshal([]byte(output), &value)
-	if err != nil {
-		return fmt.Errorf("error unmarshaling JSON to untyped map %s", err)
-	}
-	res, err := yaml.Marshal(value)
-	if err != nil {
-		return fmt.Errorf("error marshaling untyped map to YAML: %s", err)
-	}
-
-	return translateFunc(res, mmArgs.force, l)
 }

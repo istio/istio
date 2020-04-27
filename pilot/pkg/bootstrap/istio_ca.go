@@ -28,12 +28,11 @@ import (
 
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
 
 	"istio.io/istio/pilot/pkg/features"
 
-	oidc "github.com/coreos/go-oidc"
+	"github.com/coreos/go-oidc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -165,8 +164,7 @@ func (s *Server) EnableCA() bool {
 // Protected by installer options: the CA will be started only if the JWT token in /var/run/secrets
 // is mounted. If it is missing - for example old versions of K8S that don't support such tokens -
 // we will not start the cert-signing server, since pods will have no way to authenticate.
-func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts *CAOptions,
-	controllerOptions controller.Options, stopCh <-chan struct{}) {
+func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts *CAOptions) {
 	if !s.EnableCA() {
 		return
 	}
@@ -195,9 +193,9 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 	}
 	// The CA API uses cert with the max workload cert TTL.
 	// 'hostlist' must be non-empty - but is not used since a grpc server is passed.
-	caServer, startErr := caserver.NewWithGRPC(grpc, ca, maxWorkloadCertTTL.Get(),
+	caServer, startErr := caserver.NewWithGRPC(s.multicluster, grpc, ca, maxWorkloadCertTTL.Get(),
 		false, []string{"istiod.istio-system"}, 0, spiffe.GetTrustDomain(),
-		true, features.JwtPolicy.Get())
+		true, features.JwtPolicy.Get(), s.clusterID)
 	if startErr != nil {
 		log.Fatalf("failed to create istio ca server: %v", startErr)
 	}
@@ -229,18 +227,6 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 		log.Warnf("Failed to start GRPC server with error: %v", serverErr)
 	}
 	log.Info("Istiod CA has started")
-
-	if s.kubeClient != nil {
-		s.leaderElection.AddRunFunction(func(stop <-chan struct{}) {
-			nc := NewNamespaceController(func() map[string]string {
-				return map[string]string{
-					constants.CACertNamespaceConfigMapDataName: string(ca.GetCAKeyCertBundle().GetRootCertPem()),
-				}
-			}, controllerOptions, s.kubeClient)
-			nc.Run(stop)
-		})
-	}
-
 }
 
 type jwtAuthenticator struct {
@@ -393,7 +379,7 @@ func (s *Server) initPublicKey() error {
 						select {
 						case <-stop:
 							return
-						case <-time.After(namespaceResyncPeriod):
+						case <-time.After(controller.NamespaceResyncPeriod):
 							newRootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
 							if !bytes.Equal(rootCert, newRootCert) {
 								rootCert = newRootCert

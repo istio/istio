@@ -27,8 +27,14 @@ import (
 	"istio.io/pkg/log"
 )
 
+// Various locks used throughout the code
 const (
-	electionID = "istio-leader"
+	NamespaceController  = "istio-namespace-controller-election"
+	ValidationController = "istio-validation-controller-election"
+	// This holds the legacy name to not conflict with older control plane deployments which are just
+	// doing the ingress syncing.
+	IngressController = "istio-leader"
+	StatusController  = "istio-status-leader"
 )
 
 type LeaderElection struct {
@@ -40,7 +46,8 @@ type LeaderElection struct {
 
 	// Records which "cycle" the election is on. This is incremented each time an election is won and then lost
 	// This is mostly just for testing
-	cycle *atomic.Int32
+	cycle      *atomic.Int32
+	electionID string
 }
 
 // Run will start leader election, calling all runFns when we become the leader.
@@ -84,7 +91,7 @@ func (l *LeaderElection) create() (*leaderelection.LeaderElector, error) {
 		},
 	}
 	lock := resourcelock.ConfigMapLock{
-		ConfigMapMeta: metaV1.ObjectMeta{Namespace: l.namespace, Name: electionID},
+		ConfigMapMeta: metaV1.ObjectMeta{Namespace: l.namespace, Name: l.electionID},
 		Client:        l.client.CoreV1(),
 		LockConfig: resourcelock.ResourceLockConfig{
 			Identity: l.name,
@@ -107,15 +114,17 @@ func (l *LeaderElection) create() (*leaderelection.LeaderElector, error) {
 
 // AddRunFunction registers a function to run when we are the leader. These will be run asynchronously.
 // To avoid running when not a leader, functions should respect the stop channel.
-func (l *LeaderElection) AddRunFunction(f func(stop <-chan struct{})) {
+func (l *LeaderElection) AddRunFunction(f func(stop <-chan struct{})) *LeaderElection {
 	l.runFns = append(l.runFns, f)
+	return l
 }
 
-func NewLeaderElection(namespace, name string, client kubernetes.Interface) *LeaderElection {
+func NewLeaderElection(namespace, name, electionID string, client kubernetes.Interface) *LeaderElection {
 	return &LeaderElection{
-		namespace: namespace,
-		name:      name,
-		client:    client,
+		namespace:  namespace,
+		name:       name,
+		electionID: electionID,
+		client:     client,
 		// Default to a 30s ttl. Overridable for tests
 		ttl:   time.Second * 30,
 		cycle: atomic.NewInt32(0),

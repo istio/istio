@@ -15,18 +15,22 @@
 package mesh
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
 
+	"github.com/docker/distribution/reference"
 	goversion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/rest"
 
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/compare"
-	"istio.io/istio/operator/pkg/hooks"
-	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/clog"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	"istio.io/pkg/log"
 )
@@ -106,7 +110,7 @@ func UpgradeCmd() *cobra.Command {
 			"traffic may be disrupted during upgrade. Please ensure PodDisruptionBudgets " +
 			"are defined to maintain service continuity.",
 		RunE: func(cmd *cobra.Command, args []string) (e error) {
-			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
+			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.OutOrStderr())
 			initLogsOrExit(rootArgs)
 			err := upgrade(rootArgs, macArgs, l)
 			if err != nil {
@@ -121,9 +125,9 @@ func UpgradeCmd() *cobra.Command {
 }
 
 // upgrade is the main function for Upgrade command
-func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
+func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	// Create a kube client from args.kubeConfigPath and  args.context
-	kubeClient, err := manifest.NewClient(args.kubeConfigPath, args.context)
+	kubeClient, err := NewClient(args.kubeConfigPath, args.context)
 	if err != nil {
 		return fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
 	}
@@ -134,7 +138,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 	// Generate IOPS parseObjectSetFromManifest
 	targetIOPSYaml, targetIOPS, err := GenerateConfig(args.inFilenames, ysf, args.force, nil, l)
 	if err != nil {
-		return fmt.Errorf("failed to generate IOPS from file %s, error: %s", args.inFilenames, err)
+		return fmt.Errorf("failed to generate Istio configs from file %s, error: %s", args.inFilenames, err)
 	}
 
 	// Get the target version from the tag in the IOPS
@@ -163,7 +167,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 		return fmt.Errorf("upgrade version check failed: %v -> %v. Error: %v",
 			currentVersion, targetVersion, err)
 	}
-	l.logAndPrintf("Upgrade version check passed: %v -> %v.\n", currentVersion, targetVersion)
+	l.LogAndPrintf("Upgrade version check passed: %v -> %v.\n", currentVersion, targetVersion)
 
 	// Read the overridden IOPS from args.inFilenames
 	overrideIOPSYaml := ""
@@ -194,24 +198,12 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 	}
 	currentProfileIOPSYaml, _, err := GenerateConfig(nil, ysf, args.force, nil, l)
 	if err != nil {
-		return fmt.Errorf("failed to generate IOPS from file: %s for the current version: %s, error: %v",
+		return fmt.Errorf("failed to generate Istio configs from file %s for the current version: %s, error: %v",
 			args.inFilenames, currentVersion, err)
 	}
 	checkUpgradeIOPS(currentProfileIOPSYaml, targetIOPSYaml, overrideIOPSYaml, l)
 
 	waitForConfirmation(args.skipConfirmation, l)
-
-	// Run pre-upgrade hooks
-	hparams := &hooks.HookCommonParams{
-		SourceVer:  currentVersion,
-		TargetVer:  targetVersion,
-		SourceIOPS: targetIOPS,
-		TargetIOPS: targetIOPS,
-	}
-	errs := hooks.RunPreUpgradeHooks(kubeClient, hparams, rootArgs.dryRun)
-	if len(errs) != 0 && !args.force {
-		return fmt.Errorf("failed in pre-upgrade hooks, error: %v", errs.ToError())
-	}
 
 	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
 	err = ApplyManifests(nil, args.inFilenames, args.force, rootArgs.dryRun,
@@ -220,15 +212,9 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 		return fmt.Errorf("failed to apply the Istio Control Plane specs. Error: %v", err)
 	}
 
-	// Run post-upgrade hooks
-	errs = hooks.RunPostUpgradeHooks(kubeClient, hparams, rootArgs.dryRun)
-	if len(errs) != 0 && !args.force {
-		return fmt.Errorf("failed in post-upgrade hooks, error: %v", errs.ToError())
-	}
-
 	if !args.wait {
-		l.logAndPrintf("Upgrade submitted. Please use `istioctl version` to check the current versions.")
-		l.logAndPrintf(upgradeSidecarMessage)
+		l.LogAndPrintf("Upgrade submitted. Please use `istioctl version` to check the current versions.")
+		l.LogAndPrintf(upgradeSidecarMessage)
 		return nil
 	}
 
@@ -245,8 +231,8 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 		return fmt.Errorf("failed to read the upgraded Istio version. Error: %v", err)
 	}
 
-	l.logAndPrintf("Success. Now the Istio control plane is running at version %v.\n", upgradeVer)
-	l.logAndPrintf(upgradeSidecarMessage)
+	l.LogAndPrintf("Success. Now the Istio control plane is running at version %v.\n", upgradeVer)
+	l.LogAndPrintf(upgradeSidecarMessage)
 	return nil
 }
 
@@ -256,23 +242,23 @@ func installURLFromVersion(version string) string {
 }
 
 // checkUpgradeIOPS checks the upgrade eligibility by comparing the current IOPS with the target IOPS
-func checkUpgradeIOPS(curIOPS, tarIOPS, ignoreIOPS string, l *Logger) {
+func checkUpgradeIOPS(curIOPS, tarIOPS, ignoreIOPS string, l clog.Logger) {
 	diff := compare.YAMLCmpWithIgnore(curIOPS, tarIOPS, nil, ignoreIOPS)
 	if diff == "" {
-		l.logAndPrintf("Upgrade check: IOPS unchanged. The target IOPS are identical to the current IOPS.\n")
+		l.LogAndPrintf("Upgrade check: IOPS unchanged. The target IOPS are identical to the current IOPS.\n")
 	} else {
-		l.logAndPrintf("Upgrade check: Warning!!! The following IOPS will be changed as part of upgrade. "+
+		l.LogAndPrintf("Upgrade check: Warning!!! The following IOPS will be changed as part of upgrade. "+
 			"Please double check they are correct:\n%s", diff)
 	}
 }
 
 // waitForConfirmation waits for user's confirmation if skipConfirmation is not set
-func waitForConfirmation(skipConfirmation bool, l *Logger) {
+func waitForConfirmation(skipConfirmation bool, l clog.Logger) {
 	if skipConfirmation {
 		return
 	}
 	if !confirm("Confirm to proceed [y/N]?", os.Stdout) {
-		l.logAndFatalf("Abort.")
+		l.LogAndFatalf("Abort.")
 	}
 }
 
@@ -301,7 +287,7 @@ func checkSupportedVersions(cur, tar, versionsURI string) error {
 }
 
 // retrieveControlPlaneVersion retrieves the version number from the Istio control plane
-func retrieveControlPlaneVersion(kubeClient manifest.ExecClient, istioNamespace string, l *Logger) (string, error) {
+func retrieveControlPlaneVersion(kubeClient ExecClient, istioNamespace string, l clog.Logger) (string, error) {
 	cv, e := kubeClient.GetIstioVersions(istioNamespace)
 	if e != nil {
 		return "", fmt.Errorf("failed to retrieve Istio control plane version, error: %v", e)
@@ -312,9 +298,9 @@ func retrieveControlPlaneVersion(kubeClient manifest.ExecClient, istioNamespace 
 	}
 
 	for _, remote := range cv {
-		l.logAndPrintf("Control Plane - %v", remote)
+		l.LogAndPrintf("Control Plane - %v", remote)
 	}
-	l.logAndPrint("")
+	l.LogAndPrint("")
 
 	v, e := coalesceVersions(cv)
 	if e != nil {
@@ -325,26 +311,26 @@ func retrieveControlPlaneVersion(kubeClient manifest.ExecClient, istioNamespace 
 
 // waitUpgradeComplete waits for the upgrade to complete by periodically comparing the current component version
 // to the target version.
-func waitUpgradeComplete(kubeClient manifest.ExecClient, istioNamespace string, targetVer string, l *Logger) error {
+func waitUpgradeComplete(kubeClient ExecClient, istioNamespace string, targetVer string, l clog.Logger) error {
 	for i := 1; i <= upgradeWaitCheckVerMaxAttempts; i++ {
 		sleepSeconds(upgradeWaitSecCheckVerPerLoop)
 		cv, e := kubeClient.GetIstioVersions(istioNamespace)
 		if e != nil {
-			l.logAndPrintf("Failed to retrieve Istio control plane version, error: %v", e)
+			l.LogAndPrintf("Failed to retrieve Istio control plane version, error: %v", e)
 			continue
 		}
 		if cv == nil {
-			l.logAndPrintf("Failed to find Istio namespace: %v", istioNamespace)
+			l.LogAndPrintf("Failed to find Istio namespace: %v", istioNamespace)
 			continue
 		}
 		if identicalVersions(cv) && targetVer == cv[0].Version {
-			l.logAndPrintf("Upgrade rollout completed. " +
+			l.LogAndPrintf("Upgrade rollout completed. " +
 				"All Istio control plane pods are running on the target version.\n\n")
 			return nil
 		}
 		for _, remote := range cv {
 			if targetVer != remote.Version {
-				l.logAndPrintf("Control Plane - %v does not match the target version %s",
+				l.LogAndPrintf("Control Plane - %v does not match the target version %s",
 					remote, targetVer)
 			}
 		}
@@ -362,7 +348,7 @@ func sleepSeconds(duration time.Duration) {
 }
 
 // coalesceVersions coalesces all Istio control plane components versions
-func coalesceVersions(cv []manifest.ComponentVersion) (string, error) {
+func coalesceVersions(cv []ComponentVersion) (string, error) {
 	if len(cv) == 0 {
 		return "", fmt.Errorf("empty list of ComponentVersion")
 	}
@@ -373,7 +359,7 @@ func coalesceVersions(cv []manifest.ComponentVersion) (string, error) {
 }
 
 // identicalVersions checks if Istio control plane components are on the same version
-func identicalVersions(cv []manifest.ComponentVersion) bool {
+func identicalVersions(cv []ComponentVersion) bool {
 	exemplar := cv[0]
 	for i := 1; i < len(cv); i++ {
 		if exemplar.Version != cv[i].Version {
@@ -381,4 +367,150 @@ func identicalVersions(cv []manifest.ComponentVersion) bool {
 		}
 	}
 	return true
+}
+
+// Client is a helper wrapper around the Kube RESTClient for istioctl -> Pilot/Envoy/Mesh related things
+type Client struct {
+	Config *rest.Config
+	*rest.RESTClient
+}
+
+// ComponentVersion is a pair of component name and version
+type ComponentVersion struct {
+	Component string
+	Version   string
+	Pod       v1.Pod
+}
+
+func (cv ComponentVersion) String() string {
+	return fmt.Sprintf("%s pod - %s - version: %s",
+		cv.Component, cv.Pod.GetName(), cv.Version)
+}
+
+// ExecClient is an interface for remote execution
+type ExecClient interface {
+	GetIstioVersions(namespace string) ([]ComponentVersion, error)
+	GetPods(namespace string, params map[string]string) (*v1.PodList, error)
+	PodsForSelector(namespace, labelSelector string) (*v1.PodList, error)
+	ConfigMapForSelector(namespace, labelSelector string) (*v1.ConfigMapList, error)
+}
+
+// NewClient is the constructor for the client wrapper
+func NewClient(kubeconfig, configContext string) (*Client, error) {
+	config, err := defaultRestConfig(kubeconfig, configContext)
+	if err != nil {
+		return nil, err
+	}
+	restClient, err := rest.RESTClientFor(config)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{config, restClient}, nil
+}
+
+// GetIstioVersions gets the version for each Istio component
+func (client *Client) GetIstioVersions(namespace string) ([]ComponentVersion, error) {
+	pods, err := client.GetPods(namespace, map[string]string{
+		"labelSelector": "istio",
+		"fieldSelector": "status.phase=Running",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve Istio pods, error: %v", err)
+	}
+	if len(pods.Items) == 0 {
+		return nil, fmt.Errorf("istio pod not found in namespace %v", namespace)
+	}
+
+	var errs util.Errors
+	var res []ComponentVersion
+	for _, pod := range pods.Items {
+		component := pod.Labels["istio"]
+
+		switch component {
+		case "statsd-prom-bridge":
+			continue
+		case "mixer":
+			component = pod.Labels["istio-mixer-type"]
+		}
+
+		server := ComponentVersion{
+			Component: component,
+			Pod:       pod,
+		}
+
+		pv := ""
+		for _, c := range pod.Spec.Containers {
+			cv, err := parseTag(c.Image)
+			if err != nil {
+				errs = util.AppendErr(errs, err)
+			}
+
+			if pv == "" {
+				pv = cv
+			} else if pv != cv {
+				err := fmt.Errorf("differrent versions of containers in the same pod: %v", pod.Spec.Containers)
+				errs = util.AppendErr(errs, err)
+			}
+		}
+		server.Version, err = pkgversion.TagToVersionString(pv)
+		if err != nil {
+			tagErr := fmt.Errorf("unable to convert tag %s into version in pod: %v", pv, pod.Spec.Containers)
+			errs = util.AppendErr(errs, tagErr)
+		}
+		res = append(res, server)
+	}
+	return res, errs.ToError()
+}
+
+func parseTag(image string) (string, error) {
+	ref, err := reference.Parse(image)
+	if err != nil {
+		return "", fmt.Errorf("could not parse image: %s, error: %v", image, err)
+	}
+
+	switch t := ref.(type) {
+	case reference.Tagged:
+		return t.Tag(), nil
+	default:
+		return "", fmt.Errorf("tag not found in image: %v", image)
+	}
+}
+
+func (client *Client) PodsForSelector(namespace, labelSelector string) (*v1.PodList, error) {
+	pods, err := client.GetPods(namespace, map[string]string{
+		"labelSelector": labelSelector,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve pods, error: %v", err)
+	}
+	return pods, nil
+}
+
+// GetPods retrieves the pod objects for Istio deployments
+func (client *Client) GetPods(namespace string, params map[string]string) (*v1.PodList, error) {
+	req := client.Get().
+		Resource("pods").
+		Namespace(namespace)
+	for k, v := range params {
+		req.Param(k, v)
+	}
+
+	res := req.Do(context.TODO())
+	if res.Error() != nil {
+		return nil, fmt.Errorf("unable to retrieve Pods: %v", res.Error())
+	}
+	list := &v1.PodList{}
+	if err := res.Into(list); err != nil {
+		return nil, fmt.Errorf("unable to parse PodList: %v", res.Error())
+	}
+	return list, nil
+}
+
+func (client *Client) ConfigMapForSelector(namespace, labelSelector string) (*v1.ConfigMapList, error) {
+	cmGet := client.Get().Resource("configmaps").Namespace(namespace).Param("labelSelector", labelSelector)
+	obj, err := cmGet.Do(context.TODO()).Get()
+	if err != nil {
+		return nil, fmt.Errorf("failed retrieving configmap: %v", err)
+	}
+	return obj.(*v1.ConfigMapList), nil
 }

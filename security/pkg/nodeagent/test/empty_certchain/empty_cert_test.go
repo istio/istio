@@ -24,6 +24,7 @@ import (
 )
 
 func TestBadCSRResponse(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/22729")
 	rotateInterval := 1 * time.Second
 	sdsTest.RotateCert(rotateInterval)
 	setup := sdsTest.SetupTest(t, env.BadCSRResponse)
@@ -65,7 +66,7 @@ func TestBadCSRResponse(t *testing.T) {
 			t.Errorf("Unexpected status code: %d", code)
 		}
 		numReq++
-		if time.Since(start) > 2*rotateInterval {
+		if time.Since(start) > 4*rotateInterval {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)

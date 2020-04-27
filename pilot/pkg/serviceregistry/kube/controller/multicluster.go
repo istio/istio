@@ -18,15 +18,15 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/pkg/log"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
-
-	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube/secretcontroller"
 )
 
@@ -39,6 +39,7 @@ type kubeController struct {
 type Multicluster struct {
 	WatchedNamespace  string
 	DomainSuffix      string
+	caroot            string
 	ResyncPeriod      time.Duration
 	serviceController *aggregate.Controller
 	XDSUpdater        model.XDSUpdater
@@ -69,6 +70,7 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string, opts Optio
 		remoteKubeControllers: remoteKubeController,
 		networksWatcher:       networksWatcher,
 		metrics:               opts.Metrics,
+		caroot:                opts.CAROOT,
 	}
 
 	err := secretcontroller.StartSecretController(
@@ -105,9 +107,21 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, metadata
 	m.remoteKubeControllers[clusterID] = &remoteKubeController
 	m.m.Unlock()
 
-	_ = kubectl.AppendServiceHandler(func(*model.Service, model.Event) { m.updateHandler() })
-	_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { m.updateHandler() })
+	_ = kubectl.AppendServiceHandler(func(svc *model.Service, ev model.Event) { m.updateHandler(svc) })
+	_ = kubectl.AppendInstanceHandler(func(si *model.ServiceInstance, ev model.Event) { m.updateHandler(si.Service) })
 	go kubectl.Run(stopCh)
+	opts := Options{
+		ResyncPeriod: m.ResyncPeriod,
+		DomainSuffix: m.DomainSuffix,
+	}
+	if m.caroot != "" {
+		nc := NewNamespaceController(func() map[string]string {
+			return map[string]string{
+				constants.CACertNamespaceConfigMapDataName: m.caroot,
+			}
+		}, opts, clientset)
+		go nc.Run(stopCh)
+	}
 	return nil
 }
 
@@ -139,13 +153,29 @@ func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 	return nil
 }
 
-func (m *Multicluster) updateHandler() {
+func (m *Multicluster) updateHandler(svc *model.Service) {
 	if m.XDSUpdater != nil {
 		req := &model.PushRequest{
-			Full:           true,
-			ConfigsUpdated: map[resource.GroupVersionKind]map[string]struct{}{model.ServiceEntryKind: {}},
-			Reason:         []model.TriggerReason{model.UnknownTrigger},
+			Full: true,
+			ConfigsUpdated: map[model.ConfigKey]struct{}{{
+				Kind:      model.ServiceEntryKind,
+				Name:      string(svc.Hostname),
+				Namespace: svc.Attributes.Namespace,
+			}: {}},
+			Reason: []model.TriggerReason{model.UnknownTrigger},
 		}
 		m.XDSUpdater.ConfigUpdate(req)
 	}
+}
+
+func (m *Multicluster) GetRemoteKubeClients() map[string]kubernetes.Interface {
+	m.m.Lock()
+	res := make(map[string]kubernetes.Interface)
+	for k, v := range m.remoteKubeControllers {
+		if v != nil && v.rc != nil {
+			res[k] = v.rc.client
+		}
+	}
+	m.m.Unlock()
+	return res
 }

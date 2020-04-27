@@ -184,6 +184,27 @@ func (c *controller) checkReadyForEvents(curr interface{}) error {
 	return nil
 }
 
+func (c *controller) tryLedgerPut(obj interface{}, schema collection.Schema) {
+	iobj := obj.(crd.IstioObject)
+	om := iobj.GetObjectMeta()
+	key := model.Key(schema.Resource().Kind(), om.Name, om.Namespace)
+	_, err := c.client.configLedger.Put(key, om.ResourceVersion)
+	if err != nil {
+		scope.Errorf("Failed to update %s in ledger, status will be out of date.", key)
+	}
+}
+
+func (c *controller) tryLedgerDelete(obj interface{}, schema collection.Schema) {
+	iobj := obj.(crd.IstioObject)
+	om := iobj.GetObjectMeta()
+	key := model.Key(schema.Resource().Kind(), om.Name, om.Namespace)
+	err := c.GetLedger().Delete(key)
+	if err != nil {
+		scope.Errorf("Failed to delete %s in ledger, status will be out of date.", key)
+	}
+
+}
+
 func (c *controller) newCacheHandler(
 	schema collection.Schema,
 	o runtime.Object,
@@ -207,11 +228,13 @@ func (c *controller) newCacheHandler(
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
 				incrementEvent(otype, "add")
+				c.tryLedgerPut(obj, schema)
 				c.queue.Push(func() error {
 					return h.onEvent(nil, obj, model.EventAdd)
 				})
 			},
 			UpdateFunc: func(old, cur interface{}) {
+				c.tryLedgerPut(cur, schema)
 				if !reflect.DeepEqual(old, cur) {
 					incrementEvent(otype, "update")
 					c.queue.Push(func() error {
@@ -223,6 +246,7 @@ func (c *controller) newCacheHandler(
 			},
 			DeleteFunc: func(obj interface{}) {
 				incrementEvent(otype, "delete")
+				c.tryLedgerDelete(obj, schema)
 				c.queue.Push(func() error {
 					return h.onEvent(nil, obj, model.EventDelete)
 				})

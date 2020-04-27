@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	md "cloud.google.com/go/compute/metadata"
+	envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
 	"istio.io/istio/pkg/config/constants"
 
@@ -51,12 +52,12 @@ const (
 
 	// required stats are used by readiness checks.
 	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,http_mixer_filter,tcp_mixer_filter,server,cluster.xds-grpc,wasm"
-	requiredEnvoyStatsMatcherInclusionSuffix   = "ssl_context_update_by_sds"
 
 	// Prefixes of V2 metrics.
 	// "reporter" prefix is for istio standard metrics.
-	// "component" prefix is for istio_build metric.
-	v2Prefixes = "reporter=,component,"
+	// "component" suffix is for istio_build metric.
+	v2Prefixes = "reporter=,"
+	v2Suffix   = ",component"
 )
 
 var (
@@ -134,11 +135,11 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	}
 
 	// Support passing extra info from node environment as metadata
-	meta, rawMeta, err := getNodeMetaData(cfg.LocalEnv, cfg.PlatEnv, cfg.NodeIPs, cfg.STSPort)
+	meta, rawMeta, err := getNodeMetaData(cfg.LocalEnv, cfg.PlatEnv, cfg.NodeIPs, cfg.STSPort, cfg.Proxy)
 	if err != nil {
 		return nil, err
 	}
-	opts = append(opts, getNodeMetadataOptions(meta, rawMeta, cfg.PlatEnv)...)
+	opts = append(opts, getNodeMetadataOptions(meta, rawMeta, cfg.PlatEnv, cfg.Proxy)...)
 
 	// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
 	if isIPv6Proxy(cfg.NodeIPs) {
@@ -182,7 +183,44 @@ func substituteValues(patterns []string, varName string, values []string) []stri
 	return ret
 }
 
-func getStatsOptions(meta *model.NodeMetadata, nodeIPs []string) []option.Instance {
+var (
+	// DefaultStatTags for telemetry v2 tag extraction.
+	DefaultStatTags = []string{
+		"reporter",
+		"source_namespace",
+		"source_workload",
+		"source_workload_namespace",
+		"source_principal",
+		"source_app",
+		"source_version",
+		"source_cluster",
+		"destination_namespace",
+		"destination_workload",
+		"destination_workload_namespace",
+		"destination_principal",
+		"destination_app",
+		"destination_version",
+		"destination_service",
+		"destination_service_name",
+		"destination_service_namespace",
+		"destination_port",
+		"destination_cluster",
+		"request_protocol",
+		"request_operation",
+		"request_host",
+		"response_flags",
+		"grpc_response_status",
+		"connection_security_policy",
+		"permissive_response_code",
+		"permissive_response_policyid",
+		"source_canonical_service",
+		"destination_canonical_service",
+		"source_canonical_revision",
+		"destination_canonical_revision",
+	}
+)
+
+func getStatsOptions(meta *model.NodeMetadata, nodeIPs []string, config *meshAPI.ProxyConfig) []option.Instance {
 	parseOption := func(metaOption string, required string) []string {
 		var inclusionOption []string
 		if len(metaOption) > 0 {
@@ -200,11 +238,25 @@ func getStatsOptions(meta *model.NodeMetadata, nodeIPs []string) []option.Instan
 		return substituteValues(inclusionOption, "{pod_ip}", nodeIPs)
 	}
 
+	extraStatTags := make([]string, 0, len(DefaultStatTags))
+	extraStatTags = append(extraStatTags,
+		DefaultStatTags...)
+	for _, tag := range config.ExtraStatTags {
+		if tag != "" {
+			extraStatTags = append(extraStatTags, tag)
+		}
+	}
+	for _, tag := range strings.Split(meta.ExtraStatTags, ",") {
+		if tag != "" {
+			extraStatTags = append(extraStatTags, tag)
+		}
+	}
+
 	return []option.Instance{
 		option.EnvoyStatsMatcherInclusionPrefix(parseOption(meta.StatsInclusionPrefixes, requiredEnvoyStatsMatcherInclusionPrefixes)),
-		option.EnvoyStatsMatcherInclusionSuffix(parseOption(meta.StatsInclusionSuffixes, requiredEnvoyStatsMatcherInclusionSuffix)),
+		option.EnvoyStatsMatcherInclusionSuffix(parseOption(meta.StatsInclusionSuffixes, "")),
 		option.EnvoyStatsMatcherInclusionRegexp(parseOption(meta.StatsInclusionRegexps, "")),
-		option.EnvoyExtraStatTags(parseOption(meta.ExtraStatTags, "")),
+		option.EnvoyExtraStatTags(extraStatTags),
 	}
 }
 
@@ -218,21 +270,24 @@ func lightstepAccessTokenFile(config string) string {
 }
 
 func getNodeMetadataOptions(meta *model.NodeMetadata, rawMeta map[string]interface{},
-	platEnv platform.Environment) []option.Instance {
+	platEnv platform.Environment, config *meshAPI.ProxyConfig) []option.Instance {
 	// Add locality options.
 	opts := getLocalityOptions(meta, platEnv)
 
-	opts = append(opts, getStatsOptions(meta, meta.InstanceIPs)...)
+	opts = append(opts, getStatsOptions(meta, meta.InstanceIPs, config)...)
 
 	opts = append(opts, option.NodeMetadata(meta, rawMeta))
 	return opts
 }
 
 func getLocalityOptions(meta *model.NodeMetadata, platEnv platform.Environment) []option.Instance {
-	l := util.ConvertLocality(model.GetLocalityLabelOrDefault(meta.LocalityLabel, ""))
-	if l == nil {
-		// Populate the platform locality if available.
+	var l *envoy_api_v2_core.Locality
+	if meta.Labels[model.LocalityLabel] == "" {
 		l = platEnv.Locality()
+		// The locality string was not set, try to get locality from platform
+	} else {
+		localityString := model.GetLocalityLabelOrDefault(meta.Labels[model.LocalityLabel], "")
+		l = util.ConvertLocality(localityString)
 	}
 
 	return []option.Instance{option.Region(l.Region), option.Zone(l.Zone), option.SubZone(l.SubZone)}
@@ -414,7 +469,8 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 // ISTIO_METAJSON_* env variables contain json_string in the value.
 // 					The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
-func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string, stsPort int) (*model.NodeMetadata, map[string]interface{}, error) {
+func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
+	stsPort int, pc *meshAPI.ProxyConfig) (*model.NodeMetadata, map[string]interface{}, error) {
 	meta := &model.NodeMetadata{}
 	untypedMeta := map[string]interface{}{}
 
@@ -449,6 +505,8 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 	if stsPort != 0 {
 		meta.StsPort = strconv.Itoa(stsPort)
 	}
+
+	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(pc)
 
 	// Add all pod labels found from filesystem
 	// These are typically volume mounted by the downward API
@@ -485,7 +543,11 @@ func ParseDownwardAPI(i string) (map[string]string, error) {
 		}
 		key := sl[0]
 		// Strip the leading/trailing quotes
-		val := sl[1][1 : len(sl[1])-1]
+
+		val, err := strconv.Unquote(sl[1])
+		if err != nil {
+			return nil, fmt.Errorf("failed to unquote %v: %v", sl[1], err)
+		}
 		res[key] = val
 	}
 	return res, nil

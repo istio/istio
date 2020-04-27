@@ -42,7 +42,7 @@ func TestCertRotation(t *testing.T) {
 			t.Errorf("Unexpected status code: %d", code)
 		}
 		numReq++
-		if time.Since(start) > 2*rotateInterval {
+		if time.Since(start) > 4*rotateInterval {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)

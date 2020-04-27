@@ -30,6 +30,24 @@ import (
 	"istio.io/istio/operator/version"
 )
 
+// Kubernetes Kind strings.
+const (
+	CRDStr                   = "CustomResourceDefinition"
+	DaemonSetStr             = "DaemonSet"
+	DeploymentStr            = "Deployment"
+	HPAStr                   = "HorizontalPodAutoscaler"
+	NamespaceStr             = "Namespace"
+	PodStr                   = "Pod"
+	PDBStr                   = "PodDisruptionBudget"
+	ReplicationControllerStr = "ReplicationController"
+	ReplicaSetStr            = "ReplicaSet"
+	RoleStr                  = "Role"
+	RoleBindingStr           = "RoleBinding"
+	SAStr                    = "ServiceAccount"
+	ServiceStr               = "Service"
+	StatefulSetStr           = "StatefulSet"
+)
+
 const (
 	// OperatorAPINamespace is the API namespace for operator config.
 	// TODO: move this to a base definitions file when one is created.
@@ -109,6 +127,16 @@ func init() {
 
 // ManifestMap is a map of ComponentName to its manifest string.
 type ManifestMap map[ComponentName][]string
+
+func (mm ManifestMap) String() string {
+	out := ""
+	for _, ms := range mm {
+		for _, m := range ms {
+			out += m + helm.YAMLSeparator
+		}
+	}
+	return out
+}
 
 // IsCoreComponent reports whether cn is a core component.
 func (cn ComponentName) IsCoreComponent() bool {
@@ -191,6 +219,12 @@ var onceErr error
 
 func ScanBundledAddonComponents(chartsRootDir string) error {
 	scanAddons.Do(func() {
+		if chartsRootDir == "" {
+			if onceErr = helm.CheckCompiledInCharts(); onceErr != nil {
+				return
+			}
+		}
+
 		var addonComponentNames []string
 		addonComponentNames, onceErr = helm.GetAddonNamesFromCharts(chartsRootDir, true)
 		if onceErr != nil {

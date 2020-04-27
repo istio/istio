@@ -1,6 +1,5 @@
 ---
 # Source: istio-discovery/templates/poddisruptionbudget.yaml
-
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
@@ -9,7 +8,7 @@ metadata:
   labels:
     app: istiod
     istio.io/rev: default
-    release: istio-base
+    release: istio
     istio: pilot
 spec:
   minAvailable: 1
@@ -18,13 +17,7 @@ spec:
       app: istiod
       istio: pilot
 ---
-
----
 # Source: istio-discovery/templates/configmap.yaml
-
-
-
-
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -32,7 +25,7 @@ metadata:
   namespace: istio-system
   labels:
     istio.io/rev: default
-    release: istio-base
+    release: istio
 data:
 
   # Configuration file for the mesh networks to be used by the Split Horizon EDS.
@@ -45,7 +38,7 @@ data:
     accessLogFormat: ""
     defaultConfig:
       concurrency: 2
-      configPath: /etc/istio/proxy
+      configPath: ./etc/istio/proxy
       connectTimeout: 10s
       controlPlaneAuthPolicy: NONE
       discoveryAddress: istiod.istio-system.svc:15012
@@ -62,6 +55,7 @@ data:
     disablePolicyChecks: true
     enableAutoMtls: true
     enableEnvoyAccessLogService: false
+    enablePrometheusMerge: false
     enableTracing: true
     ingressClass: istio
     ingressControllerMode: STRICT
@@ -76,12 +70,8 @@ data:
     sdsUdsPath: unix:/etc/istio/proxy/SDS
     trustDomain: cluster.local
     trustDomainAliases: null
-    
----
-
 ---
 # Source: istio-discovery/templates/istiod-injector-configmap.yaml
-
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -89,7 +79,7 @@ metadata:
   namespace: istio-system
   labels:
     istio.io/rev: default
-    release: istio-base
+    release: istio
 data:
 
   values: |-
@@ -101,6 +91,7 @@ data:
           "s390x": 2
         },
         "caAddress": "",
+        "centralIstiod": false,
         "certificates": [],
         "configRootNamespace": "istio-system",
         "configValidation": true,
@@ -400,7 +391,7 @@ data:
       - name: enable-core-dump
         args:
         - -c
-        - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
+        - sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited
         command:
           - /bin/sh
       {{- if contains "/" .Values.global.proxy_init.image }}
@@ -492,9 +483,9 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
-        - name: MESH_CONFIG
+        - name: PROXY_CONFIG
           value: |
-                 {{ protoToJSON .MeshConfig }}
+                 {{ protoToJSON .ProxyConfig }}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
@@ -623,6 +614,8 @@ data:
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
         {{- end }}
+        - mountPath: /var/lib/istio/data
+          name: istio-data
         {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
         - mountPath: /etc/istio/custom-bootstrap
           name: custom-bootstrap-volume
@@ -663,6 +656,8 @@ data:
       - emptyDir:
           medium: Memory
         name: istio-envoy
+      - name: istio-data
+        emptyDir: {}
       - name: istio-podinfo
         downwardAPI:
           items:
@@ -726,7 +721,6 @@ data:
         traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` .Values.global.proxy.excludeOutboundPorts }}"
       {{- end }}
         traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
-
 ---
 # Source: istio-discovery/templates/service.yaml
 apiVersion: v1
@@ -738,7 +732,7 @@ metadata:
     istio.io/rev: default
     app: istiod
     istio: pilot
-    release: istio-base
+    release: istio
 spec:
   ports:
     - port: 15010
@@ -764,8 +758,6 @@ spec:
     # This avoids default deployment picking the canary
     istio: pilot
 ---
-
----
 # Source: istio-discovery/templates/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -776,7 +768,7 @@ metadata:
     app: istiod
     istio.io/rev: default
     istio: pilot
-    release: istio-base
+    release: istio
 spec:
   strategy:
     rollingUpdate:
@@ -794,7 +786,7 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-      serviceAccountName: istio-pilot-service-account
+      serviceAccountName: istiod-service-account
       securityContext:
         fsGroup: 1337
       containers:
@@ -857,6 +849,8 @@ spec:
             value: "false"
           - name: CLUSTER_ID
             value: "Kubernetes"
+          - name: CENTRAL_ISTIOD
+            value: "false"
           resources:
             requests:
               cpu: 500m
@@ -909,10 +903,7 @@ spec:
         configMap:
           name: istio
 ---
-
----
 # Source: istio-discovery/templates/autoscale.yaml
-
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
@@ -920,7 +911,7 @@ metadata:
   namespace: istio-system
   labels:
     app: istiod
-    release: istio-base
+    release: istio
     istio.io/rev: default
 spec:
   maxReplicas: 5
@@ -935,9 +926,7 @@ spec:
       name: cpu
       targetAverageUtilization: 80
 ---
----
 # Source: istio-discovery/templates/telemetryv2_1.4.yaml
-
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -968,6 +957,7 @@ spec:
                 code:
                   inline_string: envoy.wasm.metadata_exchange
 ---
+# Source: istio-discovery/templates/telemetryv2_1.4.yaml
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -1063,10 +1053,7 @@ spec:
                 code:
                   inline_string: envoy.wasm.stats
 ---
-
----
 # Source: istio-discovery/templates/telemetryv2_1.5.yaml
-
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -1101,6 +1088,7 @@ spec:
                     local:
                       inline_string: envoy.wasm.metadata_exchange
 ---
+# Source: istio-discovery/templates/telemetryv2_1.5.yaml
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -1155,6 +1143,7 @@ spec:
               value:
                 protocol: istio-peer-exchange
 ---
+# Source: istio-discovery/templates/telemetryv2_1.5.yaml
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -1262,6 +1251,7 @@ spec:
                     local:
                       inline_string: envoy.wasm.stats
 ---
+# Source: istio-discovery/templates/telemetryv2_1.5.yaml
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -1362,10 +1352,7 @@ spec:
                     local:
                       inline_string: "envoy.wasm.stats"
 ---
-
----
 # Source: istio-discovery/templates/telemetryv2_1.6.yaml
-
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -1390,16 +1377,18 @@ spec:
           name: istio.metadata_exchange
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
             value:
               config:
-                configuration: envoy.wasm.metadata_exchange
+                configuration: |
+                  {}
                 vm_config:
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
                       inline_string: envoy.wasm.metadata_exchange
 ---
+# Source: istio-discovery/templates/telemetryv2_1.6.yaml
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -1457,6 +1446,7 @@ spec:
               value:
                 protocol: istio-peer-exchange
 ---
+# Source: istio-discovery/templates/telemetryv2_1.6.yaml
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -1483,14 +1473,14 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_outbound
                 configuration: |
                   {
                     "debug": "false",
-                    "stat_prefix": "istio",
+                    "stat_prefix": "istio"
                   }
                 vm_config:
                   vm_id: stats_outbound
@@ -1515,14 +1505,14 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_inbound
                 configuration: |
                   {
                     "debug": "false",
-                    "stat_prefix": "istio",
+                    "stat_prefix": "istio"
                   }
                 vm_config:
                   vm_id: stats_inbound
@@ -1547,7 +1537,7 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.http.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_outbound
@@ -1555,7 +1545,7 @@ spec:
                   {
                     "debug": "false",
                     "stat_prefix": "istio",
-                    "disable_host_header_fallback": true,
+                    "disable_host_header_fallback": true
                   }
                 vm_config:
                   vm_id: stats_outbound
@@ -1564,6 +1554,7 @@ spec:
                     local:
                       inline_string: envoy.wasm.stats
 ---
+# Source: istio-discovery/templates/telemetryv2_1.6.yaml
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -1585,17 +1576,17 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: istio.stats
+          name: envoy.filters.network.wasm
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_inbound
                 configuration: |
                   {
                     "debug": "false",
-                    "stat_prefix": "istio",
+                    "stat_prefix": "istio"
                   }
                 vm_config:
                   vm_id: stats_inbound
@@ -1615,17 +1606,17 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: istio.stats
+          name: envoy.filters.network.wasm
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_outbound
                 configuration: |
                   {
                     "debug": "false",
-                    "stat_prefix": "istio",
+                    "stat_prefix": "istio"
                   }
                 vm_config:
                   vm_id: stats_outbound
@@ -1645,17 +1636,17 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: istio.stats
+          name: envoy.filters.network.wasm
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v2.Wasm
+            type_url: type.googleapis.com/envoy.config.filter.network.wasm.v3.Wasm
             value:
               config:
                 root_id: stats_outbound
                 configuration: |
                   {
                     "debug": "false",
-                    "stat_prefix": "istio",
+                    "stat_prefix": "istio"
                   }
                 vm_config:
                   vm_id: stats_outbound
@@ -1663,8 +1654,6 @@ spec:
                   code:
                     local:
                       inline_string: "envoy.wasm.stats"
----
-
 ---
 # Source: istio-discovery/templates/mutatingwebhook.yaml
 # Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds)
@@ -1676,7 +1665,7 @@ metadata:
   labels:
     istio.io/rev: default
     app: sidecar-injector
-    release: istio-base
+    release: istio
 webhooks:
   - name: sidecar-injector.istio.io
     clientConfig:
@@ -1694,8 +1683,3 @@ webhooks:
     namespaceSelector:
       matchLabels:
         istio-injection: enabled
-
----
-# Source: istio-discovery/templates/configmap-jwks.yaml
-
-

@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/features"
+
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
@@ -31,6 +33,8 @@ type Test struct {
 	parent              *Test
 	goTest              *testing.T
 	labels              []label.Instance
+	featureLabels       []features.Feature
+	notImplemented      bool
 	s                   *suiteContext
 	requiredEnv         environment.Name
 	requiredMinClusters int
@@ -66,6 +70,19 @@ func NewTest(t *testing.T) *Test {
 // Label applies the given labels to this test.
 func (t *Test) Label(labels ...label.Instance) *Test {
 	t.labels = append(t.labels, labels...)
+	return t
+}
+
+// Label applies the given labels to this test.
+func (t *Test) Features(features ...features.Feature) *Test {
+	t.featureLabels = append(t.featureLabels, features...)
+	return t
+}
+
+func (t *Test) NotImplementedYet(features ...features.Feature) *Test {
+	t.notImplemented = true
+	t.Features(features...).
+		Run(func(_ TestContext) { t.goTest.Skip("Test Not Yet Impemented") })
 	return t
 }
 
@@ -233,6 +250,7 @@ func (t *Test) doRun(ctx *testContext, fn func(ctx TestContext), parallel bool) 
 				rt.suiteContext().Settings().TestID,
 				t.goTest.Name(),
 				end.Sub(start))
+			rt.suiteContext().registerOutcome(t)
 			ctx.Done()
 		}
 		if t.hasParallelChildren {

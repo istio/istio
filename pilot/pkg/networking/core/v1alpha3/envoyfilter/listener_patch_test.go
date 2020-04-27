@@ -30,6 +30,7 @@ import (
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
@@ -37,6 +38,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	istio_proto "istio.io/istio/pkg/proto"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
@@ -310,6 +312,27 @@ func TestApplyListenerPatches(t *testing.T) {
 				},
 			},
 			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_INSERT_AFTER,
+				Value:     buildPatchStruct(`{"name": "http-filter4"}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_INBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 80,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+								Name:      xdsutil.HTTPConnectionManager,
+								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "http-filter2"},
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_INSERT_FIRST,
 				Value:     buildPatchStruct(`{"name": "http-filter0"}`),
 			},
@@ -559,6 +582,7 @@ func TestApplyListenerPatches(t *testing.T) {
 										},
 										{Name: "http-filter3"},
 										{Name: "http-filter2"},
+										{Name: "http-filter4"},
 									},
 								}),
 							},
@@ -681,6 +705,91 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
+	sidecarVirtualInboundIn := []*xdsapi.Listener{
+		{
+			Name:             VirtualInboundListenerName,
+			UseOriginalDst:   istio_proto.BoolTrue,
+			TrafficDirection: core.TrafficDirection_INBOUND,
+			Address: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 15006,
+						},
+					},
+				},
+			},
+			FilterChains: []*listener.FilterChain{
+				{
+					FilterChainMatch: &listener.FilterChainMatch{
+						DestinationPort: &wrappers.UInt32Value{
+							Value: 80,
+						},
+					},
+					Filters: []*listener.Filter{
+						{
+							Name: xdsutil.HTTPConnectionManager,
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
+									HttpFilters: []*http_conn.HttpFilter{
+										{Name: xdsutil.Fault,
+											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterInAny},
+										},
+										{Name: "http-filter2"},
+									},
+								}),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	sidecarVirtualInboundOut := []*xdsapi.Listener{
+		{
+			Name:             VirtualInboundListenerName,
+			UseOriginalDst:   istio_proto.BoolTrue,
+			TrafficDirection: core.TrafficDirection_INBOUND,
+			Address: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 15006,
+						},
+					},
+				},
+			},
+			FilterChains: []*listener.FilterChain{
+				{
+					FilterChainMatch: &listener.FilterChainMatch{
+						DestinationPort: &wrappers.UInt32Value{
+							Value: 80,
+						},
+					},
+					Filters: []*listener.Filter{
+						{
+							Name: xdsutil.HTTPConnectionManager,
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
+									XffNumTrustedHops: 4,
+									HttpFilters: []*http_conn.HttpFilter{
+										{Name: xdsutil.Fault,
+											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterOutAny},
+										},
+										{Name: "http-filter3"},
+										{Name: "http-filter2"},
+										{Name: "http-filter4"},
+									},
+								}),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
 	sidecarProxy := &model.Proxy{
 		Type:            model.SidecarProxy,
 		ConfigNamespace: "not-default",
@@ -764,6 +873,17 @@ func TestApplyListenerPatches(t *testing.T) {
 				skipAdds:     true,
 			},
 			want: sidecarOutboundOutNoAdd,
+		},
+		{
+			name: "sidecar inbound virtual",
+			args: args{
+				patchContext: networking.EnvoyFilter_SIDECAR_INBOUND,
+				proxy:        sidecarProxy,
+				push:         push,
+				listeners:    sidecarVirtualInboundIn,
+				skipAdds:     false,
+			},
+			want: sidecarVirtualInboundOut,
 		},
 	}
 	for _, tt := range tests {

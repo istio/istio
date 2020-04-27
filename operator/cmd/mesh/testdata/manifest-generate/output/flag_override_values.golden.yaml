@@ -71,8 +71,6 @@ spec:
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
-        - name: DNS_ADDR
-          value: ""
         image: gcr.io/istio-testing/pilot:my-tag
         name: discovery
         ports:

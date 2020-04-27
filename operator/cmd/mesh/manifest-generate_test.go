@@ -29,8 +29,10 @@ import (
 
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/httpserver"
 	"istio.io/istio/operator/pkg/util/tgz"
 	"istio.io/istio/pkg/test/env"
@@ -156,6 +158,57 @@ func TestManifestGenerateComponentHubTag(t *testing.T) {
 		container := mustGetContainer(g, objs, tt.deploymentName, containerName)
 		g.Expect(container).Should(HavePathValueEqual(PathValue{"image", tt.want}))
 	}
+}
+
+func TestManifestGenerateGateways(t *testing.T) {
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
+	g := NewGomegaWithT(t)
+	m, _, err := generateManifest("gateways", "", liveCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	objs := parseObjectSetFromManifest(t, m)
+	g.Expect(objs.kind(name.HPAStr).size()).Should(Equal(3))
+	g.Expect(objs.kind(name.PDBStr).size()).Should(Equal(3))
+	g.Expect(objs.kind(name.ServiceStr).size()).Should(Equal(3))
+
+	// Two namespaces so two sets of these.
+	// istio-ingressgateway and user-ingressgateway share these as they are in the same namespace (istio-system).
+	g.Expect(objs.kind(name.RoleStr).size()).Should(Equal(2))
+	g.Expect(objs.kind(name.RoleBindingStr).size()).Should(Equal(2))
+	g.Expect(objs.kind(name.SAStr).size()).Should(Equal(2))
+
+	dobj := mustGetDeployment(g, objs, "istio-ingressgateway")
+	d := dobj.Unstructured()
+	c := dobj.Container("istio-proxy")
+	g.Expect(d).Should(HavePathValueContain(PathValue{"metadata.labels", toMap("aaa:aaa-val,bbb:bbb-val")}))
+	g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "111m"}))
+
+	dobj = mustGetDeployment(g, objs, "user-ingressgateway")
+	d = dobj.Unstructured()
+	c = dobj.Container("istio-proxy")
+	g.Expect(d).Should(HavePathValueContain(PathValue{"metadata.labels", toMap("ccc:ccc-val,ddd:ddd-val")}))
+	g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "222m"}))
+
+	dobj = mustGetDeployment(g, objs, "ilb-gateway")
+	d = dobj.Unstructured()
+	c = dobj.Container("istio-proxy")
+	s := mustGetService(g, objs, "ilb-gateway").Unstructured()
+	g.Expect(d).Should(HavePathValueEqual(PathValue{"metadata.labels", toMap("app:istio-ingressgateway,istio:ingressgateway,release: istio")}))
+	g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "333m"}))
+	g.Expect(c).Should(HavePathValueEqual(PathValue{"volumeMounts.[name:ilbgateway-certs].name", "ilbgateway-certs"}))
+	g.Expect(s).Should(HavePathValueEqual(PathValue{"metadata.annotations", toMap("cloud.google.com/load-balancer-type: internal")}))
+	g.Expect(s).Should(HavePathValueEqual(PathValue{"spec.ports.[0]", portVal("grpc-pilot-mtls", 15011, -1)}))
+	g.Expect(s).Should(HavePathValueEqual(PathValue{"spec.ports.[1]", portVal("tcp-citadel-grpc-tls", 8060, 8060)}))
+	g.Expect(s).Should(HavePathValueEqual(PathValue{"spec.ports.[2]", portVal("tcp-dns", 5353, -1)}))
+
+	for _, o := range objs.kind(name.HPAStr).objSlice {
+		ou := o.Unstructured()
+		g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.minReplicas", int64(1)}))
+		g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.maxReplicas", int64(5)}))
+	}
+
+	checkRoleBindingsReferenceRoles(g, objs)
 }
 
 func TestManifestGenerateFlags(t *testing.T) {
@@ -430,26 +483,26 @@ func TestConfigSelectors(t *testing.T) {
 	}
 
 	// First we fetch all the objects for our default install
-	name := "istiod"
-	deployment := mustFindObject(t, objs, name, "Deployment")
-	service := mustFindObject(t, objs, name, "Service")
-	pdb := mustFindObject(t, objs, name, "PodDisruptionBudget")
-	hpa := mustFindObject(t, objs, name, "HorizontalPodAutoscaler")
+	cname := "istiod"
+	deployment := mustFindObject(t, objs, cname, name.DeploymentStr)
+	service := mustFindObject(t, objs, cname, name.ServiceStr)
+	pdb := mustFindObject(t, objs, cname, name.PDBStr)
+	hpa := mustFindObject(t, objs, cname, name.HPAStr)
 	podLabels := mustGetLabels(t, deployment, "spec.template.metadata.labels")
 	// Check all selectors align
 	mustSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabels)
 	mustSelect(t, mustGetLabels(t, service, "spec.selector"), podLabels)
 	mustSelect(t, mustGetLabels(t, deployment, "spec.selector.matchLabels"), podLabels)
-	if hpaName := mustGetPath(t, hpa, "spec.scaleTargetRef.name"); name != hpaName {
-		t.Fatalf("HPA does not match deployment: %v != %v", name, hpaName)
+	if hpaName := mustGetPath(t, hpa, "spec.scaleTargetRef.name"); cname != hpaName {
+		t.Fatalf("HPA does not match deployment: %v != %v", cname, hpaName)
 	}
 
 	// Next we fetch all the objects for a revision install
 	nameRev := "istiod-canary"
-	deploymentRev := mustFindObject(t, objsRev, nameRev, "Deployment")
-	serviceRev := mustFindObject(t, objsRev, nameRev, "Service")
-	pdbRev := mustFindObject(t, objsRev, nameRev, "PodDisruptionBudget")
-	hpaRev := mustFindObject(t, objsRev, nameRev, "HorizontalPodAutoscaler")
+	deploymentRev := mustFindObject(t, objsRev, nameRev, name.DeploymentStr)
+	serviceRev := mustFindObject(t, objsRev, nameRev, name.ServiceStr)
+	pdbRev := mustFindObject(t, objsRev, nameRev, name.PDBStr)
+	hpaRev := mustFindObject(t, objsRev, nameRev, name.HPAStr)
 	podLabelsRev := mustGetLabels(t, deploymentRev, "spec.template.metadata.labels")
 	// Check all selectors align for revision
 	mustSelect(t, mustGetLabels(t, pdbRev, "spec.selector.matchLabels"), podLabelsRev)
@@ -496,7 +549,7 @@ func TestLDFlags(t *testing.T) {
 	}()
 	version.DockerInfo.Hub = "testHub"
 	version.DockerInfo.Tag = "testTag"
-	l := NewLogger(true, os.Stdout, os.Stderr)
+	l := clog.NewConsoleLogger(os.Stdout, os.Stderr)
 	ysf, err := yamlFromSetFlags([]string{"installPackagePath=" + liveInstallPackageDir}, false, l)
 	if err != nil {
 		t.Fatal(err)

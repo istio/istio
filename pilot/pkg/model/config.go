@@ -45,6 +45,40 @@ const (
 	RevisionLabel = "istio.io/rev"
 )
 
+// ConfigKey describe a specific config item.
+// In most cases, the name is the config's name. However, for ServiceEntry it is service's FQDN.
+type ConfigKey struct {
+	Kind      resource.GroupVersionKind
+	Name      string
+	Namespace string
+}
+
+// ConfigsOfKind extracts configs of the specified kind.
+func ConfigsOfKind(configs map[ConfigKey]struct{}, kind resource.GroupVersionKind) map[ConfigKey]struct{} {
+	ret := make(map[ConfigKey]struct{})
+
+	for conf := range configs {
+		if conf.Kind == kind {
+			ret[conf] = struct{}{}
+		}
+	}
+
+	return ret
+}
+
+// ConfigNamesOfKind extracts config names of the specified kind.
+func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind resource.GroupVersionKind) map[string]struct{} {
+	ret := make(map[string]struct{})
+
+	for conf := range configs {
+		if conf.Kind == kind {
+			ret[conf.Name] = struct{}{}
+		}
+	}
+
+	return ret
+}
+
 // ConfigMeta is metadata attached to each configuration unit.
 // The revision is optional, and if provided, identifies the
 // last update operation on the object.
@@ -96,7 +130,7 @@ type ConfigMeta struct {
 	CreationTimestamp time.Time `json:"creationTimestamp,omitempty"`
 }
 
-func (c Config) GroupVersionKind() resource.GroupVersionKind {
+func (c *Config) GroupVersionKind() resource.GroupVersionKind {
 	return resource.GroupVersionKind{
 		Group:   c.Group,
 		Version: c.Version,
@@ -181,6 +215,18 @@ type ConfigStore interface {
 // Key function for the configuration objects
 func Key(typ, name, namespace string) string {
 	return fmt.Sprintf("%s/%s/%s", typ, namespace, name)
+}
+
+func ParseKey(key string) (typ, name, namespace string, err error) {
+	out := strings.Split(key, "/")
+	if len(out) != 3 {
+		err = fmt.Errorf("key '%s' could not be parsed into a key", key)
+	} else {
+		typ = out[0]
+		name = out[1]
+		namespace = out[2]
+	}
+	return
 }
 
 // Key is the unique identifier for a configuration object

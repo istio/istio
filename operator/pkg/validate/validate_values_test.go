@@ -23,7 +23,7 @@ import (
 	"github.com/ghodss/yaml"
 
 	"istio.io/istio/operator/pkg/helm"
-	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/test/env"
 )
@@ -193,7 +193,7 @@ func TestValidateValuesFromProfile(t *testing.T) {
 			if err != nil {
 				t.Fatalf("fail to read profile: %s", tt.profile)
 			}
-			val, _, err := manifest.ParseK8SYAMLToIstioOperator(pf)
+			val, _, err := object.ParseK8SYAMLToIstioOperator(pf)
 			if err != nil {
 				t.Fatalf(" fail to parse profile to ISCP: (%s), got error %s", tt.profile, err)
 			}
