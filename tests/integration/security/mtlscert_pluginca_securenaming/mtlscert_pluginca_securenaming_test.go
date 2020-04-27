@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mtlscertsecurenaming
+package mtlscertplugincasecurenaming
 
 import (
 	"fmt"
@@ -93,11 +93,13 @@ spec:
 `
 )
 
-// TestMTLSCertSecureNaming verifies:
+// TestMTLSCertPluginCASecureNaming verifies:
 // - The certificate issued by CA to the sidecar is as expected and that strict mTLS works as expected.
+// - The plugin CA certs are correctly used in workload mTLS.
 // - The CA certificate in the configmap of each namespace is as expected, which
 //   is used for data plane to control plane TLS authentication.
-func TestMTLSCertSecureNaming(t *testing.T) {
+// - Secure naming information is respected in the mTLS handshake.
+func TestMTLSCertPluginCASecureNaming(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -118,7 +120,7 @@ func TestMTLSCertSecureNaming(t *testing.T) {
 				With(&b, util.EchoConfig("b", testNamespace, false, nil, g, p)).
 				BuildOrFail(t)
 
-			ctx.NewSubTest("mTLS cert validation").
+			ctx.NewSubTest("mTLS cert validation with plugin CA").
 				Run(func(ctx framework.TestContext) {
 					// Verify that the certificate issued to the sidecar is as expected.
 					connectTarget := fmt.Sprintf("b.%s:80", testNamespace.Name())
@@ -221,8 +223,8 @@ func verifyCertificates(t *testing.T, dump string) {
 
 func checkCACert(testCtx framework.TestContext, t *testing.T, testNamespace namespace.Instance) error {
 	configMapName := "istio-ca-root-cert"
-	kEnv := testCtx.Environment().(*kube.Environment)
-	cm, err := kEnv.KubeClusters[0].GetConfigMap(configMapName, testNamespace.Name())
+	env := testCtx.Environment().(*kube.Environment)
+	cm, err := env.KubeClusters[0].GetConfigMap(configMapName, testNamespace.Name())
 	if err != nil {
 		return err
 	}
