@@ -42,7 +42,7 @@ func operatorRemoveCmd(rootArgs *rootArgs, orArgs *operatorRemoveArgs) *cobra.Co
 		Long:  "The remove subcommand removes the Istio operator controller from the cluster.",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.OutOrStderr())
+			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.OutOrStderr(), installerScope)
 			operatorRemove(rootArgs, orArgs, l)
 		}}
 }
@@ -74,7 +74,7 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
 		l.LogAndFatal(err)
 	}
 
-	scope.Debugf("Using the following manifest to remove operator:\n%s\n", mstr)
+	installerScope.Debugf("Using the following manifest to remove operator:\n%s\n", mstr)
 
 	opts := &Options{
 		DryRun:      args.dryRun,

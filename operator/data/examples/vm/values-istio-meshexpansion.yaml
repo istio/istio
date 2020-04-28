@@ -7,8 +7,3 @@ spec:
         enabled: true
 
       controlPlaneSecurityEnabled: true
-
-    # Multicluster with gateways requires a root CA
-    # Cluster local CAs are bootstrapped with the root CA.
-    security:
-      selfSigned: false

@@ -470,15 +470,6 @@ func (s *Service) External() bool {
 	return s.MeshExternal
 }
 
-// Key generates a unique string referencing service instances for a given port and labels.
-// The separator character must be exclusive to the regular expressions allowed in the
-// service declaration.
-// Deprecated
-func (s *Service) Key(port *Port, l labels.Instance) string {
-	// TODO: check port is non nil and membership of port in service
-	return ServiceKey(s.Hostname, PortList{port}, labels.Collection{l})
-}
-
 // ServiceKey generates a service key for a collection of ports and labels
 // Deprecated
 //
@@ -532,31 +523,6 @@ func ServiceKey(hostname host.Name, servicePorts PortList, labelsList labels.Col
 		}
 	}
 	return buffer.String()
-}
-
-// ParseServiceKey is the inverse of the Service.String() method
-// Deprecated
-func ParseServiceKey(s string) (hostname host.Name, ports PortList, lc labels.Collection) {
-	parts := strings.Split(s, "|")
-	hostname = host.Name(parts[0])
-
-	var names []string
-	if len(parts) > 1 {
-		names = strings.Split(parts[1], ",")
-	} else {
-		names = []string{""}
-	}
-
-	for _, name := range names {
-		ports = append(ports, &Port{Name: name})
-	}
-
-	if len(parts) > 2 && len(parts[2]) > 0 {
-		for _, tag := range strings.Split(parts[2], ";") {
-			lc = append(lc, labels.Parse(tag))
-		}
-	}
-	return
 }
 
 // BuildSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
