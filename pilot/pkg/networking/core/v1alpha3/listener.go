@@ -1882,6 +1882,7 @@ type buildListenerOpts struct {
 	bindToPort        bool
 	skipUserFilters   bool
 	needHTTPInspector bool
+	reusePort         bool
 }
 
 func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *httpListenerOpts,
@@ -2230,6 +2231,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		ListenerFilters: listenerFilters,
 		FilterChains:    filterChains,
 		DeprecatedV1:    deprecatedV1,
+		ReusePort:       opts.reusePort,
 	}
 
 	if opts.proxy.Type != model.Router {

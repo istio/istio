@@ -2748,3 +2748,51 @@ func TestFilterChainMatchEqual(t *testing.T) {
 		})
 	}
 }
+
+func testListenerOptionReusePort(t *testing.T, proxy *model.Proxy, exptected bool) {
+	t.Helper()
+
+	p := &fakePlugin{}
+	env := buildListenerEnv(nil, nil)
+	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
+		t.Fatalf("error in initializing push context: %s", err)
+	}
+
+	httpGateway := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:      "gateway",
+			Namespace: "default",
+		},
+		Spec: &networking.Gateway{
+			Selector: map[string]string{"istio": "ingressgateway"},
+			Servers: []*networking.Server{
+				{
+					Hosts: []string{"example.org"},
+					Port:  &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+				},
+			},
+		},
+	}
+
+	out := []model.Config{httpGateway}
+	proxy.MergedGateway = model.MergeGateways(out...)
+
+	configgen := NewConfigGenerator([]plugin.Plugin{p})
+	listeners := configgen.BuildListeners(proxy, env.PushContext)
+	if len(listeners) != 1 {
+		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+	}
+
+	if listeners[0].ReusePort != exptected {
+		t.Errorf("expected listener.ReusePort value: %t", exptected)
+	}
+}
+
+func TestListenerReusePort(t *testing.T) {
+	testListenerOptionReusePort(t, &proxyGateway, false)
+	proxyGateway.Metadata.Labels = map[string]string{
+		"reuse_port": "true",
+	}
+
+	testListenerOptionReusePort(t, &proxyGateway, true)
+}

@@ -59,6 +59,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 	errs := &multierror.Error{}
 	listeners := make([]*xdsapi.Listener, 0, len(mergedGateway.Servers))
+
+	reusePort := false
+	if v, found := node.Metadata.Labels[model.LabelReusePort]; found {
+		reusePort = v == "true"
+	}
+
 	for portNumber, servers := range mergedGateway.Servers {
 		var si *model.ServiceInstance
 		services := make(map[host.Name]struct{}, len(node.ServiceInstances))
@@ -86,6 +92,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 			bind:       actualWildcard,
 			port:       int(portNumber),
 			bindToPort: true,
+			reusePort:  reusePort,
 		}
 
 		p := protocol.Parse(servers[0].Port.Protocol)

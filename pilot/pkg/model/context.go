@@ -45,6 +45,10 @@ const (
 var _ mesh.Holder = &Environment{}
 var _ mesh.NetworksHolder = &Environment{}
 
+var (
+	LabelReusePort = "reuse_port"
+)
+
 // Environment provides an aggregate environmental API for Pilot
 type Environment struct {
 	// Discovery interface for listing services and instances.
