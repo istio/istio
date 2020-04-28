@@ -419,6 +419,7 @@ const (
 	PlainText
 )
 
+// nolint: unparam
 func makeInstanceWithServiceAccount(cfg *model.Config, address string, port int,
 	svcPort *networking.Port, svcLabels map[string]string, serviceAccount string) *model.ServiceInstance {
 	i := makeInstance(cfg, address, port, svcPort, svcLabels, MTLSUnlabelled)
@@ -426,6 +427,7 @@ func makeInstanceWithServiceAccount(cfg *model.Config, address string, port int,
 	return i
 }
 
+// nolint: unparam
 func makeInstance(cfg *model.Config, address string, port int,
 	svcPort *networking.Port, svcLabels map[string]string, mtlsMode MTLSMode) *model.ServiceInstance {
 	services := convertServices(*cfg)
