@@ -447,7 +447,13 @@ also explicitly specify the native environment:
 $ go test ./... -istio.test.env native
 ```
 
-Note: this may require you to [enable forwarding from Docker containers to the outside world](https://docs.docker.com/network/bridge/#enable-forwarding-from-docker-containers-to-the-outside-world).
+Note: this may require you to [enable forwarding from Docker containers to the outside world](https://docs.docker.com/network/bridge/#enable-forwarding-from-docker-containers-to-the-outside-world):
+
+```bash
+sudo sysctl net.ipv4.conf.all.forwarding=1
+sudo iptables -P FORWARD ACCEPT
+sudo iptables -A INPUT -i docker0 -j ACCEPT
+```
 
 ### Kubernetes Environment
 
