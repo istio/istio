@@ -124,6 +124,7 @@ spec:
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
+          - --statusPort=15020
           readinessProbe:
             failureThreshold: 30
             httpGet:
