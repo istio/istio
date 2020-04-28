@@ -117,12 +117,16 @@ func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxy *Pro
 // Request is an alias for array of marshaled resources.
 type Resources = []*any.Any
 
+// XdsUpdates include information about the subset of updated resources.
+// See for example EDS incremental updates.
+type XdsUpdates = map[ConfigKey]struct{}
+
 // XdsResourceGenerator creates the response for a typeURL DiscoveryRequest. If no generator is associated
 // with a Proxy, the default (a networking.core.ConfigGenerator instance) will be used.
 // The server may associate a different generator based on client metadata. Different
 // WatchedResources may use same or different Generator.
 type XdsResourceGenerator interface {
-	Generate(proxy *Proxy, push *PushContext, w *WatchedResource) Resources
+	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates XdsUpdates) Resources
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
