@@ -596,7 +596,7 @@ spec:
         jaegerURL:
         jaegerInClusterURL: http://tracing/jaeger
         auth:
-          strategy: ""
+          strategy: login
       prometheusNamespace:
       createDemoSecret: false
       security:
