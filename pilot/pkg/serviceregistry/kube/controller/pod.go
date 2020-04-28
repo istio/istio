@@ -25,14 +25,9 @@ import (
 
 	"istio.io/pkg/log"
 
-	"istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pkg/config/schema/collections"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 )
-
-var workloadEntryResource = collections.IstioNetworkingV1Alpha3Workloadentries.Resource()
 
 // PodCache is an eventually consistent pod cache
 type PodCache struct {
@@ -46,19 +41,16 @@ type PodCache struct {
 	// IPByPods is a reverse map of podsByIP. This exists to allow us to prune stale entries in the
 	// pod cache if a pod changes IP.
 	IPByPods map[string]string
-	// workloadEntryByPods is a cache of pod names to the associated workloadEntries
-	workloadEntryByPods map[string]*model.Config
 
 	c *Controller
 }
 
 func newPodCache(informer cache.SharedIndexInformer, c *Controller) *PodCache {
 	out := &PodCache{
-		informer:            informer,
-		c:                   c,
-		podsByIP:            make(map[string]string),
-		IPByPods:            make(map[string]string),
-		workloadEntryByPods: make(map[string]*model.Config),
+		informer: informer,
+		c:        c,
+		podsByIP: make(map[string]string),
+		IPByPods: make(map[string]string),
 	}
 
 	return out
@@ -66,6 +58,8 @@ func newPodCache(informer cache.SharedIndexInformer, c *Controller) *PodCache {
 
 // onEvent updates the IP-based index (pc.podsByIP).
 func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
+	pc.Lock()
+	defer pc.Unlock()
 
 	// When a pod is deleted obj could be an *v1.Pod or a DeletionFinalStateUnknown marker item.
 	pod, ok := curr.(*v1.Pod)
@@ -87,14 +81,13 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 	if len(ip) > 0 {
 		log.Infof("Handling event %s for pod %s (%v) in namespace %s -> %v", ev, pod.Name, pod.Status.Phase, pod.Namespace, ip)
 		key := kube.KeyFunc(pod.Name, pod.Namespace)
-		pc.Lock()
 		switch ev {
 		case model.EventAdd:
 			switch pod.Status.Phase {
 			case v1.PodPending, v1.PodRunning:
 				if key != pc.podsByIP[ip] {
 					// add to cache if the pod is running or pending
-					pc.update(ip, key, pod, ev)
+					pc.update(ip, key)
 				}
 			}
 		case model.EventUpdate:
@@ -109,7 +102,7 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 			case v1.PodPending, v1.PodRunning:
 				if key != pc.podsByIP[ip] {
 					// add to cache if the pod is running or pending
-					pc.update(ip, key, pod, ev)
+					pc.update(ip, key)
 				}
 
 			default:
@@ -124,7 +117,6 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 				pc.deleteIP(ip)
 			}
 		}
-		pc.Unlock()
 	}
 	return nil
 }
@@ -133,35 +125,15 @@ func (pc *PodCache) deleteIP(ip string) {
 	pod := pc.podsByIP[ip]
 	delete(pc.podsByIP, ip)
 	delete(pc.IPByPods, pod)
-	pc.deleteWorkloadEntry(pod)
 }
 
-func (pc *PodCache) deleteWorkloadEntry(key string) {
-	if pc.c.configStoreCache != nil {
-		if we := pc.workloadEntryByPods[key]; we != nil {
-			pc.c.configStoreCache.Share(workloadEntryResource.GroupVersionKind(),
-				pc.workloadEntryByPods[key], model.EventDelete)
-		}
-
-		delete(pc.workloadEntryByPods, key)
-	}
-}
-
-func (pc *PodCache) update(ip, key string, pod *v1.Pod, ev model.Event) {
+func (pc *PodCache) update(ip, key string) {
 	if current, f := pc.IPByPods[key]; f {
 		// The pod already exists, but with another IP Address. We need to clean up that
-		// Also remove the workload entry so that we can generate a new one with new labels/etc.
 		delete(pc.podsByIP, current)
-		pc.deleteWorkloadEntry(key)
 	}
-
 	pc.podsByIP[ip] = key
 	pc.IPByPods[key] = ip
-	if pc.c.configStoreCache != nil {
-		pc.workloadEntryByPods[key] = pc.podToWorkloadEntry(pod)
-		pc.c.configStoreCache.Share(workloadEntryResource.GroupVersionKind(),
-			pc.workloadEntryByPods[key], ev)
-	}
 
 	pc.proxyUpdates(ip)
 }
@@ -201,23 +173,4 @@ func (pc *PodCache) getPod(name string, namespace string) *v1.Pod {
 		return nil
 	}
 	return pod
-}
-
-func (pc *PodCache) podToWorkloadEntry(pod *v1.Pod) *model.Config {
-	return &model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      workloadEntryResource.Kind(),
-			Group:     workloadEntryResource.Group(),
-			Version:   workloadEntryResource.Version(),
-			Name:      "generated-" + pod.Name,
-			Namespace: pod.Namespace,
-		},
-		Spec: &v1alpha3.WorkloadEntry{
-			Address:        pod.Status.PodIP,
-			Labels:         pod.Labels,
-			Network:        pc.c.clusterID,
-			Locality:       pc.c.getPodLocality(pod),
-			ServiceAccount: pod.Spec.ServiceAccountName,
-		},
-	}
 }

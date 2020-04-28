@@ -39,7 +39,6 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/log"
 
-	cfgfakes "istio.io/istio/pilot/pkg/config/aggregate/fakes"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -165,7 +164,6 @@ func newFakeControllerWithOptions(opts fakeControllerOptions) (*Controller, *Fak
 		NetworksWatcher:  opts.networksWatcher,
 		EndpointMode:     opts.mode,
 		ClusterID:        opts.clusterID,
-		ConfigStoreCache: &cfgfakes.ConfigStoreCache{},
 	})
 
 	if opts.instanceHandler != nil {

@@ -141,8 +141,6 @@ func (c controller) HasSynced() bool {
 	return c.cache.HasSynced()
 }
 
-func (c controller) Share(_ resource.GroupVersionKind, _ *model.Config, _ model.Event) {}
-
 func NewController(client kubernetes.Interface, c model.ConfigStoreCache) model.ConfigStoreCache {
 	return &controller{client, c}
 }

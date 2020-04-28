@@ -122,11 +122,6 @@ type Options struct {
 	// XDSUpdater will push changes to the xDS server.
 	XDSUpdater model.XDSUpdater
 
-	// ConfigStoreCache is used to notify of pod creation events.
-	// Primary target is the kube crd controller that triggers service entry code.
-	// The rest are no-ops
-	ConfigStoreCache model.ConfigStoreCache
-
 	// TrustDomain used in SPIFFE identity
 	TrustDomain string
 
@@ -172,12 +167,11 @@ type kubernetesNode struct {
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
-	client           kubernetes.Interface
-	metadataClient   metadata.Interface
-	queue            queue.Instance
-	services         cache.SharedIndexInformer
-	endpoints        kubeEndpointsController
-	configStoreCache model.ConfigStoreCache
+	client         kubernetes.Interface
+	metadataClient metadata.Interface
+	queue          queue.Instance
+	services       cache.SharedIndexInformer
+	endpoints      kubeEndpointsController
 
 	nodeMetadataInformer cache.SharedIndexInformer
 	// Used to watch node accessible from remote cluster.
@@ -192,6 +186,7 @@ type Controller struct {
 	clusterID            string
 
 	serviceHandlers []func(*model.Service, model.Event)
+	instanceHandlers []func(*model.ServiceInstance, model.Event)
 
 	// This is only used for test
 	stop chan struct{}
@@ -227,7 +222,6 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 		domainSuffix:               options.DomainSuffix,
 		client:                     client,
 		metadataClient:             metadataClient,
-		configStoreCache:           options.ConfigStoreCache,
 		queue:                      queue.NewQueue(1 * time.Second),
 		clusterID:                  options.ClusterID,
 		xdsUpdater:                 options.XDSUpdater,
@@ -1003,6 +997,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 
 // AppendInstanceHandler implements a service catalog operation
 func (c *Controller) AppendInstanceHandler(func(*model.ServiceInstance, model.Event)) error {
+	c.instanceHandlers = append(c.instanceHandlers, f)
 	return nil
 }
 
@@ -1053,6 +1048,16 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 	log.Debugf("Handle EDS: %d endpoints for %s in namespace %s", len(endpoints), ep.Name, ep.Namespace)
 
 	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(hostname), ep.Namespace, endpoints)
+	for _, handler := range c.instanceHandlers {
+		for _, ep := range endpoints {
+			si := &model.ServiceInstance{
+				Service:     svc,
+				ServicePort: nil,
+				Endpoint:    ep,
+			}
+			handler(si, event)
+		}
+	}
 }
 
 // namedRangerEntry for holding network's CIDR and name

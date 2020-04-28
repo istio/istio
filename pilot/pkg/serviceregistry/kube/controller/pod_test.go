@@ -26,8 +26,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/labels"
 )
@@ -237,25 +235,6 @@ func TestPodCacheEvents(t *testing.T) {
 		t.Error(err)
 	}
 
-	// check if workload entry is generated
-	wePod1 := &model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      workloadEntryResource.Kind(),
-			Group:     workloadEntryResource.Group(),
-			Version:   workloadEntryResource.Version(),
-			Name:      "generated-" + pod1.Name,
-			Namespace: ns,
-		},
-		Spec: &v1alpha3.WorkloadEntry{
-			Address: ip,
-			Network: c.clusterID,
-		},
-	}
-
-	if got := podCache.workloadEntryByPods["default/pod1"]; got != nil {
-		t.Error("did not expect workload entry for pod1 but got one before pod1in pending/ready state")
-	}
-
 	// The first time pod occur
 	fx.Wait("xds")
 
@@ -265,9 +244,6 @@ func TestPodCacheEvents(t *testing.T) {
 
 	if pod, exists := podCache.getPodKey(ip); !exists || pod != "default/pod1" {
 		t.Errorf("getPodKey => got %s, pod1 not found or incorrect", pod)
-	}
-	if got := podCache.workloadEntryByPods["default/pod1"]; !reflect.DeepEqual(got, wePod1) {
-		t.Errorf("workload entry for pod1 did not match expected value. got %v, want %v", got, wePod1)
 	}
 
 	pod2 := metav1.ObjectMeta{Name: "pod2", Namespace: ns}
@@ -279,29 +255,8 @@ func TestPodCacheEvents(t *testing.T) {
 		t.Error(err)
 	}
 
-	wePod2 := &model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      workloadEntryResource.Kind(),
-			Group:     workloadEntryResource.Group(),
-			Version:   workloadEntryResource.Version(),
-			Namespace: ns,
-			Name:      "generated-" + pod2.Name,
-		},
-		Spec: &v1alpha3.WorkloadEntry{
-			Address: ip,
-			Network: c.clusterID,
-		},
-	}
-
 	if pod, exists := podCache.getPodKey(ip); !exists || pod != "default/pod2" {
 		t.Errorf("getPodKey => got %s, pod2 not found or incorrect", pod)
-	}
-	// old workload entry should be deleted and new one added
-	if got := podCache.workloadEntryByPods["default/pod1"]; got != nil {
-		t.Error("did not expect workload entry for pod1 but got one after pod1 failed and pod2 took its IP")
-	}
-	if got := podCache.workloadEntryByPods["default/pod2"]; !reflect.DeepEqual(got, wePod2) {
-		t.Errorf("workload entry for pod2 did not match expected value. got %v, want %v", got, wePod2)
 	}
 
 	if err := f(&v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodFailed}}, model.EventDelete); err != nil {
@@ -311,9 +266,6 @@ func TestPodCacheEvents(t *testing.T) {
 	if pod, exists := podCache.getPodKey(ip); !exists || pod != "default/pod2" {
 		t.Errorf("getPodKey => got %s, pod2 not found or incorrect", pod)
 	}
-	if got := podCache.workloadEntryByPods["default/pod2"]; !reflect.DeepEqual(got, wePod2) {
-		t.Errorf("workload entry for pod2 did not match expected value. got %v, want %v", got, wePod2)
-	}
 
 	if err := f(&v1.Pod{ObjectMeta: pod2, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodFailed}}, model.EventDelete); err != nil {
 		t.Error(err)
@@ -321,8 +273,5 @@ func TestPodCacheEvents(t *testing.T) {
 
 	if pod, exists := podCache.getPodKey(ip); exists {
 		t.Errorf("getPodKey => got %s, want none", pod)
-	}
-	if got := podCache.workloadEntryByPods["default/pod2"]; got != nil {
-		t.Error("did not expect workload entry for pod2 but got one after pod2 failed")
 	}
 }

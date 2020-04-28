@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 
 	"istio.io/pkg/log"
@@ -255,29 +254,6 @@ func (c *controller) newCacheHandler(
 		})
 
 	return h
-}
-
-// pre-creating the object in advance to avoid wasting memory for each handler invocation
-// in the share function. The share() function tends to be called for all pod events. So
-// its important to reduce memory foot print.
-var emptyConfig = model.Config{}
-
-func (c *controller) Share(kind resource.GroupVersionKind, config *model.Config, event model.Event) {
-	// we care only about workloadEntry kind
-	if kind != collections.IstioNetworkingV1Alpha3Workloadentries.Resource().GroupVersionKind() {
-		return
-	}
-	handler := c.kinds[kind]
-	log.Debugf("Handle Share event %s for workload entry %s in namespace %s", event, config.Name, config.Namespace)
-	// Add the event to the queue, but dont call the regular onEvent as it expects JSON objects
-	// the Share events are flowing from other controllers that have already converted the object
-	// into a typed object. So directly invoke the handler functions in the cache handler object
-	c.queue.Push(func() error {
-		for _, f := range handler.handlers {
-			f(emptyConfig, *config, event)
-		}
-		return nil
-	})
 }
 
 func handleValidationFailure(obj interface{}, err error) {

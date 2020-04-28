@@ -130,13 +130,6 @@ type ConfigStoreCache struct {
 	setLedgerReturnsOnCall map[int]struct {
 		result1 error
 	}
-	ShareStub        func(resource.GroupVersionKind, *model.Config, model.Event)
-	shareMutex       sync.RWMutex
-	shareArgsForCall []struct {
-		arg1 resource.GroupVersionKind
-		arg2 *model.Config
-		arg3 model.Event
-	}
 	UpdateStub        func(model.Config) (string, error)
 	updateMutex       sync.RWMutex
 	updateArgsForCall []struct {
@@ -758,39 +751,6 @@ func (fake *ConfigStoreCache) SetLedgerReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *ConfigStoreCache) Share(arg1 resource.GroupVersionKind, arg2 *model.Config, arg3 model.Event) {
-	fake.shareMutex.Lock()
-	fake.shareArgsForCall = append(fake.shareArgsForCall, struct {
-		arg1 resource.GroupVersionKind
-		arg2 *model.Config
-		arg3 model.Event
-	}{arg1, arg2, arg3})
-	fake.recordInvocation("Share", []interface{}{arg1, arg2, arg3})
-	fake.shareMutex.Unlock()
-	if fake.ShareStub != nil {
-		fake.ShareStub(arg1, arg2, arg3)
-	}
-}
-
-func (fake *ConfigStoreCache) ShareCallCount() int {
-	fake.shareMutex.RLock()
-	defer fake.shareMutex.RUnlock()
-	return len(fake.shareArgsForCall)
-}
-
-func (fake *ConfigStoreCache) ShareCalls(stub func(resource.GroupVersionKind, *model.Config, model.Event)) {
-	fake.shareMutex.Lock()
-	defer fake.shareMutex.Unlock()
-	fake.ShareStub = stub
-}
-
-func (fake *ConfigStoreCache) ShareArgsForCall(i int) (resource.GroupVersionKind, *model.Config, model.Event) {
-	fake.shareMutex.RLock()
-	defer fake.shareMutex.RUnlock()
-	argsForCall := fake.shareArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
-}
-
 func (fake *ConfigStoreCache) Update(arg1 model.Config) (string, error) {
 	fake.updateMutex.Lock()
 	ret, specificReturn := fake.updateReturnsOnCall[len(fake.updateArgsForCall)]
@@ -931,8 +891,6 @@ func (fake *ConfigStoreCache) Invocations() map[string][][]interface{} {
 	defer fake.schemasMutex.RUnlock()
 	fake.setLedgerMutex.RLock()
 	defer fake.setLedgerMutex.RUnlock()
-	fake.shareMutex.RLock()
-	defer fake.shareMutex.RUnlock()
 	fake.updateMutex.RLock()
 	defer fake.updateMutex.RUnlock()
 	fake.versionMutex.RLock()
