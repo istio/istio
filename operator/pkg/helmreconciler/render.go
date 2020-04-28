@@ -348,9 +348,6 @@ func (h *HelmReconciler) ProcessObject(chartName string, obj *unstructured.Unstr
 				return err
 			}
 			updateErr := h.client.Update(context.TODO(), receiver)
-			if updateErr != nil {
-				scope.Warnf("update %v: %v", receiver.GetName(), updateErr)
-			}
 			return updateErr
 		}
 		return nil
@@ -479,4 +476,22 @@ func (mm ChartManifestsMap) Consolidated() map[string]string {
 		out[cname] = allM
 	}
 	return out
+}
+
+// removeFromObjectCache removes object with objHash in componentName from the object cache.
+func (h *HelmReconciler) removeFromObjectCache(componentName, objHash string) {
+	crHash, err := h.getCRHash(componentName)
+	if err != nil {
+		scope.Error(err.Error())
+	}
+	objectCachesMu.Lock()
+	objectCache := objectCaches[crHash]
+	objectCachesMu.Unlock()
+
+	if objectCache != nil {
+		objectCache.mu.Lock()
+		delete(objectCache.cache, objHash)
+		objectCache.mu.Unlock()
+		scope.Infof("Removed object %s from cache.", objHash)
+	}
 }

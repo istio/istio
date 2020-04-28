@@ -229,6 +229,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			}
 			// This should be only set for the first request. The node id may not be set - for example malicious clients.
 			if con.node == nil {
+				if discReq.Node == nil {
+					return errors.New("missing node ID")
+				}
 				if err := s.initConnection(discReq.Node, con); err != nil {
 					return err
 				}
@@ -240,7 +243,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 			// Based on node metadata a different generator was selected, use it instead of the default
 			// behavior.
-			if con.node.XdsResourceGenerator != nil && discReq.TypeUrl != EndpointType {
+			if con.node.XdsResourceGenerator != nil {
 				// Endpoints are special - will use the optimized code path.
 				err = s.handleCustomGenerator(con, discReq)
 				if err != nil {
@@ -626,7 +629,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 	// returning nil if the push is not needed.
 	if con.node.XdsResourceGenerator != nil {
 		for _, w := range con.node.Active {
-			err := s.pushGeneratorV2(con, pushEv.push, currentVersion, w)
+			err := s.pushGeneratorV2(con, pushEv.push, currentVersion, w, pushEv.configsUpdated)
 			if err != nil {
 				return err
 			}
@@ -807,8 +810,6 @@ func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 				conn.RouteNonceSent = res.Nonce
 			case EndpointType, v3.EndpointType:
 				conn.EndpointNonceSent = res.Nonce
-			default:
-				adsLog.Warnf("sent unknown XDS type: %v", res.TypeUrl)
 			}
 		}
 		if res.TypeUrl == RouteType || res.TypeUrl == v3.RouteType {

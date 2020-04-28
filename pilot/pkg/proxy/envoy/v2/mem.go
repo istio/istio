@@ -116,6 +116,7 @@ func (sd *MemServiceDiscovery) AddWorkload(ip string, labels labels.Instance) {
 func (sd *MemServiceDiscovery) AddHTTPService(name, vip string, port int) {
 	sd.AddService(host.Name(name), &model.Service{
 		Hostname: host.Name(name),
+		Address:  vip,
 		Ports: model.PortList{
 			{
 				Name:     "http-main",

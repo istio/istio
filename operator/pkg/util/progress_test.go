@@ -30,7 +30,7 @@ func TestProgressLog(t *testing.T) {
 		// In buffer mode we don't overwrite old data, so we are constantly appending to the expected
 		newExpected := expected + "\n" + e
 		if newExpected != buf.String() {
-			t.Fatalf("expected '%v', got '%v'", e, buf.String())
+			t.Fatalf("expected '%v', \ngot '%v'", newExpected, buf.String())
 		}
 		expected = newExpected
 	}
@@ -45,9 +45,7 @@ func TestProgressLog(t *testing.T) {
 	// string buffer won't rewrite, so we append
 	expect(`- Processing resources for components bar, foo.`)
 	bar.ReportProgress()
-	expect(`- Processing resources for components bar, foo.`)
 	bar.ReportProgress()
-	expect(`  Processing resources for components bar, foo.`)
 
 	bar.ReportWaiting([]string{"deployment"})
 	expect(`- Processing resources for components bar, foo. Waiting for deployment`)
