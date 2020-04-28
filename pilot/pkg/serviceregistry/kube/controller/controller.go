@@ -956,37 +956,7 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collecti
 // For example, a service account named "bar" in namespace "foo" is encoded as
 // "spiffe://cluster.local/ns/foo/sa/bar".
 func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
-	saSet := make(map[string]bool)
-
-	instances := make([]*model.ServiceInstance, 0)
-	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
-	// the service is deployed on, and the service accounts of the pods.
-	for _, port := range ports {
-		svcInstances, err := c.InstancesByPort(svc, port, labels.Collection{})
-		if err != nil {
-			log.Warnf("InstancesByPort(%s:%d) error: %v", svc.Hostname, port, err)
-			return nil
-		}
-		instances = append(instances, svcInstances...)
-	}
-
-	for _, si := range instances {
-		if si.Endpoint.ServiceAccount != "" {
-			saSet[si.Endpoint.ServiceAccount] = true
-		}
-	}
-
-	for _, serviceAccount := range svc.ServiceAccounts {
-		sa := serviceAccount
-		saSet[sa] = true
-	}
-
-	saArray := make([]string, 0, len(saSet))
-	for sa := range saSet {
-		saArray = append(saArray, sa)
-	}
-
-	return saArray
+	return model.GetServiceAccounts(svc, ports, c)
 }
 
 // AppendServiceHandler implements a service catalog operation
