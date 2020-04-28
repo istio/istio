@@ -509,7 +509,7 @@ func TestWebhookSelector(t *testing.T) {
 		{defaultSelector0, legacyAndCanaryLabel, false},
 
 		// Second webhook: match istio.io/rev=default. It is okay if both labels are present; only this webhook is matched
-		// Essentially the logic here is (a && !b) || b, which is equivilent to a || b, or desired end state, without
+		// Essentially the logic here is (a && !b) || b, which is equivalent to a || b, or desired end state, without
 		// triggering duplicate injection
 		{defaultSelector1, legacyLabel, false},
 		{defaultSelector1, defaultRevLabel, true},
