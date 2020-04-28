@@ -199,6 +199,25 @@ func getServiceEntryHandler(c *ServiceEntryStore) func(model.Config, model.Confi
 			}
 		}
 
+		if len(unchangedSvcs) > 0 {
+			// If this service entry had endpoints with IPs (i.e. resolution STATIC), then we do EDS update.
+			// If the service entry had endpoints with FQDNs (i.e. resolution DNS), then we need to do
+			// full push (as fqdn endpoints go via strict_dns clusters in cds).
+			currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
+			oldServiceEntry := old.Spec.(*networking.ServiceEntry)
+			if currentServiceEntry.Resolution == networking.ServiceEntry_DNS {
+				if !reflect.DeepEqual(currentServiceEntry.Endpoints, oldServiceEntry.Endpoints) {
+					// fqdn endpoints have changed. Need full push
+					for _, svc := range unchangedSvcs {
+						configsUpdated[model.ConfigKey{
+							Kind:      model.ServiceEntryKind,
+							Name:      string(svc.Hostname),
+							Namespace: svc.Attributes.Namespace}] = struct{}{}
+					}
+				}
+			}
+		}
+
 		willFullPush := len(configsUpdated) > 0
 		refreshIndexes := willFullPush // If will trigger full-push, lazy-update instance index.
 
@@ -208,6 +227,7 @@ func getServiceEntryHandler(c *ServiceEntryStore) func(model.Config, model.Confi
 		c.changeMutex.Unlock()
 
 		if len(unchangedSvcs) > 0 && !willFullPush {
+			// IP endpoints in a STATIC service entry has changed. We need EDS update
 			// If will do full-push, leave the edsUpdate to that.
 			// XXX We should do edsUpdate for all unchangedSvcs since we begin to calculate service
 			// data according to this "configsUpdated" and thus remove the "!willFullPush" condition.
