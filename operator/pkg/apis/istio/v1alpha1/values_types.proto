@@ -510,6 +510,8 @@ message GlobalConfig {
   string remotePolicyAddress = 47;
   // Specifies the Istio control plane’s pilot Pod IP address or remote cluster DNS resolvable hostname.
   string remotePilotAddress = 48;
+  // Specifies the targetPort on which the remote pilot can be reached with istiod enabled
+  uint32 remoteIstiodPort = 63;
   // Specifies the Istio control plane’s telemetry Pod IP address or remote cluster DNS resolvable hostname
   string remoteTelemetryAddress = 49;
 
@@ -538,7 +540,7 @@ message GlobalConfig {
 
   // Controls whether one central istiod is enabled.
   google.protobuf.BoolValue centralIstiod = 62;
-  // The next available key is 63
+  // The next available key is 64
 }
 
 // Configuration for Security Token Service (STS) server.

@@ -22,7 +22,11 @@ spec:
   ports:
   - port: 15012
     name: tcp-istiod
+    {{- if not .Values.global.remoteIstiodPort }}
   clusterIP: None
+    {{- else }}
+    targetPort: {{ .Values.global.remoteIstiodPort }}
+    {{- end }}
   {{- end }}
 ---
 {{- end }}

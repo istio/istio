@@ -23,7 +23,7 @@ subsets:
 - addresses:
   - ip: {{ .Values.global.remotePilotAddress }}
   ports:
-  - port: 15012
+  - port: {{ .Values.global.remoteIstiodPort | default 15012 }}
     name: tcp-istiod
   {{- end }}
 ---
