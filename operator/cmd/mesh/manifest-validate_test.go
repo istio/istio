@@ -379,3 +379,330 @@ func TestValidatePort(t *testing.T) {
 		})
 	}
 }
+
+func TestIstioComponentsFlags(t *testing.T) {
+
+	tests := []struct {
+		name string
+		args []string
+		want error
+	}{
+		{
+			name: "Test valid pilot resource memory",
+			args: []string{
+				"components.pilot.k8s.resources.requests.memory=500m",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid pilot resource memory",
+			args: []string{
+				"components.pilot.k8s.resources.requests.memory=hundred",
+			},
+			want: fmt.Errorf(resourceErr, "hundred", "components.pilot.k8s.resources.requests.memory"),
+		},
+		{
+			name: "Test valid pilot resource cpu",
+			args: []string{
+				"components.pilot.k8s.resources.requests.cpu=100m",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid pilot resource cpu",
+			args: []string{
+				"components.pilot.k8s.resources.requests.cpu=ten",
+			},
+			want: fmt.Errorf(resourceErr, "ten", "components.pilot.k8s.resources.requests.cpu"),
+		},
+		{
+			name: "Test valid proxy resource memory",
+			args: []string{
+				"components.proxy.k8s.resources.requests.memory=500m",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid proxy resource memory",
+			args: []string{
+				"components.proxy.k8s.resources.requests.memory=hundred",
+			},
+			want: fmt.Errorf(resourceErr, "hundred", "components.proxy.k8s.resources.requests.memory"),
+		},
+		{
+			name: "Test valid proxy resource cpu",
+			args: []string{
+				"components.proxy.k8s.resources.requests.cpu=100m",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid proxy resource cpu",
+			args: []string{
+				"components.proxy.k8s.resources.requests.cpu=ten",
+			},
+			want: fmt.Errorf(resourceErr, "ten", "components.proxy.k8s.resources.requests.cpu"),
+		},
+		{
+			name: "Test valid sidecarInjector resource memory",
+			args: []string{
+				"components.sidecarInjector.k8s.resources.requests.memory=500m",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid sidecarInjector resource memory",
+			args: []string{
+				"components.sidecarInjector.k8s.resources.requests.memory=hundred",
+			},
+			want: fmt.Errorf(resourceErr, "hundred", "components.sidecarInjector.k8s.resources.requests.memory"),
+		},
+		{
+			name: "Test valid sidecarInjector resource cpu",
+			args: []string{
+				"components.sidecarInjector.k8s.resources.requests.cpu=100m",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid sidecarInjector resource cpu",
+			args: []string{
+				"components.sidecarInjector.k8s.resources.requests.cpu=ten",
+			},
+			want: fmt.Errorf(resourceErr, "ten", "components.sidecarInjector.k8s.resources.requests.cpu"),
+		},
+		{
+			name: "Test valid policy resource memory",
+			args: []string{
+				"components.policy.k8s.resources.requests.memory=500m",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid policy resource memory",
+			args: []string{
+				"components.policy.k8s.resources.requests.memory=hundred",
+			},
+			want: fmt.Errorf(resourceErr, "hundred", "components.policy.k8s.resources.requests.memory"),
+		},
+		{
+			name: "Test valid policy resource cpu",
+			args: []string{
+				"components.policy.k8s.resources.requests.cpu=100m",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid policy resource cpu",
+			args: []string{
+				"components.policy.k8s.resources.requests.cpu=ten",
+			},
+			want: fmt.Errorf(resourceErr, "ten", "components.policy.k8s.resources.requests.cpu"),
+		},
+		{
+			name: "Test valid telemetry resource memory",
+			args: []string{
+				"components.telemetry.k8s.resources.requests.memory=500m",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid telemetry resource memory",
+			args: []string{
+				"components.telemetry.k8s.resources.requests.memory=hundred",
+			},
+			want: fmt.Errorf(resourceErr, "hundred", "components.telemetry.k8s.resources.requests.memory"),
+		},
+		{
+			name: "Test valid telemetry resource cpu",
+			args: []string{
+				"components.telemetry.k8s.resources.requests.cpu=100m",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid telemetry resource cpu",
+			args: []string{
+				"components.telemetry.k8s.resources.requests.cpu=ten",
+			},
+			want: fmt.Errorf(resourceErr, "ten", "components.telemetry.k8s.resources.requests.cpu"),
+		},
+		{
+			name: "Test valid citadel resource memory",
+			args: []string{
+				"components.citadel.k8s.resources.requests.memory=500m",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid citadel resource memory",
+			args: []string{
+				"components.citadel.k8s.resources.requests.memory=hundred",
+			},
+			want: fmt.Errorf(resourceErr, "hundred", "components.citadel.k8s.resources.requests.memory"),
+		},
+		{
+			name: "Test valid citadel resource cpu",
+			args: []string{
+				"components.citadel.k8s.resources.requests.cpu=100m",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid citadel resource cpu",
+			args: []string{
+				"components.citadel.k8s.resources.requests.cpu=ten",
+			},
+			want: fmt.Errorf(resourceErr, "ten", "components.citadel.k8s.resources.requests.cpu"),
+		},
+		{
+			name: "Test valid nodeAgent resource memory",
+			args: []string{
+				"components.nodeAgent.k8s.resources.requests.memory=500m",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid nodeAgent resource memory",
+			args: []string{
+				"components.nodeAgent.k8s.resources.requests.memory=hundred",
+			},
+			want: fmt.Errorf(resourceErr, "hundred", "components.nodeAgent.k8s.resources.requests.memory"),
+		},
+		{
+			name: "Test valid nodeAgent resource cpu",
+			args: []string{
+				"components.nodeAgent.k8s.resources.requests.cpu=100m",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid nodeAgent resource cpu",
+			args: []string{
+				"components.nodeAgent.k8s.resources.requests.cpu=ten",
+			},
+			want: fmt.Errorf(resourceErr, "ten", "components.nodeAgent.k8s.resources.requests.cpu"),
+		},
+		{
+			name: "Test valid galley resource memory",
+			args: []string{
+				"components.galley.k8s.resources.requests.memory=500m",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid galley resource memory",
+			args: []string{
+				"components.galley.k8s.resources.requests.memory=hundred",
+			},
+			want: fmt.Errorf(resourceErr, "hundred", "components.galley.k8s.resources.requests.memory"),
+		},
+		{
+			name: "Test valid galley resource cpu",
+			args: []string{
+				"components.galley.k8s.resources.requests.cpu=100m",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid galley resource cpu",
+			args: []string{
+				"components.galley.k8s.resources.requests.cpu=ten",
+			},
+			want: fmt.Errorf(resourceErr, "ten", "components.galley.k8s.resources.requests.cpu"),
+		},
+		{
+			name: "Test valid cni resource memory",
+			args: []string{
+				"components.cni.k8s.resources.requests.memory=500m",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid cni resource memory",
+			args: []string{
+				"components.cni.k8s.resources.requests.memory=hundred",
+			},
+			want: fmt.Errorf(resourceErr, "hundred", "components.cni.k8s.resources.requests.memory"),
+		},
+		{
+			name: "Test valid cni resource cpu",
+			args: []string{
+				"components.cni.k8s.resources.requests.cpu=100m",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid cni resource cpu",
+			args: []string{
+				"components.cni.k8s.resources.requests.cpu=ten",
+			},
+			want: fmt.Errorf(resourceErr, "ten", "components.cni.k8s.resources.requests.cpu"),
+		},
+		{
+			name: "Test valid ingressGateways resource memory",
+			args: []string{
+				"components.ingressGateways.k8s.resources.requests.memory=500m",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid ingressGateways resource memory",
+			args: []string{
+				"components.ingressGateways.k8s.resources.requests.memory=hundred",
+			},
+			want: fmt.Errorf(resourceErr, "hundred", "components.ingressGateways.k8s.resources.requests.memory"),
+		},
+		{
+			name: "Test valid ingressGateways resource cpu",
+			args: []string{
+				"components.ingressGateways.k8s.resources.requests.cpu=100m",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid ingressGateways resource cpu",
+			args: []string{
+				"components.ingressGateways.k8s.resources.requests.cpu=ten",
+			},
+			want: fmt.Errorf(resourceErr, "ten", "components.ingressGateways.k8s.resources.requests.cpu"),
+		},
+		{
+			name: "Test valid egressGateways resource memory",
+			args: []string{
+				"components.egressGateways.k8s.resources.requests.memory=500m",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid egressGateways resource memory",
+			args: []string{
+				"components.egressGateways.k8s.resources.requests.memory=hundred",
+			},
+			want: fmt.Errorf(resourceErr, "hundred", "components.egressGateways.k8s.resources.requests.memory"),
+		},
+		{
+			name: "Test valid egressGateways resource cpu",
+			args: []string{
+				"components.egressGateways.k8s.resources.requests.cpu=100m",
+			},
+			want: nil,
+		},
+		{
+			name: "Test invalid egressGateways resource cpu",
+			args: []string{
+				"components.egressGateways.k8s.resources.requests.cpu=ten",
+			},
+			want: fmt.Errorf(resourceErr, "ten", "components.egressGateways.k8s.resources.requests.cpu"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ValidateSetFlags(tt.args)
+			if got != nil && fmt.Sprintf("%v", got) != fmt.Sprintf("%v", tt.want) {
+				t.Errorf("got: %v, want: %v", got, tt.want)
+			}
+		})
+	}
+}

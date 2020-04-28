@@ -38,6 +38,8 @@ import (
 const (
 	traceSamplingMin float64 = 0.0
 	traceSamplingMax float64 = 100.0
+
+	resourceErr string = `\n Unsupported value: %q for flag %q, use valid format eg: 1G, 100m`
 )
 
 var (
@@ -339,8 +341,7 @@ func verifyValues(flagName, flagValue string) error {
 	}
 	if valPtr == reflect.ValueOf(validateResources).Pointer() {
 		if validateResources(flagValue) {
-			return fmt.Errorf("\n Unsupported value: %q for flag %q, use valid format eg: 1G, 100m",
-				flagValue, flagName)
+			return fmt.Errorf(resourceErr, flagValue, flagName)
 		}
 	}
 	return nil
