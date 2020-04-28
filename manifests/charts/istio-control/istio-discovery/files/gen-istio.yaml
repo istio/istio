@@ -1667,6 +1667,7 @@ metadata:
     app: sidecar-injector
     release: istio
 webhooks:
+
   - name: sidecar-injector.istio.io
     clientConfig:
       service:
@@ -1681,5 +1682,33 @@ webhooks:
         resources: ["pods"]
     failurePolicy: Fail
     namespaceSelector:
-      matchLabels:
-        istio-injection: enabled
+      matchExpressions:
+      - key: istio-injection
+        operator: In
+        values:
+          - enabled
+      - key: istio.io/rev
+        operator: DoesNotExist
+
+
+  - name: sidecar-injector.istio.io
+    clientConfig:
+      service:
+        name: istiod
+        namespace: istio-system
+        path: "/inject"
+      caBundle: ""
+    rules:
+      - operations: [ "CREATE" ]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+    failurePolicy: Fail
+    namespaceSelector:
+      matchExpressions:
+        - key: istio-injection
+          operator: DoesNotExist
+        - key: istio.io/rev
+          operator: In
+          values:
+            - default

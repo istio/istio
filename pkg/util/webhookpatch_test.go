@@ -16,7 +16,6 @@ package util
 
 import (
 	"bytes"
-	"encoding/json"
 	"strings"
 	"testing"
 
@@ -95,14 +94,11 @@ func TestMutatingWebhookPatch(t *testing.T) {
 					t.Fatalf("Got %q, want %q", err, tc.err)
 				}
 			} else {
-				config := admissionregistrationv1beta1.MutatingWebhookConfiguration{}
-				patch := client.Actions()[1].(k8stesting.PatchAction).GetPatch()
-				err = json.Unmarshal(patch, &config)
-				if err != nil {
-					t.Fatalf("Fail to parse the patch: %s", err.Error())
-				}
-				if !bytes.Equal(config.Webhooks[0].ClientConfig.CABundle, tc.pemData) {
-					t.Fatalf("Incorrect CA bundle: expect %s got %s", tc.pemData, config.Webhooks[0].ClientConfig.CABundle)
+				obj := client.Actions()[1].(k8stesting.UpdateAction).GetObject()
+				for _, w := range obj.(*admissionregistrationv1beta1.MutatingWebhookConfiguration).Webhooks {
+					if !bytes.Equal(w.ClientConfig.CABundle, tc.pemData) {
+						t.Fatalf("Incorrect CA bundle: expect %s got %s", tc.pemData, w.ClientConfig.CABundle)
+					}
 				}
 			}
 		})
