@@ -16,7 +16,10 @@ package istio
 
 import (
 	"fmt"
+	"net"
 	"time"
+
+	kubeenv "istio.io/istio/pkg/test/framework/components/environment/kube"
 
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -39,6 +42,11 @@ spec:
 `
 )
 
+var (
+	igwServiceName = "istio-ingressgateway"
+	istiodPort     = 15012
+)
+
 func waitForValidationWebhook(accessor *kube.Accessor, cfg Config) error {
 	dummyValidationRule := fmt.Sprintf(dummyValidationRuleTemplate, cfg.SystemNamespace)
 	defer func() {
@@ -57,4 +65,18 @@ func waitForValidationWebhook(accessor *kube.Accessor, cfg Config) error {
 
 		return fmt.Errorf("validation webhook not ready yet: %v", err)
 	}, retry.Timeout(time.Minute))
+}
+
+func getIstiodAddress(cfg Config, cluster kubeenv.Cluster) (net.TCPAddr, error) {
+	// If running in KinD, MetalLB must be installed to enable LoadBalancer resources
+	svc, err := cluster.GetService(cfg.SystemNamespace, igwServiceName)
+	if err != nil {
+		return net.TCPAddr{}, err
+	}
+	if len(svc.Status.LoadBalancer.Ingress) == 0 || svc.Status.LoadBalancer.Ingress[0].IP == "" {
+		return net.TCPAddr{}, fmt.Errorf("service ingress is not available yet: %s/%s", svc.Namespace, svc.Name)
+	}
+
+	ip := svc.Status.LoadBalancer.Ingress[0].IP
+	return net.TCPAddr{IP: net.ParseIP(ip), Port: istiodPort}, nil
 }
