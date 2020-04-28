@@ -600,8 +600,20 @@ func GetTLSModeFromEndpointLabels(labels map[string]string) string {
 }
 
 // GetServiceAccounts returns aggregated list of service accounts of Service plus its instances.
-func GetServiceAccounts(svc *Service, instances []*ServiceInstance) []string {
+func GetServiceAccounts(svc *Service, ports []int, discovery ServiceDiscovery) []string {
 	sa := sets.Set{}
+
+	instances := make([]*ServiceInstance, 0)
+	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
+	// the service is deployed on, and the service accounts of the pods.
+	for _, port := range ports {
+		svcInstances, err := discovery.InstancesByPort(svc, port, labels.Collection{})
+		if err != nil {
+			log.Warnf("InstancesByPort(%s:%d) error: %v", svc.Hostname, port, err)
+			return nil
+		}
+		instances = append(instances, svcInstances...)
+	}
 
 	for _, si := range instances {
 		if si.Endpoint.ServiceAccount != "" {

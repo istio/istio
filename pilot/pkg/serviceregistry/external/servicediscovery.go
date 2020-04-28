@@ -646,18 +646,7 @@ func (d *ServiceEntryStore) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.C
 func (d *ServiceEntryStore) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
 	// service entries with built in endpoints have SANs as a dedicated field.
 	// Those with selector labels will have service accounts embedded inside workloadEntries and pods as well.
-	instances := make([]*model.ServiceInstance, 0)
-	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
-	// the service is deployed on, and the service accounts of the pods.
-	for _, port := range ports {
-		svcInstances, err := d.InstancesByPort(svc, port, labels.Collection{})
-		if err != nil {
-			log.Warnf("InstancesByPort(%s:%d) error: %v", svc.Hostname, port, err)
-			return nil
-		}
-		instances = append(instances, svcInstances...)
-	}
-	return model.GetServiceAccounts(svc, instances)
+	return model.GetServiceAccounts(svc, ports, d)
 }
 
 func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, []*model.Service, []*model.Service, []*model.Service) {
