@@ -57,8 +57,8 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 		MixerValidator: validate.NewDefaultValidator(false),
 		Schemas:        collections.Istio,
 		DomainSuffix:   args.Config.ControllerOptions.DomainSuffix,
-		CertFile:       model.GetOrDefault(filepath.Join(dnsCertDir, "cert-chain.pem"), defaultTLSServerCertChain),
-		KeyFile:        model.GetOrDefault(filepath.Join(dnsCertDir, "key.pem"), defaultTLSServerKey),
+		CertFile:       model.GetOrDefault(args.TLSOptions.CertFile, filepath.Join(dnsCertDir, "cert-chain.pem")),
+		KeyFile:        model.GetOrDefault(args.TLSOptions.KeyFile, filepath.Join(dnsCertDir, "key.pem")),
 		Mux:            s.httpsMux,
 	}
 	whServer, err := server.New(params)

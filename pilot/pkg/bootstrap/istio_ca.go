@@ -116,15 +116,6 @@ var (
 
 	audience = env.RegisterStringVar("AUDIENCE", "",
 		"Expected audience in the tokens. ")
-
-	defaultTLSServerCertChain = env.RegisterStringVar("TLS_SERVER_CERT_CHAIN", "",
-		"Default location for file based server x509 certificate.").Get()
-
-	defaultTLSServerKey = env.RegisterStringVar("TLS_SERVER_KEY", "",
-		"Default location for file based server x509 private key.").Get()
-
-	defaultTLSServerRootCert = env.RegisterStringVar("TLS_SERVER_ROOT_CERT", "",
-		"Default location for file based server x509 root certificate.").Get()
 )
 
 const (
