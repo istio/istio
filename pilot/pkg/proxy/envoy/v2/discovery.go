@@ -93,6 +93,10 @@ type DiscoveryServer struct {
 	ConfigGenerator core.ConfigGenerator
 
 	// Generators allow customizing the generated config, based on the client metadata.
+	// Key is the generator type - will match the Generator metadata to set the per-connection
+	// default generator, or the combination of Generator metadata and TypeUrl to select a
+	// different generator for a type.
+	// Normal istio clients use the default generator - will not be impacted by this.
 	Generators map[string]model.XdsResourceGenerator
 
 	concurrentPushLimit chan struct{}
