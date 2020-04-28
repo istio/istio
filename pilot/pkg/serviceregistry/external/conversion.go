@@ -145,6 +145,7 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 		}
 	}
 
+	tlsMode := getTLSModeFromWorkloadEntry(endpoint)
 	sa := ""
 	if endpoint.ServiceAccount != "" {
 		sa = spiffe.MustGenSpiffeURI(service.Attributes.Namespace, endpoint.ServiceAccount)
@@ -160,7 +161,7 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 			},
 			LbWeight:       endpoint.Weight,
 			Labels:         endpoint.Labels,
-			TLSMode:        model.GetTLSModeFromEndpointLabels(endpoint.Labels),
+			TLSMode:        tlsMode,
 			ServiceAccount: sa,
 		},
 		Service:     service,
@@ -213,6 +214,19 @@ func convertInstances(cfg model.Config, services []*model.Service) []*model.Serv
 		}
 	}
 	return out
+}
+
+func getTLSModeFromWorkloadEntry(wle *networking.WorkloadEntry) string {
+	// * Use security.istio.io/tlsMode if its present
+	// * If not, set TLS mode if ServiceAccount is specified
+	tlsMode := model.DisabledTLSModeLabel
+	if val, exists := wle.Labels[model.TLSModeLabelName]; exists {
+		tlsMode = val
+	} else if wle.ServiceAccount != "" {
+		tlsMode = model.IstioMutualTLSModeLabel
+	}
+
+	return tlsMode
 }
 
 // The foreign service instance has pointer to the foreign service and its service port.

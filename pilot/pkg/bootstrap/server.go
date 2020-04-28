@@ -121,9 +121,10 @@ type Server struct {
 	httpsServer      *http.Server // webhooks HTTPS Server.
 	httpsReadyClient *http.Client
 	grpcServer       *grpc.Server
-	secureGrpcServer *grpc.Server   //
+	secureGrpcServer *grpc.Server
 	mux              *http.ServeMux // debug
 	httpsMux         *http.ServeMux // webhooks
+	kubeRegistry     *kubecontroller.Controller
 	certController   *chiron.WebhookController
 	ca               *ca.IstioCA
 	// path to the caBundle that signs the DNS certs. This should be agnostic to provider.

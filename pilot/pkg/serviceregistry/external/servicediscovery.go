@@ -594,7 +594,6 @@ func updateInstances(key configKey, instances []*model.ServiceInstance, instance
 	ip2instance map[string][]*model.ServiceInstance) {
 	for _, instance := range instances {
 		ikey := makeInstanceKey(instance)
-		// instance key exist
 		if _, f := instancemap[ikey]; !f {
 			instancemap[ikey] = map[configKey][]*model.ServiceInstance{}
 		}
