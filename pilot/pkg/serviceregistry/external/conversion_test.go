@@ -420,8 +420,8 @@ const (
 )
 
 func makeInstanceWithServiceAccount(cfg *model.Config, address string, port int,
-	svcPort *networking.Port, svcLabels map[string]string, mtlsMode MTLSMode, serviceAccount string) *model.ServiceInstance {
-	i := makeInstance(cfg, address, port, svcPort, svcLabels, mtlsMode)
+	svcPort *networking.Port, svcLabels map[string]string, serviceAccount string) *model.ServiceInstance {
+	i := makeInstance(cfg, address, port, svcPort, svcLabels, MTLSUnlabelled)
 	i.Endpoint.ServiceAccount = spiffe.MustGenSpiffeURI(i.Service.Attributes.Namespace, serviceAccount)
 	return i
 }
@@ -677,8 +677,8 @@ func TestConvertWorkloadInstances(t *testing.T) {
 			},
 			se: selector,
 			out: []*model.ServiceInstance{
-				makeInstanceWithServiceAccount(selector, "1.1.1.1", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], labels, MTLSUnlabelled, "default"),
-				makeInstanceWithServiceAccount(selector, "1.1.1.1", 445, selector.Spec.(*networking.ServiceEntry).Ports[1], labels, MTLSUnlabelled, "default"),
+				makeInstanceWithServiceAccount(selector, "1.1.1.1", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], labels, "default"),
+				makeInstanceWithServiceAccount(selector, "1.1.1.1", 445, selector.Spec.(*networking.ServiceEntry).Ports[1], labels, "default"),
 			},
 		},
 		{

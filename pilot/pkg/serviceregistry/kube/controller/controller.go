@@ -185,7 +185,7 @@ type Controller struct {
 	domainSuffix         string
 	clusterID            string
 
-	serviceHandlers []func(*model.Service, model.Event)
+	serviceHandlers  []func(*model.Service, model.Event)
 	instanceHandlers []func(*model.ServiceInstance, model.Event)
 
 	// This is only used for test
