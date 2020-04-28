@@ -35,7 +35,3 @@ func (c cluster) Index() resource.ClusterIndex {
 	// Multicluster not supported natively.
 	return 0
 }
-
-func (c cluster) IsControlPlaneCluster() bool {
-	return true
-}
