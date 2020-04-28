@@ -23,15 +23,13 @@ import (
 	"strings"
 	"testing"
 
-	klabels "k8s.io/apimachinery/pkg/labels"
-
 	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/tpath"
-	"istio.io/istio/pkg/test"
 
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/version"
+
+	. "github.com/onsi/gomega"
 )
 
 type testGroup []struct {
@@ -49,6 +47,57 @@ type testGroup []struct {
 	diffSelect                  string
 	diffIgnore                  string
 	useCompiledInCharts         bool
+}
+
+func TestManifestGenerateGateways(t *testing.T) {
+	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate")
+	g := NewGomegaWithT(t)
+	m, _, err := generateManifest("gateways", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	objs := parseObjectSetFromManifest(t, m)
+	g.Expect(objs.kind(hpaStr).size()).Should(Equal(3))
+	g.Expect(objs.kind(pdbStr).size()).Should(Equal(3))
+	g.Expect(objs.kind(serviceStr).size()).Should(Equal(3))
+
+	// Two namespaces so two sets of these.
+	// istio-ingressgateway and user-ingressgateway share these as they are in the same namespace (istio-system).
+	g.Expect(objs.kind(roleStr).size()).Should(Equal(2))
+	g.Expect(objs.kind(roleBindingStr).size()).Should(Equal(2))
+	g.Expect(objs.kind(saStr).size()).Should(Equal(2))
+
+	dobj := mustGetDeployment(g, objs, "istio-ingressgateway")
+	d := dobj.Unstructured()
+	c := dobj.Container("istio-proxy")
+	g.Expect(d).Should(HavePathValueContain(PathValue{"metadata.labels", toMap("aaa:aaa-val,bbb:bbb-val")}))
+	g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "111m"}))
+
+	dobj = mustGetDeployment(g, objs, "user-ingressgateway")
+	d = dobj.Unstructured()
+	c = dobj.Container("istio-proxy")
+	g.Expect(d).Should(HavePathValueContain(PathValue{"metadata.labels", toMap("ccc:ccc-val,ddd:ddd-val")}))
+	g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "222m"}))
+
+	dobj = mustGetDeployment(g, objs, "ilb-gateway")
+	d = dobj.Unstructured()
+	c = dobj.Container("istio-proxy")
+	s := mustGetService(g, objs, "ilb-gateway").Unstructured()
+	g.Expect(d).Should(HavePathValueEqual(PathValue{"metadata.labels", toMap("app:istio-ingressgateway,istio:ingressgateway,release: istio")}))
+	g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "333m"}))
+	g.Expect(c).Should(HavePathValueEqual(PathValue{"volumeMounts.[name:ilbgateway-certs].name", "ilbgateway-certs"}))
+	g.Expect(s).Should(HavePathValueEqual(PathValue{"metadata.annotations", toMap("cloud.google.com/load-balancer-type: internal")}))
+	g.Expect(s).Should(HavePathValueEqual(PathValue{"spec.ports.[0]", portVal("grpc-pilot-mtls", 15011, -1)}))
+	g.Expect(s).Should(HavePathValueEqual(PathValue{"spec.ports.[1]", portVal("tcp-citadel-grpc-tls", 8060, 8060)}))
+	g.Expect(s).Should(HavePathValueEqual(PathValue{"spec.ports.[2]", portVal("tcp-dns", 5353, -1)}))
+
+	for _, o := range objs.kind(hpaStr).objSlice {
+		ou := o.Unstructured()
+		g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.minReplicas", int64(1)}))
+		g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.maxReplicas", int64(5)}))
+	}
+
+	checkRoleBindingsReferenceRoles(g, objs)
 }
 
 func TestManifestGenerateFlags(t *testing.T) {
@@ -291,10 +340,10 @@ func TestConfigSelectors(t *testing.T) {
 
 	// First we fetch all the objects for our default install
 	name := "istiod"
-	deployment := mustFindObject(t, objs, name, "Deployment")
-	service := mustFindObject(t, objs, name, "Service")
-	pdb := mustFindObject(t, objs, name, "PodDisruptionBudget")
-	hpa := mustFindObject(t, objs, name, "HorizontalPodAutoscaler")
+	deployment := mustFindObject(t, objs, name, deploymentStr)
+	service := mustFindObject(t, objs, name, serviceStr)
+	pdb := mustFindObject(t, objs, name, pdbStr)
+	hpa := mustFindObject(t, objs, name, hpaStr)
 	podLabels := mustGetLabels(t, deployment, "spec.template.metadata.labels")
 
 	// Check all selectors align
@@ -305,13 +354,13 @@ func TestConfigSelectors(t *testing.T) {
 		t.Fatalf("HPA does not match deployment: %v != %v", name, hpaName)
 	}
 
-	// Check selection of previous versions
-	podLabels14 := map[string]string{
+	// Check selection of previous versions . This only matters for in place upgrade (non revision)
+	podLabels15 := map[string]string{
 		"app":   "istiod",
 		"istio": "pilot",
 	}
-	mustSelect(t, mustGetLabels(t, service, "spec.selector"), podLabels14)
-	mustSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabels14)
+	mustSelect(t, mustGetLabels(t, service, "spec.selector"), podLabels15)
+	mustSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabels15)
 
 	// Check we aren't changing immutable fields. This one is not a selector, it must be an exact match
 	deploymentSelector14 := map[string]string{
@@ -320,63 +369,6 @@ func TestConfigSelectors(t *testing.T) {
 	if sel := mustGetLabels(t, deployment, "spec.selector.matchLabels"); !reflect.DeepEqual(deploymentSelector14, sel) {
 		t.Fatalf("Depployment selectors are immutable, but changed since 1.4. Was %v, now is %v", deploymentSelector14, sel)
 	}
-}
-
-func mustSelect(t test.Failer, selector map[string]string, labels map[string]string) {
-	t.Helper()
-	kselector := klabels.Set(selector).AsSelectorPreValidated()
-	if !kselector.Matches(klabels.Set(labels)) {
-		t.Fatalf("%v does not select %v", selector, labels)
-	}
-}
-
-func mustGetLabels(t test.Failer, obj object.K8sObject, path string) map[string]string {
-	t.Helper()
-	got := mustGetPath(t, obj, path)
-	conv, ok := got.(map[string]interface{})
-	if !ok {
-		t.Fatalf("could not convert %v", got)
-	}
-	ret := map[string]string{}
-	for k, v := range conv {
-		sv, ok := v.(string)
-		if !ok {
-			t.Fatalf("could not convert to string %v", v)
-		}
-		ret[k] = sv
-	}
-	return ret
-}
-
-func mustGetPath(t test.Failer, obj object.K8sObject, path string) interface{} {
-	t.Helper()
-	got, f, err := tpath.GetFromTreePath(obj.UnstructuredObject().UnstructuredContent(), util.PathFromString(path))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !f {
-		t.Fatalf("couldn't find path %v", path)
-	}
-	return got
-}
-
-// nolint: unparam
-func mustFindObject(t test.Failer, objs object.K8sObjects, name, kind string) object.K8sObject {
-	t.Helper()
-	o := findObject(objs, name, kind)
-	if o == nil {
-		t.Fatalf("expected %v/%v", name, kind)
-	}
-	return *o
-}
-
-func findObject(objs object.K8sObjects, name, kind string) *object.K8sObject {
-	for _, o := range objs {
-		if o.Kind == kind && o.Name == name {
-			return o
-		}
-	}
-	return nil
 }
 
 func runTestGroup(t *testing.T, tests testGroup) {
@@ -457,17 +449,12 @@ func runManifestGenerate(filenames []string, flags string, useCompiledInCharts b
 	return runCommand(args)
 }
 
-func createTempDirOrFail(t *testing.T, prefix string) string {
-	dir, err := ioutil.TempDir("", prefix)
+func generateManifest(inFile, flags string) (string, object.K8sObjects, error) {
+	inPath := filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-generate/input", inFile+".yaml")
+	manifest, err := runManifestGenerate([]string{inPath}, flags, true)
 	if err != nil {
-		t.Fatal(err)
+		return "", nil, fmt.Errorf("error %s: %s", err, manifest)
 	}
-	return dir
-}
-
-func removeDirOrFail(t *testing.T, path string) {
-	err := os.RemoveAll(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	objs, err := object.ParseK8sObjectsFromYAMLManifest(manifest)
+	return manifest, objs, err
 }

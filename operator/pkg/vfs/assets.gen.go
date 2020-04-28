@@ -9126,7 +9126,7 @@ var _chartsGatewaysIstioIngressTemplatesPoddisruptionbudgetYaml = []byte(`{{- if
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: ingressgateway
+  name: {{ $gateway.name | default "istio-ingressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
