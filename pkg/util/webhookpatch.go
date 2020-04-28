@@ -16,14 +16,10 @@ package util
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
-	"k8s.io/api/admissionregistration/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	admissionregistrationv1beta1client "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 )
 
@@ -34,33 +30,17 @@ func PatchMutatingWebhookConfig(client admissionregistrationv1beta1client.Mutati
 	if err != nil {
 		return err
 	}
-	prev, err := json.Marshal(config)
-	if err != nil {
-		return err
-	}
 	found := false
 	for i, w := range config.Webhooks {
 		if w.Name == webhookName {
 			config.Webhooks[i].ClientConfig.CABundle = caBundle
 			found = true
-			break
 		}
 	}
 	if !found {
 		return apierrors.NewInternalError(fmt.Errorf(
 			"webhook entry %q not found in config %q", webhookName, webhookConfigName))
 	}
-	curr, err := json.Marshal(config)
-	if err != nil {
-		return err
-	}
-	patch, err := strategicpatch.CreateTwoWayMergePatch(prev, curr, v1beta1.MutatingWebhookConfiguration{})
-	if err != nil {
-		return err
-	}
-
-	if string(patch) != "{}" {
-		_, err = client.Patch(context.TODO(), webhookConfigName, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
-	}
+	_, err = client.Update(context.TODO(), config, metav1.UpdateOptions{})
 	return err
 }

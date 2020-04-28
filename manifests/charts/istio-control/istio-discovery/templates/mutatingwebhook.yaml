@@ -13,6 +13,8 @@ metadata:
     app: sidecar-injector
     release: {{ .Release.Name }}
 webhooks:
+{{- if eq .Values.revision ""}}
+{{/*  No revision set. Set up istio-injection=enabled matcher */}}
   - name: sidecar-injector.istio.io
     clientConfig:
       service:
@@ -27,7 +29,7 @@ webhooks:
         resources: ["pods"]
     failurePolicy: Fail
     namespaceSelector:
-{{- if .Values.sidecarInjectorWebhook.enableNamespacesByDefault }}
+      {{- if .Values.sidecarInjectorWebhook.enableNamespacesByDefault }}
       matchExpressions:
       - key: name
         operator: NotIn
@@ -41,29 +43,50 @@ webhooks:
         operator: DoesNotExist
       - key: istio.io/rev
         operator: DoesNotExist
-{{- else if .Values.revision }}
+      {{- else }}
       matchExpressions:
       - key: istio-injection
-        operator: DoesNotExist
-      - key: istio.io/rev
         operator: In
         values:
-        - {{ .Values.revision }}
-{{- else }}
-      matchLabels:
-        istio-injection: enabled
-{{- end }}
-{{- if .Values.sidecarInjectorWebhook.objectSelector.enabled }}
+          - enabled
+      - key: istio.io/rev
+        operator: DoesNotExist
+      {{- end }}
+    {{- if .Values.sidecarInjectorWebhook.objectSelector.enabled }}
     objectSelector:
-{{- if .Values.sidecarInjectorWebhook.objectSelector.autoInject }}
+      {{- if .Values.sidecarInjectorWebhook.objectSelector.autoInject }}
       matchExpressions:
       - key: "sidecar.istio.io/inject"
         operator: NotIn
         values:
         - "false"
-{{- else }}
+      {{- else }}
       matchLabels:
         "sidecar.istio.io/inject": "true"
+    {{- end }}
+  {{- end }}
 {{- end }}
-{{- end }}
+
+{{/*  Set up another webook that will match istio.io/rev label */}}
+  - name: sidecar-injector.istio.io
+    clientConfig:
+      service:
+        name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+        namespace: {{ .Release.Namespace }}
+        path: "/inject"
+      caBundle: ""
+    rules:
+      - operations: [ "CREATE" ]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+    failurePolicy: Fail
+    namespaceSelector:
+      matchExpressions:
+        - key: istio-injection
+          operator: DoesNotExist
+        - key: istio.io/rev
+          operator: In
+          values:
+            - {{ .Values.revision | default "default" }}
 {{- end }}
