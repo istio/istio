@@ -31,8 +31,8 @@ iptables -t nat -N ISTIO_REDIRECT
 iptables -t nat -N ISTIO_IN_REDIRECT
 iptables -t nat -N ISTIO_INBOUND
 iptables -t nat -N ISTIO_OUTPUT
-iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port 12345
-iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port 12345
+iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 12345
+iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 12345
 iptables -t nat -A PREROUTING -p tcp -j ISTIO_INBOUND
 iptables -t nat -A ISTIO_INBOUND -p tcp --dport 5555 -j ISTIO_IN_REDIRECT
 iptables -t nat -A ISTIO_INBOUND -p tcp --dport 6666 -j ISTIO_IN_REDIRECT

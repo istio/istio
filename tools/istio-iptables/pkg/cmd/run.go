@@ -181,15 +181,15 @@ func (iptConfigurator *IptablesConfigurator) handleInboundIpv6Rules(ipv6RangesEx
 	// In both chains, '-j RETURN' bypasses Envoy and '-j ISTIOREDIRECT'
 	// redirects to Envoy.
 	iptConfigurator.iptables.AppendRuleV6(
-		constants.ISTIOREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT, "--to-port", iptConfigurator.cfg.ProxyPort)
+		constants.ISTIOREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT, "--to-ports", iptConfigurator.cfg.ProxyPort)
 	// Use this chain also for redirecting inbound traffic to the common Envoy port
 	// when not using TPROXY.
 	if iptConfigurator.cfg.InboundPortsInclude == "*" {
 		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j",
-			constants.REDIRECT, "--to-port", iptConfigurator.cfg.InboundCapturePort)
+			constants.REDIRECT, "--to-ports", iptConfigurator.cfg.InboundCapturePort)
 	} else {
 		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j",
-			constants.REDIRECT, "--to-port", iptConfigurator.cfg.ProxyPort)
+			constants.REDIRECT, "--to-ports", iptConfigurator.cfg.ProxyPort)
 	}
 	// Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
 	// to the local service. If not set, no inbound port will be intercepted by istio iptablesOrFail.
@@ -348,17 +348,17 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	// In both chains, '-j RETURN' bypasses Envoy and '-j ISTIOREDIRECT'
 	// redirects to Envoy.
 	iptConfigurator.iptables.AppendRuleV4(
-		constants.ISTIOREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT, "--to-port", iptConfigurator.cfg.ProxyPort)
+		constants.ISTIOREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT, "--to-ports", iptConfigurator.cfg.ProxyPort)
 	// Use this chain also for redirecting inbound traffic to the common Envoy port
 	// when not using TPROXY.
 
 	// PROXY_INBOUND_CAPTURE_PORT should be used only user explicitly set INBOUND_PORTS_INCLUDE to capture all
 	if iptConfigurator.cfg.InboundPortsInclude == "*" {
 		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT,
-			"--to-port", iptConfigurator.cfg.InboundCapturePort)
+			"--to-ports", iptConfigurator.cfg.InboundCapturePort)
 	} else {
 		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT,
-			"--to-port", iptConfigurator.cfg.ProxyPort)
+			"--to-ports", iptConfigurator.cfg.ProxyPort)
 	}
 
 	iptConfigurator.handleInboundPortsInclude()
