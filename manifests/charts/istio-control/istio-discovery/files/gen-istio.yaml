@@ -1706,8 +1706,6 @@ webhooks:
     failurePolicy: Fail
     namespaceSelector:
       matchExpressions:
-        - key: istio-injection
-          operator: DoesNotExist
         - key: istio.io/rev
           operator: In
           values:

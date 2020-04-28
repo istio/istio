@@ -805,18 +805,6 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		deployMeta.Name = pod.Name
 	}
 
-	//skip injection for injected pods
-	if len(pod.Spec.Containers) > 1 {
-		for _, c := range pod.Spec.Containers {
-			if c.Name == ProxyContainerName {
-				log.Warnf("Skipping injection because %q has injected %q sidecar already", pod.ObjectMeta.Name, ProxyContainerName)
-				return &v1beta1.AdmissionResponse{
-					Allowed: true,
-				}
-			}
-		}
-	}
-
 	spec, iStatus, err := InjectionData(wh.Config.Template, wh.valuesConfig, wh.sidecarTemplateVersion, typeMetadata, deployMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig) // nolint: lll
 	if err != nil {
 		handleError(fmt.Sprintf("Injection data: err=%v spec=%v\n", err, iStatus))
