@@ -26,6 +26,9 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/labels"
+
+	"istio.io/pkg/version"
 
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/helm"
@@ -36,7 +39,6 @@ import (
 	"istio.io/istio/operator/pkg/util/httpserver"
 	"istio.io/istio/operator/pkg/util/tgz"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/pkg/version"
 )
 
 const (
@@ -460,6 +462,76 @@ func TestTrailingWhitespace(t *testing.T) {
 		if strings.HasSuffix(l, " ") {
 			t.Errorf("Line %v has a trailing space: [%v]. Context: %v", i, l, strings.Join(lines[i-5:i+5], ","))
 		}
+	}
+}
+
+// This test enforces that objects that reference other objects do so properly, such as Service selecting deployment
+func TestWebhookSelector(t *testing.T) {
+	got, err := runManifestGenerate([]string{}, "", liveCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	objs, err := object.ParseK8sObjectsFromYAMLManifest(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defaultWebhook := mustFindObject(t, objs, "istio-sidecar-injector", name.MutatingWebhookConfigurationStr)
+	defaultSelector0 := mustGetSelector(t, defaultWebhook, "webhooks.0.namespaceSelector")
+	defaultSelector1 := mustGetSelector(t, defaultWebhook, "webhooks.1.namespaceSelector")
+
+	gotRev, e := runManifestGenerate([]string{}, "--set revision=canary", liveCharts)
+	if e != nil {
+		t.Fatal(e)
+	}
+	objsRev, err := object.ParseK8sObjectsFromYAMLManifest(gotRev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	revWebhook := mustFindObject(t, objsRev, "istio-sidecar-injector-canary", name.MutatingWebhookConfigurationStr)
+	revSelector0 := mustGetSelector(t, revWebhook, "webhooks.0.namespaceSelector")
+
+	legacyLabel := labels.Set{"istio-injection": "enabled"}
+	defaultRevLabel := labels.Set{"istio.io/rev": "default"}
+	canaryRevLabel := labels.Set{"istio.io/rev": "canary"}
+	legacyAndDefaultLabel := labels.Set{"istio-injection": "enabled", "istio.io/rev": "default"}
+	legacyAndCanaryLabel := labels.Set{"istio-injection": "enabled", "istio.io/rev": "canary"}
+
+	cases := []struct {
+		selector labels.Selector
+		label    labels.Set
+		match    bool
+	}{
+		// First webhook: just match istio-injection, and ignore all revision labels
+		{defaultSelector0, legacyLabel, true},
+		{defaultSelector0, defaultRevLabel, false},
+		{defaultSelector0, canaryRevLabel, false},
+		{defaultSelector0, legacyAndDefaultLabel, false},
+		{defaultSelector0, legacyAndCanaryLabel, false},
+
+		// Second webhook: match istio.io/rev=default. It is okay if both labels are present; only this webhook is matched
+		// Essentially the logic here is (a && !b) || b, which is equivilent to a || b, or desired end state, without
+		// triggering duplicate injection
+		{defaultSelector1, legacyLabel, false},
+		{defaultSelector1, defaultRevLabel, true},
+		{defaultSelector1, canaryRevLabel, false},
+		{defaultSelector1, legacyAndDefaultLabel, true},
+		{defaultSelector1, legacyAndCanaryLabel, false},
+
+		// For revision: only matching istio.io/rev. If it has an istio-injection=enabled label, it takes
+		// priority (ie, no match)
+		{revSelector0, legacyLabel, false},
+		{revSelector0, defaultRevLabel, false},
+		{revSelector0, canaryRevLabel, true},
+		{revSelector0, legacyAndDefaultLabel, false},
+		{revSelector0, legacyAndCanaryLabel, false},
+	}
+	for n, tt := range cases {
+		t.Run(fmt.Sprintf("%d: %v in %v", n, tt.label, tt.selector), func(t *testing.T) {
+			matched := tt.selector.Matches(tt.label)
+			if matched != tt.match {
+				t.Fatalf("expected %v to match=%v %v, got %v", tt.label, tt.match, tt.selector, matched)
+			}
+		})
 	}
 }
 

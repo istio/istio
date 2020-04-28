@@ -32,20 +32,21 @@ import (
 
 // Kubernetes Kind strings.
 const (
-	CRDStr                   = "CustomResourceDefinition"
-	DaemonSetStr             = "DaemonSet"
-	DeploymentStr            = "Deployment"
-	HPAStr                   = "HorizontalPodAutoscaler"
-	NamespaceStr             = "Namespace"
-	PodStr                   = "Pod"
-	PDBStr                   = "PodDisruptionBudget"
-	ReplicationControllerStr = "ReplicationController"
-	ReplicaSetStr            = "ReplicaSet"
-	RoleStr                  = "Role"
-	RoleBindingStr           = "RoleBinding"
-	SAStr                    = "ServiceAccount"
-	ServiceStr               = "Service"
-	StatefulSetStr           = "StatefulSet"
+	CRDStr                          = "CustomResourceDefinition"
+	DaemonSetStr                    = "DaemonSet"
+	DeploymentStr                   = "Deployment"
+	HPAStr                          = "HorizontalPodAutoscaler"
+	NamespaceStr                    = "Namespace"
+	PodStr                          = "Pod"
+	PDBStr                          = "PodDisruptionBudget"
+	ReplicationControllerStr        = "ReplicationController"
+	ReplicaSetStr                   = "ReplicaSet"
+	RoleStr                         = "Role"
+	RoleBindingStr                  = "RoleBinding"
+	SAStr                           = "ServiceAccount"
+	ServiceStr                      = "Service"
+	StatefulSetStr                  = "StatefulSet"
+	MutatingWebhookConfigurationStr = "MutatingWebhookConfiguration"
 )
 
 const (

@@ -15,6 +15,7 @@
 package mesh
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -25,6 +26,7 @@ import (
 
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels2 "k8s.io/apimachinery/pkg/labels"
 
 	name2 "istio.io/istio/operator/pkg/name"
@@ -294,6 +296,24 @@ func mustGetPath(t test.Failer, obj object.K8sObject, path string) interface{} {
 		t.Fatalf("couldn't find path %v", path)
 	}
 	return got
+}
+
+func mustGetSelector(t test.Failer, obj object.K8sObject, path string) labels2.Selector {
+	t.Helper()
+	selectorS := mustGetPath(t, obj, path)
+	var ss metav1.LabelSelector
+	by, err := json.Marshal(selectorS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(by, &ss); err != nil {
+		t.Fatal(err)
+	}
+	ls, err := metav1.LabelSelectorAsSelector(&ss)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ls
 }
 
 func mustFindObject(t test.Failer, objs object.K8sObjects, name, kind string) object.K8sObject {

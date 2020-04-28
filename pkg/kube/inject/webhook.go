@@ -33,6 +33,7 @@ import (
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
@@ -802,6 +803,18 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	if deployMeta.Name == "" {
 		// if we haven't been able to extract a deployment name, then just give it the pod name
 		deployMeta.Name = pod.Name
+	}
+
+	//skip injection for injected pods
+	if len(pod.Spec.Containers) > 1 {
+		for _, c := range pod.Spec.Containers {
+			if c.Name == ProxyContainerName {
+				log.Warnf("Skipping injection because %q has injected %q sidecar already", pod.ObjectMeta.Name, ProxyContainerName)
+				return &v1beta1.AdmissionResponse{
+					Allowed: true,
+				}
+			}
+		}
 	}
 
 	spec, iStatus, err := InjectionData(wh.Config.Template, wh.valuesConfig, wh.sidecarTemplateVersion, typeMetadata, deployMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig) // nolint: lll

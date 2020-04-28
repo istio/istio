@@ -67,7 +67,12 @@ webhooks:
   {{- end }}
 {{- end }}
 
-{{/*  Set up another webook that will match istio.io/rev label */}}
+{{/*
+Set up another webook that will match istio.io/rev label. If a revision is set, then we will make sure
+that we do NOT match istio-injection=enabled. This avoids injecting other revisions. If a revision is NOT
+set, we will match istio.io/rev=default. This means we also match a namespace that is (by user error)
+labeled with both istio.io/rev=default,istio-injection=enabled.
+ */}}
   - name: sidecar-injector.istio.io
     clientConfig:
       service:
@@ -83,8 +88,10 @@ webhooks:
     failurePolicy: Fail
     namespaceSelector:
       matchExpressions:
+      {{- if ne .Values.revision ""}}
         - key: istio-injection
           operator: DoesNotExist
+      {{- end }}
         - key: istio.io/rev
           operator: In
           values:
