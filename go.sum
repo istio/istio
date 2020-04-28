@@ -405,8 +405,6 @@ github.com/grpc-ecosystem/grpc-gateway v1.3.0/go.mod h1:RSKVYQBd5MCa4OVpNdGskqpg
 github.com/grpc-ecosystem/grpc-gateway v1.9.5/go.mod h1:vNeuVxBJEsws4ogUvrchl83t/GYV9WGTSLVdBhOQFDY=
 github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20171214222146-0e7658f8ee99 h1:bTRV2bQrg85E7ZeeyQfHX3GyfidLrNzVoyq7epx0bTw=
 github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20171214222146-0e7658f8ee99/go.mod h1:6iZfnjpejD4L/4DwD7NryNaJyCQdzwWwH2MWhCA90Kw=
-github.com/hanahmily/api v0.0.0-20200422080657-e387a4b4939a h1:yEVIS/meB1nIg+WWrHg0wnSqNJ0kLDeFTyo158K91Fo=
-github.com/hanahmily/api v0.0.0-20200422080657-e387a4b4939a/go.mod h1:kyq3g5w42zl/AKlbzDGppYpGMQYMYMyZKeq0/eexML8=
 github.com/hashicorp/consul v1.3.1 h1:bY7/Uo29Uq7+mHce4wgSHtAJSbeRl+4F7M+OHTuEeXI=
 github.com/hashicorp/consul v1.3.1/go.mod h1:mFrjN1mfidgJfYP1xrJCF+AfRhr6Eaqhb2+sfyn/OOI=
 github.com/hashicorp/errwrap v1.0.0 h1:hLrqtEDnRye3+sgx6z4qVLNuviH3MR5aQ0ykNJa/UYA=
@@ -1063,8 +1061,6 @@ honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWh
 honnef.co/go/tools v0.0.1-2019.2.3 h1:3JgtbtFHMiCmsznwGVTUWbgGov+pVqnlf1dEJTNAXeM=
 honnef.co/go/tools v0.0.1-2019.2.3/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt0JzvZhAg=
 istio.io/api v0.0.0-20190515205759-982e5c3888c6/go.mod h1:hhLFQmpHia8zgaM37vb2ml9iS5NfNfqZGRt1pS9aVEo=
-istio.io/api v0.0.0-20200423191407-d5c7faf17732 h1:4DxjTWmaY7ReFaow0EyxnFCDM9mlG6aNtbW95cEaM34=
-istio.io/api v0.0.0-20200423191407-d5c7faf17732/go.mod h1:kyq3g5w42zl/AKlbzDGppYpGMQYMYMyZKeq0/eexML8=
 istio.io/api v0.0.0-20200424144024-8c7aa02ccdf8 h1:xZVyFPlxjfTlU4wf4sBLbmhT/YXCJPB7MITIGjG1puQ=
 istio.io/api v0.0.0-20200424144024-8c7aa02ccdf8/go.mod h1:kyq3g5w42zl/AKlbzDGppYpGMQYMYMyZKeq0/eexML8=
 istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a/go.mod h1:OzpAts7jljZceG4Vqi5/zXy/pOg1b209T3jb7Nv5wIs=

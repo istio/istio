@@ -69,7 +69,7 @@ func tlsConverter(tls *networkingAPI.ClientTLSSettings, sniName string, metadata
 	}
 }
 
-func transportSocketConverter(tls *networkingAPI.ClientTLSSettings, sniName string, metadata *model.NodeMetadata) convertFunc {
+func transportSocketConverter(tls *networkingAPI.ClientTLSSettings, sniName string, metadata *model.NodeMetadata, isH2 bool) convertFunc {
 
 	return func(*instance) (interface{}, error) {
 		tlsContext, error := tlsContextConvert(tls, sniName, metadata)
@@ -79,6 +79,10 @@ func transportSocketConverter(tls *networkingAPI.ClientTLSSettings, sniName stri
 		if tlsContext == nil {
 			return "", nil
 		}
+		if !isH2 {
+			tlsContext.CommonTLSContext.AlpnProtocols = nil
+		}
+		tlsContext.Type = "type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext"
 		transportSocket := &auth.TransportSocket{
 			Name:        "tls",
 			TypedConfig: tlsContext,

@@ -245,7 +245,6 @@ global:
     lightstep:
       address: ""                # example: lightstep-satellite:443
       accessToken: ""            # example: abcdefg1234567
-      secure: true               # example: true|false
     zipkin:
       # Host:Port for reporting trace data in zipkin format. If not specified, will default to
       # zipkin service (port 9411) in the same namespace as the other istio components.
@@ -262,14 +261,6 @@ global:
       maxNumberOfAnnotations: 200
       # The global default max number of message events per span.
       maxNumberOfMessageEvents: 200
-    tlsSettings:
-      mode: DISABLE # DISABLE, SIMPLE, MUTUAL, ISTIO_MUTUAL
-      clientCertificate: # example: /etc/istio/tracer/cert-chain.pem
-      privateKey:        # example: /etc/istio/tracer/key.pem
-      caCertificates:    # example: /etc/istio/tracer/root-cert.pem
-      sni:               # example: tracer.somedomain
-      subjectAltNames: []
-      # - tracer.somedomain
 
   # Default mtls policy. If true, mtls between services will be enabled by default.
   mtls:
@@ -571,3 +562,13 @@ version: ""
 
 meshConfig:
   enablePrometheusMerge: false
+  defaultConfig:
+    tracing:
+      tlsSettings:
+        mode: DISABLE # DISABLE, SIMPLE, MUTUAL, ISTIO_MUTUAL
+        clientCertificate: # example: /etc/istio/tracer/cert-chain.pem
+        privateKey:        # example: /etc/istio/tracer/key.pem
+        caCertificates:    # example: /etc/istio/tracer/root-cert.pem
+        sni:               # example: tracer.somedomain
+        subjectAltNames: []
+        # - tracer.somedomain

@@ -290,7 +290,7 @@
       {
         "name": "zipkin",
         {{ if .tracing_tls }}
-        "tls_context": {{ .tracing_tls }},
+        "transport_socket": {{ .tracing_tls }},
         {{ end }}
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
@@ -315,7 +315,7 @@
       {
         "name": "lightstep",
         {{ if .tracing_tls }}
-        "tls_context": {{ .tracing_tls }},
+        "transport_socket": {{ .tracing_tls }},
         {{ end }}
         "http2_protocol_options": {},
         "type": "STRICT_DNS",
@@ -341,7 +341,7 @@
       {
         "name": "datadog_agent",
         {{ if .tracing_tls }}
-        "tls_context": {{ .tracing_tls }},
+        "transport_socket": {{ .tracing_tls }},
         {{ end }}
         "connect_timeout": "1s",
         "type": "STRICT_DNS",

@@ -14,8 +14,6 @@
 
 package auth
 
-import "github.com/golang/protobuf/ptypes/any"
-
 // Data source consisting of a file.
 type DataSource struct {
 	// Only support Filename:
@@ -40,6 +38,7 @@ type CommonTLSContext struct {
 }
 
 type UpstreamTLSContext struct {
+	Type string `json:"@type,omitempty"`
 	// Common TLS context settings.
 	CommonTLSContext *CommonTLSContext `json:"common_tls_context,omitempty"`
 	// SNI string to use when creating TLS backend connections.
@@ -58,6 +57,6 @@ type CertificateValidationContext struct {
 
 //TransportSocket wraps UpstreamTLSContext
 type TransportSocket struct {
-	Name        string   `json:"name,omitempty"`
-	TypedConfig *any.Any `json:"typed_config,omitempty"`
+	Name        string              `json:"name,omitempty"`
+	TypedConfig *UpstreamTLSContext `json:"typed_config,omitempty"`
 }

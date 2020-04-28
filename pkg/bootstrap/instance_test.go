@@ -248,6 +248,9 @@ func TestGolden(t *testing.T) {
 			},
 			stats: stats{regexps: "http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time"},
 		},
+		{
+			base: "tracing_tls",
+		},
 	}
 
 	for _, c := range cases {

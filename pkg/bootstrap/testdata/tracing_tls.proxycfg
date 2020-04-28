@@ -1,0 +1,11 @@
+config_path:               "/etc/istio/proxy"
+binary_path:               "/usr/local/bin/envoy"
+service_cluster:           "istio-proxy"
+drain_duration:            {seconds: 2}
+parent_shutdown_duration:  {seconds: 3}
+discovery_address:         "istio-pilot:15010"
+proxy_admin_port:          15000
+control_plane_auth_policy: NONE
+tracing:                   { zipkin: { address: "localhost:6000" }, tls_settings: { mode: SIMPLE, ca_certificates: "/etc/zipkin/ca.pem"}}
+
+# Sets all relevant options to values different than default

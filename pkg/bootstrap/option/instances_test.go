@@ -689,16 +689,17 @@ func TestOptions(t *testing.T) {
 		{
 			testName: "tracing tls nil",
 			key:      "tracing_tls",
-			option:   option.TracingTLS(nil, &model.NodeMetadata{}),
+			option:   option.TracingTLS(nil, &model.NodeMetadata{}, false),
 			expected: nil,
 		},
 		{
 			testName: "tracing tls",
 			key:      "tracing_tls",
 			option: option.TracingTLS(&networkingAPI.ClientTLSSettings{
-				Mode: networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
-			}, &model.NodeMetadata{}),
-			expected: "{\"common_tls_context\":{\"tls_certificates\":[{\"certificate_chain\":{\"filename\":\"/etc/certs/root-cert.pem\"},\"private_key\":{\"filename\":\"/etc/certs/key.pem\"}}],\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/certs/cert-chain.pem\"}},\"alpn_protocols\":[\"istio\",\"h2\"]},\"sni\":\"tracer\"}", // nolint: lll
+				Mode:           networkingAPI.ClientTLSSettings_SIMPLE,
+				CaCertificates: "/etc/tracing/ca.pem",
+			}, &model.NodeMetadata{}, false),
+			expected: "{\"name\":\"tls\",\"typed_config\":{\"@type\":\"type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext\",\"common_tls_context\":{\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/tracing/ca.pem\"}}}}}",
 		},
 	}
 
