@@ -325,5 +325,3 @@ func (c *controller) Update(_ model.Config) (string, error) {
 func (c *controller) Delete(_ resource.GroupVersionKind, _, _ string) error {
 	return errUnsupportedOp
 }
-
-func (c *controller) Share(_ resource.GroupVersionKind, _ *model.Config, _ model.Event) {}

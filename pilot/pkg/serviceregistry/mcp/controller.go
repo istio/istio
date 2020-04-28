@@ -415,5 +415,3 @@ func (c *controller) incrementalUpdate(kind resource.GroupVersionKind, conf map[
 		c.configStore[kind] = conf
 	}
 }
-
-func (c *controller) Share(_ resource.GroupVersionKind, _ *model.Config, _ model.Event) {}

@@ -115,5 +115,3 @@ func (c *controller) Delete(kind resource.GroupVersionKind, key, namespace strin
 func (c *controller) List(kind resource.GroupVersionKind, namespace string) ([]model.Config, error) {
 	return c.configStore.List(kind, namespace)
 }
-
-func (c *controller) Share(_ resource.GroupVersionKind, _ *model.Config, _ model.Event) {}
