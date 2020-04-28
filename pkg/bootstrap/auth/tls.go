@@ -14,6 +14,8 @@
 
 package auth
 
+import "github.com/golang/protobuf/ptypes/any"
+
 // Data source consisting of a file.
 type DataSource struct {
 	// Only support Filename:
@@ -52,4 +54,10 @@ type CertificateValidationContext struct {
 	// An optional list of Subject Alternative Names. If specified, Envoy will verify that the
 	// Subject Alternative Name of the presented certificate matches one of the specified values.
 	VerifySubjectAltName []string `json:"verify_subject_alt_name,omitempty"`
+}
+
+//TransportSocket wraps UpstreamTLSContext
+type TransportSocket struct {
+	Name        string   `json:"name,omitempty"`
+	TypedConfig *any.Any `json:"typed_config,omitempty"`
 }

@@ -180,7 +180,7 @@ func StatsdAddress(value string) Instance {
 
 func TracingTLS(value *networkingAPI.ClientTLSSettings, metadata *model.NodeMetadata) Instance {
 	return newOptionOrSkipIfZero("tracing_tls", value).
-		withConvert(tlsConverter(value, "tracer", metadata))
+		withConvert(transportSocketConverter(value, "tracer", metadata))
 }
 
 func EnvoyMetricsServiceAddress(value string) Instance {
