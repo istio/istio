@@ -477,3 +477,21 @@ func (mm ChartManifestsMap) Consolidated() map[string]string {
 	}
 	return out
 }
+
+// removeFromObjectCache removes object with objHash in componentName from the object cache.
+func (h *HelmReconciler) removeFromObjectCache(componentName, objHash string) {
+	crHash, err := h.getCRHash(componentName)
+	if err != nil {
+		scope.Error(err.Error())
+	}
+	objectCachesMu.Lock()
+	objectCache := objectCaches[crHash]
+	objectCachesMu.Unlock()
+
+	if objectCache != nil {
+		objectCache.mu.Lock()
+		delete(objectCache.cache, objHash)
+		objectCache.mu.Unlock()
+		scope.Infof("Removed object %s from cache.", objHash)
+	}
+}

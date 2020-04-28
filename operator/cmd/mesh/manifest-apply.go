@@ -202,7 +202,7 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 	}
 
 	check := color.New(color.FgGreen).Sprint("✔")
-	l.LogAndPrint(check + " Installation complete")
+	l.LogAndPrint(check + installationCompleteStr)
 
 	// Save state to cluster in IstioOperator CR.
 	iopStr, err := translate.IOPStoIOPstr(iops, crName, iopv1alpha1.Namespace(iops))
