@@ -197,6 +197,8 @@ var httpDNS = &model.Config{
 var tcpDNS = &model.Config{
 	ConfigMeta: model.ConfigMeta{
 		Type:              serviceEntryKind.Kind,
+		Group:             serviceEntryKind.Group,
+		Version:           serviceEntryKind.Version,
 		Name:              "tcpDNS",
 		Namespace:         "tcpDNS",
 		CreationTimestamp: GlobalTime,

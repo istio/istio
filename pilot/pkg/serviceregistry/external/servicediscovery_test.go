@@ -377,6 +377,48 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: serviceEntryKind, Name: "other.com", Namespace: httpStaticOverlayUpdated.Namespace}: {}}}}) // service deleted
 	})
 
+	t.Run("change dns endpoints", func(t *testing.T) {
+		// Setup the expected instances for `httpStatic`. This will be added/removed from as we add various configs
+		instances1 := []*model.ServiceInstance{
+			makeInstance(tcpDNS, "lon.google.com", 444, tcpDNS.Spec.(*networking.ServiceEntry).Ports[0],
+				nil, MTLS),
+			makeInstance(tcpDNS, "in.google.com", 444, tcpDNS.Spec.(*networking.ServiceEntry).Ports[0],
+				nil, MTLS),
+		}
+
+		// This is not applied, just to make makeInstance pick the right service.
+		tcpDNSUpdated := func() *model.Config {
+			c := tcpDNS.DeepCopy()
+			se := c.Spec.(*networking.ServiceEntry)
+			se.Endpoints = []*networking.WorkloadEntry{
+				{
+					Address: "lon.google.com",
+					Labels:  map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+				},
+			}
+			return &c
+		}()
+
+		instances2 := []*model.ServiceInstance{
+			makeInstance(tcpDNS, "lon.google.com", 444, tcpDNS.Spec.(*networking.ServiceEntry).Ports[0],
+				nil, MTLS),
+		}
+
+		createConfigs([]*model.Config{tcpDNS}, store, t)
+		expectServiceInstances(t, sd, tcpDNS, 0, instances1)
+		// Service change, so we need a full push
+		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.
+			ConfigKey]struct{}{{Kind: serviceEntryKind, Name: "tcpdns.com",
+			Namespace: tcpDNS.Namespace}: {}}}}) // service added
+
+		// now update the config
+		createConfigs([]*model.Config{tcpDNSUpdated}, store, t)
+		expectEvents(t, events, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.
+			ConfigKey]struct{}{{Kind: serviceEntryKind, Name: "tcpdns.com",
+			Namespace: tcpDNSUpdated.Namespace}: {}}}}) // service deleted
+		expectServiceInstances(t, sd, tcpDNS, 0, instances2)
+	})
+
 	t.Run("change workload selector", func(t *testing.T) {
 		// same as selector but with an additional host
 		selector1 := func() *model.Config {
