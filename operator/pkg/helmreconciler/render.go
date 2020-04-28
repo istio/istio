@@ -282,7 +282,7 @@ func (h *HelmReconciler) ProcessManifest(manifests []releaseutil.Manifest, hasDe
 			// For example, for the validation webhook to become ready, so we should wait for it always.
 			if hasDependencies || h.opts.Wait {
 				err := WaitForResources(processedObjects, h.restConfig, h.clientSet,
-					internalDepTimeout, h.opts.DryRun, plog)
+					h.opts.WaitTimeout, h.opts.DryRun, plog)
 				if err != nil {
 					werr := fmt.Errorf("failed to wait for resource: %v", err)
 					plog.ReportError(werr.Error())

@@ -98,7 +98,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 
 	l.LogAndPrintf("Using operator Deployment image: %s/operator:%s", oiArgs.common.hub, oiArgs.common.tag)
 
-	vals, mstr, err := renderOperatorManifest(args, &oiArgs.common, l)
+	vals, mstr, err := renderOperatorManifest(args, &oiArgs.common)
 	if err != nil {
 		l.LogAndFatal(err)
 	}

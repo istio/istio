@@ -17,6 +17,8 @@ package helmreconciler
 import (
 	"context"
 	"fmt"
+	"io"
+	"strings"
 	"sync"
 	"time"
 
@@ -35,15 +37,10 @@ import (
 )
 
 type componentNameToListMap map[name.ComponentName][]name.ComponentName
-type componentTree map[name.ComponentName]interface{}
-
-const (
-	// Time to wait for internal dependencies before proceeding to installing the next component.
-	internalDepTimeout = 10 * time.Minute
-)
+type ComponentTree map[name.ComponentName]interface{}
 
 var (
-	componentDependencies = componentNameToListMap{
+	ComponentDependencies = componentNameToListMap{
 		name.PilotComponentName: {
 			name.PolicyComponentName,
 			name.TelemetryComponentName,
@@ -57,15 +54,15 @@ var (
 		},
 	}
 
-	installTree      = make(componentTree)
-	dependencyWaitCh = make(map[name.ComponentName]chan struct{})
+	InstallTree      = make(ComponentTree)
+	DependencyWaitCh = make(map[name.ComponentName]chan struct{})
 )
 
 func init() {
 	buildInstallTree()
-	for _, parent := range componentDependencies {
+	for _, parent := range ComponentDependencies {
 		for _, child := range parent {
-			dependencyWaitCh[child] = make(chan struct{}, 1)
+			DependencyWaitCh[child] = make(chan struct{}, 1)
 		}
 	}
 
@@ -88,8 +85,12 @@ type Options struct {
 	DryRun bool
 	// Log is a console logger for user visible CLI output.
 	Log clog.Logger
-	// Wait determines if we will wait for resources to be fully applied.
-	Wait        bool
+	// Wait determines if we will wait for resources to be fully applied. Only applies to components that have no
+	// dependencies.
+	Wait bool
+	// WaitTimeout controls the amount of time to wait for resources in a component to become ready before giving up.
+	WaitTimeout time.Duration
+	// ProgressLog tracks the installation progress for all components.
 	ProgressLog *util.ProgressLog
 }
 
@@ -151,7 +152,7 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1
 			var deployedObjects int
 			defer wg.Done()
 			cn := name.ComponentName(c)
-			if s := dependencyWaitCh[cn]; s != nil {
+			if s := DependencyWaitCh[cn]; s != nil {
 				scope.Infof("%s is waiting on dependency...", c)
 				<-s
 				scope.Infof("Dependency for %s has completed, proceeding.", c)
@@ -166,7 +167,7 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1
 			status := v1alpha1.InstallStatus_NONE
 			var err error
 			if len(m) != 0 {
-				processedObjs, deployedObjects, err = h.ProcessManifest(m, len(componentDependencies[cn]) > 0)
+				processedObjs, deployedObjects, err = h.ProcessManifest(m, len(ComponentDependencies[cn]) > 0)
 				if err != nil {
 					status = v1alpha1.InstallStatus_ERROR
 				} else if len(processedObjs) != 0 || deployedObjects > 0 {
@@ -179,9 +180,9 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha1
 			mu.Unlock()
 
 			// Signal all the components that depend on us.
-			for _, ch := range componentDependencies[cn] {
+			for _, ch := range ComponentDependencies[cn] {
 				scope.Infof("Unblocking dependency %s.", ch)
-				dependencyWaitCh[ch] <- struct{}{}
+				DependencyWaitCh[ch] <- struct{}{}
 			}
 		}()
 	}
@@ -307,12 +308,28 @@ func (h *HelmReconciler) GetClient() client.Client {
 
 func buildInstallTree() {
 	// Starting with root, recursively insert each first level child into each node.
-	insertChildrenRecursive(name.IstioBaseComponentName, installTree, componentDependencies)
+	insertChildrenRecursive(name.IstioBaseComponentName, InstallTree, ComponentDependencies)
 }
 
-func insertChildrenRecursive(componentName name.ComponentName, tree componentTree, children componentNameToListMap) {
-	tree[componentName] = make(componentTree)
+func insertChildrenRecursive(componentName name.ComponentName, tree ComponentTree, children componentNameToListMap) {
+	tree[componentName] = make(ComponentTree)
 	for _, child := range children[componentName] {
-		insertChildrenRecursive(child, tree[componentName].(componentTree), children)
+		insertChildrenRecursive(child, tree[componentName].(ComponentTree), children)
+	}
+}
+
+func InstallTreeString() string {
+	var sb strings.Builder
+	buildInstallTreeString(name.IstioBaseComponentName, "", &sb)
+	return sb.String()
+}
+
+func buildInstallTreeString(componentName name.ComponentName, prefix string, sb io.StringWriter) {
+	_, _ = sb.WriteString(prefix + string(componentName) + "\n")
+	if _, ok := InstallTree[componentName].(ComponentTree); !ok {
+		return
+	}
+	for k := range InstallTree[componentName].(ComponentTree) {
+		buildInstallTreeString(k, prefix+"  ", sb)
 	}
 }

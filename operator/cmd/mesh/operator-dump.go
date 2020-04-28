@@ -56,7 +56,7 @@ func operatorDumpCmd(rootArgs *rootArgs, odArgs *operatorDumpArgs) *cobra.Comman
 }
 
 func operatorDump(args *rootArgs, odArgs *operatorDumpArgs, l clog.Logger) {
-	_, mstr, err := renderOperatorManifest(args, &odArgs.common, l)
+	_, mstr, err := renderOperatorManifest(args, &odArgs.common)
 	if err != nil {
 		l.LogAndFatal(err)
 	}

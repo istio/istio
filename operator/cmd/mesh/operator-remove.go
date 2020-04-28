@@ -69,7 +69,7 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
 
 	l.LogAndPrintf("Using operator Deployment image: %s/operator:%s", orArgs.common.hub, orArgs.common.tag)
 
-	_, mstr, err := renderOperatorManifest(args, &orArgs.common, l)
+	_, mstr, err := renderOperatorManifest(args, &orArgs.common)
 	if err != nil {
 		l.LogAndFatal(err)
 	}
