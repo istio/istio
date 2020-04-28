@@ -300,7 +300,6 @@ func (d *ServiceEntryStore) GetForeignServiceInstanceHandler() func(*model.Servi
 		}
 
 		d.edsUpdate(instances)
-		return
 	}
 }
 
