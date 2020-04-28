@@ -87,10 +87,7 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 	}
 
 	v := reflect.ValueOf(nc.Node)
-	if v.Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
-	if v.Kind() == reflect.Interface {
+	if v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
 		v = v.Elem()
 	}
 	ncNode := v.Interface()
@@ -99,6 +96,8 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 	// form :matching_value in the case of a leaf list, or a matching key:value in the case of a non-leaf list.
 	if lst, ok := ncNode.([]interface{}); ok {
 		scope.Debug("list type")
+		// If the path element has the form [N], a list element is being selected by index. Return the element at index
+		// N if it exists.
 		if util.IsNPathElement(pe) {
 			idx, err := util.PathN(pe)
 			if err != nil {
@@ -121,6 +120,8 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 			return getPathContext(nn, fullPath, remainPath[1:], createMissing)
 		}
 
+		// Otherwise the path element must have form [key:value]. In this case, go through all list elements, which
+		// must have map type, and try to find one which has a matching key:value.
 		for idx, le := range lst {
 			// non-leaf list, expect to match item by key:value.
 			if lm, ok := le.(map[interface{}]interface{}); ok {
@@ -144,6 +145,8 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 				}
 				continue
 			}
+			// repeat of the block above for the case where tree unmarshals to map[string]interface{}. There doesn't
+			// seem to be a way to merge this case into the above block.
 			if lm, ok := le.(map[string]interface{}); ok {
 				k, v, err := util.PathKV(pe)
 				if err != nil {
@@ -165,7 +168,7 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 				}
 				continue
 			}
-			// leaf list, match based on value.
+			// leaf list, expect path element [V], match based on value V.
 			v, err := util.PathV(pe)
 			if err != nil {
 				return nil, false, fmt.Errorf("path %s: %s", fullPath, err)
@@ -202,7 +205,6 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 			nn, ok = m[pe]
 			if !ok {
 				// remainPath == 1 means the patch is creation of a new leaf.
-
 				if createMissing || len(remainPath) == 1 {
 					nextElementNPath := len(remainPath) > 1 && util.IsNPathElement(remainPath[1])
 					if nextElementNPath {
@@ -223,6 +225,7 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 			Parent: nc,
 			Node:   nn,
 		}
+		// for slices, use the address so that the slice can be mutated.
 		if util.IsSlice(nn) {
 			npc.Node = &nn
 		}
