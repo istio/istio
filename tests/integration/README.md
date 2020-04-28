@@ -452,7 +452,8 @@ Note: this may require you to [enable forwarding from Docker containers to the o
 ```bash
 sudo sysctl net.ipv4.conf.all.forwarding=1
 sudo iptables -P FORWARD ACCEPT
-sudo iptables -A INPUT -i docker0 -j ACCEPT
+# On some machines, an additional rule may be needed to allow traffic from all `br-...` docker bridge interfaces
+sudo iptables -A INPUT -i br-+ -j ACCEPT
 ```
 
 ### Kubernetes Environment
