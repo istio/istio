@@ -557,16 +557,15 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 
 	cp := x509.NewCertPool()
 	var rootCertBytes []byte
-	var defaultRootCertBytes []byte
 	if tlsOptions.CaCertFile != "" {
-		defaultRootCertBytes, err = ioutil.ReadFile(tlsOptions.CaCertFile)
-	}
-
-	if err == nil && defaultRootCertBytes != nil {
-		rootCertBytes = defaultRootCertBytes
+		rootCertBytes, err = ioutil.ReadFile(tlsOptions.CaCertFile)
+		if err != nil {
+			return err
+		}
 	} else {
 		rootCertBytes = s.ca.GetCAKeyCertBundle().GetRootCertPem()
 	}
+
 	cp.AppendCertsFromPEM(rootCertBytes)
 
 	// TODO: check if client certs can be used with coredns or others.
@@ -603,16 +602,15 @@ func (s *Server) initSecureGrpcServer(port string, keepalive *istiokeepalive.Opt
 
 	cp := x509.NewCertPool()
 	var rootCertBytes []byte
-	var defaultRootCertBytes []byte
 	if tlsOptions.CaCertFile != "" {
-		defaultRootCertBytes, err = ioutil.ReadFile(tlsOptions.CaCertFile)
-	}
-
-	if err == nil && defaultRootCertBytes != nil {
-		rootCertBytes = defaultRootCertBytes
+		rootCertBytes, err = ioutil.ReadFile(tlsOptions.CaCertFile)
+		if err != nil {
+			return err
+		}
 	} else {
 		rootCertBytes = s.ca.GetCAKeyCertBundle().GetRootCertPem()
 	}
+
 	cp.AppendCertsFromPEM(rootCertBytes)
 
 	cfg := &tls.Config{
