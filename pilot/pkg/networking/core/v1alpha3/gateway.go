@@ -332,12 +332,12 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	}
 
 	xffNumTrustedHops := uint32(0)
-	forwardClientCertDetails := meshconfig.Topology_SANITIZE_SET
+	forwardClientCertDetails := util.MeshConfigToEnvoyForwardClientCertDetails(meshconfig.Topology_SANITIZE_SET)
 
 	if proxyConfig != nil && proxyConfig.GatewayTopology != nil {
 		xffNumTrustedHops = proxyConfig.GatewayTopology.NumTrustedProxies
 		if proxyConfig.GatewayTopology.ForwardClientCertDetails != meshconfig.Topology_UNDEFINED {
-			forwardClientCertDetails = proxyConfig.GatewayTopology.ForwardClientCertDetails
+			forwardClientCertDetails = util.MeshConfigToEnvoyForwardClientCertDetails(proxyConfig.GatewayTopology.ForwardClientCertDetails)
 		}
 	}
 
@@ -356,7 +356,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 				connectionManager: &http_conn.HttpConnectionManager{
 					XffNumTrustedHops: xffNumTrustedHops,
 					// Forward client cert if connection is mTLS
-					ForwardClientCertDetails: http_conn.HttpConnectionManager_ForwardClientCertDetails(forwardClientCertDetails),
+					ForwardClientCertDetails: forwardClientCertDetails,
 					SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
 						Subject: proto.BoolTrue,
 						Cert:    true,
@@ -388,7 +388,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 			connectionManager: &http_conn.HttpConnectionManager{
 				XffNumTrustedHops: xffNumTrustedHops,
 				// Forward client cert if connection is mTLS
-				ForwardClientCertDetails: http_conn.HttpConnectionManager_ForwardClientCertDetails(forwardClientCertDetails),
+				ForwardClientCertDetails: forwardClientCertDetails,
 				SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
 					Subject: proto.BoolTrue,
 					Cert:    true,
