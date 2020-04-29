@@ -63,7 +63,7 @@ func operatorInitCmd(rootArgs *rootArgs, oiArgs *operatorInitArgs) *cobra.Comman
 		Long:  "The init subcommand installs the Istio operator controller in the cluster.",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr())
+			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 			operatorInit(rootArgs, oiArgs, l)
 		}}
 }
@@ -89,8 +89,8 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 		l.LogAndFatal(err)
 	}
 
-	scope.Debugf("Installing operator charts with the following values:\n%s", vals)
-	scope.Debugf("Using the following manifest to install operator:\n%s\n", mstr)
+	installerScope.Debugf("Installing operator charts with the following values:\n%s", vals)
+	installerScope.Debugf("Using the following manifest to install operator:\n%s\n", mstr)
 
 	opts := &Options{
 		DryRun:     args.dryRun,

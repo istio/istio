@@ -37,7 +37,7 @@ import (
 	pkgversion "istio.io/pkg/version"
 )
 
-var scope = log.RegisterScope("installer", "installer", 0)
+var installerScope = log.RegisterScope("installer", "installer", 0)
 
 // GenerateConfig creates an IstioOperatorSpec from the following sources, overlaid sequentially:
 // 1. Compiled in base, or optionally base from paths pointing to one or multiple ICP/IOP files at inFilenames.
@@ -172,7 +172,7 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 		if err != nil {
 			return "", nil, err
 		}
-		scope.Infof("Applying Cluster specific settings: %v", kubeOverrides)
+		installerScope.Infof("Applying Cluster specific settings: %v", kubeOverrides)
 		outYAML, err = util.OverlayYAML(outYAML, kubeOverrides)
 		if err != nil {
 			return "", nil, err
